@@ -28,18 +28,18 @@ from other cores, and writes a report. `MODE` picks what is run:
 | `MODE` | Runs | Image | Needs |
 |---|---|---|---|
 | `jar` (default) | `boot/build/libs/boot-0.0.1-SNAPSHOT.jar` on a JVM | `eclipse-temurin:25-jre` | nothing: the script runs `./gradlew :boot:bootJar` every time (a no-op when up to date), unless you set `JAR=<path>` |
-| `native` | the GraalVM binary `dist/linux-<amd64\|arm64>/yukta` | `debian:12-slim` | the binary, built once with `release/build-server.sh` (add `NATIVE_QUICK=1` for a fast, slower-running rehearsal build; `NATIVE_HEAP=24g` for more builder heap). Use `BINARY=<path>` for another file |
+| `BINARY=<path>` (native) | the GraalVM binary, e.g. `dist/linux-amd64/yukta` | `debian:12-slim` | the binary, built once with `release/build-server.sh` (add `NATIVE_QUICK=1` for a fast, slower-running rehearsal build; `NATIVE_HEAP=24g` for more builder heap). |
 
 The native binary is **not** rebuilt by `run.sh` (a native compile takes a long time): rebuild it yourself after
 changing code, or you benchmark an old binary. Compare the `artifact` hash and `commit` in `meta.json`.
 
 ```bash
 perf/run.sh perf                                # jar, 2 vCPU, 8 GB (defaults), 10 starts/s for 2m
-MODE=native perf/run.sh perf                    # the same test against the native binary
-release/build-server.sh && MODE=native perf/run.sh perf   # rebuild the binary first
+BINARY=dist/linux-amd64/yukta perf/run.sh perf                    # the same test against the native binary
+release/build-server.sh && BINARY=dist/linux-amd64/yukta perf/run.sh perf   # rebuild the binary first
 DURATION=5m RATE=20 perf/run.sh perf
 RATE=200 HOLD=10m perf/run.sh load
-DURATION=8h RATE=10 MODE=native perf/run.sh soak
+DURATION=8h RATE=10 BINARY=dist/linux-amd64/yukta perf/run.sh soak
 CPUS=4 CPUSET=0-3 MEMORY=16g perf/run.sh load   # another size
 KEEP=1 perf/run.sh load                         # leave the server up to inspect stuck runs (prints the API key)
 ```
@@ -48,7 +48,7 @@ To compare jar and native, run the same test and options once per `MODE` on the 
 `summary.json` files (and `container-stats.csv` for CPU and memory). Native starts faster and uses less memory;
 the jar is usually faster after warm-up, so use `load` or `soak` rather than a short `perf` for peak numbers.
 
-Env: `MODE` (jar), `JAR`, `BINARY`, `CPUS` (2), `CPUSET` (0,1; the cores the server is pinned to), `MEMORY` (8g,
+Env: `JAR`, `BINARY`, `CPUS` (2), `CPUSET` (0,1; the cores the server is pinned to), `MEMORY` (8g,
 no swap), `K6_CPUSET` (2-15; keep it off the server cores), `JAVA_OPTS` (jar only,
 `-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError`), `IMAGE` (per mode, see the table). `RATE`, `RAMP`,
 `HOLD`, `DURATION`, `WORKFLOWS`, `GRACE`, `LENIENT`, `MAX_REJECTED` are passed to k6.

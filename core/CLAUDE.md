@@ -256,7 +256,7 @@ allows the plugin type and has the most free slots (counting what it has sent an
 means the attempt fails at once, as a failure the engine can retry. A worker that goes away mid-attempt (its connection closes, also when the agent is stopped) fails the attempt with a `WorkflowExecutionException` naming it; the engine's retry picks a worker again, so it can land on another one. A stopping worker drains first: its agent tells the control plane it takes nothing new (`draining` on the lease frame, so `WorkerNodeExecutor` skips it), waits up to `yukta.workers.drain-timeout` (30s) for its running attempts, then closes the connection; what is still running then fails as a lost worker. `LLM_CALL` counts `llm.tokens{provider,direction}` and `llm.cost{provider}`. A worker runs only the plugin types on
 `yukta.workers.plugin-types`, initialises and prepares the plugin per attempt, and sends a failure back with
 its class name (`IllegalArgumentException` stays one, so it is not retried). Messages cross as plain JSON values.
-See `../docs/internal/plans/remote-workers.mdx`.
+See `../design/plans/remote-workers.md`.
 
 ### High availability (active/standby)
 `LeaderElection` (`service/leader`) says whether this server admits runs. A single server is always the
@@ -415,7 +415,7 @@ bodies (use the signal command).
 - **Services**: `src/main/java/com/infenia/yukta/service/`
 - **Validation**: `src/main/java/com/infenia/yukta/validation/`
 - **Module reference (architecture, feature catalog, settings, metrics)**: `../docs/contributing/core-reference.mdx`. When you add, change or remove a core feature, setting or meter, update it and run `core/scripts/check-core-reference.sh` (then `--stamp`); the page's "Maintaining this document" section says what to edit.
-- **Module guide (components, scenarios, ADRs)**: `../docs/contributing/modules/core.mdx`; open risks, bugs and plans: `../docs/internal/` (`risks.mdx`, `bugs.mdx`, `improvements.mdx`, `plans/`)
+- **Module guide (components, scenarios, ADRs)**: `../docs/contributing/modules/core.mdx`; open risks, bugs and features: GitHub issues labelled `core` (`gh issue list -l core`); assessment and plans: `../design/assessments/core.md`, `../design/plans/`
 
 ## Imports
 @.claude/rules/coding-standards.md

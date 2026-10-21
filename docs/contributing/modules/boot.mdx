@@ -14,7 +14,7 @@ Boot is the executable. It contains almost no logic of its own: it pulls the eng
 | Plugins fixed at build | Optional plugins are compiled in or left out with -Pyukta.plugins. There is no way to add or remove one on a running server. |
 
 <Note>
-  Open risks, bugs and improvement ideas for this module are on the internal pages (sign-in required): [Risks](/internal/risks#boot), [Bugs](/internal/bugs) and [Improvements](/internal/improvements#boot).
+  Open work for this module is tracked in GitHub issues: [risks](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Arisk%20label%3Aboot), [bugs](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Aboot) and [all open issues](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Aboot). Its evolution path and quality lenses are in [design/assessments/boot.md](https://github.com/infenia/yukta/blob/main/design/assessments/boot.md).
 </Note>
 
 ## Primer
@@ -284,6 +284,7 @@ Decides at build time which optional plugins are linked into the app.
 Compiles the app into a standalone executable with fast start and low memory.
 
 - nativeCompile builds a binary named yukta from the main class, with --no-fallback (fail rather than build a JVM-needing fallback). The build JVM gets -J-Xmx16g. The size flags are -H:+RemoveUnusedSymbols, -H:+StripDebugInfo and -H:-AddAllCharsets.
+- Optimization: the build uses Oracle GraalVM at -O3 with a PGO profile. release/build-server.sh records a fresh profile for every full build (release/pgo-profile.sh: an instrumented build, with the examples as training load) into boot/pgo/yukta.iprof, which is git-ignored. If recording fails, or with NATIVE_PGO=0, Oracle GraalVM infers a profile itself (GraalNN). -Pnative.quick builds with -Ob instead. The release workflow uploads the arm64 profile as an artifact, and release.sh attaches the amd64 profile to the release, so a release can be rebuilt the same way.
 - Build arguments -Dspring.profiles.active=prod and -Dspring.aot.enabled=true are also set. Spring AOT precomputes the bean wiring at build time, which is what makes native start-up fast.
 - Whether the -D profile argument reaches the running binary was not verified: it is passed to the native-image builder. The launcher's own prod rule in main() is the part that is covered by a test.
 - The Dockerfile builds the image in a GraalVM stage, optionally compresses the binary with UPX, then copies it into a distroless nonroot image that exposes 8080 and sets YUKTA_SERVER_ADDRESS=0.0.0.0. There is no shell in the final image.

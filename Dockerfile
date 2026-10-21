@@ -16,10 +16,11 @@
 # limitations under the License.
 
 # Stage 1: Build native image with GraalVM
-FROM ghcr.io/graalvm/native-image-community:25@sha256:0d936f32bb8acb5bc60c41b33e05f064d7a6aaf36b726538296c54949bd4a3c0 AS builder
+FROM container-registry.oracle.com/graalvm/native-image:25@sha256:ee7d8c31ed88016256a52ea7205ff8f974608cf0b52b9e9930513626d598e5f8 AS builder
 
-# The base image ships GraalVM CE for JDK 25 (matches the build-logic toolchain),
-# plus xargs and findutils, which the Gradle wrapper needs.
+# The base image ships Oracle GraalVM for JDK 25 (GFTC license; matches the build-logic toolchain).
+# Oracle GraalVM is what provides -O3, PGO and the ML-inferred profiles. It also has xargs and
+# findutils, which the Gradle wrapper needs, and libz.a for the static link.
 
 WORKDIR /build
 
@@ -38,6 +39,8 @@ ARG NATIVE_HEAP=16g
 # Any non-empty value builds with -Ob: much faster to compile, slower at run time. For rehearsals
 # and smoke tests only; never for a release.
 ARG NATIVE_QUICK=
+# Any non-empty value builds an instrumented binary that records a PGO profile (release/pgo-profile.sh).
+ARG NATIVE_PGO_INSTRUMENT=
 
 # Keep the Gradle home and the pnpm store between builds (BuildKit cache mounts), so dependencies
 # download once on a machine. They live outside the image: nothing in the result depends on them.
@@ -47,7 +50,8 @@ ENV npm_config_store_dir=/pnpm-store
 RUN --mount=type=cache,target=/root/.gradle \
     --mount=type=cache,target=/pnpm-store \
     ./gradlew nativeCompile -x test --no-daemon --max-workers="$(nproc)" \
-      -Pnative.heap=${NATIVE_HEAP} -Pnative.static ${NATIVE_QUICK:+-Pnative.quick}
+      -Pnative.heap=${NATIVE_HEAP} -Pnative.static ${NATIVE_QUICK:+-Pnative.quick} \
+      ${NATIVE_PGO_INSTRUMENT:+-Pnative.pgoInstrument}
 
 # Stage 2: Copy binary (UPX compression attempted but not critical for image size)
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS compressor

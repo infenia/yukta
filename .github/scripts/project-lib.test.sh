@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 #
-# Table test for project-lib.sh and issue-triage.py, against a stub gh that records its calls.
+# Table test for project-lib.sh, issue-triage.py, flaky-tests.sh, released.sh (against a stub gh that
+# records its calls) and project-health.py (on fixtures).
 # A wrong answer here files issues in the wrong place or with wrong fields, silently.
 set -euo pipefail
 
@@ -104,6 +105,111 @@ expect_eq "answers outside the option lists are ignored" \
 expect_eq "issue without a form" \
   '{"labels":[],"fields":["Status=Triage","Kind=CI failure"]}' \
   "$(triage '["ci-nightly"]' "" "The nightly run failed.")"
+
+# --- flaky-tests.sh against a stub gh ----------------------------------------------------------------
+# Reports: LlmTest.retries() is flaky (known issue #7), WTest.lease [1] is flaky (new);
+# open issues: #7 (LlmTest, flaky again), #8 (quiet for weeks: close on green), #9 (recent: keep).
+reports="$work/reports"
+mkdir -p "$reports/build-reports-plugins/plugins/processors/llm-call/build/test-results/test" \
+  "$reports/build-reports-infra/plus/workers/build/test-results/test"
+cat >"$reports/build-reports-plugins/plugins/processors/llm-call/build/test-results/test/TEST-a.xml" <<'XML'
+<testsuite name="com.x.LlmTest"><testcase classname="com.x.LlmTest" name="retries()"><failure message="boom"/></testcase><testcase classname="com.x.LlmTest" name="retries()"/></testsuite>
+XML
+cat >"$reports/build-reports-infra/plus/workers/build/test-results/test/TEST-b.xml" <<'XML'
+<testsuite name="com.y.WTest"><testcase classname="com.y.WTest" name="lease [1]"><error message="timeout"/></testcase><testcase classname="com.y.WTest" name="lease [1]"/></testsuite>
+XML
+cat >"$work/bin/gh" <<'STUB'
+#!/usr/bin/env bash
+echo "$*" >>"$GH_LOG"
+case "$1 $2" in
+  "issue list") jq -n --arg old 2020-01-01T00:00:00Z --arg new "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '[
+    {number: 7, updatedAt: $old, body: "x <!-- flaky-test: com.x.LlmTest#retries() -->"},
+    {number: 8, updatedAt: $old, body: "x <!-- flaky-test: com.z.Old#gone() -->"},
+    {number: 9, updatedAt: $new, body: "x <!-- flaky-test: com.z.Recent#r() -->"}]' ;;
+  "issue create") echo "https://github.com/o/r/issues/10" ;;
+esac
+STUB
+for conclusion in failure success; do
+  : >"$GH_LOG"
+  REPO=o/r RUN_URL=u CONCLUSION=$conclusion HEAD_SHA=abcdef12 PROJECT_TOKEN='' \
+    "$here/flaky-tests.sh" "$reports" >/dev/null
+  expect_eq "flaky ($conclusion): comment on the known issue" "issue comment 7 -R o/r --body" \
+    "$(grep -o '^issue comment 7 -R o/r --body' "$GH_LOG")"
+  expect_eq "flaky ($conclusion): open one issue for the new test, with its module label" \
+    "issue create -R o/r --title Flaky test: WTest.lease [1] --label flaky-test,workers" \
+    "$(grep '^issue create' "$GH_LOG" | sed 's/ --body.*//')"
+done
+expect_eq "flaky (success): close only the quiet issue" "issue close 8" "$(grep -o '^issue close [0-9]*' "$GH_LOG")"
+: >"$GH_LOG"
+REPO=o/r RUN_URL=u CONCLUSION=failure HEAD_SHA=abcdef12 PROJECT_TOKEN='' "$here/flaky-tests.sh" "$reports" >/dev/null
+expect_eq "flaky (failure): never close" "" "$(grep -o '^issue close' "$GH_LOG" || true)"
+
+# --- released.sh against a stub gh ------------------------------------------------------------------
+# v1.1 follows v1.0; commits a and b are in PRs 5 and 6 (b in both 5 and 6); PR 5 closes #40, PR 6
+# closes #40 and #41; milestone v1.1 is open.
+cat >"$work/bin/gh" <<'STUB'
+#!/usr/bin/env bash
+echo "$*" >>"$GH_LOG"
+case "$*" in
+  "api repos/o/r/releases?per_page=100")
+    echo '[{"tag_name":"v1.1","draft":false,"published_at":"2026-02-01"},{"tag_name":"v1.0","draft":false,"published_at":"2026-01-01"},{"tag_name":"v1.2","draft":true,"published_at":null}]' ;;
+  *compare/v1.0...v1.1*) printf 'a\nb\n' ;;
+  *commits/a/pulls*) echo 5 ;;
+  *commits/b/pulls*) printf '5\n6\n' ;;
+  *"pr=5"*) echo 40 ;;
+  *"pr=6"*) printf '40\n41\n' ;;
+  "api repos/o/r/milestones?state=open&per_page=100") echo '[{"number":3,"title":"v1.1"}]' ;;
+esac
+STUB
+: >"$GH_LOG"
+REPO=o/r TAG=v1.1 RELEASE_URL=u "$here/released.sh" >/dev/null
+expect_eq "released: one comment per closed issue" "issue comment 40
+issue comment 41" "$(grep -o '^issue comment [0-9]*' "$GH_LOG")"
+expect_eq "released: compare with the previous published release" "1" "$(grep -c 'compare/v1.0...v1.1' "$GH_LOG")"
+expect_eq "released: close the milestone" "api -X PATCH repos/o/r/milestones/3 -f state=closed" \
+  "$(grep 'milestones/3' "$GH_LOG")"
+
+# --- project-health.py on fixtures -------------------------------------------------------------------
+health="$work/health"
+mkdir -p "$health"
+issue() { # number, title, created, updated, labels json, type, assignees json
+  jq -n --argjson n "$1" --arg t "$2" --arg c "$3" --arg u "$4" --argjson l "$5" --arg ty "$6" --argjson a "$7" \
+    '{number: $n, title: $t, html_url: "https://github.com/o/r/issues/\($n)", created_at: $c, updated_at: $u,
+      labels: ($l | map({name: .})), type: (if $ty == "" then null else {name: $ty} end), assignees: $a}'
+}
+{
+  echo '['
+  issue 1 "Old untriaged" 2026-01-01T00:00:00Z 2026-01-01T00:00:00Z '["needs-triage"]' Bug '[]'; echo ,
+  issue 2 "New untriaged" 2026-03-09T00:00:00Z 2026-03-09T00:00:00Z '["needs-triage"]' Bug '[]'; echo ,
+  issue 3 "Big risk" 2026-01-01T00:00:00Z 2026-03-01T00:00:00Z '["risk","core"]' Task '[]'; echo ,
+  issue 4 "Stuck work" 2026-01-01T00:00:00Z 2026-02-01T00:00:00Z '[]' Feature '[{"login":"a"}]'; echo ,
+  echo '{"number": 5, "title": "A PR", "pull_request": {}, "labels": [], "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z", "html_url": "x"}'
+  echo ']'
+} | jq -s . >"$health/issues.json"
+echo '{"items": [
+  {"id": "a", "status": "Backlog", "priority": "P1", "impact": 5, "effort": 2, "content": {"url": "https://github.com/o/r/issues/3"}},
+  {"id": "b", "status": "In progress", "priority": "P2", "content": {"url": "https://github.com/o/r/issues/4"}}]}' >"$health/project.json"
+echo '[[{"rule": {"security_severity_level": "high"}, "tool": {"name": "CodeQL"}},
+  {"rule": {"security_severity_level": null}, "tool": {"name": "Scorecard"}}]]' >"$health/alerts.json"
+report=$(python3 -I "$here/project-health.py" "$health" --repo o/r --now 2026-03-10T00:00:00Z)
+expect_eq "health: counts issues, not pull requests" "4 open in all, 1 of them risks." \
+  "$(grep '^[0-9]* open in all' <<<"$report")"
+expect_eq "health: only the old untriaged issue" "- [#1](https://github.com/o/r/issues/1) Old untriaged — 68 days" \
+  "$(sed -n '/^## Waiting for triage/,/^## /p' <<<"$report" | grep '^- ')"
+expect_eq "health: unassigned P1" "- [#3](https://github.com/o/r/issues/3) Big risk — P1" \
+  "$(sed -n '/^## P0 and P1/,/^## /p' <<<"$report" | grep '^- ')"
+expect_eq "health: idle in progress" "- [#4](https://github.com/o/r/issues/4) Stuck work — 37 days" \
+  "$(sed -n '/^## In progress/,/^## /p' <<<"$report" | grep '^- ')"
+expect_eq "health: high-impact risk" "- [#3](https://github.com/o/r/issues/3) Big risk — impact 5, effort 2" \
+  "$(sed -n '/^## Open risks/,/^## /p' <<<"$report" | grep '^- ')"
+expect_eq "health: alerts are counted, not listed" \
+  "2 open alerts: 0 critical, 1 high, 0 medium, 0 low, 1 without a security rating." \
+  "$(grep '^[0-9]* open alerts' <<<"$report")"
+rm "$health/project.json"
+echo null >"$health/alerts.json"
+report=$(python3 -I "$here/project-health.py" "$health" --repo o/r --now 2026-03-10T00:00:00Z)
+expect_eq "health: works without the project and alerts" "2" \
+  "$(grep -c -e 'project was not readable' -e 'Alerts were not readable' <<<"$report")"
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures check(s) failed"

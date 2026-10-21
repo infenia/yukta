@@ -364,8 +364,13 @@ def summarize(items):
 # --- Apply ---------------------------------------------------------------------------------------
 
 def gh_json(*args, body=None):
-    result = subprocess.run(["gh", *args], input=None if body is None else json.dumps(body),
-                            capture_output=True, text=True)
+    for _ in range(120):
+        result = subprocess.run(["gh", *args], input=None if body is None else json.dumps(body),
+                                capture_output=True, text=True)
+        if not any(m in result.stderr.lower() for m in ("rate limit", "unknown owner type")):
+            break
+        print("  rate limited, waiting 60s", flush=True)
+        time.sleep(60)
     if result.returncode != 0:
         raise RuntimeError(f"gh {' '.join(args[:3])}: {result.stderr.strip()}")
     return json.loads(result.stdout) if result.stdout.strip() else None
@@ -392,9 +397,29 @@ class Project:
                          "--limit", "100", "--format", "json")["fields"]
         self.fields = {f["name"]: f for f in fields}
 
-    def add(self, url, values):
-        item = gh_json("project", "item-add", self.number, "--owner", self.owner, "--url", url,
-                       "--format", "json")
+    def items(self):
+        """url -> project item, for issues the project already holds (auto-add included)."""
+        listing = gh_json("project", "item-list", self.number, "--owner", self.owner,
+                          "--limit", "2000", "--format", "json")["items"]
+        return {i["content"]["url"]: i for i in listing if i.get("content", {}).get("url")}
+
+    def add(self, url, values, existing=None):
+        """Add the issue (or reuse the item an auto-add workflow already made) and set fields."""
+        item = (existing or {}).get(url)
+        if item is None:
+            try:
+                item = gh_json("project", "item-add", self.number, "--owner", self.owner,
+                               "--url", url, "--format", "json")
+            except RuntimeError as e:
+                if "already exists" not in str(e):
+                    raise
+                for _ in range(6):  # the listing lags the auto-add; each poll costs API quota
+                    time.sleep(5)
+                    item = self.items().get(url)
+                    if item:
+                        break
+                else:
+                    raise
         for name, value in {"Status": "Backlog", **values}.items():
             field = self.fields.get(name)
             if field is None:
@@ -427,9 +452,14 @@ def apply(args):
             sys.exit(f"project has no field {', '.join(missing_fields)}: run project-setup.sh first")
     id_map = {k: v[2] for k, v in done.items()}
     created = 0
+    held = project.items() if project and args.apply else {}
     for item in items:
         lid = item["legacy_id"]
         if lid in done:
+            # resume: an earlier run may have died before the project fields were set
+            current = held.get(done[lid][2])
+            if project and args.apply and current is not None and not current.get("status"):
+                project.add(done[lid][2], item["fields"], held)
             continue
         print(f"{'create' if args.apply else 'would create'} [{item['type']}] {lid}: {item['title']}")
         if not args.apply:
@@ -441,7 +471,7 @@ def apply(args):
         id_map[lid] = issue["html_url"]
         created += 1
         if project:
-            project.add(issue["html_url"], item["fields"])
+            project.add(issue["html_url"], item["fields"], held)
         time.sleep(WRITE_PAUSE)
     if args.apply:
         for item in items:

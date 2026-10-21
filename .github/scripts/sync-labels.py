@@ -4,7 +4,8 @@
 """Keeps the repository labels in line with .github/labels.yml.
 
 Usage: sync-labels.py --check            validate labels.yml and that every label the automation
-                                         uses (labeler, dependabot, stale, issue forms) is in it
+                                         uses (labeler, dependabot, stale, issue forms, release
+                                         notes) is in it
        sync-labels.py [--apply] <repo>   show (or, with --apply, make) the changes on GitHub
 
 The sync creates and updates labels, never deletes them: a label that is missing from the file
@@ -62,6 +63,11 @@ def used_labels():
             value = step.get("with", {}).get(key)
             if value:
                 used += [(name.strip(), f"stale.yml {key}") for name in value.split(",")]
+    release = yaml.safe_load((GITHUB / "release.yml").read_text(encoding="utf-8")) or {}
+    changelog = release.get("changelog", {})
+    for category in changelog.get("categories", []):
+        used += [(name, "release.yml") for name in category.get("labels", []) if name != "*"]
+    used += [(name, "release.yml exclude") for name in changelog.get("exclude", {}).get("labels", [])]
     for form in sorted((GITHUB / "ISSUE_TEMPLATE").glob("*.yml")):
         data = yaml.safe_load(form.read_text(encoding="utf-8")) or {}
         used += [(name, f"ISSUE_TEMPLATE/{form.name}") for name in data.get("labels", [])]
