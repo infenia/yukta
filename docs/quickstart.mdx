@@ -15,21 +15,21 @@ Technically, you will install and start the server, apply a session that contain
 
 You do **not** need Java or the source code. Building from source is the last option, for people who want to change Yukta itself.
 
-<Warning>
-  **Status: the installer and the packages arrive with the first release (v0.1.0).** Yukta has no tagged release yet, so the commands on the install tabs do not work until it is published. Until then, use the **From source** tab. See [Deployment](/operations/deployment#install) for what each release contains.
-</Warning>
+<Note>
+  **Alpha release.** Yukta `0.1.0-alpha.1` is the first release. It ships a native server for **Linux (amd64)**, a Docker image for `linux/amd64`, and the command-line client for Linux, macOS and Windows. Native servers for macOS and Windows and for ARM Linux come later; until then use Docker (Docker Desktop on macOS and Windows) or WSL 2. Expect breaking changes before 1.0. See [Releases](/reference/releases).
+</Note>
 
 ## 1. Install and run the server
 
 One command installs both programs: **`yukta`**, the server, and **`yukta-cli`**, the command-line client that talks to it. Pick your system:
 
 <Tabs>
-  <Tab title="Linux and macOS" icon="terminal">
+  <Tab title="Linux" icon="terminal">
     ```bash
-    curl -fsSL https://github.com/infenia/yukta/releases/latest/download/install.sh | sh
+    curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.1/install.sh | sh
     ```
 
-    The script finds your system (Intel/AMD or ARM), downloads the files from the GitHub release, **checks their checksums** and stops if one does not match, then copies the programs into `/usr/local/bin` if you are root, or `~/.local/bin` otherwise. It never uses `sudo`, never edits your shell profile and contacts only GitHub. If the folder is not on your `PATH` it tells you the line to add.
+    The script finds your system, downloads the files from the GitHub release, **checks their checksums** and stops if one does not match, then copies the programs into `/usr/local/bin` if you are root, or `~/.local/bin` otherwise. It never uses `sudo`, never edits your shell profile and contacts only GitHub. If the folder is not on your `PATH` it tells you the line to add.
 
     Start the server:
 
@@ -38,60 +38,31 @@ One command installs both programs: **`yukta`**, the server, and **`yukta-cli`**
     ```
 
     <Note>
-      On macOS the script installs the client, and for now the server runs in Docker (see the Docker tab), until a native macOS server is published. The script prints the exact Docker command.
+      On macOS the script installs only the client (`yukta-cli`); run the server with the Docker tab. On Windows, use Docker Desktop or WSL 2 and follow the Linux steps inside it.
     </Note>
 
     Options go after `sh -s --`. For example, to install a specific version into a folder you choose:
 
     ```bash
-    curl -fsSL https://github.com/infenia/yukta/releases/latest/download/install.sh \
-      | sh -s -- --version 0.1.0 --install-dir /opt/yukta/bin
+    curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.1/install.sh \
+      | sh -s -- --install-dir /opt/yukta/bin
     ```
 
     | Option | Meaning |
     |---|---|
-    | `--version X.Y.Z` | Install this version instead of the newest stable release (needed for release candidates such as `0.1.0-rc.1`) |
-    | `--install-dir <dir>` | Install into this folder |
+        | `--install-dir <dir>` | Install into this folder |
     | `--cli-only`, `--server-only` | Install just one of the two programs |
     | `--uninstall` | Remove both programs from the folder |
 
     Prefer to read a script before running it? Download it first with `curl -fsSLO <url>`, open it, then run `sh install.sh`.
   </Tab>
-  <Tab title="Windows" icon="windows">
-    In PowerShell (no administrator rights needed):
-
-    ```powershell
-    irm https://github.com/infenia/yukta/releases/latest/download/install.ps1 | iex
-    ```
-
-    The script checks the checksums, copies `yukta-cli.exe` (and `yukta.exe` once a native Windows server is published) into `%LOCALAPPDATA%\Programs\Yukta` and adds that folder to your user `PATH`. Open a new terminal afterwards.
-
-    <Note>
-      Until a native Windows server is published, the script installs the client and prints the Docker Desktop command that runs the server (see the Docker tab).
-    </Note>
-
-    A script piped to `iex` cannot take parameters, so options are environment variables set first, for example:
-
-    ```powershell
-    $env:YUKTA_VERSION = '0.1.0'
-    $env:YUKTA_INSTALL_DIR = 'C:\Tools\Yukta'
-    irm https://github.com/infenia/yukta/releases/latest/download/install.ps1 | iex
-    ```
-
-    | Variable | Meaning |
-    |---|---|
-    | `YUKTA_VERSION` | Install this version instead of the newest stable release |
-    | `YUKTA_INSTALL_DIR` | Install into this folder |
-    | `YUKTA_CLI_ONLY`, `YUKTA_SERVER_ONLY` | Set to `1` to install just one of the two programs |
-    | `YUKTA_UNINSTALL` | Set to `1` to remove the programs and the `PATH` entry |
-  </Tab>
   <Tab title="Docker" icon="docker">
-    Works on Linux, macOS and Windows (with Docker Desktop), on Intel/AMD and ARM processors. One image tag serves both processor types.
+    Works on Linux, macOS and Windows (with Docker Desktop). The alpha image is for Intel/AMD (`linux/amd64`); on Apple silicon Docker runs it under emulation, which is slower.
 
     ```bash
     docker run --rm -p 127.0.0.1:8080:8080 \
       -e YUKTA_API_KEY=change-me \
-      ghcr.io/infenia/yukta:latest
+      ghcr.io/infenia/yukta:0.1.0-alpha.1
     ```
 
     A container listens on all of its own network interfaces, and Yukta refuses to do that without an API key, so the key is required. `-p 127.0.0.1:8080:8080` publishes the port to your own machine only.
@@ -116,12 +87,12 @@ One command installs both programs: **`yukta`**, the server, and **`yukta-cli`**
     On Debian, Ubuntu, Fedora or RHEL you can install a package instead, which also adds a `systemd` service that you start when you are ready (`sudo systemctl enable --now yukta`):
 
     ```bash
-    sudo apt install ./yukta_0.1.0_amd64.deb      # Debian, Ubuntu
-    sudo dnf install ./yukta-0.1.0-1.x86_64.rpm   # Fedora, RHEL
+    sudo apt install ./yukta_*_amd64.deb      # Debian, Ubuntu
+    sudo dnf install ./yukta-*.x86_64.rpm     # Fedora, RHEL
     ```
   </Tab>
   <Tab title="From source" icon="code">
-    For contributors, or until the first release exists. You need a JDK, version 25, and `git`.
+    For contributors. You need a JDK, version 25, and `git`.
 
     ```bash
     git clone https://github.com/infenia/yukta.git

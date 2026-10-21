@@ -1,0 +1,75 @@
+---
+title: "Releases"
+description: "How Yukta versions are numbered, what each release contains, which platforms are supported, and how to verify a download."
+mode: "wide"
+---
+
+<Info>
+  **In plain terms:** this page tells you which version to install, what you get with it, and how to check that the files you downloaded are the ones we published.
+</Info>
+
+## Versioning
+
+Yukta follows [Semantic Versioning 2.0.0](https://semver.org). A version looks like `MAJOR.MINOR.PATCH`, with an optional pre-release label such as `0.1.0-alpha.1`.
+
+- **Tags.** Every release has a git tag `vX.Y.Z[-label]` and a [GitHub release](https://github.com/infenia/yukta/releases) with notes.
+- **Pre-release order.** `0.1.0-alpha.N`, then `0.1.0-beta.N`, then `0.1.0-rc.N`, then `0.1.0`.
+- **Before 1.0.** While the major version is `0`, a minor release (`0.2.0`) can change the workflow JSON, the REST API, the MCP tools and the plugin contract. A patch release (`0.1.1`) only fixes bugs.
+- **One number everywhere.** The command-line client prints it with `yukta-cli --version`, the server reports it at `/actuator/info` (this endpoint needs the API key when one is set), and the image tag, the archive names and the packages carry it.
+- **Never replaced.** A published release, image tag or download is not changed afterwards. A bad release is fixed by the next one, and its notes say so.
+
+## What a release contains
+
+Current release: **`0.1.0-alpha.1`**.
+
+| File | What it is |
+|---|---|
+| `yukta-<version>-linux-amd64.tar.gz` | The native server `yukta`, the client `yukta-cli`, the licence and a sample settings file |
+| `yukta_<version>_amd64.deb`, `yukta-<version>.x86_64.rpm` | The same programs as a package, with a `systemd` service that is installed stopped |
+| `yukta-cli-linux-*`, `yukta-cli-darwin-*`, `yukta-cli-windows-amd64.exe` | The client alone, for each platform |
+| `install.sh` | One-command installer, pinned to the release |
+| `SHA256SUMS`, `*.sigstore.json` | Checksums, and a signature for each file |
+| `ghcr.io/infenia/yukta:<version>` | The container image |
+
+## Supported platforms
+
+| Platform | Server | Client |
+|---|---|---|
+| Linux `amd64` | Native binary, packages, Docker image | Yes |
+| Linux `arm64` | Not yet | Yes |
+| macOS (Intel, Apple silicon) | Docker Desktop | Yes |
+| Windows `amd64` | Docker Desktop or WSL 2 | Yes |
+
+## Image tags
+
+| Tag | Moves? | Meaning |
+|---|---|---|
+| `0.1.0-alpha.1` | Never | Exactly this release. Use it for repeatable deployments |
+| `0.1`, `latest` | On each stable release | Only stable releases (no pre-release label) move these. Until the first stable release they do not exist |
+
+## Verify a download
+
+Check the checksum first. Put the download and `SHA256SUMS` in one folder:
+
+```bash
+sha256sum --check --ignore-missing SHA256SUMS
+```
+
+Then check the signature. Files are signed without a stored key ([Sigstore keyless signing](https://docs.sigstore.dev/)): the signature records the signer's identity in a public log. The release notes name the identity and its sign-in provider; use them in the command:
+
+```bash
+cosign verify-blob --bundle FILE.sigstore.json \
+  --certificate-identity SIGNER_IDENTITY \
+  --certificate-oidc-issuer SIGNER_ISSUER \
+  FILE
+```
+
+Files built by GitHub Actions (the command-line client binaries and the server binary, when it was built there) also carry build provenance, which you can check with the GitHub CLI:
+
+```bash
+gh attestation verify yukta-cli-linux-amd64 -R infenia/yukta
+```
+
+## Report a problem
+
+Open an issue on [GitHub](https://github.com/infenia/yukta/issues) with the output of `yukta-cli --version` and the server's `/actuator/info`. Security problems go through the process in [SECURITY.md](https://github.com/infenia/yukta/blob/main/SECURITY.md).
