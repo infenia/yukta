@@ -5,6 +5,7 @@
 # Run a k6 test against Yukta in a container with fixed resources and keep a report.
 #   perf/run.sh <perf|load|soak> [extra k6 args]
 # Env: CPUS=2 CPUSET=0,1 MEMORY=8g K6_CPUSET=2-15 JAVA_OPTS=... IMAGE=... KEEP=1 (leave server up)
+#      MODE=jar|native (default jar; native runs dist/linux-<arch>/yukta from release/build-server.sh)
 #      plus the k6 -e variables, e.g. RATE=50 WORKFLOWS=mapper DURATION=10m
 set -euo pipefail
 
@@ -14,14 +15,25 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 
 export CPUS=${CPUS:-2} CPUSET=${CPUSET:-0,1} MEMORY=${MEMORY:-8g}
-export JAVA_OPTS=${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError}
+[[ ${MODE:-jar} == native ]] || export JAVA_OPTS=${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError}
 export API_KEY=${API_KEY:-$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')}
-[[ -n ${JAR:-} ]] || ./gradlew :boot:bootJar -q --console=plain  # no-op when up to date; never run a stale jar
-export JAR=${JAR:-$root/boot/build/libs/boot-0.0.1-SNAPSHOT.jar}
+export MODE=${MODE:-jar}
+case $MODE in
+  jar)
+    [[ -n ${JAR:-} ]] || ./gradlew :boot:bootJar -q --console=plain  # no-op when up to date; never run a stale jar
+    export SERVER_FILE=${JAR:-$root/boot/build/libs/boot-0.0.1-SNAPSHOT.jar} SERVER_CMD="java -jar /app/yukta"
+    export IMAGE=${IMAGE:-eclipse-temurin:25-jre} ;;
+  native)
+    arch=$(uname -m); [[ $arch == x86_64 ]] && arch=amd64 || arch=arm64
+    export SERVER_FILE=${BINARY:-$root/dist/linux-$arch/yukta} SERVER_CMD=/app/yukta JAVA_OPTS=
+    [[ -f $SERVER_FILE ]] || { echo "no native binary at $SERVER_FILE: run release/build-server.sh (or set BINARY)" >&2; exit 2; }
+    export IMAGE=${IMAGE:-debian:12-slim} ;;
+  *) echo "unknown MODE '$MODE' (jar|native)" >&2; exit 2 ;;
+esac
 compose=(docker compose -f perf/compose.yaml -p yukta-perf)
 
 sha=$(git rev-parse --short HEAD); dirty=$([[ -n $(git status --porcelain -- . ':!perf/reports') ]] && echo true || echo false)
-dir=$root/perf/reports/$type/$(date -u +%Y%m%dT%H%M%SZ)-$sha
+dir=$root/perf/reports/$type/$(date -u +%Y%m%dT%H%M%SZ)-$MODE-$sha
 mkdir -p "$dir"
 
 cleanup() {
@@ -43,8 +55,8 @@ for _ in $(seq 60); do
 done
 
 cat > "$dir/meta.json" <<JSON
-{"test":"$type","commit":"$sha","dirty":$dirty,"cpus":"$CPUS","cpuset":"$CPUSET","memory":"$MEMORY",
- "javaOpts":"$JAVA_OPTS","image":"${IMAGE:-eclipse-temurin:25-jre}","k6":"$(k6 version | head -1)",
+{"test":"$type","mode":"$MODE","artifact":"$(sha256sum "$SERVER_FILE" | cut -c1-12)","commit":"$sha","dirty":$dirty,"cpus":"$CPUS","cpuset":"$CPUSET","memory":"$MEMORY",
+ "javaOpts":"$JAVA_OPTS","image":"$IMAGE","k6":"$(k6 version | head -1)",
  "docker":"$(docker --version)","rate":"${RATE:-default}","workflows":"${WORKFLOWS:-default}",
  "hold":"${HOLD:-default}","duration":"${DURATION:-default}","startedAt":"$(date -u +%FT%TZ)"}
 JSON
