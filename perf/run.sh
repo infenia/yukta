@@ -5,7 +5,8 @@
 # Run a k6 test against Yukta in a container with fixed resources and keep a report.
 #   perf/run.sh <perf|load|soak> [extra k6 args]
 # Env: CPUS=2 CPUSET=0,1 MEMORY=8g K6_CPUSET=2-15 JAVA_OPTS=... IMAGE=... KEEP=1 (leave server up)
-#      BINARY=dist/linux-amd64/yukta runs the native server instead of the jar (image debian:12-slim)
+#      MODE=native builds the native binary (release/build-server.sh; NATIVE_QUICK=1, NATIVE_HEAP=24g) and runs it
+#      BINARY=dist/linux-amd64/yukta runs an existing native binary without building (image debian:12-slim)
 #      plus the k6 -e variables, e.g. RATE=50 WORKFLOWS=mapper DURATION=10m
 set -euo pipefail
 
@@ -17,6 +18,13 @@ cd "$root"
 export CPUS=${CPUS:-2} CPUSET=${CPUSET:-0,1} MEMORY=${MEMORY:-8g}
 export JAVA_OPTS=${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError}
 export API_KEY=${API_KEY:-$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')}
+case ${MODE:-jar} in
+  jar) ;;
+  native)
+    release/build-server.sh
+    BINARY=dist/linux-$([[ $(uname -m) == @(aarch64|arm64) ]] && echo arm64 || echo amd64)/yukta ;;
+  *) echo "unknown MODE '$MODE' (jar|native)" >&2; exit 2 ;;
+esac
 [[ -n ${JAR:-} || -n ${BINARY:-} ]] || ./gradlew :boot:bootJar -q --console=plain  # no-op when up to date; never run a stale jar
 export JAR=${JAR:-$root/boot/build/libs/boot-0.0.1-SNAPSHOT.jar}
 if [[ -n ${BINARY:-} ]]; then
