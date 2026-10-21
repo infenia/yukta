@@ -68,7 +68,7 @@ graph (reflection, resources, runtime wiring) is caught by the full build on
 **Jobs**:
 1. `lint-workflows` — yamllint, actionlint, zizmor, shellcheck for `.github/scripts`, the label
    check (`sync-labels.py --check`),
-   the shard-planner table test (`ci-tasks.test.sh`) and a module-graph check
+   the shard-planner and project-helper table tests (`ci-tasks.test.sh`, `project-lib.test.sh`) and a module-graph check
    (`ci-tasks.sh --check`: every `project()` dependency is an included module).
 2. `changes` — Plan the run with `ci-tasks.sh` (fast, ~5s): changed modules and
    their dependents, as above. The plan is written to the job summary.
@@ -108,6 +108,10 @@ one open issue per workflow, titled `Nightly failure: <workflow>` and labelled
 | Fails / times out, no open issue | Opens one: failed jobs and steps, failed tests (from the `build-reports-*` JUnit XML), run link |
 | Fails / times out, issue open | Adds the same report as a comment (one per night) |
 | Succeeds, issue open | Comments "green again" and closes it |
+
+A new issue also gets the **Bug** type and, when the project App is configured, goes on the Yukta
+Roadmap project in Triage as a P1 *CI failure* ([PROJECT.md](PROJECT.md)); closing it moves the
+project item to Done.
 
 **Flaky tests**: scheduled and manual CI runs pass `-PretryFlakyTests`, which
 retries a failed test up to twice (Gradle test-retry plugin, `java-conventions`).
@@ -217,6 +221,16 @@ Publishes to the OpenSSF API (powers the README badge) and uploads SARIF.
 Auto-label PRs by touched paths; mark and close stale issues/PRs. Issues labelled `risk`,
 `security`, `dogfood`, `flaky-test`, `ci-nightly`, `epic`, `needs-triage`, `blocked` or `pinned`
 never go stale.
+
+---
+
+### `issue-triage.yml` — Issue triage
+
+**Purpose**: File every new issue for triage.
+
+On `issues: opened`, `.github/scripts/issue-triage.py` reads the issue form: the Module answer
+becomes the area label, and with the project App configured the issue goes on the Yukta Roadmap
+project in **Triage** with the form's answers as fields. See [PROJECT.md](PROJECT.md).
 
 ---
 

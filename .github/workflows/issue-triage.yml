@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Issue triage
+
+# Files a new issue for triage (see .github/PROJECT.md): the Module answer of the issue form becomes
+# the area label, and the issue is put on the Yukta Roadmap project in Triage with the form's
+# answers as fields (.github/scripts/issue-triage.py). The project part needs the GitHub App
+# (vars.YUKTA_PROJECT_APP_CLIENT_ID, secrets.YUKTA_PROJECT_APP_KEY) and vars.YUKTA_PROJECT_NUMBER;
+# without them only the label is set.
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  triage:
+    name: Triage new issue
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write          # add the area label
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Read the issue form
+        id: form
+        run: |
+          python3 -I .github/scripts/issue-triage.py "$GITHUB_EVENT_PATH" >"$RUNNER_TEMP/triage.json"
+          cat "$RUNNER_TEMP/triage.json"
+
+      - name: Add the area label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          jq -r '.labels[]' "$RUNNER_TEMP/triage.json" | while read -r label; do
+            gh issue edit "$NUMBER" -R "$REPO" --add-label "$label"
+          done
+
+      - name: Mint the project token
+        id: app
+        if: vars.YUKTA_PROJECT_APP_CLIENT_ID != '' && vars.YUKTA_PROJECT_NUMBER != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.YUKTA_PROJECT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.YUKTA_PROJECT_APP_KEY }}
+          permission-organization-projects: write
+
+      - name: Put the issue on the project
+        if: steps.app.outputs.token != ''
+        env:
+          PROJECT_TOKEN: ${{ steps.app.outputs.token }}
+          PROJECT_OWNER: ${{ github.repository_owner }}
+          PROJECT_NUMBER: ${{ vars.YUKTA_PROJECT_NUMBER }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: |
+          . .github/scripts/project-lib.sh
+          mapfile -t fields < <(jq -r '.fields[]' "$RUNNER_TEMP/triage.json")
+          project_add_item "$ISSUE_URL" "${fields[@]}"
