@@ -6,6 +6,13 @@ plugins {
     alias(libs.plugins.graalvm.buildtools.native)
 }
 
+// /actuator/info reports build.version. No build time, so the file stays the same and the task stays up to date.
+springBoot {
+    buildInfo {
+        excludes.set(setOf("time"))
+    }
+}
+
 // Optional plugins are chosen with -Pyukta.plugins=default (all except script-js), all, none, or a comma-separated list
 // of: process-executor, http-request, file-io, sql-query, llm-call, session-memory, mcp-tool-call, decision, script-js.
 val optionalPlugins = mapOf(

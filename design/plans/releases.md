@@ -4,7 +4,7 @@ Plan for shipping Yukta as installables for Linux, Windows and macOS and as mult
 
 Work on this plan is tracked in its Epic issue on the Yukta Roadmap project (search for `releases plan`).
 
-Status: **decisions answered; Phase 1 scripts written, not yet run end to end.** Resource figures for hosted runners are from memory and must be re-checked in Phase 0. The answers given so far are recorded in [Decisions](#decisions).
+Status: **first alpha (`0.1.0-alpha.1`) is scoped to linux/amd64 and GHCR; arm64, Docker Hub, Windows and macOS remain in the later phases below. The release runbook is `release/README.md`.** Earlier status: **decisions answered; Phase 1 scripts written, not yet run end to end.** Resource figures for hosted runners are from memory and must be re-checked in Phase 0. The answers given so far are recorded in [Decisions](#decisions).
 
 ## Goal
 
