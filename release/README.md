@@ -32,7 +32,8 @@ same on the release machine and in CI. The plan and the reasons behind it are in
 | `build-server.sh` | Native `yukta` server for **this machine's** architecture, inside the pinned GraalVM image | amd64 machine for `linux-amd64` |
 | `package.sh` | `.tar.gz`, `.deb`, `.rpm` for one platform | any machine with Go |
 | `build-image.sh` | Runtime image, smoke test (health and version), optional push to the registries in `YUKTA_IMAGES` | machine with Docker |
-| `sign.sh` | Keyless Sigstore signatures (`<file>.sigstore.json`) with `cosign` | machine with `cosign` |
+| `sign.sh` | One keyless Sigstore signature on `SHA256SUMS` (`SHA256SUMS.sigstore.json`), plus the image, with `cosign` | machine with `cosign` |
+| `smoke-test.sh` | Against a running server: health, then the Quickstart workflow must succeed. Used by CI and by `build-image.sh` | any machine with `curl` |
 | `install.sh`, `install.ps1` | One-command installers for users. `release.sh` attaches a copy of `install.sh` pinned to the release version. `install.ps1` is not attached until it has run on a real Windows machine | users' machines |
 | `test-install.sh` | Tests `install.sh` against a local fake release server | any Linux/macOS machine |
 | `release.sh` | All of the above for one version; dry run unless `--publish`; must run from the tag checkout | release machine |
@@ -96,7 +97,7 @@ rehearsals; `release.sh --publish` refuses it.
 
 ```bash
 sha256sum --check --ignore-missing SHA256SUMS
-cosign verify-blob --bundle FILE.sigstore.json FILE \
+cosign verify-blob --bundle SHA256SUMS.sigstore.json SHA256SUMS \
   --certificate-identity-regexp '.*' --certificate-oidc-issuer-regexp '.*'   # tighten to the signer
 gh attestation verify yukta-cli-linux-amd64 -R infenia/yukta               # CI-built files
 ```
