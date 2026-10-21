@@ -2,7 +2,7 @@
 
 Scripts that build, package and publish a Yukta release. They work the same on the release machine
 and in CI. The plan and the reasons behind it are in
-[`docs/internal/plans/releases.mdx`](../docs/internal/plans/releases.mdx).
+[`design/plans/releases.md`](../design/plans/releases.md).
 
 | Script | What it does | Runs on |
 |---|---|---|

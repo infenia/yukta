@@ -46,7 +46,7 @@ curl -fsS localhost:8080/actuator/health                      # or: export YUKTA
 examples/11-dogfood/scripts/yukta-check.sh -m core            # no server start/stop
 ```
 Caveat: a **native** server currently cannot stream control-bus events (`--watch`/`yukta-watch.sh` fail with
-`unexpected EOF`, see DF-5 in `docs/internal/bugs.mdx`); the default log mode of `yukta-check.sh` works.
+`unexpected EOF`, see the `dogfood` issue with legacy id DF-5); the default log mode of `yukta-check.sh` works.
 
 Only when no server is running, start a dedicated one (it gets its own port and state):
 ```bash
@@ -127,18 +127,14 @@ tool, fixes a failure caused by its own change and retries that stage, and recor
 notices instead of ignoring it.
 
 ### Dogfood backlog
-Findings are written to `docs/internal/bugs.mdx`, under the `### Dogfood findings` heading of the module
-section the defect is in (the dogfood scripts themselves: the `## Dogfood tooling` section), to be fixed now or
-later:
+Findings are GitHub issues labelled `dogfood`, filed with `scripts/report-finding.sh` (or the "Dogfood
+finding" issue form) and triaged onto the Yukta Roadmap project, to be fixed now or later:
+```bash
+scripts/report-finding.sh --title "<one-line title>" --module <module> --priority P2 --kind bug \
+  --workflow <wf> --execution <e> --evidence '<the log / CONTROL / SLOW / RESULT line>' --repro '<command>'
 ```
-#### DF-<n>: <one-line title>
-- Status: open | fixed in <sha>
-- Severity: P0–P3
-- Kind: bug | error | perf | ux
-- Found: <date>, workflow <wf>, scope <scope>, execution <e>, stage <node>
-- Evidence: <the log / CONTROL / SLOW / RESULT line>
-- Repro: <command>
-```
+The same title again adds a comment to the open issue instead of filing a duplicate. `--dry-run` prints
+the issue without filing it.
 
 ### Result
 The script exits 0 only when the execution ends `SUCCESS` (or `COMPLETED`); its last line is:

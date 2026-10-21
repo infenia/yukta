@@ -46,6 +46,17 @@ plus:
       - any-glob-to-any-file:
           - 'plus/**'
 
+# Plus modules (the plus label above also applies)
+persistence-postgres:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'plus/persistence-postgres/**'
+
+workers:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'plus/workers/**'
+
 # CLI module changes
 cli:
   - changed-files:
@@ -150,21 +161,4 @@ dependencies:
           - 'ui/package.json'
           - 'ui/pnpm-lock.yaml'
 
-# Type labels based on PR context
-type/feature:
-  - head-ref: '^feat/'
-
-type/bugfix:
-  - head-ref: '^fix/'
-
-type/chore:
-  - head-ref: '^chore/'
-
-type/refactor:
-  - head-ref: '^refactor/'
-
-type/docs:
-  - head-ref: '^docs/'
-
-type/test:
-  - head-ref: '^test/'
+# type/* labels are set from the PR title by .github/workflows/pr-title.yml, not from paths.

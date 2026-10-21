@@ -1,10 +1,13 @@
 ## Summary
 
-<!-- What and why. Link issues: Fixes #123 -->
+<!-- What and why. -->
+
+Fixes #<!-- issue number; use "Refs #" if this PR does not close it -->
 
 ## Checklist
 
 - [ ] Conventional Commit title (`feat:`, `fix:`, ...)
 - [ ] `./gradlew spotlessApply check` passes locally
 - [ ] Tests added or updated
-- [ ] Docs updated (if behavior changed)
+- [ ] Product docs in `docs/` updated (if behavior changed)
+- [ ] Follow-up work filed as issues, not as TODOs or docs pages

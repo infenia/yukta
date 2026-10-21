@@ -1,12 +1,8 @@
----
-title: "Editions plan"
-description: "Plan for splitting Yukta into three tiers: an Apache-2.0 Community edition, an AGPL-licensed Plus tier, and a closed-source Enterprise edition in a separate repository that plugs into the same server."
-mode: "wide"
----
+# Editions plan
 
-<Note>
-  Internal plan, restricted to project members. Back to the [internal index](/internal). This is engineering planning, not legal advice. Every licensing decision below needs review by a lawyer before it is acted on. The public statement of the model is [Licensing and editions](/reference/licensing).
-</Note>
+Plan for splitting Yukta into three tiers: an Apache-2.0 Community edition, an AGPL-licensed Plus tier, and a closed-source Enterprise edition in a separate repository that plugs into the same server.
+
+Work on this plan is tracked in its Epic issue on the Yukta Roadmap project (search for `editions plan`).
 
 Status: **the public repository is ready for Enterprise; the Enterprise repository and features are not started.** Decided: D1 (AGPL-3.0-only), D3, D4, D5, D10, D12, D13. Done in this repository (see [LICENSING.md](https://github.com/infenia/yukta/blob/main/LICENSING.md)):
 
@@ -104,7 +100,7 @@ The engine, DAG validation, REST and MCP interfaces, web UI, CLI, playground, bu
 
 ### The honest cost of the free-tier cut
 
-Community can no longer write sessions to disk, so a free user loses workflows on restart. The start-up error and the [licensing page](/reference/licensing) say so. Still to build, all small:
+Community can no longer write sessions to disk, so a free user loses workflows on restart. The start-up error and the [licensing page](../../docs/reference/licensing.mdx) say so. Still to build, all small:
 
 - **Declarative start-up:** a `yukta.bootstrap.dir` that applies every session JSON file in a folder when the server starts, so definitions live in git, not in the server. Users already have `yukta session apply`.
 - **Export:** `GET` endpoints already return definitions; the docs would show a one-line backup.

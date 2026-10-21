@@ -3,7 +3,8 @@
 
 name: Feature request
 description: Suggest an improvement or new plugin
-labels: ["enhancement"]
+type: Feature
+labels: ["needs-triage"]
 body:
   - type: textarea
     id: problem
@@ -16,3 +17,26 @@ body:
     attributes:
       label: Proposed solution
       description: Alternatives considered are welcome too.
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      description: Where the change would land, if you know.
+      options:
+        - boot
+        - build (build logic, Gradle, CI)
+        - cli
+        - core
+        - mcp
+        - messaging
+        - plugin-api
+        - plugins
+        - plus
+        - persistence-postgres
+        - workers
+        - ui
+        - web
+        - documentation
+        - not sure
+    validations:
+      required: true

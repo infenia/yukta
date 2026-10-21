@@ -56,7 +56,7 @@ All commits follow **Conventional Commits** format. See `.gitmessage` template (
 - Use `StepVerifier` for testing reactive streams.
 - Quality gates (Checkstyle, PMD, SpotBugs, OpenGrep) are enforced via `build-logic` — see `.claude/rules/coding-standards.md` for details.
 - Minimum coverage thresholds are module-specific.
-- Dogfood loop: watch a run with control-bus events, retry a failed stage, and record Yukta defects you notice in `docs/internal/bugs.mdx` (under the module's `### Dogfood findings`) — see the `yukta` skill and `examples/11-dogfood/README.md`.
+- Dogfood loop: watch a run with control-bus events, retry a failed stage, and file each Yukta defect you notice as a `dogfood` GitHub issue (`examples/11-dogfood/scripts/report-finding.sh`) — see the `yukta` skill and `examples/11-dogfood/README.md`.
 - The full `check` gate can run as a staged Yukta workflow with a single `RESULT` line: `examples/11-dogfood/scripts/yukta-check.sh [-m <module> | <gradle args>]` (see the `yukta` skill and `examples/11-dogfood/README.md`).
 - The staged check **heals itself** by default: a failing stage gets a deterministic fix (`spotlessApply`), then up to two headless Claude Code attempts (fresh, then a fork of your session), then a `verify` pass. While it runs, do not edit files or run Gradle in that checkout. Act only on the final `RESULT` or an `ESCALATE:`, review everything under `healed=` with `git diff` before committing (the fixer never commits), and use `--no-heal` to get the plain fail-fast chain. Details: the `yukta` skill, "Self-healing runs".
 

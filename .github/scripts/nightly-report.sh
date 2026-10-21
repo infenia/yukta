@@ -8,10 +8,16 @@
 # The report lists the failed jobs and steps, and the failed and flaky tests from the build-reports
 # artifacts. Every run also writes test time per shard to the job summary, for balancing the shards.
 #
-# Env: GH_TOKEN, REPO, RUN_ID, RUN_URL, WORKFLOW, CONCLUSION, HEAD_SHA
+# Flaky tests are tracked one issue per test by flaky-tests.sh. A new issue gets the Bug type and, when the project is configured (project-lib.sh), is put on
+# the Yukta Roadmap project in Triage as a P1 CI failure.
+#
+# Env: GH_TOKEN, REPO, RUN_ID, RUN_URL, WORKFLOW, CONCLUSION, HEAD_SHA;
+#      optional PROJECT_TOKEN, PROJECT_OWNER, PROJECT_NUMBER
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=project-lib.sh
+. "$here/project-lib.sh"
 label=ci-nightly
 title="Nightly failure: $WORKFLOW"
 sha=${HEAD_SHA:0:7}
@@ -25,6 +31,11 @@ report="$work/report.md"
 reports=false
 if gh run download "$RUN_ID" -R "$REPO" -p 'build-reports-*' -D "$work/reports" 2>/dev/null; then
   reports=true
+fi
+
+# Flaky tests get their own issues (flaky-tests.sh); a problem there must not stop the run report.
+if [ "$reports" = true ]; then
+  "$here/flaky-tests.sh" "$work/reports" || echo "warning: flaky test tracking failed" >&2
 fi
 
 issue=$(gh issue list -R "$REPO" --label "$label" --state open --limit 100 --json number,title |
@@ -75,5 +86,11 @@ else
     echo
     cat "$report"
   } >"$work/body.md"
-  gh issue create -R "$REPO" --title "$title" --label "$label" -F "$work/body.md"
+  url=$(gh issue create -R "$REPO" --title "$title" --label "$label" -F "$work/body.md")
+  echo "Opened $url"
+  issue_set_type "$REPO" "${url##*/}" Bug
+  if project_enabled; then
+    project_add_item "$url" Status=Triage Kind="CI failure" Priority=P1 Module=build >/dev/null ||
+      echo "warning: could not put $url on the project" >&2
+  fi
 fi

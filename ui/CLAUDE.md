@@ -5,7 +5,7 @@ React SPA frontend with Vite, Tailwind CSS v4, and Gradle integration. The `ui` 
 
 ## Project Structure
 - **Root level**: Node/Vite/React project files (package.json, vite.config.ts, src/, e2e/, index.html, public/)
-- **Docs**: `../docs/contributing/modules/ui.mdx` (module guide, published in the docs site); open risks and review findings: `../docs/internal/risks.mdx` and `../docs/internal/improvements.mdx` (section for this module). The design spec and mockups (`docs/design/`) referenced below no longer exist
+- **Docs**: `../docs/contributing/modules/ui.mdx` (module guide, published in the docs site); open risks, bugs and review findings: GitHub issues labelled `ui` (`gh issue list -l ui`; risks also carry `risk`); evolution path and quality lenses: `../design/assessments/ui.md`. The design spec and mockups (`docs/design/`) referenced below no longer exist
 - **`build.gradle.kts`**: Gradle wiring for Vite build → JAR static assets
 - **`build/`**: Gradle build output (JAR, reports, etc.)
 

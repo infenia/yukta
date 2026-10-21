@@ -66,8 +66,9 @@ graph (reflection, resources, runtime wiring) is caught by the full build on
 `main` and by the nightly run, which files an issue.
 
 **Jobs**:
-1. `lint-workflows` — yamllint, actionlint, zizmor, shellcheck for `.github/scripts`,
-   the shard-planner table test (`ci-tasks.test.sh`) and a module-graph check
+1. `lint-workflows` — yamllint, actionlint, zizmor, shellcheck for `.github/scripts`, the label
+   check (`sync-labels.py --check`),
+   the shard-planner and issue-automation table tests (`ci-tasks.test.sh`, `project-lib.test.sh`) and a module-graph check
    (`ci-tasks.sh --check`: every `project()` dependency is an included module).
 2. `changes` — Plan the run with `ci-tasks.sh` (fast, ~5s): changed modules and
    their dependents, as above. The plan is written to the job summary.
@@ -107,6 +108,14 @@ one open issue per workflow, titled `Nightly failure: <workflow>` and labelled
 | Fails / times out, no open issue | Opens one: failed jobs and steps, failed tests (from the `build-reports-*` JUnit XML), run link |
 | Fails / times out, issue open | Adds the same report as a comment (one per night) |
 | Succeeds, issue open | Comments "green again" and closes it |
+
+A new issue also gets the **Bug** type and, when the project App is configured, goes on the Yukta
+Roadmap project in Triage as a P1 *CI failure* ([PROJECT.md](PROJECT.md)); closing it moves the
+project item to Done.
+
+**Flaky test issues**: each flaky test also gets its own `flaky-test` issue (`flaky-tests.sh`),
+commented on each time it is flaky again and closed after 7 days without a flaky run (checked on
+green runs only).
 
 **Flaky tests**: scheduled and manual CI runs pass `-PretryFlakyTests`, which
 retries a failed test up to twice (Gradle test-retry plugin, `java-conventions`).
@@ -213,7 +222,68 @@ Publishes to the OpenSSF API (powers the README badge) and uploads SARIF.
 
 ### `labeler.yml` / `stale.yml`
 
-Auto-label PRs by touched paths; mark and close stale issues/PRs.
+Auto-label PRs by touched paths; mark and close stale issues/PRs. Issues labelled `risk`,
+`security`, `dogfood`, `flaky-test`, `ci-nightly`, `epic`, `needs-triage`, `blocked` or `pinned`
+never go stale.
+
+---
+
+### `pr-title.yml` — PR title
+
+**Purpose**: Keep `main`'s history in Conventional Commits.
+
+PRs are squash-merged, so the title becomes the commit. The check fails a title that is not
+`<type>(<scope>): <subject>` (types from `.gitmessage`), warns when a `feat` or `fix` PR does not
+link an issue (`Fixes #123`), and sets the PR's `type/*` label from the title (same-repository PRs
+only; fork PRs have a read-only token). The labels group the release notes (`.github/release.yml`).
+Dependabot PRs are skipped.
+
+---
+
+### `released.yml` — Release follow-up
+
+**Purpose**: Close the loop on fixed issues.
+
+When a release is published, `.github/scripts/released.sh` comments "Released in vX.Y.Z" on every
+issue closed by a PR between the previous release and this one, and closes the milestone with the
+tag's name.
+
+---
+
+### `weekly-health.yml` — Weekly project health
+
+**Purpose**: One place to see what needs attention.
+
+Every Monday `.github/scripts/project-health.sh` rewrites the pinned **Project health** issue
+(edited in place, so nobody is notified weekly): open issues by type, issues waiting for triage for
+more than a week, and, with the project App configured, unassigned P0/P1 issues, idle *In progress*
+items and open risks with impact 4 or 5. Code scanning alerts are counted, never listed: the issue
+is public, the Security tab is not.
+
+---
+
+### `issue-triage.yml` — Issue triage
+
+**Purpose**: File every new issue for triage.
+
+On `issues: opened`, `.github/scripts/issue-triage.py` reads the issue form: the Module answer
+becomes the area label, and with the project App configured the issue goes on the Yukta Roadmap
+project in **Triage** with the form's answers as fields. See [PROJECT.md](PROJECT.md).
+
+---
+
+### `labels.yml` — Sync labels
+
+**Purpose**: Keep the repository labels equal to `.github/labels.yml`.
+
+On a push to `main` that changes the file (or manually), `.github/scripts/sync-labels.py --apply`
+creates missing labels and updates colors and descriptions. It never deletes a label; one that is
+not in the file is listed in the job summary. The `lint-workflows` job runs
+`sync-labels.py --check` on every PR: the file must be valid, and every label that the labeler,
+Dependabot, the stale bot and the issue forms apply must be defined in it.
+
+Issues, issue types and the **Yukta Roadmap** project are described in
+[PROJECT.md](PROJECT.md).
 
 ---
 

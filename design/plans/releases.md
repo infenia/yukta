@@ -1,12 +1,8 @@
----
-title: "Release and install plan"
-description: "Plan for shipping Yukta as installables for Linux, Windows and macOS and as multi-architecture Docker images, where each artifact is built, and the documentation changes that follow."
-mode: "wide"
----
+# Release and install plan
 
-<Note>
-  Internal plan, restricted to project members. Back to the [internal index](/internal).
-</Note>
+Plan for shipping Yukta as installables for Linux, Windows and macOS and as multi-architecture Docker images, where each artifact is built, and the documentation changes that follow.
+
+Work on this plan is tracked in its Epic issue on the Yukta Roadmap project (search for `releases plan`).
 
 Status: **decisions answered; Phase 1 scripts written, not yet run end to end.** Resource figures for hosted runners are from memory and must be re-checked in Phase 0. The answers given so far are recorded in [Decisions](#decisions).
 
