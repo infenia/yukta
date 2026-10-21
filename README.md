@@ -20,7 +20,8 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/infenia/yukta/badge)](https://scorecard.dev/viewer/?uri=github.com/infenia/yukta)
 [![REUSE status](https://api.reuse.software/badge/github.com/infenia/yukta)](https://api.reuse.software/info/github.com/infenia/yukta)
 [![License: Apache 2.0 / AGPL-3.0](https://img.shields.io/badge/license-Apache%202.0%20%2B%20AGPL--3.0-blue)](LICENSING.md)
-[![Status: pre-beta](https://img.shields.io/badge/status-pre--beta-yellow)](#project-status)
+[![Status: alpha](https://img.shields.io/badge/status-alpha-yellow)](#project-status)
+[![Release](https://img.shields.io/github/v/release/infenia/yukta?include_prereleases)](https://github.com/infenia/yukta/releases)
 
 ---
 
@@ -37,7 +38,7 @@ Most workflow engines make you pick: a heavy platform you have to operate, or a 
 
 ## Project status
 
-> **Yukta is pre-beta (`0.0.1-SNAPSHOT`).** The engine, plugins, REST API and MCP server run and are covered by tests, but there are no tagged releases or binaries yet. Expect breaking changes to the workflow JSON schema and the APIs before v0.1.0.
+> **Yukta is in alpha (`0.1.0-alpha.1`).** The engine, plugins, REST API and MCP server run and are covered by tests. The first release ships a native Linux (amd64) server, a Docker image and the client; expect breaking changes to the workflow JSON schema and the APIs before v0.1.0.
 
 | Area | Status | Notes |
 |------|--------|-------|
@@ -48,17 +49,17 @@ Most workflow engines make you pick: a heavy platform you have to operate, or a 
 | Rule supervisor, control planes | Working, opt-in | Declarative rules, or a model, deciding on control-bus events |
 | Web UI (`ui`) | Working | React 19 + Vite + Tailwind CSS 4 |
 | Go CLI (`cli`) | In progress | See [`cli/README.md`](cli/README.md) |
-| Native image (GraalVM) | Configured | `./gradlew nativeCompile`; nothing published yet |
-| Releases and downloads | Not yet | `release.yml` publishes on `v*` tags; none exist |
+| Native image (GraalVM) | Released (Linux amd64) | `./gradlew nativeCompile`; ARM, macOS and Windows not yet |
+| Releases and downloads | Alpha | `0.1.0-alpha.1`: Linux amd64 archive, `.deb`, `.rpm`, install script, `ghcr.io/infenia/yukta` image |
 | User-facing docs | Partial | [`examples/`](examples/README.md) plus per-module `CLAUDE.md` guides |
 
-**Path to beta:** first tagged release with native binaries · `CHANGELOG.md` · user-facing docs · stable workflow schema and REST/MCP contracts.
+**Path to beta:** more platforms (ARM Linux, macOS, Windows) · `CHANGELOG.md` · user-facing docs · stable workflow schema and REST/MCP contracts.
 
 ---
 
 ## Quick start
 
-The quickest way is the one-command installer (installs the server `yukta` and the client `yukta-cli`, no Java needed): `curl -fsSL https://github.com/infenia/yukta/releases/latest/download/install.sh | sh` on Linux and macOS, or `irm https://github.com/infenia/yukta/releases/latest/download/install.ps1 | iex` in PowerShell. Or use Docker: `docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:latest` (add `-H "X-API-Key: change-me"` to the `curl` commands below). Packaged downloads and the image arrive with the first release (v0.1.0); there is no tagged release yet, so until then run from source. You need **JDK 25** and `curl`:
+The quickest way is the one-command installer (installs the server `yukta` and the client `yukta-cli`, no Java needed): `curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.1/install.sh | sh` on Linux (the alpha installs the client only on macOS). Or use Docker: `docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:0.1.0-alpha.1` (add `-H "X-API-Key: change-me"` to the `curl` commands below). To run from source instead you need **JDK 25** and `curl`:
 
 ```bash
 git clone https://github.com/infenia/yukta.git
