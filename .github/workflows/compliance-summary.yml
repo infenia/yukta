@@ -12,6 +12,7 @@ on:
       - "Java CI with Gradle"
       - "License Compliance Check"
       - "Security Scanning (Trivy)"
+      - "CodeQL"
     types: [completed]
 
 # The monitored workflows finish close together, so several aggregator
@@ -79,7 +80,8 @@ jobs:
             const workflows = [
               { id: 'ci.yml', title: 'Build & Quality Gates' },
               { id: 'license-compliance.yml', title: 'License Compliance' },
-              { id: 'security.yml', title: 'Security Scanning' }
+              { id: 'security.yml', title: 'Security Scanning' },
+              { id: 'codeql.yml', title: 'CodeQL' }
             ];
 
             const rows = [];

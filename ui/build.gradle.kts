@@ -64,6 +64,37 @@ val pnpmTest = tasks.register<PnpmTask>("pnpmTest") {
     dependsOn("pnpmInstall")
     workingDir.set(layout.projectDirectory)
     pnpmCommand.set(listOf("run", "test", "--", "--run"))
+    inputs.dir(layout.projectDirectory.dir("src"))
+    inputs.dir(layout.projectDirectory.dir("public"))
+    inputs.files(
+        layout.projectDirectory.file("vitest.config.ts"),
+        layout.projectDirectory.file("vite.config.ts"),
+        layout.projectDirectory.file("package.json"),
+        layout.projectDirectory.file("pnpm-lock.yaml"),
+        layout.projectDirectory.file("tsconfig.json"),
+    )
+    // No output files: skip when the inputs are unchanged since the last successful run.
+    outputs.upToDateWhen { true }
+}
+
+// ESLint. Existing violations are baselined in eslint-suppressions.json (`eslint . --suppress-all`);
+// new errors fail the build, and fixing a suppressed one shrinks the baseline (`--prune-suppressions`).
+val pnpmLint = tasks.register<PnpmTask>("pnpmLint") {
+    description = "Run ESLint on the UI sources"
+    dependsOn("pnpmInstall")
+    workingDir.set(layout.projectDirectory)
+    pnpmCommand.set(listOf("run", "lint"))
+    inputs.dir(layout.projectDirectory.dir("src"))
+    inputs.dir(layout.projectDirectory.dir("e2e"))
+    inputs.files(
+        layout.projectDirectory.file("eslint.config.js"),
+        layout.projectDirectory.file("eslint-suppressions.json"),
+        layout.projectDirectory.file("package.json"),
+        layout.projectDirectory.file("pnpm-lock.yaml"),
+        layout.projectDirectory.file("tsconfig.json"),
+    )
+    // No output files: skip when the inputs are unchanged since the last successful run.
+    outputs.upToDateWhen { true }
 }
 
 // E2E tests (Playwright) — gated behind a Gradle property
@@ -79,9 +110,7 @@ val pnpmTestE2e = tasks.register<PnpmTask>("pnpmTestE2e") {
 
 // Wire header validation and tests into Gradle's check task
 tasks.named("check") {
-    dependsOn(validateHeaders, verifyPackageVersion)
-    // Uncomment when tests are written:
-    // dependsOn(pnpmTest)
+    dependsOn(validateHeaders, verifyPackageVersion, pnpmLint, pnpmTest)
 }
 
 // Disable Spring Boot JAR/bootRun on this module
@@ -109,8 +138,11 @@ tasks.withType<com.diffplug.gradle.spotless.SpotlessTask>().configureEach {
 }
 
 // Disable npm and yarn tasks — only pnpm is used
+// PnpmSetupTask extends NpmSetupTask but installs pnpm, so it stays enabled.
 tasks.withType<com.github.gradle.node.npm.task.NpmSetupTask>().configureEach {
-    enabled = false
+    if (this !is com.github.gradle.node.pnpm.task.PnpmSetupTask) {
+        enabled = false
+    }
 }
 tasks.withType<com.github.gradle.node.npm.task.NpmInstallTask>().configureEach {
     enabled = false

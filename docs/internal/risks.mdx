@@ -598,7 +598,7 @@ Review of 2026-10-15 against main (after PRs #371, #373 and #374): 1 risk closed
 
 **Why it matters.** Releases are published with checksums and provenance, but the binary cannot say which release it is. Bug reports cannot name a version, and a user cannot tell whether their CLI is older than their server.
 
-**Option.** Add `yukta version` with the tag and commit set through `-ldflags -X` in `make build`; optionally warn when the server's version is newer.
+**Option.** Add `yukta-cli version` with the tag and commit set through `-ldflags -X` in `make build`; optionally warn when the server's version is newer.
 
 **Question to settle.** Should the CLI check server compatibility on first use, or is a printed version enough?
 

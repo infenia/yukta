@@ -13,7 +13,7 @@ Do not decide which checks to run: run the workflow and act on its result.
 A run prints thousands of lines and almost all are noise. Every event on the control bus has a severity
 (`INFO`, `WARN`, `ERROR`) and a failed node's event carries its reason, so ask for problems only:
 - **Do:** `yukta-check.sh --watch …`, or `--detach` then `yukta-watch.sh <s> <e> --quiet`.
-- **Don't:** `yukta logs`, `yukta controlbus watch` without `--quiet`, `yukta-check.sh` without
+- **Don't:** `yukta-cli logs`, `yukta-cli controlbus watch` without `--quiet`, `yukta-check.sh` without
   `--watch`/`--detach` (it streams the whole log), or reading a report file whole.
 
 A passing run is a couple of lines. A failing one adds only the cause, e.g.:
@@ -161,12 +161,12 @@ runs Gradle on (`-p`), whichever provider serves it.
 
 ## CLI cheat-sheet
 `YUKTA_SERVER_URL` selects the server; `-o json` for machine output.
-- `yukta session apply <file|json>`, `session list`, `session get <id>`
-- `yukta workflow start <session> <workflow>`, `workflow status <session> <exec>`, `workflow stop <session> <workflow>`
-- `yukta controlbus watch --execution E --until-done --quiet` streams only problems with their causes (use this); without `--quiet` it streams every event (`--no-logs`, `--type T` narrow it)
-- `yukta logs <session> <exec>` streams the whole log until the execution finishes (humans; avoid)
-- `yukta workflow node retry|signal|breakpoint <exec> <node>` need no session id
-- `yukta plugin list`, `plugin get <type>`
+- `yukta-cli session apply <file|json>`, `session list`, `session get <id>`
+- `yukta-cli workflow start <session> <workflow>`, `workflow status <session> <exec>`, `workflow stop <session> <workflow>`
+- `yukta-cli controlbus watch --execution E --until-done --quiet` streams only problems with their causes (use this); without `--quiet` it streams every event (`--no-logs`, `--type T` narrow it)
+- `yukta-cli logs <session> <exec>` streams the whole log until the execution finishes (humans; avoid)
+- `yukta-cli workflow node retry|signal|breakpoint <exec> <node>` need no session id
+- `yukta-cli plugin list`, `plugin get <type>`
 
 ## Don'ts
 - Don't edit `.yukta-dev/` state by hand or kill servers you didn't start.

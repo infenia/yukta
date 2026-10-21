@@ -338,7 +338,7 @@ stream is complete; only the replay buffer is bounded (`yukta.results.retained-e
 per run; `yukta.results.retention` 1h after last use; `yukta.results.max-executions` 200) and the
 end events carry `truncated` when it dropped anything. Clients: REST `GET
 /api/sessions/{s}/executions/{e}/results` (SSE, or JSON with `Accept: application/json` and
-`afterCursor`), MCP `get_execution_result`, CLI `yukta result`, and the RESULT block of the UI
+`afterCursor`), MCP `get_execution_result`, CLI `yukta-cli result`, and the RESULT block of the UI
 progress panel. Results are in memory only; they are gone after a restart.
 
 ### Tracker queue
@@ -374,7 +374,7 @@ resubscribes with capped backoff if its stream ever fails, until `shutdown()`.
 
 A node that ends `FAILURE` or `TIMED_OUT` reports its reason in the metadata of its status event
 (`NodeStreams.ERROR_KEY`, `error`: the exception message, cut to 4000 characters at each end); an
-`UPSTREAM_FAILED` node carries none. Watchers (SSE, `yukta controlbus watch --quiet`) read the cause
+`UPSTREAM_FAILED` node carries none. Watchers (SSE, `yukta-cli controlbus watch --quiet`) read the cause
 from there instead of the logs.
 
 ### Breakpoints and tracing
