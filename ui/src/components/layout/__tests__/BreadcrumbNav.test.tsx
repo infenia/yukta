@@ -79,7 +79,10 @@ describe('BreadcrumbNav', () => {
       renderWithRouter(<BreadcrumbNav />);
       const link = screen.getByRole('link', { name: 'Sessions' });
       const current = screen.getByText('Workflows').closest('span');
-      expect(link).toHaveClass('text-on-surface-variant', 'hover:text-on-surface');
+      expect(link).toHaveClass(
+        'text-on-surface-variant',
+        'hover:text-on-surface'
+      );
       expect(current).toHaveClass('font-medium', 'text-on-surface');
     });
   });
@@ -88,7 +91,11 @@ describe('BreadcrumbNav', () => {
     beforeEach(() => {
       vi.spyOn(breadcrumbUtils, 'parseBreadcrumbsFromPath').mockReturnValue([
         { label: 'Sessions', href: '/sessions', isCurrent: false },
-        { label: 'Workflows', href: '/sessions/123/workflows', isCurrent: false },
+        {
+          label: 'Workflows',
+          href: '/sessions/123/workflows',
+          isCurrent: false,
+        },
         { label: 'Details', href: undefined, isCurrent: true },
       ]);
     });
@@ -129,7 +136,11 @@ describe('BreadcrumbNav', () => {
     it('should have correct background styling', () => {
       const { container } = renderWithRouter(<BreadcrumbNav />);
       const nav = container.querySelector('.flex.h-10');
-      expect(nav).toHaveClass('border-t', 'border-outline-variant', 'bg-surface-container-low');
+      expect(nav).toHaveClass(
+        'border-t',
+        'border-outline-variant',
+        'bg-surface-container-low'
+      );
     });
 
     it('should render breadcrumb list with correct gap', () => {
@@ -156,7 +167,9 @@ describe('BreadcrumbNav', () => {
 
     it('should style separator with correct color', () => {
       const { container } = renderWithRouter(<BreadcrumbNav />);
-      const separators = container.querySelectorAll('[class*="text-outline-variant"]');
+      const separators = container.querySelectorAll(
+        '[class*="text-outline-variant"]'
+      );
       expect(separators.length).toBeGreaterThan(0);
     });
 

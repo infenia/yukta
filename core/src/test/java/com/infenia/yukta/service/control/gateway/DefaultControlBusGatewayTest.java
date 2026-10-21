@@ -49,6 +49,7 @@ import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -2776,10 +2777,16 @@ class DefaultControlBusGatewayTest {
             real,
             new StartIdempotency(java.time.Duration.ofMinutes(1)),
             auditLog);
+    final List<com.infenia.yukta.security.AuditRecord> sunk = new ArrayList<>();
+    limited.setAuditSink(sunk::add);
     real.acquire("s", "w").permit().block();
     final var waiting = real.acquire("s", "w").permit().toFuture();
 
     StepVerifier.create(limited.changeLimits(2, 0)).verifyComplete();
+
+    assertThat(sunk)
+        .singleElement()
+        .satisfies(r -> assertThat(r.command()).isEqualTo("SetLimits(2, 0)"));
 
     assertThat(waiting).isCompleted();
     assertThat(auditLog.readAll())

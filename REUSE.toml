@@ -31,7 +31,7 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = ["META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "boot/src/main/resources/META-INF/native-image/**", "plugins/**/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "persistence-postgres/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "workers/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "boot/src/main/resources/banner.txt"]
+path = ["META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "boot/src/main/resources/META-INF/native-image/**", "plugins/**/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports", "boot/src/main/resources/banner.txt"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
@@ -55,7 +55,7 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = ["ui/.gitignore", "ui/components.json", "ui/package.json", "ui/package-lock.json", "ui/pnpm-lock.yaml", "ui/.prettierignore", "ui/.prettierrc.json", "ui/docs/design/**", "ui/src/assets/**", "ui/e2e/__snapshots__/**", "ui/e2e/test-results/**", "ui/playwright-report/**"]
+path = ["ui/.gitignore", "ui/components.json", "ui/package.json", "ui/eslint-suppressions.json", "ui/package-lock.json", "ui/pnpm-lock.yaml", "ui/.prettierignore", "ui/.prettierrc.json", "ui/docs/design/**", "ui/src/assets/**", "ui/e2e/__snapshots__/**", "ui/e2e/test-results/**", "ui/playwright-report/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
@@ -73,3 +73,11 @@ path = ["**/*.md", "docs/**/*.mdx", "docs/docs.json", "docs/.mintignore", "docs/
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Infenia Private Limited"
 SPDX-License-Identifier = "Apache-2.0"
+
+# The Plus edition is AGPL-3.0-only; its files carry the same SPDX header in the file itself. This
+# entry covers the files that cannot (Markdown, resources) and must stay the last one so it wins.
+[[annotations]]
+path = ["plus/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Infenia Private Limited"
+SPDX-License-Identifier = "AGPL-3.0-only"

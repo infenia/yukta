@@ -61,6 +61,12 @@ We prefer **Conventional Commits**:
 * `test: ...` for adding missing tests.
 * `chore: ...` for updating build tasks, etc; no production code change.
 
-## License
+## License and Contributor License Agreement
 
-By contributing, you agree that your contributions will be licensed under the **Apache License, Version 2.0**.
+Contributions are licensed under the licence of the directory they change: **Apache License 2.0**
+everywhere, **AGPL-3.0-only** inside `plus/`. See [`LICENSING.md`](LICENSING.md).
+
+Before your first pull request can be merged you must sign the Contributor License Agreement
+([individual](CLA.md) or, for an employer, [corporate](CLA-corporate.md)). The CLA bot comments on
+your pull request with the one line to reply. The agreement lets Infenia also offer the Work under
+commercial licences. Infenia employees and bots are exempt.

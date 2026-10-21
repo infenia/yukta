@@ -230,7 +230,7 @@ Pins the versions of third-party libraries through three imported BOMs, and adds
 
 Formats code and refuses code that breaks style or bug-pattern rules, using five tools whose rule files live in config/.
 
-- **Spotless** formats Java with google-java-format (2-space indent, 100-character lines, long strings reflowed) and checks the Apache licence header from config/license/header.txt on Java, Kotlin build scripts and XML files. `./gradlew spotlessApply` rewrites files; check only verifies. The Java target excludes bin, build, out and node_modules.
+- **Spotless** formats Java with google-java-format (2-space indent, 100-character lines, long strings reflowed) and checks the licence header on Java (Apache-2.0 from config/license/header.txt, and AGPL-3.0-only from header-agpl.txt in the plus module), Kotlin build scripts and XML files. `./gradlew spotlessApply` rewrites files; check only verifies. The Java target excludes bin, build, out and node_modules.
 - **Checkstyle** 13.2.0 uses config/checkstyle/checkstyle.xml (a Google-style rule set; its default severity is warning). With `maxWarnings = 0` a single warning fails the build, so 'warning' really means 'error'. HTML and XML reports are produced.
 - **PMD** 7.21.0 runs config/pmd/ruleset.xml with whole categories switched on: best practices, code style, design, documentation, error-prone, multithreading, performance and security, with two rules excluded. **SpotBugs** (plugin 6.5.12) reads bytecode for bug patterns; config/spotbugs/exclude.xml lists a handful of reviewed false positives such as copies that are already immutable.
 - **Error Prone** 2.50.0 runs inside javac. Generated code under build/generated is skipped. Error Prone and SpotBugs are used at default levels.

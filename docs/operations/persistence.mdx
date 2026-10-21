@@ -4,6 +4,10 @@ description: "Keep sessions, the execution log and node outputs in memory, on di
 mode: "wide"
 ---
 
+<Note>
+  Storing state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.session-memory.dir`) and PostgreSQL storage are part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus` (PostgreSQL also needs `-Pyukta.persistence=postgres`); the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
+</Note>
+
 <Info>
   **In plain terms:** by default Yukta forgets everything when it restarts, which is fine for trying it out. When you need your workflows and history to survive restarts, switch the storage to files or PostgreSQL, one kind of data at a time.
 </Info>
@@ -19,7 +23,7 @@ The default is right for trying things out: nothing to set up, and a restart giv
 | Profile | How to select it | Where data goes |
 |---|---|---|
 | Memory (default) | No settings | In the server process. Lost on restart |
-| File | Set the directory settings below | Files on the server's disk |
+| File | Plus build (`-Pyukta.edition=plus`), then the directory settings below | Files on the server's disk |
 | PostgreSQL | Optional build switch, the `postgres` profile and database URLs | PostgreSQL tables |
 
 ## Which setting switches which store
@@ -34,6 +38,12 @@ The default is right for trying things out: nothing to set up, and a restart giv
 | Leader lease | `yukta.ha.mode` | `postgres` enables [high availability](/operations/high-availability) |
 
 The PostgreSQL stores are created only when `yukta.session.store-type=postgres`. The `postgres` profile sets it. The other PostgreSQL switches (`yukta.restart.store-type`, `yukta.kv.store-type`, `yukta.session-memory.store-type`, `yukta.ha.mode`) then choose which further data moves to the database.
+
+## Start with your workflows (all editions)
+
+Memory is the default, and the Community edition has nothing else. To get your sessions back after every restart, keep their definitions in files and point `yukta.bootstrap.dir` (`YUKTA_BOOTSTRAP_DIR`) at the folder. At start-up Yukta applies every `*.json` file in it, in name order, the same way `POST /api/sessions` or `yukta-cli session apply` would. A file that is unreadable, invalid or cannot be applied is logged and skipped; it never stops the server. Keep the folder in git and the definitions come back with the server.
+
+The server also logs once at start-up that state is kept in memory.
 
 ## What survives a restart
 

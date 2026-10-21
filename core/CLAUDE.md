@@ -103,6 +103,7 @@ Malformed policies are rejected by `WorkflowValidator` with the node id and opti
   `yukta.restart.spill-dir` is set: then the whole output of that node moves to files there
   (`FileNodeCheckpointStore`, so it replays as plain JSON values), is deleted with the execution,
   and leftovers of an earlier process are removed at startup. Do not point it at a shared folder.
+- **Plus split:** `FileSessionConfigStore`, `FileWorkflowDefinitionStore` and `JsonlExecutionLogStore` live in the AGPL `plus` module (same packages). `FileNodeCheckpointStore` stays here (the in-memory store spills to it); `PlusConfiguration` registers it as the durable store. `FeatureGateEnvironmentPostProcessor` stops start-up when a setting needs a module that is not in the build (file stores, PostgreSQL, HA, workers): to gate another setting add a row to its `GATES` list. `DefaultsAutoConfiguration` registers the in-memory execution log, in-memory checkpoints and `SingleServerLeader` with `@ConditionalOnMissingBean`; an extension module replaces one by declaring `@AutoConfiguration(before = DefaultsAutoConfiguration.class)` (or by being scanned).
 - Restart-from-node re-runs the node and its descendants and replays the recorded output of the
   nodes that feed them (`RestartPlan`); independent branches are left alone.
 - Set `yukta.restart.dir` to keep node outputs on disk (`FileNodeCheckpointStore`, one JSON line per
@@ -226,12 +227,12 @@ memory. Both keep the newest 20 saved versions of a workflow (identical saves ad
 added, removed or changed, edges added or removed); MCP has `list_workflow_versions`,
 `diff_workflow_versions` and `rollback_workflow`, and the workflow page a "Versions" panel. A version can carry a note (`POST .../versions/note?version=&note=`, MCP `note_workflow_version`; `DefinitionRevision.note`; a column in PostgreSQL, a `.note` file next to the version file). A start whose payload has `yukta.version` runs that saved version (the prepared-workflow cache is bypassed). The workflow page's Versions panel shows and edits the notes.
 
-### PostgreSQL stores (`persistence-postgres`, optional)
+### PostgreSQL stores (`plus/persistence-postgres`, optional, AGPL)
 `yukta.session.store-type=postgres` (profile `postgres`, build with `-Pyukta.persistence=postgres`)
 selects `R2dbcSessionConfigStore`, `R2dbcWorkflowDefinitionStore` (definitions plus the newest 20
 versions) and `R2dbcExecutionLogStore` (blocking interface, so one writer thread; trims to the newest
 `retained-runs` runs and never drops a run without an end). Schema: Flyway migrations in
-`persistence-postgres/src/main/resources/db/migration` (applied over JDBC from `spring.flyway.url`);
+`plus/persistence-postgres/src/main/resources/db/migration` (applied over JDBC from `spring.flyway.url`);
 run time uses R2DBC (`spring.r2dbc.url`). The in-memory/file defaults step aside when the type is
 `postgres`. Node checkpoints use `R2dbcNodeCheckpointStore` when `yukta.restart.store-type=postgres` (one row per message in JSONB, which PostgreSQL stores out of line, so no cap; a state row per node holds the end marker and the incomplete flag; migration V3), otherwise files (`yukta.restart.dir`) or memory. `KV_STORE` keeps its state in `R2dbcKeyValueStore` (table `kv_entry`, migration V5) when `yukta.kv.store-type=postgres`; the SPI is `KeyValueStore` in plugin-api. `SESSION_MEMORY` history goes to `R2dbcSessionHistoryStore` (table `session_history`, migration V6) with `yukta.session-memory.store-type=postgres`; the SPI is `SessionHistoryStore`.
 
@@ -337,7 +338,7 @@ stream is complete; only the replay buffer is bounded (`yukta.results.retained-e
 per run; `yukta.results.retention` 1h after last use; `yukta.results.max-executions` 200) and the
 end events carry `truncated` when it dropped anything. Clients: REST `GET
 /api/sessions/{s}/executions/{e}/results` (SSE, or JSON with `Accept: application/json` and
-`afterCursor`), MCP `get_execution_result`, CLI `yukta result`, and the RESULT block of the UI
+`afterCursor`), MCP `get_execution_result`, CLI `yukta-cli result`, and the RESULT block of the UI
 progress panel. Results are in memory only; they are gone after a restart.
 
 ### Tracker queue
@@ -373,7 +374,7 @@ resubscribes with capped backoff if its stream ever fails, until `shutdown()`.
 
 A node that ends `FAILURE` or `TIMED_OUT` reports its reason in the metadata of its status event
 (`NodeStreams.ERROR_KEY`, `error`: the exception message, cut to 4000 characters at each end); an
-`UPSTREAM_FAILED` node carries none. Watchers (SSE, `yukta controlbus watch --quiet`) read the cause
+`UPSTREAM_FAILED` node carries none. Watchers (SSE, `yukta-cli controlbus watch --quiet`) read the cause
 from there instead of the logs.
 
 ### Breakpoints and tracing

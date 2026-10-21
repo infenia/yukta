@@ -43,16 +43,29 @@ generation, weekly CodeQL and OpenSSF Scorecard runs.
 | Scheduled | daily @ 5:30 AM IST | Full build (cache refresh) |
 
 **Jobs**:
-1. `changes` — Detect which modules changed (fast, ~5s). Every Gradle
-   module in `settings.gradle.kts` is listed; a module missing here would
-   silently skip CI.
-2. `build` — Compile, test, quality checks (`build` includes `check`:
-   Checkstyle, PMD, SpotBugs, OpenGrep, JaCoCo coverage verification).
-   Changed library modules run `buildDependents` so consumers are
-   re-tested. Publishes a JUnit summary, uploads coverage to Codecov on
-   main, submits the dependency graph (non-fork), uploads `build-reports`.
-3. `dependency-review` — Fails PRs that introduce dependencies with
-   known HIGH/CRITICAL vulnerabilities (skipped for fork PRs).
+1. `lint-workflows` — yamllint, actionlint, zizmor, shellcheck for `.github/scripts`,
+   the shard-planner table test (`ci-tasks.test.sh`) and a check that every Gradle
+   module has a path filter.
+2. `changes` — Detect which modules changed (fast, ~5s) and plan the shards.
+   Every Gradle module in `settings.gradle.kts` is listed; a module missing here
+   would silently skip CI. A change to a root/build file (`build-logic`, `gradle/`,
+   `gradle.properties`, `.github/workflows`, `.github/scripts`, ...) forces a full build.
+3. `lint` — Fast Lint: Spotless, Checkstyle, PMD and OpenGrep on the affected
+   modules, for an early signal.
+4. `build` — One matrix job per shard, run in parallel (`platform`, `infra`,
+   `plugins`, `cli`, `ui`, plus the `postgres-acceptance` and `plus-acceptance`
+   end-to-end runs). Each runs `:module:build`, which includes `check`:
+   tests, Checkstyle, PMD, SpotBugs, OpenGrep and JaCoCo verification for JVM
+   modules; Go format/vet/lint/gosec/govulncheck/100% function coverage for
+   `cli`; ESLint (baselined in `ui/eslint-suppressions.json`), Vitest, header and
+   version checks for `ui`. On CI a missing OpenGrep binary fails the build
+   instead of skipping the scan. Changed library modules re-run every shard.
+5. `dependency-submission` / `dependency-review` — Submit the full dependency
+   graph; fail PRs that introduce HIGH/CRITICAL vulnerable dependencies
+   (skipped for fork PRs).
+6. `e2e-tests` — Playwright against the UI when `ui/**` changed. Results, including
+   flaky tests that only passed on retry, are written to the job summary.
+7. `ci-gate` — Single required check for branch protection.
 
 ---
 
@@ -84,10 +97,11 @@ the GitHub Security tab.
 | Component | Check | Purpose |
 |-----------|-------|---------|
 | **REUSE** | License Header Compliance | Verifies all files have SPDX license headers |
+| **Plus isolation** | Apache modules never depend on Plus | Fails if any module other than `boot` depends on the AGPL `:plus` module |
 | **Licensee** | Dependency License Validation | Ensures all dependencies have Apache-2.0 compatible licenses |
 | **Trivy** | License Scanning | Scans lock files for forbidden/restricted licenses |
 
-**Jobs**: `reuse-compliance`, `gradle-license-validation`, `trivy-license-scan`
+**Jobs**: `reuse-compliance`, `plus-isolation`, `gradle-license-validation`, `trivy-license-scan`
 
 **Triggered on**: Push to main, PR, manual trigger
 
@@ -100,8 +114,8 @@ Results are summarized in the job summary and the unified PR comment.
 
 **Purpose**: One sticky PR comment aggregating CI, license, and security results
 
-**How it works**: Triggered by `workflow_run` completions of the three
-workflows above. Resolves the PR from the run, lists every job of each
+**How it works**: Triggered by `workflow_run` completions of the four
+workflows above (CI, license, security, CodeQL). Resolves the PR from the run, lists every job of each
 workflow's latest run for that commit, and creates **or updates** a single
 comment identified by an HTML marker — no comment spam, no stale data.
 
@@ -222,3 +236,11 @@ is published. The container image (GraalVM native compile) is built locally, not
 
 - `CI Gate` is the single check to require in branch protection.
 - `Lint Workflows` fails if a Gradle module in `settings.gradle.kts` has no path filter in `ci.yml`.
+
+---
+
+### `cla.yml` — Contributor License Agreement
+
+**Purpose**: Ask outside contributors to sign `CLA.md` (or `CLA-corporate.md`) and record it on the `cla-signatures` branch
+
+**Triggered on**: Pull request (`pull_request_target`, never checks out PR code) and the signing comment

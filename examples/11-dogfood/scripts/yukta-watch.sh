@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Follow a Yukta execution with control-bus events until it ends, then print the RESULT line.
-# A thin wrapper around `yukta controlbus watch`; meant to run under Claude Code's Monitor tool.
+# A thin wrapper around `yukta-cli controlbus watch`; meant to run under Claude Code's Monitor tool.
 #
 # Usage: [YUKTA_SCOPE=<module|all>] yukta-watch.sh <session-id> <execution-id> [--quiet | --no-logs]
 #

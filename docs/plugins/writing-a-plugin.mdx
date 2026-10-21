@@ -121,7 +121,7 @@ A plugin receives only messages addressed to its node through its control-signal
 | Message | Source | Expected behaviour |
 |---|---|---|
 | A `signal` command, with the payload `{executionId, nodeId, name, decision, data}` | The signal endpoint, the CLI or the MCP tool | Answer `ACCEPTED` when a wait took it, `QUEUED` when it arrived before its wait and was kept, `NOT_WAITING` otherwise. The caller gets `409` for `NOT_WAITING` |
-| A node command sent through the control bus | The `yukta controlbus command` CLI command | Plugin-defined. `MCP_TOOL_CALL` accepts the payload `reset` and drops its cached sessions |
+| A node command sent through the control bus | The `yukta-cli controlbus command` CLI command | Plugin-defined. `MCP_TOOL_CALL` accepts the payload `reset` and drops its cached sessions |
 
 Return nothing for a message the plugin does not understand.
 

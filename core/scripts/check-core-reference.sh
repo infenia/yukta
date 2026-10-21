@@ -38,7 +38,7 @@ awk '/^```/ { fence = !fence; next } !fence' "$DOC" > "$tmp/prose.mdx"
 
 echo "[1/5] cited classes exist"
 grep -rhoE '\b(class|record|interface|enum|@interface) [A-Z][A-Za-z0-9_]*' --include=*.java \
-  core plugin-api workers persistence-postgres plugins messaging web mcp 2>/dev/null \
+  core plugin-api plus plugins messaging web mcp 2>/dev/null \
   | awk '{print $2}' | sort -u > "$tmp/classes"
 # a class is a backticked CamelCase word (at least two humps), e.g. `ExecutionScheduler`
 grep -oP '`\K[A-Z][a-z0-9]+(?:[A-Z][A-Za-z0-9]*)+(?=`)' "$tmp/prose.mdx" | sort -u > "$tmp/cited"

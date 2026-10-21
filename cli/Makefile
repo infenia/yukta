@@ -16,7 +16,7 @@
 .PHONY: help build build-all test cover cover-check fmt fmt-check mod-tidy mod-verify vet lint sec vuln check clean
 
 # Variables
-BINARY_NAME := yukta
+BINARY_NAME := yukta-cli
 BUILD_DIR := build
 CMD_DIR := cmd/yukta
 GOOS ?= $(shell go env GOOS)

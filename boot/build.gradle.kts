@@ -53,12 +53,17 @@ dependencies {
 
     // PostgreSQL stores for sessions, workflows and the execution log: -Pyukta.persistence=postgres
     if (providers.gradleProperty("yukta.persistence").orNull == "postgres") {
-        implementation(project(":persistence-postgres"))
+        implementation(project(":plus:persistence-postgres"))
+    }
+
+    // Single-node durable storage on disk (AGPL-3.0-only, see LICENSING.md): -Pyukta.edition=plus
+    if (providers.gradleProperty("yukta.edition").orNull == "plus") {
+        implementation(project(":plus"))
     }
 
     // Remote workers over RSocket (control plane server and worker agent): -Pyukta.workers=true
     if (providers.gradleProperty("yukta.workers").orNull == "true") {
-        implementation(project(":workers"))
+        implementation(project(":plus:workers"))
     }
 
     implementation(libs.spring.boot.starter.webflux)
@@ -81,6 +86,7 @@ dependencies {
 // Tells the tests whether the optional modules (PostgreSQL stores, remote workers) are part of this build.
 tasks.withType<Test>().configureEach {
     providers.gradleProperty("yukta.persistence").orNull?.let { systemProperty("yukta.persistence", it) }
+    providers.gradleProperty("yukta.edition").orNull?.let { systemProperty("yukta.edition", it) }
     providers.gradleProperty("yukta.workers").orNull?.let { systemProperty("yukta.workers", it) }
 }
 
@@ -113,7 +119,6 @@ graalvmNative {
             imageName.set("yukta")
             mainClass.set("com.infenia.yukta.YuktaApplication")
             buildArgs.add("--no-fallback")
-            buildArgs.add("--emit=build-report")
 
             // openai-java-core ships agent-recorded proxy/serialization metadata captured from its
             // own Gradle/ByteBuddy-based tests (classes absent here), so native-image warns
@@ -138,7 +143,8 @@ graalvmNative {
             buildArgs.add("-H:+UnlockExperimentalVMOptions")
 
             // Heap for native image compilation
-            buildArgs.add("-J-Xmx16g")
+            // -Pnative.heap=<size> lowers it for machines with less memory (default 16g)
+            buildArgs.add("-J-Xmx${providers.gradleProperty("native.heap").getOrElse("16g")}")
             // Builder JVM has slf4j-api but no provider; its NOP fallback warning is harmless
             buildArgs.add("-J-Dslf4j.internal.verbosity=ERROR")
 
@@ -147,6 +153,10 @@ graalvmNative {
             buildArgs.add("-H:+StripDebugInfo")                // Remove debug information
             buildArgs.add("-H:-AddAllCharsets")                // Remove unnecessary charsets
             buildArgs.add("-H:IncludeLocales=en")              // English is the only supported locale
+
+            // Docker builds: -Pnative.static links zlib and everything except libc into the binary, so
+            // it runs on the distroless cc image (which has libc but no libz). Needs libz.a.
+            if (providers.gradleProperty("native.static").isPresent) buildArgs.add("--static-nolibc")
 
             // Dev builds: -Pnative.quick trades runtime speed for much faster image compilation
             if (providers.gradleProperty("native.quick").isPresent) buildArgs.add("-Ob")

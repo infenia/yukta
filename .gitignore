@@ -57,3 +57,6 @@ jte-classes/
 
 # k6 benchmark reports
 perf/reports/
+
+# Release artifacts (release/)
+/dist/

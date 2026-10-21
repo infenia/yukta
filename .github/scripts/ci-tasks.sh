@@ -4,7 +4,7 @@
 #
 # Prints the Gradle tasks one CI shard must run (empty output = nothing to do).
 #
-# Usage: ci-tasks.sh <platform|infra|plugins|frontend>
+# Usage: ci-tasks.sh <platform|infra|plugins|cli|ui>
 # Env:   FULL=true            run every module of the shard (main, schedule, root-file change)
 #        CHANGED_MODULES      JSON array of changed module names (paths-filter output)
 #
@@ -20,7 +20,7 @@ FULL=${FULL:-false}
 
 declare -A path=(
   [messaging]=:messaging [plugin-api]=:plugin-api [core]=:core [web]=:web [mcp]=:mcp [boot]=:boot
-  [persistence-postgres]=:persistence-postgres [workers]=:workers [cli]=:cli [ui]=:ui
+  [persistence-postgres]=:plus:persistence-postgres [plus]=:plus [workers]=:plus:workers [cli]=:cli [ui]=:ui
   [api-trigger]=:plugins:triggers:api-trigger
   [constant-source]=:plugins:triggers:constant-source
   [schedule-trigger]=:plugins:triggers:schedule-trigger
@@ -45,8 +45,9 @@ declare -A path=(
 group_of() {
   case $1 in
     messaging|plugin-api|core|web|mcp|boot) echo platform ;;
-    persistence-postgres|workers) echo infra ;;
-    cli|ui) echo frontend ;;
+    persistence-postgres|plus|workers) echo infra ;;
+    cli) echo cli ;;
+    ui) echo ui ;;
     *) echo plugins ;;
   esac
 }

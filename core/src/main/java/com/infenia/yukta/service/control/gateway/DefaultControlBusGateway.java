@@ -17,12 +17,14 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCo
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.security.AuditRecord;
+import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ExecutionArchive;
+import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
-import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
@@ -31,9 +33,11 @@ import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
@@ -53,7 +57,8 @@ import reactor.core.publisher.Mono;
   "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects",
   "PMD.TooManyMethods",
-  "PMD.AvoidDuplicateLiterals"
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.GodClass"
 })
 public class DefaultControlBusGateway implements ControlBusGateway, RestartCompletionSink {
 
@@ -86,6 +91,9 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   /** Records changes that do not go through a run's command queue. */
   private final ExecutionLogStore executionLog;
+
+  /** Receives every audit record besides the log, if a module provides one. */
+  @Nullable private AuditSink auditSink;
 
   /** Starts executions. */
   private final WorkflowStarter starter;
@@ -488,21 +496,40 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     return Mono.deferContextual(
         context -> {
           final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
-          final String logged = actor == null ? name : name + " [by " + actor + "]";
           final Mono<Void> review =
               reviewer == null ? Mono.empty() : reviewer.review(new ControlRequest(command, actor));
           return review
               .then(Mono.<Void>fromRunnable(apply))
               .doOnSuccess(
                   _ ->
-                      executionLog.append(
-                          ExecutionLogEvent.control(true, command.executionId(), logged, null)))
+                      ControlAudit.record(
+                          executionLog,
+                          auditSink,
+                          new AuditRecord(
+                              true, command.executionId(), name, actor, null, Instant.now())))
               .doOnError(
                   error ->
-                      executionLog.append(
-                          ExecutionLogEvent.control(
-                              false, command.executionId(), logged, error.getMessage())));
+                      ControlAudit.record(
+                          executionLog,
+                          auditSink,
+                          new AuditRecord(
+                              false,
+                              command.executionId(),
+                              name,
+                              actor,
+                              error.getMessage(),
+                              Instant.now())));
         });
+  }
+
+  /**
+   * Passes every audit record on to a sink, besides the execution log.
+   *
+   * @param sink the sink, if the application has one
+   */
+  @Autowired(required = false)
+  public void setAuditSink(final AuditSink sink) {
+    this.auditSink = sink;
   }
 
   /**
