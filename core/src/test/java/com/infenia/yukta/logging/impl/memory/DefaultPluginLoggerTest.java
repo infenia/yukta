@@ -7,10 +7,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogWriter;
+import com.infenia.yukta.plugin.core.LogLevel;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;

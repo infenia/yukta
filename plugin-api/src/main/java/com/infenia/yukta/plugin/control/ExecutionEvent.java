@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.control;
 
+import com.infenia.yukta.plugin.core.LogLevel;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -90,9 +92,16 @@ public sealed interface ExecutionEvent {
    *
    * @param executionId the execution
    * @param nodeId the node
-   * @param line the line
+   * @param line the line, a single line of text
+   * @param level its level, as the plugin reported it or the engine rated it
    * @param timestamp when it happened
    */
-  record LogLine(String executionId, String nodeId, String line, Instant timestamp)
-      implements ExecutionEvent {}
+  record LogLine(String executionId, String nodeId, String line, LogLevel level, Instant timestamp)
+      implements ExecutionEvent {
+
+    /** Rejects a missing level, so a line is never shown with a level nobody gave it. */
+    public LogLine {
+      Objects.requireNonNull(level, "level");
+    }
+  }
 }

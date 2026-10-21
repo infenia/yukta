@@ -3,9 +3,9 @@
 package com.infenia.yukta.controller;
 
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.core.LogLevel;
 import java.util.Locale;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 /**
  * How much attention an execution event deserves, from least to most. Lets a watcher ask for {@code
@@ -23,15 +23,6 @@ public enum EventSeverity {
   /** Final statuses that mean a node or run failed. */
   private static final Set<String> FAILED = Set.of("FAILURE", "TIMED_OUT", "ABORTED");
 
-  /** Words that make a log line an error. */
-  private static final Pattern ERROR_LINE =
-      Pattern.compile(
-          "\\b(error|failed|failure)\\b|exception|What went wrong", Pattern.CASE_INSENSITIVE);
-
-  /** Words that make a log line a warning. */
-  private static final Pattern WARN_LINE =
-      Pattern.compile("\\bwarn(ing)?\\b|deprecat", Pattern.CASE_INSENSITIVE);
-
   /**
    * Classifies an event. A node that ended {@code UPSTREAM_FAILED} is only the consequence of the
    * node before it, so it stays {@code INFO}.
@@ -44,7 +35,7 @@ public enum EventSeverity {
       case ExecutionEvent.NodeStatusChanged node -> ofStatus(node.status());
       case ExecutionEvent.WorkflowStatusChanged workflow -> ofStatus(workflow.status());
       case ExecutionEvent.ControlOutcome control -> control.applied() ? INFO : WARN;
-      case ExecutionEvent.LogLine log -> ofLine(log.line());
+      case ExecutionEvent.LogLine log -> ofLevel(log.level());
     };
   }
 
@@ -70,12 +61,11 @@ public enum EventSeverity {
     return "CANCELLED".equals(status) ? WARN : INFO;
   }
 
-  // ponytail: keyword match on the text, since log lines carry no level; a plugin that reports
-  // one (a level on LogLine) should replace this.
-  private static EventSeverity ofLine(final String line) {
-    if (ERROR_LINE.matcher(line).find()) {
-      return ERROR;
-    }
-    return WARN_LINE.matcher(line).find() ? WARN : INFO;
+  private static EventSeverity ofLevel(final LogLevel level) {
+    return switch (level) {
+      case ERROR -> ERROR;
+      case WARN -> WARN;
+      case DEBUG, INFO -> INFO;
+    };
   }
 }

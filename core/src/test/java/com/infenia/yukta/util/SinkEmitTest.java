@@ -64,12 +64,14 @@ class SinkEmitTest {
   @Test
   @SuppressWarnings("unchecked")
   void offer_keepsTryingPastTheSpinPhaseWhileTheOtherEmitterIsDescheduled() {
+    // a little past the 1000 busy spins, so the yielding phase is reached without the run depending
+    // on how fast a loaded machine gets through the 250 ms retry deadline
     final AtomicInteger clashes = new AtomicInteger();
     final Sinks.Many<String> sink = mock(Sinks.Many.class);
     when(sink.tryEmitNext("a"))
         .thenAnswer(
             call ->
-                clashes.incrementAndGet() < 5_000
+                clashes.incrementAndGet() < 1_100
                     ? Sinks.EmitResult.FAIL_NON_SERIALIZED
                     : Sinks.EmitResult.OK);
 

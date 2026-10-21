@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.control.ControlDecision;
 import com.infenia.yukta.plugin.control.ControlDecision.Source;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.plugin.decision.Answer;
 import com.infenia.yukta.plugin.decision.DecisionModel;
 import com.infenia.yukta.plugin.decision.ModelSpec;
@@ -161,7 +162,7 @@ class ModelControlPlaneTest {
   @Test
   void decide_eventKindNotConfigured_modelNotAsked() {
     final ChoiceStub spy = choosing("pause", 1);
-    final var line = new ExecutionEvent.LogLine("e1", "n1", "hello", Instant.now());
+    final var line = new ExecutionEvent.LogLine("e1", "n1", "hello", LogLevel.INFO, Instant.now());
 
     assertThat(new ModelControlPlane(spy, defaults()).decide(line).block().commands()).isEmpty();
     assertThat(spy.asked.get()).isNull();
@@ -180,8 +181,8 @@ class ModelControlPlaneTest {
 
     plane.decide(new ExecutionEvent.WorkflowStatusChanged("e1", "wf", "RUNNING", now)).block();
     assertThat(spy.asked.get().state()).isEqualTo("The workflow run changed status to RUNNING.");
-    plane.decide(new ExecutionEvent.LogLine("e1", "n1", "disk full", now)).block();
-    assertThat(spy.asked.get().state()).isEqualTo("Step n1 wrote the log line: disk full");
+    plane.decide(new ExecutionEvent.LogLine("e1", "n1", "disk full", LogLevel.ERROR, now)).block();
+    assertThat(spy.asked.get().state()).isEqualTo("Step n1 wrote the ERROR log line: disk full");
     plane
         .decide(
             new ExecutionEvent.ControlOutcome("e1", "PauseWorkflowCommand", null, true, null, now))

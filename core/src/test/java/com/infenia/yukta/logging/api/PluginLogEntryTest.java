@@ -4,6 +4,7 @@ package com.infenia.yukta.logging.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.plugin.core.LogLevel;
 import java.time.Instant;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;

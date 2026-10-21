@@ -7,12 +7,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
-import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.mapper.WorkflowMapper;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.time.Instant;

@@ -4,6 +4,7 @@ package com.infenia.yukta.event;
 
 import static org.assertj.core.api.Assertions.*;
 
+import com.infenia.yukta.plugin.core.LogLevel;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import lombok.NoArgsConstructor;
@@ -138,6 +139,30 @@ class WorkflowLogEventTest {
     final String toString = event.toString();
     assertThat(toString).contains("exec1");
     assertThat(toString).contains("test log");
+  }
+
+  @Test
+  void create_withLevel_keepsStreamAndLevel() {
+    final WorkflowLogEvent event =
+        WorkflowLogEvent.create("exec1", "node-001", "line", true, LogLevel.WARN);
+
+    assertThat(event.stderr()).isTrue();
+    assertThat(event.level()).isEqualTo(LogLevel.WARN);
+  }
+
+  @Test
+  void create_withoutLevel_isNotRatedYet() {
+    assertThat(WorkflowLogEvent.create("exec1", "node-001", "line").level()).isNull();
+  }
+
+  @Test
+  void withLevel_returnsCopyWithLevel() {
+    final WorkflowLogEvent event = WorkflowLogEvent.create("exec1", "node-001", "line");
+
+    final WorkflowLogEvent rated = event.withLevel(LogLevel.ERROR);
+
+    assertThat(rated.level()).isEqualTo(LogLevel.ERROR);
+    assertThat(rated).usingRecursiveComparison().ignoringFields("level").isEqualTo(event);
   }
 
   @Test

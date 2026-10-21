@@ -5,6 +5,7 @@ package com.infenia.yukta.service.orchestrator.strategy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,7 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.WorkflowNode;
+import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.WorkflowContext;
@@ -130,6 +132,7 @@ class StreamAssemblyHelperTest {
                   sink.line("stdout", "first");
                   sink.line("stderr", "  ");
                   sink.line("stdout", null);
+                  sink.line("stdout", "careful", LogLevel.WARN);
                   sink.line("stderr", "boom");
                   sink.line("stdout", longLine);
                   return Flux.empty();
@@ -143,11 +146,12 @@ class StreamAssemblyHelperTest {
 
     StepVerifier.create(result).verifyComplete();
 
-    verify(tracker).emitLogEvent(EXECUTION_ID, NODE_ID, "first", false);
+    verify(tracker).emitLogEvent(EXECUTION_ID, NODE_ID, "first", false, null);
     final ArgumentCaptor<String> pieces = ArgumentCaptor.forClass(String.class);
     verify(tracker, times(4))
-        .emitLogEvent(eq(EXECUTION_ID), eq(NODE_ID), pieces.capture(), eq(false));
-    verify(tracker).emitLogEvent(EXECUTION_ID, NODE_ID, "boom", true);
+        .emitLogEvent(eq(EXECUTION_ID), eq(NODE_ID), pieces.capture(), eq(false), isNull());
+    verify(tracker).emitLogEvent(EXECUTION_ID, NODE_ID, "boom", true, null);
+    verify(tracker).emitLogEvent(EXECUTION_ID, NODE_ID, "careful", false, LogLevel.WARN);
     assertThat(
             String.join("", pieces.getAllValues().stream().filter(p -> p.startsWith("y")).toList()))
         .isEqualTo(longLine);

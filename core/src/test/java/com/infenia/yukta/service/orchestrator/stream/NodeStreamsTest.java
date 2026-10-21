@@ -17,6 +17,7 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -337,6 +338,28 @@ class NodeStreamsTest {
     verify(tracker)
         .emitTaskStatusEvent(
             EXEC, NODE_ID, TASK, TaskStatus.FAILURE, Map.of(NodeStreams.ERROR_KEY, BOOM));
+  }
+
+  @Test
+  void ownFailure_carriesTheRatedProblemLinesOfItsReason() {
+    final String reason = "Process failed with exit code 1\n> Task :x\nwarning: careful";
+    StepVerifier.create(decorate(Flux.error(new IllegalStateException(reason))))
+        .expectError(IllegalStateException.class)
+        .verify();
+
+    verify(tracker)
+        .emitTaskStatusEvent(
+            EXEC,
+            NODE_ID,
+            TASK,
+            TaskStatus.FAILURE,
+            Map.of(
+                NodeStreams.ERROR_KEY,
+                reason,
+                NodeStreams.PROBLEMS_KEY,
+                List.of(
+                    Map.of("level", "ERROR", "line", "Process failed with exit code 1"),
+                    Map.of("level", "WARN", "line", "warning: careful"))));
   }
 
   @Test

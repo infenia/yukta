@@ -67,9 +67,9 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = "shadcn"
 SPDX-License-Identifier = "MIT"
 
-# Markdown is covered here rather than with in-file headers, so no SPDX block is ever needed in .md files
+# Markdown and CSV test fixtures are covered here rather than with in-file headers, so no SPDX block is ever needed in them
 [[annotations]]
-path = ["**/*.md", "docs/**/*.mdx", "docs/docs.json", "docs/.mintignore", "docs/style.css", "docs/api/openapi.json"]
+path = ["**/*.md", "docs/**/*.mdx", "docs/docs.json", "docs/.mintignore", "docs/style.css", "docs/api/openapi.json", "**/src/test/resources/**/*.csv"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Infenia Private Limited"
 SPDX-License-Identifier = "Apache-2.0"

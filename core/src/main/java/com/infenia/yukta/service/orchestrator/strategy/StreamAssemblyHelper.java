@@ -98,7 +98,7 @@ class StreamAssemblyHelper {
       final String executionId,
       final String nodeId,
       final NodeActivity activity) {
-    return (stream, line) -> {
+    return (stream, line, level) -> {
       activity.touch();
       activity.markLoggedLive();
       // The tracker rejects blank lines.
@@ -110,7 +110,8 @@ class StreamAssemblyHelper {
             executionId,
             nodeId,
             line.substring(from, Math.min(line.length(), from + MAX_LIVE_LINE_CHARS)),
-            "stderr".equals(stream));
+            "stderr".equals(stream),
+            level);
       }
     };
   }

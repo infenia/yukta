@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.logging.impl.memory;
 
-import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogWriter;
 import com.infenia.yukta.logging.api.PluginLogger;
+import com.infenia.yukta.plugin.core.LogLevel;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;

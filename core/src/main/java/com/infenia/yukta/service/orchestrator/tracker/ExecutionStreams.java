@@ -3,7 +3,6 @@
 package com.infenia.yukta.service.orchestrator.tracker;
 
 import com.infenia.yukta.event.WorkflowLogEvent;
-import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.model.execution.TaskStatus;
@@ -15,6 +14,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
@@ -164,7 +164,8 @@ final class ExecutionStreams {
                   module, // Use module as pluginName
                   event.stderr() ? LogStream.STDERR : LogStream.STDOUT,
                   event.line(),
-                  LogLevel.INFO, // Default to INFO
+                  Objects.requireNonNull(
+                      event.level(), "the tracker rates a line before it is fed"),
                   event.timestamp().atZone(ZoneId.systemDefault()).toInstant(),
                   null,
                   null);

@@ -3,10 +3,10 @@
 package com.infenia.yukta.logging.impl.file;
 
 import com.infenia.yukta.logging.api.ExecutionSummary;
-import com.infenia.yukta.logging.api.LogLevel;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogReader;
+import com.infenia.yukta.plugin.core.LogLevel;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

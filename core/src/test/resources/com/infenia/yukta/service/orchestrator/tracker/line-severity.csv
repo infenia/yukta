@@ -1,0 +1,11 @@
+line,level
+BUILD SUCCESSFUL in 4s,INFO
+warning: [deprecation] foo() in Bar,WARN
+Deprecated Gradle features were used,WARN
+Execution failed for task ':core:test',ERROR
+java.lang.IllegalStateException: boom,ERROR
+errorprone plugin loaded,INFO
+error: boom,ERROR
+1 test failed,ERROR
+WARN disk almost full,WARN
+See the report at: file:///x/index.html,ERROR
