@@ -91,14 +91,15 @@ launch_server() {
   for _ in 1 2 3 4 5; do [[ -s "$STATE_DIR/$name.pid" ]] && break; sleep 1; done
 }
 
-# wait_healthy NAME URL SECONDS: waits for URL/actuator/health, failing if the server exits first.
+# wait_healthy NAME URL SECONDS [LABEL]: waits for URL/actuator/health, failing if the server exits
+# first. LABEL (what the server is, e.g. "release v0.1.0-alpha.2") is printed with the ready line.
 wait_healthy() {
-  local name="$1" url="$2" timeout_s="$3"
+  local name="$1" url="$2" timeout_s="$3" label="${4:+ ($4)}"
   echo "waiting for Yukta at $url (log: $STATE_DIR/$name.log) ..."
   for _ in $(seq 1 $((timeout_s / 2))); do
     kill -0 "$(cat "$STATE_DIR/$name.pid")" 2>/dev/null || die "server exited early; see $STATE_DIR/$name.log"
     if curl -fsS "$url/actuator/health" >/dev/null 2>&1; then
-      echo "ready: export YUKTA_SERVER_URL=$url"
+      echo "ready: export YUKTA_SERVER_URL=$url$label"
       return 0
     fi
     sleep 2

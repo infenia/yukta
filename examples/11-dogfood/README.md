@@ -51,7 +51,7 @@ Caveat: a **native** server currently cannot stream control-bus events (`--watch
 Only when no server is running, start a dedicated one (it gets its own port and state):
 ```bash
 
-examples/11-dogfood/scripts/yukta-server.sh start dev            # a server on a free port (worktree provider by default)
+examples/11-dogfood/scripts/yukta-server.sh start dev            # a server on a free port (the latest release by default)
 examples/11-dogfood/scripts/yukta-check.sh                       # run the checks (see "Running checks" below)
 examples/11-dogfood/scripts/yukta-server.sh stop dev             # stop it (worktree: also removes the worktree; refuses if it has unmerged work, --force overrides)
 ```
@@ -61,13 +61,20 @@ examples/11-dogfood/scripts/yukta-server.sh stop dev             # stop it (work
 
 | provider | selected by | how | start time |
 |---|---|---|---|
-| `worktree` (default) | nothing | `yukta-worktree.sh`: a worktree of `origin/main` run with `bootRun` | minutes (Gradle build) |
-| `native` | `YUKTA_SERVER_BIN=<path>` or `YUKTA_SERVER_MODE=native` | `yukta-native.sh`: the GraalVM executable, default `boot/build/native/nativeCompile/yukta` (`./gradlew :boot:nativeCompile`) | seconds |
+| `release` (default) | nothing; `--version <tag>` or `YUKTA_SERVER_VERSION` pins a release | `yukta-release.sh`: the latest GitHub release (pre-releases included), `gh release download`, verified against `SHA256SUMS`, cached in `.yukta-dev/releases/<tag>`, run as native | seconds |
+| `native` | `YUKTA_SERVER_BIN=<path>` or `YUKTA_SERVER_MODE=native` | `yukta-native.sh`: a local executable, default `boot/build/native/nativeCompile/yukta` (`./gradlew :boot:nativeCompile`) | seconds |
+| `jar` | `YUKTA_SERVER_MODE=jar` (`YUKTA_SERVER_JAR` overrides the newest `boot/build/libs/*.jar`) | `java -jar` of `./gradlew :boot:bootJar`; no Truffle native step | seconds |
+| `docker` | `YUKTA_SERVER_MODE=docker` (`YUKTA_SERVER_IMAGE` picks the image) | `yukta-docker.sh`: a local image from `release/build-image.sh`. The image has no JDK, so it serves the Quickstart/smoke path, not the gradle stages | seconds |
+| `worktree` | `YUKTA_SERVER_MODE=worktree` | `yukta-worktree.sh`: a worktree of `origin/main` run with `bootRun` (can fail on the Truffle init NPE) | minutes |
 
-`stop` uses the provider recorded when the server was started. To make native the default later, change the
-fallback in `yukta-server.sh`; to add a provider, add a `yukta-<mode>.sh` that uses the helpers in `_lib.sh`
-(`free_port`, `launch_server`, `wait_healthy`, `stop_server`, `forget_server`) and write `.yukta-dev/<name>.env`
-with `YUKTA_SERVER_URL`.
+The ready line says what runs, e.g. `ready: export YUKTA_SERVER_URL=http://localhost:9101 (release v0.1.0-alpha.2)`
+or `(local jar)`. `stop` uses the provider recorded when the server was started; a release server is a native one.
+To add a provider, add a `yukta-<mode>.sh` that uses the helpers in `_lib.sh` and write `.yukta-dev/<name>.env`.
+
+### Running it during development
+`.claude/settings.json` registers a `Stop` hook (`.claude/hooks/dogfood-nudge.sh`): when Claude is about to finish
+with uncommitted code changes it is asked, once per change set, to run `yukta-check.sh --watch` and to file any
+Yukta defect with `report-finding.sh` (the `dogfood` label). Set `YUKTA_DOGFOOD=off` to opt out.
 
 ## Running checks
 `yukta-check.sh [-p project-path] [-m module] [gradle args...]` needs a running server (an existing one via
