@@ -60,3 +60,8 @@ perf/reports/
 
 # Release artifacts (release/)
 /dist/
+
+# Per-build PGO profile and one-off backlog migration artifacts
+/boot/pgo/
+/backlog.json
+/id-map.json
