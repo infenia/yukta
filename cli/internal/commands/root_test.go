@@ -355,3 +355,10 @@ func TestSetTestOutputFormat_affectsGlobalVariable(t *testing.T) {
 		t.Errorf("expected global outputFormat to be set to %q", testFormat)
 	}
 }
+
+func TestRootCmd_exposesVersion(t *testing.T) {
+	cmd := RootCmd(client.NewClient("http://localhost:8080"))
+	if cmd.Version != Version {
+		t.Errorf("Version = %q, want %q", cmd.Version, Version)
+	}
+}

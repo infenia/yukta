@@ -30,7 +30,7 @@ need docker
 
 if $promote; then
   is_prerelease "$version" && die "$version is a prerelease: it never moves X.Y or latest"
-  for image in "$IMAGE_GHCR" "$IMAGE_HUB"; do
+  for image in "${IMAGES[@]}"; do
     docker buildx imagetools create -t "$image:${version%.*}" -t "$image:latest" "$image:$version"
     docker buildx imagetools inspect "$image:latest"
   done
@@ -47,6 +47,9 @@ smoke_test() {
   trap 'docker rm -f "$name" >/dev/null 2>&1 || true' RETURN
   for _ in $(seq 1 60); do
     if curl -fsS "http://127.0.0.1:$port/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
+      # /actuator/info needs the key and must report the version this image was built for.
+      curl -fsS -H "Authorization: Bearer smoke-test-key" "http://127.0.0.1:$port/actuator/info" 2>/dev/null |
+        grep -q "\"version\":\"$version\"" || die "smoke test failed for $platform: /actuator/info does not report version $version"
       log "smoke test passed for $platform"
       return 0
     fi
@@ -77,8 +80,8 @@ done
 [[ ${#built[@]} -gt 0 ]] || die "no platform had a server binary"
 $push || { log "built and tested: ${built[*]} (not pushed)"; exit 0; }
 
-# Docker Hub gets the same per-architecture images and the same manifest as GHCR.
-for image in "$IMAGE_GHCR" "$IMAGE_HUB"; do
+# Every registry in IMAGES gets the same per-architecture images and the same manifest.
+for image in "${IMAGES[@]}"; do
   sources=()
   for arch in "${built[@]}"; do
     docker tag "$IMAGE_GHCR:$version-$arch" "$image:$version-$arch"

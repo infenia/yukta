@@ -8,11 +8,14 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RELEASE_DIR="$REPO_ROOT/release"
 DIST="${DIST:-$REPO_ROOT/dist}"
-IMAGE_GHCR="${IMAGE_GHCR:-ghcr.io/infenia/yukta}"
-IMAGE_HUB="${IMAGE_HUB:-docker.io/infenia/yukta}"
+# Registries to publish to, space separated. The first one is the one built and smoke tested locally.
+# Docker Hub returns by setting YUKTA_IMAGES="ghcr.io/infenia/yukta docker.io/infenia/yukta".
+read -r -a IMAGES <<< "${YUKTA_IMAGES:-ghcr.io/infenia/yukta}"
+IMAGE_GHCR="${IMAGES[0]}"
 # Pinned like the CLI's lint tools: run with `go run`, so nothing needs installing.
 NFPM="github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.48.0"
-PLATFORMS=(linux-amd64 linux-arm64)
+# The alpha ships linux-amd64 only; add linux-arm64 back when its runner build is proven.
+PLATFORMS=(linux-amd64)
 
 die() { echo "release: $*" >&2; exit 1; }
 log() { echo "==> $*" >&2; }

@@ -13,7 +13,7 @@ out="$DIST/cli"
 rm -rf "$out"
 mkdir -p "$out"
 log "building yukta-cli for all platforms"
-make -C "$REPO_ROOT/cli" build-all
+make -C "$REPO_ROOT/cli" build-all VERSION="$(gradle_version)"
 cp "$REPO_ROOT"/cli/build/yukta-cli-* "$out/"
 (cd "$out" && sha256sum yukta-cli-* > SHA256SUMS)
 log "CLI binaries in $out"
