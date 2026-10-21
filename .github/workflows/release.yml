@@ -114,17 +114,14 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
+      # Starts the binary, then runs the Quickstart workflow against it (release/smoke-test.sh), so a
+      # native image whose expressions or reflection data are broken cannot be released.
       - name: Smoke test
         run: |
           dist/${{ matrix.platform }}/yukta &
           pid=$!
-          for _ in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'; then kill "$pid"; exit 0; fi
-            sleep 2
-          done
-          kill "$pid" || true
-          echo "::error::server did not report UP"
-          exit 1
+          trap 'kill "$pid" || true' EXIT
+          release/smoke-test.sh http://127.0.0.1:8080
 
       - name: Attest build provenance
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')

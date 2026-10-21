@@ -7,7 +7,7 @@
 # In GitHub Actions the identity is the workflow instead.
 #
 # Usage: release/sign.sh <version> [--images]
-#   signs every file in dist/assets/ (made by release.sh) as <file>.sigstore.json, and with --images the image digests
+#   signs dist/assets/SHA256SUMS (made by release.sh) as SHA256SUMS.sigstore.json, and with --images the image digests
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -15,10 +15,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 version="$(normalize_version "$1")"
 need cosign
 
-while IFS= read -r -d '' file; do
-  log "signing $file"
-  cosign sign-blob --yes --bundle "$file.sigstore.json" "$file"
-done < <(find "$DIST/assets" -maxdepth 1 -type f ! -name '*.sigstore.json' -print0)
+# One signature, on SHA256SUMS, covers every file: it lists their hashes, and each signature is a
+# browser sign-in. Verifiers check the checksums file, then the files against it.
+checksums="$DIST/assets/SHA256SUMS"
+[[ -f "$checksums" ]] || die "missing $checksums (run release/release.sh first)"
+log "signing $checksums"
+cosign sign-blob --yes --bundle "$checksums.sigstore.json" "$checksums"
 
 if [[ "${2:-}" == "--images" ]]; then
   need docker

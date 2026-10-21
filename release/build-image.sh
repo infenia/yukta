@@ -47,6 +47,8 @@ smoke_test() {
   trap 'docker rm -f "$name" >/dev/null 2>&1 || true' RETURN
   for _ in $(seq 1 60); do
     if curl -fsS "http://127.0.0.1:$port/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
+      "$RELEASE_DIR/smoke-test.sh" "http://127.0.0.1:$port" smoke-test-key ||
+        { docker logs "$name" >&2 || true; docker rm -f "$name" >/dev/null 2>&1 || true; die "smoke test failed for $platform"; }
       # /actuator/info needs the key and must report the version this image was built for.
       curl -fsS -H "Authorization: Bearer smoke-test-key" "http://127.0.0.1:$port/actuator/info" 2>/dev/null |
         grep -q "\"version\":\"$version\"" || die "smoke test failed for $platform: /actuator/info does not report version $version"

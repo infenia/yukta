@@ -37,3 +37,8 @@ for format in deb rpm; do
   (cd "$REPO_ROOT" && VERSION="$version" ARCH="$arch" SERVER_BIN="$server" CLI_BIN="$cli" \
     go run "$NFPM" package --config release/nfpm.yaml --packager "$format" --target "$out/")
 done
+# nfpm writes a prerelease as 0.1.0~alpha.1. GitHub stores a "~" in an asset name as ".", so the name
+# in SHA256SUMS would no longer match the download. Use the stored form from the start.
+for f in "$out"/*~*; do
+  [[ -e "$f" ]] && mv "$f" "${f//\~/.}"
+done

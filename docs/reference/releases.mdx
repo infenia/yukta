@@ -28,7 +28,7 @@ Current release: **`0.1.0-alpha.2`**.
 | `yukta_<version>_amd64.deb`, `yukta-<version>.x86_64.rpm` | The same programs as a package, with a `systemd` service that is installed stopped |
 | `yukta-cli-linux-*`, `yukta-cli-darwin-*`, `yukta-cli-windows-amd64.exe` | The client alone, for each platform |
 | `install.sh` | One-command installer, pinned to the release |
-| `SHA256SUMS`, `*.sigstore.json` | Checksums, and a signature for each file |
+| `SHA256SUMS`, `SHA256SUMS.sigstore.json` | Checksums for every file, and a signature for the checksums |
 | `ghcr.io/infenia/yukta:<version>` | The container image |
 
 ## Supported platforms
@@ -55,13 +55,13 @@ Check the checksum first. Put the download and `SHA256SUMS` in one folder:
 sha256sum --check --ignore-missing SHA256SUMS
 ```
 
-Then check the signature. Files are signed without a stored key ([Sigstore keyless signing](https://docs.sigstore.dev/)): the signature records the signer's identity in a public log. The release notes name the identity and its sign-in provider; use them in the command:
+Then check the signature of the checksums file (it covers every other file). It is signed without a stored key ([Sigstore keyless signing](https://docs.sigstore.dev/)): the signature records the signer's identity in a public log. The release notes name the identity and its sign-in provider; use them in the command:
 
 ```bash
-cosign verify-blob --bundle FILE.sigstore.json \
+cosign verify-blob --bundle SHA256SUMS.sigstore.json \
   --certificate-identity SIGNER_IDENTITY \
   --certificate-oidc-issuer SIGNER_ISSUER \
-  FILE
+  SHA256SUMS
 ```
 
 Files built by GitHub Actions (the command-line client binaries and the server binary, when it was built there) also carry build provenance, which you can check with the GitHub CLI:
