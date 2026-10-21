@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -23,6 +24,8 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 @Tag(name = "Execution Search API", description = "Find runs across sessions")
+// Query parameters bind to this record, which AOT cannot see from the method signature.
+@RegisterReflectionForBinding(HistoryFilter.class)
 public class ExecutionSearchController {
 
   /** Most runs returned. */

@@ -18,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -41,6 +42,8 @@ import reactor.core.publisher.Mono;
 @Tag(
     name = "Workflow API",
     description = "Endpoints for starting workflows and listing their executions")
+// Query parameters bind to this record, which AOT cannot see from the method signature.
+@RegisterReflectionForBinding(HistoryFilter.class)
 public class WorkflowController {
 
   /** Session ID parameter description. */
