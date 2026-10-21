@@ -159,8 +159,22 @@ graalvmNative {
             // it runs on the distroless cc image (which has libc but no libz). Needs libz.a.
             if (providers.gradleProperty("native.static").isPresent) buildArgs.add("--static-nolibc")
 
-            // Dev builds: -Pnative.quick trades runtime speed for much faster image compilation
-            if (providers.gradleProperty("native.quick").isPresent) buildArgs.add("-Ob")
+            // Optimization level (-O3, --pgo and --pgo-instrument are Oracle GraalVM features; -march=compatibility
+            // (below) keeps release binaries runnable on any x86-64 / arm64 CPU; the default is x86-64-v3):
+            //   -Pnative.quick          -Ob, much faster image compilation, slower at run time
+            //   -Pnative.pgoInstrument  instrumented binary that records a profile (release/pgo-profile.sh)
+            //   default                 -O3 with the committed boot/pgo/yukta.iprof; without that file
+            //                           Oracle GraalVM infers a profile itself (GraalNN)
+            buildArgs.add("-march=compatibility")
+            val pgoProfile = layout.projectDirectory.file("pgo/yukta.iprof").asFile
+            when {
+                providers.gradleProperty("native.quick").isPresent -> buildArgs.add("-Ob")
+                providers.gradleProperty("native.pgoInstrument").isPresent -> buildArgs.addAll("-O3", "--pgo-instrument")
+                else -> {
+                    buildArgs.add("-O3")
+                    if (pgoProfile.exists()) buildArgs.add("--pgo=${pgoProfile.absolutePath}")
+                }
+            }
 
             // Force prod profile + AOT compilation
             buildArgs.add("-Dspring.profiles.active=prod")

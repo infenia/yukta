@@ -30,3 +30,9 @@ and Stop/Pause/Restart answered 404. The k6 tests did not notice because `LENIEN
 
 `GET /api/executions/{id}` answers 404 for a few ms after `POST /api/workflow/start` returned 202, about 1% of
 starts at 250 starts/s. The tests retry and count it as `poll_not_found`.
+
+## 6. Native image: the history endpoint answers 500 (open, #724)
+
+Native binary only (`BINARY=`). `GET /api/workflow/{id}/history?status=RUNNING&limit=1000`, which the `stuck_runs` check
+calls, fails with `Record components not available for record class ...HistoryFilter`: the record is missing from
+the native reflection config. It works on the jar.

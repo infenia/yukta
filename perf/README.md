@@ -22,28 +22,46 @@ own status never turns final, so leave it off. Open problems found by these test
 
 ## Benchmark with fixed resources (recommended)
 
-`perf/run.sh <perf|load|soak> [k6 args]` runs the server from `boot/build/libs/boot-0.0.1-SNAPSHOT.jar` in a
-container with fixed CPU and memory, runs the test from other cores, and writes a report.
+`perf/run.sh <perf|load|soak> [k6 args]` runs the server in a container with fixed CPU and memory, runs the test
+from other cores, and writes a report. the server is one of:
+
+| Server | Runs | Image | Needs |
+|---|---|---|---|
+| jar (default) | `boot/build/libs/boot-0.0.1-SNAPSHOT.jar` on a JVM | `eclipse-temurin:25-jre` | nothing: the script runs `./gradlew :boot:bootJar` every time (a no-op when up to date), unless you set `JAR=<path>` |
+| `BINARY=<path>` (native) | the GraalVM binary, e.g. `dist/linux-amd64/yukta` | `debian:12-slim` | the binary, built once with `release/build-server.sh` (add `NATIVE_QUICK=1` for a fast, slower-running rehearsal build; `NATIVE_HEAP=24g` for more builder heap). |
+
+The native binary is **not** rebuilt by `run.sh` (a native compile takes a long time): rebuild it yourself after
+changing code, or you benchmark an old binary. Compare the `artifact` hash and `commit` in `meta.json`.
 
 ```bash
-./gradlew :boot:bootJar                         # the jar it runs
-perf/run.sh perf                                # 2 vCPU, 8 GB (defaults), 10 starts/s for 2m
+perf/run.sh perf                                # jar, 2 vCPU, 8 GB (defaults), 10 starts/s for 2m
+BINARY=dist/linux-amd64/yukta perf/run.sh perf                    # the same test against the native binary
+release/build-server.sh && BINARY=dist/linux-amd64/yukta perf/run.sh perf   # rebuild the binary first
 DURATION=5m RATE=20 perf/run.sh perf
 RATE=200 HOLD=10m perf/run.sh load
-DURATION=8h RATE=10 perf/run.sh soak
+DURATION=8h RATE=10 BINARY=dist/linux-amd64/yukta perf/run.sh soak
 CPUS=4 CPUSET=0-3 MEMORY=16g perf/run.sh load   # another size
 KEEP=1 perf/run.sh load                         # leave the server up to inspect stuck runs (prints the API key)
 ```
 
-Env: `CPUS` (2), `CPUSET` (0,1; the cores the server is pinned to), `MEMORY` (8g, no swap), `K6_CPUSET` (2-15;
-keep it off the server cores), `JAVA_OPTS` (`-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError`), `IMAGE`
-(`eclipse-temurin:25-jre`). `RATE`, `RAMP`, `HOLD`, `DURATION`, `WORKFLOWS`, `GRACE` are passed to k6.
+To compare jar and native, run the same test and options once per server kind on the same commit, then compare the two
+`summary.json` files (and `container-stats.csv` for CPU and memory). Native starts faster and uses less memory;
+the jar is usually faster after warm-up, so use `load` or `soak` rather than a short `perf` for peak numbers.
 
-Report in `perf/reports/<perf|load|soak>/<UTC time>-<commit>/` (git-ignored): `meta.json` (commit, dirty flag,
-resources, options, tool versions), `summary.json` and `k6.log` (results), `dashboard.html` (k6 web dashboard),
-`metrics.csv.gz` (raw samples), `container-stats.csv` (server CPU and memory every 5 s), `server.log` and
-`diagnostics.txt` (counts of lost tracker events and errors). The exit code is k6's, so a failed threshold fails
-the script.
+Env: `JAR`, `BINARY`, `CPUS` (2), `CPUSET` (0,1; the cores the server is pinned to), `MEMORY` (8g,
+no swap), `K6_CPUSET` (2-15; keep it off the server cores), `JAVA_OPTS` (jar only,
+`-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError`), `IMAGE` (per mode, see the table). `RATE`, `RAMP`,
+`HOLD`, `DURATION`, `WORKFLOWS`, `GRACE`, `LENIENT`, `MAX_REJECTED` are passed to k6.
+
+Report in `perf/reports/<perf|load|soak>/<UTC time>-<jar|native>-<commit>/` (git-ignored): `meta.json` (mode, hash
+of the jar or binary, commit, dirty flag, resources, options, tool versions), `summary.json` and `k6.log`
+(results), `dashboard.html` (k6 web dashboard), `metrics.csv.gz` (raw samples), `container-stats.csv` (server CPU
+and memory every 5 s), `server.log` and `diagnostics.txt` (counts of lost tracker events and errors). The exit
+code is k6's, so a failed threshold fails the script.
+
+Reading a failed run: a setup error such as `setup '<workflow>' failed: 400` means no workflow ran (`workflow_success`
+is `0 out of 0`), look in `server.log`. Any `ERROR` count in `diagnostics.txt` is worth reading even when the
+thresholds pass; native mode currently logs 500s from the history endpoint (KNOWN-ISSUES #6).
 
 ## Without a container
 
