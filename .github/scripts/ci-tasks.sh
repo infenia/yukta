@@ -2,92 +2,152 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 #
-# Prints the Gradle tasks one CI shard must run (empty output = nothing to do).
+# Plans a CI run: reads the changed files on stdin and prints one JSON document saying what to run.
 #
-# Usage: ci-tasks.sh <platform|infra|plugins|cli|ui>
-# Env:   FULL=true            run every module of the shard (main, schedule, root-file change)
-#        CHANGED_MODULES      JSON array of changed module names (paths-filter output)
+# Usage: git diff --name-only BASE HEAD | ci-tasks.sh
+#        ci-tasks.sh --check          validate the module graph only (lint-workflows)
+# Env:   FULL=true                    run every module (main, schedule, dispatch, `ci:full` label)
+#        REPO_ROOT                    repository to read the module graph from (default: git top level)
 #
-# Rules on a partial (PR) build:
-#   * a changed library module (core, web, messaging, plugin-api, mcp) re-runs every shard, as
-#     everything consumes it (this is what buildDependents did before);
-#   * otherwise a shard runs just the changed modules it owns;
-#   * boot consumes plugins, infra modules and ui, so a change to any of those re-runs boot too.
+# Output: {"full": bool, "changed": [...], "affected": [...], "shards": [{name, args}],
+#          "lint": "<gradle tasks>", "e2e": bool}
+#
+# Nothing here is maintained by hand: modules come from settings.gradle.kts and the edges between
+# them from the `project(":x")` references in each module's build.gradle.kts. On a PR:
+#   * a file under a module marks that module changed (longest path wins: plus/workers -> :plus:workers);
+#   * a root/build file (build-logic, gradle/, config/, workflows, ...) forces a full run;
+#   * any other file (docs, examples, *.md) runs nothing;
+#   * every module that depends on a changed module, directly or transitively, is rebuilt too.
 set -euo pipefail
 
-shard=${1:?shard name required}
+root=${REPO_ROOT:-$(git rev-parse --show-toplevel)}
 FULL=${FULL:-false}
 
-declare -A path=(
-  [messaging]=:messaging [plugin-api]=:plugin-api [core]=:core [web]=:web [mcp]=:mcp [boot]=:boot
-  [persistence-postgres]=:plus:persistence-postgres [plus]=:plus [workers]=:plus:workers [cli]=:cli [ui]=:ui
-  [api-trigger]=:plugins:triggers:api-trigger
-  [constant-source]=:plugins:triggers:constant-source
-  [schedule-trigger]=:plugins:triggers:schedule-trigger
-  [console-terminal]=:plugins:terminals:console-terminal
-  [notify-terminal]=:plugins:terminals:notify-terminal
-  [outcome-terminal]=:plugins:terminals:outcome-terminal
-  [internal-core]=:plugins:processors:internal:internal-core
-  [script-js]=:plugins:processors:internal:script-js
-  [process-executor]=:plugins:processors:process-executor
-  [http-request]=:plugins:processors:http-request
-  [llm-call]=:plugins:processors:llm-call
-  [mcp-tool-call]=:plugins:processors:mcp-tool-call
-  [session-memory]=:plugins:processors:session-memory
-  [decision]=:plugins:processors:decision
-  [file-io]=:plugins:processors:file-io
-  [sql-query]=:plugins:processors:sql-query
-  [rule-supervisor]=:plugins:supervisors:rule-supervisor
-  [rule-control-plane]=:plugins:control-planes:rule-control-plane
-  [model-control-plane]=:plugins:control-planes:model-control-plane
-  [rules-first-control-plane]=:plugins:control-planes:rules-first-control-plane
-)
+mapfile -t modules < <(sed -n 's/^include("\(.*\)")/:\1/p' "$root/settings.gradle.kts")
+[ ${#modules[@]} -gt 0 ] || { echo "::error::No modules found in settings.gradle.kts" >&2; exit 1; }
+
+declare -A known=() rdeps=()
+for m in "${modules[@]}"; do known[$m]=1; done
+
+# Reverse edges: rdeps[:dep] = modules whose build file names ":dep". Any quoted module path counts,
+# not just project(":dep"): boot picks its optional plugins from a map of path strings.
+errors=0
+for m in "${modules[@]}"; do
+  build="$root/${m#:}"
+  build="${build//://}/build.gradle.kts"
+  [ -f "$build" ] || continue
+  while read -r dep; do
+    if [ -z "${known[$dep]:-}" ]; then
+      echo "::error::${m} depends on ${dep}, which is not included in settings.gradle.kts" >&2
+      errors=$((errors + 1))
+    fi
+  done < <(grep -oE 'project\(":[^"]+"\)' "$build" | sed 's/project("\(.*\)")/\1/' | sort -u)
+  while read -r dep; do
+    [ -n "${known[$dep]:-}" ] && [ "$dep" != "$m" ] && rdeps[$dep]="${rdeps[$dep]:-} $m"
+  done < <(grep -oE '":[A-Za-z0-9_:-]+"' "$build" | tr -d '"' | sort -u)
+done
+[ "$errors" -eq 0 ] || exit 1
+
+if [ "${1:-}" = --check ]; then
+  echo "ci-tasks.sh: ${#modules[@]} modules, every project dependency resolves"
+  exit 0
+fi
 
 group_of() {
   case $1 in
-    messaging|plugin-api|core|web|mcp|boot) echo platform ;;
-    persistence-postgres|plus|workers) echo infra ;;
-    cli) echo cli ;;
-    ui) echo ui ;;
-    *) echo plugins ;;
+    :plugins:*) echo plugins ;;
+    :plus|:plus:*) echo infra ;;
+    :cli) echo cli ;;
+    :ui) echo ui ;;
+    *) echo platform ;;
   esac
 }
 
-changed=()
-if [ "$FULL" != true ]; then
-  mapfile -t changed < <(jq -r '.[]' <<<"${CHANGED_MODULES:-[]}")
-fi
+# Files that change how every module builds.
+is_root_file() {
+  case $1 in
+    .github/workflows/*|.github/scripts/*|build-logic/*|gradle/*|config/*) return 0 ;;
+    build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat) return 0 ;;
+    .java-version|lombok.config) return 0 ;;
+    *.lockfile) [[ $1 != */* ]] ;;
+    *) return 1 ;;
+  esac
+}
 
-all_in_shard=()
-for m in "${!path[@]}"; do
-  [ "$(group_of "$m")" = "$shard" ] && all_in_shard+=("$m")
-done
-
-selected=()
-if [ "$FULL" = true ]; then
-  selected=("${all_in_shard[@]}")
-else
-  lib=false
-  boot=false
-  for m in "${changed[@]}"; do
-    [ -n "${path[$m]:-}" ] || { echo "::error::Unrecognized module '$m' - add it to ci-tasks.sh" >&2; exit 1; }
-    case $m in core|web|messaging|plugin-api|mcp) lib=true ;; esac
-    case $(group_of "$m") in plugins|infra) boot=true ;; esac
-    [ "$m" = ui ] && boot=true
+# The module owning a path (deepest module directory that prefixes it), or nothing.
+module_of() {
+  local f=$1 best='' dir
+  for m in "${modules[@]}"; do
+    dir="${m#:}"
+    dir="${dir//://}"
+    if [[ $f == "$dir"/* ]] && [ ${#dir} -gt ${#best} ]; then best=$dir; fi
   done
-  if [ "$lib" = true ]; then
-    selected=("${all_in_shard[@]}")
-  else
-    for m in "${changed[@]}"; do
-      [ "$(group_of "$m")" = "$shard" ] && selected+=("$m")
-    done
-    if [ "$boot" = true ] && [ "$shard" = platform ]; then selected+=(boot); fi
-  fi
+  [ -n "$best" ] && echo ":${best//\//:}"
+  return 0
+}
+
+declare -A changed=() affected=()
+full=$FULL
+if [ "$full" != true ]; then
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if is_root_file "$f"; then full=true; break; fi
+    m=$(module_of "$f")
+    [ -n "$m" ] && changed[$m]=1
+  done
 fi
 
-# De-duplicate and print as :module:build tasks.
-[ ${#selected[@]} -gt 0 ] || { echo; exit 0; }
-printf '%s\n' "${selected[@]}" | sort -u | while read -r m; do
-  [ -n "$m" ] && printf '%s:build ' "${path[$m]}"
+if [ "$full" = true ]; then
+  for m in "${modules[@]}"; do affected[$m]=1; done
+else
+  queue=("${!changed[@]}")
+  while [ ${#queue[@]} -gt 0 ]; do
+    m=${queue[0]}
+    queue=("${queue[@]:1}")
+    [ -z "${affected[$m]:-}" ] || continue
+    affected[$m]=1
+    for d in ${rdeps[$m]:-}; do queue+=("$d"); done
+  done
+fi
+
+sorted() { [ $# -eq 0 ] || printf '%s\n' "$@" | sort; }
+mapfile -t affected_list < <(sorted "${!affected[@]}")
+mapfile -t changed_list < <(sorted "${!changed[@]}")
+
+shards='[]'
+lint=''
+for shard in platform infra plugins cli ui; do
+  tasks=''
+  for m in "${affected_list[@]}"; do
+    [ "$(group_of "$m")" = "$shard" ] && tasks="$tasks$m:build "
+  done
+  [ -n "$tasks" ] || continue
+  shards=$(jq -c --arg n "$shard" --arg a "${tasks}--continue" '. + [{name: $n, args: $a}]' <<<"$shards")
 done
-echo
+
+# Fail-fast lint: Checkstyle/PMD/OpenGrep only (cli and ui have none; boot needs the UI build).
+for m in "${affected_list[@]}"; do
+  case $m in :cli|:ui) continue ;; esac
+  lint="$lint $m:opengrep"
+  [ "$m" = :boot ] || lint="$lint $m:checkstyleMain $m:checkstyleTest $m:pmdMain $m:pmdTest"
+done
+
+# End-to-end runs of the whole app: when the store they exercise (or anything it depends on) or
+# boot itself changed.
+if [ "$full" = true ] || [ -n "${affected[:plus:persistence-postgres]:-}" ] || [ -n "${changed[:boot]:-}" ]; then
+  shards=$(jq -c '. + [{name: "postgres-acceptance",
+    args: "-Pyukta.persistence=postgres :boot:test --tests *PostgresPersistenceAcceptanceTest"}]' <<<"$shards")
+fi
+if [ "$full" = true ] || [ -n "${affected[:plus]:-}" ] || [ -n "${changed[:boot]:-}" ]; then
+  shards=$(jq -c '. + [{name: "plus-acceptance",
+    args: "-Pyukta.edition=plus :boot:test --tests *FileStoreAcceptanceTest"}]' <<<"$shards")
+fi
+
+e2e=false
+if [ "$full" = true ] || [ -n "${changed[:ui]:-}" ]; then e2e=true; fi
+
+jq -nc --argjson full "$full" --argjson e2e "$e2e" --argjson shards "$shards" --arg lint "${lint# }" \
+  --args '{full: $full, changed: $ARGS.positional[0] | split(" ") | map(select(. != "")),
+           affected: $ARGS.positional[1] | split(" ") | map(select(. != "")),
+           shards: $shards, lint: $lint, e2e: $e2e}' \
+  "${changed_list[*]:-}" "${affected_list[*]:-}"

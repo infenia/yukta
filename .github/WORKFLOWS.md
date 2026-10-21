@@ -38,20 +38,44 @@ generation, weekly CodeQL and OpenSSF Scorecard runs.
 
 | When | Branch | Behavior |
 |------|--------|----------|
-| PR opened/updated | any | Build changed modules **and their dependents** |
+| PR opened/updated | any | Build the changed modules **and every module that depends on them** |
+| PR with the `ci:full` label | any | Full build (add the label, then re-run or push) |
 | Push | main | Full build — every module's tests + quality gates |
-| Scheduled | daily @ 5:30 AM IST | Full build (cache refresh) |
+| Scheduled | daily @ 5:30 AM IST | Full build **including E2E**, failed tests retried to spot flaky ones; failures open an issue (`nightly-report.yml`) |
+| Manual | workflow_dispatch | Same as scheduled (no issue) |
+
+**What a PR builds**: `.github/scripts/ci-tasks.sh` reads the modules from
+`settings.gradle.kts` and the edges between them from every quoted module path
+(`project(":core")`, boot's optional-plugin map) in the modules' `build.gradle.kts`,
+then rebuilds each changed module plus everything that depends on it, transitively.
+Nothing is listed by hand, so a new module or dependency is picked up automatically.
+
+| PR changes | Builds |
+|------------|--------|
+| `web/` or `mcp/` | that module + `boot` |
+| `core/` | `core`, `web`, `mcp`, `internal-core`, `script-js`, `plus/*`, `boot` + both acceptance suites |
+| `messaging/` or `plugin-api/` | every JVM module (not `cli`, `ui`) |
+| `plugins/processors/llm-call/` | `llm-call`, `decision`, `model-control-plane`, `rules-first-control-plane`, `boot` |
+| `ui/` | `ui`, `boot` + Playwright E2E |
+| `cli/` | `cli` |
+| `docs/`, `examples/`, `*.md` | nothing |
+| `build-logic/`, `gradle/`, `config/`, `.github/workflows/`, `.github/scripts/`, root build files | everything |
+
+PRs are gated on what they touch; a cross-module break that slips past the
+graph (reflection, resources, runtime wiring) is caught by the full build on
+`main` and by the nightly run, which files an issue.
 
 **Jobs**:
 1. `lint-workflows` — yamllint, actionlint, zizmor, shellcheck for `.github/scripts`,
-   the shard-planner table test (`ci-tasks.test.sh`) and a check that every Gradle
-   module has a path filter.
-2. `changes` — Detect which modules changed (fast, ~5s) and plan the shards.
-   Every Gradle module in `settings.gradle.kts` is listed; a module missing here
-   would silently skip CI. A change to a root/build file (`build-logic`, `gradle/`,
-   `gradle.properties`, `.github/workflows`, `.github/scripts`, ...) forces a full build.
+   the shard-planner table test (`ci-tasks.test.sh`) and a module-graph check
+   (`ci-tasks.sh --check`: every `project()` dependency is an included module).
+2. `changes` — Plan the run with `ci-tasks.sh` (fast, ~5s): changed modules and
+   their dependents, as above. The plan is written to the job summary.
+   A change to a root/build file (`build-logic`, `gradle/`, `gradle.properties`,
+   `.github/workflows`, `.github/scripts`, ...) forces a full build.
 3. `lint` — Fast Lint: Spotless, Checkstyle, PMD and OpenGrep on the affected
-   modules, for an early signal.
+   modules, for an early signal. Partial PR builds only: on a full run every shard's
+   `build` runs the same checks, and linting all 30 modules (~7 min) was the slowest job.
 4. `build` — One matrix job per shard, run in parallel (`platform`, `infra`,
    `plugins`, `cli`, `ui`, plus the `postgres-acceptance` and `plus-acceptance`
    end-to-end runs). Each runs `:module:build`, which includes `check`:
@@ -59,13 +83,58 @@ generation, weekly CodeQL and OpenSSF Scorecard runs.
    modules; Go format/vet/lint/gosec/govulncheck/100% function coverage for
    `cli`; ESLint (baselined in `ui/eslint-suppressions.json`), Vitest, header and
    version checks for `ui`. On CI a missing OpenGrep binary fails the build
-   instead of skipping the scan. Changed library modules re-run every shard.
+   instead of skipping the scan. Shards with nothing affected are not started.
 5. `dependency-submission` / `dependency-review` — Submit the full dependency
    graph; fail PRs that introduce HIGH/CRITICAL vulnerable dependencies
    (skipped for fork PRs).
-6. `e2e-tests` — Playwright against the UI when `ui/**` changed. Results, including
+6. `e2e-tests` — Playwright against the UI when `ui/**` changed, and on every full run. Results, including
    flaky tests that only passed on retry, are written to the job summary.
 7. `ci-gate` — Single required check for branch protection.
+
+---
+
+### `nightly-report.yml` — Nightly Failure Report
+
+**Purpose**: Track failures of the scheduled full runs as GitHub issues
+
+**How it works**: Triggered by `workflow_run` completions of CI, Security and
+CodeQL; acts only on **scheduled** runs. `.github/scripts/nightly-report.sh` keeps
+one open issue per workflow, titled `Nightly failure: <workflow>` and labelled
+`ci-nightly`:
+
+| Scheduled run | Action |
+|---------------|--------|
+| Fails / times out, no open issue | Opens one: failed jobs and steps, failed tests (from the `build-reports-*` JUnit XML), run link |
+| Fails / times out, issue open | Adds the same report as a comment (one per night) |
+| Succeeds, issue open | Comments "green again" and closes it |
+
+**Flaky tests**: scheduled and manual CI runs pass `-PretryFlakyTests`, which
+retries a failed test up to twice (Gradle test-retry plugin, `java-conventions`).
+The build still fails, so a flaky test is never hidden; the report lists it under
+*Flaky tests — failed, then passed on retry*, apart from tests that never passed.
+PRs and `main` never retry.
+
+**Shard timing**: every scheduled CI run writes the test time per shard and the
+slowest test classes to the report job's summary. Use it to rebalance shards
+(`group_of` in `ci-tasks.sh`) or to speed up the slowest tests.
+
+`ci-nightly` issues are exempt from the stale bot. Fix the failure on a branch;
+the next green nightly closes the issue, or run CI manually (`workflow_dispatch`)
+to check sooner (manual runs don't touch the issue).
+
+---
+
+### `dependabot-automerge.yml` — Dependabot Auto-merge
+
+**Purpose**: Merge Dependabot patch and minor updates without a maintainer click
+
+Enables GitHub auto-merge (squash) on Dependabot PRs whose update type is
+`semver-patch` or `semver-minor` (grouped PRs use the largest bump in the group).
+GitHub merges only once branch protection passes, i.e. `CI Gate` is green and any
+required review is given. Major updates stay manual.
+
+**Requires**: Settings → General → *Allow auto-merge*, and `CI Gate` as a required
+status check on `main`. If auto-merge is off, the job logs a notice and does nothing.
 
 ---
 
@@ -189,12 +258,16 @@ gh workflow run license-compliance.yml
 ## Troubleshooting
 
 ### "Why did CI skip entirely on my PR?"
-Nothing under a known module path changed (e.g. docs-only PR). The `changes`
-job output lists what was detected.
+Nothing under a module directory changed (e.g. docs-only PR). The `changes`
+job summary shows the build plan.
 
 ### "Why did my one-module PR rebuild half the repo?"
-Library modules (e.g. `messaging`, `core`, `plugin-api`) run
-`buildDependents` so everything that consumes them is re-tested before merge.
+Every module that depends on a changed module (directly or transitively) is
+re-tested. `messaging` and `plugin-api` are consumed by every JVM module.
+
+### "I want the whole build on my PR"
+Add the `ci:full` label and re-run CI (or push). Useful for interface changes
+whose effect isn't visible through Gradle dependencies (reflection, resources).
 
 ### "Security scan flags a CVE my PR didn't introduce"
 On PRs the Trivy vulnerability scan is report-only. Only
@@ -204,8 +277,8 @@ Pre-existing CVEs are enforced on `main` — fix or add a justified entry to
 
 ### "Why does building take so long on main?"
 Full build (all modules, all gates) runs on every push to main, split into
-parallel shards (`platform`, `infra`, `plugins`, `frontend`, plus the PostgreSQL
-acceptance test). `.github/scripts/ci-tasks.sh` picks the Gradle tasks per shard;
+parallel shards (`platform`, `infra`, `plugins`, `cli`, `ui`, plus the PostgreSQL
+and Plus acceptance tests). `.github/scripts/ci-tasks.sh` picks the Gradle tasks per shard;
 shards with nothing to do are not started. A separate `Fast Lint` job
 (Checkstyle, PMD, OpenGrep) reports style failures within minutes.
 
@@ -235,7 +308,11 @@ is published. The container image (GraalVM native compile) is built locally, not
 ## CI additions
 
 - `CI Gate` is the single check to require in branch protection.
-- `Lint Workflows` fails if a Gradle module in `settings.gradle.kts` has no path filter in `ci.yml`.
+- `Lint Workflows` fails if a `project()` dependency names a module missing from `settings.gradle.kts`.
+- A new module needs no CI edits: the planner reads `settings.gradle.kts` and the build files.
+- **Nightly report**: `.github/workflows/nightly-report.yml`
+- **Dependabot auto-merge**: `.github/workflows/dependabot-automerge.yml`
+- **Code owners** (review requests per area): `.github/CODEOWNERS`
 
 ---
 

@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Nightly Failure Report
+
+# Turns failures of the scheduled full runs into a tracked issue (see .github/scripts/nightly-report.sh):
+# one open "Nightly failure: <workflow>" issue per workflow, a comment per failing night, closed by
+# the first green run. PRs build only what they change, so this is where cross-module breaks surface.
+on:
+  workflow_run:
+    workflows:
+      - "Java CI with Gradle"
+      - "Security Scanning (Trivy)"
+      - "CodeQL"
+    types: [completed]
+
+# One report at a time per workflow, so two runs cannot both open an issue.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    name: Report nightly result
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: |
+      github.event.workflow_run.event == 'schedule' &&
+      contains(fromJson('["success", "failure", "timed_out"]'), github.event.workflow_run.conclusion)
+    permissions:
+      contents: read
+      actions: read          # list the run's jobs and download its test reports
+      issues: write          # open, comment on and close the tracking issue
+    steps:
+      # The default branch's scripts; the run being reported is itself a scheduled run of main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Open, update or close the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: .github/scripts/nightly-report.sh
