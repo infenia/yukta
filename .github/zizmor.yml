@@ -8,3 +8,5 @@ rules:
       - compliance-summary.yml
       # Signs contributors through the CLA assistant action; never checks out or runs PR code.
       - cla.yml
+      # Acts only on scheduled runs of main; reads run metadata and artifacts, never PR code.
+      - nightly-report.yml

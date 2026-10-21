@@ -9,7 +9,8 @@ on:
   pull_request:
     branches: [ "main" ]
   schedule:
-    - cron: '0 0 * * *' # 5:30 AM IST (00:00 UTC)
+    - cron: '0 0 * * *' # 5:30 AM IST (00:00 UTC) — nightly full run; failures open an issue (nightly-report.yml)
+  workflow_dispatch:  # manual full run
 
 # Cancel superseded runs on PRs only; main / scheduled runs always complete
 # so the Gradle cache and dependency graph submissions stay consistent.
@@ -44,17 +45,8 @@ jobs:
           pip install --require-hashes -r .github/requirements/yamllint.txt
           yamllint .github/workflows/
 
-      - name: Check every Gradle module has a CI path filter
-        run: |
-          status=0
-          while read -r mod; do
-            path="${mod//://}"
-            if ! grep -qF "'$path/**'" .github/workflows/ci.yml; then
-              echo "::error::Module '$mod' has no path filter in ci.yml (changes job)"
-              status=1
-            fi
-          done < <(sed -n 's/^include("\(.*\)")/\1/p' settings.gradle.kts)
-          exit $status
+      - name: Check the module graph (every project() dependency is an included module)
+        run: .github/scripts/ci-tasks.sh --check
 
       - name: Lint shell scripts (shellcheck)
         run: shellcheck .github/scripts/*.sh
@@ -87,148 +79,67 @@ jobs:
       - uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
   # ─────────────────────────────────────────────
-  # Job 1: Detect which modules were changed.
-  # This is always fast (~5s) and only does file-diff analysis.
+  # Job 1: Decide what to build (.github/scripts/ci-tasks.sh).
+  # PR: the changed modules plus every module that depends on them (read from the build files),
+  # or everything when a root/build file changed or the PR has the `ci:full` label.
+  # main / schedule / dispatch: everything.
   # ─────────────────────────────────────────────
   changes:
     name: Detect Changed Modules
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read    # read the PR's labels for `ci:full`
     outputs:
-      modules: ${{ steps.filter.outputs.changes }}
-      root: ${{ steps.filter.outputs.root }}
+      full: ${{ steps.plan.outputs.full }}
       shards: ${{ steps.plan.outputs.shards }}
       lint: ${{ steps.plan.outputs.lint }}
+      e2e: ${{ steps.plan.outputs.e2e }}
     steps:
+      # A PR checks out its merge commit: HEAD^1 is the base tip, so HEAD^1..HEAD is exactly the PR.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: Detect changed paths
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
-        id: filter
-        with:
-          filters: |
-            # Root / build infrastructure — any change here forces a full build
-            root:
-              - '.github/workflows/**'
-              - 'build.gradle.kts'
-              - 'settings.gradle.kts'
-              - 'build-logic/**'
-              - 'gradle/**'
-              - 'gradle.properties'
-              - 'gradlew'
-              - 'gradlew.bat'
-              - '.java-version'
-              - '.github/scripts/**'
-              - 'lombok.config'
-              - 'config/**'
+          fetch-depth: 2
 
-            # Every Gradle module in settings.gradle.kts must be listed here,
-            # otherwise a PR touching only that module skips CI entirely.
-            core:
-              - 'core/**'
-            web:
-              - 'web/**'
-            boot:
-              - 'boot/**'
-            persistence-postgres:
-              - 'plus/persistence-postgres/**'
-            workers:
-              - 'plus/workers/**'
-            plus:
-              - 'plus/**'
-              - '!plus/persistence-postgres/**'
-              - '!plus/workers/**'
-            messaging:
-              - 'messaging/**'
-            plugin-api:
-              - 'plugin-api/**'
-            mcp:
-              - 'mcp/**'
-            ui:
-              - 'ui/**'
-            cli:
-              - 'cli/**'
-            api-trigger:
-              - 'plugins/triggers/api-trigger/**'
-            constant-source:
-              - 'plugins/triggers/constant-source/**'
-            console-terminal:
-              - 'plugins/terminals/console-terminal/**'
-            internal-core:
-              - 'plugins/processors/internal/internal-core/**'
-            process-executor:
-              - 'plugins/processors/process-executor/**'
-            http-request:
-              - 'plugins/processors/http-request/**'
-            llm-call:
-              - 'plugins/processors/llm-call/**'
-            mcp-tool-call:
-              - 'plugins/processors/mcp-tool-call/**'
-            session-memory:
-              - 'plugins/processors/session-memory/**'
-            decision:
-              - 'plugins/processors/decision/**'
-            script-js:
-              - 'plugins/processors/internal/script-js/**'
-            rule-supervisor:
-              - 'plugins/supervisors/rule-supervisor/**'
-            file-io:
-              - 'plugins/processors/file-io/**'
-            sql-query:
-              - 'plugins/processors/sql-query/**'
-            schedule-trigger:
-              - 'plugins/triggers/schedule-trigger/**'
-            notify-terminal:
-              - 'plugins/terminals/notify-terminal/**'
-            rule-control-plane:
-              - 'plugins/control-planes/rule-control-plane/**'
-            model-control-plane:
-              - 'plugins/control-planes/model-control-plane/**'
-            rules-first-control-plane:
-              - 'plugins/control-planes/rules-first-control-plane/**'
-
-      # Turn the changed-module list into the shards to run (see .github/scripts/ci-tasks.sh).
-      # Shards with nothing to do are left out of the matrix, so they cost no runner.
       - name: Plan shards
         id: plan
         env:
-          CHANGED_MODULES: ${{ steps.filter.outputs.changes }}
-          ROOT: ${{ steps.filter.outputs.root }}
           EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          full=false
-          if [ "$EVENT" != pull_request ] || [ "$ROOT" = true ]; then full=true; fi
-          shards='[]'
-          lint=''
-          for shard in platform infra plugins cli ui; do
-            tasks=$(FULL=$full CHANGED_MODULES="$CHANGED_MODULES" .github/scripts/ci-tasks.sh "$shard")
-            [ -n "${tasks// /}" ] || continue
-            shards=$(jq -c --arg n "$shard" --arg t "$tasks" '. + [{name: $n, args: ($t + "--continue")}]' <<<"$shards")
-            lint="$lint $tasks"
-          done
-          # PostgreSQL acceptance test: runs the whole app against a real PostgreSQL (Testcontainers)
-          # so the schema, the R2DBC stores and the Flyway migrations are exercised end to end.
-          pg_args='-Pyukta.persistence=postgres :boot:test --tests *PostgresPersistenceAcceptanceTest'
-          if [ "$full" = true ] || jq -e 'index("persistence-postgres") or index("boot")' <<<"$CHANGED_MODULES" >/dev/null; then
-            shards=$(jq -c --arg a "$pg_args" '. + [{name: "postgres-acceptance", args: $a}]' <<<"$shards")
+          full=true
+          if [ "$EVENT" = pull_request ]; then
+            # Read labels live (not from the event payload) so "add ci:full, re-run" works.
+            labels=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/labels" --jq '.[].name')
+            if grep -qx 'ci:full' <<<"$labels"; then
+              echo "PR has the ci:full label: full build"
+            else
+              full=false
+            fi
           fi
-          # Plus edition (AGPL-3.0-only): the same app with the on-disk stores (-Pyukta.edition=plus)
-          plus_args='-Pyukta.edition=plus :boot:test --tests *FileStoreAcceptanceTest'
-          if [ "$full" = true ] || jq -e 'index("plus") or index("boot")' <<<"$CHANGED_MODULES" >/dev/null; then
-            shards=$(jq -c --arg a "$plus_args" '. + [{name: "plus-acceptance", args: $a}]' <<<"$shards")
+          if [ "$full" = true ]; then
+            plan=$(FULL=true .github/scripts/ci-tasks.sh </dev/null)
+          else
+            plan=$(git diff --name-only HEAD^1 HEAD | .github/scripts/ci-tasks.sh)
           fi
-          # Fail-fast lint: Checkstyle/PMD/OpenGrep only (cli and ui have none; boot needs the UI build)
-          lint_tasks=""
-          for t in $lint; do
-            m=${t%:build}
-            case $m in :cli|:ui) continue ;; esac
-            lint_tasks="$lint_tasks $m:opengrep"
-            [ "$m" = :boot ] || lint_tasks="$lint_tasks $m:checkstyleMain $m:checkstyleTest $m:pmdMain $m:pmdTest"
-          done
-          echo "shards=$shards" >> "$GITHUB_OUTPUT"
-          echo "lint=${lint_tasks# }" >> "$GITHUB_OUTPUT"
-          echo "Shards: $shards"
+          jq . <<<"$plan"
+          {
+            echo "full=$(jq -r .full <<<"$plan")"
+            echo "shards=$(jq -c .shards <<<"$plan")"
+            echo "lint=$(jq -r .lint <<<"$plan")"
+            echo "e2e=$(jq -r .e2e <<<"$plan")"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Build plan"
+            echo
+            echo "- Full build: \`$(jq -r .full <<<"$plan")\`"
+            echo "- Changed: $(jq -r '.changed | if length == 0 then "none" else map("`\(.)`") | join(", ") end' <<<"$plan")"
+            echo "- Built (changed + dependents): $(jq -r '.affected | length' <<<"$plan") modules"
+            echo "- Shards: $(jq -r '[.shards[].name] | if length == 0 then "none" else join(", ") end' <<<"$plan")"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ─────────────────────────────────────────────
   # Job 2a: Fail-fast lint. Checkstyle, PMD and OpenGrep on the affected modules, so a style
@@ -304,9 +215,8 @@ jobs:
   # Job 2b: Build and quality-gate, sharded so the shards run in parallel.
   #
   # The `changes` job decides which shards exist (see .github/scripts/ci-tasks.sh):
-  #   PR:   changed modules, or every module of a shard when a library module or a root file
-  #         changed (everything consumes those).
-  #   main / schedule: every module (tests + Checkstyle + PMD + SpotBugs + JaCoCo verification).
+  #   PR:   changed modules and their dependents; every module when a root file changed.
+  #   main / schedule / dispatch: every module (tests + Checkstyle + PMD + SpotBugs + JaCoCo).
   # ─────────────────────────────────────────────
   build:
     name: Build & Check (${{ matrix.name }})
@@ -534,16 +444,14 @@ jobs:
 
   # ─────────────────────────────────────────────
   # Job: E2E Tests (Playwright + Screenshots)
-  # Only runs when UI module changes
+  # Runs when the UI module changed, and on every full run (main, nightly, dispatch)
   # ─────────────────────────────────────────────
   e2e-tests:
     name: E2E Tests (Playwright)
     needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: |
-      contains(fromJson(needs.changes.outputs.modules), 'ui') &&
-      (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
+    if: needs.changes.outputs.e2e == 'true'
     permissions:
       contents: read
     steps:

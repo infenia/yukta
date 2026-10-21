@@ -407,7 +407,7 @@ IDs such as L5 refer to the earlier build-logic review ([Improvements page](/int
 <Accordion title="Adding a module needs three manual edits, with partial safety nets">
 **Id** `ciManualMap` · **Category** Evolvability · **Impact** 2 · **Effort** 3 · **Components** CI Pipeline
 
-**Why it matters.** A module is listed in settings.gradle.kts, in the paths-filter list of ci.yml, and in the path map and the group_of function of .github/scripts/ci-tasks.sh (the shard planner added in PR #391). The lint job and the planner's 'unrecognized module' error catch omissions, but only when a pull request touches that module or the lint runs. Four places invite mismatches such as a wrong Gradle path or a module in the wrong shard.
+**Why it matters.** A module is listed in settings.gradle.kts, in the paths-filter list of ci.yml, and in the path map and the group_of function of .github/scripts/ci-tasks.sh (the shard planner added in PR #391). The lint job and the planner's 'unrecognized module' error catch omissions, but only when a pull request touches that module or the lint runs. Four places invite mismatches such as a wrong Gradle path or a module in the wrong shard. Update (2026-10-21): done. ci-tasks.sh reads the modules from settings.gradle.kts and the dependency edges from the build files, assigns shards by path, and replaces the paths-filter list; `ci-tasks.sh --check` in lint-workflows fails on a dangling project() dependency on every run. A new module needs only its include line.
 
 **Option.** Generate the filter, the path map and the shard assignment from settings.gradle.kts in one script; or use one dynamic job that asks Gradle which projects changed.
 
