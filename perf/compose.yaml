@@ -5,7 +5,7 @@
 services:
   yukta:
     image: ${IMAGE:-eclipse-temurin:25-jre}
-    command: ["java", "-jar", "/app/yukta.jar"]
+    command: ${RUN_CMD:-java -jar /app/yukta.jar}
     cpus: ${CPUS:-2}
     cpuset: ${CPUSET:-0,1}
     mem_limit: ${MEMORY:-8g}
@@ -16,7 +16,7 @@ services:
       YUKTA_SERVER_ADDRESS: 0.0.0.0
       YUKTA_API_KEY: ${API_KEY:?set by run.sh}
     volumes:
-      - ${JAR:?set by run.sh}:/app/yukta.jar:ro
+      - ${JAR:?set by run.sh}:/app/yukta.jar:ro   # the jar, or the native binary (BINARY=)
     ports:
       - "127.0.0.1:8080:8080"   # loopback only, so k6 may send the key over http
     healthcheck:
