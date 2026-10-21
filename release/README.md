@@ -88,7 +88,7 @@ One pull request to approve, one button to press.
    notes, keep "pre-release" ticked for a version with a `-`, and press Publish. *Why a person:* this is
    the point of no return; from here the assets and tag cannot change. Release notes are also an
    OpenSSF Best Practices requirement.
-4. **Approve the docs PR.** Publishing opens `docs: install the X.Y.Z release`, which points the install
+4. **Approve the docs PR.** Publishing opens `chore(docs): install the X.Y.Z release`, which points the install
    commands at the new release and has auto-merge on. Approve it, then check the Mintlify deployment is
    live. *Why after publishing:* Mintlify publishes `docs/` from `main` immediately, so merged earlier,
    the install commands would point at a release that does not exist yet.
@@ -126,7 +126,9 @@ Signatures made this way carry your identity, not the workflow's; name it in the
 |---|---|
 | Found a bug after tagging, before publishing | Do not publish. Delete the draft (`gh release delete vX.Y.Z`), fix on `main`, and merge the next release PR. The tag stays; that is fine |
 | `assemble` fails at `docker push` | Setup step 3 |
-| `assemble` or `verify` fails after the image was pushed | Fix the cause, rerun the failed job: uploads use `--clobber` on the draft |
+| `assemble` fails before the image push | Fix the cause and rerun the job |
+| `assemble` fails after the image push (signing, upload) | Do not rerun it: that rebuilds and replaces the image tag. Sign and upload by hand as in the fallback above |
+| `verify` fails | Read the log. The assets are intact, so rerunning `verify` alone is safe |
 | Package cannot be made public | Setup step 5 |
 | Release PR has no CI checks | The App token is missing or not installed (setup step 1) |
 

@@ -141,7 +141,8 @@ jobs:
   # released by hand. Signing is keyless: cosign uses this workflow's identity, no browser, no key.
   assemble:
     name: Package, sign, upload
-    if: github.ref_type == 'tag'
+    # A manual (workflow_dispatch) run must never push or sign, even when started on a tag.
+    if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: [cli, server]
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -186,6 +187,9 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           chmod +x dist/linux-amd64/yukta dist/cli/yukta-cli-*
+          # release-please marks every draft a prerelease; only a version with a "-" is one.
+          case "$TAG" in *-*) pre=true ;; *) pre=false ;; esac
+          gh release edit "$TAG" --prerelease="$pre"
           release/release.sh "${TAG#v}" --skip-server --publish
 
   # Installs what was just uploaded the way a user would, before anyone publishes the draft.
@@ -225,7 +229,7 @@ jobs:
           docker run --rm --network host -v "$RUNNER_TEMP/rel/$TAG:/rel:ro" ubuntu:24.04 bash -euc "
             apt-get update -qq && apt-get install -y -qq curl >/dev/null
             curl -fsSL http://127.0.0.1:8765/$TAG/install.sh | YUKTA_DOWNLOAD_BASE=http://127.0.0.1:8765 sh
-            ~/.local/bin/yukta-cli --version
+            yukta-cli --version   # root installs to /usr/local/bin
             apt-get install -y -qq /rel/*.deb >/dev/null"
 
       - name: Pull the image logged out and run the Quickstart

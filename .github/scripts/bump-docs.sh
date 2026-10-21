@@ -3,7 +3,8 @@
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 #
 # After a release is published: replace the previously documented version with the new one in docs/
-# and README.md (they pin it in install commands), then open a pull request with auto-merge on.
+# and README.md (they pin it in install commands), then open a pull request with auto-merge on. It is a chore, which release-please hides, so it
+# does not by itself call for another release.
 # The old version is read from the install command in docs/quickstart.mdx.
 #
 # Env: GH_TOKEN (an App token: the PR must start CI), REPO, TAG
@@ -16,14 +17,16 @@ if [ -z "$old" ] || [ "$old" = "$new" ]; then
   exit 0
 fi
 
-grep -rlF -- "$old" docs README.md | xargs sed -i "s/${old//./\\.}/$new/g"
+# Skip lines that talk about older releases ("alpha.2 and earlier ..."), and do not match inside a longer
+# version (alpha.2 inside alpha.20).
+grep -rlF -- "$old" docs README.md | xargs sed -i "/earlier/! s/${old//./\\.}\([^0-9]\|\$\)/$new\1/g"
 branch="docs/install-$new"
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git checkout -b "$branch"
-git commit -qam "docs: install the $new release"
+git commit -qam "chore(docs): install the $new release"
 git push "https://x-access-token:$GH_TOKEN@github.com/$REPO.git" "HEAD:refs/heads/$branch"
 pr=$(gh pr create -R "$REPO" --base main --head "$branch" \
-  --title "docs: install the $new release" \
+  --title "chore(docs): install the $new release" \
   --body "Points the install commands at [$TAG](https://github.com/$REPO/releases/tag/$TAG). Opened by the release follow-up workflow.")
 gh pr merge "$pr" -R "$REPO" --auto --squash
