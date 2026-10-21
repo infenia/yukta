@@ -80,8 +80,10 @@ jobs:
 
       - name: Publish result to job summary
         if: always()
+        env:
+          OUTCOME: ${{ steps.validate.outcome }}
         run: |
-          if [ "${{ steps.validate.outcome }}" = "success" ]; then
+          if [ "$OUTCOME" = "success" ]; then
             {
               echo "### ✅ Dependency licenses validated (Licensee)"
               echo ""

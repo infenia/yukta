@@ -22,10 +22,32 @@ FROM ghcr.io/graalvm/native-image-community:25@sha256:0d936f32bb8acb5bc60c41b33e
 # plus xargs and findutils, which the Gradle wrapper needs.
 
 WORKDIR /build
+
+# Compile the Gradle build logic (Kotlin convention plugins) in its own layer: it depends only on
+# the wrapper, the version catalog and build-logic/, so a source change does not redo it.
+COPY gradlew ./
+COPY gradle gradle
+COPY build-logic build-logic
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew --no-daemon -p build-logic jar
+
 COPY . .
 
+# Builder heap for native-image; lower it on machines with less memory.
+ARG NATIVE_HEAP=16g
+# Any non-empty value builds with -Ob: much faster to compile, slower at run time. For rehearsals
+# and smoke tests only; never for a release.
+ARG NATIVE_QUICK=
+
+# Keep the Gradle home and the pnpm store between builds (BuildKit cache mounts), so dependencies
+# download once on a machine. They live outside the image: nothing in the result depends on them.
+ENV npm_config_store_dir=/pnpm-store
+
 # Build native image with aggressive optimizations
-RUN ./gradlew nativeCompile -x test --no-daemon
+RUN --mount=type=cache,target=/root/.gradle \
+    --mount=type=cache,target=/pnpm-store \
+    ./gradlew nativeCompile -x test --no-daemon --max-workers="$(nproc)" \
+      -Pnative.heap=${NATIVE_HEAP} -Pnative.static ${NATIVE_QUICK:+-Pnative.quick}
 
 # Stage 2: Copy binary (UPX compression attempted but not critical for image size)
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS compressor

@@ -112,7 +112,7 @@ An execution with a schedule runs until it is stopped. Use `maxRuns` for a bound
 POST /api/workflow/uptime-watch/probe/stop
 ```
 
-The same works from the CLI with `yukta workflow stop <session-id> <workflow-id>`, and for one execution with `yukta workflow executions stop <execution-id>`. See [Run controls](/running/run-controls).
+The same works from the CLI with `yukta-cli workflow stop <session-id> <workflow-id>`, and for one execution with `yukta-cli workflow executions stop <execution-id>`. See [Run controls](/running/run-controls).
 
 ## Overlap
 
@@ -135,7 +135,7 @@ When you need a schedule that survives restarts, or runs that are independent of
 | Interface | How |
 |---|---|
 | REST | `POST /api/workflow/start` with `{"sessionId", "workflowId", "payload"}`. It answers `202` with the new `executionId`, `404` for an unknown session or workflow and `429` when the execution limit is reached. An optional `Idempotency-Key` header makes a retried start return the original execution |
-| CLI | `yukta workflow start <session-id> <workflow-id> --payload '{"key": "value"}'`, or `--payload-file` to read the payload from a file |
+| CLI | `yukta-cli workflow start <session-id> <workflow-id> --payload '{"key": "value"}'`, or `--payload-file` to read the payload from a file |
 | MCP | The `start_workflow` tool with `sessionId` and `workflowId`. It does not take a payload, so use REST or the CLI for a workflow that needs one |
 
 The workflow for this mode begins with `API_TRIGGER`, which passes the payload of the start request into the graph, or with `CONSTANT_SOURCE` when it needs no input:

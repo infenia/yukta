@@ -29,7 +29,7 @@ the whole `gradle-check` (minutes). It targets `YUKTA_URL`, else `YUKTA_SERVER_U
 ```
 server provider ───▶ Yukta server (own port, own state)       worktree: ../yukta-dev-<name> from main, bootRun
                           ▲                                    native:   the GraalVM executable
-feature branch ──CLI──────┘   yukta session apply → workflow start → logs/events → RESULT line
+feature branch ──CLI──────┘   yukta-cli session apply → workflow start → logs/events → RESULT line
 ```
 The scripts talk to the server only through `.yukta-dev/current.env` and the `yukta` CLI, so the provider is
 interchangeable. `yukta-server.sh` is the single entry point (see "Server providers").
@@ -94,7 +94,7 @@ examples/11-dogfood/scripts/yukta-check.sh :core:test --tests 'com.infenia.yukta
 
 ### Watching and controlling a run
 `--detach` starts the run and returns at once; `yukta-watch.sh` follows it with control-bus events
-(`yukta controlbus watch`) until it ends. `--watch` does both in one command and shows **problems only**
+(`yukta-cli controlbus watch`) until it ends. `--watch` does both in one command and shows **problems only**
 (`--quiet`), which is the cheap way to follow a run (for an agent, in tokens):
 ```bash
 examples/11-dogfood/scripts/yukta-check.sh --detach -m core      # STARTED execution=<e> session=<s>
@@ -215,10 +215,10 @@ Stages run sequentially and fail fast (avoids concurrent Gradle runs fighting ov
 ## Using the CLI directly
 ```bash
 export YUKTA_SERVER_URL=http://localhost:9101     # printed by yukta-worktree.sh
-yukta session list
-yukta -o json workflow status <session> <execution>
-yukta logs <session> <execution>
-yukta plugin list
+yukta-cli session list
+yukta-cli -o json workflow status <session> <execution>
+yukta-cli logs <session> <execution>
+yukta-cli plugin list
 ```
 The server also exposes the web UI and MCP on the same port.
 

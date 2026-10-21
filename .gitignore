@@ -54,3 +54,6 @@ jte-classes/
 
 # Yukta dogfood state
 .yukta-dev/
+
+# Release artifacts (release/)
+/dist/

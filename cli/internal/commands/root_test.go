@@ -19,8 +19,8 @@ func TestRootCmd_createsCommand_withCorrectUse(t *testing.T) {
 	c := client.NewClient("http://localhost:8080")
 	cmd := RootCmd(c)
 
-	if cmd.Use != "yukta" {
-		t.Errorf("expected Use 'yukta', got %q", cmd.Use)
+	if cmd.Use != "yukta-cli" {
+		t.Errorf("expected Use 'yukta-cli', got %q", cmd.Use)
 	}
 }
 

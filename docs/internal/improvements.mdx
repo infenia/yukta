@@ -383,7 +383,7 @@ All three roadmap phases are marked done. What is still pending is the tail of p
 A practical order: fix what misleads users first, then close the gaps to the server, then make the link to the server self-checking.
 
 1. **Today.** Five command groups (about forty commands, including watch, result, node retry, breakpoint and signal), 100% function coverage, pinned tools, releases with checksums. The first page of every list, no retries, no resume.
-2. **Make it honest.** Done: `session apply` is registered. Next: refresh the README, fix the root description, silence the duplicate error output, add `yukta version`, and test that every written command is registered. Risks: `docsStale`, `errorNoise`, `noVersion`.
+2. **Make it honest.** Done: `session apply` is registered. Next: refresh the README, fix the root description, silence the duplicate error output, add `yukta-cli version`, and test that every written command is registered. Risks: `docsStale`, `errorNoise`, `noVersion`.
 3. **Close the main gaps.** Paging flags, stop mode, idempotency key, empty reason fix, and the commands still missing (validate, versions, approvals, scheduler limits and priority, recover, supervisors). Done: events (`controlbus watch`), node retry, breakpoint, signal, result. Risks: `noPaging`, `stopMode`, `idemKey`, `emptyReason`, `missingCmds`.
 4. **Robust in pipelines.** Opt-in retries, stream reconnect with Last-Event-ID, distinct exit codes, consistent -o, token safety warnings. Risks: `noRetry`, `streamLoose`, `outputUneven`, `tokenPlain`.
 5. **Self-checking against the server.** A contract test (real server or OpenAPI) in CI, a registration test over the command tree, and a move off deprecated paths. Risks: `dtoDrift`, `legacyPaths`, `testsTwice`, `winBuild`, `fileOrJson`, `localTimestamps`, `keywordProblems`.
@@ -556,7 +556,7 @@ The ids below are assigned on this page; the source lists the open items without
 | CLI-3 | No idempotency key on `workflow start` | A retried start can create a second run | Not rated in the source | Open |
 | CLI-4 | No retries | A transient failure fails the command | Not rated in the source | Open |
 | CLI-5 | No `Last-Event-ID` or reconnect, also for `controlbus watch` | A dropped stream ends the command | Not rated in the source | Open |
-| CLI-6 | No `yukta version` command | Users cannot tell which build they run | Not rated in the source | Open |
+| CLI-6 | No `yukta-cli version` command | Users cannot tell which build they run | Not rated in the source | Open |
 | CLI-7 | Stale README: it mentioned `yukta-darwin`, `goBuildDev`, `~/.yukta/config` and `/api/v1` | Wrong instructions. Also tracked on the [bugs page](/internal/bugs#cli) | Update the README | Fixed |
 | CLI-8 | 17 calls used `/api/workflow/...`, 14 of them deprecated aliases | The CLI depended on deprecated paths. Also tracked on the [bugs page](/internal/bugs#cli) | Move the calls to the current paths | Fixed: the 14 now use `/api/executions/...`; start, stop-workflow and history have no other route |
 | CLI-9 | No command for: validate, session config, supervisors, workflow versions, approvals, scheduler limits and priority, recover, run search and control audit, workers | Those server features are REST and MCP only | Not rated in the source. Generating the client from OpenAPI was considered and not done | Open |
@@ -569,7 +569,7 @@ All four roadmap phases (safe requests, parity, reproducible build, trim) are ma
 
 1. Add paging flags, a stop mode and an idempotency key (CLI-1, CLI-2, CLI-3).
 2. Add retries and stream reconnect with `Last-Event-ID`, including for `controlbus watch` (CLI-4, CLI-5).
-3. Add commands for the endpoints that have none (CLI-9) and a `yukta version` command (CLI-6).
+3. Add commands for the endpoints that have none (CLI-9) and a `yukta-cli version` command (CLI-6).
 4. Fix the README, the deprecated paths, the timestamp parsing and the keyword classifier (CLI-7, CLI-8, CLI-10, CLI-11).
 
 13 findings already fixed. Module guide: [cli](/contributing/modules/cli).
