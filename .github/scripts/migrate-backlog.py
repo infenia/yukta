@@ -367,7 +367,7 @@ def gh_json(*args, body=None):
     for _ in range(120):
         result = subprocess.run(["gh", *args], input=None if body is None else json.dumps(body),
                                 capture_output=True, text=True)
-        if "rate limit" not in result.stderr.lower():
+        if not any(m in result.stderr.lower() for m in ("rate limit", "unknown owner type")):
             break
         print("  rate limited, waiting 60s", flush=True)
         time.sleep(60)
