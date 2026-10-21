@@ -234,6 +234,18 @@ class ExecutionSchedulerTest {
   }
 
   @Test
+  void start_afterStop_admitsExecutionsAgain() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+
+    scheduler.stop();
+    assertThat(scheduler.isRunning()).isFalse();
+    scheduler.start();
+
+    assertThat(scheduler.isRunning()).isTrue();
+    assertThat(granted(scheduler.acquire("s", "w"))).isNotNull();
+  }
+
+  @Test
   void shutdown_waitsUntilTheLastRunningExecutionIsDone() {
     final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
     final Permit one = granted(scheduler.acquire("s", "w"));
