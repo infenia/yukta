@@ -75,7 +75,7 @@ fixes (a fork needs `CLAUDE_CODE_SESSION_ID`, i.e. a run started from Claude Cod
   records in `.yukta-dev/heal/<session>/`) before committing: the fixer never commits.
 - A failure after healing (`failed_node=<stage>`, the stage's last recheck) is exhausted: take over, fix
   it, then rerun the script. Record a fixer that
-  misbehaves (wrong fix, GUARD hit, cost over budget) as a `DF-<n>` finding.
+  misbehaves (wrong fix, GUARD hit, cost over budget) as a dogfood finding (`report-finding.sh`).
 - Workflows `stage-<stage>` with nodes `run`, `apply` and the outcome terminals `ok`, `retry`, `escalate`,
   `failed`; the output is `STAGE <stage> <outcome> execution=<e>` lines and `HEAL` lines.
 - Budget: `YUKTA_HEAL_BUDGET` (USD per attempt, default 1), `YUKTA_HEAL_MODEL` (default sonnet). The
@@ -119,25 +119,24 @@ Yukta develops Yukta, so a run is also a test of Yukta. Watch it live instead of
    `workflow node breakpoint <e> <node> --field F --equals V [--clear]`, `workflow executions stop <e>`.
    Stop a run early, rather than letting it burn time, once a stage shows an `ERROR` you cannot be wrong
    about (`workflow executions stop <e>`).
-4. **Record every finding** in `docs/internal/bugs.mdx`, under the `### Dogfood findings` heading of the
-   module section the defect is in (the dogfood tooling itself: the `## Dogfood tooling` section). Create the
-   heading if it is missing, use the next free `DF-<n>` on the whole page (`grep -o 'DF-[0-9]*'`), and append:
+4. **Record every finding** as a GitHub issue with `report-finding.sh` (label `dogfood`; the issue-triage
+   workflow puts it on the Yukta Roadmap project). An open dogfood issue with the same title gets the new
+   evidence as a comment instead of a duplicate, so reuse the title when the same defect shows up again.
+   ```bash
+   examples/11-dogfood/scripts/report-finding.sh --title "<one-line title>" --module <module> \
+     --priority P0|P1|P2|P3 --kind bug|error|perf|ux|security|improvement \
+     --workflow <wf> --execution <e> --evidence '<the ERROR / WARN / CONTROL / SLOW / RESULT line>' \
+     [--repro '<command>'] [--expected '<what should have happened>'] [--dry-run]
    ```
-   #### DF-<n>: <one-line title>
-   - Status: open
-   - Severity: P0–P3
-   - Kind: bug | error | perf | ux | security | improvement
-   - Found: <date>, workflow <wf>, scope <scope>, execution <e>, stage <node>
-   - Evidence: <the ERROR / WARN / CONTROL / SLOW / RESULT line>
-   - Repro: <command>
-   ```
-   The page is MDX: put commands and log lines in backticks and escape `{`, `}` and `<` outside code.
+   `--module` is where the defect is (the dogfood scripts themselves: `build`). Check for an existing issue
+   first (`gh issue list -l dogfood`). Older findings keep their `DF-<n>` ids as legacy ids in the issue.
    Record: an unexpected `CONTROL … applied=false`; an exception or stack trace in an `ERROR` line that is
    not from your change; a watcher
    that never ends or a RESULT that contradicts the node statuses; a CLI/server error; a `SLOW` line; a
    tooling failure (script, worktree, build setup); a monitoring/execution improvement or a security finding.
-   When fixed later, set `- Status: fixed in <sha>`.
-   Don't commit backlog edits unless asked; mention new entries in your reply.
+   When you fix one, close it from the PR with `Fixes #<n>`.
+   Filing an issue is visible to everyone: file without asking only during a dogfood run you were asked to
+   do, and list the issues you filed or updated in your reply.
 
 ## Server
 If the script cannot reach a server (no `YUKTA_SERVER_URL`, no `.yukta-dev/current.env`):
@@ -174,6 +173,6 @@ runs Gradle on (`-p`), whichever provider serves it.
 - Don't run concurrent checks against the same checkout, and don't edit files or run Gradle in it while a
   self-healing run is going (the fixer is editing the same tree).
 - Don't commit what a healing run changed without reading the diff; don't widen the guard (protected paths,
-  suppressions) to get a run through, fix the cause or record a `DF-<n>`.
+  suppressions) to get a run through, fix the cause or file a dogfood finding (`report-finding.sh`).
 - Don't start a server without `YUKTA_PROCESS_ALLOW_ANY=true` (`yukta-server.sh` sets it) or run the fixer
   with `claude --bare` (it loses the login).

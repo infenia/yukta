@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Sync labels
+
+# Makes the repository labels match .github/labels.yml (see .github/scripts/sync-labels.py).
+# Creates and updates only; a label removed from the file is reported, never deleted.
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - '.github/labels.yml'
+      - '.github/scripts/sync-labels.py'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write          # create and update labels
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+
+      - name: Install PyYAML (pinned with hashes)
+        run: pip install --require-hashes -r .github/requirements/yamllint.txt
+
+      - name: Sync labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: python3 .github/scripts/sync-labels.py --apply "$REPO" | tee -a "$GITHUB_STEP_SUMMARY"

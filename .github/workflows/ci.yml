@@ -45,14 +45,27 @@ jobs:
           pip install --require-hashes -r .github/requirements/yamllint.txt
           yamllint .github/workflows/
 
+      - name: Check the labels (labels.yml defines every label the automation applies)
+        run: python3 .github/scripts/sync-labels.py --check
+
+      - name: Check the docs site holds product docs only (backlog lives in GitHub issues)
+        run: |
+          if [ -e docs/internal ] || grep -rnE '\]\(/internal(/|#|\))' docs --include='*.mdx'; then
+            echo "::error::docs/internal and links to /internal are gone: file bugs, risks and plans as GitHub issues (.github/PROJECT.md)"
+            exit 1
+          fi
+
       - name: Check the module graph (every project() dependency is an included module)
         run: .github/scripts/ci-tasks.sh --check
 
       - name: Lint shell scripts (shellcheck)
-        run: shellcheck .github/scripts/*.sh
+        run: shellcheck -x -P .github/scripts .github/scripts/*.sh
 
       - name: Test the shard planner
         run: .github/scripts/ci-tasks.test.sh
+
+      - name: Test the project helpers and issue triage
+        run: .github/scripts/project-lib.test.sh
 
       - name: Lint workflows (actionlint)
         run: |

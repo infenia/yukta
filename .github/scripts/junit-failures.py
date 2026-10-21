@@ -5,12 +5,14 @@
 
 Usage: junit-failures.py <dir> [limit]       failed and flaky tests (nothing if all passed)
        junit-failures.py --durations <dir>   test time per shard and the slowest test classes
+       junit-failures.py --flaky-json <dir>  flaky tests as JSON: [{class, name, detail, module}]
 
 A test that failed and then passed (the nightly run retries with -PretryFlakyTests) is flaky;
 one that never passed is broken. Shards are the first directory under <dir>, i.e. the
 build-reports-<shard> artifact names.
 """
 import collections
+import json
 import pathlib
 import sys
 import xml.etree.ElementTree as ET
@@ -26,13 +28,26 @@ def reports(root):
             print(f"warning: skipping unreadable {path}: {e}", file=sys.stderr)
 
 
+def module_of(path, root):
+    """The Module field value for a report path such as
+    <root>/build-reports-plugins/plugins/processors/llm-call/build/test-results/test/TEST-x.xml."""
+    parts = path.relative_to(root).parts[1:]
+    project = parts[:parts.index("build")] if "build" in parts else parts[:1]
+    if not project:
+        return None
+    if project[0] == "plus" and len(project) > 1:
+        return project[1]
+    return project[0]
+
+
 def outcomes(root):
-    """(class, test) -> {"failed": [detail, ...], "passed": bool}, in report order."""
+    """(class, test) -> {"failed": [detail, ...], "passed": bool, "module": str}, in report order."""
     tests = {}
-    for _, suite in reports(root):
+    for path, suite in reports(root):
         for case in suite.iter("testcase"):
             key = (case.get("classname", "?"), case.get("name", "?"))
-            entry = tests.setdefault(key, {"failed": [], "passed": False})
+            entry = tests.setdefault(key, {"failed": [], "passed": False,
+                                           "module": module_of(path, pathlib.Path(root))})
             problem = case.find("failure")
             if problem is None:
                 problem = case.find("error")
@@ -92,9 +107,17 @@ def durations(root, top=15):
     print()
 
 
+def flaky_json(root):
+    tests = outcomes(root)
+    print(json.dumps([{"class": cls, "name": name, "detail": v["failed"][0][:2000], "module": v["module"]}
+                      for (cls, name), v in tests.items() if v["failed"] and v["passed"]]))
+
+
 def main():
     if sys.argv[1] == "--durations":
         durations(sys.argv[2])
+    elif sys.argv[1] == "--flaky-json":
+        flaky_json(sys.argv[2])
     else:
         failures(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 50)
 

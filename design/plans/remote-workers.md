@@ -1,12 +1,8 @@
----
-title: "Remote workers design"
-description: "Design for running processor nodes on remote workers: options considered, architecture, semantics, security, phases, risks and open decisions (F11)."
-mode: "wide"
----
+# Remote workers design
 
-<Note>
-  Internal plan, restricted to project members. Back to the [internal index](/internal).
-</Note>
+Design for running processor nodes on remote workers: options considered, architecture, semantics, security, phases, risks and open decisions (F11).
+
+Work on this plan is tracked in its Epic issue on the Yukta Roadmap project (search for `remote-workers plan`).
 
 Status: **phases 1 and 2 are built** (registry, leases, `GET /api/workers`, RSocket server and agent in the `workers` module, token auth; a processor node with `engine.placement` runs on a worker, with pool and free-slot choice). Failure handling beyond "the attempt fails and the engine retries", operations and control-plane HA are design only. Decision taken: scale out with **remote workers**
 (a control plane schedules nodes, workers run them), not active/standby only. Needs F10 (PostgreSQL

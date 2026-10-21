@@ -12,19 +12,37 @@ By participating in this project, you agree to abide by the [Code of Conduct](CO
 
 ### Reporting Bugs
 
-* Check the [issue tracker](https://github.com/infenia/yukta/issues) to see if the bug has already been reported.
-* If not, open a new issue. Include:
-    * A clear and descriptive title.
-    * Steps to reproduce the bug.
-    * Expected behavior vs. actual behavior.
-    * Screenshots or logs if applicable.
-    * Your environment (OS, Java version, Gradle version).
+* Search the [issue tracker](https://github.com/infenia/yukta/issues) first; add to an existing
+  issue rather than opening a duplicate.
+* Open a [bug report](https://github.com/infenia/yukta/issues/new?template=bug_report.yml). The form
+  asks for what happened, steps to reproduce, the module, the severity, the version and your
+  environment.
+* Report security vulnerabilities privately through
+  [a security advisory](https://github.com/infenia/yukta/security/advisories/new), not an issue.
 
 ### Suggesting Enhancements
 
-* Check the issue tracker to see if the enhancement has already been suggested.
-* Open a new issue with the "enhancement" label.
-* Describe the feature in detail and why it would be useful.
+* Search the issue tracker, then open a
+  [feature request](https://github.com/infenia/yukta/issues/new?template=feature_request.yml).
+* Describe the problem or use case first, then the solution you have in mind.
+* Usage questions and open-ended ideas go to
+  [Discussions](https://github.com/infenia/yukta/discussions).
+
+### How work is tracked
+
+Every bug, risk, improvement and plan is a GitHub issue on the
+[Yukta Roadmap project](https://github.com/orgs/infenia/projects). The documentation site holds
+product documentation only. In short:
+
+* The issue **type** (Bug, Feature, Task, Epic) says what an issue is; area labels (`core`, `web`,
+  `plugins`, ...) say where it is.
+* New issues start in **Triage**. A maintainer sets the module and priority and moves them to the
+  backlog.
+* Larger work is an **Epic** with sub-issues; its design text is in `design/`.
+* Link your PR to its issue with `Fixes #<n>`; the project then moves the issue to *In review*,
+  and to *Done* when the PR merges.
+
+Fields, views and triage rules: [.github/PROJECT.md](.github/PROJECT.md).
 
 ### Pull Requests
 
@@ -37,8 +55,9 @@ By participating in this project, you agree to abide by the [Code of Conduct](CO
 5. **Write tests** for any new functionality.
 6. **Update documentation** if you're adding or changing features.
 7. **Submit a Pull Request**.
-    * Use a descriptive title.
-    * Reference any related issues.
+    * Title it as a Conventional Commit (`feat(core): add retry budget`); a check enforces it,
+      since the title becomes the squash commit on `main` and groups the release notes.
+    * Link the issue it resolves (`Fixes #123`).
     * Provide a summary of your changes.
 
 ### What CI runs on your PR

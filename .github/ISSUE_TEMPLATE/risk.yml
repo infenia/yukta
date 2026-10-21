@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Risk
+description: A rated weakness that is not (yet) a defect. For maintainers and reviewers
+type: Task
+labels: ["risk", "needs-triage"]
+body:
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk
+      description: What can go wrong, when, and who notices.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: Classes, files or configuration keys involved.
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      options:
+        - boot
+        - build (build logic, Gradle, CI)
+        - cli
+        - core
+        - mcp
+        - messaging
+        - plugin-api
+        - plugins
+        - plus
+        - persistence-postgres
+        - workers
+        - ui
+        - web
+        - documentation
+        - not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Security
+        - Correctness
+        - Reliability
+        - Availability
+        - Performance
+        - Scalability
+        - Evolvability
+        - Operability
+        - Governance
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      description: 1 = minor annoyance, 5 = outage, data loss or breach.
+      options: ["1", "2", "3", "4", "5"]
+    validations:
+      required: true
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Effort
+      description: 1 = under a day, 5 = a multi-week project.
+      options: ["1", "2", "3", "4", "5"]
+    validations:
+      required: true
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Mitigation
+      description: What would close or reduce it.
