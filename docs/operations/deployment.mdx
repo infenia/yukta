@@ -16,54 +16,46 @@ Yukta is one executable that holds the engine, the REST API, the MCP endpoint, t
 
 ## Install
 
-<Warning>
-  **Status: packaged downloads arrive with the first release (v0.1.0).** Yukta has no tagged release yet, so until it is published the table and sections below under Install describe what the release will contain, and the version numbers are examples. Everything under [Run from source](#run-from-source), [Executable archive](#executable-archive), [Native binary](#native-binary) and building the [Container image](#container-image) yourself works today.
-</Warning>
+<Note>
+  **Alpha release `0.1.0-alpha.1`.** The first release covers Linux `amd64` only. Native servers for macOS, Windows and ARM Linux are not published yet; use Docker for those. The commands below pin `0.1.0-alpha.1` because GitHub's "latest" link skips prereleases; once a stable release exists they switch to `latest`. See [Releases](/reference/releases).
+</Note>
 
 Running the server with a JDK is the last option. Prefer one of these, in this order.
 
 | Install with | Platforms | You get |
 |---|---|---|
-| **Install script** (`install.sh`, `install.ps1`) | Linux and macOS (`install.sh`), Windows (`install.ps1`); Intel/AMD and ARM | One command that installs the server and the client together, after checking their checksums. See [Install script](#install-script) |
-| **Docker image** `ghcr.io/infenia/yukta` (also on Docker Hub as `infenia/yukta`) | Linux, macOS and Windows through Docker Desktop; `amd64` and `arm64`, one tag for both | The native server in a minimal, unprivileged image. See [Container image](#container-image) |
-| **Debian or RPM package** | Linux `amd64` and `arm64` | The server, a `systemd` service, a service user and a settings file at `/etc/yukta/yukta.env`. The service is installed stopped |
-| **Archive** (`.tar.gz`) | Linux `amd64` and `arm64` | The native server and the command-line client, with no installer |
-| **Native downloads for macOS and Windows, Homebrew, Scoop, winget** | macOS, Windows | Follow the Linux release. Until then use Docker, or WSL 2 on Windows |
+| **Install script** (`install.sh`) | Linux `amd64`; on macOS it installs the client only | One command that installs the server and the client together, after checking their checksums. See [Install script](#install-script) |
+| **Docker image** `ghcr.io/infenia/yukta` | Linux, macOS and Windows through Docker Desktop; `linux/amd64` | The native server in a minimal, unprivileged image. See [Container image](#container-image) |
+| **Debian or RPM package** | Linux `amd64` | The server, a `systemd` service, a service user and a settings file at `/etc/yukta/yukta.env`. The service is installed stopped |
+| **Archive** (`.tar.gz`) | Linux `amd64` | The native server and the command-line client, with no installer |
+| **Native downloads for ARM Linux, macOS and Windows, Homebrew, Scoop, winget** | ARM Linux, macOS, Windows | Planned. Until then use Docker, or WSL 2 on Windows |
 | **Run from source** | Anything with JDK 25 | For contributors. See [Run from source](#run-from-source) |
 
 ### Install script
 
 ```bash
-curl -fsSL https://github.com/infenia/yukta/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.1/install.sh | sh
 ```
 
-```powershell
-irm https://github.com/infenia/yukta/releases/latest/download/install.ps1 | iex
-```
+The script is attached to every release, and `releases/download/vX.Y.Z/install.sh` installs exactly that version. Once a stable release exists, `releases/latest/download/install.sh` serves the newest stable one. It:
 
-The script is attached to every release, so `releases/latest/download/` always serves the newest stable release's copy, and `releases/download/vX.Y.Z/install.sh` installs exactly that version. It:
-
-1. Works out your operating system and processor (Intel/AMD or ARM).
+1. Works out your operating system and processor.
 2. Downloads `SHA256SUMS` and the files for your system from the GitHub release.
 3. Stops without installing anything if a checksum does not match.
-4. Copies `yukta` (the server) and `yukta-cli` (the client) into `/usr/local/bin` when run as root or `~/.local/bin` otherwise on Linux and macOS, or `%LOCALAPPDATA%\Programs\Yukta` on Windows (and adds it to your user `PATH`).
+4. Copies `yukta` (the server) and `yukta-cli` (the client) into `/usr/local/bin` when run as root or `~/.local/bin` otherwise.
 
-It does not use `sudo` or administrator rights, does not edit shell profiles, and contacts only GitHub. When a release has no native server for your system, it installs the client and prints the Docker command for the server. At the first release this is the case on macOS and Windows.
+It does not use `sudo` or administrator rights, does not edit shell profiles, and contacts only GitHub. When a release has no native server for your system, it installs the client and prints the Docker command for the server. In the alpha this is the case on macOS.
 
-| Setting | `install.sh` | `install.ps1` |
-|---|---|---|
-| Version | `--version X.Y.Z` or `YUKTA_VERSION` | `$env:YUKTA_VERSION` |
-| Folder | `--install-dir <dir>` or `YUKTA_INSTALL_DIR` | `$env:YUKTA_INSTALL_DIR` |
-| Only the client or the server | `--cli-only`, `--server-only` | `$env:YUKTA_CLI_ONLY`, `$env:YUKTA_SERVER_ONLY` (`1`) |
-| Remove | `--uninstall` | `$env:YUKTA_UNINSTALL` (`1`) |
+| Setting | `install.sh` |
+|---|---|
+| Version | `--version X.Y.Z` or `YUKTA_VERSION` |
+| Folder | `--install-dir <dir>` or `YUKTA_INSTALL_DIR` |
+| Only the client or the server | `--cli-only`, `--server-only` |
+| Remove | `--uninstall` |
 
 To install on a machine without internet access, or from a mirror, copy a release's files to a web server laid out as `<base>/vX.Y.Z/<file>` and set `YUKTA_DOWNLOAD_BASE=<base>`. To audit the script first, download it, read it and run it from the file.
 
-Every release also publishes a `SHA256SUMS` file for the downloads, and a signature bundle for each file that you can check with [`cosign`](https://docs.sigstore.dev/). Check the sums before you run a download:
-
-```bash
-sha256sum --check --ignore-missing SHA256SUMS
-```
+Every release also publishes a `SHA256SUMS` file for the downloads, and a signature file (`<file>.sigstore.json`) for each file that you can check with [`cosign`](https://docs.sigstore.dev/). See [Verify a download](/reference/releases#verify-a-download).
 
 ### Run as a Linux service
 
@@ -79,7 +71,7 @@ The unit waits up to 45 seconds when stopping, longer than the default [graceful
 
 ### Upgrade and roll back
 
-Pull the new image tag, or install the newer package or archive over the old one. Pin an exact version (`ghcr.io/infenia/yukta:0.1.0`) when you need repeatable deployments; `latest` only ever moves to a stable release, never to a release candidate. To roll back, install the previous version. Sessions kept in memory are lost on restart, so use [Persistence](/operations/persistence) if you need to keep them.
+Pull the new image tag, or install the newer package or archive over the old one. Pin an exact version (`ghcr.io/infenia/yukta:0.1.0-alpha.1`) when you need repeatable deployments; `latest` only ever moves to a stable release, never to a release candidate. To roll back, install the previous version. Sessions kept in memory are lost on restart, so use [Persistence](/operations/persistence) if you need to keep them.
 
 ## Run from source
 
