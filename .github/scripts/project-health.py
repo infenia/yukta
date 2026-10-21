@@ -78,8 +78,8 @@ def render(data_dir, now, repo):
     issues_url = f"https://github.com/{repo}/issues"
 
     out = [MARKER, f"# Project health, week of {now:%Y-%m-%d}", "",
-           "Updated every Monday by `weekly-health.yml`. Edit the project or the issues, "
-           "not this report.", ""]
+           ("Updated every Monday by `weekly-health.yml`. Edit the project or the issues, "
+            "not this report."), ""]
 
     by_type = collections.Counter((i.get("type") or {}).get("name") or "No type" for i in issues)
     out += ["## Open issues", "", "| Type | Open |", "|---|---|"]
@@ -95,8 +95,8 @@ def render(data_dir, now, repo):
     out.append("")
 
     if project is None:
-        out += ["## Project", "", "The project was not readable (no App token or project number), "
-                "so priorities, status and risk ratings are left out.", ""]
+        out += ["## Project", "", ("The project was not readable (no App token or project number), "
+                                   "so priorities, status and risk ratings are left out."), ""]
     else:
         def field(issue, name):
             return fields.get(issue["html_url"], {}).get(norm(name))
@@ -135,8 +135,8 @@ def render(data_dir, now, repo):
         out += [f"{len(alerts)} open alerts: {counts}"
                 + (f", {level['none']} without a security rating" if level["none"] else "") + ".",
                 "By tool: " + (", ".join(f"{t} {n}" for t, n in sorted(tools.items())) or "none") + ".",
-                f"Details are in the [Security tab](https://github.com/{repo}/security/code-scanning) "
-                "(maintainers only).", ""]
+                (f"Details are in the [Security tab](https://github.com/{repo}/security/code-scanning) "
+                 "(maintainers only)."), ""]
 
     guide = f"https://github.com/{repo}/blob/main/.github/PROJECT.md"
     out += [f"[All open issues]({issues_url}) · [Project guide]({guide})"]
