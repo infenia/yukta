@@ -5,6 +5,7 @@ package controlbus
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -126,6 +127,26 @@ func TestProblemFilter_logEventWithoutRatingFallsBackToKeywords(t *testing.T) {
 
 	if got := f.render(e); !reflect.DeepEqual(got, []string{"ERROR n: error: boom"}) {
 		t.Errorf("got %q", got)
+	}
+}
+
+// The server keeps the same keywords (EventSeverity.ofLine); its test reads this file too, so the
+// two cannot drift apart unnoticed.
+func TestProblemFilter_keywordsAgreeWithTheServer(t *testing.T) {
+	raw, err := os.ReadFile("testdata/line-severity.csv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range strings.Split(strings.TrimSpace(string(raw)), "\n")[1:] {
+		i := strings.LastIndex(row, ",")
+		line, want := row[:i], row[i+1:]
+		got := "INFO"
+		if out := newProblemFilter().render(client.ExecutionEvent{Type: client.EventLogLine, NodeID: "n", Line: line}); len(out) > 0 {
+			got, _, _ = strings.Cut(out[0], " ")
+		}
+		if got != want {
+			t.Errorf("%q: CLI rates %s, the server rates %s", line, got, want)
+		}
 	}
 }
 

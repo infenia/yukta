@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvFileSource;
 import org.junit.jupiter.params.provider.CsvSource;
 
 /** Tests for {@link EventSeverity}. */
@@ -50,18 +51,14 @@ class EventSeverityTest {
     assertThat(EventSeverity.of(event)).isEqualTo(expected);
   }
 
+  /**
+   * The CLI keeps the same keywords for text the server rates only as a whole; its test reads this
+   * file too, so the two cannot drift apart unnoticed.
+   */
   @ParameterizedTest
-  @CsvSource(
-      delimiter = '|',
-      value = {
-        "BUILD SUCCESSFUL in 4s|INFO",
-        "warning: [deprecation] foo() in Bar|WARN",
-        "Deprecated Gradle features were used|WARN",
-        "Execution failed for task ':core:test'|ERROR",
-        "* What went wrong:|ERROR",
-        "java.lang.IllegalStateException: boom|ERROR",
-        "errorprone plugin loaded|INFO"
-      })
+  @CsvFileSource(
+      files = "../cli/internal/commands/controlbus/testdata/line-severity.csv",
+      numLinesToSkip = 1)
   void logLine(final String line, final EventSeverity expected) {
     final var event = new ExecutionEvent.LogLine("e", "n", line, NOW);
 
