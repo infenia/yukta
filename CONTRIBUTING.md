@@ -41,6 +41,20 @@ By participating in this project, you agree to abide by the [Code of Conduct](CO
     * Reference any related issues.
     * Provide a summary of your changes.
 
+### What CI runs on your PR
+
+CI builds the modules your PR changes **plus every module that depends on them**, with the
+full set of gates (tests, Checkstyle, PMD, SpotBugs, OpenGrep, JaCoCo). A change to the build
+itself (`build-logic/`, `gradle/`, `config/`, `.github/workflows/`, ...) builds everything, and a
+docs-only PR builds nothing. The `Detect Changed Modules` job summary shows the plan.
+
+* Want the whole build anyway (e.g. an interface change used through reflection)? Add the
+  `ci:full` label and re-run CI.
+* `CI Gate` is the one required check.
+* `main` and a nightly run build everything; a failing nightly opens a `ci-nightly` issue.
+
+Details: [.github/WORKFLOWS.md](.github/WORKFLOWS.md).
+
 ## Coding Standards
 
 * We follow the **Google Java Style Guide**.

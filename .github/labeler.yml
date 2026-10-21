@@ -28,6 +28,24 @@ messaging:
       - any-glob-to-any-file:
           - 'messaging/**'
 
+# Plugin API (contract used by every plugin)
+plugin-api:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'plugin-api/**'
+
+# MCP server
+mcp:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'mcp/**'
+
+# Plus edition (AGPL-3.0-only)
+plus:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'plus/**'
+
 # CLI module changes
 cli:
   - changed-files:
@@ -51,6 +69,18 @@ processors:
   - changed-files:
       - any-glob-to-any-file:
           - 'plugins/processors/**'
+
+# Supervisor plugin changes
+supervisors:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'plugins/supervisors/**'
+
+# Control-plane plugin changes
+control-planes:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'plugins/control-planes/**'
 
 # Terminals plugin changes
 terminals:
@@ -114,6 +144,9 @@ dependencies:
       - any-glob-to-any-file:
           - 'gradle/libs.versions.toml'
           - '**/*.lock'
+          - '**/*.lockfile'
+          - 'cli/go.mod'
+          - 'cli/go.sum'
           - 'ui/package.json'
           - 'ui/pnpm-lock.yaml'
 

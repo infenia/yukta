@@ -58,9 +58,9 @@ A developer adds a new plugin module and opens a pull request. Click a step to s
 <Step title="Add the module">
 **What happens.** The developer adds one include(...) line to the root settings.gradle.kts and creates the module's build.gradle.kts with a single plugin line, id("com.infenia.yukta.library-conventions"), plus its own dependencies.
 
-**Why it works this way.** Nothing else is needed. The convention plugin supplies the Java version, the dependency versions, Lombok, the test libraries and every quality gate. The developer also adds a path filter for the module to .github/workflows/ci.yml.
+**Why it works this way.** Nothing else is needed. The convention plugin supplies the Java version, the dependency versions, Lombok, the test libraries and every quality gate. CI picks the module up from settings.gradle.kts on its own; no workflow edit is needed.
 
-**Can go wrong.** Forgetting the CI path filter: the lint-workflows job fails with 'Module has no path filter in ci.yml', so the mistake is caught early. Copying a coverageConfig block from another module 'just in case': if its pattern matches no class here, the stale check fails the build.
+**Can go wrong.** A project() dependency on a module missing from settings.gradle.kts: the lint-workflows job fails (`ci-tasks.sh --check`), so the mistake is caught early. Copying a coverageConfig block from another module 'just in case': if its pattern matches no class here, the stale check fails the build.
 
 </Step>
 <Step title="Apply conventions">
@@ -116,7 +116,7 @@ A developer adds a new plugin module and opens a pull request. Click a step to s
 
 **Why it works this way.** One required check in branch protection instead of a list of jobs to maintain.
 
-**Can go wrong.** Skipped counts as success. A job skipped by a wrong path filter would let a change through, which is why the lint job insists every module has a filter.
+**Can go wrong.** Skipped counts as success. A job skipped by a wrong build plan would let a change through, which is why the plan is derived from settings.gradle.kts and the build files, and the planner has a table test (ci-tasks.test.sh).
 
 </Step>
 </Steps>
@@ -163,7 +163,7 @@ Holds the repository-wide facts the plugins read: every library and tool version
 
 - **Guarantees.** Every module and build-logic read one catalog, so the same tool version applies everywhere. The project version is defined in one place.
 - **State.** Plain files in git. Nothing runs at run time. Lock files are declared but none are committed, so there is no stored record of resolved versions.
-- **Ceiling.** A catalog or build-logic change makes CI build every module (the root path filter includes gradle/\*\*, config/\*\* and build-logic/\*\*), so version bumps are still the most expensive pull requests. Since PR #391 that full build is split into four parallel shards (platform, infra, plugins, frontend) with shared caches.
+- **Ceiling.** A catalog or build-logic change makes CI build every module (the planner's root-file list includes gradle/\*\*, config/\*\* and build-logic/\*\*), so version bumps are still the most expensive pull requests. Since PR #391 that full build is split into four parallel shards (platform, infra, plugins, frontend) with shared caches.
 - **On failure.** A typo in the catalog fails configuration of the whole build. A stale leftover (the Netty line in gradle.properties) can mislead a reader even though it no longer wins.
 
 **Settings:** `gradle/libs.versions.toml`, `gradle.properties: org.gradle.caching, org.gradle.parallel, org.gradle.workers.max=8, netty.version, version`, `./gradlew trivy (on demand)`
@@ -325,8 +325,8 @@ Pins Node and pnpm for the ui module and makes its tasks use them.
 
 Runs the conventions' gates on every pull request and push, plus scans that are not part of check.
 
-- On a pull request, a path filter decides what changed. If any of build-logic/\*\*, config/\*\*, gradle/\*\*, build.gradle.kts, settings.gradle.kts, gradlew, lombok.config or the workflows changed, the whole build runs (`./gradlew build jacocoTestReport`). Otherwise each changed module runs `buildDependents`, meaning the module plus everything that depends on it. On pushes to main and the nightly schedule everything builds.
-- The lint job insists that every module in settings.gradle.kts has a path filter in ci.yml, and the shard planner (.github/scripts/ci-tasks.sh) fails if a module has no task mapping. So a new module needs edits in settings, the filter list in ci.yml, and the path map and group_of function in ci-tasks.sh.
+- On a pull request, .github/scripts/ci-tasks.sh plans the run from the changed files. If any of build-logic/\*\*, config/\*\*, gradle/\*\*, build.gradle.kts, settings.gradle.kts, gradlew, lombok.config or the workflows changed, or the PR has the `ci:full` label, the whole build runs. Otherwise each changed module builds together with every module that depends on it, transitively (edges are read from the quoted module paths in each build.gradle.kts). On pushes to main and the nightly schedule everything builds; a failing nightly run opens or updates a `ci-nightly` issue (nightly-report.yml).
+- Modules and their shards come from settings.gradle.kts (plugins/\*\* → plugins, plus/\*\* → infra, cli, ui, the rest → platform), so a new module needs only its include line. The lint job runs `ci-tasks.sh --check`, which fails on a project() dependency that names no included module.
 - CI installs the same toolchain locally needed: JDK 25, Go, Node 24, pnpm 10.30.1, OpenGrep v1.25.0 (checksum verified) and Trivy v0.72.0. The wrapper jar is validated and Actions are pinned by commit hash.
 - Separate workflows run Trivy (security.yml: secret scan blocks every run; vulnerability scan blocks only on main, schedule and manual runs, and reports without failing on pull requests), the licence checks, CodeQL and OpenSSF Scorecard. A dependency-review job fails PRs that add HIGH-severity vulnerable dependencies.
 - A lock-file check exists, but it exits early when no gradle.lockfile is tracked, which is the current state. The final job, CI Gate, is the single required check: it passes if every job succeeded or was skipped.
@@ -334,9 +334,9 @@ Runs the conventions' gates on every pull request and push, plus scans that are 
 - **Guarantees.** Pull requests cannot merge unless CI Gate is green; scans run with pinned tool versions, so a tool upgrade is a visible diff.
 - **State.** Reports and test results are uploaded as run artifacts for 7 days; Trivy SARIF goes to GitHub security. Nothing else persists.
 - **Ceiling.** A root-file change runs every module, now as four parallel shards (platform, infra, plugins, frontend) with a 30-minute timeout each and shared caches; a library change (core, web, messaging, plugin-api, mcp) re-runs every shard.
-- **On failure.** A skipped job counts as success, so a wrong path filter could skip a needed job. A failing Trivy vulnerability scan on a PR does not block the PR (main does).
+- **On failure.** A skipped job counts as success, so a wrong build plan could skip a needed job. A failing Trivy vulnerability scan on a PR does not block the PR (main does).
 
-**Settings:** `OPENGREP_VERSION, OPENGREP_SHA256, Trivy version in ci.yml`, `changes job path filters`, `timeout-minutes: 30`
+**Settings:** `OPENGREP_VERSION, OPENGREP_SHA256, Trivy version in ci.yml`, `root-file list in .github/scripts/ci-tasks.sh`, `timeout-minutes: 30`
 
 ## Scenarios
 
@@ -380,7 +380,7 @@ The module lists libraries such as libs.reactor.core without versions. The BOMs 
 The new module has to satisfy the default: 100% line and branch coverage per class and every static-analysis rule. A new module with generated code (for example MapStruct) will hit the exception path.
 </Step>
 <Step title="CI registration">
-The module needs a path filter in ci.yml and a case in the partial-build step. The lint-workflows job and the partial-build step both fail on a missing entry, so forgetting is caught on the first pull request.
+CI needs no edit: the build planner reads the module from settings.gradle.kts and its dependencies from its build.gradle.kts.
 </Step>
 <Step title="Merge and boot wiring">
 If it is an optional plugin, boot lists it in an optionalPlugins map selected with -Pyukta.plugins. This is outside build-logic but follows the same convention of being declared in one place.
@@ -525,7 +525,7 @@ Every capability below is something a module gets by applying a convention plugi
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| Path-filtered builds | Pull requests build changed modules and their dependents. | paths-filter job, buildDependents, full build when root files change. | Fast PRs without skipping dependents. | Needs manual registration of each module. |
+| Dependency-aware builds | Pull requests build changed modules and their transitive dependents. | ci-tasks.sh reads settings.gradle.kts and the build files; full build when root files change or on `ci:full`; nightly full run files an issue on failure. | Fast PRs without skipping dependents. | Edges outside Gradle (reflection, resources) are caught only on main or nightly. |
 
 ## Guarantees and limits
 
@@ -586,7 +586,7 @@ Three files, plus the module's own source. Copy the snippet, then follow the rul
 | 2. Build file | `plugins { id("com.infenia.yukta.library-conventions") }` then your `dependencies { ... }` | One line gives toolchain, BOMs and every gate. Use spring-conventions only for an application or bundle that must not be java-library. |
 | 3. Versions | Name libraries through `libs.<alias>`; add new versions to gradle/libs.versions.toml, never inline | One place to bump and to scan. |
 | 4. Coverage | Aim for none. If needed: `coverageConfig { exception("pattern", "reason", mapOf("BRANCH" to 0.9)) }` | Below 0.80 a reason is required; a pattern that matches nothing fails the build. |
-| 5. CI | Add a path filter in ci.yml 'changes' job and a case in the partial-build step | Without them lint-workflows or the partial build fails. |
+| 5. CI | Nothing to do: the planner reads settings.gradle.kts and the build files | `ci-tasks.sh --check` in lint-workflows catches a dangling project() dependency. |
 | 6. Do not | Set `enabled = false` on a quality or coverage task; set a version in the module; add SPDX headers to Markdown | Disabling coverage fails; the others hide drift. Run ./gradlew spotlessApply before committing. |
 | 7. Optional plugin? | If boot should include it optionally, add it to the optionalPlugins map in boot/build.gradle.kts | -Pyukta.plugins selects which plugins are in the image. |
 

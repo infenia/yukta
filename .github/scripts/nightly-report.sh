@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+#
+# Tracks a scheduled (nightly) workflow run in a GitHub issue, one open issue per workflow:
+#   failure  -> comment on the open "Nightly failure: <workflow>" issue, or open one;
+#   success  -> comment on that issue and close it.
+# The report lists the failed jobs and steps, and the failed and flaky tests from the build-reports
+# artifacts. Every run also writes test time per shard to the job summary, for balancing the shards.
+#
+# Env: GH_TOKEN, REPO, RUN_ID, RUN_URL, WORKFLOW, CONCLUSION, HEAD_SHA
+set -euo pipefail
+
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+label=ci-nightly
+title="Nightly failure: $WORKFLOW"
+sha=${HEAD_SHA:0:7}
+today=$(date -u +%Y-%m-%d)
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+report="$work/report.md"
+
+# Shards upload their JUnit XML as build-reports-<shard>; other workflows have none.
+reports=false
+if gh run download "$RUN_ID" -R "$REPO" -p 'build-reports-*' -D "$work/reports" 2>/dev/null; then
+  reports=true
+fi
+
+issue=$(gh issue list -R "$REPO" --label "$label" --state open --limit 100 --json number,title |
+  jq -r --arg t "$title" 'map(select(.title == $t)) | first | .number // empty')
+
+if [ "$CONCLUSION" = success ]; then
+  [ "$reports" = false ] || python3 -I "$here/junit-failures.py" --durations "$work/reports" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
+  if [ -n "$issue" ]; then
+    gh issue close "$issue" -R "$REPO" --reason completed \
+      --comment "The nightly **$WORKFLOW** run is green again on \`$sha\` ($today, [run]($RUN_URL)). Closing."
+    echo "Closed #$issue: $WORKFLOW is green again" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
+  fi
+  exit 0
+fi
+
+{
+  echo "### $today — \`$sha\` — $CONCLUSION ([run]($RUN_URL))"
+  echo
+  echo "#### Failed jobs"
+  echo
+  gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" --paginate |
+    jq -r '.jobs[] | select(.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled")
+      | "- [\(.name)](\(.html_url)) — \(.conclusion)"
+        + ([.steps[]? | select(.conclusion == "failure") | .name]
+           | if length > 0 then "; failed step: " + join(", ") else "" end)'
+  echo
+  [ "$reports" = false ] || python3 -I "$here/junit-failures.py" "$work/reports"
+} >"$report"
+
+# Issue bodies and comments are capped at 65536 characters.
+if [ "$(wc -c <"$report")" -gt 60000 ]; then
+  head -c 60000 "$report" >"$work/cut.md"
+  printf '\n\n…truncated, see the [run](%s).\n' "$RUN_URL" >>"$work/cut.md"
+  mv "$work/cut.md" "$report"
+fi
+cat "$report" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
+[ "$reports" = false ] || python3 -I "$here/junit-failures.py" --durations "$work/reports" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
+
+if [ -n "$issue" ]; then
+  gh issue comment "$issue" -R "$REPO" -F "$report"
+  echo "Commented on #$issue"
+else
+  gh label create "$label" -R "$REPO" --force --color B60205 \
+    --description "Failure of a scheduled (nightly) CI run; closes itself when the run is green" >/dev/null
+  {
+    echo "The scheduled **$WORKFLOW** run on \`main\` failed. This issue is updated on each failing"
+    echo "nightly run and closed automatically by the first green one."
+    echo
+    cat "$report"
+  } >"$work/body.md"
+  gh issue create -R "$REPO" --title "$title" --label "$label" -F "$work/body.md"
+fi

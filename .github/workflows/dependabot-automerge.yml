@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Dependabot Auto-merge
+
+# Turns on auto-merge for Dependabot patch and minor updates (single or grouped). GitHub merges the
+# PR only once branch protection is satisfied (CI Gate green, plus any required review), so no gate
+# is skipped. Major updates are left for a maintainer.
+#
+# Needs: Settings → General → "Allow auto-merge", and CI Gate as a required check on main;
+# without a required check auto-merge would not wait for CI.
+on:
+  pull_request:
+    branches: [ "main" ]
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  automerge:
+    name: Enable auto-merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    permissions:
+      contents: write        # merge the PR
+      pull-requests: write   # enable auto-merge
+    steps:
+      - name: Read the update type
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Enable auto-merge (patch / minor)
+        if: |
+          steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+          steps.meta.outputs.update-type == 'version-update:semver-minor'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          UPDATE: ${{ steps.meta.outputs.update-type }}
+        run: |
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY" --jq .allow_auto_merge)" != true ]; then
+            echo "::notice::Auto-merge is disabled in the repository settings; leaving $PR_URL for a maintainer"
+            exit 0
+          fi
+          gh pr merge --auto --squash "$PR_URL"
+          echo "Auto-merge enabled for $PR_URL ($UPDATE)" >> "$GITHUB_STEP_SUMMARY"
