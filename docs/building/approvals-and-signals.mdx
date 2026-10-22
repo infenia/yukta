@@ -1,7 +1,7 @@
 ---
 title: "Approvals and signals"
 description: "Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision."
-mode: "wide"
+keywords: ["approvals", "human in the loop", "signals", "WAIT_FOR_SIGNAL"]
 ---
 
 <Info>
@@ -79,8 +79,16 @@ The wait itself is held in memory. An answered signal is recorded with the node'
 | Held early signals | 10 minutes, at most 100 |
 | Placement | `WAIT_FOR_SIGNAL` cannot run on a remote worker |
 
-## Related
+## Next steps
 
-- [Run controls](/running/run-controls)
-- [Executions](/concepts/executions)
-- [REST: control](/api/control)
+<Card title="Run controls" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>
+
+<Card title="Executions" horizontal href="/concepts/executions">
+  The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end.
+</Card>
+
+<Card title="REST: control" horizontal href="/api/control">
+  Pause, resume and steer a running execution and its nodes, send signals, and use the control bus and its audit log.
+</Card>

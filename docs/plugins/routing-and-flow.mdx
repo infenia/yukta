@@ -1,7 +1,7 @@
 ---
 title: "Routing and flow"
 description: "BRANCH, FILTER, SPLITTER, AGGREGATE, RECIPIENT_LIST, DELAY, LOOP_PREDICATE, LOOP_STREAM, SUB_WORKFLOW and WAIT_FOR_SIGNAL: plugins that decide where messages go and when."
-mode: "wide"
+keywords: ["BRANCH", "FILTER", "SPLITTER", "AGGREGATE", "routing plugins"]
 ---
 
 <Info>
@@ -307,9 +307,20 @@ See [Approvals and signals](/building/approvals-and-signals).
 | Duplicate signal window | 5 seconds |
 | All other plugins on this page | 30 seconds idle timeout |
 
-## Related
+## Next steps
 
-- [Routing and branching](/building/routing-and-branching)
-- [Loops and retries](/building/loops-and-retries)
-- [Approvals and signals](/building/approvals-and-signals)
-- [Sub-workflows](/concepts/sub-workflows)
+<Card title="Routing and branching" horizontal href="/building/routing-and-branching">
+  Patterns for sending messages down different paths: by exit code, HTTP status, expression, validation result, recipient list and error.
+</Card>
+
+<Card title="Loops and retries" horizontal href="/building/loops-and-retries">
+  Repeat work until a condition holds, within bounds, and choose between a loop, an engine retry and a polling loop.
+</Card>
+
+<Card title="Approvals and signals" horizontal href="/building/approvals-and-signals">
+  Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision.
+</Card>
+
+<Card title="Sub-workflows" horizontal href="/concepts/sub-workflows">
+  Run another stored workflow from inside a node, once per message.
+</Card>

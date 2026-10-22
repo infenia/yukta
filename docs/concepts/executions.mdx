@@ -1,7 +1,7 @@
 ---
 title: "Executions"
 description: "The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end."
-mode: "wide"
+keywords: ["executions", "run lifecycle", "execution status"]
 ---
 
 <Info>
@@ -92,8 +92,16 @@ See [Checkpoints and resume](/operations/checkpoints-and-resume).
 | Finished execution data kept in memory | 10 minutes (`yukta.tracker.cleanup-ttl`) |
 | Progress snapshots kept per run | 200 |
 
-## Related
+## Next steps
 
-- [Delivery and back-pressure](/concepts/delivery-and-backpressure)
-- [Admission and limits](/running/admission-and-limits)
-- [REST: executions](/api/executions)
+<Card title="Delivery and back-pressure" horizontal href="/concepts/delivery-and-backpressure">
+  What Yukta guarantees about delivery, ordering and memory, and how a slow node affects the rest of the graph.
+</Card>
+
+<Card title="Admission and limits" horizontal href="/running/admission-and-limits">
+  Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes.
+</Card>
+
+<Card title="REST: executions" horizontal href="/api/executions">
+  Read the status and result of a run, search runs, stop, restart and recover them, and manage the execution queue.
+</Card>

@@ -1,7 +1,7 @@
 ---
 title: "Observability"
 description: "Progress, logs, results, the live event feed, metrics and tracing: how to see what an execution is doing and what it produced."
-mode: "wide"
+keywords: ["observability", "logs", "metrics", "tracing"]
 ---
 
 <Info>
@@ -97,9 +97,20 @@ The one to alert on is `yukta.tracker.queue.depth`: state events waiting to be a
 
 Tracing is optional. Each execution is one observation named `yukta.run`, the parent of one `yukta.node` observation per node (tags `module` and `status`). Observations become spans when a tracer is present on the server. Node spans are opened only for a status the execution accepted, so a late event for an ended node leaves no open span. There is no Yukta setting for tracing.
 
-## Related
+## Next steps
 
-- [Executions](/concepts/executions)
-- [REST: streams](/api/streams)
-- [Capacity and performance](/operations/capacity-and-performance)
-- [Web UI](/interfaces/web-ui)
+<Card title="Executions" horizontal href="/concepts/executions">
+  The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end.
+</Card>
+
+<Card title="REST: streams" horizontal href="/api/streams">
+  Follow a run live over server-sent events: status, logs, results and the server-wide event feed.
+</Card>
+
+<Card title="Capacity and performance" horizontal href="/operations/capacity-and-performance">
+  The ceilings, bounded and unbounded memory, admission limits, every metric the server publishes, what to alert on and how to run the load tests.
+</Card>
+
+<Card title="Web UI" horizontal href="/interfaces/web-ui">
+  Browse sessions, build workflows with forms, run them and watch them live in the browser.
+</Card>

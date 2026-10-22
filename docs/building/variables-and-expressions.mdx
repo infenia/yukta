@@ -1,7 +1,7 @@
 ---
 title: "Variables and expressions"
 description: "Reference message data, settings and secrets inside node configuration without storing them in the workflow."
-mode: "wide"
+keywords: ["variables", "expressions", "secrets", "templating"]
 ---
 
 <Info>
@@ -83,8 +83,16 @@ payload.coverage >= 80 && payload.lintErrors == 0
 
 Expressions can call only a short list of safe methods. Scripts in the mapper plugin run with a time limit and a statement limit. See [Transform](/plugins/transform) and [Routing and flow control](/plugins/routing-and-flow) for the syntax each node accepts, and [Security](/operations/security) for the limits.
 
-## Related
+## Next steps
 
-- [Security](/operations/security)
-- [Configuration](/operations/configuration)
-- [Routing and branching](/building/routing-and-branching)
+<Card title="Security" horizontal href="/operations/security">
+  Expose the server safely, control who can do what, and limit what workflows may run.
+</Card>
+
+<Card title="Configuration" horizontal href="/operations/configuration">
+  Every setting an operator can change, its default and what it controls, plus the per-node engine options.
+</Card>
+
+<Card title="Routing and branching" horizontal href="/building/routing-and-branching">
+  Patterns for sending messages down different paths: by exit code, HTTP status, expression, validation result, recipient list and error.
+</Card>

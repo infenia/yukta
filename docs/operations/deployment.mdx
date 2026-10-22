@@ -1,7 +1,7 @@
 ---
 title: "Deployment"
 description: "Install Yukta as a Docker image, a Linux package or an archive, or run it from source, with the profiles and build switches that shape it."
-mode: "wide"
+keywords: ["deployment", "Docker", "install", "Linux package"]
 ---
 
 <Note>
@@ -263,9 +263,20 @@ Executions still running when the process ends are marked `ABORTED` at the next 
 | Shutdown timeout | 30 s |
 | Request body size | 1 MiB |
 
-## Related
+## Next steps
 
-- [Configuration](/operations/configuration)
-- [Security](/operations/security)
-- [Persistence](/operations/persistence)
-- [Quickstart](/quickstart)
+<Card title="Configuration" horizontal href="/operations/configuration">
+  Every setting an operator can change, its default and what it controls, plus the per-node engine options.
+</Card>
+
+<Card title="Security" horizontal href="/operations/security">
+  Expose the server safely, control who can do what, and limit what workflows may run.
+</Card>
+
+<Card title="Persistence" horizontal href="/operations/persistence">
+  Keep sessions, the execution log and node outputs in memory, on disk or in PostgreSQL, and what survives a restart in each case.
+</Card>
+
+<Card title="Quickstart" horizontal href="/quickstart">
+  Install Yukta and run your first workflow in five minutes. No Java needed.
+</Card>

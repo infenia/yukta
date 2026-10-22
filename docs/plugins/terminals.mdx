@@ -1,7 +1,7 @@
 ---
 title: "Terminals"
 description: "CONSOLE_TERMINAL and NOTIFY_TERMINAL: plugins that end a branch of a workflow."
-mode: "wide"
+keywords: ["CONSOLE_TERMINAL", "NOTIFY_TERMINAL", "terminals"]
 ---
 
 <Info>
@@ -81,8 +81,16 @@ Every terminal reports `reached` in the metadata of its `SUCCESS` status event: 
 | `NOTIFY_TERMINAL` requests in flight | 1 per node |
 | Plain `http` | only to `localhost`, `127.x.x.x` and `[::1]` |
 
-## Related
+## Next steps
 
-- [Defining a workflow](/building/defining-a-workflow)
-- [Failure handling](/concepts/failure-handling)
-- [Security](/operations/security)
+<Card title="Defining a workflow" horizontal href="/building/defining-a-workflow">
+  The complete JSON shape of a session and its workflows, and how to build one step by step.
+</Card>
+
+<Card title="Failure handling" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>
+
+<Card title="Security" horizontal href="/operations/security">
+  Expose the server safely, control who can do what, and limit what workflows may run.
+</Card>

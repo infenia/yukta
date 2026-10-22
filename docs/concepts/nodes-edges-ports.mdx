@@ -1,7 +1,7 @@
 ---
 title: "Nodes, edges and ports"
 description: "Node roles, how edges and output ports route messages, and how a node with several parents joins them."
-mode: "wide"
+keywords: ["nodes", "edges", "ports", "joins"]
 ---
 
 <Info>
@@ -70,9 +70,20 @@ The rule belongs to the node, not to an individual edge.
 
 A workflow can have at most 500 nodes and 2000 edges. Node ids, like every identifier, are limited to 256 characters.
 
-## Related
+## Next steps
 
-- [Messages](/concepts/messages)
-- [Failure handling](/concepts/failure-handling)
-- [Routing and branching](/building/routing-and-branching)
-- [Plugin overview](/plugins/overview)
+<Card title="Messages" horizontal href="/concepts/messages">
+  The envelope every node receives and emits: payload, metadata, identity and routing.
+</Card>
+
+<Card title="Failure handling" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>
+
+<Card title="Routing and branching" horizontal href="/building/routing-and-branching">
+  Patterns for sending messages down different paths: by exit code, HTTP status, expression, validation result, recipient list and error.
+</Card>
+
+<Card title="Plugin overview" horizontal href="/plugins/overview">
+  The 34 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include.
+</Card>

@@ -1,7 +1,7 @@
 ---
 title: "Configuration"
 description: "Every setting an operator can change, its default and what it controls, plus the per-node engine options."
-mode: "wide"
+keywords: ["configuration", "settings", "environment variables", "defaults"]
 ---
 
 <Note>
@@ -256,9 +256,20 @@ A node's `config` may hold a reserved `engine` object. The server reads it and p
 
 The node's own `timeoutSeconds` sets the idle timeout. Details are in [Failure handling](/concepts/failure-handling) and [Time limits](/concepts/time-limits).
 
-## Related
+## Next steps
 
-- [Limits and defaults](/reference/limits-and-defaults)
-- [Admission and limits](/running/admission-and-limits)
-- [Security](/operations/security)
-- [Deployment](/operations/deployment)
+<Card title="Limits and defaults" horizontal href="/reference/limits-and-defaults">
+  Every ceiling and default value in one place, with the setting that changes it and the page that explains it.
+</Card>
+
+<Card title="Admission and limits" horizontal href="/running/admission-and-limits">
+  Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes.
+</Card>
+
+<Card title="Security" horizontal href="/operations/security">
+  Expose the server safely, control who can do what, and limit what workflows may run.
+</Card>
+
+<Card title="Deployment" horizontal href="/operations/deployment">
+  Install Yukta as a Docker image, a Linux package or an archive, or run it from source, with the profiles and build switches that shape it.
+</Card>

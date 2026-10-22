@@ -1,7 +1,7 @@
 ---
 title: "Delivery and back-pressure"
 description: "What Yukta guarantees about delivery, ordering and memory, and how a slow node affects the rest of the graph."
-mode: "wide"
+keywords: ["delivery guarantees", "backpressure", "ordering", "reactive streams"]
 ---
 
 <Info>
@@ -64,8 +64,16 @@ A plugin is idempotent when running it again for the same message has the same e
 
 Every node a payload passes through carries it in memory. There is no reference-passing mechanism for very large data, so keep payloads small and pass references (file paths, object keys) in messages instead.
 
-## Related
+## Next steps
 
-- [Failure handling](/concepts/failure-handling)
-- [Checkpoints and resume](/operations/checkpoints-and-resume)
-- [Capacity and performance](/operations/capacity-and-performance)
+<Card title="Failure handling" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>
+
+<Card title="Checkpoints and resume" horizontal href="/operations/checkpoints-and-resume">
+  How Yukta records node outputs, restarts a run or one node, recovers after a restart and resumes an aborted run.
+</Card>
+
+<Card title="Capacity and performance" horizontal href="/operations/capacity-and-performance">
+  The ceilings, bounded and unbounded memory, admission limits, every metric the server publishes, what to alert on and how to run the load tests.
+</Card>

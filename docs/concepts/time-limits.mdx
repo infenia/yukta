@@ -1,7 +1,7 @@
 ---
 title: "Time limits"
 description: "The five independent clocks that bound an execution, and how pausing and long-running work interact with them."
-mode: "wide"
+keywords: ["timeouts", "deadlines", "time limits", "idle timeout"]
 ---
 
 <Info>
@@ -52,8 +52,16 @@ Set both in a node's `engine` object:
 
 The run deadline bounds the whole execution and defaults to 3600 seconds. Change it with `yukta.session.execution-timeout-seconds` (environment form `YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS`). Because it never resets, it is the safety net for a workflow that should always finish. A run that outlives it ends `TIMED_OUT`; a node that times out keeps its own status.
 
-## Related
+## Next steps
 
-- [Failure handling](/concepts/failure-handling)
-- [Run controls](/running/run-controls)
-- [Admission and limits](/running/admission-and-limits)
+<Card title="Failure handling" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>
+
+<Card title="Run controls" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>
+
+<Card title="Admission and limits" horizontal href="/running/admission-and-limits">
+  Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes.
+</Card>

@@ -1,7 +1,7 @@
 ---
 title: "How Yukta works"
 description: "The layers, the life of an execution and the principles behind the design."
-mode: "wide"
+keywords: ["architecture", "how it works", "design principles", "DAG"]
 ---
 
 <Info>
@@ -65,9 +65,20 @@ Plugins hold only business logic. Back-pressure, retries, timeouts, pause and fa
 - **Storage is a deployment choice.** Memory, files and PostgreSQL implement the same stores, so durability is a setting, not a different product.
 - **Honest guarantees.** Delivery is at-least-once, status only moves forward and commands are applied in order per execution. See [Delivery and back-pressure](/concepts/delivery-and-backpressure).
 
-## Related
+## Next steps
 
-- [Sessions and workflows](/concepts/sessions-and-workflows)
-- [Nodes, edges and ports](/concepts/nodes-edges-ports)
-- [Executions](/concepts/executions)
-- [Run controls](/running/run-controls)
+<Card title="Sessions and workflows" horizontal href="/concepts/sessions-and-workflows">
+  How workflows are grouped, stored, versioned and addressed.
+</Card>
+
+<Card title="Nodes, edges and ports" horizontal href="/concepts/nodes-edges-ports">
+  Node roles, how edges and output ports route messages, and how a node with several parents joins them.
+</Card>
+
+<Card title="Executions" horizontal href="/concepts/executions">
+  The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end.
+</Card>
+
+<Card title="Run controls" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>

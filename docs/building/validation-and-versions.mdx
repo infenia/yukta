@@ -1,7 +1,7 @@
 ---
 title: "Validation and versions"
 description: "Check a workflow definition before it runs, and diff, annotate and roll back its saved versions."
-mode: "wide"
+keywords: ["validation", "versions", "rollback", "diff"]
 ---
 
 <Info>
@@ -91,8 +91,16 @@ Put `yukta.version` in the start payload to run a saved version without changing
 }
 ```
 
-## Related
+## Next steps
 
-- [Defining a workflow](/building/defining-a-workflow)
-- [REST: workflows](/api/workflows)
-- [MCP server](/interfaces/mcp)
+<Card title="Defining a workflow" horizontal href="/building/defining-a-workflow">
+  The complete JSON shape of a session and its workflows, and how to build one step by step.
+</Card>
+
+<Card title="REST: workflows" horizontal href="/api/workflows">
+  Read workflow definitions and graphs, manage saved versions, and start, stop and list runs of a workflow.
+</Card>
+
+<Card title="MCP server" horizontal href="/interfaces/mcp">
+  Let an AI agent create sessions, run workflows, watch them and steer them through the Model Context Protocol.
+</Card>

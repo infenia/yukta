@@ -1,7 +1,7 @@
 ---
 title: "External I/O"
 description: "PROCESS_EXECUTOR, HTTP_REQUEST, SQL_QUERY, FILE_READ, FILE_WRITE and KV_STORE: plugins that reach outside the workflow."
-mode: "wide"
+keywords: ["HTTP_REQUEST", "SQL_QUERY", "PROCESS_EXECUTOR", "file IO"]
 ---
 
 <Info>
@@ -246,9 +246,20 @@ Each message that reaches this node adds 1 to `ci:build-failures`.
 | `FILE_WRITE` | node 30 s | none |
 | `KV_STORE` | node 30 s | `maxEntries` 10000 |
 
-## Related
+## Next steps
 
-- [Failure handling](/concepts/failure-handling)
-- [Security](/operations/security)
-- [Variables and expressions](/building/variables-and-expressions)
-- [Time limits](/concepts/time-limits)
+<Card title="Failure handling" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>
+
+<Card title="Security" horizontal href="/operations/security">
+  Expose the server safely, control who can do what, and limit what workflows may run.
+</Card>
+
+<Card title="Variables and expressions" horizontal href="/building/variables-and-expressions">
+  Reference message data, settings and secrets inside node configuration without storing them in the workflow.
+</Card>
+
+<Card title="Time limits" horizontal href="/concepts/time-limits">
+  The five independent clocks that bound an execution, and how pausing and long-running work interact with them.
+</Card>

@@ -1,7 +1,7 @@
 ---
 title: "Persistence"
 description: "Keep sessions, the execution log and node outputs in memory, on disk or in PostgreSQL, and what survives a restart in each case."
-mode: "wide"
+keywords: ["persistence", "storage", "PostgreSQL", "durability"]
 ---
 
 <Note>
@@ -176,9 +176,20 @@ The PostgreSQL execution log queues up to 10,000 events for its writer and inser
 | Statement time limit | 30 s for the log and checkpoints, 10 s for history and the lease |
 | Checkpoint memory caps | `200` messages and 4 MiB per node |
 
-## Related
+## Next steps
 
-- [Checkpoints and resume](/operations/checkpoints-and-resume)
-- [High availability](/operations/high-availability)
-- [Configuration](/operations/configuration)
-- [Deployment](/operations/deployment)
+<Card title="Checkpoints and resume" horizontal href="/operations/checkpoints-and-resume">
+  How Yukta records node outputs, restarts a run or one node, recovers after a restart and resumes an aborted run.
+</Card>
+
+<Card title="High availability" horizontal href="/operations/high-availability">
+  Run several servers on one PostgreSQL database so that one admits runs and the others take over when it stops.
+</Card>
+
+<Card title="Configuration" horizontal href="/operations/configuration">
+  Every setting an operator can change, its default and what it controls, plus the per-node engine options.
+</Card>
+
+<Card title="Deployment" horizontal href="/operations/deployment">
+  Install Yukta as a Docker image, a Linux package or an archive, or run it from source, with the profiles and build switches that shape it.
+</Card>

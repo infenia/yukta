@@ -1,7 +1,7 @@
 ---
 title: "Troubleshooting"
 description: "Common symptoms of a running Yukta server, their causes and the fix."
-mode: "wide"
+keywords: ["troubleshooting", "common errors", "debugging"]
 ---
 
 <Note>
@@ -149,9 +149,20 @@ The server applies the schema migrations first and does not start if one fails. 
 - The migration account can change the schema.
 - The `postgres` profile is active and the build used `-Pyukta.persistence=postgres`. See [Persistence](/operations/persistence).
 
-## Related
+## Next steps
 
-- [Errors](/api/errors)
-- [Configuration](/operations/configuration)
-- [Observability](/running/observability)
-- [Capacity and performance](/operations/capacity-and-performance)
+<Card title="Errors" horizontal href="/api/errors">
+  The error response shape, field errors and every HTTP status the REST API returns, with the cause and what to do.
+</Card>
+
+<Card title="Configuration" horizontal href="/operations/configuration">
+  Every setting an operator can change, its default and what it controls, plus the per-node engine options.
+</Card>
+
+<Card title="Observability" horizontal href="/running/observability">
+  Progress, logs, results, the live event feed, metrics and tracing: how to see what an execution is doing and what it produced.
+</Card>
+
+<Card title="Capacity and performance" horizontal href="/operations/capacity-and-performance">
+  The ceilings, bounded and unbounded memory, admission limits, every metric the server publishes, what to alert on and how to run the load tests.
+</Card>

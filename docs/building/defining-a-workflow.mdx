@@ -1,7 +1,7 @@
 ---
 title: "Defining a workflow"
 description: "The complete JSON shape of a session and its workflows, and how to build one step by step."
-mode: "wide"
+keywords: ["workflow JSON", "session definition", "nodes", "edges"]
 ---
 
 <Info>
@@ -146,8 +146,16 @@ You can also build workflows in the [web UI](/interfaces/web-ui), which renders 
 | Identifiers | 256 characters; session and workflow ids cannot contain `/`, `\` or `..` |
 | Versions kept | Newest 20 per workflow |
 
-## Related
+## Next steps
 
-- [Routing and branching](/building/routing-and-branching)
-- [Validation and versions](/building/validation-and-versions)
-- [Plugin overview](/plugins/overview)
+<Card title="Routing and branching" horizontal href="/building/routing-and-branching">
+  Patterns for sending messages down different paths: by exit code, HTTP status, expression, validation result, recipient list and error.
+</Card>
+
+<Card title="Validation and versions" horizontal href="/building/validation-and-versions">
+  Check a workflow definition before it runs, and diff, annotate and roll back its saved versions.
+</Card>
+
+<Card title="Plugin overview" horizontal href="/plugins/overview">
+  The 34 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include.
+</Card>

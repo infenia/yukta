@@ -1,7 +1,7 @@
 ---
 title: "Sub-workflows"
 description: "Run another stored workflow from inside a node, once per message."
-mode: "wide"
+keywords: ["sub-workflows", "SUB_WORKFLOW", "nested workflow"]
 ---
 
 <Info>
@@ -45,8 +45,16 @@ See [Routing and flow control](/plugins/routing-and-flow) for the node's full op
 | Placement | A `SUB_WORKFLOW` node cannot be placed on a remote worker |
 | Run history | The parent-child link is carried in the child's start payload and its start entry in the execution log |
 
-## Related
+## Next steps
 
-- [Executions](/concepts/executions)
-- [Failure handling](/concepts/failure-handling)
-- [Admission and limits](/running/admission-and-limits)
+<Card title="Executions" horizontal href="/concepts/executions">
+  The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end.
+</Card>
+
+<Card title="Failure handling" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>
+
+<Card title="Admission and limits" horizontal href="/running/admission-and-limits">
+  Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes.
+</Card>

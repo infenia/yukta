@@ -2,7 +2,7 @@
 title: "Supervisors"
 description: "Programs that watch every execution and steer it, or veto commands before they run: a rule engine, an AI agent or your own code."
 tag: "Optional"
-mode: "wide"
+keywords: ["supervisors", "rule engine", "AI supervisor"]
 ---
 
 <Info>
@@ -66,9 +66,20 @@ reports every supervisor and control plane: its kind (`SUPERVISOR` or `CONTROL_P
 | `yukta.supervisor.max-commands-per-second` | `20` | Rate limit per supervisor |
 | `yukta.supervisor.dry-run` | `false` | Record commands without applying them |
 
-## Related
+## Next steps
 
-- [Rule files](/running/rule-files)
-- [Control planes](/running/control-planes)
-- [Run controls](/running/run-controls)
-- [Observability](/running/observability)
+<Card title="Rule files" horizontal href="/running/rule-files">
+  The declarative JSON format used by the rule supervisor and the rule control plane: react to events and veto commands.
+</Card>
+
+<Card title="Control planes" horizontal href="/running/control-planes">
+  Decision makers on the control bus that judge one event at a time, using rules, a small model, or rules first and a model as a fallback.
+</Card>
+
+<Card title="Run controls" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>
+
+<Card title="Observability" horizontal href="/running/observability">
+  Progress, logs, results, the live event feed, metrics and tracing: how to see what an execution is doing and what it produced.
+</Card>

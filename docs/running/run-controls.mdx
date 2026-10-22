@@ -1,7 +1,7 @@
 ---
 title: "Run controls"
 description: "Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path."
-mode: "wide"
+keywords: ["pause", "resume", "breakpoints", "step", "retry"]
 ---
 
 <Info>
@@ -100,9 +100,20 @@ Operators can change the scheduler limits and a queued execution's priority whil
 | `OPERATOR` | Start, pause, resume, step, skip, stop, restart, retry, signal, recover, change a queued priority |
 | `ADMIN` | Everything, including defining sessions and changing scheduler limits |
 
-## Related
+## Next steps
 
-- [Executions](/concepts/executions)
-- [REST: control](/api/control)
-- [Supervisors](/running/supervisors)
-- [Security](/operations/security)
+<Card title="Executions" horizontal href="/concepts/executions">
+  The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end.
+</Card>
+
+<Card title="REST: control" horizontal href="/api/control">
+  Pause, resume and steer a running execution and its nodes, send signals, and use the control bus and its audit log.
+</Card>
+
+<Card title="Supervisors" horizontal href="/running/supervisors">
+  Programs that watch every execution and steer it, or veto commands before they run: a rule engine, an AI agent or your own code.
+</Card>
+
+<Card title="Security" horizontal href="/operations/security">
+  Expose the server safely, control who can do what, and limit what workflows may run.
+</Card>

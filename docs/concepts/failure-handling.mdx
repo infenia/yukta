@@ -1,7 +1,7 @@
 ---
 title: "Failure handling"
 description: "Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration."
-mode: "wide"
+keywords: ["failure handling", "retry", "error routing", "failure budget"]
 ---
 
 <Info>
@@ -83,9 +83,20 @@ With `retry` or `onError` of `CONTINUE` or `ROUTE`, whatever an attempt emitted 
 | A node's configuration cannot be resolved | That message fails like any plugin failure, so retry and error routing apply |
 | A budget with a hard stop is exceeded | The whole execution ends; the failure is never retried, dropped or routed |
 
-## Related
+## Next steps
 
-- [Time limits](/concepts/time-limits)
-- [Routing and branching](/building/routing-and-branching)
-- [Loops and retries](/building/loops-and-retries)
-- [Status values](/reference/status-values)
+<Card title="Time limits" horizontal href="/concepts/time-limits">
+  The five independent clocks that bound an execution, and how pausing and long-running work interact with them.
+</Card>
+
+<Card title="Routing and branching" horizontal href="/building/routing-and-branching">
+  Patterns for sending messages down different paths: by exit code, HTTP status, expression, validation result, recipient list and error.
+</Card>
+
+<Card title="Loops and retries" horizontal href="/building/loops-and-retries">
+  Repeat work until a condition holds, within bounds, and choose between a loop, an engine retry and a polling loop.
+</Card>
+
+<Card title="Status values" horizontal href="/reference/status-values">
+  Every execution and node status, and the enumerated values used by node options, limits and roles.
+</Card>

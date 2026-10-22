@@ -1,7 +1,7 @@
 ---
 title: "Checkpoints and resume"
 description: "How Yukta records node outputs, restarts a run or one node, recovers after a restart and resumes an aborted run."
-mode: "wide"
+keywords: ["checkpoints", "resume", "recovery", "restart"]
 ---
 
 <Note>
@@ -143,9 +143,20 @@ Retries repeat per message, and a resume can repeat a node. Make side effects id
 | Restart wait for the new run to be accepted | 30 s |
 | Resume | Once per run |
 
-## Related
+## Next steps
 
-- [Persistence](/operations/persistence)
-- [High availability](/operations/high-availability)
-- [Delivery and back-pressure](/concepts/delivery-and-backpressure)
-- [Run controls](/running/run-controls)
+<Card title="Persistence" horizontal href="/operations/persistence">
+  Keep sessions, the execution log and node outputs in memory, on disk or in PostgreSQL, and what survives a restart in each case.
+</Card>
+
+<Card title="High availability" horizontal href="/operations/high-availability">
+  Run several servers on one PostgreSQL database so that one admits runs and the others take over when it stops.
+</Card>
+
+<Card title="Delivery and back-pressure" horizontal href="/concepts/delivery-and-backpressure">
+  What Yukta guarantees about delivery, ordering and memory, and how a slow node affects the rest of the graph.
+</Card>
+
+<Card title="Run controls" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>

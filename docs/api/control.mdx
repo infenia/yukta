@@ -1,7 +1,7 @@
 ---
 title: "Control API"
 description: "Pause, resume and steer a running execution and its nodes, send signals, and use the control bus and its audit log."
-mode: "wide"
+keywords: ["control bus", "pause execution", "signals", "audit log"]
 ---
 
 <Info>
@@ -248,8 +248,16 @@ GET /api/control/audit?limit=2
 }
 ```
 
-## Related
+## Next steps
 
-- [Run controls](/running/run-controls)
-- [Supervisors](/running/supervisors)
-- [Streams API](/api/streams)
+<Card title="Run controls" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>
+
+<Card title="Supervisors" horizontal href="/running/supervisors">
+  Programs that watch every execution and steer it, or veto commands before they run: a rule engine, an AI agent or your own code.
+</Card>
+
+<Card title="Streams API" horizontal href="/api/streams">
+  Follow a run live over server-sent events: status, logs, results and the server-wide event feed.
+</Card>

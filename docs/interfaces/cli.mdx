@@ -1,7 +1,7 @@
 ---
 title: "Command-line client"
 description: "Use the yukta command to manage sessions, start and control runs, and watch them live from a terminal or a CI job."
-mode: "wide"
+keywords: ["CLI", "command line", "yukta command", "CI"]
 ---
 
 <Info>
@@ -216,8 +216,16 @@ On failure the command prints `error: <message>` to standard error. An HTTP erro
 
 The client does not wrap every REST call. For recovering aborted runs, changing priority or scheduler limits, approval lists, version history and rollback, validation, the control audit, supervisors and workers, use the [REST API](/api/overview) or the [MCP server](/interfaces/mcp).
 
-## Related
+## Next steps
 
-- [REST API overview](/api/overview)
-- [MCP server](/interfaces/mcp)
-- [Run controls](/running/run-controls)
+<Card title="REST API overview" horizontal href="/api/overview">
+  Base path, authentication, response envelope, paging, idempotency and stream conventions shared by every endpoint.
+</Card>
+
+<Card title="MCP server" horizontal href="/interfaces/mcp">
+  Let an AI agent create sessions, run workflows, watch them and steer them through the Model Context Protocol.
+</Card>
+
+<Card title="Run controls" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>

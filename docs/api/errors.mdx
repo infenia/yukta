@@ -1,7 +1,7 @@
 ---
 title: "Errors"
 description: "The error response shape, field errors and every HTTP status the REST API returns, with the cause and what to do."
-mode: "wide"
+keywords: ["error response", "HTTP status codes", "field errors", "troubleshooting API"]
 ---
 
 <Info>
@@ -105,8 +105,16 @@ Other client errors raised while handling the request, such as an unsupported me
 | `429`, `503` | Yes, with backoff. Send the same `Idempotency-Key` on a start so a retry cannot create two runs |
 | `500` | Once, then report it |
 
-## Related
+## Next steps
 
-- [REST API overview](/api/overview)
-- [Failure handling](/concepts/failure-handling)
-- [Troubleshooting](/operations/troubleshooting)
+<Card title="REST API overview" horizontal href="/api/overview">
+  Base path, authentication, response envelope, paging, idempotency and stream conventions shared by every endpoint.
+</Card>
+
+<Card title="Failure handling" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>
+
+<Card title="Troubleshooting" horizontal href="/operations/troubleshooting">
+  Common symptoms of a running Yukta server, their causes and the fix.
+</Card>

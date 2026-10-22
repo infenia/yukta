@@ -1,7 +1,7 @@
 ---
 title: "Scheduling"
 description: "Run a workflow on a timer with SCHEDULE_TRIGGER, or start workflows from outside with REST, the CLI or MCP."
-mode: "wide"
+keywords: ["scheduling", "cron", "SCHEDULE_TRIGGER", "timer"]
 ---
 
 <Info>
@@ -175,9 +175,20 @@ If the server requires an API key, send it as described in [Security](/operation
 | Cron fields | 6: second, minute, hour, day of month, month, day of week |
 | Schedule position across a restart | not kept |
 
-## Related
+## Next steps
 
-- [Triggers](/plugins/triggers)
-- [Executions](/api/executions)
-- [Run controls](/running/run-controls)
-- [Time limits](/concepts/time-limits)
+<Card title="Triggers" horizontal href="/plugins/triggers">
+  API_TRIGGER, CONSTANT_SOURCE and SCHEDULE_TRIGGER: the plugins that start a workflow.
+</Card>
+
+<Card title="Executions" horizontal href="/api/executions">
+  Read the status and result of a run, search runs, stop, restart and recover them, and manage the execution queue.
+</Card>
+
+<Card title="Run controls" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>
+
+<Card title="Time limits" horizontal href="/concepts/time-limits">
+  The five independent clocks that bound an execution, and how pausing and long-running work interact with them.
+</Card>

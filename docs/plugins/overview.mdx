@@ -1,7 +1,7 @@
 ---
 title: "Built-in plugins"
 description: "The 34 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include."
-mode: "wide"
+keywords: ["plugins", "triggers", "processors", "terminals"]
 ---
 
 <Info>
@@ -213,8 +213,16 @@ A plugin with no configuration, such as `API_TRIGGER` or `CONSOLE_TERMINAL`, ret
   `PROCESS_EXECUTOR`, `SQL_QUERY`, `FILE_READ`, `FILE_WRITE`, `HTTP_REQUEST` and the `SCRIPT` mode of `MAPPER` act on the server's host or network with the server's permissions. Treat authorship of workflows as a trusted operation. See [Security](/operations/security).
 </Warning>
 
-## Related
+## Next steps
 
-- [Defining a workflow](/building/defining-a-workflow)
-- [Writing a plugin](/plugins/writing-a-plugin)
-- [Failure handling](/concepts/failure-handling)
+<Card title="Defining a workflow" horizontal href="/building/defining-a-workflow">
+  The complete JSON shape of a session and its workflows, and how to build one step by step.
+</Card>
+
+<Card title="Writing a plugin" horizontal href="/plugins/writing-a-plugin">
+  The contract a trigger, processor or terminal fulfils: what it declares, how it handles messages and failures, and how Yukta picks it up.
+</Card>
+
+<Card title="Failure handling" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>

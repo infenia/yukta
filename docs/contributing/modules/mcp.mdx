@@ -1,7 +1,7 @@
 ---
 title: "MCP module"
 description: "The mcp module is Yukta's door for AI agents."
-mode: "wide"
+keywords: ["mcp module", "Model Context Protocol", "MCP tools"]
 ---
 
 The mcp module is Yukta's door for AI agents. An agent (a program driven by a language model) connects over the Model Context Protocol (MCP, an open standard for letting models call tools) and does what a person does through the REST API or the web UI: create sessions, start workflows, steer a run, read its logs and look up plugins. The module holds no state and runs no workflows itself. It checks the request, calls core, and shapes the answer so a model can use it. This page is for thinking about it, not documenting it: open a component, play a scenario, then challenge the weak spots.

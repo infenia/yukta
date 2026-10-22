@@ -1,7 +1,7 @@
 ---
 title: "Writing a plugin"
 description: "The contract a trigger, processor or terminal fulfils: what it declares, how it handles messages and failures, and how Yukta picks it up."
-mode: "wide"
+keywords: ["custom plugin", "plugin-api", "extend Yukta"]
 ---
 
 <Info>
@@ -163,9 +163,20 @@ After that the plugin behaves like a built-in one:
 
 Plugins can also run on a remote worker instead of the server. See [Remote workers](/operations/remote-workers).
 
-## Related
+## Next steps
 
-- [Built-in plugins](/plugins/overview)
-- [Failure handling](/concepts/failure-handling)
-- [Time limits](/concepts/time-limits)
-- [Approvals and signals](/building/approvals-and-signals)
+<Card title="Built-in plugins" horizontal href="/plugins/overview">
+  The 34 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include.
+</Card>
+
+<Card title="Failure handling" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>
+
+<Card title="Time limits" horizontal href="/concepts/time-limits">
+  The five independent clocks that bound an execution, and how pausing and long-running work interact with them.
+</Card>
+
+<Card title="Approvals and signals" horizontal href="/building/approvals-and-signals">
+  Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision.
+</Card>

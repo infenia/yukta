@@ -1,7 +1,7 @@
 ---
 title: "Web UI"
 description: "Browse sessions, build workflows with forms, run them and watch them live in the browser."
-mode: "wide"
+keywords: ["web UI", "browser", "workflow editor"]
 ---
 
 <Info>
@@ -131,8 +131,16 @@ The toggle in the top bar cycles through light, dark and system. System follows 
 
 The web UI does not send an API key. It works against a server that has no key configured, which is the default on loopback. On a server that requires a key, the UI's requests are answered with `401` and its pages show load errors. For such a server use the [command-line client](/interfaces/cli), the [REST API](/api/overview) or the [MCP server](/interfaces/mcp), which all accept a key. See [Security](/operations/security).
 
-## Related
+## Next steps
 
-- [Run controls](/running/run-controls)
-- [Defining a workflow](/building/defining-a-workflow)
-- [REST API overview](/api/overview)
+<Card title="Run controls" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>
+
+<Card title="Defining a workflow" horizontal href="/building/defining-a-workflow">
+  The complete JSON shape of a session and its workflows, and how to build one step by step.
+</Card>
+
+<Card title="REST API overview" horizontal href="/api/overview">
+  Base path, authentication, response envelope, paging, idempotency and stream conventions shared by every endpoint.
+</Card>

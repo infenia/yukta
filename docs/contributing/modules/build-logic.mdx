@@ -1,7 +1,7 @@
 ---
 title: "Build logic module"
 description: "build-logic is the rulebook for the build."
-mode: "wide"
+keywords: ["build-logic", "Gradle conventions", "quality gates"]
 ---
 
 build-logic is the rulebook for the build. It is a small Gradle project inside the repository that holds six shared 'convention plugins'. A module that applies one line of it gets the same Java version, the same dependency versions, the same code-style and bug checks, the same licence checks and the same test-coverage rules as every other module. Nothing here runs in production; it decides what code is allowed to be merged. This page is for thinking about it: open a component, replay a scenario, then challenge the weak spots.

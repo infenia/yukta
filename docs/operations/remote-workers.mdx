@@ -2,7 +2,7 @@
 title: "Remote workers"
 description: "Run selected processor nodes on other machines, in named pools, while the control plane keeps orchestrating."
 tag: "Optional"
-mode: "wide"
+keywords: ["remote workers", "worker pools", "distributed execution"]
 ---
 
 <Note>
@@ -195,9 +195,20 @@ With [high availability](/operations/high-availability), list every control plan
 | Reconnect pause | 1 s growing to 30 s, no limit on tries |
 | Message size | No limit set by Yukta |
 
-## Related
+## Next steps
 
-- [Failure handling](/concepts/failure-handling)
-- [Security](/operations/security)
-- [High availability](/operations/high-availability)
-- [Configuration](/operations/configuration)
+<Card title="Failure handling" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>
+
+<Card title="Security" horizontal href="/operations/security">
+  Expose the server safely, control who can do what, and limit what workflows may run.
+</Card>
+
+<Card title="High availability" horizontal href="/operations/high-availability">
+  Run several servers on one PostgreSQL database so that one admits runs and the others take over when it stops.
+</Card>
+
+<Card title="Configuration" horizontal href="/operations/configuration">
+  Every setting an operator can change, its default and what it controls, plus the per-node engine options.
+</Card>

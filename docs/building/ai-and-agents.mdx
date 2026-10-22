@@ -2,7 +2,7 @@
 title: "AI and agents"
 description: "Build model-driven workflows: chat with memory, tool-using agent loops, decisions, budgets and guardrails."
 tag: "Optional"
-mode: "wide"
+keywords: ["AI agents", "LLM", "agent loop", "guardrails", "budgets"]
 ---
 
 <Info>
@@ -256,9 +256,20 @@ A few facts about budgets:
   Text from users, web pages or tools goes straight into the prompt. A model can be talked into asking for a tool you did not expect. Keep `allowedTools` narrow, put `requireApproval` on tools that change things, and never let a tool name or argument from a model reach something dangerous without a check.
 </Warning>
 
-## Related
+## Next steps
 
-- [AI plugins](/plugins/ai)
-- [Decision plugins](/plugins/decisions)
-- [Approvals and signals](/building/approvals-and-signals)
-- [Variables and expressions](/building/variables-and-expressions)
+<Card title="AI plugins" horizontal href="/plugins/ai">
+  LLM_CALL, MCP_LIST_TOOLS, MCP_TOOL_CALL and SESSION_MEMORY: call a model, give it tools and keep conversation history.
+</Card>
+
+<Card title="Decision plugins" horizontal href="/plugins/decisions">
+  CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE: constrained model decisions for routing and gating.
+</Card>
+
+<Card title="Approvals and signals" horizontal href="/building/approvals-and-signals">
+  Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision.
+</Card>
+
+<Card title="Variables and expressions" horizontal href="/building/variables-and-expressions">
+  Reference message data, settings and secrets inside node configuration without storing them in the workflow.
+</Card>

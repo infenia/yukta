@@ -2,7 +2,7 @@
 title: "High availability"
 description: "Run several servers on one PostgreSQL database so that one admits runs and the others take over when it stops."
 tag: "Optional"
-mode: "wide"
+keywords: ["high availability", "failover", "PostgreSQL", "cluster"]
 ---
 
 <Note>
@@ -115,9 +115,20 @@ Run with the `postgres` profile and the connection URLs described in [Persistenc
 | Lease statement time limit | 10 s |
 | Takeover time | About one lease after the old leader stops renewing |
 
-## Related
+## Next steps
 
-- [Persistence](/operations/persistence)
-- [Checkpoints and resume](/operations/checkpoints-and-resume)
-- [Remote workers](/operations/remote-workers)
-- [Capacity and performance](/operations/capacity-and-performance)
+<Card title="Persistence" horizontal href="/operations/persistence">
+  Keep sessions, the execution log and node outputs in memory, on disk or in PostgreSQL, and what survives a restart in each case.
+</Card>
+
+<Card title="Checkpoints and resume" horizontal href="/operations/checkpoints-and-resume">
+  How Yukta records node outputs, restarts a run or one node, recovers after a restart and resumes an aborted run.
+</Card>
+
+<Card title="Remote workers" horizontal href="/operations/remote-workers">
+  Run selected processor nodes on other machines, in named pools, while the control plane keeps orchestrating.
+</Card>
+
+<Card title="Capacity and performance" horizontal href="/operations/capacity-and-performance">
+  The ceilings, bounded and unbounded memory, admission limits, every metric the server publishes, what to alert on and how to run the load tests.
+</Card>

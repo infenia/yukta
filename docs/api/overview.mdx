@@ -1,7 +1,7 @@
 ---
 title: "REST API overview"
 description: "Base path, authentication, response envelope, paging, idempotency and stream conventions shared by every endpoint."
-mode: "wide"
+keywords: ["REST API", "authentication", "API key", "paging", "idempotency"]
 ---
 
 <Info>
@@ -173,8 +173,16 @@ Execution endpoints exist at two paths. The `/api/executions/{executionId}/...` 
 
 Retry, breakpoint, signal and priority exist only at the current path. The execution index behind `/api/executions/{executionId}` keeps a finished run for `yukta.tracker.cleanup-ttl` (default `10m`). To read an older run from the session history, use the status alias that names the session.
 
-## Related
+## Next steps
 
-- [Errors](/api/errors)
-- [Security](/operations/security)
-- [Run controls](/running/run-controls)
+<Card title="Errors" horizontal href="/api/errors">
+  The error response shape, field errors and every HTTP status the REST API returns, with the cause and what to do.
+</Card>
+
+<Card title="Security" horizontal href="/operations/security">
+  Expose the server safely, control who can do what, and limit what workflows may run.
+</Card>
+
+<Card title="Run controls" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>

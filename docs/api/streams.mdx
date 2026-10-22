@@ -1,7 +1,7 @@
 ---
 title: "Streams API"
 description: "Follow a run live over server-sent events: status, logs, results and the server-wide event feed."
-mode: "wide"
+keywords: ["server-sent events", "SSE", "live logs", "event feed"]
 ---
 
 <Info>
@@ -147,8 +147,16 @@ id: 0
 data: {"type":"NodeStatusChanged","severity":"ERROR","event":{"executionId":"550e8400-e29b-41d4-a716-446655440000","workflowId":"build","nodeId":"compile","module":"PROCESS_EXECUTOR","status":"FAILURE","metadata":{"error":"exit code 1"},"timestamp":"2026-07-19T10:15:29.500Z"}}
 ```
 
-## Related
+## Next steps
 
-- [Executions API](/api/executions)
-- [Observability](/running/observability)
-- [Status values](/reference/status-values)
+<Card title="Executions API" horizontal href="/api/executions">
+  Read the status and result of a run, search runs, stop, restart and recover them, and manage the execution queue.
+</Card>
+
+<Card title="Observability" horizontal href="/running/observability">
+  Progress, logs, results, the live event feed, metrics and tracing: how to see what an execution is doing and what it produced.
+</Card>
+
+<Card title="Status values" horizontal href="/reference/status-values">
+  Every execution and node status, and the enumerated values used by node options, limits and roles.
+</Card>

@@ -2,7 +2,7 @@
 title: "AI plugins"
 description: "LLM_CALL, MCP_LIST_TOOLS, MCP_TOOL_CALL and SESSION_MEMORY: call a model, give it tools and keep conversation history."
 tag: "Optional"
-mode: "wide"
+keywords: ["LLM_CALL", "MCP_TOOL_CALL", "SESSION_MEMORY", "AI plugins"]
 ---
 
 <Note>
@@ -261,9 +261,20 @@ See [Persistence](/operations/persistence). Messages are handled one at a time, 
 | `SESSION_MEMORY` `maxTurns` | 20 |
 | Messages in flight per node | 16 for `LLM_CALL` and `MCP_TOOL_CALL` (`concurrency`); 1 for `SESSION_MEMORY` and `MCP_LIST_TOOLS` |
 
-## Related
+## Next steps
 
-- [AI and agents](/building/ai-and-agents)
-- [Decision plugins](/plugins/decisions)
-- [Approvals and signals](/building/approvals-and-signals)
-- [Variables and expressions](/building/variables-and-expressions)
+<Card title="AI and agents" horizontal href="/building/ai-and-agents">
+  Build model-driven workflows: chat with memory, tool-using agent loops, decisions, budgets and guardrails.
+</Card>
+
+<Card title="Decision plugins" horizontal href="/plugins/decisions">
+  CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE: constrained model decisions for routing and gating.
+</Card>
+
+<Card title="Approvals and signals" horizontal href="/building/approvals-and-signals">
+  Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision.
+</Card>
+
+<Card title="Variables and expressions" horizontal href="/building/variables-and-expressions">
+  Reference message data, settings and secrets inside node configuration without storing them in the workflow.
+</Card>

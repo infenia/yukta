@@ -1,7 +1,7 @@
 ---
 title: "Workflows API"
 description: "Read workflow definitions and graphs, manage saved versions, and start, stop and list runs of a workflow."
-mode: "wide"
+keywords: ["workflows API", "workflow versions", "start run", "workflow graph"]
 ---
 
 <Info>
@@ -280,8 +280,16 @@ Returns the runs of every workflow in the session, newest first. It takes `limit
 GET /api/workflow/demo/history?status=FAILURE&limit=20
 ```
 
-## Related
+## Next steps
 
-- [Executions API](/api/executions)
-- [Validation and versions](/building/validation-and-versions)
-- [Admission and limits](/running/admission-and-limits)
+<Card title="Executions API" horizontal href="/api/executions">
+  Read the status and result of a run, search runs, stop, restart and recover them, and manage the execution queue.
+</Card>
+
+<Card title="Validation and versions" horizontal href="/building/validation-and-versions">
+  Check a workflow definition before it runs, and diff, annotate and roll back its saved versions.
+</Card>
+
+<Card title="Admission and limits" horizontal href="/running/admission-and-limits">
+  Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes.
+</Card>
