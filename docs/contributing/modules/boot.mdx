@@ -42,7 +42,7 @@ Boot depends on every other module and nothing depends on boot. It owns the entr
 | Term | Meaning | Example |
 |---|---|---|
 | Spring profile | A named set of settings. Boot has dev and prod. A profile adds a second YAML file on top of the base file. | application-prod.yaml turns off debug logging. |
-| Default profile | The profile used when none is chosen. Here it is dev (spring.profiles.default). | java -jar yukta.jar with no arguments runs as dev. |
+| Default profile | The profile used when none is chosen. Here it is prod (spring.profiles.default). | java -jar yukta.jar with no arguments runs as prod. |
 | Optional plugin | A plugin you may leave out of the build. Nine can be chosen; triggers, terminals, supervisors and control planes are always included. | -Pyukta.plugins=http-request,script-js |
 | Native image | A GraalVM-compiled executable that starts fast and needs no JVM, but is fixed at build time (no new classes, reflection must be declared). | ./gradlew nativeCompile produces a binary named yukta. |
 | Actuator | Spring's management endpoints (health, metrics, loggers...). They live on the same port as the API. | /actuator/health |
@@ -64,7 +64,7 @@ A cold start of the native binary, up to a user pasting the link /sessions/x int
 
 </Step>
 <Step title="Pick a profile">
-**What happens.** In a native image with no --spring.profiles.active= (or -Dspring.profiles.active=) argument, main() sets prod. In a normal JVM, no profile means the default, dev.
+**What happens.** In a native image with no --spring.profiles.active= (or -Dspring.profiles.active=) argument, main() sets prod. In a normal JVM, no profile means the default, prod; bootRun passes dev.
 
 **Why it is built this way.** A native binary is what you ship, so it should be safe without extra flags. A developer running from the IDE wants verbose logs, so dev is the default.
 
@@ -154,7 +154,7 @@ Starts the application and chooses the profile in the one case where it must not
 
 - main() first calls Hooks.enableAutomaticContextPropagation(). This makes Reactor copy context values (request id, tracing) from one thread to the next. Reason: Yukta is reactive, and without this the request id in log lines would vanish whenever work moves to another thread.
 - If the process is a native image and no argument starts with --spring.profiles.active= or -Dspring.profiles.active=, main() sets the system property to prod. Example: ./yukta runs as prod; ./yukta --spring.profiles.active=dev runs as dev.
-- In a normal JVM the launcher does nothing about profiles. The default profile in the base YAML, dev, applies. Example: java -jar boot.jar with no flags gives debug logging.
+- In a normal JVM the launcher does nothing about profiles. The default profile in the base YAML, prod, applies. Example: java -jar boot.jar with no flags logs at INFO and exposes only health, info and metrics.
 - Only command-line arguments are checked. If a native image is started with only the SPRING_PROFILES_ACTIVE environment variable, main() still sets the system property to prod; which of the two Spring then prefers was not tested.
 
 - **Guarantees.** Context propagation is on before any Spring code runs. An explicit profile argument is never overwritten.
@@ -181,7 +181,7 @@ Provides every setting as a base file overlaid by the active profile's file.
 - **Ceiling.** Settings are plain keys with no validation of the YAML itself; a typo in a key name is silently ignored by Spring except for typed properties.
 - **On failure.** A bad value (for instance unreadable type) stops start-up. A misspelt key does not fail anything; it is just ignored.
 
-**Settings:** `server.address = ${YUKTA_SERVER_ADDRESS:127.0.0.1}`, `spring.profiles.default = dev`, `spring.jackson.deserialization.fail-on-unknown-properties = true`, `spring.ai.mcp.server.* (see map)`
+**Settings:** `server.address = ${YUKTA_SERVER_ADDRESS:127.0.0.1}`, `spring.profiles.default = prod`, `spring.jackson.deserialization.fail-on-unknown-properties = true`, `spring.ai.mcp.server.* (see map)`
 
 ### Assembled Application
 
@@ -329,7 +329,7 @@ Gradle reads -Pyukta.plugins (default all) and adds the nine optional plugins to
 Context propagation is enabled. It is a JVM, not a native image, so the launcher leaves the profile alone.
 </Step>
 <Step title="Default profile is dev">
-With no profile named, spring.profiles.default makes dev active. Debug logging, TRACE for the orchestrator stream package and the longer management list apply.
+With no profile named, spring.profiles.default makes prod active. Dev (debug logging, TRACE for the orchestrator stream package and the longer management list) is opt-in; bootRun asks for it.
 </Step>
 <Step title="Context starts">
 Beans from all modules are created. The server binds to 127.0.0.1:8080, so only this machine can connect.
@@ -490,7 +490,7 @@ Pick a profile and see what holds. Rows marked part or lost are the reasons for 
 
 | Topic | dev (default) | prod |
 |---|---|---|
-| Active when | \*\*Note.\*\* No profile named in a JVM run. Also the choice if you pass dev. | \*\*Note.\*\* --spring.profiles.active=prod, or a native image run without a profile argument. |
+| Active when | \*\*Note.\*\* Pass dev (bootRun does). | \*\*Note.\*\* No profile named, or --spring.profiles.active=prod. |
 | Management endpoints | \*\*Partly.\*\* health, info, metrics, loggers, mappings, threaddump. Heapdump and env are not exposed. | \*\*Yes.\*\* health, info, metrics only (inherited from the base file). |
 | Orchestrator stream logs | \*\*No.\*\* TRACE: message payloads can be written to the console. | \*\*Yes.\*\* Not set, so the INFO level of com.infenia.yukta applies. |
 | Application log level | \*\*Partly.\*\* DEBUG for com.infenia.yukta; Spring web at DEBUG. | \*\*Yes.\*\* INFO for com.infenia.yukta; root WARN; Spring ERROR. |
@@ -554,7 +554,7 @@ JVM vs native.
 
 | Goal | Command | Notes |
 |---|---|---|
-| Run from sources | ./gradlew bootRun | dev profile unless -Dspring.profiles.active is set |
+| Run from sources | ./gradlew bootRun | dev profile (bootRun sets it) unless -Dspring.profiles.active is set |
 | Run with chosen plugins | ./gradlew bootRun -Pyukta.plugins=http-request,script-js | Unknown names fail the build |
 | Run without optional plugins | ./gradlew bootRun -Pyukta.plugins=none | Acceptance tests then fail |
 | Build a jar | ./gradlew :boot:bootJar | Then java -jar boot/build/libs/\*.jar --spring.profiles.active=prod |
@@ -624,7 +624,7 @@ JVM vs native.
 <Accordion title="dev as the default profile">
 **Context.** Developers run from source and want verbose logs.
 
-**Decision.** spring.profiles.default is dev; native forces prod in main().
+**Decision.** spring.profiles.default is prod, so a jar and a native binary behave alike; bootRun passes dev.
 
 **Consequences.** Easy local work; a careless JVM deployment is verbose and over-exposed.
 

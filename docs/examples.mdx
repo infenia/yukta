@@ -1,55 +1,46 @@
 ---
 title: "Examples"
-description: "Ten ready-to-run workflows and the idea each one teaches."
+description: "Ten ready-to-run workflows, each a small version of a common job."
 mode: "wide"
 ---
 
-Examples are the fastest way to see whether Yukta fits your problem: each one is a small, complete version of a common job, such as gating a build, cleaning a batch of records, raising an alert or running an AI chat agent. Find the row below that looks like your situation, run it, then change it.
+Each example is a complete, small workflow for a common job. Find the one closest to yours, run it, then change it.
 
-The repository's [`examples`](https://github.com/infenia/yukta/tree/main/examples) folder holds ten complete workflows. Each has a session definition, a way to start it and a small script that applies the session, starts the run, waits for the result and checks it. Nothing in them needs code changes.
+<img className="yk-diagram block dark:hidden" src="/images/diagrams/examples-ci-gate.light.svg" alt="A CI gate: a trigger starts a command, and the command's exit code sends the run to a pass report or a fail report." loading="lazy" />
+<img className="yk-diagram hidden dark:block" src="/images/diagrams/examples-ci-gate.dark.svg" alt="A CI gate: a trigger starts a command, and the command's exit code sends the run to a pass report or a fail report." loading="lazy" />
 
-## What you need
+The picture above is example 03. Every example lives in the repository's [`examples`](https://github.com/infenia/yukta/tree/main/examples) folder with a script that applies the session, starts the run and prints `PASS` or `FAIL`.
 
-- A running Yukta server (default address `http://localhost:8080`). Examples 01, 03, 04, 06, 07 and 08 run operating-system commands through the process plugin, which refuses every command by default. For a local trial, start the server with `YUKTA_PROCESS_ALLOW_ANY=true`; to allow only specific commands, set `yukta.process.allowed-commands` instead. See [Security](/operations/security).
-- `curl` and `jq` for the scripts.
-- For the chat-agent example, an OpenAI-compatible, Anthropic or Ollama endpoint.
+## Run one
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `YUKTA_URL` | `http://localhost:8080` | Server address used by the scripts |
-| `YUKTA_API_KEY` | unset | Sent as `X-API-Key` when the server requires a key |
-| `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` | local Ollama defaults | Used by the chat-agent example only |
-
-Sessions are held in memory, so each script applies its session again every time it runs.
-
-## The examples
-
-| # | Use case | Shape | What it teaches |
-|---|---|---|---|
-| 01 | Smallest workflow, an end-to-end check | `CONSTANT_SOURCE` → `PROCESS_EXECUTOR` → `CONSOLE_TERMINAL` | One trigger, one processor, one terminal. Needs process execution to be allowed. |
-| 02 | An external system passes data | `API_TRIGGER` → `MAPPER` → `CONSOLE_TERMINAL` | Starting a run with a payload and reshaping it. |
-| 03 | A CI gate that passes or fails | `PROCESS_EXECUTOR` routed by exit code → two reports | Output ports (`success`, `failure`) and routing on an exit code. |
-| 04 | An AI-agent quality gate on metrics | `API_TRIGGER` → `BRANCH` → two reports | Branching on values in the payload. |
-| 05 | A batch data pipeline | `CONSTANT_SOURCE` → `SPLITTER` → `FILTER` → `MAPPER` | Splitting one message into many, filtering, mapping. |
-| 06 | Monitoring with an alert path | `HTTP_REQUEST` routed by status → two reports | Routing on an HTTP status code. |
-| 07 | One event to several channels | `RECIPIENT_LIST` → three notifications | Fan-out to several recipients. |
-| 08 | Retry a check until it is ready | `LOOP_PREDICATE` | Bounded repetition until a condition holds. |
-| 09 | A chat agent with per-user memory | `SESSION_MEMORY` → `LLM_CALL` → `SESSION_MEMORY` | Model calls with remembered conversation. |
-| 10 | An AI agent drives Yukta over MCP | MCP `create_session`, `start_workflow` | Using Yukta as a tool from an agent. |
-
-## Run them
-
-Run one example, or all of them against a local server, with the scripts in the folder. Each script prints the request it makes, the logs of the run and a `PASS` or `FAIL` line.
+You need a running server, `curl` and `jq`.
 
 ```bash
-./examples/01-hello-world/run.sh
-./examples/run-all.sh
+./examples/03-ci-pipeline/run.sh   # one example
+./examples/run-all.sh          # all of them
 ```
 
-An example whose plugin is not installed on your server is skipped, not failed.
+<Note>
+  Examples 01, 03, 04, 06, 07 and 08 run operating-system commands, which Yukta refuses by default. For a local trial, start the server with `YUKTA_PROCESS_ALLOW_ANY=true`. See [Security](/operations/security). Example 09 needs an LLM endpoint (OpenAI-compatible, Anthropic or Ollama). Set `YUKTA_API_KEY` if your server requires a key.
+</Note>
 
-## Related
+<Warning>
+  Example 10 does not work on the native `0.1.0-alpha.2` server yet: its MCP tools fail ([#773](https://github.com/infenia/yukta/issues/773)). Run it from source until that is fixed.
+</Warning>
 
-- [Defining a workflow](/building/defining-a-workflow)
-- [Plugin overview](/plugins/overview)
-- [MCP server](/interfaces/mcp)
+## The ten examples
+
+| # | Job | What it shows |
+|---|---|---|
+| 01 | Smallest end-to-end check | One trigger, one processor, one terminal |
+| 02 | Pass data in and reshape it | Starting a run with a payload |
+| 03 | CI gate that passes or fails | Routing on a command's exit code |
+| 04 | Quality gate on metrics | Branching on values in the payload |
+| 05 | Batch data pipeline | Split, filter, map |
+| 06 | Monitor with an alert path | Routing on an HTTP status |
+| 07 | One event to several channels | Fan-out to many recipients |
+| 08 | Retry until ready | Bounded repetition |
+| 09 | Chat agent with per-user memory | Model calls with memory |
+| 10 | An AI agent drives Yukta | Using Yukta over MCP |
+
+Next: [Defining a workflow](/building/defining-a-workflow) or the [plugin overview](/plugins/overview).

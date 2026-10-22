@@ -53,7 +53,7 @@ class AppMcpResourcesTest {
         .thenReturn(Mono.just(new ExecutionLogs("e1", 2, 2, List.of("line1", "line2"))));
 
     StepVerifier.create(mcpResources.getExecutionLogs("s1", "e1"))
-        .expectNext("line1\nline2")
+        .expectNext("[" + ExecutionLogs.UNTRUSTED_NOTICE + "]\nline1\nline2")
         .verifyComplete();
   }
 }
