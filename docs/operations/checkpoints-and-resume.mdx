@@ -4,15 +4,15 @@ description: "How Yukta records node outputs, restarts a run or one node, recove
 keywords: ["checkpoints", "resume", "recovery", "restart"]
 ---
 
-<Note>
-  Storing state on disk (`yukta.execution-log.dir`, `yukta.restart.dir`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
-</Note>
-
 <Info>
   **In plain terms:** a checkpoint is a saved copy of what each step has produced. If the server stops mid-run, Yukta can pick up from those copies instead of redoing finished work, the way a video game resumes from its last save point.
 </Info>
 
 A checkpoint is the recorded output of one node in one execution. Yukta records checkpoints so that a restart or a resume can replay what a node already produced instead of running it again.
+
+<Note>
+  Storing state on disk (`yukta.execution-log.dir`, `yukta.restart.dir`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
+</Note>
 
 ## When to use it
 
@@ -145,18 +145,18 @@ Retries repeat per message, and a resume can repeat a node. Make side effects id
 
 ## Next steps
 
-<Card title="Persistence" horizontal href="/operations/persistence">
+<Card title="Persistence" icon="database" horizontal href="/operations/persistence">
   Keep sessions, the execution log and node outputs in memory, on disk or in PostgreSQL, and what survives a restart in each case.
 </Card>
 
-<Card title="High availability" horizontal href="/operations/high-availability">
+<Card title="High availability" icon="server" horizontal href="/operations/high-availability">
   Run several servers on one PostgreSQL database so that one admits runs and the others take over when it stops.
 </Card>
 
-<Card title="Delivery and back-pressure" horizontal href="/concepts/delivery-and-backpressure">
+<Card title="Delivery and back-pressure" icon="gauge-high" horizontal href="/concepts/delivery-and-backpressure">
   What Yukta guarantees about delivery, ordering and memory, and how a slow node affects the rest of the graph.
 </Card>
 
-<Card title="Run controls" horizontal href="/running/run-controls">
+<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
   Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
 </Card>

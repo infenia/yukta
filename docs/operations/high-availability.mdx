@@ -5,10 +5,6 @@ tag: "Optional"
 keywords: ["high availability", "failover", "PostgreSQL", "cluster"]
 ---
 
-<Note>
-  This module is part of the **Plus** edition (AGPL-3.0-only). See [Licensing and editions](/reference/licensing).
-</Note>
-
 <Info>
   **In plain terms:** run more than one server so that if one fails another takes over. Only one server is in charge at a time; the others wait on standby. Use this when downtime is not acceptable. It needs PostgreSQL and is off by default.
 </Info>
@@ -16,6 +12,10 @@ keywords: ["high availability", "failover", "PostgreSQL", "cluster"]
 Active/standby high availability lets several Yukta servers share one PostgreSQL database. One server holds a lease and admits runs. The others stand by and take over when the lease expires.
 
 It needs the PostgreSQL stores and is off by default. A single server is always its own leader.
+
+<Note>
+  This module is part of the **Plus** edition (AGPL-3.0-only). See [Licensing and editions](/reference/licensing).
+</Note>
 
 ## When to use it
 
@@ -117,18 +117,18 @@ Run with the `postgres` profile and the connection URLs described in [Persistenc
 
 ## Next steps
 
-<Card title="Persistence" horizontal href="/operations/persistence">
+<Card title="Persistence" icon="database" horizontal href="/operations/persistence">
   Keep sessions, the execution log and node outputs in memory, on disk or in PostgreSQL, and what survives a restart in each case.
 </Card>
 
-<Card title="Checkpoints and resume" horizontal href="/operations/checkpoints-and-resume">
+<Card title="Checkpoints and resume" icon="floppy-disk" horizontal href="/operations/checkpoints-and-resume">
   How Yukta records node outputs, restarts a run or one node, recovers after a restart and resumes an aborted run.
 </Card>
 
-<Card title="Remote workers" horizontal href="/operations/remote-workers">
+<Card title="Remote workers" icon="network-wired" horizontal href="/operations/remote-workers">
   Run selected processor nodes on other machines, in named pools, while the control plane keeps orchestrating.
 </Card>
 
-<Card title="Capacity and performance" horizontal href="/operations/capacity-and-performance">
+<Card title="Capacity and performance" icon="chart-line" horizontal href="/operations/capacity-and-performance">
   The ceilings, bounded and unbounded memory, admission limits, every metric the server publishes, what to alert on and how to run the load tests.
 </Card>

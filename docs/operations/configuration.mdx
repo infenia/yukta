@@ -4,10 +4,6 @@ description: "Every setting an operator can change, its default and what it cont
 keywords: ["configuration", "settings", "environment variables", "defaults"]
 ---
 
-<Note>
-  Storing state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.session-memory.dir`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
-</Note>
-
 <Info>
   **In plain terms:** settings control how the server behaves: how many jobs may run at once, where data is kept, who may connect. You do not need any to start, because the defaults are safe. Use this page as a menu when you are ready to tune a deployment, grouped by what you want to change.
 </Info>
@@ -15,7 +11,9 @@ keywords: ["configuration", "settings", "environment variables", "defaults"]
 The Yukta server runs with safe defaults and needs no configuration to start on loopback. This page lists every setting that changes how it admits, runs, stores and protects executions, grouped by area.
 
 <Note>
-  Yukta is in alpha (`0.1.0-alpha.2`). Setting names and defaults may change before v0.1.0.
+  Storing state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.session-memory.dir`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
+
+  Yukta is in alpha (`0.1.0-alpha.2`), so setting names and defaults may change before v0.1.0.
 </Note>
 
 ## How settings are supplied
@@ -258,18 +256,18 @@ The node's own `timeoutSeconds` sets the idle timeout. Details are in [Failure h
 
 ## Next steps
 
-<Card title="Limits and defaults" horizontal href="/reference/limits-and-defaults">
+<Card title="Limits and defaults" icon="ruler" horizontal href="/reference/limits-and-defaults">
   Every ceiling and default value in one place, with the setting that changes it and the page that explains it.
 </Card>
 
-<Card title="Admission and limits" horizontal href="/running/admission-and-limits">
+<Card title="Admission and limits" icon="traffic-light" horizontal href="/running/admission-and-limits">
   Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes.
 </Card>
 
-<Card title="Security" horizontal href="/operations/security">
+<Card title="Security" icon="lock" horizontal href="/operations/security">
   Expose the server safely, control who can do what, and limit what workflows may run.
 </Card>
 
-<Card title="Deployment" horizontal href="/operations/deployment">
+<Card title="Deployment" icon="box" horizontal href="/operations/deployment">
   Install Yukta as a Docker image, a Linux package or an archive, or run it from source, with the profiles and build switches that shape it.
 </Card>

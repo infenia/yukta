@@ -4,15 +4,15 @@ description: "Install Yukta as a Docker image, a Linux package or an archive, or
 keywords: ["deployment", "Docker", "install", "Linux package"]
 ---
 
-<Note>
-  Storing state on disk (`YUKTA_SESSION_STORE_TYPE=file`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
-</Note>
-
 <Info>
   **In plain terms:** how to get Yukta running beyond your laptop: as a plain program, a native binary or a container. The page also shows which optional parts to include in the build, so you ship only what you use.
 </Info>
 
 Yukta is one executable that holds the engine, the REST API, the MCP endpoint, the web UI and the built-in plugins. This page covers the ways to install and run it, what each profile changes, and the build switches that choose optional parts.
+
+<Note>
+  Storing state on disk (`YUKTA_SESSION_STORE_TYPE=file`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
+</Note>
 
 ## Install
 
@@ -146,7 +146,7 @@ Add `-Pnative.quick` for a faster build that trades run-time speed for build tim
 The release image is a minimal image with no shell and no package manager. It runs as an unprivileged user (UID 65532) and exposes port 8080. Pull it, or build it yourself from the repository's Dockerfile, which compiles the native binary in one stage:
 
 ```bash
-docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:latest
+docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:0.1.0-alpha.2
 ```
 
 ```bash
@@ -265,18 +265,18 @@ Executions still running when the process ends are marked `ABORTED` at the next 
 
 ## Next steps
 
-<Card title="Configuration" horizontal href="/operations/configuration">
+<Card title="Configuration" icon="gear" horizontal href="/operations/configuration">
   Every setting an operator can change, its default and what it controls, plus the per-node engine options.
 </Card>
 
-<Card title="Security" horizontal href="/operations/security">
+<Card title="Security" icon="lock" horizontal href="/operations/security">
   Expose the server safely, control who can do what, and limit what workflows may run.
 </Card>
 
-<Card title="Persistence" horizontal href="/operations/persistence">
+<Card title="Persistence" icon="database" horizontal href="/operations/persistence">
   Keep sessions, the execution log and node outputs in memory, on disk or in PostgreSQL, and what survives a restart in each case.
 </Card>
 
-<Card title="Quickstart" horizontal href="/quickstart">
+<Card title="Quickstart" icon="rocket" horizontal href="/quickstart">
   Install Yukta and run your first workflow in five minutes.
 </Card>
