@@ -44,7 +44,7 @@ variables, and the documentation site.
 ## Decision Making
 
 * **Day to day:** changes are decided in pull requests. A maintainer other than the author
-  reviews each change, and the author merges it once the review is positive and `CI Gate` passes.
+  reviews each change, and a maintainer merges it once the review is positive and `CI Gate` passes.
   A maintainer who is the only person able to review their own change records the reasoning in
   the pull request and waits for review from another maintainer or contributor when the change
   touches `plugin-api`, `messaging`, `build-logic`, security-relevant code or a public API.
@@ -53,7 +53,8 @@ variables, and the documentation site.
   design note in `design/`. Discussion happens on the issue. The change proceeds when the
   maintainers agree.
 * **Disagreement:** maintainers seek consensus. If they cannot reach it, the project owner
-  decides and records the decision and reasoning on the issue.
+  decides and records the decision and reasoning on the issue. This tie-break does not apply to
+  changes to this document, which follow the rule in "Changes to this Document".
 * **Roadmap and priorities** are set by the maintainers in the open, on the roadmap project.
 
 ## Becoming a Maintainer
@@ -66,6 +67,10 @@ person accepts, and the project owner grants the access. The new maintainer is a
 A maintainer can step down at any time by saying so on an issue, and is removed from
 `.github/CODEOWNERS`. Maintainers who are inactive for more than six months, or who repeatedly
 violate the Code of Conduct, can be removed by the project owner after asking them.
+
+When a maintainer steps down or is removed, the project owner also revokes their access: their
+repository, organization and team membership, personal access tokens and deploy keys, and any
+repository secrets or credentials they had access to are removed or rotated.
 
 ## Access Continuity
 
@@ -94,4 +99,5 @@ release workflows run in GitHub Actions with provenance attestation.
 ## Changes to this Document
 
 Changes to governance are proposed in a pull request and need the approval of the project owner
-and a majority of the maintainers.
+and a majority of the individual maintainers listed in `.github/CODEOWNERS`. Where a team is
+listed, its members each count as one maintainer.

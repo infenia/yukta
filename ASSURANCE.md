@@ -18,7 +18,7 @@ HTTP endpoints, touch files and call models. The security requirements follow fr
 | R1 | A default installation is reachable only from the machine it runs on. |
 | R2 | Network access to the API requires authentication, and each caller gets only the access its role and sessions allow. |
 | R3 | A workflow can run a process, reach a host or read an environment variable only when the operator has allowed it. |
-| R4 | Secrets are not stored in workflow definitions, are not returned by read APIs, and are not leaked by logs. |
+| R4 | Secrets are not stored in workflow definitions and are not returned by read APIs. Log redaction is not guaranteed (see section 5). |
 | R5 | A web page the user visits must not be able to drive a local server. |
 | R6 | Every change to a running execution is attributable and recorded. |
 | R7 | Input is bounded in size, time and shape so a request or script cannot exhaust the server by accident. |
@@ -51,8 +51,10 @@ HTTP endpoints, touch files and call models. The security requirements follow fr
 ### Trust boundaries
 
 1. **Network edge**, where requests enter through REST (`/api/**`), MCP (`/mcp`), management
-   (`/actuator/**`) and the UI. The server binds to loopback and Yukta serves plain HTTP, so TLS
-   termination belongs to a reverse proxy in front of it.
+   (`/actuator/**`) and the UI. Yukta serves plain HTTP, so TLS termination belongs to a reverse
+   proxy in front of it. A native install binds to loopback by default. The container image binds
+   `0.0.0.0` and so requires `YUKTA_API_KEY` (see
+   [docs/operations/security.mdx](docs/operations/security.mdx)).
 2. **Role boundary** between `VIEWER`, `OPERATOR` and `ADMIN`, and the session boundary for
    limited keys.
 3. **Workflow authoring boundary.** Defining a workflow is a trusted operation by design. The
@@ -66,7 +68,7 @@ HTTP endpoints, touch files and call models. The security requirements follow fr
 
 | Threat | Countermeasure | Req. |
 | ------ | -------------- | ---- |
-| Remote attacker reaches an unprotected server | Loopback-only default. The server refuses to start on a non-loopback address with no API key. | R1, R2 |
+| Remote attacker reaches an unprotected server | Loopback-only default for a native install. The server refuses to start on a non-loopback address with no API key, which is why the container image requires one. | R1, R2 |
 | Brute force or key theft | Long random keys, compared as SHA-256 digests in constant time. Keys can be stored hashed, so the server never holds the plain key. Several keys can be valid for rotation. | R2 |
 | Privilege escalation between roles | Role checks on REST by method and path, and on every MCP tool call. Session-limited keys reach only their own sessions and never reach `/actuator/**`. | R2 |
 | Path confusion bypassing the checks | Ambiguous paths (`;`, `//`, `..`, backslash, encoded slash, dot or percent) are refused with `400` while a key is set. | R2 |
@@ -77,7 +79,7 @@ HTTP endpoints, touch files and call models. The security requirements follow fr
 | Resource exhaustion by scripts and expressions | Scripts run with a time limit and a statement limit, with bounds on values and string size. Expressions have a time limit. Request bodies are capped at 1 MiB by default. | R7 |
 | Prompt injection and unsafe model output | `LLM_CALL` and `MCP_TOOL_CALL` filters apply to every node: input and output deny patterns, input size limit, per-provider rate limits, an allow-list of MCP tools, and limits on argument size and content. A refused call fails as bad input and is not retried. | R3, R7 |
 | Compromised control plane commanding a worker | A worker runs only the plugin types in its own configuration. The worker verifies the control plane's host name against its certificate. | R3 |
-| Untraceable changes to a run | Control commands go through one ordered path and are recorded with the key name as actor; `GET /api/control/audit` lists them, including refused ones. | R6 |
+| Untraceable changes to a run | Control commands go through one ordered path and are recorded with the key name as actor when the caller used a named key (no actor is recorded when the server runs with no key or one unnamed key); `GET /api/control/audit` lists them, including refused ones. | R6 |
 | Vulnerable or malicious dependency | Dependabot, Trivy, CodeQL, OpenGrep, SpotBugs and Scorecard run in CI. License compliance is checked. Known CVEs have been fixed by pinning dependency versions. | R8 |
 | Tampered release | GitHub Actions pinned by digest, workflows linted with zizmor, build provenance attestation on release artifacts, and signing in `release/sign.sh`. | R8 |
 
@@ -120,7 +122,7 @@ Yukta.
 | Security misconfiguration (A05) | Safe defaults. The server refuses to start in an unsafe network configuration. |
 | Vulnerable components (A06) | Dependency scanning and automated updates. |
 | Software and data integrity (A08) | Pinned CI actions, attestation of release artifacts and signing. |
-| Logging and monitoring failures (A09) | Audited control commands, ordered execution events and execution logs. Secrets are masked in read APIs. |
+| Logging and monitoring failures (A09) | Audited control commands, ordered execution events and execution logs. Secrets are masked in read APIs, but execution logs are not redacted. |
 | Memory-safety errors (CWE-119, CWE-416) | The server is Java and has no native code of its own. |
 | Resource exhaustion (CWE-400) | Body, script, expression and argument limits. Back-pressure and bounded edge buffers in the engine. The scheduler admits, queues or refuses starts with `429`. |
 
@@ -138,6 +140,8 @@ The assurance case is honest about what Yukta does not claim.
 * Yukta serves plain HTTP. Keys travel in request headers, so clients not on the same host must
   reach it through a TLS proxy.
 * `/actuator/health`, the API documentation and the web UI's static files need no key.
+* Execution and error logs carry plugin messages and metadata unchanged, so a workflow that logs
+  a secret leaks it to anyone who can read the logs. Log redaction is not implemented.
 * Delivery is at-least-once, so a workflow with side effects must be idempotent.
 
 ## 6. Evidence

@@ -19,7 +19,7 @@ Use either channel:
 
 1. **Preferred:** open a
    [private security advisory](https://github.com/infenia/yukta/security/advisories/new) on GitHub.
-   Only the maintainers can see it, and it lets us work on a fix with you in a private fork.
+   It is visible to you and to the repository's maintainers and security managers, and it lets us work on a fix with you in a private fork.
 2. **Email:** send the report to **arun@infenia.com**.
 
 ### What to include in your report
