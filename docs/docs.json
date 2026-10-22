@@ -221,11 +221,60 @@
       }
     ]
   },
+  "seo": {
+    "indexing": "navigable",
+    "metatags": {
+      "og:site_name": "Yukta Docs",
+      "twitter:card": "summary_large_image",
+      "keywords": "workflow orchestration, DAG, reactive, MCP server, AI agents, Spring Boot, CI/CD, quality gates"
+    },
+    "organization": {
+      "name": "Infenia",
+      "sameAs": ["https://github.com/infenia/yukta"]
+    }
+  },
+  "search": {
+    "prompt": "Search workflows, plugins, API…"
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "cursor",
+      "vscode",
+      {
+        "title": "View source on GitHub",
+        "description": "Open this page's source",
+        "icon": "github",
+        "href": "https://github.com/infenia/yukta/blob/main/docs$path.mdx"
+      },
+      {
+        "title": "Report a docs issue",
+        "description": "Open a GitHub issue about this page",
+        "icon": "bug",
+        "href": {
+          "base": "https://github.com/infenia/yukta/issues/new",
+          "query": [
+            {
+              "key": "title",
+              "value": "docs: $path"
+            }
+          ]
+        }
+      }
+    ]
+  },
   "navbar": {
     "links": [
       {
         "label": "Examples",
         "href": "https://github.com/infenia/yukta/tree/main/examples"
+      },
+      {
+        "label": "Issues",
+        "href": "https://github.com/infenia/yukta/issues"
       }
     ],
     "primary": {
@@ -236,6 +285,33 @@
   "footer": {
     "socials": {
       "github": "https://github.com/infenia/yukta"
-    }
+    },
+    "links": [
+      {
+        "header": "Project",
+        "items": [
+          {
+            "label": "Repository",
+            "href": "https://github.com/infenia/yukta"
+          },
+          {
+            "label": "Releases",
+            "href": "https://github.com/infenia/yukta/releases"
+          },
+          {
+            "label": "Issues",
+            "href": "https://github.com/infenia/yukta/issues"
+          },
+          {
+            "label": "Discussions",
+            "href": "https://github.com/infenia/yukta/discussions"
+          },
+          {
+            "label": "Security policy",
+            "href": "https://github.com/infenia/yukta/blob/main/SECURITY.md"
+          }
+        ]
+      }
+    ]
   }
 }
