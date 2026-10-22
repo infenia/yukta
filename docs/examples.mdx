@@ -1,56 +1,75 @@
 ---
 title: "Examples"
-description: "Ten ready-to-run workflows, each a small version of a common job."
+description: "Ten ready-to-run workflows, each a small version of a common job, from plain automation to AI agents."
 keywords: ["examples", "sample workflows", "CI", "data pipeline"]
 ---
 
-Each example is a complete, small workflow for a common job. Find the one closest to yours, run it, then change it.
-
-They follow the same path as Yukta itself: plain automation first, then AI added as a step, then AI driving the workflow.
-
-| If you want to | Start with |
-|---|---|
-| Run a fixed sequence of steps with no AI, such as a CI gate | 01, 03, 04 |
-| Move and reshape data | 02, 05 |
-| Route on outcomes and alert on failures | 06, 07, 08 |
-| Put a model inside a workflow | 09 |
-| Let an AI agent create, run and watch workflows | 10 |
+Each example is a complete, small workflow for a common job. Find the one closest to yours, run it, then change it. They follow the same path as Yukta itself: plain automation first, then AI as a step, then AI driving the workflow.
 
 <img className="yk-diagram block dark:hidden" src="/images/diagrams/examples-ci-gate.light.svg" alt="A CI gate: a trigger starts a command, and the command's exit code sends the run to a pass report or a fail report." loading="lazy" />
 <img className="yk-diagram hidden dark:block" src="/images/diagrams/examples-ci-gate.dark.svg" alt="A CI gate: a trigger starts a command, and the command's exit code sends the run to a pass report or a fail report." loading="lazy" />
 
-The picture above is example 03. Every example lives in the repository's [`examples`](https://github.com/infenia/yukta/tree/main/examples) folder with a script that applies the session, starts the run and prints `PASS` or `FAIL`.
+The picture above is example 03. Every example is a folder in the repository's [`examples`](https://github.com/infenia/yukta/tree/main/examples) directory with a `session.json` and a `run.sh` that applies the session, starts the run and prints `PASS` or `FAIL`.
 
 ## Run one
 
-You need a running server, `curl` and `jq`.
+You need a running server, `curl`, `jq` and a copy of the repository.
 
 ```bash
+git clone https://github.com/infenia/yukta.git && cd yukta
 ./examples/03-ci-pipeline/run.sh   # one example
-./examples/run-all.sh          # all of them
+./examples/run-all.sh              # all of them
 ```
 
 <Note>
   Examples 01, 03, 04, 06, 07 and 08 run operating-system commands, which Yukta refuses by default. For a local trial, start the server with `YUKTA_PROCESS_ALLOW_ANY=true`. See [Security](/operations/security). Example 09 needs an LLM endpoint (OpenAI-compatible, Anthropic or Ollama). Set `YUKTA_API_KEY` if your server requires a key.
 </Note>
 
+## Plain automation
+
+No AI involved: fixed steps, routed on outcomes.
+
+| # | Job | What it shows |
+|---|---|---|
+| [01](https://github.com/infenia/yukta/tree/main/examples/01-hello-world) | Smallest end-to-end check | One trigger, one processor, one terminal |
+| [02](https://github.com/infenia/yukta/tree/main/examples/02-api-payload) | Pass data in and reshape it | Starting a run with a payload |
+| [03](https://github.com/infenia/yukta/tree/main/examples/03-ci-pipeline) | CI gate that passes or fails | Routing on a command's exit code |
+| [04](https://github.com/infenia/yukta/tree/main/examples/04-quality-gate) | Quality gate on metrics | Branching on values in the payload |
+| [05](https://github.com/infenia/yukta/tree/main/examples/05-data-pipeline) | Batch data pipeline | Split, filter, map |
+| [06](https://github.com/infenia/yukta/tree/main/examples/06-http-health-check) | Monitor with an alert path | Routing on an HTTP status |
+| [07](https://github.com/infenia/yukta/tree/main/examples/07-fan-out-notify) | One event to several channels | Fan-out to many recipients |
+| [08](https://github.com/infenia/yukta/tree/main/examples/08-retry-until-ready) | Retry until ready | Bounded repetition |
+
+## AI as a step
+
+| # | Job | What it shows |
+|---|---|---|
+| [09](https://github.com/infenia/yukta/tree/main/examples/09-llm-chat-agent) | Chat agent with per-user memory | Model calls with memory |
+
+## AI driving Yukta
+
+| # | Job | What it shows |
+|---|---|---|
+| [10](https://github.com/infenia/yukta/tree/main/examples/10-mcp-agent) | An AI agent creates and runs a workflow | Using Yukta over MCP |
+
 <Warning>
   Example 10 does not work on the native `0.1.0-alpha.2` server yet: its MCP tools fail ([#773](https://github.com/infenia/yukta/issues/773)). Run it from source until that is fixed.
 </Warning>
 
-## The ten examples
+## In the wild: Yukta checks itself
 
-| # | Job | What it shows |
-|---|---|---|
-| 01 | Smallest end-to-end check | One trigger, one processor, one terminal |
-| 02 | Pass data in and reshape it | Starting a run with a payload |
-| 03 | CI gate that passes or fails | Routing on a command's exit code |
-| 04 | Quality gate on metrics | Branching on values in the payload |
-| 05 | Batch data pipeline | Split, filter, map |
-| 06 | Monitor with an alert path | Routing on an HTTP status |
-| 07 | One event to several channels | Fan-out to many recipients |
-| 08 | Retry until ready | Bounded repetition |
-| 09 | Chat agent with per-user memory | Model calls with memory |
-| 10 | An AI agent drives Yukta | Using Yukta over MCP |
+[Example 11](https://github.com/infenia/yukta/tree/main/examples/11-dogfood) is the workflow the Yukta team runs on its own code. It runs the full `gradle check` as a staged workflow. When a stage fails, a repair chain applies a formatter fix, then asks headless Claude Code for a fix, and runs the stage again. It needs a Yukta checkout and Claude Code, so it is a reference rather than a starter.
 
-Next: [Defining a workflow](/building/defining-a-workflow) or the [plugin overview](/plugins/overview).
+## Next steps
+
+<Card title="Defining a workflow" icon="file-code" horizontal href="/building/defining-a-workflow">
+  The complete JSON shape of a session and its workflows.
+</Card>
+
+<Card title="Plugin overview" icon="puzzle-piece" horizontal href="/plugins/overview">
+  Every trigger, processor and terminal that ships with Yukta.
+</Card>
+
+<Card title="AI and agents" icon="robot" horizontal href="/building/ai-and-agents">
+  Model calls, agent loops, approvals and budgets as workflow steps.
+</Card>
