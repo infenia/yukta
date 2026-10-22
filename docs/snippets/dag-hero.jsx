@@ -157,7 +157,9 @@ export const DagHero = () => {
         const c = id === "dead" ? ORANGE : GREEN;
         return { ...base, fill: tint(c, 12), stroke: c, strokeWidth: 1.5 };
       }
-      return { ...base, fill: SURFACE, stroke: SLATE, strokeWidth: 1.5, strokeOpacity: 0.6 };
+      // Waiting nodes keep a visible border in their role colour; status only changes its colour.
+      const role = KIND_COLOR[NODE_BY_ID[id].kind];
+      return { ...base, fill: SURFACE, stroke: role, strokeWidth: 1.5, strokeOpacity: 0.75 };
     }
 
     function edgeStyle(status, err) {

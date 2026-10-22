@@ -260,12 +260,14 @@ class Diagram:
                 f'<rect x="{x - 1.5}" y="{y - 1.5}" width="{w + 3}" height="{h + 3}" rx="13.5" '
                 f'fill="none" stroke="{acc}" stroke-width="1.5"/></g>'
             )
-        # Card: 1px border, 3px top border in the category colour (WorkflowNodeCard).
+        # Card: 3px top border in the category colour (WorkflowNodeCard) and a category-tinted
+        # border on the other sides. The border is always drawn; running only adds the glow.
+        edge = mix(acc, t["card"], 0.5)
         g.append(f'<g filter="url(#soft)">'
                  f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="12" fill="{acc}"/>'
                  f'<rect x="{x}" y="{y + 3}" width="{w}" height="{h - 3}" rx="12" '
-                 f'fill="{t["border"]}"/>'
-                 f'<rect x="{x + 1}" y="{y + 3}" width="{w - 2}" height="{h - 4}" rx="11" '
+                 f'fill="{edge}"/>'
+                 f'<rect x="{x + 1.5}" y="{y + 3}" width="{w - 3}" height="{h - 4.5}" rx="10.5" '
                  f'fill="{t["card"]}"/></g>')
         # Icon tile.
         tile = 32
@@ -407,15 +409,48 @@ def workflow_anatomy():
                 "A trigger starts the flow, a processor calls an API, a second processor "
                 "transforms the result and a terminal notifies. A failed call goes to a "
                 "dead-letter terminal.")
-    d.node("t", 30, 60, 200, 76, "trigger", "Trigger", ["starts the flow"], "bolt", step=0)
-    d.node("p1", 290, 60, 200, 76, "processor", "Processor", ["calls an API"], "globe", step=1)
-    d.node("p2", 550, 60, 200, 76, "processor", "Processor", ["transforms"], "shuffle", step=2)
+    d.node("t", 30, 60, 180, 76, "trigger", "Trigger", ["starts the flow"], "bolt", step=0)
+    d.node("p1", 290, 60, 180, 76, "processor", "Processor", ["calls an API"], "globe", step=1)
+    d.node("p2", 550, 60, 180, 76, "processor", "Processor", ["transforms"], "shuffle", step=2)
     d.node("e", 810, 60, 170, 76, "terminal", "Terminal", ["notifies"], "send", step=3)
-    d.node("d", 290, 200, 200, 76, "terminal", "Terminal", ["dead letter"], "inbox")
+    d.node("d", 290, 200, 180, 76, "terminal", "Terminal", ["dead letter"], "inbox")
     d.edge("t", "p1")
     d.edge("p1", "p2", label="success")
     d.edge("p1", "d", sa="b", sb="t", label="error", tone="danger")
     d.edge("p2", "e")
+    d.legend("roles")
+    d.save()
+
+
+def quickstart_greet():
+    d = Diagram("quickstart-greet", 1010, 220,
+                "The quickstart workflow: an API trigger receives a name, a mapper builds a "
+                "greeting from it, and a console terminal shows the result.")
+    d.node("t", 40, 60, 240, 80, "trigger", "API_TRIGGER", ["receives { name: Ada }"], "bolt",
+           mono=True, step=0)
+    d.node("m", 385, 60, 240, 80, "processor", "MAPPER", ["builds the greeting"], "shuffle",
+           mono=True, step=1)
+    d.node("e", 730, 60, 240, 80, "terminal", "CONSOLE_TERMINAL", ["Hello, Ada"], "terminal",
+           mono=True, step=2)
+    d.edge("t", "m")
+    d.edge("m", "e")
+    d.legend("roles")
+    d.save()
+
+
+def examples_ci_gate():
+    d = Diagram("examples-ci-gate", 1010, 330,
+                "A CI gate: a trigger starts a command, and the command's exit code sends the "
+                "run to a pass report or a fail report.")
+    d.node("t", 30, 127, 200, 76, "trigger", "Trigger", ["starts the run"], "bolt", step=0)
+    d.node("p", 330, 127, 200, 76, "processor", "Run command", ["build and test"], "terminal",
+           step=1)
+    d.node("ok", 700, 40, 280, 76, "terminal", "Pass report", ["release can go ahead"], "check",
+           step=2)
+    d.node("bad", 700, 214, 280, 76, "terminal", "Fail report", ["pipeline stops here"], "flag")
+    d.edge("t", "p")
+    d.edge("p", "ok", fb=0.5, label="success")
+    d.edge("p", "bad", label="failure", tone="danger")
     d.legend("roles")
     d.save()
 
@@ -657,6 +692,6 @@ def high_availability():
 if __name__ == "__main__":
     for old in OUT.glob("*.svg"):
         old.unlink()
-    for fn in (workflow_anatomy, status_model, architecture, backpressure, agent_loop, scheduling,
+    for fn in (workflow_anatomy, quickstart_greet, examples_ci_gate, status_model, architecture, backpressure, agent_loop, scheduling,
                module_map, feature_map, remote_workers, high_availability):
         fn()
