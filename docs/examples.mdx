@@ -24,6 +24,10 @@ You need a running server, `curl` and `jq`.
   Examples 01, 03, 04, 06, 07 and 08 run operating-system commands, which Yukta refuses by default. For a local trial, start the server with `YUKTA_PROCESS_ALLOW_ANY=true`. See [Security](/operations/security). Example 09 needs an LLM endpoint (OpenAI-compatible, Anthropic or Ollama). Set `YUKTA_API_KEY` if your server requires a key.
 </Note>
 
+<Warning>
+  Example 10 does not work on the native `0.1.0-alpha.2` server yet: its MCP tools fail ([#773](https://github.com/infenia/yukta/issues/773)). Run it from source until that is fixed.
+</Warning>
+
 ## The ten examples
 
 | # | Job | What it shows |
