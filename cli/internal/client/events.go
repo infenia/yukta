@@ -51,7 +51,8 @@ func IsTerminalStatus(status string) bool {
 // StreamEvents streams control-bus events (GET /api/events/stream) until ctx ends or onEvent
 // returns an error. executionID, eventType and severity (the lowest wanted: INFO, WARN or ERROR) are
 // optional server-side filters.
-// Events are not replayed by the server, so subscribe before the action you want to observe.
+// Events are not replayed by the server, so subscribe before the action you want to observe. A
+// connection that ends or goes silent is an error.
 func (c *Client) StreamEvents(
 	ctx context.Context,
 	executionID, eventType, severity string,
@@ -76,13 +77,8 @@ func (c *Client) StreamEvents(
 		path += "?" + params.Encode()
 	}
 
-	resp, err := c.streamRequest(ctx, path)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	return ScanSSE(ctx, resp.Body, func(sse SSEEvent) error {
+	// The feed is not replayed, so a dropped connection cannot be resumed: it is reported, not hidden.
+	return c.followSSE(ctx, path, nil, func(sse SSEEvent) error {
 		var envelope struct {
 			Type     string         `json:"type"`
 			Severity string         `json:"severity"`

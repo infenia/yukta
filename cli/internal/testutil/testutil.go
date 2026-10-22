@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"com.infenia.yukta/go-cli/internal/client"
@@ -64,6 +65,22 @@ func Run(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
 func Stream(t *testing.T, events string) *client.Client {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, events)
+	}))
+	t.Cleanup(srv.Close)
+	return client.NewClient(srv.URL)
+}
+
+// FinishedStream is Stream for an execution that has ended: after the events, the status check a
+// followed stream makes reports SUCCESS, so the stream counts as complete.
+func FinishedStream(t *testing.T, events string) *client.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/executions/") && !strings.HasSuffix(r.URL.Path, "/stream") {
+			_, _ = io.WriteString(w, `{"data":{"status":"SUCCESS"}}`)
+			return
+		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = io.WriteString(w, events)
 	}))

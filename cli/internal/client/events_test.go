@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -41,7 +42,7 @@ func TestStreamEvents_parsesEveryEventType(t *testing.T) {
 		got = append(got, e)
 		return nil
 	})
-	if err != nil {
+	if !endedUnexpectedly(err) { // the mock closes the feed after its events
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(got) != 4 {
@@ -72,7 +73,7 @@ func TestStreamEvents_severityFilterAndEnvelopeFields(t *testing.T) {
 		got = append(got, e)
 		return nil
 	})
-	if err != nil {
+	if !endedUnexpectedly(err) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(got) != 1 || got[0].Severity != "ERROR" || got[0].Metadata["error"] != "Process failed" {
@@ -84,9 +85,13 @@ func TestStreamEvents_noFiltersSendsNoQuery(t *testing.T) {
 	server := eventServer(t, "")
 	defer server.Close()
 
-	if err := NewClient(server.URL).StreamEvents(context.Background(), "", "", "", func(ExecutionEvent) error { return nil }); err != nil {
+	if err := NewClient(server.URL).StreamEvents(context.Background(), "", "", "", func(ExecutionEvent) error { return nil }); !endedUnexpectedly(err) {
 		t.Fatalf("unexpected error: %v", err)
 	}
+}
+
+func endedUnexpectedly(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "ended unexpectedly")
 }
 
 func TestStreamEvents_callbackErrorStopsStream(t *testing.T) {
