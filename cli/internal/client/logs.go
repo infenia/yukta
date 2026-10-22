@@ -27,7 +27,7 @@ func (c *Client) StreamExecutionLogs(
 		return fmt.Errorf("onLine callback cannot be nil")
 	}
 
-	return c.streamLogs(ctx, apiPath("/api/sessions/%s/executions/%s/logs", sessionID, executionID), onLine)
+	return c.streamLogs(ctx, executionID, apiPath("/api/sessions/%s/executions/%s/logs", sessionID, executionID), onLine)
 }
 
 // StreamExecutionLogEntries is like StreamExecutionLogs but emits each structured
@@ -44,19 +44,12 @@ func (c *Client) StreamExecutionLogEntries(
 	if onLine == nil {
 		return fmt.Errorf("onLine callback cannot be nil")
 	}
-	return c.streamLogs(ctx, apiPath("/api/sessions/%s/executions/%s/logs/entries", sessionID, executionID), onLine)
+	return c.streamLogs(ctx, executionID, apiPath("/api/sessions/%s/executions/%s/logs/entries", sessionID, executionID), onLine)
 }
 
-func (c *Client) streamLogs(ctx context.Context, path string, onLine func(line string) error) error {
-	resp, err := c.streamRequest(ctx, path)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	// Scan SSE stream and call onLine for each log entry
-	return ScanSSE(ctx, resp.Body, func(event SSEEvent) error {
-		// Each SSE data: event is a pre-formatted log line from the server
+func (c *Client) streamLogs(ctx context.Context, executionID, path string, onLine func(line string) error) error {
+	// Each SSE data: event is a pre-formatted log line from the server
+	return c.followSSE(ctx, path, c.executionDone(executionID), func(event SSEEvent) error {
 		return onLine(event.Data)
 	})
 }
