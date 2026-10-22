@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"com.infenia.yukta/go-cli/internal/client"
@@ -16,7 +17,11 @@ func TestDataCommandsHitExpectedPaths(t *testing.T) {
 	var path string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.EscapedPath()
-		_, _ = w.Write([]byte(`{"data":{"ok":true}}`))
+		if strings.HasSuffix(path, "/graph") {
+			_, _ = w.Write([]byte(`{"data":{"ok":true}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":[{"ok":true}]}`)) // the list endpoints are paged arrays
 	}))
 	defer srv.Close()
 	c := client.NewClient(srv.URL)

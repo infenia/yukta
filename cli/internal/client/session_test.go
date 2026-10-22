@@ -522,11 +522,7 @@ func TestGetData_endpoints(t *testing.T) {
 	c := NewClient(srv.URL)
 
 	calls := map[string]func() (any, error){
-		"/api/sessions/summaries":           c.GetSessionSummaries,
 		"/api/sessions/s/workflows/w/graph": func() (any, error) { return c.GetWorkflowGraph("s", "w") },
-		"/api/sessions/s/workflows/w/executions": func() (any, error) {
-			return c.GetWorkflowExecutions("s", "w")
-		},
 	}
 	for want, call := range calls {
 		data, err := call()
@@ -535,6 +531,30 @@ func TestGetData_endpoints(t *testing.T) {
 		}
 		if m, _ := data.(map[string]any); m["ok"] != true {
 			t.Errorf("%s: unexpected data %v", want, data)
+		}
+	}
+}
+
+func TestGetData_listEndpoints(t *testing.T) {
+	var path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		_, _ = w.Write([]byte(`{"data":[{"ok":true}]}`))
+	}))
+	defer srv.Close()
+	c := NewClient(srv.URL)
+
+	calls := map[string]func() (any, error){
+		"/api/sessions/summaries": c.GetSessionSummaries,
+		"/api/sessions/s/workflows/w/executions": func() (any, error) {
+			return c.GetWorkflowExecutions("s", "w")
+		},
+	}
+	for want, call := range calls {
+		data, err := call()
+		items, _ := data.([]any)
+		if err != nil || path != want || len(items) != 1 {
+			t.Errorf("%s: err=%v path=%q data=%v", want, err, path, data)
 		}
 	}
 }

@@ -386,26 +386,7 @@ func (c *Client) GetWorkflowHistory(sessionID string) ([]WorkflowExecutionSummar
 		return nil, fmt.Errorf("sessionID cannot be empty")
 	}
 
-	path := apiPath("/api/workflow/%s/history", sessionID)
-	httpReq, err := c.newRequest("GET", path)
-	if err != nil {
-		return nil, err
-	}
-
-	body, err := c.doRequest(httpReq)
-	if err != nil {
-		return nil, err
-	}
-
-	var response struct {
-		Data []WorkflowExecutionSummary `json:"data"`
-	}
-
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
-	}
-
-	return response.Data, nil
+	return getAll[WorkflowExecutionSummary](c, apiPath("/api/workflow/%s/history", sessionID))
 }
 
 // PauseNode pauses a specific node in a workflow execution.
