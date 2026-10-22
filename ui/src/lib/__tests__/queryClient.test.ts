@@ -51,15 +51,15 @@ describe('queryClient', () => {
   });
 
   describe('mutation default options', () => {
-    it('should have retry set to 1', () => {
+    it('should not retry mutations', () => {
       const retry = queryClient.getDefaultOptions().mutations?.retry;
-      expect(retry).toBe(1);
+      expect(retry).toBe(0);
     });
 
     it('should return mutation options', () => {
       const mutationOptions = queryClient.getDefaultOptions().mutations;
       expect(mutationOptions).toEqual({
-        retry: 1,
+        retry: 0,
       });
     });
   });
@@ -104,11 +104,11 @@ describe('queryClient', () => {
       expect(refetchOnWindowFocus).toBe(false);
     });
 
-    it('should retry failed requests once', () => {
+    it('should retry failed queries once and never retry mutations', () => {
       const queryRetry = queryClient.getDefaultOptions().queries?.retry;
       const mutationRetry = queryClient.getDefaultOptions().mutations?.retry;
       expect(queryRetry).toBe(1);
-      expect(mutationRetry).toBe(1);
+      expect(mutationRetry).toBe(0);
     });
 
     it('should cache data for 10 minutes before garbage collection', () => {
