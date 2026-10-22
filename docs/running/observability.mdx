@@ -16,7 +16,7 @@ Everything that happens in an execution becomes an event in one ordered queue. O
 GET /api/executions/{executionId}
 ```
 
-returns the execution status and a status for every node. Each snapshot carries `definitionVersion`, a content hash of the graph that is running. A node's status includes the reason when it ends `FAILURE` or `TIMED_OUT` (the error message, truncated), so a watcher can show the cause without reading logs. A node behind a failed one carries none.
+This returns the execution status and a status for every node. Each snapshot carries `definitionVersion`, a content hash of the graph that is running. A node's status includes the reason when it ends `FAILURE` or `TIMED_OUT` (the error message, truncated), so a watcher can show the cause without reading logs. A node behind a failed one carries none.
 
 A live stream of progress is available as server-sent events:
 
@@ -85,7 +85,7 @@ Both filters are optional. Event delivery is best effort and never blocks an exe
 GET /api/control/audit
 ```
 
-lists who sent which command and whether it was applied or rejected.
+This lists who sent which command and whether it was applied or rejected.
 
 ## Metrics
 
@@ -99,18 +99,18 @@ Tracing is optional. Each execution is one observation named `yukta.run`, the pa
 
 ## Next steps
 
-<Card title="Executions" horizontal href="/concepts/executions">
+<Card title="Executions" icon="play" horizontal href="/concepts/executions">
   The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end.
 </Card>
 
-<Card title="REST: streams" horizontal href="/api/streams">
+<Card title="REST: streams" icon="wave-square" horizontal href="/api/streams">
   Follow a run live over server-sent events: status, logs, results and the server-wide event feed.
 </Card>
 
-<Card title="Capacity and performance" horizontal href="/operations/capacity-and-performance">
+<Card title="Capacity and performance" icon="chart-line" horizontal href="/operations/capacity-and-performance">
   The ceilings, bounded and unbounded memory, admission limits, every metric the server publishes, what to alert on and how to run the load tests.
 </Card>
 
-<Card title="Web UI" horizontal href="/interfaces/web-ui">
+<Card title="Web UI" icon="window-maximize" horizontal href="/interfaces/web-ui">
   Browse sessions, build workflows with forms, run them and watch them live in the browser.
 </Card>

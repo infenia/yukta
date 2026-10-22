@@ -85,20 +85,20 @@ POST /api/executions/{executionId}/priority
 
 On shutdown nothing new is admitted, queued starts are refused, and running executions get `yukta.execution.shutdown-timeout` to finish.
 
-## Limits and defaults
+## Crashes and standby servers
 
 One scheduler lives in one server process. Queue positions and slots are lost if the server crashes; the start was logged first, so the execution is marked `ABORTED` on boot and can be recovered. A standby server in a high-availability pair refuses every start with `503`; see [High availability](/operations/high-availability).
 
 ## Next steps
 
-<Card title="Executions" horizontal href="/concepts/executions">
+<Card title="Executions" icon="play" horizontal href="/concepts/executions">
   The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end.
 </Card>
 
-<Card title="Capacity and performance" horizontal href="/operations/capacity-and-performance">
+<Card title="Capacity and performance" icon="chart-line" horizontal href="/operations/capacity-and-performance">
   The ceilings, bounded and unbounded memory, admission limits, every metric the server publishes, what to alert on and how to run the load tests.
 </Card>
 
-<Card title="Configuration" horizontal href="/operations/configuration">
+<Card title="Configuration" icon="gear" horizontal href="/operations/configuration">
   Every setting an operator can change, its default and what it controls, plus the per-node engine options.
 </Card>

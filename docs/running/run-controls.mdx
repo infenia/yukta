@@ -29,7 +29,13 @@ POST /api/executions/{executionId}/resume
 
 ## Step
 
-Step mode lets exactly *n* messages through a node, then pauses it again. Use it to watch a pipeline one message at a time.
+Step mode holds a node's input so you can watch it one message at a time. Enable it, call `step` once per message to let exactly one through, and disable it to return to normal flow.
+
+```http
+POST /api/executions/{executionId}/nodes/{nodeId}/step/enable
+POST /api/executions/{executionId}/nodes/{nodeId}/step
+POST /api/executions/{executionId}/nodes/{nodeId}/step/disable
+```
 
 ## Breakpoints
 
@@ -102,18 +108,18 @@ Operators can change the scheduler limits and a queued execution's priority whil
 
 ## Next steps
 
-<Card title="Executions" horizontal href="/concepts/executions">
+<Card title="Executions" icon="play" horizontal href="/concepts/executions">
   The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end.
 </Card>
 
-<Card title="REST: control" horizontal href="/api/control">
+<Card title="REST: control" icon="gamepad" horizontal href="/api/control">
   Pause, resume and steer a running execution and its nodes, send signals, and use the control bus and its audit log.
 </Card>
 
-<Card title="Supervisors" horizontal href="/running/supervisors">
+<Card title="Supervisors" icon="shield-halved" horizontal href="/running/supervisors">
   Programs that watch every execution and steer it, or veto commands before they run: a rule engine, an AI agent or your own code.
 </Card>
 
-<Card title="Security" horizontal href="/operations/security">
+<Card title="Security" icon="lock" horizontal href="/operations/security">
   Expose the server safely, control who can do what, and limit what workflows may run.
 </Card>
