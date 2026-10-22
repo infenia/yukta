@@ -14,6 +14,9 @@ import (
 
 func TestStreamExecutionLogs_success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerDone(w, r) {
+			return
+		}
 		if r.Method != "GET" {
 			t.Errorf("expected GET, got %s", r.Method)
 		}
@@ -205,6 +208,9 @@ func TestStreamExecutionLogs_contextCancellation(t *testing.T) {
 func TestStreamExecutionLogEntries_usesEntriesEndpoint(t *testing.T) {
 	var path string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerDone(w, r) {
+			return
+		}
 		path = r.URL.Path
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = w.Write([]byte("data: {\"message\":\"hi\"}\n\n"))
