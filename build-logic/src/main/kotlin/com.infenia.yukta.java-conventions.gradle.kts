@@ -30,6 +30,12 @@ tasks.withType<JavaCompile>().configureEach {
     options.release.set(25)
 }
 
+// Same sources must give byte-identical archives (OpenSSF build_repeatable).
+tasks.withType<AbstractArchiveTask>().configureEach {
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+}
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
