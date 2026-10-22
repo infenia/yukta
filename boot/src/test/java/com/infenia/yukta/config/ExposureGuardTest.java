@@ -71,4 +71,32 @@ class ExposureGuardTest {
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("API key");
   }
+
+  @Test
+  void testOpenMcpAloneIsRefusedEvenWhenRestHasKey() {
+    final com.infenia.yukta.security.ApiAuthenticator mcpOpen =
+        new com.infenia.yukta.security.ApiAuthenticator() {
+          @Override
+          public boolean isOpen(final Scope scope) {
+            return scope == Scope.MCP;
+          }
+
+          @Override
+          public boolean named() {
+            return false;
+          }
+
+          @Override
+          public com.infenia.yukta.security.ApiKeys.Match authenticate(
+              final Scope scope, final org.springframework.http.HttpHeaders headers) {
+            return null;
+          }
+        };
+
+    assertThatThrownBy(
+            () ->
+                new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, "0.0.0.0"), mcpOpen)
+                    .check())
+        .isInstanceOf(IllegalStateException.class);
+  }
 }
