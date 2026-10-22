@@ -18,6 +18,9 @@ class ExposureGuardTest {
   /** Property that sets the listen address. */
   private static final String ADDRESS = "server.address";
 
+  /** Address that listens on every interface. */
+  private static final String ALL_INTERFACES = "0.0.0.0";
+
   @Test
   void testLoopbackNeedsNoKey() {
     assertThatCode(
@@ -39,7 +42,9 @@ class ExposureGuardTest {
   @Test
   void testOpenBindWithoutKeyIsRefused() {
     assertThatThrownBy(
-            () -> new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, "0.0.0.0")).check())
+            () ->
+                new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, ALL_INTERFACES))
+                    .check())
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("API key");
     assertThat(new MockEnvironment().getProperty(ADDRESS)).isNull();
@@ -53,7 +58,7 @@ class ExposureGuardTest {
             () ->
                 new ExposureGuard(
                         new MockEnvironment()
-                            .withProperty(ADDRESS, "0.0.0.0")
+                            .withProperty(ADDRESS, ALL_INTERFACES)
                             .withProperty("yukta.api-key", "k"))
                     .check())
         .doesNotThrowAnyException();
@@ -65,7 +70,7 @@ class ExposureGuardTest {
             () ->
                 new ExposureGuard(
                         new MockEnvironment()
-                            .withProperty(ADDRESS, "0.0.0.0")
+                            .withProperty(ADDRESS, ALL_INTERFACES)
                             .withProperty("yukta.mcp.api-key", "k"))
                     .check())
         .isInstanceOf(IllegalStateException.class)
@@ -95,7 +100,8 @@ class ExposureGuardTest {
 
     assertThatThrownBy(
             () ->
-                new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, "0.0.0.0"), mcpOpen)
+                new ExposureGuard(
+                        new MockEnvironment().withProperty(ADDRESS, ALL_INTERFACES), mcpOpen)
                     .check())
         .isInstanceOf(IllegalStateException.class);
   }
