@@ -85,6 +85,8 @@ logs and results.`,
 		"Allow sending the token over plain http to a non-loopback host",
 	)
 	cmd.PersistentPreRunE = func(*cobra.Command, []string) error {
+		// Arguments and flags are parsed by now, so later errors come from the server, not from usage.
+		cmd.SilenceUsage = true
 		if tokenFile == "" {
 			return nil
 		}
