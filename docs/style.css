@@ -359,6 +359,16 @@ div[data-component-part="card-icon"] > svg {
   color: var(--yk-fg);
 }
 
+/* Card and step titles render as headings; keep the prose heading margin off them so the title
+   sits next to its icon or step number. */
+:is(h2, h3, h4)[data-component-part="card-title"][data-component-part] {
+  margin-top: 1rem;
+}
+
+:is(h2, h3, h4)[data-component-part="step-title"][data-component-part] {
+  margin-top: 0.125rem;
+}
+
 /* Callouts: one treatment for every kind. A light tint, a matching hairline and a coloured icon.
    Note and info are blue, tip and check success, warning attention orange, danger destructive. */
 [data-callout-type] {
@@ -607,11 +617,6 @@ img.yk-diagram {
 .yk-landing-body {
   max-width: 48rem;
   margin: 4rem auto 0;
-}
-
-/* The column borrows prose for its own headings; keep that heading margin off card titles. */
-.yk-landing-body [data-component-part="card-title"] {
-  margin-top: 1rem;
 }
 
 /* ==========================================================================

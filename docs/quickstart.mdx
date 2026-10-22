@@ -6,10 +6,12 @@ keywords: ["quickstart", "install", "get started", "first workflow"]
 
 You will run a tiny workflow that takes a name and returns a greeting. It shows the loop you will use for every job: **save the flowchart, start a run, read the result.**
 
-The workflow is small, but it is the same thing Yukta does for a CI pipeline or a team of AI agents: you write the steps down once, and the server runs every one of them, in order, every time, while you watch.
+It is small, but it is the same thing Yukta does for a CI pipeline or a team of AI agents: you write the steps down once, and the server runs every one of them, in order, every time, while you watch.
 
 <img className="yk-diagram block dark:hidden" src="/images/diagrams/quickstart-greet.light.svg" alt="The quickstart workflow: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
 <img className="yk-diagram hidden dark:block" src="/images/diagrams/quickstart-greet.dark.svg" alt="The quickstart workflow: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
+
+## Before you begin
 
 You need a terminal and `curl`. You do not need Java or the source code.
 
@@ -17,112 +19,138 @@ You need a terminal and `curl`. You do not need Java or the source code.
   Yukta `0.1.0-alpha.2` ships a native server for Linux (amd64), a Docker image, and the command-line client for Linux, macOS and Windows. On macOS or Windows, run the server with Docker. See [Releases](/reference/releases).
 </Note>
 
-## 1. Install and start the server
+<Steps titleSize="h2">
+  <Step title="Install and start the server">
+    <Tabs>
+      <Tab title="Linux" icon="terminal">
+        ```bash
+        curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.2/install.sh | sh
+        yukta
+        ```
 
-<Tabs>
-  <Tab title="Linux" icon="terminal">
+        The script checks file checksums, never uses `sudo`, and installs `yukta` (server) and `yukta-cli` (client) into `/usr/local/bin` as root or `~/.local/bin` otherwise.
+      </Tab>
+      <Tab title="Docker" icon="docker">
+        ```bash
+        docker run --rm -p 127.0.0.1:8080:8080 \
+          -e YUKTA_API_KEY=change-me \
+          ghcr.io/infenia/yukta:0.1.0-alpha.2
+        ```
+
+        A container needs an API key. Add `-H "X-API-Key: change-me"` to every `curl` below. The web UI does not send a key yet, so use `curl`, the CLI or MCP with this setup.
+      </Tab>
+    </Tabs>
+
+    In a second terminal, check that it is up:
+
     ```bash
-    curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.2/install.sh | sh
-    yukta
+    curl http://localhost:8080/actuator/health
     ```
 
-    The script checks file checksums, never uses `sudo`, and installs `yukta` (server) and `yukta-cli` (client) into `/usr/local/bin` as root or `~/.local/bin` otherwise.
-  </Tab>
-  <Tab title="Docker" icon="docker">
-    ```bash
-    docker run --rm -p 127.0.0.1:8080:8080 \
-      -e YUKTA_API_KEY=change-me \
-      ghcr.io/infenia/yukta:0.1.0-alpha.2
+    ```json
+    {"groups":["liveness","readiness"],"status":"UP"}
     ```
 
-    A container needs an API key. Add `-H "X-API-Key: change-me"` to every `curl` below. The web UI does not send a key yet, so use `curl`, the CLI or MCP with this setup.
-  </Tab>
-</Tabs>
+    Prefer packages, archives or building from source? See [Deployment](/operations/deployment).
+  </Step>
 
-Check that it is up:
+  <Step title="Save the workflow">
+    A **session** is a folder of workflows. Save this one as `session.json`:
 
-```bash
-curl http://localhost:8080/actuator/health
-```
-
-```json
-{"groups":["liveness","readiness"],"status":"UP"}
-```
-
-Prefer packages, archives or building from source? See [Deployment](/operations/deployment).
-
-## 2. Save the workflow
-
-A **session** is a folder of workflows. Save this one as `session.json`, then send it to the server.
-
-```json
-{
-  "sessionId": "demo",
-  "name": "Quickstart",
-  "description": "Greet a user",
-  "initiator": "me",
-  "projectPath": "/tmp",
-  "workflows": {
-    "greet": {
-      "workflowId": "greet",
-      "description": "Map the request payload into a greeting",
-      "nodes": [
-        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
-        {
-          "nodeId": "map",
-          "type": "MAPPER",
-          "config": {
-            "mode": "PROJECTION",
-            "mapping": { "greeting": "'Hello, ' + payload.name" }
-          }
-        },
-        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
-      ],
-      "edges": [
-        { "source": "trigger", "target": "map" },
-        { "source": "map", "target": "end" }
-      ]
+    ```json session.json
+    {
+      "sessionId": "demo",
+      "name": "Quickstart",
+      "description": "Greet a user",
+      "initiator": "me",
+      "projectPath": "/tmp",
+      "workflows": {
+        "greet": {
+          "workflowId": "greet",
+          "description": "Map the request payload into a greeting",
+          "nodes": [
+            { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+            {
+              "nodeId": "map",
+              "type": "MAPPER",
+              "config": {
+                "mode": "PROJECTION",
+                "mapping": { "greeting": "'Hello, ' + payload.name" }
+              }
+            },
+            { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "trigger", "target": "map" },
+            { "source": "map", "target": "end" }
+          ]
+        }
+      }
     }
-  }
-}
-```
+    ```
 
-```bash
-curl -X POST http://localhost:8080/api/sessions \
-  -H "Content-Type: application/json" -d @session.json
-```
+    Three nodes, one of each kind: the trigger receives your input, the mapper builds the greeting, and the terminal ends the path. Send it to the server:
 
-Three nodes, one of each kind: the trigger receives your input, the mapper builds the greeting, and the terminal ends the path.
+    ```bash
+    curl -X POST http://localhost:8080/api/sessions \
+      -H "Content-Type: application/json" -d @session.json
+    ```
+  </Step>
 
-## 3. Start a run
+  <Step title="Start a run">
+    ```bash
+    curl -X POST http://localhost:8080/api/workflow/start \
+      -H "Content-Type: application/json" \
+      -d '{"sessionId":"demo","workflowId":"greet","payload":{"name":"Ada"}}'
+    ```
 
-```bash
-curl -X POST http://localhost:8080/api/workflow/start \
-  -H "Content-Type: application/json" \
-  -d '{"sessionId":"demo","workflowId":"greet","payload":{"name":"Ada"}}'
-```
+    The server answers `202 Accepted` at once and keeps running the workflow in the background. The **execution id** is your ticket number for this run:
 
-The server answers `202 Accepted` with an **execution id** in `data.executionId`, a ticket number for this run. The run continues in the background.
+    ```json
+    {
+      "status": 202,
+      "message": "Workflow start accepted",
+      "data": { "executionId": "550e8400-e29b-41d4-a716-446655440000" }
+    }
+    ```
 
-## 4. Read the result
+    Keep it in a variable for the next step, using your own id:
 
-Use the execution id from step 3:
+    ```bash
+    EXEC=550e8400-e29b-41d4-a716-446655440000
+    ```
+  </Step>
 
-```bash
-curl http://localhost:8080/api/executions/{executionId}
-curl -H "Accept: application/json" \
-  http://localhost:8080/api/sessions/demo/executions/{executionId}/results
-```
+  <Step title="Read the result">
+    ```bash
+    curl http://localhost:8080/api/executions/$EXEC
+    curl -H "Accept: application/json" \
+      http://localhost:8080/api/sessions/demo/executions/$EXEC/results
+    ```
 
-The first call returns the status, `SUCCESS` once every node has finished. The second returns what reached the terminal:
+    The first call returns the status, `SUCCESS` once every node has finished. The second returns what reached the terminal:
 
-```json
-{ "kind": "RESULT", "nodeId": "end", "payload": { "greeting": "Hello, Ada" } }
-```
+    ```json
+    { "kind": "RESULT", "nodeId": "end", "payload": { "greeting": "Hello, Ada" } }
+    ```
 
-<Tip>
-  Sessions are held in memory, so apply them again after a restart. To follow a run live, use `/api/executions/{executionId}/status/stream` or the logs endpoint.
-</Tip>
+    <Tip>
+      Sessions are held in memory, so apply them again after a restart. To follow a run live, use `/api/executions/$EXEC/status/stream` or the logs endpoint.
+    </Tip>
+  </Step>
+</Steps>
+
+<Accordion title="Prefer the command line?" icon="terminal">
+  The Linux installer also put `yukta-cli` on your path. The same steps without `curl`:
+
+  ```bash
+  yukta-cli session apply session.json
+  yukta-cli workflow start demo greet --payload '{"name":"Ada"}'
+  yukta-cli workflow status demo <execution-id>
+  ```
+
+  See [Command-line client](/interfaces/cli) for watching runs live and controlling them.
+</Accordion>
 
 ## What you just did
 
@@ -147,7 +175,7 @@ On a longer run you can also **pause, step, stop, restart or retry** it while it
 </Card>
 
 <Card title="Connect an AI agent" icon="plug" horizontal href="/interfaces/mcp">
-  Let Claude create, run and watch workflows over MCP.
+  Let an AI assistant create, run and watch workflows over MCP.
 </Card>
 
 <Card title="Command-line client" icon="terminal" horizontal href="/interfaces/cli">
