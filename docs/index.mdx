@@ -85,20 +85,22 @@ The arrows are **edges**: "when this step is done, hand its output to the next."
 
 ## What you can build
 
-<AccordionGroup>
-  <Accordion title="A CI pipeline with no AI at all" icon="code-branch">
-    Build, test, scan and deploy as plain command steps, routed on exit codes. Every gate runs on every change, and a failing gate stops the pipeline. See [example 03](/examples).
-  </Accordion>
-  <Accordion title="A CI pipeline that repairs itself" icon="wand-magic-sparkles">
-    Add an AI step on the failure path: it reads the failing output, proposes or applies a fix, and the check runs again. The graph bounds how many attempts it gets, so it cannot loop forever.
-  </Accordion>
-  <Accordion title="Multi-agent workflows" icon="diagram-project">
-    One agent drafts, another reviews, a third decides. Each agent is a node, so its output feeds the next agent as a message, and you can see every hand-off and restart any agent's step on its own.
-  </Accordion>
-  <Accordion title="AI-supervised automation" icon="eye">
-    Let a supervisor judge every event on the control bus. Rules handle what you can state exactly; a System One decision model handles the rest cheaply, with a calibrated probability, and an LLM can take over when you need open-ended judgement.
-  </Accordion>
-</AccordionGroup>
+Start with plain automation and add AI only where it earns its place. The same engine, controls and audit trail carry you all the way.
+
+<CardGroup cols={2}>
+  <Card title="Pipelines that never skip a gate" icon="code-branch" href="/examples">
+    Build, test, scan and deploy as plain command steps, routed on exit codes. Every gate runs on every change, and a failure stops the line. No AI required.
+  </Card>
+  <Card title="Pipelines that fix their own failures" icon="wand-magic-sparkles" href="/building/ai-and-agents">
+    Put an AI step on the failure path. It reads the error, applies a fix and hands back to the check, with a fixed number of attempts so it can never spin forever.
+  </Card>
+  <Card title="Agents that work as a team" icon="users" href="/building/ai-and-agents">
+    One agent drafts, another reviews, a third decides. Each is a step in the graph, so every hand-off is visible and any step can be restarted on its own.
+  </Card>
+  <Card title="Automation that keeps itself on track" icon="shield-halved" href="/running/supervisors">
+    A supervisor watches every event and pauses or stops a run that loops or drifts. Use rules for what you can spell out, and a System One decision model or an LLM for the rest.
+  </Card>
+</CardGroup>
 
 <Info>
   **For developers:** Yukta is a reactive, DAG-based workflow orchestration server. Messages stream from step to step with back-pressure, and every command, from a person, a script, an agent or a supervisor, goes through one ordered, audited control bus.
