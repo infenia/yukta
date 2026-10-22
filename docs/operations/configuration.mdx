@@ -160,6 +160,7 @@ See [Security](/operations/security).
 | `yukta.api-keys[i].role` | `VIEWER` | `VIEWER`, `OPERATOR` or `ADMIN` |
 | `yukta.api-keys[i].sessions` | all sessions | Limit the key to these session ids |
 | `yukta.mcp.api-key` | unset | An extra `ADMIN` key that works only on `/mcp` |
+| `yukta.mcp.rate-limit-per-minute` | `600` | Requests per minute one caller (key) may make to `/mcp`; more get `429` with `Retry-After`. `0` turns the limit off |
 | `yukta.allowed-hosts` | loopback names | Extra `Host` values accepted while no key is set |
 | `yukta.allowed-origins` | none | Extra `Origin` values accepted for changing requests while no key is set |
 | `yukta.variables.allowed` (`YUKTA_VARIABLES_ALLOWED`) | empty | Extra environment variable and system property names workflows may read with `${env.X}` and `${sys.x}` |
