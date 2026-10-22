@@ -4,7 +4,9 @@
 package commands
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"com.infenia.yukta/go-cli/internal/client"
@@ -69,6 +71,30 @@ logs and results.`,
 		time.Second,
 		"First pause between retries (doubles each time; a Retry-After from the server wins if longer)",
 	)
+	var tokenFile string
+	cmd.PersistentFlags().StringVar(
+		&tokenFile,
+		"token-file",
+		"",
+		"File holding the bearer token (keeps it out of shell history and the process list)",
+	)
+	cmd.PersistentFlags().BoolVar(
+		&c.AllowInsecureToken,
+		"insecure-token",
+		false,
+		"Allow sending the token over plain http to a non-loopback host",
+	)
+	cmd.PersistentPreRunE = func(*cobra.Command, []string) error {
+		if tokenFile == "" {
+			return nil
+		}
+		data, err := os.ReadFile(tokenFile) // #nosec G304 -- the user names this file on purpose
+		if err != nil {
+			return fmt.Errorf("reading --token-file: %w", err)
+		}
+		c.Token = strings.TrimSpace(string(data))
+		return nil
+	}
 
 	cmd.PersistentFlags().StringVar(
 		&c.Token,

@@ -28,6 +28,10 @@ func TestResultCmd_usage(t *testing.T) {
 func TestResultCmd_streamsEventsAndPassesTheNodeFilter(t *testing.T) {
 	var path, query string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/executions/") && !strings.HasSuffix(r.URL.Path, "/stream") {
+			_, _ = io.WriteString(w, `{"data":{"status":"SUCCESS"}}`) // the execution has ended
+			return
+		}
 		path, query = r.URL.Path, r.URL.RawQuery
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = io.WriteString(w,
@@ -57,7 +61,7 @@ func TestResultCmd_apiError(t *testing.T) {
 func TestResultCmd_cancelIsCleanExit(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	cmd := ResultCmd(testutil.Stream(t, "data: x\n\n"))
+	cmd := ResultCmd(testutil.FinishedStream(t, "data: x\n\n"))
 	cmd.SetArgs([]string{"s", "e"})
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		t.Errorf("expected nil on Ctrl-C, got %v", err)
@@ -65,7 +69,7 @@ func TestResultCmd_cancelIsCleanExit(t *testing.T) {
 }
 
 func TestResultCmd_withoutCobraContext(t *testing.T) {
-	cmd := ResultCmd(testutil.Stream(t, "data: x\n\n"))
+	cmd := ResultCmd(testutil.FinishedStream(t, "data: x\n\n"))
 	var err error
 	out := testutil.Capture(t, func() { err = cmd.RunE(cmd, []string{"s", "e"}) })
 	if err != nil || out != "x\n" {

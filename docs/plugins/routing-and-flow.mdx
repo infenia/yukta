@@ -1,7 +1,7 @@
 ---
 title: "Routing and flow"
 description: "BRANCH, FILTER, SPLITTER, AGGREGATE, RECIPIENT_LIST, DELAY, LOOP_PREDICATE, LOOP_STREAM, SUB_WORKFLOW and WAIT_FOR_SIGNAL: plugins that decide where messages go and when."
-mode: "wide"
+keywords: ["BRANCH", "FILTER", "SPLITTER", "AGGREGATE", "routing plugins"]
 ---
 
 <Info>
@@ -10,7 +10,7 @@ mode: "wide"
 
 These ten processors are always part of the server. They route messages by port, split and batch them, pace them, repeat other plugins, run other workflows and wait for people.
 
-Routing works by port name: a message leaves a node on one port, and the engine delivers it only along edges whose `sourcePort` names that port. An edge with no `sourcePort` receives every message of the node. See [Nodes, edges and ports](/concepts/nodes-edges-ports) and [Routing and branching](/building/routing-and-branching).
+Routing works by port name: a message leaves a node on one port, and the engine delivers it only along edges whose `sourcePort` names that port. An edge with no `sourcePort` receives every message of the node except those on the `error` port. See [Nodes, edges and ports](/concepts/nodes-edges-ports) and [Routing and branching](/building/routing-and-branching).
 
 Options marked "expression" take the expression language described in [Variables and expressions](/building/variables-and-expressions). Inside an expression the message is the root, so `payload.status` reads a payload field and `metadata.key` reads a metadata entry. These plugins do not resolve `${...}` variables in their options.
 
@@ -307,9 +307,20 @@ See [Approvals and signals](/building/approvals-and-signals).
 | Duplicate signal window | 5 seconds |
 | All other plugins on this page | 30 seconds idle timeout |
 
-## Related
+## Next steps
 
-- [Routing and branching](/building/routing-and-branching)
-- [Loops and retries](/building/loops-and-retries)
-- [Approvals and signals](/building/approvals-and-signals)
-- [Sub-workflows](/concepts/sub-workflows)
+<Card title="Routing and branching" icon="code-branch" horizontal href="/building/routing-and-branching">
+  Patterns for sending messages down different paths: by exit code, HTTP status, expression, validation result, recipient list and error.
+</Card>
+
+<Card title="Loops and retries" icon="repeat" horizontal href="/building/loops-and-retries">
+  Repeat work until a condition holds, within bounds, and choose between a loop, an engine retry and a polling loop.
+</Card>
+
+<Card title="Approvals and signals" icon="hand" horizontal href="/building/approvals-and-signals">
+  Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision.
+</Card>
+
+<Card title="Sub-workflows" icon="sitemap" horizontal href="/concepts/sub-workflows">
+  Run another stored workflow from inside a node, once per message.
+</Card>

@@ -1,7 +1,7 @@
 ---
 title: "CLI module"
-description: "The cli module builds yukta, a small command-line program written in Go."
-mode: "wide"
+description: "The yukta-cli client: a small Go program that calls the REST API to apply sessions, start and steer runs, and stream logs, results and events."
+keywords: ["cli module", "Go", "yukta-cli"]
 ---
 
 The cli module builds `yukta-cli`, a small command-line program written in Go. It does no workflow work itself. Every command turns your typed words into one request to a running Yukta server, then prints the answer. This page explains how that translation works, what the program guarantees, and where it quietly falls short of the server it talks to.
@@ -175,7 +175,7 @@ Starts the program: creates one HTTP client, builds the root command, attaches t
 Defines the top-level `yukta-cli` command and the four options every command inherits, and applies the defaults.
 
 - `--url` defaults to the `YUKTA_SERVER_URL` environment variable, or `http://localhost:8080` when that is unset. The flag always wins over the variable. The default is read when the command tree is built, which is why a test or a script must set the variable before the program starts.
-- `--token` defaults to `YUKTA_TOKEN`. It is sent as `Authorization: Bearer ...` on normal requests and on streams. The server accepts it only when `yukta.api-key` is configured; otherwise the server ignores it. Passing the secret as a flag puts it in shell history and in the process list (visible to other users on the machine), so the environment variable is the safer way in our view.
+- `--token` defaults to `YUKTA_TOKEN`. It is sent as `Authorization: Bearer ...` on normal requests and on streams. The server accepts it only when `yukta.api-key` is configured; otherwise the server ignores it. Passing the secret as a flag puts it in shell history and in the process list (visible to other users on the machine), so the environment variable or `--token-file <path>` is the safer way. The CLI refuses to send a token over plain `http` to a host that is not loopback unless `--insecure-token` is given, and a 401 answer hints at `YUKTA_TOKEN`.
 - `--timeout` defaults to 30 seconds and applies only to normal calls. `0` turns it off. Streams ignore it on purpose, because a status stream may run for hours.
 - `-o` / `--output` is `table` by default or `json`. The value is held in a package-level variable that commands read through a getter. Nothing validates it: `-o yaml` is accepted and treated as table by most commands, and only `session get` rejects it.
 - The root command's short description still reads 'Code quality gates for AI-driven development'. That describes one use of Yukta, not the product, so `yukta-cli --help` misdescribes it.
@@ -785,3 +785,13 @@ The Makefile is the source of truth. Gradle task names are listed for people who
 | Fuzz test | A test that feeds random input to look for crashes. | Used on the SSE scanner. |
 | Build provenance attestation | A signed record of which source and workflow produced a file. | Attached to release binaries on tags. |
 | Exit code | The number a program returns to its caller: 0 for success, other for failure. | The CLI uses only 0 and 1. |
+
+## Next steps
+
+<Card title="Command-line client" icon="terminal" horizontal href="/interfaces/cli">
+  Use the yukta-cli command to manage sessions, start and control runs, and watch them live from a terminal or a CI job.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>

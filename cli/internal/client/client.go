@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -21,12 +22,22 @@ const DefaultTimeout = 30 * time.Second
 
 // Client provides an HTTP client wrapper for communicating with the Yukta API.
 type Client struct {
-	BaseURL    string
-	Token      string        // optional bearer token sent as Authorization
-	Timeout    time.Duration // per-request limit for non-streaming calls; <= 0 disables
-	HTTPClient *http.Client
-	Retries    int           // extra attempts for reads and keyed starts on network errors, 429, 502-504; 0 = none
-	RetryWait  time.Duration // first pause between attempts; doubles each time unless Retry-After says more
+	BaseURL string
+	Token   string // optional bearer token sent as Authorization
+	// AllowInsecureToken lets Token go over plain http to a host that is not loopback.
+	AllowInsecureToken bool
+	Timeout            time.Duration // per-request limit for non-streaming calls; <= 0 disables
+	HTTPClient         *http.Client
+	// Retries is the number of extra attempts for reads and keyed starts on network errors, 429 and
+	// 502-504; 0 = none. RetryWait is the first pause between attempts; it doubles each time unless
+	// Retry-After says more.
+	Retries   int
+	RetryWait time.Duration
+	// StreamIdle is how long a followed stream may be silent (pings count) before it is treated as
+	// dropped; StreamReconnects bounds the reopenings in a row; StreamWait is the first pause.
+	StreamIdle       time.Duration
+	StreamReconnects int
+	StreamWait       time.Duration
 }
 
 // NewClient creates a new HTTP client with the given base URL.
@@ -36,8 +47,11 @@ func NewClient(baseURL string) *Client {
 		baseURL = "http://localhost:8080"
 	}
 	return &Client{
-		BaseURL: strings.TrimRight(baseURL, "/"),
-		Timeout: DefaultTimeout,
+		BaseURL:          strings.TrimRight(baseURL, "/"),
+		Timeout:          DefaultTimeout,
+		StreamIdle:       DefaultStreamIdle,
+		StreamReconnects: DefaultStreamReconnects,
+		StreamWait:       DefaultStreamWait,
 		// No client-wide Timeout: it would also cut SSE streams.
 		HTTPClient: &http.Client{},
 	}
@@ -68,6 +82,10 @@ func (c *Client) newRequestWithBody(method string, path string, body []byte) (*h
 		bodyReader = bytes.NewReader(body)
 	}
 
+	if err := c.checkTokenTransport(urlStr); err != nil {
+		return nil, err
+	}
+
 	req, err := http.NewRequest(method, urlStr, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -80,6 +98,26 @@ func (c *Client) newRequestWithBody(method string, path string, body []byte) (*h
 	}
 
 	return req, nil
+}
+
+// checkTokenTransport refuses to send the token in clear text over the network.
+func (c *Client) checkTokenTransport(urlStr string) error {
+	if c.Token == "" || c.AllowInsecureToken {
+		return nil
+	}
+	u, _ := url.Parse(urlStr) // already parsed by the caller
+	if u.Scheme != "http" || isLoopbackHost(u.Hostname()) {
+		return nil
+	}
+	return fmt.Errorf("refusing to send the token over plain http to %q; use https or pass --insecure-token", u.Hostname())
+}
+
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // newRequest creates a new HTTP request for the given method and path.
@@ -103,7 +141,11 @@ type apiError struct {
 }
 
 func (e *apiError) Error() string {
-	return fmt.Sprintf("API error: status %d: %s", e.status, e.body)
+	hint := ""
+	if e.status == http.StatusUnauthorized {
+		hint = " (the server needs an API key: set YUKTA_TOKEN, or use --token-file)"
+	}
+	return fmt.Sprintf("API error: status %d: %s%s", e.status, e.body, hint)
 }
 
 // maxRetryWait caps one pause, whatever Retry-After asks for.

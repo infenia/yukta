@@ -1,18 +1,18 @@
 ---
 title: "Persistence"
 description: "Keep sessions, the execution log and node outputs in memory, on disk or in PostgreSQL, and what survives a restart in each case."
-mode: "wide"
+keywords: ["persistence", "storage", "PostgreSQL", "durability"]
 ---
-
-<Note>
-  Storing state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.session-memory.dir`) and PostgreSQL storage are part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus` (PostgreSQL also needs `-Pyukta.persistence=postgres`); the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
-</Note>
 
 <Info>
   **In plain terms:** by default Yukta forgets everything when it restarts, which is fine for trying it out. When you need your workflows and history to survive restarts, switch the storage to files or PostgreSQL, one kind of data at a time.
 </Info>
 
 Yukta keeps its state in memory by default and can move each kind of data to files or to PostgreSQL. Each kind has its own switch, so a deployment can be durable for some data and not for other data.
+
+<Note>
+  Storing state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.session-memory.dir`) and PostgreSQL storage are part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus` (PostgreSQL also needs `-Pyukta.persistence=postgres`); the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
+</Note>
 
 ## When to use it
 
@@ -176,9 +176,20 @@ The PostgreSQL execution log queues up to 10,000 events for its writer and inser
 | Statement time limit | 30 s for the log and checkpoints, 10 s for history and the lease |
 | Checkpoint memory caps | `200` messages and 4 MiB per node |
 
-## Related
+## Next steps
 
-- [Checkpoints and resume](/operations/checkpoints-and-resume)
-- [High availability](/operations/high-availability)
-- [Configuration](/operations/configuration)
-- [Deployment](/operations/deployment)
+<Card title="Checkpoints and resume" icon="floppy-disk" horizontal href="/operations/checkpoints-and-resume">
+  How Yukta records node outputs, restarts a run or one node, recovers after a restart and resumes an aborted run.
+</Card>
+
+<Card title="High availability" icon="server" horizontal href="/operations/high-availability">
+  Run several servers on one PostgreSQL database so that one admits runs and the others take over when it stops.
+</Card>
+
+<Card title="Configuration" icon="gear" horizontal href="/operations/configuration">
+  Every setting an operator can change, its default and what it controls, plus the per-node engine options.
+</Card>
+
+<Card title="Deployment" icon="box" horizontal href="/operations/deployment">
+  Install Yukta as a Docker image, a Linux package or an archive, or run it from source, with the profiles and build switches that shape it.
+</Card>

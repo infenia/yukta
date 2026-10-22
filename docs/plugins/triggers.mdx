@@ -1,7 +1,7 @@
 ---
 title: "Triggers"
 description: "API_TRIGGER, CONSTANT_SOURCE and SCHEDULE_TRIGGER: the plugins that start a workflow."
-mode: "wide"
+keywords: ["API_TRIGGER", "SCHEDULE_TRIGGER", "CONSTANT_SOURCE", "triggers"]
 ---
 
 <Info>
@@ -134,9 +134,20 @@ This node fires at 08:30 on weekdays, Berlin time. The longest gap is the weeken
 | `SCHEDULE_TRIGGER` first message | after one `intervalMs`, or at the next cron time |
 | `SCHEDULE_TRIGGER` position after a restart | not kept; see [Scheduling](/building/scheduling) |
 
-## Related
+## Next steps
 
-- [Scheduling](/building/scheduling)
-- [Executions](/api/executions)
-- [Variables and expressions](/building/variables-and-expressions)
-- [Time limits](/concepts/time-limits)
+<Card title="Scheduling" icon="calendar" horizontal href="/building/scheduling">
+  Run a workflow on a timer with SCHEDULE_TRIGGER, or start workflows from outside with REST, the CLI or MCP.
+</Card>
+
+<Card title="REST: executions" icon="list-check" horizontal href="/api/executions">
+  Read the status and result of a run, search runs, stop, restart and recover them, and manage the execution queue.
+</Card>
+
+<Card title="Variables and expressions" icon="brackets-curly" horizontal href="/building/variables-and-expressions">
+  Reference message data, settings and secrets inside node configuration without storing them in the workflow.
+</Card>
+
+<Card title="Time limits" icon="clock" horizontal href="/concepts/time-limits">
+  The five independent clocks that bound an execution, and how pausing and long-running work interact with them.
+</Card>

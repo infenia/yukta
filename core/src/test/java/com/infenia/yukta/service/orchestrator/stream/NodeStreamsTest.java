@@ -87,7 +87,7 @@ class NodeStreamsTest {
   }
 
   @Test
-  void nodeThatEndsWithoutActivity_stillReportsRunningFirst() {
+  void nodeThatEndsWithoutActivity_isSkipped_notSuccess() {
     StepVerifier.create(decorate(Flux.empty())).verifyComplete();
 
     final InOrder order = inOrder(tracker);
@@ -96,7 +96,8 @@ class NodeStreamsTest {
         .emitTaskStatusEvent(eq(EXEC), eq(NODE_ID), eq(TASK), eq(TaskStatus.RUNNING), anyMap());
     order
         .verify(tracker)
-        .emitTaskStatusEvent(eq(EXEC), eq(NODE_ID), eq(TASK), eq(TaskStatus.SUCCESS), anyMap());
+        .emitTaskStatusEvent(eq(EXEC), eq(NODE_ID), eq(TASK), eq(TaskStatus.SKIPPED), anyMap());
+    expectStatus(TaskStatus.SUCCESS, 0);
   }
 
   @Test
@@ -230,7 +231,9 @@ class NodeStreamsTest {
 
   @Test
   void completedStream_isNotReportedCancelledWhenTheSubscriberLaterCancels() {
-    StepVerifier.create(decorate(Flux.empty())).verifyComplete();
+    StepVerifier.create(decorate(Flux.just(DefaultMessage.create(UUID.randomUUID(), "x"))))
+        .expectNextCount(1)
+        .verifyComplete();
 
     expectStatus(TaskStatus.SUCCESS, 1);
     expectStatus(TaskStatus.CANCELLED, 0);

@@ -1,7 +1,7 @@
 ---
 title: "Plugin API module"
-description: "plugin-api is the contract between Yukta's engine and the code that does the actual work."
-mode: "wide"
+description: "The contract between Yukta's engine and the code that does the work: triggers, processors, terminals, supervisors and control planes."
+keywords: ["plugin-api", "plugin contract", "SPI"]
 ---
 
 plugin-api is the contract between Yukta's engine and the code that does the actual work. Every node in a workflow (call an API, ask a model, wait for a person) is a plugin that implements one of three small interfaces here, and every supervisor that watches or steers runs implements another. The module holds almost no logic of its own: it holds the shape of the conversation. This page is for thinking about that contract: open a component, replay a scenario, then challenge the weak spots.
@@ -810,3 +810,13 @@ The smallest correct plugin and the rules that follow from the contract.
 | Secret reference (decrypted:key) | A config value that names a secret instead of containing it. | Resolved by a SecretProvider. |
 | Test fixtures | Shared test helpers a module publishes for other modules' tests. | Applied here but empty. |
 | Binary compatibility | Whether code built against an old version still runs against a new one. | Adding an abstract method breaks it. |
+
+## Next steps
+
+<Card title="Writing a plugin" icon="code" horizontal href="/plugins/writing-a-plugin">
+  The contract a trigger, processor or terminal fulfils: what it declares, how it handles messages and failures, and how Yukta picks it up.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>
