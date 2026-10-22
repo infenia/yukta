@@ -1,21 +1,21 @@
 ---
 title: "Built-in plugins"
-description: "The 34 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include."
-mode: "wide"
+description: "The 35 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include."
+keywords: ["plugins", "triggers", "processors", "terminals"]
 ---
 
 <Info>
   **In plain terms:** plugins are the building blocks you drop into a flowchart. Each box in a workflow is one plugin with its own settings: a *trigger* to start the job, *processors* to do the work (call a web service, reshape data, make a choice, ask an AI model) and *terminals* to finish a path. Skim the tables to see what exists; each group has its own page with every option.
 </Info>
 
-AI has first-class support: the AI plugins (`LLM_CALL`, `MCP_LIST_TOOLS`, `MCP_TOOL_CALL`, `SESSION_MEMORY`) build agents, and the decision plugins use fast System One decision models (or an LLM) to classify, gate and score. See [AI and agents](/building/ai-and-agents).
+A plugin is the implementation behind a node `type`. Yukta ships 35 of them in three roles: **triggers** start a workflow, **processors** transform, route and call out, and **terminals** end a branch.
 
-A plugin is the implementation behind a node `type`. Yukta ships 34 of them in three roles: **triggers** start a workflow, **processors** transform, route and call out, and **terminals** end a branch.
+AI has first-class support: the AI plugins (`LLM_CALL`, `MCP_LIST_TOOLS`, `MCP_TOOL_CALL`, `SESSION_MEMORY`) build agents, and the decision plugins use fast System One decision models (or an LLM) to classify, gate and score. See [AI and agents](/building/ai-and-agents).
 
 This page lists every type at a glance. Each group has its own page with every option, the output ports and a JSON example.
 
 <Note>
-  The plugin set and the options of each plugin are pre-beta (`0.1.0-alpha.2`) and may change before v0.1.0.
+  The plugin set and the options of each plugin are in alpha (`0.1.0-alpha.2`) and may change before v0.1.0.
 </Note>
 
 ## Type strings
@@ -108,6 +108,7 @@ A terminal consumes messages and has no output ports. See [Terminals](/plugins/t
 |---|---|
 | `CONSOLE_TERMINAL` | Writes each payload to the server log |
 | `NOTIFY_TERMINAL` | Sends each message as a JSON webhook (Slack-compatible) |
+| `OUTCOME_TERMINAL` | Names the exit a run took (success, retry, escalate, failed) so a supervisor can act on it |
 
 ## Options every node accepts
 
@@ -213,8 +214,16 @@ A plugin with no configuration, such as `API_TRIGGER` or `CONSOLE_TERMINAL`, ret
   `PROCESS_EXECUTOR`, `SQL_QUERY`, `FILE_READ`, `FILE_WRITE`, `HTTP_REQUEST` and the `SCRIPT` mode of `MAPPER` act on the server's host or network with the server's permissions. Treat authorship of workflows as a trusted operation. See [Security](/operations/security).
 </Warning>
 
-## Related
+## Next steps
 
-- [Defining a workflow](/building/defining-a-workflow)
-- [Writing a plugin](/plugins/writing-a-plugin)
-- [Failure handling](/concepts/failure-handling)
+<Card title="Defining a workflow" icon="file-code" horizontal href="/building/defining-a-workflow">
+  The complete JSON shape of a session and its workflows, and how to build one step by step.
+</Card>
+
+<Card title="Writing a plugin" icon="code" horizontal href="/plugins/writing-a-plugin">
+  The contract a trigger, processor or terminal fulfils: what it declares, how it handles messages and failures, and how Yukta picks it up.
+</Card>
+
+<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>

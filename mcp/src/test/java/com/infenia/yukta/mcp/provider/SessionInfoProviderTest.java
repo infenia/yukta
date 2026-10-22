@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,6 +25,8 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 class SessionInfoProviderTest {
 
@@ -193,5 +196,24 @@ class SessionInfoProviderTest {
     StepVerifier.create(provider.createSession(config()))
         .expectErrorMatches(failure::equals)
         .verify();
+  }
+
+  @Test
+  void testGuideExampleParsesIntoTheRealModel() {
+    when(registry.listPlugins()).thenReturn(List.of());
+    final String example = provider.getSessionCreationInstructions().exampleSessionConfig();
+
+    // fails on unknown properties, as the server does
+    final SessionConfigData config =
+        JsonMapper.builder()
+            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .build()
+            .readValue(example, SessionConfigData.class);
+
+    assertEquals("demo", config.sessionId());
+    final var workflow = config.workflows().get("greet");
+    assertEquals(3, workflow.nodes().size());
+    assertEquals("trigger", workflow.edges().get(0).source());
+    assertEquals("map", workflow.edges().get(0).target());
   }
 }

@@ -640,7 +640,7 @@ export const WorkflowPlayground = () => {
 
     .ykp-graph {
       position: relative; border: 1px solid var(--ykp-border); border-radius: var(--ykp-radius-lg);
-      background: var(--ykp-surface); overflow-x: auto; min-height: 260px; padding: 0.4rem;
+      background: var(--ykp-surface); overflow-x: auto; min-height: 160px; padding: 0.4rem;
     }
     .ykp-graph-stale .ykp-svg { opacity: 0.45; filter: grayscale(1); pointer-events: none; }
     .ykp-svg { display: block; width: 100%; height: auto; user-select: none; -webkit-user-select: none; }
@@ -1126,7 +1126,7 @@ export const WorkflowPlayground = () => {
         <svg
           className="ykp-svg"
           viewBox={"0 0 " + layout.width + " " + layout.height}
-          style={{ minWidth: Math.round(layout.width * 0.8) + "px" }}
+          style={{ minWidth: Math.round(layout.width * 0.6) + "px" }}
           role="group"
           aria-label="Workflow graph. A table with the same information follows."
         >

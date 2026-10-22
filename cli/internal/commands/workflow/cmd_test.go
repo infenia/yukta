@@ -136,6 +136,10 @@ const progress = "data: {\"executionId\":\"exec-1\",\"status\":\"COMPLETED\"}\n\
 func TestStatusStreamCmd(t *testing.T) {
 	var query string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/executions/") && !strings.HasSuffix(r.URL.Path, "/stream") {
+			_, _ = io.WriteString(w, `{"data":{"status":"SUCCESS"}}`) // the execution has ended
+			return
+		}
 		query = r.URL.RawQuery
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = io.WriteString(w, progress)
@@ -160,7 +164,7 @@ func TestStatusStreamCmd_errorsAndCancel(t *testing.T) {
 	// A cancelled context (Ctrl-C) is a clean exit.
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	cmd := WorkflowCmd(testutil.Stream(t, progress))
+	cmd := WorkflowCmd(testutil.FinishedStream(t, progress))
 	cmd.SetArgs([]string{"status-stream", "s", "e"})
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		t.Errorf("expected nil on cancel, got %v", err)
@@ -168,10 +172,25 @@ func TestStatusStreamCmd_errorsAndCancel(t *testing.T) {
 }
 
 func TestStatusStreamCmd_withoutCobraContext(t *testing.T) {
-	cmd := StatusStreamCmd(testutil.Stream(t, progress))
+	cmd := StatusStreamCmd(testutil.FinishedStream(t, progress))
 	var err error
 	out := testutil.Capture(t, func() { err = cmd.RunE(cmd, []string{"s", "e"}) })
 	if err != nil || !strings.Contains(out, "COMPLETED") {
 		t.Errorf("out=%q err=%v", out, err)
+	}
+}
+
+func TestStartCmd_idempotencyKeyIsSentAsAHeader(t *testing.T) {
+	var key string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key = r.Header.Get("Idempotency-Key")
+		_, _ = io.WriteString(w, execOK)
+	}))
+	defer srv.Close()
+
+	_, err := testutil.Run(t, WorkflowCmd(client.NewClient(srv.URL)), "start", "s", "w", "--idempotency-key", "run-42")
+
+	if err != nil || key != "run-42" {
+		t.Errorf("key=%q err=%v", key, err)
 	}
 }

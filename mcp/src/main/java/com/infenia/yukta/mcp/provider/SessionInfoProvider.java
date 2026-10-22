@@ -91,37 +91,39 @@ public class SessionInfoProvider {
 
     final String configurationStructure =
         """
-        A session configuration is a JSON object with a 'workflows' key containing \
-        workflow definitions. Each workflow definition includes: 'nodes' (array of node \
-        definitions) and 'edges' (array of directed connections between nodes). \
-        Each node has 'id', 'type' (plugin type), and 'config' (plugin-specific settings).\
+        A session configuration is a JSON object with 'sessionId', 'name', 'description', \
+        'initiator', 'projectPath' (an existing directory) and a 'workflows' object that maps a \
+        workflow id to its definition. Unknown properties are rejected, so use exactly the \
+        field names of the example.\
         """;
 
     final String exampleSessionConfig =
         """
         {
+          "sessionId": "demo",
+          "name": "Quickstart",
+          "description": "Greet a user",
+          "initiator": "me",
+          "projectPath": "/tmp",
           "workflows": {
-            "quality-checks": {
+            "greet": {
+              "workflowId": "greet",
+              "description": "Map the request payload into a greeting",
               "nodes": [
+                { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
                 {
-                  "id": "trigger-check",
-                  "type": "webhook-trigger",
-                  "config": { "port": 8080 }
+                  "nodeId": "map",
+                  "type": "MAPPER",
+                  "config": {
+                    "mode": "PROJECTION",
+                    "mapping": { "greeting": "'Hello, ' + payload.name" }
+                  }
                 },
-                {
-                  "id": "run-gradle",
-                  "type": "gradle-checker",
-                  "config": { "tasks": ["test", "check"] }
-                },
-                {
-                  "id": "log-results",
-                  "type": "log-aggregator",
-                  "config": { "format": "json" }
-                }
+                { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
               ],
               "edges": [
-                { "from": "trigger-check", "to": "run-gradle", "port": "default" },
-                { "from": "run-gradle", "to": "log-results", "port": "default" }
+                { "source": "trigger", "target": "map" },
+                { "source": "map", "target": "end" }
               ]
             }
           }
@@ -130,13 +132,12 @@ public class SessionInfoProvider {
 
     final String workflowDefinitionFormat =
         """
-        A workflow definition is a Directed Acyclic Graph (DAG) where: \
-        Nodes represent processing steps (trigger, processor, or terminal plugins). \
-        Each node has a unique 'id', a 'type' (matching a registered plugin), and \
-        'config' for plugin-specific parameters. Edges connect nodes using 'from' \
-        (source node id), 'to' (target node id), and 'port' (output port name). \
-        Cycles are not allowed. Execution flows from trigger nodes through processors \
-        to terminal nodes.\
+        A workflow definition has a 'workflowId', a 'description', 'nodes' and 'edges'. It is a \
+        Directed Acyclic Graph: a node has a unique 'nodeId', a 'type' (the type of a registered \
+        plugin, see list_plugins) and a 'config' object for that plugin. An edge has a 'source' \
+        and a 'target' node id and, optionally, a 'sourcePort' (for example 'success', 'failure' \
+        or 'error'; without one it uses the default port). Cycles are not allowed. Execution \
+        flows from trigger nodes through processors to terminal nodes.\
         """;
 
     final List<PluginReference> availablePlugins =
@@ -152,11 +153,16 @@ public class SessionInfoProvider {
             describe(
                 "Plugin Not Found",
                 "Used a plugin type that is not registered in the PluginRegistry. "
-                    + "For example, referencing 'invalid-plugin' when only 'gradle-checker' is "
-                    + "available.",
+                    + "For example, referencing 'invalid-plugin' when only 'MAPPER' is available.",
                 "Check the available plugins using the list_plugins tool. Ensure the 'type' "
                     + "field in your node configuration matches exactly (case-sensitive) with a "
                     + "registered plugin."),
+            describe(
+                "Unknown Property",
+                "The server rejects JSON properties it does not know, such as 'id', 'from', "
+                    + "'to' or 'port' (the names are 'nodeId', 'source', 'target' and "
+                    + "'sourcePort').",
+                "Use exactly the field names of the example configuration."),
             describe(
                 "Cyclic DAG Detected",
                 "The workflow definition contains a cycle (e.g., Node A → B → A), which "
@@ -166,7 +172,7 @@ public class SessionInfoProvider {
             describe(
                 "Missing Required Configuration Fields",
                 "A plugin node is missing required configuration fields. For example, a "
-                    + "gradle-checker node missing the 'tasks' array in its config.",
+                    + "MAPPER node missing its 'mapping' in its config.",
                 "Review the plugin's usage pattern using the get_plugin_details tool and ensure "
                     + "all required configuration fields are present in the node's config."));
 

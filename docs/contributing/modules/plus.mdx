@@ -1,14 +1,18 @@
 ---
 title: "Plus module"
 description: "The AGPL-3.0-only module: file stores, the PostgreSQL and workers modules nested in it, and the integration layer that extension modules build on."
-mode: "wide"
+keywords: ["plus module", "AGPL", "editions"]
 ---
+
+<Info>
+  **In plain terms:** the `plus` directory is where everything beyond the free Community edition lives: saving state to disk, PostgreSQL, high availability and remote workers. It also holds the framework that commercial extension modules plug into.
+</Info>
+
+The `plus` directory holds everything that is not in the Community edition. It has four parts:
 
 <Note>
   This module is part of the **Plus** edition (AGPL-3.0-only). See [Licensing and editions](/reference/licensing).
 </Note>
-
-The `plus` directory holds everything that is not in the Community edition. It has four parts:
 
 | Part | What it is | Switch |
 |---|---|---|
@@ -31,3 +35,21 @@ The build then reports the Enterprise edition through `GET /api/edition`. Settin
 - Nothing outside `boot` may depend on `:plus` or `:plus:*`; CI checks it. A dependency from the Apache modules would make the Community build AGPL.
 - Every file here carries the `AGPL-3.0-only` SPDX header; Spotless adds it.
 - The hooks stay in `core` under Apache-2.0. This module owns the framework around them.
+
+## Next steps
+
+<Card title="Licensing and editions" icon="scale-balanced" horizontal href="/reference/licensing">
+  Which parts of Yukta are Apache-2.0, which are AGPL-3.0-only, what each edition includes, and what the licences mean for you.
+</Card>
+
+<Card title="Persistence PostgreSQL module" icon="database" horizontal href="/contributing/modules/persistence-postgres">
+  The PostgreSQL stores for definitions, sessions, run history and node outputs, their Flyway migrations, and the leader lease for high availability.
+</Card>
+
+<Card title="Workers module" icon="network-wired" horizontal href="/contributing/modules/workers">
+  Remote workers: running a processor node on another machine over RSocket while the server keeps orchestrating, and what carries over from a local node.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>
