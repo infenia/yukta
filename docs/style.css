@@ -701,3 +701,12 @@ img.yk-diagram {
     animation: none !important;
   }
 }
+
+/* Darker label text for 4.5:1 contrast on the white card in the light theme. */
+:root:not(.dark) .yk-kind-trigger .yk-kind-name {
+  color: #b45309;
+}
+
+:root:not(.dark) .yk-kind-terminal .yk-kind-name {
+  color: #475569;
+}
