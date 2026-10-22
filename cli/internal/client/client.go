@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -20,10 +21,12 @@ const DefaultTimeout = 30 * time.Second
 
 // Client provides an HTTP client wrapper for communicating with the Yukta API.
 type Client struct {
-	BaseURL    string
-	Token      string        // optional bearer token sent as Authorization
-	Timeout    time.Duration // per-request limit for non-streaming calls; <= 0 disables
-	HTTPClient *http.Client
+	BaseURL string
+	Token   string // optional bearer token sent as Authorization
+	// AllowInsecureToken lets Token go over plain http to a host that is not loopback.
+	AllowInsecureToken bool
+	Timeout            time.Duration // per-request limit for non-streaming calls; <= 0 disables
+	HTTPClient         *http.Client
 }
 
 // NewClient creates a new HTTP client with the given base URL.
@@ -65,6 +68,10 @@ func (c *Client) newRequestWithBody(method string, path string, body []byte) (*h
 		bodyReader = bytes.NewReader(body)
 	}
 
+	if err := c.checkTokenTransport(urlStr); err != nil {
+		return nil, err
+	}
+
 	req, err := http.NewRequest(method, urlStr, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -77,6 +84,26 @@ func (c *Client) newRequestWithBody(method string, path string, body []byte) (*h
 	}
 
 	return req, nil
+}
+
+// checkTokenTransport refuses to send the token in clear text over the network.
+func (c *Client) checkTokenTransport(urlStr string) error {
+	if c.Token == "" || c.AllowInsecureToken {
+		return nil
+	}
+	u, _ := url.Parse(urlStr) // already parsed by the caller
+	if u.Scheme != "http" || isLoopbackHost(u.Hostname()) {
+		return nil
+	}
+	return fmt.Errorf("refusing to send the token over plain http to %q; use https or pass --insecure-token", u.Hostname())
+}
+
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // newRequest creates a new HTTP request for the given method and path.
@@ -111,7 +138,11 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 
 	// Check for non-2xx status codes
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, string(body))
+		hint := ""
+		if resp.StatusCode == http.StatusUnauthorized {
+			hint = " (the server needs an API key: set YUKTA_TOKEN, or use --token-file)"
+		}
+		return nil, fmt.Errorf("API error: status %d: %s%s", resp.StatusCode, string(body), hint)
 	}
 
 	return body, nil
