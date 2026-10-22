@@ -39,7 +39,7 @@ dependencies {
         implementation("com.fasterxml.jackson.core:jackson-databind:2.22.4")
         implementation("tools.jackson.core:jackson-core:3.2.4")
         implementation("tools.jackson.core:jackson-databind:3.2.4")
-        implementation("org.codehaus.plexus:plexus-utils:3.6.1")
+        implementation("org.codehaus.plexus:plexus-utils:4.1.0")
         // GHSA-xxph-c9ww-hj94: Guava <= 33.7.1 deserialization allocates without bound
         implementation("com.google.guava:guava:33.7.2-jre")
     }
