@@ -2,7 +2,7 @@
 title: "AI and agents"
 description: "Build model-driven workflows: chat with memory, tool-using agent loops, decisions, budgets and guardrails."
 tag: "Optional"
-mode: "wide"
+keywords: ["AI agents", "LLM", "agent loop", "guardrails", "budgets"]
 ---
 
 <Info>
@@ -226,15 +226,35 @@ An agent does two very different jobs: **writing** (drafting an answer, planning
 | A decision, but no System One model is available | The same decision plugin with `backend: LLM` |
 | Watch and steer running workflows | A [model control plane](/running/control-planes#model-control-plane) |
 
-With `SYSTEMONE`, token and provider costs for these calls do not apply, because the model runs on your own Ollama. Probabilities from `SYSTEMONE` are calibrated; those from the `LLM` backend are the model's own estimates. See [Decision plugins](/plugins/decisions#common-options) for the two backends. When a node must choose, not write, a decision plugin is cheaper and easier to route on than a free-text answer: `CLASSIFY` gives one label from your list, `GATE` a yes/no with a probability, `SCORE` a position on a scale, `ASK` several answers in one call. They use a small local decision model (Ollama System One) or any chat model. Typical uses:
+With `SYSTEMONE`, token and provider costs for these calls do not apply, because the model runs on your own Ollama. Probabilities from `SYSTEMONE` are calibrated; those from the `LLM` backend are the model's own estimates. See [Decision plugins](/plugins/decisions#common-options) for the two backends. `CLASSIFY` gives one label from your list, `GATE` a yes/no with a probability, `SCORE` a position on a scale and `ASK` several answers in one call. Typical uses:
 
 - `CLASSIFY` with `routeByLabel` at the start of a workflow, so each kind of request takes its own branch, with an `uncertain` port for the unclear ones.
 - A `GATE` in front of `MCP_TOOL_CALL` that asks whether the arguments the model proposed are safe, with `state` set to `payload.args`.
 - `ANOMALY` and `DEDUPE` in a long-running, scheduled workflow, to react to an unusual or repeated event. See [Scheduling](/building/scheduling).
 
+## Several agents in one workflow
+
+Because every agent is a step in the graph, a team of agents is an ordinary workflow: one agent's output is the next agent's input.
+
+- **Chain them.** Give each `LLM_CALL` its own `system` prompt (drafter, reviewer, decider) and connect them with edges. Carry the original task in the message metadata so every agent can read it.
+- **Decide between them.** Put a `GATE` or `CLASSIFY` after a reviewer to send the draft on to the next stage or to a revision agent. The graph has no cycles, so each extra pass is its own step, which keeps the number of passes bounded.
+- **Reuse a whole agent.** Move one agent's steps into their own workflow and call it with `SUB_WORKFLOW`, so several workflows can share it.
+- **Use any agent.** A step does not have to be `LLM_CALL`. `PROCESS_EXECUTOR` can run a command-line agent such as Claude Code. [Example 11](https://github.com/infenia/yukta/tree/main/examples/11-dogfood) does this to repair a failed build stage and then runs the check again.
+
+Every hand-off is a message you can see in the logs and results, and any agent's step can be restarted on its own. See [Run controls](/running/run-controls).
+
+## AI as author and supervisor
+
+AI does not have to live inside the graph.
+
+| Role | How | See |
+|---|---|---|
+| Author | An assistant such as Claude creates sessions, starts runs and reads results through the MCP server | [MCP server](/interfaces/mcp) |
+| Supervisor | A supervisor watches every event on the control bus and pauses or stops a run that loops or drifts, using rules, an LLM agent or a decision model | [Supervisors](/running/supervisors), [Control planes](/running/control-planes) |
+
 ## Guardrails
 
-Models can loop, overspend and be fed hostile input. Yukta gives you limits at four levels.
+Models can loop, overspend and be fed hostile input. Yukta limits them per call, per node, per execution and per server:
 
 | Guardrail | Where | Effect |
 |---|---|---|
@@ -256,9 +276,20 @@ A few facts about budgets:
   Text from users, web pages or tools goes straight into the prompt. A model can be talked into asking for a tool you did not expect. Keep `allowedTools` narrow, put `requireApproval` on tools that change things, and never let a tool name or argument from a model reach something dangerous without a check.
 </Warning>
 
-## Related
+## Next steps
 
-- [AI plugins](/plugins/ai)
-- [Decision plugins](/plugins/decisions)
-- [Approvals and signals](/building/approvals-and-signals)
-- [Variables and expressions](/building/variables-and-expressions)
+<Card title="AI plugins" icon="brain" horizontal href="/plugins/ai">
+  LLM_CALL, MCP_LIST_TOOLS, MCP_TOOL_CALL and SESSION_MEMORY: call a model, give it tools and keep conversation history.
+</Card>
+
+<Card title="Decision plugins" icon="signs-post" horizontal href="/plugins/decisions">
+  CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE: constrained model decisions for routing and gating.
+</Card>
+
+<Card title="Approvals and signals" icon="hand" horizontal href="/building/approvals-and-signals">
+  Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision.
+</Card>
+
+<Card title="Supervisors" icon="shield-halved" horizontal href="/running/supervisors">
+  Programs that watch every execution and steer it, or veto commands before they run: a rule engine, an AI agent or your own code.
+</Card>

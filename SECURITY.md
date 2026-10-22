@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Yukta is pre-beta. Only the latest release receives security fixes; there are no backported
+Yukta is in alpha. Only the latest release receives security fixes; there are no backported
 patches to older versions.
 
 | Version                | Supported          |

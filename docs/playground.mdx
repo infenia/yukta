@@ -1,21 +1,33 @@
 ---
 title: "Workflow playground"
 description: "Build a small workflow, connect nodes, and watch a simulated run, including what happens when a node fails."
-mode: "wide"
+keywords: ["playground", "try in browser", "simulated run"]
 ---
 
 import { WorkflowPlayground } from "/snippets/workflow-playground.jsx"
 
-Try the idea of a workflow before you install anything. Boxes light up in order, and you can make one fail to see where the failure goes.
+Try a workflow before you install anything. Boxes on the path the run takes light up in order, and you can make one fail to see where the failure goes: a failure follows the error path you chose for it, and boxes on other paths stay dark.
 
-**How to use it:** pick a preset (or edit the JSON), click one node then another to connect them, and use **Run** or **Step**. Shift-click a node, or use its Fail button, to make it fail.
+## Try it
 
 <WorkflowPlayground />
 
+## What the simulation leaves out
+
 <Warning>
-  This is a **simulation in your browser**. No server is contacted, and a green run here does not mean the real server will accept your workflow.
+  A green run here does not mean the real server will accept your workflow. The simulation leaves out plugin work, retries, time limits, message streams, approval waits and persistence, and a failed node fails at once and follows its `error` edge if it has one.
 </Warning>
 
-It leaves out plugin work, retries, time limits, message streams, approval waits and persistence. A failed node fails at once and follows its `error` edge if it has one.
+## Next steps
 
-Ready for the real thing? Follow the [Quickstart](/quickstart), or read [Failure handling](/concepts/failure-handling) to see what a real run adds.
+<Card title="Quickstart" icon="rocket" horizontal href="/quickstart">
+  Install Yukta and run your first real workflow in five minutes.
+</Card>
+
+<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
+  Retries, error routes, failure budgets and join rules: what a real run adds.
+</Card>
+
+<Card title="Examples" icon="flask" horizontal href="/examples">
+  Ten ready-to-run workflows for CI, data, alerts and agents.
+</Card>

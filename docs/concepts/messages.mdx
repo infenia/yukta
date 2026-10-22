@@ -1,7 +1,7 @@
 ---
 title: "Messages"
 description: "The envelope every node receives and emits: payload, metadata, identity and routing."
-mode: "wide"
+keywords: ["messages", "payload", "metadata", "envelope"]
 ---
 
 <Info>
@@ -62,8 +62,16 @@ Messages also have optional header fields borrowed from classic messaging patter
 | Start payload | Request bodies above 1 MiB are rejected with `413` |
 | Log line from an output | Cut to 2,048 characters |
 
-## Related
+## Next steps
 
-- [Nodes, edges and ports](/concepts/nodes-edges-ports)
-- [Executions](/concepts/executions)
-- [Failure handling](/concepts/failure-handling)
+<Card title="Nodes, edges and ports" icon="circle-nodes" horizontal href="/concepts/nodes-edges-ports">
+  Node roles, how edges and output ports route messages, and how a node with several parents joins them.
+</Card>
+
+<Card title="Executions" icon="play" horizontal href="/concepts/executions">
+  The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end.
+</Card>
+
+<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>

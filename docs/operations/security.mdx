@@ -1,7 +1,7 @@
 ---
 title: "Security"
 description: "Expose the server safely, control who can do what, and limit what workflows may run."
-mode: "wide"
+keywords: ["security", "API keys", "authentication", "permissions"]
 ---
 
 <Info>
@@ -11,7 +11,7 @@ mode: "wide"
 A fresh Yukta server is reachable only from the machine it runs on. This page covers how to open it to a network, how API keys and roles work, and the settings that bound what a workflow may do.
 
 <Note>
-  Yukta is pre-beta (`0.1.0-alpha.2`). Setting names and access rules may change before v0.1.0.
+  Yukta is in alpha (`0.1.0-alpha.2`). Setting names and access rules may change before v0.1.0.
 </Note>
 
 ## Default posture
@@ -289,9 +289,20 @@ Restrict them at the proxy if the API description should not be public.
 
 Report a vulnerability privately to the maintainers. Use the repository's [security policy](https://github.com/infenia/yukta/security/policy). Do not open a public issue for it.
 
-## Related
+## Next steps
 
-- [Configuration](/operations/configuration)
-- [Remote workers](/operations/remote-workers)
-- [Deployment](/operations/deployment)
-- [REST API overview](/api/overview)
+<Card title="Configuration" icon="gear" horizontal href="/operations/configuration">
+  Every setting an operator can change, its default and what it controls, plus the per-node engine options.
+</Card>
+
+<Card title="Remote workers" icon="network-wired" horizontal href="/operations/remote-workers">
+  Run selected processor nodes on other machines, in named pools, while the control plane keeps orchestrating.
+</Card>
+
+<Card title="Deployment" icon="box" horizontal href="/operations/deployment">
+  Install Yukta as a Docker image, a Linux package or an archive, or run it from source, with the profiles and build switches that shape it.
+</Card>
+
+<Card title="REST API overview" icon="code" horizontal href="/api/overview">
+  Base path, authentication, response envelope, paging, idempotency and stream conventions shared by every endpoint.
+</Card>

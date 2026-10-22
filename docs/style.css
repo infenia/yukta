@@ -174,10 +174,10 @@ body::before {
   border-bottom: 1px solid var(--yk-border);
 }
 
-/* Every page sets mode: wide, but below Mintlify's xl breakpoint (1280px) the content column is
-   still capped at 36rem. Let it fill the space between the sidebar and the page edge. */
+/* Every page reads in one centred column, the same width as the introduction's. Mintlify centres
+   it between the sidebar and the page contents. */
 #content-area {
-  max-width: none;
+  max-width: 48rem;
 }
 
 #sidebar-title,
@@ -259,16 +259,6 @@ button,
 .code-block,
 .code-group {
   border-color: var(--yk-border);
-  border: 1px solid var(--yk-border);
-  border-radius: var(--yk-radius-xl);
-  box-shadow: var(--yk-shadow-sm);
-}
-
-/* Home page animated workflow: framed like the static diagrams. */
-.yk-dag-hero {
-  box-sizing: border-box;
-  padding: 0.5rem;
-  background: var(--yk-surface);
   border: 1px solid var(--yk-border);
   border-radius: var(--yk-radius-xl);
   box-shadow: var(--yk-shadow-sm);
@@ -369,6 +359,16 @@ div[data-component-part="card-icon"] > svg {
   color: var(--yk-fg);
 }
 
+/* Card and step titles render as headings; keep the prose heading margin off them so the title
+   sits next to its icon or step number. */
+:is(h2, h3, h4)[data-component-part="card-title"][data-component-part] {
+  margin-top: 1rem;
+}
+
+:is(h2, h3, h4)[data-component-part="step-title"][data-component-part] {
+  margin-top: 0.125rem;
+}
+
 /* Callouts: one treatment for every kind. A light tint, a matching hairline and a coloured icon.
    Note and info are blue, tip and check success, warning attention orange, danger destructive. */
 [data-callout-type] {
@@ -426,21 +426,6 @@ img.yk-diagram {
   box-shadow: var(--yk-shadow-sm);
 }
 
-/* Home page hero: a status-style eyebrow, then one primary and one secondary action. */
-.yk-hero {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin: 0.25rem 0 1.75rem;
-  padding: 1rem 1.25rem;
-  background: var(--yk-card);
-  border: 1px solid var(--yk-border);
-  border-radius: var(--yk-radius-xl);
-  box-shadow: var(--yk-shadow-sm);
-}
-
 .yk-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -459,45 +444,179 @@ img.yk-diagram {
   background: var(--yk-orange);
 }
 
-.yk-hero-cta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+/* Home page (mode: frame), laid out like Mintlify's own introduction: a centred hero over a soft
+   grid, a 2x2 grid of picture cards, then a narrow reading column. */
+.yk-landing {
+  position: relative;
+  padding: 4rem 1.25rem 5rem;
 }
 
-.yk-btn {
+.yk-landing::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 34rem;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 60% 70% at 50% 0%, color-mix(in srgb, var(--yk-blue) 16%, transparent), transparent 70%),
+    linear-gradient(var(--yk-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--yk-border) 1px, transparent 1px);
+  background-size: auto, 2.5rem 2.5rem, 2.5rem 2.5rem;
+  mask-image: linear-gradient(to bottom, #000 30%, transparent);
+  opacity: 0.7;
+}
+
+.yk-landing > * {
+  position: relative;
+  z-index: 1;
+}
+
+.yk-landing-hero {
+  max-width: 64rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.yk-landing-hero .yk-eyebrow {
+  padding: 0.3rem 0.8rem;
+  background: var(--yk-card);
+  border: 1px solid var(--yk-border);
+  border-radius: 999px;
+}
+
+.yk-landing-hero h1 {
+  margin: 1.5rem 0 1rem;
+  font-size: clamp(2rem, 3.6vw, 3rem);
+  text-wrap: balance;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--yk-fg);
+}
+
+.yk-landing-hero p {
+  max-width: 38rem;
+  margin: 0 auto;
+  font-size: 1.125rem;
+  line-height: 1.65;
+  color: var(--yk-muted);
+}
+
+.yk-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 1.5rem;
+  max-width: 56rem;
+  margin: 4rem auto 0;
+}
+
+.yk-hero-card {
+  display: block;
+  padding: 0.75rem 0.75rem 1.25rem;
+  text-decoration: none;
+  background: var(--yk-card);
+  border: 1px solid var(--yk-border);
+  border-radius: var(--yk-radius-xl);
+}
+
+.yk-hero-card-media {
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  padding: 0.75rem;
+  background: var(--yk-surface);
+  border-radius: var(--yk-radius-lg);
+}
+
+.yk-hero-card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.yk-hero-card h3 {
+  margin: 1rem 0.5rem 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--yk-fg);
+}
+
+.yk-hero-card span {
+  display: block;
+  margin: 0 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--yk-muted);
+}
+
+/* Trigger / processor / terminal tiles, coloured like the node kinds in the diagrams. */
+.yk-kinds {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.yk-kind {
+  --yk-kind: var(--yk-blue);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1.25rem;
+  text-decoration: none;
+  background: var(--yk-card);
+  border: 1px solid var(--yk-border);
+  border-top: 3px solid var(--yk-kind);
+  border-radius: var(--yk-radius-xl);
+}
+
+.yk-kind-trigger {
+  --yk-kind: var(--yk-orange);
+}
+
+.yk-kind-terminal {
+  --yk-kind: var(--yk-slate);
+}
+
+.yk-kind-icon {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
+  justify-content: center;
+  width: 2.25rem;
   height: 2.25rem;
-  padding: 0 0.95rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1;
-  border: 1px solid transparent;
+  margin-bottom: 0.5rem;
   border-radius: var(--yk-radius-lg);
-  text-decoration: none;
+  background: color-mix(in srgb, var(--yk-kind) 14%, transparent);
 }
 
-.yk-btn-primary {
-  color: #ffffff;
-  background: var(--yk-blue-strong);
-  box-shadow: var(--yk-shadow-sm);
+.yk-kind-icon svg {
+  background-color: var(--yk-kind) !important;
 }
 
-.yk-btn-primary:hover {
-  background: color-mix(in srgb, var(--yk-blue-strong) 86%, #000);
+.yk-kind-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--yk-kind);
 }
 
-.yk-btn-secondary {
+.yk-kind-role {
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--yk-fg);
-  background: var(--yk-card);
-  border-color: var(--yk-border);
 }
 
-.yk-btn-secondary:hover {
-  border-color: color-mix(in srgb, var(--yk-blue) 45%, var(--yk-border));
-  background: var(--yk-surface);
+.yk-kind-eg {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--yk-muted);
+}
+
+.yk-landing-body {
+  max-width: 48rem;
+  margin: 4rem auto 0;
 }
 
 /* ==========================================================================
@@ -510,7 +629,8 @@ img.yk-diagram {
   .card,
   a.card,
   [data-component-part="card"],
-  .yk-btn,
+  .yk-hero-card,
+  .yk-kind,
   [data-component-part="accordion-button"],
   #sidebar a {
     transition:
@@ -523,9 +643,15 @@ img.yk-diagram {
 
   .card:hover,
   a.card:hover,
-  [data-component-part="card"]:hover,
-  .yk-btn:hover {
+  [data-component-part="card"]:hover {
     transform: translateY(-1px);
+  }
+
+  .yk-hero-card:hover,
+  .yk-kind:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--yk-blue) 45%, var(--yk-border));
+    box-shadow: var(--yk-shadow-sm);
   }
 
   .prose :is(p, li, td, th, dd, blockquote) a:not(.card) {
@@ -574,4 +700,13 @@ img.yk-diagram {
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* Darker label text for 4.5:1 contrast on the white card in the light theme. */
+:root:not(.dark) .yk-kind-trigger .yk-kind-name {
+  color: #b45309;
+}
+
+:root:not(.dark) .yk-kind-terminal .yk-kind-name {
+  color: #475569;
 }

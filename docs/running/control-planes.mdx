@@ -2,7 +2,7 @@
 title: "Control planes"
 description: "Decision makers on the control bus that judge one event at a time, using rules, a small model, or rules first and a model as a fallback."
 tag: "Optional"
-mode: "wide"
+keywords: ["control plane", "rules", "model decisions"]
 ---
 
 <Info>
@@ -80,8 +80,16 @@ yukta.control-plane.rules-first.model.name=my-model
 
 A control plane implements one operation: decide what to do about an event, within a bounded time. An error counts as no opinion. See [Writing a plugin](/plugins/writing-a-plugin).
 
-## Related
+## Next steps
 
-- [Supervisors](/running/supervisors)
-- [Rule files](/running/rule-files)
-- [Run controls](/running/run-controls)
+<Card title="Supervisors" icon="shield-halved" horizontal href="/running/supervisors">
+  Programs that watch every execution and steer it, or veto commands before they run: a rule engine, an AI agent or your own code.
+</Card>
+
+<Card title="Rule files" icon="file-lines" horizontal href="/running/rule-files">
+  The declarative JSON format used by the rule supervisor and the rule control plane: react to events and veto commands.
+</Card>
+
+<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>

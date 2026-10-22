@@ -1,12 +1,8 @@
 ---
 title: "Limits and defaults"
 description: "Every ceiling and default value in one place, with the setting that changes it and the page that explains it."
-mode: "wide"
+keywords: ["limits", "defaults", "ceilings"]
 ---
-
-<Note>
-  Storing state on disk (`yukta.session.store-type=file`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
-</Note>
 
 <Info>
   **In plain terms:** the numbers behind the server: what is capped, what the default is, and which setting changes it. Check it before you plan for large workflows or heavy traffic.
@@ -15,7 +11,9 @@ mode: "wide"
 This page collects the numbers that bound a Yukta server: fixed ceilings, default values and the setting that changes each one. "Fixed" means no setting changes it. "Off" means the feature is disabled until you set it.
 
 <Note>
-  Yukta is pre-beta (`0.1.0-alpha.2`). Defaults and limits may change before v0.1.0.
+  Storing state on disk (`yukta.session.store-type=file`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
+
+  Yukta is in alpha (`0.1.0-alpha.2`), so defaults and limits may change before v0.1.0.
 </Note>
 
 ## Workflow graph
@@ -138,9 +136,20 @@ This page collects the numbers that bound a Yukta server: fixed ceilings, defaul
 | Worker reconnect pause | 1 s growing to 30 s | Fixed | [Remote workers](/operations/remote-workers) |
 | Leader lease | 15 s, renewed every 5 s | `yukta.ha.lease` | [High availability](/operations/high-availability) |
 
-## Related
+## Next steps
 
-- [Configuration](/operations/configuration)
-- [Capacity and performance](/operations/capacity-and-performance)
-- [Time limits](/concepts/time-limits)
-- [Status values](/reference/status-values)
+<Card title="Configuration" icon="gear" horizontal href="/operations/configuration">
+  Every setting an operator can change, its default and what it controls, plus the per-node engine options.
+</Card>
+
+<Card title="Capacity and performance" icon="chart-line" horizontal href="/operations/capacity-and-performance">
+  The ceilings, bounded and unbounded memory, admission limits, every metric the server publishes, what to alert on and how to run the load tests.
+</Card>
+
+<Card title="Time limits" icon="clock" horizontal href="/concepts/time-limits">
+  The five independent clocks that bound an execution, and how pausing and long-running work interact with them.
+</Card>
+
+<Card title="Status values" icon="tags" horizontal href="/reference/status-values">
+  Every execution and node status, and the enumerated values used by node options, limits and roles.
+</Card>
