@@ -95,7 +95,7 @@ class SpaWebFluxConfigTest {
   }
 
   @Test
-  void testAddResourceHandlersSetsCacheControlFor365DaysOnBothRegistrations() {
+  void testHashedAssetsCacheForAYearAndTopLevelAssetsRevalidate() {
     final ResourceHandlerRegistration registration = mock(ResourceHandlerRegistration.class);
     when(registry.addResourceHandler(any(String[].class))).thenReturn(registration);
     when(registration.addResourceLocations(anyString())).thenReturn(registration);
@@ -106,7 +106,9 @@ class SpaWebFluxConfigTest {
         ArgumentCaptor.forClass(CacheControl.class);
     verify(registration, times(2)).setCacheControl(cacheControlCaptor.capture());
 
-    assertThat(cacheControlCaptor.getAllValues()).hasSize(2).doesNotContainNull();
+    assertThat(cacheControlCaptor.getAllValues())
+        .extracting(CacheControl::getHeaderValue)
+        .containsExactly("max-age=31536000", "no-cache");
   }
 
   @Test

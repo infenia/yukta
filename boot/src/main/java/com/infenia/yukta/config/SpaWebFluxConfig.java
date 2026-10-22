@@ -70,10 +70,11 @@ public class SpaWebFluxConfig implements WebFluxConfigurer {
         .setCacheControl(CacheControl.maxAge(365, TimeUnit.DAYS));
 
     // Flat, top-level static assets (favicon, manifest, fonts referenced outside /assets/, etc.)
+    // are not content-hashed, so browsers revalidate (ETag) instead of caching them for a year.
     registry
         .addResourceHandler(TOP_LEVEL_ASSET_PATTERNS.toArray(new String[0]))
         .addResourceLocations("classpath:/static/")
-        .setCacheControl(CacheControl.maxAge(365, TimeUnit.DAYS));
+        .setCacheControl(CacheControl.noCache());
   }
 
   /**
