@@ -20,10 +20,14 @@ keywords: ["glossary", "terms", "definitions"]
 | **Command** | An instruction to a live execution: pause, resume, step, skip, stop, restart, signal and others. Applied in order and audited |
 | **Control bus** | The live command and event path of the server |
 | **Control plane** | A supervisor that decides one command per event, using rules, a model or both |
+| **DAG** | Directed acyclic graph: nodes joined by one-way edges with no cycles, so a workflow can never loop back on itself |
+| **Data plane** | The part of the server that moves messages through the workflow graph. The control plane steers it |
 | **Dead letter** | A message that failed after all attempts and was routed to the `error` port instead of being lost |
+| **Decision model** | A model asked a constrained question (pick a label, say yes or no, give a score) instead of writing free text. Used by the decision plugins and the model control plane |
 | **Drain** | Stopping gracefully: work already in progress finishes before the execution or worker ends |
 | **Durable end marker** | A small record written and forced to disk with a node's output when the node completes. A resume trusts only this marker |
 | **Edge** | A one-way connection from a source node to a target node, optionally from a named output port |
+| **Edition** | Community (Apache-2.0), Plus (AGPL-3.0-only, adds durable storage, high availability and workers) or Enterprise (commercial) |
 | **Engine policy** | The reserved `engine` object in a node's configuration: retry, error routing, time limits, buffering and placement |
 | **Execution** | One live run of a workflow, with its own `executionId`, a status and a status per node |
 | **Fan-out** | One node feeding several children. Paced by the slowest child |
@@ -33,6 +37,7 @@ keywords: ["glossary", "terms", "definitions"]
 | **Idempotent plugin** | A plugin whose repeated execution for the same message has the same effect as one |
 | **Join rule** | How a node with several parents treats a failed parent: `ALL_SUCCESS`, `ALL_DONE` or `ONE_SUCCESS` |
 | **Lease** | A time-limited right: held by a worker to stay registered, or by a server to be the leader |
+| **LLM** | Large language model: a chat model such as Claude, GPT or Llama, called with `LLM_CALL` |
 | **MCP** | Model Context Protocol: how AI agents call tools. Yukta exposes its control and read operations through it |
 | **Message** | The unit of data on an edge: a payload plus labels, with a stable id |
 | **Node** | One step of a workflow: an id, a plugin type and a configuration |
@@ -48,8 +53,19 @@ keywords: ["glossary", "terms", "definitions"]
 | **Slot** | The right to run one execution under the concurrency limits |
 | **SSE** | Server-sent events: a one-way live stream to browsers, scripts and agents |
 | **Supervisor** | A program that watches the event feed of all executions and returns commands |
+| **System One** | A kind of small decision model that answers from your list of options with a calibrated probability, run on your own Ollama |
 | **Terminal** | A node that ends a branch: it consumes messages and has no outputs |
 | **Trigger** | A node that starts a workflow: it has no inputs and emits messages |
 | **Valve** | The gate in front of each node that implements pause, step, skip and breakpoints |
-| **Workflow** | A directed acyclic graph of nodes and edges, stored once and run many times |
 | **Worker** | A separate process that runs placed nodes for the server |
+| **Workflow** | A directed acyclic graph of nodes and edges, stored once and run many times |
+
+## Next steps
+
+<Card title="How Yukta works" icon="diagram-project" horizontal href="/concepts/how-it-works">
+  The layers, the life of an execution and the principles behind the design.
+</Card>
+
+<Card title="Status values" icon="tags" horizontal href="/reference/status-values">
+  Every execution and node status, and the enumerated values used by node options, limits and roles.
+</Card>
