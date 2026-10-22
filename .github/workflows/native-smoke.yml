@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Native smoke
+
+# Builds the native server with -Ob (NATIVE_QUICK=1) and runs the Quickstart workflow against it
+# (release/smoke-test.sh), so missing reflection or resource entries show up between releases and not
+# when the release build fails. The real release build (release.yml) runs the same smoke test.
+on:
+  schedule:
+    - cron: '43 2 * * *' # daily, 8:13 AM IST (02:43 UTC)
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Native binary runs the Quickstart
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # The hosted runner has little free disk; the native build and its builder image need several GB.
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+
+      - name: Native compile (quick)
+        env:
+          NATIVE_QUICK: '1'
+          NATIVE_HEAP: 12g
+        run: release/build-server.sh
+
+      - name: Smoke test
+        run: |
+          dist/linux-amd64/yukta &
+          pid=$!
+          trap 'kill "$pid" || true' EXIT
+          release/smoke-test.sh http://127.0.0.1:8080
