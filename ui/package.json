@@ -1,7 +1,7 @@
 {
   "name": "yukta-ui",
   "private": true,
-  "version": "0.1.0-alpha.3-SNAPSHOT",
+  "version": "0.1.0-alpha.2",
   "type": "module",
   "scripts": {
     "dev": "vite",

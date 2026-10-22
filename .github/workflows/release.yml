@@ -6,6 +6,7 @@ name: Release
 on:
   push:
     tags: [ "v*" ]
+  # The tag is created by release-please (release-please.yml) when the release PR is merged.
   workflow_dispatch:   # dry run: builds everything, publishes nothing
 
 permissions:
@@ -41,7 +42,7 @@ jobs:
         id: version
         env:
           REF_NAME: ${{ github.ref_name }}
-          IS_TAG: ${{ github.event_name == 'push' }}
+          IS_TAG: ${{ github.ref_type == 'tag' }}
         run: |
           version="$(sed -n 's/^version=//p' gradle.properties)"
           if [ "$IS_TAG" = true ] && [ "v$version" != "$REF_NAME" ]; then
@@ -61,7 +62,7 @@ jobs:
         run: sha256sum yukta-cli-* > SHA256SUMS
 
       - name: Attest build provenance
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        if: github.ref_type == 'tag'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: cli/build/yukta-cli-*
@@ -124,7 +125,7 @@ jobs:
           release/smoke-test.sh http://127.0.0.1:8080
 
       - name: Attest build provenance
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        if: github.ref_type == 'tag'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: dist/${{ matrix.platform }}/yukta
@@ -135,24 +136,108 @@ jobs:
           path: dist/${{ matrix.platform }}/
           if-no-files-found: error
 
-  publish:
-    name: GitHub release
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+  # Packages, image, checksums and signatures, uploaded to the draft release-please made. Same
+  # script as the release machine (release/release.sh), so a failed hosted server build can still be
+  # released by hand. Signing is keyless: cosign uses this workflow's identity, no browser, no key.
+  assemble:
+    name: Package, sign, upload
+    # A manual (workflow_dispatch) run must never push or sign, even when started on a tag.
+    if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: [cli, server]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 45
     permissions:
-      contents: write       # create the release
+      contents: write       # upload to the draft release
+      packages: write       # push the image to GHCR
+      id-token: write       # keyless signing as this workflow
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0   # release.sh checks that HEAD is exactly the tag
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'cli/go.mod'
+          cache: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: cli-binaries
-          path: dist
+          path: dist/cli
 
-      - name: Create release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          files: dist/*
-          draft: true   # the release machine adds packages and images, then publishes
-          generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          name: server-linux-amd64
+          path: dist/linux-amd64
+
+      - name: Package, push the image, sign, upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          chmod +x dist/linux-amd64/yukta dist/cli/yukta-cli-*
+          # release-please marks every draft a prerelease; only a version with a "-" is one.
+          case "$TAG" in *-*) pre=true ;; *) pre=false ;; esac
+          gh release edit "$TAG" --prerelease="$pre"
+          release/release.sh "${TAG#v}" --skip-server --publish
+
+  # Installs what was just uploaded the way a user would, before anyone publishes the draft.
+  verify:
+    name: Test the draft
+    needs: assemble
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write       # reading a draft release needs write access
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: release
+
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Checksums and signature
+        run: |
+          mkdir -p "$RUNNER_TEMP/rel/$TAG"
+          gh release download "$TAG" -R "$REPO" -D "$RUNNER_TEMP/rel/$TAG"
+          cd "$RUNNER_TEMP/rel/$TAG"
+          sha256sum -c SHA256SUMS   # also fails when a listed file is missing from the draft
+          cosign verify-blob --bundle SHA256SUMS.sigstore.json SHA256SUMS \
+            --certificate-identity "https://github.com/$REPO/.github/workflows/release.yml@refs/tags/$TAG" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+      - name: Install on a clean machine
+        run: |
+          (cd "$RUNNER_TEMP/rel" && python3 -m http.server 8765 --bind 127.0.0.1 &)
+          sleep 2
+          docker run --rm --network host -v "$RUNNER_TEMP/rel/$TAG:/rel:ro" ubuntu:24.04 bash -euc "
+            apt-get update -qq && apt-get install -y -qq curl >/dev/null
+            curl -fsSL http://127.0.0.1:8765/$TAG/install.sh | YUKTA_DOWNLOAD_BASE=http://127.0.0.1:8765 sh
+            yukta-cli --version   # root installs to /usr/local/bin
+            apt-get install -y -qq /rel/*.deb >/dev/null"
+
+      - name: Pull the image logged out and run the Quickstart
+        run: |
+          DOCKER_CONFIG="$(mktemp -d)"   # no credentials: proves the package is public
+          export DOCKER_CONFIG
+          image="ghcr.io/$REPO:${TAG#v}"
+          docker pull "$image"
+          docker run -d --rm --name ytest -p 127.0.0.1:18081:8080 -e YUKTA_API_KEY=x "$image"
+          trap 'docker rm -f ytest >/dev/null 2>&1 || true' EXIT
+          release/smoke-test.sh http://127.0.0.1:18081 x
