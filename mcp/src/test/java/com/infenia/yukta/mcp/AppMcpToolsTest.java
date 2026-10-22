@@ -124,9 +124,11 @@ class AppMcpToolsTest {
   @Test
   void testStartWorkflow() {
     var result = new WorkflowStartResult("exec-1");
-    when(workflowExecutionProvider.startWorkflow("s1", "w1")).thenReturn(Mono.just(result));
+    when(workflowExecutionProvider.startWorkflow("s1", "w1", "k1")).thenReturn(Mono.just(result));
 
-    StepVerifier.create(mcpTools.startWorkflow("s1", "w1")).expectNext(result).verifyComplete();
+    StepVerifier.create(mcpTools.startWorkflow("s1", "w1", "k1"))
+        .expectNext(result)
+        .verifyComplete();
   }
 
   @Test

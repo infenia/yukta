@@ -61,7 +61,7 @@ public class NodeStreams {
       @Nullable final Duration deadline) {
     final String nodeId = node.nodeId();
     // RUNNING at the node's first activity, not at wiring, so its times are its own; a node that
-    // ends without any activity still passes through RUNNING.
+    // ends without any activity still passes through RUNNING, then ends SKIPPED.
     final AtomicBoolean running = new AtomicBoolean();
     final Runnable markRunning =
         () -> {
@@ -88,8 +88,10 @@ public class NodeStreams {
                     .log())
         .doOnComplete(
             () -> {
+              // a node that never saw an input did not run: report SKIPPED, not SUCCESS
+              final TaskStatus done = running.get() ? TaskStatus.SUCCESS : TaskStatus.SKIPPED;
               markRunning.run();
-              emit(tracker, executionId, node, TaskStatus.SUCCESS);
+              emit(tracker, executionId, node, done);
             })
         .doOnCancel(
             () -> {

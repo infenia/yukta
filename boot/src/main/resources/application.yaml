@@ -8,7 +8,9 @@ server:
 
 spring:
   profiles:
-    default: dev
+    # prod unless a profile is named: a jar started with no flags must not log payloads or open the
+    # dev-only management endpoints. bootRun asks for dev.
+    default: prod
   codec:
     # Largest request body (start payload, workflow definition, MCP call) the server reads; a bigger
     # one is answered with 413. The same limit applies to what a request is copied into later.

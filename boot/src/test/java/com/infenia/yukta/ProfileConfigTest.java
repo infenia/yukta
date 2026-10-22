@@ -41,11 +41,11 @@ class ProfileConfigTest {
   }
 
   @Test
-  void defaultProfileIsDevWithTraceAndDebugActuator() {
+  void defaultProfileIsProdWithNoPayloadLoggingOrDebugActuator() {
     runner.run(
         ctx -> {
-          assertThat(ctx.getEnvironment().getProperty(STREAM)).isEqualTo("TRACE");
-          assertThat(ctx.getEnvironment().getProperty(EXPOSURE)).isEqualTo(DEV_EXPOSURE);
+          assertThat(ctx.getEnvironment().getProperty(STREAM)).isNull();
+          assertThat(ctx.getEnvironment().getProperty(EXPOSURE)).isEqualTo("health,info,metrics");
         });
   }
 
