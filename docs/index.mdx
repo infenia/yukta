@@ -5,8 +5,6 @@ mode: "frame"
 keywords: ["introduction", "workflow orchestration", "DAG", "AI agents"]
 ---
 
-import { DagHero } from "/snippets/dag-hero.jsx"
-
 export const HeroCard = ({ image, title, description, href }) => (
   <a className="yk-hero-card group" href={href}>
     <div className="yk-hero-card-media">
@@ -23,14 +21,6 @@ export const HeroCard = ({ image, title, description, href }) => (
     <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Workflow engine for people and AI agents · v0.1.0-alpha.2</span>
     <h1>Workflows you can trust and control.</h1>
     <p>Build with plugins and AI, run every step as designed, and steer it live from the UI, CLI, API or an AI agent.</p>
-    <div className="yk-hero-cta">
-      <a className="yk-btn yk-btn-primary" href="/quickstart">Get started</a>
-      <a className="yk-btn yk-btn-secondary" href="/playground">Open the playground</a>
-    </div>
-  </div>
-
-  <div className="yk-landing-demo">
-    <DagHero />
   </div>
 
   <div className="not-prose yk-hero-grid">

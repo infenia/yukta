@@ -264,16 +264,6 @@ button,
   box-shadow: var(--yk-shadow-sm);
 }
 
-/* Home page animated workflow: framed like the static diagrams. */
-.yk-dag-hero {
-  box-sizing: border-box;
-  padding: 0.5rem;
-  background: var(--yk-surface);
-  border: 1px solid var(--yk-border);
-  border-radius: var(--yk-radius-xl);
-  box-shadow: var(--yk-shadow-sm);
-}
-
 /* ==========================================================================
  * Components
  * ======================================================================== */
@@ -444,49 +434,8 @@ img.yk-diagram {
   background: var(--yk-orange);
 }
 
-.yk-hero-cta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.yk-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  height: 2.25rem;
-  padding: 0 0.95rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1;
-  border: 1px solid transparent;
-  border-radius: var(--yk-radius-lg);
-  text-decoration: none;
-}
-
-.yk-btn-primary {
-  color: #ffffff;
-  background: var(--yk-blue-strong);
-  box-shadow: var(--yk-shadow-sm);
-}
-
-.yk-btn-primary:hover {
-  background: color-mix(in srgb, var(--yk-blue-strong) 86%, #000);
-}
-
-.yk-btn-secondary {
-  color: var(--yk-fg);
-  background: var(--yk-card);
-  border-color: var(--yk-border);
-}
-
-.yk-btn-secondary:hover {
-  border-color: color-mix(in srgb, var(--yk-blue) 45%, var(--yk-border));
-  background: var(--yk-surface);
-}
-
 /* Home page (mode: frame), laid out like Mintlify's own introduction: a centred hero over a soft
-   grid, the live workflow demo, a 2x2 grid of picture cards, then a narrow reading column. */
+   grid, a 2x2 grid of picture cards, then a narrow reading column. */
 .yk-landing {
   position: relative;
   padding: 4rem 1.25rem 5rem;
@@ -542,16 +491,6 @@ img.yk-diagram {
   font-size: 1.125rem;
   line-height: 1.65;
   color: var(--yk-muted);
-}
-
-.yk-landing-hero .yk-hero-cta {
-  justify-content: center;
-  margin-top: 2rem;
-}
-
-.yk-landing-demo {
-  max-width: 56rem;
-  margin: 3.5rem auto 0;
 }
 
 .yk-hero-grid {
@@ -616,7 +555,6 @@ img.yk-diagram {
   .card,
   a.card,
   [data-component-part="card"],
-  .yk-btn,
   .yk-hero-card,
   [data-component-part="accordion-button"],
   #sidebar a {
@@ -630,8 +568,7 @@ img.yk-diagram {
 
   .card:hover,
   a.card:hover,
-  [data-component-part="card"]:hover,
-  .yk-btn:hover {
+  [data-component-part="card"]:hover {
     transform: translateY(-1px);
   }
 
