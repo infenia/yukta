@@ -35,7 +35,7 @@ The server refuses to start on a non-loopback address with no key. The container
 Yukta serves plain HTTP. Put a reverse proxy that terminates TLS in front of it when clients are not on the same host, because keys travel in request headers. See [Deployment](/operations/deployment).
 
 <Warning>
-  Setting only `yukta.mcp.api-key` satisfies the start-up check but protects `/mcp` alone. The REST API stays open. Set `yukta.api-key` or `yukta.api-keys` whenever the server is reachable from a network.
+  The start-up check needs a key for both surfaces: setting only `yukta.mcp.api-key` (which protects `/mcp` alone) does not allow a non-loopback bind. Set `yukta.api-key` or `yukta.api-keys`; that one setting covers REST and MCP.
 </Warning>
 
 ## API keys
