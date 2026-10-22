@@ -609,6 +609,11 @@ img.yk-diagram {
   margin: 4rem auto 0;
 }
 
+/* The column borrows prose for its own headings; keep that heading margin off card titles. */
+.yk-landing-body [data-component-part="card-title"] {
+  margin-top: 1rem;
+}
+
 /* ==========================================================================
  * Motion: short, functional, ease-out. All of it lives in no-preference, so reduced-motion users
  * get none. Hidden initial states apply only under .yk-js (set by motion.js), so the page stays

@@ -2,7 +2,7 @@
 title: "Introduction"
 description: "Workflows you can trust and control. Build with plugins and AI, run every step as designed, and steer it live from the UI, CLI, API or an AI agent."
 mode: "frame"
-keywords: ["introduction", "workflow orchestration", "DAG", "AI agents"]
+keywords: ["introduction", "workflow orchestration", "DAG", "AI agents", "supervisors", "plugins"]
 ---
 
 export const HeroCard = ({ image, title, description, href }) => (
@@ -25,7 +25,7 @@ export const HeroCard = ({ image, title, description, href }) => (
 
   <div className="not-prose yk-hero-grid">
     <HeroCard image="quickstart-greet" title="Quickstart" description="Install Yukta and run your first workflow in five minutes, no Java needed." href="/quickstart" />
-    <HeroCard image="workflow-anatomy" title="How it works" description="Triggers, processors and terminals joined by edges, and the life of a run." href="/concepts/how-it-works" />
+    <HeroCard image="architecture" title="How it works" description="How a run flows through the engine, and how supervisors and the control bus steer it." href="/concepts/how-it-works" />
     <HeroCard image="agent-loop" title="AI and agents" description="Model calls, tool-using agent loops, approvals and budgets as workflow steps." href="/building/ai-and-agents" />
     <HeroCard image="examples-ci-gate" title="Examples" description="Ten ready-to-run workflows for CI, data pipelines, alerts and agents." href="/examples" />
   </div>
@@ -41,7 +41,7 @@ A lot of good work is a routine: build, test, scan, deploy; or read a request, d
     Write the steps down once as a workflow. Yukta runs them from that definition, in order, on every run, whether a person, a script or an AI agent starts it.
   </Card>
   <Card title="Keep a hand on the controls" icon="sliders">
-    Automation you cannot see into is hard to trust. In Yukta you watch every run live and can pause, step, stop, restart or retry it, down to a single node. Every command is ordered and audited.
+    Watch every run live and pause, step, stop, restart or retry it, down to a single node, or let a supervisor do it for you. Every command is ordered and audited.
   </Card>
 </Columns>
 
@@ -75,28 +75,23 @@ A workflow is a flowchart written as JSON: a **directed acyclic graph (DAG)** of
 
 The arrows are **edges**: "when this step is done, hand its output to the next." A step can have labelled exits, called **ports**, such as `success` and `error`, so good and bad outcomes take different paths. Each box is a **plugin**, a ready-made capability you configure, and you can [write your own](/plugins/writing-a-plugin) and add it at any time.
 
+<Info>
+  **For developers:** Yukta is a reactive, DAG-based workflow orchestration server. Messages stream from step to step with back-pressure, and every command, from a person, a script, an agent or a supervisor, goes through one ordered, audited control bus.
+</Info>
+
 ## What you get
 
-<CardGroup cols={2}>
-  <Card title="Every step, every time" icon="circle-check" href="/concepts/how-it-works">
-    The engine runs the graph you defined. Independent steps run side by side; retries, error routes and time limits are part of the definition, not left to memory.
-  </Card>
-  <Card title="Full control of every run" icon="gauge" href="/running/run-controls">
-    Watch progress, logs and results live. Pause, step, set breakpoints, skip, stop, restart or retry a run or a single node.
-  </Card>
+<Columns cols={3}>
   <Card title="Plugins for every step" icon="puzzle-piece" href="/plugins/overview">
-    Commands, HTTP, SQL, files, routing, transforms, AI calls and decisions ship built in. Add your own plugin when you need something new.
+    Commands, HTTP, SQL, files, routing, transforms, AI calls and decisions ship built in. Add your own when you need something new.
   </Card>
   <Card title="AI as a step" icon="robot" href="/building/ai-and-agents">
-    Call an LLM, give it tools over MCP, keep conversation memory, or use a decision model to classify, gate and score, all as nodes in the graph.
+    Call an LLM, give it tools over MCP, keep conversation memory, or let a decision model classify, gate and score, all as nodes in the graph.
   </Card>
-  <Card title="AI or rules as the supervisor" icon="shield-halved" href="/running/supervisors">
-    Supervisors watch the control bus and pause or stop a run that loops, fails repeatedly or drifts from its goal. Use simple rules, an LLM agent or a System One decision model.
+  <Card title="AI as the author" icon="pen-ruler" href="/interfaces/mcp">
+    Describe the job and let an AI agent build the workflow over MCP, including graphs too intricate to sketch by hand. Then run and watch it like any other.
   </Card>
-  <Card title="Built for people and agents" icon="users" href="/interfaces/mcp">
-    People use the web UI. Scripts use the CLI and REST API. An AI agent can create workflows, run them and watch them over MCP, including ones too intricate to sketch by hand.
-  </Card>
-</CardGroup>
+</Columns>
 
 ## What you can build
 
@@ -117,14 +112,6 @@ Start with plain automation and add AI only where it earns its place. The same e
   </Card>
 </CardGroup>
 
-<Info>
-  **For developers:** Yukta is a reactive, DAG-based workflow orchestration server. Messages stream from step to step with back-pressure, and every command, from a person, a script, an agent or a supervisor, goes through one ordered, audited control bus.
-</Info>
-
-<Note>
-  Yukta is in alpha (`0.1.0-alpha.2`). The workflow JSON, REST API, MCP tools and plugin contract may change before v0.1.0. See [Releases](/reference/releases).
-</Note>
-
 ## Start from where you work
 
 <Columns cols={2}>
@@ -135,12 +122,16 @@ Start with plain automation and add AI only where it earns its place. The same e
     Apply sessions and follow runs from a terminal or CI.
   </Card>
   <Card title="AI assistants (MCP)" icon="robot" horizontal href="/interfaces/mcp">
-    Let Claude create, run and steer workflows.
+    Let an assistant such as Claude create, run and steer workflows.
   </Card>
   <Card title="REST API" icon="code" horizontal href="/api/overview">
     Every operation over HTTP with streaming updates.
   </Card>
 </Columns>
+
+<Note>
+  Yukta is in alpha (`0.1.0-alpha.2`). The workflow JSON, REST API, MCP tools and plugin contract may change before v0.1.0. See [Releases](/reference/releases).
+</Note>
 
   </div>
 </div>
