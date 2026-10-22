@@ -81,6 +81,27 @@ class WorkflowExecutionProviderTest {
   }
 
   @Test
+  void testStartWorkflowWithKeyPassesItToTheService() {
+    WorkflowExecution execution = new WorkflowExecution("exec-1", Mono.empty());
+    when(workflowService.validateAndStartWorkflow("sess-1", "wf-1", Map.of(), "k-1"))
+        .thenReturn(Mono.just(execution));
+
+    StepVerifier.create(provider.startWorkflow("sess-1", "wf-1", " k-1 "))
+        .expectNext(new WorkflowStartResult("exec-1"))
+        .verifyComplete();
+  }
+
+  @Test
+  void testStartWorkflowWithBlankKeyStartsWithoutOne() {
+    when(workflowService.validateAndStartWorkflow("sess-1", "wf-1"))
+        .thenReturn(Mono.just(new WorkflowExecution("exec-2", Mono.empty())));
+
+    StepVerifier.create(provider.startWorkflow("sess-1", "wf-1", "  "))
+        .expectNext(new WorkflowStartResult("exec-2"))
+        .verifyComplete();
+  }
+
+  @Test
   void testGetWorkflowStatusReturnsProgressSnapshot() {
     WorkflowProgress progress =
         new WorkflowProgress(
