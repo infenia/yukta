@@ -1,6 +1,6 @@
 ---
 title: "Introduction"
-description: "Yukta runs multi-step jobs for you. Draw the steps once as a flowchart, then start it from a script, a web page, a terminal or an AI assistant."
+description: "Yukta runs every step of your workflow, every time, and gives you full control while it runs. Plugins do the work, AI can be a step or a supervisor, and people and agents drive it the same way."
 mode: "frame"
 keywords: ["introduction", "workflow orchestration", "DAG", "AI agents"]
 ---
@@ -20,9 +20,9 @@ export const HeroCard = ({ image, title, description, href }) => (
 
 <div className="yk-landing">
   <div className="not-prose yk-landing-hero">
-    <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Workflows for AI agents and automation · v0.1.0-alpha.2</span>
-    <h1>Draw the steps once.<br />Run them from anywhere.</h1>
-    <p>Yukta runs multi-step jobs for you. Write the flowchart once in JSON, then start it from a script, the web UI, a terminal or an AI assistant. Yukta runs independent steps side by side, retries what fails and lets you steer every run live.</p>
+    <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Workflow engine for people and AI agents · v0.1.0-alpha.2</span>
+    <h1>Every step runs.<br />You stay in control.</h1>
+    <p>People forget steps, and so do LLMs. Yukta runs your workflow exactly as you defined it, every time. Watch it live, pause, stop or restart it, and add AI as a step or as the supervisor.</p>
     <div className="yk-hero-cta">
       <a className="yk-btn yk-btn-primary" href="/quickstart">Get started</a>
       <a className="yk-btn yk-btn-secondary" href="/playground">Open the playground</a>
@@ -42,9 +42,22 @@ export const HeroCard = ({ image, title, description, href }) => (
 
   <div className="prose prose-gray dark:prose-invert yk-landing-body">
 
+## Why Yukta exists
+
+Many jobs are a fixed list of steps: build, test, scan, deploy; or read a request, decide, act, report. Two things go wrong with them.
+
+<Columns cols={2}>
+  <Card title="Steps get missed" icon="list-check">
+    A person running a checklist by hand skips a step now and then. An LLM asked to follow the same list does too: it drifts, loops or decides a step is not needed. Yukta runs the steps from a definition, so every step runs, in order, every time.
+  </Card>
+  <Card title="Runs need an operator" icon="sliders">
+    Automation you cannot see into is hard to trust. In Yukta you watch every run live and can pause, step, stop, restart or retry it, down to a single node. Every command is ordered and audited.
+  </Card>
+</Columns>
+
 ## What a workflow looks like
 
-Every workflow is built from three kinds of box, joined by arrows. Here, a job fetches data, tidies it up and sends a notification. If the call fails, the item is set aside for later.
+A workflow is a flowchart written as JSON: a **directed acyclic graph (DAG)** of boxes joined by arrows. It can be three boxes or hundreds, with branches, fan-out, joins, retries and sub-workflows, and because it has no cycles it can never loop back by accident. Here, a job fetches data, tidies it up and sends a notification. If the call fails, the item is set aside for later.
 
 <img className="yk-diagram block dark:hidden" src="/images/diagrams/workflow-anatomy.light.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. A failed call goes to a dead-letter terminal." loading="lazy" />
 <img className="yk-diagram hidden dark:block" src="/images/diagrams/workflow-anatomy.dark.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. A failed call goes to a dead-letter terminal." loading="lazy" />
@@ -52,30 +65,53 @@ Every workflow is built from three kinds of box, joined by arrows. Here, a job f
 | Box | What it does | Example |
 |---|---|---|
 | **Trigger** | Starts the job | A request arrives, a timer fires |
-| **Processor** | Does work or makes a choice | Call a web service, reshape data, ask an AI model |
+| **Processor** | Does work or makes a choice | Run a command, call a web service, reshape data, ask an AI model |
 | **Terminal** | Ends a path | Log the result, send a notification, keep a failed item |
 
-The arrows are **edges**: "when this step is done, hand its output to the next." A step can have labelled exits, called **ports**, such as `success` and `error`, so good and bad outcomes take different paths. Each box is a **plugin**, a ready-made capability you configure; you can also write your own.
+The arrows are **edges**: "when this step is done, hand its output to the next." A step can have labelled exits, called **ports**, such as `success` and `error`, so good and bad outcomes take different paths. Each box is a **plugin**, a ready-made capability you configure, and you can [write your own](/plugins/writing-a-plugin) and add it at any time.
 
-## Why Yukta
+## What you get
 
 <CardGroup cols={2}>
-  <Card title="Workflows are data" icon="diagram-project">
-    A JSON graph, not a program. Easy for people, tools and AI assistants to write and review.
+  <Card title="Every step, every time" icon="circle-check" href="/concepts/how-it-works">
+    The engine runs the graph you defined. Independent steps run side by side; retries, error routes and time limits are part of the definition, not left to memory.
   </Card>
-  <Card title="Start it from anywhere" icon="plug">
-    REST API, web UI, command line or an MCP client such as Claude, all from one definition.
+  <Card title="Full control of every run" icon="gauge" href="/running/run-controls">
+    Watch progress, logs and results live. Pause, step, set breakpoints, skip, stop, restart or retry a run or a single node.
   </Card>
-  <Card title="Built for AI agents" icon="robot" href="/building/ai-and-agents">
-    Model calls with budgets, approvals and memory around them, plus cheap decision models for routing.
+  <Card title="Plugins for every step" icon="puzzle-piece" href="/plugins/overview">
+    Commands, HTTP, SQL, files, routing, transforms, AI calls and decisions ship built in. Add your own plugin when you need something new.
   </Card>
-  <Card title="Watch it, steer it, trust it" icon="shield-halved" href="/running/run-controls">
-    Pause, retry or stop a live run. Retries, error routes and time limits are built in, and a new server only accepts local connections.
+  <Card title="AI as a step" icon="robot" href="/building/ai-and-agents">
+    Call an LLM, give it tools over MCP, keep conversation memory, or use a decision model to classify, gate and score, all as nodes in the graph.
+  </Card>
+  <Card title="AI or rules as the supervisor" icon="shield-halved" href="/running/supervisors">
+    Supervisors watch the control bus and pause or stop a run that loops, fails repeatedly or drifts from its goal. Use simple rules, an LLM agent or a System One decision model.
+  </Card>
+  <Card title="Built for people and agents" icon="users" href="/interfaces/mcp">
+    People use the web UI. Scripts use the CLI and REST API. An AI agent can create workflows, run them and watch them over MCP, including ones too intricate to sketch by hand.
   </Card>
 </CardGroup>
 
+## What you can build
+
+<AccordionGroup>
+  <Accordion title="A CI pipeline with no AI at all" icon="code-branch">
+    Build, test, scan and deploy as plain command steps, routed on exit codes. Every gate runs on every change, and a failing gate stops the pipeline. See [example 03](/examples).
+  </Accordion>
+  <Accordion title="A CI pipeline that repairs itself" icon="wand-magic-sparkles">
+    Add an AI step on the failure path: it reads the failing output, proposes or applies a fix, and the check runs again. The graph bounds how many attempts it gets, so it cannot loop forever.
+  </Accordion>
+  <Accordion title="Multi-agent workflows" icon="diagram-project">
+    One agent drafts, another reviews, a third decides. Each agent is a node, so its output feeds the next agent as a message, and you can see every hand-off and restart any agent's step on its own.
+  </Accordion>
+  <Accordion title="AI-supervised automation" icon="eye">
+    Let a supervisor judge every event on the control bus. Rules handle what you can state exactly; a System One decision model handles the rest cheaply, with a calibrated probability, and an LLM can take over when you need open-ended judgement.
+  </Accordion>
+</AccordionGroup>
+
 <Info>
-  **For developers:** Yukta is a reactive, DAG-based workflow orchestration server. The flowchart is a directed acyclic graph, so it can never loop back by accident, and messages stream from step to step with back-pressure.
+  **For developers:** Yukta is a reactive, DAG-based workflow orchestration server. Messages stream from step to step with back-pressure, and every command, from a person, a script, an agent or a supervisor, goes through one ordered, audited control bus.
 </Info>
 
 <Note>

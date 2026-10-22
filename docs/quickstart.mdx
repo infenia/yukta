@@ -6,6 +6,8 @@ keywords: ["quickstart", "install", "get started", "first workflow"]
 
 You will run a tiny workflow that takes a name and returns a greeting. It shows the loop you will use for every job: **save the flowchart, start a run, read the result.**
 
+The workflow is small, but it is the same thing Yukta does for a CI pipeline or a team of AI agents: you write the steps down once, and the server runs every one of them, in order, every time, while you watch.
+
 <img className="yk-diagram block dark:hidden" src="/images/diagrams/quickstart-greet.light.svg" alt="The quickstart workflow: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
 <img className="yk-diagram hidden dark:block" src="/images/diagrams/quickstart-greet.dark.svg" alt="The quickstart workflow: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
 
@@ -122,16 +124,32 @@ The first call returns the status, `SUCCESS` once every node has finished. The s
   Sessions are held in memory, so apply them again after a restart. To follow a run live, use `/api/executions/{executionId}/status/stream` or the logs endpoint.
 </Tip>
 
+## What you just did
+
+- **Defined the steps once.** The workflow JSON is the single source of truth. A person, a script or an AI agent starts the same definition and gets the same steps.
+- **Let the server run them.** Nothing depended on remembering what comes next.
+- **Read the outcome.** Status, logs and results are always available, live or after the run.
+
+On a longer run you can also **pause, step, stop, restart or retry** it while it runs, and turn on a [supervisor](/running/supervisors) that does this for you, with rules or an AI model.
+
 ## Next steps
 
-<CardGroup cols={3}>
-  <Card title="Examples" icon="flask" href="/examples">
-    Ten workflows for CI, data, alerts and agents.
-  </Card>
-  <Card title="Command-line client" icon="terminal" href="/interfaces/cli">
-    Apply sessions and follow runs without `curl`.
-  </Card>
-  <Card title="Connect an AI agent" icon="robot" href="/interfaces/mcp">
-    Let Claude create and run workflows over MCP.
-  </Card>
-</CardGroup>
+<Card title="Examples" icon="flask" horizontal href="/examples">
+  Ten workflows for CI, data, alerts and agents.
+</Card>
+
+<Card title="Control a live run" icon="sliders" horizontal href="/running/run-controls">
+  Pause, step, stop, restart and retry a run or a single node.
+</Card>
+
+<Card title="Add AI to a workflow" icon="robot" horizontal href="/building/ai-and-agents">
+  Model calls, agent loops and decision models as workflow steps.
+</Card>
+
+<Card title="Connect an AI agent" icon="plug" horizontal href="/interfaces/mcp">
+  Let Claude create, run and watch workflows over MCP.
+</Card>
+
+<Card title="Command-line client" icon="terminal" horizontal href="/interfaces/cli">
+  Apply sessions and follow runs without `curl`.
+</Card>
