@@ -207,6 +207,7 @@ public class AppMcpTools {
    *
    * @param sessionId the session identifier
    * @param workflowId the workflow identifier
+   * @param idempotencyKey optional key that makes a repeated start return the first execution
    * @return Mono containing the start result with the new execution ID
    */
   @McpTool(
@@ -214,7 +215,9 @@ public class AppMcpTools {
       title = "Start Workflow",
       description =
           "Start a Yukta workflow execution. Returns the execution ID to use with "
-              + "get_workflow_status and get_execution_logs.",
+              + "get_workflow_status and get_execution_logs. Pass the same idempotencyKey when "
+              + "you repeat a start whose answer you did not get: the first execution is returned "
+              + "instead of a second run being started.",
       generateOutputSchema = true,
       annotations =
           @McpTool.McpAnnotations(
@@ -224,8 +227,14 @@ public class AppMcpTools {
   public Mono<WorkflowStartResult> startWorkflow(
       @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
       @McpToolParam(required = true, description = "The unique identifier of the workflow to start")
-          final String workflowId) {
-    return workflowExecutionProvider.startWorkflow(sessionId, workflowId);
+          final String workflowId,
+      @McpToolParam(
+              required = false,
+              description =
+                  "Optional key that makes a repeated start safe: the same key for the same "
+                      + "session and workflow returns the first execution ID (kept for 10 minutes)")
+          final String idempotencyKey) {
+    return workflowExecutionProvider.startWorkflow(sessionId, workflowId, idempotencyKey);
   }
 
   /**
