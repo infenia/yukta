@@ -5,15 +5,15 @@ tag: "Optional"
 keywords: ["LLM_CALL", "MCP_TOOL_CALL", "SESSION_MEMORY", "AI plugins"]
 ---
 
-<Note>
-  Storing state on disk (`yukta.session-memory.dir`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
-</Note>
-
 <Info>
   **In plain terms:** these steps bring an AI model into a workflow: ask a chat model a question, let it discover and use outside tools, and remember a conversation per user. They are optional modules, chosen when the server is built.
 </Info>
 
 These four processors are optional: `LLM_CALL` needs the `llm-call` module, `MCP_LIST_TOOLS` and `MCP_TOOL_CALL` need `mcp-tool-call`, and `SESSION_MEMORY` needs `session-memory`. See [Built-in plugins](/plugins/overview) for how a build selects them. To build workflows from them, read [AI and agents](/building/ai-and-agents).
+
+<Note>
+  Storing state on disk (`yukta.session-memory.dir`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
+</Note>
 
 Options that accept `${...}` variables say so. For the syntax, and for `decrypted:<key>` secrets, see [Variables and expressions](/building/variables-and-expressions).
 
@@ -263,18 +263,18 @@ See [Persistence](/operations/persistence). Messages are handled one at a time, 
 
 ## Next steps
 
-<Card title="AI and agents" horizontal href="/building/ai-and-agents">
+<Card title="AI and agents" icon="robot" horizontal href="/building/ai-and-agents">
   Build model-driven workflows: chat with memory, tool-using agent loops, decisions, budgets and guardrails.
 </Card>
 
-<Card title="Decision plugins" horizontal href="/plugins/decisions">
+<Card title="Decision plugins" icon="signs-post" horizontal href="/plugins/decisions">
   CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE: constrained model decisions for routing and gating.
 </Card>
 
-<Card title="Approvals and signals" horizontal href="/building/approvals-and-signals">
+<Card title="Approvals and signals" icon="hand" horizontal href="/building/approvals-and-signals">
   Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision.
 </Card>
 
-<Card title="Variables and expressions" horizontal href="/building/variables-and-expressions">
+<Card title="Variables and expressions" icon="brackets-curly" horizontal href="/building/variables-and-expressions">
   Reference message data, settings and secrets inside node configuration without storing them in the workflow.
 </Card>

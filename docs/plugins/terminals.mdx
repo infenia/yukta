@@ -1,14 +1,14 @@
 ---
 title: "Terminals"
-description: "CONSOLE_TERMINAL and NOTIFY_TERMINAL: plugins that end a branch of a workflow."
-keywords: ["CONSOLE_TERMINAL", "NOTIFY_TERMINAL", "terminals"]
+description: "CONSOLE_TERMINAL, NOTIFY_TERMINAL and OUTCOME_TERMINAL: plugins that end a branch of a workflow."
+keywords: ["CONSOLE_TERMINAL", "NOTIFY_TERMINAL", "OUTCOME_TERMINAL", "terminals"]
 ---
 
 <Info>
-  **In plain terms:** a terminal is where a path of the workflow ends. Use one to show a result while you build, or to send the outcome to a chat channel or other webhook.
+  **In plain terms:** a terminal is where a path of the workflow ends. Use one to show a result while you build, to send the outcome to a chat channel or other webhook, or to tell a supervisor how the run ended.
 </Info>
 
-A terminal consumes messages and ends a branch. It has no output ports, so nothing can be wired from it. Both terminals are always part of the server. The default timeout of a terminal is the engine default of 30 seconds idle; it also covers what the terminal does after its last input.
+A terminal consumes messages and ends a branch. It has no output ports, so nothing can be wired from it. All three terminals are always part of the server. The default timeout of a terminal is the engine default of 30 seconds idle; it also covers what the terminal does after its last input.
 
 ## CONSOLE_TERMINAL
 
@@ -70,6 +70,12 @@ Names the exit a run took, so a [supervisor](/running/supervisors) can act on it
 | `restartFrom` | Node to restart from; omit to restart from the start |
 | `reason` | Free text for the supervisor |
 
+Output ports: none.
+
+```json
+{ "nodeId": "needs-retry", "type": "OUTCOME_TERMINAL", "config": { "outcome": "RETRY", "restartFrom": "tests", "reason": "flaky test" } }
+```
+
 Every terminal reports `reached` in the metadata of its `SUCCESS` status event: `true` if a message arrived, `false` for an exit the run did not take. `OUTCOME_TERMINAL` adds `outcome`, `restartFrom` and `reason` to that metadata, and only when it was reached. A rule keys on them, for example `"if": "metadata['reached'] == true and metadata['outcome'] == 'RETRY'"` (see [rule files](/running/rule-files)).
 
 ## Limits and defaults
@@ -83,14 +89,14 @@ Every terminal reports `reached` in the metadata of its `SUCCESS` status event: 
 
 ## Next steps
 
-<Card title="Defining a workflow" horizontal href="/building/defining-a-workflow">
+<Card title="Defining a workflow" icon="file-code" horizontal href="/building/defining-a-workflow">
   The complete JSON shape of a session and its workflows, and how to build one step by step.
 </Card>
 
-<Card title="Failure handling" horizontal href="/concepts/failure-handling">
+<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
   Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
 </Card>
 
-<Card title="Security" horizontal href="/operations/security">
+<Card title="Security" icon="lock" horizontal href="/operations/security">
   Expose the server safely, control who can do what, and limit what workflows may run.
 </Card>
