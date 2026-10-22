@@ -174,7 +174,7 @@ body::before {
   border-bottom: 1px solid var(--yk-border);
 }
 
-/* Every page sets mode: wide, but below Mintlify's xl breakpoint (1280px) the content column is
+/* Wide pages (index, playground): below Mintlify's xl breakpoint (1280px) the content column is
    still capped at 36rem. Let it fill the space between the sidebar and the page edge. */
 #content-area {
   max-width: none;
