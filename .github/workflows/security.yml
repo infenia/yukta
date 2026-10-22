@@ -8,9 +8,9 @@ on:
   push:
     branches: [ "main" ]
 
-  # Report-only on PRs: findings are shown (table + SARIF) but only
-  # secrets are blocking; newly-introduced vulnerable dependencies are
-  # gated by the dependency-review job in ci.yml.
+  # On PRs, secrets and HIGH/CRITICAL vulnerabilities that have a fix are blocking (an unfixed CVE
+  # cannot be acted on, so it only blocks on main); the dependency-review job in ci.yml also gates
+  # newly-introduced vulnerable dependencies.
   pull_request:
     branches: [ "main" ]
 
@@ -92,11 +92,13 @@ jobs:
           trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 0 \
             --skip-dirs "$TRIVY_SKIP_DIRS" --format table .
 
-      - name: Enforce vulnerability gate (main / schedule / manual)
-        if: github.event_name != 'pull_request'
+      - name: Enforce vulnerability gate
+        env:
+          # PRs: only findings with a fix; main / schedule / manual: everything
+          UNFIXED: ${{ github.event_name == 'pull_request' && '--ignore-unfixed' || '' }}
         run: |
           echo "▶ Enforcing HIGH/CRITICAL vulnerability gate..."
-          trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 \
+          trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 $UNFIXED \
             --skip-dirs "$TRIVY_SKIP_DIRS" --quiet .
           echo "✓ No high/critical vulnerabilities"
 
