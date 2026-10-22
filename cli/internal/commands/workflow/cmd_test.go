@@ -175,3 +175,18 @@ func TestStatusStreamCmd_withoutCobraContext(t *testing.T) {
 		t.Errorf("out=%q err=%v", out, err)
 	}
 }
+
+func TestStartCmd_idempotencyKeyIsSentAsAHeader(t *testing.T) {
+	var key string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key = r.Header.Get("Idempotency-Key")
+		_, _ = io.WriteString(w, execOK)
+	}))
+	defer srv.Close()
+
+	_, err := testutil.Run(t, WorkflowCmd(client.NewClient(srv.URL)), "start", "s", "w", "--idempotency-key", "run-42")
+
+	if err != nil || key != "run-42" {
+		t.Errorf("key=%q err=%v", key, err)
+	}
+}
