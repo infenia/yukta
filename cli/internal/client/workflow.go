@@ -656,13 +656,7 @@ func (c *Client) StreamWorkflowStatus(
 
 	path := apiPath("/api/executions/%s/status/stream", executionID) + "?" + params.Encode()
 
-	resp, err := c.streamRequest(ctx, path)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	return ScanSSE(ctx, resp.Body, func(event SSEEvent) error {
+	return c.followSSE(ctx, path, c.executionDone(executionID), func(event SSEEvent) error {
 		var progress WorkflowProgress
 		if err := json.Unmarshal([]byte(event.Data), &progress); err != nil {
 			return fmt.Errorf("failed to unmarshal progress: %w", err)

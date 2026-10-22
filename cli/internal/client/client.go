@@ -24,6 +24,11 @@ type Client struct {
 	Token      string        // optional bearer token sent as Authorization
 	Timeout    time.Duration // per-request limit for non-streaming calls; <= 0 disables
 	HTTPClient *http.Client
+	// StreamIdle is how long a followed stream may be silent (pings count) before it is treated as
+	// dropped; StreamReconnects bounds the reopenings in a row; StreamWait is the first pause.
+	StreamIdle       time.Duration
+	StreamReconnects int
+	StreamWait       time.Duration
 }
 
 // NewClient creates a new HTTP client with the given base URL.
@@ -33,8 +38,11 @@ func NewClient(baseURL string) *Client {
 		baseURL = "http://localhost:8080"
 	}
 	return &Client{
-		BaseURL: strings.TrimRight(baseURL, "/"),
-		Timeout: DefaultTimeout,
+		BaseURL:          strings.TrimRight(baseURL, "/"),
+		Timeout:          DefaultTimeout,
+		StreamIdle:       DefaultStreamIdle,
+		StreamReconnects: DefaultStreamReconnects,
+		StreamWait:       DefaultStreamWait,
 		// No client-wide Timeout: it would also cut SSE streams.
 		HTTPClient: &http.Client{},
 	}
