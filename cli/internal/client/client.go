@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -27,6 +28,11 @@ type Client struct {
 	AllowInsecureToken bool
 	Timeout            time.Duration // per-request limit for non-streaming calls; <= 0 disables
 	HTTPClient         *http.Client
+	// Retries is the number of extra attempts for reads and keyed starts on network errors, 429 and
+	// 502-504; 0 = none. RetryWait is the first pause between attempts; it doubles each time unless
+	// Retry-After says more.
+	Retries   int
+	RetryWait time.Duration
 	// StreamIdle is how long a followed stream may be silent (pings count) before it is treated as
 	// dropped; StreamReconnects bounds the reopenings in a row; StreamWait is the first pause.
 	StreamIdle       time.Duration
@@ -127,11 +133,74 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	return body, err
 }
 
-// doRequestHeader is doRequest that also returns the response headers.
+// apiError is a non-2xx answer.
+type apiError struct {
+	status     int
+	body       string
+	retryAfter time.Duration // from the Retry-After header; 0 if absent
+}
+
+func (e *apiError) Error() string {
+	hint := ""
+	if e.status == http.StatusUnauthorized {
+		hint = " (the server needs an API key: set YUKTA_TOKEN, or use --token-file)"
+	}
+	return fmt.Sprintf("API error: status %d: %s%s", e.status, e.body, hint)
+}
+
+// maxRetryWait caps one pause, whatever Retry-After asks for.
+const maxRetryWait = 30 * time.Second
+
+// retryable tells whether a failed attempt may be repeated without risk: only reads, or a request
+// that carries an Idempotency-Key, and only for a network error or a 429/502/503/504 answer.
+func retryable(req *http.Request, err error) bool {
+	if req.Method != http.MethodGet && req.Method != http.MethodHead && req.Header.Get("Idempotency-Key") == "" {
+		return false
+	}
+	var ae *apiError
+	if errors.As(err, &ae) {
+		switch ae.status {
+		case http.StatusTooManyRequests, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+			return true
+		}
+		return false
+	}
+	return true
+}
+
+// doRequestHeader is doRequest that also returns the response headers. With c.Retries > 0 it
+// repeats a retryable failure, pausing c.RetryWait (doubling) or the server's Retry-After.
 func (c *Client) doRequestHeader(req *http.Request) ([]byte, http.Header, error) {
 	if req == nil {
 		return nil, nil, errors.New("request cannot be nil")
 	}
+	wait := c.RetryWait
+	for attempt := 0; ; attempt++ {
+		body, header, err := c.send(req)
+		if err == nil || attempt >= c.Retries || !retryable(req, err) {
+			return body, header, err
+		}
+		pause := wait
+		var ae *apiError
+		if errors.As(err, &ae) && ae.retryAfter > pause {
+			pause = ae.retryAfter
+		}
+		select {
+		case <-time.After(min(pause, maxRetryWait)):
+		case <-req.Context().Done():
+			return nil, nil, err
+		}
+		wait *= 2
+		if req.GetBody != nil {
+			if req.Body, err = req.GetBody(); err != nil {
+				return nil, nil, fmt.Errorf("failed to rewind request body: %w", err)
+			}
+		}
+	}
+}
+
+// send makes one attempt.
+func (c *Client) send(req *http.Request) ([]byte, http.Header, error) {
 
 	if c.Timeout > 0 {
 		ctx, cancel := context.WithTimeout(req.Context(), c.Timeout)
@@ -152,11 +221,11 @@ func (c *Client) doRequestHeader(req *http.Request) ([]byte, http.Header, error)
 
 	// Check for non-2xx status codes
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		hint := ""
-		if resp.StatusCode == http.StatusUnauthorized {
-			hint = " (the server needs an API key: set YUKTA_TOKEN, or use --token-file)"
+		ae := &apiError{status: resp.StatusCode, body: string(body)}
+		if secs, convErr := strconv.Atoi(resp.Header.Get("Retry-After")); convErr == nil && secs > 0 {
+			ae.retryAfter = time.Duration(secs) * time.Second
 		}
-		return nil, nil, fmt.Errorf("API error: status %d: %s%s", resp.StatusCode, string(body), hint)
+		return nil, nil, ae
 	}
 
 	return body, resp.Header, nil
