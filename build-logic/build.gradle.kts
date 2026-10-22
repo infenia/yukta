@@ -39,6 +39,6 @@ dependencies {
         implementation("com.fasterxml.jackson.core:jackson-databind:2.22.3")
         implementation("tools.jackson.core:jackson-core:3.2.3")
         implementation("tools.jackson.core:jackson-databind:3.2.3")
-        implementation("org.codehaus.plexus:plexus-utils:3.6.1")
+        implementation("org.codehaus.plexus:plexus-utils:4.1.0")
     }
 }
