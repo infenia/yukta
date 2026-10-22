@@ -64,7 +64,8 @@
               "concepts/delivery-and-backpressure",
               "concepts/failure-handling",
               "concepts/time-limits",
-              "concepts/sub-workflows"
+              "concepts/sub-workflows",
+              "concepts/compared-with-other-tools"
             ]
           },
           {

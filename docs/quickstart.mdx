@@ -1,129 +1,57 @@
 ---
 title: "Quickstart"
-description: "Install Yukta with one command, then run your first workflow in five minutes. No Java needed."
+description: "Install Yukta and run your first workflow in five minutes. No Java needed."
 mode: "wide"
 ---
 
-By the end of this page you will have a real job running on your own machine: a tiny workflow that takes a name and produces a greeting. It is small on purpose. It shows the whole loop you will use for bigger jobs: **save the flowchart on the server, start a run with some input, watch it, read the answer.**
+You will run a tiny workflow that takes a name and returns a greeting. It shows the loop you will use for every job: **save the flowchart, start a run, read the result.**
 
-Technically, you will install and start the server, apply a session that contains one workflow, start that workflow with a payload, and read the execution's status, logs and result. You need to be comfortable running a few terminal commands, but you do not need to write any code.
+<img className="yk-diagram block dark:hidden" src="/images/diagrams/quickstart-greet.light.svg" alt="The quickstart workflow: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
+<img className="yk-diagram hidden dark:block" src="/images/diagrams/quickstart-greet.dark.svg" alt="The quickstart workflow: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
 
-## Before you begin
-
-- A terminal on Linux, macOS or Windows
-- `curl` (any HTTP client works; the examples show plain HTTP requests as well). On Windows, PowerShell has what you need.
-
-You do **not** need Java or the source code. Building from source is the last option, for people who want to change Yukta itself.
+You need a terminal and `curl`. You do not need Java or the source code.
 
 <Note>
-  **Alpha release.** Yukta `0.1.0-alpha.2` is the first release. It ships a native server for **Linux (amd64)**, a Docker image for `linux/amd64`, and the command-line client for Linux, macOS and Windows. Native servers for macOS and Windows and for ARM Linux come later; until then use Docker (Docker Desktop on macOS and Windows) or WSL 2. Expect breaking changes before 1.0. See [Releases](/reference/releases).
+  Yukta `0.1.0-alpha.2` ships a native server for Linux (amd64), a Docker image, and the command-line client for Linux, macOS and Windows. On macOS or Windows, run the server with Docker. See [Releases](/reference/releases).
 </Note>
 
-## 1. Install and run the server
-
-One command installs both programs: **`yukta`**, the server, and **`yukta-cli`**, the command-line client that talks to it. Pick your system:
+## 1. Install and start the server
 
 <Tabs>
   <Tab title="Linux" icon="terminal">
     ```bash
     curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.2/install.sh | sh
-    ```
-
-    The script finds your system, downloads the files from the GitHub release, **checks their checksums** and stops if one does not match, then copies the programs into `/usr/local/bin` if you are root, or `~/.local/bin` otherwise. It never uses `sudo`, never edits your shell profile and contacts only GitHub. If the folder is not on your `PATH` it tells you the line to add.
-
-    Start the server:
-
-    ```bash
     yukta
     ```
 
-    <Note>
-      On macOS the script installs only the client (`yukta-cli`); run the server with the Docker tab. On Windows, use Docker Desktop or WSL 2 and follow the Linux steps inside it.
-    </Note>
-
-    Options go after `sh -s --`. For example, to install a specific version into a folder you choose:
-
-    ```bash
-    curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.2/install.sh \
-      | sh -s -- --install-dir /opt/yukta/bin
-    ```
-
-    | Option | Meaning |
-    |---|---|
-        | `--install-dir <dir>` | Install into this folder |
-    | `--cli-only`, `--server-only` | Install just one of the two programs |
-    | `--uninstall` | Remove both programs from the folder |
-
-    Prefer to read a script before running it? Download it first with `curl -fsSLO <url>`, open it, then run `sh install.sh`.
+    The script checks file checksums, never uses `sudo`, and installs `yukta` (server) and `yukta-cli` (client) into `/usr/local/bin` as root or `~/.local/bin` otherwise.
   </Tab>
   <Tab title="Docker" icon="docker">
-    Works on Linux, macOS and Windows (with Docker Desktop). The alpha image is for Intel/AMD (`linux/amd64`); on Apple silicon Docker runs it under emulation, which is slower.
-
     ```bash
     docker run --rm -p 127.0.0.1:8080:8080 \
       -e YUKTA_API_KEY=change-me \
       ghcr.io/infenia/yukta:0.1.0-alpha.2
     ```
 
-    A container listens on all of its own network interfaces, and Yukta refuses to do that without an API key, so the key is required. `-p 127.0.0.1:8080:8080` publishes the port to your own machine only.
-
-    <Note>
-      With a key set, add `-H "X-API-Key: change-me"` to every `curl` command below, or pass `--token change-me` to `yukta-cli`. The web UI does not send a key yet, so against this container it shows load errors; use `curl`, the command-line client or MCP. See [Web UI](/interfaces/web-ui).
-    </Note>
-  </Tab>
-  <Tab title="Packages and archives" icon="box-archive">
-    If you would rather not run a script, download the files yourself from the [releases page](https://github.com/infenia/yukta/releases) and check them against `SHA256SUMS`.
-
-    ```bash
-    VERSION=0.1.0
-    ARCH=amd64        # or arm64
-    curl -LO https://github.com/infenia/yukta/releases/download/v$VERSION/yukta-$VERSION-linux-$ARCH.tar.gz
-    curl -LO https://github.com/infenia/yukta/releases/download/v$VERSION/SHA256SUMS
-    sha256sum --check --ignore-missing SHA256SUMS
-    tar -xzf yukta-$VERSION-linux-$ARCH.tar.gz
-    ./yukta-$VERSION-linux-$ARCH/yukta
-    ```
-
-    On Debian, Ubuntu, Fedora or RHEL you can install a package instead, which also adds a `systemd` service that you start when you are ready (`sudo systemctl enable --now yukta`):
-
-    ```bash
-    sudo apt install ./yukta_*_amd64.deb      # Debian, Ubuntu
-    sudo dnf install ./yukta-*.x86_64.rpm     # Fedora, RHEL
-    ```
-  </Tab>
-  <Tab title="From source" icon="code">
-    For contributors. You need a JDK, version 25, and `git`.
-
-    ```bash
-    git clone https://github.com/infenia/yukta.git
-    cd yukta
-    ./gradlew bootRun
-    ```
-
-    Gradle builds everything the first time, which takes a few minutes.
+    A container needs an API key. Add `-H "X-API-Key: change-me"` to every `curl` below. The web UI does not send a key yet, so use `curl`, the CLI or MCP with this setup.
   </Tab>
 </Tabs>
 
-The server listens on `http://localhost:8080`, on your own machine only. Check that it is up:
+Check that it is up:
 
 ```bash
 curl http://localhost:8080/actuator/health
 ```
 
 ```json
-{"status":"UP"}
+{"groups":["liveness","readiness"],"status":"UP"}
 ```
 
-Then open that address for the [web UI](/interfaces/web-ui) (not with Docker and an API key, see the note above), or `http://localhost:8080/swagger-ui.html` for interactive API documentation. For production use, ports, keys and storage, see [Deployment](/operations/deployment).
+Prefer packages, archives or building from source? See [Deployment](/operations/deployment).
 
-## 2. Apply a session
+## 2. Save the workflow
 
-A **session** is a folder that groups related workflows (here, just one). Sending it to the server saves the flowchart so you can run it as often as you like. This one holds a single workflow that reads a name from the start request and builds a greeting.
-
-```http
-POST /api/sessions
-Content-Type: application/json
-```
+A **session** is a folder of workflows. Save this one as `session.json`, then send it to the server.
 
 ```json
 {
@@ -157,29 +85,14 @@ Content-Type: application/json
 }
 ```
 
-With `curl`, save the body as `session.json` and run:
-
 ```bash
 curl -X POST http://localhost:8080/api/sessions \
   -H "Content-Type: application/json" -d @session.json
 ```
 
-The workflow has one node of each role: `API_TRIGGER` receives the payload you send when you start it, `MAPPER` builds a new record from it, and `CONSOLE_TERMINAL` ends the branch by logging what arrives.
+Three nodes, one of each kind: the trigger receives your input, the mapper builds the greeting, and the terminal ends the path.
 
-<Note>
-  Sessions are held in memory by default, so apply them again after a restart. See [Persistence](/operations/persistence) to keep them on disk or in PostgreSQL (both Plus edition).
-</Note>
-
-## 3. Start the workflow
-
-```http
-POST /api/workflow/start
-Content-Type: application/json
-```
-
-```json
-{ "sessionId": "demo", "workflowId": "greet", "payload": { "name": "Ada" } }
-```
+## 3. Start a run
 
 ```bash
 curl -X POST http://localhost:8080/api/workflow/start \
@@ -187,105 +100,38 @@ curl -X POST http://localhost:8080/api/workflow/start \
   -d '{"sessionId":"demo","workflowId":"greet","payload":{"name":"Ada"}}'
 ```
 
-Think of this as pressing "go". The server answers `202 Accepted` ("got it, working on it") with an **execution id** in `data.executionId`: a ticket number for this particular run. The execution runs in the background, so you use the ticket to check on it.
+The server answers `202 Accepted` with an **execution id** in `data.executionId`, a ticket number for this run. The run continues in the background.
 
-## 4. Watch it and read the result
+## 4. Read the result
 
-Poll the status:
-
-```http
-GET /api/executions/{executionId}
-```
-
-```json
-{
-  "status": 200,
-  "message": "Workflow status retrieved successfully",
-  "data": {
-    "executionId": "3de8bcf2-24ee-400a-8bff-c586c610dbe4",
-    "sessionId": "demo",
-    "workflowId": "greet",
-    "status": "SUCCESS",
-    "tasks": [
-      { "nodeId": "trigger", "module": "API_TRIGGER", "status": "SUCCESS" },
-      { "nodeId": "map", "module": "MAPPER", "status": "SUCCESS" },
-      { "nodeId": "end", "module": "CONSOLE_TERMINAL", "status": "SUCCESS" }
-    ]
-  }
-}
-```
-
-The run has a `status` and every node has one. `SUCCESS` means the execution finished normally. To follow a run live instead of polling, open the status stream, which uses server-sent events:
+Use the execution id from step 3:
 
 ```bash
-curl -N http://localhost:8080/api/executions/{executionId}/status/stream
+curl http://localhost:8080/api/executions/{executionId}
+curl -H "Accept: application/json" \
+  http://localhost:8080/api/sessions/demo/executions/{executionId}/results
 ```
 
-### Read the logs
-
-```http
-GET /api/sessions/demo/executions/{executionId}/logs
-```
-
-The log stream shows what each node produced as it ran:
-
-```text
-[INFO] [trigger/API_TRIGGER] STDOUT: {name=Ada}
-[INFO] [map/MAPPER] STDOUT: {greeting=Hello, Ada}
-```
-
-### Read the result
-
-Logs are text for people. The **result** is what reached the terminal node, kept whole and typed:
-
-```http
-GET /api/sessions/demo/executions/{executionId}/results
-Accept: application/json
-```
+The first call returns the status, `SUCCESS` once every node has finished. The second returns what reached the terminal:
 
 ```json
-{
-  "executionId": "3de8bcf2-24ee-400a-8bff-c586c610dbe4",
-  "complete": true,
-  "status": "SUCCESS",
-  "events": [
-    { "kind": "RESULT", "nodeId": "end", "payload": { "greeting": "Hello, Ada" } },
-    { "kind": "NODE_END", "nodeId": "end", "status": "SUCCESS" },
-    { "kind": "EXECUTION_END" }
-  ]
-}
+{ "kind": "RESULT", "nodeId": "end", "payload": { "greeting": "Hello, Ada" } }
 ```
 
-Responses show the fields used here; the server returns more, such as timestamps and cursors.
-
-## What just happened
-
-In everyday terms: you handed the server a flowchart, gave it a name to work with, and it produced a greeting while reporting every step. In detail:
-
-1. Applying the session validated and stored the workflow.
-2. Starting it checked the limits, took a slot and returned an execution id.
-3. The trigger emitted one message carrying your payload. The mapper derived a new message from it, and the terminal received it as the result.
-4. Every step produced events that the status, log and result streams carried to you.
+<Tip>
+  Sessions are held in memory, so apply them again after a restart. To follow a run live, use `/api/executions/{executionId}/status/stream` or the logs endpoint.
+</Tip>
 
 ## Next steps
 
-<CardGroup cols={2}>
-  <Card title="More examples" icon="flask" href="/examples">
-    Ten workflows for CI, quality gates, data pipelines, retries, notifications and LLM agents.
+<CardGroup cols={3}>
+  <Card title="Examples" icon="flask" href="/examples">
+    Ten workflows for CI, data, alerts and agents.
   </Card>
-  <Card title="Use the command-line client" icon="terminal" href="/interfaces/cli">
-    `yukta-cli` applies sessions, starts runs and follows logs from a terminal or a CI job.
+  <Card title="Command-line client" icon="terminal" href="/interfaces/cli">
+    Apply sessions and follow runs without `curl`.
   </Card>
   <Card title="Connect an AI agent" icon="robot" href="/interfaces/mcp">
-    Point Claude or any MCP client at `/mcp` and let it create and run workflows.
-  </Card>
-  <Card title="Run operating-system commands" icon="terminal" href="/operations/security">
-    The process plugin refuses every command until you allow-list it.
-  </Card>
-  <Card title="Understand the model" icon="sitemap" href="/concepts/how-it-works">
-    Sessions, nodes, ports, messages and executions in depth.
-  </Card>
-  <Card title="Explore the REST API" icon="code" href="/api/overview">
-    Guides for every endpoint, plus an interactive endpoint reference.
+    Let Claude create and run workflows over MCP.
   </Card>
 </CardGroup>
