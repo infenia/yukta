@@ -1,33 +1,46 @@
 ---
 title: "Introduction"
 description: "Yukta runs multi-step jobs for you. Draw the steps once as a flowchart, then start it from a script, a web page, a terminal or an AI assistant."
-mode: "wide"
+mode: "frame"
 keywords: ["introduction", "workflow orchestration", "DAG", "AI agents"]
 ---
 
 import { DagHero } from "/snippets/dag-hero.jsx"
 
-<div className="not-prose yk-hero">
-  <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Workflows for AI agents and automation</span>
-  <div className="yk-hero-cta">
-    <a className="yk-btn yk-btn-primary" href="/quickstart">Get started</a>
-    <a className="yk-btn yk-btn-secondary" href="/playground">Open the playground</a>
+export const HeroCard = ({ image, title, description, href }) => (
+  <a className="yk-hero-card group" href={href}>
+    <div className="yk-hero-card-media">
+      <img src={`/images/diagrams/${image}.light.svg`} alt="" className="block dark:hidden" />
+      <img src={`/images/diagrams/${image}.dark.svg`} alt="" className="hidden dark:block" />
+    </div>
+    <h3>{title}</h3>
+    <span>{description}</span>
+  </a>
+);
+
+<div className="yk-landing">
+  <div className="not-prose yk-landing-hero">
+    <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Workflows for AI agents and automation · v0.1.0-alpha.2</span>
+    <h1>Draw the steps once.<br />Run them from anywhere.</h1>
+    <p>Yukta runs multi-step jobs for you. Write the flowchart once in JSON, then start it from a script, the web UI, a terminal or an AI assistant. Yukta runs independent steps side by side, retries what fails and lets you steer every run live.</p>
+    <div className="yk-hero-cta">
+      <a className="yk-btn yk-btn-primary" href="/quickstart">Get started</a>
+      <a className="yk-btn yk-btn-secondary" href="/playground">Open the playground</a>
+    </div>
   </div>
-</div>
 
-Many jobs are a **sequence of steps with decisions along the way**: check stock, charge a card, email the customer. Build the code, run the tests, deploy only if they pass. Let an AI agent read a request, pick a tool and report back.
+  <div className="yk-landing-demo">
+    <DagHero />
+  </div>
 
-Yukta is a server that runs jobs like these. You write the steps down once as a flowchart in JSON. Yukta carries them out, runs independent steps side by side, retries what fails, and lets you watch, pause or stop the job while it runs.
+  <div className="not-prose yk-hero-grid">
+    <HeroCard image="quickstart-greet" title="Quickstart" description="Install Yukta and run your first workflow in five minutes, no Java needed." href="/quickstart" />
+    <HeroCard image="workflow-anatomy" title="How it works" description="Triggers, processors and terminals joined by edges, and the life of a run." href="/concepts/how-it-works" />
+    <HeroCard image="agent-loop" title="AI and agents" description="Model calls, tool-using agent loops, approvals and budgets as workflow steps." href="/building/ai-and-agents" />
+    <HeroCard image="examples-ci-gate" title="Examples" description="Ten ready-to-run workflows for CI, data pipelines, alerts and agents." href="/examples" />
+  </div>
 
-<Info>
-  **For developers:** Yukta is a reactive, DAG-based workflow orchestration server. The flowchart is a directed acyclic graph, so it can never loop back by accident, and messages stream from step to step with back-pressure.
-</Info>
-
-<DagHero />
-
-<Note>
-  Yukta is pre-beta (`0.1.0-alpha.2`). The workflow JSON, REST API, MCP tools and plugin contract may change before v0.1.0. See [Releases](/reference/releases).
-</Note>
+  <div className="prose prose-gray dark:prose-invert yk-landing-body">
 
 ## What a workflow looks like
 
@@ -54,23 +67,37 @@ The arrows are **edges**: "when this step is done, hand its output to the next."
     REST API, web UI, command line or an MCP client such as Claude, all from one definition.
   </Card>
   <Card title="Built for AI agents" icon="robot" href="/building/ai-and-agents">
-    Model calls with budgets, approvals and memory around them, plus [cheap decision models](/plugins/decisions) for routing.
+    Model calls with budgets, approvals and memory around them, plus cheap decision models for routing.
   </Card>
-  <Card title="Watch it, steer it, trust it" icon="shield-halved">
+  <Card title="Watch it, steer it, trust it" icon="shield-halved" href="/running/run-controls">
     Pause, retry or stop a live run. Retries, error routes and time limits are built in, and a new server only accepts local connections.
   </Card>
 </CardGroup>
 
-## Next steps
+<Info>
+  **For developers:** Yukta is a reactive, DAG-based workflow orchestration server. The flowchart is a directed acyclic graph, so it can never loop back by accident, and messages stream from step to step with back-pressure.
+</Info>
 
-<CardGroup cols={3}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Run your first workflow in five minutes.
+<Note>
+  Yukta is pre-beta (`0.1.0-alpha.2`). The workflow JSON, REST API, MCP tools and plugin contract may change before v0.1.0. See [Releases](/reference/releases).
+</Note>
+
+## Start from where you work
+
+<Columns cols={2}>
+  <Card title="Web UI" icon="window-maximize" horizontal href="/interfaces/web-ui">
+    Build workflows with forms and watch runs live.
   </Card>
-  <Card title="Playground" icon="play" href="/playground">
-    Try a workflow in your browser, no install.
+  <Card title="Command line" icon="terminal" horizontal href="/interfaces/cli">
+    Apply sessions and follow runs from a terminal or CI.
   </Card>
-  <Card title="Examples" icon="flask" href="/examples">
-    Ten ready-to-run workflows for CI, data, alerts and agents.
+  <Card title="AI assistants (MCP)" icon="robot" horizontal href="/interfaces/mcp">
+    Let Claude create, run and steer workflows.
   </Card>
-</CardGroup>
+  <Card title="REST API" icon="code" horizontal href="/api/overview">
+    Every operation over HTTP with streaming updates.
+  </Card>
+</Columns>
+
+  </div>
+</div>

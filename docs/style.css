@@ -426,21 +426,6 @@ img.yk-diagram {
   box-shadow: var(--yk-shadow-sm);
 }
 
-/* Home page hero: a status-style eyebrow, then one primary and one secondary action. */
-.yk-hero {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin: 0.25rem 0 1.75rem;
-  padding: 1rem 1.25rem;
-  background: var(--yk-card);
-  border: 1px solid var(--yk-border);
-  border-radius: var(--yk-radius-xl);
-  box-shadow: var(--yk-shadow-sm);
-}
-
 .yk-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -500,6 +485,126 @@ img.yk-diagram {
   background: var(--yk-surface);
 }
 
+/* Home page (mode: frame), laid out like Mintlify's own introduction: a centred hero over a soft
+   grid, the live workflow demo, a 2x2 grid of picture cards, then a narrow reading column. */
+.yk-landing {
+  position: relative;
+  padding: 4rem 1.25rem 5rem;
+}
+
+.yk-landing::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 34rem;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 60% 70% at 50% 0%, color-mix(in srgb, var(--yk-blue) 16%, transparent), transparent 70%),
+    linear-gradient(var(--yk-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--yk-border) 1px, transparent 1px);
+  background-size: auto, 2.5rem 2.5rem, 2.5rem 2.5rem;
+  mask-image: linear-gradient(to bottom, #000 30%, transparent);
+  opacity: 0.7;
+}
+
+.yk-landing > * {
+  position: relative;
+  z-index: 1;
+}
+
+.yk-landing-hero {
+  max-width: 48rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.yk-landing-hero .yk-eyebrow {
+  padding: 0.3rem 0.8rem;
+  background: var(--yk-card);
+  border: 1px solid var(--yk-border);
+  border-radius: 999px;
+}
+
+.yk-landing-hero h1 {
+  margin: 1.5rem 0 1rem;
+  font-size: clamp(2.25rem, 5vw, 3.5rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--yk-fg);
+}
+
+.yk-landing-hero p {
+  max-width: 38rem;
+  margin: 0 auto;
+  font-size: 1.125rem;
+  line-height: 1.65;
+  color: var(--yk-muted);
+}
+
+.yk-landing-hero .yk-hero-cta {
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.yk-landing-demo {
+  max-width: 56rem;
+  margin: 3.5rem auto 0;
+}
+
+.yk-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 1.5rem;
+  max-width: 56rem;
+  margin: 4rem auto 0;
+}
+
+.yk-hero-card {
+  display: block;
+  padding: 0.75rem 0.75rem 1.25rem;
+  text-decoration: none;
+  background: var(--yk-card);
+  border: 1px solid var(--yk-border);
+  border-radius: var(--yk-radius-xl);
+}
+
+.yk-hero-card-media {
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  padding: 0.75rem;
+  background: var(--yk-surface);
+  border-radius: var(--yk-radius-lg);
+}
+
+.yk-hero-card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.yk-hero-card h3 {
+  margin: 1rem 0.5rem 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--yk-fg);
+}
+
+.yk-hero-card span {
+  display: block;
+  margin: 0 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--yk-muted);
+}
+
+.yk-landing-body {
+  max-width: 48rem;
+  margin: 4rem auto 0;
+}
+
 /* ==========================================================================
  * Motion: short, functional, ease-out. All of it lives in no-preference, so reduced-motion users
  * get none. Hidden initial states apply only under .yk-js (set by motion.js), so the page stays
@@ -511,6 +616,7 @@ img.yk-diagram {
   a.card,
   [data-component-part="card"],
   .yk-btn,
+  .yk-hero-card,
   [data-component-part="accordion-button"],
   #sidebar a {
     transition:
@@ -526,6 +632,12 @@ img.yk-diagram {
   [data-component-part="card"]:hover,
   .yk-btn:hover {
     transform: translateY(-1px);
+  }
+
+  .yk-hero-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--yk-blue) 45%, var(--yk-border));
+    box-shadow: var(--yk-shadow-sm);
   }
 
   .prose :is(p, li, td, th, dd, blockquote) a:not(.card) {
