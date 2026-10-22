@@ -1,7 +1,7 @@
 ---
 title: "CLI module"
-description: "The cli module builds yukta, a small command-line program written in Go."
-keywords: ["cli module", "Go", "yukta command"]
+description: "The yukta-cli client: a small Go program that calls the REST API to apply sessions, start and steer runs, and stream logs, results and events."
+keywords: ["cli module", "Go", "yukta-cli"]
 ---
 
 The cli module builds `yukta-cli`, a small command-line program written in Go. It does no workflow work itself. Every command turns your typed words into one request to a running Yukta server, then prints the answer. This page explains how that translation works, what the program guarantees, and where it quietly falls short of the server it talks to.
@@ -785,3 +785,13 @@ The Makefile is the source of truth. Gradle task names are listed for people who
 | Fuzz test | A test that feeds random input to look for crashes. | Used on the SSE scanner. |
 | Build provenance attestation | A signed record of which source and workflow produced a file. | Attached to release binaries on tags. |
 | Exit code | The number a program returns to its caller: 0 for success, other for failure. | The CLI uses only 0 and 1. |
+
+## Next steps
+
+<Card title="Command-line client" icon="terminal" horizontal href="/interfaces/cli">
+  Use the yukta-cli command to manage sessions, start and control runs, and watch them live from a terminal or a CI job.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>

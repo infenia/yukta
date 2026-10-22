@@ -1,6 +1,6 @@
 ---
 title: "Build logic module"
-description: "build-logic is the rulebook for the build."
+description: "The Gradle convention plugins: the Java toolchain, dependency versions and the quality gates (Checkstyle, PMD, SpotBugs, OpenGrep, JaCoCo) every module gets."
 keywords: ["build-logic", "Gradle conventions", "quality gates"]
 ---
 
@@ -786,3 +786,13 @@ The old guide listed eight modules with entries; none of that is true now. Verif
 | Node and pnpm | Node runs JavaScript tools; pnpm installs and runs JavaScript packages. | The ui module builds its React app with them. |
 | buildDependents | A Gradle task that builds a module and every module that depends on it. | CI uses it so a change in a library also retests its users. |
 | Build cache | A store of task outputs that Gradle reuses when inputs are unchanged. | Enabled in gradle.properties; OpenGrep does not benefit because it declares no outputs. |
+
+## Next steps
+
+<Card title="Core module" icon="gear" horizontal href="/contributing/modules/core">
+  Yukta's engine and control plane: admission, the stream engine that runs a workflow graph, the control bus, observation, checkpoints and the stores.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>

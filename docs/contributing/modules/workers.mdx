@@ -1,6 +1,6 @@
 ---
 title: "Workers module"
-description: "A Yukta server normally runs every node of a workflow itself."
+description: "Remote workers: running a processor node on another machine over RSocket while the server keeps orchestrating, and what carries over from a local node."
 keywords: ["workers module", "remote workers", "worker pools"]
 ---
 
@@ -698,3 +698,13 @@ Short rules that follow from the guarantees.
 | Mutual TLS | TLS where the client also shows a certificate. | Keeps strangers from connecting. |
 | Backoff | A growing pause between retries. | 1 s up to 30 s here. |
 | Claim check | Sending a reference instead of a large body. | Not built yet. |
+
+## Next steps
+
+<Card title="Remote workers" icon="network-wired" horizontal href="/operations/remote-workers">
+  Run selected processor nodes on other machines, in named pools, while the control plane keeps orchestrating.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>

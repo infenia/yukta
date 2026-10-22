@@ -1,6 +1,6 @@
 ---
 title: "UI module"
-description: "The ui is the browser app operators use to work with Yukta: list sessions, build and edit workflows through forms, start, pause and stop runs, and watch a live graph with progress and logs."
+description: "The React web UI: the session list, the workflow editor, the live workflow page with run controls, progress and logs, and the control bus page."
 keywords: ["ui module", "web UI", "frontend"]
 ---
 
@@ -812,3 +812,13 @@ Measured from the ui/dist/assets folder present in the working tree when this pa
 | Vitest and Playwright | Vitest runs unit and component tests; Playwright drives a real browser for end-to-end tests. | Playwright runs against mocked APIs here. |
 | MSW (mock service worker) | A tool that intercepts HTTP calls in tests and answers them with canned data. | Lets the UI be tested without a server. |
 | pnpm | A package manager for JavaScript dependencies. | Gradle installs and runs it for the build. |
+
+## Next steps
+
+<Card title="Web UI" icon="window-maximize" horizontal href="/interfaces/web-ui">
+  Browse sessions, build workflows with forms, run them and watch them live in the browser.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>

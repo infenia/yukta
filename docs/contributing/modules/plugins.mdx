@@ -1,10 +1,10 @@
 ---
 title: "Plugins module"
-description: "The plugins module is the toolbox of Yukta: 31 built-in node types (triggers that start a workflow, processors that route, transform, call outside systems or ask a model, and terminals that finish a b"
+description: "The 35 built-in node types, the supervisors and control planes, how each is built, and what a workflow author can and cannot make them do."
 keywords: ["plugins module", "built-in plugins", "node types"]
 ---
 
-The plugins module is the toolbox of Yukta: 31 built-in node types (triggers that start a workflow, processors that route, transform, call outside systems or ask a model, and terminals that finish a branch) plus the supervisors and control planes that watch runs from outside. Each one is a small Spring bean that obeys a contract from plugin-api; the engine in core does the scheduling, retries and timeouts around it. This page is for thinking, not documenting: open a component, play a scenario, then challenge the weak spots, most of which are about what a workflow author is allowed to make a plugin do.
+The plugins module is the toolbox of Yukta: 35 built-in node types (triggers that start a workflow, processors that route, transform, call outside systems or ask a model, and terminals that finish a branch) plus the supervisors and control planes that watch runs from outside. Each one is a small Spring bean that obeys a contract from plugin-api; the engine in core does the scheduling, retries and timeouts around it. This page is for thinking, not documenting: open a component, play a scenario, then challenge the weak spots, most of which are about what a workflow author is allowed to make a plugin do.
 
 | Property | What it means |
 |---|---|
@@ -813,7 +813,7 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 |---|---|---|
 | Plugin | A named kind of node (trigger, processor or terminal) implemented as a Spring bean. | Every capability of a workflow is a plugin; adding one means adding a bean. |
 | Trigger | A plugin with no input that creates the first messages of a run. | Without one a workflow never starts. |
-| Processor | A plugin that takes messages in and sends messages out. | Most of the module's 31 types are processors. |
+| Processor | A plugin that takes messages in and sends messages out. | Most of the module's 35 types are processors. |
 | Terminal | A plugin that only receives messages and ends a branch. | It is where results become visible: a log line or a webhook. |
 | Message | The unit of data between nodes: payload, metadata, id and the output port it left on. | Plugins read and rewrite it; many risks are about what goes into it. |
 | Payload and metadata | Payload is the data being processed. Metadata is labels about it, such as a model's verdict. | Decision plugins write results to metadata so the payload stays unchanged. |
@@ -851,3 +851,17 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 | Enterprise integration patterns | A catalogue of message-routing patterns: filter, router, splitter, aggregator, recipient list. | The routing plugins implement them. |
 | LRU cache | A cache that drops the least recently used entry when full. | The SpEL cache is one (1,000 entries); several others are not. |
 | Quality gates | Automatic checks (formatting, static analysis, coverage) that must pass. | Some are switched off in internal-core. |
+
+## Next steps
+
+<Card title="Built-in plugins" icon="puzzle-piece" horizontal href="/plugins/overview">
+  The 35 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include.
+</Card>
+
+<Card title="Plugin API module" icon="plug" horizontal href="/contributing/modules/plugin-api">
+  The contract between Yukta's engine and the code that does the work: triggers, processors, terminals, supervisors and control planes.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>

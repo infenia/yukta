@@ -1,6 +1,6 @@
 ---
 title: "Web module"
-description: "Web is the HTTP front door of the Yukta server."
+description: "The HTTP front door: REST controllers, server-sent event streams, request validation, the response envelope and API key authentication."
 keywords: ["web module", "REST controllers", "HTTP"]
 ---
 
@@ -874,3 +874,13 @@ What a new endpoint should do to fit in.
 | Checkpoint | Core's saved output of a node, used to restart a run from a node. | Restart-from-node and retry rely on it. |
 | Actuator | Spring's built-in health, info and metrics endpoints. | Exposed by boot and outside the key. |
 | MCP | Model Context Protocol: how AI agents call tools on a server. | A parallel front door with its own key. |
+
+## Next steps
+
+<Card title="REST API overview" icon="code" horizontal href="/api/overview">
+  Base path, authentication, response envelope, paging, idempotency and stream conventions shared by every endpoint.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>

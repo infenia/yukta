@@ -1,6 +1,6 @@
 ---
 title: "Boot module"
-description: "Boot is the executable. It contains almost no logic of its own: it pulls the engine (core), the REST layer (web), the AI-agent endpoint (mcp), the React screens (ui) and the chosen plugins into one Sp"
+description: "The executable: how boot wires core, web, mcp, ui and the plugins into one Spring Boot application, its profiles, and the GraalVM native image."
 keywords: ["boot module", "Spring Boot", "native image", "entry point"]
 ---
 
@@ -721,3 +721,17 @@ JVM vs native.
 | Acceptance test | A test of the whole app against realistic use. | Catches wiring problems. |
 | Jackson | The JSON library; here it rejects unknown fields. | Stricter request handling. |
 | Idle timeout | How long a node may be silent before failing (core). | Shown by an acceptance test. |
+
+## Next steps
+
+<Card title="Deployment" icon="box" horizontal href="/operations/deployment">
+  Install Yukta as a Docker image, a Linux package or an archive, or run it from source, with the profiles and build switches that shape it.
+</Card>
+
+<Card title="Configuration" icon="gear" horizontal href="/operations/configuration">
+  Every setting an operator can change, its default and what it controls, plus the per-node engine options.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>

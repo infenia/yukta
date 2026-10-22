@@ -1,6 +1,6 @@
 ---
 title: "Core module"
-description: "Core is Yukta's engine and control plane: it takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while"
+description: "Yukta's engine and control plane: admission, the stream engine that runs a workflow graph, the control bus, observation, checkpoints and the stores."
 keywords: ["core module", "engine", "orchestrator", "DAG"]
 ---
 
@@ -761,3 +761,17 @@ The full list of configuration properties, metrics and enums is in the [core ref
 | Host and Origin check | A server-side test of which website name and page a request came from, so a page in the operator's browser cannot drive a local server (CSRF, DNS rebinding). | Done by HostOriginFilter while no API key is set: unknown Host or foreign Origin on a non-GET gets 403 (yukta.allowed-hosts, yukta.allowed-origins). |
 | Expression ($\{...\}) | A placeholder in a node's configuration that is filled from the message, the run or the environment just before the node runs. | See Expressions & Secrets. |
 | B16, S4, F6 ... | Legacy ids, kept in the GitHub issues (search `legacy id`) and the [remediation plan](https://github.com/infenia/yukta/blob/main/design/plans/remediation.md): B = bug, S = security, F = feature, R = restart. | Used in the Risks section. |
+
+## Next steps
+
+<Card title="How Yukta works" icon="diagram-project" horizontal href="/concepts/how-it-works">
+  The layers, the life of an execution and the principles behind the design.
+</Card>
+
+<Card title="Core module reference" icon="book" horizontal href="/contributing/core-reference">
+  Architecture, feature catalog and reference for the Yukta core module.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>
