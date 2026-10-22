@@ -514,7 +514,7 @@ img.yk-diagram {
 }
 
 .yk-landing-hero {
-  max-width: 48rem;
+  max-width: 64rem;
   margin: 0 auto;
   text-align: center;
 }
@@ -528,7 +528,8 @@ img.yk-diagram {
 
 .yk-landing-hero h1 {
   margin: 1.5rem 0 1rem;
-  font-size: clamp(2.25rem, 5vw, 3.5rem);
+  font-size: clamp(2rem, 3.6vw, 3rem);
+  text-wrap: balance;
   font-weight: 600;
   line-height: 1.08;
   letter-spacing: -0.03em;
