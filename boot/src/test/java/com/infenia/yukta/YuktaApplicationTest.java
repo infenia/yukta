@@ -82,6 +82,14 @@ class YuktaApplicationTest {
   }
 
   @Test
+  void infoOutputHandlesVersionAndHelpOnly() {
+    assertThat(YuktaApplication.infoOutput("--version")).startsWith("yukta version ");
+    assertThat(YuktaApplication.infoOutput("--server.port=0", "--help")).contains("Usage: yukta");
+    assertThat(YuktaApplication.infoOutput("-h")).contains("YUKTA_API_KEY");
+    assertThat(YuktaApplication.infoOutput("--server.port=0")).isNull();
+  }
+
+  @Test
   void testIsNativeImageWhenPropertyNotSet() {
     System.clearProperty(NATIVE_IMAGE_PROPERTY);
     assertThat(isNativeImageReflection()).isFalse();
