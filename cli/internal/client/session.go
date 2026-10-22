@@ -9,28 +9,9 @@ import (
 )
 
 // GetSessions retrieves all available session identifiers from the API.
-// It makes a GET request to /api/sessions and returns the session IDs from the response data.
+// It makes a GET request to /api/sessions, following the next-page cursor, and returns the session IDs.
 func (c *Client) GetSessions() ([]string, error) {
-	req, err := c.newRequest("GET", "/api/sessions")
-	if err != nil {
-		return nil, err
-	}
-
-	body, err := c.doRequest(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse the response: {"data": ["session-1", ...]}
-	var response struct {
-		Data []string `json:"data"`
-	}
-
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
-	}
-
-	return response.Data, nil
+	return getAll[string](c, "/api/sessions")
 }
 
 // GetSessionDetails retrieves details of a specific session.
@@ -136,7 +117,7 @@ func (c *Client) getData(path string) (any, error) {
 
 // GetSessionSummaries retrieves every session with its workflow summaries.
 func (c *Client) GetSessionSummaries() (any, error) {
-	return c.getData("/api/sessions/summaries")
+	return getAll[any](c, "/api/sessions/summaries")
 }
 
 // GetWorkflowGraph retrieves the node/edge graph of a workflow.
@@ -152,5 +133,5 @@ func (c *Client) GetWorkflowExecutions(sessionID, workflowID string) (any, error
 	if sessionID == "" || workflowID == "" {
 		return nil, fmt.Errorf("sessionID and workflowID cannot be empty")
 	}
-	return c.getData(apiPath("/api/sessions/%s/workflows/%s/executions", sessionID, workflowID))
+	return getAll[any](c, apiPath("/api/sessions/%s/workflows/%s/executions", sessionID, workflowID))
 }

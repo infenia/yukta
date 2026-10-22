@@ -100,6 +100,10 @@ tasks.withType<Test>().configureEach {
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
     mainClass.set("com.infenia.yukta.YuktaApplication")
+    // the default profile is prod; developers get dev unless they name one
+    if (System.getProperty("spring.profiles.active") == null) {
+        systemProperty("spring.profiles.active", "dev")
+    }
 }
 
 // Spring decides property-conditioned beans when the native image is built (AOT), not when it

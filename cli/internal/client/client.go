@@ -96,8 +96,14 @@ func (c *Client) newRequest(method string, path string) (*http.Request, error) {
 // doRequest executes an HTTP request and returns the response body as bytes.
 // It handles response status codes and errors appropriately.
 func (c *Client) doRequest(req *http.Request) ([]byte, error) {
+	body, _, err := c.doRequestHeader(req)
+	return body, err
+}
+
+// doRequestHeader is doRequest that also returns the response headers.
+func (c *Client) doRequestHeader(req *http.Request) ([]byte, http.Header, error) {
 	if req == nil {
-		return nil, errors.New("request cannot be nil")
+		return nil, nil, errors.New("request cannot be nil")
 	}
 
 	if c.Timeout > 0 {
@@ -108,21 +114,21 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	// Check for non-2xx status codes
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, string(body))
+		return nil, nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, string(body))
 	}
 
-	return body, nil
+	return body, resp.Header, nil
 }
 
 // apiPath fills the %s placeholders in format with URL-path-escaped args, so IDs

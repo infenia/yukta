@@ -121,6 +121,13 @@ type WorkflowExecutionSummary struct {
 // StartWorkflow initiates execution of a workflow in a session.
 // payload is optional and handed to the workflow's trigger node.
 func (c *Client) StartWorkflow(sessionID, workflowID string, payload map[string]any) (WorkflowStartResponse, error) {
+	return c.StartWorkflowKeyed(sessionID, workflowID, payload, "")
+}
+
+// StartWorkflowKeyed is StartWorkflow with an Idempotency-Key: the server returns the first run's
+// execution id for a repeat of the same key, so a start that timed out can be sent again safely.
+// An empty key sends none.
+func (c *Client) StartWorkflowKeyed(sessionID, workflowID string, payload map[string]any, idempotencyKey string) (WorkflowStartResponse, error) {
 	if sessionID == "" {
 		return WorkflowStartResponse{}, fmt.Errorf("sessionID cannot be empty")
 	}
@@ -134,6 +141,10 @@ func (c *Client) StartWorkflow(sessionID, workflowID string, payload map[string]
 	httpReq, err := c.newRequestWithBody("POST", "/api/workflow/start", reqBody)
 	if err != nil {
 		return WorkflowStartResponse{}, err
+	}
+
+	if idempotencyKey != "" {
+		httpReq.Header.Set("Idempotency-Key", idempotencyKey)
 	}
 
 	body, err := c.doRequest(httpReq)
@@ -375,26 +386,7 @@ func (c *Client) GetWorkflowHistory(sessionID string) ([]WorkflowExecutionSummar
 		return nil, fmt.Errorf("sessionID cannot be empty")
 	}
 
-	path := apiPath("/api/workflow/%s/history", sessionID)
-	httpReq, err := c.newRequest("GET", path)
-	if err != nil {
-		return nil, err
-	}
-
-	body, err := c.doRequest(httpReq)
-	if err != nil {
-		return nil, err
-	}
-
-	var response struct {
-		Data []WorkflowExecutionSummary `json:"data"`
-	}
-
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
-	}
-
-	return response.Data, nil
+	return getAll[WorkflowExecutionSummary](c, apiPath("/api/workflow/%s/history", sessionID))
 }
 
 // PauseNode pauses a specific node in a workflow execution.
