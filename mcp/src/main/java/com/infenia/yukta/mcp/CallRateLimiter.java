@@ -55,18 +55,23 @@ public final class CallRateLimiter {
    * @return true if it is within the limit
    */
   public boolean tryAcquire(final String caller) {
-    if (perMinute <= 0) {
-      return true;
-    }
+    return perMinute <= 0 || count(caller) <= perMinute;
+  }
+
+  /** Counts the request in the caller's window; compute() makes the update atomic per caller. */
+  private int count(final String caller) {
     final long now = nanos.getAsLong();
-    final Window window = windows.computeIfAbsent(caller, _ -> new Window());
-    synchronized (window) {
-      if (now - window.start >= WINDOW_NANOS) {
-        window.start = now;
-        window.count = 0;
-      }
-      window.count++;
-      return window.count <= perMinute;
-    }
+    return windows.compute(
+            caller,
+            (_, old) -> {
+              final Window window = old == null ? new Window() : old;
+              if (old == null || now - window.start >= WINDOW_NANOS) {
+                window.start = now;
+                window.count = 0;
+              }
+              window.count++;
+              return window;
+            })
+        .count;
   }
 }

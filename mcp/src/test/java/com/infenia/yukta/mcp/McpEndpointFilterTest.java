@@ -4,6 +4,7 @@ package com.infenia.yukta.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.security.ApiKeyAuthenticator;
 import java.net.URI;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -306,5 +307,16 @@ class McpEndpointFilterTest {
 
     assertThat(second.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
     assertThat(second.getResponse().getHeaders().getFirst("Retry-After")).isEqualTo("60");
+  }
+
+  @Test
+  void testFilterBuiltFromAnAuthenticatorAloneUsesTheDefaultLimit() {
+    final McpEndpointFilter filter = new McpEndpointFilter(ApiKeyAuthenticator.single("k"));
+    final var exchange =
+        MockServerWebExchange.from(MockServerHttpRequest.post("/mcp").header("X-API-Key", "k"));
+
+    filter.filter(exchange, (ServerWebExchange e) -> Mono.empty()).block();
+
+    assertThat(exchange.getResponse().getStatusCode()).isNull();
   }
 }

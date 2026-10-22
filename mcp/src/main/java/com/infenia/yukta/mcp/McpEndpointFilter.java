@@ -133,9 +133,15 @@ public class McpEndpointFilter implements WebFilter {
     if (refusal != null) {
       return reject(exchange, refusal);
     }
-    if (limited(match.name())) {
-      return tooMany(exchange);
-    }
+    return limited(match.name()) ? tooMany(exchange) : proceed(exchange, chain, match, legacy);
+  }
+
+  /** Hands an authenticated, within-limit request on, naming the actor for a named key. */
+  private Mono<Void> proceed(
+      final ServerWebExchange exchange,
+      final WebFilterChain chain,
+      final ApiKeys.Match match,
+      final boolean legacy) {
     final Mono<Void> next =
         match.role() == ApiRole.ADMIN && match.sessions().isEmpty()
             ? chain.filter(rewritten(exchange, legacy))
