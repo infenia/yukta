@@ -540,6 +540,70 @@ img.yk-diagram {
   color: var(--yk-muted);
 }
 
+/* Trigger / processor / terminal tiles, coloured like the node kinds in the diagrams. */
+.yk-kinds {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.yk-kind {
+  --yk-kind: var(--yk-blue);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1.25rem;
+  text-decoration: none;
+  background: var(--yk-card);
+  border: 1px solid var(--yk-border);
+  border-top: 3px solid var(--yk-kind);
+  border-radius: var(--yk-radius-xl);
+}
+
+.yk-kind-trigger {
+  --yk-kind: var(--yk-orange);
+}
+
+.yk-kind-terminal {
+  --yk-kind: var(--yk-slate);
+}
+
+.yk-kind-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-bottom: 0.5rem;
+  border-radius: var(--yk-radius-lg);
+  background: color-mix(in srgb, var(--yk-kind) 14%, transparent);
+}
+
+.yk-kind-icon svg {
+  background-color: var(--yk-kind) !important;
+}
+
+.yk-kind-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--yk-kind);
+}
+
+.yk-kind-role {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--yk-fg);
+}
+
+.yk-kind-eg {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--yk-muted);
+}
+
 .yk-landing-body {
   max-width: 48rem;
   margin: 4rem auto 0;
@@ -556,6 +620,7 @@ img.yk-diagram {
   a.card,
   [data-component-part="card"],
   .yk-hero-card,
+  .yk-kind,
   [data-component-part="accordion-button"],
   #sidebar a {
     transition:
@@ -572,7 +637,8 @@ img.yk-diagram {
     transform: translateY(-1px);
   }
 
-  .yk-hero-card:hover {
+  .yk-hero-card:hover,
+  .yk-kind:hover {
     transform: translateY(-2px);
     border-color: color-mix(in srgb, var(--yk-blue) 45%, var(--yk-border));
     box-shadow: var(--yk-shadow-sm);

@@ -52,11 +52,26 @@ A workflow is a flowchart written as JSON: a **directed acyclic graph (DAG)** of
 <img className="yk-diagram block dark:hidden" src="/images/diagrams/workflow-anatomy.light.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. A failed call goes to a dead-letter terminal." loading="lazy" />
 <img className="yk-diagram hidden dark:block" src="/images/diagrams/workflow-anatomy.dark.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. A failed call goes to a dead-letter terminal." loading="lazy" />
 
-| Box | What it does | Example |
-|---|---|---|
-| **Trigger** | Starts the job | A request arrives, a timer fires |
-| **Processor** | Does work or makes a choice | Run a command, call a web service, reshape data, ask an AI model |
-| **Terminal** | Ends a path | Log the result, send a notification, keep a failed item |
+<div className="not-prose yk-kinds">
+  <a className="yk-kind yk-kind-trigger" href="/plugins/triggers">
+    <span className="yk-kind-icon"><Icon icon="bolt" size={18} /></span>
+    <span className="yk-kind-name">Trigger</span>
+    <span className="yk-kind-role">Starts the job</span>
+    <span className="yk-kind-eg">A request arrives, a timer fires</span>
+  </a>
+  <a className="yk-kind yk-kind-processor" href="/plugins/overview">
+    <span className="yk-kind-icon"><Icon icon="gears" size={18} /></span>
+    <span className="yk-kind-name">Processor</span>
+    <span className="yk-kind-role">Does the work or makes a choice</span>
+    <span className="yk-kind-eg">Run a command, call a web service, reshape data, ask an AI model</span>
+  </a>
+  <a className="yk-kind yk-kind-terminal" href="/plugins/terminals">
+    <span className="yk-kind-icon"><Icon icon="flag-checkered" size={18} /></span>
+    <span className="yk-kind-name">Terminal</span>
+    <span className="yk-kind-role">Ends a path</span>
+    <span className="yk-kind-eg">Log the result, send a notification, keep a failed item</span>
+  </a>
+</div>
 
 The arrows are **edges**: "when this step is done, hand its output to the next." A step can have labelled exits, called **ports**, such as `success` and `error`, so good and bad outcomes take different paths. Each box is a **plugin**, a ready-made capability you configure, and you can [write your own](/plugins/writing-a-plugin) and add it at any time.
 
