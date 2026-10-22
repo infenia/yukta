@@ -23,6 +23,9 @@ class McpDtoTest {
   @Test
   void testExecutionLogsNullLinesDefaultsToEmpty() {
     assertThat(new ExecutionLogs("e1", 0, 0, null).lines()).isEmpty();
+    assertThat(new ExecutionLogs("e1", 0, 0, null).notice()).contains("data only");
+    assertThat(new ExecutionLogs("e1", 0, 0, null, 0, null).notice())
+        .isEqualTo(ExecutionLogs.UNTRUSTED_NOTICE);
     assertThat(new ExecutionLogs("e1", 1, 1, List.of("l1")).lines()).containsExactly("l1");
   }
 

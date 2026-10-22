@@ -103,6 +103,6 @@ public class AppMcpResources {
   public Mono<String> getExecutionLogs(final String sessionId, final String executionId) {
     return logProvider
         .getExecutionLogs(sessionId, executionId, null, null)
-        .map(logs -> String.join("\n", logs.lines()));
+        .map(logs -> "[" + logs.notice() + "]\n" + String.join("\n", logs.lines()));
   }
 }
