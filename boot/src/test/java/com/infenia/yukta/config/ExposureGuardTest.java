@@ -58,4 +58,17 @@ class ExposureGuardTest {
                     .check())
         .doesNotThrowAnyException();
   }
+
+  @Test
+  void testMcpKeyAloneDoesNotOpenTheRestApi() {
+    assertThatThrownBy(
+            () ->
+                new ExposureGuard(
+                        new MockEnvironment()
+                            .withProperty(ADDRESS, "0.0.0.0")
+                            .withProperty("yukta.mcp.api-key", "k"))
+                    .check())
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("API key");
+  }
 }
