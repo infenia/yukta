@@ -467,6 +467,9 @@ func TestSkipNode(t *testing.T) {
 
 func TestStreamWorkflowStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerDone(w, r) {
+			return
+		}
 		if r.Method != "GET" {
 			t.Errorf("expected GET, got %s", r.Method)
 		}
