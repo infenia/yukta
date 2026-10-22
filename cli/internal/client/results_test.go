@@ -14,6 +14,9 @@ import (
 func TestStreamExecutionResults_deliversEventsAndEscapesTheNodeFilter(t *testing.T) {
 	var gotPath, gotQuery string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerDone(w, r) {
+			return
+		}
 		gotPath, gotQuery = r.URL.Path, r.URL.RawQuery
 		w.Header().Set("Content-Type", "text/event-stream")
 		fmt.Fprint(w, "data: {\"kind\":\"RESULT\"}\n\ndata: {\"kind\":\"EXECUTION_END\"}\n\n")
@@ -42,6 +45,9 @@ func TestStreamExecutionResults_deliversEventsAndEscapesTheNodeFilter(t *testing
 func TestStreamExecutionResults_withoutNodeFilterSendsNoQuery(t *testing.T) {
 	var gotQuery string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerDone(w, r) {
+			return
+		}
 		gotQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "text/event-stream")
 	}))

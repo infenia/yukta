@@ -31,14 +31,23 @@ public class PluginTemplateBuilder {
       templates.put(
           "trigger",
           """
+          import com.infenia.yukta.message.DefaultMessage;
+          import com.infenia.yukta.message.Message;
+          import com.infenia.yukta.plugin.type.TriggerPlugin;
+          import java.util.Map;
+          import java.util.UUID;
+          import org.springframework.stereotype.Component;
+          import reactor.core.publisher.Flux;
+
           @Component
-          public class MyTriggerPlugin extends TriggerPlugin {
+          public class MyTriggerPlugin implements TriggerPlugin {
             @Override
-            public String getType() { return "my-trigger"; }
+            public String getType() { return "MY_TRIGGER"; }
+
             @Override
-            public Mono<String> execute(final WorkflowContext context) {
-              // Trigger logic here
-              return Mono.just("triggered");
+            public Flux<Message<?>> start(final Map<String, Object> config) {
+              // Emit the messages that start the workflow
+              return Flux.just(DefaultMessage.create(UUID.randomUUID(), "triggered"));
             }
           }
           """);
@@ -48,14 +57,23 @@ public class PluginTemplateBuilder {
       templates.put(
           "processor",
           """
+          import com.infenia.yukta.message.DefaultMessage;
+          import com.infenia.yukta.message.Message;
+          import com.infenia.yukta.plugin.type.ProcessorPlugin;
+          import java.util.Map;
+          import org.springframework.stereotype.Component;
+          import reactor.core.publisher.Flux;
+
           @Component
-          public class MyProcessorPlugin extends ProcessorPlugin {
+          public class MyProcessorPlugin implements ProcessorPlugin {
             @Override
-            public String getType() { return "my-processor"; }
+            public String getType() { return "MY_PROCESSOR"; }
+
             @Override
-            public Mono<String> execute(final WorkflowContext context) {
-              // Process data here
-              return Mono.just("processed");
+            public Flux<Message<?>> process(
+                final Flux<Message<?>> input, final Map<String, Object> config) {
+              // Transform each message; DefaultMessage.from keeps the original's identity
+              return input.map(message -> DefaultMessage.from(message, "processed"));
             }
           }
           """);
@@ -65,14 +83,23 @@ public class PluginTemplateBuilder {
       templates.put(
           "terminal",
           """
+          import com.infenia.yukta.message.Message;
+          import com.infenia.yukta.plugin.type.TerminalPlugin;
+          import java.util.Map;
+          import org.springframework.stereotype.Component;
+          import reactor.core.publisher.Flux;
+          import reactor.core.publisher.Mono;
+
           @Component
-          public class MyTerminalPlugin extends TerminalPlugin {
+          public class MyTerminalPlugin implements TerminalPlugin {
             @Override
-            public String getType() { return "my-terminal"; }
+            public String getType() { return "MY_TERMINAL"; }
+
             @Override
-            public Mono<Void> execute(final WorkflowContext context) {
-              // Finalize workflow here
-              return Mono.empty();
+            public Mono<Void> consume(
+                final Flux<Message<?>> input, final Map<String, Object> config) {
+              // Handle every message that reaches the end of the workflow
+              return input.doOnNext(message -> { /* use message.payload() */ }).then();
             }
           }
           """);

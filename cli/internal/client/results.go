@@ -32,13 +32,7 @@ func (c *Client) StreamExecutionResults(
 		path += "?nodeId=" + url.QueryEscape(nodeID)
 	}
 
-	resp, err := c.streamRequest(ctx, path)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	return ScanSSE(ctx, resp.Body, func(event SSEEvent) error {
+	return c.followSSE(ctx, path, c.executionDone(executionID), func(event SSEEvent) error {
 		return onEvent(event.Event, event.Data)
 	})
 }
