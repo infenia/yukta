@@ -21,6 +21,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -29,10 +30,11 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 /**
- * Requires an API key on every {@code /api/**} request and on the actuator (except {@code
- * /actuator/health}) when one is configured, as {@code Authorization: Bearer <key>} or {@code
- * X-API-Key: <key>}. With no key configured the API stays open, which is safe only because the
- * server listens on loopback by default (and refuses to start on another address without a key).
+ * Requires an API key on every {@code /api/**} request, on the OpenAPI document and Swagger UI and
+ * on the actuator (except {@code /actuator/health}) when one is configured, as {@code
+ * Authorization: Bearer <key>} or {@code X-API-Key: <key>}. With no key configured the API stays
+ * open, which is safe only because the server listens on loopback by default (and refuses to start
+ * on another address without a key).
  *
  * <p>The path is matched after percent-decoding; a path written with parameters, encoded separators
  * or dot segments is refused with 400, so no spelling of a path skips the check.
@@ -149,9 +151,16 @@ public class ApiKeyFilter implements WebFilter {
         : chain.filter(exchange);
   }
 
-  /** The API and the actuator, except the health probe. */
+  /** The API, the actuator (except the health probe) and the API description. */
   private static boolean guarded(final String path) {
-    return isUnder(path, "/api") || (isUnder(path, "/actuator") && !isUnder(path, HEALTH));
+    return isUnder(path, "/api")
+        || (isUnder(path, "/actuator") && !isUnder(path, HEALTH))
+        || isDocs(path);
+  }
+
+  /** The OpenAPI document and the Swagger UI: they describe every endpoint. */
+  private static boolean isDocs(final String path) {
+    return isUnder(path, "/v3") || isUnder(path, "/swagger-ui") || "/swagger-ui.html".equals(path);
   }
 
   private static boolean isUnder(final String path, final String prefix) {
@@ -160,6 +169,9 @@ public class ApiKeyFilter implements WebFilter {
 
   private boolean permitted(
       final ApiKeys.Match match, final ServerWebExchange exchange, final String path) {
+    if (isDocs(path)) {
+      return HttpMethod.GET.equals(exchange.getRequest().getMethod());
+    }
     if (isUnder(path, "/actuator")) {
       return match.role() == ApiRole.ADMIN && match.sessions().isEmpty();
     }
