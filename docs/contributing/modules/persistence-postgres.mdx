@@ -1,7 +1,7 @@
 ---
 title: "Persistence PostgreSQL module"
-description: "By default Yukta keeps its definitions, sessions, run history and node outputs in memory or in files on one server."
-mode: "wide"
+description: "The PostgreSQL stores for definitions, sessions, run history and node outputs, their Flyway migrations, and the leader lease for high availability."
+keywords: ["PostgreSQL", "persistence", "Flyway"]
 ---
 
 <Note>
@@ -670,3 +670,17 @@ Short rules that follow from the guarantees.
 | SESSION_MEMORY | A workflow node type that keeps chat history. | Its history can live in the session_history table. |
 | Half durable | A deployment where some stores are in PostgreSQL and others in memory. | Possible because each store has its own switch. |
 | Advisory lock | A PostgreSQL lock that the application names and takes itself. | Not used here; mentioned as an alternative for the lease. |
+
+## Next steps
+
+<Card title="Persistence" icon="database" horizontal href="/operations/persistence">
+  Keep sessions, the execution log and node outputs in memory, on disk or in PostgreSQL, and what survives a restart in each case.
+</Card>
+
+<Card title="High availability" icon="server" horizontal href="/operations/high-availability">
+  Run several servers on one PostgreSQL database so that one admits runs and the others take over when it stops.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>

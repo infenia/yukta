@@ -1,7 +1,7 @@
 ---
 title: "Loops and retries"
 description: "Repeat work until a condition holds, within bounds, and choose between a loop, an engine retry and a polling loop."
-mode: "wide"
+keywords: ["loops", "retries", "polling", "LOOP_PREDICATE"]
 ---
 
 <Info>
@@ -77,8 +77,16 @@ Always set `maxIterations` and `maxDuration`. A loop without a bound that never 
 
 A loop is one node, so the node's idle timeout and `deadlineMs` bound it. Raise `timeoutSeconds` for long polling, or have the plugin report progress so its idle clock restarts; see [Time limits](/concepts/time-limits).
 
-## Related
+## Next steps
 
-- [Failure handling](/concepts/failure-handling)
-- [Routing and flow control](/plugins/routing-and-flow)
-- [Scheduling](/building/scheduling)
+<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>
+
+<Card title="Routing and flow control" icon="shuffle" horizontal href="/plugins/routing-and-flow">
+  BRANCH, FILTER, SPLITTER, AGGREGATE, RECIPIENT_LIST, DELAY, LOOP_PREDICATE, LOOP_STREAM, SUB_WORKFLOW and WAIT_FOR_SIGNAL: plugins that decide where messages go and when.
+</Card>
+
+<Card title="Scheduling" icon="calendar" horizontal href="/building/scheduling">
+  Run a workflow on a timer with SCHEDULE_TRIGGER, or start workflows from outside with REST, the CLI or MCP.
+</Card>

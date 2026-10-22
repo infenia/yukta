@@ -1,7 +1,7 @@
 ---
 title: "How Yukta works"
 description: "The layers, the life of an execution and the principles behind the design."
-mode: "wide"
+keywords: ["architecture", "how it works", "design principles", "DAG"]
 ---
 
 <Info>
@@ -10,12 +10,12 @@ mode: "wide"
 
 Yukta splits cleanly into a **data plane** that moves messages through a workflow graph and a **control plane** that admits, steers and records executions. Everything else, such as storage, remote workers and high availability, plugs in behind that split.
 
+<img className="yk-diagram block dark:hidden" src="/images/diagrams/architecture.light.svg" alt="Clients enter through admission and definition into the stream engine, which runs plugins and feeds observation and durability. A control plane sends ordered commands to the engine and supervisors read the event feed." loading="lazy" />
+<img className="yk-diagram hidden dark:block" src="/images/diagrams/architecture.dark.svg" alt="Clients enter through admission and definition into the stream engine, which runs plugins and feeds observation and durability. A control plane sends ordered commands to the engine and supervisors read the event feed." loading="lazy" />
+
 ## The model in one paragraph
 
 A **session** groups workflows. A **workflow** is a directed acyclic graph of **nodes** joined by **edges**. Each node is an instance of a **plugin** with its own configuration. Starting a workflow creates an **execution**: a live run with its own id and a status for the run and for every node. Triggers put **messages** into the graph, messages stream along edges from node to node, and terminals consume them.
-
-<img className="yk-diagram block dark:hidden" src="/images/diagrams/architecture.light.svg" alt="Clients enter through admission and definition into the stream engine, which runs plugins and feeds observation and durability. A control plane sends ordered commands to the engine and supervisors read the event feed." loading="lazy" />
-<img className="yk-diagram hidden dark:block" src="/images/diagrams/architecture.dark.svg" alt="Clients enter through admission and definition into the stream engine, which runs plugins and feeds observation and durability. A control plane sends ordered commands to the engine and supervisors read the event feed." loading="lazy" />
 
 ## The life of an execution
 
@@ -60,14 +60,26 @@ Plugins hold only business logic. Back-pressure, retries, timeouts, pause and fa
 
 ## Design principles
 
+- **Workflows are data.** A definition is JSON that people, tools and AI agents can write, review and diff. The engine runs exactly that graph, every step, every time.
 - **One path to change a run.** People, supervisors, REST and MCP all send the same commands through one ordered, reviewable, audited pipeline.
 - **Safe defaults, explicit opt-in.** Process execution is off, environment access is allow-listed and the server listens on loopback only.
 - **Storage is a deployment choice.** Memory, files and PostgreSQL implement the same stores, so durability is a setting, not a different product.
 - **Honest guarantees.** Delivery is at-least-once, status only moves forward and commands are applied in order per execution. See [Delivery and back-pressure](/concepts/delivery-and-backpressure).
 
-## Related
+## Next steps
 
-- [Sessions and workflows](/concepts/sessions-and-workflows)
-- [Nodes, edges and ports](/concepts/nodes-edges-ports)
-- [Executions](/concepts/executions)
-- [Run controls](/running/run-controls)
+<Card title="Sessions and workflows" icon="folder-tree" horizontal href="/concepts/sessions-and-workflows">
+  How workflows are grouped, stored, versioned and addressed.
+</Card>
+
+<Card title="Nodes, edges and ports" icon="circle-nodes" horizontal href="/concepts/nodes-edges-ports">
+  Node roles, how edges and output ports route messages, and how a node with several parents joins them.
+</Card>
+
+<Card title="Executions" icon="play" horizontal href="/concepts/executions">
+  The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end.
+</Card>
+
+<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>

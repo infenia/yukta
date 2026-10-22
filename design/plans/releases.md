@@ -180,7 +180,7 @@ What changes in the docs:
 |---|---|
 | `quickstart` | Replace "Before you begin: a JDK" with **Choose how to install**, as tabs: **Docker** (first, one command), **Binary** (Linux, macOS, Windows), **Package manager** (Homebrew, Scoop, winget, `.deb`/`.rpm`), and **From source** (last, labelled as for contributors). Steps 2 to 4 are unchanged. Add a "check it is running" step using `yukta --version` and `/actuator/health` |
 | `operations/deployment` | Add an **Install** section at the top: artifact table, platform matrix, how to verify checksums and signatures, upgrade and rollback, systemd service from the `.deb`/`.rpm`, Docker Compose example, Windows notes. Move "Run from source" to the end. Replace the "no packaged releases" sentence and rename `./boot/build/native/...` examples to the installed binary |
-| `index` | Replace the pre-beta note that says there are no releases and you run from source with a link to the install options |
+| `index` | Replace the alpha note that says there are no releases and you run from source with a link to the install options |
 | `interfaces/cli` | How to install the CLI (same archive, package managers) |
 | `examples`, `README.md`, `boot` and `cli` module pages | Change prerequisites from "JDK 25" to "a running Yukta server" and link to install |
 | `reference/limits-and-defaults` | Add the supported platform matrix and image tags |

@@ -1,7 +1,7 @@
 ---
 title: "Status values"
 description: "Every execution and node status, and the enumerated values used by node options, limits and roles."
-mode: "wide"
+keywords: ["status values", "enums", "execution status"]
 ---
 
 <Info>
@@ -66,8 +66,16 @@ Node-level values such as `NODE_*` are never terminal for the whole execution.
 
 When you send a signal to a node, the node answers `ACCEPTED` (delivered), `QUEUED` (kept for a wait that has not begun) or refuses it as not waiting. A signal to a node that is not registered gives `409`.
 
-## Related
+## Next steps
 
-- [Executions](/concepts/executions)
-- [Failure handling](/concepts/failure-handling)
-- [Run controls](/running/run-controls)
+<Card title="Executions" icon="play" horizontal href="/concepts/executions">
+  The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end.
+</Card>
+
+<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>
+
+<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>

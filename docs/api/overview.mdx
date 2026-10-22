@@ -1,7 +1,7 @@
 ---
 title: "REST API overview"
 description: "Base path, authentication, response envelope, paging, idempotency and stream conventions shared by every endpoint."
-mode: "wide"
+keywords: ["REST API", "authentication", "API key", "paging", "idempotency"]
 ---
 
 <Info>
@@ -11,14 +11,18 @@ mode: "wide"
 The Yukta server exposes everything it can do over a JSON REST API. The web UI, the command-line client and your own integrations all use it. This page covers the rules that apply to every endpoint; the endpoint pages list the individual calls.
 
 <Note>
-  Yukta is pre-beta (`0.1.0-alpha.2`). Paths, fields and status codes may change before v0.1.0.
+  Yukta is in alpha (`0.1.0-alpha.2`). Paths, fields and status codes may change before v0.1.0.
 </Note>
 
 ## Base path and discovery
 
 All endpoints live under `/api` on the server address, `http://localhost:8080` by default. There is no version segment in the path.
 
-The server publishes an OpenAPI description at `/v3/api-docs` and interactive documentation at `/swagger-ui.html`. Both list every endpoint with its schemas. The same description is rendered in the **Endpoint reference** tab of this site, where every endpoint has its parameters, request and response schemas and a request playground. Use these guides for behaviour and the endpoint reference for exact shapes.
+The server publishes an OpenAPI description at `/v3/api-docs` and interactive documentation at `/swagger-ui.html`. Both list every endpoint with its schemas. The same description is rendered under **All endpoints** in this tab, where every endpoint has its parameters, request and response schemas and a request playground. Use the pages below for behaviour and **All endpoints** for exact shapes.
+
+<Warning>
+  On the native `0.1.0-alpha.2` server and the published Docker image, `/v3/api-docs` and `/swagger-ui.html` fail because of a build problem ([#773](https://github.com/infenia/yukta/issues/773)). Use **All endpoints** on this site, or run the server from source.
+</Warning>
 
 | Page | Covers |
 |---|---|
@@ -173,8 +177,16 @@ Execution endpoints exist at two paths. The `/api/executions/{executionId}/...` 
 
 Retry, breakpoint, signal and priority exist only at the current path. The execution index behind `/api/executions/{executionId}` keeps a finished run for `yukta.tracker.cleanup-ttl` (default `10m`). To read an older run from the session history, use the status alias that names the session.
 
-## Related
+## Next steps
 
-- [Errors](/api/errors)
-- [Security](/operations/security)
-- [Run controls](/running/run-controls)
+<Card title="Errors" icon="circle-exclamation" horizontal href="/api/errors">
+  The error response shape, field errors and every HTTP status the REST API returns, with the cause and what to do.
+</Card>
+
+<Card title="Security" icon="lock" horizontal href="/operations/security">
+  Expose the server safely, control who can do what, and limit what workflows may run.
+</Card>
+
+<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>

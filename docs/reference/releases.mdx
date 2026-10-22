@@ -1,12 +1,24 @@
 ---
 title: "Releases"
 description: "How Yukta versions are numbered, what each release contains, which platforms are supported, and how to verify a download."
-mode: "wide"
+keywords: ["releases", "changelog", "versions", "verify download"]
 ---
 
 <Info>
   **In plain terms:** this page tells you which version to install, what you get with it, and how to check that the files you downloaded are the ones we published.
 </Info>
+
+## Release history
+
+<Update label="0.1.0-alpha.2" description="2026-10-21">
+  **First public alpha.** Expect breaking changes to the workflow JSON, the REST API, the MCP tools and the plugin contract before 1.0.
+
+  - Native server for Linux `amd64` (`.tar.gz`, `.deb`, `.rpm`), the `yukta-cli` client for Linux, macOS and Windows, `install.sh`, and the image `ghcr.io/infenia/yukta:0.1.0-alpha.2`.
+  - Known limitations: no native server for ARM, macOS or Windows yet (use Docker Desktop or WSL 2); no authentication unless you set an API key, and the web UI cannot send one yet; workers connect over plain TCP by default; the MCP tools fail on the native server ([#773](https://github.com/infenia/yukta/issues/773)).
+  - `0.1.0-alpha.1` was tagged but never published.
+
+  [Full release notes](https://github.com/infenia/yukta/releases/tag/v0.1.0-alpha.2)
+</Update>
 
 ## Versioning
 
@@ -36,9 +48,9 @@ Current release: **`0.1.0-alpha.2`**.
 | Platform | Server | Client |
 |---|---|---|
 | Linux `amd64` | Native binary, packages, Docker image | Yes |
-| Linux `arm64` | Not yet | Yes |
-| macOS (Intel, Apple silicon) | Docker Desktop | Yes |
-| Windows `amd64` | Docker Desktop or WSL 2 | Yes |
+| Linux `arm64` | Coming soon; use Docker until then | Yes |
+| macOS (Intel, Apple silicon) | Docker Desktop; a native installer is coming soon | Yes |
+| Windows `amd64` | Docker Desktop or WSL 2; a native installer is coming soon | Yes |
 
 ## Image tags
 
@@ -73,3 +85,17 @@ gh attestation verify yukta-cli-linux-amd64 -R infenia/yukta
 ## Report a problem
 
 Open an issue on [GitHub](https://github.com/infenia/yukta/issues) with the output of `yukta-cli --version` and the server's `/actuator/info`. Security problems go through the process in [SECURITY.md](https://github.com/infenia/yukta/blob/main/SECURITY.md).
+
+## Next steps
+
+<Card title="Quickstart" icon="rocket" horizontal href="/quickstart">
+  Install Yukta and run your first workflow in five minutes.
+</Card>
+
+<Card title="Deployment" icon="box" horizontal href="/operations/deployment">
+  Install Yukta as a Docker image, a Linux package or an archive, or run it from source, with the profiles and build switches that shape it.
+</Card>
+
+<Card title="Licensing and editions" icon="scale-balanced" horizontal href="/reference/licensing">
+  Which parts of Yukta are Apache-2.0, which are AGPL-3.0-only, what each edition includes, and what the licences mean for you.
+</Card>

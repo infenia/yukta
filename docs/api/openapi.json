@@ -3,7 +3,7 @@
   "info": {
     "title": "Yukta REST API",
     "version": "0.0.1-SNAPSHOT",
-    "description": "Create sessions and workflows, start and steer executions, and read their status, logs and results. Pre-beta: paths and schemas may change before v0.1.0."
+    "description": "Create sessions and workflows, start and steer executions, and read their status, logs and results. Alpha: paths and schemas may change before v0.1.0."
   },
   "servers": [
     {
