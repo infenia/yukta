@@ -100,6 +100,7 @@ jobs:
           UNFIXED: ${{ github.event_name == 'pull_request' && '--ignore-unfixed' || '' }}
         run: |
           echo "▶ Enforcing HIGH/CRITICAL vulnerability gate..."
+          # shellcheck disable=SC2086 # UNFIXED is a flag or empty, so it is intentionally unquoted
           trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 $UNFIXED \
             --skip-dirs "$TRIVY_SKIP_DIRS" --quiet .
           echo "✓ No high/critical vulnerabilities"
