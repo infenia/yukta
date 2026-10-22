@@ -149,7 +149,7 @@
         "tab": "API reference",
         "groups": [
           {
-            "group": "API reference",
+            "group": "Overview",
             "public": true,
             "pages": [
               "api/overview",
@@ -157,7 +157,7 @@
             ]
           },
           {
-            "group": "Guides",
+            "group": "Endpoints by area",
             "public": true,
             "pages": [
               "api/sessions",
@@ -169,7 +169,7 @@
             ]
           },
           {
-            "group": "Endpoints",
+            "group": "All endpoints",
             "public": true,
             "openapi": "api/openapi.json"
           }

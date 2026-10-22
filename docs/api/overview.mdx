@@ -18,7 +18,11 @@ The Yukta server exposes everything it can do over a JSON REST API. The web UI, 
 
 All endpoints live under `/api` on the server address, `http://localhost:8080` by default. There is no version segment in the path.
 
-The server publishes an OpenAPI description at `/v3/api-docs` and interactive documentation at `/swagger-ui.html`. Both list every endpoint with its schemas. The same description is rendered in the **Endpoint reference** tab of this site, where every endpoint has its parameters, request and response schemas and a request playground. Use these guides for behaviour and the endpoint reference for exact shapes.
+The server publishes an OpenAPI description at `/v3/api-docs` and interactive documentation at `/swagger-ui.html`. Both list every endpoint with its schemas. The same description is rendered under **All endpoints** in this tab, where every endpoint has its parameters, request and response schemas and a request playground. Use the pages below for behaviour and **All endpoints** for exact shapes.
+
+<Warning>
+  On the native `0.1.0-alpha.2` server and the published Docker image, `/v3/api-docs` and `/swagger-ui.html` fail because of a build problem ([#773](https://github.com/infenia/yukta/issues/773)). Use **All endpoints** on this site, or run the server from source.
+</Warning>
 
 | Page | Covers |
 |---|---|
@@ -175,14 +179,14 @@ Retry, breakpoint, signal and priority exist only at the current path. The execu
 
 ## Next steps
 
-<Card title="Errors" horizontal href="/api/errors">
+<Card title="Errors" icon="circle-exclamation" horizontal href="/api/errors">
   The error response shape, field errors and every HTTP status the REST API returns, with the cause and what to do.
 </Card>
 
-<Card title="Security" horizontal href="/operations/security">
+<Card title="Security" icon="lock" horizontal href="/operations/security">
   Expose the server safely, control who can do what, and limit what workflows may run.
 </Card>
 
-<Card title="Run controls" horizontal href="/running/run-controls">
+<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
   Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
 </Card>
