@@ -57,11 +57,13 @@ A **session** is a folder of workflows. Save this one as `session.json`, then se
 {
   "sessionId": "demo",
   "name": "Quickstart",
+  "description": "Greet a user",
   "initiator": "me",
   "projectPath": "/tmp",
   "workflows": {
     "greet": {
       "workflowId": "greet",
+      "description": "Map the request payload into a greeting",
       "nodes": [
         { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
         {
