@@ -1568,3 +1568,20 @@ func TestStartWorkflow_sendsPayload(t *testing.T) {
 		t.Errorf("empty payload should be omitted: %v", sent)
 	}
 }
+
+func TestStartWorkflowKeyed_sendsTheIdempotencyKeyHeaderOnlyWhenGiven(t *testing.T) {
+	var header string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		header = r.Header.Get("Idempotency-Key")
+		_, _ = w.Write([]byte(`{"data":{"executionId":"e1"}}`))
+	}))
+	defer srv.Close()
+	c := NewClient(srv.URL)
+
+	if _, err := c.StartWorkflowKeyed("s", "w", nil, "k-1"); err != nil || header != "k-1" {
+		t.Fatalf("header=%q err=%v", header, err)
+	}
+	if _, err := c.StartWorkflow("s", "w", nil); err != nil || header != "" {
+		t.Fatalf("header=%q err=%v", header, err)
+	}
+}
