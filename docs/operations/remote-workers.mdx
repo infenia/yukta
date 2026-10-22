@@ -2,12 +2,8 @@
 title: "Remote workers"
 description: "Run selected processor nodes on other machines, in named pools, while the control plane keeps orchestrating."
 tag: "Optional"
-mode: "wide"
+keywords: ["remote workers", "worker pools", "distributed execution"]
 ---
-
-<Note>
-  This module is part of the **Plus** edition (AGPL-3.0-only). See [Licensing and editions](/reference/licensing).
-</Note>
 
 <Info>
   **In plain terms:** some steps are heavy, need special hardware, or must run next to a particular system. Remote workers let such a step run on another machine, while the server still handles ordering, retries, timeouts and status as if it ran locally.
@@ -16,6 +12,10 @@ mode: "wide"
 A processor node with `engine.placement` runs on a worker process of a named pool instead of on the server that orchestrates the run. Retries, error routing, timeouts, pause and skip, checkpoints and status work as they do for a local node.
 
 Remote workers are an optional part of the build and are off by default.
+
+<Note>
+  This module is part of the **Plus** edition (AGPL-3.0-only). See [Licensing and editions](/reference/licensing).
+</Note>
 
 ## When to use it
 
@@ -195,9 +195,20 @@ With [high availability](/operations/high-availability), list every control plan
 | Reconnect pause | 1 s growing to 30 s, no limit on tries |
 | Message size | No limit set by Yukta |
 
-## Related
+## Next steps
 
-- [Failure handling](/concepts/failure-handling)
-- [Security](/operations/security)
-- [High availability](/operations/high-availability)
-- [Configuration](/operations/configuration)
+<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>
+
+<Card title="Security" icon="lock" horizontal href="/operations/security">
+  Expose the server safely, control who can do what, and limit what workflows may run.
+</Card>
+
+<Card title="High availability" icon="server" horizontal href="/operations/high-availability">
+  Run several servers on one PostgreSQL database so that one admits runs and the others take over when it stops.
+</Card>
+
+<Card title="Configuration" icon="gear" horizontal href="/operations/configuration">
+  Every setting an operator can change, its default and what it controls, plus the per-node engine options.
+</Card>

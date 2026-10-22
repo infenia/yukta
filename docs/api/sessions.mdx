@@ -1,7 +1,7 @@
 ---
 title: "Sessions API"
 description: "Apply, validate, list and read sessions and their configuration over REST."
-mode: "wide"
+keywords: ["sessions API", "apply session", "validate session", "session configuration"]
 ---
 
 <Info>
@@ -286,8 +286,16 @@ Returns one summary per workflow with its size and the status of its latest run.
 }
 ```
 
-## Related
+## Next steps
 
-- [Workflows API](/api/workflows)
-- [Defining a workflow](/building/defining-a-workflow)
-- [Validation and versions](/building/validation-and-versions)
+<Card title="Workflows API" icon="diagram-project" horizontal href="/api/workflows">
+  Read workflow definitions and graphs, manage saved versions, and start, stop and list runs of a workflow.
+</Card>
+
+<Card title="Defining a workflow" icon="file-code" horizontal href="/building/defining-a-workflow">
+  The complete JSON shape of a session and its workflows, and how to build one step by step.
+</Card>
+
+<Card title="Validation and versions" icon="code-compare" horizontal href="/building/validation-and-versions">
+  Check a workflow definition before it runs, and diff, annotate and roll back its saved versions.
+</Card>

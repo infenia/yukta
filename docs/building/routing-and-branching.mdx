@@ -1,7 +1,7 @@
 ---
 title: "Routing and branching"
 description: "Patterns for sending messages down different paths: by exit code, HTTP status, expression, validation result, recipient list and error."
-mode: "wide"
+keywords: ["routing", "branching", "BRANCH", "conditional paths"]
 ---
 
 <Info>
@@ -127,8 +127,16 @@ With `onError: ROUTE` in a node's `engine` object, a message that fails all its 
 
 Several branches can lead into one node, often a shared terminal. When that node has several parents, its join rule decides what a failed branch means; see [Nodes, edges and ports](/concepts/nodes-edges-ports).
 
-## Related
+## Next steps
 
-- [Nodes, edges and ports](/concepts/nodes-edges-ports)
-- [Routing and flow control](/plugins/routing-and-flow)
-- [Variables and expressions](/building/variables-and-expressions)
+<Card title="Nodes, edges and ports" icon="circle-nodes" horizontal href="/concepts/nodes-edges-ports">
+  Node roles, how edges and output ports route messages, and how a node with several parents joins them.
+</Card>
+
+<Card title="Routing and flow control" icon="shuffle" horizontal href="/plugins/routing-and-flow">
+  BRANCH, FILTER, SPLITTER, AGGREGATE, RECIPIENT_LIST, DELAY, LOOP_PREDICATE, LOOP_STREAM, SUB_WORKFLOW and WAIT_FOR_SIGNAL: plugins that decide where messages go and when.
+</Card>
+
+<Card title="Variables and expressions" icon="brackets-curly" horizontal href="/building/variables-and-expressions">
+  Reference message data, settings and secrets inside node configuration without storing them in the workflow.
+</Card>

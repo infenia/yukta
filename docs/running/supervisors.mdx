@@ -2,7 +2,7 @@
 title: "Supervisors"
 description: "Programs that watch every execution and steer it, or veto commands before they run: a rule engine, an AI agent or your own code."
 tag: "Optional"
-mode: "wide"
+keywords: ["supervisors", "rule engine", "AI supervisor"]
 ---
 
 <Info>
@@ -10,6 +10,20 @@ mode: "wide"
 </Info>
 
 A **supervisor** watches the live event feed of all executions and returns commands: pause a workflow after repeated failures, stop a node that returns a server error, refuse a dangerous stop. Supervisors are optional and off until you enable one.
+
+## Choose a supervisor
+
+A supervisor can be as simple as a few rules or as capable as an AI agent. Pick by how well you can describe the situations it should handle:
+
+| Supervisor | Decides with | Use it when | See |
+|---|---|---|---|
+| Rule supervisor | A JSON rules file | You can state the situations and responses exactly | [Rule files](/running/rule-files) |
+| Model control plane | A decision model: a System One model, or any LLM | You can describe the situations only in words | [Control planes](/running/control-planes#model-control-plane) |
+| Rules-first control plane | Rules, then the model when no rule fired | Exact cases come first, the model covers the long tail | [Control planes](/running/control-planes#rules-first-control-plane) |
+| An AI agent outside the server | Any agent that reads the event stream and sends commands over MCP or REST | You want open-ended judgement, or a person and an agent sharing the controls | [Supervisors outside the server](#supervisors-outside-the-server) |
+| Your own code | A supervisor or control plane you write | None of the above fits | [Writing a plugin](/plugins/writing-a-plugin) |
+
+All of them send commands through the same ordered, reviewed and audited pipeline as a person does, so a supervisor can never do anything you could not see afterwards.
 
 ## What a supervisor can do
 
@@ -56,7 +70,7 @@ GET /api/events/stream?executionId={id}&type={type}
 GET /api/supervisors
 ```
 
-reports every supervisor and control plane: its kind (`SUPERVISOR` or `CONTROL_PLANE`), order, dry-run flag and command counts. The web UI's Control page shows the same.
+This reports every supervisor and control plane: its kind (`SUPERVISOR` or `CONTROL_PLANE`), order, dry-run flag and command counts. The web UI's Control page shows the same.
 
 ## Settings
 
@@ -66,9 +80,20 @@ reports every supervisor and control plane: its kind (`SUPERVISOR` or `CONTROL_P
 | `yukta.supervisor.max-commands-per-second` | `20` | Rate limit per supervisor |
 | `yukta.supervisor.dry-run` | `false` | Record commands without applying them |
 
-## Related
+## Next steps
 
-- [Rule files](/running/rule-files)
-- [Control planes](/running/control-planes)
-- [Run controls](/running/run-controls)
-- [Observability](/running/observability)
+<Card title="Rule files" icon="file-lines" horizontal href="/running/rule-files">
+  The declarative JSON format used by the rule supervisor and the rule control plane: react to events and veto commands.
+</Card>
+
+<Card title="Control planes" icon="scale-balanced" horizontal href="/running/control-planes">
+  Decision makers on the control bus that judge one event at a time, using rules, a small model, or rules first and a model as a fallback.
+</Card>
+
+<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>
+
+<Card title="Observability" icon="eye" horizontal href="/running/observability">
+  Progress, logs, results, the live event feed, metrics and tracing: how to see what an execution is doing and what it produced.
+</Card>

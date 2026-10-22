@@ -12,6 +12,7 @@ import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.ConfigRedactor;
 import com.infenia.yukta.service.workflow.WorkflowService;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -58,8 +59,25 @@ public class WorkflowExecutionProvider {
    * @return Mono containing the start result with the new execution ID
    */
   public Mono<WorkflowStartResult> startWorkflow(final String sessionId, final String workflowId) {
-    return workflowService
-        .validateAndStartWorkflow(sessionId, workflowId)
+    return startWorkflow(sessionId, workflowId, null);
+  }
+
+  /**
+   * Start a workflow execution that is safe to repeat.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param idempotencyKey optional key; a repeat with the same key (same session and workflow,
+   *     within the server's window) returns the first execution instead of starting another
+   * @return Mono containing the start result with the new execution ID
+   */
+  public Mono<WorkflowStartResult> startWorkflow(
+      final String sessionId, final String workflowId, final String idempotencyKey) {
+    final boolean keyed = idempotencyKey != null && !idempotencyKey.isBlank();
+    return (keyed
+            ? workflowService.validateAndStartWorkflow(
+                sessionId, workflowId, Map.of(), idempotencyKey.strip())
+            : workflowService.validateAndStartWorkflow(sessionId, workflowId))
         .map(WorkflowExecution::executionId)
         .map(WorkflowStartResult::new);
   }

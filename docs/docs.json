@@ -48,7 +48,6 @@
             "pages": [
               "index",
               "quickstart",
-              "playground",
               "examples"
             ]
           },
@@ -63,12 +62,14 @@
               "concepts/executions",
               "concepts/delivery-and-backpressure",
               "concepts/failure-handling",
+              "playground",
               "concepts/time-limits",
-              "concepts/sub-workflows"
+              "concepts/sub-workflows",
+              "concepts/compared-with-other-tools"
             ]
           },
           {
-            "group": "Building workflows",
+            "group": "Build workflows",
             "public": true,
             "pages": [
               "building/defining-a-workflow",
@@ -78,26 +79,26 @@
               "building/loops-and-retries",
               "building/approvals-and-signals",
               "building/scheduling",
-              "building/ai-and-agents"
+              "building/ai-and-agents",
+              {
+                "group": "Plugins",
+                "public": true,
+                "pages": [
+                  "plugins/overview",
+                  "plugins/triggers",
+                  "plugins/routing-and-flow",
+                  "plugins/transform",
+                  "plugins/external-io",
+                  "plugins/ai",
+                  "plugins/decisions",
+                  "plugins/terminals",
+                  "plugins/writing-a-plugin"
+                ]
+              }
             ]
           },
           {
-            "group": "Plugin reference",
-            "public": true,
-            "pages": [
-              "plugins/overview",
-              "plugins/triggers",
-              "plugins/routing-and-flow",
-              "plugins/transform",
-              "plugins/external-io",
-              "plugins/ai",
-              "plugins/decisions",
-              "plugins/terminals",
-              "plugins/writing-a-plugin"
-            ]
-          },
-          {
-            "group": "Running and controlling",
+            "group": "Run and control",
             "public": true,
             "pages": [
               "running/run-controls",
@@ -118,7 +119,7 @@
             ]
           },
           {
-            "group": "Operations",
+            "group": "Operate",
             "public": true,
             "pages": [
               "operations/configuration",
@@ -139,17 +140,16 @@
               "reference/glossary",
               "reference/licensing",
               "reference/limits-and-defaults",
-              "reference/releases",
               "reference/status-values"
             ]
           }
         ]
       },
       {
-        "tab": "API guides",
+        "tab": "API reference",
         "groups": [
           {
-            "group": "API basics",
+            "group": "Overview",
             "public": true,
             "pages": [
               "api/overview",
@@ -157,7 +157,7 @@
             ]
           },
           {
-            "group": "Endpoints",
+            "group": "Endpoints by area",
             "public": true,
             "pages": [
               "api/sessions",
@@ -167,16 +167,23 @@
               "api/streams",
               "api/catalogue"
             ]
+          },
+          {
+            "group": "All endpoints",
+            "public": true,
+            "openapi": "api/openapi.json"
           }
         ]
       },
       {
-        "tab": "Endpoint reference",
+        "tab": "Changelog",
         "groups": [
           {
-            "group": "Endpoints",
+            "group": "Changelog",
             "public": true,
-            "openapi": "api/openapi.json"
+            "pages": [
+              "reference/releases"
+            ]
           }
         ]
       },

@@ -1,39 +1,33 @@
 ---
 title: "Workflow playground"
-description: "Build a small workflow, click nodes to connect them, and watch a simulated run move through it, including what happens when a node fails."
-mode: "wide"
+description: "Build a small workflow, connect nodes, and watch a simulated run, including what happens when a node fails."
+keywords: ["playground", "try in browser", "simulated run"]
 ---
 
 import { WorkflowPlayground } from "/snippets/workflow-playground.jsx"
 
-The playground lets you try the idea of a workflow before you install anything. You will see boxes (steps) light up in order, watch a step fail, and see where the failure goes. It is the quickest way to understand what "a flowchart that runs" means.
+Try a workflow before you install anything. Boxes on the path the run takes light up in order, and you can make one fail to see where the failure goes: a failure follows the error path you chose for it, and boxes on other paths stay dark.
 
-The playground is a **simulation that runs in your browser**. It shows how Yukta moves a workflow through its nodes, and no server is contacted.
-
-Pick a preset, or edit the JSON directly. Click a node and then another node to connect them, and use Run or Step to watch the nodes change status. Shift-click a node, or use its Fail button in the table, to make it fail and see where the run goes next.
+## Try it
 
 <WorkflowPlayground />
 
-## How the simulation differs from a real run
+## What the simulation leaves out
 
 <Warning>
-  The playground teaches the shape of a run. It is not a test of your workflow, and a green run here does not mean the real server will accept or complete it.
+  A green run here does not mean the real server will accept your workflow. The simulation leaves out plugin work, retries, time limits, message streams, approval waits and persistence, and a failed node fails at once and follows its `error` edge if it has one.
 </Warning>
 
-The simulation leaves out the parts of a run that depend on a live server and real data:
+## Next steps
 
-- **No plugin work.** Nodes do not call models, APIs or databases. Each node simply finishes, or fails if you mark it.
-- **No retries, timeouts or limits.** A node marked to fail fails at once. In a real workflow, `retry`, time limits and failure budgets apply first.
-- **No messages or delivery modes.** A node runs once per step. Real nodes handle streams of messages, with buffering and back-pressure between them.
-- **No approval waits.** A `WAIT_FOR_SIGNAL` node finishes straight away. A real one holds until a signal arrives.
-- **No persistence.** Nothing is stored, and a reload starts from the preset again.
-- **A simplified join rule.** A node waits for all of its active inputs. If one parent fails, the node ends `UPSTREAM_FAILED` unless you set `engine.trigger` to `ALL_DONE` or `ONE_SUCCESS` in its `config`.
-- **Simplified routing.** The simulation follows an `error` edge when its source node fails, whether or not the node sets `onError` to `ROUTE`. Ports such as `invalid` stay quiet unless their node fails, because the simulation cannot judge a message.
+<Card title="Quickstart" icon="rocket" horizontal href="/quickstart">
+  Install Yukta and run your first real workflow in five minutes.
+</Card>
 
-<Note>
-  A failure that is routed to an `error` edge shows the failing node as `FAILURE`, the route target as running, and the nodes that only the normal path would reach as `UPSTREAM_FAILED`. Nodes that the run never needed stay `PENDING` and are reported as not reached.
-</Note>
+<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
+  Retries, error routes, failure budgets and join rules: what a real run adds.
+</Card>
 
-<Tip>
-  Ready for the real thing? Read [Executions](/concepts/executions), [Failure handling](/concepts/failure-handling) and [Delivery and back-pressure](/concepts/delivery-and-backpressure) to see what the simulation leaves out, then follow the [Quickstart](/quickstart) to run a workflow on your own server.
-</Tip>
+<Card title="Examples" icon="flask" horizontal href="/examples">
+  Ten ready-to-run workflows for CI, data, alerts and agents.
+</Card>

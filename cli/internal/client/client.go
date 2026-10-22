@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -20,10 +21,17 @@ const DefaultTimeout = 30 * time.Second
 
 // Client provides an HTTP client wrapper for communicating with the Yukta API.
 type Client struct {
-	BaseURL    string
-	Token      string        // optional bearer token sent as Authorization
-	Timeout    time.Duration // per-request limit for non-streaming calls; <= 0 disables
-	HTTPClient *http.Client
+	BaseURL string
+	Token   string // optional bearer token sent as Authorization
+	// AllowInsecureToken lets Token go over plain http to a host that is not loopback.
+	AllowInsecureToken bool
+	Timeout            time.Duration // per-request limit for non-streaming calls; <= 0 disables
+	HTTPClient         *http.Client
+	// StreamIdle is how long a followed stream may be silent (pings count) before it is treated as
+	// dropped; StreamReconnects bounds the reopenings in a row; StreamWait is the first pause.
+	StreamIdle       time.Duration
+	StreamReconnects int
+	StreamWait       time.Duration
 }
 
 // NewClient creates a new HTTP client with the given base URL.
@@ -33,8 +41,11 @@ func NewClient(baseURL string) *Client {
 		baseURL = "http://localhost:8080"
 	}
 	return &Client{
-		BaseURL: strings.TrimRight(baseURL, "/"),
-		Timeout: DefaultTimeout,
+		BaseURL:          strings.TrimRight(baseURL, "/"),
+		Timeout:          DefaultTimeout,
+		StreamIdle:       DefaultStreamIdle,
+		StreamReconnects: DefaultStreamReconnects,
+		StreamWait:       DefaultStreamWait,
 		// No client-wide Timeout: it would also cut SSE streams.
 		HTTPClient: &http.Client{},
 	}
@@ -65,6 +76,10 @@ func (c *Client) newRequestWithBody(method string, path string, body []byte) (*h
 		bodyReader = bytes.NewReader(body)
 	}
 
+	if err := c.checkTokenTransport(urlStr); err != nil {
+		return nil, err
+	}
+
 	req, err := http.NewRequest(method, urlStr, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -79,6 +94,26 @@ func (c *Client) newRequestWithBody(method string, path string, body []byte) (*h
 	return req, nil
 }
 
+// checkTokenTransport refuses to send the token in clear text over the network.
+func (c *Client) checkTokenTransport(urlStr string) error {
+	if c.Token == "" || c.AllowInsecureToken {
+		return nil
+	}
+	u, _ := url.Parse(urlStr) // already parsed by the caller
+	if u.Scheme != "http" || isLoopbackHost(u.Hostname()) {
+		return nil
+	}
+	return fmt.Errorf("refusing to send the token over plain http to %q; use https or pass --insecure-token", u.Hostname())
+}
+
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 // newRequest creates a new HTTP request for the given method and path.
 // The path should be relative to the base URL (e.g., "/api/sessions").
 func (c *Client) newRequest(method string, path string) (*http.Request, error) {
@@ -88,8 +123,14 @@ func (c *Client) newRequest(method string, path string) (*http.Request, error) {
 // doRequest executes an HTTP request and returns the response body as bytes.
 // It handles response status codes and errors appropriately.
 func (c *Client) doRequest(req *http.Request) ([]byte, error) {
+	body, _, err := c.doRequestHeader(req)
+	return body, err
+}
+
+// doRequestHeader is doRequest that also returns the response headers.
+func (c *Client) doRequestHeader(req *http.Request) ([]byte, http.Header, error) {
 	if req == nil {
-		return nil, errors.New("request cannot be nil")
+		return nil, nil, errors.New("request cannot be nil")
 	}
 
 	if c.Timeout > 0 {
@@ -100,21 +141,25 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	// Check for non-2xx status codes
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, string(body))
+		hint := ""
+		if resp.StatusCode == http.StatusUnauthorized {
+			hint = " (the server needs an API key: set YUKTA_TOKEN, or use --token-file)"
+		}
+		return nil, nil, fmt.Errorf("API error: status %d: %s%s", resp.StatusCode, string(body), hint)
 	}
 
-	return body, nil
+	return body, resp.Header, nil
 }
 
 // apiPath fills the %s placeholders in format with URL-path-escaped args, so IDs

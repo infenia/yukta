@@ -1,7 +1,7 @@
 ---
 title: "MCP module"
-description: "The mcp module is Yukta's door for AI agents."
-mode: "wide"
+description: "The MCP server that lets AI agents create, run, watch and steer workflows: its tools, prompts and resources, and how they map onto core."
+keywords: ["mcp module", "Model Context Protocol", "MCP tools"]
 ---
 
 The mcp module is Yukta's door for AI agents. An agent (a program driven by a language model) connects over the Model Context Protocol (MCP, an open standard for letting models call tools) and does what a person does through the REST API or the web UI: create sessions, start workflows, steer a run, read its logs and look up plugins. The module holds no state and runs no workflows itself. It checks the request, calls core, and shapes the answer so a model can use it. This page is for thinking about it, not documenting it: open a component, play a scenario, then challenge the weak spots.
@@ -813,3 +813,13 @@ Behaviours of the framework the code is shaped around.
 | Polling | Asking again and again for an update instead of being told. | The only way to follow progress in stateless mode. |
 | Wrapper record | A small record that holds a list, such as SessionList. | Avoids two Spring AI bugs with list results. |
 | DTO (data transfer object) | A plain data class that carries a result between layers. | mcp has its own records and does not reuse web's. |
+
+## Next steps
+
+<Card title="MCP server" icon="plug" horizontal href="/interfaces/mcp">
+  Let an AI agent create sessions, run workflows, watch them and steer them through the Model Context Protocol.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>

@@ -1,14 +1,14 @@
 ---
 title: "Time limits"
 description: "The five independent clocks that bound an execution, and how pausing and long-running work interact with them."
-mode: "wide"
+keywords: ["timeouts", "deadlines", "time limits", "idle timeout"]
 ---
 
 <Info>
   **In plain terms:** a stuck job should end, not hang forever. Yukta watches five clocks: how long a start may wait in line, how long the whole run may take, how long a step may sit idle, how long a single attempt may take, and how long a step may live in total. Pausing a run freezes all of them, so a pause never causes a timeout.
 </Info>
 
-Yukta bounds an execution with five independent clocks. All of them are **pause-aware**: pausing freezes every clock, so a pause never causes a timeout.
+Yukta bounds an execution with five independent clocks. All of them are **pause-aware**.
 
 | Clock | Scope | Resets on | Ends with |
 |---|---|---|---|
@@ -52,8 +52,16 @@ Set both in a node's `engine` object:
 
 The run deadline bounds the whole execution and defaults to 3600 seconds. Change it with `yukta.session.execution-timeout-seconds` (environment form `YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS`). Because it never resets, it is the safety net for a workflow that should always finish. A run that outlives it ends `TIMED_OUT`; a node that times out keeps its own status.
 
-## Related
+## Next steps
 
-- [Failure handling](/concepts/failure-handling)
-- [Run controls](/running/run-controls)
-- [Admission and limits](/running/admission-and-limits)
+<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
+  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
+</Card>
+
+<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
+  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
+</Card>
+
+<Card title="Admission and limits" icon="traffic-light" horizontal href="/running/admission-and-limits">
+  Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes.
+</Card>
