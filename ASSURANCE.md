@@ -3,7 +3,7 @@
 This document explains why Yukta can be trusted to meet its security requirements. It states
 the security requirements, the threat model and trust boundaries, the secure design principles
 the code follows, how common implementation weaknesses are countered, and the evidence for each
-claim. It describes the pre-beta server (`0.1.x`); the settings behind each claim are specified
+claim. It describes the alpha server (`0.1.x`); the settings behind each claim are specified
 in [docs/operations/security.mdx](docs/operations/security.mdx).
 
 ## 1. Security Requirements
