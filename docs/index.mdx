@@ -1,6 +1,6 @@
 ---
 title: "Introduction"
-description: "Yukta runs every step of your workflow, every time, and gives you full control while it runs. Plugins do the work, AI can be a step or a supervisor, and people and agents drive it the same way."
+description: "Define a workflow once and Yukta carries it out the same way, every time. Watch it live, take the controls whenever you want, and bring in AI as a step, an author or a supervisor."
 mode: "frame"
 keywords: ["introduction", "workflow orchestration", "DAG", "AI agents"]
 ---
@@ -21,8 +21,8 @@ export const HeroCard = ({ image, title, description, href }) => (
 <div className="yk-landing">
   <div className="not-prose yk-landing-hero">
     <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Workflow engine for people and AI agents · v0.1.0-alpha.2</span>
-    <h1>Every step runs.<br />You stay in control.</h1>
-    <p>People forget steps, and so do LLMs. Yukta runs your workflow exactly as you defined it, every time. Watch it live, pause, stop or restart it, and add AI as a step or as the supervisor.</p>
+    <h1>Workflows you can trust,<br />even when AI runs them.</h1>
+    <p>Define a workflow once and Yukta carries it out the same way, every time. Watch it live, take the controls whenever you want, and bring in AI as a step, an author or a supervisor.</p>
     <div className="yk-hero-cta">
       <a className="yk-btn yk-btn-primary" href="/quickstart">Get started</a>
       <a className="yk-btn yk-btn-secondary" href="/playground">Open the playground</a>
@@ -44,13 +44,13 @@ export const HeroCard = ({ image, title, description, href }) => (
 
 ## Why Yukta exists
 
-Many jobs are a fixed list of steps: build, test, scan, deploy; or read a request, decide, act, report. Two things go wrong with them.
+A lot of good work is a routine: build, test, scan, deploy; or read a request, decide, act, report. Routines carried in someone's head, or in an AI agent's prompt, work most of the time. Over hundreds of runs, small slips creep in quietly: a check skipped on a busy day, an agent that decides a step is not needed this time. Nobody notices until the result is wrong.
 
 <Columns cols={2}>
-  <Card title="Steps get missed" icon="list-check">
-    A person running a checklist by hand skips a step now and then. An LLM asked to follow the same list does too: it drifts, loops or decides a step is not needed. Yukta runs the steps from a definition, so every step runs, in order, every time.
+  <Card title="Take the routine off memory" icon="list-check">
+    Write the steps down once as a workflow. Yukta runs them from that definition, in order, on every run, whether a person, a script or an AI agent starts it.
   </Card>
-  <Card title="Runs need an operator" icon="sliders">
+  <Card title="Keep a hand on the controls" icon="sliders">
     Automation you cannot see into is hard to trust. In Yukta you watch every run live and can pause, step, stop, restart or retry it, down to a single node. Every command is ordered and audited.
   </Card>
 </Columns>
