@@ -243,7 +243,7 @@ class ApiKeyFilterTest {
   }
 
   @Test
-  void testApiDescriptionNeedsAKey() {
+  void testApiDescriptionNeedsKey() {
     for (final String path :
         List.of("/v3/api-docs", "/swagger-ui.html", "/swagger-ui/index.html")) {
       assertThat(run("secret", MockServerHttpRequest.get(path)).getResponse().getStatusCode())
