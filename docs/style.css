@@ -259,6 +259,17 @@ button,
 .code-block,
 .code-group {
   border-color: var(--yk-border);
+  border: 1px solid var(--yk-border);
+  border-radius: var(--yk-radius-xl);
+  box-shadow: var(--yk-shadow-sm);
+}
+
+/* Home page animated workflow: framed like the static diagrams. */
+.yk-dag-hero {
+  box-sizing: border-box;
+  padding: 0.5rem;
+  background: var(--yk-surface);
+  border: 1px solid var(--yk-border);
   border-radius: var(--yk-radius-xl);
   box-shadow: var(--yk-shadow-sm);
 }

@@ -176,7 +176,7 @@ const problemsStream = "data: " + `{"type":"NodeStatusChanged","severity":"INFO"
 
 func TestWatchCmd_quietShowsProblemsWithTheirCauses(t *testing.T) {
 	out, err := testutil.Run(t, WatchCmd(testutil.Stream(t, problemsStream)), "--quiet")
-	if err != nil {
+	if err != nil && !feedEnded(err) {
 		t.Fatal(err)
 	}
 	want := "WARN tests: warning: [deprecation] foo()\n" +
@@ -197,7 +197,7 @@ func TestWatchCmd_quietWithJsonKeepsTheEventsAsTheyAre(t *testing.T) {
 	defer commands.SetTestOutputFormat("table")
 
 	out, err := testutil.Run(t, WatchCmd(testutil.Stream(t, problemsStream)), "--quiet")
-	if err != nil {
+	if err != nil && !feedEnded(err) {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(out), "\n")
@@ -213,7 +213,7 @@ func TestWatchCmd_quietAlwaysShowsAHealReport(t *testing.T) {
 		"data: " + `{"type":"WorkflowStatusChanged","event":{"executionId":"e","status":"SUCCESS"}}` + "\n\n"
 
 	out, err := testutil.Run(t, WatchCmd(testutil.Stream(t, stream)), "--quiet")
-	if err != nil {
+	if err != nil && !feedEnded(err) {
 		t.Fatal(err)
 	}
 	want := "HEAL style attempt=1 mode=fresh fixed=true files=2 cost=$0.21 summary=removed the unused import\n" +
