@@ -273,4 +273,38 @@ class McpEndpointFilterTest {
 
     assertThat(call(env, "/mcp", "x".repeat((1 << 20) + 1))).startsWith("413");
   }
+
+  @Test
+  void testCallerOverTheRateLimitGetsTooManyRequests() {
+    final var env =
+        new org.springframework.mock.env.MockEnvironment()
+            .withProperty("yukta.api-key", "k")
+            .withProperty("yukta.mcp.rate-limit-per-minute", "2");
+    final McpEndpointFilter filter = new McpEndpointFilter(env);
+    HttpStatus last = null;
+    for (int i = 0; i < 3; i++) {
+      final var exchange =
+          MockServerWebExchange.from(MockServerHttpRequest.post("/mcp").header("X-API-Key", "k"));
+      filter.filter(exchange, (ServerWebExchange e) -> Mono.empty()).block();
+      last = (HttpStatus) exchange.getResponse().getStatusCode();
+    }
+
+    assertThat(last).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+  }
+
+  @Test
+  void testOpenEndpointIsLimitedToo() {
+    final var env =
+        new org.springframework.mock.env.MockEnvironment()
+            .withProperty("yukta.mcp.rate-limit-per-minute", "1");
+    final McpEndpointFilter filter = new McpEndpointFilter(env);
+    final var first = MockServerWebExchange.from(MockServerHttpRequest.post("/mcp"));
+    final var second = MockServerWebExchange.from(MockServerHttpRequest.post("/mcp"));
+
+    filter.filter(first, (ServerWebExchange e) -> Mono.empty()).block();
+    filter.filter(second, (ServerWebExchange e) -> Mono.empty()).block();
+
+    assertThat(second.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    assertThat(second.getResponse().getHeaders().getFirst("Retry-After")).isEqualTo("60");
+  }
 }
