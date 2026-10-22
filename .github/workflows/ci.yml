@@ -474,7 +474,8 @@ jobs:
     needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: needs.changes.outputs.e2e == 'true'
+    # Not on push to main: the merge queue just ran the same tree through this job.
+    if: needs.changes.outputs.e2e == 'true' && github.event_name != 'push'
     permissions:
       contents: read
     steps:
