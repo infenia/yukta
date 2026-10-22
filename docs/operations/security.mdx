@@ -280,10 +280,9 @@ Without any key, everyone who can reach the server has this right. That is why t
 These parts of the server need no key:
 
 - `/actuator/health`
-- The interactive API documentation, `/swagger-ui.html` and `/v3/api-docs`
 - The web UI's static files and pages
 
-Restrict them at the proxy if the API description should not be public.
+With a key set, the interactive API documentation (`/swagger-ui.html`, `/v3/api-docs`) needs a key too, and the `prod` profile switches it off. A browser cannot send the key header to the Swagger UI page, so use `/v3/api-docs` with a key, or the `dev` profile locally.
 
 ## Reporting vulnerabilities
 

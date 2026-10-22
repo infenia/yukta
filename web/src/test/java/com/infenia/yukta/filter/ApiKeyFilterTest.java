@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.plugin.control.ControlActor;
 import java.net.URI;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.NoArgsConstructor;
@@ -239,6 +240,17 @@ class ApiKeyFilterTest {
     assertThat(passed).isTrue();
     run("secret", MockServerHttpRequest.get("/actuator/metrics").header("X-API-Key", "secret"));
     assertThat(passed).isTrue();
+  }
+
+  @Test
+  void testApiDescriptionNeedsAKey() {
+    for (final String path :
+        List.of("/v3/api-docs", "/swagger-ui.html", "/swagger-ui/index.html")) {
+      assertThat(run("secret", MockServerHttpRequest.get(path)).getResponse().getStatusCode())
+          .isEqualTo(HttpStatus.UNAUTHORIZED);
+      run("secret", MockServerHttpRequest.get(path).header("X-API-Key", "secret"));
+      assertThat(passed).isTrue();
+    }
   }
 
   @Test
