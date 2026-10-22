@@ -1,6 +1,7 @@
 ---
-title: "Workflow playground"
-description: "Build a small workflow, connect nodes, and watch a simulated run, including what happens when a node fails."
+title: "Workflow playground: try a workflow in your browser"
+sidebarTitle: "Workflow playground"
+description: "Build a small workflow in your browser, connect nodes and watch a simulated run step by step, including where the failure goes when a node fails."
 keywords: ["playground", "try in browser", "simulated run"]
 ---
 
@@ -10,7 +11,20 @@ Try a workflow before you install anything. Boxes on the path the run takes ligh
 
 ## Try it
 
-<WorkflowPlayground />
+<Visibility for="humans">
+  <WorkflowPlayground />
+</Visibility>
+
+<Visibility for="agents">
+  The page shows an interactive, browser-only simulation of a Yukta workflow graph. No server is contacted and nothing is saved. Readers pick a preset, add nodes and edges, then step, pause or reset a simulated run, and can mark any node as failed to see which path the failure takes. The presets are:
+
+  - **Linear**: `API_TRIGGER` → `HTTP_REQUEST` → `MAPPER` → `CONSOLE_TERMINAL`.
+  - **Fan-out and aggregate**: a `RECIPIENT_LIST` sends each message to two `HTTP_REQUEST` nodes (ports `primary` and `backup`) and to a `CONSOLE_TERMINAL` audit log (port `audit`). An `AGGREGATE` node joins the two fetches, an `LLM_CALL` summarises them and a `NOTIFY_TERMINAL` reports the result.
+  - **Error route**: `HTTP_REQUEST` (3 attempts, 200 ms backoff, `onError: ROUTE`) → `VALIDATE` → `MAPPER` → `CONSOLE_TERMINAL`. Invalid messages leave `VALIDATE` on its `invalid` port for a `rejected` terminal, and a fetch that still fails after its retries leaves on its `error` port for a `NOTIFY_TERMINAL` alert.
+  - **Approval** (the default): an `LLM_CALL` classifies a ticket, `WAIT_FOR_SIGNAL` holds it until an `approve` signal arrives, then an `HTTP_REQUEST` updates the ticket. A failed classification follows its `error` edge to a dead-letter terminal.
+
+  To build and run a real workflow, follow the [Quickstart](/quickstart).
+</Visibility>
 
 ## What the simulation leaves out
 

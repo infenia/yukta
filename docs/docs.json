@@ -49,7 +49,8 @@
               "index",
               "quickstart",
               "examples"
-            ]
+            ],
+            "boost": 2
           },
           {
             "group": "Concepts",
@@ -196,7 +197,8 @@
             "pages": [
               "contributing/overview",
               "contributing/core-reference"
-            ]
+            ],
+            "boost": 0.5
           },
           {
             "group": "Modules",
@@ -215,7 +217,8 @@
               "contributing/modules/ui",
               "contributing/modules/web",
               "contributing/modules/workers"
-            ]
+            ],
+            "boost": 0.5
           }
         ]
       }
@@ -230,7 +233,9 @@
     },
     "organization": {
       "name": "Infenia",
-      "sameAs": ["https://github.com/infenia/yukta"]
+      "sameAs": [
+        "https://github.com/infenia/yukta"
+      ]
     }
   },
   "search": {
