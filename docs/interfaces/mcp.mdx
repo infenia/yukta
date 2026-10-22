@@ -53,7 +53,7 @@ Other clients take the same two values, a URL and optional headers. A typical co
 
 ## Authentication and roles
 
-`/mcp` is protected by the same keys as the REST API, plus an optional `yukta.mcp.api-key` that grants the `ADMIN` role to MCP only. Send the key as `Authorization: Bearer <key>` or `X-API-Key: <key>`. Setting only the REST key therefore closes MCP too. With no key configured, the server accepts requests from loopback only, as for REST; see [Security](/operations/security).
+`/mcp` is protected by the same keys as the REST API, plus an optional `yukta.mcp.api-key` that grants the `ADMIN` role to MCP only. Send the key as `Authorization: Bearer <key>` or `X-API-Key: <key>`. Setting only the REST key therefore closes MCP too. With no key configured, the server accepts requests from loopback only, as for REST. Loopback means **any process on the machine**: such a process can call `create_session`, which installs workflows that run code, so set a key whenever the machine is shared. See [Security](/operations/security).
 
 A key that is not an unrestricted `ADMIN` key has each tool call checked against the role the tool needs. A call that is not allowed is refused with HTTP `403`. A request body above 1 MB is refused with `413`. A key limited to sessions can call a tool only with a `sessionId` argument that names one of its sessions. The four tools that name no session (`list_plugins`, `get_plugin_details`, `get_session_creation_instructions` and `get_plugin_creation_guide`) are open to such a key. `list_sessions` and `get_control_bus_status` are not.
 
