@@ -77,7 +77,7 @@ GET /api/sessions/{sessionId}/workflows/{workflowId}/versions
 POST /api/sessions/{sessionId}/workflows/{workflowId}/rollback?version={version}
 ```
 
-restores an earlier version as the current definition. Rollback is also available as an MCP tool and in the web UI's versions panel.
+This restores an earlier version as the current definition. Rollback is also available as an MCP tool and in the web UI's versions panel.
 
 ### Run a specific version
 
@@ -93,14 +93,14 @@ Put `yukta.version` in the start payload to run a saved version without changing
 
 ## Next steps
 
-<Card title="Defining a workflow" horizontal href="/building/defining-a-workflow">
+<Card title="Defining a workflow" icon="file-code" horizontal href="/building/defining-a-workflow">
   The complete JSON shape of a session and its workflows, and how to build one step by step.
 </Card>
 
-<Card title="REST: workflows" horizontal href="/api/workflows">
+<Card title="REST: workflows" icon="diagram-project" horizontal href="/api/workflows">
   Read workflow definitions and graphs, manage saved versions, and start, stop and list runs of a workflow.
 </Card>
 
-<Card title="MCP server" horizontal href="/interfaces/mcp">
+<Card title="MCP server" icon="plug" horizontal href="/interfaces/mcp">
   Let an AI agent create sessions, run workflows, watch them and steer them through the Model Context Protocol.
 </Card>
