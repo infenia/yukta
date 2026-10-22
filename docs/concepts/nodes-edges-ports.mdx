@@ -10,6 +10,9 @@ keywords: ["nodes", "edges", "ports", "joins"]
 
 A workflow graph is built from **nodes** and **edges**. Nodes do the work. Edges say where each node's output goes. **Ports** let one node send different outcomes down different edges.
 
+<img className="yk-diagram block dark:hidden" src="/images/diagrams/workflow-anatomy.light.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. The API call's success port leads on; its error port leads to a dead-letter terminal." loading="lazy" />
+<img className="yk-diagram hidden dark:block" src="/images/diagrams/workflow-anatomy.dark.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. The API call's success port leads on; its error port leads to a dead-letter terminal." loading="lazy" />
+
 ## Nodes
 
 A node is one step. It has a `nodeId` that is unique within the workflow, a `type` naming the plugin that implements it, and a `config` object holding that plugin's options.
@@ -72,18 +75,18 @@ A workflow can have at most 500 nodes and 2000 edges. Node ids, like every ident
 
 ## Next steps
 
-<Card title="Messages" horizontal href="/concepts/messages">
+<Card title="Messages" icon="envelope" horizontal href="/concepts/messages">
   The envelope every node receives and emits: payload, metadata, identity and routing.
 </Card>
 
-<Card title="Failure handling" horizontal href="/concepts/failure-handling">
+<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
   Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
 </Card>
 
-<Card title="Routing and branching" horizontal href="/building/routing-and-branching">
+<Card title="Routing and branching" icon="code-branch" horizontal href="/building/routing-and-branching">
   Patterns for sending messages down different paths: by exit code, HTTP status, expression, validation result, recipient list and error.
 </Card>
 
-<Card title="Plugin overview" horizontal href="/plugins/overview">
+<Card title="Plugin overview" icon="puzzle-piece" horizontal href="/plugins/overview">
   The 34 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include.
 </Card>

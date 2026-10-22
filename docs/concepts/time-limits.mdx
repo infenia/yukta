@@ -8,7 +8,7 @@ keywords: ["timeouts", "deadlines", "time limits", "idle timeout"]
   **In plain terms:** a stuck job should end, not hang forever. Yukta watches five clocks: how long a start may wait in line, how long the whole run may take, how long a step may sit idle, how long a single attempt may take, and how long a step may live in total. Pausing a run freezes all of them, so a pause never causes a timeout.
 </Info>
 
-Yukta bounds an execution with five independent clocks. All of them are **pause-aware**: pausing freezes every clock, so a pause never causes a timeout.
+Yukta bounds an execution with five independent clocks. All of them are **pause-aware**.
 
 | Clock | Scope | Resets on | Ends with |
 |---|---|---|---|
@@ -54,14 +54,14 @@ The run deadline bounds the whole execution and defaults to 3600 seconds. Change
 
 ## Next steps
 
-<Card title="Failure handling" horizontal href="/concepts/failure-handling">
+<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
   Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
 </Card>
 
-<Card title="Run controls" horizontal href="/running/run-controls">
+<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
   Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
 </Card>
 
-<Card title="Admission and limits" horizontal href="/running/admission-and-limits">
+<Card title="Admission and limits" icon="traffic-light" horizontal href="/running/admission-and-limits">
   Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes.
 </Card>
