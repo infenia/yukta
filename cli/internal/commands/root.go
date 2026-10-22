@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"com.infenia.yukta/go-cli/internal/client"
 	"github.com/spf13/cobra"
@@ -57,6 +58,19 @@ logs and results.`,
 		"Timeout for non-streaming requests (0 disables)",
 	)
 
+	cmd.PersistentFlags().IntVar(
+		&c.Retries,
+		"retries",
+		0,
+		"Extra attempts for reads, and for starts (a key is generated), on network errors, 429 and 502-504",
+	)
+
+	cmd.PersistentFlags().DurationVar(
+		&c.RetryWait,
+		"retry-wait",
+		time.Second,
+		"First pause between retries (doubles each time; a Retry-After from the server wins if longer)",
+	)
 	var tokenFile string
 	cmd.PersistentFlags().StringVar(
 		&tokenFile,

@@ -5,6 +5,8 @@ package client
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -143,6 +145,10 @@ func (c *Client) StartWorkflowKeyed(sessionID, workflowID string, payload map[st
 		return WorkflowStartResponse{}, err
 	}
 
+	if idempotencyKey == "" && c.Retries > 0 {
+		// a retried start must not start twice
+		idempotencyKey = newKey()
+	}
 	if idempotencyKey != "" {
 		httpReq.Header.Set("Idempotency-Key", idempotencyKey)
 	}
@@ -663,4 +669,11 @@ func (c *Client) StreamWorkflowStatus(
 		}
 		return onProgress(progress)
 	})
+}
+
+// newKey returns a random Idempotency-Key.
+func newKey() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b) // crypto/rand.Read never fails on supported platforms
+	return hex.EncodeToString(b)
 }
