@@ -175,13 +175,9 @@ body::before {
 }
 
 /* Every page reads in one centred column, the same width as the introduction's. Mintlify centres
-   it between the sidebar and the page contents; only wide pages (the playground) fill the space. */
+   it between the sidebar and the page contents. */
 #content-area {
   max-width: 48rem;
-}
-
-html[data-page-mode="wide"] #content-area {
-  max-width: none;
 }
 
 #sidebar-title,

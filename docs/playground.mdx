@@ -1,7 +1,6 @@
 ---
 title: "Workflow playground"
 description: "Build a small workflow, connect nodes, and watch a simulated run, including what happens when a node fails."
-mode: "wide"
 keywords: ["playground", "try in browser", "simulated run"]
 ---
 
@@ -9,7 +8,11 @@ import { WorkflowPlayground } from "/snippets/workflow-playground.jsx"
 
 Try a workflow before you install anything. Boxes light up in order, every one of them, and you can make one fail to see where the failure goes: the steps you define are the steps that run, and a failure takes the path you chose for it.
 
+## Try it
+
 <WorkflowPlayground />
+
+## What the simulation leaves out
 
 <Warning>
   A green run here does not mean the real server will accept your workflow. The simulation leaves out plugin work, retries, time limits, message streams, approval waits and persistence, and a failed node fails at once and follows its `error` edge if it has one.
