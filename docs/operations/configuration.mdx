@@ -1,12 +1,8 @@
 ---
 title: "Configuration"
 description: "Every setting an operator can change, its default and what it controls, plus the per-node engine options."
-mode: "wide"
+keywords: ["configuration", "settings", "environment variables", "defaults"]
 ---
-
-<Note>
-  Storing state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.session-memory.dir`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
-</Note>
 
 <Info>
   **In plain terms:** settings control how the server behaves: how many jobs may run at once, where data is kept, who may connect. You do not need any to start, because the defaults are safe. Use this page as a menu when you are ready to tune a deployment, grouped by what you want to change.
@@ -15,7 +11,9 @@ mode: "wide"
 The Yukta server runs with safe defaults and needs no configuration to start on loopback. This page lists every setting that changes how it admits, runs, stores and protects executions, grouped by area.
 
 <Note>
-  Yukta is pre-beta (`0.1.0-alpha.2`). Setting names and defaults may change before v0.1.0.
+  Storing state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.session-memory.dir`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
+
+  Yukta is in alpha (`0.1.0-alpha.2`), so setting names and defaults may change before v0.1.0.
 </Note>
 
 ## How settings are supplied
@@ -160,6 +158,7 @@ See [Security](/operations/security).
 | `yukta.api-keys[i].role` | `VIEWER` | `VIEWER`, `OPERATOR` or `ADMIN` |
 | `yukta.api-keys[i].sessions` | all sessions | Limit the key to these session ids |
 | `yukta.mcp.api-key` | unset | An extra `ADMIN` key that works only on `/mcp` |
+| `yukta.mcp.rate-limit-per-minute` | `600` | Requests per minute one caller (key) may make to `/mcp`; more get `429` with `Retry-After`. `0` turns the limit off |
 | `yukta.allowed-hosts` | loopback names | Extra `Host` values accepted while no key is set |
 | `yukta.allowed-origins` | none | Extra `Origin` values accepted for changing requests while no key is set |
 | `yukta.variables.allowed` (`YUKTA_VARIABLES_ALLOWED`) | empty | Extra environment variable and system property names workflows may read with `${env.X}` and `${sys.x}` |
@@ -256,9 +255,20 @@ A node's `config` may hold a reserved `engine` object. The server reads it and p
 
 The node's own `timeoutSeconds` sets the idle timeout. Details are in [Failure handling](/concepts/failure-handling) and [Time limits](/concepts/time-limits).
 
-## Related
+## Next steps
 
-- [Limits and defaults](/reference/limits-and-defaults)
-- [Admission and limits](/running/admission-and-limits)
-- [Security](/operations/security)
-- [Deployment](/operations/deployment)
+<Card title="Limits and defaults" icon="ruler" horizontal href="/reference/limits-and-defaults">
+  Every ceiling and default value in one place, with the setting that changes it and the page that explains it.
+</Card>
+
+<Card title="Admission and limits" icon="traffic-light" horizontal href="/running/admission-and-limits">
+  Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes.
+</Card>
+
+<Card title="Security" icon="lock" horizontal href="/operations/security">
+  Expose the server safely, control who can do what, and limit what workflows may run.
+</Card>
+
+<Card title="Deployment" icon="box" horizontal href="/operations/deployment">
+  Install Yukta as a Docker image, a Linux package or an archive, or run it from source, with the profiles and build switches that shape it.
+</Card>

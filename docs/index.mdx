@@ -1,75 +1,141 @@
 ---
 title: "Introduction"
-description: "Yukta runs multi-step jobs for you. Draw the steps once as a flowchart, then start it from a script, a web page, a terminal or an AI assistant."
-mode: "wide"
+description: "Workflows you can trust and control. Build with plugins and AI, run every step as designed, and steer it live from the UI, CLI, API or an AI agent."
+mode: "frame"
+keywords: ["introduction", "workflow orchestration", "DAG", "AI agents", "supervisors", "plugins"]
 ---
 
-import { DagHero } from "/snippets/dag-hero.jsx"
+export const HeroCard = ({ image, title, description, href }) => (
+  <a className="yk-hero-card group" href={href}>
+    <div className="yk-hero-card-media">
+      <img src={`/images/diagrams/${image}.light.svg`} alt="" className="block dark:hidden" />
+      <img src={`/images/diagrams/${image}.dark.svg`} alt="" className="hidden dark:block" />
+    </div>
+    <h3>{title}</h3>
+    <span>{description}</span>
+  </a>
+);
 
-<div className="not-prose yk-hero">
-  <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Workflows for AI agents and automation</span>
-  <div className="yk-hero-cta">
-    <a className="yk-btn yk-btn-primary" href="/quickstart">Get started</a>
-    <a className="yk-btn yk-btn-secondary" href="/playground">Open the playground</a>
+<div className="yk-landing">
+  <div className="not-prose yk-landing-hero">
+    <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Workflow engine for people and AI agents · v0.1.0-alpha.2</span>
+    <h1>Workflows you can trust and control.</h1>
+    <p>Build with plugins and AI, run every step as designed, and steer it live from the UI, CLI, API or an AI agent.</p>
   </div>
-</div>
 
-Many jobs are a **sequence of steps with decisions along the way**: check stock, charge a card, email the customer. Build the code, run the tests, deploy only if they pass. Let an AI agent read a request, pick a tool and report back.
+  <div className="not-prose yk-hero-grid">
+    <HeroCard image="quickstart-greet" title="Quickstart" description="Install Yukta and run your first workflow in five minutes." href="/quickstart" />
+    <HeroCard image="architecture" title="How it works" description="How a run flows through the engine, and how supervisors and the control bus steer it." href="/concepts/how-it-works" />
+    <HeroCard image="agent-loop" title="AI and agents" description="Model calls, tool-using agent loops, approvals and budgets as workflow steps." href="/building/ai-and-agents" />
+    <HeroCard image="examples-ci-gate" title="Examples" description="Ten ready-to-run workflows for CI, data pipelines, alerts and agents." href="/examples" />
+  </div>
 
-Yukta is a server that runs jobs like these. You write the steps down once as a flowchart in JSON. Yukta carries them out, runs independent steps side by side, retries what fails, and lets you watch, pause or stop the job while it runs.
+  <div className="prose prose-gray dark:prose-invert yk-landing-body">
 
-<Info>
-  **For developers:** Yukta is a reactive, DAG-based workflow orchestration server. The flowchart is a directed acyclic graph, so it can never loop back by accident, and messages stream from step to step with back-pressure.
-</Info>
+## Why Yukta exists
 
-<DagHero />
+A lot of good work is a routine: build, test, scan, deploy; or read a request, decide, act, report. Routines carried in someone's head, or in an AI agent's prompt, work most of the time. Over hundreds of runs, small slips creep in quietly: a check skipped on a busy day, an agent that decides a step is not needed this time. Nobody notices until the result is wrong.
 
-<Note>
-  Yukta is pre-beta (`0.1.0-alpha.2`). The workflow JSON, REST API, MCP tools and plugin contract may change before v0.1.0. See [Releases](/reference/releases).
-</Note>
+<Columns cols={2}>
+  <Card title="Take the routine off memory" icon="list-check">
+    Write the steps down once as a workflow. Yukta runs them from that definition, in dependency order and along the paths your branches select, whether a person, a script or an AI agent starts it.
+  </Card>
+  <Card title="Keep a hand on the controls" icon="sliders">
+    Watch every run live and pause, step, stop, restart or retry it, down to a single node, or let a supervisor do it for you. Every command is ordered and audited.
+  </Card>
+</Columns>
 
 ## What a workflow looks like
 
-Every workflow is built from three kinds of box, joined by arrows. Here, a job fetches data, tidies it up and sends a notification. If the call fails, the item is set aside for later.
+A workflow is a flowchart written as JSON: a **directed acyclic graph (DAG)** of boxes joined by arrows. It can be three boxes or hundreds, with branches, fan-out, joins, retries and sub-workflows, and because it has no cycles it can never loop back by accident. Here, a job fetches data, tidies it up and sends a notification. If the call fails, the item is set aside for later.
 
 <img className="yk-diagram block dark:hidden" src="/images/diagrams/workflow-anatomy.light.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. A failed call goes to a dead-letter terminal." loading="lazy" />
 <img className="yk-diagram hidden dark:block" src="/images/diagrams/workflow-anatomy.dark.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. A failed call goes to a dead-letter terminal." loading="lazy" />
 
-| Box | What it does | Example |
-|---|---|---|
-| **Trigger** | Starts the job | A request arrives, a timer fires |
-| **Processor** | Does work or makes a choice | Call a web service, reshape data, ask an AI model |
-| **Terminal** | Ends a path | Log the result, send a notification, keep a failed item |
+<div className="not-prose yk-kinds">
+  <a className="yk-kind yk-kind-trigger" href="/plugins/triggers">
+    <span className="yk-kind-icon"><Icon icon="bolt" size={18} /></span>
+    <span className="yk-kind-name">Trigger</span>
+    <span className="yk-kind-role">Starts the job</span>
+    <span className="yk-kind-eg">A request arrives, a timer fires</span>
+  </a>
+  <a className="yk-kind yk-kind-processor" href="/plugins/overview">
+    <span className="yk-kind-icon"><Icon icon="gears" size={18} /></span>
+    <span className="yk-kind-name">Processor</span>
+    <span className="yk-kind-role">Does the work or makes a choice</span>
+    <span className="yk-kind-eg">Run a command, call a web service, reshape data, ask an AI model</span>
+  </a>
+  <a className="yk-kind yk-kind-terminal" href="/plugins/terminals">
+    <span className="yk-kind-icon"><Icon icon="flag-checkered" size={18} /></span>
+    <span className="yk-kind-name">Terminal</span>
+    <span className="yk-kind-role">Ends a path</span>
+    <span className="yk-kind-eg">Log the result, send a notification, keep a failed item</span>
+  </a>
+</div>
 
-The arrows are **edges**: "when this step is done, hand its output to the next." A step can have labelled exits, called **ports**, such as `success` and `error`, so good and bad outcomes take different paths. Each box is a **plugin**, a ready-made capability you configure; you can also write your own.
+The arrows are **edges**: "when this step is done, hand its output to the next." A step can have labelled exits, called **ports**, such as `success` and `error`, so good and bad outcomes take different paths. Each box is a **plugin**, a ready-made capability you configure, and you can [write your own](/plugins/writing-a-plugin) and add it at any time.
 
-## Why Yukta
+<Info>
+  **For developers:** Yukta is a reactive, DAG-based workflow orchestration server. Messages stream from step to step with back-pressure, and every command, from a person, a script, an agent or a supervisor, goes through one ordered, audited control bus.
+</Info>
+
+## What you get
+
+<Columns cols={3}>
+  <Card title="Plugins for every step" icon="puzzle-piece" href="/plugins/overview">
+    Commands, HTTP, SQL, files, routing, transforms, AI calls and decisions ship built in. Add your own when you need something new.
+  </Card>
+  <Card title="AI as a step" icon="robot" href="/building/ai-and-agents">
+    Call an LLM, give it tools over MCP, keep conversation memory, or let a decision model classify, gate and score, all as nodes in the graph.
+  </Card>
+  <Card title="AI as the author" icon="pen-ruler" href="/interfaces/mcp">
+    Describe the job and let an AI agent build the workflow over MCP, including graphs too intricate to sketch by hand. Then run and watch it like any other.
+  </Card>
+</Columns>
+
+## What you can build
+
+Start with plain automation and add AI only where it earns its place. The same engine, controls and audit trail carry you all the way.
 
 <CardGroup cols={2}>
-  <Card title="Workflows are data" icon="diagram-project">
-    A JSON graph, not a program. Easy for people, tools and AI assistants to write and review.
+  <Card title="Pipelines that never skip a gate" icon="code-branch" href="/examples">
+    Build, test, scan and deploy as plain command steps, routed on exit codes. Every gate runs on every change, and a failure stops the line. No AI required.
   </Card>
-  <Card title="Start it from anywhere" icon="plug">
-    REST API, web UI, command line or an MCP client such as Claude, all from one definition.
+  <Card title="Pipelines that fix their own failures" icon="wand-magic-sparkles" href="/building/ai-and-agents#several-agents-in-one-workflow">
+    Put an AI step on the failure path. It reads the error, applies a fix, then the check runs again through the built-in bounded retry, with a fixed number of attempts so it can never spin forever.
   </Card>
-  <Card title="Built for AI agents" icon="robot" href="/building/ai-and-agents">
-    Model calls with budgets, approvals and memory around them, plus [cheap decision models](/plugins/decisions) for routing.
+  <Card title="Agents that work as a team" icon="users" href="/building/ai-and-agents#several-agents-in-one-workflow">
+    One agent drafts, another reviews, a third decides. Each is a step in the graph, so every hand-off is visible and any step can be restarted on its own.
   </Card>
-  <Card title="Watch it, steer it, trust it" icon="shield-halved">
-    Pause, retry or stop a live run. Retries, error routes and time limits are built in, and a new server only accepts local connections.
+  <Card title="Automation that keeps itself on track" icon="shield-halved" href="/running/supervisors">
+    A supervisor watches every event and pauses or stops a run that loops or drifts. Use rules for what you can spell out, and a System One decision model or an LLM for the rest.
   </Card>
 </CardGroup>
 
-## Where to go next
+## Start from where you work
 
-<CardGroup cols={3}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Run your first workflow in five minutes.
+<Columns cols={2}>
+  <Card title="Web UI" icon="window-maximize" horizontal href="/interfaces/web-ui">
+    Build workflows with forms and watch runs live.
   </Card>
-  <Card title="Playground" icon="play" href="/playground">
-    Try a workflow in your browser, no install.
+  <Card title="Command line" icon="terminal" horizontal href="/interfaces/cli">
+    Apply sessions and follow runs from a terminal or CI.
   </Card>
-  <Card title="Examples" icon="flask" href="/examples">
-    Ten ready-to-run workflows for CI, data, alerts and agents.
+  <Card title="AI assistants (MCP)" icon="robot" horizontal href="/interfaces/mcp">
+    Let an assistant such as Claude create, run and steer workflows.
   </Card>
-</CardGroup>
+  <Card title="REST API" icon="code" horizontal href="/api/overview">
+    Every operation over HTTP with streaming updates.
+  </Card>
+</Columns>
+
+<Tip>
+  **About the name:** *Yukta* (युक्त) is Sanskrit for "joined" or "yoked together", from the same root as *yoga*. It also means "fitting" or "proper". Both describe the idea: steps joined into one workflow, each run carried out the way it should be.
+</Tip>
+
+<Note>
+  Yukta is in alpha (`0.1.0-alpha.2`). The workflow JSON, REST API, MCP tools and plugin contract may change before v0.1.0. See [Releases](/reference/releases).
+</Note>
+
+  </div>
+</div>

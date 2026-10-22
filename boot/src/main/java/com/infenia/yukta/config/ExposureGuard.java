@@ -13,10 +13,11 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 /**
- * Refuses to start when the server listens beyond loopback with no API key: the API, the MCP tools
- * and (unless {@code yukta.process.allowed-commands} is set) process execution would be open to the
- * network. Set {@code yukta.api-key} or {@code yukta.api-keys}, or bind {@code
- * YUKTA_SERVER_ADDRESS} to a loopback address.
+ * Refuses to start when the server listens beyond loopback and the REST API or the MCP endpoint has
+ * no API key (a key for only one of them leaves the other open): the API, the MCP tools and (unless
+ * {@code yukta.process.allowed-commands} is set) process execution would be open to the network.
+ * Set {@code yukta.api-key} or {@code yukta.api-keys}, or bind {@code YUKTA_SERVER_ADDRESS} to a
+ * loopback address.
  */
 @Component
 public class ExposureGuard {
@@ -56,7 +57,8 @@ public class ExposureGuard {
   @PostConstruct
   public void check() {
     final String address = environment.getProperty("server.address", "");
-    if (!loopback(address) && authenticator.isOpen(Scope.MCP)) {
+    if (!loopback(address)
+        && (authenticator.isOpen(Scope.REST) || authenticator.isOpen(Scope.MCP))) {
       throw new IllegalStateException(
           "Refusing to listen on '"
               + (address.isBlank() ? "all interfaces" : address)

@@ -1,7 +1,7 @@
 ---
 title: "Catalogue API"
 description: "Discover the plugins a workflow can use, and see the supervisors and remote workers connected to the server."
-mode: "wide"
+keywords: ["plugin catalogue", "list plugins", "supervisors", "remote workers"]
 ---
 
 <Info>
@@ -228,8 +228,16 @@ Tells which edition of Yukta this server is, under which licence, and which opti
 }
 ```
 
-## Related
+## Next steps
 
-- [Plugins overview](/plugins/overview)
-- [Supervisors](/running/supervisors)
-- [Remote workers](/operations/remote-workers)
+<Card title="Built-in plugins" icon="puzzle-piece" horizontal href="/plugins/overview">
+  The 35 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include.
+</Card>
+
+<Card title="Supervisors" icon="shield-halved" horizontal href="/running/supervisors">
+  Programs that watch every execution and steer it, or veto commands before they run: a rule engine, an AI agent or your own code.
+</Card>
+
+<Card title="Remote workers" icon="network-wired" horizontal href="/operations/remote-workers">
+  Run selected processor nodes on other machines, in named pools, while the control plane keeps orchestrating.
+</Card>

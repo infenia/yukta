@@ -1,7 +1,7 @@
 ---
 title: "Messaging module"
-description: "Messaging is the smallest and lowest module in Yukta."
-mode: "wide"
+description: "The message envelope that travels along every edge: payload, metadata, identity and history, and the node message channel hook."
+keywords: ["messaging module", "message model"]
 ---
 
 Messaging is the smallest and lowest module in Yukta. It answers two questions: what is the thing that travels along every edge of a workflow graph (the **message envelope**), and what hook can wrap the input and output of every node (the **node message channel**)? It has no engine, no I/O and no state. This page is for thinking about it: open a component, play a scenario, then challenge the weak spots.
@@ -703,3 +703,13 @@ Short rules that follow from the guarantees.
 | Fan-out | One node feeding several children. | All children receive the same message. |
 | Checkpoint | A node's recorded output kept so it can be replayed after a crash. | Messages are stored as JSON and read back as plain values. |
 | Control message | A message that carries an operator command to the engine, not workflow data. | Created by the control gateway and node-command endpoint. |
+
+## Next steps
+
+<Card title="Messages" icon="envelope" horizontal href="/concepts/messages">
+  The envelope every node receives and emits: payload, metadata, identity and routing.
+</Card>
+
+<Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">
+  The Yukta modules, what each one owns, and where to read about its internals.
+</Card>

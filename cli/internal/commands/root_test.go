@@ -6,6 +6,7 @@ package commands
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -360,5 +361,32 @@ func TestRootCmd_exposesVersion(t *testing.T) {
 	cmd := RootCmd(client.NewClient("http://localhost:8080"))
 	if cmd.Version != Version {
 		t.Errorf("Version = %q, want %q", cmd.Version, Version)
+	}
+}
+
+func TestRootCmd_tokenFileIsReadAndTrimmed(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(file, []byte("  from-file\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c := client.NewClient("http://localhost:8080")
+	cmd := RootCmd(c)
+	cmd.AddCommand(&cobra.Command{Use: "noop", Run: func(*cobra.Command, []string) {}})
+	cmd.SetArgs([]string{"--token-file", file, "--insecure-token", "noop"})
+
+	if err := cmd.Execute(); err != nil || c.Token != "from-file" || !c.AllowInsecureToken {
+		t.Errorf("err=%v token=%q insecure=%v", err, c.Token, c.AllowInsecureToken)
+	}
+}
+
+func TestRootCmd_missingTokenFileFails(t *testing.T) {
+	cmd := RootCmd(client.NewClient("http://localhost:8080"))
+	cmd.AddCommand(&cobra.Command{Use: "noop", Run: func(*cobra.Command, []string) {}})
+	cmd.SetArgs([]string{"--token-file", filepath.Join(t.TempDir(), "absent"), "noop"})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "--token-file") {
+		t.Errorf("err=%v", err)
 	}
 }

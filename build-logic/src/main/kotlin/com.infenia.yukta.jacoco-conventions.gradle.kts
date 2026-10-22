@@ -18,6 +18,9 @@ abstract class CoverageExtension {
     /** Class-name pattern -> why it is allowed below the floor. Required when a ratio is < 0.80. */
     abstract val reasons: MapProperty<String, String>
 
+    /** Set for a module that has classes but legitimately no tests (for example an API-only module). */
+    abstract val noTests: Property<Boolean>
+
     fun exception(pattern: String, reason: String, thresholds: Map<String, Double>) {
         exceptions.put(pattern, thresholds)
         reasons.put(pattern, reason)
@@ -27,6 +30,7 @@ abstract class CoverageExtension {
 val extension = extensions.create<CoverageExtension>("coverageConfig")
 extension.exceptions.convention(emptyMap())
 extension.reasons.convention(emptyMap())
+extension.noTests.convention(false)
 
 /*
  * Configure test tasks
@@ -149,6 +153,27 @@ afterEvaluate {
     }
 }
 
+// Gradle skips the verification above when there is no execution data, so a module whose tests were
+// deleted, filtered out or never run would pass `check` with no coverage at all. This task fails then.
+val verifyCoverageData = tasks.register("verifyCoverageData") {
+    val projectPath = project.path
+    val noTests = extension.noTests
+    val execFiles = tasks.withType<Test>().map { t -> t.extensions.getByType<JacocoTaskExtension>().destinationFile }
+    val hasClasses = provider {
+        project.extensions.findByType<SourceSetContainer>()?.findByName("main")
+            ?.output?.classesDirs?.asFileTree?.files?.any { it.name.endsWith(".class") } ?: false
+    }
+    mustRunAfter(tasks.withType<Test>())
+    doLast {
+        if (hasClasses.get() && !noTests.get() && execFiles.none { it?.exists() == true }) {
+            throw GradleException(
+                "$projectPath: no coverage data (tests deleted, filtered out or not run); " +
+                    "set coverageConfig.noTests = true if this module legitimately has no tests"
+            )
+        }
+    }
+}
+
 tasks.named("check") {
-    dependsOn(tasks.withType<JacocoCoverageVerification>())
+    dependsOn(tasks.withType<JacocoCoverageVerification>(), verifyCoverageData)
 }

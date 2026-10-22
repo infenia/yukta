@@ -1,7 +1,7 @@
 ---
 title: "Capacity and performance"
 description: "The ceilings, bounded and unbounded memory, admission limits, every metric the server publishes, what to alert on and how to run the load tests."
-mode: "wide"
+keywords: ["capacity", "performance", "metrics", "alerting"]
 ---
 
 <Info>
@@ -216,9 +216,20 @@ The tests report `workflow_e2e` (start to end), `workflow_success` and `workflow
 | State queue | Unbounded |
 | Pending log lines | 10,000 |
 
-## Related
+## Next steps
 
-- [Admission and limits](/running/admission-and-limits)
-- [Observability](/running/observability)
-- [Limits and defaults](/reference/limits-and-defaults)
-- [Troubleshooting](/operations/troubleshooting)
+<Card title="Admission and limits" icon="traffic-light" horizontal href="/running/admission-and-limits">
+  Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes.
+</Card>
+
+<Card title="Observability" icon="eye" horizontal href="/running/observability">
+  Progress, logs, results, the live event feed, metrics and tracing: how to see what an execution is doing and what it produced.
+</Card>
+
+<Card title="Limits and defaults" icon="ruler" horizontal href="/reference/limits-and-defaults">
+  Every ceiling and default value in one place, with the setting that changes it and the page that explains it.
+</Card>
+
+<Card title="Troubleshooting" icon="wrench" horizontal href="/operations/troubleshooting">
+  Common symptoms of a running Yukta server, their causes and the fix.
+</Card>
