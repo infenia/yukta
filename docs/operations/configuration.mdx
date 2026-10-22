@@ -53,7 +53,7 @@ yukta.restart.dir=/var/lib/yukta/checkpoints
 | `server.address` (`YUKTA_SERVER_ADDRESS`) | `127.0.0.1` | Address the HTTP server binds to. Any non-loopback value needs an API key or the server refuses to start. The container image sets `0.0.0.0` |
 | `server.port` (`SERVER_PORT`) | `8080` | HTTP port for the API, the web UI and `/mcp` |
 | `spring.codec.max-in-memory-size` (`YUKTA_LIMITS_MAX_BODY`) | `1MB` | Largest request body (start payload, workflow definition, MCP call). A bigger body is answered with `413` |
-| `spring.profiles.active` | `dev` | Profile. `dev` is the default when none is named. See [Deployment](/operations/deployment) |
+| `spring.profiles.active` | `prod` | Profile. `prod` is the default when none is named; `./gradlew bootRun` uses `dev`. See [Deployment](/operations/deployment) |
 | `management.endpoints.web.exposure.include` | `health,info,metrics` (`dev` adds `loggers,mappings,threaddump`) | Which management endpoints are exposed under `/actuator` |
 
 ## Admission and limits

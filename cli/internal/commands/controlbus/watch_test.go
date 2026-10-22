@@ -24,7 +24,7 @@ const watchStream = "data: " + `{"type":"NodeStatusChanged","event":{"executionI
 
 func TestWatchCmd_formatsEvents(t *testing.T) {
 	out, err := testutil.Run(t, WatchCmd(testutil.Stream(t, watchStream)))
-	if err != nil {
+	if err != nil && !feedEnded(err) {
 		t.Fatal(err)
 	}
 	want := "NODE spotless SUCCESS\nLOG spotless: all good\nCONTROL Pause applied=false denied\nWORKFLOW FAILURE\nLOG late: after the end\n"
@@ -35,7 +35,7 @@ func TestWatchCmd_formatsEvents(t *testing.T) {
 
 func TestWatchCmd_untilDoneStopsAtTerminalWorkflowEvent(t *testing.T) {
 	out, err := testutil.Run(t, WatchCmd(testutil.Stream(t, watchStream)), "--execution", "e", "--until-done", "--no-logs")
-	if err != nil {
+	if err != nil && !feedEnded(err) {
 		t.Fatal(err)
 	}
 	want := "NODE spotless SUCCESS\nCONTROL Pause applied=false denied\nWORKFLOW FAILURE\n"
@@ -51,7 +51,7 @@ func TestWatchCmd_quietShowsOnlyProblemsAndTheEnd(t *testing.T) {
 		"data: " + `{"type":"ControlOutcome","event":{"executionId":"e","command":"Stop","applied":true}}` + "\n\n" +
 		"data: " + `{"type":"Unknown","event":{}}` + "\n\n"
 	out, err := testutil.Run(t, WatchCmd(testutil.Stream(t, stream)), "--quiet")
-	if err != nil {
+	if err != nil && !feedEnded(err) {
 		t.Fatal(err)
 	}
 	want := "CONTROL Pause applied=false denied\nWORKFLOW FAILURE\nNODE tests FAILURE\n"
@@ -63,7 +63,7 @@ func TestWatchCmd_quietShowsOnlyProblemsAndTheEnd(t *testing.T) {
 func TestWatchCmd_typeFilter(t *testing.T) {
 	// the server filters by type; this fake sends everything, so the client filter applies too
 	out, err := testutil.Run(t, WatchCmd(testutil.Stream(t, watchStream)), "--type", "controloutcome")
-	if err != nil {
+	if err != nil && !feedEnded(err) {
 		t.Fatal(err)
 	}
 	if out != "CONTROL Pause applied=false denied\n" {
@@ -76,7 +76,7 @@ func TestWatchCmd_jsonOutput(t *testing.T) {
 	defer commands.SetTestOutputFormat("table")
 
 	out, err := testutil.Run(t, WatchCmd(testutil.Stream(t, watchStream)), "--no-logs")
-	if err != nil {
+	if err != nil && !feedEnded(err) {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(out), "\n")
@@ -163,7 +163,7 @@ func TestWatchCmd_untilDoneReplaysEndedNodes(t *testing.T) {
 	defer close(release)
 
 	out, err := testutil.Run(t, WatchCmd(client.NewClient(srv.URL)), "--execution", "e", "--until-done")
-	if err != nil {
+	if err != nil && !feedEnded(err) {
 		t.Fatal(err)
 	}
 	want := "NODE spotless SUCCESS\nNODE tests FAILURE\nWORKFLOW FAILURE\n"
@@ -197,7 +197,7 @@ func TestWatchCmd_quietUntilDoneShowsTheReasonOfAMissedFailure(t *testing.T) {
 	defer close(release)
 
 	out, err := testutil.Run(t, WatchCmd(client.NewClient(srv.URL)), "--execution", "e", "--until-done", "--quiet")
-	if err != nil {
+	if err != nil && !feedEnded(err) {
 		t.Fatal(err)
 	}
 	want := "NODE tests FAILURE\nERROR tests: Process timed out after 300s\nWORKFLOW FAILURE\n"
@@ -230,7 +230,7 @@ func TestWatchCmd_runsWithoutCommandContext(t *testing.T) {
 	cmd := WatchCmd(testutil.Stream(t, watchStream))
 	var err error
 	out := testutil.Capture(t, func() { err = cmd.RunE(cmd, nil) })
-	if err != nil || !strings.HasPrefix(out, "NODE spotless SUCCESS\n") {
+	if (err != nil && !feedEnded(err)) || !strings.HasPrefix(out, "NODE spotless SUCCESS\n") {
 		t.Errorf("out=%q err=%v", out, err)
 	}
 }
@@ -260,3 +260,6 @@ func TestFormatEvent(t *testing.T) {
 		}
 	}
 }
+
+// feedEnded: the mock feed closes after its events, which watch reports as an error.
+func feedEnded(err error) bool { return strings.Contains(err.Error(), "ended unexpectedly") }

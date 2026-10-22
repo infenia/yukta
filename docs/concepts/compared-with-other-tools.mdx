@@ -1,0 +1,99 @@
+---
+title: "Compared with other tools"
+description: "How Yukta differs from Airflow, Temporal, Prefect, Dagster, n8n, Argo Workflows, Step Functions, Camunda and Conductor, and when to pick each."
+mode: "wide"
+---
+
+<Info>
+  **In plain terms:** many tools run multi-step jobs. They differ in who writes the steps (a programmer or anyone), where the job runs, and how much they remember after a crash. This page says where Yukta fits and where another tool is the better choice.
+</Info>
+
+Yukta is a **server you run yourself** that executes a workflow written as **data** (a JSON graph), streams messages between steps, and can be started and steered by REST, a web UI, a CLI or an AI assistant over MCP. That combination is unusual, so most comparisons come down to a few questions.
+
+## Five questions that decide it
+
+<CardGroup cols={2}>
+  <Card title="Code or data?" icon="code">
+    Do you want workflows written as **programs** in a language SDK, or as **data** that people, tools and AI assistants can generate and review?
+  </Card>
+  <Card title="Batch or streaming?" icon="water">
+    Does a job run in scheduled batches of tasks, or do **messages flow** step to step with back-pressure?
+  </Card>
+  <Card title="How durable?" icon="database">
+    Must a run survive a server crash with **exactly the state it had**, or is it enough to resume or re-run?
+  </Card>
+  <Card title="Where does it run?" icon="server">
+    One process you start with a command, a **database-backed cluster**, a **Kubernetes cluster** or a **cloud service**?
+  </Card>
+</CardGroup>
+
+The fifth question: **is an AI agent part of it?** Yukta's workflows can call models inside budgets and approval steps, and an assistant can drive Yukta itself through MCP.
+
+## At a glance
+
+| Tool | Workflows are | Best at | Runs on |
+|---|---|---|---|
+| **Yukta** | A JSON graph | AI agents, CI and automation graphs, record and event pipelines | One server process |
+| **Apache Airflow** | Python DAGs | Scheduled data pipelines | A scheduler, workers and a database |
+| **Temporal** | Code in a language SDK | Long-running business logic that must not lose progress | A cluster and a database |
+| **Prefect, Dagster** | Python code | Data and ML pipelines | A server or cloud service, plus agents |
+| **n8n** | A visual editor | App-to-app automation by non-developers | An app and a database |
+| **Argo Workflows** | Kubernetes YAML | Container jobs on Kubernetes | A Kubernetes cluster |
+| **AWS Step Functions** | JSON state machines | Orchestrating AWS services | AWS (managed) |
+| **Camunda** | BPMN diagrams | Business processes with human tasks | A cluster, or managed |
+| **Conductor** | JSON | Microservice orchestration | A server and a database |
+
+What sets Yukta apart is the combination: workflows as **data**, **messages that stream** between steps with back-pressure, **one server** to run, and **AI-assistant control** over MCP.
+
+<Note>
+  This is a summary of each tool's main design, accurate to the best of our knowledge at the time of writing. The other projects move fast, so check their own documentation before you decide.
+</Note>
+
+## When Yukta is a good fit
+
+- The job is a **graph of steps with decisions**, and you want to **see it, review it and change it as data**.
+- **AI agents** are involved: you want model calls inside budgets, tool allow-lists and approvals, or you want an assistant to create and run workflows through MCP. See [AI and agents](/building/ai-and-agents).
+- You want **one small server** to run and a **live picture** of every run, with pause, retry and stop. See [Run controls](/running/run-controls).
+- Work **flows as a stream** of records or events and a slow step should slow the ones feeding it. See [Delivery and back-pressure](/concepts/delivery-and-backpressure).
+- You want to **start the same job from anywhere**: a script, CI, a person in the UI or an assistant.
+
+## When another tool is the better choice
+
+<AccordionGroup>
+  <Accordion title="You need guaranteed durable execution of long-running business logic">
+    Choose **Temporal** (or a managed equivalent). Its core promise is that a workflow's progress survives crashes and can run for months. Yukta keeps state in memory by default, and durable checkpoints, PostgreSQL storage and failover are part of the Plus edition. See [Checkpoints and resume](/operations/checkpoints-and-resume) and [Persistence](/operations/persistence).
+  </Accordion>
+  <Accordion title="Your pipelines are scheduled data and ML jobs written in Python">
+    Choose **Airflow**, **Prefect** or **Dagster**. They have rich data-engineering features: backfills, data lineage and asset catalogues, and large integration ecosystems. Yukta can start a command or call an API on a schedule, but it is not a data-lineage tool.
+  </Accordion>
+  <Accordion title="Non-developers build integrations between SaaS apps">
+    Choose **n8n** or a similar low-code tool. They ship hundreds of ready-made app connectors and an editor made for business users.
+  </Accordion>
+  <Accordion title="Every step is a container on Kubernetes">
+    Choose **Argo Workflows**. It is built for scheduling containers with Kubernetes resources, volumes and artifacts. Yukta runs as an ordinary server, not as Kubernetes custom resources.
+  </Accordion>
+  <Accordion title="You live entirely in AWS and want zero servers">
+    Choose **AWS Step Functions**. It is managed, integrates with AWS services directly and bills per use.
+  </Accordion>
+  <Accordion title="You model business processes with human tasks in BPMN">
+    Choose **Camunda** or another BPMN engine. Business analysts draw the diagrams, and it has forms, task lists and process analytics. Yukta supports approval waits, but it is not a BPMN engine.
+  </Accordion>
+</AccordionGroup>
+
+## Where Yukta is today
+
+Be realistic about the current state, so you can choose with open eyes:
+
+- **Pre-beta.** The workflow JSON, REST API, MCP tools and plugin contract may change before v0.1.0. See [Releases](/reference/releases).
+- **In-memory by default.** The Community edition forgets sessions and runs on restart. Durable storage and high availability need the Plus edition. See [Licensing and editions](/reference/licensing).
+- **One admitting server at a time.** High availability gives failover, not scale-out of admission. See [High availability](/operations/high-availability).
+- **MCP on the native build.** The MCP tools currently fail on the native `0.1.0-alpha.2` server because of a build problem ([#773](https://github.com/infenia/yukta/issues/773)); they work when you run from source.
+- **Young plugin ecosystem.** There are many built-in plugins, but far fewer ready-made connectors than the older tools.
+
+For how fast a single server runs, see [Benchmark results](/operations/capacity-and-performance#benchmark-results).
+
+## Related
+
+- [How Yukta works](/concepts/how-it-works)
+- [AI and agents](/building/ai-and-agents)
+- [Quickstart](/quickstart)

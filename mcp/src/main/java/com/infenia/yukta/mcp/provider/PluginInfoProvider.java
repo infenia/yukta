@@ -63,42 +63,42 @@ public class PluginInfoProvider {
   public PluginCreationGuide getPluginCreationGuide(final String templateType) {
     final String architectureOverview =
         """
-        Yukta plugins follow a reactive, plugin-based architecture where each plugin implements
-        one of three interfaces: TriggerPlugin (initiates workflows), ProcessorPlugin
-        (transforms data), or TerminalPlugin (finalizes workflows). Plugins are
-        registered in the WorkflowRegistry and orchestrated by WorkflowOrchestrator as
-        nodes in a Directed Acyclic Graph (DAG). All plugins use reactive streams
-        (Project Reactor Mono/Flux) for non-blocking operations.
+        Yukta plugins are Spring beans that implement one of three interfaces from plugin-api: \
+        TriggerPlugin (start(config) returns a Flux of the messages that start a run), \
+        ProcessorPlugin (process(input, config) turns a Flux of messages into a Flux) or \
+        TerminalPlugin (consume(input, config) handles what reaches the end and returns a Mono). \
+        Each has a getType() name that workflows use as a node 'type'. PluginRegistry collects \
+        every plugin bean and WorkflowOrchestrator runs them as nodes of a Directed Acyclic \
+        Graph (DAG). All plugins use reactive streams (Project Reactor) and must not block.\
         """;
 
     final String integrationExamples =
         """
-        Example 1: Register plugin in WorkflowRegistry during Spring initialization.
-        Example 2: Define workflow with nodes of your plugin type.
-        Example 3: Create edges connecting your plugin to other nodes in the DAG.
-        Example 4: Trigger workflow execution with optional payload data.
-        Example 5: Monitor execution status and logs via MCP tools.
+        Example 1: Annotate the class with @Component; PluginRegistry finds it, there is no \
+        manual registration. Example 2: Reference its getType() as a node 'type' in a session \
+        (see get_session_creation_instructions). Example 3: Connect it with edges \
+        ('source', 'target'). Example 4: Start the workflow with start_workflow. Example 5: \
+        Monitor it with get_workflow_status and get_execution_logs.\
         """;
 
     final String configurationReference =
         """
-        Each plugin node requires: id (unique identifier), type (registered plugin type),
-        config (plugin-specific parameters). Plugin configuration is JSON-serialized and
-        passed to the execute method via WorkflowContext. Use @Validated and custom
-        validators to enforce configuration requirements. Configuration validation errors
-        should throw IllegalArgumentException with descriptive messages.
+        A node in a session has 'nodeId' (unique), 'type' (the plugin's getType()) and 'config' \
+        (plugin-specific). The config map is passed to every method of the plugin. Describe its \
+        fields in getConfigSchema() and check them in validateConfig(config), which should \
+        return Mono.error(new IllegalArgumentException(...)) with a descriptive message.\
         """;
 
     final String validationChecklist =
         """
-        1. Ensure plugin type is unique and matches class naming convention.
-        2. Implement required execute() method returning Mono/Flux.
-        3. Validate all configuration fields in execute method.
-        4. Handle errors gracefully using onErrorResume or similar operators.
-        5. Avoid blocking operations; use reactive operators exclusively.
-        6. Register plugin as Spring @Component with @RequiredArgsConstructor.
-        7. Add comprehensive JavaDoc comments to plugin class.
-        8. Test plugin with both valid and invalid inputs.
+        1. Pick a getType() that is unique (upper snake case, like the built-in types).
+        2. Implement the single abstract method of the interface (start, process or consume).
+        3. Validate the config in validateConfig(config).
+        4. Handle errors with onErrorResume or similar operators.
+        5. Avoid blocking calls; if you must block, override isBlocking() to return true.
+        6. Register the plugin as a Spring @Component.
+        7. Override describe() so list_plugins can say what the plugin does.
+        8. Test the plugin with valid and invalid inputs.
         """;
 
     final String testingStrategy =
