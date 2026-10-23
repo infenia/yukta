@@ -175,6 +175,8 @@ See [Security](/operations/security).
 | `yukta.script.timeout-ms` | `10000` | Longest a JavaScript script may run. System property only |
 | `yukta.spel.timeout-ms` | `1000` | Longest one expression (filter, branch, mapper projection, loop condition, ...) may run; `0` turns the limit off. System property only |
 | `yukta.script.max-statements` | `50000000` | Most statements a script may run. System property only |
+| `yukta.streams.max-concurrent` | `500` | Most event and log streams (SSE) open at once. The next one is answered with `429`; `0` turns the cap off. System property only |
+| `yukta.streams.max-lifetime` | `1h` | A stream is closed after this long; a browser reconnects and the stream replays. `0` turns it off. System property only |
 | `yukta.mcp-client.allowed-tools` | empty (any) | Tools `MCP_TOOL_CALL` may call |
 | `yukta.mcp-client.allowed-hosts` | empty (any) | Hosts `MCP_TOOL_CALL` and `MCP_LIST_TOOLS` may call: names, IP addresses or `*.domain` |
 | `yukta.http.allowed-hosts` | empty (any) | Hosts `HTTP_REQUEST` may call: names, IP addresses or `*.domain` |
