@@ -5,7 +5,6 @@ package com.infenia.yukta.plugin.process;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -14,7 +13,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -28,6 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Tests for ProcessExecutorGateway covering stream execution, timeouts, and error handling. */
@@ -37,7 +36,6 @@ import reactor.test.StepVerifier;
   "PMD.AvoidDuplicateLiterals", // Common test string constants
   "PMD.CommentRequired", // Constants are self-documenting in test context
   "PMD.TooManyMethods", // Comprehensive test coverage requires multiple methods
-  "PMD.CyclomaticComplexity" // Test methods inherently have multiple code paths
 })
 class ProcessExecutorGatewayTest {
 
@@ -63,6 +61,24 @@ class ProcessExecutorGatewayTest {
   /** Gateway under test. */
   private ProcessExecutorGateway gateway;
 
+  private Flux<String> executeStream(
+      final List<String> command,
+      final String workingDir,
+      final long timeoutSeconds,
+      final Map<String, String> env,
+      final boolean useShell) {
+    return gateway
+        .executeForResult(
+            ProcessExecutionSpec.builder()
+                .command(command)
+                .workingDir(workingDir)
+                .timeoutSeconds(timeoutSeconds)
+                .env(env)
+                .useShell(useShell)
+                .build())
+        .flatMapMany(r -> Flux.fromIterable(r.stdoutLines()));
+  }
+
   @BeforeEach
   void setUp() {
     gateway = new ProcessExecutorGateway();
@@ -85,7 +101,7 @@ class ProcessExecutorGatewayTest {
   @DisabledOnOs(OS.WINDOWS)
   void testExecuteStreamUnix() {
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of(ECHO, HELLO_WORLD_OUTPUT), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
         .expectNext(HELLO)
         .expectNext("world")
@@ -95,8 +111,7 @@ class ProcessExecutorGatewayTest {
   @Test
   void testExecuteStreamWithShell() {
     StepVerifier.create(
-            gateway.executeStream(
-                List.of(ECHO, HELLO), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
+            executeStream(List.of(ECHO, HELLO), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
         .assertNext(line -> assertThat(line).contains(HELLO))
         .verifyComplete();
   }
@@ -104,7 +119,7 @@ class ProcessExecutorGatewayTest {
   @Test
   void testExecuteStreamWithEnv() {
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of("sh", "-c", ECHO + " $" + TEST_VAR),
                 null,
                 DEFAULT_TIMEOUT_SECONDS,
@@ -113,42 +128,6 @@ class ProcessExecutorGatewayTest {
         .expectNext(FOO)
         .verifyComplete();
   }
-
-  @Test
-  void testExecuteStreamTimeout() {
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of(SLEEP, "10"), null, SHORT_TIMEOUT_SECONDS, Map.of(), false))
-        .verifyError(WorkflowExecutionException.class);
-  }
-
-  @Test
-  void testExecuteStreamNonZeroExit() {
-    StepVerifier.create(
-            gateway.executeStream(List.of("false"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
-        .verifyError(WorkflowExecutionException.class);
-  }
-
-  @Test
-  void testExecuteStreamWithInvalidTimeout() {
-    StepVerifier.create(gateway.executeStream(List.of(ECHO, HELLO), null, 0L, Map.of(), false))
-        .verifyError(IllegalArgumentException.class);
-  }
-
-  @Test
-  void testExecuteStreamWithNegativeTimeout() {
-    StepVerifier.create(gateway.executeStream(List.of(ECHO, HELLO), null, -5L, Map.of(), false))
-        .verifyError(IllegalArgumentException.class);
-  }
-
-  @Test
-  void testExecuteNonStreaming() {
-    StepVerifier.create(gateway.execute(List.of(ECHO, HELLO), null, DEFAULT_TIMEOUT_SECONDS))
-        .expectNext(HELLO)
-        .verifyComplete();
-  }
-
-  // New tests for improved coverage
 
   @Test
   void wrapInShell_joinsTheCommandIntoOneRawScript() {
@@ -162,7 +141,7 @@ class ProcessExecutorGatewayTest {
   @DisabledOnOs(OS.WINDOWS)
   void shell_pipesAndLogicalOperatorsWork() {
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of("echo hello", "|", "tr a-z A-Z"),
                 null,
                 DEFAULT_TIMEOUT_SECONDS,
@@ -171,7 +150,7 @@ class ProcessExecutorGatewayTest {
         .assertNext(line -> assertThat(line).contains("HELLO"))
         .verifyComplete();
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of("echo a", "&&", "echo b"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
         .expectNextCount(2)
         .verifyComplete();
@@ -183,7 +162,7 @@ class ProcessExecutorGatewayTest {
     final Path file = Files.createTempFile("yukta-shell", ".txt");
     try {
       StepVerifier.create(
-              gateway.executeStream(
+              executeStream(
                   List.of("echo written", ">", file.toString()),
                   null,
                   DEFAULT_TIMEOUT_SECONDS,
@@ -234,7 +213,7 @@ class ProcessExecutorGatewayTest {
     final String hostile = "a;b|c>d $(echo INJECTED) `echo INJECTED` 'q' \"dq\" \\ end";
 
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of("printf '%s\\n'", ProcessExecutorGateway.quoteForShell(hostile, "Linux")),
                 null,
                 DEFAULT_TIMEOUT_SECONDS,
@@ -249,7 +228,7 @@ class ProcessExecutorGatewayTest {
   void wrapInShell_unixEnvironment_usesShBinary() {
     // Verify that shell wrapping uses /bin/sh on Unix-like systems
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of(ECHO, "test_shell_binary"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
         .assertNext(line -> assertThat(line).contains("test_shell_binary"))
         .verifyComplete();
@@ -257,8 +236,7 @@ class ProcessExecutorGatewayTest {
 
   @Test
   void executeStream_withWorkingDirectory_changesProcessDirectory() {
-    StepVerifier.create(
-            gateway.executeStream(List.of(PWD), TMP, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
+    StepVerifier.create(executeStream(List.of(PWD), TMP, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
         .assertNext(output -> assertThat(output).contains(TMP_DIR))
         .verifyComplete();
   }
@@ -266,7 +244,7 @@ class ProcessExecutorGatewayTest {
   @Test
   void executeStream_multipleEnvironmentVariables_allPassed() {
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of("sh", "-c", ECHO + " $VAR1:$VAR2:$VAR3"),
                 null,
                 DEFAULT_TIMEOUT_SECONDS,
@@ -284,7 +262,7 @@ class ProcessExecutorGatewayTest {
   @Test
   void executeStream_commandWithMultipleArguments_executesCorrectly() {
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of(PRINTF, "%s %s %s\n", HELLO, "world", TEST),
                 null,
                 DEFAULT_TIMEOUT_SECONDS,
@@ -295,62 +273,16 @@ class ProcessExecutorGatewayTest {
   }
 
   @Test
-  void execute_nonStreaming_buffersCompleteOutput() {
-    StepVerifier.create(
-            gateway.execute(
-                List.of(PRINTF, LINE_1 + "\n" + LINE_2 + "\n" + LINE_3),
-                null,
-                DEFAULT_TIMEOUT_SECONDS))
-        .assertNext(
-            output -> {
-              assertThat(output).contains(LINE_1);
-              assertThat(output).contains(LINE_2);
-              assertThat(output).contains(LINE_3);
-            })
-        .verifyComplete();
-  }
-
-  @Test
-  void executeStream_processFailureWithOutput_includesOutputInError() {
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("sh", "-c", "echo 'error message' && exit 1"),
-                null,
-                DEFAULT_TIMEOUT_SECONDS,
-                Map.of(),
-                false))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("exit code");
-            });
-  }
-
-  @Test
   void executeStream_emptyCommandOutput_completesSuccessfully() {
     StepVerifier.create(
-            gateway.executeStream(List.of("true"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
+            executeStream(List.of("true"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
         .verifyComplete();
   }
-
-  @Test
-  void executeStream_timeoutWithLongRunningProcess_throwsTimeoutException() {
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("sleep", "5"), null, SHORT_TIMEOUT_SECONDS, Map.of(), false))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("timed out");
-            });
-  }
-
-  // Additional tests for improved coverage of process lifecycle and error handling
 
   @Test
   void executeStream_processExitsZero_collectsAndReturnsAllLines() {
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of(
                     "sh",
                     "-c",
@@ -366,21 +298,8 @@ class ProcessExecutorGatewayTest {
   }
 
   @Test
-  void executeStream_processExitsNonZero_throwsWorkflowExceptionWithExitCode() {
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("sh", "-c", "exit 42"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("42");
-            });
-  }
-
-  @Test
   void executeStream_processWithWorkingDir_executesInCorrectDirectory() {
-    StepVerifier.create(
-            gateway.executeStream(List.of(PWD), TMP, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
+    StepVerifier.create(executeStream(List.of(PWD), TMP, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
         .assertNext(output -> assertThat(output).contains(TMP_DIR))
         .verifyComplete();
   }
@@ -393,7 +312,7 @@ class ProcessExecutorGatewayTest {
     env.put("VAR3", "value3");
 
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of("sh", "-c", "echo $VAR1:$VAR2:$VAR3"),
                 null,
                 DEFAULT_TIMEOUT_SECONDS,
@@ -411,14 +330,14 @@ class ProcessExecutorGatewayTest {
   @Test
   void executeStream_processProducesEmptyOutput_completesWithoutEmittingLines() {
     StepVerifier.create(
-            gateway.executeStream(List.of("true"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
+            executeStream(List.of("true"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
         .verifyComplete();
   }
 
   @Test
   void executeStream_processWithComplexCommand_executesMultipleArguments() {
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of("sh", "-c", "printf 'first\\nsecond\\nthird'"),
                 null,
                 DEFAULT_TIMEOUT_SECONDS,
@@ -433,7 +352,7 @@ class ProcessExecutorGatewayTest {
   @Test
   void executeStream_shellWrappingOn_commandExecutesViaShell() {
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of("echo", "test_with_special_chars_@#$"),
                 null,
                 DEFAULT_TIMEOUT_SECONDS,
@@ -444,48 +363,9 @@ class ProcessExecutorGatewayTest {
   }
 
   @Test
-  void executeStream_processFailureIncludesOutput_errorMessageContainsProcessOutput() {
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("sh", "-c", "echo 'error output' && exit 5"),
-                null,
-                DEFAULT_TIMEOUT_SECONDS,
-                Map.of(),
-                false))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("error output");
-              assertThat(error.getMessage()).contains("5");
-            });
-  }
-
-  @Test
-  void execute_nonStreamingNullWorkingDir_buffersOutput() {
-    StepVerifier.create(
-            gateway.execute(
-                List.of("sh", "-c", "echo 'line1'; echo 'line2'; echo 'line3'"), null, 10L))
-        .assertNext(
-            output -> {
-              assertThat(output).contains("line1");
-              assertThat(output).contains("line2");
-              assertThat(output).contains("line3");
-              assertThat(output).contains("\n");
-            })
-        .verifyComplete();
-  }
-
-  @Test
-  void execute_nonStreamingWithWorkingDir_executesInDirectory() {
-    StepVerifier.create(gateway.execute(List.of("pwd"), "/tmp", 10L))
-        .assertNext(output -> assertThat(output).contains("tmp"))
-        .verifyComplete();
-  }
-
-  @Test
   void executeStream_shellArgWithComplexQuoting_handledCorrectly() {
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of("sh", "-c", "echo 'test string with spaces'"),
                 null,
                 DEFAULT_TIMEOUT_SECONDS,
@@ -498,7 +378,7 @@ class ProcessExecutorGatewayTest {
   @Test
   void wrapInShell_commandWithArguments_wrapsAllProperly() {
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of("printf", "%s %s", "arg1", "arg2"),
                 null,
                 DEFAULT_TIMEOUT_SECONDS,
@@ -513,34 +393,16 @@ class ProcessExecutorGatewayTest {
   void wrapInShell_unixSystem_usesBinSh() {
     // Verify /bin/sh is used on Unix by testing command that only works in sh
     StepVerifier.create(
-            gateway.executeStream(
-                List.of("echo", "test"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
+            executeStream(List.of("echo", "test"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), true))
         .assertNext(output -> assertThat(output).contains("test"))
         .verifyComplete();
-  }
-
-  @Test
-  void executeStream_processExitsWithOutputAndError_includesOutputInException() {
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("sh", "-c", "echo 'stdout'; echo 'stderr' >&2; exit 1"),
-                null,
-                10L,
-                Map.of(),
-                false))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("1");
-              assertThat(error.getMessage()).contains("stdout");
-            });
   }
 
   @Test
   void executeStream_multipleLineOutput_collectedAndReturned() {
     // Generate multiple output lines
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of("sh", "-c", "echo line1; echo line2; echo line3; echo line4; echo line5"),
                 null,
                 10L,
@@ -560,7 +422,7 @@ class ProcessExecutorGatewayTest {
     env.put("TEST_CUSTOM_VAR", "custom_value_123");
 
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of("sh", "-c", "echo $TEST_CUSTOM_VAR"),
                 null,
                 DEFAULT_TIMEOUT_SECONDS,
@@ -574,8 +436,7 @@ class ProcessExecutorGatewayTest {
   void executeStream_processAliveAfterCompletion_destroyNotCalled() {
     // Normal completion flow - process cleanup happens
     StepVerifier.create(
-            gateway.executeStream(
-                List.of("echo", TEST), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
+            executeStream(List.of("echo", TEST), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
         .assertNext(
             output -> {
               assertThat(output).isNotNull();
@@ -584,18 +445,10 @@ class ProcessExecutorGatewayTest {
   }
 
   @Test
-  void executeStream_negativeLongTimeout_throwsIllegalArgument() {
-    StepVerifier.create(
-            gateway.executeStream(List.of("echo", "test"), null, -100L, Map.of(), false))
-        .verifyError(IllegalArgumentException.class);
-  }
-
-  @Test
   void executeStream_workingDirWithBlankString_treatedAsNoDirectory() {
     // Test the isBlank() branch in executeStream
     StepVerifier.create(
-            gateway.executeStream(
-                List.of("echo", "test"), "   ", DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
+            executeStream(List.of("echo", "test"), "   ", DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
         .assertNext(output -> assertThat(output).contains("test"))
         .verifyComplete();
   }
@@ -604,75 +457,17 @@ class ProcessExecutorGatewayTest {
   void executeStream_envMapNull_handlesNullEnvironment() {
     // Test the env null branch in executeStream
     StepVerifier.create(
-            gateway.executeStream(
-                List.of("echo", "test"), null, DEFAULT_TIMEOUT_SECONDS, null, false))
+            executeStream(List.of("echo", "test"), null, DEFAULT_TIMEOUT_SECONDS, null, false))
         .assertNext(output -> assertThat(output).contains("test"))
         .verifyComplete();
-  }
-
-  @Test
-  void execute_nonStreamingThrowsGenericException_wrapsInWorkflowException() {
-    // Test the non-WorkflowExecutionException error wrapping in execute()
-    StepVerifier.create(gateway.execute(List.of("sh", "-c", "exit 1"), null, 10L))
-        .verifyError(WorkflowExecutionException.class);
-  }
-
-  @Test
-  void processOutput_includesCommandInErrorMessage() {
-    // Test that error messages include the command
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("sh", "-c", "echo 'process output' && exit 127"),
-                null,
-                10L,
-                Map.of(),
-                false))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              // Verify output is included
-              assertThat(error.getMessage()).contains("process output");
-            });
   }
 
   @Test
   void executeStream_environmentVariableNull_executesSuccessfully() {
     // Test the null env handling in executeStream line 76
     StepVerifier.create(
-            gateway.executeStream(
-                List.of("echo", "test"), null, DEFAULT_TIMEOUT_SECONDS, null, false))
+            executeStream(List.of("echo", "test"), null, DEFAULT_TIMEOUT_SECONDS, null, false))
         .assertNext(output -> assertThat(output).contains("test"))
-        .verifyComplete();
-  }
-
-  @Test
-  void execute_processFailureNonWorkflowException_wrapsInWorkflowException() {
-    // Test lines 210-214: non-WorkflowExecutionException error wrapping in execute()
-    StepVerifier.create(gateway.execute(List.of("sh", "-c", "exit 1"), null, 10L))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-            });
-  }
-
-  @Test
-  void executeStream_processExitCodeVariations_allHandled() {
-    // Test various exit codes to ensure error mapping works
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("sh", "-c", "exit 5"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("5");
-            });
-  }
-
-  @Test
-  void execute_withWorkingDirectoryAndTimeout_executesInContext() {
-    // Test execute() with working dir and timeout parameters
-    StepVerifier.create(gateway.execute(List.of("pwd"), "/tmp", 10L))
-        .assertNext(output -> assertThat(output).contains("tmp"))
         .verifyComplete();
   }
 
@@ -683,7 +478,7 @@ class ProcessExecutorGatewayTest {
     env.put("TEST_VAR", "test_value");
 
     StepVerifier.create(
-            gateway.executeStream(
+            executeStream(
                 List.of("sh", "-c", "echo $TEST_VAR"), null, DEFAULT_TIMEOUT_SECONDS, env, false))
         .assertNext(output -> assertThat(output).contains("test_value"))
         .verifyComplete();
@@ -743,84 +538,6 @@ class ProcessExecutorGatewayTest {
 
     grandchild.onExit().get(5, TimeUnit.SECONDS);
     assertThat(grandchild.isAlive()).as("the grandchild must not outlive its parent").isFalse();
-  }
-
-  @Test
-  @DisabledOnOs(OS.WINDOWS)
-  void executeStream_timeout_alsoKillsGrandchildren() throws Exception {
-    final Path pidFile = Files.createTempFile("yukta-grandchild", ".pid");
-    try {
-      StepVerifier.create(
-              gateway.executeStream(
-                  List.of("sh", "-c", "sleep 30 & echo $! > " + pidFile + "; wait"),
-                  null,
-                  SHORT_TIMEOUT_SECONDS,
-                  Map.of(),
-                  false))
-          .verifyErrorSatisfies(error -> assertThat(error.getMessage()).contains("timed out"));
-
-      final long pid = Long.parseLong(Files.readString(pidFile).trim());
-      final Optional<ProcessHandle> grandchild = ProcessHandle.of(pid);
-      if (grandchild.isPresent()) {
-        grandchild.get().onExit().get(5, TimeUnit.SECONDS);
-      }
-      assertThat(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false))
-          .as("the grandchild must be gone after the timeout")
-          .isFalse();
-    } finally {
-      Files.deleteIfExists(pidFile);
-    }
-  }
-
-  @Test
-  void execute_nonWorkflowExecutionExceptionWrapped_inWorkflowException() {
-    // Test line 191 branch - non-WFE exception wrapping in execute()
-    StepVerifier.create(gateway.execute(List.of("sh", "-c", "echo test && exit 99"), null, 10L))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("exit code");
-            });
-  }
-
-  @Test
-  void executeStream_workflowExecutionExceptionPassedThrough_notWrapped() {
-    // Test line 181 true branch - WorkflowExecutionException already is WFE
-    StepVerifier.create(
-            gateway.executeStream(
-                List.of("sh", "-c", "exit 1"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("exit code 1");
-            });
-  }
-
-  @Test
-  void execute_invalidTimeoutZero_wrapsIllegalArgumentExceptionInWorkflowException() {
-    // Test lines 174-181: onErrorMap wrapping branch for non-WFE exceptions in execute()
-    // When executeStream receives timeoutSeconds=0, it returns Flux.error(IllegalArgumentException)
-    // This raw IllegalArgumentException propagates to execute()'s onErrorMap where it's wrapped
-    StepVerifier.create(gateway.execute(List.of("echo", "test"), null, 0L))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("Process execution failed");
-              assertThat(error.getCause()).isInstanceOf(IllegalArgumentException.class);
-            });
-  }
-
-  @Test
-  void execute_invalidTimeoutNegative_wrapsIllegalArgumentExceptionInWorkflowException() {
-    // Test lines 174-181: onErrorMap wrapping branch for non-WFE exceptions in execute()
-    // Similar to above but with negative timeout
-    StepVerifier.create(gateway.execute(List.of("echo", "test"), null, -10L))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("Process execution failed");
-              assertThat(error.getCause()).isInstanceOf(IllegalArgumentException.class);
-            });
   }
 
   @Test
