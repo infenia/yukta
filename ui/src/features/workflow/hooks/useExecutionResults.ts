@@ -10,17 +10,26 @@ import type { ResultEvent } from '../types/workflow';
 export const MAX_RESULT_EVENTS = 500;
 
 interface ResultState {
+  /** Only RESULT events: NODE_END / EXECUTION_END must not push real results out of the cap. */
   events: ResultEvent[];
+  /** Highest sequence seen, kept after old results are evicted so a replay cannot re-add them. */
+  lastSequence: number;
   complete: boolean;
   status: string | null;
 }
 
-const EMPTY: ResultState = { events: [], complete: false, status: null };
+const EMPTY: ResultState = {
+  events: [],
+  lastSequence: -1,
+  complete: false,
+  status: null,
+};
 
 /**
  * Follow what reaches the terminal nodes of an execution (replayed history, then live) until the
- * execution ends. The server replays on every connection, so events already held are skipped by
- * sequence number. Resets when the execution changes.
+ * execution ends. The server replays on every connection, so every event at or below the highest
+ * sequence seen is skipped, also after it was evicted from the capped list. Resets when the
+ * execution changes.
  */
 export function useExecutionResults(
   sessionId: string,
@@ -48,15 +57,19 @@ export function useExecutionResults(
 
   const onEvent = useCallback((event: ResultEvent) => {
     setState((previous) => {
-      const { events } = previous.value;
-      if (events.some((held) => held.sequence === event.sequence)) {
+      const { events, lastSequence } = previous.value;
+      if (event.sequence <= lastSequence) {
         return previous;
       }
-      const next = [...events, event].slice(-MAX_RESULT_EVENTS);
+      const next =
+        event.kind === 'RESULT'
+          ? [...events, event].slice(-MAX_RESULT_EVENTS)
+          : events;
       return {
         ...previous,
         value: {
           events: next,
+          lastSequence: event.sequence,
           complete: previous.value.complete || event.kind === 'EXECUTION_END',
           status:
             event.kind === 'EXECUTION_END'
@@ -75,7 +88,7 @@ export function useExecutionResults(
   );
 
   return {
-    results: current.value.events.filter((event) => event.kind === 'RESULT'),
+    results: current.value.events,
     complete: current.value.complete,
     executionStatus: current.value.status,
     isStreaming:
