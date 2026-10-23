@@ -68,10 +68,8 @@ public class TriggerNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final int index,
       final int bufferSize,
       final ParentEdgeInfo... parentEdges) {
-    // one object per node: its state must not leak into another node of the same type
-    final TriggerPlugin shared = (TriggerPlugin) plugin;
-    final Plugin perNode = shared.forNode(node.config());
-    final TriggerPlugin trigger = perNode instanceof TriggerPlugin p ? p : shared;
+    final TriggerPlugin trigger =
+        NodePlugins.forNode((TriggerPlugin) plugin, TriggerPlugin.class, node.config());
 
     log.atDebug()
         .addKeyValue("nodeId", node.nodeId())

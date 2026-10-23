@@ -107,10 +107,8 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final int index,
       final int bufferSize,
       final ParentEdgeInfo... parentEdges) {
-    // one object per node: its state must not leak into another node of the same type
-    final ProcessorPlugin shared = (ProcessorPlugin) plugin;
-    final Plugin perNode = shared.forNode(node.config());
-    final ProcessorPlugin processor = perNode instanceof ProcessorPlugin p ? p : shared;
+    final ProcessorPlugin processor =
+        NodePlugins.forNode((ProcessorPlugin) plugin, ProcessorPlugin.class, node.config());
 
     log.atDebug()
         .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
