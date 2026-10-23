@@ -20,6 +20,8 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +41,9 @@ public class FileSystemPluginLogReader implements PluginLogReader {
 
   /** Log file extension used for plugin log files. */
   private static final String LOG_FILE_EXTENSION = ".log";
+
+  /** A backslash and the character after it. */
+  private static final Pattern ESCAPE = Pattern.compile("\\\\(.)", Pattern.DOTALL);
 
   /** Minimum number of parts expected in a parsed log line. */
   private static final int MIN_LOG_PARTS = 6;
@@ -148,7 +153,7 @@ public class FileSystemPluginLogReader implements PluginLogReader {
                         logFile -> {
                           // NOSONAR: getFileName() never returns null for Files.list() results
                           final String executionId =
-                              logFile.getFileName().toString().replace(LOG_FILE_EXTENSION, "");
+                              stripExtension(logFile.getFileName().toString());
                           final List<PluginLogEntry> entries = readLogFile(logFile, sessionId);
 
                           if (!entries.isEmpty()) {
@@ -228,7 +233,7 @@ public class FileSystemPluginLogReader implements PluginLogReader {
   private List<PluginLogEntry> readLogFile(final Path logFile, final String sessionId) {
     final List<PluginLogEntry> entries = new ArrayList<>();
     final String executionId =
-        Objects.requireNonNull(logFile.getFileName()).toString().replace(LOG_FILE_EXTENSION, "");
+        stripExtension(Objects.requireNonNull(logFile.getFileName()).toString());
 
     try {
       final List<String> lines = Files.readAllLines(logFile, StandardCharsets.UTF_8);
@@ -288,7 +293,24 @@ public class FileSystemPluginLogReader implements PluginLogReader {
    * @return the original message with newlines and carriage returns restored
    */
   private static String unescapeMessage(final String message) {
-    return message.replace("\\n", "\n").replace("\\r", "\r");
+    return ESCAPE
+        .matcher(message)
+        .replaceAll(
+            match ->
+                Matcher.quoteReplacement(
+                    switch (match.group(1)) {
+                      case "n" -> "\n";
+                      case "r" -> "\r";
+                      case "\\" -> "\\";
+                      default -> match.group(); // not an escape of ours (older files): keep both
+                    }));
+  }
+
+  /** The file name without its trailing {@code .log}; an id that contains ".log" keeps it. */
+  private static String stripExtension(final String fileName) {
+    return fileName.endsWith(LOG_FILE_EXTENSION)
+        ? fileName.substring(0, fileName.length() - LOG_FILE_EXTENSION.length())
+        : fileName;
   }
 
   private Instant parseTimestamp(final String timestampStr) {

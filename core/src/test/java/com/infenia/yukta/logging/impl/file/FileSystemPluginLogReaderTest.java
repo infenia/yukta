@@ -93,6 +93,35 @@ class FileSystemPluginLogReaderTest {
   }
 
   @Test
+  void messagesWithBackslashesAndLineBreaksSurviveWriteAndRead() {
+    final FileSystemPluginLogWriter writer = new FileSystemPluginLogWriter(tempDir.toString());
+    final List<String> messages =
+        List.of("C:\\new\\run", "regex \\r\\n here", "two\nlines\r\nand \\", "plain");
+    messages.stream()
+        .map(
+            message ->
+                new PluginLogEntry(
+                    "exec.log.1",
+                    SESSION_ID,
+                    "p",
+                    "P",
+                    com.infenia.yukta.logging.api.LogStream.STDOUT,
+                    message,
+                    LogLevel.INFO,
+                    Instant.now(),
+                    null,
+                    null))
+        .forEach(entry -> writer.write(entry).block());
+
+    assertThat(reader.readExecution("exec.log.1").collectList().block())
+        .extracting(PluginLogEntry::message)
+        .containsExactlyElementsOf(messages);
+    assertThat(reader.listExecutions(SESSION_ID).block())
+        .extracting(ExecutionSummary::executionId)
+        .containsExactly("exec.log.1");
+  }
+
+  @Test
   void testReadSession() throws IOException {
     final Path sessionDir = Files.createDirectories(tempDir.resolve(SESSION_ID));
     Files.writeString(
