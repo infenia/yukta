@@ -30,7 +30,7 @@ func calls() map[string]func(c *Client) error {
 		"GetWorkflowGraph":    func(c *Client) error { _, err := c.GetWorkflowGraph("s", "w"); return err },
 		"GetWorkflowExecs":    func(c *Client) error { _, err := c.GetWorkflowExecutions("s", "w"); return err },
 		"StartWorkflow":       func(c *Client) error { return w(c.StartWorkflow("s", "w", nil)) },
-		"StopWorkflow":        func(c *Client) error { _, err := c.StopWorkflow("s", "w"); return err },
+		"StopWorkflow":        func(c *Client) error { _, err := c.StopWorkflow("s", "w", ""); return err },
 		"StopExecution":       func(c *Client) error { return w(c.StopExecution("e")) },
 		"RestartExecution":    func(c *Client) error { return w(c.RestartExecution("e")) },
 		"RestartFromNode":     func(c *Client) error { return w(c.RestartFromNode("e", "n")) },
