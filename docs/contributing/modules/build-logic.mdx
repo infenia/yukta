@@ -289,7 +289,7 @@ Scans each module's src/main with four project-specific security rules and fails
 
 Measures test coverage with JaCoCo and fails a class that is below the required ratio, unless it holds a reasoned exception.
 
-- JaCoCo (0.8.14) records which lines and branches ran during tests. Only LINE and BRANCH are enforced; the other counters mostly repeat them. The default for **every class** is 100% of lines and 100% of branches (the code default; CLAUDE.md and the guide say 90/85, see Mismatches). Example: a class with 20 lines of which 19 ran fails; so does a class whose one `if` was only ever tested with true.
+- JaCoCo (0.8.14) records which lines and branches ran during tests. Only LINE and BRANCH are enforced; the other counters mostly repeat them. The default for **every class** is 100% of lines and 100% of branches. Example: a class with 20 lines of which 19 ran fails; so does a class whose one `if` was only ever tested with true.
 - Per-class exceptions are declared in a module with `coverageConfig { exception(pattern, reason, mapOf("BRANCH" to 0.9)) }`. The pattern is a class-name glob such as `com.infenia.yukta.mapper.*MapperImpl`. A counter not listed keeps its default. A ratio below 80% (the floor) requires a reason or the build throws; a reason is recorded for any exception.
 - A stale check runs before verification: every exception pattern must match at least one compiled class, or the build fails with 'coverage exceptions match no class (stale, delete them)'. This is why an empty `coverageConfig { }` is harmless but a leftover pattern is not.
 - An after-configuration guard throws if a module disables jacocoTestCoverageVerification. The rule: fix the code or add a narrow, reasoned exception, never turn the check off. Other tasks (PMD, Checkstyle) have no such guard.
@@ -554,7 +554,7 @@ A pull request builds only changed modules and what depends on them, unless a ro
 | Setting | Value | Where it is set |
 |---|---|---|
 | Java toolchain and release | 25 | java-conventions |
-| Coverage defaults | LINE 1.00 and BRANCH 1.00 per class | jacoco-conventions (code); older docs say 90/85 |
+| Coverage defaults | LINE 1.00 and BRANCH 1.00 per class | jacoco-conventions (code) |
 | Coverage floor needing a reason | Below 0.80 | jacoco-conventions |
 | Checkstyle max warnings | 0 | quality-conventions |
 | Format limits | 100 columns, 2-space indent (google-java-format) | Spotless; Checkstyle LineLength 100 |
