@@ -12,13 +12,15 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({"PMD.CommentRequired", "PMD.LinguisticNaming"})
 class EnvSecretProviderTest {
 
+  private static final String DB_PASSWORD = "db.password";
+
   private final Map<String, String> env = Map.of("YUKTA_SECRET_DB_PASSWORD", "pw", "PATH", "/bin");
 
   private final EnvSecretProvider provider = new EnvSecretProvider(env::get);
 
   @Test
   void getSecret_readsPrefixedVariable_normalisingTheKey() {
-    StepVerifier.create(provider.getSecret("db.password")).expectNext("pw").verifyComplete();
+    StepVerifier.create(provider.getSecret(DB_PASSWORD)).expectNext("pw").verifyComplete();
     StepVerifier.create(provider.getSecret("DB-PASSWORD")).expectNext("pw").verifyComplete();
   }
 
@@ -29,14 +31,17 @@ class EnvSecretProviderTest {
             "YUKTA_SECRET_DB_PASSWORD", "global",
             "YUKTA_SECRET_S_S1__DB_PASSWORD", "session",
             "YUKTA_SECRET_T_ACME__DB_PASSWORD", "tenant");
-    final EnvSecretProvider p = new EnvSecretProvider(scoped::get);
-    StepVerifier.create(p.getSecret("db.password", new SecretContext("acme", "s1", "w", "n")))
+    final EnvSecretProvider scopedProvider = new EnvSecretProvider(scoped::get);
+    StepVerifier.create(
+            scopedProvider.getSecret(DB_PASSWORD, new SecretContext("acme", "s1", "w", "n")))
         .expectNext("tenant")
         .verifyComplete();
-    StepVerifier.create(p.getSecret("db.password", new SecretContext(null, "s1", "w", "n")))
+    StepVerifier.create(
+            scopedProvider.getSecret(DB_PASSWORD, new SecretContext(null, "s1", "w", "n")))
         .expectNext("session")
         .verifyComplete();
-    StepVerifier.create(p.getSecret("db.password", new SecretContext(null, "s2", "w", "n")))
+    StepVerifier.create(
+            scopedProvider.getSecret(DB_PASSWORD, new SecretContext(null, "s2", "w", "n")))
         .expectNext("global")
         .verifyComplete();
   }

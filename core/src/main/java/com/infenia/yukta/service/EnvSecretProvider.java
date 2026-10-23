@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.UnaryOperator;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -50,32 +51,35 @@ public class EnvSecretProvider implements SecretProvider {
 
   @Override
   public Mono<String> getSecret(final String key, final SecretContext context) {
+    String value = null;
+    // "__" separates a scope from the key, so a key cannot name another scope's secret
     if (key.contains("__")) {
-      // "__" separates a scope from the key, so a key cannot name another scope's secret
       log.atWarn().log("Secret '{}' refused: a key may not contain '__'", key);
-      return Mono.empty();
+    } else {
+      value = lookup(key, context);
     }
+    return Mono.justOrEmpty(value);
+  }
+
+  private @Nullable String lookup(final String key, final SecretContext context) {
     final String name = normalise(key);
     String value = null;
-    String scope = "global";
     for (final String[] candidate : scopes(context)) {
       value = env.apply(PREFIX + candidate[0] + name);
       if (value != null) {
-        scope = candidate[1];
+        log.atInfo().log(
+            "Secret '{}' read from {} scope (workflow={}, node={})",
+            key,
+            candidate[1],
+            context.workflowId(),
+            context.nodeId());
         break;
       }
     }
     if (value == null) {
       log.atWarn().log("Secret '{}' requested but no environment variable holds it", key);
-    } else {
-      log.atInfo().log(
-          "Secret '{}' read from {} scope (workflow={}, node={})",
-          key,
-          scope,
-          context.workflowId(),
-          context.nodeId());
     }
-    return Mono.justOrEmpty(value);
+    return value;
   }
 
   /** Scopes to try, most specific first: variable-name infix and scope label. */
