@@ -3,6 +3,7 @@
 package com.infenia.yukta.persistence.postgres;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.model.session.SessionConfigData;
@@ -36,6 +37,28 @@ class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
     store =
         new R2dbcSessionConfigStore(
             db, mapper, props, new R2dbcWorkflowDefinitionStore(db, mapper));
+  }
+
+  @Test
+  void applyThatFailsHalfway_leavesNothingBehind() {
+    // a NUL character cannot be stored in PostgreSQL text, so the second workflow fails
+    final Map<String, WorkflowDefinition> workflows =
+        new java.util.concurrent.ConcurrentHashMap<>();
+    workflows.put("w1", workflow());
+    workflows.put("bad", new WorkflowDefinition("bad\u0000id", "d", List.of(), List.of()));
+
+    assertThatThrownBy(
+            () ->
+                store
+                    .applySessionConfig(
+                        new SessionConfigData(
+                            "s2", "name", "desc", "alice", Map.of(), "/p", workflows))
+                    .block())
+        .isNotNull();
+
+    assertThat(store.getSessionIds().collectList().block()).isEmpty();
+    assertThat(new R2dbcWorkflowDefinitionStore(db, new ObjectMapper()).findAll("s2").block())
+        .isEmpty();
   }
 
   @Test
