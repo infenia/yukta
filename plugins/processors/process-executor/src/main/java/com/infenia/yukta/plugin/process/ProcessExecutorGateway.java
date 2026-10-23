@@ -3,7 +3,6 @@
 package com.infenia.yukta.plugin.process;
 
 import com.infenia.yukta.plugin.core.PluginLogSink;
-import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -15,7 +14,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
@@ -25,14 +23,13 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /** Gateway for executing external processes with reactive streaming output. */
 @Slf4j
 @Service
-@SuppressWarnings({"PMD.GodClass", "PMD.OnlyOneReturn", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.TooManyMethods"})
 @NoArgsConstructor
 public class ProcessExecutorGateway {
 
@@ -133,70 +130,6 @@ public class ProcessExecutorGateway {
     return allowedCommands.contains(executable)
         ? null
         : "Command '" + executable + "' is not in yukta.process.allowed-commands";
-  }
-
-  /**
-   * Execute a process and return the output as a stream of strings with newlines preserved.
-   *
-   * <p>Unlike {@link #executeForResult(ProcessExecutionSpec)}, this API signals failures as errors:
-   * a non-zero exit code or a timeout produces a {@link WorkflowExecutionException}.
-   *
-   * @param command the command and arguments to execute
-   * @param workingDir the working directory (null defaults to current directory)
-   * @param timeoutSeconds the timeout in seconds (must be positive)
-   * @param env custom environment variables
-   * @param useShell whether to execute the command via a shell
-   * @return a Flux containing the process output lines with newlines preserved
-   * @throws IllegalArgumentException if timeoutSeconds is not positive
-   */
-  public Flux<String> executeStream(
-      final List<String> command,
-      final String workingDir,
-      final long timeoutSeconds,
-      final Map<String, String> env,
-      final boolean useShell) {
-    if (timeoutSeconds <= 0) {
-      return Flux.error(
-          new IllegalArgumentException("timeoutSeconds must be positive, got: " + timeoutSeconds));
-    }
-    final ProcessExecutionSpec spec =
-        ProcessExecutionSpec.builder()
-            .command(command)
-            .workingDir(workingDir)
-            .timeoutSeconds(timeoutSeconds)
-            .env(env)
-            .useShell(useShell)
-            .build();
-    return executeForResult(spec).flatMapMany(result -> toLineStream(result, spec));
-  }
-
-  /**
-   * Execute a process with the given command, working directory, and timeout.
-   *
-   * <p><strong>MEMORY WARNING:</strong> This method buffers the entire process output in memory.
-   * For processes generating large outputs (>100MB), consider using {@link
-   * #executeForResult(ProcessExecutionSpec)} with output caps instead to avoid Out-of-Memory
-   * errors.
-   *
-   * @param command the command and arguments to execute
-   * @param workingDir the working directory (null defaults to current directory)
-   * @param timeoutSeconds the timeout in seconds
-   * @return a Mono containing the process output with newlines preserved between lines
-   */
-  public Mono<String> execute(
-      final List<String> command, final String workingDir, final long timeoutSeconds) {
-    return executeStream(command, workingDir, timeoutSeconds, Map.of(), false)
-        .collectList()
-        // Restore newlines between lines that were stripped by BufferedReader.lines()
-        .map(list -> String.join("\n", list))
-        .onErrorMap(
-            e -> {
-              if (e instanceof WorkflowExecutionException) {
-                return e;
-              }
-              return new WorkflowExecutionException(
-                  "Process execution failed: " + e.getMessage(), e);
-            });
   }
 
   /**
@@ -352,51 +285,6 @@ public class ProcessExecutorGateway {
             elapsedMillis(startNanos),
             true,
             false));
-  }
-
-  /**
-   * Map a completed execution result to the legacy line-stream contract used by {@link
-   * #executeStream(List, String, long, Map, boolean)}.
-   *
-   * @param result the execution result
-   * @param spec the execution specification
-   * @return the output lines, or an error for a timed-out or failed process
-   */
-  private Flux<String> toLineStream(
-      final ProcessExecutionResult result, final ProcessExecutionSpec spec) {
-    if (result.timedOut()) {
-      log.atError()
-          .setMessage("Process timed out after {}s: {}")
-          .addArgument(spec.timeoutSeconds())
-          .addArgument(spec.command())
-          .log();
-      return Flux.error(
-          new WorkflowExecutionException(
-              "Process timed out after " + spec.timeoutSeconds() + "s",
-              new TimeoutException("Process timed out after " + spec.timeoutSeconds() + "s")));
-    }
-    if (result.exitCode() != 0) {
-      final String output = result.stdout();
-      log.atError()
-          .setMessage(
-              """
-              Process failed with exit code {}: {}
-              --- Process Output ---
-              {}
-              --- End Output ---\
-              """)
-          .addArgument(result.exitCode())
-          .addArgument(spec.command())
-          .addArgument(output)
-          .log();
-      return Flux.error(
-          new WorkflowExecutionException(
-              "Process failed with exit code "
-                  + result.exitCode()
-                  + "\n--- Output ---\n"
-                  + output));
-    }
-    return Flux.fromIterable(result.stdoutLines());
   }
 
   /**
