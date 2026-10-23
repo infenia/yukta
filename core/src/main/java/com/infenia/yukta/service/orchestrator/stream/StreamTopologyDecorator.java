@@ -6,6 +6,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.ArrayList;
 import java.util.List;
@@ -189,12 +190,21 @@ public class StreamTopologyDecorator {
     // Siblings share the parent's message; a copy per edge keeps one branch's edits to the payload
     // from showing up in another.
     Flux<Message<?>> stream =
-        parent.map(
-            msg ->
-                (parent instanceof NodeBroadcast broadcast && broadcast.isShared()
-                        ? PayloadCopy.copyOf(msg)
-                        : msg)
-                    .withSourceNodeId(edge.sourceNodeId()));
+        parent.transformDeferredContextual(
+            (flux, ctx) ->
+                flux.map(
+                    msg -> {
+                      final Message<?> own =
+                          EngineOwned.reassert(
+                                  parent instanceof NodeBroadcast broadcast && broadcast.isShared()
+                                      ? PayloadCopy.copyOf(msg)
+                                      : msg)
+                              .withSourceNodeId(edge.sourceNodeId());
+                      // The run's workflow id, so a plugin cannot claim another workflow's.
+                      return ctx.hasKey(ExecutionContextBuilder.CTX_WORKFLOW_ID)
+                          ? own.withWorkflowId(ctx.get(ExecutionContextBuilder.CTX_WORKFLOW_ID))
+                          : own;
+                    }));
 
     final String sourcePort = edge.sourcePort();
     if (sourcePort != null) {
