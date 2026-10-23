@@ -5,7 +5,7 @@ This document describes the security scanning infrastructure powered by Trivy, w
 ## Overview
 
 The security scanning workflow runs comprehensive security scans to detect:
-- **Vulnerabilities** in dependencies (from gradle.lockfile)
+- **Vulnerabilities** in dependencies (from the Gradle build files)
 - **Secrets** (API keys, tokens, credentials)
 - **Misconfigurations** (Dockerfile, Kubernetes manifests, etc.)
 - **SBOMs** (Software Bill of Materials for compliance)
@@ -84,10 +84,10 @@ trivy secret .
 **To suppress false positives**: Add to `.trivyignore` with reason
 
 ### 2. **Dependency Vulnerability Scanning** 📦
-Focuses on gradle.lockfile to detect known vulnerabilities in direct and transitive dependencies.
+Scans the repository for known vulnerabilities in dependencies. No Gradle lock file is committed, so Trivy sees only what the build files declare; it does not resolve transitive dependencies.
 
 ```bash
-trivy fs --severity HIGH,CRITICAL --file-patterns "gradle.lockfile" .
+trivy fs --scanners vuln --severity HIGH,CRITICAL .
 ```
 
 **Behavior**:
@@ -101,8 +101,7 @@ trivy fs --severity HIGH,CRITICAL --file-patterns "gradle.lockfile" .
 
 **Resolution**:
 1. Update the vulnerable dependency to a patched version
-2. Run `./gradlew lockfile` to regenerate gradle.lockfile
-3. If a patch isn't available, add to `.trivyignore` with justification
+2. If a patch isn't available, add to `.trivyignore` with justification
 
 ### 3. **Filesystem Vulnerability Scanning** 🔍
 Broad scan for vulnerabilities and misconfigurations across the repository.
@@ -240,7 +239,7 @@ trivy fs --severity HIGH,CRITICAL .
 trivy secret .
 
 # Dependencies only
-trivy fs --severity HIGH,CRITICAL --file-patterns "gradle.lockfile" .
+trivy fs --scanners vuln --severity HIGH,CRITICAL .
 
 # Generate JSON for analysis
 trivy fs --severity HIGH,CRITICAL --format json --output results.json .
@@ -253,16 +252,6 @@ rm -rf ~/.cache/trivy
 ```
 
 ## Common Issues
-
-### Build fails with "which is not part of the dependency lock state"
-
-This is **not Trivy** — it's a Gradle lock file verification error. The build fails because a new dependency was added without updating gradle.lockfile:
-
-```bash
-./gradlew lockfile  # or boot:compileAotJava --write-locks
-git add gradle.lockfile
-git commit -m "chore: update dependency lock files"
-```
 
 ### "Exit code 1" but no output
 

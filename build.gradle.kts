@@ -8,10 +8,6 @@ plugins {
 
 allprojects {
     group = "com.infenia.yukta"
-
-    dependencyLocking {
-        lockAllConfigurations()
-    }
 }
 
 // On-demand only (not part of `check`); CI (security.yml) owns scheduled scanning.
