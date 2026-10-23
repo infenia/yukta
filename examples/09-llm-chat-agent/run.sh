@@ -4,7 +4,8 @@
 #
 #   LLM_BASE_URL  default http://localhost:11434/v1 (Ollama)
 #   LLM_MODEL     default llama3.2
-#   LLM_API_KEY   default "ollama" (Ollama ignores it; set a real key for hosted APIs)
+#   LLM_API_KEY   only for the reachability probe (Ollama ignores it). A definition may not hold a
+#                 key: for a hosted API set apiKey to "decrypted:<key>" and the server env YUKTA_SECRET_<KEY>
 set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
 cd "$(dirname "$0")"
@@ -23,8 +24,8 @@ fi
 # Write a copy of the session with the endpoint settings applied, so nothing secret or
 # environment-specific is committed.
 work=$(mktemp -d)
-jq --arg url "$LLM_BASE_URL" --arg model "$LLM_MODEL" --arg key "$LLM_API_KEY" '
-  (.workflows[].nodes[] | select(.type == "LLM_CALL").config) |= (.baseUrl = $url | .model = $model | .apiKey = $key)
+jq --arg url "$LLM_BASE_URL" --arg model "$LLM_MODEL" '
+  (.workflows[].nodes[] | select(.type == "LLM_CALL").config) |= (.baseUrl = $url | .model = $model)
 ' session.json > "$work/session.json"
 
 apply_session "$work/session.json"

@@ -138,7 +138,7 @@ Runs one parameterised SQL statement per message. Requires the `sql-query` modul
 |---|---|---|---|
 | `url` | string | none, required | The database connection URL, for example `jdbc:postgresql://db:5432/app`. `${...}` variables are allowed |
 | `username` | string | none | Database user. `${...}` variables are allowed |
-| `password` | string | none | Database password. Write `decrypted:<key>` to read it from the secret store (`YUKTA_SECRET_<KEY>`); `${...}` variables are allowed. A plain value is used as written |
+| `password` | string | none | Database password. Write `decrypted:<key>` to read it from the secret store (`YUKTA_SECRET_<KEY>`); `${...}` variables are allowed. A plain value is refused when the workflow is saved |
 | `sql` | string | none, required | The statement, with `?` placeholders |
 | `params` | list | empty | Payload field names, bound to the placeholders in order |
 | `maxRows` | number | `1000` | Most rows returned, positive |
@@ -149,7 +149,7 @@ Output ports: `default`, plus `error` when `failureMode` is `CONTINUE`.
 
 Values are always bound as parameters and never pasted into the statement, so they cannot change its structure. A parameter takes its value from the named field of the incoming payload, which must be an object. For a statement that returns rows the payload becomes `{"rows": [...], "count": n}`, with column names in lower case. For any other statement it becomes `{"updated": n}`.
 
-A connection is opened for each message and messages are handled one at a time. Credentials in `url`, `username` and `password` are not variable-resolved and are stored as written in the workflow definition.
+A connection is opened for each message and messages are handled one at a time. Keep credentials out of the definition: write `decrypted:<key>` for `password` (and for a secret in `url` or `username`).
 
 ```json
 {
@@ -158,7 +158,7 @@ A connection is opened for each message and messages are handled one at a time. 
   "config": {
     "url": "jdbc:postgresql://db:5432/app",
     "username": "reader",
-    "password": "change-me",
+    "password": "decrypted:db-password",
     "sql": "SELECT id, name FROM users WHERE email = ?",
     "params": ["email"],
     "maxRows": 10,
