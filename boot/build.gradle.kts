@@ -105,6 +105,8 @@ tasks.withType<Test>().configureEach {
     // DagPropertyAcceptanceTest: -PdagTries=<cases per property>, -PdagSeed=<number>|random (nightly)
     providers.gradleProperty("dagTries").orNull?.let { systemProperty("yukta.dag.tries", it) }
     providers.gradleProperty("dagSeed").orNull?.let { systemProperty("yukta.dag.seed", it) }
+    providers.gradleProperty("yukta.plugins").orNull?.let { systemProperty("yukta.plugins", it) }
+    providers.gradleProperty("yukta.bean-inventory.update").orNull?.let { systemProperty("yukta.bean-inventory.update", it) }
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
