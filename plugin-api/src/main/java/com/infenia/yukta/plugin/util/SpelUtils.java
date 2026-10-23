@@ -28,6 +28,12 @@ public final class SpelUtils {
   /** Maximum number of parsed expressions kept. */
   /* default */ static final int MAX_CACHED = 1000;
 
+  /** System property: longest expression accepted, in characters. */
+  /* default */ static final String MAX_LENGTH_PROPERTY = "yukta.spel.max-length";
+
+  /** Longest expression accepted when {@value #MAX_LENGTH_PROPERTY} is not set. */
+  private static final int DEFAULT_MAX_LENGTH = 10_000;
+
   /** Cache for parsed SpEL expressions, least recently used evicted. */
   private static final Map<String, Expression> CACHE =
       Collections.synchronizedMap(
@@ -39,6 +45,9 @@ public final class SpelUtils {
               return size() > MAX_CACHED;
             }
           });
+
+  // ponytail: the lock is now held only for get/put, not for parsing; a striped or Caffeine cache
+  // if lookups ever contend.
 
   /* default */ static int cacheSize() {
     return CACHE.size();
@@ -89,7 +98,7 @@ public final class SpelUtils {
   })
   public static <T> T evaluateSync(
       final String expressionStr, final Object root, final Map<String, Object> variables) {
-    final Expression expression = CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);
+    final Expression expression = parsed(expressionStr);
     // Read-only property access and a short list of methods only: no T(...), constructors or bean
     // refs.
     final SimpleEvaluationContext context =
@@ -125,7 +134,32 @@ public final class SpelUtils {
    */
   public static void preParse(final String expressionStr) {
     if (expressionStr != null && !expressionStr.isBlank()) {
-      CACHE.computeIfAbsent(expressionStr, PARSER::parseExpression);
+      parsed(expressionStr);
     }
+  }
+
+  /**
+   * The parsed expression, from the cache or parsed now. Parsing happens outside the cache's lock,
+   * so one slow parse does not hold up every other plugin; two threads racing on the same new
+   * expression both parse it, the first result stays cached and each uses its own copy.
+   */
+  private static Expression parsed(final String expressionStr) {
+    Expression expression = CACHE.get(expressionStr);
+    if (expression == null) {
+      final int max = Integer.getInteger(MAX_LENGTH_PROPERTY, DEFAULT_MAX_LENGTH);
+      if (expressionStr.length() > max) {
+        throw new IllegalArgumentException(
+            "Expression is "
+                + expressionStr.length()
+                + " characters long, the limit is "
+                + max
+                + " (-D"
+                + MAX_LENGTH_PROPERTY
+                + ")");
+      }
+      expression = PARSER.parseExpression(expressionStr);
+      CACHE.putIfAbsent(expressionStr, expression);
+    }
+    return expression;
   }
 }

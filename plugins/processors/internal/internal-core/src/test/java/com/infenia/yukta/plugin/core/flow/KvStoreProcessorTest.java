@@ -55,6 +55,37 @@ class KvStoreProcessorTest {
   }
 
   @Test
+  void withoutNamespace_eachWorkflowHasItsOwnKeys() {
+    final Map<String, Object> config = Map.of("op", INCR, KEY, "counter");
+    final var first = DefaultMessage.create(UUID.randomUUID(), "x").withWorkflowId("wf-a");
+    final var second = DefaultMessage.create(UUID.randomUUID(), "x").withWorkflowId("wf-b");
+
+    processor.process(Flux.just(first), config).blockFirst();
+    final var again = processor.process(Flux.just(first), config).blockFirst();
+    final var other = processor.process(Flux.just(second), config).blockFirst();
+
+    assertThat(((Map<?, ?>) java.util.Objects.requireNonNull(again).payload()).get(VALUE))
+        .isEqualTo(2L);
+    assertThat(((Map<?, ?>) java.util.Objects.requireNonNull(other).payload()).get(VALUE))
+        .isEqualTo(1L);
+  }
+
+  @Test
+  void initialize_inMemoryStore_warnsOnlyOnce() {
+    StepVerifier.create(processor.initialize(Map.of("op", GET))).verifyComplete();
+    StepVerifier.create(processor.initialize(Map.of("op", GET))).verifyComplete();
+  }
+
+  @Test
+  void initialize_durableStore_doesNotWarn() {
+    final KvStoreProcessor durable =
+        new KvStoreProcessor(
+            org.mockito.Mockito.mock(com.infenia.yukta.plugin.store.KeyValueStore.class));
+
+    StepVerifier.create(durable.initialize(Map.of("op", GET))).verifyComplete();
+  }
+
+  @Test
   void incr_countsFromOneOrByValue() {
     assertThat(run(INCR, Map.of(KEY, "c"))).isEqualTo(1L);
     assertThat(run(INCR, Map.of(KEY, "c"))).isEqualTo(2L);

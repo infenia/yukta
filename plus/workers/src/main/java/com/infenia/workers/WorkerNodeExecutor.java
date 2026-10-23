@@ -5,6 +5,7 @@ package com.infenia.workers;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.WorkflowContext;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.service.worker.RemoteNodeExecutor;
 import com.infenia.yukta.service.worker.WorkerInfo;
@@ -34,6 +35,9 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
 
   /** Class name whose failures keep their meaning: bad input is not retried. */
   private static final String BAD_INPUT = IllegalArgumentException.class.getName();
+
+  /** Class name whose failures keep their meaning: a hard stop ends the run. */
+  private static final String RUN_ABORTED = RunAbortedException.class.getName();
 
   /** The live workers. */
   private final WorkerRegistry registry;
@@ -170,9 +174,17 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
   }
 
   private static RuntimeException failure(final String workerId, final NodeFrame frame) {
-    return BAD_INPUT.equals(frame.errorClass())
-        ? new IllegalArgumentException(frame.errorMessage())
-        : new WorkflowExecutionException(
-            "Worker " + workerId + " failed: " + frame.errorClass() + ": " + frame.errorMessage());
+    final String errorClass = String.valueOf(frame.errorClass());
+    final RuntimeException failure;
+    if (BAD_INPUT.equals(errorClass)) {
+      failure = new IllegalArgumentException(frame.errorMessage());
+    } else if (RUN_ABORTED.equals(errorClass)) {
+      failure = new RunAbortedException(String.valueOf(frame.errorMessage()));
+    } else {
+      failure =
+          new WorkflowExecutionException(
+              "Worker " + workerId + " failed: " + errorClass + ": " + frame.errorMessage());
+    }
+    return failure;
   }
 }

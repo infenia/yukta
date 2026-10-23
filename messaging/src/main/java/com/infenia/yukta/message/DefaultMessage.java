@@ -114,30 +114,7 @@ public record DefaultMessage<T>(
 
   @Override
   public <R> Message<R> withPayload(final R newPayload) {
-    return DefaultMessage.<R>builder()
-        .id(id)
-        .traceId(traceId)
-        .correlationId(correlationId)
-        .replyTo(replyTo)
-        .expiration(expiration)
-        .formatIndicator(formatIndicator)
-        .metadata(metadata)
-        .messageHistory(messageHistory)
-        .sequenceId(sequenceId)
-        .sequenceNumber(sequenceNumber)
-        .sequenceSize(sequenceSize)
-        .priority(priority)
-        .controlMessage(controlMessage)
-        .origDest(origDest)
-        .failureReason(failureReason)
-        .exceptionDetail(exceptionDetail)
-        .retryCount(retryCount)
-        .payload(newPayload)
-        .timestamp(timestamp)
-        .sourcePort(sourcePort)
-        .sourceNodeId(sourceNodeId)
-        .workflowId(workflowId)
-        .build();
+    return from(this, newPayload);
   }
 
   @Override
