@@ -68,6 +68,7 @@ All admission limits are off by default. Set them to match the machine and prote
 |---|---|
 | `yukta.execution.max-concurrent` | Total running executions the machine can carry |
 | `yukta.execution.max-concurrent-per-session` | One busy session cannot take every slot |
+| `yukta.execution.max-starts-per-minute` | A looping caller cannot pile up runs of one workflow (`429`, reason `rate_limit`) |
 | `yukta.execution.max-concurrent-per-workflow` | One workflow cannot take every slot |
 | `yukta.execution.queue-capacity` | How many starts may wait (default 100). More are refused with `429` |
 | `yukta.execution.on-limit=REJECT` | Refuse instead of queue when you prefer clients to back off |
@@ -91,7 +92,7 @@ Meters are read at `GET /actuator/metrics` (the list) and `GET /actuator/metrics
 | `yukta.execution.queue.wait` | timer | none | Time starts waited for a slot |
 | `yukta.executions.running` | gauge | none | Executions holding a slot |
 | `yukta.executions.queued` | gauge | none | Executions waiting for a slot |
-| `yukta.executions.rejected` | counter | `reason` | Refused starts. Reasons: `shutdown`, `limit`, `queue_full`, `workflow_queue_full`, `queue_timeout`, `not_leader` |
+| `yukta.executions.rejected` | counter | `reason` | Refused starts. Reasons: `shutdown`, `limit`, `queue_full`, `workflow_queue_full`, `queue_timeout`, `not_leader`, `rate_limit` |
 | `yukta.tracker.queue.depth` | gauge | none | State events accepted and not yet applied |
 | `yukta.tracker.dropped` | counter | `type` (`log`, `state`) or `kind` (`supervisor`) | Dropped log lines, lost state events, and events a slow supervisor missed |
 | `yukta.tracker.log.append.failed` | counter | `type` (`node`, `run`) | Failed writes to the execution log |

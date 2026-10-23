@@ -112,6 +112,21 @@ class ExecutionSchedulerTest {
   }
 
   @Test
+  void startRate_refusesStartsOverTheLimitPerWorkflow_andCountsThem() {
+    final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
+    scheduler.setMaxStartsPerMinute(2);
+
+    scheduler.assertCanAccept("s", "w");
+    scheduler.assertCanAccept("s", "w");
+    scheduler.assertCanAccept("s", "other");
+
+    assertThatThrownBy(() -> scheduler.assertCanAccept("s", "w"))
+        .isInstanceOf(ExecutionRejectedException.class)
+        .hasMessage("Too many starts of this workflow per minute");
+    assertThat(scheduler.rejected(ExecutionScheduler.RejectReason.RATE_LIMIT)).isEqualTo(1);
+  }
+
+  @Test
   void queuedStart_givesUpAfterTheQueueTimeout_andFreesItsPlace() {
     final ExecutionScheduler scheduler =
         new ExecutionScheduler(
