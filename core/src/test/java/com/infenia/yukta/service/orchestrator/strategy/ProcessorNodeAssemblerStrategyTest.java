@@ -546,10 +546,10 @@ class ProcessorNodeAssemblerStrategyTest {
     when(channel.inbound(eq(NODE_ID), eq(EXECUTION_ID), any()))
         .thenAnswer(
             inv -> {
-              final Flux<Message<?>> in = inv.getArgument(2);
-              return in.map(
+              final Flux<Message<?>> upstream = inv.getArgument(2);
+              return upstream.map(
                   m -> {
-                    if ("bad".equals(m.payload())) {
+                    if (bad.payload().equals(m.payload())) {
                       throw new IllegalStateException("channel boom");
                     }
                     return m;

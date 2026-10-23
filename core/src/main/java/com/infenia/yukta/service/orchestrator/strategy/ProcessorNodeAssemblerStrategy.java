@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.orchestrator.strategy;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.message.channel.DirectNodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannelProvider;
 import com.infenia.yukta.model.workflow.NodeAssembler;
@@ -77,6 +78,39 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
   private static boolean retried(final Message<?> attempt) {
     // NodePolicies.apply sets the header on every attempt
     return (Integer) attempt.metadata().get(NodePolicies.ATTEMPT_HEADER) > 1;
+  }
+
+  /** Calls the plugin once per message under the node's policy, the channel inside each attempt. */
+  private Function<Flux<Message<?>>, Flux<Message<?>>> perMessageRun(
+      final WorkflowNode node,
+      final ProcessorPlugin processor,
+      final NodeMessageChannel channel,
+      final String executionId,
+      final NodeActivity activity,
+      final FailureLedger ledger) {
+    final NodePolicy policy = NodePolicy.from(node.config());
+    // prefetch 1: a paused node must not have 32 elements already past the gate
+    return input ->
+        input.concatMap(
+            message ->
+                NodePolicies.apply(
+                    policy,
+                    node.nodeId(),
+                    message,
+                    attempt -> {
+                      if (retried(attempt)) {
+                        tracker.recordRetry(node.type());
+                      }
+                      return channel.outbound(
+                          node.nodeId(),
+                          executionId,
+                          processor.process(
+                              channel.inbound(node.nodeId(), executionId, Flux.just(attempt)),
+                              node.config()));
+                    },
+                    activity::touch,
+                    ledger),
+            1);
   }
 
   /**
@@ -154,49 +188,24 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
               NodePolicy.edgeBuffer(node.config()), timedInput, tracker, node.type());
       // With a per-message policy the channel runs inside it, once per message, so a channel
       // failure is retried or dead-lettered like a plugin failure instead of stopping the node.
+      final NodeMessageChannel passthrough = new DirectNodeMessageChannel();
+      final NodeMessageChannel streamChannel = policy.perMessage() ? passthrough : channel;
+      final NodeMessageChannel messageChannel = policy.perMessage() ? channel : passthrough;
       final Flux<Message<?>> channelInput =
-          policy.perMessage()
-              ? buffered
-              : channel.inbound(node.nodeId(), context.executionId(), buffered);
+          streamChannel.inbound(node.nodeId(), context.executionId(), buffered);
       // failures are counted per run, so the ledger belongs to this assembly, not to the node
       final FailureLedger ledger =
           policy.failureBudget() == null ? null : new FailureLedger(policy.failureBudget());
       final Function<Flux<Message<?>>, Flux<Message<?>>> run =
           policy.perMessage()
-              // prefetch 1: a paused node must not have 32 elements already past the gate
-              ? input ->
-                  input.concatMap(
-                      message ->
-                          NodePolicies.apply(
-                              policy,
-                              node.nodeId(),
-                              message,
-                              attempt -> {
-                                if (retried(attempt)) {
-                                  tracker.recordRetry(node.type());
-                                }
-                                return channel.outbound(
-                                    node.nodeId(),
-                                    context.executionId(),
-                                    processor.process(
-                                        channel.inbound(
-                                            node.nodeId(),
-                                            context.executionId(),
-                                            Flux.just(attempt)),
-                                        node.config()));
-                              },
-                              activity::touch,
-                              ledger),
-                      1)
+              ? perMessageRun(
+                  node, processor, messageChannel, context.executionId(), activity, ledger)
               : input -> processor.process(input, node.config());
       final Flux<Message<?>> pluginOutput =
           skipFlag == null
               ? run.apply(channelInput)
               : bypassWhileSkipped(channelInput, skipFlag, run);
-      stream =
-          policy.perMessage()
-              ? pluginOutput
-              : channel.outbound(node.nodeId(), context.executionId(), pluginOutput);
+      stream = streamChannel.outbound(node.nodeId(), context.executionId(), pluginOutput);
       if (processor.isBlocking()) {
         log.atDebug()
             .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
