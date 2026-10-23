@@ -24,7 +24,7 @@ Web layer with REST controllers and UI support.
 ## Key Files
 - **Controllers**: `src/main/java/com/infenia/yukta/controller/`
 - **Mappers**: `src/main/java/com/infenia/yukta/mapper/`
-- **Module guide**: `../docs/contributing/modules/web.mdx` (module guide, published in the docs site); open risks, bugs and review findings: GitHub issues labelled `web` (`gh issue list -l web`; risks also carry `risk`); evolution path and quality lenses: `../design/assessments/web.md`
+- **Module guide**: `../docs/contributing/modules/web.mdx` (module guide); open risks, bugs and review findings: GitHub issues labelled `web` (`gh issue list -l web`; risks also carry `risk`); evolution path and quality lenses: `../design/assessments/web.md`
 
 ## Imports
 @.claude/rules/coding-standards.md
