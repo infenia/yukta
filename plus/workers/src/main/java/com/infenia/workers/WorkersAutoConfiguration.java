@@ -23,6 +23,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.ssl.SslBundle;
 import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.env.Environment;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.messaging.rsocket.annotation.support.RSocketMessageHandler;
 import reactor.core.publisher.Mono;
@@ -57,6 +58,7 @@ public class WorkersAutoConfiguration {
    * @param address the interface the RSocket server listens on; empty means every interface
    * @param serverBundle the SSL bundle of the RSocket server; empty for plain TCP
    * @param allowInsecure allow plain TCP beyond this machine
+   * @param environment holds {@code yukta.workers.tokens.<id>}, a secret per worker
    * @return the handler
    */
   @Bean
@@ -69,10 +71,15 @@ public class WorkersAutoConfiguration {
       @Value("${yukta.workers.token}") final String token,
       @Value("${spring.rsocket.server.address:}") final String address,
       @Value("${spring.rsocket.server.ssl.bundle:}") final String serverBundle,
-      @Value("${yukta.workers.allow-insecure:false}") final boolean allowInsecure) {
+      @Value("${yukta.workers.allow-insecure:false}") final boolean allowInsecure,
+      final Environment environment) {
     WorkerTransport.requireTls(address, !serverBundle.isBlank(), allowInsecure);
     return new WorkerSessionHandler(
-        registry, connections, election.getIfAvailable(SingleServerLeader::new), token);
+        registry,
+        connections,
+        election.getIfAvailable(SingleServerLeader::new),
+        token,
+        WorkerSessionHandler.tokensOf(environment));
   }
 
   /**
