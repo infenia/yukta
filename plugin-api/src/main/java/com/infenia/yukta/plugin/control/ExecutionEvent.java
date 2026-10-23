@@ -3,7 +3,10 @@
 package com.infenia.yukta.plugin.control;
 
 import com.infenia.yukta.plugin.core.LogLevel;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
@@ -42,6 +45,9 @@ public sealed interface ExecutionEvent {
    * @param metadata what the node reported
    * @param timestamp when it happened
    */
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP",
+      justification = "the compact constructor stores an unmodifiable copy")
   record NodeStatusChanged(
       String executionId,
       String workflowId,
@@ -54,7 +60,9 @@ public sealed interface ExecutionEvent {
 
     /** Keeps an immutable copy of the metadata. */
     public NodeStatusChanged {
-      metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
+      // Map.copyOf rejects null values, and node output can hold them
+      metadata =
+          metadata == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(metadata));
     }
   }
 

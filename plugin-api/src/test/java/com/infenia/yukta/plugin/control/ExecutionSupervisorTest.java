@@ -50,6 +50,17 @@ class ExecutionSupervisorTest {
   }
 
   @Test
+  void nodeStatusChanged_acceptsNullMetadataValues() {
+    final Map<String, Object> metadata = new HashMap<>();
+    metadata.put("missing", null);
+    final var event =
+        new ExecutionEvent.NodeStatusChanged(
+            "e", "wf", "n", "m", "SUCCESS", metadata, Instant.now());
+
+    assertThat(event.metadata()).containsEntry("missing", null);
+  }
+
+  @Test
   void nodeStatusChanged_keepsAnImmutableCopyOfTheMetadata() {
     final Map<String, Object> metadata = new HashMap<>(Map.of("k", "v"));
     final var event =
