@@ -10,11 +10,15 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -33,6 +37,11 @@ import tools.jackson.databind.ObjectMapper;
  * the file store: {@link #append} only queues the event; {@link #readAll} and {@link #replaceAll}
  * wait for the queued events first. After {@code compact-after} events the log is trimmed to the
  * newest {@code retained-runs} runs; a run without an end is never dropped.
+ *
+ * <p>The events that start and end a run are never dropped for a full queue: they wait in a second,
+ * unbounded queue (one entry per run, so it stays small) that the writer empties after the batches.
+ * If their insert fails it is retried with a growing delay on the writer thread, which is not a
+ * reactive thread. Only after the retries fail are they counted as lost.
  */
 @Slf4j
 @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.OnlyOneReturn", "PMD.TooManyMethods"})
@@ -43,6 +52,16 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
 
   /** Most events written by one statement. */
   private static final int BATCH_SIZE = 100;
+
+  /** How often the insert of a run start or end is retried; the delay doubles each time. */
+  private static final int CRITICAL_RETRIES = 4;
+
+  /** The event types that start and end a run. */
+  private static final Set<ExecutionLogEvent.Type> RUN_EDGES =
+      EnumSet.of(
+          ExecutionLogEvent.Type.RUN_STARTED,
+          ExecutionLogEvent.Type.RUN_FINISHED,
+          ExecutionLogEvent.Type.RUN_ABORTED);
 
   /** Longest one statement may take. */
   private static final Duration STATEMENT_TIMEOUT = Duration.ofSeconds(30);
@@ -91,6 +110,12 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   /** Events waiting to be written; the writer takes them in batches. */
   private final BlockingQueue<ExecutionLogEvent> pending;
 
+  /** Run start and end events that did not fit the bounded queue; written after it. */
+  private final Queue<ExecutionLogEvent> urgent = new ConcurrentLinkedQueue<>();
+
+  /** Delay before the first retry of a run start or end. */
+  private final long retryMillis;
+
   /** Events appended since the last trim; only touched on the writer thread. */
   private int sinceCompaction;
 
@@ -136,7 +161,8 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
         compactAfter,
         shutdownWaitMillis,
         new ArrayBlockingQueue<>(QUEUE_CAPACITY),
-        meters);
+        meters,
+        200);
   }
 
   /* default */ R2dbcExecutionLogStore(
@@ -146,7 +172,9 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
       final int compactAfter,
       final long shutdownWaitMillis,
       final BlockingQueue<ExecutionLogEvent> pending,
-      final MeterRegistry meters) {
+      final MeterRegistry meters,
+      final long retryMillis) {
+    this.retryMillis = retryMillis;
     this.droppedFull =
         Counter.builder("yukta.execution.log.lost")
             .description("Execution log events that were not stored")
@@ -168,11 +196,14 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   @Override
   public void append(final ExecutionLogEvent event) {
     if (!pending.offer(event)) {
-      droppedFull.increment();
-      log.atError()
-          .addKeyValue("executionId", event.executionId())
-          .log("Execution log is falling behind, event dropped");
-      return;
+      if (!critical(event)) {
+        droppedFull.increment();
+        log.atError()
+            .addKeyValue("executionId", event.executionId())
+            .log("Execution log is falling behind, event dropped");
+        return;
+      }
+      urgent.add(event);
     }
     try {
       // one task per event, but the first one to run writes everything waiting, in batches
@@ -255,6 +286,11 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
     }
   }
 
+  /** A run start or end: losing it stops the run from being resumed or recovered. */
+  private static boolean critical(final ExecutionLogEvent event) {
+    return RUN_EDGES.contains(event.type());
+  }
+
   /** Writes the waiting events in batches of at most {@link #BATCH_SIZE}; writer thread only. */
   private void drainAll() {
     final List<ExecutionLogEvent> batch = new ArrayList<>(BATCH_SIZE);
@@ -266,6 +302,9 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
         sinceCompaction = 0;
         compact();
       }
+    }
+    for (ExecutionLogEvent event = urgent.poll(); event != null; event = urgent.poll()) {
+      insert(event);
     }
   }
 
@@ -302,21 +341,40 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
     return spec;
   }
 
+  /** Inserts one event; a run start or end is retried with a growing delay before it is lost. */
   private void insert(final ExecutionLogEvent event) {
+    final int retries = critical(event) ? CRITICAL_RETRIES : 0;
+    for (int attempt = 0; ; attempt++) {
+      try {
+        client
+            .sql("INSERT INTO execution_log (execution_id, event) VALUES (:e, CAST(:j AS jsonb))")
+            .bind("e", event.executionId())
+            .bind("j", json(event))
+            .fetch()
+            .rowsUpdated()
+            .block(STATEMENT_TIMEOUT);
+        return;
+      } catch (final RuntimeException e) {
+        if (attempt >= retries || !pause(retryMillis << attempt)) {
+          droppedFailed.increment();
+          log.atError()
+              .addKeyValue("executionId", event.executionId())
+              .setCause(e)
+              .log("Could not append to the execution log");
+          return;
+        }
+      }
+    }
+  }
+
+  /** Sleeps on the writer thread; false if interrupted, so shutdown is not held up. */
+  private static boolean pause(final long millis) {
     try {
-      client
-          .sql("INSERT INTO execution_log (execution_id, event) VALUES (:e, CAST(:j AS jsonb))")
-          .bind("e", event.executionId())
-          .bind("j", json(event))
-          .fetch()
-          .rowsUpdated()
-          .block(STATEMENT_TIMEOUT);
-    } catch (final RuntimeException e) {
-      droppedFailed.increment();
-      log.atError()
-          .addKeyValue("executionId", event.executionId())
-          .setCause(e)
-          .log("Could not append to the execution log");
+      Thread.sleep(millis);
+      return true;
+    } catch (final InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return false;
     }
   }
 
