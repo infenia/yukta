@@ -233,7 +233,7 @@ class ApiKeyFilterTest {
   }
 
   @Test
-  void testActuatorIsClosedWithoutAKeyExceptHealth() {
+  void testActuatorIsClosedWithoutKeyExceptHealth() {
     assertThat(
             run("", MockServerHttpRequest.get("/actuator/loggers")).getResponse().getStatusCode())
         .isEqualTo(HttpStatus.FORBIDDEN);
