@@ -14,7 +14,7 @@ By default Yukta keeps its definitions, sessions, run history and node outputs i
 | Property | What it means |
 |---|---|
 | Same interfaces, other backend | Every store implements an interface from core or plugin-api, so the engine does not know whether it talks to memory, files or PostgreSQL. |
-| Documents in JSONB | Definitions, log events, messages and chat turns are stored as JSONB with a few key columns. A change to a Java record rarely needs a migration. |
+| Documents in JSONB | Definitions, log events, messages and chat turns are stored as JSONB with a few key columns. A change to a Java record rarely needs a migration. Renaming a field does change what old rows mean, so `FixtureReadTest` reads rows saved by past builds (`src/test/resources/fixtures/*/rows.sql`) through the current stores on every build; add a directory per release and never edit one. A migration that fails halfway rolls itself back, because PostgreSQL runs each in one transaction (`MigrationUpgradeTest`). |
 | Selected by properties | Each store has its own switch. A deployment can be half durable, for example PostgreSQL definitions with in-memory checkpoints. |
 | Not a transaction layer | Most operations are one statement, but multi-step ones (apply a session, remove a workflow, rewrite the log) are not wrapped in a transaction. |
 
