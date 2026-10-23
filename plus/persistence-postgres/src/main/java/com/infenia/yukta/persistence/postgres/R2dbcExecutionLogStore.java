@@ -23,11 +23,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.r2dbc.connection.R2dbcTransactionManager;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -92,6 +94,9 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
 
   /** Events that never reached the table: the insert failed, also one by one. Alert on a rise. */
   private final Counter droppedFailed;
+
+  /** Refuses writes once another server has taken over the lease. */
+  private final Fencing fencing;
 
   /** The one thread that touches the database. */
   private final ThreadPoolExecutor writer =
@@ -165,6 +170,37 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
         200);
   }
 
+  /**
+   * Creates the store; its writes are refused once another server holds the leader lease.
+   *
+   * @param client runs the statements
+   * @param mapper reads and writes the events
+   * @param retainedRuns runs kept when the log is trimmed
+   * @param compactAfter appended events after which the log is trimmed
+   * @param shutdownWaitMillis how long to wait for queued events on shutdown
+   * @param meters where {@code yukta.execution.log.lost} counts events that were not stored
+   * @param fencingToken this server's fencing number, null when no election runs
+   */
+  public R2dbcExecutionLogStore(
+      final DatabaseClient client,
+      final ObjectMapper mapper,
+      final int retainedRuns,
+      final int compactAfter,
+      final long shutdownWaitMillis,
+      final MeterRegistry meters,
+      final LongSupplier fencingToken) {
+    this(
+        client,
+        mapper,
+        retainedRuns,
+        compactAfter,
+        shutdownWaitMillis,
+        new ArrayBlockingQueue<>(QUEUE_CAPACITY),
+        meters,
+        200,
+        fencingToken);
+  }
+
   /* default */ R2dbcExecutionLogStore(
       final DatabaseClient client,
       final ObjectMapper mapper,
@@ -174,7 +210,30 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
       final BlockingQueue<ExecutionLogEvent> pending,
       final MeterRegistry meters,
       final long retryMillis) {
+    this(
+        client,
+        mapper,
+        retainedRuns,
+        compactAfter,
+        shutdownWaitMillis,
+        pending,
+        meters,
+        retryMillis,
+        null);
+  }
+
+  /* default */ R2dbcExecutionLogStore(
+      final DatabaseClient client,
+      final ObjectMapper mapper,
+      final int retainedRuns,
+      final int compactAfter,
+      final long shutdownWaitMillis,
+      final BlockingQueue<ExecutionLogEvent> pending,
+      final MeterRegistry meters,
+      final long retryMillis,
+      final LongSupplier fencingToken) {
     this.retryMillis = retryMillis;
+    this.fencing = new Fencing(fencingToken, meters, "execution_log");
     this.droppedFull =
         Counter.builder("yukta.execution.log.lost")
             .description("Execution log events that were not stored")
@@ -232,10 +291,8 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
               TransactionalOperator.create(
                   new R2dbcTransactionManager(client.getConnectionFactory()));
           final List<String> json = events.stream().map(this::json).toList();
-          client
-              .sql("DELETE FROM execution_log")
-              .fetch()
-              .rowsUpdated()
+          lockLease()
+              .then(client.sql("DELETE FROM execution_log").fetch().rowsUpdated())
               .thenMany(
                   Flux.range(0, (events.size() + BATCH_SIZE - 1) / BATCH_SIZE)
                       .concatMap(
@@ -311,10 +368,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   /** One multi-row insert; if it fails the events are tried one by one so none is lost. */
   private void insertBatch(final List<ExecutionLogEvent> batch) {
     try {
-      batchInsert(batch, batch.stream().map(this::json).toList())
-          .fetch()
-          .rowsUpdated()
-          .block(STATEMENT_TIMEOUT);
+      write(batch);
     } catch (final RuntimeException e) {
       log.atWarn().setCause(e).log("Batch insert failed, writing the events one by one");
       batch.forEach(this::insert);
@@ -325,7 +379,8 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   private DatabaseClient.GenericExecuteSpec batchInsert(
       final List<ExecutionLogEvent> batch, final List<String> json) {
     final StringBuilder sql =
-        new StringBuilder(128).append("INSERT INTO execution_log (execution_id, event) VALUES ");
+        new StringBuilder(128)
+            .append("INSERT INTO execution_log (execution_id, event) SELECT a, b FROM (VALUES ");
     for (int i = 0; i < batch.size(); i++) {
       sql.append(i == 0 ? "" : ", ")
           .append("(:e")
@@ -334,11 +389,43 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
           .append(i)
           .append(" AS jsonb))");
     }
+    sql.append(") AS v(a, b) WHERE ").append(Fencing.NOT_STALE);
     DatabaseClient.GenericExecuteSpec spec = client.sql(sql.toString());
     for (int i = 0; i < batch.size(); i++) {
       spec = spec.bind("e" + i, batch.get(i).executionId()).bind("j" + i, json.get(i));
     }
-    return spec;
+    return fencing.bind(spec);
+  }
+
+  /**
+   * Locks the lease row until the transaction ends, so no takeover can happen meanwhile, and fails
+   * if another server already holds a newer fencing number.
+   */
+  private Mono<Long> lockLease() {
+    return client
+        .sql(
+            "SELECT fencing FROM leader_lease WHERE name = 'leader' AND fencing > :fence FOR SHARE")
+        .bind(Fencing.PARAM, fencing.bound())
+        .fetch()
+        .first()
+        .flatMap(
+            _ -> {
+              fencing.refused(1);
+              return Mono.<Long>error(new IllegalStateException("The leader lease was taken over"));
+            })
+        .defaultIfEmpty(0L);
+  }
+
+  /** Inserts {@code batch}; the statement writes nothing if another server holds the lease. */
+  private void write(final List<ExecutionLogEvent> batch) {
+    final Long written =
+        batchInsert(batch, batch.stream().map(this::json).toList())
+            .fetch()
+            .rowsUpdated()
+            .block(STATEMENT_TIMEOUT);
+    if (Objects.equals(written, 0L)) {
+      fencing.refused(batch.size());
+    }
   }
 
   /** Inserts one event; a run start or end is retried with a growing delay before it is lost. */
@@ -346,13 +433,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
     final int retries = critical(event) ? CRITICAL_RETRIES : 0;
     for (int attempt = 0; ; attempt++) {
       try {
-        client
-            .sql("INSERT INTO execution_log (execution_id, event) VALUES (:e, CAST(:j AS jsonb))")
-            .bind("e", event.executionId())
-            .bind("j", json(event))
-            .fetch()
-            .rowsUpdated()
-            .block(STATEMENT_TIMEOUT);
+        write(List.of(event));
         return;
       } catch (final RuntimeException e) {
         if (attempt >= retries || !pause(retryMillis << attempt)) {

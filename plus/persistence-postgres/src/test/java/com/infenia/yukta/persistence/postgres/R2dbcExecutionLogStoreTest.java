@@ -393,4 +393,53 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
       Thread.interrupted();
     }
   }
+
+  private static void leaseAt(final long fencing) {
+    db.sql("DELETE FROM leader_lease").fetch().rowsUpdated().block();
+    db.sql(
+            "INSERT INTO leader_lease (name, holder, fencing, expires_at)"
+                + " VALUES ('leader', 'other', :f, now() + interval '1 hour')")
+        .bind("f", fencing)
+        .fetch()
+        .rowsUpdated()
+        .block();
+  }
+
+  @Test
+  void staleLeader_appendsAreRefusedAndCounted_currentLeaderStillWrites() {
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    leaseAt(1);
+    final R2dbcExecutionLogStore leader =
+        new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 1_000, 5_000, meters, () -> 1);
+    leader.append(started("r1"));
+    assertThat(leader.readAll()).hasSize(1);
+
+    leaseAt(2); // another server took over
+    leader.append(started("r2"));
+    leader.append(finished("r2"));
+    leader.replaceAll(List.of(started("r3")));
+
+    assertThat(leader.readAll()).extracting(ExecutionLogEvent::executionId).containsExactly("r1");
+    assertThat(meters.get("yukta.fencing.refused").tag("store", "execution_log").counter().count())
+        .isEqualTo(3);
+    leader.close();
+  }
+
+  @Test
+  void leaderWithoutToken_isNotFenced() {
+    leaseAt(5);
+    final R2dbcExecutionLogStore standby =
+        new R2dbcExecutionLogStore(
+            db,
+            new ObjectMapper(),
+            2,
+            1_000,
+            5_000,
+            new io.micrometer.core.instrument.simple.SimpleMeterRegistry(),
+            () -> 0);
+    standby.append(started("r1"));
+    assertThat(standby.readAll()).hasSize(1);
+    standby.close();
+  }
 }
