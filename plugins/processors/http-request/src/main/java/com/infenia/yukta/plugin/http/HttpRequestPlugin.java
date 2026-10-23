@@ -72,11 +72,10 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
   private static final String STATUS_KEY = "status";
   private static final long DEFAULT_TIMEOUT_SECONDS = 30L;
 
-  private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
-
   private final HttpRequestGateway gateway;
   private final VariableResolver resolver;
   private final PluginMetricsReporter reporter;
+  private final ObjectMapper json;
 
   /**
    * Creates the plugin without metrics.
@@ -88,6 +87,7 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
     this.gateway = gateway;
     this.resolver = resolver;
     this.reporter = PluginMetricsReporter.NOOP;
+    this.json = new ObjectMapper();
   }
 
   /**
@@ -96,15 +96,18 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
    * @param gateway the gateway
    * @param resolver resolves config expressions
    * @param reporterProvider optional metrics reporter
+   * @param json the application JSON mapper
    */
   @Autowired
   public HttpRequestPlugin(
       final HttpRequestGateway gateway,
       final VariableResolver resolver,
-      final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+      final ObjectProvider<PluginMetricsReporter> reporterProvider,
+      final ObjectMapper json) {
     this.gateway = gateway;
     this.resolver = resolver;
     this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+    this.json = json;
   }
 
   @Override
@@ -250,7 +253,7 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
       return result.body();
     }
     try {
-      return JSON_MAPPER.readValue(result.body(), Object.class);
+      return json.readValue(result.body(), Object.class);
     } catch (JacksonException e) {
       log.atWarn().setCause(e).log("Response declared JSON but is not valid; keeping raw text");
       return result.body();

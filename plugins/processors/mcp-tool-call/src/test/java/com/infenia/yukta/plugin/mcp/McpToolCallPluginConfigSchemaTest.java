@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.reactive.function.client.WebClient;
+import tools.jackson.databind.ObjectMapper;
 
 @SuppressWarnings({"PMD.CommentRequired", "unchecked"})
 @NoArgsConstructor
@@ -20,7 +21,7 @@ class McpToolCallPluginConfigSchemaTest {
   void schemaPinsFieldNamesAndRequired() {
     final var plugin =
         new McpToolCallPlugin(
-            new McpClientGateway(WebClient.builder()),
+            new McpClientGateway(WebClient.builder(), new ObjectMapper()),
             null,
             Mockito.mock(ObjectProvider.class),
             Mockito.mock(ObjectProvider.class));

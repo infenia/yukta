@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -54,11 +54,11 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.CouplingBetweenObjects"
 })
 @Service
-@NoArgsConstructor
+@RequiredArgsConstructor
 public class LlmGateway {
 
   /** Writes tool input schemas. */
-  private static final ObjectMapper JSON = new ObjectMapper();
+  private final ObjectMapper json;
 
   /** The prompt must not match any of these. */
   private List<Pattern> denyInput = List.of();
@@ -234,10 +234,12 @@ public class LlmGateway {
    * The prompt. With tools, the model gets their definitions and may answer with calls to them; the
    * engine does not run them here, the workflow does (for example an MCP_TOOL_CALL node).
    */
-  private static Prompt prompt(final LlmRequest request) {
+  private Prompt prompt(final LlmRequest request) {
     final List<Message> messages = messages(request);
     final List<ToolCallback> callbacks =
-        request.tools().stream().<ToolCallback>map(DefinitionOnlyTool::new).toList();
+        request.tools().stream()
+            .<ToolCallback>map(tool -> new DefinitionOnlyTool(tool, json))
+            .toList();
     return callbacks.isEmpty()
         ? new Prompt(messages)
         : new Prompt(messages, toolOptions(request.provider(), callbacks));
@@ -254,14 +256,15 @@ public class LlmGateway {
   }
 
   /** A tool the model is told about but that this gateway never runs. */
-  /* default */ record DefinitionOnlyTool(ToolSpec spec) implements ToolCallback {
+  /* default */ record DefinitionOnlyTool(ToolSpec spec, ObjectMapper json)
+      implements ToolCallback {
 
     @Override
     public ToolDefinition getToolDefinition() {
       return ToolDefinition.builder()
           .name(spec.name())
           .description(spec.description())
-          .inputSchema(JSON.writeValueAsString(spec.inputSchema()))
+          .inputSchema(json.writeValueAsString(spec.inputSchema()))
           .build();
     }
 

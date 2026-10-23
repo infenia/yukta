@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.test.StepVerifier;
 import reactor.util.context.Context;
+import tools.jackson.databind.ObjectMapper;
 
 @SuppressWarnings({
   "PMD.AvoidInstantiatingObjectsInLoops",
@@ -63,7 +64,7 @@ class McpClientGatewayTest {
     server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
     server.createContext("/mcp", this::handle);
     server.start();
-    gateway = new McpClientGateway(WebClient.builder());
+    gateway = new McpClientGateway(WebClient.builder(), new ObjectMapper());
   }
 
   @AfterEach

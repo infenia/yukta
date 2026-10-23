@@ -94,11 +94,10 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
   /** Characters of process output kept in a failure message. */
   private static final int ERROR_OUTPUT_CHARS = 8192;
 
-  private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
-
   private final ProcessExecutorGateway gateway;
   private final VariableResolver resolver;
   private final PluginMetricsReporter reporter;
+  private final ObjectMapper json;
 
   /**
    * Creates the plugin without metrics.
@@ -111,6 +110,7 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
     this.gateway = gateway;
     this.resolver = resolver;
     this.reporter = PluginMetricsReporter.NOOP;
+    this.json = new ObjectMapper();
   }
 
   /**
@@ -119,15 +119,18 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
    * @param gateway the gateway
    * @param resolver resolves config expressions
    * @param reporterProvider optional metrics reporter
+   * @param json the application JSON mapper
    */
   @Autowired
   public ProcessExecutorPlugin(
       final ProcessExecutorGateway gateway,
       final VariableResolver resolver,
-      final ObjectProvider<PluginMetricsReporter> reporterProvider) {
+      final ObjectProvider<PluginMetricsReporter> reporterProvider,
+      final ObjectMapper json) {
     this.gateway = gateway;
     this.resolver = resolver;
     this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+    this.json = json;
   }
 
   @Override
@@ -396,7 +399,7 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
       return payload;
     }
     try {
-      payload.put(OUTPUT_KEY, JSON_MAPPER.readValue(result.stdout(), Object.class));
+      payload.put(OUTPUT_KEY, json.readValue(result.stdout(), Object.class));
     } catch (JacksonException e) {
       if (config.failureMode() == FailureMode.ERROR) {
         throw new WorkflowExecutionException(
@@ -449,7 +452,7 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
       return text;
     }
     try {
-      return JSON_MAPPER.writeValueAsString(payload);
+      return json.writeValueAsString(payload);
     } catch (JacksonException e) {
       throw new WorkflowExecutionException(
           "Failed to serialize input payload for inputMode: " + e.getMessage(), e);

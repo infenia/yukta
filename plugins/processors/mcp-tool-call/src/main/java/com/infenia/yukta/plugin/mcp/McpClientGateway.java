@@ -72,7 +72,6 @@ public class McpClientGateway {
   /** Key of a tool name. */
   private static final String NAME = "name";
 
-  private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
   private static final ParameterizedTypeReference<ServerSentEvent<String>> SSE =
       new ParameterizedTypeReference<>() {};
 
@@ -96,6 +95,9 @@ public class McpClientGateway {
 
   /** Builder used to create the WebClient for each request. */
   private final WebClient.Builder webClientBuilder;
+
+  /** Writes tool arguments and reads replies. */
+  private final ObjectMapper mapper;
 
   /** Most sessions kept open; the least recently used are ended beyond this many. */
   private static final long SESSION_CACHE_MAX = 100;
@@ -239,7 +241,7 @@ public class McpClientGateway {
     if (spec.arguments().isEmpty()) {
       return null;
     }
-    final String json = JSON_MAPPER.writeValueAsString(spec.arguments());
+    final String json = mapper.writeValueAsString(spec.arguments());
     if (json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > maxArgumentBytes) {
       return "Arguments of MCP tool '"
           + spec.tool()
@@ -491,7 +493,7 @@ public class McpClientGateway {
             ? response.bodyToFlux(SSE).mapNotNull(ServerSentEvent::data)
             : response.bodyToMono(String.class).flux();
     return raw.filter(text -> !text.isBlank())
-        .map(McpClientGateway::parse)
+        .map(this::parse)
         .doOnNext(
             message -> {
               if (PROGRESS.equals(message.get(METHOD))) {
@@ -501,9 +503,9 @@ public class McpClientGateway {
   }
 
   @SuppressWarnings("unchecked")
-  private static Map<String, Object> parse(final String text) {
+  private Map<String, Object> parse(final String text) {
     try {
-      return (Map<String, Object>) JSON_MAPPER.readValue(text, Object.class);
+      return (Map<String, Object>) mapper.readValue(text, Object.class);
     } catch (JacksonException | ClassCastException e) {
       throw new McpHttpException(200, "unparseable JSON-RPC message: " + text, e);
     }

@@ -41,6 +41,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import reactor.util.context.Context;
+import tools.jackson.databind.ObjectMapper;
 
 @SuppressWarnings({
   "PMD.CyclomaticComplexity",
@@ -1138,7 +1139,7 @@ class ProcessExecutorPluginTest {
   @Test
   void springConstructorReportsMetrics() {
     final List<String> counts = new ArrayList<>();
-    plugin = new ProcessExecutorPlugin(gateway, resolver, provider(counts));
+    plugin = new ProcessExecutorPlugin(gateway, resolver, provider(counts), new ObjectMapper());
     gatewayReturns(successResult("hello"));
     StepVerifier.create(
             plugin.process(
@@ -1150,7 +1151,8 @@ class ProcessExecutorPluginTest {
             new ProcessExecutorPlugin(
                 gateway,
                 resolver,
-                new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class)))
+                new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class),
+                new ObjectMapper()))
         .isNotNull();
   }
 }
