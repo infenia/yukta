@@ -68,7 +68,8 @@ public class TriggerNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final int index,
       final int bufferSize,
       final ParentEdgeInfo... parentEdges) {
-    final TriggerPlugin trigger = (TriggerPlugin) plugin;
+    final TriggerPlugin trigger =
+        NodePlugins.forNode((TriggerPlugin) plugin, TriggerPlugin.class, node.config());
 
     log.atDebug()
         .addKeyValue("nodeId", node.nodeId())

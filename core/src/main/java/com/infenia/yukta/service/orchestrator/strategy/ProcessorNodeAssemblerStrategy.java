@@ -141,7 +141,8 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final int index,
       final int bufferSize,
       final ParentEdgeInfo... parentEdges) {
-    final ProcessorPlugin processor = (ProcessorPlugin) plugin;
+    final ProcessorPlugin processor =
+        NodePlugins.forNode((ProcessorPlugin) plugin, ProcessorPlugin.class, node.config());
 
     log.atDebug()
         .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())

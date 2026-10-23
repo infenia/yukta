@@ -90,7 +90,8 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final int index,
       final int bufferSize,
       final ParentEdgeInfo... parentEdges) {
-    final TerminalPlugin terminal = (TerminalPlugin) plugin;
+    final TerminalPlugin terminal =
+        NodePlugins.forNode((TerminalPlugin) plugin, TerminalPlugin.class, node.config());
 
     log.atDebug()
         .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
