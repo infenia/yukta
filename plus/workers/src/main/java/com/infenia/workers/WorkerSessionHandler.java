@@ -30,6 +30,9 @@ import reactor.core.publisher.Signal;
 @Slf4j
 public class WorkerSessionHandler {
 
+  /** Log key of the worker. */
+  private static final String WORKER_ID = "workerId";
+
   /** The workers that are connected. */
   private final WorkerRegistry registry;
 
@@ -149,8 +152,20 @@ public class WorkerSessionHandler {
       why = "this server is not the leader";
     }
     if (why == null && !tokenMatches(hello.workerId(), hello.token())) {
-      log.atWarn().addKeyValue("workerId", hello.workerId()).log("Worker refused: bad token");
+      log.atWarn().addKeyValue(WORKER_ID, hello.workerId()).log("Worker refused: bad token");
       why = "token refused";
+    }
+    if (why == null && !Integer.valueOf(WorkerFrame.PROTOCOL).equals(hello.protocol())) {
+      log.atWarn()
+          .addKeyValue(WORKER_ID, hello.workerId())
+          .addKeyValue("protocol", hello.protocol())
+          .log("Worker refused: other protocol version");
+      why =
+          "protocol version "
+              + (hello.protocol() == null ? "(none)" : hello.protocol())
+              + " is not supported, this control plane speaks "
+              + WorkerFrame.PROTOCOL
+              + "; upgrade the worker (or the control plane) to the same release";
     }
     return why;
   }
@@ -163,14 +178,14 @@ public class WorkerSessionHandler {
   private Flux<WorkerFrame> accept(
       final RSocketRequester requester, final WorkerInfo info, final Flux<WorkerFrame> all) {
     connections.put(info.workerId(), requester);
-    log.atInfo().addKeyValue("workerId", info.workerId()).log("Worker registered");
+    log.atInfo().addKeyValue(WORKER_ID, info.workerId()).log("Worker registered");
     return Flux.concat(Flux.just(WorkerFrame.ack()), all.skip(1).map(frame -> answer(info, frame)))
         .takeUntil(frame -> frame.type() == WorkerFrame.Type.REJECT)
         .doFinally(
             _ -> {
               connections.remove(info.workerId(), requester);
               registry.remove(info.workerId(), info.registeredAt());
-              log.atInfo().addKeyValue("workerId", info.workerId()).log("Worker gone");
+              log.atInfo().addKeyValue(WORKER_ID, info.workerId()).log("Worker gone");
             });
   }
 
