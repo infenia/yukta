@@ -18,6 +18,7 @@ import com.infenia.yukta.message.channel.NodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannelProvider;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.NodeAssembler;
+import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
@@ -532,6 +533,53 @@ class ProcessorNodeAssemblerStrategyTest {
         .assemble(context);
 
     StepVerifier.create(context.streams()[0])
+        .assertNext(m -> assertThat(m.payload()).isEqualTo("good"))
+        .verifyComplete();
+  }
+
+  @Test
+  void createAssembler_channelFailsOnOneMessage_deadLettersItAndKeepsTheNodeRunning() {
+    final Message<?> good = DefaultMessage.create(UUID.randomUUID(), "good");
+    final Message<?> bad = DefaultMessage.create(UUID.randomUUID(), "bad");
+    final NodeMessageChannel channel = mock(NodeMessageChannel.class);
+    when(channelProvider.channelFor(eq(NODE_ID), any())).thenReturn(channel);
+    when(channel.inbound(eq(NODE_ID), eq(EXECUTION_ID), any()))
+        .thenAnswer(
+            inv -> {
+              final Flux<Message<?>> in = inv.getArgument(2);
+              return in.map(
+                  m -> {
+                    if ("bad".equals(m.payload())) {
+                      throw new IllegalStateException("channel boom");
+                    }
+                    return m;
+                  });
+            });
+    when(channel.outbound(eq(NODE_ID), eq(EXECUTION_ID), any())).thenAnswer(i -> i.getArgument(2));
+    final ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.process(any(), any())).thenAnswer(inv -> inv.getArgument(0));
+    when(processor.isBlocking()).thenReturn(false);
+
+    final WorkflowNode node =
+        new WorkflowNode(NODE_ID, "processor", Map.of("engine", Map.of("onError", "ROUTE")));
+    final Flux<Message<?>> parentStream = Flux.just(bad, good);
+    final AssemblyContext context = buildContext(NODE_ID, parentStream, null);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(parentStream);
+    when(streamTopologyDecorator.applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
+        .thenAnswer(inv -> inv.getArgument(2));
+
+    strategy
+        .createAssembler(node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.streams()[0])
+        .assertNext(
+            m -> {
+              assertThat(m.payload()).isEqualTo("bad");
+              assertThat(m.sourcePort()).isEqualTo(NodePolicy.ERROR_PORT);
+            })
         .assertNext(m -> assertThat(m.payload()).isEqualTo("good"))
         .verifyComplete();
   }

@@ -149,12 +149,15 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
           .log("Processing stream with processor plugin");
       final NodeMessageChannel channel = channelProvider.channelFor(node.nodeId(), node.config());
       final NodePolicy policy = NodePolicy.from(node.config());
+      final Flux<Message<?>> buffered =
+          NodePolicies.edgeBuffered(
+              NodePolicy.edgeBuffer(node.config()), timedInput, tracker, node.type());
+      // With a per-message policy the channel runs inside it, once per message, so a channel
+      // failure is retried or dead-lettered like a plugin failure instead of stopping the node.
       final Flux<Message<?>> channelInput =
-          channel.inbound(
-              node.nodeId(),
-              context.executionId(),
-              NodePolicies.edgeBuffered(
-                  NodePolicy.edgeBuffer(node.config()), timedInput, tracker, node.type()));
+          policy.perMessage()
+              ? buffered
+              : channel.inbound(node.nodeId(), context.executionId(), buffered);
       // failures are counted per run, so the ledger belongs to this assembly, not to the node
       final FailureLedger ledger =
           policy.failureBudget() == null ? null : new FailureLedger(policy.failureBudget());
@@ -172,7 +175,15 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
                                 if (retried(attempt)) {
                                   tracker.recordRetry(node.type());
                                 }
-                                return processor.process(Flux.just(attempt), node.config());
+                                return channel.outbound(
+                                    node.nodeId(),
+                                    context.executionId(),
+                                    processor.process(
+                                        channel.inbound(
+                                            node.nodeId(),
+                                            context.executionId(),
+                                            Flux.just(attempt)),
+                                        node.config()));
                               },
                               activity::touch,
                               ledger),
@@ -182,7 +193,10 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
           skipFlag == null
               ? run.apply(channelInput)
               : bypassWhileSkipped(channelInput, skipFlag, run);
-      stream = channel.outbound(node.nodeId(), context.executionId(), pluginOutput);
+      stream =
+          policy.perMessage()
+              ? pluginOutput
+              : channel.outbound(node.nodeId(), context.executionId(), pluginOutput);
       if (processor.isBlocking()) {
         log.atDebug()
             .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
