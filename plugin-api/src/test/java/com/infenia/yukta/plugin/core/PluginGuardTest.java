@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +55,14 @@ class PluginGuardTest {
               assertThat(m.payload()).isEqualTo(Map.of("a", 1));
             })
         .verifyComplete();
+  }
+
+  @Test
+  void continueModeStillPropagatesRunAbort() {
+    StepVerifier.create(
+            run(Mono.error(new RunAbortedException("budget spent")), FailureMode.CONTINUE))
+        .expectError(RunAbortedException.class)
+        .verify();
   }
 
   @Test
