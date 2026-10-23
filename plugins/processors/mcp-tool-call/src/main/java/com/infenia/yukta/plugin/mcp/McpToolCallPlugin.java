@@ -117,17 +117,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
         "Calls a tool on a remote MCP server per message and emits the tool result. "
             + "Use it as the 'act' step of an AI agent loop, or to call another agent.",
         usagePattern(),
-        Optional.of(
-            new UiDesign(
-                """
-                <div style="display:flex;align-items:center;gap:8px;width:100%;height:100%;\
-                padding:0 12px;border:2px solid #cbd5e1;border-radius:12px;background:#f8fafc">\
-                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">\
-                MCP</div>\
-                <div style="font-size:12px;font-weight:700;color:#334155;overflow:hidden;\
-                text-overflow:ellipsis;white-space:nowrap">{{nodeId}}</div></div>
-                """,
-                160, 60)));
+        Optional.of(new UiDesign("slate", "build", "MCP", 160, 60)));
   }
 
   @Override

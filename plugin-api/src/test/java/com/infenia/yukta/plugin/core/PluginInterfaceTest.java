@@ -180,8 +180,8 @@ class PluginInterfaceTest {
 
   @Test
   void testUiDesign() {
-    UiDesign design = new UiDesign("<div>test</div>", 100, 50);
-    assertEquals("<div>test</div>", design.html());
+    UiDesign design = new UiDesign("blue", "api", "Test", 100, 50);
+    assertEquals("Test", design.label());
     assertEquals(100, design.width());
     assertEquals(50, design.height());
   }

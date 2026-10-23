@@ -25,7 +25,9 @@ type PluginSummary struct {
 
 // UIDesign represents the UI design metadata for a plugin.
 type UIDesign struct {
-	HTML   string `json:"html"`
+	Color  string `json:"color"`
+	Icon   string `json:"icon"`
+	Label  string `json:"label"`
 	Width  int    `json:"width"`
 	Height int    `json:"height"`
 }

@@ -47,8 +47,7 @@ class ApiTriggerPluginTest {
     assertEquals(140, plugin.describe().uiDesign().get().width(), "Test metadata (6)");
     assertEquals(80, plugin.describe().uiDesign().get().height(), "Test metadata (7)");
     org.junit.jupiter.api.Assertions.assertTrue(
-        plugin.describe().uiDesign().get().html().contains("material-symbols-outlined"),
-        "Test metadata (8)");
+        plugin.describe().uiDesign().get().icon().contains("api"), "Test metadata (8)");
   }
 
   @Test

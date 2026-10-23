@@ -220,7 +220,7 @@ class RecipientListProcessorTest {
   void testUiDesign() {
     final Optional<UiDesign> design = processor.describe().uiDesign();
     assertTrue(design.isPresent(), "Test ui design");
-    assertTrue(design.get().html().contains("Recipient List"), "Test ui design (2)");
+    assertTrue(design.get().label().contains("Recipient List"), "Test ui design (2)");
   }
 
   private List<Object> run(final Map<String, Object> config, final Object payload) {

@@ -197,7 +197,8 @@ class FilterProcessorTest {
     assertTrue(processor.describe().uiDesign().isPresent(), "Test ui design");
     assertEquals(140, processor.describe().uiDesign().get().width(), "Test ui design (2)");
     assertEquals(80, processor.describe().uiDesign().get().height(), "Test ui design (3)");
-    assertTrue(processor.describe().uiDesign().get().html().contains("svg"), "Test ui design (4)");
+    assertTrue(
+        processor.describe().uiDesign().get().icon().contains("filter"), "Test ui design (4)");
   }
 
   @Test

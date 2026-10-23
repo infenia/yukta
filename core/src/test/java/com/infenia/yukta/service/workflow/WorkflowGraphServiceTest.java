@@ -51,7 +51,7 @@ class WorkflowGraphServiceTest {
 
   @Test
   void enrichNode_withKnownPlugin_returnsEnrichedMetadata() {
-    final UiDesign uiDesign = new UiDesign("<div>test</div>", 100, 50);
+    final UiDesign uiDesign = new UiDesign("blue", "api", "Test", 100, 50);
     final Plugin plugin =
         mockPlugin(PluginCategory.PROCESSOR, DESCRIPTION, uiDesign, List.of("output1", "output2"));
     when(pluginRegistry.get(PLUGIN_TYPE)).thenReturn(plugin);

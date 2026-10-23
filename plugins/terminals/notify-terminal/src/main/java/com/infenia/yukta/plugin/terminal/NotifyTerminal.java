@@ -90,21 +90,7 @@ public final class NotifyTerminal implements TerminalPlugin {
             + "- timeoutMs: request timeout (default 10000).\n"
             + "- failureMode: ERROR (default) fails the node on a non-2xx response (including"
             + " redirects); CONTINUE logs it and keeps sending.\n",
-        Optional.of(
-            new UiDesign(
-                """
-                <div class="flex items-center w-full h-full bg-slate-50 border-slate-200 border-2 rounded-xl px-4 gap-3">
-                    <div class="flex-shrink-0 w-8 h-8 bg-slate-100 text-slate-500 rounded-lg flex items-center justify-center">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>
-                    </div>
-                    <div class="flex flex-col min-w-0">
-                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Notify</div>
-                        <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
-                    </div>
-                </div>
-                """,
-                140,
-                80)));
+        Optional.of(new UiDesign("slate", "notifications", "Notify", 140, 80)));
   }
 
   @Override

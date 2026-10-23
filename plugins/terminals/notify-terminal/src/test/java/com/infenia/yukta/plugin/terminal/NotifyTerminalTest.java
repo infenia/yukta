@@ -178,7 +178,7 @@ class NotifyTerminalTest {
     assertThat(terminal.describe().uiDesign())
         .hasValueSatisfying(
             design -> {
-              assertThat(design.html()).contains("{{nodeId}}");
+              assertThat(design.label()).isNotBlank();
               assertThat(design.width()).isEqualTo(140);
               assertThat(design.height()).isEqualTo(80);
             });

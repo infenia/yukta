@@ -54,21 +54,7 @@ public class ScheduleTrigger implements TriggerPlugin {
             + "- zone: time zone for cron, default system zone.\n"
             + "- maxRuns: stop after this many emissions (default unbounded).\n"
             + "Payload: {tick, firedAt}.",
-        Optional.of(
-            new UiDesign(
-                """
-                <div class="flex items-center w-full h-full bg-green-50/50 border-green-100 border-2 rounded-xl px-4 gap-3">
-                    <div class="flex-shrink-0 w-8 h-8 bg-green-100 text-green-500 rounded-lg flex items-center justify-center">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-                    </div>
-                    <div class="flex flex-col min-w-0">
-                        <div class="text-[10px] text-green-600 font-bold uppercase tracking-wider leading-none mb-1">Schedule</div>
-                        <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
-                    </div>
-                </div>
-                """,
-                140,
-                80)));
+        Optional.of(new UiDesign("green", "schedule", "Schedule", 140, 80)));
   }
 
   @Override

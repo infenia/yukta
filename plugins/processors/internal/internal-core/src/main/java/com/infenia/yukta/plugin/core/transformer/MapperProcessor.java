@@ -136,23 +136,7 @@ public class MapperProcessor implements ProcessorPlugin {
             + "- dropOriginal: Boolean. If true (default), original payload is discarded.\n"
             + "- strictMode: Boolean. If true (default), throws exception on transformation"
             + " errors.",
-        Optional.of(
-            new UiDesign(
-                """
-                <div class="flex items-center w-full h-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 gap-3">
-                    <div class="flex-shrink-0 w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                        </svg>
-                    </div>
-                    <div class="flex flex-col min-w-0">
-                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Mapper</div>
-                        <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
-                    </div>
-                </div>
-                """,
-                140,
-                80)));
+        Optional.of(new UiDesign("slate", "swap_horiz", "Mapper", 140, 80)));
   }
 
   @Override

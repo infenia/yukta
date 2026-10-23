@@ -30,7 +30,7 @@ class WorkflowGraphNodeTest {
   @Test
   void constructor_validInputs_createsRecord() {
     // Given
-    final UiDesign uiDesign = new UiDesign("<div>{{nodeId}}</div>", 200, 80);
+    final UiDesign uiDesign = new UiDesign("blue", "api", "Test", 200, 80);
 
     // When
     final WorkflowGraphNode node =
