@@ -5,6 +5,7 @@ package com.infenia.yukta.plugin.control;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -92,5 +93,37 @@ class ControlPlanePluginTest {
   void source_hasTheTwoDeciders() {
     assertThat(ControlDecision.Source.values())
         .containsExactly(ControlDecision.Source.RULE, ControlDecision.Source.MODEL);
+  }
+
+  @Test
+  void supervise_hungDecisionIsNoOpinionAndTheNextEventIsJudged() {
+    final ControlPlanePlugin plane =
+        new ControlPlanePlugin() {
+          @Override
+          public String id() {
+            return "hung";
+          }
+
+          @Override
+          public Duration decisionTimeout() {
+            return Duration.ofMillis(50);
+          }
+
+          @Override
+          public Mono<ControlDecision> decide(final ExecutionEvent event) {
+            return "e1".equals(event.executionId())
+                ? Mono.never()
+                : Mono.just(new ControlDecision(List.of(PAUSE), 1, ControlDecision.Source.RULE));
+          }
+        };
+
+    StepVerifier.create(plane.supervise(Flux.just(event("e1"), event("e2"))))
+        .expectNext(PAUSE)
+        .verifyComplete();
+  }
+
+  @Test
+  void decisionTimeout_defaultsToTenSeconds() {
+    assertThat(plane(_ -> Mono.empty()).decisionTimeout()).isEqualTo(Duration.ofSeconds(10));
   }
 }
