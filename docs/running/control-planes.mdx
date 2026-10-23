@@ -1,5 +1,6 @@
 ---
-title: "Control planes"
+title: "Control planes: rule and model decisions per event"
+sidebarTitle: "Control planes"
 description: "Decision makers on the control bus that judge one event at a time, using rules, a small model, or rules first and a model as a fallback."
 tag: "Optional"
 keywords: ["control plane", "rules", "model decisions"]
@@ -58,6 +59,8 @@ yukta.control-plane.model.min-probability=0.6
 | `yukta.control-plane.model.events` | `NodeStatusChanged`, `WorkflowStatusChanged` | Event kinds the model is asked about |
 
 The default answers are `continue` (normal operation, a success, a retry that may still succeed, or an execution that already finished) and `pause` (repeated failures, exhausted retries, authentication errors or resource exhaustion that will not fix themselves, so a person must look). Write option descriptions explicitly: a small model needs them.
+
+When the model is down, slow or unsure, the plane returns no commands, so oversight silently stops. It counts every answer in `yukta.plugin.events{plugin=model_control_plane}` with the outcome `decided`, `no_opinion` (unknown answer or below `min-probability`) or `model_error` (down, slow or unreadable). Alert on a rise of `model_error`, and on `no_opinion` becoming most of the answers. For anything that must not be missed, keep a rule for it in the rules-first plane.
 
 ## Rules-first control plane
 

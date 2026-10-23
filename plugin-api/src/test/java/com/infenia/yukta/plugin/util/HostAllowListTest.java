@@ -79,4 +79,58 @@ class HostAllowListTest {
     assertThat(refusal(hosts, "http://10.0.0.5:8080/x")).isNull();
     assertThat(refusal(hosts, "http://10.0.0.6/x")).isNotNull();
   }
+
+  @Test
+  void metadataAddressesAreRefusedEvenWithoutAnyList() {
+    final HostAllowList none = HostAllowList.from(null);
+    for (final String url :
+        List.of(
+            "http://169.254.169.254/latest/meta-data",
+            "http://2852039166/",
+            "http://0xA9FEA9FE/",
+            "http://169.254.43518/", // three parts: the last fills two bytes
+            "http://169.16680110/", // two parts
+            "http://0251.0376.0251.0376/", // octal
+            "http://0xa9.0xfe.0xa9.0xfe/", // hex
+            "http://user@169.254.43518:80/", // user info and port around a host URI rejects
+            "http://[fe80::1]/",
+            "http://[febf::1]/",
+            "http://metadata.google.internal/computeMetadata/v1/")) {
+      assertThat(none.refusalFor(url, "p")).as(url).contains("link-local or cloud metadata");
+    }
+    assertThat(none.refusalFor("http://a:b:c/", "p")).isNull(); // no readable host, no list
+    assertThat(HostAllowList.from(List.of("x.com")).refusalFor("http://a:b:c/", "p"))
+        .contains("no host");
+    assertThat(none.refusalFor("http://localhost:8080/", "p")).isNull();
+    assertThat(none.refusalFor("http://example.com/", "p")).isNull();
+    assertThat(none.refusalFor("http://1234abc.example.com/", "p")).isNull();
+    // numeric-looking hosts that are not link-local or not addresses at all
+    for (final String host :
+        List.of(
+            "10.0.0.1",
+            "127.1",
+            "256.1.1.1", // part out of range
+            "1.2.3.4.5", // too many parts
+            "1..2", // empty part
+            "09.1.1.1", // 9 is not an octal digit
+            "0x.1.1.1", // no hex digits
+            "170.254.1.1",
+            "169.255.1.1",
+            "fec0::1", // site-local, not link-local
+            "fe00::1")) {
+      assertThat(
+              none.refusalFor(
+                  "http://" + (host.contains(":") ? "[" + host + "]" : host) + "/", "p"))
+          .as(host)
+          .isNull();
+    }
+  }
+
+  @Test
+  void metadataAddressMayBeAllowedByNameOnPurpose() {
+    final HostAllowList listed = HostAllowList.from(List.of("169.254.169.254"));
+
+    assertThat(listed.refusalFor("http://169.254.169.254/latest", "p")).isNull();
+    assertThat(listed.refusalFor("http://169.254.169.253/", "p")).contains("link-local");
+  }
 }

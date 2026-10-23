@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.control.ControlDecision.Source;
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.decision.Answer;
 import com.infenia.yukta.plugin.decision.DecisionModel;
 import com.infenia.yukta.plugin.decision.ModelSpec;
@@ -19,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -44,6 +47,9 @@ public final class ModelControlPlane implements ControlPlanePlugin {
   /** Identifies this plugin in the audit log. */
   public static final String PLUGIN_ID = "model-control-plane";
 
+  /** Metric name of the counts this plugin reports. */
+  private static final String METRIC = "model_control_plane";
+
   /** Name of the one question asked. */
   private static final String QUESTION = "action";
 
@@ -59,6 +65,9 @@ public final class ModelControlPlane implements ControlPlanePlugin {
   /** The question put to the model. */
   private final Question question;
 
+  /** Counts how often the model gave no usable answer. */
+  private final PluginMetricsReporter metrics;
+
   /**
    * Creates the plugin.
    *
@@ -66,6 +75,31 @@ public final class ModelControlPlane implements ControlPlanePlugin {
    * @param settings the configuration
    */
   public ModelControlPlane(final DecisionModel model, final ModelPlaneSettings settings) {
+    this(model, settings, PluginMetricsReporter.NOOP);
+  }
+
+  /**
+   * Creates the plugin with metrics.
+   *
+   * @param model asks the model
+   * @param settings the configuration
+   * @param reporters where {@code yukta.plugin.events{plugin=model_control_plane}} is counted, with
+   *     the outcomes {@code decided}, {@code no_opinion} (unsure, unknown answer or low
+   *     probability) and {@code model_error} (down, slow or unreadable); alert on the last two
+   */
+  @Autowired
+  public ModelControlPlane(
+      final DecisionModel model,
+      final ModelPlaneSettings settings,
+      final ObjectProvider<PluginMetricsReporter> reporters) {
+    this(model, settings, reporters.getIfAvailable(() -> PluginMetricsReporter.NOOP));
+  }
+
+  /* default */ ModelControlPlane(
+      final DecisionModel model,
+      final ModelPlaneSettings settings,
+      final PluginMetricsReporter metrics) {
+    this.metrics = metrics;
     this.model = model;
     this.settings = settings;
     this.spec =
@@ -96,6 +130,7 @@ public final class ModelControlPlane implements ControlPlanePlugin {
             .onErrorResume(
                 e -> {
                   log.atWarn().setCause(e).log("Decision model unavailable; no opinion");
+                  metrics.increment(PLUGIN_ID, METRIC, "model_error");
                   return Mono.just(ControlDecision.none(Source.MODEL));
                 })
         : Mono.just(ControlDecision.none(Source.MODEL));
@@ -131,17 +166,18 @@ public final class ModelControlPlane implements ControlPlanePlugin {
   }
 
   private ControlDecision toDecision(final ExecutionEvent event, final Answer answer) {
-    final ControlDecision decision;
+    ControlDecision decision = ControlDecision.none(Source.MODEL);
+    String outcome = "no_opinion";
     if (answer instanceof final Answer.Choice choice) {
       final Option option = settings.options().get(choice.choice());
-      final List<ExecutionControlCommand> commands =
-          option == null || choice.probability() < settings.minProbability()
-              ? List.of()
-              : command(event.executionId(), option.command());
-      decision = new ControlDecision(commands, choice.probability(), Source.MODEL);
-    } else {
-      decision = ControlDecision.none(Source.MODEL);
+      if (option != null && choice.probability() >= settings.minProbability()) {
+        decision =
+            new ControlDecision(
+                command(event.executionId(), option.command()), choice.probability(), Source.MODEL);
+        outcome = "decided";
+      }
     }
+    metrics.increment(PLUGIN_ID, METRIC, outcome);
     return decision;
   }
 

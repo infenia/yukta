@@ -61,7 +61,7 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
     mutationFn: (version: string) => rollback(sessionId, workflowId, version),
     onSuccess: () =>
       queryClient.invalidateQueries({
-        queryKey: ['sessions', sessionId, 'workflows'],
+        queryKey: ['sessions', sessionId],
       }),
   });
 
@@ -142,7 +142,7 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
             </Button>
           </div>
           {compared === version.id && diff.isLoading && (
-            <p className="text-on-surface-variant ml-4 text-xs">
+            <p role="status" className="text-on-surface-variant ml-4 text-xs">
               Loading changes…
             </p>
           )}
@@ -150,7 +150,10 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
             <InlineError message={controlErrorMessage(diff.error)} />
           )}
           {compared === version.id && diff.data && (
-            <ul className="text-on-surface-variant ml-4 font-mono text-xs">
+            <ul
+              aria-live="polite"
+              className="text-on-surface-variant ml-4 font-mono text-xs"
+            >
               {changes(diff.data).length === 0 ? (
                 <li>Same as the current definition</li>
               ) : (
