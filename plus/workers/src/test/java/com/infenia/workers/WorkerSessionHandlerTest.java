@@ -144,7 +144,7 @@ class WorkerSessionHandlerTest {
   }
 
   @Test
-  void workerOfAnotherProtocol_isRefusedWithAReason_includingOneBuiltBeforeTheVersionExisted() {
+  void workerOfOtherProtocol_isRefusedWithReason_includingOneBuiltBeforeTheVersionExisted() {
     // what a worker of the previous release sends: the same frame without "protocol"
     final WorkerFrame old =
         new tools.jackson.databind.ObjectMapper()
