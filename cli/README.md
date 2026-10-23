@@ -42,6 +42,14 @@ The same builds are available from `cli/` with `make build` (current platform) a
 
 ## Usage
 
+### Version
+
+Print the build you run (`yukta-cli version`, or `-o json`; `--version` also works):
+
+```bash
+yukta-cli version
+```
+
 ### Session Operations
 
 List all active sessions:
