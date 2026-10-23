@@ -15,6 +15,7 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({
   "PMD.AtLeastOneConstructor",
   "PMD.CommentRequired",
+  "PMD.TooManyMethods",
   "PMD.UnnecessaryCast",
   "PMD.UnnecessaryFullyQualifiedName"
 })
@@ -101,5 +102,41 @@ class SpelUtilsTest {
     SpelUtils.preParse(" ");
 
     assertThat(SpelUtils.cacheSize()).isEqualTo(SpelUtils.MAX_CACHED);
+  }
+
+  @Test
+  void expressionLongerThanTheLimitIsRefusedBeforeParsing() {
+    final String tooLong = "1" + "+1".repeat(5_000);
+
+    assertThatThrownBy(() -> SpelUtils.preParse(tooLong))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("10001 characters")
+        .hasMessageContaining("yukta.spel.max-length");
+    assertThatThrownBy(() -> SpelUtils.evaluateSync(tooLong, Map.of()))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void theLengthLimitCanBeChangedWithASystemProperty() {
+    System.setProperty(SpelUtils.MAX_LENGTH_PROPERTY, "5");
+    try {
+      assertThat(SpelUtils.<Integer>evaluateSync("1 + 1", Map.of())).isEqualTo(2);
+      assertThatThrownBy(() -> SpelUtils.evaluateSync("1 + 1 + 1", Map.of()))
+          .isInstanceOf(IllegalArgumentException.class);
+    } finally {
+      System.clearProperty(SpelUtils.MAX_LENGTH_PROPERTY);
+    }
+  }
+
+  @Test
+  void aCachedExpressionIsNotParsedAgain() {
+    SpelUtils.preParse("2 + 2");
+    System.setProperty(SpelUtils.MAX_LENGTH_PROPERTY, "1");
+    try {
+      // already parsed, so the (now smaller) length limit is not consulted
+      assertThat(SpelUtils.<Integer>evaluateSync("2 + 2", Map.of())).isEqualTo(4);
+    } finally {
+      System.clearProperty(SpelUtils.MAX_LENGTH_PROPERTY);
+    }
   }
 }
