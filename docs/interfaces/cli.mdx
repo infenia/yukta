@@ -81,7 +81,7 @@ yukta-cli session get demo
 | Command | Does |
 |---|---|
 | `yukta-cli workflow start <session-id> <workflow-id>` | Start a run and print its execution id |
-| `yukta-cli workflow stop <session-id> <workflow-id>` | Stop every active run of the workflow, letting work in flight drain |
+| `yukta-cli workflow stop <session-id> <workflow-id> [--mode DRAIN\|CANCEL\|KILL]` | Stop every active run of the workflow; the default `DRAIN` lets work in flight finish |
 | `yukta-cli workflow executions stop <execution-id>` | Stop one run |
 | `yukta-cli workflow executions restart <execution-id> [from-node-id]` | Restart a run from the beginning, or from a node, as a new run |
 

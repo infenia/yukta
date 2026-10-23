@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -169,8 +170,9 @@ func (c *Client) StartWorkflowKeyed(sessionID, workflowID string, payload map[st
 	return response.Data, nil
 }
 
-// StopWorkflow stops all active executions of a workflow for a given session.
-func (c *Client) StopWorkflow(sessionID, workflowID string) (WorkflowStopResponse, error) {
+// StopWorkflow stops all active executions of a workflow for a given session. mode is DRAIN, CANCEL
+// or KILL (case-insensitive); empty leaves the choice to the server (DRAIN).
+func (c *Client) StopWorkflow(sessionID, workflowID, mode string) (WorkflowStopResponse, error) {
 	if sessionID == "" {
 		return WorkflowStopResponse{}, fmt.Errorf("sessionID cannot be empty")
 	}
@@ -179,6 +181,9 @@ func (c *Client) StopWorkflow(sessionID, workflowID string) (WorkflowStopRespons
 	}
 
 	path := apiPath("/api/workflow/%s/%s/stop", sessionID, workflowID)
+	if mode != "" {
+		path += "?mode=" + url.QueryEscape(strings.ToUpper(mode))
+	}
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStopResponse{}, err

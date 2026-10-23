@@ -23,14 +23,18 @@ and controlling individual nodes within a workflow.`,
 	}
 
 	cmd.AddCommand(StartCmd(c))
-	cmd.AddCommand(commands.Action(commands.ActionSpec[client.WorkflowStopResponse]{
+	var stopMode string
+	stop := commands.Action(commands.ActionSpec[client.WorkflowStopResponse]{
 		Use:   "stop <session-id> <workflow-id>",
 		Short: "Stop a workflow execution",
 		Long: `Stop all active executions of a workflow in a given session.
 
+--mode DRAIN (default) lets work in flight finish, CANCEL cancels it, KILL stops at once.
 Returns the list of execution IDs that were stopped.`,
 		Args: cobra.ExactArgs(2),
-		Run:  func(a []string) (client.WorkflowStopResponse, error) { return c.StopWorkflow(a[0], a[1]) },
+		Run: func(a []string) (client.WorkflowStopResponse, error) {
+			return c.StopWorkflow(a[0], a[1], stopMode)
+		},
 		Msg: func(r client.WorkflowStopResponse, _ []string) string {
 			out := fmt.Sprintf("Stopped %d execution(s)", len(r.ExecutionIDs))
 			for _, id := range r.ExecutionIDs {
@@ -38,7 +42,9 @@ Returns the list of execution IDs that were stopped.`,
 			}
 			return out
 		},
-	}))
+	})
+	stop.Flags().StringVar(&stopMode, "mode", "", "How to stop: DRAIN (default), CANCEL or KILL")
+	cmd.AddCommand(stop)
 	cmd.AddCommand(executionAction("pause", "Pause a workflow execution",
 		`Pause an active workflow execution.
 

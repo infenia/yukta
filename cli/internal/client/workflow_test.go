@@ -90,7 +90,7 @@ func TestStopWorkflow(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	resp, err := c.StopWorkflow("session-1", "workflow-1")
+	resp, err := c.StopWorkflow("session-1", "workflow-1", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -568,7 +568,7 @@ func TestStopWorkflow_invalidJSON(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	_, err := c.StopWorkflow("session-1", "workflow-1")
+	_, err := c.StopWorkflow("session-1", "workflow-1", "")
 
 	if err == nil {
 		t.Error("expected error for invalid response format, got nil")
@@ -584,7 +584,7 @@ func TestStopWorkflow_httpError(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	_, err := c.StopWorkflow("session-1", "nonexistent")
+	_, err := c.StopWorkflow("session-1", "nonexistent", "")
 
 	if err == nil {
 		t.Error("expected error for 404 status, got nil")
@@ -594,7 +594,7 @@ func TestStopWorkflow_httpError(t *testing.T) {
 // TestStopWorkflow_emptySessionID tests validation error
 func TestStopWorkflow_emptySessionID(t *testing.T) {
 	c := NewClient("http://localhost:8080")
-	_, err := c.StopWorkflow("", "workflow-1")
+	_, err := c.StopWorkflow("", "workflow-1", "")
 
 	if err == nil {
 		t.Error("expected error for empty sessionID, got nil")
@@ -607,7 +607,7 @@ func TestStopWorkflow_emptySessionID(t *testing.T) {
 // TestStopWorkflow_emptyWorkflowID tests validation error
 func TestStopWorkflow_emptyWorkflowID(t *testing.T) {
 	c := NewClient("http://localhost:8080")
-	_, err := c.StopWorkflow("session-1", "")
+	_, err := c.StopWorkflow("session-1", "", "")
 
 	if err == nil {
 		t.Error("expected error for empty workflowID, got nil")
@@ -1601,5 +1601,21 @@ func TestStartWorkflowKeyed_sendsTheIdempotencyKeyHeaderOnlyWhenGiven(t *testing
 	}
 	if _, err := c.StartWorkflow("s", "w", nil); err != nil || header != "" {
 		t.Fatalf("header=%q err=%v", header, err)
+	}
+}
+
+func TestStopWorkflow_modeIsSentUppercased(t *testing.T) {
+	var got string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.URL.RawQuery
+		_, _ = w.Write([]byte(`{"data":{"executionIds":[]}}`))
+	}))
+	defer server.Close()
+
+	if _, err := NewClient(server.URL).StopWorkflow("s", "w", "kill"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "mode=KILL" {
+		t.Errorf("expected mode=KILL, got %q", got)
 	}
 }
