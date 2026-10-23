@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control;
 
+import com.infenia.yukta.security.CallRateLimiter;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.leader.SingleServerLeader;
@@ -71,6 +72,9 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   /** Starts refused, by reason. */
   private final Map<RejectReason, LongAdder> rejections = new ConcurrentHashMap<>();
+
+  /** Counts new starts per workflow; limit 0 means off. */
+  private CallRateLimiter startRate = new CallRateLimiter(0);
 
   /** Guards all state below. */
   private final Object lock = new Object();
@@ -179,6 +183,7 @@ public class ExecutionScheduler implements SmartLifecycle {
    */
   public void assertCanAccept(final String sessionId, final String workflowId) {
     assertLeader();
+    assertStartRate(workflowId);
     synchronized (lock) {
       if (closed) {
         throw refusal(RejectReason.SHUTDOWN, "The server is shutting down");
@@ -402,6 +407,24 @@ public class ExecutionScheduler implements SmartLifecycle {
     this.election = leaderElection;
   }
 
+  /**
+   * Limits new starts (not restarts or resumes) per workflow and minute, whoever asks: REST, MCP,
+   * triggers or scheduled runs.
+   *
+   * @param perMinute starts per workflow and minute, 0 for no limit
+   */
+  @Autowired
+  public void setMaxStartsPerMinute(
+      @Value("${yukta.execution.max-starts-per-minute:0}") final int perMinute) {
+    this.startRate = new CallRateLimiter(perMinute);
+  }
+
+  private void assertStartRate(final String workflowId) {
+    if (!startRate.tryAcquire(workflowId)) {
+      throw refusal(RejectReason.RATE_LIMIT, "Too many starts of this workflow per minute");
+    }
+  }
+
   /** Counts a refusal and builds its exception. */
   private ExecutionRejectedException refusal(final RejectReason reason, final String message) {
     count(reason);
@@ -601,7 +624,8 @@ public class ExecutionScheduler implements SmartLifecycle {
     QUEUE_FULL,
     WORKFLOW_QUEUE_FULL,
     QUEUE_TIMEOUT,
-    NOT_LEADER
+    NOT_LEADER,
+    RATE_LIMIT
   }
 
   /** What to do with a start that does not fit within the limits. */
