@@ -121,7 +121,8 @@ public class ConfigRedactor {
     if (value instanceof final Map<?, ?> map) {
       map.forEach(
           (key, inner) ->
-              collectLiterals(path + "." + key, inner, isSecretName(String.valueOf(key)), found));
+              collectLiterals(
+                  path + "." + key, inner, secret || isSecretName(String.valueOf(key)), found));
     } else if (value instanceof final List<?> list) {
       for (int i = 0; i < list.size(); i++) {
         collectLiterals(path + "." + i, list.get(i), secret, found);
@@ -158,7 +159,8 @@ public class ConfigRedactor {
       map.forEach(
           (key, inner) ->
               redacted.put(
-                  String.valueOf(key), redactValue(inner, isSecretName(String.valueOf(key)))));
+                  String.valueOf(key),
+                  redactValue(inner, secret || isSecretName(String.valueOf(key)))));
       return redacted;
     }
     if (value instanceof final List<?> list) {
