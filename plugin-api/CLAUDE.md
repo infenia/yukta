@@ -21,7 +21,7 @@ Plugin abstraction interfaces and base classes.
 - `com.infenia.yukta.plugin.core.ConfigField` and `Plugin#getConfigSchema()`: optional per-plugin config parameters (name, type, required, default, options) that the UI renders as a form. Default is empty, in which case the UI shows a raw JSON editor. Keep names in step with the keys the plugin reads from `config`.
 - `com.infenia.yukta.plugin.core.PluginLogSink`: live log lines. A plugin takes it from the Reactor context (`WorkflowContext.LOG_SINK_KEY`, absent outside a run) and calls `line("stdout"|"stderr", text)` as output appears; the engine writes each line whole to the execution log (split only above 16,000 chars), counts it as node activity, and then does not echo the node's output message again.
 - `com.infenia.yukta.plugin.store`: `NodeCheckpointStore`, `SecretProvider`.
-- Module guide: `../docs/contributing/modules/plugin-api.mdx` (module guide, published in the docs site); open risks, bugs and review findings: GitHub issues labelled `plugin-api` (`gh issue list -l plugin-api`; risks also carry `risk`); evolution path and quality lenses: `../design/assessments/plugin-api.md`.
+- Module guide: `../docs/contributing/modules/plugin-api.mdx` (module guide); open risks, bugs and review findings: GitHub issues labelled `plugin-api` (`gh issue list -l plugin-api`; risks also carry `risk`); evolution path and quality lenses: `../design/assessments/plugin-api.md`.
 
 ## Imports
 @.claude/rules/coding-standards.md

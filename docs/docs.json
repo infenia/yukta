@@ -187,40 +187,6 @@
             ]
           }
         ]
-      },
-      {
-        "tab": "Contributing",
-        "groups": [
-          {
-            "group": "Overview",
-            "public": true,
-            "pages": [
-              "contributing/overview",
-              "contributing/core-reference"
-            ],
-            "boost": 0.5
-          },
-          {
-            "group": "Modules",
-            "public": true,
-            "pages": [
-              "contributing/modules/boot",
-              "contributing/modules/build-logic",
-              "contributing/modules/cli",
-              "contributing/modules/core",
-              "contributing/modules/mcp",
-              "contributing/modules/messaging",
-              "contributing/modules/persistence-postgres",
-              "contributing/modules/plugin-api",
-              "contributing/modules/plugins",
-              "contributing/modules/plus",
-              "contributing/modules/ui",
-              "contributing/modules/web",
-              "contributing/modules/workers"
-            ],
-            "boost": 0.5
-          }
-        ]
       }
     ]
   },
