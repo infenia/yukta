@@ -61,7 +61,7 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
     mutationFn: (version: string) => rollback(sessionId, workflowId, version),
     onSuccess: () =>
       queryClient.invalidateQueries({
-        queryKey: ['sessions', sessionId, 'workflows'],
+        queryKey: ['sessions', sessionId],
       }),
   });
 
