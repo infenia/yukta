@@ -104,6 +104,18 @@ class WorkflowValidatorTest {
   }
 
   @Test
+  void definitionHoldingLiteralSecretIsRefused() {
+    final WorkflowDefinition literal =
+        new WorkflowDefinition(
+            "w",
+            "d",
+            List.of(new WorkflowDefinition.Node("n1", "X", Map.of("password", "hunter2"))),
+            List.of());
+
+    assertRejected(literal, "n1.password");
+  }
+
+  @Test
   void definitionHoldingTheRedactionMaskIsRefused() {
     final WorkflowDefinition masked =
         new WorkflowDefinition(
