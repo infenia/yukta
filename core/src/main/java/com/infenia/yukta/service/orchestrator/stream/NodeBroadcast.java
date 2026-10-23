@@ -53,6 +53,11 @@ final class NodeBroadcast extends Flux<Message<?>> {
     expected.incrementAndGet();
   }
 
+  /** Whether more than one edge reads this output, so each needs its own copy of the payload. */
+  /* default */ boolean isShared() {
+    return expected.get() > 1;
+  }
+
   /** Connector entry point: drains and connects a node that nobody is going to subscribe to. */
   /* default */ void connectIfUnobserved() {
     if (expected.get() == 0 && connected.compareAndSet(false, true)) {
