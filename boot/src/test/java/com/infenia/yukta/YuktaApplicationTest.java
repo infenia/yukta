@@ -91,6 +91,7 @@ class YuktaApplicationTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.CloseResource") // System.out is restored, never closed
   void mainPrintsTheVersionAndHelpWithoutStartingTheServer() {
     final java.io.PrintStream original = System.out;
     final java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();
@@ -107,6 +108,7 @@ class YuktaApplicationTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.CloseResource") // versionFrom closes the stream it is given
   void versionFromReadsTheBuildVersionAndFallsBackToUnknown() {
     final java.io.InputStream broken =
         new java.io.InputStream() {
