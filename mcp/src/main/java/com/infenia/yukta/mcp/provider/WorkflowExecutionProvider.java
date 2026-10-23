@@ -8,13 +8,16 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowExecution;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.control.gateway.StartIdempotency;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.ConfigRedactor;
 import com.infenia.yukta.service.workflow.WorkflowService;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -24,7 +27,6 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class WorkflowExecutionProvider {
 
   /** Service for executing workflows and managing their lifecycle. */
@@ -38,6 +40,32 @@ public class WorkflowExecutionProvider {
 
   /** Hides literal secrets in the definitions handed to an agent. */
   private final ConfigRedactor configRedactor;
+
+  /** Merges keyless starts of one session and workflow made within a short window. */
+  private final StartIdempotency autoKey;
+
+  /**
+   * Creates the provider.
+   *
+   * @param workflowService runs workflows
+   * @param sessionService reads sessions
+   * @param controlBus observes and controls executions
+   * @param configRedactor hides literal secrets
+   * @param autoKeyWindow how long a start without a key stands in for its repeats; 0 turns it off
+   */
+  @SuppressFBWarnings("EI_EXPOSE_REP2")
+  public WorkflowExecutionProvider(
+      final WorkflowService workflowService,
+      final SessionService sessionService,
+      final ControlBusGateway controlBus,
+      final ConfigRedactor configRedactor,
+      @Value("${yukta.mcp.start-dedupe-window:30s}") final Duration autoKeyWindow) {
+    this.workflowService = workflowService;
+    this.sessionService = sessionService;
+    this.controlBus = controlBus;
+    this.configRedactor = configRedactor;
+    this.autoKey = new StartIdempotency(autoKeyWindow);
+  }
 
   /**
    * Get workflow definition.
@@ -74,12 +102,21 @@ public class WorkflowExecutionProvider {
   public Mono<WorkflowStartResult> startWorkflow(
       final String sessionId, final String workflowId, final String idempotencyKey) {
     final boolean keyed = idempotencyKey != null && !idempotencyKey.isBlank();
-    return (keyed
-            ? workflowService.validateAndStartWorkflow(
-                sessionId, workflowId, Map.of(), idempotencyKey.strip())
-            : workflowService.validateAndStartWorkflow(sessionId, workflowId))
-        .map(WorkflowExecution::executionId)
-        .map(WorkflowStartResult::new);
+    // Without a key the server derives one from the session and workflow: a model that repeats a
+    // start it got no answer to is merged for a short window; a deliberate later start is not.
+    final Mono<String> started =
+        keyed
+            ? workflowService
+                .validateAndStartWorkflow(sessionId, workflowId, Map.of(), idempotencyKey.strip())
+                .map(WorkflowExecution::executionId)
+            : autoKey.once(
+                sessionId + "\0" + workflowId,
+                "auto",
+                () ->
+                    workflowService
+                        .validateAndStartWorkflow(sessionId, workflowId)
+                        .map(WorkflowExecution::executionId));
+    return started.map(WorkflowStartResult::new);
   }
 
   /**

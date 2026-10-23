@@ -29,17 +29,23 @@ final class RestartCoordinator extends ControlDispatch {
   /** Finished executions that can still be restarted. */
   private final ExecutionArchive executionArchive;
 
+  /** Makes a repeated restart of the same execution return the first new execution. */
+  private final StartIdempotency idempotency;
+
   /* default */ RestartCoordinator(
       final ControlBusGateway gateway,
       final ExecutionControlRegistry executionControlRegistry,
-      final ExecutionArchive executionArchive) {
+      final ExecutionArchive executionArchive,
+      final StartIdempotency idempotency) {
     super(gateway, executionControlRegistry);
     this.executionArchive = executionArchive;
+    this.idempotency = idempotency;
   }
 
   /* default */ Mono<String> restartWorkflow(final String executionId) {
     return awaitRestart(
         executionId,
+        "restart",
         newId -> new RestartCommand(executionId, newId),
         newExecutionId ->
             log.atInfo()
@@ -61,6 +67,7 @@ final class RestartCoordinator extends ControlDispatch {
   /* default */ Mono<String> restartFromNode(final String executionId, final String fromNodeId) {
     return awaitRestart(
         executionId,
+        "restart-from\0" + fromNodeId,
         newId -> new RestartFromNodeCommand(executionId, fromNodeId, newId),
         newExecutionId ->
             log.atInfo()
@@ -82,7 +89,27 @@ final class RestartCoordinator extends ControlDispatch {
                 .log("Failed to restart workflow from node"));
   }
 
+  /**
+   * A repeat of the same restart within the idempotency window (an agent that did not see the
+   * answer) returns the first new execution instead of starting another; a failed restart is
+   * forgotten so it can be retried.
+   */
   private Mono<String> awaitRestart(
+      final String executionId,
+      final String kind,
+      final java.util.function.Function<String, ExecutionControlCommand> commandFactory,
+      final java.util.function.Consumer<String> onSubscribeLogger,
+      final java.util.function.Consumer<String> onSuccessLogger,
+      final java.util.function.Consumer<Throwable> onErrorLogger) {
+    return idempotency.once(
+        executionId,
+        kind,
+        () ->
+            sendRestart(
+                executionId, commandFactory, onSubscribeLogger, onSuccessLogger, onErrorLogger));
+  }
+
+  private Mono<String> sendRestart(
       final String executionId,
       final java.util.function.Function<String, ExecutionControlCommand> commandFactory,
       final java.util.function.Consumer<String> onSubscribeLogger,
