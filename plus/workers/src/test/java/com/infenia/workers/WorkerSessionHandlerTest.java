@@ -142,4 +142,29 @@ class WorkerSessionHandlerTest {
 
     assertThat(registry.list()).isEmpty();
   }
+
+  @Test
+  void withWorkerTokens_eachWorkerNeedsItsOwnSecretAndUnlistedOnesAreRefused() {
+    final WorkerSessionHandler perWorker =
+        new WorkerSessionHandler(
+            registry,
+            connections,
+            new SingleServerLeader(),
+            "shared",
+            java.util.Map.of("w1", "own-1", "w2", "own-2"));
+
+    StepVerifier.create(perWorker.session(requester, Flux.just(hello("own-1", "w1", 4))))
+        .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.ACK))
+        .verifyComplete();
+    for (final WorkerFrame refused :
+        java.util.List.of(
+            hello("shared", "w1", 4), // the shared secret no longer works
+            hello("own-2", "w1", 4), // another worker's secret
+            hello("own-1", "w3", 4), // not listed
+            hello(null, "w2", 4))) {
+      StepVerifier.create(perWorker.session(requester, Flux.just(refused)))
+          .assertNext(frame -> assertThat(frame.message()).contains("token refused"))
+          .verifyComplete();
+    }
+  }
 }

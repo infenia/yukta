@@ -9,7 +9,13 @@ import com.infenia.yukta.service.worker.WorkerRegistry;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.core.env.Environment;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Signal;
@@ -32,8 +38,11 @@ public class WorkerSessionHandler {
   /** Tells whether this server is the leader; only the leader takes workers. */
   private final LeaderElection election;
 
-  /** The shared secret workers must present. */
+  /** The shared secret workers must present when no worker has its own. */
   private final byte[] token;
+
+  /** The secret of each allowed worker; when not empty, only these workers are admitted. */
+  private final Map<String, byte[]> workerTokens;
 
   /**
    * Creates the handler.
@@ -43,16 +52,55 @@ public class WorkerSessionHandler {
    * @param election tells whether this server is the leader; a standby refuses workers
    * @param token the shared secret workers must present
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // the registry is a shared Spring bean
   public WorkerSessionHandler(
       final WorkerRegistry registry,
       final WorkerConnections connections,
       final LeaderElection election,
       final String token) {
+    this(registry, connections, election, token, Map.of());
+  }
+
+  /**
+   * Creates the handler with a secret per worker.
+   *
+   * @param registry the workers that are connected
+   * @param connections the way back into each connected worker
+   * @param election tells whether this server is the leader; a standby refuses workers
+   * @param token the shared secret, used only when {@code workerTokens} is empty
+   * @param workerTokens the secret of each allowed worker id; when not empty, a worker that is not
+   *     listed is refused and one that is listed must present its own secret, so one compromised
+   *     worker is revoked by removing its entry
+   */
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the registry is a shared Spring bean
+  public WorkerSessionHandler(
+      final WorkerRegistry registry,
+      final WorkerConnections connections,
+      final LeaderElection election,
+      final String token,
+      final Map<String, String> workerTokens) {
     this.registry = registry;
     this.connections = connections;
     this.election = election;
     this.token = token.getBytes(StandardCharsets.UTF_8);
+    this.workerTokens =
+        workerTokens.entrySet().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Map.Entry::getKey, entry -> entry.getValue().getBytes(StandardCharsets.UTF_8)));
+  }
+
+  /**
+   * Reads {@code yukta.workers.tokens.<worker id>}, the secret of each allowed worker.
+   *
+   * @param environment the application's configuration
+   * @return the secrets by worker id; empty if none is set
+   */
+  public static Map<String, String> tokensOf(final Environment environment) {
+    return Objects.requireNonNullElse(
+        Binder.get(environment)
+            .bind("yukta.workers.tokens", Bindable.mapOf(String.class, String.class))
+            .orElse(Map.of()),
+        Map.of());
   }
 
   /**
@@ -99,7 +147,7 @@ public class WorkerSessionHandler {
     if (!election.isLeader()) {
       why = "this server is not the leader";
     }
-    if (why == null && !tokenMatches(hello.token())) {
+    if (why == null && !tokenMatches(hello.workerId(), hello.token())) {
       log.atWarn().addKeyValue("workerId", hello.workerId()).log("Worker refused: bad token");
       why = "token refused";
     }
@@ -136,8 +184,10 @@ public class WorkerSessionHandler {
     return answer;
   }
 
-  private boolean tokenMatches(final String presented) {
-    return presented != null
-        && MessageDigest.isEqual(token, presented.getBytes(StandardCharsets.UTF_8));
+  private boolean tokenMatches(final String workerId, final String presented) {
+    final byte[] expected = workerTokens.isEmpty() ? token : workerTokens.get(workerId);
+    return expected != null
+        && presented != null
+        && MessageDigest.isEqual(expected, presented.getBytes(StandardCharsets.UTF_8));
   }
 }

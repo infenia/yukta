@@ -23,6 +23,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.ssl.SslBundle;
 import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.env.Environment;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.messaging.rsocket.annotation.support.RSocketMessageHandler;
 import reactor.core.publisher.Mono;
@@ -54,6 +55,7 @@ public class WorkersAutoConfiguration {
    *
    * @param registry the workers that are connected
    * @param token the shared secret workers must present
+   * @param environment holds {@code yukta.workers.tokens.<id>}, a secret per worker
    * @return the handler
    */
   @Bean
@@ -63,9 +65,14 @@ public class WorkersAutoConfiguration {
       final WorkerRegistry registry,
       final WorkerConnections connections,
       final ObjectProvider<LeaderElection> election,
-      @Value("${yukta.workers.token}") final String token) {
+      @Value("${yukta.workers.token}") final String token,
+      final Environment environment) {
     return new WorkerSessionHandler(
-        registry, connections, election.getIfAvailable(SingleServerLeader::new), token);
+        registry,
+        connections,
+        election.getIfAvailable(SingleServerLeader::new),
+        token,
+        WorkerSessionHandler.tokensOf(environment));
   }
 
   /**
