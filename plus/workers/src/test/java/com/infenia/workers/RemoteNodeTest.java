@@ -8,6 +8,7 @@ import static org.awaitility.Awaitility.await;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.WorkflowContext;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -35,7 +36,12 @@ import reactor.util.context.Context;
 
 /** Runs node attempts on a worker over a real RSocket connection. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.ExcessiveImports",
+  "PMD.LawOfDemeter",
+  "PMD.TooManyMethods"
+})
 class RemoteNodeTest {
 
   /** Counts heartbeats the control plane received. */
@@ -82,7 +88,7 @@ class RemoteNodeTest {
                 "yukta.workers.allow-insecure=true",
                 "yukta.workers.id=w1",
                 "yukta.workers.pools=default",
-                "yukta.workers.plugin-types=UPPER,BOOM,BAD,HEART,CTX,HOLD,NOT_PROCESSOR",
+                "yukta.workers.plugin-types=UPPER,BOOM,BAD,ABORT,HEART,CTX,HOLD,NOT_PROCESSOR",
                 "yukta.workers.capacity=1",
                 "yukta.workers.lease=3s")
             .run();
@@ -98,8 +104,9 @@ class RemoteNodeTest {
   }
 
   /**
-   * The worker reports its used slots on its heartbeat, so a slot freed by the previous test is
-   * still counted as busy until the next one. Wait for the report before the next attempt.
+   * The worker reports its used slots on its heartbeat, so a slot freed by the previous attempt is
+   * still counted as busy until the next one. Wait for the report before the next attempt, in a
+   * test as well as between tests.
    */
   @BeforeEach
   void awaitFreeSlot() {
@@ -132,6 +139,7 @@ class RemoteNodeTest {
         .assertNext(out -> assertThat(out.payload()).isEqualTo("A"))
         .assertNext(out -> assertThat(out.payload()).isEqualTo("B"))
         .verifyComplete();
+    awaitFreeSlot();
     StepVerifier.create(run("CTX", Flux.empty()))
         .assertNext(out -> assertThat(out.payload()).isEqualTo("e1/n1/v"))
         .verifyComplete();
@@ -146,10 +154,21 @@ class RemoteNodeTest {
                     .isInstanceOf(WorkflowExecutionException.class)
                     .hasMessageContaining("IllegalStateException")
                     .hasMessageContaining("boom"));
+    awaitFreeSlot();
     StepVerifier.create(run("BAD", Flux.empty()))
         .verifyErrorSatisfies(
             e ->
                 assertThat(e).isInstanceOf(IllegalArgumentException.class).hasMessage("bad input"));
+  }
+
+  @Test
+  void hardStop_comesBackAsRunAborted_soTheEngineEndsTheRun() {
+    StepVerifier.create(run("ABORT", Flux.empty()))
+        .verifyErrorSatisfies(
+            e -> {
+              assertThat(RunAbortedException.isAbort(e)).isTrue();
+              assertThat(e).hasMessage("budget");
+            });
   }
 
   @Test
@@ -173,6 +192,7 @@ class RemoteNodeTest {
     await()
         .atMost(Duration.ofSeconds(10))
         .until(() -> RemoteNodeWorkerConfig.CANCELLED.get() > before);
+    awaitFreeSlot();
     StepVerifier.create(run("UPPER", Flux.just(message("again"))))
         .expectNextCount(1)
         .verifyComplete();
