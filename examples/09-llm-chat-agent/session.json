@@ -18,6 +18,7 @@
           "config": {
             "provider": "openai",
             "baseUrl": "http://localhost:11434/v1",
+            "apiKey": "decrypted:llm-api-key",
             "model": "llama3.2",
             "system": "You are a concise, helpful assistant.",
             "messages": "payload['history']",
@@ -47,6 +48,7 @@
           "config": {
             "provider": "openai",
             "baseUrl": "http://localhost:11434/v1",
+            "apiKey": "decrypted:llm-api-key",
             "model": "llama3.2",
             "system": "You are a concise, helpful assistant.",
             "messages": "payload['history']",
