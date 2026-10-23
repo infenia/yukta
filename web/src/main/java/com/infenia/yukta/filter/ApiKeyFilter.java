@@ -12,6 +12,7 @@ import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.RequestPaths;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.NullMarked;
@@ -21,7 +22,10 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -29,10 +33,11 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 /**
- * Requires an API key on every {@code /api/**} request and on the actuator (except {@code
- * /actuator/health}) when one is configured, as {@code Authorization: Bearer <key>} or {@code
- * X-API-Key: <key>}. With no key configured the API stays open, which is safe only because the
- * server listens on loopback by default (and refuses to start on another address without a key).
+ * Requires an API key on every {@code /api/**} request, on the OpenAPI document and Swagger UI and
+ * on the actuator (except {@code /actuator/health}) when one is configured, as {@code
+ * Authorization: Bearer <key>} or {@code X-API-Key: <key>}. With no key configured the API stays
+ * open, which is safe only because the server listens on loopback by default (and refuses to start
+ * on another address without a key).
  *
  * <p>The path is matched after percent-decoding; a path written with parameters, encoded separators
  * or dot segments is refused with 400, so no spelling of a path skips the check.
@@ -127,7 +132,7 @@ public class ApiKeyFilter implements WebFilter {
       return chain.filter(exchange);
     }
     if (RequestPaths.ambiguous(raw)) {
-      return reject(exchange, HttpStatus.BAD_REQUEST);
+      return reject(exchange, HttpStatus.BAD_REQUEST, "Ambiguous request path");
     }
     final String path = RequestPaths.decoded(raw);
     if (!guarded(path)) {
@@ -137,10 +142,13 @@ public class ApiKeyFilter implements WebFilter {
         authenticator.authenticate(Scope.REST, exchange.getRequest().getHeaders());
     if (match == null) {
       exchange.getResponse().getHeaders().set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
-      return reject(exchange, HttpStatus.UNAUTHORIZED);
+      return reject(
+          exchange,
+          HttpStatus.UNAUTHORIZED,
+          "Missing or invalid API key. Send X-API-Key or Authorization: Bearer <key>");
     }
     if (!permitted(match, exchange, path)) {
-      return reject(exchange, HttpStatus.FORBIDDEN);
+      return reject(exchange, HttpStatus.FORBIDDEN, "This API key may not do that");
     }
     return authenticator.named()
         ? chain
@@ -149,9 +157,16 @@ public class ApiKeyFilter implements WebFilter {
         : chain.filter(exchange);
   }
 
-  /** The API and the actuator, except the health probe. */
+  /** The API, the actuator (except the health probe) and the API description. */
   private static boolean guarded(final String path) {
-    return isUnder(path, "/api") || (isUnder(path, "/actuator") && !isUnder(path, HEALTH));
+    return isUnder(path, "/api")
+        || (isUnder(path, "/actuator") && !isUnder(path, HEALTH))
+        || isDocs(path);
+  }
+
+  /** The OpenAPI document and the Swagger UI: they describe every endpoint. */
+  private static boolean isDocs(final String path) {
+    return isUnder(path, "/v3") || isUnder(path, "/swagger-ui") || "/swagger-ui.html".equals(path);
   }
 
   private static boolean isUnder(final String path, final String prefix) {
@@ -160,6 +175,9 @@ public class ApiKeyFilter implements WebFilter {
 
   private boolean permitted(
       final ApiKeys.Match match, final ServerWebExchange exchange, final String path) {
+    if (isDocs(path)) {
+      return HttpMethod.GET.equals(exchange.getRequest().getMethod());
+    }
     if (isUnder(path, "/actuator")) {
       return match.role() == ApiRole.ADMIN && match.sessions().isEmpty();
     }
@@ -184,8 +202,15 @@ public class ApiKeyFilter implements WebFilter {
     return progress != null && match.reaches(progress.sessionId());
   }
 
-  private static Mono<Void> reject(final ServerWebExchange exchange, final HttpStatus status) {
-    exchange.getResponse().setStatusCode(status);
-    return exchange.getResponse().setComplete();
+  /** Ends the exchange with the same JSON shape as the other errors: status and message. */
+  private static Mono<Void> reject(
+      final ServerWebExchange exchange, final HttpStatus status, final String message) {
+    final ServerHttpResponse response = exchange.getResponse();
+    response.setStatusCode(status);
+    response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+    final byte[] body =
+        ("{\"status\":" + status.value() + ",\"message\":\"" + message + "\"}")
+            .getBytes(StandardCharsets.UTF_8);
+    return response.writeWith(Mono.just(response.bufferFactory().wrap(body)));
   }
 }

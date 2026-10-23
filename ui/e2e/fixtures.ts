@@ -256,14 +256,14 @@ async function mockWorkflowApi(page: Page, data: MockWorkflowData = {}): Promise
   await page.route('**/api/sessions/*/workflows/*/executions', (route) =>
     route.fulfill(envelope('/executions', executions))
   );
-  await page.route('**/api/workflow/*/status/*/stream*', (route) =>
+  await page.route('**/api/executions/*/status/stream*', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'text/event-stream',
       body: sseBody([progress]),
     })
   );
-  await page.route('**/api/workflow/*/status/*', (route) =>
+  await page.route('**/api/executions/*', (route) =>
     route.fulfill(envelope('/status', progress))
   );
   await page.route('**/api/sessions/*/executions/*/logs/entries', (route) =>

@@ -5,6 +5,8 @@ package com.infenia.workers;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.rsocket.transport.netty.client.TcpClientTransport;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLParameters;
@@ -50,6 +52,38 @@ class WorkerTransport {
         ? configured.connectTcp(host, port)
         : Mono.fromCallable(() -> secure(host, port, bundle))
             .flatMap(client -> configured.connect(TcpClientTransport.create(client)));
+  }
+
+  /**
+   * Refuses plain TCP to or from a host that is not this machine: the shared token, the node
+   * configs (with any literal secret) and every payload would cross the network in clear text.
+   *
+   * @param host the address to connect to or listen on; empty means every interface
+   * @param tls whether the connection is protected by an SSL bundle
+   * @param allowInsecure the operator's explicit opt-out ({@code yukta.workers.allow-insecure})
+   * @throws IllegalStateException if the connection would be plain TCP off this machine
+   */
+  /* default */ static void requireTls(
+      final String host, final boolean tls, final boolean allowInsecure) {
+    if (!tls && !allowInsecure && !loopback(host)) {
+      throw new IllegalStateException(
+          "Worker traffic to "
+              + (host.isBlank() ? "every interface" : host)
+              + " would be plain TCP. Set an SSL bundle (see the remote workers page), or"
+              + " yukta.workers.allow-insecure=true on a network you trust.");
+    }
+  }
+
+  private static boolean loopback(final String host) {
+    final boolean loopback;
+    boolean found;
+    try {
+      found = !host.isBlank() && InetAddress.getByName(host).isLoopbackAddress();
+    } catch (UnknownHostException e) {
+      found = false; // an unresolvable name is not this machine
+    }
+    loopback = found;
+    return loopback;
   }
 
   private static TcpClient secure(final String host, final int port, final SslBundle bundle)

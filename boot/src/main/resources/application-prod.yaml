@@ -15,6 +15,12 @@ spring:
     virtual:
       enabled: true                     # Virtual threads for better concurrency
 
+springdoc:
+  api-docs:
+    enabled: false                      # no API description on a production server
+  swagger-ui:
+    enabled: false
+
 logging:
   level:
     root: WARN                          # Reduce default log verbosity in prod

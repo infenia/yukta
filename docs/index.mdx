@@ -1,15 +1,16 @@
 ---
-title: "Introduction"
+title: "Workflow orchestration for AI agents and automation"
+sidebarTitle: "Introduction"
 description: "Workflows you can trust and control. Build with plugins and AI, run every step as designed, and steer it live from the UI, CLI, API or an AI agent."
 mode: "frame"
 keywords: ["introduction", "workflow orchestration", "DAG", "AI agents", "supervisors", "plugins"]
 ---
 
-export const HeroCard = ({ image, title, description, href }) => (
+export const HeroCard = ({ light, dark, title, description, href }) => (
   <a className="yk-hero-card group" href={href}>
     <div className="yk-hero-card-media">
-      <img src={`/images/diagrams/${image}.light.svg`} alt="" className="block dark:hidden" />
-      <img src={`/images/diagrams/${image}.dark.svg`} alt="" className="hidden dark:block" />
+      <img src={light} alt="" className="block dark:hidden" />
+      <img src={dark} alt="" className="hidden dark:block" />
     </div>
     <h3>{title}</h3>
     <span>{description}</span>
@@ -24,10 +25,10 @@ export const HeroCard = ({ image, title, description, href }) => (
   </div>
 
   <div className="not-prose yk-hero-grid">
-    <HeroCard image="quickstart-greet" title="Quickstart" description="Install Yukta and run your first workflow in five minutes." href="/quickstart" />
-    <HeroCard image="architecture" title="How it works" description="How a run flows through the engine, and how supervisors and the control bus steer it." href="/concepts/how-it-works" />
-    <HeroCard image="agent-loop" title="AI and agents" description="Model calls, tool-using agent loops, approvals and budgets as workflow steps." href="/building/ai-and-agents" />
-    <HeroCard image="examples-ci-gate" title="Examples" description="Ten ready-to-run workflows for CI, data pipelines, alerts and agents." href="/examples" />
+    <HeroCard light="/images/diagrams/quickstart-greet.light.svg" dark="/images/diagrams/quickstart-greet.dark.svg" title="Quickstart" description="Install Yukta and run your first workflow in five minutes." href="/quickstart" />
+    <HeroCard light="/images/diagrams/architecture.light.svg" dark="/images/diagrams/architecture.dark.svg" title="How it works" description="How a run flows through the engine, and how supervisors and the control bus steer it." href="/concepts/how-it-works" />
+    <HeroCard light="/images/diagrams/agent-loop.light.svg" dark="/images/diagrams/agent-loop.dark.svg" title="AI and agents" description="Model calls, tool-using agent loops, approvals and budgets as workflow steps." href="/building/ai-and-agents" />
+    <HeroCard light="/images/diagrams/examples-ci-gate.light.svg" dark="/images/diagrams/examples-ci-gate.dark.svg" title="Examples" description="Ten ready-to-run workflows for CI, data pipelines, alerts and agents." href="/examples" />
   </div>
 
   <div className="prose prose-gray dark:prose-invert yk-landing-body">

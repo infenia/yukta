@@ -4,6 +4,8 @@
 package commands
 
 import (
+	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -143,6 +145,26 @@ func TestRootCmd_flagsBindToClient(t *testing.T) {
 	}
 	if c.Token != "t" || c.Timeout != 5*time.Second {
 		t.Errorf("expected token and timeout to be bound, got %q %v", c.Token, c.Timeout)
+	}
+}
+
+// TestRootCmd_silencesUsageAfterParsing tests that usage is not printed for errors after parsing.
+func TestRootCmd_silencesUsageAfterParsing(t *testing.T) {
+	cmd := RootCmd(client.NewClient("http://localhost:8080"))
+	cmd.AddCommand(&cobra.Command{
+		Use:  "boom",
+		RunE: func(*cobra.Command, []string) error { return errors.New("server said no") },
+	})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"boom"})
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected an error")
+	}
+	if strings.Contains(out.String(), "Usage:") {
+		t.Errorf("usage should be silenced, got %q", out.String())
 	}
 }
 

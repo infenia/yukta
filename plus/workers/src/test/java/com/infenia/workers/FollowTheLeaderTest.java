@@ -52,6 +52,7 @@ class FollowTheLeaderTest {
             .properties(
                 "spring.rsocket.server.port=0",
                 "yukta.workers.token=secret",
+                "yukta.workers.allow-insecure=true",
                 "yukta.workers.lease=3s")
             .run();
     context.getBean(ControlPlane.class).leader.set(leader);
@@ -76,6 +77,7 @@ class FollowTheLeaderTest {
                       + ", localhost:"
                       + port(leader),
                   "yukta.workers.token=secret",
+                  "yukta.workers.allow-insecure=true",
                   "yukta.workers.id=w1",
                   "yukta.workers.plugin-types=UPPER",
                   "yukta.workers.lease=3s")
