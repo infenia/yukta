@@ -78,6 +78,14 @@ class ExecutionSupervisorTest {
   }
 
   @Test
+  void eventsMissed_belongsToNoExecution() {
+    final var missed = new ExecutionEvent.EventsMissed(3, Instant.now());
+
+    assertThat(missed.executionId()).isEmpty();
+    assertThat(missed.count()).isEqualTo(3);
+  }
+
+  @Test
   void actorKey_isStable() {
     assertThat(ControlActor.CONTEXT_KEY).isEqualTo("yukta.control.actor");
   }

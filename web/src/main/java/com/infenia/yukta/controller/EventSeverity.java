@@ -36,6 +36,7 @@ public enum EventSeverity {
       case ExecutionEvent.WorkflowStatusChanged workflow -> ofStatus(workflow.status());
       case ExecutionEvent.ControlOutcome control -> control.applied() ? INFO : WARN;
       case ExecutionEvent.LogLine log -> ofLevel(log.level());
+      case ExecutionEvent.EventsMissed _ -> WARN;
     };
   }
 

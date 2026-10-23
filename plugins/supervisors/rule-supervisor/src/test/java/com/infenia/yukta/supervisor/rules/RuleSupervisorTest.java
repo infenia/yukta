@@ -325,6 +325,9 @@ class RuleSupervisorTest {
                 new ExecutionEvent.ControlOutcome("e1", "X", "human", false, "no", now),
                 new ExecutionEvent.LogLine("e1", "n1", "boom", LogLevel.INFO, now)))
         .hasSize(3);
+    assertThat(Fields.eventFields(new ExecutionEvent.EventsMissed(5, now)))
+        .containsEntry("status", "EVENTS_MISSED")
+        .containsEntry("missed", 5L);
     assertThat(
             run(
                 rules,
