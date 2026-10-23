@@ -23,6 +23,8 @@ import org.junit.jupiter.api.parallel.Isolated;
 @NoArgsConstructor
 class YuktaApplicationTest {
 
+  private static final String PORT_ARG = "--server.port=0";
+
   private static final String PROFILE_PROPERTY = "spring.profiles.active";
 
   private static final String NATIVE_IMAGE_PROPERTY = "org.graalvm.nativeimage.imagecode";
@@ -47,8 +49,7 @@ class YuktaApplicationTest {
   @Timeout(60)
   void mainStartsApplicationWithoutError() {
     // the context stays up until the JVM's shutdown hook closes it
-    assertThatNoException()
-        .isThrownBy(() -> YuktaApplication.main(new String[] {"--server.port=0"}));
+    assertThatNoException().isThrownBy(() -> YuktaApplication.main(new String[] {PORT_ARG}));
   }
 
   @Test
@@ -61,7 +62,7 @@ class YuktaApplicationTest {
     System.clearProperty(PROFILE_PROPERTY);
     try {
       try {
-        YuktaApplication.main(new String[] {"--server.port=0"});
+        YuktaApplication.main(new String[] {PORT_ARG});
       } catch (RuntimeException e) {
         // the prod profile may not start in a test; only the profile selection matters here
         assertThat(e).isNotNull();
@@ -70,7 +71,7 @@ class YuktaApplicationTest {
 
       // an explicit profile argument is left alone
       System.clearProperty(PROFILE_PROPERTY);
-      YuktaApplication.main(new String[] {"--server.port=0", "--spring.profiles.active=dev"});
+      YuktaApplication.main(new String[] {PORT_ARG, "--spring.profiles.active=dev"});
       assertThat(System.getProperty(PROFILE_PROPERTY)).isNull();
     } finally {
       if (before == null) {
@@ -79,6 +80,50 @@ class YuktaApplicationTest {
         System.setProperty(PROFILE_PROPERTY, before);
       }
     }
+  }
+
+  @Test
+  void infoOutputHandlesVersionAndHelpOnly() {
+    assertThat(YuktaApplication.infoOutput("--version")).startsWith("yukta version ");
+    assertThat(YuktaApplication.infoOutput(PORT_ARG, "--help")).contains("Usage: yukta");
+    assertThat(YuktaApplication.infoOutput("-h")).contains("YUKTA_API_KEY");
+    assertThat(YuktaApplication.infoOutput(PORT_ARG)).isNull();
+  }
+
+  @Test
+  @SuppressWarnings("PMD.CloseResource") // System.out is restored, never closed
+  void mainPrintsTheVersionAndHelpWithoutStartingTheServer() {
+    final java.io.PrintStream original = System.out;
+    final java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();
+    System.setOut(new java.io.PrintStream(captured, true, java.nio.charset.StandardCharsets.UTF_8));
+    try {
+      YuktaApplication.main(new String[] {"--version"});
+      YuktaApplication.main(new String[] {"--help"});
+    } finally {
+      System.setOut(original);
+    }
+    assertThat(captured.toString(java.nio.charset.StandardCharsets.UTF_8))
+        .contains("yukta version ")
+        .contains("Usage: yukta");
+  }
+
+  @Test
+  @SuppressWarnings("PMD.CloseResource") // versionFrom closes the stream it is given
+  void versionFromReadsTheBuildVersionAndFallsBackToUnknown() {
+    final java.io.InputStream broken =
+        new java.io.InputStream() {
+          @Override
+          public int read() throws java.io.IOException {
+            throw new java.io.IOException("unreadable");
+          }
+        };
+    assertThat(
+            YuktaApplication.versionFrom(
+                new java.io.ByteArrayInputStream(
+                    "build.version=1.2.3".getBytes(java.nio.charset.StandardCharsets.UTF_8))))
+        .isEqualTo("1.2.3");
+    assertThat(YuktaApplication.versionFrom(null)).isEqualTo("unknown");
+    assertThat(YuktaApplication.versionFrom(broken)).isEqualTo("unknown");
   }
 
   @Test
