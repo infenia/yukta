@@ -263,6 +263,8 @@ These settings apply to every `LLM_CALL` and `MCP_TOOL_CALL` node, whatever the 
 
 A pattern that contains a comma, such as `a{1,3}`, must be written as an indexed entry: `yukta.llm.deny-input-patterns[0]=...`.
 
+LLM-backed decisions and the model control plane send the state between two marker lines that carry a random value per call, and tell the model the content is untrusted data. This lowers the chance that text in a payload or log line steers the verdict; it does not stop it. Treat a model verdict as advice: keep rules and deny rules authoritative for anything harmful, and keep untrusted fields out of the decision `state`.
+
 Per-run token, cost and call budgets are set in the node. See [AI and agents](/building/ai-and-agents).
 
 ## TLS for workers
