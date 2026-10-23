@@ -71,6 +71,7 @@ public class PostgresPersistenceAutoConfiguration {
    * @param mapper reads and writes JSON
    * @param retainedRuns runs kept when the log is trimmed
    * @param compactAfter appended events after which the log is trimmed
+   * @param meters where lost events are counted
    * @return the store
    */
   @Bean(destroyMethod = "close")
@@ -78,8 +79,17 @@ public class PostgresPersistenceAutoConfiguration {
       final DatabaseClient client,
       final ObjectMapper mapper,
       @Value("${yukta.execution-log.retained-runs:500}") final int retainedRuns,
-      @Value("${yukta.execution-log.compact-after:10000}") final int compactAfter) {
-    return new R2dbcExecutionLogStore(client, mapper, retainedRuns, compactAfter, 5_000);
+      @Value("${yukta.execution-log.compact-after:10000}") final int compactAfter,
+      final org.springframework.beans.factory.ObjectProvider<
+              io.micrometer.core.instrument.MeterRegistry>
+          meters) {
+    return new R2dbcExecutionLogStore(
+        client,
+        mapper,
+        retainedRuns,
+        compactAfter,
+        5_000,
+        meters.getIfAvailable(io.micrometer.core.instrument.simple.SimpleMeterRegistry::new));
   }
 
   /**

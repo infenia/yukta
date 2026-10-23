@@ -125,10 +125,10 @@ export function WorkflowDetailsPage() {
             <button
               type="button"
               onClick={() => setVersionsOpen((value) => !value)}
-              aria-pressed={versionsOpen}
+              aria-expanded={versionsOpen}
               className={buttonVariants({ variant: 'outline' })}
             >
-              <span className="material-symbols-outlined text-base">history</span>Versions
+              <span aria-hidden="true" className="material-symbols-outlined text-base">history</span>Versions
             </button>
             <Link
               to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}

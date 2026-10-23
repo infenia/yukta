@@ -1,6 +1,7 @@
 ---
-title: "Security"
-description: "Expose the server safely, control who can do what, and limit what workflows may run."
+title: "Security: API keys, roles and safe exposure"
+sidebarTitle: "Security"
+description: "Expose the server beyond loopback safely: API keys, roles and session-limited keys, Host and Origin checks, process and outbound limits, and secret handling."
 keywords: ["security", "API keys", "authentication", "permissions"]
 ---
 
@@ -184,7 +185,7 @@ Use `allow-any` only when every workflow author is fully trusted.
 
 ## Outbound hosts
 
-`HTTP_REQUEST` and `MCP_TOOL_CALL` call whatever URL a node names, and the URL can be built from a message with `${...}`. By default every host is allowed. To limit it, list the hosts the server may call:
+`HTTP_REQUEST` and `MCP_TOOL_CALL` call whatever URL a node names, and the URL can be built from a message with `${...}`. By default every host is allowed, except link-local and cloud metadata addresses (`169.254.0.0/16` such as `169.254.169.254`, `fe80::/10`, `metadata.google.internal`, also written as `2852039166` or `0xA9FEA9FE`): those are refused whatever the list says, unless you list one by name on purpose. To limit the rest, list the hosts the server may call:
 
 | Setting | Effect |
 |---|---|
@@ -198,7 +199,7 @@ yukta.http.allowed-hosts=api.example.com,*.internal.example
 yukta.mcp-client.allowed-hosts=mcp.example.com
 ```
 
-The list works on the name in the URL. It does not stop a listed name that resolves to an address you did not intend, so keep the listed names under your control. `NOTIFY_TERMINAL` webhooks are not covered by these settings.
+The list works on the name in the URL. It does not stop a listed name that resolves to an address you did not intend, so keep the listed names under your control. The link-local block likewise reads the address in the URL; it does not look up what a name resolves to. `NOTIFY_TERMINAL` webhooks are not covered by these settings.
 
 ## Script limits
 
@@ -253,7 +254,7 @@ Per-run token, cost and call budgets are set in the node. See [AI and agents](/b
 
 ## TLS for workers
 
-Remote workers connect to the control plane over a persistent connection that is plain TCP unless you configure TLS. Use a shared token and mutual TLS on both sides:
+Remote workers connect to the control plane over a persistent connection that is plain TCP unless you configure TLS; the server and the worker refuse to start in that mode off the local machine unless `yukta.workers.allow-insecure=true`. Use a shared token and mutual TLS on both sides:
 
 ```properties
 # control plane
