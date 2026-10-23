@@ -8,6 +8,7 @@ import static org.awaitility.Awaitility.await;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.WorkflowContext;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -35,7 +36,12 @@ import reactor.util.context.Context;
 
 /** Runs node attempts on a worker over a real RSocket connection. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.ExcessiveImports",
+  "PMD.LawOfDemeter",
+  "PMD.TooManyMethods"
+})
 class RemoteNodeTest {
 
   /** Counts heartbeats the control plane received. */
@@ -82,7 +88,7 @@ class RemoteNodeTest {
                 "yukta.workers.allow-insecure=true",
                 "yukta.workers.id=w1",
                 "yukta.workers.pools=default",
-                "yukta.workers.plugin-types=UPPER,BOOM,BAD,HEART,CTX,HOLD,NOT_PROCESSOR",
+                "yukta.workers.plugin-types=UPPER,BOOM,BAD,ABORT,HEART,CTX,HOLD,NOT_PROCESSOR",
                 "yukta.workers.capacity=1",
                 "yukta.workers.lease=3s")
             .run();
@@ -150,6 +156,16 @@ class RemoteNodeTest {
         .verifyErrorSatisfies(
             e ->
                 assertThat(e).isInstanceOf(IllegalArgumentException.class).hasMessage("bad input"));
+  }
+
+  @Test
+  void hardStop_comesBackAsRunAborted_soTheEngineEndsTheRun() {
+    StepVerifier.create(run("ABORT", Flux.empty()))
+        .verifyErrorSatisfies(
+            e -> {
+              assertThat(RunAbortedException.isAbort(e)).isTrue();
+              assertThat(e).hasMessage("budget");
+            });
   }
 
   @Test
