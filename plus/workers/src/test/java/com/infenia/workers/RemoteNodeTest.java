@@ -104,8 +104,9 @@ class RemoteNodeTest {
   }
 
   /**
-   * The worker reports its used slots on its heartbeat, so a slot freed by the previous test is
-   * still counted as busy until the next one. Wait for the report before the next attempt.
+   * The worker reports its used slots on its heartbeat, so a slot freed by the previous attempt is
+   * still counted as busy until the next one. Wait for the report before the next attempt, in a
+   * test as well as between tests.
    */
   @BeforeEach
   void awaitFreeSlot() {
@@ -138,6 +139,7 @@ class RemoteNodeTest {
         .assertNext(out -> assertThat(out.payload()).isEqualTo("A"))
         .assertNext(out -> assertThat(out.payload()).isEqualTo("B"))
         .verifyComplete();
+    awaitFreeSlot();
     StepVerifier.create(run("CTX", Flux.empty()))
         .assertNext(out -> assertThat(out.payload()).isEqualTo("e1/n1/v"))
         .verifyComplete();
@@ -152,6 +154,7 @@ class RemoteNodeTest {
                     .isInstanceOf(WorkflowExecutionException.class)
                     .hasMessageContaining("IllegalStateException")
                     .hasMessageContaining("boom"));
+    awaitFreeSlot();
     StepVerifier.create(run("BAD", Flux.empty()))
         .verifyErrorSatisfies(
             e ->
@@ -189,6 +192,7 @@ class RemoteNodeTest {
     await()
         .atMost(Duration.ofSeconds(10))
         .until(() -> RemoteNodeWorkerConfig.CANCELLED.get() > before);
+    awaitFreeSlot();
     StepVerifier.create(run("UPPER", Flux.just(message("again"))))
         .expectNextCount(1)
         .verifyComplete();
