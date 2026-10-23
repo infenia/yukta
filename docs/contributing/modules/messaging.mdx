@@ -188,7 +188,7 @@ The two named ways to get a message: a new logical message (`create`) or a new p
 - `create(traceId, payload)` makes a brand-new message: a random UUID id, the trace id as text (or null if none is given), the current time, empty metadata and empty history. Everything else is zero or null.
 - `from(original, newPayload)` copies every one of the 22 fields of the original, including id, trace, timestamp, history and metadata, and swaps only the payload. The instance method `withPayload` does the same.
 - Triggers use `create` because a trigger starts a new logical message (the API trigger, the schedule trigger and the constant source all do). Processors such as HTTP_REQUEST, LLM_CALL, MAPPER and PROCESS_EXECUTOR use `from`, which is why trace and id survive them.
-- Splitter and Aggregate deliberately use `create`: a split child is a new logical message with a new id (its correlation id points at the parent), and an aggregate is one new message built from many. Their history starts empty again. Splitter copies the parent's trace id; Aggregate takes the trace id of the first message in the batch.
+- Splitter and Aggregate deliberately use `create`: a split child is a new logical message with a new id (its correlation id points at the parent), and an aggregate is one new message built from many. Their history starts empty again, but the link is kept in headers: a split child carries `parentId` (the parent's id) and an aggregate carries `sourceIds` (the ids of the batch, in order). Splitter copies the parent's trace id; Aggregate takes the trace id of the first message in the batch.
 
 - **Guarantees.** `from` never loses a field. `create` never produces null maps or null history.
 - **State.** None.

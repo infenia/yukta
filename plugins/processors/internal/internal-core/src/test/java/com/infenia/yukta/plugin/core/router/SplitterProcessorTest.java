@@ -78,6 +78,16 @@ class SplitterProcessorTest {
   }
 
   @Test
+  void testChildCarriesParentId() {
+    final Message<?> parent =
+        DefaultMessage.create(UUID.randomUUID(), Map.of(ITEMS, List.of("a", "b")));
+    StepVerifier.create(processor.process(Flux.just(parent), Map.of(ITEMSPATH, PAYLOAD_ITEMS)))
+        .expectNextMatches(m -> parent.id().equals(m.metadata().get("parentId")))
+        .expectNextMatches(m -> parent.id().equals(m.metadata().get("parentId")))
+        .verifyComplete();
+  }
+
+  @Test
   void testHeaderMapping() {
     final List<String> items = Collections.singletonList("item1");
     final Message<?> parent =

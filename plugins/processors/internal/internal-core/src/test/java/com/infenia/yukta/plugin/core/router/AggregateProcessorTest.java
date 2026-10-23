@@ -45,6 +45,18 @@ class AggregateProcessorTest {
   }
 
   @Test
+  void process_recordsSourceIds() {
+    final Message<?> first = msg(1);
+    final Message<?> second = msg(2);
+    StepVerifier.create(processor.process(Flux.just(first, second), Map.of(SIZE, 2)))
+        .assertNext(
+            m ->
+                assertThat(m.metadata().get("sourceIds"))
+                    .isEqualTo(List.of(first.id(), second.id())))
+        .verifyComplete();
+  }
+
+  @Test
   void process_timeoutFlushesPartialBatch() {
     final Sinks.Many<Message<?>> sink = Sinks.many().unicast().onBackpressureBuffer();
     StepVerifier.create(processor.process(sink.asFlux(), Map.of(SIZE, 10, "timeoutMs", 50)))

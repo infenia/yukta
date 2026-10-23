@@ -42,6 +42,9 @@ public final class SplitterProcessor implements ProcessorPlugin {
   /** Type. */
   private static final String TYPE = "SPLITTER";
 
+  /** Header naming the message a child was split from. */
+  private static final String PARENT_ID = "parentId";
+
   /** Cfg items. */
   private static final String CFG_ITEMS = "itemsPath";
 
@@ -256,6 +259,7 @@ public final class SplitterProcessor implements ProcessorPlugin {
             .expiration(Math.max(0L, parent.expiration()))
             .formatIndicator(parent.formatIndicator())
             .build();
+    child = child.withHeader(PARENT_ID, parent.id());
     @SuppressWarnings("unchecked")
     final Map<String, String> mapping = (Map<String, String>) config.get(CFG_MAPPING);
     if (mapping != null) {
