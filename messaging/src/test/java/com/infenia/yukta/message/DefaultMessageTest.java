@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,24 @@ import org.junit.jupiter.api.Test;
 @NoArgsConstructor
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "PMD.ShortVariable"})
 class DefaultMessageTest {
+
+  /** A distinct non-default value for each component type except String. */
+  private static final Map<Class<?>, Object> SAMPLES =
+      Map.of(
+          long.class,
+          7L,
+          int.class,
+          7,
+          boolean.class,
+          true,
+          Map.class,
+          Map.of("k", "v"),
+          List.class,
+          List.of("h"),
+          Instant.class,
+          Instant.parse("2026-01-02T03:04:05.123456789Z"),
+          Object.class,
+          "old");
 
   @Test
   void testCoreAccessors() {
@@ -368,5 +387,44 @@ class DefaultMessageTest {
     final Message<String> msg = DefaultMessage.create(null, "p").withMessageHistory(big);
     assertThat(msg.messageHistory()).hasSize(DefaultMessage.MAX_HISTORY);
     assertThat(msg.messageHistory().get(0)).isEqualTo("n5");
+  }
+
+  /**
+   * Fails when a component is added to the record and left out of {@code from} / {@code
+   * withPayload}: every component is set to a distinct non-default value and must survive a copy.
+   */
+  @Test
+  void testEveryComponentSurvivesPayloadCopy() throws ReflectiveOperationException {
+    final var components = DefaultMessage.class.getRecordComponents();
+    final Object[] values = new Object[components.length];
+    final Class<?>[] types = new Class<?>[components.length];
+    for (int i = 0; i < components.length; i++) {
+      types[i] = components[i].getType();
+      values[i] = sample(components[i].getName(), types[i]);
+    }
+    final DefaultMessage<?> original =
+        (DefaultMessage<?>) DefaultMessage.class.getDeclaredConstructor(types).newInstance(values);
+
+    final Message<String> viaWith = original.withPayload("new");
+    final Message<String> viaFrom = DefaultMessage.from(original, "new");
+
+    for (final var component : components) {
+      final Object expected = component.getAccessor().invoke(original);
+      if (component.getType() == Object.class) {
+        continue; // the payload is the one component that changes
+      }
+      assertThat(component.getAccessor().invoke(viaWith))
+          .as("withPayload keeps %s", component.getName())
+          .isEqualTo(expected);
+      assertThat(component.getAccessor().invoke(viaFrom))
+          .as("from keeps %s", component.getName())
+          .isEqualTo(expected);
+    }
+    assertThat(viaWith.payload()).isEqualTo("new");
+  }
+
+  private static Object sample(final String name, final Class<?> type) {
+    final Object value = type == String.class ? "v-" + name : SAMPLES.get(type);
+    return Objects.requireNonNull(value, "Give the new component type a sample value: " + type);
   }
 }
