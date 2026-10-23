@@ -117,7 +117,7 @@ class SpelUtilsTest {
   }
 
   @Test
-  void theLengthLimitCanBeChangedWithASystemProperty() {
+  void lengthLimitCanBeChangedWithSystemProperty() {
     System.setProperty(SpelUtils.MAX_LENGTH_PROPERTY, "5");
     try {
       assertThat(SpelUtils.<Integer>evaluateSync("1 + 1", Map.of())).isEqualTo(2);
@@ -129,7 +129,7 @@ class SpelUtilsTest {
   }
 
   @Test
-  void aCachedExpressionIsNotParsedAgain() {
+  void cachedExpressionIsNotParsedAgain() {
     SpelUtils.preParse("2 + 2");
     System.setProperty(SpelUtils.MAX_LENGTH_PROPERTY, "1");
     try {
