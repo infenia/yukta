@@ -4,6 +4,9 @@ package com.infenia.yukta.persistence.postgres;
 
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -59,6 +62,12 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   /** How long {@link #close()} waits for queued events, in milliseconds. */
   private final long shutdownWaitMillis;
 
+  /** Events that never reached the table: the queue was full. Alert on a rise. */
+  private final Counter droppedFull;
+
+  /** Events that never reached the table: the insert failed, also one by one. Alert on a rise. */
+  private final Counter droppedFailed;
+
   /** The one thread that touches the database. */
   private final ThreadPoolExecutor writer =
       new ThreadPoolExecutor(
@@ -94,13 +103,34 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
       final int retainedRuns,
       final int compactAfter,
       final long shutdownWaitMillis) {
+    this(client, mapper, retainedRuns, compactAfter, shutdownWaitMillis, new SimpleMeterRegistry());
+  }
+
+  /**
+   * Creates the store.
+   *
+   * @param client runs the statements
+   * @param mapper reads and writes the events
+   * @param retainedRuns runs kept when the log is trimmed
+   * @param compactAfter appended events after which the log is trimmed
+   * @param shutdownWaitMillis how long to wait for queued events on shutdown
+   * @param meters where {@code yukta.execution.log.lost} counts events that were not stored
+   */
+  public R2dbcExecutionLogStore(
+      final DatabaseClient client,
+      final ObjectMapper mapper,
+      final int retainedRuns,
+      final int compactAfter,
+      final long shutdownWaitMillis,
+      final MeterRegistry meters) {
     this(
         client,
         mapper,
         retainedRuns,
         compactAfter,
         shutdownWaitMillis,
-        new ArrayBlockingQueue<>(QUEUE_CAPACITY));
+        new ArrayBlockingQueue<>(QUEUE_CAPACITY),
+        meters);
   }
 
   /* default */ R2dbcExecutionLogStore(
@@ -109,7 +139,18 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
       final int retainedRuns,
       final int compactAfter,
       final long shutdownWaitMillis,
-      final BlockingQueue<ExecutionLogEvent> pending) {
+      final BlockingQueue<ExecutionLogEvent> pending,
+      final MeterRegistry meters) {
+    this.droppedFull =
+        Counter.builder("yukta.execution.log.lost")
+            .description("Execution log events that were not stored")
+            .tag("reason", "queue_full")
+            .register(meters);
+    this.droppedFailed =
+        Counter.builder("yukta.execution.log.lost")
+            .description("Execution log events that were not stored")
+            .tag("reason", "write_failed")
+            .register(meters);
     this.pending = pending;
     this.client = client;
     this.mapper = mapper;
@@ -121,6 +162,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   @Override
   public void append(final ExecutionLogEvent event) {
     if (!pending.offer(event)) {
+      droppedFull.increment();
       log.atError()
           .addKeyValue("executionId", event.executionId())
           .log("Execution log is falling behind, event dropped");
@@ -234,6 +276,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
           .rowsUpdated()
           .block(STATEMENT_TIMEOUT);
     } catch (final RuntimeException e) {
+      droppedFailed.increment();
       log.atError()
           .addKeyValue("executionId", event.executionId())
           .setCause(e)
