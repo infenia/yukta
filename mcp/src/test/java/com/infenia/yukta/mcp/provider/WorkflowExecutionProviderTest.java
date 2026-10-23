@@ -43,7 +43,8 @@ class WorkflowExecutionProviderTest {
             workflowService,
             sessionService,
             controlBus,
-            new ConfigRedactor(mock(PluginRegistry.class)));
+            new ConfigRedactor(mock(PluginRegistry.class)),
+            java.time.Duration.ofSeconds(30));
   }
 
   @Test
@@ -88,6 +89,25 @@ class WorkflowExecutionProviderTest {
 
     StepVerifier.create(provider.startWorkflow("sess-1", "wf-1", " k-1 "))
         .expectNext(new WorkflowStartResult("exec-1"))
+        .verifyComplete();
+  }
+
+  @Test
+  void testKeylessRepeatReturnsTheFirstExecution() {
+    when(workflowService.validateAndStartWorkflow("sess-1", "wf-1"))
+        .thenReturn(Mono.just(new WorkflowExecution("exec-1", Mono.empty())));
+    when(workflowService.validateAndStartWorkflow("sess-1", "wf-2"))
+        .thenReturn(Mono.just(new WorkflowExecution("exec-2", Mono.empty())));
+
+    StepVerifier.create(provider.startWorkflow("sess-1", "wf-1"))
+        .expectNext(new WorkflowStartResult("exec-1"))
+        .verifyComplete();
+    StepVerifier.create(provider.startWorkflow("sess-1", "wf-1"))
+        .expectNext(new WorkflowStartResult("exec-1"))
+        .verifyComplete();
+    // Another workflow is not merged.
+    StepVerifier.create(provider.startWorkflow("sess-1", "wf-2"))
+        .expectNext(new WorkflowStartResult("exec-2"))
         .verifyComplete();
   }
 

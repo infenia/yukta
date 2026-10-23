@@ -71,6 +71,7 @@ All limits are off by default. See [Admission and limits](/running/admission-and
 | `yukta.execution.shutdown-timeout` | `30s` | Time running executions get to finish when the server stops |
 | `yukta.start.idempotency-ttl` | `10m` | Window in which a repeated `Idempotency-Key` returns the first execution id |
 | `yukta.start.idempotency-max-keys` | `100000` | Size of the idempotency key cache. An evicted key lets a repeat start again |
+| `yukta.mcp.start-dedupe-window` | `30s` | MCP `start_workflow` without a key: a repeat for the same session and workflow within this time returns the first execution id. `0` turns it off |
 | `yukta.stop.drain-timeout` | `30s` | How long a `DRAIN` stop waits for work in progress |
 
 Two start payload keys work with these: `yukta.priority` (a number, higher runs first, default `0`) and `yukta.version` (run a saved version of the workflow).

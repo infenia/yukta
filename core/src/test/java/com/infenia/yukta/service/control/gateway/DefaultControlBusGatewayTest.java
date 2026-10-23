@@ -963,6 +963,33 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void restartWorkflow_repeatedWithinWindow_returnsFirstNewExecutionId() {
+    final String executionId = "exec-14";
+    when(executionControlRegistry.findByExecutionId(executionId))
+        .thenReturn(Optional.of(mock(ExecutionControl.class)));
+    when(controlBusService.emit(any())).thenReturn(Mono.empty());
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+
+    final java.util.concurrent.atomic.AtomicReference<String> first =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    StepVerifier.create(gateway.restartWorkflow(executionId))
+        .then(
+            () -> {
+              verify(controlBusService).emit(captor.capture());
+              first.set(((RestartCommand) captor.getValue().payload()).newExecutionId());
+              gateway.completeRestartSuccess(first.get());
+            })
+        .assertNext(id -> assertThat(id).isEqualTo(first.get()))
+        .verifyComplete();
+
+    // A repeat (the caller never saw the answer) must not restart again.
+    StepVerifier.create(gateway.restartWorkflow(executionId))
+        .assertNext(id -> assertThat(id).isEqualTo(first.get()))
+        .verifyComplete();
+    verify(controlBusService).emit(any());
+  }
+
+  @Test
   void restartFromNode_processorCompletesSuccess_returnsRealNewExecutionId() {
     // Given
     final String executionId = "exec-13";

@@ -136,7 +136,8 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     this.executionLog = executionLog;
     this.dispatch = new ControlDispatch(this, executionControlRegistry);
     this.nodes = new NodeCommands(this, executionControlRegistry);
-    this.restarts = new RestartCoordinator(this, executionControlRegistry, executionArchive);
+    this.restarts =
+        new RestartCoordinator(this, executionControlRegistry, executionArchive, startIdempotency);
     this.queries = new ExecutionQueries(taskTracker, controlBusService);
     this.starter =
         new WorkflowStarter(
