@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -109,5 +110,35 @@ class ControlReviewerTest {
             providerOf(new Reviewer("ok", 0, _ -> Mono.just(Decision.ALLOW), new ArrayList<>())));
 
     StepVerifier.create(reviewer.review(REQUEST)).verifyComplete();
+  }
+
+  private static ControlReviewer hungReviewer() {
+    return new ControlReviewer(
+        providerOf(new Reviewer("hung", 0, _ -> Mono.never(), new ArrayList<>())),
+        Duration.ofMillis(50));
+  }
+
+  @Test
+  void review_hungSupervisor_refusesTheCommandAfterTheTimeout() {
+    StepVerifier.create(hungReviewer().review(REQUEST))
+        .expectErrorMessage("hung: review timed out")
+        .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void review_hungSupervisor_stillLetsAStopThrough() {
+    StepVerifier.create(
+            hungReviewer()
+                .review(
+                    new ControlRequest(
+                        new ExecutionControlCommand.StopWorkflowCommand("e1", null, null), null)))
+        .verifyComplete();
+    StepVerifier.create(
+            hungReviewer()
+                .review(
+                    new ControlRequest(
+                        new ExecutionControlCommand.StopNodeCommand("e1", "n1", false, null),
+                        null)))
+        .verifyComplete();
   }
 }
