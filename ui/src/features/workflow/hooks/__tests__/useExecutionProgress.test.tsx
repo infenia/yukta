@@ -11,7 +11,7 @@ import { createMockProgress } from '@/test/factories/workflowFactory';
 import { installMockEventSource, MockEventSource } from '@/test/mocks/MockEventSource';
 
 const server = setupServer(
-  http.get('/api/workflow/:sessionId/status/:executionId', ({ params }) =>
+  http.get('/api/executions/:executionId', ({ params }) =>
     HttpResponse.json({
       timestamp: '2026-07-26T00:00:00Z',
       status: 200,
@@ -21,7 +21,7 @@ const server = setupServer(
           ? { executionId: 'exec-done', status: 'COMPLETED', endTime: '2026-07-26T14:25:00' }
           : {}
       ),
-      path: '/api/workflow/s1/status/x',
+      path: '/api/executions/x',
     })
   )
 );
@@ -54,7 +54,7 @@ describe('useExecutionProgress', () => {
 
     await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
     expect(MockEventSource.latest().url).toBe(
-      '/api/workflow/s1/status/exec-091-qp-55/stream?includeHistory=true'
+      '/api/executions/exec-091-qp-55/stream?includeHistory=true'
     );
     expect(result.current.isStreaming).toBe(true);
   });
