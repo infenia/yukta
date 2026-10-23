@@ -83,6 +83,7 @@ class SseStreamLimitsTest {
   @Test
   void zeroTurnsTheCapOff() {
     System.setProperty(SseStreams.MAX_CONCURRENT_PROPERTY, "0");
+    System.setProperty(SseStreams.MAX_PER_KEY_PROPERTY, "0");
     final Sinks.Many<String> held = Sinks.many().unicast().onBackpressureBuffer();
 
     StepVerifier.create(SseStreams.events(held.asFlux(), null, BEAT))
