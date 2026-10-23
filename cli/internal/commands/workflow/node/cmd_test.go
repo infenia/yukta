@@ -22,7 +22,7 @@ func TestNodeCommands(t *testing.T) {
 	}{
 		{"pause", []string{"pause", "s", "e", "n"}, "POST /api/executions/e/nodes/n/pause", "Node paused: n"},
 		{"resume", []string{"resume", "s", "e", "n"}, "POST /api/executions/e/nodes/n/resume", "Node resumed: n"},
-		{"stop default", []string{"stop", "s", "e", "n"}, "POST /api/executions/e/nodes/n/stop?immediate=false&reason=", "Node stopped: n"},
+		{"stop default", []string{"stop", "s", "e", "n"}, "POST /api/executions/e/nodes/n/stop?immediate=false", "Node stopped: n"},
 		{"stop flags", []string{"stop", "s", "e", "n", "--immediate", "--reason", "why"}, "POST /api/executions/e/nodes/n/stop?immediate=true&reason=why", "Node stopped: n"},
 		{"skip default", []string{"skip", "s", "e", "n"}, "POST /api/executions/e/nodes/n/skip?skip=true", "Node n: skipped"},
 		{"unskip", []string{"skip", "s", "e", "n", "--skip=false"}, "POST /api/executions/e/nodes/n/skip?skip=false", "Node n: unskipped"},

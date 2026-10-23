@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -120,7 +121,7 @@ public final class FileReadPlugin extends AbstractFilePlugin {
 
   /** Reads at most maxBytes + 1 bytes, so a file that grows mid-read still can't exceed the cap. */
   private static String readBounded(final Path file, final long maxBytes) throws IOException {
-    try (InputStream stream = Files.newInputStream(file)) {
+    try (InputStream stream = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
       final byte[] bytes = stream.readNBytes((int) Math.min(maxBytes + 1, Integer.MAX_VALUE - 8));
       if (bytes.length > maxBytes) {
         throw new IllegalArgumentException("file larger than maxBytes (" + maxBytes + "): " + file);

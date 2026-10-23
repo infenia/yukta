@@ -1,5 +1,6 @@
 ---
-title: "Capacity and performance"
+title: "Capacity planning, performance and metrics"
+sidebarTitle: "Capacity and performance"
 description: "The ceilings, bounded and unbounded memory, admission limits, every metric the server publishes, what to alert on and how to run the load tests."
 keywords: ["capacity", "performance", "metrics", "alerting"]
 ---
@@ -94,6 +95,7 @@ Meters are read at `GET /actuator/metrics` (the list) and `GET /actuator/metrics
 | `yukta.tracker.queue.depth` | gauge | none | State events accepted and not yet applied |
 | `yukta.tracker.dropped` | counter | `type` (`log`, `state`) or `kind` (`supervisor`) | Dropped log lines, lost state events, and events a slow supervisor missed |
 | `yukta.tracker.log.append.failed` | counter | `type` (`node`, `run`) | Failed writes to the execution log |
+| `yukta.execution.log.lost` | counter | `reason` (`queue_full`, `write_failed`) | Execution log events that never reached PostgreSQL. A lost start or end event stops a run from being resumed. Alert on any rise |
 | `yukta.edge.dropped` | counter | `type` | Messages dropped by an edge buffer. `type` is the node's plugin type |
 | `yukta.checkpoint.bytes` | gauge | none | Node output held by the checkpoint store |
 | `yukta.checkpoint.errors` | counter | none | End markers that could not be written |

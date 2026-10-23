@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { authHeaders, requireApiKey } from './apiKey';
+
 export interface FieldError {
   field: string;
   message: string;
@@ -47,7 +49,11 @@ export async function fetchApi<T>(
 ): Promise<T> {
   const response = await fetch(path, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+      ...options?.headers,
+    },
   });
 
   // Error bodies from proxies (502 pages) are not JSON; fall back to the status text.
@@ -55,6 +61,9 @@ export async function fetchApi<T>(
     .json()
     .catch(() => null)) as ApiResponse<T> | null;
 
+  if (response.status === 401 || response.status === 403) {
+    requireApiKey();
+  }
   if (!response.ok) {
     throw new ApiError(
       response.status,

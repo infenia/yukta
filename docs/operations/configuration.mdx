@@ -1,6 +1,7 @@
 ---
-title: "Configuration"
-description: "Every setting an operator can change, its default and what it controls, plus the per-node engine options."
+title: "Configuration reference: server settings and defaults"
+sidebarTitle: "Configuration"
+description: "Every setting an operator can change, its default and what it controls, grouped by task: network, limits, timeouts, stores, security, workers and node options."
 keywords: ["configuration", "settings", "environment variables", "defaults"]
 ---
 
@@ -31,7 +32,7 @@ Durations accept a number with a unit, such as `30s`, `10m` or `1h`. A plain `0`
 
 These environment variables are used in the project's own scripts and image: `YUKTA_SERVER_ADDRESS`, `YUKTA_API_KEY`, `YUKTA_LIMITS_MAX_BODY`, `YUKTA_SESSION_BASE_DIR`, `YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS`, `YUKTA_PROCESS_ALLOW_ANY`, `SERVER_PORT` and `SPRING_PROFILES_ACTIVE`.
 
-Four groups are not read from the configuration file. `yukta.script.timeout-ms`, `yukta.script.max-statements` and `yukta.spel.timeout-ms` are read only as system properties. The variable allow-list is read from the system property `yukta.variables.allowed` or the environment variable `YUKTA_VARIABLES_ALLOWED`. Workflow variables are read from system properties `yukta.var.*` or environment variables `YUKTA_VAR_*`. Secrets are read only from environment variables `YUKTA_SECRET_*`.
+Four groups are not read from the configuration file. `yukta.script.timeout-ms`, `yukta.script.max-statements`, `yukta.spel.timeout-ms` and `yukta.spel.max-length` are read only as system properties. The variable allow-list is read from the system property `yukta.variables.allowed` or the environment variable `YUKTA_VARIABLES_ALLOWED`. Workflow variables are read from system properties `yukta.var.*` or environment variables `YUKTA_VAR_*`. Secrets are read only from environment variables `YUKTA_SECRET_*`.
 
 ```properties
 yukta.execution.max-concurrent=20
@@ -172,10 +173,14 @@ See [Security](/operations/security).
 | `yukta.process.allowed-commands` | empty | Executables `PROCESS_EXECUTOR` may run, matched by the exact name used in the command. While empty, nothing runs |
 | `yukta.process.allow-any` | `false` | Let `PROCESS_EXECUTOR` run any executable when no list is set |
 | `yukta.script.timeout-ms` | `10000` | Longest a JavaScript script may run. System property only |
+| `yukta.spel.max-length` | `10000` | Longest expression, in characters, that is parsed; a longer one is refused. System property only |
 | `yukta.spel.timeout-ms` | `1000` | Longest one expression (filter, branch, mapper projection, loop condition, ...) may run; `0` turns the limit off. System property only |
 | `yukta.script.max-statements` | `50000000` | Most statements a script may run. System property only |
+| `yukta.streams.max-concurrent` | `500` | Most event and log streams (SSE) open at once. The next one is answered with `429`; `0` turns the cap off. System property only |
+| `yukta.streams.max-lifetime` | `1h` | A stream is closed after this long; a browser reconnects and the stream replays. `0` turns it off. System property only |
 | `yukta.mcp-client.allowed-tools` | empty (any) | Tools `MCP_TOOL_CALL` may call |
 | `yukta.mcp-client.allowed-hosts` | empty (any) | Hosts `MCP_TOOL_CALL` and `MCP_LIST_TOOLS` may call: names, IP addresses or `*.domain` |
+| `yukta.files.allowed-root` | unset | Directory every `FILE_READ` / `FILE_WRITE` `baseDir` must be inside. System property, or env `YUKTA_FILES_ALLOWED_ROOT` |
 | `yukta.http.allowed-hosts` | empty (any) | Hosts `HTTP_REQUEST` may call: names, IP addresses or `*.domain` |
 | `yukta.mcp-client.max-argument-bytes` | `65536` | Most bytes of arguments, as JSON, in one tool call |
 | `yukta.mcp-client.deny-argument-patterns` | empty | Regular expressions that tool arguments must not match |

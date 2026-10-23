@@ -41,14 +41,14 @@ export function useExecutionProgress(
 
   const query = useQuery({
     queryKey: ['workflow', sessionId, 'status', executionId],
-    queryFn: () => getWorkflowProgress(sessionId, executionId as string),
+    queryFn: () => getWorkflowProgress(executionId as string),
     enabled: Boolean(sessionId && executionId),
   });
 
   const progress = liveProgress ?? query.data ?? null;
   const streamUrl =
     sessionId && executionId && progress && !isFinished(progress)
-      ? api`/api/workflow/${sessionId}/status/${executionId}/stream?includeHistory=true`
+      ? api`/api/executions/${executionId}/stream?includeHistory=true`
       : null;
 
   const onUpdate = useCallback(
