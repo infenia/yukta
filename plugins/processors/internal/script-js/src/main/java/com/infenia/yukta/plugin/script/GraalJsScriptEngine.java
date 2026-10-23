@@ -17,6 +17,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import lombok.extern.slf4j.Slf4j;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.HostAccess;
@@ -30,6 +31,7 @@ import org.springframework.stereotype.Component;
 
 /** GraalJS-backed {@link ScriptEngine}. */
 @Component
+@Slf4j
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.UseConcurrentHashMap"})
 public class GraalJsScriptEngine implements ScriptEngine {
 
@@ -79,8 +81,32 @@ public class GraalJsScriptEngine implements ScriptEngine {
           .build();
 
   /** Shared engine so compiled code is reused across contexts. */
-  private static final Engine JS_ENGINE =
-      Engine.newBuilder().option("engine.WarnInterpreterOnly", "false").build();
+  private static final Engine JS_ENGINE = newEngine();
+
+  /**
+   * Builds the shared engine. {@code -Dyukta.script.max-heap-bytes} (0 = no limit, the default)
+   * sets {@code sandbox.MaxHeapMemory}, which only Oracle GraalVM has; elsewhere it is logged and
+   * left off.
+   */
+  private static Engine newEngine() {
+    final long maxHeap = Long.getLong("yukta.script.max-heap-bytes", 0L);
+    final Engine.Builder builder =
+        Engine.newBuilder().option("engine.WarnInterpreterOnly", "false");
+    if (maxHeap > 0) {
+      try {
+        // ponytail: the limit covers the whole shared engine, not each script; per-context
+        // engines if one script must not eat the budget of the others
+        return builder.option("sandbox.MaxHeapMemory", Long.toString(maxHeap)).build();
+      } catch (IllegalArgumentException | IllegalStateException e) {
+        log.atWarn()
+            .setMessage(
+                "yukta.script.max-heap-bytes ignored, this runtime has no script heap limit")
+            .setCause(e)
+            .log();
+      }
+    }
+    return builder.build();
+  }
 
   /** Cancels scripts that outlive {@link #timeoutMs}. */
   private static final ScheduledExecutorService WATCHDOG =
@@ -144,7 +170,7 @@ public class GraalJsScriptEngine implements ScriptEngine {
       } catch (PolyglotException e) {
         if (e.isResourceExhausted()) {
           throw new IllegalStateException(
-              "Script stopped after " + maxStatements + " statements", e);
+              "Script stopped: over " + maxStatements + " statements or the heap limit", e);
         }
         if (e.isCancelled()) {
           throw new IllegalStateException("Script cancelled after " + timeoutMs + " ms", e);
