@@ -95,7 +95,7 @@ class SpaWebFluxConfigTest {
   }
 
   @Test
-  void testHashedAssetsCacheForAYearAndTopLevelAssetsRevalidate() {
+  void testHashedAssetsCacheForOneYearAndTopLevelAssetsRevalidate() {
     final ResourceHandlerRegistration registration = mock(ResourceHandlerRegistration.class);
     when(registry.addResourceHandler(any(String[].class))).thenReturn(registration);
     when(registration.addResourceLocations(anyString())).thenReturn(registration);
