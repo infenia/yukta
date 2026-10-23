@@ -114,7 +114,8 @@ func TestGetPluginDetails_success(t *testing.T) {
 		Description:  "A test plugin",
 		UsagePattern: "test-pattern",
 		UIDesign: UIDesign{
-			HTML:   "<div>Test UI</div>",
+			Color:  "blue",
+			Label:  "Test UI",
 			Width:  200,
 			Height: 150,
 		},

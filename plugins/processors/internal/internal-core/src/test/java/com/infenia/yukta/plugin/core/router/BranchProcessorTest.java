@@ -290,7 +290,7 @@ class BranchProcessorTest {
     assertTrue(design.isPresent(), "Test get ui design");
     assertEquals(140, design.get().width(), "Test get ui design (2)");
     assertEquals(80, design.get().height(), "Test get ui design (3)");
-    assertTrue(design.get().html().contains("Branch"), "Test get ui design (4)");
+    assertTrue(design.get().label().contains("Branch"), "Test get ui design (4)");
   }
 
   @Test

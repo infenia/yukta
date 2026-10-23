@@ -330,7 +330,7 @@ class ContentFilterProcessorTest {
   void testUiDesign() {
     assertTrue(processor.describe().uiDesign().isPresent(), "Test ui design");
     assertTrue(
-        processor.describe().uiDesign().get().html().contains("C-Filter"), "Test ui design (2)");
+        processor.describe().uiDesign().get().label().contains("C-Filter"), "Test ui design (2)");
   }
 
   @Test

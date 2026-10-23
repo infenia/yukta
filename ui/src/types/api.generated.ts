@@ -1568,7 +1568,9 @@ export interface components {
             errors?: components["schemas"]["FieldError"][];
         };
         UiDesign: {
-            html?: string;
+            color?: string;
+            icon?: string;
+            label?: string;
             /** Format: int32 */
             width?: number;
             /** Format: int32 */

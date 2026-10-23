@@ -12,7 +12,7 @@ A suggested order. Step 1 comes first because it protects the ability to stop a 
 2. **Bound the control path.** Add review and decide timeouts with a defined outcome, protect stop from being delayed, and align the two ordering rules. Risks: `reviewNoTimeout`, `decideStall`, `orderOpposite`.
 3. **Make plugins independent of core.** Move the resolver and map helpers into plugin-api or a support module, expose the registry and tracker through small SPIs, and add an SPI version with a startup check. Risks: `coreDependency`, `noVersion`.
 4. **Tools for plugin authors.** Ship test fixtures with a conformance suite, re-enable PMD for tests, and either call shutdown or remove it. Risks: `noTestKit`, `sharedInstance`, `pmdOff`, `shutdownNever`.
-5. **Harden expressions and secrets.** Evaluation time budget (the method allow-list is done), parse outside the lock, a run budget that is reserved before the call, scoped and audited secret access, and a data-only UiDesign. Risks: `spelLimits`, `secretThin`, `uiHtml`, `budgetLedger`.
+5. **Harden expressions and secrets.** Evaluation time budget (the method allow-list is done), parse outside the lock, a run budget that is reserved before the call, scoped and audited secret access. Risks: `spelLimits`, `secretThin`, `budgetLedger`.
 6. **Typed and reactive extension seams.** Non-blocking store calls (the PostgreSQL stores now make this concrete), declared node signals, and a decision on the directive layer and the unused optimiser hooks. Risks: `storeSync`, `onSignalLoose`, `directiveOnlyStop`, `deadHooks`, `eventsBestEffort`, `signalWaitsShared`.
 
 ## Quality lenses
@@ -94,7 +94,6 @@ This is where the module matters most: it holds the sandbox for user-written exp
 
 - Expression evaluation has no time or size limit and can still call any public method of reachable objects
 - SecretProvider has no caller identity, so it cannot scope secrets per plugin or session
-- UiDesign is raw HTML supplied by plugin code and rendered by the UI
 - Review vetoes depend on supervisors being present and correct
 
 **Levers today**
@@ -108,7 +107,6 @@ This is where the module matters most: it holds the sandbox for user-written exp
 
 - An expression budget (time and size)
 - Secret access scoped by plugin and audited
-- A sanitising or sandboxed rendering of UiDesign HTML
 
 ### Operability
 

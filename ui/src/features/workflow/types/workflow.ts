@@ -4,7 +4,9 @@
 export type PluginCategory = 'TRIGGER' | 'PROCESSOR' | 'TERMINAL';
 
 export interface UiDesign {
-  html: string;
+  color: string;
+  icon: string;
+  label: string;
   width: number;
   height: number;
 }

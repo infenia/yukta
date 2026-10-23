@@ -49,21 +49,7 @@ public final class FileWritePlugin extends AbstractFilePlugin {
             + "- contentField: payload field holding the text (default 'content'); a plain String"
             + " payload is written as is.\n"
             + "- append: true to append a line instead of overwriting (default false).",
-        Optional.of(
-            new UiDesign(
-                """
-                <div class="flex items-center w-full h-full bg-slate-50 border-slate-200 border-2 rounded-xl px-4 gap-3">
-                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-500 rounded-lg flex items-center justify-center">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5M9 13h6M9 17h6"/></svg>
-                    </div>
-                    <div class="flex flex-col min-w-0">
-                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">File Write</div>
-                        <div class="text-xs font-bold text-slate-700 truncate w-full">{{nodeId}}</div>
-                    </div>
-                </div>
-                """,
-                140,
-                80)));
+        Optional.of(new UiDesign("blue", "edit_document", "File Write", 140, 80)));
   }
 
   @Override

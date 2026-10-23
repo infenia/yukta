@@ -34,7 +34,7 @@ export function createMockGraph(overrides: Partial<WorkflowGraph> = {}): Workflo
         type: 'vector-engine-v2',
         category: 'PROCESSOR',
         description: 'Vectorize batches',
-        uiDesign: { html: '<div class="metrics">{{nodeId}}</div>', width: 200, height: 40 },
+        uiDesign: { color: 'blue', icon: 'monitoring', label: 'Metrics', width: 200, height: 40 },
         outputPorts: ['default', 'error'],
       }),
       createMockGraphNode({

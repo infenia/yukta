@@ -54,7 +54,7 @@ class ConsoleTerminalPluginTest {
     assertEquals(140, plugin.describe().uiDesign().get().width(), "Test metadata (4)");
     assertEquals(80, plugin.describe().uiDesign().get().height(), "Test metadata (5)");
     org.junit.jupiter.api.Assertions.assertTrue(
-        plugin.describe().uiDesign().get().html().contains("terminal"), "Test metadata (6)");
+        plugin.describe().uiDesign().get().icon().contains("terminal"), "Test metadata (6)");
   }
 
   @Test

@@ -46,7 +46,7 @@ plugin-api has no running code of its own: no threads, no server, no database. I
 | Three kinds | A **trigger** starts data flowing (no input). A **processor** receives a stream and returns a stream. A **terminal** receives a stream and finishes it (save, send, notify). | A webhook is a trigger, a classifier is a processor, an email sender is a terminal. |
 | Message and port | The unit of data passed between plugins: a payload plus headers. A plugin can have several named output ports; the default port is called 'default'. | A filter has ports match and discard; failed messages go out on a port named 'error'. |
 | Shared instance | Core creates one plugin object per type and reuses it for every node. Settings arrive as a map on every call, so the object itself must hold no per-node state. | Two LLM_CALL nodes with different prompts use the same Java object and different config maps. |
-| Config and descriptor | A node's settings are a plain map. A plugin may describe itself (text, usage, a small HTML picture) and declare its fields so the UI can draw a form instead of a raw JSON box. | A field list says 'url: required string, method: one of GET/POST'. |
+| Config and descriptor | A node's settings are a plain map. A plugin may describe itself (text, usage, a colour, icon and label for its picture) and declare its fields so the UI can draw a form instead of a raw JSON box. | A field list says 'url: required string, method: one of GET/POST'. |
 | Control command | A typed instruction to a live run, such as pause the workflow, skip a node or stop. There are exactly 13, defined here as a closed list. | StopWorkflowCommand with mode DRAIN. |
 | Supervisor | A watcher that receives events from all runs and may emit control commands, and may also approve or refuse any command before it runs. | A rule says 'if a node fails 3 times, pause the workflow'. |
 | Checkpoint | The last message each node produced in a run, kept by a store so a run can be restarted from a node without redoing the earlier work. | Restart from node C replays the saved outputs of C's direct parents. |
@@ -177,7 +177,7 @@ Defines what every workflow node plugin must provide and what it may override. T
 Lets a plugin describe itself and its settings without being run, so UIs, REST and agents can list and configure plugins.
 
 - describe() returns a PluginDescriptor with three parts: a description, a usage pattern (free text, such as a sample config), and an optional UiDesign. The default is an empty descriptor, so describing is optional.
-- UiDesign carries a small block of HTML plus a width and height. The UI draws it as the node's picture. Many plugins repeat nearly the same HTML (colour, icon, label), which is a known duplication in the plugins module.
+- UiDesign carries a colour, an icon name, a label and a width and height. The UI draws the node's picture from them, so plugins ship no markup.
 - getConfigSchema() returns a list of ConfigField entries: name, type, required flag, default, allowed options and a one-line description. Types are STRING, NUMBER, BOOLEAN, ENUM, LIST, MAP, EXPRESSION and SECRET. EXPRESSION means 'edit as a SpEL or template text in a code-style box'; SECRET means 'the value should be a decrypted:&lt;key&gt; reference, not the credential itself'.
 - If the schema is empty (the default) the UI falls back to a raw JSON editor and the usage pattern text. So a plugin with no schema still works, but the form is poorer.
 - Three factory methods keep declarations short: required(name, type, description), optional(name, type, default, description) and choice(name, required, default, description, options...) which produces an ENUM.
@@ -503,7 +503,7 @@ Eighteen things the contract lets a plugin or a supervisor do, grouped by where 
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| Plugin descriptor | Description, usage and an optional picture. | describe() returns PluginDescriptor with an optional UiDesign (HTML, width, height). | Never null; EMPTY by default. | The picture is a raw HTML string. |
+| Plugin descriptor | Description, usage and an optional picture. | describe() returns PluginDescriptor with an optional UiDesign (colour, icon, label, width, height). | Never null; EMPTY by default. | The picture is data only; no markup. |
 | Config schema | Typed field list for form rendering. | ConfigField with name, type, required, default, options, description; eight types. | Options are copied into an immutable list. | Flat only: no nesting or conditions. |
 
 ### Graph and liveness

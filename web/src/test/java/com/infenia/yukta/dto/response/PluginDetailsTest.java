@@ -28,8 +28,8 @@ class PluginDetailsTest {
   /** Success output port constant. */
   private static final String SUCCESS = "success";
 
-  /** Default UI design HTML constant. */
-  private static final String DEFAULT_UI_HTML = "<div/>";
+  /** Default UI design. */
+  private static final UiDesign DESIGN = new UiDesign("blue", "api", "Test", 100, 200);
 
   /** Description constant for testing. */
   private static final String DESC = "Desc";
@@ -41,7 +41,7 @@ class PluginDetailsTest {
     final PluginCategory category = PluginCategory.PROCESSOR;
     final String description = "Gradle quality checks plugin";
     final String usagePattern = "Build quality checks";
-    final UiDesign uiDesign = new UiDesign("<div>Gradle Plugin</div>", 100, 200);
+    final UiDesign uiDesign = DESIGN;
     final List<String> outputPorts = List.of(SUCCESS, "failure");
 
     // When
@@ -61,13 +61,7 @@ class PluginDetailsTest {
   void constructor_withNullOutputPorts_convertsToEmptyList() {
     // Given-When
     final PluginDetails details =
-        new PluginDetails(
-            GRADLE,
-            PluginCategory.PROCESSOR,
-            DESCRIPTION,
-            USAGE,
-            new UiDesign(DEFAULT_UI_HTML, 100, 200),
-            null);
+        new PluginDetails(GRADLE, PluginCategory.PROCESSOR, DESCRIPTION, USAGE, DESIGN, null);
 
     // Then
     assertThat(details.outputPorts()).isEmpty();
@@ -79,12 +73,7 @@ class PluginDetailsTest {
     // Given
     final PluginDetails details =
         new PluginDetails(
-            GRADLE,
-            PluginCategory.PROCESSOR,
-            DESCRIPTION,
-            USAGE,
-            new UiDesign(DEFAULT_UI_HTML, 100, 200),
-            List.of(SUCCESS));
+            GRADLE, PluginCategory.PROCESSOR, DESCRIPTION, USAGE, DESIGN, List.of(SUCCESS));
 
     // When-Then
     assertThatThrownBy(() -> details.outputPorts().add("failure"))
@@ -94,7 +83,7 @@ class PluginDetailsTest {
   @Test
   void uiDesign_record_returnsCorrectUiDesignData() {
     // Given
-    final UiDesign expectedUiDesign = new UiDesign("<div>gradle</div>", 150, 250);
+    final UiDesign expectedUiDesign = new UiDesign("blue", "api", "Test", 150, 250);
     final PluginDetails details =
         new PluginDetails(
             GRADLE, PluginCategory.PROCESSOR, DESCRIPTION, USAGE, expectedUiDesign, List.of());
@@ -103,7 +92,7 @@ class PluginDetailsTest {
     final UiDesign actual = details.uiDesign();
 
     // Then
-    assertThat(actual.html()).contains(GRADLE);
+    assertThat(actual.label()).isEqualTo("Test");
     assertThat(actual.width()).isEqualTo(150);
     assertThat(actual.height()).isEqualTo(250);
   }
@@ -111,7 +100,7 @@ class PluginDetailsTest {
   @Test
   void equals_sameValues_returnsTrue() {
     // Given
-    final UiDesign uiDesign = new UiDesign(DEFAULT_UI_HTML, 100, 200);
+    final UiDesign uiDesign = DESIGN;
     final List<String> ports = List.of(SUCCESS);
     final PluginDetails details1 =
         new PluginDetails(GRADLE, PluginCategory.PROCESSOR, DESC, USAGE, uiDesign, ports);
@@ -125,7 +114,7 @@ class PluginDetailsTest {
   @Test
   void equals_differentValues_returnsFalse() {
     // Given
-    final UiDesign uiDesign = new UiDesign(DEFAULT_UI_HTML, 100, 200);
+    final UiDesign uiDesign = DESIGN;
     final PluginDetails details1 =
         new PluginDetails(GRADLE, PluginCategory.PROCESSOR, DESC, USAGE, uiDesign, List.of());
     final PluginDetails details2 =
@@ -139,13 +128,7 @@ class PluginDetailsTest {
   void verifyToStringContainsRelevantFieldValues() {
     // Given
     final PluginDetails details =
-        new PluginDetails(
-            GRADLE,
-            PluginCategory.PROCESSOR,
-            DESCRIPTION,
-            USAGE,
-            new UiDesign(DEFAULT_UI_HTML, 100, 200),
-            List.of());
+        new PluginDetails(GRADLE, PluginCategory.PROCESSOR, DESCRIPTION, USAGE, DESIGN, List.of());
 
     // When
     final String actual = details.toString();

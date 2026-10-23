@@ -68,7 +68,8 @@ class PluginControllerTest {
     when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(plugin.describe())
         .thenReturn(
-            new PluginDescriptor("desc", "pattern", Optional.of(new UiDesign("design", 100, 100))));
+            new PluginDescriptor(
+                "desc", "pattern", Optional.of(new UiDesign("blue", "api", "Test", 100, 100))));
     when(plugin.getOutputPorts()).thenReturn(List.of("default"));
     when(plugin.getConfigSchema())
         .thenReturn(List.of(ConfigField.required("url", ConfigField.Type.STRING, "the url")));
@@ -86,8 +87,8 @@ class PluginControllerTest {
             .isEqualTo(TEST_PLUGIN)
             .jsonPath("$.data.description")
             .isEqualTo("desc")
-            .jsonPath("$.data.uiDesign.html")
-            .isEqualTo("design")
+            .jsonPath("$.data.uiDesign.label")
+            .isEqualTo("Test")
             .jsonPath("$.data.configSchema[0].name")
             .isEqualTo("url")
             .jsonPath("$.data.configSchema[0].required")
