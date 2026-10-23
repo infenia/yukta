@@ -42,6 +42,8 @@ final class FakePlugin implements ProcessorPlugin {
                       String.valueOf(message.payload()).toUpperCase(Locale.ROOT)));
       case "SLOW" -> input.delayElements(java.time.Duration.ofMillis(1500));
       case "BOOM" -> Flux.error(new IllegalStateException("boom"));
+      case "ABORT" ->
+          Flux.error(new com.infenia.yukta.plugin.exception.RunAbortedException("budget"));
       case "BAD" -> Flux.error(new IllegalArgumentException("bad input"));
       case "HEART" ->
           Flux.deferContextual(
