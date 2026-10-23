@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
+import com.infenia.yukta.plugin.type.NodeStateConformance;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -531,5 +532,15 @@ class ContentFilterProcessorTest {
         .expectNextCount(1)
         .verifyComplete();
     assertEquals(List.of("default"), processor.getOutputPorts(Map.of("errorPort", " ")));
+  }
+
+  @Test
+  void twoNodesWithDifferentConfigsDoNotShareState() {
+    NodeStateConformance.assertNodesDoNotShareState(
+        processor,
+        Map.of(MODE, INCLUDE_2, PATHS, List.of(USER)),
+        Map.of(MODE, "EXCLUDE", PATHS, List.of(USER)),
+        List.of(Map.of(USER, 1, SYSTEM, 2)),
+        List.of(Map.of(USER, 3, SYSTEM, 4)));
   }
 }

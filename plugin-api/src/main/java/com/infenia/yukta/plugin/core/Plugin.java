@@ -107,9 +107,10 @@ public interface Plugin {
    * One-time setup for the plugin instance.
    *
    * <p>Plugin instances are shared singletons: one instance serves every node of its type, in every
-   * workflow and session. Treat the instance as stateless and keep per-node state out of it; the
-   * node configuration is passed to every call. This method may run many times with different
-   * configurations, so it must be idempotent and limited to warming caches.
+   * workflow and session. Treat the instance as stateless and keep per-node state out of it, in the
+   * object returned by {@link #forNode}; the node configuration is passed to every call. This
+   * method may run many times with different configurations, so it must be idempotent and limited
+   * to warming caches.
    *
    * @param config the plugin configuration
    * @return a Mono that completes when initialization is done
@@ -127,6 +128,22 @@ public interface Plugin {
    */
   default Mono<Void> prepare(Map<String, Object> config) {
     return Mono.empty();
+  }
+
+  /**
+   * Get the object that serves one node of this type. The engine calls it once per node when a run
+   * is assembled and uses the result for every call of that node, so per-node state (a window, a
+   * cache, a parsed config) belongs in the returned object's fields, never in a shared instance.
+   *
+   * <p>The default returns {@code this}, which is right for a plugin that keeps no state. A plugin
+   * with state returns a new instance of its own kind (the engine casts it to the interface it
+   * runs). A {@code null} result also means {@code this}.
+   *
+   * @param config the node configuration
+   * @return the plugin to use for this node
+   */
+  default Plugin forNode(final Map<String, Object> config) {
+    return this;
   }
 
   /**

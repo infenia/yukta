@@ -90,7 +90,10 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final int index,
       final int bufferSize,
       final ParentEdgeInfo... parentEdges) {
-    final TerminalPlugin terminal = (TerminalPlugin) plugin;
+    // one object per node: its state must not leak into another node of the same type
+    final TerminalPlugin shared = (TerminalPlugin) plugin;
+    final Plugin perNode = shared.forNode(node.config());
+    final TerminalPlugin terminal = perNode instanceof TerminalPlugin p ? p : shared;
 
     log.atDebug()
         .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
