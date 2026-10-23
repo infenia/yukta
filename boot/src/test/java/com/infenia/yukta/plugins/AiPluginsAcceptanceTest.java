@@ -40,6 +40,11 @@ class AiPluginsAcceptanceTest {
 
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
+  static {
+    // a definition may not hold a key; this one is read from a yukta.var.* property
+    System.setProperty("yukta.var.llm", "key");
+  }
+
   @Autowired private WorkflowDefinitionStore definitions;
   @Autowired private SubWorkflowGateway runner;
   @Autowired private PluginRegistry registry;
@@ -89,7 +94,7 @@ class AiPluginsAcceptanceTest {
     config.put("provider", "openai");
     config.put("model", "m");
     config.put("baseUrl", model.url() + "/v1");
-    config.put("apiKey", "key");
+    config.put("apiKey", "${sys.yukta.var.llm}");
     for (int i = 0; i + 1 < extra.length; i += 2) {
       config.put((String) extra[i], extra[i + 1]);
     }

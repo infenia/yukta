@@ -241,6 +241,8 @@ Secrets are written `decrypted:name` in a node's configuration, so the value nev
 
 The read APIs mask literal secrets. `GET /api/sessions/{id}/config`, `GET /api/sessions/{id}/workflows/{wf}` and the MCP tool `get_workflow_details` return `******` for a literal value in a field the plugin declares secret (such as `apiKey`, `authToken` or `password`) and for any key, at any depth, whose name contains password, secret, token, api key, authorization or credential. References (`decrypted:name`, `${...}`) are not masked, since they are not secrets. A definition that still holds `******` is refused when saved, so an editor that reads a masked definition and sends it back cannot overwrite a stored secret with the mask: put the real value, or better a `decrypted:` reference, back before saving.
 
+A definition may not hold a literal secret at all. Saving or running a definition whose secret field (declared secret by the plugin, or named like password, token, api key, authorization, credential) holds a plain value is refused, with the path of each such value in the message. Store the secret as `YUKTA_SECRET_<KEY>` on the server and write `decrypted:<key>` (or a `${...}` variable) in the definition. Behaviour change: a stored definition that still holds a literal secret fails validation when it is next saved or started until its secrets are moved to references. There is no switch to allow literals.
+
 See [Variables and expressions](/building/variables-and-expressions).
 
 ## Request size limit

@@ -234,6 +234,16 @@ public class WorkflowValidator {
                   + " lost"));
     }
 
+    final List<String> literals = new ConfigRedactor(registry).literalSecrets(def);
+    if (!literals.isEmpty()) {
+      return Mono.error(
+          new IllegalArgumentException(
+              "A workflow definition must not hold secrets, but "
+                  + String.join(", ", literals)
+                  + " is a literal value. Store the secret as YUKTA_SECRET_<KEY> and write"
+                  + " decrypted:<key> (or a ${...} variable) here instead"));
+    }
+
     final Optional<String> invalidPolicy = findInvalidPolicy(def);
     if (invalidPolicy.isPresent()) {
       return Mono.error(new IllegalArgumentException(invalidPolicy.get()));

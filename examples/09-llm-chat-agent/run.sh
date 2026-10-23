@@ -4,7 +4,9 @@
 #
 #   LLM_BASE_URL  default http://localhost:11434/v1 (Ollama)
 #   LLM_MODEL     default llama3.2
-#   LLM_API_KEY   default "ollama" (Ollama ignores it; set a real key for hosted APIs)
+#   LLM_API_KEY   default "ollama" (Ollama ignores it; set a real key for hosted APIs). The session
+#                 refers to it as decrypted:llm-api-key, so start the server with
+#                 YUKTA_SECRET_LLM_API_KEY set to the same value: a definition cannot hold a key.
 set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
 cd "$(dirname "$0")"

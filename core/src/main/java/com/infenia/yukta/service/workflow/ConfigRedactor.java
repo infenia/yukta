@@ -23,7 +23,8 @@ import org.springframework.stereotype.Component;
  * plugin declares as {@link ConfigField.Type#SECRET}, or any key at any depth whose name says it
  * holds a secret (password, token, API key, authorization, credential, secret). A reference, such
  * as {@code decrypted:db-pass} or {@code ${env.X}}, is not a secret and is left as it is, so the
- * way to keep a secret out of a definition is a reference.
+ * way to keep a secret out of a definition is a reference. A definition that still holds a literal
+ * secret is refused by {@link #literalSecrets}.
  *
  * <p>The mask is not a value to save: {@link #placeholders} finds one that came back in a
  * definition, so that a client that read a masked definition and sends it back cannot overwrite the
@@ -91,6 +92,43 @@ public class ConfigRedactor {
     final List<String> found = new ArrayList<>();
     workflow.nodes().forEach(node -> collect(node.nodeId(), node.config(), found));
     return found;
+  }
+
+  /**
+   * Finds literal secrets in a definition that is about to be saved or run.
+   *
+   * @param workflow the definition
+   * @return the paths ({@code node.key.key}) that hold a literal secret, empty if none does
+   */
+  public List<String> literalSecrets(final WorkflowDefinition workflow) {
+    final List<String> found = new ArrayList<>();
+    for (final WorkflowDefinition.Node node : workflow.nodes()) {
+      final Set<String> secretFields = secretFields(node.type());
+      node.config()
+          .forEach(
+              (key, value) ->
+                  collectLiterals(
+                      node.nodeId() + "." + key,
+                      value,
+                      secretFields.contains(key) || isSecretName(key),
+                      found));
+    }
+    return found;
+  }
+
+  private static void collectLiterals(
+      final String path, final Object value, final boolean secret, final List<String> found) {
+    if (value instanceof final Map<?, ?> map) {
+      map.forEach(
+          (key, inner) ->
+              collectLiterals(path + "." + key, inner, isSecretName(String.valueOf(key)), found));
+    } else if (value instanceof final List<?> list) {
+      for (int i = 0; i < list.size(); i++) {
+        collectLiterals(path + "." + i, list.get(i), secret, found);
+      }
+    } else if (secret && value instanceof final String text && isLiteral(text)) {
+      found.add(path);
+    }
   }
 
   private Map<String, Object> redactNode(final WorkflowDefinition.Node node) {
