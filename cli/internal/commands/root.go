@@ -114,6 +114,20 @@ logs and results.`,
 		"Output format: table or json",
 	)
 
+	cmd.AddCommand(&cobra.Command{
+		Use:   "version",
+		Short: "Print the CLI version",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if GetOutputFormat() == "json" {
+				_, err := fmt.Fprintf(cmd.OutOrStdout(), "{\"version\":%q}\n", Version)
+				return err
+			}
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "yukta-cli %s\n", Version)
+			return err
+		},
+	})
+
 	return cmd
 }
 

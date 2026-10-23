@@ -412,3 +412,39 @@ func TestRootCmd_missingTokenFileFails(t *testing.T) {
 		t.Errorf("err=%v", err)
 	}
 }
+
+func TestVersionCmd_printsVersion(t *testing.T) {
+	for format, want := range map[string]string{
+		"table": "yukta-cli " + Version + "\n",
+		"json":  "{\"version\":\"" + Version + "\"}\n",
+	} {
+		SetTestOutputFormat(format)
+		cmd := RootCmd(client.NewClient("http://localhost:8080"))
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetArgs([]string{"version", "-o", format})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("%s: %v", format, err)
+		}
+		if out.String() != want {
+			t.Errorf("%s: got %q, want %q", format, out.String(), want)
+		}
+	}
+	SetTestOutputFormat("table")
+}
+
+type failWriter struct{}
+
+func (failWriter) Write([]byte) (int, error) { return 0, errors.New("boom") }
+
+func TestVersionCmd_writeErrorIsReturned(t *testing.T) {
+	for _, format := range []string{"table", "json"} {
+		cmd := RootCmd(client.NewClient("http://localhost:8080"))
+		cmd.SetOut(failWriter{})
+		cmd.SetArgs([]string{"version", "-o", format})
+		if err := cmd.Execute(); err == nil {
+			t.Errorf("%s: want write error", format)
+		}
+	}
+	SetTestOutputFormat("table")
+}
