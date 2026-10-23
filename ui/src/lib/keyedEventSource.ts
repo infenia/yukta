@@ -43,7 +43,7 @@ export class KeyedEventSource {
         }
         buffer += value;
         const frames = buffer.split(/\r?\n\r?\n/);
-        buffer = frames.pop() ?? '';
+        buffer = frames.splice(-1)[0] as string;
         frames.forEach((frame) => this.emit(frame));
       }
       throw new Error('stream ended');
