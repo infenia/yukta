@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service;
 
+import com.infenia.yukta.plugin.store.SecretContext;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,32 @@ class EnvSecretProviderTest {
   void getSecret_readsPrefixedVariable_normalisingTheKey() {
     StepVerifier.create(provider.getSecret("db.password")).expectNext("pw").verifyComplete();
     StepVerifier.create(provider.getSecret("DB-PASSWORD")).expectNext("pw").verifyComplete();
+  }
+
+  @Test
+  void getSecret_prefersTenantThenSessionThenGlobal() {
+    final Map<String, String> scoped =
+        Map.of(
+            "YUKTA_SECRET_DB_PASSWORD", "global",
+            "YUKTA_SECRET_S_S1__DB_PASSWORD", "session",
+            "YUKTA_SECRET_T_ACME__DB_PASSWORD", "tenant");
+    final EnvSecretProvider p = new EnvSecretProvider(scoped::get);
+    StepVerifier.create(p.getSecret("db.password", new SecretContext("acme", "s1", "w", "n")))
+        .expectNext("tenant")
+        .verifyComplete();
+    StepVerifier.create(p.getSecret("db.password", new SecretContext(null, "s1", "w", "n")))
+        .expectNext("session")
+        .verifyComplete();
+    StepVerifier.create(p.getSecret("db.password", new SecretContext(null, "s2", "w", "n")))
+        .expectNext("global")
+        .verifyComplete();
+  }
+
+  @Test
+  void getSecret_keyWithDoubleUnderscore_cannotNameAnotherScope() {
+    final Map<String, String> scoped = Map.of("YUKTA_SECRET_S_S1__DB_PASSWORD", "session");
+    StepVerifier.create(new EnvSecretProvider(scoped::get).getSecret("s_s1__db_password"))
+        .verifyComplete();
   }
 
   @Test
