@@ -176,6 +176,7 @@ See [Security](/operations/security).
 | `yukta.spel.max-length` | `10000` | Longest expression, in characters, that is parsed; a longer one is refused. System property only |
 | `yukta.spel.timeout-ms` | `1000` | Longest one expression (filter, branch, mapper projection, loop condition, ...) may run; `0` turns the limit off. System property only |
 | `yukta.script.max-statements` | `50000000` | Most statements a script may run. System property only |
+| `yukta.messaging.max-payload-bytes` | `67108864` | Largest payload (64 MiB), in bytes, that a node may send or receive. Counts strings and byte arrays, also inside maps and lists; a larger message fails the node with `PayloadTooLargeException`. `0` turns the check off |
 | `yukta.streams.max-concurrent` | `500` | Most event and log streams (SSE) open at once. The next one is answered with `429`; `0` turns the cap off. System property only |
 | `yukta.streams.max-per-key` | `50` | Most streams one named key has open at once; the next gets `429`. `0` turns it off. System property only |
 | `yukta.rate-limit-per-minute` | `1200` | `/api` requests per key and minute; the next gets `429` with `Retry-After`. `0` turns it off. Not applied when no key is configured (loopback only). System property only |

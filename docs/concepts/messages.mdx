@@ -59,7 +59,7 @@ Messages also have optional header fields borrowed from classic messaging patter
 | Item | Value |
 |---|---|
 | History length | Last 64 nodes, not configurable |
-| Payload size | No limit on the message itself. A node checkpoint kept in memory is capped; see [Checkpoints and resume](/operations/checkpoints-and-resume) |
+| Payload size | 64 MiB per message at a node boundary (`yukta.messaging.max-payload-bytes`, `0` = off); larger fails the node. A node checkpoint kept in memory is capped; see [Checkpoints and resume](/operations/checkpoints-and-resume) |
 | Start payload | Request bodies above 1 MiB are rejected with `413` |
 | Log line from an output | Cut to 2,048 characters |
 
