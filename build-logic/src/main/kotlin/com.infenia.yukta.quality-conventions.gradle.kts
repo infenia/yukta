@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-
 import net.ltgt.gradle.errorprone.errorprone
 import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
@@ -175,18 +174,28 @@ tasks.register<Exec>("opengrep") {
 
     onlyIf {
         val sourceExists = sourceDir.exists()
-        val opengrepExists = try {
-            ProcessBuilder("opengrep", "--version").redirectErrorStream(true).start().let {
-                it.inputStream.readAllBytes()
-                it.waitFor() == 0
+        // Probe once per build, not once per module.
+        val opengrepExists = rootProject.extra.let { extra ->
+            if (!extra.has("opengrepInstalled")) {
+                extra["opengrepInstalled"] = try {
+                    ProcessBuilder("opengrep", "--version").redirectErrorStream(true).start().let {
+                        it.inputStream.readAllBytes()
+                        it.waitFor() == 0
+                    }
+                } catch (_: java.io.IOException) {
+                    false
+                }
             }
-        } catch (_: java.io.IOException) {
-            false
+            extra["opengrepInstalled"] as Boolean
         }
 
-        // A scanner that is missing must not read as "no findings" on CI.
-        if (sourceExists && !opengrepExists && System.getenv("CI") != null) {
-            throw GradleException("opengrep is not on the PATH; CI must install it (see ci.yml) instead of skipping the scan")
+        // A scanner that is missing must not read as "no findings" on CI, or where the developer asks
+        // for it (-Pyukta.requireOpengrep, e.g. for a pre-push hook); elsewhere say so loudly.
+        if (sourceExists && !opengrepExists) {
+            if (System.getenv("CI") != null || providers.gradleProperty("yukta.requireOpengrep").isPresent) {
+                throw GradleException("opengrep is not on the PATH; CI must install it (see ci.yml) instead of skipping the scan")
+            }
+            logger.warn("WARNING: $path:opengrep skipped, opengrep is not installed; CI will run it.")
         }
 
         sourceExists && opengrepExists
@@ -210,6 +219,24 @@ tasks.configureEach {
 
     if (isQualityTask && task.name.contains("Aot")) {
         task.enabled = false
+    }
+}
+
+// Quality tasks that a module may switch off, each with the reason. Anything else fails the build,
+// like lowering coverage does. Burn these down; do not add to them without a tracking issue.
+val allowedDisabledQualityTasks = mapOf(
+    ":mcp:pmdTest" to "336 test-source PMD violations still to fix",
+    ":ui" to "no Java sources; its JS checks run through node-conventions",
+)
+
+afterEvaluate {
+    tasks.matching { t ->
+        !t.enabled && !t.name.contains("Aot") &&
+            (t is Checkstyle || t is Pmd || t::class.java.name.contains("SpotBugs") || t.name.startsWith("spotless"))
+    }.forEach { t ->
+        if ("$path:${t.name}" !in allowedDisabledQualityTasks && path !in allowedDisabledQualityTasks) {
+            throw GradleException("${t.path} must not be disabled; fix the findings or add a reasoned entry to allowedDisabledQualityTasks in quality-conventions")
+        }
     }
 }
 

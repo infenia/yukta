@@ -83,6 +83,8 @@ dependencies {
 
     annotationProcessor(libs.spring.boot.configuration.processor)
 
+    // WorkflowAcceptanceTest and SupervisorAcceptanceTest run PROCESS_EXECUTOR whatever -Pyukta.plugins says
+    testImplementation(project(":plugins:processors:process-executor"))
     testImplementation(libs.spring.boot.starter.webflux.test)
     testImplementation(libs.spring.boot.starter.validation.test)
     testImplementation(libs.spring.boot.starter.actuator.test)
