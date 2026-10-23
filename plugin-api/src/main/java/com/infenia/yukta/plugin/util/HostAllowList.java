@@ -43,6 +43,13 @@ public final class HostAllowList {
   private static final Pattern AUTHORITY =
       Pattern.compile("(?:[^@]*@)?(\\[[^\\]]+]|[^:\\[\\]]+)(?::\\d*)?");
 
+  /** The IPv6 address of the AWS instance metadata service. */
+  @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
+  private static final String AWS_IPV6_METADATA = "fd00:ec2::254";
+
+  /** Start of an IPv4-mapped IPv6 address. */
+  private static final String MAPPED_PREFIX = "::ffff:";
+
   /** An IPv4 address has at most this many dot-separated parts. */
   private static final int MAX_ADDRESS_PARTS = 4;
 
@@ -106,11 +113,15 @@ public final class HostAllowList {
           + "' is a link-local or cloud metadata address, refused unless it is listed in "
           + property;
     }
-    if (isEmpty()) {
-      return null;
+    if (host == null && !isEmpty()) {
+      return "The URL has no host, so it cannot be checked against " + property;
     }
     if (host == null) {
-      return "The URL has no host, so it cannot be checked against " + property;
+      // nothing is listed, but a URL we cannot read could still be a metadata address
+      return "The URL has no readable host, so it cannot be checked for metadata addresses";
+    }
+    if (isEmpty()) {
+      return null;
     }
     final boolean allowed = hosts.contains(host) || suffixes.stream().anyMatch(host::endsWith);
     return allowed ? null : "Host '" + host + "' is not in " + property;
@@ -122,13 +133,35 @@ public final class HostAllowList {
    * 0xA9FEA9FE} are recognised too. Nothing is resolved: only literals and the one known name.
    */
   private static boolean isMetadataAddress(final String host) {
-    boolean metadata = "metadata.google.internal".equals(host);
+    boolean metadata = "metadata.google.internal".equals(host) || AWS_IPV6_METADATA.equals(host);
+    if (!metadata) {
+      metadata = isMappedLinkLocal(host);
+    }
     if (!metadata) {
       metadata =
           IPV6_LINK_LOCAL.matcher(host).matches()
               || NUMERIC_HOST.matcher(host).matches() && inetAton(host) >>> 16 == LINK_LOCAL_PREFIX;
     }
     return metadata;
+  }
+
+  /**
+   * Whether an IPv4-mapped IPv6 literal ({@code ::ffff:169.254.169.254} or {@code
+   * ::ffff:a9fe:a9fe}) names a link-local IPv4 address, which the plain IPv4 and IPv6 checks both
+   * miss.
+   */
+  private static boolean isMappedLinkLocal(final String host) {
+    boolean linkLocal = false;
+    if (host.startsWith(MAPPED_PREFIX)) {
+      final String rest = host.substring(MAPPED_PREFIX.length());
+      if (rest.indexOf('.') >= 0) {
+        linkLocal = inetAton(rest) >>> 16 == LINK_LOCAL_PREFIX;
+      } else {
+        final String[] groups = rest.split(":", -1);
+        linkLocal = groups.length == 2 && number("0x" + groups[0]) == LINK_LOCAL_PREFIX;
+      }
+    }
+    return linkLocal;
   }
 
   /**
