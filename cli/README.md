@@ -221,7 +221,7 @@ yukta-cli --timeout 60s session list
 ### Prerequisites
 
 - Go 1.26 or later
-- Gradle 9.0+
+- Gradle 9.8+ (the wrapper provides it)
 - Java 25 (for the build system)
 
 ### Running Tests

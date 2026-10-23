@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+plugins {
+    // Downloads a missing JDK for the Java toolchain instead of failing the build
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+
 rootProject.name = "yukta"
 
 includeBuild("build-logic")
