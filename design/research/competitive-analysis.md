@@ -34,7 +34,7 @@ Researched 2026-10-23 against `main@85848d8`. **How sure each part is:**
   - Missing in Yukta: concurrency keys, debounce and throttle; masking secrets in logs; tests at
     workflow level; triggers fired by another workflow or by an external event; an OTLP exporter;
     GitOps sync; a Gantt view; replaying a run with an edited input.
-- **New issues filed:** 12, grouped under one epic (see [Issues](#issues)). Gaps that existing
+- **New issues filed:** 12, #849-#860, grouped under epic #848 (see [Issues](#issues)). Gaps that existing
   issues already cover were not filed again. They are mapped in [Already tracked](#already-tracked).
 
 ## Landscape
@@ -416,23 +416,23 @@ open issue, ❌ missing (a new issue was filed).
 
 ## Issues
 
-Filed under the epic **"Competitive analysis follow-ups"**, each with type Feature, the
+Filed under the epic **#848 "Competitive analysis follow-ups"**, each with type Feature, the
 `enhancement` label and the module label:
 
-1. Concurrency keys, throttle and debounce for workflow starts (core)
-2. Scrub resolved secret values from logs, results and events (core, security)
-3. A workflow test harness that runs with stubbed nodes and checks assertions (core, cli)
-4. `WORKFLOW_EVENT` trigger that starts a workflow when another one ends (plugins)
-5. `WEBHOOK_TRIGGER` with its own path for each workflow and HMAC signature checks (plugins, web)
-6. Message-source triggers for Kafka, AMQP, MQTT and file watch (plugins)
-7. Ship an OpenTelemetry (OTLP) exporter for traces and metrics (boot)
-8. Watch the bootstrap folder and optionally sync it from git (web)
-9. Run timeline (Gantt) view with the duration of each node (ui)
-10. Restart from a node with an edited input (core)
-11. MCP: publish selected workflows as named tools with an input schema (mcp)
-12. Natural-language workflow authoring in the UI (ui)
-
-The issue numbers are in the epic.
+| # | Issue | Module |
+|---|---|---|
+| #849 | Concurrency keys, throttle and debounce for workflow starts | core |
+| #850 | Scrub resolved secret values from logs, results and events | core, security |
+| #851 | A workflow test harness that runs with stubbed nodes and checks assertions | core, cli |
+| #852 | `WORKFLOW_EVENT` trigger that starts a workflow when another one ends | plugins |
+| #853 | `WEBHOOK_TRIGGER` with its own path for each workflow and HMAC signature checks | plugins, web |
+| #854 | Message-source triggers for Kafka, AMQP, MQTT and file watch | plugins |
+| #855 | Ship an OpenTelemetry (OTLP) exporter for traces and metrics | boot |
+| #856 | Watch the bootstrap folder and optionally sync it from git | web |
+| #857 | Run timeline (Gantt) view with the duration of each node | ui |
+| #858 | Restart from a node with an edited input | core |
+| #859 | MCP: publish selected workflows as named tools with an input schema | mcp |
+| #860 | Natural-language workflow authoring in the UI | ui |
 
 ## Already tracked
 
