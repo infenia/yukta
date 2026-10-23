@@ -192,7 +192,7 @@ public class StreamTopologyDecorator {
         parent.map(
             msg ->
                 (parent instanceof NodeBroadcast broadcast && broadcast.isShared()
-                        ? PayloadCopy.of(msg)
+                        ? PayloadCopy.copyOf(msg)
                         : msg)
                     .withSourceNodeId(edge.sourceNodeId()));
 

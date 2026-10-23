@@ -202,6 +202,41 @@ class StreamTopologyDecoratorTest {
   }
 
   @Test
+  @SuppressWarnings(UNCHECKED)
+  void testFanOutGivesEachEdgeItsOwnPayloadCopy() {
+    final List<Object> shared = new ArrayList<>(List.of(DATA));
+    final List<Disposable> disposables = new ArrayList<>();
+    final Flux<Message<?>> source = Flux.just(DefaultMessage.create(UUID.randomUUID(), shared));
+    final NodeBroadcast broadcast = new NodeBroadcast(source.publish(4), disposables);
+    final Flux<Message<?>>[] streams = new Flux[] {broadcast};
+    final ParentEdgeInfo edge = new ParentEdgeInfo(0, NODE_1, null);
+    final List<Message<?>> first = new ArrayList<>();
+    final List<Message<?>> second = new ArrayList<>();
+
+    final Flux<Message<?>> firstEdge = decorator.applyEdgeRouting(streams, edge);
+    final Flux<Message<?>> secondEdge = decorator.applyEdgeRouting(streams, edge);
+    firstEdge.subscribe(first::add);
+    secondEdge.subscribe(second::add);
+
+    ((List<Object>) first.get(0).payload()).add("edit");
+    assertThat((List<Object>) second.get(0).payload()).containsExactly(DATA);
+    assertThat(shared).containsExactly(DATA);
+  }
+
+  @Test
+  @SuppressWarnings(UNCHECKED)
+  void testSingleEdgeKeepsThePayloadInstance() {
+    final List<Object> shared = new ArrayList<>(List.of(DATA));
+    final Flux<Message<?>> source = Flux.just(DefaultMessage.create(UUID.randomUUID(), shared));
+    final NodeBroadcast broadcast = new NodeBroadcast(source.publish(4), new ArrayList<>());
+    final Flux<Message<?>>[] streams = new Flux[] {broadcast};
+
+    StepVerifier.create(decorator.applyEdgeRouting(streams, new ParentEdgeInfo(0, NODE_1, null)))
+        .assertNext(m -> assertThat(m.payload()).isSameAs(shared))
+        .verifyComplete();
+  }
+
+  @Test
   void testApplyLoggingAndBroadcasting() {
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), DATA);
     final Flux<Message<?>> input = Flux.just(msg);

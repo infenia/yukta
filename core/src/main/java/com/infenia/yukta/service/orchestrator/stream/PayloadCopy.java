@@ -22,7 +22,7 @@ import lombok.experimental.UtilityClass;
 final class PayloadCopy {
 
   /** Returns the message with its payload and header values copied. */
-  /* default */ static Message<?> of(final Message<?> msg) {
+  /* default */ static Message<?> copyOf(final Message<?> msg) {
     return msg.withPayload(copy(msg.payload())).withMetadata(copyMap(msg.metadata()));
   }
 
@@ -36,7 +36,7 @@ final class PayloadCopy {
     };
   }
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "PMD.UseConcurrentHashMap"}) // map is local, never shared
   private static Map<String, Object> copyMap(final Map<?, ?> map) {
     final Map<Object, Object> out = new LinkedHashMap<>();
     map.forEach((k, v) -> out.put(k, copy(v)));
