@@ -42,6 +42,28 @@ class DirectNodeMessageChannelConfigurationTest {
   }
 
   @Test
+  @SuppressWarnings({NO_ASSERT, "PMD.LawOfDemeter"})
+  void maxPayloadBytes_negativeValueIsRefusedAtStartup() {
+    contextRunner
+        .withPropertyValues("yukta.messaging.max-payload-bytes=-1")
+        .run(
+            context ->
+                assertThat(context)
+                    .hasFailed()
+                    .getFailure()
+                    .rootCause()
+                    .hasMessageContaining("must be 0 (off) or positive"));
+  }
+
+  @Test
+  @SuppressWarnings(NO_ASSERT)
+  void maxPayloadBytes_acceptsSizeWithUnit() {
+    contextRunner
+        .withPropertyValues("yukta.messaging.max-payload-bytes=1KB")
+        .run(context -> assertThat(context).hasSingleBean(NodeMessageChannelProvider.class));
+  }
+
+  @Test
   @SuppressWarnings(NO_ASSERT)
   void maxPayloadBytes_property_limitsTheChannel() {
     contextRunner
