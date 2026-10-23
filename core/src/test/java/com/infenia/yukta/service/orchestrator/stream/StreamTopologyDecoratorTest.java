@@ -237,6 +237,50 @@ class StreamTopologyDecoratorTest {
   }
 
   @Test
+  @SuppressWarnings(UNCHECKED)
+  void testEdgeTakesBackTheFieldsOnlyTheEngineMayWrite() {
+    final Message<?> forged =
+        DefaultMessage.create(UUID.randomUUID(), DATA)
+            .withControl(true)
+            .withWorkflowId("someone-else")
+            .withHeader("attempt", 9)
+            .withHeader("failure.attempts", 9)
+            .withHeader("failure.exception", "x")
+            .withHeader("failure.time", "x")
+            .withHeader("keep", "me");
+    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(forged)};
+
+    StepVerifier.create(
+            decorator
+                .applyEdgeRouting(streams, new ParentEdgeInfo(0, PARENT_1, null))
+                .contextWrite(ctx -> ctx.put("workflowId", "mine")))
+        .assertNext(
+            m -> {
+              assertThat(m.controlMessage()).isFalse();
+              assertThat(m.workflowId()).isEqualTo("mine");
+              assertThat(m.sourceNodeId()).isEqualTo(PARENT_1);
+              assertThat(m.metadata()).containsOnlyKeys("keep");
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  @SuppressWarnings(UNCHECKED)
+  void testDeadLetterKeepsItsFailureHeadersOnTheErrorPort() {
+    final Message<?> dead =
+        DefaultMessage.create(UUID.randomUUID(), DATA)
+            .withSourcePort(NodePolicy.ERROR_PORT)
+            .withHeader("failure.attempts", 3)
+            .withHeader("attempt", 3);
+    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(dead)};
+    final ParentEdgeInfo edge = new ParentEdgeInfo(0, PARENT_1, NodePolicy.ERROR_PORT);
+
+    StepVerifier.create(decorator.applyEdgeRouting(streams, edge))
+        .assertNext(m -> assertThat(m.metadata()).containsOnlyKeys("failure.attempts"))
+        .verifyComplete();
+  }
+
+  @Test
   void testApplyLoggingAndBroadcasting() {
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), DATA);
     final Flux<Message<?>> input = Flux.just(msg);
