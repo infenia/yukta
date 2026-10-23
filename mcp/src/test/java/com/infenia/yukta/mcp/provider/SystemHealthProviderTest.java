@@ -272,4 +272,37 @@ class SystemHealthProviderTest {
                 assertThat(status.activeSessions().get(0).activeExecutions()).isEqualTo(2))
         .verifyComplete();
   }
+
+  @Test
+  void testNullStatusAndNullStartDoNotBreakTheStatus() {
+    when(registry.listPlugins()).thenReturn(List.of());
+    when(sessionService.getSessionIds()).thenReturn(Flux.just("s1"));
+    final var wf =
+        new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-1", "d", List.of(), List.of());
+    final var config =
+        new com.infenia.yukta.model.session.SessionConfigResponse(
+            "s1", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of("wf-1", wf));
+    when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
+    when(controlBus.getHistory("s1"))
+        .thenReturn(
+            Mono.just(
+                List.of(
+                    new WorkflowExecutionSummary("e1", "wf-1", null, null, null),
+                    new WorkflowExecutionSummary(
+                        "e2",
+                        "wf-1",
+                        "SUCCESS",
+                        null,
+                        LocalDateTime.now(ZoneId.systemDefault())))));
+
+    StepVerifier.create(provider.getControlBusStatus(null))
+        .assertNext(
+            status -> {
+              assertThat(status.activeSessions().get(0).activeExecutions()).isEqualTo(1);
+              assertThat(status.recentExecutions())
+                  .extracting(ExecutionRecord::duration)
+                  .contains("unknown", "running");
+            })
+        .verifyComplete();
+  }
 }
