@@ -172,7 +172,7 @@ class WorkflowOrchestratorTest {
     verify(executionControlFactory).create(sessionId, workflowId, executionId, prepared, payload);
     verify(executionControlRegistry).register(executionControl);
     verify(tracker).startWorkflow(executionId, sessionId, workflowId, List.of("node-a"));
-    verify(executionControlRegistry).unregister(executionId);
+    verify(executionControlRegistry, timeout(5000)).unregister(executionId);
     verify(checkpointStore, never()).clear(executionId);
   }
 
@@ -209,7 +209,7 @@ class WorkflowOrchestratorTest {
         .expectError(RuntimeException.class)
         .verify();
 
-    verify(executionControlRegistry).unregister(executionId);
+    verify(executionControlRegistry, timeout(5000)).unregister(executionId);
     verify(checkpointStore, never()).clear(executionId);
   }
 
@@ -225,8 +225,8 @@ class WorkflowOrchestratorTest {
     when(executionControl.stopRequested()).thenReturn(new AtomicBoolean(true));
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.empty());
-    // the drain lets the template finish on its own
-    when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.empty());
+    // the drain lets the template finish on its own, or the stop wins before it is asked
+    lenient().when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.empty());
 
     StepVerifier.create(orchestrator.execute(sessionId, workflowId, executionId, prepared, payload))
         .verifyComplete();
@@ -252,7 +252,7 @@ class WorkflowOrchestratorTest {
         .verify();
 
     verify(tracker).finishWorkflow(executionId, TaskStatus.CANCELLED);
-    verify(executionControlRegistry).unregister(executionId);
+    verify(executionControlRegistry, timeout(5000)).unregister(executionId);
   }
 
   @Test
@@ -278,7 +278,7 @@ class WorkflowOrchestratorTest {
     verify(tracker).finishWorkflow(executionId, TaskStatus.STOPPED);
     verify(tracker, never()).finishWorkflow(executionId, TaskStatus.SUCCESS);
 
-    verify(executionControlRegistry).unregister(executionId);
+    verify(executionControlRegistry, timeout(5000)).unregister(executionId);
     verify(checkpointStore, never()).clear(executionId);
   }
 
@@ -339,7 +339,7 @@ class WorkflowOrchestratorTest {
     verify(compiler)
         .executeTemplate(
             eq(newExecId), any(), eq(2), any(), eq(sessionId), eq(workflowId), anyList());
-    verify(executionControlRegistry).unregister(newExecId);
+    verify(executionControlRegistry, timeout(5000)).unregister(newExecId);
     verify(checkpointStore, never()).clear(newExecId);
   }
 
@@ -421,7 +421,7 @@ class WorkflowOrchestratorTest {
         .expectError(RuntimeException.class)
         .verify();
 
-    verify(executionControlRegistry).unregister(newExecId);
+    verify(executionControlRegistry, timeout(5000)).unregister(newExecId);
     verify(checkpointStore, never()).clear(newExecId);
   }
 
@@ -472,7 +472,7 @@ class WorkflowOrchestratorTest {
     verify(tracker).finishWorkflow(newExecId, TaskStatus.STOPPED);
     verify(tracker, never()).finishWorkflow(newExecId, TaskStatus.SUCCESS);
 
-    verify(executionControlRegistry).unregister(newExecId);
+    verify(executionControlRegistry, timeout(5000)).unregister(newExecId);
     verify(checkpointStore, never()).clear(newExecId);
   }
 
