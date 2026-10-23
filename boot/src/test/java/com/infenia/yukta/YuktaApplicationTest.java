@@ -49,8 +49,7 @@ class YuktaApplicationTest {
   @Timeout(60)
   void mainStartsApplicationWithoutError() {
     // the context stays up until the JVM's shutdown hook closes it
-    assertThatNoException()
-        .isThrownBy(() -> YuktaApplication.main(new String[] {PORT_ARG}));
+    assertThatNoException().isThrownBy(() -> YuktaApplication.main(new String[] {PORT_ARG}));
   }
 
   @Test
