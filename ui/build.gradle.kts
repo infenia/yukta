@@ -66,10 +66,10 @@ val verifyPackageVersion = tasks.register("verifyPackageVersion") {
 
 // Unit & component tests
 val pnpmTest = tasks.register<PnpmTask>("pnpmTest") {
-    description = "Run Vitest unit/component tests"
+    description = "Run Vitest unit/component tests with coverage (vitest.config.ts holds the 100% thresholds)"
     dependsOn("pnpmInstall")
     workingDir.set(layout.projectDirectory)
-    pnpmCommand.set(listOf("run", "test", "--", "--run"))
+    pnpmCommand.set(listOf("run", "test", "--", "--run", "--coverage"))
     inputs.dir(layout.projectDirectory.dir("src"))
     inputs.dir(layout.projectDirectory.dir("public"))
     inputs.files(
