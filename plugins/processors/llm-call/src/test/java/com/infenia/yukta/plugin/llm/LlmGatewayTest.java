@@ -17,6 +17,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 @SuppressWarnings({
   "PMD.CommentRequired",
@@ -51,7 +52,7 @@ class LlmGatewayTest {
   private HttpServer server;
   private String base;
   private final List<String> bodies = new CopyOnWriteArrayList<>();
-  private final LlmGateway gateway = new LlmGateway();
+  private final LlmGateway gateway = new LlmGateway(new ObjectMapper());
 
   @BeforeEach
   void start() throws IOException {
@@ -257,7 +258,8 @@ class LlmGatewayTest {
   @Test
   void definitionOnlyTool_isDescribedButNeverRun() {
     final LlmGateway.DefinitionOnlyTool tool =
-        new LlmGateway.DefinitionOnlyTool(new ToolSpec("t", "d", java.util.Map.of("k", "v")));
+        new LlmGateway.DefinitionOnlyTool(
+            new ToolSpec("t", "d", java.util.Map.of("k", "v")), new ObjectMapper());
 
     assertThat(tool.getToolDefinition().name()).isEqualTo("t");
     assertThat(tool.getToolDefinition().inputSchema()).contains("k");

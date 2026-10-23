@@ -27,6 +27,7 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import tools.jackson.databind.ObjectMapper;
 
 @SuppressWarnings({
   "PMD.TooManyMethods",
@@ -291,7 +292,7 @@ class HttpRequestPluginTest {
   @Test
   void springConstructorReportsMetrics() {
     final List<String> counts = new ArrayList<>();
-    plugin = new HttpRequestPlugin(gateway, resolver, provider(counts));
+    plugin = new HttpRequestPlugin(gateway, resolver, provider(counts), new ObjectMapper());
     when(gateway.execute(any())).thenReturn(Mono.just(okResult("{}", true)));
     StepVerifier.create(run(Map.of("url", "http://x/y"))).expectNextCount(1).verifyComplete();
     assertThat(counts).containsExactly("http:OK");
@@ -299,7 +300,8 @@ class HttpRequestPluginTest {
             new HttpRequestPlugin(
                 gateway,
                 resolver,
-                new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class)))
+                new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class),
+                new ObjectMapper()))
         .isNotNull();
   }
 }
