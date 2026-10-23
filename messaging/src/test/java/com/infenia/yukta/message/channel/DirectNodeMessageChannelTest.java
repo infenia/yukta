@@ -75,6 +75,23 @@ class DirectNodeMessageChannelTest {
   }
 
   @Test
+  void limit_countsHeadersAndFailureTextToo() {
+    final DirectNodeMessageChannel limited = new DirectNodeMessageChannel(8);
+    final Message<?> headers =
+        DefaultMessage.create(UUID.randomUUID(), "ok")
+            .withMetadata(Map.of("trace", "x".repeat(20)));
+    final Message<?> failure =
+        DefaultMessage.create(UUID.randomUUID(), "ok").withFailure("n1", "r", "y".repeat(20));
+
+    StepVerifier.create(limited.outbound("n1", "e1", Flux.just(headers)))
+        .expectError(PayloadTooLargeException.class)
+        .verify();
+    StepVerifier.create(limited.outbound("n1", "e1", Flux.just(failure)))
+        .expectError(PayloadTooLargeException.class)
+        .verify();
+  }
+
+  @Test
   void limit_nonMeasuredPayloadAndNull_pass() {
     final DirectNodeMessageChannel limited = new DirectNodeMessageChannel(1);
 
