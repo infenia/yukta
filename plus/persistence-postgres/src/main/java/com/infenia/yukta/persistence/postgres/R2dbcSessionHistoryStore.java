@@ -107,6 +107,23 @@ public class R2dbcSessionHistoryStore implements SessionHistoryStore {
     }
   }
 
+  @Override
+  public void delete(final String sessionId) {
+    try {
+      client
+          .sql("DELETE FROM session_history WHERE session_id = :s")
+          .bind("s", sessionId)
+          .fetch()
+          .rowsUpdated()
+          .toFuture()
+          .get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+    } catch (final InterruptedException e) {
+      Thread.currentThread().interrupt();
+    } catch (final ExecutionException | TimeoutException | RuntimeException e) {
+      log.atError().setCause(e).log("Could not delete the history of a session");
+    }
+  }
+
   private Mono<Void> expire() {
     return ttl == null
         ? Mono.empty()

@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 @NoArgsConstructor
 class SessionStoreTest {
 
@@ -91,8 +91,7 @@ class SessionStoreTest {
   }
 
   /** A database that keeps the turns in a map. */
-  private static final class FakeDatabase
-      implements com.infenia.yukta.plugin.store.SessionHistoryStore {
+  private static class FakeDatabase implements com.infenia.yukta.plugin.store.SessionHistoryStore {
     private final Map<String, List<Map<String, String>>> rows =
         new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -104,6 +103,11 @@ class SessionStoreTest {
     @Override
     public void save(final String sessionId, final List<Map<String, String>> turns) {
       rows.put(sessionId, turns);
+    }
+
+    @Override
+    public void delete(final String sessionId) {
+      rows.remove(sessionId);
     }
   }
 
@@ -118,6 +122,50 @@ class SessionStoreTest {
         .extracting(turn -> turn.get("content"))
         .containsExactly("hello");
     assertThat(database.rows).containsKey("s1");
+  }
+
+  @Test
+  void delete_forgetsMemoryAndTellsTheDatabase() {
+    final List<String> deleted = new java.util.ArrayList<>();
+    final FakeDatabase database =
+        new FakeDatabase() {
+          @Override
+          public void delete(final String sessionId) {
+            deleted.add(sessionId);
+          }
+        };
+    final SessionStore store = new SessionStore(database);
+    store.append("s1", "user", "hello", 10);
+
+    store.delete("s1");
+
+    assertThat(deleted).containsExactly("s1");
+    assertThat(store.sessionCount()).isZero();
+  }
+
+  @Test
+  void delete_removesTheStoredRows() {
+    final FakeDatabase database = new FakeDatabase();
+    final SessionStore store = new SessionStore(database);
+    store.append("s1", "user", "hello", 10);
+
+    store.delete("s1");
+    new SessionStore().delete("unknown");
+
+    assertThat(store.sessionCount()).isZero();
+    assertThat(database.rows).doesNotContainKey("s1");
+  }
+
+  @Test
+  void appendOfSeveralTurnsKeepsOrderAndWindow() {
+    final SessionStore store = new SessionStore();
+    store.append(
+        "s1",
+        List.of(
+            Map.of("role", "user", "content", "a"), Map.of("role", "assistant", "content", "b")),
+        1);
+
+    assertThat(store.history("s1", 10)).extracting(t -> t.get("content")).containsExactly("b");
   }
 
   @Test

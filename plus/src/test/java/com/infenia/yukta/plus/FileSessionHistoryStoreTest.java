@@ -30,6 +30,20 @@ class FileSessionHistoryStoreTest {
   }
 
   @Test
+  void deletedHistory_isGone() throws IOException {
+    final FileSessionHistoryStore store = new FileSessionHistoryStore(dir.toString());
+    store.save("s", List.of(Map.of("role", "user", "content", "x")));
+
+    store.delete("s");
+    store.delete("never-stored");
+    Files.createDirectories(dir.resolve("d.json"));
+    Files.writeString(dir.resolve("d.json/inner"), "x");
+    store.delete("d"); // not a file: logged, not thrown
+
+    assertThat(store.load("s")).isEmpty();
+  }
+
+  @Test
   void sessionIdCannotEscape_andUnknownSessionsAreEmpty() throws IOException {
     final FileSessionHistoryStore store = new FileSessionHistoryStore(dir.toString());
     store.save("../../evil", List.of(Map.of("role", "user", "content", "x")));
