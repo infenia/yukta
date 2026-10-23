@@ -8,7 +8,7 @@ This is the global repository guide for **Yukta**.
 
 ## Tech Stack
 
-Java 25 (toolchain) · Spring Boot (WebFlux; version in `gradle/libs.versions.toml`) · Gradle 9.0 · Project Reactor · GraalVM native image · Spring AI MCP Server.
+Java 25 (toolchain) · Spring Boot (WebFlux; version in `gradle/libs.versions.toml`) · Gradle 9.8 (wrapper) · Project Reactor · GraalVM native image · Spring AI MCP Server.
 
 ## Repository Roadmap & Layout
 
