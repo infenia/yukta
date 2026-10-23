@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
@@ -241,6 +242,23 @@ class LoopPredicateProcessorTest {
     StepVerifier.create(
             processor.validateConfig(Map.of(TARGETPLUGINID, TARGET, TARGETCONFIG, targetConfig)))
         .expectErrorMessage("bad target config")
+        .verify();
+  }
+
+  @Test
+  void validateInContextIsPassedOnToTheTarget() {
+    final Map<String, Object> targetConfig = Map.of("k", "v");
+    final WorkflowContext context =
+        new WorkflowContext("loop", java.util.List.of(), java.util.List.of());
+    when(registry.contains(TARGET)).thenReturn(true);
+    when(registry.get(TARGET)).thenReturn(targetPlugin);
+    when(targetPlugin.validateInContext(context, targetConfig))
+        .thenReturn(Mono.error(new IllegalStateException("bad wiring")));
+
+    StepVerifier.create(
+            processor.validateInContext(
+                context, Map.of(TARGETPLUGINID, TARGET, TARGETCONFIG, targetConfig)))
+        .expectErrorMessage("bad wiring")
         .verify();
   }
 

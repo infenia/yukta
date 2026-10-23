@@ -7,6 +7,7 @@ import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
+import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
@@ -32,7 +33,7 @@ import reactor.core.scheduler.Schedulers;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.LawOfDemeter"})
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.LawOfDemeter", "PMD.TooManyMethods"})
 @NoArgsConstructor
 public class LoopPredicateProcessor implements ProcessorPlugin {
 
@@ -116,6 +117,13 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
   public Mono<Void> validateConfig(final Map<String, Object> config) {
     return LoopTarget.resolve(registryProvider, config)
         .flatMap(target -> target.validateConfig(LoopTarget.configOf(config)));
+  }
+
+  @Override
+  public Mono<Void> validateInContext(
+      final WorkflowContext context, final Map<String, Object> config) {
+    return LoopTarget.resolve(registryProvider, config)
+        .flatMap(target -> target.validateInContext(context, LoopTarget.configOf(config)));
   }
 
   @Override
