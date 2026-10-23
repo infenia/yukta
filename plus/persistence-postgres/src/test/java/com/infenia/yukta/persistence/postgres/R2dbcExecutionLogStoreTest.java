@@ -22,6 +22,12 @@ import tools.jackson.databind.ObjectMapper;
 })
 class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
 
+  private final java.util.concurrent.CountDownLatch entered =
+      new java.util.concurrent.CountDownLatch(1);
+
+  private final java.util.concurrent.CountDownLatch release =
+      new java.util.concurrent.CountDownLatch(1);
+
   private R2dbcExecutionLogStore store;
 
   @BeforeEach
@@ -171,21 +177,34 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     trimming.close();
   }
 
+  /** A store whose writer stays inside the first write until {@link #release} is counted down. */
+  private R2dbcExecutionLogStore storeWithBusyWriter(final long shutdownWaitMillis) {
+    final ObjectMapper real = new ObjectMapper();
+    final ObjectMapper blocking = org.mockito.Mockito.mock(ObjectMapper.class);
+    org.mockito.Mockito.when(blocking.writeValueAsString(org.mockito.ArgumentMatchers.any()))
+        .thenAnswer(
+            invocation -> {
+              entered.countDown();
+              release.await();
+              return real.writeValueAsString(invocation.getArgument(0));
+            });
+    return new R2dbcExecutionLogStore(db, blocking, 2, 1_000, shutdownWaitMillis);
+  }
+
   @Test
-  void closeThatCannotWaitLongEnough_stillStopsTheWriter() {
-    final R2dbcExecutionLogStore impatient =
-        new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 1_000, 0);
-    for (int i = 0; i < 30; i++) {
-      impatient.append(started("r" + i));
-    }
+  void closeThatCannotWaitLongEnough_stillStopsTheWriter() throws InterruptedException {
+    final R2dbcExecutionLogStore impatient = storeWithBusyWriter(0);
+    impatient.append(started("r1"));
+    entered.await();
 
     impatient.close();
 
+    release.countDown();
     org.awaitility.Awaitility.await()
         .atMost(java.time.Duration.ofSeconds(20))
         .until(
             () ->
-                Long.valueOf(30)
+                Long.valueOf(1)
                     .equals(
                         db.sql("SELECT count(*) AS n FROM execution_log")
                             .map(row -> row.get("n", Long.class))
@@ -194,16 +213,18 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void closeWhileInterrupted_keepsTheInterruptFlag() {
-    for (int i = 0; i < 20; i++) {
-      store.append(started("r" + i));
-    }
+  void closeWhileInterrupted_keepsTheInterruptFlag() throws InterruptedException {
+    final R2dbcExecutionLogStore busy = storeWithBusyWriter(5_000);
+    busy.append(started("r1"));
+    entered.await();
     Thread.currentThread().interrupt();
     try {
-      store.close();
+      busy.close();
     } finally {
       assertThat(Thread.interrupted()).isTrue();
+      release.countDown();
     }
+    busy.close();
   }
 
   @Test
