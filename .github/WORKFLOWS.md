@@ -177,7 +177,7 @@ the GitHub Security tab.
 | **REUSE** | License Header Compliance | Verifies all files have SPDX license headers |
 | **Plus isolation** | Apache modules never depend on Plus | Fails if any module other than `boot` depends on the AGPL `:plus` module |
 | **Licensee** | Dependency License Validation | Ensures all dependencies have Apache-2.0 compatible licenses |
-| **Trivy** | License Scanning | Scans lock files for forbidden/restricted licenses |
+| **Trivy** | License Scanning | Scans the repository for forbidden/restricted licenses |
 
 **Jobs**: `reuse-compliance`, `plus-isolation`, `gradle-license-validation`, `trivy-license-scan`
 

@@ -109,7 +109,7 @@ jobs:
         if: github.event_name != 'pull_request'
         continue-on-error: true
         run: |
-          echo "▶ Generating CycloneDX SBOM from lock files..."
+          echo "▶ Generating CycloneDX SBOM from the repository..."
           trivy fs --format cyclonedx --output sbom-yukta.cdx.json \
             --skip-dirs "$TRIVY_SKIP_DIRS" .
           echo "✓ SBOM generation complete"
