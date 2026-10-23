@@ -115,4 +115,27 @@ class R2dbcNodeCheckpointStoreTest extends PostgresTestSupport {
       Thread.interrupted();
     }
   }
+
+  @Test
+  void staleLeader_saveIsRefusedAndCounted() {
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    final R2dbcNodeCheckpointStore fenced =
+        new R2dbcNodeCheckpointStore(db, new ObjectMapper(), meters, () -> 1);
+    db.sql(
+            "INSERT INTO leader_lease (name, holder, fencing, expires_at)"
+                + " VALUES ('leader', 'other', 1, now() + interval '1 hour')")
+        .fetch()
+        .rowsUpdated()
+        .block();
+    fenced.save("e1", "n1", message("a")).block();
+    db.sql("UPDATE leader_lease SET fencing = 2").fetch().rowsUpdated().block();
+
+    fenced.save("e1", "n1", message("b")).block();
+
+    assertThat(fenced.getAll("e1", "n1").<Object>map(Message::payload).collectList().block())
+        .containsExactly("a");
+    assertThat(fenced.isComplete("e1", "n1")).isTrue();
+    assertThat(meters.get("yukta.fencing.refused").counter().count()).isEqualTo(1);
+  }
 }

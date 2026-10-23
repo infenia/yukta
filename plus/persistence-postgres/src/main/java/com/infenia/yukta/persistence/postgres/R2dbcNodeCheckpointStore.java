@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
@@ -54,6 +55,9 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
   /** Reads and writes messages. */
   private final ObjectMapper mapper;
 
+  /** Refuses saves once another server has taken over the lease. */
+  private final Fencing fencing;
+
   /** Bytes saved and not yet cleared by this process. */
   private final AtomicLong held = new AtomicLong();
 
@@ -63,10 +67,28 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
    * @param client runs the statements
    * @param mapper reads and writes messages
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // both are shared Spring beans
   public R2dbcNodeCheckpointStore(final DatabaseClient client, final ObjectMapper mapper) {
+    this(client, mapper, new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), null);
+  }
+
+  /**
+   * Creates the store; saved messages are refused once another server holds the leader lease.
+   * ponytail: only message rows are fenced; the node state flags (done/incomplete) are not.
+   *
+   * @param client runs the statements
+   * @param mapper reads and writes messages
+   * @param meters where refused writes are counted
+   * @param fencingToken this server's fencing number, null when no election runs
+   */
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // client and mapper are shared Spring beans
+  public R2dbcNodeCheckpointStore(
+      final DatabaseClient client,
+      final ObjectMapper mapper,
+      final io.micrometer.core.instrument.MeterRegistry meters,
+      final LongSupplier fencingToken) {
     this.client = client;
     this.mapper = mapper;
+    this.fencing = new Fencing(fencingToken, meters, "node_checkpoint");
   }
 
   @Override
@@ -74,16 +96,15 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
     return Mono.fromCallable(() -> CheckpointJson.write(mapper, message))
         .flatMap(
             json ->
-                client
-                    .sql(
-                        "INSERT INTO node_checkpoint (execution_id, node_id, message)"
-                            + " VALUES (:e, :n, CAST(:m AS jsonb))")
-                    .bind(EXECUTION, executionId)
-                    .bind(NODE, nodeId)
-                    .bind("m", json)
-                    .fetch()
-                    .rowsUpdated()
-                    .doOnNext(_ -> held.addAndGet(json.length())))
+                insert(executionId, nodeId, json)
+                    .doOnNext(
+                        written -> {
+                          if (written == 0) {
+                            fencing.refused(1);
+                          } else {
+                            held.addAndGet(json.length());
+                          }
+                        }))
         .onErrorResume(
             error -> {
               log.atWarn()
@@ -94,6 +115,22 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
               return state(executionId, nodeId, INCOMPLETE).then(Mono.empty());
             })
         .then();
+  }
+
+  /** Inserts one message row, in the same statement as the fencing check when there is one. */
+  private Mono<Long> insert(final String executionId, final String nodeId, final String json) {
+    return fencing
+        .bind(
+            client
+                .sql(
+                    "INSERT INTO node_checkpoint (execution_id, node_id, message)"
+                        + " SELECT :e, :n, CAST(:m AS jsonb) WHERE "
+                        + Fencing.NOT_STALE)
+                .bind(EXECUTION, executionId)
+                .bind(NODE, nodeId)
+                .bind("m", json))
+        .fetch()
+        .rowsUpdated();
   }
 
   @Override

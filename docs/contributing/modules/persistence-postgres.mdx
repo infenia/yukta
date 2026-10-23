@@ -281,12 +281,12 @@ Lets several servers share the database while only one admits runs, and lets ano
 - One row in `leader_lease` holds the name, the holder, a fencing number and an expiry. Each server runs one statement every third of a lease (5 s by default): it inserts the row or, if it is the holder or the lease has expired, takes it and renews the expiry. The fencing number grows by one when the holder changes.
 - The expiry uses the database clock. A server counts itself the leader only while the time since it *sent* its last successful renewal is shorter than the lease, measured with a local monotonic clock, so a server that cannot reach the database stops being leader before another can take over.
 - When a server becomes leader it runs the registered takeover actions on another thread (core uses this for recovery and auto-resume). A server that stops releases the lease by setting its expiry in the past, waiting up to 10 s.
-- `fencingToken()` exposes the number, but nothing in this module or in core uses it to reject a write from an old leader. The gauge `yukta.leader` is 1 on the leader.
+- `fencingToken()` exposes the number. The execution log (append and `replaceAll`) and the checkpoint messages (`save`) use it: the insert runs only if no lease row holds a higher number, in the same statement (`replaceAll` locks the lease row for the length of its transaction). A refused write is counted in `yukta.fencing.refused{store}` and logged; a server that has never led is not checked. Definition, session and checkpoint-state writes are not fenced. The gauge `yukta.leader` is 1 on the leader.
 
 - **Guarantees.** Two servers never both believe they hold a lease that has not expired, as long as the local clock does not run slow relative to the database clock.
 - **State.** The row in `leader_lease`; in memory the validity time, the fencing number and the takeover list.
 - **Ceiling.** One tiny statement per 5 s per server; no contention beyond that.
-- **On failure.** A leader paused for longer than the lease (a long stop-the-world pause) can still finish a write after another server has taken over.
+- **On failure.** A leader paused for longer than the lease (a long stop-the-world pause) can still finish a write to a store that is not fenced (definitions, sessions, checkpoint state flags); log and checkpoint inserts are refused.
 
 **Settings:** `yukta.ha.mode`, `yukta.ha.lease`, `yukta.ha.instance-id`
 
@@ -363,7 +363,7 @@ A graceful stop sets the expiry in the past; a crash leaves the lease to run out
 The new leader runs the registered actions on another thread: startup recovery (mark the old leader's runs ABORTED, rewrite the log) and, if set, auto-resume.
 </Step>
 <Step title="A paused old leader">
-If the old leader was only paused (a long garbage collection, a frozen VM), it may wake and finish a write it had already started. Nothing in the database refuses a write carrying an old fencing number.
+If the old leader was only paused (a long garbage collection, a frozen VM), it may wake and finish a write it had already started. Log and checkpoint inserts are refused by the database because the lease row holds a higher fencing number; other writes are not.
 </Step>
 </Steps>
 
@@ -443,7 +443,7 @@ What this module does, how, what it guarantees and where the guarantee stops.
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| Leader lease | One server at a time admits runs. | One row; renewed every third of the lease; expiry from the database clock. | A standby takes over within about one lease. | The fencing number is not checked by any write. |
+| Leader lease | One server at a time admits runs. | One row; renewed every third of the lease; expiry from the database clock. | A standby takes over within about one lease. | Only the execution log and checkpoint messages check the fencing number. |
 | Takeover actions | Registered actions run when a server becomes leader. | Run on another thread; a failing action does not stop the others. | Recovery and auto-resume start without a human. | Live approval waits and queued starts are not restored (core). |
 
 ### Plugin state
@@ -552,7 +552,7 @@ Short rules that follow from the guarantees.
 | Give Flyway an account that may change the schema, and the application an account that may not. | Don't run the application with the schema owner's password. |
 | Run a database backup that includes all nine tables together. | Don't restore only some of them: the log, the checkpoints and the definitions refer to each other. |
 | Watch the error lines 'event dropped' and 'Batch insert failed' in the log. | Don't treat the lack of an error in the UI as proof the log is complete. |
-| Run the failover test in your environment before relying on a standby. | Don't rely on the fencing number: nothing checks it yet. |
+| Run the failover test in your environment before relying on a standby. | Alert on `yukta.fencing.refused`; definitions and sessions are not fenced. |
 
 ## Architecture decisions
 
@@ -598,7 +598,7 @@ Short rules that follow from the guarantees.
 
 **Decision.** One row, renewed by the holder, taken over after expiry; the number grows with every change.
 
-**Consequences.** Simple and uses the database already there; split-brain protection depends on the fencing number, which nothing checks yet.
+**Consequences.** Simple and uses the database already there; split-brain protection depends on the fencing number, which the log and checkpoint inserts check.
 
 **Alternatives considered.** Advisory locks (tied to a session, lost silently on reconnect), ZooKeeper or etcd (another system).
 

@@ -72,6 +72,7 @@ public class PostgresPersistenceAutoConfiguration {
    * @param retainedRuns runs kept when the log is trimmed
    * @param compactAfter appended events after which the log is trimmed
    * @param meters where lost events are counted
+   * @param leaderElection the election whose fencing number guards the writes, if one runs
    * @return the store
    */
   @Bean(destroyMethod = "close")
@@ -82,14 +83,16 @@ public class PostgresPersistenceAutoConfiguration {
       @Value("${yukta.execution-log.compact-after:10000}") final int compactAfter,
       final org.springframework.beans.factory.ObjectProvider<
               io.micrometer.core.instrument.MeterRegistry>
-          meters) {
+          meters,
+      final org.springframework.beans.factory.ObjectProvider<R2dbcLeaderElection> leaderElection) {
     return new R2dbcExecutionLogStore(
         client,
         mapper,
         retainedRuns,
         compactAfter,
         5_000,
-        meters.getIfAvailable(io.micrometer.core.instrument.simple.SimpleMeterRegistry::new));
+        meters.getIfAvailable(io.micrometer.core.instrument.simple.SimpleMeterRegistry::new),
+        leaderElection.stream().findFirst().map(Fencing::tokenOf).orElse(null));
   }
 
   /**
@@ -97,13 +100,24 @@ public class PostgresPersistenceAutoConfiguration {
    *
    * @param client runs the statements
    * @param mapper reads and writes JSON
+   * @param meters where refused writes are counted
+   * @param leaderElection the election whose fencing number guards the writes, if one runs
    * @return the store
    */
   @Bean
   @ConditionalOnProperty(name = "yukta.restart.store-type", havingValue = "postgres")
   public NodeCheckpointStore nodeCheckpointStore(
-      final DatabaseClient client, final ObjectMapper mapper) {
-    return new R2dbcNodeCheckpointStore(client, mapper);
+      final DatabaseClient client,
+      final ObjectMapper mapper,
+      final org.springframework.beans.factory.ObjectProvider<
+              io.micrometer.core.instrument.MeterRegistry>
+          meters,
+      final org.springframework.beans.factory.ObjectProvider<R2dbcLeaderElection> leaderElection) {
+    return new R2dbcNodeCheckpointStore(
+        client,
+        mapper,
+        meters.getIfAvailable(io.micrometer.core.instrument.simple.SimpleMeterRegistry::new),
+        leaderElection.stream().findFirst().map(Fencing::tokenOf).orElse(null));
   }
 
   /**
