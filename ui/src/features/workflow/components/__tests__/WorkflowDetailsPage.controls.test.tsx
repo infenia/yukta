@@ -29,7 +29,7 @@ const server = setupServer(
   http.get('/api/sessions/:sid/workflows/:wid/executions', () =>
     ok([createMockExecution(), createMockExecution({ executionId: 'restarted' })])
   ),
-  http.get('/api/workflow/:sid/status/:eid', ({ params }) =>
+  http.get('/api/executions/:eid', ({ params }) =>
     ok(createMockProgress({ executionId: String(params.eid) }))
   ),
   http.post('/api/executions/:id/restart/:node', ({ params }) => {

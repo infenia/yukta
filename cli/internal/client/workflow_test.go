@@ -1141,6 +1141,21 @@ func TestStepNode_httpError(t *testing.T) {
 }
 
 // TestStopNode_emptySessionID tests validation error
+func TestStopNode_noReasonSendsNoReasonParameter(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, present := r.URL.Query()["reason"]; present {
+			t.Errorf("expected no reason parameter, got %q", r.URL.RawQuery)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"executionId":"exec-123"}}`))
+	}))
+	defer server.Close()
+
+	if _, err := NewClient(server.URL).StopNode("s", "exec-123", "node-1", false, ""); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestStopNode_emptySessionID(t *testing.T) {
 	c := NewClient("http://localhost:8080")
 	_, err := c.StopNode("", "exec-123", "node-1", true, "test")

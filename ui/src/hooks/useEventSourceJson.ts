@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useEffect, useRef, useState } from 'react';
+import { openEventStream, type KeyedEventSource } from '@/lib/keyedEventSource';
 
 export type EventSourceStatus = 'idle' | 'connecting' | 'open' | 'error';
 
@@ -39,12 +40,12 @@ export function useEventSourceJson<T>(
     if (!url) {
       return undefined;
     }
-    let source: EventSource | undefined;
+    let source: EventSource | KeyedEventSource | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let attempt = 0;
 
     const connect = () => {
-      const current = new EventSource(url);
+      const current = openEventStream(url);
       source = current;
       current.onopen = () => {
         attempt = 0;

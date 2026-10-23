@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Map;
@@ -117,9 +118,16 @@ public final class FileWritePlugin extends AbstractFilePlugin {
                 file,
                 content + System.lineSeparator(),
                 StandardOpenOption.CREATE,
-                StandardOpenOption.APPEND);
+                StandardOpenOption.APPEND,
+                LinkOption.NOFOLLOW_LINKS);
           } else {
-            Files.writeString(file, String.valueOf(content));
+            Files.writeString(
+                file,
+                String.valueOf(content),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING,
+                StandardOpenOption.WRITE,
+                LinkOption.NOFOLLOW_LINKS);
           }
           return message.withSourcePort("default");
         });

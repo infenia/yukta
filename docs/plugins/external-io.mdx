@@ -1,6 +1,7 @@
 ---
-title: "External I/O"
-description: "PROCESS_EXECUTOR, HTTP_REQUEST, SQL_QUERY, FILE_READ, FILE_WRITE and KV_STORE: plugins that reach outside the workflow."
+title: "External I/O plugins: HTTP, SQL, files and commands"
+sidebarTitle: "External I/O"
+description: "PROCESS_EXECUTOR, HTTP_REQUEST, SQL_QUERY, FILE_READ, FILE_WRITE and KV_STORE: plugins that run commands, call services, query databases and handle files."
 keywords: ["HTTP_REQUEST", "SQL_QUERY", "PROCESS_EXECUTOR", "file IO"]
 ---
 
@@ -193,7 +194,7 @@ Writes or appends text to a file in a sandbox directory and passes the message o
 
 Output ports: `default`, plus `error` when `failureMode` is `CONTINUE`.
 
-For both file plugins, a path is normalised and anything that escapes `baseDir`, by `..` or through a symbolic link, is refused. `baseDir` and `path` are used as written, not variable-resolved. The sandbox limits what a path can reach, not who can author the workflow, since `baseDir` is itself part of the workflow. Messages are handled one at a time.
+For both file plugins, a path is normalised and anything that escapes `baseDir`, by `..` or through a symbolic link, is refused. `baseDir` and `path` are used as written, not variable-resolved. The file itself is opened without following a link, so a link as the last path element is refused even when it stays inside `baseDir`. The sandbox limits what a path can reach, not who can author the workflow, since `baseDir` is itself part of the workflow. To limit the author too, the operator sets the system property `yukta.files.allowed-root` (or the environment variable `YUKTA_FILES_ALLOWED_ROOT`) to a directory: every `baseDir` must then lie inside it, also through links, and a workflow with another `baseDir` is refused when it is saved. Messages are handled one at a time.
 
 ```json
 {
@@ -211,7 +212,7 @@ Reads and writes small shared state: counters, flags and last-seen values. It is
 |---|---|---|---|
 | `op` | `get`, `put`, `incr` or `delete` | none, required | The operation. Lower case |
 | `key` | string | the payload's `key` field | The key, used as written |
-| `namespace` | string | none | A prefix that keeps the keys of different uses apart |
+| `namespace` | string | the workflow id | A prefix that keeps the keys of different uses apart. Give two workflows the same value to let them share keys |
 | `maxEntries` | number | `10000` | Most distinct keys. A new key beyond it fails the node |
 
 Output port: `default`. The payload becomes `{"key": "...", "value": ...}`.
@@ -223,7 +224,7 @@ Output port: `default`. The payload becomes `{"key": "...", "value": ...}`.
 | `incr` | Adds `payload.value` (a whole number, default 1) to a stored whole number, creating it when absent | The new total |
 | `delete` | Removes the key | The removed value, or null |
 
-The store belongs to the whole server: every workflow and execution shares it. By default it lives in memory and is lost on restart. With the PostgreSQL module and `yukta.kv.store-type=postgres` it survives restarts and is shared between servers, and `incr` is a single atomic statement. See [Persistence](/operations/persistence). Messages are handled one at a time.
+The store belongs to the whole server, and every execution of a workflow shares its keys. Two workflows share a key only when you give both the same `namespace`. By default it lives in memory and is lost on restart. With the PostgreSQL module and `yukta.kv.store-type=postgres` it survives restarts and is shared between servers, and `incr` is a single atomic statement. See [Persistence](/operations/persistence). Messages are handled one at a time.
 
 ```json
 {

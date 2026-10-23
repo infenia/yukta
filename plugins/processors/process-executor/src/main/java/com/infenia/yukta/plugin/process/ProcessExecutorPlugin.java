@@ -18,6 +18,7 @@ import com.infenia.yukta.plugin.util.MapUtils;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -86,6 +87,12 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
   private static final long DEFAULT_TIMEOUT_SECONDS = 300L;
   private static final int DEFAULT_MAX_OUTPUT_LINES = 10_000;
   private static final long DEFAULT_MAX_OUTPUT_BYTES = 10L * 1024 * 1024;
+
+  /** Lines of process output kept in a failure message. */
+  private static final int ERROR_OUTPUT_LINES = 50;
+
+  /** Characters of process output kept in a failure message. */
+  private static final int ERROR_OUTPUT_CHARS = 8192;
 
   private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
 
@@ -475,11 +482,31 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
         new StringBuilder("Process failed with exit code ")
             .append(result.exitCode())
             .append("\n--- Output ---\n")
-            .append(result.stdout());
+            .append(tail(result.stdout()));
     if (!result.stderrLines().isEmpty()) {
-      message.append("\n--- Stderr ---\n").append(result.stderr());
+      message.append("\n--- Stderr ---\n").append(tail(result.stderr()));
     }
     return new WorkflowExecutionException(message.toString());
+  }
+
+  /**
+   * The end of process output, for an error message: up to 10 MiB of output would otherwise go into
+   * every log and event that carries the error. The full output stays in the node's output.
+   */
+  private static String tail(final String output) {
+    final String[] lines = output.split("\n", -1);
+    final String lastLines =
+        lines.length > ERROR_OUTPUT_LINES
+            ? String.join(
+                "\n", Arrays.copyOfRange(lines, lines.length - ERROR_OUTPUT_LINES, lines.length))
+            : output;
+    final String shortened =
+        lastLines.length() > ERROR_OUTPUT_CHARS
+            ? lastLines.substring(lastLines.length() - ERROR_OUTPUT_CHARS)
+            : lastLines;
+    return shortened.length() == output.length()
+        ? output
+        : "[... " + (output.length() - shortened.length()) + " characters cut ...]\n" + shortened;
   }
 
   private Throwable handleExecutionError(

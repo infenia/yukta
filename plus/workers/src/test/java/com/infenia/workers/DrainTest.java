@@ -49,6 +49,7 @@ class DrainTest {
         .properties(
             "yukta.workers.control-plane=localhost:" + port,
             "yukta.workers.token=secret",
+            "yukta.workers.allow-insecure=true",
             "yukta.workers.id=" + name,
             "yukta.workers.plugin-types=UPPER,SLOW",
             "yukta.workers.capacity=2",
@@ -72,6 +73,7 @@ class DrainTest {
             .properties(
                 "spring.rsocket.server.port=0",
                 "yukta.workers.token=secret",
+                "yukta.workers.allow-insecure=true",
                 "yukta.workers.lease=3s")
             .run()) {
       final String port = controlPlane.getEnvironment().getProperty("local.rsocket.server.port");

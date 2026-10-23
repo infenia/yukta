@@ -12,7 +12,8 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
     },
     mutations: {
-      retry: 1,
+      // A repeated start, signal or rollback must not run twice; the user retries by hand.
+      retry: 0,
     },
   },
 });
