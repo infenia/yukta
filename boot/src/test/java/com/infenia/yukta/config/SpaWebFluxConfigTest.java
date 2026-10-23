@@ -39,6 +39,26 @@ class SpaWebFluxConfigTest {
   @Captor private ArgumentCaptor<String[]> pathPatternsCaptor;
 
   @Test
+  void fallbackServesHtmlToBrowsersButNotToJsonOnlyClients() {
+    final var client = WebTestClient.bindToRouterFunction(config.spaRouter()).build();
+
+    client
+        .get()
+        .uri("/workflows")
+        .header("Accept", "text/html,*/*;q=0.8")
+        .exchange()
+        .expectStatus()
+        .isOk();
+    client
+        .get()
+        .uri("/apis/workflows")
+        .header("Accept", "application/json")
+        .exchange()
+        .expectStatus()
+        .isNotFound();
+  }
+
+  @Test
   void testAddResourceHandlersRegistersNestedAssetsPatternSeparately() {
     final ResourceHandlerRegistration registration = mock(ResourceHandlerRegistration.class);
     when(registry.addResourceHandler(any(String[].class))).thenReturn(registration);

@@ -4,6 +4,7 @@ package com.infenia.yukta;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
 import java.util.Properties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -105,7 +106,16 @@ public class YuktaApplication {
   }
 
   private static boolean hasProfileArgument(final String... args) {
-    boolean retValue = false;
+    return profileChosen(System.getenv(), args);
+  }
+
+  /**
+   * Whether the operator picked a profile: a command-line argument, or the {@code
+   * SPRING_PROFILES_ACTIVE} variable (the system property main() would set beats the variable, so
+   * it must not be set over it).
+   */
+  /* default */ static boolean profileChosen(final Map<String, String> env, final String... args) {
+    boolean retValue = env.containsKey("SPRING_PROFILES_ACTIVE");
     for (final String arg : args) {
       if (arg.startsWith("--spring.profiles.active=")
           || arg.startsWith("-Dspring.profiles.active=")) {
