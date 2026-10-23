@@ -2,9 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.http;
 
+import com.infenia.yukta.plugin.util.EgressPolicy;
 import com.infenia.yukta.plugin.util.HostAllowList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,19 @@ public class HttpRequestGateway {
     this.allowedHosts = HostAllowList.from(hosts);
   }
 
+  /** Where the deployment, workflow and session allow calls to go. */
+  private EgressPolicy egress = EgressPolicy.OPEN;
+
+  /**
+   * Sets the deployment, workflow and session host lists ({@code yukta.egress.*}).
+   *
+   * @param policy the policy
+   */
+  @Autowired(required = false)
+  /* default */ void setEgressPolicy(final EgressPolicy policy) {
+    this.egress = policy;
+  }
+
   /**
    * Execute the request. Non-2xx responses are returned as data; only transport failures and
    * timeouts error.
@@ -42,6 +57,10 @@ public class HttpRequestGateway {
    * @return a Mono emitting the response
    */
   public Mono<HttpRequestResult> execute(final HttpRequestSpec spec) {
+    return egress.check(spec.url()).then(Mono.defer(() -> send(spec)));
+  }
+
+  private Mono<HttpRequestResult> send(final HttpRequestSpec spec) {
     final String refusal = allowedHosts.refusalFor(spec.url(), "yukta.http.allowed-hosts");
     if (refusal != null) {
       return Mono.error(new IllegalArgumentException(refusal));

@@ -11,6 +11,7 @@ import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.util.ConfigValidation;
+import com.infenia.yukta.plugin.util.EgressPolicy;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -41,6 +42,9 @@ public final class NotifyTerminal implements TerminalPlugin {
   /** Metrics reporter. */
   private final PluginMetricsReporter reporter;
 
+  /** Where the deployment, workflow and session allow calls to go. */
+  private EgressPolicy egress = EgressPolicy.OPEN;
+
   /**
    * Creates a terminal without metrics.
    *
@@ -63,6 +67,16 @@ public final class NotifyTerminal implements TerminalPlugin {
       final ObjectProvider<PluginMetricsReporter> reporterProvider) {
     this.webClientBuilder = webClientBuilder;
     this.reporter = reporterProvider.getIfAvailable(() -> PluginMetricsReporter.NOOP);
+  }
+
+  /**
+   * Sets the deployment, workflow and session host lists ({@code yukta.egress.*}).
+   *
+   * @param policy the policy
+   */
+  @Autowired(required = false)
+  /* default */ void setEgressPolicy(final EgressPolicy policy) {
+    this.egress = policy;
   }
 
   @Override
@@ -152,6 +166,15 @@ public final class NotifyTerminal implements TerminalPlugin {
   }
 
   private Mono<Void> send(
+      final WebClient client,
+      final String url,
+      final Duration timeout,
+      final Message<?> message,
+      final Map<String, Object> config) {
+    return egress.check(url).then(Mono.defer(() -> post(client, url, timeout, message, config)));
+  }
+
+  private Mono<Void> post(
       final WebClient client,
       final String url,
       final Duration timeout,

@@ -4,6 +4,8 @@ package com.infenia.yukta.plugin.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.plugin.util.EgressPolicy;
+import com.infenia.yukta.plugin.util.HostAllowList;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -22,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.test.StepVerifier;
+import reactor.util.context.Context;
 
 @SuppressWarnings({
   "PMD.AvoidInstantiatingObjectsInLoops",
@@ -504,6 +507,24 @@ class McpClientGatewayTest {
         .verify();
     StepVerifier.create(gateway.listTools(spec("ping"), () -> {}))
         .expectErrorMessage("Host 'localhost' is not in yukta.mcp-client.allowed-hosts")
+        .verify();
+    assertThat(methods).as("no request reached the server").isEmpty();
+  }
+
+  @Test
+  void sessionEgressListRefusesBeforeAnyRequest() {
+    gateway.setEgressPolicy(
+        new EgressPolicy(
+            HostAllowList.from(null),
+            Map.of(),
+            Map.of("s1", HostAllowList.from(List.of("example.com")))));
+    final Context ctx = Context.of("sessionId", "s1");
+
+    StepVerifier.create(gateway.call(spec("ping"), () -> {}).contextWrite(ctx))
+        .expectErrorMessage("Host 'localhost' is not in yukta.egress.by-session.s1")
+        .verify();
+    StepVerifier.create(gateway.listTools(spec("ping"), () -> {}).contextWrite(ctx))
+        .expectErrorMessage("Host 'localhost' is not in yukta.egress.by-session.s1")
         .verify();
     assertThat(methods).as("no request reached the server").isEmpty();
   }
