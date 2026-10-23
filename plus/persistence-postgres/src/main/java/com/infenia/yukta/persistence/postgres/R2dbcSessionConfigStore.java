@@ -42,6 +42,11 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
 
   @Override
   public Mono<Void> applySessionConfig(final SessionConfigData data) {
+    return Transactions.inTransaction(client, apply(data));
+  }
+
+  /** The session row and every workflow, written in one transaction by the caller. */
+  private Mono<Void> apply(final SessionConfigData data) {
     return Mono.fromCallable(() -> mapper.writeValueAsString(data.tags()))
         .flatMap(
             tags ->
