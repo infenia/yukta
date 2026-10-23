@@ -18,6 +18,7 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.CommentRequired",
   "PMD.UseConcurrentHashMap",
   "PMD.TooManyMethods",
+  "PMD.AvoidAccessibilityAlteration",
   "PMD.UnitTestShouldIncludeAssert"
 })
 class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
@@ -27,6 +28,13 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
 
   private final java.util.concurrent.CountDownLatch release =
       new java.util.concurrent.CountDownLatch(1);
+
+  private static final String REASON = "reason";
+
+  private static final String LOST = "yukta.execution.log.lost";
+
+  /** An id PostgreSQL cannot store. */
+  private static final String UNWRITABLE = "a\u0000b";
 
   private R2dbcExecutionLogStore store;
 
@@ -91,7 +99,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     store.append(started("old"));
     store.readAll();
     // PostgreSQL text cannot hold a NUL character, so the second insert fails
-    final ExecutionLogEvent unwritable = started("a\u0000b");
+    final ExecutionLogEvent unwritable = started(UNWRITABLE);
 
     store.replaceAll(List.of(started("new1"), unwritable));
 
@@ -100,7 +108,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
 
   @Test
   void appendThatCannotBeWritten_isSkippedAndTheLogStaysUsable() {
-    store.append(started("a\u0000b"));
+    store.append(started(UNWRITABLE));
     store.append(started("ok"));
 
     assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsExactly("ok");
@@ -286,14 +294,54 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
         new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
     final R2dbcExecutionLogStore saturated =
-        new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 1_000, 5_000, full, meters);
+        new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 1_000, 5_000, full, meters, 1);
 
-    saturated.append(started("dropped"));
+    saturated.append(ExecutionLogEvent.nodeFinished("dropped", "s", "w", "n"));
 
     assertThat(full).hasSize(1);
-    assertThat(meters.get("yukta.execution.log.lost").tag("reason", "queue_full").counter().count())
-        .isEqualTo(1.0);
+    assertThat(meters.get(LOST).tag(REASON, "queue_full").counter().count()).isEqualTo(1.0);
     saturated.close();
+  }
+
+  @Test
+  void whenTheQueueIsFull_theRunEndIsStillWritten() {
+    final java.util.concurrent.BlockingQueue<ExecutionLogEvent> full =
+        new java.util.concurrent.ArrayBlockingQueue<>(1);
+    full.add(started("waiting"));
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    final R2dbcExecutionLogStore saturated =
+        new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 1_000, 5_000, full, meters, 1);
+
+    saturated.append(finished("r1"));
+
+    assertThat(saturated.readAll())
+        .extracting(ExecutionLogEvent::type)
+        .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED);
+    assertThat(meters.get(LOST).tag(REASON, "queue_full").counter().count()).isEqualTo(0.0);
+    saturated.close();
+  }
+
+  @Test
+  void runEndThatFailsToInsert_isRetriedUntilTheDatabaseIsBack() {
+    db.sql("ALTER TABLE execution_log RENAME TO execution_log_gone").fetch().rowsUpdated().block();
+    final R2dbcExecutionLogStore retrying =
+        new R2dbcExecutionLogStore(
+            db,
+            new ObjectMapper(),
+            2,
+            1_000,
+            5_000,
+            new java.util.concurrent.ArrayBlockingQueue<>(10),
+            new io.micrometer.core.instrument.simple.SimpleMeterRegistry(),
+            400);
+    retrying.append(finished("r1"));
+    db.sql("ALTER TABLE execution_log_gone RENAME TO execution_log").fetch().rowsUpdated().block();
+
+    assertThat(retrying.readAll())
+        .extracting(ExecutionLogEvent::type)
+        .containsExactly(ExecutionLogEvent.Type.RUN_FINISHED);
+    retrying.close();
   }
 
   @Test
@@ -303,12 +351,46 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     final R2dbcExecutionLogStore counting =
         new R2dbcExecutionLogStore(db, new ObjectMapper(), 1_000, 100_000, 5_000, meters);
 
-    counting.append(started("a\u0000b"));
+    counting.append(ExecutionLogEvent.nodeFinished(UNWRITABLE, "s", "w", "n"));
     counting.readAll();
 
-    assertThat(
-            meters.get("yukta.execution.log.lost").tag("reason", "write_failed").counter().count())
-        .isEqualTo(1.0);
+    assertThat(meters.get(LOST).tag(REASON, "write_failed").counter().count()).isEqualTo(1.0);
     counting.close();
+  }
+
+  @Test
+  void runEndThatNeverGetsWritten_isCountedAsLostAfterTheRetries() {
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    final R2dbcExecutionLogStore counting =
+        new R2dbcExecutionLogStore(
+            db,
+            new ObjectMapper(),
+            2,
+            1_000,
+            5_000,
+            new java.util.concurrent.ArrayBlockingQueue<>(10),
+            meters,
+            1);
+
+    counting.append(finished(UNWRITABLE));
+    counting.readAll();
+
+    assertThat(meters.get(LOST).tag(REASON, "write_failed").counter().count()).isEqualTo(1.0);
+    counting.close();
+  }
+
+  @Test
+  void retryOfRunEnd_stopsWhenTheWriterIsInterrupted() throws ReflectiveOperationException {
+    final java.lang.reflect.Method insert =
+        R2dbcExecutionLogStore.class.getDeclaredMethod("insert", ExecutionLogEvent.class);
+    insert.setAccessible(true);
+    Thread.currentThread().interrupt();
+    try {
+      insert.invoke(store, finished(UNWRITABLE));
+      assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    } finally {
+      Thread.interrupted();
+    }
   }
 }
