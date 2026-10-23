@@ -15,9 +15,16 @@ import reactor.util.context.Context;
 @NoArgsConstructor
 class EgressPolicyTest {
 
+  /** Reactor context key of the workflow id. */
+  private static final String WORKFLOW_ID = "workflowId";
+
+  /** A URL on the host that only the deployment and session lists allow. */
+  private static final String B_URL = "https://b.example.com/";
+
   /** Hosts the deployment allows. */
   private static final List<String> DEPLOYMENT = List.of("a.example.com", "b.example.com");
 
+  /** Deployment, workflow {@code wf} and session {@code s1} lists. */
   private static final EgressPolicy POLICY =
       new EgressPolicy(
           HostAllowList.from(DEPLOYMENT),
@@ -34,7 +41,7 @@ class EgressPolicyTest {
   }
 
   @Test
-  void deploymentList_appliesWithoutARun() {
+  void deploymentList_appliesWithoutRun() {
     assertThat(refusal("https://a.example.com/x", Context.empty())).isNull();
     assertThat(refusal("https://evil.org/x", Context.empty()))
         .isEqualTo("Host 'evil.org' is not in yukta.egress.allowed-hosts");
@@ -42,45 +49,44 @@ class EgressPolicyTest {
 
   @Test
   void workflowList_narrowsTheDeploymentList() {
-    final Context ctx = Context.of("workflowId", "wf");
+    final Context ctx = Context.of(WORKFLOW_ID, "wf");
     assertThat(refusal("https://a.example.com/", ctx)).isNull();
-    assertThat(refusal("https://b.example.com/", ctx))
+    assertThat(refusal(B_URL, ctx))
         .isEqualTo("Host 'b.example.com' is not in yukta.egress.by-workflow.wf");
   }
 
   @Test
   void workflowList_cannotWidenTheDeploymentList() {
-    assertThat(refusal("https://c.example.com/", Context.of("workflowId", "wf")))
+    assertThat(refusal("https://c.example.com/", Context.of(WORKFLOW_ID, "wf")))
         .isEqualTo("Host 'c.example.com' is not in yukta.egress.allowed-hosts");
   }
 
   @Test
   void sessionList_narrowsTheDeploymentList() {
     final Context ctx = Context.of("sessionId", "s1");
-    assertThat(refusal("https://b.example.com/", ctx)).isNull();
+    assertThat(refusal(B_URL, ctx)).isNull();
     assertThat(refusal("https://a.example.com/", ctx))
         .isEqualTo("Host 'a.example.com' is not in yukta.egress.by-session.s1");
   }
 
   @Test
   void bothLayers_mustAgree() {
-    final Context ctx = Context.of("workflowId", "wf", "sessionId", "s1");
+    final Context ctx = Context.of(WORKFLOW_ID, "wf", "sessionId", "s1");
     assertThat(refusal("https://a.example.com/", ctx)).contains("by-session.s1");
-    assertThat(refusal("https://b.example.com/", ctx)).contains("by-workflow.wf");
+    assertThat(refusal(B_URL, ctx)).contains("by-workflow.wf");
   }
 
   @Test
   void otherWorkflowsAndSessions_haveOnlyTheDeploymentList() {
-    final Context ctx = Context.of("workflowId", "other", "sessionId", "other");
-    assertThat(refusal("https://b.example.com/", ctx)).isNull();
+    final Context ctx = Context.of(WORKFLOW_ID, "other", "sessionId", "other");
+    assertThat(refusal(B_URL, ctx)).isNull();
   }
 
   @Test
   void check_failsOrCompletesByTheContextOfTheCall() {
-    StepVerifier.create(
-            POLICY.check("https://b.example.com/").contextWrite(Context.of("workflowId", "wf")))
+    StepVerifier.create(POLICY.check(B_URL).contextWrite(Context.of(WORKFLOW_ID, "wf")))
         .expectErrorMessage("Host 'b.example.com' is not in yukta.egress.by-workflow.wf")
         .verify();
-    StepVerifier.create(POLICY.check("https://b.example.com/")).verifyComplete();
+    StepVerifier.create(POLICY.check(B_URL)).verifyComplete();
   }
 }

@@ -25,6 +25,9 @@ public class HttpRequestGateway {
   /** The hosts a request may reach; empty allows every host. */
   private HostAllowList allowedHosts = HostAllowList.from(null);
 
+  /** Where the deployment, workflow and session allow calls to go. */
+  private EgressPolicy egress = EgressPolicy.OPEN;
+
   /**
    * Sets the hosts requests may reach ({@code yukta.http.allowed-hosts}); empty allows any. A
    * listed host is a name, an IP address or {@code *.domain}.
@@ -35,9 +38,6 @@ public class HttpRequestGateway {
   /* default */ void setAllowedHosts(final List<String> hosts) {
     this.allowedHosts = HostAllowList.from(hosts);
   }
-
-  /** Where the deployment, workflow and session allow calls to go. */
-  private EgressPolicy egress = EgressPolicy.OPEN;
 
   /**
    * Sets the deployment, workflow and session host lists ({@code yukta.egress.*}).

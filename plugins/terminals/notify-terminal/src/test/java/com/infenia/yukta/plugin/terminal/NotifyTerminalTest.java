@@ -106,7 +106,8 @@ class NotifyTerminalTest {
             terminal
                 .consume(messages("x"), Map.of(URL_KEY, url))
                 .contextWrite(Context.of("workflowId", "wf")))
-        .expectErrorMessageMatches(m -> m.contains("yukta.egress.by-workflow.wf"))
+        .expectErrorSatisfies(
+            e -> assertThat(e).hasMessageContaining("yukta.egress.by-workflow.wf"))
         .verify();
     assertThat(bodies).isEmpty();
   }

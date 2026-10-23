@@ -80,7 +80,6 @@ public final class EgressPolicy {
    * @param ctx the Reactor context of the call
    * @return the reason, or null if the call is allowed
    */
-  @SuppressWarnings("PMD.OnlyOneReturn")
   public @Nullable String refusalFor(final String url, final ContextView ctx) {
     String refusal = deployment.refusalFor(url, "yukta.egress.allowed-hosts");
     if (refusal == null) {
@@ -98,8 +97,8 @@ public final class EgressPolicy {
       final String key,
       final Map<String, HostAllowList> lists,
       final String property) {
-    final Object id = ctx.getOrDefault(key, null);
-    final HostAllowList list = id == null ? null : lists.get(id.toString());
-    return list == null ? null : list.refusalFor(url, property + "." + id);
+    final Object scopeId = ctx.getOrDefault(key, null);
+    final HostAllowList list = scopeId == null ? null : lists.get(scopeId.toString());
+    return list == null ? null : list.refusalFor(url, property + "." + scopeId);
   }
 }
