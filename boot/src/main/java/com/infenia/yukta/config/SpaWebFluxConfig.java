@@ -17,6 +17,7 @@ import org.springframework.web.reactive.function.server.RequestPredicate;
 import org.springframework.web.reactive.function.server.RequestPredicates;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.RouterFunctions;
+import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
@@ -78,6 +79,15 @@ public class SpaWebFluxConfig implements WebFluxConfigurer {
   }
 
   /**
+   * Whether the caller can take HTML. A client that asks only for JSON (a mistyped REST path)
+   * should get a 404, not a page it cannot parse.
+   */
+  private static boolean wantsHtml(final ServerRequest request) {
+    final List<MediaType> accept = request.headers().accept();
+    return accept.isEmpty() || accept.stream().anyMatch(MediaType.TEXT_HTML::isCompatibleWith);
+  }
+
+  /**
    * SPA fallback router: serves index.html for all unmatched routes to enable client-side routing.
    * Excludes API routes (/api/**, /actuator/**, /mcp/**, /sse/**, OpenAPI /v3/** and Swagger UI)
    * and static asset paths so the resource handler mapping (registered in {@link
@@ -96,7 +106,8 @@ public class SpaWebFluxConfig implements WebFluxConfigurer {
             .and(RequestPredicates.path("/swagger-ui/**").negate())
             .and(RequestPredicates.path("/swagger-ui.html").negate())
             .and(RequestPredicates.path("/webjars/**").negate())
-            .and(RequestPredicates.path("/sse/**").negate());
+            .and(RequestPredicates.path("/sse/**").negate())
+            .and(SpaWebFluxConfig::wantsHtml);
     for (final String pattern : STATIC_ASSET_PATTERNS) {
       predicate = predicate.and(RequestPredicates.path(pattern).negate());
     }

@@ -26,8 +26,8 @@ public class LogStoreAutoConfiguration {
   /**
    * Create in-memory log store bean.
    *
-   * <p>Active by default when no other PluginLogStore bean exists. Can be overridden by setting
-   * `yukta.logs.store.backend=file` or `database` (when those implementations are available).
+   * <p>Active by default when no other PluginLogStore bean exists. Replace it by defining your own
+   * PluginLogStore bean; `memory` is the only value of `yukta.logs.store.backend`.
    *
    * @param config the log store configuration
    * @return the log store instance

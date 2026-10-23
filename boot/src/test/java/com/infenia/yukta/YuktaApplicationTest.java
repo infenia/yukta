@@ -151,6 +151,15 @@ class YuktaApplicationTest {
   }
 
   @Test
+  void profileEnvironmentVariableCountsAsChosen() {
+    assertThat(
+            YuktaApplication.profileChosen(
+                java.util.Map.of("SPRING_PROFILES_ACTIVE", "prod,postgres")))
+        .isTrue();
+    assertThat(YuktaApplication.profileChosen(java.util.Map.of())).isFalse();
+  }
+
+  @Test
   void testHasProfileArgumentWithActiveProfileFlag() {
     final String[] args = {"--spring.profiles.active=prod"};
     assertThat(hasProfileArgumentReflection(args)).isTrue();

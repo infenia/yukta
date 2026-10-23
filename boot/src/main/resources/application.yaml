@@ -58,20 +58,11 @@ yukta:
     status-history-ttl-minutes: 5
   logs:
     store:
-      backend: memory              # memory | file
+      backend: memory              # memory is the only store
       retention:
         default-period-minutes: 30 # User-configurable retention period
         # Note: Maximum retention is hardcoded to 1440 minutes (24 hours)
         # If configured value exceeds max, max will take effect
-
-control:
-  bus:
-    batch:
-      size: 100          # Number of control signals to batch before processing
-      timeout:
-        ms: 50           # Timeout (in ms) for batch accumulation
-    buffer:
-      size: 256          # Internal buffer size (Queues.SMALL_BUFFER_SIZE = 256)
 
 management:
   endpoints:
@@ -80,7 +71,7 @@ management:
         include: health,info,metrics
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: never          # no Spring Security here, so nobody can be "authorized"
 
 # R2DBC and Flyway are only on the class path in a build made with -Pyukta.persistence=postgres;
 # they are left out unless the postgres profile is active (SPRING_PROFILES_ACTIVE=prod,postgres).
