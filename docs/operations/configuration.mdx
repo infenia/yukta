@@ -177,6 +177,7 @@ See [Security](/operations/security).
 | `yukta.script.max-statements` | `50000000` | Most statements a script may run. System property only |
 | `yukta.mcp-client.allowed-tools` | empty (any) | Tools `MCP_TOOL_CALL` may call |
 | `yukta.mcp-client.allowed-hosts` | empty (any) | Hosts `MCP_TOOL_CALL` and `MCP_LIST_TOOLS` may call: names, IP addresses or `*.domain` |
+| `yukta.files.allowed-root` | unset | Directory every `FILE_READ` / `FILE_WRITE` `baseDir` must be inside. System property, or env `YUKTA_FILES_ALLOWED_ROOT` |
 | `yukta.http.allowed-hosts` | empty (any) | Hosts `HTTP_REQUEST` may call: names, IP addresses or `*.domain` |
 | `yukta.mcp-client.max-argument-bytes` | `65536` | Most bytes of arguments, as JSON, in one tool call |
 | `yukta.mcp-client.deny-argument-patterns` | empty | Regular expressions that tool arguments must not match |
