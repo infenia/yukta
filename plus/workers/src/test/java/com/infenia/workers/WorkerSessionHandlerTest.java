@@ -116,7 +116,7 @@ class WorkerSessionHandlerTest {
   @Test
   void frameSetsAreCopiedAndNullSetsBecomeEmpty() {
     final WorkerFrame frame =
-        new WorkerFrame(WorkerFrame.Type.ACK, null, null, null, null, 0, 0, false, null);
+        new WorkerFrame(WorkerFrame.Type.ACK, null, null, null, null, 0, 0, false, null, null);
 
     assertThat(frame.pools()).isEmpty();
     assertThat(frame.pluginTypes()).isEmpty();
@@ -138,6 +138,46 @@ class WorkerSessionHandlerTest {
 
     StepVerifier.create(standby.session(requester, Flux.just(hello("secret", "w1", 4))))
         .assertNext(frame -> assertThat(frame.message()).contains("not the leader"))
+        .verifyComplete();
+
+    assertThat(registry.list()).isEmpty();
+  }
+
+  @Test
+  void workerOfAnotherProtocol_isRefusedWithAReason_includingOneBuiltBeforeTheVersionExisted() {
+    // what a worker of the previous release sends: the same frame without "protocol"
+    final WorkerFrame old =
+        new tools.jackson.databind.ObjectMapper()
+            .readValue(
+                """
+                {"type":"REGISTER","token":"secret","workerId":"w1","pools":["default"],
+                 "pluginTypes":["HTTP_REQUEST"],"capacity":4,"usedSlots":0,"draining":false}
+                """,
+                WorkerFrame.class);
+
+    StepVerifier.create(handler.session(requester, Flux.just(old)))
+        .assertNext(
+            frame ->
+                assertThat(frame.message())
+                    .contains("protocol version (none)")
+                    .contains("upgrade the worker"))
+        .verifyComplete();
+    StepVerifier.create(
+            handler.session(
+                requester,
+                Flux.just(
+                    new WorkerFrame(
+                        WorkerFrame.Type.REGISTER,
+                        "secret",
+                        "w1",
+                        Set.of(),
+                        Set.of(),
+                        4,
+                        0,
+                        false,
+                        null,
+                        WorkerFrame.PROTOCOL + 1))))
+        .assertNext(frame -> assertThat(frame.message()).contains("not supported"))
         .verifyComplete();
 
     assertThat(registry.list()).isEmpty();

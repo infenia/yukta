@@ -91,6 +91,10 @@ A worker that stops first tells the control plane that it is draining, so it rec
 
 If a worker loses the control plane, it reconnects with a pause that grows from 1 second to 30 seconds and does not give up.
 
+## Upgrades
+
+The control plane and its workers must run the same wire protocol version. A worker that registers with another version is refused with the reason in its log and does not get jobs, so upgrade the workers and the control plane to the same release. For a rolling upgrade, start the new workers next to the old ones only while the control plane is still on the old release, then upgrade the control plane and move the workers over.
+
 ## Security
 
 - **Token.** Every worker presents the shared `yukta.workers.token`. The control plane compares it in constant time and refuses a wrong one.
