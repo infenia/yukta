@@ -17,7 +17,10 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.r2dbc.connection.R2dbcTransactionManager;
 import org.springframework.r2dbc.core.DatabaseClient;
+import org.springframework.transaction.reactive.TransactionalOperator;
+import reactor.core.publisher.Flux;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -40,6 +43,9 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
 
   /** Longest one statement may take. */
   private static final Duration STATEMENT_TIMEOUT = Duration.ofSeconds(30);
+
+  /** Longest the rewrite of the whole log may take. */
+  private static final Duration REWRITE_TIMEOUT = Duration.ofMinutes(2);
 
   /** Id of the changes that belong to no run. */
   private static final String SCHEDULER = ExecutionLogEvent.SCHEDULER;
@@ -141,12 +147,35 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
     return onWriter(this::read, List.of());
   }
 
+  /**
+   * Swaps the log for {@code events} in one transaction: a crash, a lost connection or a failed
+   * insert rolls everything back and leaves the old log, never an empty or partial one.
+   */
   @Override
   public void replaceAll(final List<ExecutionLogEvent> events) {
     onWriter(
         () -> {
-          client.sql("DELETE FROM execution_log").fetch().rowsUpdated().block(STATEMENT_TIMEOUT);
-          events.forEach(this::insert);
+          final TransactionalOperator transaction =
+              TransactionalOperator.create(
+                  new R2dbcTransactionManager(client.getConnectionFactory()));
+          final List<String> json = events.stream().map(this::json).toList();
+          client
+              .sql("DELETE FROM execution_log")
+              .fetch()
+              .rowsUpdated()
+              .thenMany(
+                  Flux.range(0, (events.size() + BATCH_SIZE - 1) / BATCH_SIZE)
+                      .concatMap(
+                          chunk -> {
+                            final int start = chunk * BATCH_SIZE;
+                            final int end = Math.min(events.size(), start + BATCH_SIZE);
+                            return batchInsert(events.subList(start, end), json.subList(start, end))
+                                .fetch()
+                                .rowsUpdated();
+                          }))
+              .then()
+              .as(transaction::transactional)
+              .block(REWRITE_TIMEOUT);
           return null;
         },
         null);
@@ -201,27 +230,34 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   /** One multi-row insert; if it fails the events are tried one by one so none is lost. */
   private void insertBatch(final List<ExecutionLogEvent> batch) {
     try {
-      final StringBuilder sql =
-          new StringBuilder(128).append("INSERT INTO execution_log (execution_id, event) VALUES ");
-      final List<String> json = new ArrayList<>(batch.size());
-      for (int i = 0; i < batch.size(); i++) {
-        sql.append(i == 0 ? "" : ", ")
-            .append("(:e")
-            .append(i)
-            .append(", CAST(:j")
-            .append(i)
-            .append(" AS jsonb))");
-        json.add(json(batch.get(i)));
-      }
-      DatabaseClient.GenericExecuteSpec spec = client.sql(sql.toString());
-      for (int i = 0; i < batch.size(); i++) {
-        spec = spec.bind("e" + i, batch.get(i).executionId()).bind("j" + i, json.get(i));
-      }
-      spec.fetch().rowsUpdated().block(STATEMENT_TIMEOUT);
+      batchInsert(batch, batch.stream().map(this::json).toList())
+          .fetch()
+          .rowsUpdated()
+          .block(STATEMENT_TIMEOUT);
     } catch (final RuntimeException e) {
       log.atWarn().setCause(e).log("Batch insert failed, writing the events one by one");
       batch.forEach(this::insert);
     }
+  }
+
+  /** The statement that inserts {@code batch}, whose events are already written as {@code json}. */
+  private DatabaseClient.GenericExecuteSpec batchInsert(
+      final List<ExecutionLogEvent> batch, final List<String> json) {
+    final StringBuilder sql =
+        new StringBuilder(128).append("INSERT INTO execution_log (execution_id, event) VALUES ");
+    for (int i = 0; i < batch.size(); i++) {
+      sql.append(i == 0 ? "" : ", ")
+          .append("(:e")
+          .append(i)
+          .append(", CAST(:j")
+          .append(i)
+          .append(" AS jsonb))");
+    }
+    DatabaseClient.GenericExecuteSpec spec = client.sql(sql.toString());
+    for (int i = 0; i < batch.size(); i++) {
+      spec = spec.bind("e" + i, batch.get(i).executionId()).bind("j" + i, json.get(i));
+    }
+    return spec;
   }
 
   private void insert(final ExecutionLogEvent event) {

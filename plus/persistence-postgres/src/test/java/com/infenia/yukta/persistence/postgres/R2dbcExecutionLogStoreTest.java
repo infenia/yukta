@@ -81,6 +81,36 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void replaceAllThatFails_keepsTheOldLog() {
+    store.append(started("old"));
+    store.readAll();
+    // PostgreSQL text cannot hold a NUL character, so the second insert fails
+    final ExecutionLogEvent unwritable = started("a\u0000b");
+
+    store.replaceAll(List.of(started("new1"), unwritable));
+
+    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsExactly("old");
+  }
+
+  @Test
+  void appendThatCannotBeWritten_isSkippedAndTheLogStaysUsable() {
+    store.append(started("a\u0000b"));
+    store.append(started("ok"));
+
+    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsExactly("ok");
+  }
+
+  @Test
+  void replaceAllWritesMoreThanOneBatch() {
+    final List<ExecutionLogEvent> events =
+        java.util.stream.IntStream.range(0, 250).mapToObj(i -> started("r" + i)).toList();
+
+    store.replaceAll(events);
+
+    assertThat(store.readAll()).hasSize(250);
+  }
+
+  @Test
   void unreadableRow_isSkipped() {
     store.append(started("r1"));
     store.readAll();
