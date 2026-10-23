@@ -10,7 +10,9 @@ public enum Mode {
   /** Attach the stored history to the payload and record the user's turn. */
   LOAD,
   /** Record the assistant's turn. */
-  APPEND;
+  APPEND,
+  /** Delete the stored history of the session. */
+  DELETE;
 
   /**
    * Parse a configuration value, case-insensitively.

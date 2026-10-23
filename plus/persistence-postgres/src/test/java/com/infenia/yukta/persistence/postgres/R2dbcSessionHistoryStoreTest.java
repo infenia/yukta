@@ -49,6 +49,19 @@ class R2dbcSessionHistoryStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void deletedHistory_isGone() {
+    final R2dbcSessionHistoryStore store =
+        new R2dbcSessionHistoryStore(db, new ObjectMapper(), null);
+    store.save("s1", TURNS);
+    store.save("s2", TURNS);
+
+    store.delete("s1");
+
+    assertThat(store.load("s1")).isEmpty();
+    assertThat(store.load("s2")).contains(TURNS);
+  }
+
+  @Test
   void anUnreachableDatabase_meansEmptyHistory_andNoFailure() {
     final R2dbcSessionHistoryStore store =
         new R2dbcSessionHistoryStore(db, new ObjectMapper(), null);
@@ -58,6 +71,7 @@ class R2dbcSessionHistoryStoreTest extends PostgresTestSupport {
         .block();
     try {
       store.save("s1", TURNS);
+      store.delete("s1");
       assertThat(store.load("s1")).isEmpty();
     } finally {
       db.sql("ALTER TABLE session_history_gone RENAME TO session_history")
@@ -77,6 +91,10 @@ class R2dbcSessionHistoryStoreTest extends PostgresTestSupport {
       assertThat(Thread.interrupted()).isTrue();
       Thread.currentThread().interrupt();
       store.save("s1", TURNS);
+      assertThat(Thread.currentThread().isInterrupted()).isTrue();
+      Thread.interrupted();
+      Thread.currentThread().interrupt();
+      store.delete("s1");
       assertThat(Thread.currentThread().isInterrupted()).isTrue();
     } finally {
       Thread.interrupted();

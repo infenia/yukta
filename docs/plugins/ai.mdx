@@ -212,19 +212,17 @@ Keeps chat history per conversation id, so a model sees earlier turns. Use two n
 
 | Option | Type | Default | Meaning |
 |---|---|---|---|
-| `mode` | `load` or `append` | none, required | `load` attaches history and records the user turn. `append` records the model's reply |
-| `sessionId` | string | none | The conversation id. Required for `load`. For `append` the default is `${metadata.sessionId}`. Variables allowed |
+| `mode` | `load`, `append` or `delete` | none, required | `load` attaches history. `append` records the user turn and the model's reply together. `delete` removes the conversation's history |
+| `sessionId` | string | none | The conversation id. Required for `load` and `delete`. For `append` the default is `${metadata.sessionId}`. Variables allowed |
 | `message` | string | none | The user turn to record. Required for `load`. Variables allowed |
 | `assistant` | string | `${payload.content}` | The reply to record, for `append`. Variables allowed |
 | `maxTurns` | number | `20` | Turns kept per conversation and returned by `load`. A turn is one user or assistant message. Positive |
 
 Output port: `default`.
 
-`load` reads the stored turns first, then records the user turn. The payload is the incoming payload (an object; any other payload becomes `{"input": <payload>}`) plus `history`, a list of `{"role", "content"}`. The metadata gets `sessionId`, which lets a later `append` node find the conversation. Feed the history to the model with `"messages": "payload['history']"` and `"prompt": "${payload.message}"`. `append` records the reply and passes the message on unchanged.
+`load` reads the stored turns. The payload is the incoming payload (an object; any other payload becomes `{"input": <payload>}`) plus `history`, a list of `{"role", "content"}`. The metadata gets `sessionId`, which lets a later `append` node find the conversation. Feed the history to the model with `"messages": "payload['history']"` and `"prompt": "${payload.message}"`. `append` stores the user turn from `load` together with the reply and passes the message on unchanged, so a failed model call leaves no unanswered question in the history.
 
-If the model call fails after `load`, the user turn is already stored without an answer.
-
-The conversation id is the whole key: histories are shared across all sessions and workflows on the server. Where history is kept is a server setting:
+History is kept per workflow: the key is the workflow id plus the conversation id, so another workflow that knows or guesses an id cannot read the conversation. **Upgrade note:** histories stored under the old key (the conversation id alone) are no longer read; a conversation starts empty after the upgrade. To erase a user's conversation on request, run a `delete` node with that `sessionId` (for example in a small workflow started by the request); it removes the history from memory and from the files or the PostgreSQL row. To limit how long history is kept, set `yukta.session-memory.ttl`. Where history is kept is a server setting:
 
 | Setting | Meaning |
 |---|---|

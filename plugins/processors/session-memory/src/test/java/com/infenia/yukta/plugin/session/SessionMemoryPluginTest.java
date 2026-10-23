@@ -60,14 +60,18 @@ class SessionMemoryPluginTest {
     return config;
   }
 
+  private static Message<?> message(final Object payload) {
+    return DefaultMessage.create(UUID.randomUUID(), payload).withWorkflowId("wf");
+  }
+
   private Flux<Message<?>> run(final Object payload, final Map<String, Object> config) {
-    return plugin.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), payload)), config);
+    return plugin.process(Flux.just(message(payload)), config);
   }
 
   @Test
-  void messagesRunInSequenceSoEachSeesTheTurnsBeforeIt() {
-    // a slow first message and a fast second one: handled concurrently, the second would load
-    // its history before the first has stored its turn
+  void messagesRunInSequenceSoTurnsAreStoredInOrder() {
+    // a slow first message and a fast second one: handled concurrently, the second would be
+    // stored before the first
     when(resolver.resolve(any(), any()))
         .thenAnswer(
             inv -> {
@@ -79,13 +83,11 @@ class SessionMemoryPluginTest {
 
     StepVerifier.create(
             plugin.process(
-                Flux.just(
-                    DefaultMessage.create(UUID.randomUUID(), "slow"),
-                    DefaultMessage.create(UUID.randomUUID(), "fast")),
-                load()))
-        .assertNext(m -> assertThat((List<?>) ((Map<?, ?>) m.payload()).get("history")).isEmpty())
-        .assertNext(m -> assertThat((List<?>) ((Map<?, ?>) m.payload()).get("history")).hasSize(1))
+                Flux.just(message("slow"), message("fast")),
+                Map.of("mode", "append", "sessionId", "s", "assistant", "a")))
+        .expectNextCount(2)
         .verifyComplete();
+    assertThat(store.history("wf:s", 10)).hasSize(2);
   }
 
   @Test
@@ -97,8 +99,8 @@ class SessionMemoryPluginTest {
 
   @Test
   void loadAttachesHistoryRecordsUserTurnAndStampsSession() {
-    store.append("s1", "user", "old q", 20);
-    store.append("s1", "assistant", "old a", 20);
+    store.append("wf:s1", "user", "old q", 20);
+    store.append("wf:s1", "assistant", "old a", 20);
 
     StepVerifier.create(run(Map.of("message", "hi", "sessionId", "s1"), load()))
         .assertNext(
@@ -110,12 +112,15 @@ class SessionMemoryPluginTest {
                       List.of(
                           Map.of("role", "user", "content", "old q"),
                           Map.of("role", "assistant", "content", "old a")));
-              assertThat(m.metadata()).containsEntry("sessionId", "s1");
+              assertThat(m.metadata())
+                  .containsEntry("sessionId", "s1")
+                  .containsEntry("sessionUserTurn", "hi");
               assertThat(m.sourcePort()).isEqualTo("default");
             })
         .verifyComplete();
 
-    assertThat(store.history("s1", 10)).last().isEqualTo(Map.of("role", "user", "content", "hi"));
+    // the user turn is stored by append, together with the answer
+    assertThat(store.history("wf:s1", 10)).hasSize(2);
   }
 
   @Test
@@ -132,7 +137,7 @@ class SessionMemoryPluginTest {
   @Test
   void loadHonoursMaxTurnsWindow() {
     for (int i = 0; i < 5; i++) {
-      store.append("s1", "user", "q" + i, 10);
+      store.append("wf:s1", "user", "q" + i, 10);
     }
 
     StepVerifier.create(run(Map.of(), load("maxTurns", 2)))
@@ -144,7 +149,7 @@ class SessionMemoryPluginTest {
                             Map.of("role", "user", "content", "q3"),
                             Map.of("role", "user", "content", "q4"))))
         .verifyComplete();
-    assertThat(store.history("s1", 10)).hasSize(2);
+    assertThat(store.history("wf:s1", 10)).hasSize(5);
   }
 
   @Test
@@ -162,7 +167,7 @@ class SessionMemoryPluginTest {
             })
         .verifyComplete();
 
-    assertThat(store.history("s9", 5))
+    assertThat(store.history("null:s9", 5))
         .containsExactly(Map.of("role", "assistant", "content", "the answer"));
   }
 
@@ -175,8 +180,48 @@ class SessionMemoryPluginTest {
         .expectNextCount(1)
         .verifyComplete();
 
-    assertThat(store.history("s7", 5))
+    assertThat(store.history("wf:s7", 5))
         .containsExactly(Map.of("role", "assistant", "content", "reply"));
+  }
+
+  @Test
+  void appendStoresTheUserTurnFromLoadTogetherWithTheAnswer() {
+    final Message<?> loaded = run(Map.of(), load()).blockFirst();
+    assertThat(store.history("wf:s1", 10)).isEmpty();
+
+    StepVerifier.create(
+            plugin.process(
+                Flux.just(loaded), Map.of("mode", "append", "sessionId", "s1", "assistant", "yo")))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(store.history("wf:s1", 10))
+        .containsExactly(
+            Map.of("role", "user", "content", "hi"), Map.of("role", "assistant", "content", "yo"));
+  }
+
+  @Test
+  void anotherWorkflowDoesNotSeeTheHistory() {
+    store.append("wf:s1", "user", "secret", 20);
+
+    StepVerifier.create(
+            plugin.process(
+                Flux.just(
+                    DefaultMessage.create(UUID.randomUUID(), Map.of()).withWorkflowId("other")),
+                load()))
+        .assertNext(m -> assertThat((List<?>) ((Map<?, ?>) m.payload()).get("history")).isEmpty())
+        .verifyComplete();
+  }
+
+  @Test
+  void deleteRemovesTheHistory() {
+    store.append("wf:s1", "user", "erase me", 20);
+
+    StepVerifier.create(run(Map.of(), Map.of("mode", "delete", "sessionId", "s1")))
+        .assertNext(m -> assertThat(m.sourcePort()).isEqualTo("default"))
+        .verifyComplete();
+
+    assertThat(store.history("wf:s1", 10)).isEmpty();
   }
 
   @Test
@@ -193,6 +238,8 @@ class SessionMemoryPluginTest {
   void validateConfigAcceptsValid() {
     StepVerifier.create(plugin.validateConfig(load("maxTurns", 5))).verifyComplete();
     StepVerifier.create(plugin.validateConfig(Map.of("mode", "append"))).verifyComplete();
+    StepVerifier.create(plugin.validateConfig(Map.of("mode", "delete", "sessionId", "s")))
+        .verifyComplete();
   }
 
   @Test
@@ -202,7 +249,13 @@ class SessionMemoryPluginTest {
     final Map<String, Object> noMessage = load();
     noMessage.remove("message");
     final List<Map<String, Object>> invalid =
-        List.of(Map.of(), Map.of("mode", "x"), noSession, noMessage, load("maxTurns", 0));
+        List.of(
+            Map.of(),
+            Map.of("mode", "x"),
+            noSession,
+            noMessage,
+            load("maxTurns", 0),
+            Map.of("mode", "delete"));
     for (final Map<String, Object> bad : invalid) {
       StepVerifier.create(plugin.validateConfig(bad))
           .expectError(IllegalArgumentException.class)
