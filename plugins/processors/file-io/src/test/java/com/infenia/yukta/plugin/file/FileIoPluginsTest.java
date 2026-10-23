@@ -102,6 +102,64 @@ class FileIoPluginsTest {
   }
 
   @Test
+  void lastLinkInThePathIsNotFollowed() throws Exception {
+    Files.writeString(dir.resolve("real.txt"), "data");
+    Files.createSymbolicLink(dir.resolve("alias.txt"), dir.resolve("real.txt"));
+    final Map<String, Object> config = Map.of(BASE_DIR, dir.toString(), PATH, "alias.txt");
+
+    StepVerifier.create(reader.process(messages(Map.of()), config)).expectError().verify();
+    StepVerifier.create(writer.process(messages(Map.of(CONTENT, "x")), config))
+        .expectError()
+        .verify();
+    assertThat(Files.readString(dir.resolve("real.txt"))).isEqualTo("data");
+  }
+
+  @Test
+  void operatorRootLimitsEveryBaseDir(@TempDir /* default */ final Path elsewhere)
+      throws Exception {
+    System.setProperty(FileSandbox.ROOT_PROPERTY, dir.toString());
+    try {
+      final Map<String, Object> inside = Map.of(BASE_DIR, dir.resolve("sub").toString());
+      final Map<String, Object> outside = Map.of(BASE_DIR, elsewhere.toString());
+      StepVerifier.create(reader.validateConfig(inside)).verifyComplete();
+      System.setProperty(FileSandbox.ROOT_PROPERTY, " ");
+      StepVerifier.create(reader.validateConfig(outside)).verifyComplete();
+      System.setProperty(FileSandbox.ROOT_PROPERTY, dir.toString());
+      StepVerifier.create(writer.process(messages(Map.of(CONTENT, "ok", PATH, "ok.txt")), inside))
+          .expectNextCount(1)
+          .verifyComplete();
+      assertThat(Files.readString(dir.resolve("sub/ok.txt"))).isEqualTo("ok");
+      StepVerifier.create(reader.validateConfig(outside))
+          .expectErrorMessage(
+              "baseDir " + elsewhere + " is outside the operator's root (yukta.files.allowed-root)")
+          .verify();
+      StepVerifier.create(writer.process(messages(Map.of(CONTENT, "x", PATH, "a.txt")), outside))
+          .expectError(IllegalArgumentException.class)
+          .verify();
+    } finally {
+      System.clearProperty(FileSandbox.ROOT_PROPERTY);
+    }
+  }
+
+  @Test
+  void baseDirLinkedOutOfTheRootIsRefused(@TempDir /* default */ final Path elsewhere)
+      throws Exception {
+    Files.writeString(elsewhere.resolve("x.txt"), "x");
+    Files.createSymbolicLink(dir.resolve("jump"), elsewhere);
+    System.setProperty(FileSandbox.ROOT_PROPERTY, dir.toString());
+    try {
+      StepVerifier.create(
+              reader.process(
+                  messages(Map.of(PATH, "x.txt")),
+                  Map.of(BASE_DIR, dir.resolve("jump").toString())))
+          .expectError(IllegalArgumentException.class)
+          .verify();
+    } finally {
+      System.clearProperty(FileSandbox.ROOT_PROPERTY);
+    }
+  }
+
+  @Test
   void metadataAndConfigValidation() {
     assertThat(reader.getType()).isEqualTo("FILE_READ");
     assertThat(writer.getType()).isEqualTo("FILE_WRITE");

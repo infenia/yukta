@@ -194,7 +194,7 @@ Writes or appends text to a file in a sandbox directory and passes the message o
 
 Output ports: `default`, plus `error` when `failureMode` is `CONTINUE`.
 
-For both file plugins, a path is normalised and anything that escapes `baseDir`, by `..` or through a symbolic link, is refused. `baseDir` and `path` are used as written, not variable-resolved. The sandbox limits what a path can reach, not who can author the workflow, since `baseDir` is itself part of the workflow. Messages are handled one at a time.
+For both file plugins, a path is normalised and anything that escapes `baseDir`, by `..` or through a symbolic link, is refused. `baseDir` and `path` are used as written, not variable-resolved. The file itself is opened without following a link, so a link as the last path element is refused even when it stays inside `baseDir`. The sandbox limits what a path can reach, not who can author the workflow, since `baseDir` is itself part of the workflow. To limit the author too, the operator sets the system property `yukta.files.allowed-root` (or the environment variable `YUKTA_FILES_ALLOWED_ROOT`) to a directory: every `baseDir` must then lie inside it, also through links, and a workflow with another `baseDir` is refused when it is saved. Messages are handled one at a time.
 
 ```json
 {
