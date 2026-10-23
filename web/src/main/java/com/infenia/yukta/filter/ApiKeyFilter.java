@@ -165,6 +165,15 @@ public class ApiKeyFilter implements WebFilter {
     if (!permitted(match, exchange, path)) {
       return reject(exchange, HttpStatus.FORBIDDEN, "This API key may not do that");
     }
+    return proceed(exchange, chain, match, path);
+  }
+
+  /** Counts the request against the key's rate limit, then hands it on naming the actor. */
+  private Mono<Void> proceed(
+      final ServerWebExchange exchange,
+      final WebFilterChain chain,
+      final ApiKeys.Match match,
+      final String path) {
     if (isUnder(path, "/api") && !limiter.tryAcquire(match.name())) {
       exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, "60");
       return reject(exchange, HttpStatus.TOO_MANY_REQUESTS, "Too many requests, slow down");
