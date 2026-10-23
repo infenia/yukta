@@ -144,23 +144,22 @@ public final class SpelUtils {
    * expression both parse it, the first result stays cached and each uses its own copy.
    */
   private static Expression parsed(final String expressionStr) {
-    final Expression cached = CACHE.get(expressionStr);
-    if (cached != null) {
-      return cached;
+    Expression expression = CACHE.get(expressionStr);
+    if (expression == null) {
+      final int max = Integer.getInteger(MAX_LENGTH_PROPERTY, DEFAULT_MAX_LENGTH);
+      if (expressionStr.length() > max) {
+        throw new IllegalArgumentException(
+            "Expression is "
+                + expressionStr.length()
+                + " characters long, the limit is "
+                + max
+                + " (-D"
+                + MAX_LENGTH_PROPERTY
+                + ")");
+      }
+      expression = PARSER.parseExpression(expressionStr);
+      CACHE.putIfAbsent(expressionStr, expression);
     }
-    final int max = Integer.getInteger(MAX_LENGTH_PROPERTY, DEFAULT_MAX_LENGTH);
-    if (expressionStr.length() > max) {
-      throw new IllegalArgumentException(
-          "Expression is "
-              + expressionStr.length()
-              + " characters long, the limit is "
-              + max
-              + " (-D"
-              + MAX_LENGTH_PROPERTY
-              + ")");
-    }
-    final Expression parsed = PARSER.parseExpression(expressionStr);
-    CACHE.putIfAbsent(expressionStr, parsed);
-    return parsed;
+    return expression;
   }
 }
