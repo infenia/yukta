@@ -1179,7 +1179,7 @@ What survives a restart, by deployment profile. "Memory" is the default; "File" 
 - **One brain:** admission, command ordering and run state are in one JVM (active/standby gives failover, not scale-out of admission).
 - **Graph size:** 500 nodes, 2000 edges, sub-workflow depth 5.
 - **Memory growth:** the state queue is unbounded; sessions are evicted only when `yukta.tracker.max-sessions` or `yukta.tracker.session-ttl` is set; the in-memory log and idempotency cache are bounded by their retention settings.
-- **Large payloads** are carried through memory by every node that touches them; there is no claim-check yet.
+- **Large payloads** are carried through memory by every node that touches them; `yukta.messaging.max-payload-bytes` (64 MiB) fails a node that sends or receives more, but there is no claim-check yet.
 
 Known gaps, risk analysis and design decisions are tracked in the [bug backlog](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Acore), the [remediation plan](https://github.com/infenia/yukta/blob/main/design/plans/remediation.md), the [performance plan](https://github.com/infenia/yukta/blob/main/design/plans/performance.md), the [core risks](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Arisk%20label%3Acore) and the [core module guide](/contributing/modules/core).
 
