@@ -85,6 +85,13 @@ class VariableResolverTest {
   }
 
   @Test
+  void emptyValueCastToNumberResolvesToNothingInsteadOfFailing() {
+    System.setProperty("yukta.var.t.empty", "");
+
+    StepVerifier.create(resolver.resolve("${sys.yukta.var.t.empty:int}")).verifyComplete();
+  }
+
+  @Test
   void testResolveTypes() {
     System.setProperty("yukta.var.t.int", "123");
     System.setProperty("yukta.var.t.bool", "true");

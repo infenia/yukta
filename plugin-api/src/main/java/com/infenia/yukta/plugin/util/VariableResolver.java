@@ -156,7 +156,9 @@ public class VariableResolver {
     final String finalKey = resolvedKey;
     final String finalType = resolvedType;
 
-    return resolveRawValue(finalKey, message).map(val -> castValue(val, finalType));
+    // an empty value cast to a number is null; an empty result, not an NPE from Mono.map
+    return resolveRawValue(finalKey, message)
+        .flatMap(val -> Mono.justOrEmpty(castValue(val, finalType)));
   }
 
   private boolean isSupportedType(final String type) {
