@@ -9,7 +9,7 @@ import { ApiError } from '@/lib/apiClient';
 import { createMockProgress } from '@/test/factories/workflowFactory';
 
 const server = setupServer(
-  http.get('/api/workflow/:sessionId/status/:executionId', ({ params }) => {
+  http.get('/api/executions/:executionId', ({ params }) => {
     if (params.executionId === 'missing') {
       return HttpResponse.json(
         {
@@ -17,7 +17,7 @@ const server = setupServer(
           status: 404,
           message: 'Not found',
           error: 'Execution not found',
-          path: '/api/workflow/s1/status/missing',
+          path: '/api/executions/missing',
         },
         { status: 404 }
       );
@@ -27,7 +27,7 @@ const server = setupServer(
       status: 200,
       message: 'Workflow status retrieved',
       data: createMockProgress(),
-      path: '/api/workflow/s1/status/exec-091-qp-55',
+      path: '/api/executions/exec-091-qp-55',
     });
   })
 );
@@ -37,14 +37,14 @@ afterAll(() => server.close());
 
 describe('getWorkflowProgress', () => {
   it('fetches the execution progress snapshot', async () => {
-    const result = await getWorkflowProgress('s1', 'exec-091-qp-55');
+    const result = await getWorkflowProgress('exec-091-qp-55');
     expect(result.status).toBe('RUNNING');
     expect(result.tasks).toHaveLength(4);
     expect(result.tasks[1].status).toBe('RUNNING');
   });
 
   it('throws ApiError for a missing execution', async () => {
-    await expect(getWorkflowProgress('s1', 'missing')).rejects.toBeInstanceOf(
+    await expect(getWorkflowProgress('missing')).rejects.toBeInstanceOf(
       ApiError
     );
   });

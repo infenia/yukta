@@ -12,6 +12,7 @@ import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.RequestPaths;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.NullMarked;
@@ -23,6 +24,8 @@ import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -129,7 +132,7 @@ public class ApiKeyFilter implements WebFilter {
       return chain.filter(exchange);
     }
     if (RequestPaths.ambiguous(raw)) {
-      return reject(exchange, HttpStatus.BAD_REQUEST);
+      return reject(exchange, HttpStatus.BAD_REQUEST, "Ambiguous request path");
     }
     final String path = RequestPaths.decoded(raw);
     if (!guarded(path)) {
@@ -139,10 +142,13 @@ public class ApiKeyFilter implements WebFilter {
         authenticator.authenticate(Scope.REST, exchange.getRequest().getHeaders());
     if (match == null) {
       exchange.getResponse().getHeaders().set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
-      return reject(exchange, HttpStatus.UNAUTHORIZED);
+      return reject(
+          exchange,
+          HttpStatus.UNAUTHORIZED,
+          "Missing or invalid API key. Send X-API-Key or Authorization: Bearer <key>");
     }
     if (!permitted(match, exchange, path)) {
-      return reject(exchange, HttpStatus.FORBIDDEN);
+      return reject(exchange, HttpStatus.FORBIDDEN, "This API key may not do that");
     }
     return authenticator.named()
         ? chain
@@ -196,8 +202,15 @@ public class ApiKeyFilter implements WebFilter {
     return progress != null && match.reaches(progress.sessionId());
   }
 
-  private static Mono<Void> reject(final ServerWebExchange exchange, final HttpStatus status) {
-    exchange.getResponse().setStatusCode(status);
-    return exchange.getResponse().setComplete();
+  /** Ends the exchange with the same JSON shape as the other errors: status and message. */
+  private static Mono<Void> reject(
+      final ServerWebExchange exchange, final HttpStatus status, final String message) {
+    final ServerHttpResponse response = exchange.getResponse();
+    response.setStatusCode(status);
+    response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+    final byte[] body =
+        ("{\"status\":" + status.value() + ",\"message\":\"" + message + "\"}")
+            .getBytes(StandardCharsets.UTF_8);
+    return response.writeWith(Mono.just(response.bufferFactory().wrap(body)));
   }
 }
