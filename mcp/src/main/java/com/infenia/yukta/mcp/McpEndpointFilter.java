@@ -8,6 +8,7 @@ import com.infenia.yukta.security.ApiAuthenticator.Scope;
 import com.infenia.yukta.security.ApiKeyAuthenticator;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.ApiRole;
+import com.infenia.yukta.security.CallRateLimiter;
 import com.infenia.yukta.security.RequestPaths;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;

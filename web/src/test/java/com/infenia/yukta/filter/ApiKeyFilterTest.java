@@ -174,6 +174,25 @@ class ApiKeyFilterTest {
   }
 
   @Test
+  void testRequestsBeyondTheKeysRateLimitGet429() {
+    System.setProperty("yukta.rate-limit-per-minute", "2");
+    try {
+      final ApiKeyFilter filter = new ApiKeyFilter("secret");
+      final HttpStatus[] seen = new HttpStatus[3];
+      for (int i = 0; i < seen.length; i++) {
+        final MockServerWebExchange exchange =
+            MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/x").header("X-API-Key", "secret"));
+        filter.filter(exchange, _ -> Mono.empty()).block();
+        seen[i] = (HttpStatus) exchange.getResponse().getStatusCode();
+      }
+      assertThat(seen).containsExactly(null, null, HttpStatus.TOO_MANY_REQUESTS);
+    } finally {
+      System.clearProperty("yukta.rate-limit-per-minute");
+    }
+  }
+
+  @Test
   void testBearerAndHeaderKeysAccepted() {
     run("secret", MockServerHttpRequest.get("/api/x").header("Authorization", "Bearer secret"));
     assertThat(passed).isTrue();
