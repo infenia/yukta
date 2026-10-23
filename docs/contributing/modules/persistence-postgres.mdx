@@ -73,7 +73,7 @@ A workflow run is logged, each node leaves its output, the server crashes, and a
 
 **Why it works this way.** A later restart from this node can replay the recorded messages instead of running the upstream nodes again.
 
-**Can go wrong.** Messages come back as plain JSON values (maps, lists, numbers, text), not the Java types the node produced.
+**Can go wrong.** A payload of a type outside Yukta's own packages, date/time, number and UUID types comes back as plain JSON values (maps, lists, numbers, text), not the Java type the node produced.
 
 </Step>
 <Step title="Node ends">

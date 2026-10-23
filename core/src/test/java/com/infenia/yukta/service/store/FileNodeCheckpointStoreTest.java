@@ -10,8 +10,11 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -54,6 +57,88 @@ class FileNodeCheckpointStoreTest {
         .assertNext(m -> assertThat(m.payload()).isEqualTo(Map.of("k", 1)))
         .verifyComplete();
     assertThat(reopened.isComplete("e1", "n1")).isTrue();
+  }
+
+  /** A record payload. */
+  public record Point(int column, int row) {}
+
+  /** A bean payload. */
+  @Data
+  @NoArgsConstructor
+  @SuppressWarnings({"PMD.PublicMemberInNonPublicType"})
+  public static class Person {
+    /** Name. */
+    private String name;
+  }
+
+  private Message<?> roundTrip(final Object payload) {
+    store().save("e1", "n1", message(payload)).block();
+    return store().get("e1", "n1").block();
+  }
+
+  @Test
+  void payloadKeepsItsType_record() {
+    assertThat(roundTrip(new Point(1, 2)).payload()).isEqualTo(new Point(1, 2));
+  }
+
+  @Test
+  void payloadKeepsItsType_bean() {
+    final Person person = new Person();
+    person.setName("a");
+    assertThat(roundTrip(person).payload()).isEqualTo(person);
+  }
+
+  @Test
+  void payloadKeepsItsType_valueTypes() {
+    final Instant now = Instant.parse("2026-10-23T10:00:00Z");
+    assertThat(roundTrip(now).payload()).isEqualTo(now);
+    assertThat(roundTrip(5L).payload()).isEqualTo(5L);
+    assertThat(roundTrip(new byte[] {1, 2}).payload()).isEqualTo(new byte[] {1, 2});
+  }
+
+  @Test
+  void payloadOfDisallowedType_comesBackAsJson() {
+    assertThat(roundTrip(new AtomicInteger(5)).payload()).isEqualTo(5);
+  }
+
+  @Test
+  void payloadTypeNamedInTheFile_isNotLoadedUnlessAllowed() throws IOException {
+    store().save("e1", "n1", message(Map.of("k", 1))).block();
+    final Path file = dir.resolve("e-e1").resolve("n1.jsonl");
+    final String forged =
+        Files.readString(file)
+            .replaceAll(
+                "\"payloadType\":\"[^\"]*\"",
+                "\"payloadType\":\"javax.script.ScriptEngineManager\"");
+    assertThat(forged).contains("javax.script.ScriptEngineManager");
+    Files.writeString(file, forged);
+    assertThat(store().get("e1", "n1").block().payload()).isEqualTo(Map.of("k", 1));
+  }
+
+  private void forgeType(final String type) throws IOException {
+    final Path file = dir.resolve("e-e1").resolve("n1.jsonl");
+    Files.writeString(
+        file,
+        Files.readString(file)
+            .replaceAll("\"payloadType\":\"[^\"]*\"", "\"payloadType\":\"" + type + "\""));
+  }
+
+  @Test
+  void payloadTypeThatIsMissingOrDoesNotFit_comesBackAsJson() throws IOException {
+    store().save("e1", "n1", message(Map.of("k", 1))).block();
+    forgeType("com.infenia.yukta.NoSuchClass");
+    assertThat(store().get("e1", "n1").block().payload()).isEqualTo(Map.of("k", 1));
+    forgeType("java.time.Instant");
+    assertThat(store().get("e1", "n1").block().payload()).isEqualTo(Map.of("k", 1));
+  }
+
+  @Test
+  void lineWithoutPayloadType_andNullPayload_areRead() throws IOException {
+    store().save("e1", "n1", message(Map.of("k", 1))).block();
+    final Path file = dir.resolve("e-e1").resolve("n1.jsonl");
+    Files.writeString(file, Files.readString(file).replaceAll(",\"payloadType\":\"[^\"]*\"", ""));
+    assertThat(store().get("e1", "n1").block().payload()).isEqualTo(Map.of("k", 1));
+    assertThat(roundTrip(null).payload()).isNull();
   }
 
   @Test
