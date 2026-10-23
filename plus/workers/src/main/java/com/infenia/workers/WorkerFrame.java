@@ -18,6 +18,8 @@ import org.jspecify.annotations.Nullable;
  * @param usedSlots how many it runs now (LEASE only)
  * @param draining true if the worker is stopping and takes no new attempts (LEASE only)
  * @param message why the control plane refused the worker (REJECT only)
+ * @param protocol the wire protocol version the worker speaks (REGISTER only); null for a worker
+ *     built before the version existed (a missing field, so it must not be a primitive)
  */
 public record WorkerFrame(
     Type type,
@@ -28,7 +30,14 @@ public record WorkerFrame(
     int capacity,
     int usedSlots,
     boolean draining,
-    @Nullable String message) {
+    @Nullable String message,
+    @Nullable Integer protocol) {
+
+  /**
+   * The wire protocol version of this build. Raise it whenever a frame changes in a way an older
+   * peer cannot read; a control plane refuses a worker with another version.
+   */
+  public static final int PROTOCOL = 1;
 
   /** Kind of frame. */
   public enum Type {
@@ -66,7 +75,8 @@ public record WorkerFrame(
         registration.capacity(),
         0,
         false,
-        null);
+        null,
+        PROTOCOL);
   }
 
   /**
@@ -78,7 +88,7 @@ public record WorkerFrame(
    */
   public static WorkerFrame lease(final int usedSlots, final boolean draining) {
     return new WorkerFrame(
-        Type.LEASE, null, null, Set.of(), Set.of(), 0, usedSlots, draining, null);
+        Type.LEASE, null, null, Set.of(), Set.of(), 0, usedSlots, draining, null, null);
   }
 
   /**
@@ -87,7 +97,7 @@ public record WorkerFrame(
    * @return the frame
    */
   public static WorkerFrame ack() {
-    return new WorkerFrame(Type.ACK, null, null, Set.of(), Set.of(), 0, 0, false, null);
+    return new WorkerFrame(Type.ACK, null, null, Set.of(), Set.of(), 0, 0, false, null, null);
   }
 
   /**
@@ -97,6 +107,6 @@ public record WorkerFrame(
    * @return the frame
    */
   public static WorkerFrame reject(final String why) {
-    return new WorkerFrame(Type.REJECT, null, null, Set.of(), Set.of(), 0, 0, false, why);
+    return new WorkerFrame(Type.REJECT, null, null, Set.of(), Set.of(), 0, 0, false, why, null);
   }
 }
