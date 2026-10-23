@@ -21,10 +21,11 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Keeps workflow definitions and the newest {@value #MAX_REVISIONS} saved versions of each in
- * PostgreSQL. A save is one statement, so a definition and its version are written together; saving
+ * PostgreSQL. A save, the prune of old versions and a removal each run in one transaction; saving
  * the definition that is already current adds no version.
  */
 @RequiredArgsConstructor
+@SuppressWarnings("PMD.TooManyMethods")
 public class R2dbcWorkflowDefinitionStore implements WorkflowDefinitionStore {
 
   /** Most versions kept per workflow. */
@@ -38,6 +39,10 @@ public class R2dbcWorkflowDefinitionStore implements WorkflowDefinitionStore {
 
   @Override
   public Mono<Void> save(final String sessionId, final WorkflowDefinition definition) {
+    return Transactions.inTransaction(client, write(sessionId, definition));
+  }
+
+  private Mono<Void> write(final String sessionId, final WorkflowDefinition definition) {
     return Mono.fromCallable(() -> mapper.writeValueAsString(definition))
         .flatMap(
             json -> {
@@ -121,6 +126,10 @@ public class R2dbcWorkflowDefinitionStore implements WorkflowDefinitionStore {
 
   @Override
   public Mono<Void> remove(final String sessionId, final String workflowId) {
+    return Transactions.inTransaction(client, delete(sessionId, workflowId));
+  }
+
+  private Mono<Void> delete(final String sessionId, final String workflowId) {
     return client
         .sql("DELETE FROM workflow_definition_revision WHERE session_id = :s AND workflow_id = :w")
         .bind("s", sessionId)
@@ -139,6 +148,10 @@ public class R2dbcWorkflowDefinitionStore implements WorkflowDefinitionStore {
 
   @Override
   public Mono<Void> removeAll(final String sessionId) {
+    return Transactions.inTransaction(client, deleteAll(sessionId));
+  }
+
+  private Mono<Void> deleteAll(final String sessionId) {
     return client
         .sql("DELETE FROM workflow_definition_revision WHERE session_id = :s")
         .bind("s", sessionId)
