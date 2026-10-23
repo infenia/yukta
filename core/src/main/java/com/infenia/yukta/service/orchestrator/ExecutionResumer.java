@@ -39,7 +39,7 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings("PMD.OnlyOneReturn")
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException"})
 public class ExecutionResumer {
 
   /** The execution log: start, payload, finished nodes, end. */
@@ -168,7 +168,13 @@ public class ExecutionResumer {
               if (admission.refused()) {
                 return admission.permit().then();
               }
-              executionLog.append(ExecutionLogEvent.resumed(started, newId));
+              try {
+                executionLog.append(ExecutionLogEvent.resumed(started, newId));
+              } catch (RuntimeException e) {
+                // the slot was taken above; give it back or each such failure shrinks capacity
+                admission.permit().subscribe(ExecutionScheduler.Permit::release);
+                throw e;
+              }
               orchestrator
                   .rerun(
                       started.sessionId(),

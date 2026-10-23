@@ -261,6 +261,21 @@ class ExecutionSchedulerTest {
   }
 
   @Test
+  void shutdownAfterRestartCycle_stillWaitsForRunningExecutions() {
+    final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
+    scheduler.stop();
+    scheduler.start();
+    final Permit running = granted(scheduler.acquire("s", "w"));
+    final AtomicBoolean stopped = new AtomicBoolean();
+
+    scheduler.stop(() -> stopped.set(true));
+    assertThat(stopped).isFalse();
+
+    running.release();
+    assertThat(stopped).isTrue();
+  }
+
+  @Test
   void shutdown_waitsUntilTheLastRunningExecutionIsDone() {
     final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
     final Permit one = granted(scheduler.acquire("s", "w"));

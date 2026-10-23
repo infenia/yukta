@@ -122,6 +122,34 @@ class ExecutionResumerTest {
   }
 
   @Test
+  void failedLogWrite_givesTheSlotBack() {
+    final InMemoryExecutionLogStore failing =
+        new InMemoryExecutionLogStore() {
+          @Override
+          public void append(final ExecutionLogEvent event) {
+            if (event.type() == ExecutionLogEvent.Type.RUN_RESUMED) {
+              throw new IllegalStateException("disk full");
+            }
+            super.append(event);
+          }
+        };
+    final ExecutionLogEvent started =
+        ExecutionLogEvent.started("old", "s", "w", DefinitionVersion.of(prepared), PAYLOAD);
+    failing.append(started);
+    failing.append(ExecutionLogEvent.aborted(started));
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(1, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+
+    StepVerifier.create(
+            new ExecutionResumer(failing, checkpoints, definitions, orchestrator, limited)
+                .resume("old"))
+        .expectErrorMessage("disk full")
+        .verify();
+
+    assertThat(limited.running()).isZero();
+  }
+
+  @Test
   void rerunsOnlyUnfinishedNodes_replayingTheOutputThatFeedsThem() {
     abortedRun(DefinitionVersion.of(prepared), "a");
 
