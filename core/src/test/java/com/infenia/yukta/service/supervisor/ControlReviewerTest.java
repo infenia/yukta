@@ -126,7 +126,7 @@ class ControlReviewerTest {
   }
 
   @Test
-  void review_hungSupervisor_stillLetsAStopThrough() {
+  void review_hungSupervisor_stillLetsStopThrough() {
     StepVerifier.create(
             hungReviewer()
                 .review(
