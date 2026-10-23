@@ -4,3 +4,5 @@
 superpowers/
 # Backlog, risks and plans are GitHub issues and design/ files, never pages (see .github/PROJECT.md).
 internal/
+# Module guides are repo docs for contributors (linked from each module CLAUDE.md), not pages.
+contributing/
