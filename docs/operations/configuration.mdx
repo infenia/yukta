@@ -196,6 +196,7 @@ See [Supervisors](/running/supervisors) and [Control planes](/running/control-pl
 | Setting | Default | Meaning and effect |
 |---|---|---|
 | `yukta.supervisor.max-commands-per-second` | `20` | Rate limit for each supervisor's commands |
+| `yukta.supervisor.review-timeout` | `5s` | Longest a supervisor may take to review a command. A slower review refuses the command, except a stop, which is allowed |
 | `yukta.supervisor.dry-run` | `false` | Record supervisor commands without applying them |
 | `yukta.supervisor.rules.file` | unset | JSON rules file. Setting it enables the rule supervisor |
 | `yukta.control-plane.rules.file` | unset | JSON rules file. Setting it enables the rule control plane |
