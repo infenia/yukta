@@ -579,7 +579,9 @@ func (c *Client) StopNode(sessionID, executionID, nodeID string, immediate bool,
 
 	params := url.Values{}
 	params.Set("immediate", strconv.FormatBool(immediate))
-	params.Set("reason", reason)
+	if reason != "" { // absent, the server records its own default reason
+		params.Set("reason", reason)
+	}
 
 	path := apiPath("/api/executions/%s/nodes/%s/stop", executionID, nodeID) + "?" + params.Encode()
 	httpReq, err := c.newRequest("POST", path)
