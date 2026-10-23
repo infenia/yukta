@@ -185,8 +185,16 @@ public class StreamTopologyDecorator {
         .addArgument(edge.sourcePort())
         .log();
 
+    final Flux<Message<?>> parent = streams[edge.parentIndex()];
+    // Siblings share the parent's message; a copy per edge keeps one branch's edits to the payload
+    // from showing up in another.
     Flux<Message<?>> stream =
-        streams[edge.parentIndex()].map(msg -> msg.withSourceNodeId(edge.sourceNodeId()));
+        parent.map(
+            msg ->
+                (parent instanceof NodeBroadcast broadcast && broadcast.isShared()
+                        ? PayloadCopy.copyOf(msg)
+                        : msg)
+                    .withSourceNodeId(edge.sourceNodeId()));
 
     final String sourcePort = edge.sourcePort();
     if (sourcePort != null) {
