@@ -14,9 +14,22 @@ import reactor.core.publisher.Hooks;
  * projects and runs quality checks.
  */
 @SpringBootApplication
-@SuppressWarnings("PMD.UseUtilityClass")
+@SuppressWarnings({"PMD.UseUtilityClass", "PMD.SystemPrintln"})
 public class YuktaApplication {
 
+  /** Prints the version and exits. */
+  private static final String VERSION_FLAG = "--version";
+
+  /** Prints usage and exits. */
+  private static final String HELP_FLAG = "--help";
+
+  /** Short form of {@link #HELP_FLAG}. */
+  private static final String HELP_SHORT_FLAG = "-h";
+
+  /** Reported when the build does not carry a version. */
+  private static final String UNKNOWN_VERSION = "unknown";
+
+  /** Text printed for {@link #HELP_FLAG}. */
   private static final String HELP =
       """
       Usage: yukta [--version] [--help] [--<spring.property>=value ...]
@@ -37,6 +50,7 @@ public class YuktaApplication {
   public static void main(final String[] args) {
     final String info = infoOutput(args);
     if (info != null) {
+      // plain stdout on purpose: the logging system is not up yet and the output is for a person
       System.out.println(info);
       return;
     }
@@ -52,14 +66,14 @@ public class YuktaApplication {
   }
 
   /** Text for --version or --help, or null when the server should start. */
-  static String infoOutput(final String... args) {
+  /* default */ static String infoOutput(final String... args) {
     String out = null;
     for (final String arg : args) {
-      if ("--version".equals(arg)) {
+      if (VERSION_FLAG.equals(arg)) {
         out = "yukta version " + version();
         break;
       }
-      if ("--help".equals(arg) || "-h".equals(arg)) {
+      if (HELP_FLAG.equals(arg) || HELP_SHORT_FLAG.equals(arg)) {
         out = HELP;
         break;
       }
@@ -68,16 +82,21 @@ public class YuktaApplication {
   }
 
   private static String version() {
+    return versionFrom(
+        YuktaApplication.class.getResourceAsStream("/META-INF/build-info.properties"));
+  }
+
+  /** The build version in the given build-info stream, or "unknown" if it cannot be read. */
+  /* default */ static String versionFrom(final InputStream stream) {
     final Properties props = new Properties();
-    try (InputStream in =
-        YuktaApplication.class.getResourceAsStream("/META-INF/build-info.properties")) {
-      if (in != null) {
-        props.load(in);
+    if (stream != null) {
+      try (stream) {
+        props.load(stream);
+      } catch (IOException ignored) {
+        // fall through to "unknown"
       }
-    } catch (IOException e) {
-      // fall through to "unknown"
     }
-    return props.getProperty("build.version", "unknown");
+    return props.getProperty("build.version", UNKNOWN_VERSION);
   }
 
   private static boolean isNativeImage() {
