@@ -142,4 +142,24 @@ class WorkerSessionHandlerTest {
 
     assertThat(registry.list()).isEmpty();
   }
+
+  @Test
+  void leaderThatLosesTheLease_rejectsTheNextLeaseAndDropsTheWorker() {
+    final java.util.concurrent.atomic.AtomicBoolean leader =
+        new java.util.concurrent.atomic.AtomicBoolean(true);
+    final WorkerSessionHandler losing =
+        new WorkerSessionHandler(registry, connections, leader::get, "secret");
+    final Sinks.Many<WorkerFrame> frames = Sinks.many().unicast().onBackpressureBuffer();
+
+    StepVerifier.create(losing.session(requester, frames.asFlux()))
+        .then(() -> frames.tryEmitNext(hello("secret", "w1", 4)))
+        .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.ACK))
+        .then(() -> leader.set(false))
+        .then(() -> frames.tryEmitNext(WorkerFrame.lease(0, false)))
+        .assertNext(frame -> assertThat(frame.message()).contains("not the leader"))
+        .verifyComplete();
+
+    assertThat(registry.find("w1")).isEmpty();
+    assertThat(connections.find("w1")).isEmpty();
+  }
 }
