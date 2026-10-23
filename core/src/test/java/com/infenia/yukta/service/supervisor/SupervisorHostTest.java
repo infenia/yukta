@@ -79,9 +79,17 @@ class SupervisorHostTest {
 
   private void start(
       final ExecutionSupervisor supervisor, final boolean dryRun, final int perSecond) {
+    start(supervisor, dryRun, perSecond, 10_000);
+  }
+
+  private void start(
+      final ExecutionSupervisor supervisor,
+      final boolean dryRun,
+      final int perSecond,
+      final int bufferSize) {
     host =
         new SupervisorHost(
-            providerOf(supervisor), feed, dispatcher, log, meters, dryRun, perSecond);
+            providerOf(supervisor), feed, dispatcher, log, meters, dryRun, perSecond, bufferSize);
     host.start();
   }
 
@@ -306,17 +314,48 @@ class SupervisorHostTest {
                     .concatMap(_ -> Mono.delay(Duration.ofSeconds(30)))
                     .thenMany(Flux.empty())),
         false,
-        10);
+        10,
+        4);
 
     await()
         .atMost(5, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              for (int i = 0; i < 200; i++) {
+              for (int i = 0; i < 2000; i++) {
                 feed.publish(failed("e" + i));
               }
               assertThat(meters.counter("yukta.tracker.dropped", "kind", "supervisor").count())
                   .isPositive();
+            });
+  }
+
+  @Test
+  void start_slowSupervisor_isToldHowManyEventsItMissed() {
+    final List<ExecutionEvent.EventsMissed> gaps = new CopyOnWriteArrayList<>();
+    start(
+        supervisor(
+            "slow",
+            events ->
+                events
+                    .limitRate(1)
+                    .concatMap(event -> Mono.delay(Duration.ofMillis(5)).thenReturn(event))
+                    .ofType(ExecutionEvent.EventsMissed.class)
+                    .doOnNext(gaps::add)
+                    .then(Mono.<ExecutionControlCommand>empty())
+                    .flux()),
+        false,
+        10,
+        4);
+
+    await()
+        .atMost(10, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              for (int i = 0; i < 2000; i++) {
+                feed.publish(failed("e" + i));
+              }
+              assertThat(gaps).isNotEmpty();
+              assertThat(gaps.getFirst().count()).isPositive();
             });
   }
 
@@ -342,7 +381,9 @@ class SupervisorHostTest {
   void status_describesEachSupervisorWithItsCommandCounts() {
     final ControlPlanePlugin plane = new NamedPlane();
     final ExecutionSupervisor plain = supervisor("rules", SupervisorHostTest::pauseOnFailure);
-    host = new SupervisorHost(providerOf(plane, plain), feed, dispatcher, log, meters, true, 7);
+    host =
+        new SupervisorHost(
+            providerOf(plane, plain), feed, dispatcher, log, meters, true, 7, 10_000);
     meters.counter("yukta.supervisor.commands", "id", "rules", "outcome", "applied").increment(3);
     meters.counter("yukta.supervisor.commands", "id", "rules", "outcome", "rejected").increment();
     meters.counter("yukta.supervisor.commands", "id", "rules", "outcome", "dry-run").increment(2);

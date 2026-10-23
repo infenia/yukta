@@ -212,9 +212,17 @@ class ModelControlPlaneTest {
             spy,
             settings(
                 null,
-                Set.of("WorkflowStatusChanged", "LogLine", "ControlOutcome", "NodeStatusChanged")));
+                Set.of(
+                    "WorkflowStatusChanged",
+                    "LogLine",
+                    "ControlOutcome",
+                    "NodeStatusChanged",
+                    "EventsMissed")));
     final Instant now = Instant.now();
 
+    plane.decide(new ExecutionEvent.EventsMissed(4, now)).block();
+    assertThat(spy.asked.get().state())
+        .isEqualTo("4 events were missed because the supervisor fell behind.");
     plane.decide(new ExecutionEvent.WorkflowStatusChanged("e1", "wf", "RUNNING", now)).block();
     assertThat(spy.asked.get().state()).isEqualTo("The workflow run changed status to RUNNING.");
     plane.decide(new ExecutionEvent.LogLine("e1", "n1", "disk full", LogLevel.ERROR, now)).block();

@@ -56,7 +56,7 @@ Every edge is a stream. A slow consumer slows its producers, so memory between n
 
 To keep one slow branch from slowing the others, put an `edgeBuffer` in front of the slow node. When it is full, it drops the oldest (or newest) message instead of pacing the parents. Drops are counted in `yukta.edge.dropped`. The default stays lossless.
 
-Other bounded paths drop rather than wait: a supervisor that is too slow loses events (`yukta.tracker.dropped{kind=supervisor}`), and more than 10,000 pending log lines are dropped (`yukta.tracker.dropped{type=log}`). State events are never dropped by design.
+Other bounded paths drop rather than wait: a supervisor that falls more than `yukta.supervisor.buffer-size` (10,000) events behind loses events (`yukta.tracker.dropped{kind=supervisor}`) and is sent an `EventsMissed` event, and more than 10,000 pending log lines are dropped (`yukta.tracker.dropped{type=log}`). State events are never dropped by design.
 
 See [Delivery and back-pressure](/concepts/delivery-and-backpressure).
 

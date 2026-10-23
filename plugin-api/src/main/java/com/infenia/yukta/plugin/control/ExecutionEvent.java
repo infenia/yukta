@@ -11,7 +11,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * Something that happened to a running workflow, as seen by an {@link ExecutionSupervisor}.
  *
- * <p>The feed is best effort: a supervisor that cannot keep up misses events.
+ * <p>The feed is best effort: a supervisor that cannot keep up misses events. It is told with an
+ * {@link EventsMissed} before the next event it receives, and a rule that must not miss a case
+ * reads the durable execution log from that point.
  */
 public sealed interface ExecutionEvent {
 
@@ -102,6 +104,26 @@ public sealed interface ExecutionEvent {
     /** Rejects a missing level, so a line is never shown with a level nobody gave it. */
     public LogLine {
       Objects.requireNonNull(level, "level");
+    }
+  }
+
+  /**
+   * Events were dropped for this supervisor because it fell behind; it may have missed a status
+   * change or a log line. Injected by the host, never published to the feed.
+   *
+   * @param count how many events were dropped since the last event it received
+   * @param timestamp when the gap was noticed
+   */
+  record EventsMissed(long count, Instant timestamp) implements ExecutionEvent {
+
+    /**
+     * A gap belongs to no single execution.
+     *
+     * @return an empty id
+     */
+    @Override
+    public String executionId() {
+      return "";
     }
   }
 }

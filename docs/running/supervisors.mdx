@@ -53,9 +53,9 @@ A supervisor can never hold up an execution:
 | Rate limit | At most `yukta.supervisor.max-commands-per-second` commands (default `20`) |
 | Dry run | `yukta.supervisor.dry-run=true` records commands without applying them |
 | No feedback loop | A supervisor never sees the outcome of its own commands |
-| Slow consumers | Events reach a supervisor through a bounded buffer of 256. A slow supervisor drops events (counted in `yukta.tracker.dropped` with `kind=supervisor`) instead of slowing the engine |
+| Slow consumers | Events reach a supervisor through a buffer (`yukta.supervisor.buffer-size`, default 10,000). Only when it overflows are events dropped (counted in `yukta.tracker.dropped` with `kind=supervisor`) instead of slowing the engine, and the supervisor then receives an `EventsMissed` event with the count |
 
-Event delivery is best effort. Commands are rate limited, but a supervisor can still react to the state changes its own commands cause.
+Event delivery is best effort, but a gap is never silent: a rule that must not miss a case should treat `EventsMissed` (rule field `status=EVENTS_MISSED`, `missed` = count) as a reason to check the execution log or fail safe (for example pause). The notice arrives with the next event after the gap. Commands are rate limited, but a supervisor can still react to the state changes its own commands cause.
 
 ## Supervisors outside the server
 

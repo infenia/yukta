@@ -69,6 +69,10 @@ public class Fields {
         fields.put("line", line.line());
         fields.put("level", line.level().name());
       }
+      case ExecutionEvent.EventsMissed missed -> {
+        fields.put(STATUS, "EVENTS_MISSED");
+        fields.put("missed", missed.count());
+      }
     }
     return fields;
   }
