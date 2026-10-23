@@ -179,7 +179,9 @@ public interface Message<T> {
   // --- Body / Payload Accessors ---
 
   /**
-   * The actual data structure being transferred.
+   * The actual data structure being transferred. After a resume from a checkpoint the payload has
+   * the type it had when it was saved if that type is one of Yukta's own, a date/time, number or
+   * UUID type, or bytes; any other type comes back as plain JSON values (a map for an object).
    *
    * @return the payload
    */

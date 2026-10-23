@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.util;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.store.SecretContext;
 import com.infenia.yukta.plugin.store.SecretProvider;
 import java.util.ArrayList;
 import java.util.List;
@@ -258,10 +259,18 @@ public class VariableResolver {
   }
 
   private Mono<String> resolveSecret(final String key) {
-    return secretProvider
-        .getSecret(key)
-        .switchIfEmpty(
-            Mono.error(new IllegalArgumentException("Secret not found for key: " + key)));
+    return Mono.deferContextual(
+        ctx ->
+            secretProvider
+                .getSecret(
+                    key,
+                    new SecretContext(
+                        ctx.getOrDefault("tenant", null),
+                        ctx.getOrDefault("sessionId", null),
+                        ctx.getOrDefault("workflowId", null),
+                        ctx.getOrDefault("nodeId", null)))
+                .switchIfEmpty(
+                    Mono.error(new IllegalArgumentException("Secret not found for key: " + key))));
   }
 
   private Object castValue(final Object value, final String type) {

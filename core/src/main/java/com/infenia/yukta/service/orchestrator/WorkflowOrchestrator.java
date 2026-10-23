@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -498,6 +499,22 @@ public class WorkflowOrchestrator {
                     _ -> body.subscribeOn(Schedulers.boundedElastic()),
                     permit -> Mono.fromRunnable(permit::release)));
 
+    // Cleanup must precede the terminal signal: a caller that sees the run end must find it
+    // already unregistered. Terminate and cancel are exclusive, but a guard keeps it once-only.
+    final AtomicBoolean cleaned = new AtomicBoolean();
+    final Runnable cleanup =
+        () -> {
+          if (cleaned.compareAndSet(false, true)) {
+            executionControlRegistry.unregister(executionId);
+            clearIfPending(executionId);
+            // Ends the run: lets a pending drain deadline timer go instead of living on.
+            control.safeStopSink().tryEmitEmpty();
+            log.atDebug()
+                .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                .log("Cleaned up resources");
+          }
+        };
+
     return Mono.firstWithSignal(
             // A run that ended because it was stopped (for example after a drain) is STOPPED.
             execution.then(
@@ -540,17 +557,8 @@ public class WorkflowOrchestrator {
                         _ -> resultService.complete(executionId, TaskStatus.CANCELLED.name()))
                     .onErrorComplete()
                     .subscribe())
-        .doFinally(
-            signal -> {
-              executionControlRegistry.unregister(executionId);
-              clearIfPending(executionId);
-              // Ends the run: lets a pending drain deadline timer go instead of living on.
-              control.safeStopSink().tryEmitEmpty();
-              log.atDebug()
-                  .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-                  .addKeyValue("signal", signal)
-                  .log("Cleaned up execution resources");
-            })
+        .doOnCancel(cleanup)
+        .doOnTerminate(cleanup)
         .contextWrite(
             Context.of(
                 ExecutionContextBuilder.CTX_SESSION_ID, sessionId,

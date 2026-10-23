@@ -191,6 +191,9 @@ Use `allow-any` only when every workflow author is fully trusted.
 |---|---|
 | `yukta.http.allowed-hosts` | Hosts `HTTP_REQUEST` may call |
 | `yukta.mcp-client.allowed-hosts` | Hosts `MCP_TOOL_CALL` and `MCP_LIST_TOOLS` may call |
+| `yukta.egress.allowed-hosts` | Hosts every outbound call may reach: `HTTP_REQUEST`, `MCP_TOOL_CALL`, `MCP_LIST_TOOLS` and `NOTIFY_TERMINAL` |
+| `yukta.egress.by-workflow.<workflowId>` | Narrows the calls of one workflow further |
+| `yukta.egress.by-session.<sessionId>` | Narrows the calls made in one session further |
 
 Each entry is a host name or IP address, compared without regard to case, or `*.example.com`, which matches any subdomain but not `example.com` itself. A call to any other host is refused before a request is made, and so is a URL with no host. The check uses the host the URL really addresses, so `https://good.com@evil.com/` counts as `evil.com`.
 
@@ -199,7 +202,15 @@ yukta.http.allowed-hosts=api.example.com,*.internal.example
 yukta.mcp-client.allowed-hosts=mcp.example.com
 ```
 
-The list works on the name in the URL. It does not stop a listed name that resolves to an address you did not intend, so keep the listed names under your control. The link-local block likewise reads the address in the URL; it does not look up what a name resolves to. `NOTIFY_TERMINAL` webhooks are not covered by these settings.
+A call must pass the plugin's own list and every `yukta.egress` list that applies to its run, so a workflow or session list can only narrow what the deployment allows, never widen it. An empty list does not restrict. Only the operator sets these (properties, not workflow definitions), so egress stays under deployment control:
+
+```properties
+yukta.egress.allowed-hosts=api.example.com,hooks.slack.com
+yukta.egress.by-workflow.nightly-report=api.example.com
+yukta.egress.by-session.4f1c0e=hooks.slack.com
+```
+
+The list works on the name in the URL. It does not stop a listed name that resolves to an address you did not intend, so keep the listed names under your control. The link-local block likewise reads the address in the URL; it does not look up what a name resolves to. `NOTIFY_TERMINAL` webhooks are covered by the `yukta.egress` lists only.
 
 ## Script limits
 
@@ -214,6 +225,8 @@ Scripts can reach only a short list of date, time and basic value types from the
 
 Expressions (filter conditions, branch cases, mapper projections, loop exit conditions and so on) have a time limit too, the system property `yukta.spel.timeout-ms` (default `1000`, `0` turns it off). An expression that runs longer, for example a regular expression that backtracks without end, is stopped and fails the message.
 
+Expressions are written by trusted authors only: whoever can save a workflow definition (an `ADMIN` key) can already run code on the server. Expressions get a time limit, a length limit (`yukta.spel.max-length`) and a method allow-list, but no size budget for operations on very large strings. Do not let an untrusted caller supply an expression.
+
 ## Variables and secrets
 
 Placeholders such as `${env.NAME}` and `${sys.name}` in a node's configuration read the server's environment, but only from an allow-list:
@@ -224,7 +237,7 @@ Placeholders such as `${env.NAME}` and `${sys.name}` in a node's configuration r
 
 Any name containing `PASSWORD`, `PASSWD`, `SECRET`, `TOKEN`, `CREDENTIAL`, `PRIVATE` or `KEY` stays blocked, even when listed. A blocked or unlisted name fails the message like a plugin error.
 
-Secrets are written `decrypted:name` in a node's configuration, so the value never appears in a stored workflow. The server reads the value from the environment variable `YUKTA_SECRET_` followed by the name in upper case, with every character other than letters and digits replaced by `_`. For example `decrypted:db.password` reads `YUKTA_SECRET_DB_PASSWORD`.
+Secrets are written `decrypted:name` in a node's configuration, so the value never appears in a stored workflow. The server reads the value from the environment variable `YUKTA_SECRET_` followed by the name in upper case, with every character other than letters and digits replaced by `_`. For example `decrypted:db.password` reads `YUKTA_SECRET_DB_PASSWORD`. A secret can also belong to one session (or tenant): `YUKTA_SECRET_S_<SESSION>__DB_PASSWORD` (`YUKTA_SECRET_T_<TENANT>__DB_PASSWORD`) is read first by runs of that session (tenant), then the global name. A key that contains `__` is refused, so a workflow cannot name another scope's variable. Each read is logged at INFO with the key name, scope, workflow and node, never the value.
 
 The read APIs mask literal secrets. `GET /api/sessions/{id}/config`, `GET /api/sessions/{id}/workflows/{wf}` and the MCP tool `get_workflow_details` return `******` for a literal value in a field the plugin declares secret (such as `apiKey`, `authToken` or `password`) and for any key, at any depth, whose name contains password, secret, token, api key, authorization or credential. References (`decrypted:name`, `${...}`) are not masked, since they are not secrets. A definition that still holds `******` is refused when saved, so an editor that reads a masked definition and sends it back cannot overwrite a stored secret with the mask: put the real value, or better a `decrypted:` reference, back before saving.
 
@@ -249,6 +262,8 @@ These settings apply to every `LLM_CALL` and `MCP_TOOL_CALL` node, whatever the 
 | `yukta.mcp-client.deny-argument-patterns` | Regular expressions the arguments must not match |
 
 A pattern that contains a comma, such as `a{1,3}`, must be written as an indexed entry: `yukta.llm.deny-input-patterns[0]=...`.
+
+LLM-backed decisions and the model control plane send the state between two marker lines that carry a random value per call, and tell the model the content is untrusted data. This lowers the chance that text in a payload or log line steers the verdict; it does not stop it. Treat a model verdict as advice: keep rules and deny rules authoritative for anything harmful, and keep untrusted fields out of the decision `state`.
 
 Per-run token, cost and call budgets are set in the node. See [AI and agents](/building/ai-and-agents).
 

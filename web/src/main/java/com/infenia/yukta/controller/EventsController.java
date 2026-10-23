@@ -27,7 +27,8 @@ import reactor.core.publisher.Flux;
   ExecutionEvent.NodeStatusChanged.class,
   ExecutionEvent.WorkflowStatusChanged.class,
   ExecutionEvent.ControlOutcome.class,
-  ExecutionEvent.LogLine.class
+  ExecutionEvent.LogLine.class,
+  ExecutionEvent.EventsMissed.class
 })
 public class EventsController {
 

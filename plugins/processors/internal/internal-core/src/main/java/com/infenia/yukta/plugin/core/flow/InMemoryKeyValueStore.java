@@ -8,10 +8,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import reactor.core.publisher.Mono;
 
 /** The default {@link KeyValueStore}: in memory, lost on restart, for one server. */
+@SuppressWarnings("PMD.AvoidSynchronizedStatement")
 public final class InMemoryKeyValueStore implements KeyValueStore {
 
   /** Values by namespace-qualified key. */
   private final Map<String, Object> store = new ConcurrentHashMap<>();
+
+  /** Makes the capacity check and the insert one step; reads do not take it. */
+  private final Object lock = new Object();
 
   /** Creates an empty store. */
   public InMemoryKeyValueStore() {
@@ -27,8 +31,10 @@ public final class InMemoryKeyValueStore implements KeyValueStore {
   public Mono<Object> put(final String key, final Object value, final int maxEntries) {
     return Mono.fromSupplier(
         () -> {
-          checkCapacity(key, maxEntries);
-          store.put(key, value);
+          synchronized (lock) {
+            checkCapacity(key, maxEntries);
+            store.put(key, value);
+          }
           return value;
         });
   }
@@ -37,8 +43,10 @@ public final class InMemoryKeyValueStore implements KeyValueStore {
   public Mono<Number> incr(final String key, final long delta, final int maxEntries) {
     return Mono.fromSupplier(
         () -> {
-          checkCapacity(key, maxEntries);
-          return (Number) store.merge(key, delta, InMemoryKeyValueStore::sum);
+          synchronized (lock) {
+            checkCapacity(key, maxEntries);
+            return (Number) store.merge(key, delta, InMemoryKeyValueStore::sum);
+          }
         });
   }
 
@@ -47,8 +55,6 @@ public final class InMemoryKeyValueStore implements KeyValueStore {
     return Mono.justOrEmpty(store.remove(key));
   }
 
-  // ponytail: size check is not atomic with the insert, so the cap can be overshot slightly under
-  // heavy concurrency.
   private void checkCapacity(final String key, final int max) {
     if (!store.containsKey(key) && store.size() >= max) {
       throw new IllegalStateException("KV store is full (" + max + " entries)");

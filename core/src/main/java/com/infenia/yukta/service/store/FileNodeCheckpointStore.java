@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.store;
 
-import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -35,8 +34,9 @@ import tools.jackson.databind.ObjectMapper;
  * in-memory store also uses it for output beyond its caps. One JSON line per message, in {@code
  * <dir>/e-<executionId>/<nodeId>.jsonl}. Output is not capped (the disk is the claim check); a
  * message that cannot be written as JSON marks the node incomplete, so a restart that needs it is
- * refused instead of replaying part of it. Messages come back as plain JSON values: a payload that
- * was a Java object is read as a map, and bytes as base64 text.
+ * refused instead of replaying part of it. A payload comes back as its original Java type (see
+ * {@link CheckpointJson}); one of a type that is not allowed comes back as plain JSON, a map for an
+ * object.
  */
 @Slf4j
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
@@ -247,7 +247,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   private void write(final String executionId, final String nodeId, final Message<?> message) {
     try {
       final byte[] line =
-          (mapper.writeValueAsString(message) + "\n").getBytes(StandardCharsets.UTF_8);
+          (CheckpointJson.write(mapper, message) + "\n").getBytes(StandardCharsets.UTF_8);
       // One write call per line on an O_APPEND channel: lines of concurrent writers stay whole.
       final ByteBuffer buffer = ByteBuffer.wrap(line);
       final FileChannel channel = appender(executionId, nodeId);
@@ -284,7 +284,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
       final List<Message<?>> messages = new ArrayList<>();
       for (final String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
         if (!line.isBlank()) {
-          messages.add(mapper.readValue(line, DefaultMessage.class));
+          messages.add(CheckpointJson.read(mapper, line));
         }
       }
       return messages;

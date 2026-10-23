@@ -161,6 +161,8 @@ public final class ModelControlPlane implements ControlPlanePlugin {
                   + outcome.command()
                   + (outcome.applied() ? " was applied" : " was rejected: " + outcome.reason())
                   + (outcome.actor() == null ? "." : ", sent by " + outcome.actor() + ".");
+          case ExecutionEvent.EventsMissed missed ->
+              missed.count() + " events were missed because the supervisor fell behind.";
         };
     return StateText.truncate(text);
   }

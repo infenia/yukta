@@ -30,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
+import reactor.core.publisher.BufferOverflowStrategy;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -49,7 +50,7 @@ import reactor.util.retry.Retry;
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports"})
 public class SupervisorHost {
 
-  /** Events a supervisor may have waiting before the feed starts dropping them for it. */
+  /** Events handed to the supervisor's thread at a time. */
   private static final int SUPERVISOR_PREFETCH = 256;
 
   /** Counter of supervisor commands by outcome. */
@@ -82,6 +83,9 @@ public class SupervisorHost {
   /** Most commands one supervisor may issue per second. */
   private final int maxCommandsPerSecond;
 
+  /** Events a supervisor may have waiting before events are dropped for it. */
+  private final int bufferSize;
+
   /** Running supervisor subscriptions. */
   private final List<Disposable> subscriptions = new CopyOnWriteArrayList<>();
 
@@ -95,6 +99,7 @@ public class SupervisorHost {
    * @param meters registry for the command counter
    * @param dryRun only record commands instead of applying them
    * @param maxCommandsPerSecond most commands one supervisor may issue per second
+   * @param bufferSize events a supervisor may have waiting before events are dropped for it
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public SupervisorHost(
@@ -104,7 +109,9 @@ public class SupervisorHost {
       final ExecutionLogStore executionLog,
       final MeterRegistry meters,
       @Value("${yukta.supervisor.dry-run:false}") final boolean dryRun,
-      @Value("${yukta.supervisor.max-commands-per-second:20}") final int maxCommandsPerSecond) {
+      @Value("${yukta.supervisor.max-commands-per-second:20}") final int maxCommandsPerSecond,
+      @Value("${yukta.supervisor.buffer-size:10000}") final int bufferSize) {
+    this.bufferSize = bufferSize;
     this.supervisors = supervisors;
     this.feed = feed;
     this.dispatcher = dispatcher;
@@ -188,16 +195,33 @@ public class SupervisorHost {
 
   /** A supervisor does not see the outcome of its own commands, so it cannot answer itself. */
   private Flux<ExecutionEvent> withoutOwnOutcomes(final String supervisorId) {
+    final AtomicLong missed = new AtomicLong();
     return feed.events()
         .filter(
             event ->
                 !(event instanceof ExecutionEvent.ControlOutcome outcome
                     && supervisorId.equals(outcome.actor())))
-        .onBackpressureDrop(
-            _ -> meters.counter("yukta.tracker.dropped", "kind", "supervisor").increment())
+        // A large buffer absorbs a burst; only an overflow drops, and the supervisor is then told
+        // (below) so it can read the durable log for the gap.
+        .onBackpressureBuffer(
+            bufferSize,
+            _ -> {
+              missed.incrementAndGet();
+              meters.counter("yukta.tracker.dropped", "kind", "supervisor").increment();
+            },
+            BufferOverflowStrategy.DROP_LATEST)
         // The feed delivers on the publisher's thread (the tracker's); a supervisor that blocks,
         // for example on a model call, must not hold the runs up.
-        .publishOn(Schedulers.boundedElastic(), SUPERVISOR_PREFETCH);
+        .publishOn(Schedulers.boundedElastic(), SUPERVISOR_PREFETCH)
+        // ponytail: the gap is reported with the next event, so it is late if the feed then goes
+        // quiet; add a timer if that matters.
+        .flatMapIterable(
+            event -> {
+              final long count = missed.getAndSet(0);
+              return count == 0
+                  ? List.of(event)
+                  : List.of(new ExecutionEvent.EventsMissed(count, Instant.now()), event);
+            });
   }
 
   private Mono<Void> apply(

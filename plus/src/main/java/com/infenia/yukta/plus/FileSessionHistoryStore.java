@@ -80,6 +80,15 @@ public class FileSessionHistoryStore implements SessionHistoryStore {
     }
   }
 
+  @Override
+  public void delete(final String sessionId) {
+    try {
+      Files.deleteIfExists(file(sessionId));
+    } catch (final IOException | RuntimeException e) {
+      log.atError().setCause(e).log("Could not delete the history of a session");
+    }
+  }
+
   /** The session id is encoded, so it cannot name a path outside the directory. */
   private Path file(final String sessionId) {
     return dir.resolve(URLEncoder.encode(sessionId, StandardCharsets.UTF_8) + ".json");

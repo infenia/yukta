@@ -60,6 +60,8 @@ Idempotency-Key: 7f3c2b9e-order-4411
 | Failed start | Not remembered, so a retry runs normally |
 | Window | `yukta.start.idempotency-ttl`, `10m` by default |
 | Cache size | `yukta.start.idempotency-max-keys`, `100000` by default. A key evicted before its window lets a repeat start again |
+| Restart and retry | A repeated `RESTART`, `RESTART_FROM_NODE` or node `RETRY` of the same execution within the window returns the first new execution id; no key is needed |
+| MCP start without a key | The server derives one from session and workflow, with the shorter window `yukta.mcp.start-dedupe-window` (`30s`). Two deliberate starts inside it merge; pass an `idempotencyKey` to tell them apart |
 | After a restart | With the file execution log or PostgreSQL the keys are reloaded and the window restarts at the reload |
 
 ## Change limits while running

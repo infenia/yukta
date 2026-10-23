@@ -30,7 +30,7 @@ class VariableResolverTest {
 
   @BeforeEach
   void setUp() {
-    secretProvider = mock(SecretProvider.class);
+    secretProvider = mock(SecretProvider.class, org.mockito.Mockito.CALLS_REAL_METHODS);
     resolver = new VariableResolver(secretProvider);
   }
 
@@ -192,6 +192,21 @@ class VariableResolverTest {
   void testResolveSecretInExpression() {
     when(secretProvider.getSecret("pass")).thenReturn(Mono.just("p123"));
     StepVerifier.create(resolver.resolve("${decrypted:pass}")).expectNext("p123").verifyComplete();
+  }
+
+  @Test
+  void testResolveSecretPassesTheCaller() {
+    when(secretProvider.getSecret(
+            "pass", new com.infenia.yukta.plugin.store.SecretContext(null, "s1", "w1", "n1")))
+        .thenReturn(Mono.just("scoped"));
+    StepVerifier.create(
+            resolver
+                .resolve("decrypted:pass")
+                .contextWrite(
+                    reactor.util.context.Context.of(
+                        "sessionId", "s1", "workflowId", "w1", "nodeId", "n1")))
+        .expectNext("scoped")
+        .verifyComplete();
   }
 
   @Test

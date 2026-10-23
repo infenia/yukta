@@ -170,7 +170,7 @@ The only implementation of the envelope: an immutable record that tidies its own
 - History is cleaned in the constructor too: null becomes an empty list, and only the last 64 entries are kept (the constant is `MAX_HISTORY`). So even a message built by hand or read back from a checkpoint file cannot carry more than 64.
 - The timestamp defaults to 'now' if not given. Both maps and lists are copied into unmodifiable versions, so a caller who keeps a reference to the list it passed in cannot change the message later.
 - This immutability is shallow. The list and map are fixed, but the objects inside metadata and the payload itself are shared by reference. Nothing in the module copies or freezes them.
-- The checkpoint store in core writes a message as JSON and reads it back as this record. The payload then comes back as plain JSON values (maps, lists, strings), not as its original Java type.
+- The checkpoint store in core writes a message as JSON and reads it back as this record. The payload comes back as its original Java type when the checkpoint recorded an allowed one, otherwise as plain JSON values (maps, lists, strings).
 
 - **Guarantees.** A message always has non-null metadata and history, history is at most 64 long, metadata has no null values or keys, and a timestamp is present.
 - **State.** None. Every instance is a value. Nothing survives a restart unless core checkpoints it.
@@ -188,7 +188,7 @@ The two named ways to get a message: a new logical message (`create`) or a new p
 - `create(traceId, payload)` makes a brand-new message: a random UUID id, the trace id as text (or null if none is given), the current time, empty metadata and empty history. Everything else is zero or null.
 - `from(original, newPayload)` copies every one of the 22 fields of the original, including id, trace, timestamp, history and metadata, and swaps only the payload. The instance method `withPayload` does the same.
 - Triggers use `create` because a trigger starts a new logical message (the API trigger, the schedule trigger and the constant source all do). Processors such as HTTP_REQUEST, LLM_CALL, MAPPER and PROCESS_EXECUTOR use `from`, which is why trace and id survive them.
-- Splitter and Aggregate deliberately use `create`: a split child is a new logical message with a new id (its correlation id points at the parent), and an aggregate is one new message built from many. Their history starts empty again. Splitter copies the parent's trace id; Aggregate takes the trace id of the first message in the batch.
+- Splitter and Aggregate deliberately use `create`: a split child is a new logical message with a new id (its correlation id points at the parent), and an aggregate is one new message built from many. Their history starts empty again, but the link is kept in headers: a split child carries `parentId` (the parent's id) and an aggregate carries `sourceIds` (the ids of the batch, in order). Splitter copies the parent's trace id; Aggregate takes the trace id of the first message in the batch.
 
 - **Guarantees.** `from` never loses a field. `create` never produces null maps or null history.
 - **State.** None.
@@ -240,8 +240,8 @@ A two-method hook core calls around every node, plus the provider that hands cor
 - The hook is `NodeMessageChannel` with `inbound(nodeId, executionId, upstream)` and `outbound(nodeId, executionId, pluginOutput)`. Each takes a Reactor stream of messages and returns a stream. A channel may transform, delay, filter, log or forward the messages.
 - The provider is `NodeMessageChannelProvider.channelFor(nodeId, config)`. It receives the node's id and config, so one provider can choose a different channel per node. Core calls it once while it builds the node, not once per message.
 - Processor nodes use both sides. Trigger nodes have no input, so only `outbound` is used. Terminal nodes have no output, so only `inbound` is used.
-- The channel sits outside the engine's retry and error policy. For processors, the per-message retry wraps the plugin call, while the channel wraps the whole stream around it. A failure inside the channel therefore fails the node's stream; it is not retried per message.
-- A skipped processor still has its channel: core always builds the pipeline and reads the skip flag per message, so the channel sees the message and the plugin is bypassed.
+- Failure contract for processors. With no per-message policy (`retry`, `elementTimeout` or a non-default `onError`), the channel wraps the whole stream and a failure inside it fails the node. With a per-message policy, core runs the channel inside the policy, once per message: a channel that throws or errors on one message is retried, dropped (`CONTINUE`) or dead-lettered to the error port (`ROUTE`), and the node keeps running. So a channel in that mode sees one message per call and must not keep state across messages in the stream.
+- A skipped processor still has its channel when it has no per-message policy: core reads the skip flag per message, so the channel sees the message and the plugin is bypassed. With a per-message policy a skipped message bypasses both the plugin and the channel.
 
 - **Guarantees.** Core asks the provider for a channel for every trigger, processor and terminal it builds, and wraps the plugin stream with it.
 - **State.** None in the interface. A custom channel can hold what it likes.
@@ -539,7 +539,7 @@ Numbers a reader may need.
 | History cap | \*\*Note.\*\* 64 entries (constant, not configurable) |
 | Envelope size | \*\*Note.\*\* 22 record components, 22 accessors, 18 withers |
 | Payload size limit | \*\*No.\*\* None in this module. Core's checkpoint caps limit replay, not the message. |
-| Payload type | \*\*Note.\*\* Plain Java object; no schema. Read back from checkpoints as JSON values. |
+| Payload type | \*\*Note.\*\* Plain Java object; no schema. Read back from checkpoints with its original type if that type is allowed, else as JSON values. |
 | Provider call frequency | \*\*Note.\*\* Once per node when the graph is assembled, not per message. |
 | Default channel | \*\*Note.\*\* Pass-through, one shared instance for all nodes. |
 

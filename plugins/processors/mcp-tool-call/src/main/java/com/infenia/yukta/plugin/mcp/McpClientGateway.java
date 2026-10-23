@@ -5,6 +5,7 @@ package com.infenia.yukta.plugin.mcp;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
+import com.infenia.yukta.plugin.util.EgressPolicy;
 import com.infenia.yukta.plugin.util.HostAllowList;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
@@ -46,6 +48,7 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap",
   "PMD.OnlyOneReturn",
+  "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects"
 })
 public class McpClientGateway {
@@ -81,6 +84,9 @@ public class McpClientGateway {
 
   /** The hosts the endpoint may be on; empty allows every host. */
   private HostAllowList allowedHosts = HostAllowList.from(null);
+
+  /** Where the deployment, workflow and session allow calls to go. */
+  private EgressPolicy egress = EgressPolicy.OPEN;
 
   /** The most bytes of tool arguments, as JSON. */
   private int maxArgumentBytes = 65_536;
@@ -148,6 +154,10 @@ public class McpClientGateway {
    * @return a Mono emitting the result
    */
   public Mono<McpCallResult> call(final McpCallSpec spec, final Runnable heartbeat) {
+    return egress.check(spec.url()).then(Mono.defer(() -> callChecked(spec, heartbeat)));
+  }
+
+  private Mono<McpCallResult> callChecked(final McpCallSpec spec, final Runnable heartbeat) {
     final String refusal = refusalFor(spec);
     if (refusal != null) {
       return Mono.error(new IllegalArgumentException(refusal));
@@ -162,6 +172,16 @@ public class McpClientGateway {
             })
         .timeout(spec.timeout())
         .doOnCancel(() -> cancelRemote(spec, requestId));
+  }
+
+  /**
+   * Sets the deployment, workflow and session host lists ({@code yukta.egress.*}).
+   *
+   * @param policy the policy
+   */
+  @Autowired(required = false)
+  /* default */ void setEgressPolicy(final EgressPolicy policy) {
+    this.egress = policy;
   }
 
   /**
@@ -241,6 +261,11 @@ public class McpClientGateway {
    * @return a Mono emitting {@code {name, description, inputSchema}} per tool
    */
   public Mono<List<Map<String, Object>>> listTools(
+      final McpCallSpec spec, final Runnable heartbeat) {
+    return egress.check(spec.url()).then(Mono.defer(() -> listChecked(spec, heartbeat)));
+  }
+
+  private Mono<List<Map<String, Object>>> listChecked(
       final McpCallSpec spec, final Runnable heartbeat) {
     final String hostRefusal = allowedHosts.refusalFor(spec.url(), ALLOWED_HOSTS_PROPERTY);
     if (hostRefusal != null) {

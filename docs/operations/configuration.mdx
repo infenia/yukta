@@ -71,6 +71,7 @@ All limits are off by default. See [Admission and limits](/running/admission-and
 | `yukta.execution.shutdown-timeout` | `30s` | Time running executions get to finish when the server stops |
 | `yukta.start.idempotency-ttl` | `10m` | Window in which a repeated `Idempotency-Key` returns the first execution id |
 | `yukta.start.idempotency-max-keys` | `100000` | Size of the idempotency key cache. An evicted key lets a repeat start again |
+| `yukta.mcp.start-dedupe-window` | `30s` | MCP `start_workflow` without a key: a repeat for the same session and workflow within this time returns the first execution id. `0` turns it off |
 | `yukta.stop.drain-timeout` | `30s` | How long a `DRAIN` stop waits for work in progress |
 
 Two start payload keys work with these: `yukta.priority` (a number, higher runs first, default `0`) and `yukta.version` (run a saved version of the workflow).
@@ -160,6 +161,9 @@ See [Security](/operations/security).
 | `yukta.api-keys[i].sessions` | all sessions | Limit the key to these session ids |
 | `yukta.mcp.api-key` | unset | An extra `ADMIN` key that works only on `/mcp` |
 | `yukta.mcp.rate-limit-per-minute` | `600` | Requests per minute one caller (key) may make to `/mcp`; more get `429` with `Retry-After`. `0` turns the limit off |
+| `yukta.mcp.log-redact-patterns` | bearer tokens, `key=value` secrets, `sk-`, `ghp_`, `AKIA` keys | Regexes (comma separated) whose matches an agent sees as `[REDACTED]` in log lines read through MCP. Setting it replaces the defaults. Applied before the log filter, so a filter cannot probe a redacted value |
+| `yukta.mcp.log-max-line-chars` | `2000` | Longest log line MCP returns; line breaks and control characters become spaces so one entry stays one line. `0` turns the cut off |
+| `yukta.mcp.log-max-chars` | `200000` | Most log characters one MCP call returns; the oldest lines are dropped first. `0` turns the cap off |
 | `yukta.allowed-hosts` | loopback names | Extra `Host` values accepted while no key is set |
 | `yukta.allowed-origins` | none | Extra `Origin` values accepted for changing requests while no key is set |
 | `yukta.variables.allowed` (`YUKTA_VARIABLES_ALLOWED`) | empty | Extra environment variable and system property names workflows may read with `${env.X}` and `${sys.x}` |
@@ -176,6 +180,7 @@ See [Security](/operations/security).
 | `yukta.spel.max-length` | `10000` | Longest expression, in characters, that is parsed; a longer one is refused. System property only |
 | `yukta.spel.timeout-ms` | `1000` | Longest one expression (filter, branch, mapper projection, loop condition, ...) may run; `0` turns the limit off. System property only |
 | `yukta.script.max-statements` | `50000000` | Most statements a script may run. System property only |
+| `yukta.messaging.max-payload-bytes` | `67108864` | Largest payload (64 MiB), in bytes, that a node may send or receive. Counts strings and byte arrays, also inside maps and lists; a larger message fails the node with `PayloadTooLargeException`. `0` turns the check off |
 | `yukta.streams.max-concurrent` | `500` | Most event and log streams (SSE) open at once. The next one is answered with `429`; `0` turns the cap off. System property only |
 | `yukta.streams.max-per-key` | `50` | Most streams one named key has open at once; the next gets `429`. `0` turns it off. System property only |
 | `yukta.rate-limit-per-minute` | `1200` | `/api` requests per key and minute; the next gets `429` with `Retry-After`. `0` turns it off. Not applied when no key is configured (loopback only). System property only |
@@ -183,6 +188,7 @@ See [Security](/operations/security).
 | `yukta.mcp-client.allowed-tools` | empty (any) | Tools `MCP_TOOL_CALL` may call |
 | `yukta.mcp-client.allowed-hosts` | empty (any) | Hosts `MCP_TOOL_CALL` and `MCP_LIST_TOOLS` may call: names, IP addresses or `*.domain` |
 | `yukta.files.allowed-root` | unset | Directory every `FILE_READ` / `FILE_WRITE` `baseDir` must be inside. System property, or env `YUKTA_FILES_ALLOWED_ROOT` |
+| `yukta.egress.allowed-hosts` | empty (any) | Hosts any outbound call may reach, including `NOTIFY_TERMINAL`; narrow per workflow with `yukta.egress.by-workflow.<id>` and per session with `yukta.egress.by-session.<id>` (see Security) |
 | `yukta.http.allowed-hosts` | empty (any) | Hosts `HTTP_REQUEST` may call: names, IP addresses or `*.domain` |
 | `yukta.mcp-client.max-argument-bytes` | `65536` | Most bytes of arguments, as JSON, in one tool call |
 | `yukta.mcp-client.deny-argument-patterns` | empty | Regular expressions that tool arguments must not match |
@@ -198,6 +204,7 @@ See [Supervisors](/running/supervisors) and [Control planes](/running/control-pl
 | Setting | Default | Meaning and effect |
 |---|---|---|
 | `yukta.supervisor.max-commands-per-second` | `20` | Rate limit for each supervisor's commands |
+| `yukta.supervisor.buffer-size` | `10000` | Events a supervisor may have waiting; beyond that events are dropped and it receives an `EventsMissed` event |
 | `yukta.supervisor.review-timeout` | `5s` | Longest a supervisor may take to review a command. A slower review refuses the command, except a stop, which is allowed |
 | `yukta.supervisor.dry-run` | `false` | Record supervisor commands without applying them |
 | `yukta.supervisor.rules.file` | unset | JSON rules file. Setting it enables the rule supervisor |

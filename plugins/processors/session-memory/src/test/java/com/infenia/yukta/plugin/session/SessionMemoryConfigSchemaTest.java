@@ -22,7 +22,7 @@ class SessionMemoryConfigSchemaTest {
     final ConfigField mode = schema.getFirst();
     assertThat(mode.name()).isEqualTo("mode");
     assertThat(mode.required()).isTrue();
-    assertThat(mode.options()).containsExactly("load", "append");
+    assertThat(mode.options()).containsExactly("load", "append", "delete");
     assertThat(schema.stream().map(ConfigField::name))
         .containsExactly("mode", "sessionId", "message", "assistant", "maxTurns");
   }

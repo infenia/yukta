@@ -28,4 +28,11 @@ public interface SessionHistoryStore {
    * @param turns the turns to keep, oldest first
    */
   void save(String sessionId, List<Map<String, String>> turns);
+
+  /**
+   * Deletes the history of a session, for example on the user's request.
+   *
+   * @param sessionId the session id
+   */
+  void delete(String sessionId);
 }

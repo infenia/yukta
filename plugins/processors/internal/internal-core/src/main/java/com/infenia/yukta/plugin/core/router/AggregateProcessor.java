@@ -115,6 +115,7 @@ public final class AggregateProcessor implements ProcessorPlugin {
     final List<Object> items = batch.stream().<Object>map(Message::payload).toList();
     return DefaultMessage.create(UUID.randomUUID(), Map.of("items", items, "count", items.size()))
         .withTraceId(batch.getFirst().traceId())
+        .withHeader("sourceIds", batch.stream().map(Message::id).toList())
         .withSourcePort("default");
   }
 

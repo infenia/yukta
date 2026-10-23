@@ -4,6 +4,8 @@ package com.infenia.yukta.plugin.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.plugin.util.EgressPolicy;
+import com.infenia.yukta.plugin.util.HostAllowList;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -17,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.test.StepVerifier;
+import reactor.util.context.Context;
 
 @SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentRequired", "PMD.LawOfDemeter"})
 @NoArgsConstructor
@@ -96,6 +99,21 @@ class HttpRequestGatewayTest {
 
     StepVerifier.create(gateway.execute(spec))
         .expectErrorMessage("Host 'localhost' is not in yukta.http.allowed-hosts")
+        .verify();
+  }
+
+  @Test
+  void workflowEgressListRefusesBeforeCalling() {
+    gateway.setEgressPolicy(
+        new EgressPolicy(
+            HostAllowList.from(null),
+            Map.of("wf", HostAllowList.from(List.of("example.com"))),
+            Map.of()));
+    final HttpRequestSpec spec =
+        new HttpRequestSpec("GET", base + "/echo", Map.of(), null, Duration.ofSeconds(5));
+
+    StepVerifier.create(gateway.execute(spec).contextWrite(Context.of("workflowId", "wf")))
+        .expectErrorMessage("Host 'localhost' is not in yukta.egress.by-workflow.wf")
         .verify();
   }
 

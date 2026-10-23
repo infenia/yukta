@@ -56,7 +56,7 @@ Every edge is a stream. A slow consumer slows its producers, so memory between n
 
 To keep one slow branch from slowing the others, put an `edgeBuffer` in front of the slow node. When it is full, it drops the oldest (or newest) message instead of pacing the parents. Drops are counted in `yukta.edge.dropped`. The default stays lossless.
 
-Other bounded paths drop rather than wait: a supervisor that is too slow loses events (`yukta.tracker.dropped{kind=supervisor}`), and more than 10,000 pending log lines are dropped (`yukta.tracker.dropped{type=log}`). State events are never dropped by design.
+Other bounded paths drop rather than wait: a supervisor that falls more than `yukta.supervisor.buffer-size` (10,000) events behind loses events (`yukta.tracker.dropped{kind=supervisor}`) and is sent an `EventsMissed` event, and more than 10,000 pending log lines are dropped (`yukta.tracker.dropped{type=log}`). State events are never dropped by design.
 
 See [Delivery and back-pressure](/concepts/delivery-and-backpressure).
 
@@ -96,7 +96,7 @@ Meters are read at `GET /actuator/metrics` (the list) and `GET /actuator/metrics
 | `yukta.tracker.queue.depth` | gauge | none | State events accepted and not yet applied |
 | `yukta.tracker.dropped` | counter | `type` (`log`, `state`) or `kind` (`supervisor`) | Dropped log lines, lost state events, and events a slow supervisor missed |
 | `yukta.tracker.log.append.failed` | counter | `type` (`node`, `run`) | Failed writes to the execution log |
-| `yukta.execution.log.lost` | counter | `reason` (`queue_full`, `write_failed`) | Execution log events that never reached PostgreSQL. A lost start or end event stops a run from being resumed. Alert on any rise |
+| `yukta.execution.log.lost` | counter | `reason` (`queue_full`, `write_failed`) | Execution log events that never reached PostgreSQL. A lost start or end event stops a run from being resumed. Start and end events are not dropped for a full queue and are retried when an insert fails (about 3 s in all), so a rise means the database was down for longer than that. Alert on any rise |
 | `yukta.edge.dropped` | counter | `type` | Messages dropped by an edge buffer. `type` is the node's plugin type |
 | `yukta.checkpoint.bytes` | gauge | none | Node output held by the checkpoint store |
 | `yukta.checkpoint.errors` | counter | none | End markers that could not be written |

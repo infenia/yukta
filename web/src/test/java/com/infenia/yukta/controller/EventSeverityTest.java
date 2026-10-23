@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.core.LogLevel;
 import java.time.Instant;
 import java.util.Map;
 import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -57,6 +58,12 @@ class EventSeverityTest {
     final var event = new ExecutionEvent.LogLine("e", "n", "any text at all", level, NOW);
 
     assertThat(EventSeverity.of(event)).isEqualTo(expected);
+  }
+
+  @Test
+  void eventsMissed_isWarning() {
+    assertThat(EventSeverity.of(new ExecutionEvent.EventsMissed(3, NOW)))
+        .isEqualTo(EventSeverity.WARN);
   }
 
   @ParameterizedTest

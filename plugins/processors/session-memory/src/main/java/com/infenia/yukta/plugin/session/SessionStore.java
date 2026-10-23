@@ -117,6 +117,18 @@ public class SessionStore {
    */
   public void append(
       final String sessionId, final String role, final String content, final int maxTurns) {
+    append(sessionId, List.of(Map.of("role", role, "content", content)), maxTurns);
+  }
+
+  /**
+   * Append several turns at once, dropping the oldest turns beyond {@code maxTurns}.
+   *
+   * @param sessionId the session id
+   * @param added the turns ({@code role}, {@code content}) to add, oldest first
+   * @param maxTurns the maximum number of turns to retain
+   */
+  public void append(
+      final String sessionId, final List<Map<String, String>> added, final int maxTurns) {
     sessions
         .asMap()
         .compute(
@@ -124,12 +136,24 @@ public class SessionStore {
             (id, existing) -> {
               final List<Map<String, String>> turns =
                   new ArrayList<>(existing == null ? load(id).orElse(List.of()) : existing);
-              turns.add(Map.of("role", role, "content", content));
+              turns.addAll(added);
               final List<Map<String, String>> kept =
                   List.copyOf(turns.subList(Math.max(0, turns.size() - maxTurns), turns.size()));
               save(id, kept);
               return kept;
             });
+  }
+
+  /**
+   * Delete a session's history from memory and from the history store.
+   *
+   * @param sessionId the session id
+   */
+  public void delete(final String sessionId) {
+    sessions.invalidate(sessionId);
+    if (database != null) {
+      database.delete(sessionId);
+    }
   }
 
   /**

@@ -46,7 +46,7 @@ If a checkpoint cannot be saved, or the marker cannot be written, the run carrie
 
 A node that goes over a cap is marked incomplete. A restart that needs its output is refused instead of replaying part of it, unless a spill directory is set. Do not point the spill directory at a folder shared with another process. Leftover spill files from an earlier process are removed at start.
 
-Messages come back from files and from PostgreSQL as plain JSON values. A resume reads a node's whole output into memory.
+A payload comes back from files and from PostgreSQL as the Java type it had, when that type is one of Yukta's own (`com.infenia.yukta.*`), a date/time, number or UUID type, or bytes. A payload of any other type comes back as plain JSON values (a map for an object) and a warning is logged. A resume reads a node's whole output into memory.
 
 See [Persistence](/operations/persistence) for the file layout and PostgreSQL tables.
 

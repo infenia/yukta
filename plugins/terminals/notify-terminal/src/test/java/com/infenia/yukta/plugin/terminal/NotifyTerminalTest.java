@@ -7,6 +7,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import com.infenia.yukta.plugin.util.EgressPolicy;
+import com.infenia.yukta.plugin.util.HostAllowList;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -26,6 +28,7 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
+import reactor.util.context.Context;
 
 /** Tests for NotifyTerminal against a local JDK HTTP server. */
 @NoArgsConstructor
@@ -89,6 +92,24 @@ class NotifyTerminalTest {
         .verifyComplete();
     assertThat(bodies)
         .containsExactly("{\"text\":\"hi\"}", "{\"text\":\"raw\"}", "{\"text\":\"fixed\"}");
+  }
+
+  @Test
+  void consume_hostOutsideTheWorkflowEgressListIsNotCalled() {
+    terminal.setEgressPolicy(
+        new EgressPolicy(
+            HostAllowList.from(null),
+            Map.of("wf", HostAllowList.from(List.of("hooks.example.com"))),
+            Map.of()));
+
+    StepVerifier.create(
+            terminal
+                .consume(messages("x"), Map.of(URL_KEY, url))
+                .contextWrite(Context.of("workflowId", "wf")))
+        .expectErrorSatisfies(
+            e -> assertThat(e).hasMessageContaining("yukta.egress.by-workflow.wf"))
+        .verify();
+    assertThat(bodies).isEmpty();
   }
 
   @Test

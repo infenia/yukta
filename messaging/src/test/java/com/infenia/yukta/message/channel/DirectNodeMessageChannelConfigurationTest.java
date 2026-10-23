@@ -4,7 +4,9 @@ package com.infenia.yukta.message.channel;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.message.DefaultMessage;
 import java.util.Map;
+import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -13,10 +15,15 @@ import org.springframework.boot.context.annotation.ImportCandidates;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 
 /** Tests for {@link DirectNodeMessageChannelConfiguration}. */
 @NoArgsConstructor
 class DirectNodeMessageChannelConfigurationTest {
+
+  /** PMD rule that does not see assertions inside lambdas. */
+  private static final String NO_ASSERT = "PMD.UnitTestShouldIncludeAssert";
 
   /** Context runner for testing. */
   private final ApplicationContextRunner contextRunner =
@@ -24,7 +31,7 @@ class DirectNodeMessageChannelConfigurationTest {
           .withUserConfiguration(DirectNodeMessageChannelConfiguration.class);
 
   @Test
-  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
+  @SuppressWarnings(NO_ASSERT)
   void nodeMessageChannelProvider_whenNoBeanPresent_registersDirectNodeMessageChannelProvider() {
     contextRunner.run(
         context -> {
@@ -35,7 +42,25 @@ class DirectNodeMessageChannelConfigurationTest {
   }
 
   @Test
-  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
+  @SuppressWarnings(NO_ASSERT)
+  void maxPayloadBytes_property_limitsTheChannel() {
+    contextRunner
+        .withPropertyValues("yukta.messaging.max-payload-bytes=3")
+        .run(
+            context -> {
+              assertThat(context).hasSingleBean(NodeMessageChannelProvider.class);
+              final var channel =
+                  context.getBean(NodeMessageChannelProvider.class).channelFor("n", Map.of());
+              StepVerifier.create(
+                      channel.inbound(
+                          "n", "e", Flux.just(DefaultMessage.create(UUID.randomUUID(), "abcd"))))
+                  .expectError(PayloadTooLargeException.class)
+                  .verify();
+            });
+  }
+
+  @Test
+  @SuppressWarnings(NO_ASSERT)
   void directNodeMessageChannelProvider_whenCustomBeanPresent_doesNotRegisterDefaultBean() {
     final NodeMessageChannelProvider customProvider = new StubNodeMessageChannelProvider();
 
@@ -59,7 +84,7 @@ class DirectNodeMessageChannelConfigurationTest {
   }
 
   @Test
-  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
+  @SuppressWarnings(NO_ASSERT)
   void autoConfiguredDefault_yieldsToCustomProviderRegardlessOfOrder() {
     new ApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(DirectNodeMessageChannelConfiguration.class))

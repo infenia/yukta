@@ -118,7 +118,7 @@ Each item message has a new id and the item as its payload. It keeps the parent'
 
 ## AGGREGATE
 
-Batches messages into one message that holds a list. It is the reverse of `SPLITTER`.
+Batches messages into one message that holds a list. It is the reverse of `SPLITTER`. The result carries a `sourceIds` header listing the ids of the batched messages; each child of a `SPLITTER` carries a `parentId` header, so lineage can be followed across both.
 
 | Option | Type | Default | Meaning |
 |---|---|---|---|
