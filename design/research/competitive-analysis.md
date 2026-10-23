@@ -436,11 +436,15 @@ Filed under the epic **#848 "Competitive analysis follow-ups"**, each with type 
 
 ## Already tracked
 
-These gaps from the research already have open issues, so none were filed again: #468 (backfill,
-caching, saga, A2A, eval node, Vault), #658 (schedules forgotten on restart), #465 and #568 (agent
-loop, streaming), #569 (resume cost), #593 (claim check), #594 (typed payload), #617 and #464
-(retention), #637 (plugin test kit), #482 (run-time plugins), #704 (key lifecycle), #433 (remote
-workers), #435 (performance baseline), #567 and #461 (durable waits).
+These gaps already had open issues, so none were filed again. They are now sub-issues of #848 as
+well: #468 (backfill, caching, saga, A2A, eval node, Vault), #658 (schedules forgotten on restart),
+#465 and #568 (agent loop, streaming), #569 (resume cost), #617 and #464 (retention), #637 (plugin
+test kit), #482 (run-time plugins), #704 (key lifecycle), #567 and #461 (durable waits), #469 (trace
+id in progress) and #574 (MCP start payload).
+
+Related but kept under their own parents: #593 (claim check) and #594 (typed payload) belong to the
+beta-readiness epic #741, and #433 (remote workers) and #435 (performance baseline) are epics
+themselves.
 
 ## Sources
 
