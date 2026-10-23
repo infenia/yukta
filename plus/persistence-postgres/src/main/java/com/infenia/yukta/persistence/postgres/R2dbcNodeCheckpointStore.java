@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.persistence.postgres;
 
-import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.store.ByteCounted;
+import com.infenia.yukta.service.store.CheckpointJson;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
@@ -71,7 +71,7 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
 
   @Override
   public Mono<Void> save(final String executionId, final String nodeId, final Message<?> message) {
-    return Mono.fromCallable(() -> mapper.writeValueAsString(message))
+    return Mono.fromCallable(() -> CheckpointJson.write(mapper, message))
         .flatMap(
             json ->
                 client
@@ -111,7 +111,7 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
         .bind(NODE, nodeId)
         .map(row -> row.get("message", String.class))
         .all()
-        .map(json -> (Message<?>) mapper.readValue(json, DefaultMessage.class));
+        .map(json -> CheckpointJson.read(mapper, json));
   }
 
   @Override
