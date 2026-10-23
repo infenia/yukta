@@ -51,7 +51,7 @@ Authorization: Bearer <key>
 X-API-Key: <key>
 ```
 
-The same keys guard REST (`/api/**`), the MCP endpoint (`/mcp`) and the management endpoints (`/actuator/**`, except `/actuator/health`).
+The same keys guard REST (`/api/**`), the MCP endpoint (`/mcp`) and the management endpoints (`/actuator/**`, except `/actuator/health`). With no key configured the actuator (except `/actuator/health`) is refused with `403`, so the dev profile's loggers, mappings and thread dumps are not open to local callers; set a key to use them.
 
 | Response | Meaning |
 |---|---|

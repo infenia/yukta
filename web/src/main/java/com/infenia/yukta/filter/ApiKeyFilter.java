@@ -35,9 +35,9 @@ import reactor.core.publisher.Mono;
 /**
  * Requires an API key on every {@code /api/**} request, on the OpenAPI document and Swagger UI and
  * on the actuator (except {@code /actuator/health}) when one is configured, as {@code
- * Authorization: Bearer <key>} or {@code X-API-Key: <key>}. With no key configured the API stays
- * open, which is safe only because the server listens on loopback by default (and refuses to start
- * on another address without a key).
+ * Authorization: Bearer <key>} or {@code X-API-Key: <key>}. With no key configured the actuator
+ * (except health) is refused with 403 and the API stays open, which is safe only because the server
+ * listens on loopback by default (and refuses to start on another address without a key).
  *
  * <p>The path is matched after percent-decoding; a path written with parameters, encoded separators
  * or dot segments is refused with 400, so no spelling of a path skips the check.
@@ -129,7 +129,11 @@ public class ApiKeyFilter implements WebFilter {
   public Mono<Void> filter(final ServerWebExchange exchange, final WebFilterChain chain) {
     final String raw = exchange.getRequest().getPath().value();
     if (authenticator.isOpen(Scope.REST)) {
-      return chain.filter(exchange);
+      // no key to check, so the actuator (loggers, thread dumps) is closed rather than open
+      return isUnder(raw, "/actuator") && !isUnder(raw, HEALTH)
+          ? reject(
+              exchange, HttpStatus.FORBIDDEN, "The actuator needs yukta.api-key to be configured")
+          : chain.filter(exchange);
     }
     if (RequestPaths.ambiguous(raw)) {
       return reject(exchange, HttpStatus.BAD_REQUEST, "Ambiguous request path");
