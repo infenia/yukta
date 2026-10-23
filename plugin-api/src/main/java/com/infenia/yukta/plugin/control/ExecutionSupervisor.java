@@ -47,7 +47,9 @@ public interface ExecutionSupervisor {
    * Approves or refuses a control command before it runs.
    *
    * @param request the command and who sent it
-   * @return the verdict; an error counts as a denial
+   * @return the verdict; an error counts as a denial. The answer must come within {@code
+   *     yukta.supervisor.review-timeout} (default 5 s); a slower review is refused, except for a
+   *     stop command, which is allowed.
    */
   default Mono<Decision> review(final ControlRequest request) {
     return Mono.just(Decision.ALLOW);
