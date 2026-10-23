@@ -214,6 +214,8 @@ Scripts can reach only a short list of date, time and basic value types from the
 
 Expressions (filter conditions, branch cases, mapper projections, loop exit conditions and so on) have a time limit too, the system property `yukta.spel.timeout-ms` (default `1000`, `0` turns it off). An expression that runs longer, for example a regular expression that backtracks without end, is stopped and fails the message.
 
+Expressions are written by trusted authors only: whoever can save a workflow definition (an `ADMIN` key) can already run code on the server. Expressions get a time limit, a length limit (`yukta.spel.max-length`) and a method allow-list, but no size budget for operations on very large strings. Do not let an untrusted caller supply an expression.
+
 ## Variables and secrets
 
 Placeholders such as `${env.NAME}` and `${sys.name}` in a node's configuration read the server's environment, but only from an allow-list:
