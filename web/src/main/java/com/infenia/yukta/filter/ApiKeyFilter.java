@@ -9,6 +9,7 @@ import com.infenia.yukta.security.ApiAuthenticator.Scope;
 import com.infenia.yukta.security.ApiKeyAuthenticator;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.ApiRole;
+import com.infenia.yukta.security.CallRateLimiter;
 import com.infenia.yukta.security.RequestPaths;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -57,6 +58,9 @@ import reactor.core.publisher.Mono;
  * {@code /api/sessions/{session}/**}, {@code /api/workflow/{session}/**} and the {@code
  * /api/executions/{id}/**} of runs in its sessions. With named keys, the control commands a request
  * sends are recorded with the actor {@code key:<name>}.
+ *
+ * <p>Each key may make {@code yukta.rate-limit-per-minute} {@code /api} requests per minute (system
+ * property, default 1200; 0 turns it off); the next one gets 429 with {@code Retry-After}.
  */
 @Component
 @NullMarked
@@ -74,6 +78,13 @@ public class ApiKeyFilter implements WebFilter {
   /** The session of a session-scoped API path. */
   private static final Pattern SESSION_PATH =
       Pattern.compile("^/api/(?:sessions|workflow)/([^/]+)(?:/.*)?$");
+
+  /** Requests per key and minute when {@code yukta.rate-limit-per-minute} is not set. */
+  private static final int DEFAULT_RATE_LIMIT = 1200;
+
+  /** Caps the {@code /api} requests of one key. */
+  private final CallRateLimiter limiter =
+      new CallRateLimiter(Integer.getInteger("yukta.rate-limit-per-minute", DEFAULT_RATE_LIMIT));
 
   /** Identifies the caller; an open authenticator disables the check. */
   private final ApiAuthenticator authenticator;
@@ -153,6 +164,10 @@ public class ApiKeyFilter implements WebFilter {
     }
     if (!permitted(match, exchange, path)) {
       return reject(exchange, HttpStatus.FORBIDDEN, "This API key may not do that");
+    }
+    if (isUnder(path, "/api") && !limiter.tryAcquire(match.name())) {
+      exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, "60");
+      return reject(exchange, HttpStatus.TOO_MANY_REQUESTS, "Too many requests, slow down");
     }
     return authenticator.named()
         ? chain

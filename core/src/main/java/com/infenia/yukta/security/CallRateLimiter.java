@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.mcp;
+package com.infenia.yukta.security;
 
 import java.time.Duration;
 import java.util.Map;
@@ -8,8 +8,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongSupplier;
 
 /**
- * Counts MCP requests per caller in fixed one-minute windows, so an agent stuck in a retry loop
- * cannot start runs or read logs without bound. A limit of 0 turns it off.
+ * Counts requests per caller in fixed one-minute windows, so an agent stuck in a retry loop cannot
+ * start runs or read logs without bound. A limit of 0 turns it off.
  */
 public final class CallRateLimiter {
 

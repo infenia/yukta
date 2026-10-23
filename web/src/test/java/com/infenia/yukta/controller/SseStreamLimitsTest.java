@@ -4,6 +4,7 @@ package com.infenia.yukta.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.plugin.control.ControlActor;
 import java.time.Duration;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
@@ -25,6 +26,32 @@ class SseStreamLimitsTest {
   void clearLimits() {
     System.clearProperty(SseStreams.MAX_CONCURRENT_PROPERTY);
     System.clearProperty(SseStreams.MAX_LIFETIME_PROPERTY);
+    System.clearProperty(SseStreams.MAX_PER_KEY_PROPERTY);
+  }
+
+  @Test
+  void keyBeyondItsStreamCap_isAnswered429_butAnotherKeyIsNot() {
+    System.setProperty(SseStreams.MAX_PER_KEY_PROPERTY, "1");
+    final Sinks.Many<String> held = Sinks.many().unicast().onBackpressureBuffer();
+
+    StepVerifier.create(
+            SseStreams.events(held.asFlux(), null, BEAT)
+                .contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:alice")))
+        .then(
+            () -> {
+              StepVerifier.create(
+                      SseStreams.events(Flux.just("x"), null, BEAT)
+                          .contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:alice")))
+                  .expectError(ResponseStatusException.class)
+                  .verify();
+              StepVerifier.create(
+                      SseStreams.events(Flux.just("x"), null, BEAT)
+                          .contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:bob")))
+                  .expectNextCount(1)
+                  .verifyComplete();
+            })
+        .thenCancel()
+        .verify();
   }
 
   @Test
