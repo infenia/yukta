@@ -191,6 +191,9 @@ Use `allow-any` only when every workflow author is fully trusted.
 |---|---|
 | `yukta.http.allowed-hosts` | Hosts `HTTP_REQUEST` may call |
 | `yukta.mcp-client.allowed-hosts` | Hosts `MCP_TOOL_CALL` and `MCP_LIST_TOOLS` may call |
+| `yukta.egress.allowed-hosts` | Hosts every outbound call may reach: `HTTP_REQUEST`, `MCP_TOOL_CALL`, `MCP_LIST_TOOLS` and `NOTIFY_TERMINAL` |
+| `yukta.egress.by-workflow.<workflowId>` | Narrows the calls of one workflow further |
+| `yukta.egress.by-session.<sessionId>` | Narrows the calls made in one session further |
 
 Each entry is a host name or IP address, compared without regard to case, or `*.example.com`, which matches any subdomain but not `example.com` itself. A call to any other host is refused before a request is made, and so is a URL with no host. The check uses the host the URL really addresses, so `https://good.com@evil.com/` counts as `evil.com`.
 
@@ -199,7 +202,15 @@ yukta.http.allowed-hosts=api.example.com,*.internal.example
 yukta.mcp-client.allowed-hosts=mcp.example.com
 ```
 
-The list works on the name in the URL. It does not stop a listed name that resolves to an address you did not intend, so keep the listed names under your control. The link-local block likewise reads the address in the URL; it does not look up what a name resolves to. `NOTIFY_TERMINAL` webhooks are not covered by these settings.
+A call must pass the plugin's own list and every `yukta.egress` list that applies to its run, so a workflow or session list can only narrow what the deployment allows, never widen it. An empty list does not restrict. Only the operator sets these (properties, not workflow definitions), so egress stays under deployment control:
+
+```properties
+yukta.egress.allowed-hosts=api.example.com,hooks.slack.com
+yukta.egress.by-workflow.nightly-report=api.example.com
+yukta.egress.by-session.4f1c0e=hooks.slack.com
+```
+
+The list works on the name in the URL. It does not stop a listed name that resolves to an address you did not intend, so keep the listed names under your control. The link-local block likewise reads the address in the URL; it does not look up what a name resolves to. `NOTIFY_TERMINAL` webhooks are covered by the `yukta.egress` lists only.
 
 ## Script limits
 
