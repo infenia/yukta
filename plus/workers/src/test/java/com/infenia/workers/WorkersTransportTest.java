@@ -75,6 +75,7 @@ class WorkersTransportTest {
             ControlPlane.class,
             "spring.rsocket.server.port=0",
             "yukta.workers.token=secret",
+            "yukta.workers.allow-insecure=true",
             "yukta.workers.lease=3s")) {
       final String port = controlPlane.getEnvironment().getProperty("local.rsocket.server.port");
       final WorkerRegistry registry = controlPlane.getBean(WorkerRegistry.class);
@@ -84,6 +85,7 @@ class WorkersTransportTest {
               Worker.class,
               "yukta.workers.control-plane=localhost:" + port,
               "yukta.workers.token=secret",
+              "yukta.workers.allow-insecure=true",
               "yukta.workers.id=w-it",
               "yukta.workers.pools=default,gpu",
               "yukta.workers.plugin-types=HTTP_REQUEST",
@@ -108,7 +110,11 @@ class WorkersTransportTest {
   @Test
   void workerWithWrongToken_isNeverRegistered() {
     try (ConfigurableApplicationContext controlPlane =
-        start(ControlPlane.class, "spring.rsocket.server.port=0", "yukta.workers.token=secret")) {
+        start(
+            ControlPlane.class,
+            "spring.rsocket.server.port=0",
+            "yukta.workers.token=secret",
+            "yukta.workers.allow-insecure=true")) {
       final String port = controlPlane.getEnvironment().getProperty("local.rsocket.server.port");
       final WorkerRegistry registry = controlPlane.getBean(WorkerRegistry.class);
 
@@ -126,6 +132,18 @@ class WorkersTransportTest {
   }
 
   @Test
+  void controlPlaneWithoutTls_refusesToStartOnEveryInterface() {
+    assertThatThrownBy(
+            () ->
+                start(
+                    ControlPlane.class,
+                    "spring.rsocket.server.port=0",
+                    "yukta.workers.token=secret"))
+        .hasRootCauseInstanceOf(IllegalStateException.class)
+        .hasStackTraceContaining("plain TCP");
+  }
+
+  @Test
   void addressWithoutPort_stopsTheWorkerFromStarting() {
     assertThatThrownBy(
             () ->
@@ -133,6 +151,7 @@ class WorkersTransportTest {
                     Worker.class,
                     "yukta.workers.control-plane=localhost",
                     "yukta.workers.token=secret",
+                    "yukta.workers.allow-insecure=true",
                     "yukta.workers.id=w"))
         .hasRootCauseInstanceOf(IllegalArgumentException.class);
   }

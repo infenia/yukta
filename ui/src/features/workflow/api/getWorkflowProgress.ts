@@ -5,10 +5,7 @@ import { api, fetchApi } from '@/lib/apiClient';
 import type { WorkflowProgress } from '../types/workflow';
 
 export async function getWorkflowProgress(
-  sessionId: string,
   executionId: string
 ): Promise<WorkflowProgress> {
-  return fetchApi<WorkflowProgress>(
-    api`/api/workflow/${sessionId}/status/${executionId}`
-  );
+  return fetchApi<WorkflowProgress>(api`/api/executions/${executionId}`);
 }

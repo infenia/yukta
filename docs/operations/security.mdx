@@ -1,6 +1,7 @@
 ---
-title: "Security"
-description: "Expose the server safely, control who can do what, and limit what workflows may run."
+title: "Security: API keys, roles and safe exposure"
+sidebarTitle: "Security"
+description: "Expose the server beyond loopback safely: API keys, roles and session-limited keys, Host and Origin checks, process and outbound limits, and secret handling."
 keywords: ["security", "API keys", "authentication", "permissions"]
 ---
 
@@ -253,7 +254,7 @@ Per-run token, cost and call budgets are set in the node. See [AI and agents](/b
 
 ## TLS for workers
 
-Remote workers connect to the control plane over a persistent connection that is plain TCP unless you configure TLS. Use a shared token and mutual TLS on both sides:
+Remote workers connect to the control plane over a persistent connection that is plain TCP unless you configure TLS; the server and the worker refuse to start in that mode off the local machine unless `yukta.workers.allow-insecure=true`. Use a shared token and mutual TLS on both sides:
 
 ```properties
 # control plane

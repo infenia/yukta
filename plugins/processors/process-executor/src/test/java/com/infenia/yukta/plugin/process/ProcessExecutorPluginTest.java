@@ -349,6 +349,36 @@ class ProcessExecutorPluginTest {
   }
 
   @Test
+  void process_failureMessage_keepsOnlyTheEndOfLongOutput() {
+    final String[] lines =
+        java.util.stream.IntStream.range(0, 5_000)
+            .mapToObj(i -> "line " + i)
+            .toArray(String[]::new);
+    gatewayReturns(failedResult(1, lines));
+
+    StepVerifier.create(
+            plugin.process(Flux.just(message("input")), Map.of("command", List.of("x"))))
+        .verifyErrorSatisfies(
+            error ->
+                assertThat(error.getMessage())
+                    .contains("line 4999")
+                    .contains("line 4950")
+                    .doesNotContain("line 4949\n")
+                    .contains("characters cut")
+                    .hasSizeLessThan(9_000));
+  }
+
+  @Test
+  void process_failureMessage_cutsVeryLongSingleLine() {
+    gatewayReturns(failedResult(1, "x".repeat(100_000) + "END"));
+
+    StepVerifier.create(
+            plugin.process(Flux.just(message("input")), Map.of("command", List.of("x"))))
+        .verifyErrorSatisfies(
+            error -> assertThat(error.getMessage()).endsWith("END").hasSizeLessThan(9_000));
+  }
+
+  @Test
   void process_nonZeroExitWithCapturedStderr_errorMessageIncludesStderr() {
     final Map<String, Object> config =
         Map.of("command", List.of("false"), "failureMode", "ERROR", "captureStderr", true);

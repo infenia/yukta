@@ -69,6 +69,7 @@ class RemoteNodeTest {
             .properties(
                 "spring.rsocket.server.port=0",
                 "yukta.workers.token=secret",
+                "yukta.workers.allow-insecure=true",
                 "yukta.workers.lease=3s")
             .run();
     final String port = controlPlane.getEnvironment().getProperty("local.rsocket.server.port");
@@ -78,6 +79,7 @@ class RemoteNodeTest {
             .properties(
                 "yukta.workers.control-plane=localhost:" + port,
                 "yukta.workers.token=secret",
+                "yukta.workers.allow-insecure=true",
                 "yukta.workers.id=w1",
                 "yukta.workers.pools=default",
                 "yukta.workers.plugin-types=UPPER,BOOM,BAD,HEART,CTX,HOLD,NOT_PROCESSOR",

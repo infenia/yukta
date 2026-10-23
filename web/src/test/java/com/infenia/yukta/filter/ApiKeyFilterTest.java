@@ -168,6 +168,9 @@ class ApiKeyFilterTest {
     final var wrong =
         run("secret", MockServerHttpRequest.get("/api/sessions").header("X-API-Key", "nope"));
     assertThat(wrong.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    assertThat(wrong.getResponse().getBodyAsString().block())
+        .contains("\"status\":401")
+        .contains("X-API-Key");
   }
 
   @Test

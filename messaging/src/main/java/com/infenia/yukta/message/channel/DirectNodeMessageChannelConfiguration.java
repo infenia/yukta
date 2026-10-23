@@ -3,12 +3,17 @@
 package com.infenia.yukta.message.channel;
 
 import lombok.NoArgsConstructor;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
-/** Registers the default NodeMessageChannelProvider when no other is present. */
-@Configuration
+/**
+ * Registers the default NodeMessageChannelProvider when no other is present. This is an
+ * auto-configuration (listed in {@code AutoConfiguration.imports}), so it is processed after every
+ * user configuration and {@code @ConditionalOnMissingBean} sees a custom provider whatever order
+ * Spring reads the classes in.
+ */
+@AutoConfiguration
 @NoArgsConstructor
 public class DirectNodeMessageChannelConfiguration {
 
