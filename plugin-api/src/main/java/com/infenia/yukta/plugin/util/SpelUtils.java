@@ -141,7 +141,7 @@ public final class SpelUtils {
   /**
    * The parsed expression, from the cache or parsed now. Parsing happens outside the cache's lock,
    * so one slow parse does not hold up every other plugin; two threads racing on the same new
-   * expression both parse it and the first result stays.
+   * expression both parse it, the first result stays cached and each uses its own copy.
    */
   private static Expression parsed(final String expressionStr) {
     final Expression cached = CACHE.get(expressionStr);
@@ -160,7 +160,7 @@ public final class SpelUtils {
               + ")");
     }
     final Expression parsed = PARSER.parseExpression(expressionStr);
-    final Expression earlier = CACHE.putIfAbsent(expressionStr, parsed);
-    return earlier == null ? parsed : earlier;
+    CACHE.putIfAbsent(expressionStr, parsed);
+    return parsed;
   }
 }
