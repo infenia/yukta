@@ -45,6 +45,32 @@ abstract class PostgresTestSupport {
     return container;
   }
 
+  /**
+   * Flyway for a schema of its own, so a test can migrate step by step without touching the schema
+   * the other tests share.
+   *
+   * @param schema the schema to create and migrate
+   * @return the configured Flyway
+   */
+  protected static org.flywaydb.core.api.configuration.FluentConfiguration flywayFor(
+      final String schema) {
+    return Flyway.configure()
+        .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+        .schemas(schema)
+        .defaultSchema(schema);
+  }
+
+  /**
+   * A JDBC connection to the test database.
+   *
+   * @return a new connection; the caller closes it
+   * @throws java.sql.SQLException if the database cannot be reached
+   */
+  protected static java.sql.Connection jdbc() throws java.sql.SQLException {
+    return java.sql.DriverManager.getConnection(
+        POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+  }
+
   @BeforeAll
   static void migrate() {
     Flyway.configure()

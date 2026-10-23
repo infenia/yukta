@@ -10,7 +10,10 @@ import com.infenia.yukta.plugin.store.KeyValueStore;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -22,6 +25,7 @@ import reactor.core.publisher.Mono;
  * or in the application's {@link KeyValueStore} such as the PostgreSQL one. Operations: get, put,
  * incr, delete.
  */
+@Slf4j
 @Component
 @SuppressWarnings("PMD.UseConcurrentHashMap")
 public final class KvStoreProcessor implements ProcessorPlugin {
@@ -37,6 +41,9 @@ public final class KvStoreProcessor implements ProcessorPlugin {
 
   /** Where the values are kept: memory by default, a database when the application has one. */
   private final KeyValueStore store;
+
+  /** Set once the in-memory warning has been logged. */
+  private final AtomicBoolean warned = new AtomicBoolean();
 
   /** Keeps the values in memory. */
   public KvStoreProcessor() {
@@ -58,13 +65,27 @@ public final class KvStoreProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public Mono<Void> initialize(final Map<String, Object> config) {
+    return Mono.fromRunnable(
+        () -> {
+          if (store instanceof InMemoryKeyValueStore && warned.compareAndSet(false, true)) {
+            log.atWarn()
+                .log(
+                    "KV_STORE keeps its values in memory: they are lost on restart and not shared"
+                        + " between servers. Set yukta.kv.store-type=postgres to keep them.");
+          }
+        });
+  }
+
+  @Override
   public PluginDescriptor describe() {
     return new PluginDescriptor(
         "Shared in-memory key-value store for state across workflow runs.",
         "Configure with:\n"
             + "- op: get | put | incr | delete (required).\n"
             + "- key: key to use; defaults to the payload's 'key' field.\n"
-            + "- namespace: optional prefix isolating keys (default none).\n"
+            + "- namespace: prefix isolating keys (default: the workflow id, so workflows do not"
+            + " share keys; set it to the same value in two workflows to share).\n"
             + "- maxEntries: cap on distinct keys (default 10000); new keys beyond it fail.\n"
             + "- put stores payload.value; incr adds payload.value (default 1) to a number.\n"
             + "Emits {key, value} (value is null when absent).",
@@ -90,7 +111,11 @@ public final class KvStoreProcessor implements ProcessorPlugin {
     return List.of(
         ConfigField.choice("op", true, null, "Operation", "get", "put", "incr", "delete"),
         ConfigField.optional(KEY, ConfigField.Type.STRING, null, "Key (default: payload key)"),
-        ConfigField.optional("namespace", ConfigField.Type.STRING, null, "Prefix isolating keys"),
+        ConfigField.optional(
+            "namespace",
+            ConfigField.Type.STRING,
+            null,
+            "Prefix isolating keys (default: workflow id)"),
         ConfigField.optional(
             "maxEntries",
             ConfigField.Type.NUMBER,
@@ -124,7 +149,7 @@ public final class KvStoreProcessor implements ProcessorPlugin {
           if (key == null) {
             throw new IllegalArgumentException("key is required (config or payload.key)");
           }
-          final String full = config.getOrDefault("namespace", "") + ":" + key;
+          final String full = namespace(config, message) + ":" + key;
           return value(operation, full, payload, max)
               .map(Optional::of)
               .defaultIfEmpty(Optional.empty())
@@ -136,6 +161,14 @@ public final class KvStoreProcessor implements ProcessorPlugin {
                     return message.withPayload(out).withSourcePort("default");
                   });
         });
+  }
+
+  /** The configured namespace, else the workflow id so that two workflows do not share a key. */
+  private static String namespace(final Map<String, Object> config, final Message<?> message) {
+    final Object configured = config.get("namespace");
+    return configured != null
+        ? String.valueOf(configured)
+        : Objects.toString(message.workflowId(), "");
   }
 
   private Mono<Object> value(

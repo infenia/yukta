@@ -22,9 +22,10 @@ import reactor.core.publisher.Signal;
 
 /**
  * The control plane's side of one worker connection. The first frame must be a {@code REGISTER}
- * with the shared token; every {@code LEASE} after it renews the worker's lease; when the stream
- * ends the worker is removed. Anything else is refused with a {@code REJECT} and the stream ends,
- * so the worker reconnects and registers again.
+ * with the shared token; every {@code LEASE} after it renews the worker's lease (and is refused
+ * once this server is no longer the leader, so the worker moves on to the next control plane); when
+ * the stream ends the worker is removed. Anything else is refused with a {@code REJECT} and the
+ * stream ends, so the worker reconnects and registers again.
  */
 @Slf4j
 public class WorkerSessionHandler {
@@ -176,10 +177,15 @@ public class WorkerSessionHandler {
   private WorkerFrame answer(final WorkerInfo info, final WorkerFrame frame) {
     WorkerFrame answer = WorkerFrame.reject("unexpected " + frame.type() + " frame");
     if (frame.type() == WorkerFrame.Type.LEASE) {
-      answer =
-          registry.heartbeat(info.workerId(), frame.usedSlots(), frame.draining())
-              ? WorkerFrame.ack()
-              : WorkerFrame.reject("lease expired, register again");
+      // a leader that lost the database lease must not keep its workers: the new leader has none
+      if (election.isLeader()) {
+        answer =
+            registry.heartbeat(info.workerId(), frame.usedSlots(), frame.draining())
+                ? WorkerFrame.ack()
+                : WorkerFrame.reject("lease expired, register again");
+      } else {
+        answer = WorkerFrame.reject("this server is not the leader");
+      }
     }
     return answer;
   }

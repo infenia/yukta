@@ -3,7 +3,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { useExecutionResults } from '../useExecutionResults';
+import { MAX_RESULT_EVENTS, useExecutionResults } from '../useExecutionResults';
 import {
   installMockEventSource,
   MockEventSource,
@@ -90,5 +90,39 @@ describe('useExecutionResults', () => {
     rerender({ id: 'e2' });
 
     expect(result.current.results).toEqual([]);
+  });
+
+  it('does not re-add evicted results on replay, and node ends do not evict results', () => {
+    const { result } = renderHook(() => useExecutionResults('s1', 'e1'));
+    const total = MAX_RESULT_EVENTS + 20;
+
+    act(() => {
+      for (let sequence = 0; sequence < total; sequence += 1) {
+        MockEventSource.latest().emit(
+          event({ kind: 'RESULT', sequence: 2 * sequence, payload: sequence })
+        );
+        MockEventSource.latest().emit(
+          event({
+            kind: 'NODE_END',
+            sequence: 2 * sequence + 1,
+            status: 'SUCCESS',
+          })
+        );
+      }
+    });
+    expect(result.current.results).toHaveLength(MAX_RESULT_EVENTS);
+    expect(result.current.results[0].payload).toBe(20);
+
+    // a reconnect replays history from the start: everything already seen is ignored
+    act(() => {
+      for (let sequence = 0; sequence < 10; sequence += 1) {
+        MockEventSource.latest().emit(
+          event({ kind: 'RESULT', sequence: 2 * sequence, payload: sequence })
+        );
+      }
+    });
+
+    expect(result.current.results).toHaveLength(MAX_RESULT_EVENTS);
+    expect(result.current.results[0].payload).toBe(20);
   });
 });

@@ -55,6 +55,9 @@ public class WorkersAutoConfiguration {
    *
    * @param registry the workers that are connected
    * @param token the shared secret workers must present
+   * @param address the interface the RSocket server listens on; empty means every interface
+   * @param serverBundle the SSL bundle of the RSocket server; empty for plain TCP
+   * @param allowInsecure allow plain TCP beyond this machine
    * @param environment holds {@code yukta.workers.tokens.<id>}, a secret per worker
    * @return the handler
    */
@@ -66,7 +69,11 @@ public class WorkersAutoConfiguration {
       final WorkerConnections connections,
       final ObjectProvider<LeaderElection> election,
       @Value("${yukta.workers.token}") final String token,
+      @Value("${spring.rsocket.server.address:}") final String address,
+      @Value("${spring.rsocket.server.ssl.bundle:}") final String serverBundle,
+      @Value("${yukta.workers.allow-insecure:false}") final boolean allowInsecure,
       final Environment environment) {
+    WorkerTransport.requireTls(address, !serverBundle.isBlank(), allowInsecure);
     return new WorkerSessionHandler(
         registry,
         connections,
@@ -151,6 +158,7 @@ public class WorkersAutoConfiguration {
    * @param drainTimeout longest the worker waits for running attempts when it stops
    * @param runner runs the attempts, and counts them
    * @param sslBundle name of the SSL bundle for TLS to the control plane; empty for plain TCP
+   * @param allowInsecure allow plain TCP to a host that is not this machine
    * @param bundles the SSL bundles of the application
    * @return the agent, started and stopped with the application
    */
@@ -174,6 +182,7 @@ public class WorkersAutoConfiguration {
       @Value("${yukta.workers.lease:15s}") final Duration lease,
       @Value("${yukta.workers.drain-timeout:30s}") final Duration drainTimeout,
       @Value("${yukta.workers.ssl-bundle:}") final String sslBundle,
+      @Value("${yukta.workers.allow-insecure:false}") final boolean allowInsecure,
       final ObjectProvider<SslBundles> bundles) {
     final SslBundle bundle = sslBundle.isBlank() ? null : bundles.getObject().getBundle(sslBundle);
     // Several control planes (the leader and its standbys) may be listed; each connection attempt
@@ -182,7 +191,7 @@ public class WorkersAutoConfiguration {
         Arrays.stream(controlPlane.split(","))
             .map(String::trim)
             .filter(address -> !address.isEmpty())
-            .map(address -> target(address, builder, responder, bundle))
+            .map(address -> target(address, builder, responder, bundle, allowInsecure))
             .toList();
     final AtomicInteger turn = new AtomicInteger();
     // The control plane calls back into this connection to run nodes, so the worker answers
@@ -202,17 +211,16 @@ public class WorkersAutoConfiguration {
       final String address,
       final RSocketRequester.Builder builder,
       final RSocketMessageHandler responder,
-      final SslBundle bundle) {
+      final SslBundle bundle,
+      final boolean allowInsecure) {
     final int colon = address.lastIndexOf(':');
     if (colon <= 0) {
       throw new IllegalArgumentException("yukta.workers.control-plane must be host:port");
     }
+    final String host = address.substring(0, colon);
+    WorkerTransport.requireTls(host, bundle != null, allowInsecure);
     return WorkerTransport.connect(
-        builder,
-        responder,
-        address.substring(0, colon),
-        Integer.parseInt(address.substring(colon + 1)),
-        bundle);
+        builder, responder, host, Integer.parseInt(address.substring(colon + 1)), bundle);
   }
 
   private static Set<String> split(final String csv) {

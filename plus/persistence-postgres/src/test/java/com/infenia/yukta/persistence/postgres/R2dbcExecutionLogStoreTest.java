@@ -81,6 +81,36 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void replaceAllThatFails_keepsTheOldLog() {
+    store.append(started("old"));
+    store.readAll();
+    // PostgreSQL text cannot hold a NUL character, so the second insert fails
+    final ExecutionLogEvent unwritable = started("a\u0000b");
+
+    store.replaceAll(List.of(started("new1"), unwritable));
+
+    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsExactly("old");
+  }
+
+  @Test
+  void appendThatCannotBeWritten_isSkippedAndTheLogStaysUsable() {
+    store.append(started("a\u0000b"));
+    store.append(started("ok"));
+
+    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsExactly("ok");
+  }
+
+  @Test
+  void replaceAllWritesMoreThanOneBatch() {
+    final List<ExecutionLogEvent> events =
+        java.util.stream.IntStream.range(0, 250).mapToObj(i -> started("r" + i)).toList();
+
+    store.replaceAll(events);
+
+    assertThat(store.readAll()).hasSize(250);
+  }
+
+  @Test
   void unreadableRow_isSkipped() {
     store.append(started("r1"));
     store.readAll();
@@ -232,12 +262,32 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     final java.util.concurrent.BlockingQueue<ExecutionLogEvent> full =
         new java.util.concurrent.ArrayBlockingQueue<>(1);
     full.add(started("waiting"));
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
     final R2dbcExecutionLogStore saturated =
-        new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 1_000, 5_000, full);
+        new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 1_000, 5_000, full, meters);
 
     saturated.append(started("dropped"));
 
     assertThat(full).hasSize(1);
+    assertThat(meters.get("yukta.execution.log.lost").tag("reason", "queue_full").counter().count())
+        .isEqualTo(1.0);
     saturated.close();
+  }
+
+  @Test
+  void anEventThatCannotBeWritten_isCountedAsLost() {
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    final R2dbcExecutionLogStore counting =
+        new R2dbcExecutionLogStore(db, new ObjectMapper(), 1_000, 100_000, 5_000, meters);
+
+    counting.append(started("a\u0000b"));
+    counting.readAll();
+
+    assertThat(
+            meters.get("yukta.execution.log.lost").tag("reason", "write_failed").counter().count())
+        .isEqualTo(1.0);
+    counting.close();
   }
 }

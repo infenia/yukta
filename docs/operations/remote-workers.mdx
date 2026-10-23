@@ -1,6 +1,7 @@
 ---
-title: "Remote workers"
-description: "Run selected processor nodes on other machines, in named pools, while the control plane keeps orchestrating."
+title: "Remote workers: run nodes on other machines"
+sidebarTitle: "Remote workers"
+description: "Run selected processor nodes on other machines in named worker pools, while the server keeps handling ordering, retries, timeouts and status for them."
 tag: "Optional"
 keywords: ["remote workers", "worker pools", "distributed execution"]
 ---
@@ -95,7 +96,7 @@ If a worker loses the control plane, it reconnects with a pause that grows from 
 
 - **Token.** Every worker presents `yukta.workers.token`. The control plane compares it in constant time and refuses a wrong one. By default one secret is shared by all workers, and any holder can register under any worker id.
 - **A secret per worker.** Give the control plane `yukta.workers.tokens.<worker-id>=<secret>` (use `yukta.workers.tokens[my.id]` if the id has dots) for each worker. As soon as one is set, only the listed worker ids are admitted, each with its own secret, and the shared secret no longer works. Each worker sets its own secret as `yukta.workers.token`. To remove one compromised worker, delete its entry and restart the control plane; the other workers keep their secrets.
-- **Mutual TLS.** Without TLS the connection is plain TCP. To encrypt it and authenticate both sides, give the control plane a certificate and require a client certificate, and give each worker its own:
+- **Mutual TLS.** Without TLS the connection is plain TCP, and the token, node configs and payloads cross the network in clear text. A control plane without an SSL bundle, or a worker whose control plane is not on its own machine and has no bundle, refuses to start unless you set `yukta.workers.allow-insecure=true` (only for a network you trust). To encrypt it and authenticate both sides, give the control plane a certificate and require a client certificate, and give each worker its own:
 
 ```properties
 # control plane
@@ -172,6 +173,7 @@ The worker's build must include the plugins it lists in `yukta.workers.plugin-ty
 | `yukta.workers.capacity` | worker | `4` | Attempts at once |
 | `yukta.workers.drain-timeout` | worker | `30s` | Longest wait for running attempts at stop |
 | `yukta.workers.ssl-bundle` | worker | none | TLS bundle for the connection |
+| `yukta.workers.allow-insecure` | both | `false` | Allow plain TCP beyond the local machine |
 
 ## Observing workers
 

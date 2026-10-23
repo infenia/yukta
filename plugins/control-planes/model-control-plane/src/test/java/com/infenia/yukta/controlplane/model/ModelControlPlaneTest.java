@@ -11,6 +11,7 @@ import com.infenia.yukta.plugin.control.ControlDecision.Source;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.core.LogLevel;
+import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.decision.Answer;
 import com.infenia.yukta.plugin.decision.DecisionModel;
 import com.infenia.yukta.plugin.decision.ModelSpec;
@@ -157,6 +158,41 @@ class ModelControlPlaneTest {
 
     assertThat(decision.commands()).isEmpty();
     assertThat(decision.source()).isEqualTo(Source.MODEL);
+  }
+
+  @Test
+  void decide_countsDecidedNoOpinionAndModelErrors() {
+    final List<String> counted = new java.util.ArrayList<>();
+    final PluginMetricsReporter reporter = (node, metric, outcome) -> counted.add(outcome);
+    final ModelPlaneSettings settings = defaults();
+
+    new ModelControlPlane(choosing("pause", 0.93), settings, reporter).decide(failure()).block();
+    new ModelControlPlane(choosing("continue", 0.99), settings, reporter).decide(failure()).block();
+    new ModelControlPlane(choosing("pause", 0.2), settings, reporter).decide(failure()).block();
+    new ModelControlPlane(choosing("explode", 0.99), settings, reporter).decide(failure()).block();
+    new ModelControlPlane(
+            new ChoiceStub(Mono.just(Map.of("action", new Answer.YesNo(1)))), settings, reporter)
+        .decide(failure())
+        .block();
+    new ModelControlPlane(
+            new ChoiceStub(Mono.error(new IllegalStateException("down"))), settings, reporter)
+        .decide(failure())
+        .block();
+
+    assertThat(counted)
+        .containsExactly(
+            "decided", "decided", "no_opinion", "no_opinion", "no_opinion", "model_error");
+  }
+
+  @Test
+  void springConstructor_usesTheReporterOfTheApplicationOrNone() {
+    final org.springframework.beans.factory.ObjectProvider<PluginMetricsReporter> none =
+        org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class);
+    org.mockito.Mockito.when(none.getIfAvailable(org.mockito.ArgumentMatchers.any()))
+        .thenAnswer(call -> ((java.util.function.Supplier<?>) call.getArgument(0)).get());
+
+    assertThat(new ModelControlPlane(choosing("pause", 1), defaults(), none).id())
+        .isEqualTo("model-control-plane");
   }
 
   @Test
