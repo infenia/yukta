@@ -335,7 +335,7 @@ class ExecutionControlControllerTest {
   }
 
   @Test
-  void drainStatus_isNotIdleWhileAStartWaits() {
+  void drainStatus_isNotIdleWhileStartWaits() {
     final ExecutionScheduler limited =
         new ExecutionScheduler(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
