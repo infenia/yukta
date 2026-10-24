@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 
 /** Literal secrets in a workflow definition are not handed out by the read APIs. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class ConfigRedactorTest {
 
   /** The mask the read APIs write. */
@@ -88,6 +88,28 @@ class ConfigRedactorTest {
     assertThat(config).containsEntry("password", MASK);
     assertThat(config.get("headers")).isEqualTo(Map.of("Authorization", MASK, "X-Trace", "t1"));
     assertThat(config.get("auth")).isEqualTo(List.of(Map.of("apiKey", MASK, "label", "main")));
+  }
+
+  @Test
+  void everyLeafUnderSecretNamedKeyOrSecretFieldIsMasked() {
+    typeWithSecretField("SQL_QUERY", "dbCredential");
+
+    final Map<String, Object> config =
+        redactedConfig(
+            "SQL_QUERY",
+            Map.of(
+                "credentials", Map.of("value", "hunter2", "more", List.of("a", Map.of("b", "c"))),
+                "dbCredential", Map.of("user", "u", "pass", "p"),
+                "other", Map.of("value", "visible")));
+
+    assertThat(config.get("credentials"))
+        .isEqualTo(Map.of("value", MASK, "more", List.of(MASK, Map.of("b", MASK))));
+    assertThat(config.get("dbCredential")).isEqualTo(Map.of("user", MASK, "pass", MASK));
+    assertThat(config.get("other")).isEqualTo(Map.of("value", "visible"));
+    assertThat(
+            redactor.literalSecrets(
+                workflow("SOMETHING_ELSE", Map.of("secrets", Map.of("DB", "pw")))))
+        .containsExactly("n1.secrets.DB");
   }
 
   @Test
