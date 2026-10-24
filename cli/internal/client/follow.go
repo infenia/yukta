@@ -53,7 +53,7 @@ func (c *Client) followSSE(
 			return ctx.Err()
 		case !connected:
 			return err
-		case nonRetryable(err):
+		case IsPermanent(err):
 			return err
 		case finished != nil && finished():
 			return nil
@@ -80,10 +80,10 @@ func (c *Client) followSSE(
 	}
 }
 
-// nonRetryable is an API answer that asking again will not change (401, 403, 404, ...).
-func nonRetryable(err error) bool {
+// IsPermanent tells an API answer that asking again will not change (401, 403, 404, ...).
+func IsPermanent(err error) bool {
 	var ae *apiError
-	return errors.As(err, &ae) && !retryableStatus(ae.status)
+	return errors.As(err, &ae) && ae.status >= 400 && ae.status < 500 && !retryableStatus(ae.status)
 }
 
 func orEOF(err error) error {

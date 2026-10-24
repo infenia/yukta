@@ -84,6 +84,9 @@ Press Ctrl-C to stop watching at any time.`,
 			}
 
 			err := c.StreamEvents(ctx, executionID, eventType, "", w.handle)
+			if pollErr := w.pollFailure(); pollErr != nil {
+				return pollErr
+			}
 			if errors.Is(err, context.Canceled) {
 				return nil
 			}
@@ -113,6 +116,30 @@ type watcher struct {
 	json      bool
 	problems  *problemFilter     // set by --quiet
 	seen      map[nodeKey]string // last status printed per execution node, to drop snapshot/stream duplicates
+	pollErr   error              // the status poll's permanent failure (404, 401, ...), which ends the watch
+	pollWarn  bool               // the first transient poll failure has been reported
+}
+
+func (w *watcher) pollFailure() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.pollErr
+}
+
+// pollFailed ends the watch on a permanent error and warns once about a transient one, so a wrong
+// id, a revoked token or a dead server is not silent.
+func (w *watcher) pollFailed(err error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if client.IsPermanent(err) {
+		w.pollErr = err
+		w.cancel()
+		return
+	}
+	if !w.pollWarn {
+		w.pollWarn = true
+		fmt.Fprintf(os.Stderr, "warning: cannot read the execution status (will keep trying): %v\n", err)
+	}
 }
 
 // nodeKey identifies one node of one execution; without the execution, an unscoped watch would drop
@@ -191,7 +218,9 @@ func (w *watcher) pollStatus(ctx context.Context, c *client.Client, executionID 
 	defer ticker.Stop()
 	for {
 		progress, err := c.GetExecution(executionID)
-		if err == nil {
+		if err != nil {
+			w.pollFailed(err)
+		} else {
 			for _, t := range progress.Tasks {
 				if client.IsTerminalStatus(t.Status) {
 					_ = w.handle(client.ExecutionEvent{
