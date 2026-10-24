@@ -41,6 +41,27 @@ DEFAULT_VERSION="@VERSION@"
 BASE_URL="${YUKTA_DOWNLOAD_BASE:-https://github.com/$REPO/releases/download}"
 
 say() { printf '%s\n' "$*"; }
+# Animation and colour only on a terminal (and never with NO_COLOR), so pipes and logs stay plain.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+  fun=1; G="$(printf '\033[32m')"; C="$(printf '\033[36m')"; B="$(printf '\033[1m')"; Z="$(printf '\033[0m')"
+else
+  fun=0; G=""; C=""; B=""; Z=""
+fi
+
+# Run "$@" in the background and show a spinner with <label> until it ends; return its status.
+spin() {
+  label="$1"; shift
+  if [ "$fun" = "0" ]; then "$@"; return; fi
+  "$@" & job=$!
+  i=0
+  while kill -0 "$job" 2>/dev/null; do
+    case $((i % 4)) in 0) c='|' ;; 1) c='/' ;; 2) c='-' ;; *) c='\' ;; esac
+    printf '\r  %s%s%s %s ' "$C" "$c" "$Z" "$label"
+    i=$((i + 1)); sleep 0.1
+  done
+  printf '\r\033[K'
+  wait "$job"
+}
 err() { printf 'install: %s\n' "$*" >&2; exit 1; }
 
 usage() {
@@ -81,11 +102,11 @@ listed() { awk -v f="$1" '$2 == f || $2 == "*" f { found = 1 } END { exit !found
 
 # Download <file> and check it against SHA256SUMS.
 get_verified() {
-  fetch "$BASE_URL/v$version/$1" "$tmp/$1"
+  spin "downloading $1" fetch "$BASE_URL/v$version/$1" "$tmp/$1" || exit 1
   want="$(awk -v f="$1" '$2 == f || $2 == "*" f { print $1; exit }' "$tmp/SHA256SUMS")"
   [ -n "$want" ] || err "$1 is not listed in SHA256SUMS"
   [ "$(sha256_of "$tmp/$1")" = "$want" ] || err "checksum mismatch for $1; not installing"
-  say "  verified    $1"
+  say "  ${G}✓${Z} verified    $1"
 }
 
 # Verify the Sigstore signature of SHA256SUMS when cosign is installed; say what was checked.
@@ -205,7 +226,7 @@ main() {
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT INT TERM
 
-  say "Yukta installer"
+  say "${B}Yukta installer${Z}"
   if [ -n "$found" ]; then say "  found:      $found in $dir"; elif [ -e "$dir/yukta" ]; then say "  found:      an unknown version in $dir"; fi
   size=""
   [ "$do_server" = "0" ] || size="$(size_mb "$BASE_URL/v$version/yukta-$version-$os-$arch.tar.gz")"
@@ -271,6 +292,7 @@ main() {
   esac
 
   say ""
+  say "${G}${B}Done!${Z} Yukta $version is ready."
   say "Next:"
   [ "$installed_server" = "0" ] || say "  yukta                          # start the server on http://localhost:8080"
   [ "$do_cli" = "0" ] || say "  yukta-cli session list         # talk to a running server"
