@@ -24,10 +24,22 @@ cp "$work/stage/yukta-$version-linux-amd64/yukta-cli" "$rel/yukta-cli-linux-amd6
 cp "$work/stage/yukta-$version-linux-amd64/yukta-cli" "$rel/yukta-cli-darwin-arm64"
 (cd "$rel" && sha256sum -- * > SHA256SUMS)
 
-port=$((20000 + RANDOM % 20000))
-(cd "$work/srv" && python3 -m http.server "$port" --bind 127.0.0.1 >/dev/null 2>&1) &
+# Bind to port 0 so the system picks a free one; the server prints it once it is listening, so there
+# is no guess at a port and no sleep.
+(cd "$work/srv" && exec python3 -u -c '
+import http.server
+s = http.server.ThreadingHTTPServer(("127.0.0.1", 0), http.server.SimpleHTTPRequestHandler)
+print(s.server_address[1], flush=True)
+s.serve_forever()' >"$work/port" 2>"$work/server.err") &
 pids+=($!)
-sleep 1
+port=""
+for _ in $(seq 1 50); do
+  port="$(cat "$work/port" 2>/dev/null || true)"
+  [[ -n $port ]] && break
+  kill -0 "${pids[0]}" 2>/dev/null || die "download server exited: $(cat "$work/server.err")"
+  sleep 0.2
+done
+[[ -n $port ]] || die "download server did not report a port"
 export YUKTA_DOWNLOAD_BASE="http://127.0.0.1:$port"
 script="$RELEASE_DIR/install.sh"
 fail() { echo "FAIL: $*" >&2; exit 1; }
