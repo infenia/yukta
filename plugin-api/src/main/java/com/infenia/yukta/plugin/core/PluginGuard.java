@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.core;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
 import lombok.experimental.UtilityClass;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -43,7 +44,8 @@ public class PluginGuard {
               .onErrorResume(
                   e -> {
                     reporter.increment(nodeId, metric, "ERROR");
-                    if (mode == FailureMode.ERROR) {
+                    // a hard abort ends the run whatever the node's own failureMode says
+                    if (mode == FailureMode.ERROR || RunAbortedException.isAbort(e)) {
                       return Mono.error(e);
                     }
                     return Mono.just(
