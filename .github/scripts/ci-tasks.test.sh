@@ -83,11 +83,12 @@ expect '' '.full' 'false'
 expect 'build-logic/src/x.kts' '.full' 'true'
 expect 'gradle/libs.versions.toml' '.full' 'true'
 expect 'docs/a.md .github/workflows/ci.yml' '.full' 'true'
+expect 'test-support/src/A.java' '.full' 'true'
 expect 'core/gradle.lockfile' '.full' 'false'
 
 # FULL=true (main, schedule, dispatch, `ci:full` label) runs every shard and E2E.
 got=$(FULL=true "$planner" </dev/null | jq -c '[([.shards[].name] | join(" ")), (.affected | length), .e2e]')
-want='["platform infra plugins cli ui postgres-acceptance plus-acceptance",31,true]'
+want='["platform infra plugins cli ui postgres-acceptance plus-acceptance",32,true]'
 [ "$got" = "$want" ] || fail "FULL=true" "$want" "$got"
 
 # A dependency on a module missing from settings.gradle.kts must fail loudly, not be skipped.
