@@ -150,3 +150,21 @@ func TestIsTerminalStatus(t *testing.T) {
 		}
 	}
 }
+
+func TestStreamTreeEvents_asksForTheRunsTheExecutionStarted(t *testing.T) {
+	server := eventServer(t, "executionId=e1&tree=true",
+		`{"type":"WorkflowStatusChanged","event":{"executionId":"child","workflowId":"w","status":"SUCCESS"}}`)
+	defer server.Close()
+
+	var got []ExecutionEvent
+	err := NewClient(server.URL).StreamTreeEvents(context.Background(), "e1", true, "", "", func(e ExecutionEvent) error {
+		got = append(got, e)
+		return nil
+	})
+	if !endedUnexpectedly(err) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 1 || got[0].ExecutionID != "child" {
+		t.Errorf("events = %+v", got)
+	}
+}

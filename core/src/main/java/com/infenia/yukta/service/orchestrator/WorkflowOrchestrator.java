@@ -8,6 +8,7 @@ import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowNode;
+import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.DefinitionVersion;
@@ -199,7 +200,7 @@ public class WorkflowOrchestrator {
               ExecutionScheduler.priorityOf(payload),
               admission,
               prepared.template().instantiate(executionId, payload),
-              "Workflow execution");
+              new Origin("Workflow execution", null));
         });
   }
 
@@ -393,7 +394,7 @@ public class WorkflowOrchestrator {
                       sessionId,
                       workflowId,
                       nodeIds)),
-              "RestartFromNode execution");
+              new Origin("RestartFromNode execution", previousExecutionId));
         });
   }
 
@@ -466,7 +467,7 @@ public class WorkflowOrchestrator {
    * @param executionId the execution identifier
    * @param nodeIds the node identifiers to track
    * @param body the work to run once tracking has started
-   * @param label description used in log messages
+   * @param origin what started the run: its description in log messages and the run it restarts
    * @return a Mono completing when the execution finished, was stopped, or failed
    */
   private Mono<Void> runTracked(
@@ -478,7 +479,7 @@ public class WorkflowOrchestrator {
       final int priority,
       final ExecutionScheduler.@Nullable Admission reserved,
       final Mono<Void> body,
-      final String label) {
+      final Origin origin) {
     // The body runs once the scheduler grants a slot, which is released however the run ends.
     final Mono<Void> execution =
         tracker
@@ -486,6 +487,10 @@ public class WorkflowOrchestrator {
             .doOnError(_ -> giveBack(reserved))
             .doOnSuccess(
                 _ -> {
+                  // a sub-workflow names its parent in its start payload (see SubWorkflowRunner)
+                  final Object parent = control.payload().get(SubWorkflowGateway.PARENT_KEY);
+                  tracker.recordLineage(
+                      executionId, parent == null ? null : parent.toString(), origin.restartOf());
                   if (control.prepared() != null) {
                     tracker.recordDefinitionVersion(
                         executionId, DefinitionVersion.of(control.prepared()));
@@ -532,7 +537,7 @@ public class WorkflowOrchestrator {
                     .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
                     .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
                     .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-                    .log("{} completed", label))
+                    .log("{} completed", origin.label()))
         .onErrorResume(
             e ->
                 tracker
@@ -545,7 +550,7 @@ public class WorkflowOrchestrator {
                                 .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
                                 .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
                                 .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-                                .log("{} failed", label))
+                                .log("{} failed", origin.label()))
                     .then(Mono.error(e)))
         .doOnCancel(
             () ->
@@ -565,6 +570,14 @@ public class WorkflowOrchestrator {
                 ExecutionContextBuilder.CTX_WORKFLOW_ID, workflowId,
                 ExecutionContextBuilder.CTX_EXECUTION_ID, executionId));
   }
+
+  /**
+   * What started a run.
+   *
+   * @param label description used in log messages
+   * @param restartOf the run it restarts, or null
+   */
+  private record Origin(String label, @Nullable String restartOf) {}
 
   private static TaskStatus failureStatus(final Throwable error) {
     return error instanceof QueueTimeoutException || error instanceof ExecutionTimeoutException

@@ -138,6 +138,7 @@ class WorkflowOrchestratorTest {
     final Map<String, Object> payload = Map.of();
     setupExecutionControl("s", "w", "exec-v", prepared, payload, Sinks.one());
     when(executionControl.prepared()).thenReturn(prepared);
+    when(executionControl.payload()).thenReturn(payload);
     when(tracker.startWorkflow(eq("exec-v"), eq("s"), eq("w"), anyList())).thenReturn(Mono.empty());
     when(prepared.template().instantiate(eq("exec-v"), eq(payload))).thenReturn(Mono.empty());
 
@@ -147,6 +148,24 @@ class WorkflowOrchestratorTest {
     verify(tracker)
         .recordDefinitionVersion(
             "exec-v", com.infenia.yukta.service.archive.DefinitionVersion.of(prepared));
+    verify(tracker).recordLineage("exec-v", null, null);
+  }
+
+  @Test
+  void execute_ofSubWorkflowChild_recordsTheParentNamedInItsStartPayload() {
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-a"));
+    final Map<String, Object> payload =
+        Map.of(com.infenia.yukta.plugin.gateway.SubWorkflowGateway.PARENT_KEY, "exec-parent");
+    setupExecutionControl("s", "w", "exec-child", prepared, payload, Sinks.one());
+    when(executionControl.payload()).thenReturn(payload);
+    when(tracker.startWorkflow(eq("exec-child"), eq("s"), eq("w"), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(eq("exec-child"), eq(payload))).thenReturn(Mono.empty());
+
+    StepVerifier.create(orchestrator.execute("s", "w", "exec-child", prepared, payload))
+        .verifyComplete();
+
+    verify(tracker).recordLineage("exec-child", "exec-parent", null);
   }
 
   // --- execute ---
@@ -341,6 +360,7 @@ class WorkflowOrchestratorTest {
             eq(newExecId), any(), eq(2), any(), eq(sessionId), eq(workflowId), anyList());
     verify(executionControlRegistry, timeout(5000)).unregister(newExecId);
     verify(checkpointStore, never()).clear(newExecId);
+    verify(tracker).recordLineage(newExecId, null, prevExecId);
   }
 
   @Test

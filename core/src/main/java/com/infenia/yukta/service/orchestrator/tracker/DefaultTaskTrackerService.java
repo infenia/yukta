@@ -71,6 +71,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Batch size for event processing. */
   private static final int BATCH_SIZE = 100;
 
+  /** How far up a tree of runs {@link #isWithin} looks (sub-workflows nest at most 5 deep). */
+  private static final int MAX_TREE_DEPTH = 16;
+
   /** Batch timeout duration for event processing. */
   private static final Duration BATCH_TIMEOUT = Duration.ofMillis(50);
 
@@ -422,6 +425,42 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     }
   }
 
+  @Override
+  public void recordLineage(
+      @NotBlank final String executionId,
+      @Nullable final String parentExecutionId,
+      @Nullable final String restartOf) {
+    final WorkflowState state = findState(executionId);
+    if (state != null) {
+      final WorkflowState parent = parentExecutionId == null ? null : findState(parentExecutionId);
+      state.parentExecutionId = parentExecutionId;
+      state.restartOf = restartOf;
+      if (parentExecutionId == null) {
+        state.rootExecutionId = executionId;
+      } else if (parent != null && parent.rootExecutionId != null) {
+        state.rootExecutionId = parent.rootExecutionId;
+      } else {
+        state.rootExecutionId = parentExecutionId;
+      }
+    }
+  }
+
+  @Override
+  public boolean isWithin(@NotBlank final String executionId, @NotBlank final String ancestorId) {
+    String current = executionId;
+    // a run nests at most a few levels deep; the bound also ends a broken (cyclic) record
+    for (int level = 0; current != null && level <= MAX_TREE_DEPTH; level++) {
+      if (current.equals(ancestorId)) {
+        return true;
+      }
+      current =
+          Optional.ofNullable(findState(current))
+              .map(state -> state.parentExecutionId)
+              .orElse(null);
+    }
+    return false;
+  }
+
   /**
    * Record an operator control state for an execution and notify status subscribers.
    *
@@ -614,7 +653,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
                 state.startTime,
                 state.endTime,
                 state.controlState,
-                state.definitionVersion);
+                state.definitionVersion,
+                state.parentExecutionId,
+                state.rootExecutionId,
+                state.restartOf);
       }
     }
     return progress;
@@ -643,7 +685,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         state.startTime,
         state.endTime,
         state.controlState,
-        state.definitionVersion);
+        state.definitionVersion,
+        state.parentExecutionId,
+        state.rootExecutionId,
+        state.restartOf);
   }
 
   /**

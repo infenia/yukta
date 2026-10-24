@@ -2940,6 +2940,16 @@
             }
           },
           {
+            "name": "tree",
+            "in": "query",
+            "description": "With executionId, also the events of the sub-workflow runs it started, at any depth",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
             "name": "type",
             "in": "query",
             "description": "Only events of this kind",
@@ -3809,6 +3819,15 @@
           },
           "definitionVersion": {
             "type": "string"
+          },
+          "parentExecutionId": {
+            "type": "string"
+          },
+          "rootExecutionId": {
+            "type": "string"
+          },
+          "restartOf": {
+            "type": "string"
           }
         }
       },
@@ -3905,6 +3924,18 @@
             "type": "string",
             "format": "date-time",
             "description": "The end time of the execution"
+          },
+          "parentExecutionId": {
+            "type": "string",
+            "description": "The run that started this one as a sub-workflow, if any"
+          },
+          "rootExecutionId": {
+            "type": "string",
+            "description": "The top of this run's tree of runs (itself when it has no parent)"
+          },
+          "restartOf": {
+            "type": "string",
+            "description": "The run this one restarts, if any"
           }
         }
       },

@@ -58,6 +58,18 @@ func (c *Client) StreamEvents(
 	executionID, eventType, severity string,
 	onEvent func(ExecutionEvent) error,
 ) error {
+	return c.StreamTreeEvents(ctx, executionID, false, eventType, severity, onEvent)
+}
+
+// StreamTreeEvents is StreamEvents that, with tree and an executionID, also streams the events of
+// every run that execution started as a sub-workflow, at any depth.
+func (c *Client) StreamTreeEvents(
+	ctx context.Context,
+	executionID string,
+	tree bool,
+	eventType, severity string,
+	onEvent func(ExecutionEvent) error,
+) error {
 	if onEvent == nil {
 		return fmt.Errorf("onEvent callback cannot be nil")
 	}
@@ -65,6 +77,9 @@ func (c *Client) StreamEvents(
 	params := url.Values{}
 	if executionID != "" {
 		params.Set("executionId", executionID)
+		if tree {
+			params.Set("tree", "true")
+		}
 	}
 	if eventType != "" {
 		params.Set("type", eventType)

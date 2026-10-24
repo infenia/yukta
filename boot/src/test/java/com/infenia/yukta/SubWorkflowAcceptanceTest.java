@@ -95,6 +95,10 @@ class SubWorkflowAcceptanceTest {
                 assertThat(started.payload())
                     .containsEntry(SubWorkflowGateway.PARENT_KEY, "parent-run")
                     .containsEntry(SubWorkflowGateway.DEPTH_KEY, 1));
+    final WorkflowProgress child = tracker.getProgressByExecutionId(result.executionId());
+    assertThat(child.parentExecutionId()).isEqualTo("parent-run");
+    assertThat(child.rootExecutionId()).isEqualTo("parent-run");
+    assertThat(tracker.isWithin(result.executionId(), "parent-run")).isTrue();
   }
 
   @Test

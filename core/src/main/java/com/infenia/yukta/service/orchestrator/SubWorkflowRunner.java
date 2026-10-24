@@ -73,9 +73,8 @@ public class SubWorkflowRunner implements SubWorkflowGateway {
                               start,
                               scheduler.borrowed())
                           .contextWrite(ctx -> ctx.put("resultCollector", collector))
-                          .onErrorMap(
-                              e -> !(e instanceof ChildFailed),
-                              e -> new ChildFailed(executionId, failureStatus(e), e)))
+                          // even a grandchild's failure is reported as this child's
+                          .onErrorMap(e -> new ChildFailed(executionId, failureStatus(e), e)))
               // Registering and archiving the child do file work, so not on the caller's thread.
               .subscribeOn(Schedulers.boundedElastic())
               .then(Mono.fromSupplier(() -> result(executionId, collector)));

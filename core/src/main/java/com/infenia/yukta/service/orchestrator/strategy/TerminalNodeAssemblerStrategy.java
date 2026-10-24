@@ -146,7 +146,11 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                       log.atDebug()
                           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
                           .log("Terminal node is collecting results");
-                      return published.doOnNext(collector::add);
+                      // a parent waiting on this run as a sub-workflow learns where it ended
+                      return published
+                          .doOnNext(collector::add)
+                          .doOnComplete(
+                              () -> reportCompletion(collector, terminal, node, received.get()));
                     }
                     return published;
                   });
@@ -194,18 +198,6 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
       completion =
           completion
               // A parent waiting on this run as a sub-workflow learns where it ended.
-              .doOnEach(
-                  signal -> {
-                    final ResultCollector collector =
-                        signal.isOnComplete() && received.get() > 0
-                            ? signal.getContextView().getOrDefault("resultCollector", null)
-                            : null;
-                    if (collector != null) {
-                      collector.addCompletion(
-                          node.nodeId(),
-                          completionMetadata(terminal, node.config(), received.get()));
-                    }
-                  })
               .doOnSubscribe(
                   s -> {
                     log.atDebug()
@@ -267,6 +259,17 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
       context.terminals().add(completion);
     };
+  }
+
+  /** Hands a reached terminal's completion to the parent run waiting on this one. */
+  private static void reportCompletion(
+      final ResultCollector collector,
+      final TerminalPlugin terminal,
+      final WorkflowNode node,
+      final long received) {
+    if (received > 0) {
+      collector.addCompletion(node.nodeId(), completionMetadata(terminal, node.config(), received));
+    }
   }
 
   /** Tells whether the terminal was reached, and how the run ended there. */

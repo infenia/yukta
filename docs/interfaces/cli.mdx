@@ -171,6 +171,8 @@ WORKFLOW SUCCESS
 | `--no-logs` | Leave out log lines |
 | `--quiet` | Show only problems and the end: final node statuses other than `SUCCESS` with the reason each node reports, the error and warning lines of the output (each once, at most 20 per node, written as `ERROR <node>: <line>` or `WARN <node>: <line>`), control commands that were not applied, and the final workflow status |
 | `--until-done` | Exit when the run has ended. Needs `--execution`. It also checks the run's status while it waits, so it ends correctly even if the run finished before the watch began |
+| `--tree` | With `--execution`, also watch the runs it starts as sub-workflows, at any depth. On by default (`--tree=false` turns it off). Their lines name the child workflow, for example `NODE check/style FAILURE` or `WORKFLOW check FAILURE`; with `--quiet` a child that ends `SUCCESS` is not shown. `--until-done` still ends with the watched run itself |
+| `--follow-restarts` | With `--until-done`: when the run ends, go on with the run that restarted it (if one starts within a few seconds), after a `RESTARTED <old> <new>` line |
 
 With `-o json`, `controlbus watch` prints each event as one JSON object per line. The feed does not replay past events, so start the watch before the run, or use `--until-done`.
 

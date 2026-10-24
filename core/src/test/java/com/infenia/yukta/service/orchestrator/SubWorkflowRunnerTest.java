@@ -36,6 +36,7 @@ import reactor.test.StepVerifier;
   "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyStaticImports",
+  "PMD.TooManyMethods",
   "unchecked"
 })
 class SubWorkflowRunnerTest {
@@ -143,6 +144,36 @@ class SubWorkflowRunnerTest {
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
         .verifyErrorSatisfies(
             e -> assertThat(((SubWorkflowGateway.ChildFailed) e).status()).isEqualTo("TIMED_OUT"));
+  }
+
+  @Test
+  void childThatWaitedTooLongForSlot_failsAsTimedOut() {
+    when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
+        .thenReturn(
+            Mono.error(new com.infenia.yukta.service.control.QueueTimeoutException("no slot")));
+
+    StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
+        .verifyErrorSatisfies(
+            e -> assertThat(((SubWorkflowGateway.ChildFailed) e).status()).isEqualTo("TIMED_OUT"));
+  }
+
+  @Test
+  void grandchildsFailure_isReportedAsThisChilds() {
+    when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
+        .thenReturn(
+            Mono.error(
+                new SubWorkflowGateway.ChildFailed(
+                    "grandchild", "FAILURE", new IllegalStateException("deep"))));
+
+    StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
+        .verifyErrorSatisfies(
+            e -> {
+              assertThat(e).hasMessage("deep");
+              assertThat(((SubWorkflowGateway.ChildFailed) e).executionId())
+                  .isNotEqualTo("grandchild");
+            });
   }
 
   @Test
