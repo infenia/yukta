@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -26,6 +27,7 @@ import reactor.core.publisher.Mono;
  * Emits a message on a fixed interval or a cron schedule. Config: {@code intervalMs} or {@code
  * cron} (Spring 6-field cron, optional {@code zone}), plus optional {@code maxRuns}.
  */
+@Slf4j
 @Component
 public class ScheduleTrigger implements TriggerPlugin {
 
@@ -103,7 +105,16 @@ public class ScheduleTrigger implements TriggerPlugin {
       if (millis.longValue() <= 0) {
         throw new IllegalArgumentException("'intervalMs' must be positive");
       }
-      result = Flux.interval(Duration.ofMillis(millis.longValue()));
+      // A tick that finds no demand (the previous start is still running) is dropped, not an
+      // overflow error that would end the schedule for good.
+      result =
+          Flux.interval(Duration.ofMillis(millis.longValue()))
+              .onBackpressureDrop(
+                  tick ->
+                      log.atWarn()
+                          .log(
+                              "Schedule tick {} skipped: the previous start is still running",
+                              tick));
     } else {
       final CronExpression expr = CronExpression.parse(String.valueOf(cron));
       final ZoneId zone =

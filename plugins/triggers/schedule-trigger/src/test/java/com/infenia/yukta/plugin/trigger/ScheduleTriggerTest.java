@@ -106,6 +106,19 @@ class ScheduleTriggerTest {
   }
 
   @Test
+  void start_interval_slowerDownstreamSkipsTicksInsteadOfEndingTheSchedule() {
+    // One tick is requested and the next ones come with no demand: they used to end the schedule
+    // with "Could not emit tick N due to lack of requests".
+    StepVerifier.create(trigger.start(Map.of(INTERVAL_MS, 20)), 1)
+        .expectNextCount(1)
+        .thenAwait(Duration.ofMillis(300))
+        .thenRequest(1)
+        .expectNextCount(1)
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
   void repeatWhileScheduled_endsOnceThereIsNoNextExecution() {
     final java.util.concurrent.atomic.AtomicInteger calls =
         new java.util.concurrent.atomic.AtomicInteger();
