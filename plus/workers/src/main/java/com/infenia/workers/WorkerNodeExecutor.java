@@ -5,6 +5,7 @@ package com.infenia.workers;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.WorkflowContext;
+import com.infenia.yukta.plugin.exception.RemoteFailureException;
 import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.service.worker.RemoteNodeExecutor;
@@ -12,8 +13,10 @@ import com.infenia.yukta.service.worker.WorkerInfo;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.messaging.rsocket.RSocketRequester;
@@ -182,8 +185,9 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
       failure = new RunAbortedException(String.valueOf(frame.errorMessage()));
     } else {
       failure =
-          new WorkflowExecutionException(
-              "Worker " + workerId + " failed: " + errorClass + ": " + frame.errorMessage());
+          new RemoteFailureException(
+              "Worker " + workerId + " failed: " + errorClass + ": " + frame.errorMessage(),
+              Set.copyOf(frame.errorTypes() != null ? frame.errorTypes() : List.of(errorClass)));
     }
     return failure;
   }

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.model.workflow;
 
+import com.infenia.yukta.plugin.exception.RemoteFailureException;
 import jakarta.annotation.Nullable;
 import java.time.Duration;
 import java.util.Map;
@@ -221,9 +222,20 @@ public record NodePolicy(
             return true;
           }
         }
+        if (cause instanceof RemoteFailureException remote
+            && remote.remoteTypes().stream().anyMatch(type -> matchesName(names, type))) {
+          return true;
+        }
         cause = cause.getCause();
       }
       return false;
+    }
+
+    /** Whether the list names a remote class, by full name or by simple name. */
+    private static boolean matchesName(final Set<String> names, final String type) {
+      return names.contains(type)
+          || names.contains(
+              type.substring(Math.max(type.lastIndexOf('.'), type.lastIndexOf('$')) + 1));
     }
   }
 
