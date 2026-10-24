@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.env.StandardEnvironment;
 import reactor.core.Disposable;
 
 @NoArgsConstructor
@@ -17,9 +19,23 @@ class ConcurrencyGroupsTest {
   private final ConcurrencyGroups groups = new ConcurrencyGroups(Map.of("gradle", 1));
 
   @Test
+  void limitsAreReadFromTheEnvironment() {
+    final StandardEnvironment environment = new StandardEnvironment();
+    environment
+        .getPropertySources()
+        .addFirst(new MapPropertySource("test", Map.of("yukta.concurrency.groups.gradle", "1")));
+    final ConcurrencyGroups bound = new ConcurrencyGroups(environment);
+
+    assertThat(bound.place("gradle")).isNotNull();
+    assertThat(bound.place("other")).isNull();
+    assertThat(new ConcurrencyGroups(new StandardEnvironment()).place("gradle")).isNull();
+  }
+
+  @Test
   void groupWithoutLimit_hasNoPlace() {
     assertThat(groups.place(null)).isNull();
     assertThat(groups.place("other")).isNull();
+    assertThat(new ConcurrencyGroups(Map.of("zero", 0)).place("zero")).isNull();
   }
 
   @Test
