@@ -38,12 +38,20 @@ if [ "$reports" = true ]; then
   "$here/flaky-tests.sh" "$work/reports" || echo "warning: flaky test tracking failed" >&2
 fi
 
-# Each broken test gets its own issue too (auto-found.sh), with a severity, instead of one line in
-# the run's issue; closes itself after three quiet days on a green run.
-if [ "$reports" = true ]; then
-  python3 -I "$here/junit-failures.py" --failed-json "$work/reports" | "$here/auto-found.sh" ||
-    echo "warning: failure tracking failed" >&2
+# Each finding gets its own issue (auto-found.sh), with a severity, instead of one line in the run's
+# issue: a broken test, a breached k6 threshold (the perf workflows upload their summaries as perf-*),
+# or, when nothing more specific was found, a failed job. Closes itself after three quiet days on a
+# green run. A green run still goes through it, with no findings, so the quiet issues can close.
+gh run download "$RUN_ID" -R "$REPO" -p 'perf-*' -D "$work/perf" 2>/dev/null || true
+{
+  [ "$reports" = false ] || python3 -I "$here/junit-failures.py" --failed-json "$work/reports"
+  python3 -I "$here/auto-found.py" --k6 "$work/perf"
+} | jq -s 'add // []' >"$work/findings.json" || echo '[]' >"$work/findings.json"
+if [ "$CONCLUSION" != success ] && [ "$(jq length "$work/findings.json")" = 0 ]; then
+  gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" --paginate | jq -s '{jobs: map(.jobs) | add}' >"$work/jobs.json"
+  python3 -I "$here/auto-found.py" --jobs "$work/jobs.json" >"$work/findings.json"
 fi
+"$here/auto-found.sh" <"$work/findings.json" || echo "warning: failure tracking failed" >&2
 
 issue=$(gh issue list -R "$REPO" --label "$label" --state open --limit 100 --json number,title |
   jq -r --arg t "$title" 'map(select(.title == $t)) | first | .number // empty')

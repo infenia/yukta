@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 #
-# Table test for auto-found.sh and junit-failures.py --failed-json, against a stub gh that records its
+# Table test for auto-found.sh, auto-found.py and junit-failures.py --failed-json, against a stub gh that records its
 # calls. A wrong answer here files issues twice, loses a blocker, or closes another workflow's issue.
 set -euo pipefail
 
@@ -108,6 +108,20 @@ expect_eq "a finding that is still there is not closed" "issue close 23" \
 : >"$GH_LOG"
 REPO=o/r RUN_URL=u CONCLUSION=success HEAD_SHA=abcdef12 PROJECT_TOKEN='' "$here/auto-found.sh" </dev/null >/dev/null
 expect_eq "empty input is the same as no findings" "issue close 20|issue close 23" "$(grep -o '^issue close [0-9]*' "$GH_LOG" | paste -sd'|')"
+
+# --- auto-found.py: a breached k6 threshold and a failed job, in the shape auto-found.sh reads.
+k6="$work/perf/perf-load/load"
+mkdir -p "$k6"
+echo '{"metrics":{"stuck_runs":{"thresholds":{"count==0":true}},"http_req_duration{x:y}":{"thresholds":{"p(95)<500":true}},"ok":{"thresholds":{"rate>0.9":false}}}}' >"$k6/summary.json"
+echo '{"test":"load","commit":"abc"}' >"$k6/meta.json"
+expect_eq "k6: a breached threshold per metric; stuck runs are Critical" \
+  "k6:load:stuck_runs Critical|k6:load:http_req_duration Medium" \
+  "$(python3 -I "$here/auto-found.py" --k6 "$work/perf" | jq -r '[.[] | "\(.key) \(.severity)"] | join("|")')"
+echo '{"jobs":[{"name":"build","conclusion":"failure","steps":[{"name":"Compare p95","conclusion":"failure"}]},{"name":"scan","conclusion":"cancelled"},{"name":"ok","conclusion":"success"}]}' >"$work/jobs.json"
+expect_eq "jobs: a failed job is a finding, a regression step is Medium, cancelled is Low" \
+  "job:build:Compare p95 Medium|job:scan:cancelled Low" \
+  "$(python3 -I "$here/auto-found.py" --jobs "$work/jobs.json" | jq -r '[.[] | "\(.key) \(.severity)"] | join("|")')"
+expect_eq "nothing to report is an empty array" "[]" "$(python3 -I "$here/auto-found.py" --k6 "$work/none")"
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures auto-found check(s) failed"
