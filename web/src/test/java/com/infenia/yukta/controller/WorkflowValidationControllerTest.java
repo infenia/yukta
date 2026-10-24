@@ -34,6 +34,15 @@ class WorkflowValidationControllerTest {
        "edges":[]}
       """;
 
+  /** A draft that uses one node id twice. */
+  private static final String DUPLICATE_IDS =
+      """
+      {"workflowId":"wf","description":"d",
+       "nodes":[{"nodeId":"n1","type":"BRANCH","config":{}},
+                {"nodeId":"n1","type":"BRANCH","config":{}}],
+       "edges":[]}
+      """;
+
   /** The plugin registry. */
   private PluginRegistry pluginRegistry;
 
@@ -56,11 +65,15 @@ class WorkflowValidationControllerTest {
   }
 
   private WebTestClient.ResponseSpec post() {
+    return post(DRAFT);
+  }
+
+  private WebTestClient.ResponseSpec post(final String body) {
     return client
         .post()
         .uri("/api/sessions/validate")
         .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(DRAFT)
+        .bodyValue(body)
         .exchange();
   }
 
@@ -98,5 +111,23 @@ class WorkflowValidationControllerTest {
         .isEqualTo("no trigger")
         .jsonPath("$.data.outputPorts.length()")
         .isEqualTo(0);
+  }
+
+  @Test
+  void testDuplicateNodeIdIsReportedByValidatorNotServerError() {
+    final Plugin plugin = mock(Plugin.class);
+    when(plugin.getOutputPorts(any())).thenReturn(List.of("a"));
+    when(pluginRegistry.get("BRANCH")).thenReturn(plugin);
+    when(workflowValidator.validate(any()))
+        .thenReturn(Mono.error(new IllegalArgumentException("Duplicate node id 'n1'")));
+
+    post(DUPLICATE_IDS)
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.valid")
+        .isEqualTo(false)
+        .jsonPath("$.data.message")
+        .isEqualTo("Duplicate node id 'n1'");
   }
 }
