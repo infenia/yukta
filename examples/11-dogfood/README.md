@@ -86,8 +86,8 @@ yk gradle :core:test --tests 'com.infenia.yukta.Foo*'   # any gradle args as one
 
 ### Watching and controlling a run
 `yk check` and `yk gradle` follow the run and print **problems only**, then the `RESULT` line. `--detach`
-starts it and returns: `STARTED session=<s> log=<file>` (staged check) or `STARTED execution=<e> session=<s>`;
-`yk watch <s> <file|e>` follows it (`--all`: every event, for humans).
+starts it and returns `STARTED execution=<e> session=<s>`;
+`yk watch <s> <e>` follows it (`--all`: every event, for humans).
 Every control-bus event has a severity, `INFO`, `WARN` or `ERROR` (`GET /api/events/stream?severity=WARN`
 sends that and above): a failed or timed-out node or run is `ERROR`, so is a log line with `error`,
 `exception`, `failed`, `failure` or `What went wrong`; a rejected control command, a cancelled node or run
@@ -117,50 +117,53 @@ The same title again adds a comment to the open issue instead of filing a duplic
 the issue without filing it.
 
 ### Result
-Exit 0 only when the run ends `SUCCESS` (or `COMPLETED`); the last line is
+Exit 0 only when the run ends `SUCCESS`; the last line is
 ```
 RESULT status=FAILURE failed_node=style healed=spotless:auto execution=<id> session=check-<branch>-<hash>
 ```
 
 ## Self-healing check
-`yk check` runs the staged `gradle-check` as one small workflow per stage (`stage-<stage>`, built by
-`stage_workflows` in `scripts/_lib.sh` from the `gradle-check` stage table, so `-m` works). Each stage
-has several explicit exits, named by an `OUTCOME_TERMINAL` whose outcome the supervisor and the driver act on:
+`yk check` turns the `gradle-check` stage table into ONE workflow, `check`, so a run is one execution that
+`yk watch` follows and `yk retry` can steer. `heal_workflow` (`scripts/_lib.sh`) builds it from `session.json`
+and the policy `heal.json` (so `-m` works). A stage is a chain; the attempt and the model of every
+fixer are fixed in the graph, nothing counts at run time:
 ```
-run ──success──────────────▶ OUT SUCCESS               the driver starts the next stage
- └failure▶ apply ─success▶ OUT RETRY (restartFrom run)  the server's rule restarts the run from `run`
-              └failure───▶ OUT ESCALATE                 the driver calls the Claude fixer, then restarts the stage
+S.run1 ──failure▶ S.f1 ──success▶ S.run2 ──failure▶ S.f2 ──success▶ S.run3 … S.run<k+1>   (ERROR: the run fails)
+   └─success▶ next stage            └─failure▶ S.f2 (the next rung)
 ```
-Stages with only a Claude fix go from `run` straight to ESCALATE; stages without a policy end in `OUT FAILED`.
-- **The server's rule file** `rules.json` (`yukta.supervisor.rules.file`, set by `yk up`) restarts a stage
-  on RETRY while `attempt < 2`.
-- **The driver** (`run_stages`) follows the newest execution of each stage workflow (a restart is a new
-  execution), reads the outcome from the terminal's status metadata, and on ESCALATE runs the fixer (two
-  attempts) and starts the stage again. After the last stage it re-runs every task once if anything was
-  healed (`yukta-heal.sh verify`), and prints `STAGE …` lines and the `RESULT` line.
+The rungs are the deterministic fix (`auto`, only `spotless`: `spotlessApply`) and then the **ladder**
+`haiku → sonnet → opus` (`heal.json`; `yk check --ladder sonnet,opus` for one run). A healed stage re-runs
+only itself. After `coverage` the **analyzers** (style, spotbugs, licenses, security, cli) run in parallel;
+those with a policy go through `analyzers.join` (an `AGGREGATE`), `analyzers.gate` (a `BRANCH` on a failed
+item) and ONE shared fixer chain `analyzers.f<i>` then ONE gradle rerun `analyzers.r<i>`, so two fixers never
+edit the tree at once. `licenses` and `security` have no policy: they fail the run at once. `verify` re-runs
+every task if anything was healed (`yukta-heal.sh verify`), then `done`.
 
-| stage | `auto` | `claude` | in `heal.json` |
+| stage | `auto` | ladder | in `heal.json` |
 |---|---|---|---|
 | spotless | `spotlessApply` | yes | |
 | compile, tests, coverage, style, spotbugs, cli | | yes | |
 | licenses, security | | | no entry: plain fail-fast |
 
 `session.json` stays the linear spec (and the `--no-heal` workflow). `test-self-heal.sh` checks the generated
-stage workflows offline.
+graph offline; `test-self-heal.sh --online` also runs it on the dev server against a throwaway project with a
+fake `gradlew` and a fake `claude` (`YUKTA_CLAUDE_BIN`).
 
-Each fix step is `yukta-heal.sh <stage> <attempt> <mode>`. For a Claude attempt it re-runs the stage to get
-the cause fresh (and stops there if it passes now), builds a short brief (the problem lines only, the
-failing test classes, the working-tree diffstat, the previous attempt's summary), runs `claude -p` (Sonnet,
-`acceptEdits`, tools limited to Read/Edit/Write/Grep/Glob and `./gradlew`, no `git commit`/`push`, budget
-`YUKTA_HEAL_BUDGET` = $1), runs `spotlessApply`, and judges the attempt by what changed on disk: touching
-`config/`, `build-logic/`, `gradle/`, `.github/`, `.claude/` or this folder, adding a suppression
-(`@SuppressFBWarnings`, `NOPMD`, `CHECKSTYLE:OFF`, `@SuppressWarnings("PMD")`, `@Disabled`), removing
-assertions, or changing nothing marks it `fixed=false` (`summary=GUARD: …`). It never reverts (the tree may
-hold your own edits) and never commits.
-- `--fixer auto` (default): attempt 1 fresh, attempt 2 forks the calling session (`CLAUDE_CODE_SESSION_ID`)
-  so it knows what the change was; `--fixer fresh` for both. `--no-heal` turns healing off.
+Every node is `yukta-heal.sh <action>`: `run <stage> -- <cmd>` keeps the stage's output and exit code (the
+fixers read the problem lines from there, nothing is run twice), `fix <stage> <n> <mode>` is one repair
+attempt, `rerun analyzers` one gradle run of the analyzers still failing, `verify`. A Claude attempt builds a
+short brief (the problem lines only, the failing test classes, the working-tree diffstat, the previous
+attempt's summary) and runs `claude -p` through one slim launcher (`yk_claude`): none of your plugins, skills,
+settings or MCP servers, a fixed tool list, `acceptEdits`, no `git commit`/`push`, the constant system prompt
+`fixer-rules.md` (everything that varies is in the user prompt, so every attempt shares one cached prefix),
+budget `YUKTA_HEAL_BUDGET` = $1. It then runs `spotlessApply` and judges the attempt by what changed on disk:
+touching `config/`, `build-logic/`, `gradle/`, `.github/`, `.claude/` or this folder, adding a suppression
+(`@SuppressFBWarnings`, `NOPMD`, `CHECKSTYLE:OFF`, `@SuppressWarnings("PMD")`, `@Disabled`), removing assertions,
+or changing nothing marks it `fixed=false` (`summary=GUARD: …`). It never reverts (the tree may hold your own
+edits) and never commits.
 - It prints `HEAL <stage> attempt=<n> mode=<m> fixed=<bool> files=<n> cost=$<x> summary=<text>` and writes
-  `.yukta-dev/heal/<session>/<stage>-<n>.json`; `RESULT` gains `healed=<stage:step,…>`.
+  `.yukta-dev/heal/<session>/<stage>-<n>.json` (with the token usage); `RESULT` gains `healed=<stage:step,…>`
+  (step = `auto` or the model). `--no-heal` turns healing off.
 - The server needs `YUKTA_PROCESS_ALLOW_ANY=true` (`yk up` sets it) and a logged-in `claude` on its PATH
   (not `--bare`, which loses the login).
 

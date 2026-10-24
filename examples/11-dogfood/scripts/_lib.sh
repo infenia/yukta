@@ -275,193 +275,176 @@ ensure_server() {
   fi
 }
 
-# ---- The staged, self-healing check ----
+# ---- The self-healing check ----
 
-# stage_workflows POLICY MODULES PROJECT HEALSH HEALDIR: reads session JSON on stdin and adds one small
-# workflow "stage-<stage>" per stage of gradle-check (after scoping), each with several exits that an
-# OUTCOME_TERMINAL names. The supervisor (rules.json) restarts a RETRY; the driver (run_stages) acts
-# on ESCALATE and moves on after SUCCESS. POLICY is heal.json, the stage -> {auto, claude} map;
-# MODULES is the space-separated module scope (empty: the whole project).
-#   run ──success──────────────▶ OUT SUCCESS
-#     └failure▶ apply ─success▶ OUT RETRY (restartFrom run)     (stage has a deterministic fix)
-#                  └failure───▶ OUT ESCALATE
-#     └failure▶ OUT ESCALATE                                    (claude may fix it, no auto fix)
-#     └failure▶ OUT FAILED                                      (no policy: fail fast)
-stage_workflows() {
-  jq --argjson policy "$1" --arg modules "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" '
+# heal_workflow POLICY MODULES PROJECT HEALSH HEALDIR LADDER: reads session JSON on stdin and adds the
+# workflow "check", the gradle-check stages unrolled into ONE graph, so a run is one execution that
+# `yk watch` follows and `yk retry` can steer. POLICY is heal.json (the ladder, which stages are
+# analyzers, and per stage {auto, claude, ladder}); LADDER (comma separated) overrides its ladder.
+#
+# A sequential stage S (spotless, compile, tests, coverage) is a chain, rungs = [auto] + the ladder:
+#   S.run1 --failure--> S.f1 --success--> S.run2 --failure--> S.f2 --success--> S.run3 ... S.run<k+1>
+#          \--success--> next stage        \--failure--> S.f2 (the next rung)             (ERROR: the run fails)
+# The attempt and model of every fixer are fixed in the graph: nothing counts at run time.
+# Analyzers (style, spotbugs, ...) run in parallel after the last sequential stage; those with a policy
+# go through a join, a gate and one shared fixer chain (analyzers.f<i> then ONE rerun analyzers.r<i>), the
+# others (licenses, security) fail the run at once. verify re-runs everything if anything was healed.
+heal_workflow() {
+  # true when any analyzer of the join failed (an analyzer is skipped by the gate when none did)
+  local gate="payload['items'].?[['success'] == false].size() > 0"
+  jq --arg gate "$gate" --argjson policy "$1" --arg modules "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" --arg lad "$6" '
     ($modules | split(" ") | map(select(. != ""))) as $mods
+    | ($lad | split(",") | map(select(. != ""))) as $override
+    | (if ($override | length) > 0 then $override else $policy.ladder end) as $ladder
     | def px: . as $t | if ($mods | length) > 0 and ($t | startswith(":") | not)
         then $mods[] | select(. != "cli") | ":" + . + ":" + $t else $t end;   # cli (Go) has no gradle fix tasks
-    def out($id; $o): {nodeId: $id, type: "OUTCOME_TERMINAL", config: ({outcome: $o} + (if $o == "RETRY" then {restartFrom: "run"} else {} end))};
-    def edge($s; $t; $p): {source: $s, target: $t, sourcePort: $p};
-    def stage($n):
-      ($policy[$n.nodeId] // {}) as $p
-      | ($n | .nodeId = "run" | .config.failureMode = "CONTINUE" | .config.routeByExitCode = true) as $run
-      | ({nodeId: "apply", type: "PROCESS_EXECUTOR",
-          config: {command: [$healsh, $n.nodeId, "0", "auto"], workingDir: $project,
-            timeout: 3600, timeoutSeconds: 3600, failureMode: "CONTINUE", routeByExitCode: true,
-            env: {YUKTA_HEAL_DIR: $healdir, YUKTA_HEAL_TASKS: (($p.auto // []) | map(px) | join(" ")), YUKTA_MODULE: $modules}}}) as $apply
-      | {workflowId: ("stage-" + $n.nodeId), description: ("Stage " + $n.nodeId + " with explicit exits"),
-         nodes: ([{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}}, $run, out("ok"; "SUCCESS")]
-                 + (if $p.auto then [$apply, out("retry"; "RETRY"), out("escalate"; "ESCALATE")]
-                    elif $p.claude then [out("escalate"; "ESCALATE")]
-                    else [out("failed"; "FAILED")] end)),
-         edges: ([{source: "trigger", target: "run"}, edge("run"; "ok"; "success")]
-                 + (if $p.auto then [edge("run"; "apply"; "failure"), edge("apply"; "retry"; "success"), edge("apply"; "escalate"; "failure")]
-                    elif $p.claude then [edge("run"; "escalate"; "failure")]
-                    else [edge("run"; "failed"; "failure")] end))};
-    if .workflows["gradle-check"] == null then . else
-      .workflows += ([.workflows["gradle-check"].nodes[] | select(.type == "PROCESS_EXECUTOR") | stage(.)]
-                     | map({(.workflowId): .}) | add // {})
-    end'
+    def gradle_tasks($n): [$n.config.command[1:][] | select(startswith("-") | not)] | join(" ");
+    def rungs($n): ($policy.stages[$n.nodeId] // {}) as $p
+        | (if $p.auto then ["auto"] else [] end) + (if $p.claude then ($p.ladder // $ladder) else [] end);
+    # YUKTA_CLAUDE_BIN swaps the claude binary of the fixers (test-self-heal.sh uses a fake one)
+    def env($tasks; $extra): {YUKTA_HEAL_DIR: $healdir, YUKTA_HEAL_TASKS: $tasks, YUKTA_MODULE: $modules}
+        + (if $ENV.YUKTA_CLAUDE_BIN then {YUKTA_CLAUDE_BIN: $ENV.YUKTA_CLAUDE_BIN} else {} end) + $extra;
+    def pe($id; $cfg): {nodeId: $id, type: "PROCESS_EXECUTOR",
+        config: ({workingDir: $project, timeout: 3600, timeoutSeconds: 3600} + $cfg)};
+    def routed($on): if $on then {failureMode: "CONTINUE", routeByExitCode: true} else {failureMode: "ERROR"} end;
+    def runner($id; $n; $on): pe($id; {command: ([$healsh, "run", $n.nodeId, "--"] + $n.config.command), env: env(""; {})} + routed($on));
+    def fixer($id; $stage; $i; $mode; $tasks; $extra):
+        pe($id; {command: [$healsh, "fix", $stage, ($i | tostring), $mode], env: env($tasks; $extra)} + routed(true));
+    def edge($s; $t; $port): {source: $s, target: $t} + (if $port == null then {} else {sourcePort: $port} end);
+    def id($n; $pre; $i): $n + "." + $pre + ($i | tostring);
+
+    # one sequential stage fed by $in = [{source, port}]; its exits are what the next stage hangs on
+    def seq($n; $in):
+        rungs($n) as $r | ($r | length) as $k | $n.nodeId as $s
+        | {nodes: ([range(1; $k + 2) as $j | runner(id($s; "run"; $j); $n; $j <= $k)]
+                   + [range(0; $k) as $i | fixer(id($s; "f"; $i + 1); $s; $i + 1; $r[$i];
+                       (if $r[$i] == "auto" then (($policy.stages[$s].auto // []) | map(px) | join(" ")) else gradle_tasks($n) end); {})]),
+           edges: ([$in[] | edge(.source; id($s; "run"; 1); .port)]
+                   + [range(0; $k) as $i
+                      | edge(id($s; "run"; $i + 1); id($s; "f"; $i + 1); "failure"),
+                        edge(id($s; "f"; $i + 1); id($s; "run"; $i + 2); "success"),
+                        edge(id($s; "f"; $i + 1); (if $i + 1 < $k then id($s; "f"; $i + 2) else id($s; "run"; $k + 1) end); "failure")]),
+           exits: ([range(1; $k + 1) as $j | {source: id($s; "run"; $j), port: "success"}]
+                   + [{source: id($s; "run"; $k + 1), port: null}])};
+
+    .workflows["gradle-check"].nodes as $all
+    | [$all[] | select(.type == "PROCESS_EXECUTOR")] as $stages
+    | [$stages[] | select(.nodeId as $x | $policy.analyzers | index($x) | not)] as $sequential
+    | [$stages[] | select(.nodeId as $x | $policy.analyzers | index($x))] as $analyzers
+    | [$analyzers[] | select((rungs(.) | length) > 0)] as $healable
+    | (reduce $sequential[] as $n ({nodes: [{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}}], edges: [],
+                                    exits: [{source: "trigger", port: null}]};
+          seq($n; .exits) as $s
+          | {nodes: (.nodes + $s.nodes), edges: (.edges + $s.edges), exits: $s.exits})) as $head
+    # analyzers: parallel, joined; the gate and the shared fixer chain only when one can be healed
+    | ($ladder | length) as $k
+    | (if ($analyzers | length) == 0 then $head
+       else
+         ([$healable[] | .nodeId + "=" + (.config.command | join(" "))] | join("\n")) as $list
+         | {nodes: ($head.nodes
+                    + [$analyzers[] | runner(.nodeId; .; ((rungs(.) | length) > 0))]
+                    + [{nodeId: "analyzers.join", type: "AGGREGATE", config: {size: ($analyzers | length)}}]),
+            edges: ($head.edges
+                    + [$analyzers[] | .nodeId as $a | $head.exits[] | edge(.source; $a; .port)]
+                    + [$analyzers[] | .nodeId as $a
+                       | if (rungs(.) | length) > 0
+                         then edge($a; "analyzers.join"; "success"), edge($a; "analyzers.join"; "failure")
+                         else edge($a; "analyzers.join"; null) end]),
+            exits: [{source: "analyzers.join", port: null}]}
+         | if ($healable | length) == 0 then .
+           else
+             .nodes += [{nodeId: "analyzers.gate", type: "BRANCH",
+                         config: {mode: "EXPRESSION", defaultPort: "pass",
+                                  cases: {($gate): "fail"}}}]
+             + [range(0; $k) as $i | fixer(id("analyzers"; "f"; $i + 1); "analyzers"; $i + 1; $ladder[$i]; "";
+                  {YUKTA_HEAL_ANALYZERS: $list})]
+             + [range(0; $k) as $i | pe(id("analyzers"; "r"; $i + 1);
+                  {command: [$healsh, "rerun", "analyzers", ($i + 1 | tostring), "rerun"], env: env(""; {YUKTA_HEAL_ANALYZERS: $list})}
+                  + routed($i + 1 < $k))]
+             | .edges += [edge("analyzers.join"; "analyzers.gate"; null), edge("analyzers.gate"; id("analyzers"; "f"; 1); "fail")]
+             + [range(0; $k) as $i
+                | edge(id("analyzers"; "f"; $i + 1); id("analyzers"; "r"; $i + 1); "success"),
+                  edge(id("analyzers"; "f"; $i + 1); (if $i + 1 < $k then id("analyzers"; "f"; $i + 2) else id("analyzers"; "r"; $k) end); "failure")]
+             + [range(0; $k - 1) as $i | edge(id("analyzers"; "r"; $i + 1); id("analyzers"; "f"; $i + 2); "failure")]
+             | .exits = [{source: "analyzers.gate", port: "pass"}]
+                        + [range(0; $k - 1) as $i | {source: id("analyzers"; "r"; $i + 1), port: "success"}]
+                        + [{source: id("analyzers"; "r"; $k), port: null}]
+           end
+       end) as $body
+    | ([$stages[] | select(.config.command[0] == "./gradlew") | .config.command[1:][] | select(startswith("-") | not)]
+       | unique | join(" ")) as $everything
+    | del(.workflows["gradle-check"])
+    | .workflows.check = {workflowId: "check", description: "The quality gate with self-healing, one execution",
+        nodes: ($body.nodes
+                + [pe("verify"; {command: [$healsh, "verify"], env: env($everything; {})} + routed(false)),
+                   {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}}]),
+        edges: ($body.edges + [$body.exits[] | edge(.source; "verify"; .port)] + [edge("verify"; "done"; null)])}'
 }
 
-# stage_names: reads session JSON on stdin, prints the stages of gradle-check in order.
-stage_names() {
-  jq -r '.workflows["gradle-check"].nodes[] | select(.type == "PROCESS_EXECUTOR") | .nodeId'
-}
+# check_stages: reads session JSON on stdin and prints the nodes of the check workflow, one per line.
+check_nodes() { jq -r '.workflows.check.nodes[].nodeId'; }
 
-# stage_tasks STAGE: reads session JSON on stdin, prints the gradle tasks of the stage (as scoped).
-stage_tasks() {
-  jq -r --arg s "$1" '.workflows["gradle-check"].nodes[] | select(.nodeId == $s)
-    | [.config.command[1:][] | select(startswith("-") | not)] | join(" ")'
-}
-
-_history() { "$(find_cli)" -o json workflow history "$1" | jq 'if type == "object" then (.data // .) else . end'; }
-
-# follow_stage SESSION WORKFLOW EXECUTION: waits until the stage workflow's newest execution has ended
-# and prints its id. A RETRY outcome is restarted by the server (rules.json) into a new execution;
-# after an execution ends this waits a few seconds for such a successor before settling on it.
-# ponytail: assumes startTime sorts as text (ISO-8601) and a 4s grace; without rules.json the
-# RETRY simply settles here and the driver treats it as an escalation.
-follow_stage() {
-  local session="$1" wf="$2" first="$3" settled="" row id status
-  for _ in $(seq 1 3600); do
-    row="$(_history "$session" | jq -r --arg wf "$wf" --arg first "$first" '
-      ([.[] | select(.executionId == $first) | .startTime][0]) as $t0
-      | [.[] | select(.workflowId == $wf and (.startTime >= $t0))] | sort_by(.startTime) | last
-      | "\(.executionId) \(.status)"')"
-    id="${row%% *}" status="${row#* }"
-    if [[ "$status" =~ ^(PENDING|QUEUED|RUNNING|PAUSED)$ || -z "$id" || "$id" == null ]]; then
-      settled=""
-      sleep 2
-    elif [[ "$settled" == "$id" ]]; then
-      echo "$id"
-      return 0
-    else
-      settled="$id"
-      sleep 4
-    fi
-  done
-  die "stage $wf did not end"
-}
-
-# stage_outcome SESSION EXECUTION: the outcome of the OUTCOME_TERMINAL the run reached (SUCCESS, RETRY,
-# ESCALATE, FAILED), or NONE.
-stage_outcome() {
-  "$(find_cli)" -o json workflow status "$1" "$2" \
-    | jq -r '(.data // .) | [.tasks[] | select(.module == "OUTCOME_TERMINAL" and .metadata.reached == true) | .metadata.outcome][0] // "NONE"'
-}
-
-start_stage() { # session workflow
-  "$(find_cli)" -o json workflow start "$1" "$2" | jq -r '.data.executionId // .executionId'
-}
-
-# run_stages SESSION SESSIONFILE: the supervisor-side loop of a healing check. For each stage, start
-# its workflow and follow it; on SUCCESS go on, on ESCALATE (or a RETRY the server did not restart)
-# let the Claude fixer try (two attempts, modes $m1 and $m2), then start the stage again; FAILED or an
-# unfixed stage ends the check. Finally re-run every task once if anything was healed. Prints STAGE
-# lines and the RESULT line; returns 0 only when everything passed.
-# Variables: project modules healsh heal_dir fork m1 m2.
-run_stages() {
-  local session="$1" file="$2" stage exec outcome attempt mode fixed last="-" failed="-" tasks all
-  all="$(jq -r '[.workflows["gradle-check"].nodes[] | select(.type == "PROCESS_EXECUTOR") | .config.command[1:][] | select(startswith("-") | not)] | unique | join(" ")' "$file")"
-  while read -r stage; do
-    echo "STAGE $stage start"
-    exec="$(start_stage "$session" "stage-$stage")"
-    attempt=0
-    while :; do
-      exec="$(follow_stage "$session" "stage-$stage" "$exec")"
-      last="$exec"
-      outcome="$(stage_outcome "$session" "$exec")"
-      echo "STAGE $stage $outcome execution=$exec"
-      [[ "$outcome" == SUCCESS ]] && break
-      if [[ "$outcome" == FAILED || "$outcome" == NONE || $attempt -ge 2 ]]; then failed="$stage"; break 2; fi
-      attempt=$((attempt + 1))
-      mode="$m1"; ((attempt == 2)) && mode="$m2"
-      tasks="$(stage_tasks "$stage" <"$file")"
-      "$(find_cli)" -o json workflow status "$session" "$exec" \
-        | jq -r '(.data // .) | .tasks[] | select(.metadata.error != null) | "ERROR \(.nodeId): \(.metadata.error | .[0:300])"' | head -3
-      (cd "$project" && YUKTA_HEAL_DIR="$heal_dir" YUKTA_HEAL_TASKS="$tasks" YUKTA_FORK_SESSION="$fork" \
-        YUKTA_MODULE="$modules" "$healsh" "$stage" "$attempt" "$mode") | tail -1
-      fixed="$(jq -r '.fixed' "$heal_dir/$stage-$attempt.json" 2>/dev/null || echo false)"
-      [[ "$fixed" == true ]] || continue
-      exec="$(start_stage "$session" "stage-$stage")"
-    done
-  done < <(stage_names <"$file")
-  if [[ "$failed" == "-" ]] && jq -e -s 'any(.[]; .fixed)' "$heal_dir"/*.json >/dev/null 2>&1; then
-    (cd "$project" && YUKTA_HEAL_DIR="$heal_dir" YUKTA_HEAL_TASKS="$all" YUKTA_MODULE="$modules" \
-      "$healsh" verify 0 verify) || failed="verify"
-  fi
-  local healed status=COMPLETED
-  healed="$(healed_stages "$session" "$failed")"
-  [[ "$failed" == "-" ]] || status=FAILURE
-  echo "RESULT status=$status failed_node=$failed healed=${healed:--} execution=$last session=$session"
-  [[ "$status" == COMPLETED ]]
-}
+# node_stage NODE: the stage a node of the check belongs to (S.run2 and S.f1 belong to S).
+node_stage() { sed -E 's/\.(run|f|r)[0-9]+$//' <<<"$1"; }
 
 # print_result SESSION EXECUTION: prints the machine readable RESULT line; returns 0 only when the
-# execution ended COMPLETED/SUCCESS.
+# execution ended SUCCESS.
 print_result() {
   local progress status failed healed
   progress="$("$(find_cli)" -o json workflow status "$1" "$2" | jq '(.data // .)')"
   status="$(jq -r '.status' <<<"$progress")"
-  failed="$(jq -r '[.tasks[] | select(.status | test("FAIL|ERROR"; "i")) | .nodeId][0] // "-" | .' <<<"$progress")"
+  failed="$(jq -r '[.tasks[] | select(.status == "FAILURE" or .status == "TIMED_OUT") | .nodeId][0] // "-"' <<<"$progress")"
+  if [[ "$failed" != - ]]; then
+    failed="$(node_stage "$failed")"
+    # the analyzers share one fixer chain; name the ones still failing
+    if [[ "$failed" == analyzers && -s "$STATE_DIR/heal/$1/analyzers.failed" ]]; then
+      failed="$(cat "$STATE_DIR/heal/$1/analyzers.failed")"
+    fi
+  fi
   healed="$(healed_stages "$1" "$failed")"
   echo "RESULT status=$status failed_node=$failed healed=${healed:--} execution=$2 session=$1"
   [[ "$status" == COMPLETED || "$status" == SUCCESS ]]
 }
 
 # healed_stages SESSION [FAILED_STAGE]: "stage:step,..." for every heal step of the last check run
-# that fixed its stage (records written by yukta-heal.sh), except the stage that still failed; empty
-# when nothing was healed.
+# that fixed its stage (records written by yukta-heal.sh, step = auto or the model), except the stage
+# that still failed; empty when nothing was healed.
 healed_stages() {
   local dir="$STATE_DIR/heal/$1"
   [[ -d "$dir" ]] || return 0
-  jq -rs --arg failed "${2:--}" '[.[] | select(.fixed and .stage != $failed) | "\(.stage):\(if .attempt == 0 then "auto" else "fix\(.attempt)" end)"] | unique | join(",")' \
-    "$dir"/*.json 2>/dev/null || true
+  jq -rs --arg failed "${2:--}" '[.[] | select(.fixed and .stage != $failed) | "\(.stage):\(.mode)"] | unique | join(",")' \
+    "$dir"/*-[0-9]*.json 2>/dev/null || true
 }
 
 # record_durations SESSION EXECUTION SCOPE: appends each finished node's duration to
-# $STATE_DIR/durations.tsv (date, workflow:scope, node, seconds, execution) and prints
-#   SLOW <node> <s>s (median <m>s, <n> runs)
-# for a node that took over 15s and 1.5x the median of its last 10 runs at the same workflow and
-# scope (at least 3 earlier runs). SCOPE is the module, "all" or the gradle args of the run.
-# The server stamps every node's start with the run's start (nodes are wired up front), so a
-# node's duration is the gap between its end and the previous node's end.
-# ponytail: exact for the linear dogfood workflows only (parallel branches would be mis-timed),
-# whole-second resolution, and a plain median (failed fast runs count); use a percentile if noisy.
+# $STATE_DIR/durations.tsv (date, workflow:scope, stage, seconds, execution) and prints
+#   SLOW <stage> <s>s (median <m>s, <n> runs)
+# for a stage that took over 15s and 1.5x the median of its last 10 runs at the same workflow and
+# scope (at least 3 earlier runs). SCOPE is the module, "all" or the gradle args of the run. A node
+# reports its own start (its first input), so the seconds of a stage are the sum of its nodes
+# (S.run1, S.f1, S.run2, ...); parallel analyzers are timed one by one.
+# ponytail: whole-second resolution, and a plain median (failed fast runs count); use a percentile if noisy.
 record_durations() {
   local session="$1" exec="$2" scope="$3" file="$STATE_DIR/durations.tsv"
-  local wf node secs key prior n median
+  local wf stage secs key prior n median
   mkdir -p "$STATE_DIR"
   touch "$file"
-  while IFS=$'\t' read -r wf node secs; do
+  while IFS=$'\t' read -r wf stage secs; do
     key="$wf:$scope"
-    prior="$(awk -F'\t' -v k="$key" -v n="$node" '$2 == k && $3 == n { print $4 }' "$file" | tail -10 | sort -n)"
+    prior="$(awk -F'\t' -v k="$key" -v n="$stage" '$2 == k && $3 == n { print $4 }' "$file" | tail -10 | sort -n)"
     n="$(grep -c . <<<"$prior" || true)"
     if ((n >= 3 && secs > 15)); then
       median="$(awk '{ a[NR] = $1 } END { print a[int((NR + 1) / 2)] }' <<<"$prior")"
       if ((secs * 2 > median * 3)); then
-        echo "SLOW $node ${secs}s (median ${median}s, $n runs)"
+        echo "SLOW $stage ${secs}s (median ${median}s, $n runs)"
       fi
     fi
-    printf '%s\t%s\t%s\t%s\t%s\n' "$(date -Is)" "$key" "$node" "$secs" "$exec" >>"$file"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$(date -Is)" "$key" "$stage" "$secs" "$exec" >>"$file"
   done < <("$(find_cli)" -o json workflow status "$session" "$exec" | jq -r '
     def secs: .[:19] | strptime("%Y-%m-%dT%H:%M:%S") | mktime;
+    def stage: sub("\\.(run|f|r)[0-9]+$"; "");
     (.data // .) as $p
-    | [$p.tasks[] | select((.endTime // "0001")[:4] != "0001") | {node: .nodeId, end: (.endTime | secs)}]
-    | sort_by(.end) as $t
-    | range(0; $t | length) as $i
-    | "\($p.workflowId)\t\($t[$i].node)\t\($t[$i].end - (if $i == 0 then ($p.startTime | secs) else $t[$i - 1].end end))"')
+    | [$p.tasks[] | select((.startTime // "0001")[:4] != "0001" and (.endTime // "0001")[:4] != "0001")
+       | {stage: (.nodeId | stage), secs: ((.endTime | secs) - (.startTime | secs))}]
+    | group_by(.stage)[] | "\($p.workflowId)\t\(.[0].stage)\t\(map(.secs) | add)"')
 }

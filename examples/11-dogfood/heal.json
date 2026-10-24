@@ -1,9 +1,13 @@
 {
-  "spotless": { "auto": ["spotlessApply"], "claude": true },
-  "compile": { "claude": true },
-  "tests": { "claude": true },
-  "coverage": { "claude": true },
-  "style": { "claude": true },
-  "spotbugs": { "claude": true },
-  "cli": { "claude": true }
+  "ladder": ["haiku", "sonnet", "opus"],
+  "analyzers": ["style", "spotbugs", "licenses", "security", "cli"],
+  "stages": {
+    "spotless": { "auto": ["spotlessApply"], "claude": true },
+    "compile": { "claude": true },
+    "tests": { "claude": true },
+    "coverage": { "claude": true },
+    "style": { "claude": true },
+    "spotbugs": { "claude": true },
+    "cli": { "claude": true }
+  }
 }

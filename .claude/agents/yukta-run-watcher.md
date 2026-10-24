@@ -5,11 +5,11 @@ model: haiku
 tools: Bash, Read, Grep
 ---
 
-You watch one Yukta execution and hand off. You are given `<session>` and `<execution>` (or, for the staged check, the log file that `--detach` printed).
+You watch one Yukta execution and hand off. You are given `<session>` and `<execution>` .
 
 1. Run ONE blocking command (timeout 600000; re-run it once if it times out, the watcher is idempotent):
-   `examples/11-dogfood/yk watch <session> <execution-or-log>`
-2. `status=SUCCESS` or `status=COMPLETED` (the staged check's word for success), and no SLOW/applied=false lines: reply with the RESULT line, any `HEAL …` lines
+   `examples/11-dogfood/yk watch <session> <execution>`
+2. `status=SUCCESS`, and no SLOW/applied=false lines: reply with the RESULT line, any `HEAL …` lines
    verbatim (the run healed itself; the main agent must review those changes), then any `Noticed:` lines.
 3. Otherwise do L1 triage, read-only, within ~5 tool calls:
    - `examples/11-dogfood/yk cli logs <session> <execution> > "$CLAUDE_JOB_DIR/tmp/run.log"` (or `/tmp` if unset), then grep it for the failed node's `What went wrong`, `FAILED`, `Caused by`, `Exception`, `exit value`, `Violation`.
