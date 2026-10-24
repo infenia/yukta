@@ -303,6 +303,23 @@ Measures test coverage with JaCoCo and fails a class that is below the required 
 
 **Settings:** `coverageConfig { exception(pattern, reason, thresholds) }`, `-Pcoverage`, `-PfailFast`, `./gradlew jacocoTestCoverageVerification`
 
+### Mutation Testing
+
+*PIT, score ratchet*
+
+Checks that the tests would notice a change to the code, which coverage cannot show: a line can run in a test that never looks at its result.
+
+- PIT (opt-in with `-Pmutation`) changes the bytecode one way at a time, for example flips a condition or removes a call, and runs the tests that cover it. A **mutant** is killed when a test fails. Example: `if (a > b)` becomes `if (a >= b)`; if no test fails, the boundary is untested.
+- `./gradlew :core:pitest -Pmutation` writes `build/reports/pitest/` (HTML and `mutations.xml`). `-PmutationTargets=com.infenia.yukta.service.orchestrator.validator.*` limits the classes mutated, which is the way to work on one package. `boot` and the two Docker-based `plus` modules are not mutated.
+- The **score** of a module is the share of mutants the tests detect. `config/mutation/baseline.json` holds one score per module and `.github/scripts/mutation-ratchet.py` fails when a module drops more than one point below it. `--update` raises baselines and never lowers one; raising the bar is an ordinary pull request.
+- CI (`mutation.yml`): every night, only the modules changed in the last day and the modules that depend on them; every Saturday, all modules. Not on pull requests, because a full run takes hours. A failure opens the nightly tracking issue.
+
+- **Guarantees.** A module cannot lose test strength without a failing nightly run and a visible baseline.
+- **Ceiling.** Some surviving mutants are equivalent (the changed code behaves the same), so a score of 100% is not the goal. Timeouts make two runs differ slightly, hence the one point of tolerance.
+- **On failure.** The ratchet prints the module and its drop. Open `<module>/build/reports/pitest/index.html` to see the mutants that survived and add a test that fails for each.
+
+**Settings:** `-Pmutation`, `-PmutationTargets`, `./gradlew pitest -Pmutation`, `python3 .github/scripts/mutation-ratchet.py [--update]`
+
 ### Node Conventions
 
 *UI toolchain, ui only*

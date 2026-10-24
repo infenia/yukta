@@ -1,0 +1,101 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Mutation testing
+
+# Coverage shows which lines ran, not whether a test would notice a change. PIT changes the code
+# (flips a condition, removes a call) and checks that a test fails. config/mutation/baseline.json
+# holds each module's score; .github/scripts/mutation-ratchet.py fails the run when one drops.
+# Nightly: only the modules touched in the last day (and what depends on them). Weekly: every module.
+# Not on pull requests: a full run takes hours. Failures open the nightly tracking issue.
+on:
+  schedule:
+    - cron: '37 20 * * 0-5' # nightly, 2:07 AM IST: modules changed in the last day
+    - cron: '7 21 * * 6'    # Saturday, 2:37 AM IST: every module
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'Mutate every module, not only the ones changed in the last day'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    name: Mutation score
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      # spotless and the server jar reach the ui module, whose Gradle tasks run pnpm.
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 10.30.1
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+        with:
+          gradle-version: wrapper
+          dependency-graph: disabled
+          cache-provider: enhanced
+
+      # The weekly run and a "full" dispatch mutate everything; the nightly run asks the CI planner
+      # which modules the last day's changes affect.
+      - name: Pick the modules
+        id: modules
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          FULL_INPUT: ${{ inputs.full }}
+        run: |
+          if [ "$SCHEDULE" = '7 21 * * 6' ] || [ "$FULL_INPUT" = true ]; then
+            tasks=pitest
+          else
+            since=$(git rev-list -1 --before='26 hours ago' origin/main || true)
+            tasks=$(git diff --name-only "${since:-HEAD~1}" HEAD |
+              .github/scripts/ci-tasks.sh | jq -r '[.affected[] | select(. != ":ui" and . != ":cli") | "\(.):pitest"] | join(" ")')
+          fi
+          echo "tasks=$tasks" >> "$GITHUB_OUTPUT"
+          echo "mutating: ${tasks:-nothing}"
+
+      # --continue: a module without a mutation task (or a disabled one) must not hide the others.
+      - name: Mutate
+        if: steps.modules.outputs.tasks != ''
+        env:
+          TASKS: ${{ steps.modules.outputs.tasks }}
+        run: |
+          # shellcheck disable=SC2086 # TASKS is a list of Gradle tasks
+          ./gradlew $TASKS -Pmutation --continue --console=plain
+
+      - name: Compare with the baseline
+        if: steps.modules.outputs.tasks != ''
+        run: python3 -I .github/scripts/mutation-ratchet.py
+
+      - name: Upload the reports
+        if: always() && steps.modules.outputs.tasks != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: pitest-reports
+          path: '**/build/reports/pitest/'
+          retention-days: 14

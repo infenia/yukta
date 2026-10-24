@@ -71,6 +71,8 @@ jobs:
       - name: Test the project helpers and issue triage
         run: .github/scripts/project-lib.test.sh
 
+      - name: Test the mutation score ratchet
+        run: .github/scripts/mutation-ratchet.test.sh
       - name: Test the failure tracking (auto-found)
         run: .github/scripts/auto-found.test.sh
 
