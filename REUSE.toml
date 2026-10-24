@@ -67,9 +67,9 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = "shadcn"
 SPDX-License-Identifier = "MIT"
 
-# Markdown and CSV test fixtures are covered here rather than with in-file headers, so no SPDX block is ever needed in them
+# Markdown and CSV and bean-inventory test fixtures are covered here rather than with in-file headers, so no SPDX block is ever needed in them
 [[annotations]]
-path = ["**/*.md", "docs/**/*.mdx", "docs/docs.json", "docs/.mintignore", "docs/style.css", "docs/api/openapi.json", "release-please-config.json", ".release-please-manifest.json", "version.txt", "**/src/test/resources/**/*.csv"]
+path = ["**/*.md", "docs/**/*.mdx", "docs/docs.json", "docs/.mintignore", "docs/style.css", "docs/api/openapi.json", "release-please-config.json", ".release-please-manifest.json", "version.txt", "**/src/test/resources/**/*.csv", "boot/src/test/resources/expected-beans.txt"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Infenia Private Limited"
 SPDX-License-Identifier = "Apache-2.0"
