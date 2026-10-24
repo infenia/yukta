@@ -143,15 +143,19 @@ export function LogsPanel({
         </h2>
         {isStreaming && (
           <span
-            className="border-primary text-label-sm text-primary border px-2 py-0.5 tracking-wider"
+            className="border-primary/40 bg-primary/10 text-label-sm text-primary inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 tracking-wider"
             data-testid="streaming-pill"
           >
+            <span
+              aria-hidden
+              className="live-dot bg-attention size-1.5 rounded-full"
+            />
             STREAMING
           </span>
         )}
         {dropped > 0 && (
           <span
-            className="border-log-warn text-label-sm text-log-warn border px-2 py-0.5 tracking-wider"
+            className="border-log-warn/40 bg-log-warn/10 text-label-sm text-log-warn rounded-full border px-2.5 py-0.5 tracking-wider"
             data-testid="dropped-pill"
           >
             {dropped.toLocaleString()} EARLIER LINES HIDDEN

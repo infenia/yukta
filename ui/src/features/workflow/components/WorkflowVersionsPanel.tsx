@@ -13,6 +13,7 @@ import {
   saveNote,
   type WorkflowDiff,
 } from '../api/versions';
+import { StateMessage } from '@/components/common/StateMessage';
 
 interface Props {
   sessionId: string;
@@ -78,9 +79,7 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
         />
       )}
       {versions.data?.length === 0 && (
-        <p className="text-on-surface-variant text-sm">
-          No saved versions yet.
-        </p>
+        <StateMessage title="No saved versions yet." icon="history" compact />
       )}
       {versions.data?.map((version) => (
         <div key={version.id} className="flex flex-col gap-1">

@@ -6,6 +6,7 @@ import type { ConfigField } from '@/features/plugins/types';
 import { usePlugin } from '@/features/plugins/hooks/usePlugins';
 import type { DraftNode } from '../types';
 import { ConfigForm, JsonField } from './ConfigForm';
+import { StateMessage } from '@/components/common/StateMessage';
 
 /** Engine-level failure policy, available on every node (core `NodePolicy`). */
 export const ENGINE_FIELDS: ConfigField[] = [
@@ -102,7 +103,7 @@ export function NodeInspector({
       </header>
 
       {plugin.isPending ? (
-        <p className="text-on-surface-variant">Loading…</p>
+        <StateMessage tone="loading" title="Loading…" compact />
       ) : schema.length > 0 ? (
         <ConfigForm
           schema={schema}

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import type { WorkflowSummary } from '../types/session';
+import { StateMessage } from '@/components/common/StateMessage';
 import { WorkflowCard } from './WorkflowCard';
 
 interface WorkflowGridProps {
@@ -47,13 +48,14 @@ export function WorkflowGrid({
       </div>
 
       {filteredWorkflows.length === 0 ? (
-        <div className="border-outline-variant bg-surface-container rounded-xl border py-12 text-center">
-          <p className="text-body-md text-on-surface-variant">
-            {workflows.length === 0
+        <StateMessage
+          title={
+            workflows.length === 0
               ? 'No workflows'
-              : 'No workflows match your filter'}
-          </p>
-        </div>
+              : 'No workflows match your filter'
+          }
+          icon={workflows.length === 0 ? 'account_tree' : 'search_off'}
+        />
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4">
           {filteredWorkflows.map((workflow) => (

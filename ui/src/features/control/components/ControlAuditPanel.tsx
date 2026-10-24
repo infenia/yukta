@@ -3,6 +3,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchApi } from '@/lib/apiClient';
+import { StateMessage } from '@/components/common/StateMessage';
 import {
   Table,
   TableBody,
@@ -40,15 +41,20 @@ export function ControlAuditPanel() {
         Who did what
       </h2>
       {audit.error ? (
-        <p role="alert" className="text-error">
-          Failed to load the control audit
-        </p>
+        <StateMessage
+          tone="error"
+          title="Failed to load the control audit"
+          onRetry={() => void audit.refetch()}
+          compact
+        />
       ) : audit.isPending ? (
-        <p className="text-on-surface-variant">Loading…</p>
+        <StateMessage tone="loading" title="Loading…" compact />
       ) : audit.data.length === 0 ? (
-        <p className="text-on-surface-variant">
-          No control commands recorded yet.
-        </p>
+        <StateMessage
+          title="No control commands recorded yet."
+          icon="history"
+          compact
+        />
       ) : (
         <TableFrame>
           <Table>

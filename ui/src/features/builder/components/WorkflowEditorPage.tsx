@@ -19,6 +19,7 @@ import type {
   ValidationResult,
 } from '../types';
 import { NodeInspector } from './NodeInspector';
+import { StateMessage } from '@/components/common/StateMessage';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
 const SELECT =
@@ -383,14 +384,21 @@ export function WorkflowEditorPage() {
   // a save from another tab). So wait for the fetch this mount starts; later refetches keep the draft.
   const [openedAt] = useState(Date.now);
 
-  if (session.isPending || (session.isSuccess && session.dataUpdatedAt < openedAt)) {
-    return <p className="text-on-surface-variant p-6">Loading…</p>;
+  if (
+    session.isPending ||
+    (session.isSuccess && session.dataUpdatedAt < openedAt)
+  ) {
+    return (
+      <div className="px-4 py-6 sm:px-6">
+        <StateMessage tone="loading" title="Loading…" />
+      </div>
+    );
   }
   if (session.error) {
     return (
-      <p role="alert" className="text-error p-6">
-        Failed to load session
-      </p>
+      <div className="px-4 py-6 sm:px-6">
+        <StateMessage tone="error" title="Failed to load session" />
+      </div>
     );
   }
   const initial = session.data.workflows[workflowId] ?? {

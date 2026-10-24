@@ -69,10 +69,8 @@ export function SessionListPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-body-md text-on-surface-variant">
-          Loading sessions...
-        </p>
+      <div className="px-4 py-6 sm:px-6">
+        <StateMessage tone="loading" title="Loading sessions..." />
       </div>
     );
   }
@@ -145,13 +143,13 @@ export function SessionListPage() {
               <TableBody>
                 {table.getRowModel().rows.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
-                    <TableCell
-                      colSpan={columns.length}
-                      className="py-8 text-center"
-                    >
-                      <p className="text-body-md text-on-surface-variant">
-                        No sessions yet
-                      </p>
+                    <TableCell colSpan={columns.length} className="p-4">
+                      <StateMessage
+                        title="No sessions yet"
+                        icon="folder"
+                        compact
+                        className="border-0 bg-transparent"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (

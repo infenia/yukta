@@ -3,6 +3,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
@@ -89,5 +90,16 @@ describe('ControlAuditPanel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Failed to load the control audit'
     );
+  });
+
+  it('retries after a failure', async () => {
+    fail = true;
+    renderWithProviders(<ControlAuditPanel />);
+    await screen.findByRole('alert');
+    fail = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(
+      await screen.findByText('No control commands recorded yet.')
+    ).toBeInTheDocument();
   });
 });

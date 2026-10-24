@@ -8,10 +8,7 @@ import { cn } from '@/lib/utils';
 import { categoryAccent, categoryTint } from '../../lib/categoryAccent';
 import { pluginIcon, pluginLabel } from '../../lib/pluginIcons';
 import type { WorkflowFlowNode } from '../../lib/layout';
-import type {
-  NodeUiStatus,
-  TaskProgress,
-} from '../../types/workflow';
+import type { NodeUiStatus, TaskProgress } from '../../types/workflow';
 
 const STATUS_ICONS: Partial<Record<NodeUiStatus, string>> = {
   running: 'sync',
@@ -31,7 +28,7 @@ const STATUS_CARD_CLASSES: Record<NodeUiStatus, string> = {
 
 const STATUS_DOT_CLASSES: Record<NodeUiStatus, string> = {
   completed: 'bg-success',
-  running: 'bg-(--node-accent) animate-pulse',
+  running: 'live-dot bg-(--node-accent)',
   pending: 'border border-outline',
   failed: 'bg-error',
   paused: 'bg-warning',
@@ -70,7 +67,8 @@ function outputHandleTop(index: number, count: number): string {
   return `${((index + 1) / (count + 1)) * 100}%`;
 }
 
-const HANDLE_CLASSES = 'size-2.5! border-2! border-(--node-accent)! bg-surface!';
+const HANDLE_CLASSES =
+  'size-2.5! border-2! border-(--node-accent)! bg-surface!';
 
 /**
  * The canvas node placeholder shell.
@@ -86,9 +84,7 @@ export function WorkflowNodeCard({
   const { node, status, task, hideDescription } = data;
   const isTrigger = node.category === 'TRIGGER';
   const isTerminal = node.category === 'TERMINAL';
-  const icon =
-    STATUS_ICONS[status] ??
-    pluginIcon(node.type, node.category);
+  const icon = STATUS_ICONS[status] ?? pluginIcon(node.type, node.category);
   // The default node id is "<type>-N"; only show the plugin name when the id doesn't already say it.
   const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
   const showType = !norm(node.nodeId).startsWith(norm(node.type));
@@ -181,7 +177,6 @@ export function WorkflowNodeCard({
           {node.description}
         </p>
       )}
-
 
       <div className="mt-auto flex items-center justify-between px-3 pt-1 pb-2">
         <span

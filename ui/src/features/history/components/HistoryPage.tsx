@@ -73,7 +73,7 @@ export function HistoryPage() {
           }
         />
       ) : history.isPending && sessionId ? (
-        <p className="text-body-md text-on-surface-variant">Loading…</p>
+        <StateMessage tone="loading" title="Loading…" />
       ) : !history.data?.length ? (
         <StateMessage title="No runs yet.">
           Run a workflow and it will show up here.
