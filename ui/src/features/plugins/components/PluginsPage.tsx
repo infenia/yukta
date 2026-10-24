@@ -7,6 +7,15 @@ import { cn } from '@/lib/utils';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFrame,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { categoryAccent } from '@/features/workflow/lib/categoryAccent';
 import type { PluginCategory } from '@/features/workflow/types/workflow';
@@ -21,7 +30,7 @@ const CATEGORIES: { key: PluginCategory; label: string }[] = [
 
 function PluginDetail({ type }: { type: string }) {
   const { data: plugin, isPending, error } = usePlugin(type);
-  if (isPending) return <p className="text-on-surface-variant">Loading…</p>;
+  if (isPending) return <StateMessage tone="loading" title="Loading…" />;
   if (error || !plugin) {
     return <StateMessage tone="error" title={`Failed to load ${type}.`} />;
   }
@@ -54,38 +63,42 @@ function PluginDetail({ type }: { type: string }) {
         )}
         <section>
           <h3 className="text-on-surface text-label-md mb-1.5">Output ports</h3>
-          <p className="text-on-surface-variant text-sm">{ports}</p>
+          <p className="text-on-surface-variant text-body-md">{ports}</p>
         </section>
         {plugin.configSchema && plugin.configSchema.length > 0 && (
           <section>
             <h3 className="text-on-surface text-label-md mb-1.5">
               Configuration
             </h3>
-            <div className="border-outline-variant overflow-hidden rounded-xl border">
-              <table className="w-full text-left text-sm">
-                <tbody>
+            <TableFrame>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Field</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Description</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {plugin.configSchema.map((field) => (
-                    <tr
-                      key={field.name}
-                      className="border-outline-variant border-b align-top"
-                    >
-                      <td className="text-code-sm px-3 py-2">
+                    <TableRow key={field.name} className="align-top">
+                      <TableCell className="text-code-sm">
                         {field.name}
                         {field.required && (
                           <span className="text-error"> *</span>
                         )}
-                      </td>
-                      <td className="text-body-sm text-on-surface-variant pr-3">
+                      </TableCell>
+                      <TableCell className="text-body-sm text-on-surface-variant">
                         {field.type}
-                      </td>
-                      <td className="text-body-sm text-on-surface-variant pr-3">
+                      </TableCell>
+                      <TableCell className="text-body-sm text-on-surface-variant whitespace-normal">
                         {field.description}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
+            </TableFrame>
           </section>
         )}
         {plugin.usagePattern && (
@@ -110,9 +123,9 @@ export function PluginsPage() {
 
   if (isPending)
     return (
-      <p className="text-on-surface-variant px-4 py-6 sm:px-6">
-        Loading plugins…
-      </p>
+      <div className="px-4 py-6 sm:px-6">
+        <StateMessage tone="loading" title="Loading plugins…" />
+      </div>
     );
   if (error) {
     return (
@@ -185,7 +198,7 @@ export function PluginsPage() {
           {selected ? (
             <PluginDetail type={selected} />
           ) : (
-            <p>No plugins available.</p>
+            <StateMessage title="No plugins available." icon="extension" />
           )}
         </div>
       </div>

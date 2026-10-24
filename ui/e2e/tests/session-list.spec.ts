@@ -123,20 +123,24 @@ test.describe('Session List Page - Mocked API', () => {
       const row = await getTableRow(page, session.name);
 
       await row.hover();
-      await expect(row).toHaveClass(/hover:bg-surface-container-high/);
+      await expect(row).toHaveClass(/hover:bg-muted\/60/);
     });
   });
 
   test.describe('Filtering', () => {
     test('should have a search input', async ({ page }) => {
-      const filterInput = page.getByPlaceholder(/Search by name or session ID/i);
+      const filterInput = page.getByPlaceholder(
+        /Search by name or session ID/i
+      );
       await expect(filterInput).toBeVisible();
     });
 
     test('should filter sessions by name when text is entered', async ({
       page,
     }) => {
-      const filterInput = page.getByPlaceholder(/Search by name or session ID/i);
+      const filterInput = page.getByPlaceholder(
+        /Search by name or session ID/i
+      );
 
       await filterInput.fill('Build');
 
@@ -148,7 +152,9 @@ test.describe('Session List Page - Mocked API', () => {
     test('should show empty state when filter matches nothing', async ({
       page,
     }) => {
-      const filterInput = page.getByPlaceholder(/Search by name or session ID/i);
+      const filterInput = page.getByPlaceholder(
+        /Search by name or session ID/i
+      );
 
       await filterInput.fill('no-such-session-xyz');
 
@@ -159,15 +165,21 @@ test.describe('Session List Page - Mocked API', () => {
   test.describe('Pagination', () => {
     test('should display pagination controls', async ({ page }) => {
       await expect(page.getByText(/items$/)).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Next page' })).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Next page' })
+      ).toBeVisible();
     });
 
     test('next/previous page controls are disabled with a single page of results', async ({
       page,
     }) => {
       // Only 3 mock sessions and a default page size of 10 → single page.
-      await expect(page.getByRole('button', { name: 'Next page' })).toBeDisabled();
-      await expect(page.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+      await expect(
+        page.getByRole('button', { name: 'Next page' })
+      ).toBeDisabled();
+      await expect(
+        page.getByRole('button', { name: 'Previous page' })
+      ).toBeDisabled();
     });
   });
 
@@ -195,7 +207,9 @@ test.describe('Session List Page - Mocked API', () => {
       await expect(freshPage.getByText('Loading sessions...')).toBeVisible();
       await navigation;
       await waitForLoadingComplete(freshPage);
-      await expect(freshPage.getByText('Loading sessions...')).not.toBeVisible();
+      await expect(
+        freshPage.getByText('Loading sessions...')
+      ).not.toBeVisible();
       await freshPage.close();
     });
   });

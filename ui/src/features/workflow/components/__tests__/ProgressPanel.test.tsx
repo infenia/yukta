@@ -5,7 +5,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ProgressPanel } from '../ProgressPanel';
-import { createMockGraph, createMockProgress } from '@/test/factories/workflowFactory';
+import {
+  createMockGraph,
+  createMockProgress,
+} from '@/test/factories/workflowFactory';
 
 describe('ProgressPanel', () => {
   it('renders the heading, summary and task sequence', () => {
@@ -19,7 +22,9 @@ describe('ProgressPanel', () => {
       />
     );
 
-    expect(screen.getByTestId('progress-panel')).toHaveTextContent('WORKFLOW PROGRESS');
+    expect(screen.getByTestId('progress-panel')).toHaveTextContent(
+      'Workflow progress'
+    );
     expect(screen.getByTestId('execution-summary')).toBeInTheDocument();
     expect(screen.getByTestId('task-sequence')).toBeInTheDocument();
   });
@@ -37,7 +42,9 @@ describe('ProgressPanel', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: /close workflow progress/i }));
+    await user.click(
+      screen.getByRole('button', { name: /close workflow progress/i })
+    );
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -17,6 +17,7 @@ import {
   TableCell,
   TableHead,
   TableHeader,
+  TableFrame,
   TableRow,
 } from '@/components/ui/table';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -68,10 +69,8 @@ export function SessionListPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-body-md text-on-surface-variant">
-          Loading sessions...
-        </p>
+      <div className="px-4 py-6 sm:px-6">
+        <StateMessage tone="loading" title="Loading sessions..." />
       </div>
     );
   }
@@ -96,101 +95,129 @@ export function SessionListPage() {
     table.setPageIndex(0);
   };
 
+  const isEmpty = sessions.length === 0;
+  const newSession = (
+    <Link
+      to="/sessions/new"
+      className={buttonVariants({
+        variant: isEmpty ? 'default' : 'outline',
+        size: 'default',
+      })}
+    >
+      <span className="material-symbols-outlined text-base">add</span>
+      New session
+    </Link>
+  );
+
   return (
     <div className="bg-background flex flex-1 flex-col gap-0">
-      <div>
+      <div className="relative isolate">
+        {/* The docs hero backdrop, behind the header and filter bar only */}
+        <div
+          aria-hidden="true"
+          data-testid="hero-backdrop"
+          className={`hero-backdrop pointer-events-none absolute inset-x-0 top-0 -z-10 ${isEmpty ? 'h-[32rem]' : 'h-56'}`}
+        />
         <SessionsHeader
           sessionCount={sessions.length}
-          actions={
-            <Link
-              to="/sessions/new"
-              className={buttonVariants({ variant: 'outline', size: 'default' })}
+          actions={isEmpty ? undefined : newSession}
+        />
+
+        {isEmpty ? (
+          <section
+            data-testid="sessions-empty-hero"
+            className="flex flex-col items-center gap-4 px-4 pt-10 pb-20 text-center sm:px-6"
+          >
+            <span
+              aria-hidden="true"
+              className="bg-accent text-accent-foreground shadow-card flex size-12 items-center justify-center rounded-xl"
             >
-              <span className="material-symbols-outlined text-base">add</span>
-              New session
-            </Link>
-          }
-        />
+              <span className="material-symbols-outlined">folder</span>
+            </span>
+            <h2 className="text-headline-lg sm:text-display-01 text-on-surface text-balance">
+              No sessions yet
+            </h2>
+            <p className="text-body-md text-on-surface-variant max-w-prose">
+              A session groups the workflows of one project. Create one, then
+              add workflows from the editor, the CLI or an AI agent over MCP.
+            </p>
+            {newSession}
+          </section>
+        ) : (
+          <>
+            <SessionsFilterBar
+              data={sessions}
+              globalFilter={globalFilter}
+              onGlobalFilterChange={setGlobalFilter}
+              onReset={handleReset}
+            />
 
-        <SessionsFilterBar
-          data={sessions}
-          globalFilter={globalFilter}
-          onGlobalFilterChange={setGlobalFilter}
-          onReset={handleReset}
-        />
-
-        <div className="px-4 pb-8 sm:px-6">
-          <div className="border-outline-variant bg-surface-container overflow-hidden rounded-xl border">
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup: any) => (
-                  <TableRow
-                    key={headerGroup.id}
-                    className="border-outline-variant bg-surface-container-high hover:bg-surface-container-high border-b"
-                  >
-                    {headerGroup.headers.map((header: any) => (
-                      <TableHead
-                        key={header.id}
-                        className="text-label-sm h-10 tracking-wider uppercase"
-                      >
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </TableHead>
+            <div className="px-4 pb-8 sm:px-6">
+              <TableFrame>
+                <Table>
+                  <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup: any) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header: any) => (
+                          <TableHead key={header.id} className="px-4">
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                          </TableHead>
+                        ))}
+                      </TableRow>
                     ))}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows.length === 0 ? (
-                  <TableRow className="border-outline-variant hover:bg-surface-container-high border-b">
-                    <TableCell
-                      colSpan={columns.length}
-                      className="py-8 text-center"
-                    >
-                      <p className="text-body-md text-on-surface-variant">
-                        No sessions yet
-                      </p>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  table.getRowModel().rows.map((row: any, idx: number) => (
-                    <TableRow
-                      key={row.id}
-                      tabIndex={0}
-                      onClick={() =>
-                        navigate(`/sessions/${row.original.sessionId}`)
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          navigate(`/sessions/${row.original.sessionId}`);
-                        }
-                      }}
-                      className={`border-outline-variant transition-standard hover:bg-surface-container-high focus-visible:outline-primary cursor-pointer border-b py-3 focus-visible:outline focus-visible:outline-2 ${
-                        idx % 2 === 1 ? 'bg-surface-container-low' : ''
-                      }`}
-                    >
-                      {row.getVisibleCells().map((cell: any) => (
-                        <TableCell key={cell.id} className="px-4">
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
+                  </TableHeader>
+                  <TableBody>
+                    {table.getRowModel().rows.length === 0 ? (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={columns.length} className="p-4">
+                          <StateMessage
+                            title="No sessions yet"
+                            icon="folder"
+                            compact
+                            className="border-0 bg-transparent"
+                          />
                         </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                      </TableRow>
+                    ) : (
+                      table.getRowModel().rows.map((row: any) => (
+                        <TableRow
+                          key={row.id}
+                          tabIndex={0}
+                          onClick={() =>
+                            navigate(`/sessions/${row.original.sessionId}`)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              navigate(`/sessions/${row.original.sessionId}`);
+                            }
+                          }}
+                          className="cursor-pointer focus-visible:-outline-offset-2"
+                        >
+                          {row.getVisibleCells().map((cell: any) => (
+                            <TableCell key={cell.id} className="px-4">
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
 
-            <SessionsPaginationFooter table={table} />
-          </div>
-        </div>
+                <SessionsPaginationFooter table={table} />
+              </TableFrame>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

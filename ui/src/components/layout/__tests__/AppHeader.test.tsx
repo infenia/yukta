@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router';
+import { BrowserRouter, MemoryRouter } from 'react-router';
 import AppHeader from '../AppHeader';
 
 const renderWithRouter = (component: React.ReactElement) =>
@@ -33,6 +33,36 @@ describe('AppHeader', () => {
     const line = screen.getByTestId('brand-line');
     expect(line).toHaveAttribute('aria-hidden', 'true');
     expect(line).toHaveClass('absolute', 'top-0', 'h-0.5');
+  });
+
+  it.each([
+    ['/sessions/s1', 'Sessions'],
+    ['/sessions/s1/workflow/w1/edit', 'Sessions'],
+    ['/plugins', 'Plugins'],
+    ['/history', 'History'],
+    ['/control', 'Control'],
+  ])('marks the section of %s as current', (path, label) => {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <AppHeader />
+      </MemoryRouter>
+    );
+    const current = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('aria-current') === 'page');
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveTextContent(label);
+  });
+
+  it('does not treat a path that only shares a prefix as the section', () => {
+    render(
+      <MemoryRouter initialEntries={['/pluginsx']}>
+        <AppHeader />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('link', { name: 'Plugins' })).not.toHaveAttribute(
+      'aria-current'
+    );
   });
 
   it('should show the active route as an accent pill', () => {

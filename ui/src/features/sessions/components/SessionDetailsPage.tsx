@@ -9,11 +9,20 @@ import { useSessionDetails } from '../hooks/useSessionDetails';
 import { useSessionWorkflows } from '../hooks/useSessionWorkflows';
 import { SessionInfoPanel } from './SessionInfoPanel';
 import { WorkflowGrid } from './WorkflowGrid';
+import { StateMessage } from '@/components/common/StateMessage';
 
 export function SessionDetailsPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const { data: session, isLoading: sessionLoading, error: sessionError } = useSessionDetails(sessionId || '');
-  const { data: workflows = [], isLoading: workflowsLoading, error: workflowsError } = useSessionWorkflows(sessionId || '');
+  const {
+    data: session,
+    isLoading: sessionLoading,
+    error: sessionError,
+  } = useSessionDetails(sessionId || '');
+  const {
+    data: workflows = [],
+    isLoading: workflowsLoading,
+    error: workflowsError,
+  } = useSessionWorkflows(sessionId || '');
   const [workflowFilter, setWorkflowFilter] = useState('');
   const navigate = useNavigate();
 
@@ -23,30 +32,34 @@ export function SessionDetailsPage() {
 
   if (sessionLoading || workflowsLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-on-surface-variant">Loading session details...</p>
+      <div className="px-4 py-6 sm:px-6">
+        <StateMessage tone="loading" title="Loading session details..." />
       </div>
     );
   }
 
   if (sessionError || workflowsError) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-error">Failed to load session details</p>
+      <div className="px-4 py-6 sm:px-6">
+        <StateMessage tone="error" title="Failed to load session details" />
       </div>
     );
   }
 
   if (!session) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-error">Session not found</p>
+      <div className="px-4 py-6 sm:px-6">
+        <StateMessage
+          tone="neutral"
+          title="Session not found"
+          icon="search_off"
+        />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-0 bg-background">
+    <div className="bg-background flex flex-1 flex-col gap-0">
       <div>
         <SessionInfoPanel
           session={session}

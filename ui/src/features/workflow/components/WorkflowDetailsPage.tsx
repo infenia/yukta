@@ -6,7 +6,10 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
 import HeaderPortal from '@/components/layout/HeaderPortal';
-import { controlErrorMessage, useExecutionControl } from '../hooks/useExecutionControl';
+import {
+  controlErrorMessage,
+  useExecutionControl,
+} from '../hooks/useExecutionControl';
 import type { NodeCommand } from './NodeControlsMenu';
 import { RunControls } from './RunControls';
 import { useBreadcrumbOverride } from '@/lib/breadcrumbOverrides';
@@ -24,6 +27,7 @@ import { useExecutionSelection } from '../hooks/useExecutionSelection';
 import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { useWorkflowGraph } from '../hooks/useWorkflowGraph';
 import type { TaskProgress } from '../types/workflow';
+import { StateMessage } from '@/components/common/StateMessage';
 
 export function WorkflowDetailsPage() {
   const { sessionId = '', workflowId = '' } = useParams<{
@@ -35,9 +39,16 @@ export function WorkflowDetailsPage() {
 
   const graphQuery = useWorkflowGraph(sessionId, workflowId);
   const executionsQuery = useWorkflowExecutions(sessionId, workflowId);
-  const executions = useMemo(() => executionsQuery.data ?? [], [executionsQuery.data]);
-  const { selectedExecutionId, selectExecution } = useExecutionSelection(executions);
-  const { progress, isStreaming } = useExecutionProgress(sessionId, selectedExecutionId);
+  const executions = useMemo(
+    () => executionsQuery.data ?? [],
+    [executionsQuery.data]
+  );
+  const { selectedExecutionId, selectExecution } =
+    useExecutionSelection(executions);
+  const { progress, isStreaming } = useExecutionProgress(
+    sessionId,
+    selectedExecutionId
+  );
   const logs = useExecutionLogs(
     sessionId,
     selectedExecutionId,
@@ -61,7 +72,8 @@ export function WorkflowDetailsPage() {
       nodeControl.nodeAction.mutate({ executionId, nodeId, action: command });
     }
   };
-  const nodeError = nodeControl.nodeAction.error ?? nodeControl.restartFromNode.error;
+  const nodeError =
+    nodeControl.nodeAction.error ?? nodeControl.restartFromNode.error;
 
   const tasksByNode = useMemo(() => {
     const byNode: Record<string, TaskProgress | undefined> = {};
@@ -73,16 +85,16 @@ export function WorkflowDetailsPage() {
 
   if (graphQuery.isLoading || executionsQuery.isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-on-surface-variant">Loading workflow...</p>
+      <div className="px-4 py-6 sm:px-6">
+        <StateMessage tone="loading" title="Loading workflow..." />
       </div>
     );
   }
 
   if (graphQuery.error || executionsQuery.error || !graph) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-error">Failed to load workflow</p>
+      <div className="px-4 py-6 sm:px-6">
+        <StateMessage tone="error" title="Failed to load workflow" />
       </div>
     );
   }
@@ -96,7 +108,10 @@ export function WorkflowDetailsPage() {
   );
 
   return (
-    <div className="flex flex-1 flex-col bg-background" data-testid="workflow-details-page">
+    <div
+      className="bg-background flex flex-1 flex-col"
+      data-testid="workflow-details-page"
+    >
       <HeaderPortal targetId="header-actions">
         <button
           type="button"
@@ -104,8 +119,10 @@ export function WorkflowDetailsPage() {
           aria-pressed={panelOpen}
           className={buttonVariants({ variant: 'outline' })}
         >
-          <span className="material-symbols-outlined text-base">right_panel_open</span>
-          WORKFLOW PROGRESS
+          <span className="material-symbols-outlined text-base">
+            right_panel_open
+          </span>
+          Workflow progress
         </button>
       </HeaderPortal>
       <HeaderPortal targetId="breadcrumb-actions">
@@ -128,13 +145,20 @@ export function WorkflowDetailsPage() {
               aria-expanded={versionsOpen}
               className={buttonVariants({ variant: 'outline' })}
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-base">history</span>Versions
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined text-base"
+              >
+                history
+              </span>
+              Versions
             </button>
             <Link
               to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
               className={buttonVariants({ variant: 'outline' })}
             >
-              <span className="material-symbols-outlined text-base">edit</span>Edit
+              <span className="material-symbols-outlined text-base">edit</span>
+              Edit
             </Link>
             <RunControls
               sessionId={sessionId}
@@ -147,7 +171,9 @@ export function WorkflowDetailsPage() {
         }
       />
 
-      {versionsOpen && <WorkflowVersionsPanel sessionId={sessionId} workflowId={workflowId} />}
+      {versionsOpen && (
+        <WorkflowVersionsPanel sessionId={sessionId} workflowId={workflowId} />
+      )}
 
       <PendingApprovals sessionId={sessionId} workflowId={workflowId} />
 

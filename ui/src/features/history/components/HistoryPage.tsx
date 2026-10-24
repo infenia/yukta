@@ -5,12 +5,22 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { api, fetchApi } from '@/lib/apiClient';
+import { NativeSelect } from '@/components/ui/native-select';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useSessionSummaries } from '@/features/sessions/hooks/useSessionSummaries';
 import { StatusChip } from '@/features/workflow/components/StatusChip';
 import { formatClockTime } from '@/features/workflow/lib/timeFormat';
 import type { ExecutionSummary } from '@/features/workflow/types/workflow';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFrame,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 /** Runs shown per session; the endpoint is cursor-paged but recent runs are what matters here. */
 const HISTORY_LIMIT = 50;
@@ -40,18 +50,18 @@ export function HistoryPage() {
         title="History"
         description="Recent runs of a session, newest first."
         actions={
-          <select
+          <NativeSelect
             aria-label="Session"
             value={sessionId}
             onChange={(event) => setChosen(event.target.value)}
-            className="border-outline-variant bg-surface text-on-surface h-8 rounded-lg border px-2 text-sm"
+            className="w-56"
           >
             {sessions.data?.map((session) => (
               <option key={session.sessionId} value={session.sessionId}>
                 {session.name || session.sessionId}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         }
       />
 
@@ -64,52 +74,49 @@ export function HistoryPage() {
           }
         />
       ) : history.isPending && sessionId ? (
-        <p className="text-body-md text-on-surface-variant">Loading…</p>
+        <StateMessage tone="loading" title="Loading…" />
       ) : !history.data?.length ? (
         <StateMessage title="No runs yet.">
           Run a workflow and it will show up here.
         </StateMessage>
       ) : (
-        <div className="border-outline-variant overflow-hidden rounded-xl border">
-          <table className="w-full text-left text-sm">
-            <thead className="border-outline-variant text-on-surface-variant bg-surface-container-high text-label-sm border-b tracking-wider uppercase">
-              <tr>
-                <th className="px-4 py-2">Execution</th>
-                <th className="px-4">Workflow</th>
-                <th className="px-4">Status</th>
-                <th className="px-4">Started</th>
-                <th className="px-4">Ended</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.data.map((run, index) => (
-                <tr
-                  key={run.executionId}
-                  className={`transition-standard hover:bg-surface-container-high ${index % 2 ? 'bg-surface-container-low' : ''}`}
-                >
-                  <td className="text-code-sm px-4 py-3">
+        <TableFrame>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="px-4">Execution</TableHead>
+                <TableHead className="px-4">Workflow</TableHead>
+                <TableHead className="px-4">Status</TableHead>
+                <TableHead className="px-4">Started</TableHead>
+                <TableHead className="px-4">Ended</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {history.data.map((run) => (
+                <TableRow key={run.executionId}>
+                  <TableCell className="text-code-sm px-4 py-3">
                     <Link
                       className="text-primary"
                       to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(run.workflowId)}?exec=${encodeURIComponent(run.executionId)}`}
                     >
                       {run.executionId}
                     </Link>
-                  </td>
-                  <td className="px-4">{run.workflowId}</td>
-                  <td className="px-4">
+                  </TableCell>
+                  <TableCell className="px-4">{run.workflowId}</TableCell>
+                  <TableCell className="px-4">
                     <StatusChip status={run.status} />
-                  </td>
-                  <td className="text-code-sm px-4">
+                  </TableCell>
+                  <TableCell className="text-code-sm px-4">
                     {formatClockTime(run.startTime)}
-                  </td>
-                  <td className="text-code-sm px-4">
+                  </TableCell>
+                  <TableCell className="text-code-sm px-4">
                     {formatClockTime(run.endTime)}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </TableFrame>
       )}
     </div>
   );

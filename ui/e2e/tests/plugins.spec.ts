@@ -117,6 +117,7 @@ test.describe('Plugins page', () => {
     );
     await page.goto('/plugins');
 
-    await expect(page.getByRole('alert')).toHaveText('Failed to load plugins.');
+    // toContainText: the alert also holds its (aria-hidden) icon glyph name
+    await expect(page.getByRole('alert')).toContainText('Failed to load plugins.');
   });
 });

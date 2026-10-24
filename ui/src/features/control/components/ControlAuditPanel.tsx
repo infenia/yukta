@@ -3,6 +3,16 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchApi } from '@/lib/apiClient';
+import { StateMessage } from '@/components/common/StateMessage';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFrame,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 /** A control command and what became of it. */
 export interface ControlAuditEntry {
@@ -27,66 +37,61 @@ export function ControlAuditPanel() {
 
   return (
     <section aria-labelledby="audit-heading" className="flex flex-col gap-2">
-      <h2 id="audit-heading" className="text-on-surface text-lg font-semibold">
+      <h2 id="audit-heading" className="text-on-surface text-headline-md">
         Who did what
       </h2>
       {audit.error ? (
-        <p role="alert" className="text-error">
-          Failed to load the control audit
-        </p>
+        <StateMessage
+          tone="error"
+          title="Failed to load the control audit"
+          onRetry={() => void audit.refetch()}
+          compact
+        />
       ) : audit.isPending ? (
-        <p className="text-on-surface-variant">Loading…</p>
+        <StateMessage tone="loading" title="Loading…" compact />
       ) : audit.data.length === 0 ? (
-        <p className="text-on-surface-variant">
-          No control commands recorded yet.
-        </p>
+        <StateMessage
+          title="No control commands recorded yet."
+          icon="history"
+          compact
+        />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="border-outline-variant w-full border text-left text-sm">
-            <thead className="bg-surface-container-low text-on-surface-variant">
-              <tr>
-                <th scope="col" className="p-2 font-semibold">
-                  Time
-                </th>
-                <th scope="col" className="p-2 font-semibold">
-                  Actor
-                </th>
-                <th scope="col" className="p-2 font-semibold">
-                  Command
-                </th>
-                <th scope="col" className="p-2 font-semibold">
-                  Execution
-                </th>
-                <th scope="col" className="p-2 font-semibold">
-                  Result
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-outline-variant divide-y">
+        <TableFrame>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Time</TableHead>
+                <TableHead>Actor</TableHead>
+                <TableHead>Command</TableHead>
+                <TableHead>Execution</TableHead>
+                <TableHead>Result</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {audit.data.map((entry, index) => (
-                <tr key={`${entry.time}-${entry.executionId}-${index}`}>
-                  <td className="text-on-surface-variant p-2">
+                <TableRow key={`${entry.time}-${entry.executionId}-${index}`}>
+                  <TableCell className="text-on-surface-variant">
                     {new Date(entry.time).toLocaleString()}
-                  </td>
-                  <td className="text-on-surface p-2 font-mono">
+                  </TableCell>
+                  <TableCell className="text-code-sm">
                     {entry.actor ?? 'api'}
-                  </td>
-                  <td className="text-on-surface p-2 font-mono">
+                  </TableCell>
+                  <TableCell className="text-code-sm">
                     {entry.command}
-                  </td>
-                  <td className="text-on-surface-variant p-2 font-mono">
+                  </TableCell>
+                  <TableCell className="text-code-sm text-on-surface-variant">
                     {entry.executionId}
-                  </td>
-                  <td className="text-on-surface p-2">
+                  </TableCell>
+                  <TableCell>
                     {entry.applied
                       ? 'Applied'
                       : `Refused: ${entry.reason ?? ''}`}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </TableFrame>
       )}
     </section>
   );
