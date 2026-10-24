@@ -80,33 +80,12 @@ public class GraalJsScriptEngine implements ScriptEngine {
           .denyAccess(Class.class)
           .build();
 
-  /** Shared engine so compiled code is reused across contexts. */
-  private static final Engine JS_ENGINE = newEngine();
+  /** The GraalVM option that caps heap use; only Oracle GraalVM has it. */
+  private static final String HEAP_OPTION = "sandbox.MaxHeapMemory";
 
-  /**
-   * Builds the shared engine. {@code -Dyukta.script.max-heap-bytes} (0 = no limit, the default)
-   * sets {@code sandbox.MaxHeapMemory}, which only Oracle GraalVM has; elsewhere it is logged and
-   * left off.
-   */
-  private static Engine newEngine() {
-    final long maxHeap = Long.getLong("yukta.script.max-heap-bytes", 0L);
-    final Engine.Builder builder =
-        Engine.newBuilder().option("engine.WarnInterpreterOnly", "false");
-    if (maxHeap > 0) {
-      try {
-        // ponytail: the limit covers the whole shared engine, not each script; per-context
-        // engines if one script must not eat the budget of the others
-        return builder.option("sandbox.MaxHeapMemory", Long.toString(maxHeap)).build();
-      } catch (IllegalArgumentException | IllegalStateException e) {
-        log.atWarn()
-            .setMessage(
-                "yukta.script.max-heap-bytes ignored, this runtime has no script heap limit")
-            .setCause(e)
-            .log();
-      }
-    }
-    return builder.build();
-  }
+  /** Shared engine so compiled code is reused across contexts. */
+  private static final Engine JS_ENGINE =
+      newEngine(Long.getLong("yukta.script.max-heap-bytes", 0L), HEAP_OPTION);
 
   /** Cancels scripts that outlive {@link #timeoutMs}. */
   private static final ScheduledExecutorService WATCHDOG =
@@ -133,6 +112,37 @@ public class GraalJsScriptEngine implements ScriptEngine {
   /** Default constructor. */
   public GraalJsScriptEngine() {
     super();
+  }
+
+  /**
+   * Builds the shared engine. {@code maxHeap}, from {@code -Dyukta.script.max-heap-bytes} (0 = no
+   * limit, the default), sets {@code sandbox.MaxHeapMemory}, which only Oracle GraalVM has;
+   * elsewhere it is logged and left off.
+   *
+   * @param maxHeap the heap limit in bytes, or 0 for none
+   * @param heapOption the option that carries the limit
+   * @return the engine
+   */
+  /* default */ static Engine newEngine(final long maxHeap, final String heapOption) {
+    if (maxHeap > 0) {
+      try {
+        // ponytail: the limit covers the whole shared engine, not each script; per-context
+        // engines if one script must not eat the budget of the others
+        return plainEngine().option(heapOption, maxHeap + "B").build();
+      } catch (IllegalArgumentException | IllegalStateException e) {
+        log.atWarn()
+            .setMessage(
+                "yukta.script.max-heap-bytes ignored, this runtime has no script heap limit")
+            .setCause(e)
+            .log();
+      }
+    }
+    // a fresh builder: the rejected option would still be on the one above
+    return plainEngine().build();
+  }
+
+  private static Engine.Builder plainEngine() {
+    return Engine.newBuilder().option("engine.WarnInterpreterOnly", "false");
   }
 
   @Override

@@ -235,4 +235,19 @@ class GraalJsScriptEngineTest {
       System.clearProperty("yukta.script.max-statements");
     }
   }
+
+  @Test
+  void newEngine_buildsWithAndWithoutLimit() {
+    // a real limit is applied on Oracle GraalVM; an option the runtime lacks is logged and skipped
+    try (org.graalvm.polyglot.Engine none =
+            GraalJsScriptEngine.newEngine(0, "sandbox.MaxHeapMemory");
+        org.graalvm.polyglot.Engine real =
+            GraalJsScriptEngine.newEngine(64L * 1024 * 1024, "sandbox.MaxHeapMemory");
+        org.graalvm.polyglot.Engine missing =
+            GraalJsScriptEngine.newEngine(64L * 1024 * 1024, "sandbox.NoSuchOption")) {
+      assertThat(none).isNotNull();
+      assertThat(real).isNotNull();
+      assertThat(missing).isNotNull();
+    }
+  }
 }
