@@ -104,6 +104,7 @@ com.infenia.yukta.service.archive.ExecutionArchive
 com.infenia.yukta.service.control.ControlBusService
 com.infenia.yukta.service.control.ExecutionScheduler
 com.infenia.yukta.service.control.SchedulerMetrics
+com.infenia.yukta.service.control.TreeControl
 com.infenia.yukta.service.control.directive.ControlHeartbeatHandler
 com.infenia.yukta.service.control.directive.ControlStatisticsHandler
 com.infenia.yukta.service.control.directive.DirectiveDispatcher
@@ -140,6 +141,7 @@ com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator
 com.infenia.yukta.service.orchestrator.strategy.ProcessorNodeAssemblerStrategy
 com.infenia.yukta.service.orchestrator.strategy.TerminalNodeAssemblerStrategy
 com.infenia.yukta.service.orchestrator.strategy.TriggerNodeAssemblerStrategy
+com.infenia.yukta.service.orchestrator.stream.ConcurrencyGroups
 com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator
 com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService
 com.infenia.yukta.service.orchestrator.tracker.MicrometerPluginMetricsReporter
