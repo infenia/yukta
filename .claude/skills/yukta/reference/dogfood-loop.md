@@ -7,10 +7,10 @@ Start detached and let the cheap `yukta-run-watcher` subagent (Haiku) block on i
 `run_in_background` and the ids; it returns one `RESULT` line, or a ≤12-line L1 triage (failed node,
 classification, key lines, next step) or an `ESCALATE:` with the evidence. Stay silent on routine progress.
 ```bash
-yk check --detach [-m <module>]       # STARTED session=<s> log=<file>
-yk gradle --detach <gradle args>      # STARTED execution=<e> session=<s>
+yk check --detach [-m <module>]       # STARTED execution=<e> session=<s>
+yk gradle --detach <gradle args>      # the same
 ```
-Without the subagent, run `yk watch <s> <e|log>` under the Monitor tool. Lines: `NODE <node> <status>`
+Without the subagent, run `yk watch <s> <e>` under the Monitor tool. Lines: `NODE <node> <status>`
 (failed nodes), `ERROR <node>: <line>`, `WARN <node>: <line>`, `CONTROL <cmd> applied=false …`,
 `WORKFLOW <status>`, `SLOW <node> …`, `RESULT …`. `yk watch … --all` shows every event (only to debug a
 stage live; never monitor it, compile warnings alone flood it).

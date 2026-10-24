@@ -1,9 +1,115 @@
 {
-  "spotless": { "auto": ["spotlessApply"], "claude": true },
-  "compile": { "claude": true },
-  "tests": { "claude": true },
-  "coverage": { "claude": true },
-  "style": { "claude": true },
-  "spotbugs": { "claude": true },
-  "cli": { "claude": true }
+  "ladder": [
+    "haiku",
+    "sonnet",
+    "opus"
+  ],
+  "analyzers": [
+    "style",
+    "spotbugs",
+    "licenses",
+    "security",
+    "cli"
+  ],
+  "stages": {
+    "spotless": {
+      "auto": [
+        "spotlessApply"
+      ],
+      "claude": true
+    },
+    "compile": {
+      "claude": true
+    },
+    "tests": {
+      "claude": true
+    },
+    "coverage": {
+      "claude": true
+    },
+    "style": {
+      "claude": true
+    },
+    "spotbugs": {
+      "claude": true
+    },
+    "cli": {
+      "claude": true
+    },
+    "ui": {
+      "claude": true
+    },
+    "docs": {
+      "claude": true
+    },
+    "reuse": {
+      "claude": true
+    },
+    "actionlint": {
+      "claude": true
+    }
+  },
+  "extra": {
+    "ui": {
+      "modules": [
+        "ui"
+      ],
+      "variants": [
+        {
+          "tool": "sh",
+          "command": [
+            "./gradlew",
+            ":ui:pnpmLint",
+            ":ui:pnpmTest",
+            "-q",
+            "--console=plain"
+          ]
+        }
+      ]
+    },
+    "docs": {
+      "modules": [
+        "docs"
+      ],
+      "variants": [
+        {
+          "tool": "mint",
+          "command": [
+            "sh",
+            "-c",
+            "cd docs && mint broken-links"
+          ]
+        }
+      ]
+    },
+    "reuse": {
+      "variants": [
+        {
+          "tool": "reuse",
+          "command": [
+            "reuse",
+            "lint"
+          ]
+        }
+      ]
+    },
+    "actionlint": {
+      "variants": [
+        {
+          "tool": "actionlint",
+          "command": [
+            "actionlint"
+          ]
+        },
+        {
+          "tool": "docker",
+          "command": [
+            "sh",
+            "-c",
+            "docker run --rm -v \"$PWD:/repo\" -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667"
+          ]
+        }
+      ]
+    }
+  }
 }

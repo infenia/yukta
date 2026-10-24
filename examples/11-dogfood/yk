@@ -4,10 +4,10 @@
 #
 #   yk up [--background] [--release [tag]]   start the dev server, or swap it for a newer main when idle
 #   yk down | status                         stop the server yk started | show it (exit 3 when down)
-#   yk check [-m mod]... [-p path] [--no-heal] [--fixer auto|fresh] [--detach]
-#                                            the staged, self-healing quality gate (spotless .. cli)
+#   yk check [-m mod]... [-p path] [--no-heal] [--ladder haiku,sonnet,opus] [--pause before-opus] [--detach]
+#                                            the self-healing quality gate (spotless .. cli) as one execution
 #   yk gradle <gradle args...>               any gradle args as one Yukta stage, e.g. :core:test --tests X
-#   yk watch <session> <exec|log> [--all]    follow a detached run: problems only, then RESULT
+#   yk watch <session> <exec> [--all]        follow a run: problems only, then RESULT
 #   yk retry <exec> <node> | yk stop <exec>  steer a run
 #   yk finding --title ... (see report-finding.sh)   file a dogfood issue
 #   yk cli <args...>                         the yukta CLI against the dev server
@@ -66,11 +66,11 @@ cmd_status() {
   echo "log: $DEV_HOME/server.log"
 }
 
-# run_check MODE HEAL FIXER PROJECT MODULES [gradle args...]: applies this checkout's session and runs
-# the staged check (no gradle args) or one gradle-run stage.
+# run_check MODE HEAL LADDER PROJECT MODULES [gradle args...]: applies this checkout's session and runs
+# the check (no gradle args) or one gradle-run stage.
 run_check() {
-  local mode="$1" heal="$2" fixer="$3" project="$4" modules="$5"
-  shift 5
+  local mode="$1" heal="$2" ladder="$3" project="$4" modules="$5" pause="${6:-}"
+  shift 6
   need jq
   ensure_server
   # tmp is global: the EXIT trap runs after this function's locals are gone.
@@ -87,20 +87,20 @@ run_check() {
   if (($#)); then
     workflow=gradle-run
     scope="args:$(printf '%.60s' "$*")"
+  elif ((heal)); then
+    workflow=check
   fi
-  # Self-healing applies to the staged gradle-check only (see stage_workflows in _lib.sh).
   local heal_dir="$STATE_DIR/heal/$session" healsh="$here/scripts/yukta-heal.sh"
-  local fork="${CLAUDE_CODE_SESSION_ID:-}" m1=fresh m2=fork
   rm -rf "$heal_dir"
-  [[ "$fixer" == fresh || -z "$fork" ]] && m2=fresh
   # shellcheck disable=SC2086
   {
     render_session "$here/session.json" "$project" \
       | jq --arg s "$session" '.sessionId=$s | .name=$s' \
       | if [[ -n "$modules" ]]; then scope_to_modules $modules; else cat; fi \
       | if (($#)); then splice_args "$@"; else cat; fi \
-      | if ((heal)) && [[ "$workflow" == gradle-check ]]; then
-        stage_workflows "$(cat "$here/heal.json")" "$modules" "$project" "$healsh" "$heal_dir"
+      | if [[ "$workflow" == check ]]; then
+        heal_workflow "$(cat "$here/heal.json")" "$modules" "$project" "$healsh" "$heal_dir" "$ladder" \
+          "$(heal_extras "$(cat "$here/heal.json")" "$modules")" "$pause"
       else cat; fi
   } >"$tmp/session.json"
 
@@ -109,22 +109,6 @@ run_check() {
     || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
   # a CLI built before 'session apply' existed prints the session help and exits 0
   ! grep -q "Available Commands" "$tmp/apply.out" || die "stale CLI (session apply printed help); run yk up"
-  if ((heal)) && [[ "$workflow" == gradle-check ]]; then
-    # Staged, supervisor-driven check: one small workflow per stage (see stage_workflows). The server's
-    # rule file (rules.json) restarts a stage whose repair worked; this loop moves from stage to stage
-    # and calls the Claude fixer on an escalation.
-    export project modules healsh heal_dir fork m1 m2
-    if [[ "$mode" == detach ]]; then
-      local log="$STATE_DIR/check/$session.log"
-      mkdir -p "$STATE_DIR/check"
-      cp "$tmp/session.json" "$STATE_DIR/check/$session.json"
-      ( run_stages "$session" "$STATE_DIR/check/$session.json" >"$log" 2>&1 ) </dev/null &
-      echo "STARTED session=$session log=$log"
-      return 0
-    fi
-    run_stages "$session" "$tmp/session.json"
-    return
-  fi
   local exec_id
   exec_id="$("$cli" -o json workflow start "$session" "$workflow" | jq -r '.data.executionId // .executionId')"
   [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start workflow"
@@ -134,7 +118,7 @@ run_check() {
 }
 
 cmd_check() {
-  local project="" modules="" mode=watch heal=1 fixer=auto
+  local project="" modules="" mode=watch heal=1 ladder="" pause=""
   while (($#)); do
     case "$1" in
       -p) project="${2:?-p needs a path}"; shift 2 ;;
@@ -144,35 +128,34 @@ cmd_check() {
       --detach) mode=detach; shift ;;
       --watch) shift ;;
       --no-heal) heal=0; shift ;;
-      --fixer) fixer="${2:?--fixer needs fresh or auto}"; shift 2 ;;
+      --pause) pause="${2:?--pause needs a checkpoint, e.g. before-opus}"; shift 2 ;;
+      --ladder) ladder="${2:?--ladder needs models, e.g. haiku,sonnet,opus}"; shift 2 ;;
       *) die "unknown option '$1' (gradle args go to: yk gradle <args>)" ;;
     esac
   done
-  [[ "$fixer" =~ ^(fresh|auto)$ ]] || die "invalid --fixer '$fixer' (fresh or auto)"
-  run_check "$mode" "$heal" "$fixer" "$(cd "${project:-$(git rev-parse --show-toplevel)}" && pwd)" "$modules"
+  [[ -z "$ladder" || "$ladder" =~ ^(haiku|sonnet|opus)(,(haiku|sonnet|opus))*$ ]] || die "invalid --ladder '$ladder' (models from haiku, sonnet, opus)"
+  [[ -z "$pause" || "$pause" == before-opus ]] || die "invalid --pause '$pause' (before-opus)"
+  run_check "$mode" "$heal" "$ladder" "$(cd "${project:-$(git rev-parse --show-toplevel)}" && pwd)" "$modules" "$pause"
 }
 
 cmd_gradle() {
   local mode=watch
   [[ "${1:-}" == --detach ]] && { mode=detach; shift; }
   (($#)) || die "usage: yk gradle [--detach] <gradle args...>"
-  run_check "$mode" 0 auto "$(git rev-parse --show-toplevel)" "" "$@"
+  run_check "$mode" 0 "" "$(git rev-parse --show-toplevel)" "" "" "$@"
 }
 
-# cmd_watch SESSION EXECUTION|LOG [--all]: follows a run until it ends, problems only (--all: every
-# event), then SLOW lines and the RESULT line. A staged check (yk check --detach) gives a log file.
+# cmd_watch SESSION EXECUTION [--all]: follows a run until it ends, problems only (--all: every event),
+# then SLOW lines and the RESULT line.
 cmd_watch() {
-  local session="${1:?usage: yk watch <session> <execution|log> [--all]}" target="${2:?usage: yk watch <session> <execution|log> [--all]}"
+  local session="${1:?usage: yk watch <session> <execution> [--all]}" target="${2:?usage: yk watch <session> <execution> [--all]}"
   local filter=(--quiet)
   [[ "${3:-}" == --all ]] && filter=()
-  if [[ -f "$target" ]]; then
-    # The producer writes RESULT last; if it died before that, stop waiting after YUKTA_WATCH_TIMEOUT seconds.
-    timeout "${YUKTA_WATCH_TIMEOUT:-10800}" tail -n +1 -f "$target" | awk '{ print; fflush() } /^RESULT / { exit }' || true
-    grep -q '^RESULT status=COMPLETED' "$target"
-    return
-  fi
   export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
-  "$(find_cli)" controlbus watch --execution "$target" --until-done "${filter[@]}"
+  # A node that never ran (a rung nobody needed, or one behind the failure) is not news: the check has
+  # dozens of them. ponytail: filtered here; belongs in the CLI's --quiet if other callers want it.
+  "$(find_cli)" controlbus watch --execution "$target" --until-done "${filter[@]}" \
+    | { if ((${#filter[@]})); then grep -v -E '^NODE [^ ]+ (SKIPPED|UPSTREAM_FAILED|CANCELLED)$'; else cat; fi; } || true
   record_durations "$session" "$target" "${YUKTA_SCOPE:--}"
   print_result "$session" "$target"
 }

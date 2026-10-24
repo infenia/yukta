@@ -37,15 +37,15 @@ log whole, and never `yk cli logs` (it streams everything).
 
 ## Self-healing (`yk check`)
 A failing stage repairs itself before the run fails: deterministic fix first (`spotlessApply`), then up
-to two headless Claude attempts, then a verify pass. While it runs, don't edit files or run Gradle in
+to a ladder of headless Claude attempts (haiku, sonnet, opus), then a verify pass. While it runs, don't edit files or run Gradle in
 that checkout; act only on the final RESULT or an `ESCALATE:`. Review everything listed in `healed=`
 with `git diff` before committing (the fixer never commits). `--no-heal` gives the plain fail-fast
 chain (to see a failure as it is). Details, guards and budget: [reference/heal.md](reference/heal.md).
 
 ## Long runs: detach and watch cheaply
 ```bash
-yk check --detach [-m mod]          # STARTED session=<s> log=<file>   (yk gradle --detach: execution=<e>)
-yk watch <s> <file|e>               # blocks until the end: problems only, then RESULT
+yk check --detach [-m mod]          # STARTED execution=<e> session=<s>   (yk gradle --detach: the same)
+yk watch <s> <e>                    # blocks until the end: problems only, then RESULT
 ```
 Hand the watching to the `yukta-run-watcher` subagent (Haiku, `run_in_background`) or the Monitor tool,
 so routine events never reach your context. Steer only runs you started:
