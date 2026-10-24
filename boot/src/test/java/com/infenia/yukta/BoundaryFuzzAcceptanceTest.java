@@ -138,8 +138,8 @@ class BoundaryFuzzAcceptanceTest {
 
   /**
    * The open issue behind a 500 we know about, or null. Each case is narrow on purpose: any other
-   * 5xx still fails the test. Each case has a probe test
-   * (probe<issue>_...) that fails the day the bug is fixed; delete the probe and the case then.
+   * 5xx still fails the test. Each case has a probe test (probe<issue>_...) that fails the day the
+   * bug is fixed; delete the probe and the case then.
    */
   private static String knownIssue(
       final String path, final int status, final String mutation, final String body) {
