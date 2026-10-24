@@ -46,7 +46,8 @@ import org.opentest4j.AssertionFailedError;
   "PMD.CommentRequired",
   "PMD.TooManyMethods",
   "PMD.LawOfDemeter",
-  "PMD.AvoidCatchingGenericException"
+  "PMD.AvoidCatchingGenericException",
+  "PMD.GodClass"
 })
 public final class ErrorGuardExtension
     implements BeforeEachCallback, AfterEachCallback, AfterAllCallback {
@@ -70,7 +71,7 @@ public final class ErrorGuardExtension
   private static final AtomicReference<List<Probe>> ACTIVE = new AtomicReference<>(List.of());
 
   /** A pattern from an annotation, and where it was declared. */
-  private record Expectation(Class<?> owner, String where, Pattern pattern) {}
+  private record Expectation(Class<?> owner, String where, Pattern pattern, boolean required) {}
 
   @Override
   public void beforeEach(final ExtensionContext context) {
@@ -103,7 +104,9 @@ public final class ErrorGuardExtension
       for (final Expectation expectation : expected) {
         if (seen.stream().anyMatch(line -> expectation.pattern().matcher(line).find())) {
           matched(context).add(key(expectation));
-        } else if (expectation.where().startsWith("method") && staleChecked()) {
+        } else if (expectation.required()
+            && expectation.where().startsWith("method")
+            && staleChecked()) {
           offenders.add(unused(expectation));
         }
       }
@@ -119,7 +122,9 @@ public final class ErrorGuardExtension
       collect(Optional.of(type), type, "class " + type.getSimpleName(), declared);
       final List<String> offenders =
           declared.stream()
-              .filter(expectation -> !matched(context).contains(key(expectation)))
+              .filter(
+                  expectation ->
+                      expectation.required() && !matched(context).contains(key(expectation)))
               .map(ErrorGuardExtension::unused)
               .toList();
       report(context, offenders);
@@ -196,6 +201,9 @@ public final class ErrorGuardExtension
       for (final String regex : annotation.value()) {
         into.add(Pattern.compile(regex));
       }
+      for (final String regex : annotation.sometimes()) {
+        into.add(Pattern.compile(regex));
+      }
     }
   }
 
@@ -264,7 +272,10 @@ public final class ErrorGuardExtension
         .ifPresent(
             annotation -> {
               for (final String regex : annotation.value()) {
-                into.add(new Expectation(owner, where, Pattern.compile(regex)));
+                into.add(new Expectation(owner, where, Pattern.compile(regex), true));
+              }
+              for (final String regex : annotation.sometimes()) {
+                into.add(new Expectation(owner, where, Pattern.compile(regex), false));
               }
             });
   }

@@ -236,6 +236,21 @@ class ErrorGuardExtensionTest {
   }
 
   @Test
+  void sometimes_isAllowedButNeverReportedUnused() throws Exception {
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "strict");
+    final ExtensionContext methodLevel = context(GuardFixtures.Plain.class, "sometimes");
+    extension.beforeEach(methodLevel);
+    // the error did not happen in this run: a required pattern would be reported as unused
+    assertThatCode(() -> extension.afterEach(methodLevel)).doesNotThrowAnyException();
+    final ExtensionContext happened = context(GuardFixtures.Plain.class, "sometimes");
+    extension.beforeEach(happened);
+    LoggerFactory.getLogger("guard.log").error("timing dependent");
+    assertThatCode(() -> extension.afterEach(happened)).doesNotThrowAnyException();
+    final ExtensionContext classLevel = context(GuardFixtures.Sometimes.class, "plain");
+    assertThatCode(() -> extension.afterAll(classLevel)).doesNotThrowAnyException();
+  }
+
+  @Test
   void present_isFalseForMissingClass() {
     assertThat(ErrorGuardExtension.present("no.such.Type")).isFalse();
     assertThat(ErrorGuardExtension.present("java.lang.String")).isTrue();
