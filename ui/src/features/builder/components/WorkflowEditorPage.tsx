@@ -20,10 +20,10 @@ import type {
 } from '../types';
 import { NodeInspector } from './NodeInspector';
 import { StateMessage } from '@/components/common/StateMessage';
+import { Callout } from '@/components/common/Callout';
+import { NativeSelect } from '@/components/ui/native-select';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
-const SELECT =
-  'h-8 rounded-lg border border-outline-variant bg-surface px-2 text-body-md text-on-surface';
 const NO_TASKS = {};
 
 // fetchApi only throws Error subclasses
@@ -199,16 +199,18 @@ function Editor({
           message={error ?? (result && !result.valid ? result.message : null)}
         />
         {result?.valid && (
-          <p className="text-success text-body-md">Workflow is valid.</p>
+          <Callout kind="success" compact>
+            Workflow is valid.
+          </Callout>
         )}
       </div>
 
       <div className="flex min-h-100 flex-1">
         <aside className="border-outline-variant flex w-80 shrink-0 flex-col gap-4 overflow-y-auto border-r p-4">
           <div className="flex gap-2">
-            <select
+            <NativeSelect
               aria-label="Plugin type"
-              className={`${SELECT} min-w-0 flex-1`}
+              className="min-w-0 flex-1"
               value={newType}
               onChange={(event) => setNewType(event.target.value)}
             >
@@ -225,23 +227,23 @@ function Editor({
                   </optgroup>
                 )
               )}
-            </select>
+            </NativeSelect>
             <button type="button" className={BUTTON} onClick={addNode}>
               Add node
             </button>
           </div>
 
-          <ul className="flex flex-col" aria-label="Nodes">
+          <ul className="flex flex-col gap-0.5" aria-label="Nodes">
             {workflow.nodes.map((n) => (
               <li key={n.nodeId}>
                 <button
                   type="button"
                   aria-current={n.nodeId === selected}
                   onClick={() => setSelected(n.nodeId)}
-                  className={`text-body-md flex w-full items-baseline gap-2 border-l-2 px-3 py-2 text-left ${
+                  className={`text-body-md transition-standard flex w-full items-baseline gap-2 rounded-lg px-3 py-2 text-left ${
                     n.nodeId === selected
-                      ? 'border-primary bg-surface-container-low font-semibold'
-                      : 'border-outline-variant'
+                      ? 'bg-accent text-accent-foreground font-semibold'
+                      : 'text-on-surface hover:bg-muted'
                   }`}
                 >
                   {n.nodeId}
@@ -281,9 +283,9 @@ function Editor({
               ))}
             </ul>
             <div className="flex flex-wrap gap-1">
-              <select
+              <NativeSelect
                 aria-label="Edge source"
-                className={SELECT}
+
                 value={edge.source}
                 onChange={(event) =>
                   setEdge({
@@ -297,10 +299,10 @@ function Editor({
                 {workflow.nodes.map((n) => (
                   <option key={n.nodeId}>{n.nodeId}</option>
                 ))}
-              </select>
-              <select
+              </NativeSelect>
+              <NativeSelect
                 aria-label="Edge port"
-                className={SELECT}
+
                 value={edge.sourcePort ?? ''}
                 onChange={(event) =>
                   setEdge({ ...edge, sourcePort: event.target.value || null })
@@ -310,10 +312,10 @@ function Editor({
                 {(ports[edge.source] ?? []).map((port) => (
                   <option key={port}>{port}</option>
                 ))}
-              </select>
-              <select
+              </NativeSelect>
+              <NativeSelect
                 aria-label="Edge target"
-                className={SELECT}
+
                 value={edge.target}
                 onChange={(event) =>
                   setEdge({ ...edge, target: event.target.value })
@@ -323,7 +325,7 @@ function Editor({
                 {workflow.nodes.map((n) => (
                   <option key={n.nodeId}>{n.nodeId}</option>
                 ))}
-              </select>
+              </NativeSelect>
               <button type="button" className={BUTTON} onClick={addEdge}>
                 Add edge
               </button>

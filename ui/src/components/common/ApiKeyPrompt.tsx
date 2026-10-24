@@ -4,6 +4,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Callout } from './Callout';
 import { API_KEY_REQUIRED_EVENT, setApiKey } from '@/lib/apiKey';
 
 /** Asks for the API key once the server answers 401/403, then reloads with the key set. */
@@ -32,11 +33,11 @@ export default function ApiKeyPrompt() {
       role="alertdialog"
       aria-label="API key required"
       onSubmit={submit}
-      className="bg-surface-container fixed top-24 left-1/2 z-50 flex w-96 max-w-[90vw] -translate-x-1/2 flex-col gap-3 rounded-2xl p-4 shadow-lg"
+      className="border-border bg-card shadow-raised fixed top-24 left-1/2 z-50 flex w-96 max-w-[90vw] -translate-x-1/2 flex-col gap-3 rounded-2xl border p-4"
     >
-      <p className="text-body-md">
+      <Callout kind="info" compact>
         This server requires an API key. The key stays in this browser tab only.
-      </p>
+      </Callout>
       <Input
         type="password"
         aria-label="API key"

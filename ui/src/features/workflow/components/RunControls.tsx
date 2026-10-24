@@ -3,6 +3,7 @@
 
 import { buttonVariants } from '@/components/ui/button';
 import { useState } from 'react';
+import { textareaFieldClassName } from '@/components/ui/native-select';
 import { InlineError } from '@/components/common/InlineError';
 import { Modal } from '@/components/common/Modal';
 import {
@@ -75,7 +76,7 @@ function RunDialog({
         rows={8}
         spellCheck={false}
         placeholder='{"key": "value"}'
-        className="border-outline-variant bg-surface-container-low text-code-sm text-on-surface mb-3 w-full rounded-lg border p-2"
+        className={`${textareaFieldClassName} text-code-sm mb-3`}
       />
       <InlineError message={parseError ?? error} />
       <div className="mt-4 flex justify-end gap-2">
