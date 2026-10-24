@@ -84,7 +84,11 @@ echo "ok   only Ready issues"
 reset
 touch "$dir/implement-breaks"
 start epic 9 --no-pause before-implement,before-pr,between-issues
-wait_for 300 ended || fail "the epic did not end (failing issues)"
+# the second escalation pauses the epic: it stays RUNNING, paused, until whoever steers goes on
+paused() { "$yk" tree "${exec_id:0:8}" | head -1 | grep -q "RUNNING paused"; }
+wait_for 300 paused || fail "two escalations did not pause the epic: $("$yk" tree "${exec_id:0:8}")"
+"$yk" resume "${exec_id:0:8}" --tree >/dev/null
+wait_for 120 ended || fail "the epic did not end after it was resumed: $("$yk" tree "${exec_id:0:8}")"
 got="$(result)"
 grep -q "status=ESCALATE" <<<"$got" || fail "a failing epic did not end ESCALATE: $got"
 [[ "$(prs)" == 0 ]] || fail "a PR was opened for an issue whose check failed"
