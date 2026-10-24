@@ -173,6 +173,9 @@ func TestRestartFromNode(t *testing.T) {
 
 func TestPauseWorkflow(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
@@ -197,6 +200,9 @@ func TestPauseWorkflow(t *testing.T) {
 
 func TestResumeWorkflow(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
@@ -290,6 +296,9 @@ func TestGetWorkflowHistory(t *testing.T) {
 
 func TestPauseNode(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
@@ -314,6 +323,9 @@ func TestPauseNode(t *testing.T) {
 
 func TestResumeNode(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
@@ -338,6 +350,9 @@ func TestResumeNode(t *testing.T) {
 
 func TestEnableStepMode(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
@@ -362,6 +377,9 @@ func TestEnableStepMode(t *testing.T) {
 
 func TestDisableStepMode(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
@@ -386,6 +404,9 @@ func TestDisableStepMode(t *testing.T) {
 
 func TestStepNode(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
@@ -410,6 +431,9 @@ func TestStepNode(t *testing.T) {
 
 func TestStopNode(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
@@ -440,6 +464,9 @@ func TestStopNode(t *testing.T) {
 
 func TestSkipNode(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
@@ -1327,6 +1354,9 @@ func TestStreamWorkflowStatus_invalidJSON(t *testing.T) {
 // TestStreamWorkflowStatus_callbackError tests callback returning error
 func TestStreamWorkflowStatus_callbackError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 
@@ -1617,5 +1647,41 @@ func TestStopWorkflow_modeIsSentUppercased(t *testing.T) {
 	}
 	if got != "mode=KILL" {
 		t.Errorf("expected mode=KILL, got %q", got)
+	}
+}
+
+// answerSession replies to the session check that precedes a mutating call on an execution.
+func answerSession(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method != http.MethodGet || r.URL.Path != "/api/executions/exec-123" {
+		return false
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(`{"data":{"executionId":"exec-123","sessionId":"session-1","status":"RUNNING"}}`))
+	return true
+}
+
+func TestMutatingCalls_refuseAnExecutionOfAnotherSession(t *testing.T) {
+	var posts int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			posts++
+		}
+		if answerSession(w, r) {
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer server.Close()
+	c := NewClient(server.URL)
+
+	_, err := c.PauseWorkflow("other-session", "exec-123")
+
+	if err == nil || !strings.Contains(err.Error(), "not found in session") || posts != 0 {
+		t.Errorf("err=%v posts=%d", err, posts)
+	}
+	err = c.StreamWorkflowStatus(context.Background(), "other-session", "exec-123", false, func(WorkflowProgress) error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "not found in session") {
+		t.Errorf("stream err=%v", err)
 	}
 }

@@ -42,8 +42,9 @@ func TestNodeCommands(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(*seen) != 1 || (*seen)[0] != tt.wantReq {
-				t.Errorf("requests %v, want %q", *seen, tt.wantReq)
+			// A mutating call is preceded by the check that the execution belongs to the session.
+			if n := len(*seen); n < 1 || n > 2 || (*seen)[n-1] != tt.wantReq {
+				t.Errorf("requests %v, want %q last", *seen, tt.wantReq)
 			}
 			if strings.TrimSpace(out) != tt.wantOut {
 				t.Errorf("output %q, want %q", out, tt.wantOut)

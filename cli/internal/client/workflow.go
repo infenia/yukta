@@ -301,6 +301,10 @@ func (c *Client) PauseWorkflow(sessionID, executionID string) (WorkflowStartResp
 		return WorkflowStartResponse{}, fmt.Errorf("executionID cannot be empty")
 	}
 
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
 	path := apiPath("/api/executions/%s/pause", executionID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
@@ -330,6 +334,10 @@ func (c *Client) ResumeWorkflow(sessionID, executionID string) (WorkflowStartRes
 	}
 	if executionID == "" {
 		return WorkflowStartResponse{}, fmt.Errorf("executionID cannot be empty")
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
 	}
 
 	path := apiPath("/api/executions/%s/resume", executionID)
@@ -412,6 +420,10 @@ func (c *Client) PauseNode(sessionID, executionID, nodeID string) (WorkflowStart
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
 	path := apiPath("/api/executions/%s/nodes/%s/pause", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
@@ -444,6 +456,10 @@ func (c *Client) ResumeNode(sessionID, executionID, nodeID string) (WorkflowStar
 	}
 	if nodeID == "" {
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
 	}
 
 	path := apiPath("/api/executions/%s/nodes/%s/resume", executionID, nodeID)
@@ -480,6 +496,10 @@ func (c *Client) EnableStepMode(sessionID, executionID, nodeID string) (Workflow
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
 	path := apiPath("/api/executions/%s/nodes/%s/step/enable", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
@@ -512,6 +532,10 @@ func (c *Client) DisableStepMode(sessionID, executionID, nodeID string) (Workflo
 	}
 	if nodeID == "" {
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
 	}
 
 	path := apiPath("/api/executions/%s/nodes/%s/step/disable", executionID, nodeID)
@@ -548,6 +572,10 @@ func (c *Client) StepNode(sessionID, executionID, nodeID string) (WorkflowStartR
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
 	path := apiPath("/api/executions/%s/nodes/%s/step", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
@@ -580,6 +608,10 @@ func (c *Client) StopNode(sessionID, executionID, nodeID string, immediate bool,
 	}
 	if nodeID == "" {
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
 	}
 
 	params := url.Values{}
@@ -620,6 +652,10 @@ func (c *Client) SkipNode(sessionID, executionID, nodeID string, skip bool) (Wor
 	}
 	if nodeID == "" {
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
 	}
 
 	params := url.Values{}
@@ -664,6 +700,10 @@ func (c *Client) StreamWorkflowStatus(
 		return fmt.Errorf("onProgress callback cannot be nil")
 	}
 
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return err
+	}
+
 	params := url.Values{}
 	params.Set("includeHistory", strconv.FormatBool(includeHistory))
 
@@ -676,6 +716,13 @@ func (c *Client) StreamWorkflowStatus(
 		}
 		return onProgress(progress)
 	})
+}
+
+// checkExecutionSession refuses to act on an execution that belongs to another session: the
+// /api/executions routes take no session, so the check is made here (as GetWorkflowStatus does).
+func (c *Client) checkExecutionSession(sessionID, executionID string) error {
+	_, err := c.GetWorkflowStatus(sessionID, executionID)
+	return err
 }
 
 // newKey returns a random Idempotency-Key.
