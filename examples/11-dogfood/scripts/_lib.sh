@@ -161,6 +161,7 @@ server_launch() {
   (
     cd "$DEV_HOME"
     export SERVER_PORT="$DEV_PORT" YUKTA_SERVER_ADDRESS=127.0.0.1 YUKTA_PROCESS_ALLOW_ANY=true \
+      YUKTA_CONCURRENCY_GROUPS_GRADLE="${YUKTA_DEV_GRADLE_PARALLEL:-2}" \
       YUKTA_SESSION_BASE_DIR="$DEV_HOME/sessions" YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS=14400 \
       YUKTA_SUPERVISOR_RULES_FILE="$rules"
     # The key goes in a file, not the environment: the server's children (the gradle stages and their
@@ -307,7 +308,10 @@ heal_workflow() {
     def pe($id; $cfg): {nodeId: $id, type: "PROCESS_EXECUTOR",
         config: ({workingDir: $project, timeout: 3600, timeoutSeconds: 3600} + $cfg)};
     def routed($on): if $on then {failureMode: "CONTINUE", routeByExitCode: true} else {failureMode: "ERROR"} end;
-    def runner($id; $n; $on): pe($id; {command: ([$healsh, "run", $n.nodeId, "--"] + $n.config.command), env: env(""; {})} + routed($on));
+    # gradle nodes share the server-wide group "gradle" (yukta.concurrency.groups.gradle): the parallel analyzers
+    # wait QUEUED instead of each starting a 4 GB daemon
+    def grouped($n): if $n.config.command[0] == "./gradlew" then {engine: {concurrencyGroup: "gradle"}} else {} end;
+    def runner($id; $n; $on): pe($id; {command: ([$healsh, "run", $n.nodeId, "--"] + $n.config.command), env: env(""; {})} + grouped($n) + routed($on));
     def fixer($id; $stage; $i; $mode; $tasks; $extra):
         pe($id; {command: [$healsh, "fix", $stage, ($i | tostring), $mode], env: env($tasks; $extra)} + routed(true));
     def edge($s; $t; $port): {source: $s, target: $t} + (if $port == null then {} else {sourcePort: $port} end);
