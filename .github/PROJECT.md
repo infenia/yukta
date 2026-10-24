@@ -110,6 +110,7 @@ Aim to triage within 5 working days. P0 issues get an assignee the same day.
 | `nightly-report.yml` | a scheduled run fails and no tracking issue is open | the new `ci-nightly` issue gets the Bug type and a project item: Triage, Kind CI failure, Priority P1, Module build. The issue closes itself when the nightly is green, and the project moves it to Done |
 
 | `nightly-report.yml` (`flaky-tests.sh`) | a scheduled CI run has a test that failed, then passed on retry | one `flaky-test` issue per test method (Bug type; Triage, Kind Flaky test, Priority P2, its module); a comment each time it is flaky again; closed after 7 days without a flaky run, checked on green runs only |
+| `nightly-report.yml` (`auto-found.sh`) | a scheduled CI run has a test that failed and never passed (a property or fuzz test prints its seed in the message) | one `auto-found` issue per test (Bug type; Triage, Kind Defect, a Severity of Critical, High or Medium, Priority P1 or P2, its module); a comment each time it comes back, reopened if it was closed; closed after 3 days without it, checked on green runs of the same workflow only |
 | `weekly-health.yml` | Mondays | rewrites the pinned **Project health** issue: open issues by type, untriaged for over a week, unassigned P0/P1, In progress with no activity for two weeks, In review with no activity for a week, open risks with impact 4 or 5, and code scanning alert counts (never the alerts themselves) |
 
 Other automation around issues and pull requests:

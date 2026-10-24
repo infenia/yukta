@@ -32,3 +32,24 @@ need() { command -v "$1" >/dev/null 2>&1 || die "$1 is required but not installe
 
 # A release that is not final (0.1.0-rc.1) must never move the moving tags.
 is_prerelease() { [[ "$1" == *-* ]]; }
+
+# Records what a build directory holds, so release.sh can refuse a leftover or rehearsal binary.
+# The directory travels with the CI artifact, so the marker is checked on the release machine too.
+write_build_marker() {
+  printf 'version=%s\nquick=%s\ncommit=%s\n' "$(gradle_version)" "${NATIVE_QUICK:+1}" \
+    "$(git -C "$REPO_ROOT" rev-parse HEAD)" > "$1/BUILD"
+}
+
+# check_build_marker <dir> <version> <publish>: the build must be of <version>, not a NATIVE_QUICK
+# (-Ob) rehearsal and, for a publish, of the checked-out commit.
+check_build_marker() {
+  local dir="$1" version="$2" publish="$3" marker="$1/BUILD"
+  [[ -f "$marker" ]] || die "$dir has no BUILD marker: rebuild it, or download the CI artifact again"
+  [[ "$(sed -n 's/^version=//p' "$marker")" == "$version" ]] ||
+    die "$dir was built for version '$(sed -n 's/^version=//p' "$marker")', not '$version'"
+  [[ -z "$(sed -n 's/^quick=//p' "$marker")" ]] || die "$dir holds a NATIVE_QUICK (-Ob) rehearsal build"
+  if [[ "$publish" == true ]]; then
+    [[ "$(sed -n 's/^commit=//p' "$marker")" == "$(git -C "$REPO_ROOT" rev-parse HEAD)" ]] ||
+      die "$dir was built from another commit than HEAD"
+  fi
+}

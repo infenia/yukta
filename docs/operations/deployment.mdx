@@ -72,7 +72,7 @@ The unit waits up to 45 seconds when stopping, longer than the default [graceful
 
 ### Upgrade and roll back
 
-Pull the new image tag, or install the newer package or archive over the old one. Pin an exact version (`ghcr.io/infenia/yukta:0.1.0-alpha.2`) when you need repeatable deployments; `latest` only ever moves to a stable release, never to a release candidate. To roll back, install the previous version. Sessions kept in memory are lost on restart, so use [Persistence](/operations/persistence) if you need to keep them.
+Pull the new image tag, or install the newer package or archive over the old one. With the install script, run it again: it prints the version it found and the one it installs, skips the download when you are already current, keeps the previous programs as `yukta.prev` and `yukta-cli.prev`, and warns when a running server must be restarted or another copy earlier on `PATH` hides the new one. `install.sh --check` reports whether a newer release exists without installing (exit status 1 when you are behind), and `--force` reinstalls the same version. When `cosign` is installed the script also verifies the Sigstore signature of `SHA256SUMS`; the output says whether it did. On Windows, `install.ps1` does the same, with `YUKTA_CHECK=1` and `YUKTA_FORCE=1`. Pin an exact version (`ghcr.io/infenia/yukta:0.1.0-alpha.2`) when you need repeatable deployments; `latest` only ever moves to a stable release, never to a release candidate. To roll back, install the previous version. Sessions kept in memory are lost on restart, so use [Persistence](/operations/persistence) if you need to keep them.
 
 ## Run from source
 

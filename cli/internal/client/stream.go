@@ -48,7 +48,7 @@ func (c *Client) streamRequestFrom(ctx context.Context, path, lastEventID string
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		defer resp.Body.Close()
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, string(body))
+		return nil, newAPIError(resp, body)
 	}
 
 	mediaType, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
@@ -70,7 +70,8 @@ func ScanSSE(ctx context.Context, r io.Reader, onEvent func(SSEEvent) error) err
 
 // scanSSE is ScanSSE that also calls onLine (if not nil) for every line read, comments and server
 // pings included, so a caller can tell a quiet connection from a dead one. An event still open at
-// the end of the stream (no closing blank line) is delivered, not dropped.
+// the end of the stream (no closing blank line) is dropped, as the SSE spec says: a connection cut
+// mid-line would otherwise deliver half a document.
 func scanSSE(ctx context.Context, r io.Reader, onLine func(), onEvent func(SSEEvent) error) error {
 	if onEvent == nil {
 		return fmt.Errorf("onEvent callback cannot be nil")
@@ -131,5 +132,5 @@ func scanSSE(ctx context.Context, r io.Reader, onLine func(), onEvent func(SSEEv
 	if err := scanner.Err(); err != nil {
 		return err
 	}
-	return flush()
+	return nil
 }

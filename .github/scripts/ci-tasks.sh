@@ -66,7 +66,7 @@ group_of() {
 # Files that change how every module builds.
 is_root_file() {
   case $1 in
-    .github/workflows/*|.github/scripts/*|build-logic/*|gradle/*|config/*) return 0 ;;
+    .github/workflows/*|.github/scripts/*|build-logic/*|gradle/*|config/*|test-support/*) return 0 ;;
     build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat) return 0 ;;
     .java-version|lombok.config) return 0 ;;
     *.lockfile) [[ $1 != */* ]] ;;
@@ -147,6 +147,10 @@ done
 if [ "$full" = true ] || [ -n "${affected[:plus:persistence-postgres]:-}" ] || [ -n "${changed[:boot]:-}" ]; then
   shards=$(jq -c '. + [{name: "postgres-acceptance",
     args: "-Pyukta.persistence=postgres :boot:test --tests *PostgresPersistenceAcceptanceTest"}]' <<<"$shards")
+fi
+if [ "$full" = true ] || [ -n "${affected[:plus:workers]:-}" ] || [ -n "${changed[:boot]:-}" ]; then
+  shards=$(jq -c '. + [{name: "workers-acceptance",
+    args: "-Pyukta.workers=true :boot:test --tests *Workers*AcceptanceTest"}]' <<<"$shards")
 fi
 if [ "$full" = true ] || [ -n "${affected[:plus]:-}" ] || [ -n "${changed[:boot]:-}" ]; then
   shards=$(jq -c '. + [{name: "plus-acceptance",

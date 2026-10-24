@@ -401,6 +401,30 @@ func TestRootCmd_tokenFileIsReadAndTrimmed(t *testing.T) {
 	}
 }
 
+func TestRootCmd_streamLimitsFromEnv(t *testing.T) {
+	cases := []struct {
+		idle, reconnects string
+		wantIdle         time.Duration
+		wantReconnects   int
+	}{
+		{"2m", "9", 2 * time.Minute, 9},
+		{"0", "0", 0, 0},
+		{"", "", client.DefaultStreamIdle, client.DefaultStreamReconnects},
+		{"soon", "many", client.DefaultStreamIdle, client.DefaultStreamReconnects},
+		{"-1s", "-2", client.DefaultStreamIdle, client.DefaultStreamReconnects},
+	}
+	for _, tc := range cases {
+		t.Setenv("YUKTA_STREAM_IDLE", tc.idle)
+		t.Setenv("YUKTA_STREAM_RECONNECTS", tc.reconnects)
+		c := client.NewClient("http://localhost:8080")
+		RootCmd(c)
+		if c.StreamIdle != tc.wantIdle || c.StreamReconnects != tc.wantReconnects {
+			t.Errorf("idle=%q reconnects=%q: got %v/%d, want %v/%d", tc.idle, tc.reconnects,
+				c.StreamIdle, c.StreamReconnects, tc.wantIdle, tc.wantReconnects)
+		}
+	}
+}
+
 func TestRootCmd_insecureTokenEnv(t *testing.T) {
 	for env, want := range map[string]bool{"1": true, "true": true, "0": false, "": false, "yes": false} {
 		t.Setenv("YUKTA_INSECURE_TOKEN", env)

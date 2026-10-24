@@ -10,6 +10,7 @@ rootProject.name = "yukta"
 includeBuild("build-logic")
 
 include("messaging")
+include("test-support")
 include("plugin-api")
 include("plugins:processors:process-executor")
 include("plugins:processors:http-request")

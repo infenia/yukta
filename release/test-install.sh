@@ -17,17 +17,29 @@ version=9.9.9-test
 rel="$work/srv/v$version"
 mkdir -p "$rel" "$work/stage/yukta-$version-linux-amd64"
 printf '#!/bin/sh\necho server\n' > "$work/stage/yukta-$version-linux-amd64/yukta"
-printf '#!/bin/sh\necho client\n' > "$work/stage/yukta-$version-linux-amd64/yukta-cli"
+printf '#!/bin/sh\n[ "${1:-}" = --version ] && echo "yukta-cli version 9.9.9-test" || echo client\n' > "$work/stage/yukta-$version-linux-amd64/yukta-cli"
 chmod +x "$work"/stage/*/yukta*
 tar -C "$work/stage" -czf "$rel/yukta-$version-linux-amd64.tar.gz" "yukta-$version-linux-amd64"
 cp "$work/stage/yukta-$version-linux-amd64/yukta-cli" "$rel/yukta-cli-linux-amd64"
 cp "$work/stage/yukta-$version-linux-amd64/yukta-cli" "$rel/yukta-cli-darwin-arm64"
 (cd "$rel" && sha256sum -- * > SHA256SUMS)
 
-port=$((20000 + RANDOM % 20000))
-(cd "$work/srv" && python3 -m http.server "$port" --bind 127.0.0.1 >/dev/null 2>&1) &
+# Bind to port 0 so the system picks a free one; the server prints it once it is listening, so there
+# is no guess at a port and no sleep.
+(cd "$work/srv" && exec python3 -u -c '
+import http.server
+s = http.server.ThreadingHTTPServer(("127.0.0.1", 0), http.server.SimpleHTTPRequestHandler)
+print(s.server_address[1], flush=True)
+s.serve_forever()' >"$work/port" 2>"$work/server.err") &
 pids+=($!)
-sleep 1
+port=""
+for _ in $(seq 1 50); do
+  port="$(cat "$work/port" 2>/dev/null || true)"
+  [[ -n $port ]] && break
+  kill -0 "${pids[0]}" 2>/dev/null || die "download server exited: $(cat "$work/server.err")"
+  sleep 0.2
+done
+[[ -n $port ]] || die "download server did not report a port"
 export YUKTA_DOWNLOAD_BASE="http://127.0.0.1:$port"
 script="$RELEASE_DIR/install.sh"
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -67,8 +79,31 @@ echo "6. uninstall"
 sh "$script" --install-dir "$work/a" --uninstall >/dev/null
 [[ ! -e "$work/a/yukta" && ! -e "$work/a/yukta-cli" ]] || fail "uninstall"
 
+echo "6b. upgrade keeps *.prev, same version short-circuits, --check reports"
+mkdir -p "$work/u"; printf '#!/bin/sh\necho old\n' > "$work/u/yukta"; chmod +x "$work/u/yukta"
+out="$(sh "$script" --version "$version" --install-dir "$work/u")"
+[[ "$("$work/u/yukta.prev")" == old && "$("$work/u/yukta")" == server ]] || fail "previous server not kept"
+grep -q "kept as \*.prev" <<<"$out" || fail "no rollback hint"
+grep -q "checksum" <<<"$out" || fail "no verification line"
+sh "$script" --version "$version" --install-dir "$work/u" | grep -q "already installed" || fail "no up-to-date message"
+sh "$script" --version "$version" --install-dir "$work/u" --check >/dev/null || fail "--check should pass when current"
+if sh "$script" --version 9.9.8 --install-dir "$work/u" --check >/dev/null; then fail "--check should fail when behind"; fi
+
 echo "7. bad input"
 if sh "$script" --bogus 2>/dev/null; then fail "unknown option accepted"; fi
 if YUKTA_ARCH=riscv64 sh "$script" --version "$version" --install-dir "$work/h" 2>/dev/null; then fail "unsupported arch accepted"; fi
+
+for bad in '1.0/../../x' '1.0.0?x=1' '1.0.0#frag' '1.0' 'latest' '1.0.0
+../x'; do
+  if sh "$script" --version "$bad" --install-dir "$work/i" 2>"$work/err"; then fail "version '$bad' accepted"; fi
+  grep -q "is not a version" "$work/err" || fail "no version message for '$bad'"
+done
+
+echo "8. an archive with a link instead of a file is refused"
+ln -sf /etc/hostname "$work/stage/yukta-$version-linux-amd64/yukta"
+tar -C "$work/stage" -czf "$rel/yukta-$version-linux-amd64.tar.gz" "yukta-$version-linux-amd64"
+(cd "$rel" && sha256sum -- $(ls | grep -v '^SHA256SUMS$') > SHA256SUMS)
+if sh "$script" --version "$version" --install-dir "$work/j" 2>"$work/err"; then fail "linked file was installed"; fi
+grep -q "regular file" "$work/err" || fail "no regular-file message"
 
 echo "install.sh: all checks passed"

@@ -117,6 +117,12 @@ project item to Done.
 commented on each time it is flaky again and closed after 7 days without a flaky run (checked on
 green runs only).
 
+**Failing test issues**: each broken test also gets its own `auto-found` issue (`auto-found.sh`),
+with a Severity (Critical: a stuck run, lost events or a failed security check; High: an acceptance,
+smoke or property test; Medium: other tests), commented on each time it fails again, reopened if it
+comes back, and closed after 3 days without it on a green run of the same workflow. Other jobs (perf,
+mutation score) file through the same script by piping it a JSON array of findings.
+
 **Flaky tests**: scheduled and manual CI runs pass `-PretryFlakyTests`, which
 retries a failed test up to twice (Gradle test-retry plugin, `java-conventions`).
 The build still fails, so a flaky test is never hidden; the report lists it under

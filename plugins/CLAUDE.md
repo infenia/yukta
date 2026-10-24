@@ -17,6 +17,9 @@ Note: `triggers/manual-trigger/` exists on disk but has no source and isn't in `
 ## Config schema
 Declare `getConfigSchema()` (see `ConfigField`) on a plugin to get a generated config form in the UI. Every plugin that takes configuration declares one (`API_TRIGGER` and `CONSOLE_TERMINAL` take none); a new plugin without a schema falls back to the JSON editor and the usage pattern. Keep field names equal to the keys the plugin reads, and add a test pinning the names and which are required.
 
+## Conformance kit
+`boot`'s `PluginConformanceSweepTest` runs `PluginConformance` (`plugin-api` test fixtures) over every registered plugin: schema vs. config, bad config gives a clear error, minimal config runs, cancel reaches the input and leaks no thread, a 10 MB message, an upstream error, no secret in logs. A new plugin fails that test until you either add a fixture (a minimal hermetic config, plus `INPUTS` if it reads input fields) to `fixtures()` in the test, or a reason to `boot/src/test/resources/conformance-exemptions.properties`. A `SECRET` schema field gets a canary value, so declare secrets with `ConfigField.Type.SECRET`.
+
 ## Build Commands
 ```bash
 # Build a specific plugin
@@ -26,6 +29,9 @@ Declare `getConfigSchema()` (see `ConfigField`) on a plugin to get a generated c
 ## Development
 Each plugin should implement the interfaces defined in `plugin-api`.
 Guide: `../docs/contributing/modules/plugins.mdx` (module guide); open risks, bugs and review findings: GitHub issues labelled `plugins` (`gh issue list -l plugins`; risks also carry `risk`); evolution path and quality lenses: `../design/assessments/plugins.md`.
+
+## Conformance check
+`boot/.../plugins/PluginConformanceAcceptanceTest` checks every registered plugin against the plugin contract (type name, category, config schema, output ports, timeout and buffer defaults, a description, `validateConfig` rejecting an empty config when a field is required, no crash on `validateConfig` or `shutdown`). A new plugin is covered with no test change; `PluginCoverageAcceptanceTest` still needs its type listed. If a plugin must break a rule, add `"TYPE: rule" -> reason` to `EXEMPT` in the conformance test.
 
 ## Imports
 @.claude/rules/coding-standards.md

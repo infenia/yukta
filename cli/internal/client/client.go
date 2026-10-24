@@ -46,15 +46,20 @@ func NewClient(baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = "http://localhost:8080"
 	}
-	return &Client{
+	c := &Client{
 		BaseURL:          strings.TrimRight(baseURL, "/"),
 		Timeout:          DefaultTimeout,
 		StreamIdle:       DefaultStreamIdle,
 		StreamReconnects: DefaultStreamReconnects,
 		StreamWait:       DefaultStreamWait,
-		// No client-wide Timeout: it would also cut SSE streams.
-		HTTPClient: &http.Client{},
+		// No client-wide Timeout on HTTPClient: it would also cut SSE streams.
 	}
+	// Go keeps Authorization on a same-host redirect whatever the scheme, so re-run the transport
+	// guard on every hop to stop an https -> http downgrade from leaking the token.
+	c.HTTPClient = &http.Client{CheckRedirect: func(req *http.Request, _ []*http.Request) error {
+		return c.checkTokenTransport(req.URL.String())
+	}}
+	return c
 }
 
 // newRequestWithBody creates a new HTTP request with optional body.
@@ -159,13 +164,27 @@ func retryable(req *http.Request, err error) bool {
 	}
 	var ae *apiError
 	if errors.As(err, &ae) {
-		switch ae.status {
-		case http.StatusTooManyRequests, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
-			return true
-		}
-		return false
+		return retryableStatus(ae.status)
 	}
 	return true
+}
+
+// retryableStatus is the set of answers worth asking again after.
+func retryableStatus(status int) bool {
+	switch status {
+	case http.StatusTooManyRequests, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		return true
+	}
+	return false
+}
+
+// newAPIError builds the error for a non-2xx answer, reading Retry-After.
+func newAPIError(resp *http.Response, body []byte) *apiError {
+	ae := &apiError{status: resp.StatusCode, body: string(body)}
+	if secs, convErr := strconv.Atoi(resp.Header.Get("Retry-After")); convErr == nil && secs > 0 {
+		ae.retryAfter = time.Duration(secs) * time.Second
+	}
+	return ae
 }
 
 // doRequestHeader is doRequest that also returns the response headers. With c.Retries > 0 it
@@ -221,11 +240,7 @@ func (c *Client) send(req *http.Request) ([]byte, http.Header, error) {
 
 	// Check for non-2xx status codes
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		ae := &apiError{status: resp.StatusCode, body: string(body)}
-		if secs, convErr := strconv.Atoi(resp.Header.Get("Retry-After")); convErr == nil && secs > 0 {
-			ae.retryAfter = time.Duration(secs) * time.Second
-		}
-		return nil, nil, ae
+		return nil, nil, newAPIError(resp, body)
 	}
 
 	return body, resp.Header, nil

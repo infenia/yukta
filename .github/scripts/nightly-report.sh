@@ -38,6 +38,13 @@ if [ "$reports" = true ]; then
   "$here/flaky-tests.sh" "$work/reports" || echo "warning: flaky test tracking failed" >&2
 fi
 
+# Each broken test gets its own issue too (auto-found.sh), with a severity, instead of one line in
+# the run's issue; closes itself after three quiet days on a green run.
+if [ "$reports" = true ]; then
+  python3 -I "$here/junit-failures.py" --failed-json "$work/reports" | "$here/auto-found.sh" ||
+    echo "warning: failure tracking failed" >&2
+fi
+
 issue=$(gh issue list -R "$REPO" --label "$label" --state open --limit 100 --json number,title |
   jq -r --arg t "$title" 'map(select(.title == $t)) | first | .number // empty')
 

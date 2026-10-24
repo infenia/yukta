@@ -55,6 +55,9 @@ func (t *Timestamp) UnmarshalJSON(data []byte) error {
 // MarshalJSON writes the timestamp as it was read: RFC 3339, or the zone-less text of an older
 // server.
 func (t Timestamp) MarshalJSON() ([]byte, error) {
+	if t.IsZero() { // not set: null, not a real-looking year 1
+		return []byte("null"), nil
+	}
 	if t.zoneless {
 		return json.Marshal(t.Format(timestampLayout))
 	}
@@ -307,6 +310,10 @@ func (c *Client) PauseWorkflow(sessionID, executionID string) (WorkflowStartResp
 		return WorkflowStartResponse{}, err
 	}
 
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
 	body, err := c.doRequest(httpReq)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -335,6 +342,10 @@ func (c *Client) ResumeWorkflow(sessionID, executionID string) (WorkflowStartRes
 	path := apiPath("/api/executions/%s/resume", executionID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
 		return WorkflowStartResponse{}, err
 	}
 
@@ -418,6 +429,10 @@ func (c *Client) PauseNode(sessionID, executionID, nodeID string) (WorkflowStart
 		return WorkflowStartResponse{}, err
 	}
 
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
 	body, err := c.doRequest(httpReq)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -449,6 +464,10 @@ func (c *Client) ResumeNode(sessionID, executionID, nodeID string) (WorkflowStar
 	path := apiPath("/api/executions/%s/nodes/%s/resume", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
 		return WorkflowStartResponse{}, err
 	}
 
@@ -486,6 +505,10 @@ func (c *Client) EnableStepMode(sessionID, executionID, nodeID string) (Workflow
 		return WorkflowStartResponse{}, err
 	}
 
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
 	body, err := c.doRequest(httpReq)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -520,6 +543,10 @@ func (c *Client) DisableStepMode(sessionID, executionID, nodeID string) (Workflo
 		return WorkflowStartResponse{}, err
 	}
 
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
 	body, err := c.doRequest(httpReq)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -551,6 +578,10 @@ func (c *Client) StepNode(sessionID, executionID, nodeID string) (WorkflowStartR
 	path := apiPath("/api/executions/%s/nodes/%s/step", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
 		return WorkflowStartResponse{}, err
 	}
 
@@ -594,6 +625,10 @@ func (c *Client) StopNode(sessionID, executionID, nodeID string, immediate bool,
 		return WorkflowStartResponse{}, err
 	}
 
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
 	body, err := c.doRequest(httpReq)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -631,6 +666,10 @@ func (c *Client) SkipNode(sessionID, executionID, nodeID string, skip bool) (Wor
 		return WorkflowStartResponse{}, err
 	}
 
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
 	body, err := c.doRequest(httpReq)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -664,6 +703,10 @@ func (c *Client) StreamWorkflowStatus(
 		return fmt.Errorf("onProgress callback cannot be nil")
 	}
 
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
+		return err
+	}
+
 	params := url.Values{}
 	params.Set("includeHistory", strconv.FormatBool(includeHistory))
 
@@ -676,6 +719,13 @@ func (c *Client) StreamWorkflowStatus(
 		}
 		return onProgress(progress)
 	})
+}
+
+// checkExecutionSession refuses to act on an execution that belongs to another session: the
+// /api/executions routes take no session, so the check is made here (as GetWorkflowStatus does).
+func (c *Client) checkExecutionSession(sessionID, executionID string) error {
+	_, err := c.GetWorkflowStatus(sessionID, executionID)
+	return err
 }
 
 // newKey returns a random Idempotency-Key.
