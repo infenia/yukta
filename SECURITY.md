@@ -34,7 +34,7 @@ Use either channel:
 
 | Step | Target |
 | ---- | ------ |
-| Acknowledge your report | Within 48 hours |
+| Acknowledge your report | Within 2 business days |
 | Initial assessment and severity (CVSS) | Within 7 days |
 | Fix or mitigation for a confirmed critical or high issue | Within 30 days |
 | Fix or mitigation for a confirmed medium or low issue | In the next regular release |
