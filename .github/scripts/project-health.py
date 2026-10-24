@@ -21,6 +21,7 @@ import sys
 
 TRIAGE_DAYS = 7
 IDLE_DAYS = 14
+REVIEW_DAYS = 7
 LIST_MAX = 15
 SEVERITIES = ("critical", "high", "medium", "low")
 MARKER = "<!-- project-health -->"
@@ -68,13 +69,14 @@ def capped(rows):
 
 
 def render(data_dir, now, repo):
-    issues = [i for i in flatten(load(data_dir / "issues.json", [])) if "pull_request" not in i]
+    everything = flatten(load(data_dir / "issues.json", []))
+    issues = [i for i in everything if "pull_request" not in i]
     project = load(data_dir / "project.json")
     alerts = load(data_dir / "alerts.json")
     fields = project_fields(project)
     labels = {i["number"]: {label["name"] for label in i.get("labels", [])} for i in issues}
     age = {i["number"]: (now - parse_time(i["created_at"])).days for i in issues}
-    idle = {i["number"]: (now - parse_time(i["updated_at"])).days for i in issues}
+    idle = {i["number"]: (now - parse_time(i["updated_at"])).days for i in everything}
     issues_url = f"https://github.com/{repo}/issues"
 
     out = [MARKER, f"# Project health, week of {now:%Y-%m-%d}", "",
@@ -110,6 +112,13 @@ def render(data_dir, now, repo):
         out += [f"## In progress, no activity for more than {IDLE_DAYS} days ({len(quiet)})", ""]
         out += capped([line(i, f" — {idle[i['number']]} days") for i in
                        sorted(quiet, key=lambda i: -idle[i["number"]])]) or ["None."]
+        out.append("")
+
+        waiting = [i for i in everything
+                   if field(i, "Status") == "In review" and idle[i["number"]] > REVIEW_DAYS]
+        out += [f"## In review, no activity for more than {REVIEW_DAYS} days ({len(waiting)})", ""]
+        out += capped([line(i, f" — {idle[i['number']]} days") for i in
+                       sorted(waiting, key=lambda i: -idle[i["number"]])]) or ["None."]
         out.append("")
 
         def rating(issue, name):

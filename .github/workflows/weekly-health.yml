@@ -4,7 +4,7 @@
 name: Weekly project health
 
 # Rewrites the pinned "Project health" issue every Monday (.github/scripts/project-health.sh): open issues
-# by type, untriaged issues older than a week, unassigned P0/P1, idle In progress items, high-impact risks
+# by type, untriaged issues older than a week, unassigned P0/P1, idle In progress and In review items, high-impact risks
 # and code scanning alert counts (counts only: the issue is public). The project sections need the GitHub
 # App (vars.YUKTA_PROJECT_APP_CLIENT_ID, secrets.YUKTA_PROJECT_APP_KEY, vars.YUKTA_PROJECT_NUMBER).
 on:
