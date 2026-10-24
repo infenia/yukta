@@ -18,7 +18,9 @@ test.describe('Workflow Details Page', () => {
     await mockWorkflowApi(page);
   });
 
-  test('renders the running workflow with canvas, panel and logs', async ({ page }) => {
+  test('renders the running workflow with canvas, panel and logs', async ({
+    page,
+  }) => {
     await page.goto(WORKFLOW_URL);
 
     await expect(page.getByTestId('workflow-details-page')).toBeVisible();
@@ -29,26 +31,44 @@ test.describe('Workflow Details Page', () => {
     await expect(page.getByTestId('status-chip')).toHaveText('RUNNING');
 
     await expect(page.getByTestId('workflow-node-Data_Ingress')).toBeVisible();
-    await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText('Done');
-    await expect(page.getByTestId('workflow-node-Vectorize_Batch')).toContainText(
-      'Active'
+    await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText(
+      'Done'
     );
-    await expect(page.getByTestId('workflow-node-Sink_Storage')).toContainText('Waiting');
+    await expect(
+      page.getByTestId('workflow-node-Vectorize_Batch')
+    ).toContainText('Active');
+    await expect(page.getByTestId('workflow-node-Sink_Storage')).toContainText(
+      'Waiting'
+    );
 
-    await expect(page.getByTestId('execution-summary')).toContainText('exec-091-qp-55');
-    await expect(page.getByTestId('execution-summary')).toContainText('SESSION_A92_XP_2024');
-    await expect(page.getByTestId('execution-summary')).toContainText('--:--:--');
+    await expect(page.getByTestId('execution-summary')).toContainText(
+      'exec-091-qp-55'
+    );
+    await expect(page.getByTestId('execution-summary')).toContainText(
+      'SESSION_A92_XP_2024'
+    );
+    await expect(page.getByTestId('execution-summary')).toContainText(
+      '--:--:--'
+    );
     await expect(page.getByTestId('task-sequence')).toContainText('COMPLETED');
-    await expect(page.getByTestId('task-sequence')).toContainText('module: vector-engine-v2');
-    await expect(page.getByTestId('task-sequence')).toContainText('Dur: 1m 12s');
+    await expect(page.getByTestId('task-sequence')).toContainText(
+      'module: vector-engine-v2'
+    );
+    await expect(page.getByTestId('task-sequence')).toContainText(
+      'Dur: 1m 12s'
+    );
 
-    await expect(page.getByTestId('logs-body')).toContainText('Initializing workflow engine...');
+    await expect(page.getByTestId('logs-body')).toContainText(
+      'Initializing workflow engine...'
+    );
     await expect(page.getByTestId('logs-body')).toContainText(
       'High memory pressure detected on worker-node-04'
     );
   });
 
-  test('shows the workflow breadcrumb trail with the run history dropdown', async ({ page }) => {
+  test('shows the workflow breadcrumb trail with the run history dropdown', async ({
+    page,
+  }) => {
     await page.goto(WORKFLOW_URL);
     await expect(page.getByTestId('workflow-details-page')).toBeVisible();
 
@@ -56,17 +76,23 @@ test.describe('Workflow Details Page', () => {
     await expect(breadcrumbBar).toContainText('Run History:');
     await expect(breadcrumbBar).toContainText('exec-091-qp-55');
     await expect(page.locator('header')).toContainText('SESSION_A92_XP_2024');
-    await expect(page.locator('header')).toContainText('Supply_Chain_Optimizer_V2');
+    await expect(page.locator('header')).toContainText(
+      'Supply_Chain_Optimizer_V2'
+    );
   });
 
-  test('closes and reopens the workflow progress panel from the header', async ({ page }) => {
+  test('closes and reopens the workflow progress panel from the header', async ({
+    page,
+  }) => {
     await page.goto(WORKFLOW_URL);
     await expect(page.getByTestId('progress-panel')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Close workflow progress panel' }).click();
+    await page
+      .getByRole('button', { name: 'Close workflow progress panel' })
+      .click();
     await expect(page.getByTestId('progress-panel')).toBeHidden();
 
-    await page.getByRole('button', { name: 'WORKFLOW PROGRESS' }).click();
+    await page.getByRole('button', { name: 'Workflow progress' }).click();
     await expect(page.getByTestId('progress-panel')).toBeVisible();
   });
 
@@ -83,11 +109,17 @@ test.describe('Workflow Details Page', () => {
 
   test('filters execution logs', async ({ page }) => {
     await page.goto(WORKFLOW_URL);
-    await expect(page.getByTestId('logs-body')).toContainText('Initializing workflow engine...');
+    await expect(page.getByTestId('logs-body')).toContainText(
+      'Initializing workflow engine...'
+    );
 
     await page.getByLabel('Filter logs').fill('memory');
-    await expect(page.getByTestId('logs-body')).toContainText('High memory pressure');
-    await expect(page.getByTestId('logs-body')).not.toContainText('Initializing');
+    await expect(page.getByTestId('logs-body')).toContainText(
+      'High memory pressure'
+    );
+    await expect(page.getByTestId('logs-body')).not.toContainText(
+      'Initializing'
+    );
   });
 
   test('switches runs through the run history dropdown', async ({ page }) => {
@@ -98,7 +130,9 @@ test.describe('Workflow Details Page', () => {
     await page.getByText('exec-090-aa-12').click();
 
     await expect(page).toHaveURL(/exec=exec-090-aa-12/);
-    await expect(page.locator('#breadcrumb-actions')).toContainText('exec-090-aa-12');
+    await expect(page.locator('#breadcrumb-actions')).toContainText(
+      'exec-090-aa-12'
+    );
   });
 
   test('renders the never-run state', async ({ page, mockWorkflowApi }) => {
@@ -108,14 +142,18 @@ test.describe('Workflow Details Page', () => {
     await expect(page.getByTestId('workflow-details-page')).toBeVisible();
     await expect(page.getByTestId('status-chip')).toHaveText('NOT RUN');
     await expect(page.getByTestId('run-history-empty')).toBeVisible();
-    await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText('Waiting');
+    await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText(
+      'Waiting'
+    );
     await expect(page.getByTestId('logs-body')).toContainText('No log output.');
   });
 
   test.describe('Visual Regression', () => {
     test('should match screenshot - full page light', async ({ page }) => {
       await page.goto(WORKFLOW_URL);
-      await expect(page.getByTestId('workflow-node-Data_Ingress')).toBeVisible();
+      await expect(
+        page.getByTestId('workflow-node-Data_Ingress')
+      ).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
 
       await expect(page).toHaveScreenshot('workflow-details-full-page.png', {
@@ -126,7 +164,9 @@ test.describe('Workflow Details Page', () => {
 
     test('should match screenshot - full page dark', async ({ page }) => {
       await page.goto(WORKFLOW_URL);
-      await expect(page.getByTestId('workflow-node-Data_Ingress')).toBeVisible();
+      await expect(
+        page.getByTestId('workflow-node-Data_Ingress')
+      ).toBeVisible();
 
       const toggle = page.getByRole('button', { name: 'Toggle theme' });
       for (let i = 0; i < 3; i += 1) {
@@ -137,10 +177,13 @@ test.describe('Workflow Details Page', () => {
       await expect(toggle).toHaveAttribute('title', 'Current: dark');
       await page.evaluate(() => document.fonts.ready);
 
-      await expect(page).toHaveScreenshot('workflow-details-full-page-dark.png', {
-        ...screenshotOptions.full,
-        animations: 'disabled',
-      });
+      await expect(page).toHaveScreenshot(
+        'workflow-details-full-page-dark.png',
+        {
+          ...screenshotOptions.full,
+          animations: 'disabled',
+        }
+      );
     });
 
     test('should match screenshot - progress panel', async ({ page }) => {

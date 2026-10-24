@@ -138,9 +138,7 @@ export function LogsPanel({
         <span className="material-symbols-outlined text-on-surface-variant text-base">
           terminal
         </span>
-        <h2 className="text-label-sm text-on-surface tracking-wider">
-          EXECUTION LOGS
-        </h2>
+        <h2 className="text-label-md text-on-surface">Execution logs</h2>
         {isStreaming && (
           <span
             className="border-primary/40 bg-primary/10 text-label-sm text-primary inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 tracking-wider"
@@ -171,7 +169,7 @@ export function LogsPanel({
               onChange={(event) => setFilter(event.target.value)}
               placeholder="Filter logs..."
               aria-label="Filter logs"
-              className="h-7 w-full pl-8 text-xs"
+              className="text-body-sm h-7 w-full pl-8"
             />
           </div>
           <button
@@ -227,7 +225,7 @@ export function LogsPanel({
         <div className="relative">
           <div
             ref={bodyRef}
-            className="bg-terminal h-56 overflow-y-auto px-4 py-2 font-mono text-xs leading-5"
+            className="bg-terminal text-code-sm h-56 overflow-y-auto px-4 py-2 leading-5"
             data-testid="logs-body"
           >
             {visibleEntries.length === 0 ? (

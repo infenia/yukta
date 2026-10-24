@@ -53,7 +53,7 @@ export function HistoryPage() {
             aria-label="Session"
             value={sessionId}
             onChange={(event) => setChosen(event.target.value)}
-            className="border-outline-variant bg-surface text-on-surface h-8 rounded-lg border px-2 text-sm"
+            className="border-outline-variant bg-surface text-on-surface text-body-md h-8 rounded-lg border px-2"
           >
             {sessions.data?.map((session) => (
               <option key={session.sessionId} value={session.sessionId}>

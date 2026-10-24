@@ -34,7 +34,7 @@ export default function ApiKeyPrompt() {
       onSubmit={submit}
       className="bg-surface-container fixed top-24 left-1/2 z-50 flex w-96 max-w-[90vw] -translate-x-1/2 flex-col gap-3 rounded-2xl p-4 shadow-lg"
     >
-      <p className="text-sm">
+      <p className="text-body-md">
         This server requires an API key. The key stays in this browser tab only.
       </p>
       <Input

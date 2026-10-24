@@ -4,7 +4,7 @@
 /** Compact error line for failed actions. */
 export function InlineError({ message }: { message: string | null }) {
   return message ? (
-    <p role="alert" className="text-sm text-error">
+    <p role="alert" className="text-body-md text-error">
       {message}
     </p>
   ) : null;

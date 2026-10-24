@@ -32,7 +32,7 @@ export function ExecutionResultBlock({
   return (
     <Card className="p-4" data-testid="execution-result">
       <h3 className="text-overline mb-2 flex items-center gap-2">
-        RESULT
+        Result
         {isStreaming && (
           <span
             className="text-label-sm text-primary"
@@ -43,7 +43,7 @@ export function ExecutionResultBlock({
         )}
       </h3>
       {results.length === 0 ? (
-        <p className="text-on-surface-variant text-xs">
+        <p className="text-on-surface-variant text-body-sm">
           {complete
             ? 'The execution produced no result.'
             : 'Waiting for a result…'}
@@ -52,7 +52,7 @@ export function ExecutionResultBlock({
         <ul className="flex flex-col gap-2">
           {results.map((result) => (
             <li key={result.sequence}>
-              <span className="text-on-surface-variant text-xs">
+              <span className="text-on-surface-variant text-body-sm">
                 {result.nodeId}
               </span>
               <CodeBlock

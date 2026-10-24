@@ -45,14 +45,14 @@ function TimingLine({
   }
   if (status === 'running') {
     return (
-      <p className="text-on-surface-variant font-mono text-xs">
+      <p className="text-on-surface-variant text-code-sm">
         Start: {formatClockTime(task.startTime)}
         {'  '}Dur: {formatDuration(task.startTime, new Date().toISOString())}
       </p>
     );
   }
   return (
-    <p className="text-on-surface-variant font-mono text-xs">
+    <p className="text-on-surface-variant text-code-sm">
       Start: {formatClockTime(task.startTime)}
       {'  '}End: {formatClockTime(task.endTime)}
     </p>
@@ -87,12 +87,10 @@ function TaskSequenceItem({
         >
           {STATUS_ICONS[status]}
         </span>
-        <span className="text-on-surface text-sm font-semibold">
-          {task.nodeId}
-        </span>
+        <span className="text-on-surface text-label-md">{task.nodeId}</span>
         <span
           className={cn(
-            'ml-auto text-xs font-semibold tracking-wider',
+            'text-label-sm ml-auto font-semibold tracking-wider',
             LABEL_CLASSES[status]
           )}
         >
@@ -106,7 +104,7 @@ function TaskSequenceItem({
           />
         )}
       </div>
-      <p className="text-on-surface-variant pl-6 text-xs">
+      <p className="text-on-surface-variant text-body-sm pl-6">
         module: {task.module}
       </p>
       <div className="pl-6">
@@ -165,7 +163,7 @@ export function TaskSequenceList({
 
   return (
     <div data-testid="task-sequence">
-      <h3 className="text-overline mb-2">TASK SEQUENCE</h3>
+      <h3 className="text-overline mb-2">Task sequence</h3>
       <ul className="flex flex-col">
         {tasks.map((task) => (
           <TaskSequenceItem

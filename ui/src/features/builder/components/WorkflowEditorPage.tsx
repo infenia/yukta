@@ -23,7 +23,7 @@ import { StateMessage } from '@/components/common/StateMessage';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
 const SELECT =
-  'h-8 rounded-lg border border-outline-variant bg-surface px-2 text-sm text-on-surface';
+  'h-8 rounded-lg border border-outline-variant bg-surface px-2 text-body-md text-on-surface';
 const NO_TASKS = {};
 
 // fetchApi only throws Error subclasses
@@ -164,7 +164,7 @@ function Editor({
   return (
     <div className="flex flex-1 flex-col" data-testid="workflow-editor">
       <div className="border-outline-variant flex flex-wrap items-center gap-3 border-b px-4 py-3 sm:px-6">
-        <h1 className="text-on-surface text-headline-md">
+        <h1 className="text-on-surface text-headline-lg">
           Edit {workflow.workflowId}
         </h1>
         <Input
@@ -199,7 +199,7 @@ function Editor({
           message={error ?? (result && !result.valid ? result.message : null)}
         />
         {result?.valid && (
-          <p className="text-success text-sm">Workflow is valid.</p>
+          <p className="text-success text-body-md">Workflow is valid.</p>
         )}
       </div>
 
@@ -238,14 +238,14 @@ function Editor({
                   type="button"
                   aria-current={n.nodeId === selected}
                   onClick={() => setSelected(n.nodeId)}
-                  className={`flex w-full items-baseline gap-2 border-l-2 px-3 py-2 text-left text-sm ${
+                  className={`text-body-md flex w-full items-baseline gap-2 border-l-2 px-3 py-2 text-left ${
                     n.nodeId === selected
                       ? 'border-primary bg-surface-container-low font-semibold'
                       : 'border-outline-variant'
                   }`}
                 >
                   {n.nodeId}
-                  <span className="text-on-surface-variant font-mono text-xs">
+                  <span className="text-on-surface-variant text-code-sm">
                     {n.type}
                   </span>
                 </button>
@@ -254,23 +254,21 @@ function Editor({
           </ul>
 
           <div className="flex flex-col gap-2">
-            <h2 className="text-on-surface text-xs font-semibold tracking-wider">
-              EDGES
-            </h2>
-            <ul aria-label="Edges" className="flex flex-col gap-1 text-sm">
+            <h2 className="text-overline">Edges</h2>
+            <ul aria-label="Edges" className="text-body-md flex flex-col gap-1">
               {workflow.edges.map((e, index) => (
                 <li
                   key={`${e.source}-${e.target}-${e.sourcePort}`}
                   className="flex items-center"
                 >
-                  <span className="font-mono text-xs">
+                  <span className="text-code-sm">
                     {e.source}
                     {e.sourcePort ? `:${e.sourcePort}` : ''} → {e.target}
                   </span>
                   <button
                     type="button"
                     aria-label={`Remove edge ${e.source} to ${e.target}`}
-                    className="text-error ml-auto text-xs"
+                    className="text-error text-body-sm ml-auto"
                     onClick={() =>
                       update({
                         edges: workflow.edges.filter((_, i) => i !== index),
@@ -330,7 +328,7 @@ function Editor({
                 Add edge
               </button>
             </div>
-            <p className="text-on-surface-variant text-xs">
+            <p className="text-on-surface-variant text-body-sm">
               Validate to list a node&apos;s ports for its configuration.
             </p>
           </div>
