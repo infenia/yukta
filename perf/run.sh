@@ -26,7 +26,17 @@ case ${MODE:-jar} in
   *) echo "unknown MODE '$MODE' (jar|native)" >&2; exit 2 ;;
 esac
 [[ -n ${JAR:-} || -n ${BINARY:-} ]] || ./gradlew :boot:bootJar -q --console=plain  # no-op when up to date; never run a stale jar
-export JAR=${JAR:-$(ls "$root"/boot/build/libs/boot-*.jar | grep -v -- -plain | head -1)}
+if [[ -z ${JAR:-} && -z ${BINARY:-} ]]; then
+  # The jar is named after the project version: take the newest one, never the first by name (an old
+  # boot-*.jar left in build/libs would be benchmarked). A regular file: Docker leaves a directory
+  # behind when it is asked to mount a path that does not exist.
+  for candidate in "$root"/boot/build/libs/boot-*.jar; do
+    [[ -f $candidate && $candidate != *-plain.jar ]] || continue
+    if [[ -z ${JAR:-} || $candidate -nt $JAR ]]; then JAR=$candidate; fi
+  done
+  [[ -n ${JAR:-} ]] || { echo "no boot jar in boot/build/libs" >&2; exit 2; }
+fi
+export JAR
 if [[ -n ${BINARY:-} ]]; then
   JAR=$(realpath "$BINARY"); export RUN_CMD=/app/yukta.jar IMAGE=${IMAGE:-debian:12-slim}   # mounted at the jar's path
   [[ -f $JAR && -x $JAR ]] || { echo "BINARY $JAR is not an executable file" >&2; exit 2; }
