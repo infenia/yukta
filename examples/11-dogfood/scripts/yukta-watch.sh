@@ -26,7 +26,8 @@ shift 2
 # A staged check (yukta-check.sh --detach) gives a log file instead of an execution: follow it to its
 # RESULT line.
 if [[ -f "$exec_id" ]]; then
-  tail -n +1 -f "$exec_id" | awk '{ print; fflush() } /^RESULT / { exit }' || true
+  # The producer writes RESULT last; if it died before that, stop waiting after YUKTA_WATCH_TIMEOUT seconds.
+  timeout "${YUKTA_WATCH_TIMEOUT:-10800}" tail -n +1 -f "$exec_id" | awk '{ print; fflush() } /^RESULT / { exit }' || true
   grep -q '^RESULT status=COMPLETED' "$exec_id"
   exit $?
 fi
