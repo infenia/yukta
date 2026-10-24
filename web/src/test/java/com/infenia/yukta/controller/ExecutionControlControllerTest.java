@@ -339,7 +339,8 @@ class ExecutionControlControllerTest {
     final ExecutionScheduler limited =
         new ExecutionScheduler(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
-    final ExecutionScheduler.Permit running = limited.acquire("s1", "wf").permit().block();
+    final ExecutionScheduler.Permit running =
+        java.util.Objects.requireNonNull(limited.acquire("s1", "wf").permit().block());
     limited.acquire("s1", "wf");
     running.release();
     limited.acquire("s1", "other");
