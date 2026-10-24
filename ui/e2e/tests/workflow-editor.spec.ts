@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 
 const EDITOR_URL = '/sessions/session-1/workflow/build/edit';
@@ -115,6 +115,15 @@ async function openEditor(page: Page, width: number, height: number) {
   await expect(page.getByTestId('workflow-node-compile')).toBeVisible();
 }
 
+/** The panel's box; fails the test if the panel is not rendered. */
+async function boxOf(panel: Locator) {
+  const box = await panel.boundingBox();
+  if (!box) {
+    throw new Error('panel is not rendered');
+  }
+  return box;
+}
+
 const panels = (page: Page) => ({
   list: page.getByRole('complementary', { name: 'Nodes and edges' }),
   canvas: page.getByTestId('editor-canvas'),
@@ -137,31 +146,28 @@ test.describe('Workflow editor layout', () => {
       expect(overflow).toBe(0);
 
       const { list, canvas, inspector } = panels(page);
-      const boxes = await Promise.all(
-        [list, canvas, inspector].map((panel) => panel.boundingBox())
-      );
-      for (const box of boxes) {
-        expect(box).not.toBeNull();
-        expect(box!.x).toBeGreaterThanOrEqual(0);
-        expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
+      const [l, c, i] = await Promise.all([list, canvas, inspector].map(boxOf));
+      for (const box of [l, c, i]) {
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
       }
       // Stacked in reading order: list, then canvas, then inspector
-      expect(boxes[1]!.y).toBeGreaterThan(boxes[0]!.y);
-      expect(boxes[2]!.y).toBeGreaterThan(boxes[1]!.y);
-      expect(boxes[1]!.height).toBeGreaterThan(200);
+      expect(c.y).toBeGreaterThan(l.y);
+      expect(i.y).toBeGreaterThan(c.y);
+      expect(c.height).toBeGreaterThan(200);
     });
   }
 
-  test('keeps the three columns side by side on a desktop', async ({ page }) => {
+  test('keeps the three columns side by side on a desktop', async ({
+    page,
+  }) => {
     await openEditor(page, 1280, 800);
     const { list, canvas, inspector } = panels(page);
-    const [l, c, i] = await Promise.all(
-      [list, canvas, inspector].map((panel) => panel.boundingBox())
-    );
-    expect(c!.x).toBeGreaterThan(l!.x + l!.width - 1);
-    expect(i!.x).toBeGreaterThan(c!.x + c!.width - 1);
-    expect(Math.abs(c!.y - l!.y)).toBeLessThan(2);
-    expect(Math.abs(i!.y - l!.y)).toBeLessThan(2);
+    const [l, c, i] = await Promise.all([list, canvas, inspector].map(boxOf));
+    expect(c.x).toBeGreaterThan(l.x + l.width - 1);
+    expect(i.x).toBeGreaterThan(c.x + c.width - 1);
+    expect(Math.abs(c.y - l.y)).toBeLessThan(2);
+    expect(Math.abs(i.y - l.y)).toBeLessThan(2);
   });
 
   test('should match screenshot - phone width', async ({ page }) => {
