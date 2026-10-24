@@ -64,7 +64,9 @@ public class WorkflowValidationController {
             .collect(
                 Collectors.toMap(
                     WorkflowDefinition.Node::nodeId,
-                    node -> portsOf(pluginRegistry.get(node.type()), node)));
+                    node -> portsOf(pluginRegistry.get(node.type()), node),
+                    // A duplicate node id is for the validator to report, not a 500 here.
+                    (first, second) -> first));
     return workflowValidator
         .validate(definition)
         .thenReturn(new WorkflowValidationResult(true, null, ports))
