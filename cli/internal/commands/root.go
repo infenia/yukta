@@ -30,6 +30,15 @@ func RootCmd(c *client.Client) *cobra.Command {
 		defaultURL = "http://localhost:8080"
 	}
 
+	// Stream limits are deployment properties (a proxy that buffers SSE), so env only, no flags.
+	// An unset, unparsable or negative value keeps the default.
+	if d, err := time.ParseDuration(os.Getenv("YUKTA_STREAM_IDLE")); err == nil && d >= 0 {
+		c.StreamIdle = d // 0 turns the idle check off
+	}
+	if n, err := strconv.Atoi(os.Getenv("YUKTA_STREAM_RECONNECTS")); err == nil && n >= 0 {
+		c.StreamReconnects = n
+	}
+
 	cmd := &cobra.Command{
 		Use:     "yukta-cli",
 		Version: Version,
