@@ -96,7 +96,7 @@ assert "the gate routes on a failed analyzer" '.workflows.check.nodes[] | select
 assert "the extra stages are analyzers with their own tool" '[.workflows.check.nodes[] | select(.nodeId == "ui" or .nodeId == "docs" or .nodeId == "reuse" or .nodeId == "actionlint")
   | .config.command[1] == "run"] | length == 4 and all'
 assert "the rerun knows how to run an extra stage" '.workflows.check.nodes[] | select(.nodeId == "analyzers.r1") | .config.env.YUKTA_HEAL_ANALYZERS
-  | test("ui=\u0027sh\u0027 \u0027-c\u0027") and test("(^|\n)reuse=\u0027reuse\u0027 \u0027lint\u0027")'
+  | test("(^|\n)ui=./gradlew :ui:pnpmLint") and test("(^|\n)docs=\u0027sh\u0027 \u0027-c\u0027") and test("(^|\n)reuse=\u0027reuse\u0027 \u0027lint\u0027")'
 
 # --pause before-opus: a WAIT_FOR_SIGNAL stands in front of every opus fixer, and only there
 out="$(render "" "" "$all_extras" before-opus)"

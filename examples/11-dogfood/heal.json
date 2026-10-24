@@ -56,11 +56,13 @@
       ],
       "variants": [
         {
-          "tool": "pnpm",
+          "tool": "sh",
           "command": [
-            "sh",
-            "-c",
-            "pnpm -C ui lint && pnpm -C ui exec vitest run"
+            "./gradlew",
+            ":ui:pnpmLint",
+            ":ui:pnpmTest",
+            "-q",
+            "--console=plain"
           ]
         }
       ]

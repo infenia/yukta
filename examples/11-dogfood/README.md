@@ -139,7 +139,7 @@ item) and ONE shared fixer chain `analyzers.f<i>` then ONE gradle rerun `analyze
 edit the tree at once. `licenses` and `security` have no policy: they fail the run at once. `verify` re-runs
 every task if anything was healed (`yukta-heal.sh verify`), then `done`.
 
-**Extra stages.** `ui` (`pnpm lint` + vitest), `docs` (`mint broken-links`), `reuse` (`reuse lint`) and
+**Extra stages.** `ui` (`:ui:pnpmLint :ui:pnpmTest`, the Gradle toolchain's pnpm), `docs` (`mint broken-links`), `reuse` (`reuse lint`) and
 `actionlint` (local binary, else the pinned docker image of `ci.yml`) are analyzers too, from `extra` in
 `heal.json`. A stage whose tool is not installed is skipped with a `WARN`; scoped to `-m <mod>` only `ui` and
 `docs` apply to their own module. Only the `actionlint` fixer may edit `.github/workflows/*.yml` (alone, never
