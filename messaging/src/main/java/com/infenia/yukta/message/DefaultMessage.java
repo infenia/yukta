@@ -56,7 +56,7 @@ public record DefaultMessage<T>(
     @With String origDest,
     @With String failureReason,
     @With String exceptionDetail,
-    int retryCount,
+    @With int retryCount,
     T payload,
     @With Instant timestamp,
     @With String sourcePort,
@@ -73,12 +73,7 @@ public record DefaultMessage<T>(
    */
   public DefaultMessage {
     metadata = copyWithoutNulls(metadata);
-    messageHistory =
-        messageHistory == null
-            ? List.of()
-            : List.copyOf(
-                messageHistory.subList(
-                    Math.max(0, messageHistory.size() - MAX_HISTORY), messageHistory.size()));
+    messageHistory = capHistory(messageHistory);
     timestamp = Objects.requireNonNullElseGet(timestamp, Instant::now);
   }
 
@@ -96,11 +91,6 @@ public record DefaultMessage<T>(
   @Override
   public Message<T> withSequence(final String sid, final int pos, final int total) {
     return toBuilder().sequenceId(sid).sequenceNumber(pos).sequenceSize(total).build();
-  }
-
-  @Override
-  public Message<T> withRetryCount(final int count) {
-    return toBuilder().retryCount(count).build();
   }
 
   @Override
@@ -129,6 +119,19 @@ public record DefaultMessage<T>(
       newMetadata.put(key, value);
     }
     return withMetadata(newMetadata);
+  }
+
+  /** The history cut to {@link #MAX_HISTORY}; an immutable list within the cap is not copied. */
+  private static List<String> capHistory(final List<String> history) {
+    List<String> result = List.of();
+    if (history != null) {
+      result =
+          List.copyOf(
+              history.size() <= MAX_HISTORY
+                  ? history
+                  : history.subList(history.size() - MAX_HISTORY, history.size()));
+    }
+    return result;
   }
 
   private static Map<String, Object> copyWithoutNulls(final Map<String, Object> source) {
