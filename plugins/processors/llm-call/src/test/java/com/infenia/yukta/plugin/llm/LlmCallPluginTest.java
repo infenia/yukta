@@ -208,6 +208,33 @@ class LlmCallPluginTest {
   }
 
   @Test
+  void turnWithoutContent_isReplayedAsEmptyTextNotTheWordNull() {
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1, 1, "m"));
+    final Map<String, Object> config =
+        config(
+            "messages",
+            List.of(
+                Map.of("role", "user", "content", "weather?"),
+                // an assistant turn that only carries tool calls has no content
+                Map.of(
+                    "role",
+                    "assistant",
+                    "actions",
+                    List.of(
+                        Map.of("tool", "weather", "arguments", Map.of("c", "Oslo"), "id", "c1"))),
+                // a tool turn without content
+                Map.of("role", "tool", "toolCallId", "c1", "toolName", "weather")));
+
+    StepVerifier.create(run(config)).expectNextCount(1).verifyComplete();
+
+    final var captured = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(gateway).call(captured.capture());
+    final var turns = captured.getValue().messages();
+    assertThat(turns.get(1).content()).isEmpty();
+    assertThat(turns.get(2).content()).isEmpty();
+  }
+
+  @Test
   void budgetIsValidated() {
     StepVerifier.create(plugin.validateConfig(config("budget", Map.of("maxTokens", 0))))
         .expectError(IllegalArgumentException.class)

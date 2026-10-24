@@ -534,7 +534,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
   private static ChatTurn turn(final Map<?, ?> turn) {
     return new ChatTurn(
         String.valueOf(turn.get("role")),
-        String.valueOf(turn.get("content")),
+        Objects.toString(turn.get("content"), ""),
         Objects.toString(turn.get("toolCallId"), null),
         Objects.toString(turn.get("toolName"), null),
         AgentActions.toToolCalls(turn.get("actions")));

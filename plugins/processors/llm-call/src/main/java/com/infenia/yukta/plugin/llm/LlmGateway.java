@@ -38,7 +38,9 @@ import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.core.env.Environment;
 import org.springframework.core.retry.RetryPolicy;
 import org.springframework.core.retry.RetryTemplate;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -362,6 +364,11 @@ public class LlmGateway {
         if (key.baseUrl() != null) {
           api.baseUrl(key.baseUrl());
         }
+        // The call timeout, like the OPENAI and ANTHROPIC branches: a hung server must not hold a
+        // boundedElastic thread past the node timeout.
+        final var requests = new JdkClientHttpRequestFactory();
+        requests.setReadTimeout(key.timeout());
+        api.restClientBuilder(RestClient.builder().requestFactory(requests));
         final var options =
             OllamaChatOptions.builder()
                 .model(key.model())

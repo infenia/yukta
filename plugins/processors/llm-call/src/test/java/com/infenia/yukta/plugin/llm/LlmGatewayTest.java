@@ -305,6 +305,36 @@ class LlmGatewayTest {
   }
 
   @Test
+  void ollamaHonoursTheCallTimeoutWhenTheServerHangs() {
+    server.createContext(
+        "/slow/api/chat",
+        exchange -> {
+          try {
+            Thread.sleep(5_000);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+          exchange.close();
+        });
+    final LlmRequest request =
+        new LlmRequest(
+            Provider.OLLAMA,
+            base + "/slow",
+            null,
+            "m",
+            null,
+            null,
+            Duration.ofMillis(500),
+            null,
+            List.of(new ChatTurn("user", "q")));
+
+    final long start = System.nanoTime();
+    assertThatThrownBy(() -> gateway.call(request)).isInstanceOf(RuntimeException.class);
+
+    assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofSeconds(4));
+  }
+
+  @Test
   void reusesModelAndSkipsBlankSystemPrompt() {
     final LlmRequest request =
         new LlmRequest(
