@@ -623,6 +623,7 @@ epic_workflows() {
         {nodeId: "pause", type: "PROCESS_EXECUTOR",
          config: {command: [$sh, "epic-pause"], workingDir: "${start.repo}", timeout: 600, timeoutSeconds: 600,
                   failureMode: "CONTINUE", env: (env + {YUKTA_BAD_COUNT: "${payload.count}"})}},
+        {nodeId: "paused", type: "CONSOLE_TERMINAL", config: {}},
         {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}},
         {nodeId: "escalate", type: "OUTCOME_TERMINAL",
          config: {outcome: "ESCALATE", reason: "issues of the epic did not finish: each is Ready again, its worktree kept"}}]) as $nodes
@@ -635,7 +636,7 @@ epic_workflows() {
                 + [lane("issue"; "success"; "ok"), edge("ok"; "done")]
                 + [("failure", "escalate", "retry") as $p | lane("issue"; $p; "bad")]
                 + [("failure", "escalate", "retry") as $p | lane("issue"; $p; "bad-count")]
-                + [edge("bad"; "escalate"), edge("bad-count"; "pause")])}}}'
+                + [edge("bad"; "escalate"), edge("bad-count"; "pause"), edge("pause"; "paused")])}}}'
 }
 
 # dev_session HEALSH ISSUESH: the shared session "yukta-dev", parameterised by the start payload so it serves
