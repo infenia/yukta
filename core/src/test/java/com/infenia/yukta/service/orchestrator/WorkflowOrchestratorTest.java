@@ -35,6 +35,7 @@ import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.result.ExecutionResultService;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +64,7 @@ import reactor.test.StepVerifier;
   "PMD.LambdaCanBeMethodReference",
   "PMD.UseShortArrayInitializer"
 })
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.WorkflowOrchestrator - ")
 class WorkflowOrchestratorTest {
 
   @Mock private TaskTrackerService tracker;

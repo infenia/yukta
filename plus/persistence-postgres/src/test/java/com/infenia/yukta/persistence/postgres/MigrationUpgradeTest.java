@@ -5,6 +5,7 @@ package com.infenia.yukta.persistence.postgres;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test;
  */
 @NoArgsConstructor
 @SuppressWarnings("PMD.LawOfDemeter")
+@ExpectedErrorLog("ERROR org.flywaydb.core.internal.command.DbMigrate - ")
 class MigrationUpgradeTest extends PostgresTestSupport {
 
   /** Points a session at the schema under test. */

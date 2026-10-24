@@ -15,6 +15,7 @@ import com.github.jknack.handlebars.Template;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.WorkflowContext;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -39,6 +40,7 @@ import reactor.test.StepVerifier;
   "PMD.UseConcurrentHashMap",
   "unchecked"
 })
+@ExpectedErrorLog("ERROR com.infenia.yukta.plugin.core.transformer.MapperProcessor - ")
 class MapperProcessorTest {
 
   private final ScriptEngine engine = mock(ScriptEngine.class);

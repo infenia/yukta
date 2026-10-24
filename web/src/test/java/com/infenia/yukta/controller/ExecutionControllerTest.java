@@ -16,6 +16,7 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.NoArgsConstructor;
@@ -34,6 +35,7 @@ import reactor.core.publisher.Mono;
   "PMD.TooManyStaticImports",
   "PMD.TooManyMethods",
 })
+@ExpectedErrorLog("ERROR com.infenia.yukta.exception.GlobalExceptionHandler - ")
 class ExecutionControllerTest {
 
   /** The control bus. */

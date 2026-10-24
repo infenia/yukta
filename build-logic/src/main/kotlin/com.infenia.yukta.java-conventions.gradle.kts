@@ -40,10 +40,14 @@ tasks.withType<Test>().configureEach {
     maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
     jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1")
     failFast = providers.gradleProperty("failFast").isPresent
-    // test-support registers ErrorGuardExtension through the ServiceLoader. -PerrorGuard=strict fails a
-    // test that drops a Reactor signal or logs an unexpected ERROR; the default only reports them.
+    // test-support registers ErrorGuardExtension through the ServiceLoader. It fails a test that drops a
+    // Reactor signal or logs an unexpected ERROR, or that expects one that does not happen;
+    // -PerrorGuard=report only reports them, =off turns it off.
     systemProperty("junit.jupiter.extensions.autodetection.enabled", "true")
-    systemProperty("yukta.errorGuard", providers.gradleProperty("errorGuard").getOrElse("report"))
+    systemProperty("yukta.errorGuard", providers.gradleProperty("errorGuard").getOrElse("strict"))
+    // Whether a whole class runs. With --tests only some of its tests run, so an @ExpectedErrorLog
+    // that a skipped test would have used must not be reported as unused.
+    doFirst { systemProperty("yukta.errorGuard.stale", filter.includePatterns.isEmpty().toString()) }
     // Nightly CI only (-PretryFlakyTests): re-run a failed test up to twice so the report can tell a
     // flaky test (passed on retry) from a broken one. The task still fails either way.
     if (providers.gradleProperty("retryFlakyTests").isPresent) {

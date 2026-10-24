@@ -25,6 +25,8 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testsupport.ErrorGuardExtension;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +47,7 @@ import reactor.test.StepVerifier;
   "PMD.TooManyStaticImports",
   "PMD.LawOfDemeter"
 })
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.ExecutionResumer - ")
 class ExecutionResumerTest {
 
   private static final Map<String, Object> PAYLOAD = Map.of("k", "v");
@@ -332,6 +335,8 @@ class ExecutionResumerTest {
             anyMap(),
             anyString(),
             any());
+    // the error is logged on another thread after the rerun: wait, or it lands in the next test
+    ErrorGuardExtension.awaitLogged("Resumed execution failed", Duration.ofSeconds(2));
   }
 
   @Test

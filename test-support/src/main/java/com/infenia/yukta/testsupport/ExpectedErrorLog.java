@@ -21,5 +21,11 @@ import java.lang.annotation.Target;
 public @interface ExpectedErrorLog {
 
   /** Regular expressions, each searched (not fully matched) in an event's text. */
-  String[] value();
+  String[] value() default {};
+
+  /**
+   * Like {@link #value()}, for an error that depends on timing and so happens in some runs only (a
+   * connection closing while a signal is in flight). It is allowed, and never reported as unused.
+   */
+  String[] sometimes() default {};
 }

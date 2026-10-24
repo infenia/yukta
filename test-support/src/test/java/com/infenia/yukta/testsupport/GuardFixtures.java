@@ -23,12 +23,27 @@ class GuardFixtures {
 
     @ExpectedErrorLog("went wrong")
     void expecting() {}
+
+    @ExpectedErrorLog(sometimes = "timing dependent")
+    void sometimes() {}
   }
 
   @ExpectedErrorLog("went wrong")
   static class Outer {
+    void plain() {}
+
     static class Inner {
       void plain() {}
     }
+  }
+
+  @ExpectedErrorLog("never happens")
+  static class Unused {
+    void plain() {}
+  }
+
+  @ExpectedErrorLog(sometimes = "never happens either")
+  static class Sometimes {
+    void plain() {}
   }
 }

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.nio.file.Path;
 import java.util.UUID;
@@ -17,6 +18,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 @NoArgsConstructor
 @SuppressWarnings("PMD.CommentRequired")
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.store.FileNodeCheckpointStore - ")
 class CheckpointMetricsTest {
 
   @TempDir /* default */ Path dir;

@@ -18,6 +18,7 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,14 @@ import org.springframework.boot.test.context.SpringBootTest;
     properties = "yukta.process.allow-any=true")
 @SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 @NoArgsConstructor
+@ExpectedErrorLog({
+  "ERROR com.infenia.yukta.plugin.process.ProcessExecutorPlugin - ",
+  "ERROR com.infenia.yukta.service.orchestrator.stream.NodeStreams - ",
+  "ERROR com.infenia.yukta.service.orchestrator.strategy.StreamAssemblyHelper - ",
+  "ERROR com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator - ",
+  "ERROR com.infenia.yukta.service.orchestrator.WorkflowOrchestrator - ",
+  "ERROR com.infenia.yukta.service.control.gateway.WorkflowStarter - "
+})
 class SubWorkflowAcceptanceTest {
 
   private static final Duration WAIT = Duration.ofSeconds(30);

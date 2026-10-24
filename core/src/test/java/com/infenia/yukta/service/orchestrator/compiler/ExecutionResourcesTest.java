@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +24,7 @@ import reactor.test.StepVerifier;
 
 @NoArgsConstructor
 @SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyStaticImports"})
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.compiler.ExecutionResources - ")
 class ExecutionResourcesTest {
 
   private final SessionConfigStore configStore = mock(SessionConfigStore.class);

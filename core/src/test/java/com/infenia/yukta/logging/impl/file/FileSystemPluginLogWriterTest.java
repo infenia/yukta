@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.plugin.core.LogLevel;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,6 +26,7 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 @ExtendWith(OutputCaptureExtension.class)
 @SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@ExpectedErrorLog("ERROR com.infenia.yukta.logging.impl.file.FileSystemPluginLogWriter - ")
 class FileSystemPluginLogWriterTest {
 
   /** Temporary directory for test files. */

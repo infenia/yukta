@@ -4,6 +4,7 @@ package com.infenia.yukta.persistence.postgres;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
 @SuppressWarnings("PMD.CommentRequired")
+@ExpectedErrorLog("ERROR com.infenia.yukta.persistence.postgres.R2dbcSessionHistoryStore - ")
 class R2dbcSessionHistoryStoreTest extends PostgresTestSupport {
 
   private static final List<Map<String, String>> TURNS =

@@ -4,6 +4,7 @@ package com.infenia.yukta.plus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 @NoArgsConstructor
 @SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@ExpectedErrorLog("ERROR com.infenia.yukta.plus.FileSessionHistoryStore - ")
 class FileSessionHistoryStoreTest {
 
   @TempDir /* default */ Path dir;
