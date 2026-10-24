@@ -7,7 +7,7 @@ Usage: junit-failures.py <dir> [limit]       failed and flaky tests (nothing if 
        junit-failures.py --durations <dir>   test time per shard and the slowest test classes
        junit-failures.py --flaky-json <dir>  flaky tests as JSON: [{class, name, detail, module}]
        junit-failures.py --failed-json <dir> broken tests as findings for auto-found.sh:
-                                             [{key, title, severity, module, detail}]
+                                             [{key, title, severity, module, detail, repro}]
 
 A test that failed and then passed (the nightly run retries with -PretryFlakyTests) is flaky;
 one that never passed is broken. Shards are the first directory under <dir>, i.e. the
@@ -130,6 +130,16 @@ def severity_of(cls, detail):
     return "Medium"
 
 
+SIMPLE_MODULES = {"boot", "core", "mcp", "messaging", "plugin-api", "web"}
+
+
+def repro_of(cls, module):
+    """The Gradle command that runs one broken test; a plugin lives in a nested project, so it runs
+    the class in every project instead."""
+    task = f":{module}:test" if module in SIMPLE_MODULES else "test"
+    return f"./gradlew {task} --tests '{cls}'"
+
+
 def failed_json(root):
     """Tests that failed and never passed, as findings for auto-found.sh."""
     found = []
@@ -138,7 +148,7 @@ def failed_json(root):
             detail = v["failed"][0][:2000]
             found.append({"key": f"{cls}#{name}", "title": f"Test failure: {cls.split('.')[-1]}.{name}",
                           "severity": severity_of(cls, detail), "module": v["module"] or "",
-                          "detail": detail})
+                          "detail": detail, "repro": repro_of(cls, v["module"])})
     print(json.dumps(found))
 
 

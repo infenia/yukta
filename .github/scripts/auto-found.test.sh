@@ -49,6 +49,15 @@ expect_eq "severity: stuck run and security check are Critical, acceptance High,
 expect_eq "module comes from the report path" "boot core" \
   "$(jq -r 'map(select(.key | test("CoreTest|WorkflowAcceptance")) | .module) | sort | join(" ")' <<<"$failed")"
 
+expect_eq "repro: a simple module runs its own task, a plugin runs the class everywhere" \
+  "./gradlew :core:test --tests 'com.x.CoreTest'|./gradlew :boot:test --tests 'com.y.WorkflowAcceptanceTest'" \
+  "$(jq -r 'map(select(.key | test("CoreTest|WorkflowAcceptance"))) | sort_by(.key) | map(.repro) | join("|")' <<<"$failed")"
+expect_eq "repro: a module outside the simple list" "./gradlew test --tests 'com.p.P'" \
+  "$(python3 -I -c "
+import importlib.util,sys
+spec=importlib.util.spec_from_file_location('jf','$here/junit-failures.py'); m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print(m.repro_of('com.p.P','plugins'))")"
+
 # --- auto-found.sh
 mkdir -p "$work/bin"
 export WORKFLOW="Java CI with Gradle"

@@ -13,7 +13,7 @@
 #
 # Usage: <findings JSON> | auto-found.sh      a JSON array, "[]" when there is none:
 #        [{"key": "com.x.T#m()", "title": "...", "severity": "Critical|High|Medium|Low",
-#          "module": "core", "detail": "text for the issue"}]
+#          "module": "core", "detail": "text for the issue", "repro": "command (optional)"}]
 # Sources: junit-failures.py --failed-json (broken tests, with the seed of a property or fuzz test in
 # the message). A job that measures something else (perf, mutation score) pipes its own array in.
 # Severity: Critical = a stuck run, lost events, a failed security check; High = an acceptance, smoke
@@ -50,7 +50,8 @@ while IFS= read -r finding; do
   [ "$module" != build-logic ] || module=build
   seen+="$(hash "$key") "
   note=$(jq -r --arg run "$RUN_URL" --arg sha "$sha" --arg sev "$severity" \
-    '"Found on `\($sha)` ([run](\($run))), severity **\($sev)**:\n\n```text\n\(.detail)\n```"' <<<"$finding")
+    '"Found on `\($sha)` ([run](\($run))), severity **\($sev)**:\n\n```text\n\(.detail)\n```"
+      + (if (.repro // "") != "" then "\n\nReproduce: `\(.repro)`" else "" end)' <<<"$finding")
   found=$(jq -c --arg m "$(marker "$key")" 'map(select(.body | contains($m))) | first // empty' <<<"$issues")
   if [ -n "$found" ]; then
     number=$(jq -r .number <<<"$found")
