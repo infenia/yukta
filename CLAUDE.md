@@ -86,6 +86,20 @@ Load the below skill for test generation and test improvement.
 - **Description**: Use for generating unit tests (Java, JUnit 5, Mockito, AssertJ).
 
 
+## Picking Up Assigned Issues
+
+When asked to work on "my issues" / "assigned issues", list them yourself; never ask for numbers:
+
+```bash
+gh issue list -R infenia/yukta --assignee @me --state open --json number,title,labels,url
+gh project item-list 5 --owner infenia --limit 700 --format json \
+  -q '.items[] | select(.status=="Ready") | [.content.number, .priority, .module, .title] | @tsv'
+```
+
+Take issues that are both assigned to the user and in Status **Ready**, highest Priority first. An
+issue not in Ready lacks acceptance criteria: report it and ask rather than start. Open the PR with
+`Fixes #<n>` and paste the `yukta-check.sh` RESULT line into its description.
+
 ## Imports
 @.claude/rules/coding-standards.md
 @.claude/rules/git-workflow.md
