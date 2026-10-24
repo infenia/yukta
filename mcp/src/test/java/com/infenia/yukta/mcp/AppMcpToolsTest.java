@@ -75,7 +75,7 @@ class AppMcpToolsTest {
   @Test
   void testGetExecutionResultDelegatesToTheProvider() {
     var results =
-        new com.infenia.yukta.service.result.ExecutionResults("e1", false, null, false, 0, null);
+        new com.infenia.yukta.mcp.dto.ExecutionResultView("e1", false, null, false, 0, null, null);
     when(resultProvider.getExecutionResult("s1", "e1", 3L)).thenReturn(Mono.just(results));
 
     StepVerifier.create(mcpTools.getExecutionResult("s1", "e1", 3L))

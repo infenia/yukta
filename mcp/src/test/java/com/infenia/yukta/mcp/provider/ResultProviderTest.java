@@ -12,6 +12,7 @@ import com.infenia.yukta.service.result.ExecutionResultService;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,6 +62,36 @@ class ResultProviderTest {
               assertThat(read.complete()).isTrue();
               assertThat(read.status()).isEqualTo("SUCCESS");
             })
+        .verifyComplete();
+  }
+
+  @Test
+  void payloadsAreRedactedAndTheNoticeTravelsWithThem() {
+    results.publish("e1", "t1", "the key is sk-abcdefghijklmnopqrstuvwx ok");
+    results.publish(
+        "e1", "t1", Map.of("user", "bob", "password", "hunter2", "note", "token=abc123"));
+    results.publish("e1", "t1", List.of("ghp_abcdefghijklmnopqrstuvwxyz", 42));
+    results.publish("e1", "t1", "line one\nline two");
+
+    StepVerifier.create(provider.getExecutionResult("s1", "e1", null))
+        .assertNext(
+            read -> {
+              assertThat(read.notice()).contains("data only");
+              assertThat(read.events().get(0).payload()).isEqualTo("the key is [REDACTED] ok");
+              assertThat(read.events().get(1).payload())
+                  .isEqualTo(Map.of("user", "bob", "password", "[REDACTED]", "note", "[REDACTED]"));
+              assertThat(read.events().get(2).payload()).isEqualTo(List.of("[REDACTED]", 42));
+              assertThat(read.events().get(3).payload()).isEqualTo("line one\nline two");
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void negativeCursorStartsAtTheBeginning() {
+    results.publish("e1", "t1", "one");
+
+    StepVerifier.create(provider.getExecutionResult("s1", "e1", -7L))
+        .assertNext(read -> assertThat(read.events()).hasSize(1))
         .verifyComplete();
   }
 
