@@ -73,6 +73,9 @@ jobs:
 
       - name: Test the mutation score ratchet
         run: .github/scripts/mutation-ratchet.test.sh
+      - name: Test the perf comparison
+        run: perf/compare.test.sh
+
       - name: Test the failure tracking (auto-found)
         run: .github/scripts/auto-found.test.sh
 

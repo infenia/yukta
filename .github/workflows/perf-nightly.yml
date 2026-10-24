@@ -1,0 +1,136 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Perf nightly
+
+# Builds the jar of main, runs the k6 perf test (2 min) and a 30 minute soak against it in a container with fixed
+# resources (perf/run.sh), and fails on: a stuck run, a lost tracker event, a success rate under 99%, a median or
+# p99 above the baseline, or server memory that keeps rising (perf/compare.py says how much each may move).
+# The baseline is the last green run of main (cache), which absorbs the speed of the hosted runner; until there is
+# one it is perf/baseline.json. Each failure becomes an issue (auto-found.sh). The weekly long run is perf-weekly.yml.
+on:
+  schedule:
+    - cron: '23 20 * * *' # daily, 1:53 AM IST (20:23 UTC)
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  perf:
+    name: Perf and soak against the jar
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      issues: write # file a finding as an issue
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+
+      - name: Set up k6
+        uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1.2.2
+
+      # The p95 of the last green run of main; the key is new every run, so the post step saves this run's
+      # result (written below) only when every step passed.
+      - name: Restore the baseline
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: perf/.baseline
+          key: perf-nightly-baseline-${{ github.run_id }}
+          restore-keys: perf-nightly-baseline-
+
+      - name: Build the jar without the UI, the perf test uses the API
+        run: ./gradlew :boot:bootJar -PskipUi -q --console=plain
+
+      - name: Perf test (10 starts/s, 2 min)
+        run: |
+          for candidate in boot/build/libs/boot-*.jar; do
+            case $candidate in *-plain.jar) ;; *) JAR=$candidate ;; esac
+          done
+          export JAR
+          perf/run.sh perf
+
+      - name: Compare the perf test with the baseline
+        id: compare-perf
+        continue-on-error: true
+        run: |
+          mkdir -p perf/.baseline
+          base=perf/.baseline/baseline.json
+          [ -f "$base" ] || base=perf/baseline.json
+          reports=(perf/reports/perf/*)
+          python3 -I perf/compare.py "${reports[-1]}" --baseline "$base" \
+            --findings findings-perf.json --write-baseline perf/.baseline/baseline.new.json
+
+      - name: Soak (10 starts/s, 30 min)
+        env:
+          DURATION: 30m
+          RATE: '10'
+        run: |
+          for candidate in boot/build/libs/boot-*.jar; do
+            case $candidate in *-plain.jar) ;; *) JAR=$candidate ;; esac
+          done
+          export JAR
+          perf/run.sh soak
+
+      # The soak has no latency baseline of its own; stuck runs, success and its memory trend are checked.
+      - name: Check the soak
+        id: compare-soak
+        continue-on-error: true
+        run: |
+          echo '{}' > "$RUNNER_TEMP/none.json"
+          reports=(perf/reports/soak/*)
+          python3 -I perf/compare.py "${reports[-1]}" --baseline "$RUNNER_TEMP/none.json" \
+            --findings findings-soak.json
+
+      # One issue per finding (.github/scripts/auto-found.sh), then the job fails so the run is red.
+      - name: File what was found
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKFLOW: ${{ github.workflow }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HEAD_SHA: ${{ github.sha }}
+          FAILED: ${{ contains(steps.*.outcome, 'failure') }}
+        run: |
+          jq -s 'add // []' findings-*.json > findings.json 2>/dev/null || echo '[]' > findings.json
+          CONCLUSION=$([ "$FAILED" = true ] && echo failure || echo success) .github/scripts/auto-found.sh < findings.json
+
+      - name: Fail when a check failed
+        if: steps.compare-perf.outcome == 'failure' || steps.compare-soak.outcome == 'failure'
+        run: exit 1
+
+      # Only a run that passed every step becomes the next baseline (the cache is saved by the post step).
+      - name: Keep this run as the next baseline
+        if: github.ref == 'refs/heads/main'
+        run: mv perf/.baseline/baseline.new.json perf/.baseline/baseline.json
+
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: perf-nightly-${{ github.run_id }}
+          path: |
+            perf/reports/*/*/summary.json
+            perf/reports/*/*/meta.json
+            perf/reports/*/*/container-stats.csv
+            perf/reports/*/*/server.log
+            perf/reports/*/*/diagnostics.txt
+            perf/reports/*/*/k6.log
+          if-no-files-found: warn
+          retention-days: 30

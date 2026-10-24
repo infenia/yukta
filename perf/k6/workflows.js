@@ -10,6 +10,13 @@ const MAP = (id) => ({ nodeId: id, type: 'MAPPER', config: { mode: 'TEMPLATE', m
 const OUT = (id) => ({ nodeId: id, type: 'CONSOLE_TERMINAL', config: {} });
 const chain = (...ids) => ids.slice(1).map((target, i) => ({ source: ids[i], target }));
 
+const DELAY = (id, ms) => ({ nodeId: id, type: 'DELAY', config: { delayMs: ms } });
+// a strict SPLITTER whose header mapping 10 / payload.d fails the node with "/ by zero" when d is 0
+const DIV = (id, engine) => ({ nodeId: id, type: 'SPLITTER',
+  config: { itemsPath: 'payload.items', headerMapping: { q: '10 / payload.d' }, strictMode: true,
+            ...(engine && { engine }) } });
+const flaky = () => ({ items: [1], d: Math.random() < 0.3 ? 0 : 1 }); // 30% of the runs fail
+
 const ids = (n) => Array.from({ length: n }, (_, i) => `m${i}`);
 
 export const CATALOG = {
@@ -32,6 +39,20 @@ export const CATALOG = {
   chain10: {
     nodes: [T('t'), ...ids(10).map(MAP), OUT('c')], edges: chain('t', ...ids(10), 'c'),
   },
+  // Chaos: the run may end FAILURE or CANCELLED; the checks only require that it reaches a final status
+  // (workflow_success counts that for these) so stuck_runs covers the error paths.
+  // fails 30% of the runs
+  'chaos-fail': { chaos: true, nodes: [API('t'), DIV('m'), OUT('c')], edges: chain('t', 'm', 'c'), payload: flaky },
+  // the same failure retried (3 attempts), then the message is dropped
+  'chaos-retry': {
+    chaos: true, payload: flaky, edges: chain('t', 'm', 'c'),
+    nodes: [API('t'), DIV('m', { retry: { maxAttempts: 3, backoffMs: 20 }, onError: 'CONTINUE' }), OUT('c')],
+  },
+  // half of the runs are cancelled 100 ms after they start, while the DELAY holds them
+  'chaos-cancel': {
+    chaos: true, cancelAfterMs: 100,
+    nodes: [T('t'), DELAY('d', 300), MAP('m'), OUT('c')], edges: chain('t', 'd', 'm', 'c'),
+  },
   // spawns an OS process: heavy, opt-in only
   process: {
     nodes: [T('t'), { nodeId: 'p', type: 'PROCESS_EXECUTOR',
@@ -41,7 +62,8 @@ export const CATALOG = {
   },
 };
 
-export const DEFAULT = ['trigger-terminal', 'mapper', 'filter', 'chain10', 'fanout'];
+export const DEFAULT = ['trigger-terminal', 'mapper', 'filter', 'chain10', 'fanout',
+  'chaos-fail', 'chaos-retry', 'chaos-cancel'];
 
 export function selected() {
   const names = (__ENV.WORKFLOWS ? __ENV.WORKFLOWS.split(',') : DEFAULT).map((s) => s.trim());

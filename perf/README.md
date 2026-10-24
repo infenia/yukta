@@ -52,7 +52,7 @@ the jar is usually faster after warm-up, so use `load` or `soak` rather than a s
 
 Env: `JAR`, `BINARY`, `CPUS` (2), `CPUSET` (0,1; the cores the server is pinned to), `MEMORY` (8g,
 no swap), `K6_CPUSET` (2-15; keep it off the server cores), `JAVA_OPTS` (jar only,
-`-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Dyukta.rate-limit-per-minute=0`: the per-key limit of 1200 requests/min would otherwise refuse about a third of the starts at 10 starts/s; a native binary ignores `JAVA_OPTS`, so raise the limit another way there), `IMAGE` (per mode, see the table). `RATE`, `RAMP`,
+`-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Dyukta.rate-limit-per-minute=0`: the per-key limit of 1200 requests/min would otherwise refuse about a third of the starts at 10 starts/s; a native binary gets the same flag as an argument (untested in a native run yet)), `IMAGE` (per mode, see the table). `RATE`, `RAMP`,
 `HOLD`, `DURATION`, `WORKFLOWS`, `GRACE`, `LENIENT`, `MAX_REJECTED` are passed to k6.
 
 Report in `perf/reports/<perf|load|soak>/<UTC time>-<jar|native>-<commit>/` (git-ignored): `meta.json` (mode, hash
@@ -64,6 +64,42 @@ code is k6's, so a failed threshold fails the script.
 Reading a failed run: a setup error such as `setup '<workflow>' failed: 400` means no workflow ran (`workflow_success`
 is `0 out of 0`), look in `server.log`. Any `ERROR` count in `diagnostics.txt` is worth reading even when the
 thresholds pass; native mode currently logs 500s from the history endpoint (KNOWN-ISSUES #6).
+
+`PORT=18080 perf/run.sh ...` publishes the server on another host port and names the compose project after it, so a
+run does not collide with another server on 8080 or with a second `run.sh` (both ended runs here with 401s).
+
+## Chaos workflows
+
+`chaos-fail` (30% of the runs fail in a strict SPLITTER), `chaos-retry` (the same failure, retried 3 times, then
+dropped) and `chaos-cancel` (half of the runs are cancelled 100 ms after they start, while a DELAY holds them) are in
+the default set. Their runs may end `FAILURE` or `STOPPED`; `workflow_success` counts any final status for them, so
+`stuck_runs` and `tracker_events_lost` cover the error paths.
+
+## Scheduled runs and regression checks
+
+| Workflow | When | What |
+|---|---|---|
+| `.github/workflows/perf-nightly.yml` | daily | jar of main: `perf` (2 min) then a 30 min `soak`; `compare.py` on both |
+| `.github/workflows/perf-weekly.yml` | Sunday night UTC | quick native build of main: 4 h `soak` and a `load` ramp to 200/s, each on its own runner |
+
+`compare.py <report dir> [--baseline FILE] [--findings FILE] [--write-baseline FILE]` judges a report:
+
+| Check | Fails when |
+|---|---|
+| `stuck_runs`, `tracker_events_lost` | not 0 |
+| success rate | below 99%, overall or per workflow |
+| median latency per workflow | above baseline x 1.25 + 25 ms |
+| p99 latency per workflow | above baseline x 1.30 + 25 ms |
+| memory (runs of 15 minutes or more) | the last tenth of the run is more than 150 MiB above the 20-30% window |
+
+The p95 is deliberately not checked: it moved by up to 13% between identical runs ([BASELINE.md](BASELINE.md))
+while the median moved by 2 ms, and the p99 already covers the tail. The nightly baseline is the last green run of
+main (cache), which absorbs the speed of the hosted runner; until there is one it is `baseline.json` (measured on a
+16-core workstation, so the first hosted runs may need `baseline.json` raised from the uploaded `summary.json`).
+`compare.test.sh` is the table test of the checks. Each failure becomes one `auto-found` issue
+(`.github/scripts/auto-found.sh`) and the job fails; `nightly-report.yml` also opens its "Nightly failure" issue.
+The weekly soak is capped at 4 h because a hosted job stops after 6 h and includes the native build; use a
+self-hosted runner and a longer `DURATION` for 8 h. All limits are provisional until a valid 2 h soak exists.
 
 ## Without a container
 

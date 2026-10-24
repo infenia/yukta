@@ -67,3 +67,4 @@ perf/reports/
 # One-off backlog migration artifacts
 /backlog.json
 /id-map.json
+perf/.baseline/
