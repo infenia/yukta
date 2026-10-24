@@ -136,11 +136,8 @@ describe('BreadcrumbNav', () => {
     it('should have correct background styling', () => {
       const { container } = renderWithRouter(<BreadcrumbNav />);
       const nav = container.querySelector('.flex.h-10');
-      expect(nav).toHaveClass(
-        'border-t',
-        'border-outline-variant',
-        'bg-surface-container-low'
-      );
+      expect(nav).toHaveClass('border-t', 'border-border');
+      expect(nav).not.toHaveClass('bg-surface-container-low');
     });
 
     it('should render breadcrumb list with correct gap', () => {
@@ -193,7 +190,7 @@ describe('BreadcrumbNav', () => {
     it('should apply hover transition to links', () => {
       renderWithRouter(<BreadcrumbNav />);
       const link = screen.getByRole('link', { name: 'Sessions' });
-      expect(link).toHaveClass('transition-colors', 'hover:text-on-surface');
+      expect(link).toHaveClass('transition-standard', 'hover:text-on-surface');
     });
 
     it('should not apply hover effect to current item', () => {

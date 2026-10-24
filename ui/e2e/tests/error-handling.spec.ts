@@ -23,9 +23,11 @@ test.describe('Error Handling - Mocked API Failures', () => {
     await page.goto('/');
     await waitForLoadingComplete(page);
 
-    await expect(page.getByText('No sessions yet')).toBeVisible();
-    const rows = page.locator('tbody tr');
-    await expect(rows).toHaveCount(1);
+    // With no sessions at all, a hero empty state replaces the table and offers the first step
+    const hero = page.getByTestId('sessions-empty-hero');
+    await expect(hero.getByText('No sessions yet')).toBeVisible();
+    await expect(hero.getByRole('link', { name: /New session/ })).toBeVisible();
+    await expect(page.locator('table')).toHaveCount(0);
   });
 
   test('should recover after a reload once the API succeeds', async ({

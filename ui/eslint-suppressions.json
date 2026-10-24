@@ -7,9 +7,6 @@
   "src/features/sessions/components/SessionListPage.tsx": {
     "@typescript-eslint/no-explicit-any": {
       "count": 5
-    },
-    "tailwindcss/no-contradicting-classname": {
-      "count": 2
     }
   },
   "src/features/sessions/components/__tests__/SessionListPage.test.tsx": {

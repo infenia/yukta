@@ -5,7 +5,11 @@ import { ExecutionResultBlock } from './ExecutionResultBlock';
 import { ExecutionSummaryBlock } from './ExecutionSummaryBlock';
 import type { NodeCommand } from './NodeControlsMenu';
 import { TaskSequenceList } from './TaskSequenceList';
-import type { TaskProgress, WorkflowGraph, WorkflowProgress } from '../types/workflow';
+import type {
+  TaskProgress,
+  WorkflowGraph,
+  WorkflowProgress,
+} from '../types/workflow';
 
 /** The closable WORKFLOW PROGRESS side panel: execution summary, result + task sequence. */
 export function ProgressPanel({
@@ -25,25 +29,32 @@ export function ProgressPanel({
 }) {
   return (
     <aside
-      className="flex w-95 shrink-0 flex-col overflow-y-auto border-l border-outline-variant bg-surface"
+      className="border-border bg-background flex w-95 shrink-0 flex-col overflow-y-auto border-l"
       data-testid="progress-panel"
       aria-label="Workflow progress"
     >
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
-        <h2 className="text-sm font-semibold tracking-wider text-on-surface">WORKFLOW PROGRESS</h2>
+        <h2 className="text-on-surface text-label-md">Workflow progress</h2>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close workflow progress panel"
-          className="flex size-6 items-center justify-center text-on-surface-variant transition-colors hover:text-on-surface"
+          className="text-on-surface-variant hover:bg-muted hover:text-on-surface transition-standard flex size-7 items-center justify-center rounded-lg"
         >
           <span className="material-symbols-outlined text-lg">close</span>
         </button>
       </div>
       <div className="flex flex-col gap-6 p-4">
         <ExecutionSummaryBlock progress={progress} sessionId={sessionId} />
-        <ExecutionResultBlock sessionId={sessionId} executionId={progress?.executionId ?? null} />
-        <TaskSequenceList graph={graph} tasksByNode={tasksByNode} onNodeCommand={onNodeCommand} />
+        <ExecutionResultBlock
+          sessionId={sessionId}
+          executionId={progress?.executionId ?? null}
+        />
+        <TaskSequenceList
+          graph={graph}
+          tasksByNode={tasksByNode}
+          onNodeCommand={onNodeCommand}
+        />
       </div>
     </aside>
   );

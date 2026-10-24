@@ -51,9 +51,7 @@ export const columns: LegacyColumnDef<SessionListItem>[] = [
     accessorKey: 'projectPath',
     header: 'Project Path',
     cell: ({ row }: any) => (
-      <div className="text-body-sm font-mono">
-        {row.getValue('projectPath')}
-      </div>
+      <div className="text-code-sm">{row.getValue('projectPath')}</div>
     ),
   },
   {

@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { Background, BackgroundVariant, ReactFlow, ReactFlowProvider } from '@xyflow/react';
+import {
+  Background,
+  BackgroundVariant,
+  ReactFlow,
+  ReactFlowProvider,
+} from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { WorkflowNodeCard } from '@/features/workflow/components/nodes/WorkflowNodeCard';
 import {
@@ -21,11 +26,18 @@ export function PluginCanvasPreview({ plugin }: { plugin: PluginDetails }) {
     position: { x: 0, y: 0 },
     width: DEFAULT_NODE_WIDTH,
     height: DEFAULT_NODE_HEIGHT,
-    data: { status: 'completed', hideDescription: true, node: { ...plugin, nodeId: plugin.type } },
+    data: {
+      status: 'completed',
+      hideDescription: true,
+      node: { ...plugin, nodeId: plugin.type },
+    },
   };
 
   return (
-    <div className="h-80 overflow-hidden rounded-xl border border-outline-variant" data-testid="plugin-canvas-preview">
+    <div
+      className="border-border bg-card shadow-card h-80 overflow-hidden rounded-xl border"
+      data-testid="plugin-canvas-preview"
+    >
       <ReactFlowProvider>
         <ReactFlow
           key={plugin.type}

@@ -55,14 +55,10 @@ describe('cn', () => {
 
   it('should handle complex nested structures', () => {
     const isDisabled = false;
-    const result = cn(
-      'px-4 py-2',
-      ['rounded', 'border'],
-      {
-        'bg-gray-100': !isDisabled,
-        'opacity-50': isDisabled,
-      }
-    );
+    const result = cn('px-4 py-2', ['rounded', 'border'], {
+      'bg-gray-100': !isDisabled,
+      'opacity-50': isDisabled,
+    });
     expect(result).toContain('px-4');
     expect(result).toContain('py-2');
     expect(result).toContain('rounded');
@@ -123,5 +119,23 @@ describe('cn', () => {
     const result = cn('shadow-sm', 'shadow-lg');
     expect(result).toContain('shadow-lg');
     expect(result).not.toContain('shadow-sm');
+  });
+
+  it('should keep a named type utility next to a text colour', () => {
+    expect(cn('text-label-sm', 'text-success')).toBe(
+      'text-label-sm text-success'
+    );
+    expect(cn('text-overline', 'text-on-surface')).toBe(
+      'text-overline text-on-surface'
+    );
+  });
+
+  it('should merge named type utilities with font sizes', () => {
+    expect(cn('text-xs', 'text-body-md')).toBe('text-body-md');
+    expect(cn('text-code-sm', 'text-headline-lg')).toBe('text-headline-lg');
+  });
+
+  it('should merge the named elevation utilities', () => {
+    expect(cn('shadow-card', 'shadow-raised')).toBe('shadow-raised');
   });
 });

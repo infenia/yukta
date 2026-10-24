@@ -7,13 +7,15 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { ApiError } from '@/lib/apiClient';
 import { saveSession } from '../api';
 import type { SessionDraft } from '../types';
 
-
 /** A session needs a workflow, so a new one starts with a trigger wired to a console terminal. */
-export function starterSession(fields: Omit<SessionDraft, 'workflows' | 'tags'>): SessionDraft {
+export function starterSession(
+  fields: Omit<SessionDraft, 'workflows' | 'tags'>
+): SessionDraft {
   return {
     ...fields,
     tags: {},
@@ -52,7 +54,9 @@ export function SessionFormPage() {
     try {
       await saveSession(starterSession(fields));
       await queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      navigate(`/sessions/${encodeURIComponent(fields.sessionId)}/workflow/main/edit`);
+      navigate(
+        `/sessions/${encodeURIComponent(fields.sessionId)}/workflow/main/edit`
+      );
     } catch (e) {
       // fetchApi only throws Error subclasses
       setError(
@@ -73,15 +77,22 @@ export function SessionFormPage() {
         id={`s-${key}`}
         required
         value={fields[key]}
-        onChange={(event) => setFields({ ...fields, [key]: event.target.value })}
+        onChange={(event) =>
+          setFields({ ...fields, [key]: event.target.value })
+        }
       />
-      {hint && <span className="text-body-sm text-on-surface-variant">{hint}</span>}
+      {hint && (
+        <span className="text-body-sm text-on-surface-variant">{hint}</span>
+      )}
     </div>
   );
 
   return (
-    <form onSubmit={submit} className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-6 sm:px-6">
-      <h1 className="text-headline-lg text-on-surface">New session</h1>
+    <form
+      onSubmit={submit}
+      className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-6 sm:px-6"
+    >
+      <PageHeader title="New session" />
       {field('sessionId', 'Session ID')}
       {field('name', 'Name')}
       {field('description', 'Description')}

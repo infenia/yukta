@@ -3,6 +3,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
@@ -113,6 +114,15 @@ describe('SupervisorsPanel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Failed to load supervisors'
     );
+  });
+
+  it('retries after a failure', async () => {
+    fail = true;
+    renderWithProviders(<SupervisorsPanel />);
+    await screen.findByRole('alert');
+    fail = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText(/None running/)).toBeInTheDocument();
   });
 
   it('shows a loading state first', () => {
