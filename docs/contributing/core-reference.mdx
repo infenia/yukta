@@ -1098,6 +1098,8 @@ All meters are Micrometer. Tags in braces.
 - `STOPPED` · `CANCELLED` · `TIMED_OUT`
 - `SKIPPED` · `UPSTREAM_FAILED` · `ABORTED`
 
+`SKIPPED` is a node that never ran (no input reached it, or the run ended first); an operator skip is the separate `NODE_SKIPPED` control state.
+
 `ABORTED` is given on boot to a run that never finished.
 
 **Policy values**
