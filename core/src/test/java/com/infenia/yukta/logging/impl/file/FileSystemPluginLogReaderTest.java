@@ -122,6 +122,18 @@ class FileSystemPluginLogReaderTest {
   }
 
   @Test
+  void unrecognisedEscapesInOlderFilesAreKeptVerbatim() throws IOException {
+    final Path sessionDir = Files.createDirectories(tempDir.resolve(SESSION_ID));
+    Files.writeString(
+        sessionDir.resolve("exec-old.log"),
+        "2026-07-02T10:00:00 | STDOUT | INFO | p | P | tab\\t and nl\\n\n");
+
+    assertThat(reader.readExecution("exec-old").collectList().block())
+        .extracting(PluginLogEntry::message)
+        .containsExactly("tab\\t and nl\n");
+  }
+
+  @Test
   void testReadSession() throws IOException {
     final Path sessionDir = Files.createDirectories(tempDir.resolve(SESSION_ID));
     Files.writeString(

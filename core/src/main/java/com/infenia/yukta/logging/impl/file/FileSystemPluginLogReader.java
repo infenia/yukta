@@ -19,6 +19,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -44,6 +45,9 @@ public class FileSystemPluginLogReader implements PluginLogReader {
 
   /** A backslash and the character after it. */
   private static final Pattern ESCAPE = Pattern.compile("\\\\(.)", Pattern.DOTALL);
+
+  /** What the character after a backslash stands for. */
+  private static final Map<String, String> ESCAPES = Map.of("n", "\n", "r", "\r", "\\", "\\");
 
   /** Minimum number of parts expected in a parsed log line. */
   private static final int MIN_LOG_PARTS = 6;
@@ -293,24 +297,19 @@ public class FileSystemPluginLogReader implements PluginLogReader {
    * @return the original message with newlines and carriage returns restored
    */
   private static String unescapeMessage(final String message) {
+    // not an escape of ours (older files): keep both characters
     return ESCAPE
         .matcher(message)
         .replaceAll(
-            match ->
-                Matcher.quoteReplacement(
-                    switch (match.group(1)) {
-                      case "n" -> "\n";
-                      case "r" -> "\r";
-                      case "\\" -> "\\";
-                      default -> match.group(); // not an escape of ours (older files): keep both
-                    }));
+            match -> Matcher.quoteReplacement(ESCAPES.getOrDefault(match.group(1), match.group())));
   }
 
-  /** The file name without its trailing {@code .log}; an id that contains ".log" keeps it. */
+  /**
+   * The file name without its trailing {@code .log} (callers only pass {@code .log} files); an id
+   * containing ".log" keeps it.
+   */
   private static String stripExtension(final String fileName) {
-    return fileName.endsWith(LOG_FILE_EXTENSION)
-        ? fileName.substring(0, fileName.length() - LOG_FILE_EXTENSION.length())
-        : fileName;
+    return fileName.substring(0, fileName.length() - LOG_FILE_EXTENSION.length());
   }
 
   private Instant parseTimestamp(final String timestampStr) {
