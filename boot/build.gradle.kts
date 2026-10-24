@@ -99,6 +99,9 @@ tasks.withType<Test>().configureEach {
     providers.gradleProperty("yukta.persistence").orNull?.let { systemProperty("yukta.persistence", it) }
     providers.gradleProperty("yukta.edition").orNull?.let { systemProperty("yukta.edition", it) }
     providers.gradleProperty("yukta.workers").orNull?.let { systemProperty("yukta.workers", it) }
+    // DagPropertyAcceptanceTest: -PdagTries=<cases per property>, -PdagSeed=<number>|random (nightly)
+    providers.gradleProperty("dagTries").orNull?.let { systemProperty("yukta.dag.tries", it) }
+    providers.gradleProperty("dagSeed").orNull?.let { systemProperty("yukta.dag.seed", it) }
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
