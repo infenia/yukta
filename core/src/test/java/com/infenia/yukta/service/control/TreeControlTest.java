@@ -25,46 +25,49 @@ class TreeControlTest {
   private final TreeControl control = new TreeControl(tracker);
   private final List<String> commanded = new CopyOnWriteArrayList<>();
 
-  private static WorkflowExecutionSummary run(final String id, final String status) {
+  private static final String TOP = "top";
+  private static final String BROKEN = "broken";
+
+  private static WorkflowExecutionSummary run(final String executionId, final String status) {
     return new WorkflowExecutionSummary(
-        id, "wf", status, LocalDateTime.now(), null, "top", "top", null);
+        executionId, "wf", status, LocalDateTime.now(), null, TOP, TOP, null);
   }
 
   private Mono<Void> record(final String executionId) {
     commanded.add(executionId);
-    return "broken".equals(executionId)
+    return BROKEN.equals(executionId)
         ? Mono.error(new IllegalStateException("refused"))
         : Mono.empty();
   }
 
   @Test
   void withoutTree_onlyTheRunGetsTheCommand() {
-    StepVerifier.create(control.apply("top", false, this::record)).verifyComplete();
+    StepVerifier.create(control.apply(TOP, false, this::record)).verifyComplete();
 
-    assertThat(commanded).containsExactly("top");
+    assertThat(commanded).containsExactly(TOP);
     verifyNoInteractions(tracker);
   }
 
   @Test
   void withTree_theRunThenEveryUnfinishedRunBelowGetsIt_andRefusalsBelowAreSkipped() {
-    when(tracker.getTree("top"))
+    when(tracker.getTree(TOP))
         .thenReturn(
             List.of(
-                run("top", "RUNNING"),
+                run(TOP, "RUNNING"),
                 run("child", "RUNNING"),
-                run("broken", "PAUSED"),
+                run(BROKEN, "PAUSED"),
                 run("queued", "QUEUED"),
                 run("pending", "PENDING"),
                 run("done", "SUCCESS")));
 
-    StepVerifier.create(control.apply("top", true, this::record)).verifyComplete();
+    StepVerifier.create(control.apply(TOP, true, this::record)).verifyComplete();
 
-    assertThat(commanded).containsExactly("top", "child", "broken", "queued", "pending");
+    assertThat(commanded).containsExactly(TOP, "child", BROKEN, "queued", "pending");
   }
 
   @Test
-  void withTree_aRefusalOfTheRunItselfIsTheResult() {
-    StepVerifier.create(control.apply("broken", true, this::record)).verifyErrorMessage("refused");
+  void withTree_refusalOfTheRunItselfIsTheResult() {
+    StepVerifier.create(control.apply(BROKEN, true, this::record)).verifyErrorMessage("refused");
     verifyNoInteractions(tracker);
   }
 }

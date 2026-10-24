@@ -11,7 +11,6 @@ import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
-import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
@@ -191,10 +190,10 @@ class DefaultTaskTrackerServiceTest {
     tracker.recordLineage("t-other", null, null);
 
     assertThat(tracker.getTree("t-top"))
-        .extracting(WorkflowExecutionSummary::executionId)
+        .extracting(com.infenia.yukta.model.execution.WorkflowExecutionSummary::executionId)
         .containsExactlyInAnyOrder("t-top", "t-child", "t-grandchild");
     assertThat(tracker.getTree("t-child"))
-        .extracting(WorkflowExecutionSummary::executionId)
+        .extracting(com.infenia.yukta.model.execution.WorkflowExecutionSummary::executionId)
         .containsExactlyInAnyOrder("t-child", "t-grandchild");
     assertThat(tracker.getTree("nope")).isEmpty();
   }

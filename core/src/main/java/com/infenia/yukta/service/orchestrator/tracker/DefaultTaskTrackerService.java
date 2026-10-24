@@ -465,7 +465,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   public List<WorkflowExecutionSummary> getTree(@NotBlank final String rootExecutionId) {
     return executionIndex.values().stream()
         .filter(state -> isWithin(state.executionId, rootExecutionId))
-        .map(WorkflowState::summary)
+        .map(ExecutionHistory::summary)
         .sorted(Comparator.comparing(WorkflowExecutionSummary::startTime))
         .toList();
   }

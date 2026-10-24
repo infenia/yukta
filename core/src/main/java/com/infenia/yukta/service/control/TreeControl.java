@@ -42,24 +42,23 @@ public class TreeControl {
   public Mono<Void> apply(
       final String executionId, final boolean tree, final Function<String, Mono<?>> command) {
     final Mono<Void> top = Mono.defer(() -> command.apply(executionId)).then();
-    if (!tree) {
-      return top;
-    }
-    return top.then(
-        Flux.defer(() -> Flux.fromIterable(below(executionId)))
-            .concatMap(
-                child ->
-                    Mono.defer(() -> command.apply(child))
-                        .then()
-                        .onErrorResume(
-                            e -> {
-                              log.atDebug()
-                                  .addKeyValue("executionId", child)
-                                  .addKeyValue("error", e.getMessage())
-                                  .log("A run of the tree did not take the command");
-                              return Mono.empty();
-                            }))
-            .then());
+    return tree
+        ? top.then(
+            Flux.defer(() -> Flux.fromIterable(below(executionId)))
+                .concatMap(
+                    child ->
+                        Mono.defer(() -> command.apply(child))
+                            .then()
+                            .onErrorResume(
+                                e -> {
+                                  log.atDebug()
+                                      .addKeyValue("executionId", child)
+                                      .addKeyValue("error", e.getMessage())
+                                      .log("A run of the tree did not take the command");
+                                  return Mono.empty();
+                                }))
+                .then())
+        : top;
   }
 
   private List<String> below(final String executionId) {
