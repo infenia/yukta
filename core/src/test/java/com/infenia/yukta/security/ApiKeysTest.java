@@ -99,6 +99,13 @@ class ApiKeysTest {
     final var basic = new HttpHeaders();
     basic.set(HttpHeaders.AUTHORIZATION, "Basic abc");
 
+    final var lower = new HttpHeaders();
+    lower.set(HttpHeaders.AUTHORIZATION, "bearer abc");
+    final var upper = new HttpHeaders();
+    upper.set(HttpHeaders.AUTHORIZATION, "BEARER abc");
+
+    assertThat(ApiKeys.presented(lower)).isEqualTo("abc");
+    assertThat(ApiKeys.presented(upper)).isEqualTo("abc");
     assertThat(ApiKeys.presented(bearer)).isEqualTo("abc");
     assertThat(ApiKeys.presented(header)).isEqualTo("xyz");
     assertThat(ApiKeys.presented(basic)).isEmpty();
