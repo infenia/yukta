@@ -368,6 +368,43 @@ class VariableResolverTest {
   }
 
   @Test
+  void startVariables_readNestedPathsOfTheRunsStartPayload() {
+    final Map<String, Object> start = Map.of("project", "/p", "ci", Map.of("branch", "main"));
+
+    StepVerifier.create(
+            resolver
+                .resolve("${start.project}")
+                .contextWrite(ctx -> ctx.put(VariableResolver.START_PAYLOAD_KEY, start)))
+        .expectNext("/p")
+        .verifyComplete();
+    StepVerifier.create(
+            resolver
+                .resolve("on ${start.ci.branch} in ${start.project}")
+                .contextWrite(ctx -> ctx.put(VariableResolver.START_PAYLOAD_KEY, start)))
+        .expectNext("on main in /p")
+        .verifyComplete();
+  }
+
+  @Test
+  void startVariables_resolveToNothing_forEngineEntriesMissingPathsAndRunsWithoutPayload() {
+    final Map<String, Object> start = Map.of("yukta.depth", 2, "yukta", Map.of("x", 1));
+
+    StepVerifier.create(
+            resolver
+                .resolve("${start.yukta.depth}")
+                .contextWrite(ctx -> ctx.put(VariableResolver.START_PAYLOAD_KEY, start)))
+        .expectComplete()
+        .verify();
+    StepVerifier.create(
+            resolver
+                .resolve("${start.nope}")
+                .contextWrite(ctx -> ctx.put(VariableResolver.START_PAYLOAD_KEY, start)))
+        .expectComplete()
+        .verify();
+    StepVerifier.create(resolver.resolve("${start.project}")).expectComplete().verify();
+  }
+
+  @Test
   void contextVariables_hideEngineEntriesAndObjects() {
     StepVerifier.create(
             resolver

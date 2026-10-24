@@ -22,6 +22,7 @@ Any string in a node's `config` can contain a **placeholder** written `${...}`. 
 | `${payload}` | The whole payload of the message being processed |
 | `${payload.a.b}` | A nested field of the payload (maps only, dot-separated) |
 | `${metadata.key}` | A label on the message, for example `${metadata.signal.decision}` |
+| `${start.a.b}` | A field of the run's start payload: what the run was started with, or what a parent's `SUB_WORKFLOW` handed it. Every node can read it, however many nodes lie in between, unlike `${payload...}`, which is only the message in hand. The engine's own `yukta.*` entries are hidden |
 | `${env.NAME}` | An environment variable of the server, if allowed (see below) |
 | `${sys.name}` | A system setting of the server, if allowed (see below) |
 | `decrypted:name` | A secret, looked up by name. Write the whole value as `decrypted:name` |

@@ -234,10 +234,11 @@ Runs another workflow of the same session for each message and emits what that w
 | Option | Type | Default | Meaning |
 |---|---|---|---|
 | `workflowId` | string | none, required | The workflow to run. It must exist in the same session |
-| `payload` | map | the message payload | The start payload of the child. Values are used as written. When omitted, the message payload is used if it is an object, otherwise `{"input": <payload>}` |
+| `payload` | map | the message payload | The start payload of the child. Its values may use `${...}` variables, for example `${start.project}` or `${payload.id}`; a value that resolves to nothing is left out. When omitted, the message payload is used if it is an object, otherwise `{"input": <payload>}` |
 | `timeoutSeconds` | number | `300` | Longest time the child may run |
+| `routeByOutcome` | boolean | `false` | Route on how the child ended instead of failing when it fails |
 
-Output port: `default`. Messages are handled one at a time. The output payload is `{"executionId": "...", "results": [...]}`: the child's own execution id and the payload of every message that reached a terminal node of the child, in order. The node fails when the workflow does not exist, the child fails, or `timeoutSeconds` passes.
+Output port: `default`, or with `routeByOutcome` one of `success`, `failure`, `retry`, `escalate`: the outcome of the [outcome terminal](/plugins/terminals) the child reached (`FAILED` goes to `failure`), `failure` for a child that failed or timed out, and `success` for one that reached no outcome terminal. Messages are handled one at a time. The output payload is `{"executionId": "...", "results": [...], "status": "...", "outcome": "...", "reason": "..."}`: the child's own execution id, the payload of every message that reached a terminal node of the child, in order, how the child ended (`SUCCESS`, `FAILURE` or `TIMED_OUT`), and the outcome and reason of its outcome terminal (absent when it reached none). Without `routeByOutcome` the node fails when the child fails; in either case it fails when the workflow does not exist or `timeoutSeconds` passes.
 
 The child is a normal execution with its own id. It is tracked and controllable like any other. It does not take an execution slot of its own: it uses the slot its parent holds, so it does not count towards the admission limits. The child's start payload also carries `yukta.depth` and `yukta.parentExecutionId`. Workflows can nest at most 5 levels deep, which stops a workflow from starting itself forever.
 

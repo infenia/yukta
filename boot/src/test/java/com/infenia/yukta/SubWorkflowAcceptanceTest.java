@@ -181,6 +181,73 @@ class SubWorkflowAcceptanceTest {
   }
 
   @Test
+  void startVariables_reachEveryNodeOfTheChild_fromTheSubWorkflowPayload() {
+    final String session = "sub-" + UUID.randomUUID();
+    definitions
+        .save(
+            session,
+            new WorkflowDefinition(
+                "child",
+                "reads its start payload two nodes in",
+                List.of(
+                    new Node("t", "CONSTANT_SOURCE", Map.of()),
+                    new Node(
+                        "first",
+                        "PROCESS_EXECUTOR",
+                        Map.of("command", List.of("echo", "first"), "outputFormat", "RAW")),
+                    new Node(
+                        "second",
+                        "PROCESS_EXECUTOR",
+                        Map.of(
+                            "command",
+                            List.of("echo", "project=${start.project}"),
+                            "outputFormat",
+                            "RAW")),
+                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                List.of(
+                    new Edge("t", "first", null),
+                    new Edge("first", "second", null),
+                    new Edge("second", "end", null))))
+        .block();
+
+    final SubWorkflowGateway.Result result =
+        subWorkflows
+            .run(session, "child", Map.of("project", "/work/x"), "parent-run", 1)
+            .block(WAIT);
+
+    assertThat(result).isNotNull();
+    assertThat(String.valueOf(result.results())).contains("project=/work/x");
+
+    // a parent hands its own start payload on: SUB_WORKFLOW payload values are templated
+    definitions
+        .save(
+            session,
+            new WorkflowDefinition(
+                "parent",
+                "passes its start payload on",
+                List.of(
+                    new Node("t", "CONSTANT_SOURCE", Map.of()),
+                    new Node(
+                        "sub",
+                        "SUB_WORKFLOW",
+                        Map.of(
+                            "workflowId", "child", "payload", Map.of("project", "${start.root}"))),
+                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                List.of(new Edge("t", "sub", null), new Edge("sub", "end", null))))
+        .block();
+    final WorkflowProgress parent =
+        awaitTerminal(
+            gateway.startWorkflow(session, "parent", Map.of("root", "/from/parent")).block());
+    assertThat(parent.status()).isEqualTo("SUCCESS");
+    assertThat(executionLog.readAll())
+        .filteredOn(
+            event ->
+                event.type() == ExecutionLogEvent.Type.RUN_STARTED
+                    && "/from/parent".equals(event.payload().get("project")))
+        .isNotEmpty();
+  }
+
+  @Test
   void unknownChildAndTooDeepNesting_areRefused() {
     final String session = "sub-" + UUID.randomUUID();
 

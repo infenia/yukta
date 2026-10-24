@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +41,8 @@ class SubWorkflowProcessorTest {
 
   private final SubWorkflowGateway runner = mock(SubWorkflowGateway.class);
   private final ObjectProvider<SubWorkflowGateway> provider = mock(ObjectProvider.class);
-  private final SubWorkflowProcessor processor = new SubWorkflowProcessor(provider);
+  private final ObjectProvider<VariableResolver> variables = mock(ObjectProvider.class);
+  private final SubWorkflowProcessor processor = new SubWorkflowProcessor(provider, variables);
 
   private Flux<Message<?>> run(final Object payload, final Map<String, Object> config) {
     return processor
@@ -96,6 +98,29 @@ class SubWorkflowProcessorTest {
     verify(runner, org.mockito.Mockito.times(2))
         .run(anyString(), anyString(), start.capture(), anyString(), anyInt());
     assertThat(start.getAllValues()).containsExactly(Map.of("input", "text"), Map.of("x", 1));
+  }
+
+  @Test
+  void configuredPayloadValues_areResolved_andValuesThatResolveToNothingAreLeftOut() {
+    available();
+    final VariableResolver resolver = mock(VariableResolver.class);
+    when(variables.getIfAvailable()).thenReturn(resolver);
+    when(resolver.resolve(eq("${start.project}"), org.mockito.ArgumentMatchers.any()))
+        .thenReturn(Mono.just("/work"));
+    when(resolver.resolve(eq("${start.none}"), org.mockito.ArgumentMatchers.any()))
+        .thenReturn(Mono.empty());
+    when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
+        .thenReturn(Mono.just(new SubWorkflowGateway.Result("c", List.of())));
+    final Map<String, Object> payload =
+        Map.of("project", "${start.project}", "missing", "${start.none}");
+
+    StepVerifier.create(run("x", Map.of("workflowId", "child", "payload", payload)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    final ArgumentCaptor<Map<String, Object>> start = ArgumentCaptor.forClass(Map.class);
+    verify(runner).run(anyString(), anyString(), start.capture(), anyString(), anyInt());
+    assertThat(start.getValue()).isEqualTo(Map.of("project", "/work"));
   }
 
   @Test
