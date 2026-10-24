@@ -95,12 +95,18 @@ class HostAllowListTest {
             "http://user@169.254.43518:80/", // user info and port around a host URI rejects
             "http://[fe80::1]/",
             "http://[febf::1]/",
+            "http://[::ffff:169.254.169.254]/", // IPv4-mapped IPv6
+            "http://[::ffff:a9fe:a9fe]/",
+            "http://[fd00:ec2::254]/", // AWS IPv6 metadata
             "http://metadata.google.internal/computeMetadata/v1/")) {
       assertThat(none.refusalFor(url, "p")).as(url).contains("link-local or cloud metadata");
     }
-    assertThat(none.refusalFor("http://a:b:c/", "p")).isNull(); // no readable host, no list
+    assertThat(none.refusalFor("http://a:b:c/", "p")).contains("no readable host");
     assertThat(HostAllowList.from(List.of("x.com")).refusalFor("http://a:b:c/", "p"))
         .contains("no host");
+    assertThat(none.refusalFor("http://[::ffff:8.8.8.8]/", "p")).isNull(); // mapped, public
+    assertThat(none.refusalFor("http://[::ffff:808:808]/", "p")).isNull();
+    assertThat(none.refusalFor("http://[::ffff:1:2:3]/", "p")).isNull();
     assertThat(none.refusalFor("http://localhost:8080/", "p")).isNull();
     assertThat(none.refusalFor("http://example.com/", "p")).isNull();
     assertThat(none.refusalFor("http://1234abc.example.com/", "p")).isNull();
