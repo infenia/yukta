@@ -354,6 +354,52 @@
   letter-spacing: 0px;
 }
 
+/* The docs home page's hero backdrop (.yk-landing::before): a soft blue glow over a faint
+   2.5rem grid, faded out towards the bottom. Put it on an absolutely positioned, aria-hidden layer
+   behind a page header; never behind tables or text-dense content. */
+@utility hero-backdrop {
+  background-image:
+    radial-gradient(
+      ellipse 60% 70% at 50% 0%,
+      color-mix(in oklch, var(--primary) 16%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size:
+    auto,
+    2.5rem 2.5rem,
+    2.5rem 2.5rem;
+  mask-image: linear-gradient(to bottom, #000 30%, transparent);
+  opacity: 0.7;
+}
+
+/* A live status: a solid dot with an expanding ring, as on the docs site (.yk-live). Size and
+   colour come from the element (e.g. size-2 bg-attention); reduced motion stops the ring. */
+@utility live-dot {
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: inherit;
+    animation: live-ring 2.4s var(--ease-out-soft) infinite;
+  }
+}
+
+@keyframes live-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  70%,
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+
 /* Section and table labels: small, semibold, muted (the docs' table head and sidebar group) */
 @utility text-overline {
   font-family: var(--font-sans);

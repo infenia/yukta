@@ -56,7 +56,7 @@ export function PendingApprovals({ sessionId, workflowId }: Props) {
           key={`${approval.executionId}-${approval.nodeId}-${approval.name}`}
           className="flex items-center gap-3"
         >
-          <span className="text-on-surface text-sm">
+          <span className="text-on-surface text-body-md">
             <span className="font-mono">{approval.nodeId}</span> waits for “
             {approval.name}” (run{' '}
             <span className="font-mono">

@@ -3,6 +3,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchApi } from '@/lib/apiClient';
+import { StateMessage } from '@/components/common/StateMessage';
 import {
   Table,
   TableBody,
@@ -47,23 +48,23 @@ export function SupervisorsPanel() {
       aria-labelledby="supervisors-heading"
       className="flex flex-col gap-2"
     >
-      <h2
-        id="supervisors-heading"
-        className="text-on-surface text-lg font-semibold"
-      >
+      <h2 id="supervisors-heading" className="text-on-surface text-headline-md">
         Supervisors and control planes
       </h2>
       {supervisors.error ? (
-        <p role="alert" className="text-error">
-          Failed to load supervisors
-        </p>
+        <StateMessage
+          tone="error"
+          title="Failed to load supervisors"
+          onRetry={() => void supervisors.refetch()}
+          compact
+        />
       ) : supervisors.isPending ? (
-        <p className="text-on-surface-variant">Loading…</p>
+        <StateMessage tone="loading" title="Loading…" compact />
       ) : supervisors.data.length === 0 ? (
-        <p className="text-on-surface-variant">
-          None running. Enable a rule supervisor or a control plane in the
-          server configuration.
-        </p>
+        <StateMessage title="None running." icon="shield" compact>
+          Enable a rule supervisor or a control plane in the server
+          configuration.
+        </StateMessage>
       ) : (
         <TableFrame>
           <Table>

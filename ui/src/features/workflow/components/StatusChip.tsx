@@ -11,7 +11,7 @@ const CATEGORY_CLASSES: Record<
 > = {
   running: {
     chip: 'border-primary/40 bg-primary/10 text-primary',
-    dot: 'bg-attention animate-pulse',
+    dot: 'live-dot bg-attention',
   },
   success: {
     chip: 'border-success/40 bg-success/10 text-success',

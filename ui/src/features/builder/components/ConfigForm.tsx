@@ -2,12 +2,17 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState } from 'react';
+import {
+  NativeSelect,
+  inputFieldClassName,
+  textareaFieldClassName,
+} from '@/components/ui/native-select';
 import type { ConfigField } from '@/features/plugins/types';
 
 type Values = Record<string, unknown>;
 
-const INPUT =
-  'w-full rounded-lg border border-outline-variant bg-surface px-2 py-1 text-sm text-on-surface';
+const INPUT = inputFieldClassName;
+const TEXTAREA = `${textareaFieldClassName} text-code-sm`;
 
 /** LIST and MAP values are edited as JSON; the draft text is kept until it parses. */
 export function JsonField({
@@ -19,7 +24,9 @@ export function JsonField({
   value: unknown;
   onChange: (value: unknown) => void;
 }) {
-  const [text, setText] = useState(value === undefined ? '' : JSON.stringify(value, null, 2));
+  const [text, setText] = useState(
+    value === undefined ? '' : JSON.stringify(value, null, 2)
+  );
   const [error, setError] = useState(false);
 
   return (
@@ -30,7 +37,7 @@ export function JsonField({
         spellCheck={false}
         value={text}
         aria-invalid={error}
-        className={`${INPUT} font-mono text-xs`}
+        className={TEXTAREA}
         onChange={(event) => {
           setText(event.target.value);
           if (!event.target.value.trim()) {
@@ -46,7 +53,7 @@ export function JsonField({
           }
         }}
       />
-      {error && <span className="text-xs text-error">Not valid JSON</span>}
+      {error && <span className="text-body-sm text-error">Not valid JSON</span>}
     </>
   );
 }
@@ -67,25 +74,28 @@ function FieldInput({
         <input
           id={id}
           type="checkbox"
-          checked={value === undefined ? field.defaultValue === true : value === true}
+          checked={
+            value === undefined ? field.defaultValue === true : value === true
+          }
           onChange={(event) => onChange(event.target.checked)}
         />
       );
     case 'ENUM':
       return (
-        <select
+        <NativeSelect
           id={id}
-          className={INPUT}
           value={typeof value === 'string' ? value : ''}
           onChange={(event) => onChange(event.target.value || undefined)}
         >
-          <option value="">{field.defaultValue ? `Default (${field.defaultValue})` : '—'}</option>
+          <option value="">
+            {field.defaultValue ? `Default (${field.defaultValue})` : '—'}
+          </option>
           {field.options.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       );
     case 'NUMBER':
       return (
@@ -93,10 +103,14 @@ function FieldInput({
           id={id}
           type="number"
           className={INPUT}
-          placeholder={field.defaultValue == null ? undefined : String(field.defaultValue)}
+          placeholder={
+            field.defaultValue == null ? undefined : String(field.defaultValue)
+          }
           value={typeof value === 'number' ? value : ''}
           onChange={(event) =>
-            onChange(event.target.value === '' ? undefined : Number(event.target.value))
+            onChange(
+              event.target.value === '' ? undefined : Number(event.target.value)
+            )
           }
         />
       );
@@ -109,7 +123,7 @@ function FieldInput({
           id={id}
           rows={2}
           spellCheck={false}
-          className={`${INPUT} font-mono text-xs`}
+          className={TEXTAREA}
           value={typeof value === 'string' ? value : ''}
           onChange={(event) => onChange(event.target.value || undefined)}
         />
@@ -142,7 +156,9 @@ export function ConfigForm({
     // An unset field is dropped so the plugin default applies.
     onChange(
       Object.fromEntries(
-        Object.entries({ ...values, [name]: value }).filter(([, v]) => v !== undefined)
+        Object.entries({ ...values, [name]: value }).filter(
+          ([, v]) => v !== undefined
+        )
       )
     );
   };
@@ -151,7 +167,10 @@ export function ConfigForm({
     <div className="flex flex-col gap-3">
       {schema.map((field) => (
         <div key={field.name} className="flex flex-col gap-1">
-          <label htmlFor={`cfg-${field.name}`} className="text-xs font-semibold text-on-surface">
+          <label
+            htmlFor={`cfg-${field.name}`}
+            className="text-label-sm text-on-surface font-semibold"
+          >
             {field.name}
             {field.required && <span className="text-error"> *</span>}
           </label>
@@ -161,7 +180,9 @@ export function ConfigForm({
             onChange={(value) => set(field.name, value)}
           />
           {field.description && (
-            <span className="text-xs text-on-surface-variant">{field.description}</span>
+            <span className="text-body-sm text-on-surface-variant">
+              {field.description}
+            </span>
           )}
         </div>
       ))}

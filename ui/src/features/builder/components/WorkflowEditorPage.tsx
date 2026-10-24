@@ -19,10 +19,11 @@ import type {
   ValidationResult,
 } from '../types';
 import { NodeInspector } from './NodeInspector';
+import { StateMessage } from '@/components/common/StateMessage';
+import { Callout } from '@/components/common/Callout';
+import { NativeSelect } from '@/components/ui/native-select';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
-const SELECT =
-  'h-8 rounded-lg border border-outline-variant bg-surface px-2 text-sm text-on-surface';
 const NO_TASKS = {};
 
 // fetchApi only throws Error subclasses
@@ -162,8 +163,8 @@ function Editor({
 
   return (
     <div className="flex flex-1 flex-col" data-testid="workflow-editor">
-      <div className="border-outline-variant flex flex-wrap items-center gap-3 border-b px-4 py-3 sm:px-6">
-        <h1 className="text-on-surface text-headline-md">
+      <div className="border-border flex flex-wrap items-center gap-3 border-b px-4 py-3 sm:px-6">
+        <h1 className="text-on-surface text-headline-lg">
           Edit {workflow.workflowId}
         </h1>
         <Input
@@ -172,7 +173,7 @@ function Editor({
           value={workflow.description}
           maxLength={256}
           onChange={(event) => update({ description: event.target.value })}
-          className="w-72"
+          className="w-full sm:w-72"
         />
         <div className="ml-auto flex items-center gap-2">
           <button
@@ -198,16 +199,23 @@ function Editor({
           message={error ?? (result && !result.valid ? result.message : null)}
         />
         {result?.valid && (
-          <p className="text-success text-sm">Workflow is valid.</p>
+          <Callout kind="success" compact>
+            Workflow is valid.
+          </Callout>
         )}
       </div>
 
-      <div className="flex min-h-100 flex-1">
-        <aside className="border-outline-variant flex w-80 shrink-0 flex-col gap-4 overflow-y-auto border-r p-4">
+      {/* Three columns from lg up; on phones and tablets the panels stack (list, canvas,
+          inspector) so each one gets the full width */}
+      <div className="flex min-h-100 flex-1 flex-col lg:flex-row">
+        <aside
+          aria-label="Nodes and edges"
+          className="border-border flex w-full shrink-0 flex-col gap-4 border-b p-4 lg:w-80 lg:overflow-y-auto lg:border-r lg:border-b-0"
+        >
           <div className="flex gap-2">
-            <select
+            <NativeSelect
               aria-label="Plugin type"
-              className={`${SELECT} min-w-0 flex-1`}
+              className="min-w-0 flex-1"
               value={newType}
               onChange={(event) => setNewType(event.target.value)}
             >
@@ -224,27 +232,27 @@ function Editor({
                   </optgroup>
                 )
               )}
-            </select>
+            </NativeSelect>
             <button type="button" className={BUTTON} onClick={addNode}>
               Add node
             </button>
           </div>
 
-          <ul className="flex flex-col" aria-label="Nodes">
+          <ul className="flex flex-col gap-0.5" aria-label="Nodes">
             {workflow.nodes.map((n) => (
               <li key={n.nodeId}>
                 <button
                   type="button"
                   aria-current={n.nodeId === selected}
                   onClick={() => setSelected(n.nodeId)}
-                  className={`flex w-full items-baseline gap-2 border-l-2 px-3 py-2 text-left text-sm ${
+                  className={`text-body-md transition-standard flex w-full items-baseline gap-2 rounded-lg px-3 py-2 text-left ${
                     n.nodeId === selected
-                      ? 'border-primary bg-surface-container-low font-semibold'
-                      : 'border-outline-variant'
+                      ? 'bg-accent text-accent-foreground font-semibold'
+                      : 'text-on-surface hover:bg-muted'
                   }`}
                 >
                   {n.nodeId}
-                  <span className="text-on-surface-variant font-mono text-xs">
+                  <span className="text-on-surface-variant text-code-sm">
                     {n.type}
                   </span>
                 </button>
@@ -253,23 +261,21 @@ function Editor({
           </ul>
 
           <div className="flex flex-col gap-2">
-            <h2 className="text-on-surface text-xs font-semibold tracking-wider">
-              EDGES
-            </h2>
-            <ul aria-label="Edges" className="flex flex-col gap-1 text-sm">
+            <h2 className="text-overline">Edges</h2>
+            <ul aria-label="Edges" className="text-body-md flex flex-col gap-1">
               {workflow.edges.map((e, index) => (
                 <li
                   key={`${e.source}-${e.target}-${e.sourcePort}`}
                   className="flex items-center"
                 >
-                  <span className="font-mono text-xs">
+                  <span className="text-code-sm">
                     {e.source}
                     {e.sourcePort ? `:${e.sourcePort}` : ''} → {e.target}
                   </span>
                   <button
                     type="button"
                     aria-label={`Remove edge ${e.source} to ${e.target}`}
-                    className="text-error ml-auto text-xs"
+                    className="text-error text-body-sm ml-auto"
                     onClick={() =>
                       update({
                         edges: workflow.edges.filter((_, i) => i !== index),
@@ -282,9 +288,8 @@ function Editor({
               ))}
             </ul>
             <div className="flex flex-wrap gap-1">
-              <select
+              <NativeSelect
                 aria-label="Edge source"
-                className={SELECT}
                 value={edge.source}
                 onChange={(event) =>
                   setEdge({
@@ -298,10 +303,9 @@ function Editor({
                 {workflow.nodes.map((n) => (
                   <option key={n.nodeId}>{n.nodeId}</option>
                 ))}
-              </select>
-              <select
+              </NativeSelect>
+              <NativeSelect
                 aria-label="Edge port"
-                className={SELECT}
                 value={edge.sourcePort ?? ''}
                 onChange={(event) =>
                   setEdge({ ...edge, sourcePort: event.target.value || null })
@@ -311,10 +315,9 @@ function Editor({
                 {(ports[edge.source] ?? []).map((port) => (
                   <option key={port}>{port}</option>
                 ))}
-              </select>
-              <select
+              </NativeSelect>
+              <NativeSelect
                 aria-label="Edge target"
-                className={SELECT}
                 value={edge.target}
                 onChange={(event) =>
                   setEdge({ ...edge, target: event.target.value })
@@ -324,18 +327,21 @@ function Editor({
                 {workflow.nodes.map((n) => (
                   <option key={n.nodeId}>{n.nodeId}</option>
                 ))}
-              </select>
+              </NativeSelect>
               <button type="button" className={BUTTON} onClick={addEdge}>
                 Add edge
               </button>
             </div>
-            <p className="text-on-surface-variant text-xs">
+            <p className="text-on-surface-variant text-body-sm">
               Validate to list a node&apos;s ports for its configuration.
             </p>
           </div>
         </aside>
 
-        <div className="min-w-0 flex-1">
+        <div
+          data-testid="editor-canvas"
+          className="h-80 min-w-0 shrink-0 lg:h-auto lg:flex-1"
+        >
           <WorkflowCanvas
             key={workflow.nodes.length}
             graph={graph}
@@ -343,7 +349,10 @@ function Editor({
           />
         </div>
 
-        <aside className="border-outline-variant w-96 shrink-0 overflow-y-auto border-l p-4">
+        <aside
+          aria-label="Node inspector"
+          className="border-border w-full shrink-0 border-t p-4 lg:w-96 lg:overflow-y-auto lg:border-t-0 lg:border-l"
+        >
           {node ? (
             <NodeInspector
               key={node.nodeId}
@@ -383,14 +392,21 @@ export function WorkflowEditorPage() {
   // a save from another tab). So wait for the fetch this mount starts; later refetches keep the draft.
   const [openedAt] = useState(Date.now);
 
-  if (session.isPending || (session.isSuccess && session.dataUpdatedAt < openedAt)) {
-    return <p className="text-on-surface-variant p-6">Loading…</p>;
+  if (
+    session.isPending ||
+    (session.isSuccess && session.dataUpdatedAt < openedAt)
+  ) {
+    return (
+      <div className="px-4 py-6 sm:px-6">
+        <StateMessage tone="loading" title="Loading…" />
+      </div>
+    );
   }
   if (session.error) {
     return (
-      <p role="alert" className="text-error p-6">
-        Failed to load session
-      </p>
+      <div className="px-4 py-6 sm:px-6">
+        <StateMessage tone="error" title="Failed to load session" />
+      </div>
     );
   }
   const initial = session.data.workflows[workflowId] ?? {

@@ -34,9 +34,7 @@ export function ProgressPanel({
       aria-label="Workflow progress"
     >
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
-        <h2 className="text-on-surface text-sm font-semibold tracking-wider">
-          WORKFLOW PROGRESS
-        </h2>
+        <h2 className="text-on-surface text-label-md">Workflow progress</h2>
         <button
           type="button"
           onClick={onClose}

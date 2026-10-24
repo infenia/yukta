@@ -30,7 +30,7 @@ const CATEGORIES: { key: PluginCategory; label: string }[] = [
 
 function PluginDetail({ type }: { type: string }) {
   const { data: plugin, isPending, error } = usePlugin(type);
-  if (isPending) return <p className="text-on-surface-variant">Loading…</p>;
+  if (isPending) return <StateMessage tone="loading" title="Loading…" />;
   if (error || !plugin) {
     return <StateMessage tone="error" title={`Failed to load ${type}.`} />;
   }
@@ -63,7 +63,7 @@ function PluginDetail({ type }: { type: string }) {
         )}
         <section>
           <h3 className="text-on-surface text-label-md mb-1.5">Output ports</h3>
-          <p className="text-on-surface-variant text-sm">{ports}</p>
+          <p className="text-on-surface-variant text-body-md">{ports}</p>
         </section>
         {plugin.configSchema && plugin.configSchema.length > 0 && (
           <section>
@@ -123,9 +123,9 @@ export function PluginsPage() {
 
   if (isPending)
     return (
-      <p className="text-on-surface-variant px-4 py-6 sm:px-6">
-        Loading plugins…
-      </p>
+      <div className="px-4 py-6 sm:px-6">
+        <StateMessage tone="loading" title="Loading plugins…" />
+      </div>
     );
   if (error) {
     return (
@@ -198,7 +198,7 @@ export function PluginsPage() {
           {selected ? (
             <PluginDetail type={selected} />
           ) : (
-            <p>No plugins available.</p>
+            <StateMessage title="No plugins available." icon="extension" />
           )}
         </div>
       </div>
