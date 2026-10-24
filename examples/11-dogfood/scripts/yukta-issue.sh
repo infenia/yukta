@@ -14,6 +14,7 @@
 # Environment: YUKTA_ISSUE (number) or, for the epic steps, YUKTA_EPIC and YUKTA_BAD_COUNT; YUKTA_REPO_DIR (the main checkout), YUKTA_WORKTREE, YUKTA_IMPL_SESSION (a uuid),
 # YUKTA_CHECK_EXECUTION (pr: the execution of the check), YUKTA_GH_REPO (default infenia/yukta), YUKTA_GH (gh),
 # YUKTA_IMPL_MODEL (opus), YUKTA_IMPL_BUDGET (USD, 5), YUKTA_PROJECT_STATUS_CMD (tests: replaces the project update).
+# YUKTA_WARM_DELAY (seconds, 20) spreads the starts of the implementers.
 # Budgets (USD, optional): YUKTA_BUDGET_ISSUE caps what one issue spends (the implementer and its fixers), YUKTA_BUDGET_EPIC
 # what all issues of the epic do; implement refuses to start over either.
 # State per issue: <repo>/.yukta-dev/issue-<n>/ (claimed, brief.md, implement.json, implement.out).
@@ -96,6 +97,18 @@ TXT
     if over "${YUKTA_BUDGET_ISSUE:-}" "$spent"; then nope "issue #$n has spent \$$spent, its budget is \$$YUKTA_BUDGET_ISSUE (YUKTA_BUDGET_ISSUE)"; fi
     epic_spent="$(cost_in "$repo"/.yukta-dev/issue-*/implement.json "$repo"/../yukta-issue-*/.yukta-dev/heal/check/*-[0-9]*.json)"
     if over "${YUKTA_BUDGET_EPIC:-}" "$epic_spent"; then nope "the issues have spent \$$epic_spent, the budget of the epic is \$$YUKTA_BUDGET_EPIC (YUKTA_BUDGET_EPIC)"; fi
+    # Implementers start YUKTA_WARM_DELAY seconds apart (20): the first one writes the cache entry for the prompt prefix
+    # (system prompt and tools), the next ones find it. ponytail: a delay, not a wait for the first response.
+    delay="${YUKTA_WARM_DELAY:-20}"
+    if ((delay > 0)); then
+      exec 8>"$repo/.yukta-dev/implement.lock"
+      flock 8
+      last="$(cat "$repo/.yukta-dev/implement.last" 2>/dev/null || echo 0)"
+      wait=$((last + delay - $(date +%s)))
+      ((wait > 0)) && sleep "$wait"
+      date +%s >"$repo/.yukta-dev/implement.last"
+      exec 8>&-
+    fi
     # shellcheck source=_claude.sh
     source "$here/_claude.sh"
     : "${YUKTA_IMPL_SESSION:?YUKTA_IMPL_SESSION is required}"

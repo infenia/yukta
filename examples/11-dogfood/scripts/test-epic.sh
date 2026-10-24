@@ -17,7 +17,7 @@ git clone -q "$dir/origin.git" "$repo"
 git -C "$repo" config user.email t@t
 git -C "$repo" config user.name t
 export YUKTA_REPO_ROOT="$repo" YUKTA_CLAUDE_BIN="$dir/claude" YUKTA_GH="$dir/gh" YUKTA_PROJECT_STATUS_CMD="$dir/project-status"
-export YUKTA_CHECK_EXTRAS=off GIT_AUTHOR_NAME=t GIT_COMMITTER_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_EMAIL=t@t
+export YUKTA_WARM_DELAY=2 YUKTA_CHECK_EXTRAS=off GIT_AUTHOR_NAME=t GIT_COMMITTER_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_EMAIL=t@t
 
 exec_id="" session=""
 # start KIND N FLAGS...: yk run KIND N --detach; sets exec_id and session
@@ -65,6 +65,8 @@ grep -q -- "--head issue/7" "$dir/gh.log" && grep -q -- "--head issue/8" "$dir/g
 mapfile -t starts < <(grep "model=opus" "$dir/claude.log" | cut -d' ' -f1 | sort -n)
 ((${#starts[@]} == 2)) || fail "expected 2 implementers: $(cat "$dir/claude.log")"
 awk -v a="${starts[0]}" -v b="${starts[1]}" 'BEGIN { exit !(b - a < 3.5) }' || fail "the issues did not run at the same time (${starts[*]})"
+# ...but the second implementer started YUKTA_WARM_DELAY seconds after the first, to find its prompt cached
+awk -v a="${starts[0]}" -v b="${starts[1]}" 'BEGIN { exit !(b - a >= 1.8) }' || fail "the implementers started together, not spread (${starts[*]})"
 [[ -e "$dir/work/yukta-issue-7/feature.txt" && -e "$dir/work/yukta-issue-8/feature.txt" ]] || fail "a worktree is missing"
 "$yk" tree "${exec_id:0:8}" | grep -c "run-issue" | grep -q 2 || fail "the tree does not show both issue runs"
 echo "ok   two issues at once"
