@@ -175,6 +175,9 @@
 - name: dependencies
   color: "0366d6"
   description: Pull requests that update a dependency file
+- name: dependabot
+  color: "0366d6"
+  description: Opened by Dependabot; the project's Auto-add filter skips it
 - name: java
   color: ffa221
   description: Pull requests that update java code
