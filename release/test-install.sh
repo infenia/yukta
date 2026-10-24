@@ -17,7 +17,7 @@ version=9.9.9-test
 rel="$work/srv/v$version"
 mkdir -p "$rel" "$work/stage/yukta-$version-linux-amd64"
 printf '#!/bin/sh\necho server\n' > "$work/stage/yukta-$version-linux-amd64/yukta"
-printf '#!/bin/sh\necho client\n' > "$work/stage/yukta-$version-linux-amd64/yukta-cli"
+printf '#!/bin/sh\n[ "${1:-}" = --version ] && echo "yukta-cli version 9.9.9-test" || echo client\n' > "$work/stage/yukta-$version-linux-amd64/yukta-cli"
 chmod +x "$work"/stage/*/yukta*
 tar -C "$work/stage" -czf "$rel/yukta-$version-linux-amd64.tar.gz" "yukta-$version-linux-amd64"
 cp "$work/stage/yukta-$version-linux-amd64/yukta-cli" "$rel/yukta-cli-linux-amd64"
@@ -78,6 +78,16 @@ curl -fsS "file://$script" 2>/dev/null | sh -s -- --version "$version" --install
 echo "6. uninstall"
 sh "$script" --install-dir "$work/a" --uninstall >/dev/null
 [[ ! -e "$work/a/yukta" && ! -e "$work/a/yukta-cli" ]] || fail "uninstall"
+
+echo "6b. upgrade keeps *.prev, same version short-circuits, --check reports"
+mkdir -p "$work/u"; printf '#!/bin/sh\necho old\n' > "$work/u/yukta"; chmod +x "$work/u/yukta"
+out="$(sh "$script" --version "$version" --install-dir "$work/u")"
+[[ "$("$work/u/yukta.prev")" == old && "$("$work/u/yukta")" == server ]] || fail "previous server not kept"
+grep -q "kept as \*.prev" <<<"$out" || fail "no rollback hint"
+grep -q "checksum" <<<"$out" || fail "no verification line"
+sh "$script" --version "$version" --install-dir "$work/u" | grep -q "already installed" || fail "no up-to-date message"
+sh "$script" --version "$version" --install-dir "$work/u" --check >/dev/null || fail "--check should pass when current"
+if sh "$script" --version 9.9.8 --install-dir "$work/u" --check >/dev/null; then fail "--check should fail when behind"; fi
 
 echo "7. bad input"
 if sh "$script" --bogus 2>/dev/null; then fail "unknown option accepted"; fi

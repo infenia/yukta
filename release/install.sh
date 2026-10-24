@@ -16,12 +16,17 @@
 #                         default: /usr/local/bin as root, else ~/.local/bin
 #   --cli-only            install only yukta-cli
 #   --server-only         install only the server
+#   --check               say whether a newer release exists; install nothing (exit 1 if behind)
+#   --force               reinstall even when this version is already installed
 #   --uninstall           remove yukta and yukta-cli from the install directory
 #   --help
 #
 # What it does: downloads SHA256SUMS and the files for your system from the GitHub release,
-# refuses to continue if a checksum does not match, and copies the programs into place. It does
-# not use sudo, change your shell profile or send anything anywhere but GitHub.
+# refuses to continue if a checksum does not match (and, when cosign is installed, if the Sigstore
+# signature of SHA256SUMS does not verify), and copies the programs into place. Running it again
+# upgrades: the previous programs are kept as yukta.prev and yukta-cli.prev, and to roll back you
+# can move them back or pass --version <old>. It does not use sudo, change your shell profile or
+# send anything anywhere but GitHub.
 #
 # Native server downloads exist for Linux. On macOS the script installs the client and tells you how to
 # run the server with Docker, until a native macOS server is published.
@@ -48,6 +53,8 @@ Options (environment variable in brackets):
                         default: /usr/local/bin as root, else ~/.local/bin
   --cli-only            install only yukta-cli
   --server-only         install only the server
+  --check               say whether a newer release exists; install nothing (exit 1 if behind)
+  --force               reinstall even when this version is already installed
   --uninstall           remove yukta and yukta-cli from the install directory
   --help
 USAGE
@@ -78,7 +85,41 @@ get_verified() {
   want="$(awk -v f="$1" '$2 == f || $2 == "*" f { print $1; exit }' "$tmp/SHA256SUMS")"
   [ -n "$want" ] || err "$1 is not listed in SHA256SUMS"
   [ "$(sha256_of "$tmp/$1")" = "$want" ] || err "checksum mismatch for $1; not installing"
-  say "  verified $1"
+  say "  verified    $1"
+}
+
+# Verify the Sigstore signature of SHA256SUMS when cosign is installed; say what was checked.
+verify_signature() {
+  verified="checksum"
+  if ! command -v cosign >/dev/null 2>&1; then
+    sig_note="signature not checked (install cosign to check it)"; return
+  fi
+  if ! fetch_quiet "$BASE_URL/v$version/SHA256SUMS.sigstore.json" "$tmp/SHA256SUMS.sigstore.json"; then
+    sig_note="signature not checked (this release has no SHA256SUMS.sigstore.json)"; return
+  fi
+  cosign verify-blob --bundle "$tmp/SHA256SUMS.sigstore.json" \
+    --certificate-identity-regexp "^https://github.com/$REPO/" \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    "$tmp/SHA256SUMS" >/dev/null 2>&1 || err "signature of SHA256SUMS does not verify; not installing"
+  verified="checksum, signature (cosign)"; sig_note=""
+}
+
+fetch_quiet() {
+  if command -v curl >/dev/null 2>&1; then curl -fsSL --retry 3 -o "$2" "$1" 2>/dev/null
+  else wget -q -O "$2" "$1" 2>/dev/null; fi
+}
+
+# Size of a download in MB, or nothing when the server does not say.
+size_mb() {
+  command -v curl >/dev/null 2>&1 || return 0
+  bytes="$(curl -fsSLI "$1" 2>/dev/null | awk 'tolower($1) == "content-length:" { n = $2 + 0 } END { if (n) print n }')"
+  [ -z "$bytes" ] || printf '%s MB' "$((bytes / 1048576))"
+}
+
+# Version of the yukta-cli in <dir>, or nothing. The server cannot report its version.
+installed_version() {
+  [ -x "$1/yukta-cli" ] || return 0
+  "$1/yukta-cli" --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?' | head -n 1 || true
 }
 
 latest_version() {
@@ -94,7 +135,7 @@ latest_version() {
 main() {
   version="${YUKTA_VERSION:-}"
   dir="${YUKTA_INSTALL_DIR:-}"
-  do_cli=1; do_server=1; uninstall=0
+  do_cli=1; do_server=1; uninstall=0; check=0; force=0
 
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -102,6 +143,8 @@ main() {
       --install-dir) [ $# -ge 2 ] || err "--install-dir needs a value"; dir="$2"; shift ;;
       --cli-only) do_server=0 ;;
       --server-only) do_cli=0 ;;
+      --check) check=1 ;;
+      --force) force=1 ;;
       --uninstall) uninstall=1 ;;
       -h | --help) usage; exit 0 ;;
       *) err "unknown option $1 (see --help)" ;;
@@ -146,16 +189,36 @@ main() {
   printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' ||
     err "'$version' is not a version (expected X.Y.Z or X.Y.Z-rc.1)"
 
+  found="$(installed_version "$dir")"
+  if [ "$check" = "1" ]; then
+    say "installed: ${found:-none in $dir}"
+    say "latest:    $version"
+    [ "$found" != "$version" ] || exit 0
+    say "A newer release is available; run this script again to upgrade."
+    exit 1
+  fi
+  if [ "$found" = "$version" ] && [ "$force" = "0" ]; then
+    say "Yukta $version is already installed in $dir (use --force to reinstall)."
+    exit 0
+  fi
+
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT INT TERM
 
-  say "Installing Yukta $version for $os/$arch into $dir"
+  say "Yukta installer"
+  if [ -n "$found" ]; then say "  found:      $found in $dir"; elif [ -e "$dir/yukta" ]; then say "  found:      an unknown version in $dir"; fi
+  size=""
+  [ "$do_server" = "0" ] || size="$(size_mb "$BASE_URL/v$version/yukta-$version-$os-$arch.tar.gz")"
+  say "  installing: $version  ($os/$arch${size:+, $size})  into $dir"
   fetch "$BASE_URL/v$version/SHA256SUMS" "$tmp/SHA256SUMS"
+  verify_signature
 
   mkdir -p "$dir" 2>/dev/null || true
   [ -d "$dir" ] && [ -w "$dir" ] ||
     err "cannot write to $dir; choose another with --install-dir, or run as root"
 
+  keep_prev() { if [ -f "$dir/$1" ]; then cp -p "$dir/$1" "$dir/$1.prev"; prev_kept=1; fi; }
+  prev_kept=0
   archive="yukta-$version-$os-$arch.tar.gz"
   cli_asset="yukta-cli-$os-$arch"
   installed_server=0
@@ -168,12 +231,13 @@ main() {
     for f in yukta yukta-cli; do
       [ -f "$src/$f" ] && [ ! -L "$src/$f" ] || err "$archive does not contain a regular file $f; not installing"
     done
-    [ "$do_server" = "1" ] && { install -m 0755 "$src/yukta" "$dir/yukta"; installed_server=1; }
-    [ "$do_cli" = "1" ] && install -m 0755 "$src/yukta-cli" "$dir/yukta-cli"
+    [ "$do_server" = "1" ] && { keep_prev yukta; install -m 0755 "$src/yukta" "$dir/yukta"; installed_server=1; }
+    [ "$do_cli" = "1" ] && { keep_prev yukta-cli; install -m 0755 "$src/yukta-cli" "$dir/yukta-cli"; }
   else
     [ "$do_server" = "0" ] || [ "$do_cli" = "1" ] || err "this release has no native server for $os/$arch; use Docker"
     if [ "$do_cli" = "1" ]; then
       get_verified "$cli_asset"
+      keep_prev yukta-cli
       install -m 0755 "$tmp/$cli_asset" "$dir/yukta-cli"
     fi
   fi
@@ -182,8 +246,24 @@ main() {
   [ "$do_server" = "0" ] || [ "$installed_server" = "1" ] ||
     say "Note: this release has no native server for $os/$arch yet. Run the server with Docker instead:
   docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:$version"
-  [ "$installed_server" = "0" ] || say "Installed: $dir/yukta (server)"
-  [ "$do_cli" = "0" ] || say "Installed: $dir/yukta-cli (client)"
+  say "  verified:   $verified${sig_note:+  [$sig_note]}"
+  [ "$installed_server" = "0" ] || say "Installed: $dir/yukta (server) $version"
+  [ "$do_cli" = "0" ] || say "Installed: $dir/yukta-cli (client) $version"
+  if [ "$prev_kept" = "1" ]; then
+    say "Previous version kept as *.prev; to roll back move them back, or run again with --version <old>."
+  fi
+  if [ "$installed_server" = "1" ] && command -v pgrep >/dev/null 2>&1 && pgrep -x yukta >/dev/null 2>&1; then
+    say ""
+    say "Note: a yukta server is running and keeps running the old version. Stop it, start the new one"
+    say "and re-apply your sessions; sessions and runs kept in memory are lost on restart (set"
+    say "YUKTA_BOOTSTRAP_DIR to reload them; see https://yukta.infenia.com/operations/persistence)."
+  fi
+  for f in yukta yukta-cli; do
+    [ -f "$dir/$f" ] || continue
+    other="$(command -v "$f" 2>/dev/null || true)"
+    [ -z "$other" ] || [ "$other" = "$dir/$f" ] ||
+      say "Warning: $other comes first on your PATH and hides the $f just installed."
+  done
 
   case ":$PATH:" in
     *":$dir:"*) ;;

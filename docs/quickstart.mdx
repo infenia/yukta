@@ -29,7 +29,7 @@ You need a terminal and `curl`.
         yukta
         ```
 
-        The script checks file checksums, never uses `sudo`, and installs `yukta` (server) and `yukta-cli` (client) into `/usr/local/bin` as root or `~/.local/bin` otherwise.
+        The script checks file checksums (and the Sigstore signature when `cosign` is installed), never uses `sudo`, upgrades in place when run again (see [Upgrade and roll back](/operations/deployment#upgrade-and-roll-back)), and installs `yukta` (server) and `yukta-cli` (client) into `/usr/local/bin` as root or `~/.local/bin` otherwise.
       </Tab>
       <Tab title="Docker" icon="docker">
         ```bash
