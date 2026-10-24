@@ -333,4 +333,36 @@ class ExecutionControlControllerTest {
         .isEqualTo(false);
     org.assertj.core.api.Assertions.assertThat(scheduler.acquire("s1", "wf").refused()).isFalse();
   }
+
+  @Test
+  void drainStatus_isNotIdleWhileAStartWaits() {
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(
+            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+    final ExecutionScheduler.Permit running = limited.acquire("s1", "wf").permit().block();
+    limited.acquire("s1", "wf");
+    running.release();
+    limited.acquire("s1", "other");
+    final WebTestClient waiting =
+        WebTestClient.bindToController(
+                new ExecutionControlController(
+                    controlBus,
+                    new ExecutionAccess(controlBus),
+                    resumer,
+                    new TreeControl(tracker),
+                    limited))
+            .build();
+
+    waiting
+        .get()
+        .uri("/api/admin/drain")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.running")
+        .isEqualTo(1)
+        .jsonPath("$.data.queued")
+        .isEqualTo(1)
+        .jsonPath("$.data.idle")
+        .isEqualTo(false);
+  }
 }
