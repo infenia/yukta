@@ -6,6 +6,7 @@ package controlbus
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"com.infenia.yukta/go-cli/internal/client"
 )
@@ -99,7 +100,11 @@ func (p *problemFilter) reasonLines(e client.ExecutionEvent) []string {
 
 func (p *problemFilter) admit(node, level, line string) []string {
 	if len(line) > maxProblemLineLength {
-		line = line[:maxProblemLineLength] + "…"
+		cut := maxProblemLineLength
+		for cut > 0 && !utf8.RuneStart(line[cut]) { // never cut inside a multi-byte character
+			cut--
+		}
+		line = line[:cut] + "…"
 	}
 	key := node + "\x00" + line
 	if p.seen[key] {

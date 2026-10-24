@@ -55,6 +55,9 @@ func (t *Timestamp) UnmarshalJSON(data []byte) error {
 // MarshalJSON writes the timestamp as it was read: RFC 3339, or the zone-less text of an older
 // server.
 func (t Timestamp) MarshalJSON() ([]byte, error) {
+	if t.IsZero() { // not set: null, not a real-looking year 1
+		return []byte("null"), nil
+	}
 	if t.zoneless {
 		return json.Marshal(t.Format(timestampLayout))
 	}
