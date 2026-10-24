@@ -31,5 +31,5 @@ value. `p50` is stable to 2 ms.
   8080.
 - **Harness fixes found on the way** (in this change): `run.sh` hardcoded `boot-0.0.1-SNAPSHOT.jar`, so every run
   died with `Invalid or corrupt jarfile`; and the default per-key API limit (1200 requests/min) refused 34% of the
-  starts at 10 starts/s, so the benchmark server now sets `yukta.rate-limit-per-minute=0`. A native binary ignores
-  `JAVA_OPTS`, so the limit still applies there.
+  starts at 10 starts/s, so the benchmark server now sets `yukta.rate-limit-per-minute=0`. A native binary gets the same
+  setting as a command-line argument (not yet tried in a native run).
