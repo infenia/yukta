@@ -8,6 +8,8 @@ import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -32,6 +34,9 @@ public class NodeRunner {
 
   /** Type of a message as plain JSON values. */
   private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() {};
+
+  /** How many causes of a failure are sent to the control plane. */
+  private static final int MAX_CAUSES = 10;
 
   /** Finds the plugins of this server. */
   private final PluginRegistry plugins;
@@ -86,7 +91,11 @@ public class NodeRunner {
     final NodeFrame start = first.get();
     final Optional<String> problem = problem(start);
     Flux<NodeFrame> result =
-        Flux.just(NodeFrame.error(IllegalArgumentException.class.getName(), problem.orElse("")));
+        Flux.just(
+            NodeFrame.error(
+                IllegalArgumentException.class.getName(),
+                problem.orElse(""),
+                types(new IllegalArgumentException())));
     if (problem.isEmpty()) {
       active.incrementAndGet();
       final ProcessorPlugin plugin = (ProcessorPlugin) plugins.get(start.pluginType());
@@ -108,7 +117,9 @@ public class NodeRunner {
                   error ->
                       Flux.just(
                           NodeFrame.error(
-                              error.getClass().getName(), String.valueOf(error.getMessage()))))
+                              error.getClass().getName(),
+                              String.valueOf(error.getMessage()),
+                              types(error))))
               .contextWrite(
                   ctx ->
                       ctx.put("executionId", String.valueOf(start.executionId()))
@@ -143,5 +154,19 @@ public class NodeRunner {
       why = Optional.of("this worker does not run " + type);
     }
     return why;
+  }
+
+  /** Class names of a failure, its superclasses and its causes, so the engine can match them. */
+  /* default */ static List<String> types(final Throwable error) {
+    final Set<String> names = new LinkedHashSet<>();
+    Throwable cause = error;
+    // bounded, so a cause chain that loops back on itself cannot spin forever
+    for (int depth = 0; cause != null && depth < MAX_CAUSES; depth++) {
+      for (Class<?> type = cause.getClass(); type != Object.class; type = type.getSuperclass()) {
+        names.add(type.getName());
+      }
+      cause = cause.getCause();
+    }
+    return List.copyOf(names);
   }
 }

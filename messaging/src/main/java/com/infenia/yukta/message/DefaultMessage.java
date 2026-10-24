@@ -85,6 +85,7 @@ public record DefaultMessage<T>(
   @Override
   @SuppressWarnings("PMD.OptimizableToArrayCall") // one extra slot is filled below
   public Message<T> withAddedHistory(final String nodeId) {
+    Objects.requireNonNull(nodeId, "nodeId must not be null when stamping message history");
     final int size = messageHistory.size();
     final List<String> tail = messageHistory.subList(Math.max(0, size - (MAX_HISTORY - 1)), size);
     final String[] history = tail.toArray(new String[tail.size() + 1]);

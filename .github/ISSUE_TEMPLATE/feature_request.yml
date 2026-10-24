@@ -17,6 +17,14 @@ body:
     attributes:
       label: Proposed solution
       description: Alternatives considered are welcome too.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How we will know it is done, as a short checklist.
+      placeholder: "- [ ] ..."
+    validations:
+      required: true
   - type: dropdown
     id: module
     attributes:

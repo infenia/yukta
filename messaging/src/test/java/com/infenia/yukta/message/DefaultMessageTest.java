@@ -127,6 +127,15 @@ class DefaultMessageTest {
   }
 
   @Test
+  void addingNullNodeToHistoryNamesTheProblem() {
+    final Message<String> msg = DefaultMessage.create(UUID.randomUUID(), "p");
+
+    assertThatThrownBy(() -> msg.withAddedHistory(null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessageContaining("nodeId");
+  }
+
+  @Test
   void testStaticFactories() {
     final String msg = "msg";
     assertThat(DefaultMessage.create(null, msg).payload()).isEqualTo(msg);
