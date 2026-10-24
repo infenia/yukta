@@ -21,6 +21,8 @@ import java.util.Set;
  *   "trigger": "ALL_DONE",
  *   "elementTimeoutMs": 20000,
  *   "deadlineMs": 600000,
+ *   "stallAfterMs": 120000,
+ *   "concurrencyGroup": "gradle",
  *   "failureBudget": { "maxFailures": 10, "windowMs": 60000 }
  * }
  * }</pre>
@@ -42,6 +44,12 @@ import java.util.Set;
  *   <li>{@code deadlineMs} (any node): longest the node may run, counted from its first activity.
  *       Unlike the idle timeout it is not restarted by output or heartbeats; paused time does not
  *       count. Off by default.
+ *   <li>{@code stallAfterMs} (processors and triggers): a running node that shows no activity (no
+ *       input, output, heartbeat or live log line) for this long logs one {@code NodeStalled}
+ *       warning. It only reports: the node is not failed or paused. Off by default.
+ *   <li>{@code concurrencyGroup} (processors): the node joins a named group; at most {@code
+ *       yukta.concurrency.groups.<name>} nodes of it run at once, the others wait as {@code
+ *       QUEUED}. A group without a configured limit is not limited.
  *   <li>{@code failureBudget} (with {@code onError} CONTINUE or ROUTE): when more than {@code
  *       maxFailures} messages fail within {@code windowMs}, the node fails instead of dropping or
  *       routing yet another one, so a poisoned stream does not run on unnoticed.
@@ -55,6 +63,8 @@ import java.util.Set;
  * @param trigger how a failing parent affects this node
  * @param elementTimeout longest time for one message, or null for none
  * @param deadline longest time the node may run, or null for none
+ * @param stallAfter silence after which the node is reported as stalled, or null for never
+ * @param concurrencyGroup the group whose server-wide limit the node counts against, or null
  * @param failureBudget how many failures the node tolerates, or null for no limit
  */
 @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidDuplicateLiterals"})
@@ -64,6 +74,8 @@ public record NodePolicy(
     JoinRule trigger,
     @Nullable Duration elementTimeout,
     @Nullable Duration deadline,
+    @Nullable Duration stallAfter,
+    @Nullable String concurrencyGroup,
     @Nullable FailureBudget failureBudget) {
 
   /** Config key that holds the policy. */
@@ -77,7 +89,7 @@ public record NodePolicy(
 
   /** No retry, fail on error, fail when a parent fails. */
   public static final NodePolicy DEFAULT =
-      new NodePolicy(null, OnError.FAIL, JoinRule.ALL_SUCCESS, null, null, null);
+      new NodePolicy(null, OnError.FAIL, JoinRule.ALL_SUCCESS, null, null, null, null, null);
 
   /** Options accepted in the {@code engine} object. */
   private static final Set<String> KEYS =
@@ -87,6 +99,8 @@ public record NodePolicy(
           "trigger",
           "elementTimeoutMs",
           "deadlineMs",
+          "stallAfterMs",
+          "concurrencyGroup",
           "failureBudget",
           "edgeBuffer",
           "placement");
@@ -135,7 +149,27 @@ public record NodePolicy(
       final OnError onError,
       final JoinRule trigger,
       @Nullable final Duration elementTimeout) {
-    this(retry, onError, trigger, elementTimeout, null, null);
+    this(retry, onError, trigger, elementTimeout, null, null, null, null);
+  }
+
+  /**
+   * Creates a policy that never reports a stall.
+   *
+   * @param retry the retry policy, or null for none
+   * @param onError what to do with a message that still fails
+   * @param trigger how a failing parent affects this node
+   * @param elementTimeout longest time for one message, or null for none
+   * @param deadline longest time the node may run, or null for none
+   * @param failureBudget how many failures the node tolerates, or null for no limit
+   */
+  public NodePolicy(
+      @Nullable final Retry retry,
+      final OnError onError,
+      final JoinRule trigger,
+      @Nullable final Duration elementTimeout,
+      @Nullable final Duration deadline,
+      @Nullable final FailureBudget failureBudget) {
+    this(retry, onError, trigger, elementTimeout, deadline, null, null, failureBudget);
   }
 
   /**
@@ -351,6 +385,8 @@ public record NodePolicy(
             parseEnum(engine.get("trigger"), JoinRule.class, "trigger", JoinRule.ALL_SUCCESS),
             parseMillis(engine.get("elementTimeoutMs"), "engine.elementTimeoutMs"),
             parseMillis(engine.get("deadlineMs"), "engine.deadlineMs"),
+            parseMillis(engine.get("stallAfterMs"), "engine.stallAfterMs"),
+            parseGroup(engine.get("concurrencyGroup")),
             engine.containsKey("failureBudget")
                 ? parseBudget(asMap(engine.get("failureBudget"), "failureBudget"))
                 : null);
@@ -376,6 +412,17 @@ public record NodePolicy(
       throw new IllegalArgumentException("engine.failureBudget.windowMs must be positive");
     }
     return new FailureBudget((int) Math.min(max, Integer.MAX_VALUE), Duration.ofMillis(window));
+  }
+
+  @Nullable
+  private static String parseGroup(@Nullable final Object value) {
+    if (value == null) {
+      return null;
+    }
+    if (value instanceof final String name && !name.isBlank()) {
+      return name;
+    }
+    throw new IllegalArgumentException("engine.concurrencyGroup must be a non-empty name");
   }
 
   @Nullable

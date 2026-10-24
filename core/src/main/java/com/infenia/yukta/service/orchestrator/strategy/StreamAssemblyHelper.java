@@ -56,6 +56,7 @@ class StreamAssemblyHelper {
             .logSink(liveLogSink(tracker, context.executionId(), node.nodeId(), activity))
             .payload(context.payload());
 
+    final NodePolicy policy = NodePolicy.from(node.config());
     Flux<Message<?>> built =
         NodeStreams.withTimeoutAndTracking(
             node,
@@ -65,7 +66,8 @@ class StreamAssemblyHelper {
             stream,
             activity,
             () -> control.isPaused(node.nodeId()),
-            NodePolicy.from(node.config()).deadline());
+            policy.deadline(),
+            policy.stallAfter());
 
     built =
         withPluginLifecycle(

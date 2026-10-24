@@ -218,6 +218,23 @@ public final class NodeActivity {
         });
   }
 
+  /**
+   * A publisher that emits once the node has shown no activity for {@code after}, counting only
+   * time outside pauses. Unlike {@link #idle} it ignores {@link #retime(Duration)}.
+   */
+  /* default */ Mono<Long> silent(
+      final Duration after, final Scheduler scheduler, final BooleanSupplier paused) {
+    return Mono.defer(
+        () -> {
+          final long limit = after.toNanos();
+          final long tick = Math.max(MIN_TICK_NANOS, limit / TICKS);
+          final long[] counted = {NONE, 0};
+          return Flux.interval(Duration.ofNanos(tick), scheduler)
+              .filter(_ -> expired(counted, tick, limit, paused))
+              .next();
+        });
+  }
+
   private boolean expired(
       final long[] counted, final long tick, final long limit, final BooleanSupplier paused) {
     final long last = lastTouch;

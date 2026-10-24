@@ -135,6 +135,15 @@ public class WorkflowValidator {
       if (backoff.isPresent()) {
         return backoff;
       }
+      if (policy.concurrencyGroup() != null) {
+        final var plugin = registry.get(node.type());
+        if (plugin != null && plugin.getCategory() != PluginCategory.PROCESSOR) {
+          return Optional.of(
+              "Node '"
+                  + node.nodeId()
+                  + "': engine.concurrencyGroup is only supported on processor nodes");
+        }
+      }
       if (policy.perMessage()) {
         final var plugin = registry.get(node.type());
         if (plugin != null && plugin.getCategory() != PluginCategory.PROCESSOR) {

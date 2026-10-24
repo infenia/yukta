@@ -101,6 +101,20 @@ class NodePolicyTest {
   }
 
   @Test
+  void stallAfterAndConcurrencyGroup_areParsedAndValidated() {
+    final NodePolicy policy =
+        NodePolicy.from(engine(Map.of("stallAfterMs", 2000, "concurrencyGroup", "gradle")));
+    assertThat(policy.stallAfter()).isEqualTo(Duration.ofSeconds(2));
+    assertThat(policy.concurrencyGroup()).isEqualTo("gradle");
+    assertThat(NodePolicy.DEFAULT.stallAfter()).isNull();
+    assertThat(NodePolicy.DEFAULT.concurrencyGroup()).isNull();
+    assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("stallAfterMs", 0))))
+        .hasMessageContaining("engine.stallAfterMs must be positive");
+    assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("concurrencyGroup", " "))))
+        .hasMessageContaining("engine.concurrencyGroup");
+  }
+
+  @Test
   void elementTimeout_rejectsFractionalMilliseconds() {
     assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("elementTimeoutMs", 0.5))))
         .isInstanceOf(IllegalArgumentException.class)

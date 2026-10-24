@@ -5,6 +5,7 @@ package com.infenia.yukta.service.orchestrator.stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -15,6 +16,7 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.WorkflowNode;
+import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.List;
@@ -58,7 +60,31 @@ class NodeStreamsTest {
       final BooleanSupplier paused,
       final Duration timeout) {
     return NodeStreams.withTimeoutAndTracking(
-        node, timeout, tracker, EXEC, source, activity, paused, null);
+        node, timeout, tracker, EXEC, source, activity, paused, null, null);
+  }
+
+  private Flux<Message<?>> decorateWithStall(
+      final NodeActivity activity, final Duration stallAfter) {
+    return NodeStreams.withTimeoutAndTracking(
+        node,
+        Duration.ofSeconds(5),
+        tracker,
+        EXEC,
+        Flux.<Message<?>>never(),
+        activity,
+        () -> false,
+        null,
+        stallAfter);
+  }
+
+  private void expectStalledWarnings(final int times) {
+    verify(tracker, times(times))
+        .emitLogEvent(
+            eq(EXEC),
+            eq(NODE_ID),
+            startsWith(NodeStreams.STALLED_PREFIX),
+            eq(false),
+            eq(LogLevel.WARN));
   }
 
   private void expectStatus(final TaskStatus status, final int times) {
@@ -388,5 +414,46 @@ class NodeStreamsTest {
         .endsWith("tail")
         .contains("chars cut")
         .hasSizeLessThan(8_100);
+  }
+
+  @Test
+  void silentNode_isReportedStalledOnce_andKeepsRunning() {
+    final NodeActivity activity = new NodeActivity();
+
+    StepVerifier.create(decorateWithStall(activity, Duration.ofMillis(100)))
+        .expectSubscription()
+        .then(activity::touch)
+        .thenAwait(Duration.ofMillis(600))
+        .then(() -> expectStalledWarnings(1))
+        .thenCancel()
+        .verify();
+
+    expectStatus(TaskStatus.FAILURE, 0);
+    expectStatus(TaskStatus.TIMED_OUT, 0);
+  }
+
+  @Test
+  void activeNode_isNotReportedStalled() {
+    final NodeActivity activity = new NodeActivity();
+
+    StepVerifier.create(decorateWithStall(activity, Duration.ofMillis(400)))
+        .expectSubscription()
+        .then(activity::touch)
+        .thenAwait(Duration.ofMillis(250))
+        .then(activity::touch)
+        .thenAwait(Duration.ofMillis(250))
+        .then(() -> expectStalledWarnings(0))
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void nodeThatNeverStarted_isNotReportedStalled() {
+    StepVerifier.create(decorateWithStall(new NodeActivity(), Duration.ofMillis(100)))
+        .expectSubscription()
+        .thenAwait(Duration.ofMillis(400))
+        .then(() -> expectStalledWarnings(0))
+        .thenCancel()
+        .verify();
   }
 }

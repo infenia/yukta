@@ -6,6 +6,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.message.channel.DirectNodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannelProvider;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
@@ -14,6 +15,7 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
+import com.infenia.yukta.service.orchestrator.stream.ConcurrencyGroups;
 import com.infenia.yukta.service.orchestrator.stream.FailureLedger;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.stream.NodePolicies;
@@ -56,6 +58,9 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
   /** Resolves expressions in the node config, for a timeout that depends on the first input. */
   private final VariableResolver variableResolver;
+
+  /** The server-wide limits of the concurrency groups nodes may join. */
+  private final ConcurrencyGroups concurrencyGroups;
 
   /** Log key for node ID. */
   private static final String LOG_KEY_NODE_ID = "nodeId";
@@ -167,11 +172,30 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
       // The idle clock starts when this node first gets work, not when the run starts.
       final NodeActivity activity = new NodeActivity();
+      final ConcurrencyGroups.Place place =
+          concurrencyGroups.place(NodePolicy.from(node.config()).concurrencyGroup());
+      Flux<Message<?>> controlled = control.applyPreProcessingControls(node.nodeId(), mergedInput);
+      if (place != null) {
+        // The node waits QUEUED for its first input to be let through, so the idle clock and
+        // RUNNING start when it really begins.
+        controlled =
+            controlled.switchOnFirst(
+                (first, flux) ->
+                    first.hasValue()
+                        ? place
+                            .acquire(
+                                () ->
+                                    tracker.emitTaskStatusEvent(
+                                        context.executionId(),
+                                        node.nodeId(),
+                                        node.type(),
+                                        TaskStatus.QUEUED,
+                                        Map.of()))
+                            .thenMany(flux)
+                        : flux);
+      }
       final Flux<Message<?>> safeInput =
-          control
-              .applyPreProcessingControls(node.nodeId(), mergedInput)
-              .doOnNext(_ -> activity.touch())
-              .onErrorMap(UpstreamFailure::mark);
+          controlled.doOnNext(_ -> activity.touch()).onErrorMap(UpstreamFailure::mark);
       final Flux<Message<?>> timedInput =
           NodeTimeouts.retimeOnFirstInput(safeInput, node, plugin, variableResolver, activity);
 
@@ -207,6 +231,9 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
               ? run.apply(channelInput)
               : bypassWhileSkipped(channelInput, skipFlag, run);
       stream = streamChannel.outbound(node.nodeId(), context.executionId(), pluginOutput);
+      if (place != null) {
+        stream = stream.doFinally(_ -> place.release());
+      }
       if (processor.isBlocking()) {
         log.atDebug()
             .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
