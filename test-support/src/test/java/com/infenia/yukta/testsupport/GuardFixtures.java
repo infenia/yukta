@@ -27,8 +27,15 @@ class GuardFixtures {
 
   @ExpectedErrorLog("went wrong")
   static class Outer {
+    void plain() {}
+
     static class Inner {
       void plain() {}
     }
+  }
+
+  @ExpectedErrorLog("never happens")
+  static class Unused {
+    void plain() {}
   }
 }
