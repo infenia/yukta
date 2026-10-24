@@ -25,7 +25,8 @@ class EgressConfigurationTest {
     final EgressPolicy policy = new EgressConfiguration().egressPolicy(env);
 
     assertThat(policy.refusalFor("https://evil.org/", Context.empty())).isNotNull();
-    assertThat(policy.refusalFor("https://b.example.com/", Context.empty())).isNull();
+    assertThat(policy.refusalFor("https://b.example.com/", Context.empty()))
+        .contains("no workflowId or sessionId");
     assertThat(policy.refusalFor("https://b.example.com/", Context.of("workflowId", "wf")))
         .contains("yukta.egress.by-workflow.wf");
     assertThat(policy.refusalFor("https://a.example.com/", Context.of("sessionId", "s1")))
