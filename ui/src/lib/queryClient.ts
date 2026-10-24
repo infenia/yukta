@@ -13,6 +13,8 @@ const queryClient = new QueryClient({
     },
     mutations: {
       // A repeated start, signal or rollback must not run twice; the user retries by hand.
+      // A start creates its Idempotency-Key inside mutationFn, so a retry would send a new key and
+      // run twice: generate the key once per click (in the variables) before enabling retries.
       retry: 0,
     },
   },
