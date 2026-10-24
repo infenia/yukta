@@ -195,3 +195,22 @@ graalvmNative {
         }
     }
 }
+
+// The catalog's Netty version must be what ships (CVE fixes ride on it): fail if the runtime
+// classpath resolves any io.netty artifact to another version.
+val verifyNettyVersion by tasks.registering {
+    description = "Fails when a resolved io.netty artifact differs from the version catalog"
+    val expected = libs.versions.netty.get()
+    val versions = configurations.runtimeClasspath.map { cfg ->
+        cfg.incoming.resolutionResult.allComponents
+            .mapNotNull { it.moduleVersion }
+            .filter { it.group == "io.netty" && it.name != "netty-tcnative-classes" && !it.name.startsWith("netty-tcnative") }
+            .filter { it.version != expected }
+            .map { "${it.group}:${it.name}:${it.version}" }
+    }
+    doLast {
+        val wrong = versions.get()
+        check(wrong.isEmpty()) { "Netty must resolve to $expected (gradle/libs.versions.toml); found $wrong" }
+    }
+}
+tasks.named("check") { dependsOn(verifyNettyVersion) }
