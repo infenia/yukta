@@ -149,6 +149,13 @@ jobs:
           persist-credentials: false
           fetch-depth: 0   # release.sh checks that HEAD is exactly the tag
 
+      # This job signs as the workflow, so it must only run for a commit that went through review:
+      # a v* tag on a branch commit would otherwise get a valid signature for its own release.yml.
+      - name: The tag is on main
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main ||
+            { echo "::error::$GITHUB_REF_NAME is not a commit on main; nothing is signed"; exit 1; }
+
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'cli/go.mod'
