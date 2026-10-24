@@ -108,6 +108,7 @@ class WorkflowVersionControllerTest {
             List.of(new WorkflowDefinition.Node("n", "CONSTANT_SOURCE", Map.of())),
             List.of());
     when(definitions.findRevision("s1", "w1", "0001-a")).thenReturn(Mono.just(old));
+    when(definitions.find("s1", "w1")).thenReturn(Mono.empty());
     when(definitions.save("s1", old)).thenReturn(Mono.empty());
     when(controlBus.compileAndCacheWorkflow("s1", old)).thenReturn(Mono.empty());
 
@@ -122,6 +123,36 @@ class WorkflowVersionControllerTest {
         .isEqualTo("w1");
     verify(definitions).save("s1", old);
     verify(controlBus).compileAndCacheWorkflow("s1", old);
+  }
+
+  @Test
+  void rollbackThatDoesNotCompileLeavesTheCurrentDefinitionInPlace() {
+    final WorkflowDefinition old =
+        new WorkflowDefinition(
+            "w1",
+            "old",
+            List.of(new WorkflowDefinition.Node("n", "REMOVED_TYPE", Map.of())),
+            List.of());
+    final WorkflowDefinition current =
+        new WorkflowDefinition(
+            "w1",
+            "current",
+            List.of(new WorkflowDefinition.Node("n", "CONSTANT_SOURCE", Map.of())),
+            List.of());
+    when(definitions.findRevision("s1", "w1", "0001-a")).thenReturn(Mono.just(old));
+    when(definitions.find("s1", "w1")).thenReturn(Mono.just(current));
+    when(definitions.save("s1", old)).thenReturn(Mono.empty());
+    when(definitions.save("s1", current)).thenReturn(Mono.empty());
+    when(controlBus.compileAndCacheWorkflow("s1", old))
+        .thenReturn(Mono.error(new IllegalArgumentException("unknown plugin type")));
+
+    client
+        .post()
+        .uri(BASE + "/rollback?version=0001-a")
+        .exchange()
+        .expectStatus()
+        .is4xxClientError();
+    verify(definitions).save("s1", current);
   }
 
   @Test

@@ -7,6 +7,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.workflow.store.DefinitionRevision;
+import com.infenia.yukta.service.workflow.store.SaveAndPrepare;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDiff;
 import io.swagger.v3.oas.annotations.Operation;
@@ -124,9 +125,11 @@ public class WorkflowVersionController {
                         "Version " + version + " of workflow " + workflowId + " not found")))
         .flatMap(
             definition ->
-                definitions
-                    .save(sessionId, definition)
-                    .then(controlBus.compileAndCacheWorkflow(sessionId, definition))
+                SaveAndPrepare.run(
+                        definitions,
+                        sessionId,
+                        definition,
+                        saved -> controlBus.compileAndCacheWorkflow(sessionId, saved))
                     .thenReturn(
                         ApiResponse.success(
                             200,

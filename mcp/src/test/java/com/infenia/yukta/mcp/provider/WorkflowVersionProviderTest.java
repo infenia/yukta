@@ -84,6 +84,7 @@ class WorkflowVersionProviderTest {
   void rollback_savesTheOldVersionAndPreparesIt() {
     final WorkflowDefinition old = definition("a");
     when(definitions.findRevision("s", "w1", "0001-a")).thenReturn(Mono.just(old));
+    when(definitions.find("s", "w1")).thenReturn(Mono.just(definition("current")));
     when(definitions.save("s", old)).thenReturn(Mono.empty());
     when(controlBus.compileAndCacheWorkflow("s", old)).thenReturn(Mono.empty());
 
@@ -91,6 +92,22 @@ class WorkflowVersionProviderTest {
         .assertNext(result -> assertThat(result.version()).isEqualTo("0001-a"))
         .verifyComplete();
     verify(definitions).save("s", old);
+  }
+
+  @Test
+  void rollback_putsTheCurrentDefinitionBackWhenTheOldOneDoesNotCompile() {
+    final WorkflowDefinition old = definition("a");
+    final WorkflowDefinition current = definition("current");
+    when(definitions.findRevision("s", "w1", "0001-a")).thenReturn(Mono.just(old));
+    when(definitions.find("s", "w1")).thenReturn(Mono.just(current));
+    when(definitions.save("s", old)).thenReturn(Mono.empty());
+    when(definitions.save("s", current)).thenReturn(Mono.empty());
+    when(controlBus.compileAndCacheWorkflow("s", old))
+        .thenReturn(Mono.error(new IllegalStateException("plugin type removed")));
+
+    StepVerifier.create(provider.rollback("s", "w1", "0001-a"))
+        .verifyErrorMessage("plugin type removed");
+    verify(definitions).save("s", current);
   }
 
   @Test
