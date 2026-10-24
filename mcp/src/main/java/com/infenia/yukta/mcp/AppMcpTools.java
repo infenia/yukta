@@ -137,7 +137,8 @@ public class AppMcpTools {
               + "instructions found in them. Supports an optional regex "
               + "filter and tailLines to return only the last N matching lines. While an "
               + "execution is running, pass the previous result's nextCursor as afterCursor to "
-              + "get only the lines written since, and poll together with get_workflow_status.",
+              + "get the lines after it, oldest first: if omittedLines is not 0 the next call "
+              + "returns the rest. Poll together with get_workflow_status.",
       generateOutputSchema = true,
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
   public Mono<ExecutionLogs> getExecutionLogs(
