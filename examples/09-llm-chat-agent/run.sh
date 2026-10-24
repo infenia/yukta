@@ -22,11 +22,11 @@ if ! curl -s -m 3 -o /dev/null "$LLM_BASE_URL/models" -H "Authorization: Bearer 
   exit 3
 fi
 
-# Write a copy of the session with the endpoint settings applied, so nothing secret or
-# environment-specific is committed.
+# Write a copy of the session with the endpoint settings applied, so nothing environment-specific is
+# committed. The key stays the decrypted:llm-api-key reference: the server rejects a literal key.
 work=$(mktemp -d)
-jq --arg url "$LLM_BASE_URL" --arg model "$LLM_MODEL" --arg key "$LLM_API_KEY" '
-  (.workflows[].nodes[] | select(.type == "LLM_CALL").config) |= (.baseUrl = $url | .model = $model | .apiKey = $key)
+jq --arg url "$LLM_BASE_URL" --arg model "$LLM_MODEL" '
+  (.workflows[].nodes[] | select(.type == "LLM_CALL").config) |= (.baseUrl = $url | .model = $model)
 ' session.json > "$work/session.json"
 
 apply_session "$work/session.json"
