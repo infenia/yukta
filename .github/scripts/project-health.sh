@@ -24,6 +24,18 @@ fi
 gh api --paginate --slurp "repos/$REPO/code-scanning/alerts?state=open&per_page=100" >"$data/alerts.json" 2>/dev/null ||
   echo null >"$data/alerts.json"
 
+# The last scheduled run of each job on main: a run, "none" (never ran) or "missing" (no such workflow).
+workflows=$(python3 -I "$here/project-health.py" --workflows)
+{
+  for file in $workflows; do
+    if run=$(gh api "repos/$REPO/actions/workflows/$file/runs?event=schedule&branch=main&per_page=1" 2>/dev/null); then
+      jq -c --arg f "$file" '{($f): (.workflow_runs[0] // "none" | if type == "object" then {conclusion, created_at, html_url} else . end)}' <<<"$run"
+    else
+      jq -nc --arg f "$file" '{($f): "missing"}'
+    fi
+  done
+} | jq -s 'add // {}' >"$data/runs.json"
+
 python3 -I "$here/project-health.py" "$data" --repo "$REPO" >"$data/report.md"
 cat "$data/report.md" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
 

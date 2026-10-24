@@ -205,6 +205,43 @@ expect_eq "health: high-impact risk" "- [#3](https://github.com/o/r/issues/3) Bi
 expect_eq "health: alerts are counted, not listed" \
   "2 open alerts: 0 critical, 1 high, 0 medium, 0 low, 1 without a security rating." \
   "$(grep '^[0-9]* open alerts' <<<"$report")"
+# --- the robustness verdict. Issue 6 is an open auto-found issue; project.json rates it.
+run() { # conclusion, days ago
+  jq -n --arg c "$1" --arg d "$(date -u -d "2026-03-10 - $2 days" +%Y-%m-%dT%H:%M:%SZ)" \
+    '{conclusion: $c, created_at: $d, html_url: "https://github.com/o/r/actions/runs/1"}'
+}
+verdict() { grep -o '^\*\*[A-Z ]*\*\* — .*' <<<"$report"; }
+{
+  echo '['
+  issue 1 "Old untriaged" 2026-01-01T00:00:00Z 2026-01-01T00:00:00Z '["needs-triage"]' Bug '[]'; echo ,
+  issue 6 "Test failure: CoreTest.x" 2026-03-09T00:00:00Z 2026-03-09T00:00:00Z '["auto-found","core"]' Bug '[]'
+  echo ']'
+} | jq -s . >"$health/issues.json"
+echo '{"items": [{"id": "a", "status": "Triage", "severity": "Critical", "content": {"url": "https://github.com/o/r/issues/6"}}]}' >"$health/project.json"
+good=$(jq -n --argjson s "$(run success 1)" --argjson w "$(run success 3)" --argjson m "$(run success 1)" \
+  '{"ci.yml": $s, "perf-weekly.yml": $w, "mutation.yml": $m, "examples-nightly.yml": $s, "perf-nightly.yml": "missing", "native-smoke.yml": "none"}')
+echo "$good" >"$health/runs.json"
+report=$(python3 -I "$here/project-health.py" "$health" --repo o/r --now 2026-03-10T00:00:00Z)
+expect_eq "robust: a Critical auto-found issue blocks, nothing else does" \
+  "**NOT ROBUST** — 1 open auto-found issue(s) of severity Critical or High." "$(verdict)"
+expect_eq "robust: a job that is not configured is said so, not shown green" "| Nightly perf | not configured | - |" \
+  "$(grep '^| Nightly perf' <<<"$report")"
+echo '{"items": [{"id": "a", "status": "Triage", "severity": "Low", "content": {"url": "https://github.com/o/r/issues/6"}}]}' >"$health/project.json"
+report=$(python3 -I "$here/project-health.py" "$health" --repo o/r --now 2026-03-10T00:00:00Z)
+expect_eq "robust: green jobs and no blocker" \
+  "**ROBUST** — no open blocker, and the nightly build, the weekly soak and the mutation ratchet are green." "$(verdict)"
+echo "$good" | jq -c --argjson f "$(run failure 1)" '."ci.yml" = $f' >"$health/runs.json"
+report=$(python3 -I "$here/project-health.py" "$health" --repo o/r --now 2026-03-10T00:00:00Z)
+expect_eq "robust: a failed nightly build" "**NOT ROBUST** — Nightly build and tests: failure." "$(verdict)"
+echo "$good" | jq -c --argjson o "$(run success 12)" '."perf-weekly.yml" = $o | ."mutation.yml" = "missing"' >"$health/runs.json"
+report=$(python3 -I "$here/project-health.py" "$health" --repo o/r --now 2026-03-10T00:00:00Z)
+expect_eq "robust: an old soak and a missing job" \
+  "**NOT ROBUST** — Weekly soak: last run 12 days ago (more than 8); Mutation score ratchet: not configured." "$(verdict)"
+rm "$health/runs.json"
+report=$(python3 -I "$here/project-health.py" "$health" --repo o/r --now 2026-03-10T00:00:00Z)
+expect_eq "robust: unreadable runs are never ROBUST" \
+  "**NOT ROBUST** — Nightly build and tests: the scheduled runs were not readable; Weekly soak: the scheduled runs were not readable; Mutation score ratchet: the scheduled runs were not readable." \
+  "$(verdict)"
 rm "$health/project.json"
 echo null >"$health/alerts.json"
 report=$(python3 -I "$here/project-health.py" "$health" --repo o/r --now 2026-03-10T00:00:00Z)
