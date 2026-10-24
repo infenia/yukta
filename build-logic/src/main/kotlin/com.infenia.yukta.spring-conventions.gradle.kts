@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-
 plugins {
     id("com.infenia.yukta.java-conventions")
     id("com.infenia.yukta.quality-conventions")
