@@ -34,6 +34,8 @@ modules_of_changes() {
     fi
     mods+=("${d//\//:}")
   done < <(git -C "$root" status --porcelain "${code[@]}" | sed -E 's/^.. //; s/.* -> //')
+  # none at all (every change outside a module, e.g. .claude/): the whole check, so print nothing
+  ((${#mods[@]})) || return 0
   printf -- '-m %s ' $(printf '%s\n' "${mods[@]}" | sort -u)
 }
 

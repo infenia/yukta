@@ -17,6 +17,7 @@ the REST API and MCP (`/mcp`) too.
   are changing `cli/`).
 
 ## Files (`~/.local/state/yukta-dev/`)
+`api-key` (the server's API key, mode 600; `yk` sends it, so use `yk cli …` rather than a bare `yukta-cli`),
 `server.log`, `server.env` (what runs), `server.pid`, `up.log` (background `yk up`), `build.log`
 (last main build), `sessions/`, `main/` (managed worktree: never edit it), `builds/`, `releases/`.
 Per checkout, `.yukta-dev/` holds heal records, check logs, `durations.tsv` and hook marks.

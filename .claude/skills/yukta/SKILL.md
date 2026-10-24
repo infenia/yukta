@@ -1,6 +1,6 @@
 ---
 name: yukta
-description: Use for ANY build, compile, test, gradle/./gradlew, check, lint, spotless, checkstyle, PMD, SpotBugs, coverage, "does it pass", "fix the build" or CI-failure work in the Yukta repo, at every scope from one test class to the full pre-commit gate. Runs it as a Yukta workflow on the local dev server (built from origin/main, port 9858) via `yk`, which self-heals failing stages and prints one RESULT line. Also for starting/stopping the dev server, watching, retrying or stopping a run, and filing dogfood findings. Direct ./gradlew is blocked in this repo.
+description: Use for ANY build, compile, test, gradle/./gradlew, check, lint, spotless, checkstyle, PMD, SpotBugs, coverage, "does it pass", "fix the build" or CI-failure work in the Yukta repo, at every scope from one test class to the full pre-commit gate. Runs it as a Yukta workflow on the local dev server (built from origin/main, port 9858) via `yk`, which prints one RESULT line; `yk check` also self-heals failing stages. Also for starting/stopping the dev server, watching, retrying or stopping a run, and filing dogfood findings. Direct ./gradlew build/test/check commands are blocked in this repo (running the app with bootRun is not).
 allowed-tools: Bash, Read
 ---
 
@@ -23,7 +23,9 @@ dev server: built from `origin/main`, on `http://127.0.0.1:9858`, shared by ever
 | Go CLI | `yk gradle :cli:check` |
 
 The server starts on demand (the first build of a new main commit takes minutes; the SessionStart hook
-usually has it ready). Run long checks with `run_in_background` or `--detach` (below) and keep working.
+usually has it ready). Run long checks with `run_in_background` or `--detach` (below). Keep working in
+the meantime only on a `yk gradle` or `yk check --no-heal` run, or in another checkout: a healing
+`yk check` edits this checkout itself.
 
 ## Read the result, not the log
 The last line is `RESULT status=<S> failed_node=<node> healed=<stage:step,..|-> execution=<e> session=<s>`;
@@ -62,7 +64,8 @@ the finding format: [reference/dogfood-loop.md](reference/dogfood-loop.md).
 troubleshooting: [reference/server.md](reference/server.md).
 
 ## Don'ts
-- Don't run `./gradlew`/`gradle`/`go test` directly or start servers yourself (`bootRun`, `java -jar`).
+- Don't run `./gradlew`/`gradle` builds, tests or checks or `go test` directly, or start the Yukta dev
+  server yourself (`java -jar`); `./gradlew bootRun` to try the app you are changing is fine.
 - Don't run two checks in one checkout, or edit/build in it while a healing run is going.
 - Don't commit healed changes unread; don't widen the fixer's guard to get a run through.
 - Don't touch `~/.local/state/yukta-dev/` or `.yukta-dev/` by hand, or stop servers yk didn't start.

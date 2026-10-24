@@ -1,8 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "Bash(yk *)",
-      "Bash(examples/11-dogfood/yk *)"
+      "Bash(yk check)",
+      "Bash(yk check *)",
+      "Bash(yk gradle *)",
+      "Bash(yk watch *)",
+      "Bash(yk status)",
+      "Bash(yk up)",
+      "Bash(yk up *)",
+      "Bash(examples/11-dogfood/yk check)",
+      "Bash(examples/11-dogfood/yk check *)",
+      "Bash(examples/11-dogfood/yk gradle *)",
+      "Bash(examples/11-dogfood/yk watch *)",
+      "Bash(examples/11-dogfood/yk status)",
+      "Bash(examples/11-dogfood/yk up)",
+      "Bash(examples/11-dogfood/yk up *)"
     ]
   },
   "hooks": {

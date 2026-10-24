@@ -166,7 +166,7 @@ claimed="$(jq -r '.fixed // false' <<<"$answer" 2>/dev/null || echo false)"
 summary="$(jq -r '.summary // "no answer from claude"' <<<"$answer" 2>/dev/null || echo "no answer from claude")"
 
 # A fix must not break formatting, and is judged on what it changed.
-fmt=(); for m in $module; do fmt+=(":$m:spotlessApply"); done
+fmt=(); for m in $module; do [[ "$m" == cli ]] || fmt+=(":$m:spotlessApply"); done
 gradle "${fmt[@]:-spotlessApply}" >>"$out" 2>&1 || true
 changed="$(changed_since "$before")"
 

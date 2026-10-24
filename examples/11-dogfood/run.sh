@@ -7,6 +7,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 source "$here/scripts/_lib.sh"
 if [[ -z "${YUKTA_URL:-}" ]] && healthy; then
   export YUKTA_URL="$DEV_URL"
+  export YUKTA_API_KEY="${YUKTA_API_KEY:-$(dev_key)}"
 fi
 source "$here/../lib/common.sh"
 require_server

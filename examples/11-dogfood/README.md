@@ -54,7 +54,13 @@ examples/11-dogfood/yk status        # what runs, stale or not, running executio
 swaps the server **only while no execution is running** (otherwise `STALE … swap pending`); `yk check`
 and `yk gradle` complete a pending swap when idle. `yk up --release [tag]` runs a published release
 instead (native executable, `SHA256SUMS` signature checked with `cosign`, `YUKTA_SKIP_VERIFY=1` skips that);
-`yk down` stops the server yk started. Files: `server.log`, `server.env`, `up.log`, `build.log`, `sessions/`.
+`yk down` stops the server yk started. Files: `server.log`, `server.env`, `up.log`, `build.log`, `sessions/`,
+`api-key`.
+
+The server needs an API key: it runs any process (`YUKTA_PROCESS_ALLOW_ANY`), so an open API on loopback would
+let any local account run commands as you. `yk` creates one per machine in `~/.local/state/yukta-dev/api-key`
+(readable by you only) and sends it with every call; from your own shell use
+`curl -H "X-API-Key: $(cat ~/.local/state/yukta-dev/api-key)" …` or `YUKTA_TOKEN=$(cat …) yukta-cli …`.
 
 ### Running it from Claude Code
 `.claude/settings.json` registers `.claude/hooks/yk-hook.sh` (paths resolved with `git rev-parse`, so it

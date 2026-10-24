@@ -52,6 +52,13 @@ Goal:
   - If the server is healthy at that SHA, it's a no-op.
   - If it's stale and idle (no RUNNING executions per `/api/executions`, `ExecutionSearchController`), restart on the new jar.
   - If it's stale and busy, print `STALE … swap pending`.
+  - The idle check and the stop are two calls, so a run admitted in between can be cut off (review of
+    #1206). PR2b adds a server-side admission barrier (`POST /api/admin/drain`: refuse new starts,
+    report when nothing runs); `yk` drains before it swaps, and a run started meanwhile gets a clear
+    refusal instead of being killed. Until then the window is the few milliseconds between the two calls.
+  - `yk` gives the server a per-machine API key (`~/.local/state/yukta-dev/api-key`, mode 600) and
+    sends it with every call: with `YUKTA_PROCESS_ALLOW_ANY` an open loopback API would let any local
+    account run commands as the developer.
 - Server environment: `SERVER_PORT=9858`, `YUKTA_SERVER_ADDRESS=127.0.0.1`, `YUKTA_PROCESS_ALLOW_ANY=true`, plus the session
   dir and timeout as today. No rules file needed any more.
 - If the port is held by something that isn't Yukta, fail with a clear message.
@@ -117,7 +124,9 @@ module list on demand.
     Concurrent builds are only safe while compile is up to date, and each would start a 4 GB daemon.
   - Analyzers without a heal policy (licenses, security) skip the fixer and fail.
 - `verify`: `yukta-heal.sh verify` with all tasks, only if anything was healed (already implemented), then `done`.
-- **Extra stages** (skipped with a WARN when the tool is missing):
+- **Extra stages.** A missing tool must not turn into a green gate: the stage then ends `FAILED` with
+  `tool missing: <tool>` (`--allow-missing ui,docs` opts out per run, and RESULT gains
+  `skipped=<stage,…>` so a partial check is never read as complete):
   - `ui`: `pnpm -C ui lint && pnpm -C ui exec vitest run`; auto fix `eslint --fix`.
   - `docs`: `mint broken-links`.
   - `reuse`: `reuse lint`; auto fix `reuse annotate`.
@@ -135,8 +144,13 @@ module list on demand.
   a single fixer after the join, guard scoping).
 
 ## 4. Layered workflows (PR5: L1, PR6: L2)
-All live in the `yukta-dev` session and reuse `check` via SUB_WORKFLOW (payload `{project: ${start.worktree}}`, timeout 14400,
-routeByOutcome).
+All live in the `yukta-dev` session and reuse `check` via SUB_WORKFLOW (timeout 14400, routeByOutcome). The
+check's `project` is the worktree that step 2 creates, not a start value of the issue run (whose start payload
+is only `{issue}`): step 2 prints `{"worktree": "<path>"}` with `outputFormat: JSON`, and the check node gets
+`"payload": {"project": "${payload.worktree}", "implSession": "${start.implSession}"}`. A SUB_WORKFLOW child
+also counts against the session's execution timeout, so `yk` runs the server with
+`YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS=14400` and child timeouts stay at or below it (an acceptance test in
+PR5 pins which limit wins).
 - **`implement-issue`** (`yk run issue <n>`, `/yk-pickup`), with API_TRIGGER `{issue}`:
   1. `gh issue view` checks it is assigned and Ready (else OUTCOME ESCALATE "not Ready"). Claim it as In progress
      (`.github/scripts/project-lib.sh`, as in the pickup skill).
@@ -265,7 +279,9 @@ Every run is a tree (epic → issue → check → stages, via `parentExecutionId
 **Keys**: on first run, `yk up` generates named keys (`ApiKeys.KeyEntry`, hashed `sha256:` form in the server config;
 plaintext at mode 600 in the state dir).
 - `yk` and the MCP entry use `admin` (`--token-file`; `.mcp.json` header from an env var).
-- Headless nodes get `YUKTA_TOKEN=<worker>`.
+- Headless nodes get `YUKTA_TOKEN=<worker>`. A VIEWER key with no `sessions` reaches every session, so each
+  worker key is generated with `sessions` set to the one session its node runs in (`ApiKeys.KeyEntry`); tests
+  check that it is refused status, history and logs of another session.
 - The server stays loopback-only. Once keys exist, a no-key request is rejected.
 
 **Engine/CLI additions (added to PR2)**:

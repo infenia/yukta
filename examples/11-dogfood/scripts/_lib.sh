@@ -24,6 +24,25 @@ os_arch() {
   echo "$os-$arch"
 }
 
+# dev_key: the dev server's API key (generated once, readable only by this user). Without a key the
+# server's REST API is open to every local account, and it runs any process (YUKTA_PROCESS_ALLOW_ANY).
+dev_key() {
+  local file="$DEV_HOME/api-key"
+  if [[ ! -s "$file" ]]; then
+    mkdir -p "$DEV_HOME"
+    (umask 077 && head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' >"$file")
+  fi
+  cat "$file"
+}
+
+# use_dev_key: hands the key to the yukta CLI (YUKTA_TOKEN) when it talks to the dev server.
+use_dev_key() {
+  if [[ -z "${YUKTA_TOKEN:-}" && "${YUKTA_SERVER_URL:-$DEV_URL}" == "$DEV_URL" ]]; then
+    YUKTA_TOKEN="$(dev_key)"
+    export YUKTA_TOKEN
+  fi
+}
+
 # server_env KEY: a value from the running dev server's state file, or nothing.
 server_env() { sed -n "s/^$1=//p" "$DEV_HOME/server.env" 2>/dev/null; }
 
@@ -84,11 +103,13 @@ splice_args() {
 
 healthy() { curl -fsS -m 3 "${1:-$DEV_URL}/actuator/health" >/dev/null 2>&1; }
 
-# busy: the number of executions not yet ended, on any session of the dev server.
+# busy: the number of executions not yet ended, on any session of the dev server. When that cannot be
+# read (the server answers badly, or not at all) it says 1: never stop a server we cannot see idle.
 busy() {
-  curl -fsS -m 5 "$DEV_URL/api/executions?limit=1000" 2>/dev/null \
-    | jq '[(.data // .)[] | select(.status | test("RUNNING|PENDING|QUEUED|PAUSED"))] | length' 2>/dev/null \
-    || echo 0
+  local n
+  n="$(curl -fsS -m 5 -H "X-API-Key: $(dev_key)" "$DEV_URL/api/executions?limit=1000" 2>/dev/null \
+    | jq -e '[(.data // .)[] | select(.status | test("RUNNING|PENDING|QUEUED|PAUSED"))] | length' 2>/dev/null)"
+  [[ "$n" =~ ^[0-9]+$ ]] && echo "$n" || echo 1
 }
 
 # main_sync: brings the managed worktree $DEV_HOME/main to origin/main (or $YUKTA_DEV_MAIN_REF) and
@@ -141,7 +162,7 @@ server_launch() {
     cd "$DEV_HOME"
     export SERVER_PORT="$DEV_PORT" YUKTA_SERVER_ADDRESS=127.0.0.1 YUKTA_PROCESS_ALLOW_ANY=true \
       YUKTA_SESSION_BASE_DIR="$DEV_HOME/sessions" YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS=14400 \
-      YUKTA_SUPERVISOR_RULES_FILE="$rules"
+      YUKTA_SUPERVISOR_RULES_FILE="$rules" YUKTA_API_KEY="$(dev_key)"
     setsid bash -c 'echo $$ >"$1"; shift; exec "$@"' _ "$DEV_HOME/server.pid" "$@" \
       >"$DEV_HOME/server.log" 2>&1 </dev/null 9>&- &
   )
@@ -153,6 +174,7 @@ YUKTA_DEV_KIND=$kind
 YUKTA_DEV_SHA=$id
 YUKTA_DEV_LABEL=$label
 YUKTA_DEV_CLI=$cli
+YUKTA_DEV_KEYED=1
 YUKTA_SERVER_URL=$DEV_URL
 ENV
   echo "waiting for Yukta at $DEV_URL (log: $DEV_HOME/server.log) ..." >&2
@@ -210,7 +232,8 @@ server_up() {
   if healthy; then
     ours || die "port $DEV_PORT is used by a server yk did not start; stop it or set YUKTA_DEV_PORT"
     running="$(server_env YUKTA_DEV_SHA)"
-    if [[ "$running" == "$id" ]]; then
+    # a server started before yk set an API key is replaced like a stale one
+    if [[ "$running" == "$id" && "$(server_env YUKTA_DEV_KEYED)" == 1 ]]; then
       echo "ready: $DEV_URL ($label)"
       return 0
     fi
@@ -242,7 +265,8 @@ ensure_server() {
   ours && [[ "$(server_env YUKTA_DEV_KIND)" == main ]] || return 0
   local sha
   sha="$(git -C "$DEV_HOME/main" rev-parse "${YUKTA_DEV_MAIN_REF:-origin/main}" 2>/dev/null)" || return 0
-  if [[ "$sha" != "$(server_env YUKTA_DEV_SHA)" && -s "$DEV_HOME/builds/$sha/yukta.jar" && "$(busy)" == 0 ]]; then
+  if [[ ("$sha" != "$(server_env YUKTA_DEV_SHA)" || "$(server_env YUKTA_DEV_KEYED)" != 1) \
+    && -s "$DEV_HOME/builds/$sha/yukta.jar" && "$(busy)" == 0 ]]; then
     (server_up) >&2 || true
   fi
 }
@@ -263,7 +287,7 @@ stage_workflows() {
   jq --argjson policy "$1" --arg modules "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" '
     ($modules | split(" ") | map(select(. != ""))) as $mods
     | def px: . as $t | if ($mods | length) > 0 and ($t | startswith(":") | not)
-        then $mods[] | ":" + . + ":" + $t else $t end;
+        then $mods[] | select(. != "cli") | ":" + . + ":" + $t else $t end;   # cli (Go) has no gradle fix tasks
     def out($id; $o): {nodeId: $id, type: "OUTCOME_TERMINAL", config: ({outcome: $o} + (if $o == "RETRY" then {restartFrom: "run"} else {} end))};
     def edge($s; $t; $p): {source: $s, target: $t, sourcePort: $p};
     def stage($n):

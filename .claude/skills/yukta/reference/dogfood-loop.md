@@ -17,8 +17,10 @@ stage live; never monitor it, compile warnings alone flood it).
 
 ## Triage every failure or anomaly (root cause, not symptom)
 Start from the failed stage's `ERROR` lines, then:
-- **Caused by your change / blocks this run**: fix it, then `yk retry <e> <stage>` (earlier stages are not
-  rerun) and watch the new execution.
+- **Caused by your change / blocks this run**: fix it, then rerun. `yk retry <e> <node>` takes a node of
+  that execution: `gradle` for a `yk gradle` run; in the staged check each stage is its own workflow
+  (`STAGE <stage> … execution=<e>`), whose stage node is `run`, so `yk retry <e> run`. Rerunning
+  `yk check` is usually simpler: passing stages are up to date and fast.
 - **Flaky/env** (JVM crash, port clash): retry once; if it recurs, it is a defect: record it.
 - **Unrelated Yukta issue**: don't fix it inline; record it and carry on.
 Also record what you notice while watching: broken functionality, monitoring/execution gaps, performance,

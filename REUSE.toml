@@ -37,7 +37,7 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = ["examples/**/*.json", "examples/**/*.sh", "release/smoke-session.json", "config/mutation/baseline.json"]
+path = ["examples/**/*.json", "examples/**/*.sh", "examples/11-dogfood/yk", "release/smoke-session.json", "config/mutation/baseline.json"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"

@@ -37,7 +37,9 @@ yk check                    # all quality gates, staged and self-healing (tests,
 yk check -m core            # the same gates for one module (repeat -m)
 yk gradle :core:test --tests com.infenia.yukta.service.orchestrator.WorkflowOrchestratorTest
 yk gradle spotlessApply     # format (before commit)
-yk status | up | down       # the dev server
+yk status                   # the dev server: is it up, which main commit, is it stale
+yk up                       # start it, or swap an idle one for a newer main
+yk down                     # stop it
 
 # Run the application you are developing (not a build: stays direct; Swagger UI at http://localhost:8080/swagger-ui.html)
 ./gradlew bootRun
@@ -70,7 +72,7 @@ Waiting on tests is the main development bottleneck. **Run the smallest scope th
 - Never start at Tier 3/4. When you escalate, state the reason in one line (e.g. "14 files changed across orchestrator + store").
 - Run `spotlessApply` and `check` **once at the end**, not after every edit.
 - Don't use `clean` or `--rerun-tasks`; Gradle's up-to-date/build cache already skips unchanged work.
-- Run Tier 3/4 with `run_in_background` (or `--detach` + the `yukta-run-watcher` subagent) and keep working; don't block on them.
+- Run Tier 3/4 with `run_in_background` (or `--detach` + the `yukta-run-watcher` subagent); don't block on them. While a healing `yk check` runs, don't edit this checkout or run Gradle in it: work on something else, or use `yk check --no-heal` if you need to keep editing.
 - On failure read only the failing test's report in `build/test-results`, not the full log.
 - Add `--continue` on multi-module runs to see all failures in one pass; `-PfailFast` to stop at the first failing test; `-Pcoverage` to produce a JaCoCo report on a scoped run.
 - Locate tests via `<Class>Test` naming or CodeGraph, not repo-wide grep.
