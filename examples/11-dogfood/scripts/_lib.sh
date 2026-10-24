@@ -162,8 +162,12 @@ server_launch() {
     cd "$DEV_HOME"
     export SERVER_PORT="$DEV_PORT" YUKTA_SERVER_ADDRESS=127.0.0.1 YUKTA_PROCESS_ALLOW_ANY=true \
       YUKTA_SESSION_BASE_DIR="$DEV_HOME/sessions" YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS=14400 \
-      YUKTA_SUPERVISOR_RULES_FILE="$rules" YUKTA_API_KEY="$(dev_key)"
+      YUKTA_SUPERVISOR_RULES_FILE="$rules"
+    # The key goes in a file, not the environment: the server's children (the gradle stages and their
+    # test JVMs) inherit its environment, and a Spring Boot test that saw YUKTA_API_KEY would demand it.
+    (umask 077 && printf 'yukta.api-key=%s\n' "$(dev_key)" >"$DEV_HOME/server.properties")
     setsid bash -c 'echo $$ >"$1"; shift; exec "$@"' _ "$DEV_HOME/server.pid" "$@" \
+      "--spring.config.additional-location=file:$DEV_HOME/server.properties" \
       >"$DEV_HOME/server.log" 2>&1 </dev/null 9>&- &
   )
   for _ in 1 2 3 4 5; do [[ -s "$DEV_HOME/server.pid" ]] && break; sleep 1; done
@@ -174,7 +178,7 @@ YUKTA_DEV_KIND=$kind
 YUKTA_DEV_SHA=$id
 YUKTA_DEV_LABEL=$label
 YUKTA_DEV_CLI=$cli
-YUKTA_DEV_KEYED=1
+YUKTA_DEV_KEYED=2
 YUKTA_SERVER_URL=$DEV_URL
 ENV
   echo "waiting for Yukta at $DEV_URL (log: $DEV_HOME/server.log) ..." >&2
@@ -233,7 +237,7 @@ server_up() {
     ours || die "port $DEV_PORT is used by a server yk did not start; stop it or set YUKTA_DEV_PORT"
     running="$(server_env YUKTA_DEV_SHA)"
     # a server started before yk set an API key is replaced like a stale one
-    if [[ "$running" == "$id" && "$(server_env YUKTA_DEV_KEYED)" == 1 ]]; then
+    if [[ "$running" == "$id" && "$(server_env YUKTA_DEV_KEYED)" == 2 ]]; then
       echo "ready: $DEV_URL ($label)"
       return 0
     fi
@@ -265,7 +269,7 @@ ensure_server() {
   ours && [[ "$(server_env YUKTA_DEV_KIND)" == main ]] || return 0
   local sha
   sha="$(git -C "$DEV_HOME/main" rev-parse "${YUKTA_DEV_MAIN_REF:-origin/main}" 2>/dev/null)" || return 0
-  if [[ ("$sha" != "$(server_env YUKTA_DEV_SHA)" || "$(server_env YUKTA_DEV_KEYED)" != 1) \
+  if [[ ("$sha" != "$(server_env YUKTA_DEV_SHA)" || "$(server_env YUKTA_DEV_KEYED)" != 2) \
     && -s "$DEV_HOME/builds/$sha/yukta.jar" && "$(busy)" == 0 ]]; then
     (server_up) >&2 || true
   fi
