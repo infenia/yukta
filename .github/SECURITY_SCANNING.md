@@ -84,20 +84,20 @@ trivy secret .
 **To suppress false positives**: Add to `.trivyignore` with reason
 
 ### 2. **Dependency Vulnerability Scanning** 📦
-Scans the repository for known vulnerabilities in dependencies. No Gradle lock file is committed, so Trivy sees only what the build files declare; it does not resolve transitive dependencies.
+Scans the repository for known vulnerabilities in dependencies. Trivy reads Go (`cli/go.mod`), npm (`ui/pnpm-lock.yaml`) and the Dockerfiles. It does **not** scan Gradle: no lock file is committed, so it cannot resolve the Java dependencies. Java is covered by GitHub's dependency graph instead: `dependency-submission.yml` (push to `main`) and the `dependency-submission` job in `ci.yml` submit the resolved Gradle graph, the **Dependency Review** job fails a pull request that adds a dependency with a HIGH or CRITICAL advisory, and Dependabot alerts report the ones already in the tree.
 
 ```bash
 trivy fs --scanners vuln --severity HIGH,CRITICAL .
 ```
 
 **Behavior**:
-- Fails on HIGH or CRITICAL vulnerabilities
-- Skips test-only and build-time dependencies (not in runtime)
+- On `main`, the weekly schedule and manual runs: fails on any HIGH or CRITICAL finding
+- On pull requests: fails only on findings that have a fix (`--ignore-unfixed`); an unfixed CVE cannot be acted on, so it is left to `main` and the schedule
 - Reports in JSON: `trivy-deps.json`
 
 **What triggers a failure**:
-- Any HIGH/CRITICAL CVE in production dependencies
-- Known exploitable vulnerabilities with no patch available
+- A HIGH/CRITICAL CVE with a fixed version in a Go, npm or Docker dependency (any CVE on `main`)
+- A new Gradle dependency with a HIGH/CRITICAL advisory (Dependency Review)
 
 **Resolution**:
 1. Update the vulnerable dependency to a patched version
