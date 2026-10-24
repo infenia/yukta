@@ -40,5 +40,6 @@ done
 # nfpm writes a prerelease as 0.1.0~alpha.1. GitHub stores a "~" in an asset name as ".", so the name
 # in SHA256SUMS would no longer match the download. Use the stored form from the start.
 for f in "$out"/*~*; do
-  [[ -e "$f" ]] && mv "$f" "${f//\~/.}"
+  [[ -e "$f" ]] || continue # a stable version has no "~" file, so the glob stays literal
+  mv "$f" "${f//\~/.}"
 done
