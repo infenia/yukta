@@ -39,10 +39,13 @@ public final class RunBudgets {
   /** Most runs remembered. */
   public static final int MAX_RUNS = 10_000;
 
-  /** Use by run, oldest first; the synchronized wrapper makes {@code merge} atomic. */
+  /**
+   * Use by run, least recently used first, so a run that is still calling is never the one dropped;
+   * the synchronized wrapper makes {@code merge} atomic.
+   */
   private final Map<String, Spent> byRun =
       Collections.synchronizedMap(
-          new LinkedHashMap<>() {
+          new LinkedHashMap<>(16, 0.75f, true) {
             private static final long serialVersionUID = 1L;
 
             @Override
@@ -129,9 +132,13 @@ public final class RunBudgets {
   public Optional<String> exceeded(final String runId, final Map<?, ?> budget) {
     return exceeded(
         runId,
-        budget.get(MAX_TOKENS) == null ? null : limit(budget, MAX_TOKENS).longValue(),
+        budget.get(MAX_TOKENS) == null
+            ? null
+            : (long) Math.ceil(limit(budget, MAX_TOKENS).doubleValue()),
         budget.get(MAX_COST) == null ? null : limit(budget, MAX_COST).doubleValue(),
-        budget.get(MAX_CALLS) == null ? null : limit(budget, MAX_CALLS).longValue());
+        budget.get(MAX_CALLS) == null
+            ? null
+            : (long) Math.ceil(limit(budget, MAX_CALLS).doubleValue()));
   }
 
   /**
