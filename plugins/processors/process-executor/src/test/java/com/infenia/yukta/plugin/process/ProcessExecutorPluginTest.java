@@ -143,7 +143,7 @@ class ProcessExecutorPluginTest {
   }
 
   @Test
-  void process_withoutARunContext_addsNoIds() {
+  void process_withoutRunContext_addsNoIds() {
     final ArgumentCaptor<ProcessExecutionSpec> specCaptor =
         ArgumentCaptor.forClass(ProcessExecutionSpec.class);
     when(gateway.executeForResult(specCaptor.capture())).thenReturn(Mono.just(successResult("ok")));

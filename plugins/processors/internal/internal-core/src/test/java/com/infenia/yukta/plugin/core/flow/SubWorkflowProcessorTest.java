@@ -267,24 +267,27 @@ class SubWorkflowProcessorTest {
     when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
         .thenAnswer(
             call -> {
-              final Object id = ((Map<String, Object>) call.getArgument(2)).get("n");
+              final Object number = ((Map<String, Object>) call.getArgument(2)).get("n");
               return Mono.defer(
                   () -> {
                     most.accumulateAndGet(running.incrementAndGet(), Math::max);
                     // the first message is the slowest, so a wrong order would show
-                    return Mono.delay(Duration.ofMillis("1".equals(id) ? 150 : 50))
+                    return Mono.delay(Duration.ofMillis("1".equals(number) ? 150 : 50))
                         .map(
                             _ -> {
                               // done before the result goes on: the next child may start right
                               // after
                               running.decrementAndGet();
-                              return new SubWorkflowGateway.Result("child-" + id, List.of());
+                              return new SubWorkflowGateway.Result("child-" + number, List.of());
                             });
                   });
             });
     final Flux<Message<?>> input =
         Flux.range(1, 4)
-            .map(i -> (Message<?>) DefaultMessage.create(UUID.randomUUID(), Map.of("n", "" + i)));
+            .map(
+                i ->
+                    (Message<?>)
+                        DefaultMessage.create(UUID.randomUUID(), Map.of("n", String.valueOf(i))));
 
     StepVerifier.create(
             processor
@@ -298,7 +301,7 @@ class SubWorkflowProcessorTest {
   }
 
   @Test
-  void concurrencyOfOne_isTheDefault_andRunsOneChildAtATime() {
+  void concurrencyOfOne_isTheDefault_andRunsChildrenInTurn() {
     available();
     final AtomicInteger running = new AtomicInteger();
     final AtomicInteger most = new AtomicInteger();
