@@ -391,7 +391,7 @@ They set YUKTA_SERVER_ADDRESS=0.0.0.0 and yukta.api-key=secret for remote access
 A JVM jar has no native rule, so the default dev profile still applies, with loggers, mappings and threaddump exposed.
 </Step>
 <Step title="API is protected, the rest is not">
-/api and /actuator (except health) now need the key. /swagger-ui.html and /v3/api-docs do not. Anyone on the network can read the API description. If only yukta.mcp.api-key had been set, ExposureGuard would still have let the server start, and /api would be open.
+/api and /actuator (except health) now need the key, and so do /swagger-ui.html and /v3/api-docs, which the prod profile also switches off. If only yukta.mcp.api-key is set, ExposureGuard now refuses to start on a non-loopback address, because /api would be open.
 </Step>
 <Step title="Payloads reach the log">
 Dev sets the orchestrator stream package to TRACE, which writes message payloads to the console. In a shared log system those payloads are now visible to others.
@@ -592,7 +592,7 @@ JVM vs native.
 | /mcp | mcp server (stateless, async) | the same keys, or yukta.mcp.api-key, if any is set |
 | /sse | alias rewritten to /mcp | same as /mcp |
 | /actuator/\*\* | actuator | ADMIN key when a key is set (health excepted) |
-| /swagger-ui.html, /v3/\*\* | springdoc | none |
+| /swagger-ui.html, /v3/\*\* | springdoc | the key, when one is set; off in prod |
 | /assets/\*\* | SPA host | none |
 | any other GET | SPA host (index.html) | none |
 
