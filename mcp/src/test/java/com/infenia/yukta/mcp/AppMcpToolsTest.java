@@ -156,12 +156,36 @@ class AppMcpToolsTest {
   void testControlWorkflow() {
     var result = new ControlActionResult("PAUSE", "e1", null, List.of(), "ok");
     when(workflowControlProvider.controlWorkflow(
-            "s1", WorkflowControlAction.PAUSE, "e1", null, null, null))
+            "s1", WorkflowControlAction.PAUSE, "e1", null, null, null, true))
+        .thenReturn(Mono.just(result));
+    when(workflowControlProvider.controlWorkflow(
+            "s1", WorkflowControlAction.PAUSE, "e2", null, null, null, false))
         .thenReturn(Mono.just(result));
 
     StepVerifier.create(
-            mcpTools.controlWorkflow("s1", WorkflowControlAction.PAUSE, "e1", null, null, null))
+            mcpTools.controlWorkflow(
+                "s1", WorkflowControlAction.PAUSE, "e1", null, null, null, true))
         .expectNext(result)
+        .verifyComplete();
+    StepVerifier.create(
+            mcpTools.controlWorkflow(
+                "s1", WorkflowControlAction.PAUSE, "e2", null, null, null, null))
+        .expectNext(result)
+        .verifyComplete();
+  }
+
+  @Test
+  void testGetExecutionTree() {
+    final var run =
+        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
+            "e1", "wf", "RUNNING", null, null);
+    when(workflowControlProvider.getExecutionTree("s1", "e1")).thenReturn(Mono.just(List.of(run)));
+
+    StepVerifier.create(mcpTools.getExecutionTree("s1", "e1"))
+        .assertNext(
+            history ->
+                org.assertj.core.api.Assertions.assertThat(history.executions())
+                    .containsExactly(run))
         .verifyComplete();
   }
 

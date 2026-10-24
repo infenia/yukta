@@ -17,7 +17,8 @@ An execution is one run of a workflow, identified by the `executionId` that the 
 | `GET /api/executions/{executionId}` | Read the status of a run | `VIEWER` |
 | `GET /api/sessions/{sessionId}/executions/{executionId}/results` | Read what reached the terminal nodes | `VIEWER` |
 | `GET /api/sessions/{sessionId}/approvals` | List nodes that wait for a decision | `VIEWER` |
-| `POST /api/executions/{executionId}/stop` | Stop one run | `OPERATOR` |
+| `POST /api/executions/{executionId}/stop` | Stop one run (`?tree=true`: with the runs it started) | `OPERATOR` |
+| `GET /api/executions/{executionId}/tree` | The run and every run it started as a sub-workflow | `VIEWER` |
 | `POST /api/executions/{executionId}/restart` | Restart a run from the beginning | `OPERATOR` |
 | `POST /api/executions/{executionId}/restart/{fromNodeId}` | Restart from one node | `OPERATOR` |
 | `POST /api/executions/{executionId}/recover` | Continue a run that a server restart aborted | `OPERATOR` |
@@ -206,11 +207,17 @@ Lists the nodes of the session that wait for a signal right now, such as an appr
 }
 ```
 
+## List the runs a run started
+
+`GET /api/executions/{executionId}/tree`
+
+The run and every run it started as a [sub-workflow](/concepts/sub-workflows), at any depth, oldest first. Each entry is a history entry: `executionId`, `workflowId`, `status`, `startTime`, `endTime`, `parentExecutionId`, `rootExecutionId` and `restartOf`. Answers `404` for an unknown run.
+
 ## Stop a run
 
 `POST /api/executions/{executionId}/stop`
 
-Stops one run. To stop every active run of a workflow, use [`POST /api/workflow/{sessionId}/{workflowId}/stop`](/api/workflows#stop-all-runs-of-a-workflow).
+Stops one run; with `?tree=true` also every unfinished run it started as a [sub-workflow](/concepts/sub-workflows), at any depth. To stop every active run of a workflow, use [`POST /api/workflow/{sessionId}/{workflowId}/stop`](/api/workflows#stop-all-runs-of-a-workflow).
 
 **Response `data`**: `executionId` of the stopped run.
 

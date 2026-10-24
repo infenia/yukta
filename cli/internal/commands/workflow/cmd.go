@@ -45,16 +45,28 @@ Returns the list of execution IDs that were stopped.`,
 	})
 	stop.Flags().StringVar(&stopMode, "mode", "", "How to stop: DRAIN (default), CANCEL or KILL")
 	cmd.AddCommand(stop)
-	cmd.AddCommand(executionAction("pause", "Pause a workflow execution",
-		`Pause an active workflow execution.
+	var pauseTree, resumeTree bool
+	pause := executionAction("pause", "Pause a workflow execution",
+		`Pause an active workflow execution. With --tree also every unfinished run it started as a
+sub-workflow, at any depth (pausing a parent alone leaves the child it waits on running).
 
 Returns the execution ID of the paused workflow.`,
-		"Execution paused: %s", c.PauseWorkflow))
-	cmd.AddCommand(executionAction("resume", "Resume a paused workflow execution",
-		`Resume a paused workflow execution.
+		"Execution paused: %s", func(s, e string) (client.WorkflowStartResponse, error) {
+			return c.PauseWorkflowTree(s, e, pauseTree)
+		})
+	pause.Flags().BoolVar(&pauseTree, "tree", false, "Also pause the runs it started as sub-workflows")
+	cmd.AddCommand(pause)
+	resume := executionAction("resume", "Resume a paused workflow execution",
+		`Resume a paused workflow execution. With --tree also every unfinished run it started as a
+sub-workflow, at any depth.
 
 Returns the execution ID of the resumed workflow.`,
-		"Execution resumed: %s", c.ResumeWorkflow))
+		"Execution resumed: %s", func(s, e string) (client.WorkflowStartResponse, error) {
+			return c.ResumeWorkflowTree(s, e, resumeTree)
+		})
+	resume.Flags().BoolVar(&resumeTree, "tree", false, "Also resume the runs it started as sub-workflows")
+	cmd.AddCommand(resume)
+	cmd.AddCommand(TreeCmd(c))
 	cmd.AddCommand(StatusCmd(c))
 	cmd.AddCommand(StatusStreamCmd(c))
 	cmd.AddCommand(HistoryCmd(c))

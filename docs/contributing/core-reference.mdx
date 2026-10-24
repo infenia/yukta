@@ -363,6 +363,8 @@ A reserved `engine` object in any node's config sets retry, error routing and ti
   "trigger": "ALL_DONE",
   "elementTimeoutMs": 20000,
   "deadlineMs": 600000,
+  "stallAfterMs": 120000,
+  "concurrencyGroup": "gradle",
   "failureBudget": { "maxFailures": 10, "windowMs": 60000 },
   "edgeBuffer": { "size": 100, "overflow": "DROP_OLDEST" },
   "placement": { "pool": "default" }
@@ -376,6 +378,8 @@ A reserved `engine` object in any node's config sets retry, error routing and ti
 | `failureBudget` | needs CONTINUE or ROUTE | When more than `maxFailures` messages fail within `windowMs`, the node fails instead of dropping or routing the next one. Counted per run (`FailureLedger`), so silent data loss cannot continue unnoticed. |
 | `trigger` | multi-parent nodes | Join rule: [ENG-03](#eng-03-join-rules). |
 | `elementTimeoutMs`, `deadlineMs` | processors, any node | Time limits: [ENG-05](#eng-05-clocks-and-timeouts). |
+| `stallAfterMs` | processors, triggers | A running node with no activity (input, output, heartbeat, live log line) for this long logs one WARN line starting `NodeStalled:`. Only reports; paused time does not count. |
+| `concurrencyGroup` | processors | Counts the node against the server-wide limit `yukta.concurrency.groups.<name>=<n>`. A node over the limit waits `QUEUED` before its first input is let through and holds its place until its output ends. A group with no limit is not limited. |
 | `edgeBuffer` | any node with a processor | Drop instead of pace: [ENG-01](#eng-01-streaming-dag-and-back-pressure). |
 | `placement {pool}` | processors | Run on a remote worker of the pool: [SCL-01](#scl-01-remote-workers). |
 
@@ -410,6 +414,8 @@ Five independent clocks, all pause-aware, so a timeout means what you expect.
 - Long silent work keeps its node alive by calling the heartbeat `Runnable` found under `WorkflowContext.HEARTBEAT_KEY` in the Reactor context.
 
 **Configure:** per node: `timeoutSeconds`, `engine.elementTimeoutMs`, `engine.deadlineMs`. Server: `yukta.execution.queue-timeout`. Per session: execution timeout.
+
+`POST /api/admin/drain` (admin key) makes the scheduler refuse new starts (HTTP 429) while admitted runs carry on; `GET` reports `{draining, running, queued, idle}`, `DELETE` admits starts again. Use it to swap the server without cutting a run off.
 
 **Source:** `NodeActivity` `NodeTimeouts` `ExecutionResources` `ExecutionTimeoutException`
 

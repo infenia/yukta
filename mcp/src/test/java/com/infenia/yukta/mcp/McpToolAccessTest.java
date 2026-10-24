@@ -5,6 +5,7 @@ package com.infenia.yukta.mcp;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.security.ApiKeys;
+import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
@@ -35,6 +36,12 @@ class McpToolAccessTest {
     assertThat(McpToolAccess.permitted(key("VIEWER", null), "rollback_workflow", "a")).isFalse();
     assertThat(McpToolAccess.permitted(key("OPERATOR", null), "rollback_workflow", "a")).isTrue();
     assertThat(McpToolAccess.permitted(key("VIEWER", null), "signal_node", "a")).isFalse();
+    for (final String control :
+        List.of("control_node", "control_workflow", "set_node_breakpoint")) {
+      assertThat(McpToolAccess.permitted(key("VIEWER", null), control, "a")).isFalse();
+      assertThat(McpToolAccess.permitted(key("OPERATOR", null), control, "a")).isTrue();
+    }
+    assertThat(McpToolAccess.permitted(key("VIEWER", null), "get_execution_tree", "a")).isTrue();
     assertThat(McpToolAccess.permitted(key("OPERATOR", null), "signal_node", "a")).isTrue();
     assertThat(McpToolAccess.permitted(key("OPERATOR", null), "create_session", "a")).isFalse();
     assertThat(McpToolAccess.permitted(key("OPERATOR", null), "unknown_tool", "a")).isFalse();

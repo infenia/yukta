@@ -4,9 +4,11 @@ package com.infenia.yukta.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ExecutionEvent;
@@ -16,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
@@ -31,6 +34,12 @@ class EventsControllerTest {
 
   /** Envelope type of a workflow status change. */
   private static final String WORKFLOW_STATUS = "WorkflowStatusChanged";
+
+  @BeforeEach
+  void everyRunIsItsOwnRoot() {
+    when(tracker.lineage(anyString()))
+        .thenAnswer(call -> new TaskTrackerService.Lineage(call.getArgument(0), 0));
+  }
 
   private static ExecutionEvent workflow(final String executionId, final String status) {
     return new ExecutionEvent.WorkflowStatusChanged(executionId, "wf", status, Instant.now());
@@ -138,6 +147,20 @@ class EventsControllerTest {
   }
 
   @Test
+  void stream_carriesTheRootAndDepthOfTheEventsRun() {
+    when(tracker.lineage("e2")).thenReturn(new TaskTrackerService.Lineage("e1", 2));
+
+    final var events = collect(new ExecutionEventFeed(), null, null, null);
+
+    assertThat(events)
+        .extracting(
+            envelope -> envelope.event().executionId(),
+            EventsController.Envelope::rootExecutionId,
+            EventsController.Envelope::depth)
+        .contains(tuple("e1", "e1", 0), tuple("e2", "e1", 2));
+  }
+
+  @Test
   void stream_withTree_leavesOutEventsOfNoRun() {
     final var feed = new ExecutionEventFeed();
     final var received =
@@ -163,6 +186,6 @@ class EventsControllerTest {
     final var events = collect(new ExecutionEventFeed(), "e1", false, null, null);
 
     assertThat(events).extracting(envelope -> envelope.event().executionId()).containsOnly("e1");
-    verifyNoInteractions(tracker);
+    verify(tracker, never()).isWithin(anyString(), anyString());
   }
 }

@@ -8,10 +8,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,6 +41,14 @@ class ExecutionControlControllerTest {
   /** The resumer. */
   private ExecutionResumer resumer;
 
+  /** The tracker, which knows the runs of a tree. */
+  private TaskTrackerService tracker;
+
+  /** The scheduler behind the drain switch. */
+  private final ExecutionScheduler scheduler =
+      new ExecutionScheduler(
+          0, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+
   /** The client. */
   private WebTestClient client;
 
@@ -44,6 +56,7 @@ class ExecutionControlControllerTest {
   void setUp() {
     controlBus = mock(ControlBusGateway.class);
     resumer = mock(ExecutionResumer.class);
+    tracker = mock(TaskTrackerService.class);
     final WorkflowProgress running =
         new WorkflowProgress(
             "e1", "s1", "wf", "RUNNING", List.of(), LocalDateTime.now(), null, null);
@@ -52,9 +65,37 @@ class ExecutionControlControllerTest {
     client =
         WebTestClient.bindToController(
                 new ExecutionControlController(
-                    controlBus, new ExecutionAccess(controlBus), resumer))
+                    controlBus,
+                    new ExecutionAccess(controlBus),
+                    resumer,
+                    new TreeControl(tracker),
+                    scheduler))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
+  }
+
+  @Test
+  void testPauseAndResumeWithTree_reachTheUnfinishedRunsBelow() {
+    when(tracker.getTree("e1"))
+        .thenReturn(
+            List.of(
+                new WorkflowExecutionSummary(
+                    "e1", "wf", "RUNNING", LocalDateTime.now(), null, null, "e1", null),
+                new WorkflowExecutionSummary(
+                    "c1", "child", "RUNNING", LocalDateTime.now(), null, "e1", "e1", null),
+                new WorkflowExecutionSummary(
+                    "c2", "child", "SUCCESS", LocalDateTime.now(), null, "e1", "e1", null)));
+    when(controlBus.pauseWorkflow(any())).thenReturn(Mono.empty());
+    when(controlBus.resumeWorkflow("e1")).thenReturn(Mono.empty());
+    when(controlBus.resumeWorkflow("c1")).thenReturn(Mono.error(new IllegalStateException("gone")));
+
+    client.post().uri("/api/executions/e1/pause?tree=true").exchange().expectStatus().isOk();
+    client.post().uri("/api/executions/e1/resume?tree=true").exchange().expectStatus().isOk();
+
+    verify(controlBus).pauseWorkflow("e1");
+    verify(controlBus).pauseWorkflow("c1");
+    verify(controlBus, org.mockito.Mockito.never()).pauseWorkflow("c2");
+    verify(controlBus).resumeWorkflow("c1");
   }
 
   @Test
@@ -254,5 +295,75 @@ class ExecutionControlControllerTest {
         .expectBody()
         .jsonPath("$.message")
         .value(org.hamcrest.Matchers.containsString("maintenance window"));
+  }
+
+  @Test
+  void drain_refusesStartsAndReportsWhenIdle_untilUndone() {
+    final ExecutionScheduler.Permit running = scheduler.acquire("s1", "wf").permit().block();
+
+    client
+        .post()
+        .uri("/api/admin/drain")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.draining")
+        .isEqualTo(true)
+        .jsonPath("$.data.running")
+        .isEqualTo(1)
+        .jsonPath("$.data.idle")
+        .isEqualTo(false);
+    org.assertj.core.api.Assertions.assertThat(scheduler.acquire("s1", "wf").refused()).isTrue();
+
+    running.release();
+    client
+        .get()
+        .uri("/api/admin/drain")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.idle")
+        .isEqualTo(true);
+    client
+        .delete()
+        .uri("/api/admin/drain")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.draining")
+        .isEqualTo(false);
+    org.assertj.core.api.Assertions.assertThat(scheduler.acquire("s1", "wf").refused()).isFalse();
+  }
+
+  @Test
+  void drainStatus_isNotIdleWhileStartWaits() {
+    final ExecutionScheduler limited =
+        new ExecutionScheduler(
+            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+    final ExecutionScheduler.Permit running =
+        java.util.Objects.requireNonNull(limited.acquire("s1", "wf").permit().block());
+    limited.acquire("s1", "wf");
+    running.release();
+    limited.acquire("s1", "other");
+    final WebTestClient waiting =
+        WebTestClient.bindToController(
+                new ExecutionControlController(
+                    controlBus,
+                    new ExecutionAccess(controlBus),
+                    resumer,
+                    new TreeControl(tracker),
+                    limited))
+            .build();
+
+    waiting
+        .get()
+        .uri("/api/admin/drain")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.running")
+        .isEqualTo(1)
+        .jsonPath("$.data.queued")
+        .isEqualTo(1)
+        .jsonPath("$.data.idle")
+        .isEqualTo(false);
   }
 }

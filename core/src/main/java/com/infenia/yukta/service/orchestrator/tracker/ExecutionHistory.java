@@ -45,17 +45,7 @@ final class ExecutionHistory {
       history =
           states.values().stream()
               .filter(filter)
-              .map(
-                  s ->
-                      new WorkflowExecutionSummary(
-                          s.executionId,
-                          s.workflowId,
-                          s.status,
-                          s.startTime,
-                          s.endTime,
-                          s.parentExecutionId,
-                          s.rootExecutionId,
-                          s.restartOf))
+              .map(ExecutionHistory::summary)
               .sorted((a, b) -> b.startTime().compareTo(a.startTime()))
               .toList();
     }
@@ -111,5 +101,18 @@ final class ExecutionHistory {
         states.remove(finished.removeFirst());
       }
     }
+  }
+
+  /** A run as a history entry. */
+  /* default */ static WorkflowExecutionSummary summary(final WorkflowState state) {
+    return new WorkflowExecutionSummary(
+        state.executionId,
+        state.workflowId,
+        state.status,
+        state.startTime,
+        state.endTime,
+        state.parentExecutionId,
+        state.rootExecutionId,
+        state.restartOf);
   }
 }

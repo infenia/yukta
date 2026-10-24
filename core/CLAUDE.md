@@ -56,6 +56,12 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
   "failureBudget": { "maxFailures": 10, "windowMs": 60000 }
 }
 ```
+- `stallAfterMs` (processors, triggers): a node that shows no activity (input, output, heartbeat or
+  live log line) for this long logs one WARN line starting `NodeStalled:` (`NodeStreams.STALLED_PREFIX`);
+  rules and `watch --quiet` see it as a WARN log line. It only reports. Paused time does not count.
+- `concurrencyGroup` (processors): the node counts against `yukta.concurrency.groups.<name>=<n>`
+  (`ConcurrencyGroups`); a node over the limit waits `QUEUED` before its first input is let through
+  and holds its place until its output ends. A group with no configured limit is not limited.
 - `placement {pool}` (processors, see "Workers"): run the node on a worker of the pool (default `default`).
 - `retry` (processors only): re-run the plugin for the failing message with exponential backoff and
   jitter; the plugin is then called once per message, so use it with per-message processors.
@@ -176,6 +182,10 @@ selects how a run stops (default `DRAIN`). Restart-from-node after a server rest
 memory); use `ExecutionResumer` for aborted runs. A restart-from-node keeps the original start
 payload in its archive and log entry.
 `yukta.executions.running` and `yukta.executions.queued` gauges report the scheduler.
+`POST /api/admin/drain` (admin keys; `DELETE` undoes, `GET` reports `{draining, running, queued, idle}`)
+makes the scheduler refuse new starts (HTTP 429, `reason=draining`) while admitted and queued runs
+and children of running parents carry on, so a server can be swapped once `idle` is true. It is an
+operations switch: not reviewed by `ControlReviewer` and not in the execution log.
 The first terminal that fails ends the run at once and cancels the other branches (they end
 `CANCELLED`); a caller that cancels a run ends it `CANCELLED` too, and a second end of a run is ignored.
 `yukta.tracker.queue.depth` gauges the state queue. Progress history keeps `yukta.streaming.status-history-max-per-run` (200) snapshots per run and `...-max-executions` (1000) runs, always the newest.

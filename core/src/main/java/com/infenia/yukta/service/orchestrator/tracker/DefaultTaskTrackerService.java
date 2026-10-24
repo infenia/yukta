@@ -37,10 +37,12 @@ import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -459,6 +461,31 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
               .orElse(null);
     }
     return false;
+  }
+
+  @Override
+  public Lineage lineage(@NotBlank final String executionId) {
+    // bounded like isWithin, so a broken (cyclic) record ends
+    final List<String> chain =
+        Stream.iterate(executionId, Objects::nonNull, this::parentOf)
+            .limit(MAX_TREE_DEPTH + 1L)
+            .toList();
+    return new Lineage(chain.getLast(), chain.size() - 1);
+  }
+
+  private @Nullable String parentOf(final String executionId) {
+    return Optional.ofNullable(findState(executionId))
+        .map(state -> state.parentExecutionId)
+        .orElse(null);
+  }
+
+  @Override
+  public List<WorkflowExecutionSummary> getTree(@NotBlank final String rootExecutionId) {
+    return executionIndex.values().stream()
+        .filter(state -> isWithin(state.executionId, rootExecutionId))
+        .map(ExecutionHistory::summary)
+        .sorted(Comparator.comparing(WorkflowExecutionSummary::startTime))
+        .toList();
   }
 
   /**

@@ -135,6 +135,12 @@ public class WorkflowValidator {
       if (backoff.isPresent()) {
         return backoff;
       }
+      if (policy.concurrencyGroup() != null && !isProcessor(node)) {
+        return Optional.of(
+            "Node '"
+                + node.nodeId()
+                + "': engine.concurrencyGroup is only supported on processor nodes");
+      }
       if (policy.perMessage()) {
         final var plugin = registry.get(node.type());
         if (plugin != null && plugin.getCategory() != PluginCategory.PROCESSOR) {
@@ -147,6 +153,12 @@ public class WorkflowValidator {
       }
     }
     return Optional.empty();
+  }
+
+  /** False only for a node whose plugin is known and is not a processor. */
+  private boolean isProcessor(final WorkflowDefinition.Node node) {
+    final var plugin = registry.get(node.type());
+    return plugin == null || plugin.getCategory() == PluginCategory.PROCESSOR;
   }
 
   /** The node's idle timeout, or null if it is unknown or not positive. */

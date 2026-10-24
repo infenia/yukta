@@ -1626,6 +1626,25 @@ class WorkflowValidatorTest {
   }
 
   @Test
+  void testConcurrencyGroupOnNonProcessorNodeIsRejected() {
+    when(registry.get(TRIGGER_ID)).thenReturn(triggerPlugin);
+    when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    final WorkflowDefinition def =
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(
+                new WorkflowDefinition.Node(
+                    "n1", TRIGGER_ID, Map.of("engine", Map.of("concurrencyGroup", "gradle")))),
+            List.of());
+
+    StepVerifier.create(validator.validate(def))
+        .expectErrorMatches(
+            e -> e.getMessage().contains("engine.concurrencyGroup is only supported on processor"))
+        .verify();
+  }
+
+  @Test
   void testRetryOnAnUnknownPluginTypeLeavesTheReportToThePluginCheck() {
     when(registry.get(PROCESSOR_ID)).thenReturn(null);
 
@@ -1643,6 +1662,18 @@ class WorkflowValidatorTest {
         .expectErrorMatches(
             e -> e instanceof IllegalArgumentException && !e.getMessage().contains("engine"))
         .verify();
+  }
+
+  @Test
+  void testConcurrencyGroupOnProcessorOrUnknownPluginPassesThePolicyCheck() {
+    when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
+    when(processorPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    assertNotRejectedFor(
+        singleNodeWithEngine(Map.of("concurrencyGroup", "gradle")), "concurrencyGroup");
+
+    when(registry.get(PROCESSOR_ID)).thenReturn(null);
+    assertNotRejectedFor(
+        singleNodeWithEngine(Map.of("concurrencyGroup", "gradle")), "concurrencyGroup");
   }
 
   private WorkflowDefinition singleProcessor(final Map<String, Object> config) {

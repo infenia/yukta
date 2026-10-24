@@ -18,6 +18,7 @@ func TestExecutionsCommands(t *testing.T) {
 		wantOut string
 	}{
 		{"stop", []string{"stop", "e1"}, "POST /api/executions/e1/stop", "Execution stopped: exec-1"},
+		{"stop tree", []string{"stop", "e1", "--tree"}, "POST /api/executions/e1/stop?tree=true", "Execution stopped: exec-1"},
 		{"restart", []string{"restart", "e1"}, "POST /api/executions/e1/restart", "Execution restarted with ID: exec-1"},
 		{"restart from node", []string{"restart", "e1", "n1"}, "POST /api/executions/e1/restart/n1", "Execution restarted with ID: exec-1"},
 	}

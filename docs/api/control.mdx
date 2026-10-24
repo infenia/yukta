@@ -43,6 +43,8 @@ Every execution and node control call, except retry, returns `data.executionId`,
 
 Pausing applies backpressure to the whole run, so nodes stop taking new work until you resume. The run's `controlState` becomes `PAUSED`, then `RESUMED`.
 
+A run that waits on a [sub-workflow](/concepts/sub-workflows) only holds its own nodes: the child keeps running. Add `?tree=true` to pause or resume the run and every unfinished run it started, at any depth. The run itself goes first and its failure is the answer; a run below that already ended, or refuses, is skipped.
+
 ```http
 POST /api/executions/550e8400-e29b-41d4-a716-446655440000/pause
 ```

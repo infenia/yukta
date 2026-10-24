@@ -6,6 +6,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.message.channel.DirectNodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannelProvider;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
@@ -14,6 +15,7 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
+import com.infenia.yukta.service.orchestrator.stream.ConcurrencyGroups;
 import com.infenia.yukta.service.orchestrator.stream.FailureLedger;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.stream.NodePolicies;
@@ -27,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -36,6 +39,7 @@ import reactor.core.scheduler.Scheduler;
 @Slf4j
 @Component
 @Order(2)
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
 @RequiredArgsConstructor
 public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
@@ -57,6 +61,9 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
   /** Resolves expressions in the node config, for a timeout that depends on the first input. */
   private final VariableResolver variableResolver;
 
+  /** The server-wide limits of the concurrency groups nodes may join. */
+  private final ConcurrencyGroups concurrencyGroups;
+
   /** Log key for node ID. */
   private static final String LOG_KEY_NODE_ID = "nodeId";
 
@@ -72,6 +79,25 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
           .log("ProcessorNodeAssemblerStrategy supports this plugin");
     }
     return isSupported;
+  }
+
+  /**
+   * Holds the first input of a node in a concurrency group until the group has room, showing the
+   * node QUEUED meanwhile, so the idle clock and RUNNING start when it really begins.
+   */
+  private Flux<Message<?>> gated(
+      final Flux<Message<?>> input,
+      final ConcurrencyGroups.@Nullable Place place,
+      final String executionId,
+      final WorkflowNode node) {
+    final Runnable queued =
+        () ->
+            tracker.emitTaskStatusEvent(
+                executionId, node.nodeId(), node.type(), TaskStatus.QUEUED, Map.of());
+    return place == null
+        ? input
+        : input.switchOnFirst(
+            (first, flux) -> first.hasValue() ? place.acquire(queued).thenMany(flux) : flux);
   }
 
   /** Whether this is a repeat of a message the plugin already failed on. */
@@ -167,11 +193,16 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
       // The idle clock starts when this node first gets work, not when the run starts.
       final NodeActivity activity = new NodeActivity();
+      final ConcurrencyGroups.Place place =
+          concurrencyGroups.place(NodePolicy.from(node.config()).concurrencyGroup());
+      final Flux<Message<?>> controlled =
+          gated(
+              control.applyPreProcessingControls(node.nodeId(), mergedInput),
+              place,
+              context.executionId(),
+              node);
       final Flux<Message<?>> safeInput =
-          control
-              .applyPreProcessingControls(node.nodeId(), mergedInput)
-              .doOnNext(_ -> activity.touch())
-              .onErrorMap(UpstreamFailure::mark);
+          controlled.doOnNext(_ -> activity.touch()).onErrorMap(UpstreamFailure::mark);
       final Flux<Message<?>> timedInput =
           NodeTimeouts.retimeOnFirstInput(safeInput, node, plugin, variableResolver, activity);
 
@@ -207,6 +238,9 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
               ? run.apply(channelInput)
               : bypassWhileSkipped(channelInput, skipFlag, run);
       stream = streamChannel.outbound(node.nodeId(), context.executionId(), pluginOutput);
+      if (place != null) {
+        stream = stream.doFinally(_ -> place.release());
+      }
       if (processor.isBlocking()) {
         log.atDebug()
             .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())

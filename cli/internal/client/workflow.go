@@ -219,11 +219,20 @@ func (c *Client) StopWorkflow(sessionID, workflowID, mode string) (WorkflowStopR
 
 // StopExecution stops a specific workflow execution.
 func (c *Client) StopExecution(executionID string) (WorkflowStartResponse, error) {
+	return c.StopExecutionTree(executionID, false)
+}
+
+// StopExecutionTree stops a workflow execution and, with tree, every unfinished run it started as a
+// sub-workflow, at any depth.
+func (c *Client) StopExecutionTree(executionID string, tree bool) (WorkflowStartResponse, error) {
 	if executionID == "" {
 		return WorkflowStartResponse{}, fmt.Errorf("executionID cannot be empty")
 	}
 
 	path := apiPath("/api/executions/%s/stop", executionID)
+	if tree {
+		path += "?tree=true"
+	}
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -306,41 +315,28 @@ func (c *Client) RestartFromNode(executionID, fromNodeID string) (WorkflowStartR
 
 // PauseWorkflow pauses a workflow execution globally.
 func (c *Client) PauseWorkflow(sessionID, executionID string) (WorkflowStartResponse, error) {
-	if sessionID == "" {
-		return WorkflowStartResponse{}, fmt.Errorf("sessionID cannot be empty")
-	}
-	if executionID == "" {
-		return WorkflowStartResponse{}, fmt.Errorf("executionID cannot be empty")
-	}
+	return c.PauseWorkflowTree(sessionID, executionID, false)
+}
 
-	path := apiPath("/api/executions/%s/pause", executionID)
-	httpReq, err := c.newRequest("POST", path)
-	if err != nil {
-		return WorkflowStartResponse{}, err
-	}
-
-	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
-		return WorkflowStartResponse{}, err
-	}
-
-	body, err := c.doRequest(httpReq)
-	if err != nil {
-		return WorkflowStartResponse{}, err
-	}
-
-	var response struct {
-		Data WorkflowStartResponse `json:"data"`
-	}
-
-	if err := json.Unmarshal(body, &response); err != nil {
-		return WorkflowStartResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
-	}
-
-	return response.Data, nil
+// PauseWorkflowTree pauses a workflow execution and, with tree, every unfinished run it started as
+// a sub-workflow, at any depth.
+func (c *Client) PauseWorkflowTree(sessionID, executionID string, tree bool) (WorkflowStartResponse, error) {
+	return c.executionSignal("pause", sessionID, executionID, tree)
 }
 
 // ResumeWorkflow resumes a paused workflow execution.
 func (c *Client) ResumeWorkflow(sessionID, executionID string) (WorkflowStartResponse, error) {
+	return c.ResumeWorkflowTree(sessionID, executionID, false)
+}
+
+// ResumeWorkflowTree resumes a paused workflow execution and, with tree, every unfinished run it
+// started as a sub-workflow.
+func (c *Client) ResumeWorkflowTree(sessionID, executionID string, tree bool) (WorkflowStartResponse, error) {
+	return c.executionSignal("resume", sessionID, executionID, tree)
+}
+
+// executionSignal sends POST /api/executions/{id}/{verb}, on the whole tree with tree.
+func (c *Client) executionSignal(verb, sessionID, executionID string, tree bool) (WorkflowStartResponse, error) {
 	if sessionID == "" {
 		return WorkflowStartResponse{}, fmt.Errorf("sessionID cannot be empty")
 	}
@@ -348,7 +344,10 @@ func (c *Client) ResumeWorkflow(sessionID, executionID string) (WorkflowStartRes
 		return WorkflowStartResponse{}, fmt.Errorf("executionID cannot be empty")
 	}
 
-	path := apiPath("/api/executions/%s/resume", executionID)
+	path := apiPath("/api/executions/%s/"+verb, executionID)
+	if tree {
+		path += "?tree=true"
+	}
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
 		return WorkflowStartResponse{}, err
@@ -409,6 +408,16 @@ func (c *Client) GetWorkflowStatus(sessionID, executionID string) (WorkflowProgr
 	}
 
 	return response.Data, nil
+}
+
+// GetExecutionTree lists an execution and every run it started as a sub-workflow, at any depth,
+// oldest first.
+func (c *Client) GetExecutionTree(executionID string) ([]WorkflowExecutionSummary, error) {
+	if executionID == "" {
+		return nil, fmt.Errorf("executionID cannot be empty")
+	}
+
+	return getAll[WorkflowExecutionSummary](c, apiPath("/api/executions/%s/tree", executionID))
 }
 
 // GetWorkflowHistory retrieves the execution history of all workflows for a session.

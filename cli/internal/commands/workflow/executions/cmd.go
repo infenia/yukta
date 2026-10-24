@@ -19,18 +19,22 @@ func ExecutionsCmd(c *client.Client) *cobra.Command {
 		Long:  `Manage individual workflow executions, including stopping and restarting them.`,
 	}
 
-	cmd.AddCommand(commands.Action(commands.ActionSpec[client.WorkflowStartResponse]{
+	var tree bool
+	stop := commands.Action(commands.ActionSpec[client.WorkflowStartResponse]{
 		Use:   "stop <execution-id>",
 		Short: "Stop a workflow execution",
-		Long: `Stop a specific workflow execution by its execution ID.
+		Long: `Stop a specific workflow execution by its execution ID. With --tree also every
+unfinished run it started as a sub-workflow, at any depth.
 
 Returns the execution ID of the stopped execution.`,
 		Args: cobra.ExactArgs(1),
-		Run:  func(a []string) (client.WorkflowStartResponse, error) { return c.StopExecution(a[0]) },
+		Run:  func(a []string) (client.WorkflowStartResponse, error) { return c.StopExecutionTree(a[0], tree) },
 		Msg: func(r client.WorkflowStartResponse, _ []string) string {
 			return fmt.Sprintf("Execution stopped: %s", r.ExecutionID)
 		},
-	}))
+	})
+	stop.Flags().BoolVar(&tree, "tree", false, "Also stop the runs it started as sub-workflows")
+	cmd.AddCommand(stop)
 
 	cmd.AddCommand(commands.Action(commands.ActionSpec[client.WorkflowStartResponse]{
 		Use:   "restart <execution-id> [from-node-id]",

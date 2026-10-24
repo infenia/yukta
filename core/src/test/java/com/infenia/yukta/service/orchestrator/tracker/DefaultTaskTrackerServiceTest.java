@@ -176,6 +176,31 @@ class DefaultTaskTrackerServiceTest {
     assertThat(tracker.isWithin("top", "top")).isTrue();
     assertThat(tracker.isWithin("again", "top")).isFalse();
     assertThat(tracker.isWithin("unknown", "top")).isFalse();
+
+    assertThat(tracker.lineage("grandchild")).isEqualTo(new TaskTrackerService.Lineage("top", 2));
+    assertThat(tracker.lineage("child")).isEqualTo(new TaskTrackerService.Lineage("top", 1));
+    assertThat(tracker.lineage("top")).isEqualTo(new TaskTrackerService.Lineage("top", 0));
+    assertThat(tracker.lineage("unknown")).isEqualTo(new TaskTrackerService.Lineage("unknown", 0));
+  }
+
+  @Test
+  void testTreeListsTheRunAndItsDescendantsOldestFirst() {
+    for (final String exec : List.of("t-top", "t-child", "t-grandchild", "t-other")) {
+      StepVerifier.create(tracker.startWorkflow(exec, "t-sess", "t-wf", List.of("a")))
+          .verifyComplete();
+    }
+    tracker.recordLineage("t-top", null, null);
+    tracker.recordLineage("t-child", "t-top", null);
+    tracker.recordLineage("t-grandchild", "t-child", null);
+    tracker.recordLineage("t-other", null, null);
+
+    assertThat(tracker.getTree("t-top"))
+        .extracting(com.infenia.yukta.model.execution.WorkflowExecutionSummary::executionId)
+        .containsExactlyInAnyOrder("t-top", "t-child", "t-grandchild");
+    assertThat(tracker.getTree("t-child"))
+        .extracting(com.infenia.yukta.model.execution.WorkflowExecutionSummary::executionId)
+        .containsExactlyInAnyOrder("t-child", "t-grandchild");
+    assertThat(tracker.getTree("nope")).isEmpty();
   }
 
   @Test
@@ -211,6 +236,7 @@ class DefaultTaskTrackerServiceTest {
     tracker.recordLineage("loop-b", "loop-a", null);
 
     assertThat(tracker.isWithin("loop-a", "elsewhere")).isFalse();
+    assertThat(tracker.lineage("loop-a").depth()).isPositive().isLessThanOrEqualTo(16);
   }
 
   @Test

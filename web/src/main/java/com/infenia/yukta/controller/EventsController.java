@@ -39,8 +39,32 @@ public class EventsController {
   /** Knows which runs a run started, for {@code tree}. */
   private final TaskTrackerService tracker;
 
-  /** One event on the wire. */
-  public record Envelope(String type, EventSeverity severity, ExecutionEvent event) {}
+  /**
+   * One event on the wire.
+   *
+   * @param type the event kind
+   * @param severity how serious it is
+   * @param rootExecutionId the run at the top of the event's tree of runs (the run itself when it
+   *     has no parent)
+   * @param depth how many sub-workflow levels the event's run lies below the root
+   * @param event the event
+   */
+  public record Envelope(
+      String type,
+      EventSeverity severity,
+      String rootExecutionId,
+      int depth,
+      ExecutionEvent event) {}
+
+  private Envelope envelope(final ExecutionEvent event) {
+    final TaskTrackerService.Lineage lineage = tracker.lineage(event.executionId());
+    return new Envelope(
+        event.getClass().getSimpleName(),
+        EventSeverity.of(event),
+        lineage.rootExecutionId(),
+        lineage.depth(),
+        event);
+  }
 
   /**
    * Stream events of all executions as they happen.
@@ -84,9 +108,7 @@ public class EventsController {
                     executionId == null
                         || executionId.equals(event.executionId())
                         || tree && tracker.isWithin(event.executionId(), executionId))
-            .map(
-                event ->
-                    new Envelope(event.getClass().getSimpleName(), EventSeverity.of(event), event))
+            .map(this::envelope)
             .filter(envelope -> type == null || type.equalsIgnoreCase(envelope.type()))
             .filter(envelope -> envelope.severity().compareTo(minimum) >= 0),
         null,

@@ -95,6 +95,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "tree",
+            "in": "query",
+            "description": "Also every unfinished run the execution started as a sub-workflow, at any depth",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ],
         "responses": {
@@ -128,6 +138,16 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "tree",
+            "in": "query",
+            "description": "Also every unfinished run the execution started as a sub-workflow, at any depth",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -314,6 +334,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "tree",
+            "in": "query",
+            "description": "Also every unfinished run the execution started as a sub-workflow, at any depth",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ],
         "responses": {
@@ -355,6 +385,16 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "tree",
+            "in": "query",
+            "description": "Also every unfinished run the execution started as a sub-workflow, at any depth",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -466,6 +506,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "tree",
+            "in": "query",
+            "description": "Also every unfinished run the execution started as a sub-workflow, at any depth",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ],
         "responses": {
@@ -507,6 +557,16 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "tree",
+            "in": "query",
+            "description": "Also every unfinished run the execution started as a sub-workflow, at any depth",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -3136,6 +3196,38 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponseEditionInfo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/executions/{executionId}/tree": {
+      "get": {
+        "tags": [
+          "Execution API"
+        ],
+        "summary": "Get the tree of runs below an execution",
+        "operationId": "getTree",
+        "parameters": [
+          {
+            "name": "executionId",
+            "in": "path",
+            "description": "Execution ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListWorkflowExecutionSummary"
                 }
               }
             }

@@ -10,9 +10,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.NoArgsConstructor;
@@ -36,6 +39,9 @@ class ExecutionControllerTest {
   /** The control bus. */
   private ControlBusGateway controlBus;
 
+  /** The tracker, which knows the runs of a tree. */
+  private TaskTrackerService tracker;
+
   /** The client. */
   private WebTestClient client;
 
@@ -47,11 +53,42 @@ class ExecutionControllerTest {
   @BeforeEach
   void setUp() {
     controlBus = mock(ControlBusGateway.class);
+    tracker = mock(TaskTrackerService.class);
     client =
         WebTestClient.bindToController(
-                new ExecutionController(controlBus, new ExecutionAccess(controlBus)))
+                new ExecutionController(
+                    controlBus, new ExecutionAccess(controlBus), new TreeControl(tracker), tracker))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
+  }
+
+  @Test
+  void testStopWithTree_stopsTheRunsBelowToo_andTreeListsThem() {
+    final List<WorkflowExecutionSummary> tree =
+        List.of(
+            new WorkflowExecutionSummary(
+                "e1", "wf", "RUNNING", LocalDateTime.now(), null, null, "e1", null),
+            new WorkflowExecutionSummary(
+                "c1", "child", "PAUSED", LocalDateTime.now(), null, "e1", "e1", null));
+    when(tracker.getTree("e1")).thenReturn(tree);
+    when(controlBus.stopExecution(any(), any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+    when(controlBus.getCurrentProgress("e1")).thenReturn(progress("s1", "RUNNING"));
+
+    client.post().uri("/api/executions/e1/stop?tree=true").exchange().expectStatus().isOk();
+    client
+        .get()
+        .uri("/api/executions/e1/tree")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data[1].executionId")
+        .isEqualTo("c1")
+        .jsonPath("$.data[1].parentExecutionId")
+        .isEqualTo("e1");
+
+    verify(controlBus).stopExecution("e1", "Stopped via REST API");
+    verify(controlBus).stopExecution("c1", "Stopped via REST API");
   }
 
   @Test

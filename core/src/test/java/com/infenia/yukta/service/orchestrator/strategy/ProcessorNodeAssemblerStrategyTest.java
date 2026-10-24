@@ -31,12 +31,14 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
+import com.infenia.yukta.service.orchestrator.stream.ConcurrencyGroups;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
@@ -88,7 +90,8 @@ class ProcessorNodeAssemblerStrategyTest {
             streamTopologyDecorator,
             channelProvider,
             activePluginRegistry,
-            new VariableResolver(mock(SecretProvider.class)));
+            new VariableResolver(mock(SecretProvider.class)),
+            new ConcurrencyGroups(Map.of()));
   }
 
   // ── supports() ────────────────────────────────────────────────────────────
@@ -192,6 +195,98 @@ class ProcessorNodeAssemblerStrategyTest {
 
     verify(activePluginRegistry).register(WORKFLOW_ID, EXECUTION_ID, NODE_ID, processor);
     verify(activePluginRegistry).unregister(WORKFLOW_ID, EXECUTION_ID, NODE_ID);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void createAssembler_fullConcurrencyGroup_holdsNodeQueuedUntilPlaceFrees() {
+    final ConcurrencyGroups groups = new ConcurrencyGroups(Map.of("gradle", 1));
+    final ProcessorNodeAssemblerStrategy limited =
+        new ProcessorNodeAssemblerStrategy(
+            tracker,
+            Schedulers.boundedElastic(),
+            streamTopologyDecorator,
+            channelProvider,
+            activePluginRegistry,
+            new VariableResolver(mock(SecretProvider.class)),
+            groups);
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "input");
+    final Message<?> out = DefaultMessage.create(UUID.randomUUID(), "output");
+    final ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.process(any(), any()))
+        .thenAnswer(invocation -> ((Flux<Message<?>>) invocation.getArgument(0)).map(_ -> out));
+    final WorkflowNode node =
+        new WorkflowNode(
+            NODE_ID, "processor", Map.of("engine", Map.of("concurrencyGroup", "gradle")));
+    final Flux<Message<?>> parentStream = Flux.just(msg);
+    final AssemblyContext context = buildContext(NODE_ID, parentStream, null);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(parentStream);
+    when(streamTopologyDecorator.applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
+        .thenAnswer(invocation -> invocation.getArgument(2));
+    final ConcurrencyGroups.Place busy = Objects.requireNonNull(groups.place("gradle"));
+    busy.acquire(() -> {}).subscribe();
+
+    limited
+        .createAssembler(node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.streams()[0])
+        .expectSubscription()
+        .then(
+            () ->
+                verify(tracker)
+                    .emitTaskStatusEvent(
+                        EXECUTION_ID, NODE_ID, "processor", TaskStatus.QUEUED, Map.of()))
+        .expectNoEvent(Duration.ofMillis(100))
+        .then(busy::release)
+        .expectNextCount(1)
+        .verifyComplete();
+    assertThat(groups.place("gradle")).isNotNull();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void createAssembler_concurrencyGroup_passesEmptyAndFailingInputThroughWithoutPlace() {
+    final ConcurrencyGroups groups = new ConcurrencyGroups(Map.of("gradle", 1));
+    final ProcessorNodeAssemblerStrategy limited =
+        new ProcessorNodeAssemblerStrategy(
+            tracker,
+            Schedulers.boundedElastic(),
+            streamTopologyDecorator,
+            channelProvider,
+            activePluginRegistry,
+            new VariableResolver(mock(SecretProvider.class)),
+            groups);
+    final ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.process(any(), any()))
+        .thenAnswer(invocation -> (Flux<Message<?>>) invocation.getArgument(0));
+    when(streamTopologyDecorator.applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
+        .thenAnswer(invocation -> invocation.getArgument(2));
+    final WorkflowNode node =
+        new WorkflowNode(
+            NODE_ID, "processor", Map.of("engine", Map.of("concurrencyGroup", "gradle")));
+
+    final Flux<Message<?>> empty = Flux.empty();
+    final Flux<Message<?>> failing = Flux.error(new IllegalStateException("up"));
+    StepVerifier.create(gated(limited, node, processor, empty)).verifyComplete();
+    StepVerifier.create(gated(limited, node, processor, failing)).verifyError();
+  }
+
+  private Flux<Message<?>> gated(
+      final ProcessorNodeAssemblerStrategy limited,
+      final WorkflowNode node,
+      final ProcessorPlugin processor,
+      final Flux<Message<?>> input) {
+    final AssemblyContext context = buildContext(NODE_ID, input, null);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(input);
+    limited
+        .createAssembler(node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+    return context.streams()[0];
   }
 
   @Test

@@ -12,6 +12,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
+import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
@@ -30,7 +31,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 @NoArgsConstructor
 class SubWorkflowAcceptanceTest {
 
@@ -41,6 +42,7 @@ class SubWorkflowAcceptanceTest {
   @Autowired private WorkflowDefinitionStore definitions;
   @Autowired private TaskTrackerService tracker;
   @Autowired private ExecutionLogStore executionLog;
+  @Autowired private TreeControl treeControl;
 
   private void define(final String session, final String workflowId, final Node step) {
     definitions
@@ -253,6 +255,33 @@ class SubWorkflowAcceptanceTest {
                             java.util.Objects.requireNonNullElse(event.payload(), Map.of())
                                 .get("project")))
         .isNotEmpty();
+  }
+
+  @Test
+  void pausingTheTree_pausesTheChildTheParentWaitsOn_andResumingTheTreeLetsBothFinish() {
+    final String session = "sub-" + UUID.randomUUID();
+    define(
+        session,
+        "slow-child",
+        new Node("p", "PROCESS_EXECUTOR", Map.of("command", List.of("sleep", "3"))));
+    define(
+        session,
+        "waiting-parent",
+        new Node("sub", "SUB_WORKFLOW", Map.of("workflowId", "slow-child", "timeoutSeconds", 60)));
+
+    final String parent = gateway.startWorkflow(session, "waiting-parent").block();
+    await().atMost(WAIT).until(() -> tracker.getTree(parent).size() == 2);
+    final String child = tracker.getTree(parent).get(1).executionId();
+
+    treeControl.apply(parent, true, gateway::pauseWorkflow).block(WAIT);
+    await()
+        .atMost(WAIT)
+        .until(() -> "PAUSED".equals(tracker.getProgressByExecutionId(child).controlState()));
+    assertThat(tracker.getProgressByExecutionId(parent).controlState()).isEqualTo("PAUSED");
+
+    treeControl.apply(parent, true, gateway::resumeWorkflow).block(WAIT);
+    assertThat(awaitTerminal(parent).status()).isEqualTo("SUCCESS");
+    assertThat(tracker.getProgressByExecutionId(child).status()).isEqualTo("SUCCESS");
   }
 
   @Test

@@ -5,6 +5,7 @@ package com.infenia.yukta.service.orchestrator.stream;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.WorkflowNode;
+import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.orchestrator.tracker.LogLineClassifier;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
@@ -18,6 +19,7 @@ import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.event.Level;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
@@ -32,6 +34,9 @@ public class NodeStreams {
 
   /** Metadata key of the rated warning and error lines in a failure reason. */
   public static final String PROBLEMS_KEY = "problems";
+
+  /** Start of the warning line a stalled node logs. */
+  public static final String STALLED_PREFIX = "NodeStalled:";
 
   /** Longest reason kept on a status event; a longer one keeps its head and tail. */
   private static final int MAX_ERROR_CHARS = 8_000;
@@ -48,6 +53,7 @@ public class NodeStreams {
    * @param activity the node's activity clock; the timeout counts idle time since its last touch
    * @param paused tells whether the node or run is paused, which holds the timeout clock
    * @param deadline the longest the node may run from its first activity, or null for none
+   * @param stallAfter the silence after which the node is reported stalled, or null for never
    * @return the decorated stream
    */
   public Flux<Message<?>> withTimeoutAndTracking(
@@ -58,7 +64,8 @@ public class NodeStreams {
       final Flux<Message<?>> source,
       final NodeActivity activity,
       final BooleanSupplier paused,
-      @Nullable final Duration deadline) {
+      @Nullable final Duration deadline,
+      @Nullable final Duration stallAfter) {
     final String nodeId = node.nodeId();
     // RUNNING at the node's first activity, not at wiring, so its times are its own; a node that
     // ends without any activity still passes through RUNNING, then ends SKIPPED.
@@ -70,13 +77,24 @@ public class NodeStreams {
           }
         };
     activity.onFirstTouch(markRunning);
-    return activity
-        .guard(
+    final Flux<Message<?>> guarded =
+        activity.guard(
             source.doOnNext(_ -> activity.touch()),
             timeout,
             deadline,
             Schedulers.parallel(),
-            paused)
+            paused);
+    return (stallAfter == null
+            ? guarded
+            : Flux.defer(
+                () -> {
+                  // ponytail: warns once per node run; re-arm after fresh activity if needed.
+                  final Disposable watch =
+                      activity
+                          .silent(stallAfter, Schedulers.parallel(), paused)
+                          .subscribe(_ -> warnStalled(tracker, executionId, nodeId, stallAfter));
+                  return guarded.doFinally(_ -> watch.dispose());
+                }))
         .doOnError(
             TimeoutException.class,
             e ->
@@ -118,6 +136,20 @@ public class NodeStreams {
                       ? Collections.emptyMap()
                       : failureMetadata(describe(error)));
             });
+  }
+
+  /** Logs the stall warning that rules and {@code watch --quiet} pick up. */
+  private void warnStalled(
+      final TaskTrackerService tracker,
+      final String executionId,
+      final String nodeId,
+      final Duration after) {
+    tracker.emitLogEvent(
+        executionId,
+        nodeId,
+        STALLED_PREFIX + " " + nodeId + ": no activity for " + after,
+        false,
+        LogLevel.WARN);
   }
 
   /**

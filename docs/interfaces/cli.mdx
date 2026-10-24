@@ -82,7 +82,8 @@ yukta-cli session get demo
 |---|---|
 | `yukta-cli workflow start <session-id> <workflow-id>` | Start a run and print its execution id |
 | `yukta-cli workflow stop <session-id> <workflow-id> [--mode DRAIN\|CANCEL\|KILL]` | Stop every active run of the workflow; the default `DRAIN` lets work in flight finish |
-| `yukta-cli workflow executions stop <execution-id>` | Stop one run |
+| `yukta-cli workflow executions stop <execution-id> [--tree]` | Stop one run; `--tree` also the runs it started as sub-workflows |
+| `yukta-cli workflow tree <execution-id>` | The run and every run it started, one line each: id, workflow, status, `parent=` |
 | `yukta-cli workflow executions restart <execution-id> [from-node-id]` | Restart a run from the beginning, or from a node, as a new run |
 
 `workflow start` takes the trigger input with one of two flags:
@@ -115,8 +116,8 @@ Use `-o json` with `status` to get the full snapshot, including every node's sta
 
 | Command | Does |
 |---|---|
-| `yukta-cli workflow pause <session-id> <execution-id>` | Pause a run |
-| `yukta-cli workflow resume <session-id> <execution-id>` | Resume a paused run |
+| `yukta-cli workflow pause <session-id> <execution-id> [--tree]` | Pause a run; `--tree` also the runs it started as sub-workflows, which pausing the parent alone leaves running |
+| `yukta-cli workflow resume <session-id> <execution-id> [--tree]` | Resume a paused run (`--tree`: with the runs it started) |
 
 ## Control nodes
 

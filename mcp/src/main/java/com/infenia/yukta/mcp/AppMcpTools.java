@@ -297,6 +297,7 @@ public class AppMcpTools {
    * @param workflowId the target workflow (stop_all only)
    * @param fromNodeId the node to restart from (restart_from_node only)
    * @param reason optional reason recorded with stop actions
+   * @param tree for pause, resume and stop: also the runs the execution started
    * @return Mono containing the action result
    */
   @McpTool(
@@ -339,9 +340,39 @@ public class AppMcpTools {
               description = "The node ID to restart from (required for RESTART_FROM_NODE)")
           final String fromNodeId,
       @McpToolParam(required = false, description = "Optional reason recorded with stop actions")
-          final String reason) {
+          final String reason,
+      @McpToolParam(
+              required = false,
+              description =
+                  "For PAUSE, RESUME and STOP: true to also reach every unfinished run the"
+                      + " execution started as a sub-workflow, at any depth")
+          final Boolean tree) {
     return workflowControlProvider.controlWorkflow(
-        sessionId, action, executionId, workflowId, fromNodeId, reason);
+        sessionId, action, executionId, workflowId, fromNodeId, reason, Boolean.TRUE.equals(tree));
+  }
+
+  /**
+   * List the tree of runs below an execution.
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the run at the top
+   * @return the run and every run it started as a sub-workflow
+   */
+  @McpTool(
+      name = "get_execution_tree",
+      title = "Get Execution Tree",
+      description =
+          "List an execution and every run it started as a sub-workflow, at any depth, oldest"
+              + " first, each with its parentExecutionId and status",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<WorkflowHistory> getExecutionTree(
+      @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
+      @McpToolParam(required = true, description = "The execution at the top of the tree")
+          final String executionId) {
+    return workflowControlProvider
+        .getExecutionTree(sessionId, executionId)
+        .map(WorkflowHistory::new);
   }
 
   /**

@@ -94,11 +94,18 @@ public class ExecutionScheduler implements SmartLifecycle {
   /** Signals that the last running execution has finished; replaced on each {@link #start()}. */
   private Sinks.Empty<Void> drained = Sinks.empty();
 
+  /** What a refused start is told while the server drains. */
+  private static final String DRAINING_MESSAGE =
+      "The server is draining for a restart; try again once it is back";
+
   /** Total running executions. */
   private int runningTotal;
 
   /** True from the start of shutdown. */
   private boolean closed;
+
+  /** True while new starts are refused so the server can be swapped; running ones go on. */
+  private boolean draining;
 
   /** True while the lifecycle is started. */
   private boolean started;
@@ -185,8 +192,9 @@ public class ExecutionScheduler implements SmartLifecycle {
     assertLeader();
     assertStartRate(workflowId);
     synchronized (lock) {
-      if (closed) {
-        throw refusal(RejectReason.SHUTDOWN, "The server is shutting down");
+      final ExecutionRejectedException unavailable = unavailable();
+      if (unavailable != null) {
+        throw unavailable;
       }
       final String key = key(sessionId, workflowId);
       if (!fits(key)) {
@@ -246,8 +254,9 @@ public class ExecutionScheduler implements SmartLifecycle {
     assertLeader();
     final String key = key(sessionId, workflowId);
     synchronized (lock) {
-      if (closed) {
-        return refused(refusal(RejectReason.SHUTDOWN, "The server is shutting down"));
+      final ExecutionRejectedException unavailable = unavailable();
+      if (unavailable != null) {
+        return refused(unavailable);
       }
       if (fits(key)) {
         return new Admission(true, Mono.just(take(key)));
@@ -285,6 +294,31 @@ public class ExecutionScheduler implements SmartLifecycle {
   public int running() {
     synchronized (lock) {
       return runningTotal;
+    }
+  }
+
+  /**
+   * Starts or stops refusing new starts, so the server can be swapped without cutting a run off.
+   * Runs already admitted, and the starts already waiting, carry on; a child of a running parent is
+   * still let through.
+   *
+   * @param value true to refuse new starts, false to admit them again
+   */
+  public void setDraining(final boolean value) {
+    synchronized (lock) {
+      draining = value;
+    }
+    log.atInfo().addKeyValue("draining", value).log("Execution drain changed");
+  }
+
+  /**
+   * Whether new starts are being refused for a swap.
+   *
+   * @return true while draining
+   */
+  public boolean isDraining() {
+    synchronized (lock) {
+      return draining;
     }
   }
 
@@ -383,6 +417,15 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   private static String key(final String sessionId, final String workflowId) {
     return sessionId + "\0" + workflowId;
+  }
+
+  /** The refusal for every start while the server shuts down or drains, or null when it admits. */
+  @Nullable
+  private ExecutionRejectedException unavailable() {
+    if (closed) {
+      return refusal(RejectReason.SHUTDOWN, "The server is shutting down");
+    }
+    return draining ? refusal(RejectReason.DRAINING, DRAINING_MESSAGE) : null;
   }
 
   private static Admission refused(final ExecutionRejectedException error) {
@@ -629,7 +672,8 @@ public class ExecutionScheduler implements SmartLifecycle {
     WORKFLOW_QUEUE_FULL,
     QUEUE_TIMEOUT,
     NOT_LEADER,
-    RATE_LIMIT
+    RATE_LIMIT,
+    DRAINING
   }
 
   /** What to do with a start that does not fit within the limits. */

@@ -253,6 +253,32 @@ public interface TaskTrackerService {
   boolean isWithin(@NotBlank String executionId, @NotBlank String ancestorId);
 
   /**
+   * Where a run sits in its tree of runs.
+   *
+   * @param executionId the run
+   * @return the run at the top of its tree and how many sub-workflow levels it lies below it; a run
+   *     without a parent, or an unknown one, is its own root at depth 0
+   */
+  Lineage lineage(@NotBlank String executionId);
+
+  /**
+   * A run's place in its tree.
+   *
+   * @param rootExecutionId the run at the top of the tree
+   * @param depth how many levels below the root, 0 for the root itself
+   */
+  record Lineage(String rootExecutionId, int depth) {}
+
+  /**
+   * The tracked runs of a tree: the given run and every run it started as a sub-workflow, at any
+   * depth, oldest first.
+   *
+   * @param rootExecutionId the run at the top of the tree
+   * @return the runs, or an empty list when the run is not tracked
+   */
+  List<WorkflowExecutionSummary> getTree(@NotBlank String rootExecutionId);
+
+  /**
    * Emit a log event for asynchronous processing.
    *
    * @param executionId the execution identifier

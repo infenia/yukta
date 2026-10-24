@@ -4,11 +4,15 @@ package com.infenia.yukta.controller;
 
 import com.infenia.yukta.dto.response.WorkflowStartResponse;
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -42,21 +46,52 @@ public class ExecutionController {
   /** The access. */
   private final ExecutionAccess access;
 
+  /** Applies a command to a whole tree of runs. */
+  private final TreeControl treeControl;
+
+  /** Knows the runs of a tree. */
+  private final TaskTrackerService tracker;
+
   /**
    * Stop one execution.
    *
    * @param executionId the execution
+   * @param tree also stop every unfinished run it started as a sub-workflow
    * @return the stopped execution ID
    */
   @PostMapping({"/executions/{executionId}/stop", "/workflow/executions/{executionId}/stop"})
   @Operation(
       summary = "Stop a specific execution",
-      description = "Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)")
+      description =
+          "With tree=true also every unfinished run it started as a sub-workflow. Legacy path:"
+              + " /api/workflow/executions/{executionId}/stop (deprecated)")
   public Mono<ApiResponse<WorkflowStartResponse>> stopExecution(
+      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
+      @Parameter(description = "Also the runs it started as sub-workflows, at any depth")
+          @RequestParam(defaultValue = "false")
+          final boolean tree) {
+    return treeControl
+        .apply(executionId, tree, id -> controlBus.stopExecution(id, "Stopped via REST API"))
+        .thenReturn(started("Execution stop signal accepted", executionId));
+  }
+
+  /**
+   * Get the tree of runs an execution belongs to below it.
+   *
+   * @param executionId the run at the top
+   * @return the run and every run it started as a sub-workflow, at any depth, oldest first
+   */
+  @GetMapping("/executions/{executionId}/tree")
+  @Operation(
+      summary = "Get the tree of runs below an execution",
+      description =
+          "The execution and every run it started as a sub-workflow, at any depth, oldest first,"
+              + " each with its parentExecutionId and status")
+  public Mono<ApiResponse<List<WorkflowExecutionSummary>>> getTree(
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId) {
-    return controlBus
-        .stopExecution(executionId, "Stopped via REST API")
-        .map(id -> started("Execution stop signal accepted", id));
+    return access
+        .require(null, executionId)
+        .map(_ -> ApiResponse.success(200, "Tree retrieved", tracker.getTree(executionId)));
   }
 
   /**

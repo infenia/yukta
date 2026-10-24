@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -10,9 +11,12 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.mcp.dto.NodeControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -30,12 +34,14 @@ class WorkflowControlProviderTest {
   private WorkflowControlProvider provider;
   private ControlBusGateway controlBus;
   private ExecutionResumer resumer;
+  private TaskTrackerService tracker;
 
   @BeforeEach
   void setUp() {
     controlBus = mock(ControlBusGateway.class);
     resumer = mock(ExecutionResumer.class);
-    provider = new WorkflowControlProvider(controlBus, resumer);
+    tracker = mock(TaskTrackerService.class);
+    provider = new WorkflowControlProvider(controlBus, resumer, new TreeControl(tracker), tracker);
     when(controlBus.getProgress(SESSION, EXECUTION)).thenReturn(progressOwnedBy(SESSION));
   }
 
@@ -553,5 +559,53 @@ class WorkflowControlProviderTest {
     StepVerifier.create(provider.pendingApprovals(" ")).verifyError(IllegalArgumentException.class);
     StepVerifier.create(provider.pendingApprovals(null))
         .verifyError(IllegalArgumentException.class);
+  }
+
+  private static WorkflowExecutionSummary run(final String id, final String status) {
+    return new WorkflowExecutionSummary(
+        id, "wf", status, java.time.LocalDateTime.now(), null, EXECUTION, EXECUTION, null);
+  }
+
+  @Test
+  void controlWorkflow_withTree_pausesResumesAndStopsTheRunsBelowToo() {
+    when(tracker.getTree(EXECUTION))
+        .thenReturn(List.of(run(EXECUTION, "RUNNING"), run("child", "RUNNING")));
+    when(controlBus.pauseWorkflow(org.mockito.ArgumentMatchers.anyString()))
+        .thenReturn(Mono.empty());
+    when(controlBus.resumeWorkflow(org.mockito.ArgumentMatchers.anyString()))
+        .thenReturn(Mono.empty());
+    when(controlBus.stopExecution(
+            org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(call -> Mono.just(call.getArgument(0)));
+
+    for (final WorkflowControlAction action :
+        List.of(
+            WorkflowControlAction.PAUSE,
+            WorkflowControlAction.RESUME,
+            WorkflowControlAction.STOP)) {
+      StepVerifier.create(
+              provider.controlWorkflow(SESSION, action, EXECUTION, null, null, null, true))
+          .assertNext(result -> assertThat(result.message()).contains("with the runs below it"))
+          .verifyComplete();
+    }
+
+    org.mockito.Mockito.verify(controlBus).pauseWorkflow("child");
+    org.mockito.Mockito.verify(controlBus).resumeWorkflow("child");
+    org.mockito.Mockito.verify(controlBus)
+        .stopExecution(
+            org.mockito.ArgumentMatchers.eq("child"), org.mockito.ArgumentMatchers.anyString());
+  }
+
+  @Test
+  void getExecutionTree_listsTheRunsOfAnOwnedExecution() {
+    when(tracker.getTree(EXECUTION)).thenReturn(List.of(run(EXECUTION, "RUNNING")));
+
+    StepVerifier.create(provider.getExecutionTree(SESSION, EXECUTION))
+        .assertNext(
+            tree ->
+                assertThat(tree)
+                    .extracting(WorkflowExecutionSummary::executionId)
+                    .containsExactly(EXECUTION))
+        .verifyComplete();
   }
 }
