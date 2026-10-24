@@ -28,7 +28,8 @@ import reactor.core.publisher.Mono;
   "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyStaticImports",
-  "PMD.UseConcurrentHashMap"
+  "PMD.UseConcurrentHashMap",
+  "PMD.TooManyMethods"
 })
 @NoArgsConstructor
 class ErrorGuardExtensionTest {
@@ -38,6 +39,7 @@ class ErrorGuardExtensionTest {
   @AfterEach
   void clearMode() {
     System.clearProperty(ErrorGuardExtension.MODE_PROPERTY);
+    System.clearProperty(ErrorGuardExtension.STALE_PROPERTY);
   }
 
   @Test
@@ -92,6 +94,7 @@ class ErrorGuardExtensionTest {
 
   @Test
   void report_passesButStillReads() throws Exception {
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "report");
     final ExtensionContext context = context(GuardFixtures.Plain.class, "plain");
     extension.beforeEach(context);
     Mono.error(new IllegalStateException("boom")).subscribe();
@@ -108,6 +111,59 @@ class ErrorGuardExtensionTest {
   }
 
   @Test
+  void strict_failsWhenMethodExpectationMatchesNothing() throws Exception {
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "strict");
+    final ExtensionContext context = context(GuardFixtures.Plain.class, "expecting");
+    extension.beforeEach(context);
+    assertThatThrownBy(() -> extension.afterEach(context))
+        .isInstanceOf(AssertionFailedError.class)
+        .hasMessageContaining("unused @ExpectedErrorLog(\"went wrong\")")
+        .hasMessageContaining("remove it");
+  }
+
+  @Test
+  void staleCheckOff_letsAnUnusedMethodExpectationPass() throws Exception {
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "strict");
+    System.setProperty(ErrorGuardExtension.STALE_PROPERTY, "false");
+    final ExtensionContext context = context(GuardFixtures.Plain.class, "expecting");
+    extension.beforeEach(context);
+    assertThatCode(() -> extension.afterEach(context)).doesNotThrowAnyException();
+  }
+
+  @Test
+  void afterAll_failsForClassExpectationNoTestUsed() throws Exception {
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "strict");
+    final ExtensionContext context = context(GuardFixtures.Unused.class, "plain");
+    extension.beforeEach(context);
+    extension.afterEach(context);
+    assertThatThrownBy(() -> extension.afterAll(context))
+        .isInstanceOf(AssertionFailedError.class)
+        .hasMessageContaining("unused @ExpectedErrorLog(\"never happens\") on class Unused");
+  }
+
+  @Test
+  void afterAll_passesWhenOneTestUsedTheClassExpectation() throws Exception {
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "strict");
+    final ExtensionContext context = context(GuardFixtures.Outer.Inner.class, "plain");
+    extension.beforeEach(context);
+    LoggerFactory.getLogger("guard.log").error("went wrong");
+    extension.afterEach(context);
+    final ExtensionContext outer = context(GuardFixtures.Outer.class, "plain");
+    when(outer.getRoot()).thenReturn(context);
+    assertThatCode(() -> extension.afterAll(outer)).doesNotThrowAnyException();
+  }
+
+  @Test
+  void afterAll_isSilentWhenTheGuardIsOffOrNothingIsExpected() throws Exception {
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "strict");
+    final ExtensionContext plain = context(GuardFixtures.Plain.class, "plain");
+    assertThatCode(() -> extension.afterAll(plain)).doesNotThrowAnyException();
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "off");
+    final ExtensionContext unused = context(GuardFixtures.Unused.class, "plain");
+    assertThatCode(() -> extension.afterAll(unused)).doesNotThrowAnyException();
+  }
+
+  @Test
   void present_isFalseForMissingClass() {
     assertThat(ErrorGuardExtension.present("no.such.Type")).isFalse();
     assertThat(ErrorGuardExtension.present("java.lang.String")).isTrue();
@@ -117,6 +173,11 @@ class ErrorGuardExtensionTest {
       throws NoSuchMethodException {
     final Map<Object, Object> data = new HashMap<>();
     final ExtensionContext.Store store = mock(ExtensionContext.Store.class);
+    when(store.getOrComputeIfAbsent(any(), any(), any(Class.class)))
+        .thenAnswer(
+            call ->
+                data.computeIfAbsent(
+                    call.getArgument(0), k -> java.util.concurrent.ConcurrentHashMap.newKeySet()));
     doAnswer(call -> data.put(call.getArgument(0), call.getArgument(1)))
         .when(store)
         .put(any(), any());
@@ -125,6 +186,7 @@ class ErrorGuardExtensionTest {
     final ExtensionContext context = mock(ExtensionContext.class);
     final Method target = type.getDeclaredMethod(method);
     when(context.getStore(any())).thenReturn(store);
+    when(context.getRoot()).thenReturn(context);
     when(context.getElement()).thenReturn(Optional.of(target));
     when(context.getRequiredTestClass()).thenReturn((Class) type);
     when(context.getDisplayName()).thenReturn(method + "()");

@@ -62,12 +62,12 @@ class ErrorGuardTest {
   }
 
   @Test
-  void mode_defaultsToReportAndReadsTheOthers() {
-    assertThat(ErrorGuardExtension.Mode.parse(null)).isEqualTo(ErrorGuardExtension.Mode.REPORT);
-    assertThat(ErrorGuardExtension.Mode.parse(" ")).isEqualTo(ErrorGuardExtension.Mode.REPORT);
+  void mode_defaultsToStrictAndReadsTheOthers() {
+    assertThat(ErrorGuardExtension.Mode.parse(null)).isEqualTo(ErrorGuardExtension.Mode.STRICT);
+    assertThat(ErrorGuardExtension.Mode.parse(" ")).isEqualTo(ErrorGuardExtension.Mode.STRICT);
     assertThat(ErrorGuardExtension.Mode.parse("whatever"))
-        .isEqualTo(ErrorGuardExtension.Mode.REPORT);
-    assertThat(ErrorGuardExtension.Mode.parse("STRICT")).isEqualTo(ErrorGuardExtension.Mode.STRICT);
+        .isEqualTo(ErrorGuardExtension.Mode.STRICT);
+    assertThat(ErrorGuardExtension.Mode.parse("REPORT")).isEqualTo(ErrorGuardExtension.Mode.REPORT);
     assertThat(ErrorGuardExtension.Mode.parse("off")).isEqualTo(ErrorGuardExtension.Mode.OFF);
   }
 
