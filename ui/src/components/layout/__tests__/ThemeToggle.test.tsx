@@ -161,8 +161,9 @@ describe('ThemeToggle', () => {
       const button = screen.getByLabelText('Toggle theme');
       expect(button).toHaveClass(
         'p-2',
-        'transition-colors',
-        'hover:bg-surface-container-low'
+        'rounded-lg',
+        'transition-standard',
+        'hover:bg-muted'
       );
     });
 

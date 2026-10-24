@@ -13,7 +13,7 @@ export default function App() {
       <div className="bg-background text-on-surface flex min-h-screen flex-col">
         <AppHeader />
         <ApiKeyPrompt />
-        <main className="mt-20 flex w-full flex-1 flex-col">
+        <main className="mt-header flex w-full flex-1 flex-col">
           <Outlet />
         </main>
         <AppFooter />
