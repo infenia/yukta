@@ -303,7 +303,7 @@ heal_extras() {
   echo "$nodes"
 }
 
-# heal_workflow POLICY MODULES PROJECT HEALSH HEALDIR LADDER [EXTRAS]: reads session JSON on stdin and adds the
+# heal_workflow POLICY MODULES PROJECT HEALSH HEALDIR LADDER [EXTRAS [PAUSES]]: reads session JSON on stdin and adds the
 # workflow "check", the gradle-check stages unrolled into ONE graph, so a run is one execution that
 # `yk watch` follows and `yk retry` can steer. POLICY is heal.json (the ladder, which stages are
 # analyzers, and per stage {auto, claude, ladder}); LADDER (comma separated) overrides its ladder.
@@ -318,7 +318,7 @@ heal_extras() {
 heal_workflow() {
   # true when any analyzer of the join failed (an analyzer is skipped by the gate when none did)
   local gate="payload['items'].?[['success'] == false].size() > 0"
-  jq --arg gate "$gate" --argjson extras "${7:-[]}" --argjson policy "$1" --arg modules "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" --arg lad "$6" '
+  jq --arg gate "$gate" --argjson extras "${7:-[]}" --arg pauses "${8:-}" --arg pausewait "${YUKTA_PAUSE_SECONDS:-600}" --argjson policy "$1" --arg modules "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" --arg lad "$6" '
     ($modules | split(" ") | map(select(. != ""))) as $mods
     | ($lad | split(",") | map(select(. != ""))) as $override
     | (if ($override | length) > 0 then $override else $policy.ladder end) as $ladder
@@ -341,18 +341,28 @@ heal_workflow() {
         pe($id; {command: [$healsh, "fix", $stage, ($i | tostring), $mode], env: env($tasks; $extra)} + routed(true));
     def edge($s; $t; $port): {source: $s, target: $t} + (if $port == null then {} else {sourcePort: $port} end);
     def id($n; $pre; $i): $n + "." + $pre + ($i | tostring);
+    # --pause before-opus: a WAIT_FOR_SIGNAL in front of the opus fixer of every stage. Whoever steers the
+    # run (yk approve / reject, the UI) answers it; unanswered it lets the run go on after $pausewait s.
+    def paused($r; $i): ($pauses | split(",") | index("before-opus")) != null and $r[$i] == "opus";
+    def pause_id($s): $s + ".pause";
+    # where a failure that wants fixer number $j (1-based) goes: the fixer, or the pause in front of it
+    def ftarget($s; $j; $r): if paused($r; $j - 1) then pause_id($s) else id($s; "f"; $j) end;
+    def pause_node($s): {nodeId: pause_id($s), type: "WAIT_FOR_SIGNAL",
+        config: {signal: "before-opus", timeoutSeconds: ($pausewait | tonumber), onTimeout: "CONTINUE"}};
 
     # one sequential stage fed by $in = [{source, port}]; its exits are what the next stage hangs on
     def seq($n; $in):
         rungs($n) as $r | ($r | length) as $k | $n.nodeId as $s
         | {nodes: ([range(1; $k + 2) as $j | runner(id($s; "run"; $j); $n; $j <= $k)]
                    + [range(0; $k) as $i | fixer(id($s; "f"; $i + 1); $s; $i + 1; $r[$i];
-                       (if $r[$i] == "auto" then (($policy.stages[$s].auto // []) | map(px) | join(" ")) else gradle_tasks($n) end); {})]),
+                       (if $r[$i] == "auto" then (($policy.stages[$s].auto // []) | map(px) | join(" ")) else gradle_tasks($n) end); {})]
+                   + [range(0; $k) as $i | select(paused($r; $i)) | pause_node($s)]),
            edges: ([$in[] | edge(.source; id($s; "run"; 1); .port)]
                    + [range(0; $k) as $i
-                      | edge(id($s; "run"; $i + 1); id($s; "f"; $i + 1); "failure"),
+                      | edge(id($s; "run"; $i + 1); ftarget($s; $i + 1; $r); "failure"),
                         edge(id($s; "f"; $i + 1); id($s; "run"; $i + 2); "success"),
-                        edge(id($s; "f"; $i + 1); (if $i + 1 < $k then id($s; "f"; $i + 2) else id($s; "run"; $k + 1) end); "failure")]),
+                        edge(id($s; "f"; $i + 1); (if $i + 1 < $k then ftarget($s; $i + 2; $r) else id($s; "run"; $k + 1) end); "failure")]
+                   + [range(0; $k) as $i | select(paused($r; $i)) | edge(pause_id($s); id($s; "f"; $i + 1); null)]),
            exits: ([range(1; $k + 1) as $j | {source: id($s; "run"; $j), port: "success"}]
                    + [{source: id($s; "run"; $k + 1), port: null}])};
 
@@ -388,14 +398,16 @@ heal_workflow() {
                                   cases: {($gate): "fail"}}}]
              + [range(0; $k) as $i | fixer(id("analyzers"; "f"; $i + 1); "analyzers"; $i + 1; $ladder[$i]; "";
                   {YUKTA_HEAL_ANALYZERS: $list})]
+             + [range(0; $k) as $i | select(paused($ladder; $i)) | pause_node("analyzers")]
              + [range(0; $k) as $i | pe(id("analyzers"; "r"; $i + 1);
                   {command: [$healsh, "rerun", "analyzers", ($i + 1 | tostring), "rerun"], env: env(""; {YUKTA_HEAL_ANALYZERS: $list})}
                   + routed($i + 1 < $k))]
-             | .edges += [edge("analyzers.join"; "analyzers.gate"; null), edge("analyzers.gate"; id("analyzers"; "f"; 1); "fail")]
+             | .edges += [edge("analyzers.join"; "analyzers.gate"; null), edge("analyzers.gate"; ftarget("analyzers"; 1; $ladder); "fail")]
+             + [range(0; $k) as $i | select(paused($ladder; $i)) | edge(pause_id("analyzers"); id("analyzers"; "f"; $i + 1); null)]
              + [range(0; $k) as $i
                 | edge(id("analyzers"; "f"; $i + 1); id("analyzers"; "r"; $i + 1); "success"),
-                  edge(id("analyzers"; "f"; $i + 1); (if $i + 1 < $k then id("analyzers"; "f"; $i + 2) else id("analyzers"; "r"; $k) end); "failure")]
-             + [range(0; $k - 1) as $i | edge(id("analyzers"; "r"; $i + 1); id("analyzers"; "f"; $i + 2); "failure")]
+                  edge(id("analyzers"; "f"; $i + 1); (if $i + 1 < $k then ftarget("analyzers"; $i + 2; $ladder) else id("analyzers"; "r"; $k) end); "failure")]
+             + [range(0; $k - 1) as $i | edge(id("analyzers"; "r"; $i + 1); ftarget("analyzers"; $i + 2; $ladder); "failure")]
              | .exits = [{source: "analyzers.gate", port: "pass"}]
                         + [range(0; $k - 1) as $i | {source: id("analyzers"; "r"; $i + 1), port: "success"}]
                         + [{source: id("analyzers"; "r"; $k), port: null}]
@@ -415,7 +427,7 @@ heal_workflow() {
 check_nodes() { jq -r '.workflows.check.nodes[].nodeId'; }
 
 # node_stage NODE: the stage a node of the check belongs to (S.run2 and S.f1 belong to S).
-node_stage() { sed -E 's/\.(run|f|r)[0-9]+$//' <<<"$1"; }
+node_stage() { sed -E 's/\.(run[0-9]+|f[0-9]+|r[0-9]+|pause)$//' <<<"$1"; }
 
 # print_result SESSION EXECUTION: prints the machine readable RESULT line; returns 0 only when the
 # execution ended SUCCESS.
@@ -472,7 +484,7 @@ record_durations() {
     printf '%s\t%s\t%s\t%s\t%s\n' "$(date -Is)" "$key" "$stage" "$secs" "$exec" >>"$file"
   done < <("$(find_cli)" -o json workflow status "$session" "$exec" | jq -r '
     def secs: .[:19] | strptime("%Y-%m-%dT%H:%M:%S") | mktime;
-    def stage: sub("\\.(run|f|r)[0-9]+$"; "");
+    def stage: sub("\\.(run[0-9]+|f[0-9]+|r[0-9]+|pause)$"; "");
     (.data // .) as $p
     | [$p.tasks[] | select((.startTime // "0001")[:4] != "0001" and (.endTime // "0001")[:4] != "0001")
        | {stage: (.nodeId | stage), secs: ((.endTime | secs) - (.startTime | secs))}]

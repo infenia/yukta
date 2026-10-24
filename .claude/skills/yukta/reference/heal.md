@@ -24,6 +24,11 @@ Output: the problem lines of the run, `HEAL` lines, `SLOW` lines, then `RESULT`.
   it, rerun `yk check`.
 - Record a fixer that misbehaves (wrong fix, GUARD hit, cost over budget) with `yk finding`.
 
+## Extra stages and the checkpoint
+`ui`, `docs`, `reuse` and `actionlint` run as analyzers when their tool is installed (a `WARN` otherwise;
+`YUKTA_CHECK_EXTRAS=off` leaves them out). `yk check --pause before-opus` stops in front of every opus fixer
+until the run is approved, rejected or `YUKTA_PAUSE_SECONDS` (600) pass; it is off by default.
+
 ## Knobs
 `YUKTA_HEAL_BUDGET` (USD per attempt, default 1). The fixer runs with `YUKTA_HEAL_FIXER=1`, which lets it
 call `./gradlew` past the repo's hook; it never commits or pushes and must not run with `claude --bare`

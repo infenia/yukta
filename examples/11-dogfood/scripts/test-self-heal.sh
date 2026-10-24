@@ -13,10 +13,10 @@ policy="$(cat "$here/../heal.json")"
 # every extra stage with its first variant, as if all the tools were installed
 all_extras="$(jq -c '[.extra | to_entries[] | {nodeId: .key, type: "PROCESS_EXECUTOR", config: {command: .value.variants[0].command}}]' <<<"$policy")"
 
-render() { # module-list ladder extras
+render() { # module-list ladder extras pauses
   render_session "$here/../session.json" /p \
     | if [[ -n "$1" ]]; then scope_to_modules $1; else cat; fi \
-    | heal_workflow "$policy" "$1" /p /p/heal.sh /p/.yukta-dev/heal/s "${2:-}" "${3:-[]}"
+    | heal_workflow "$policy" "$1" /p /p/heal.sh /p/.yukta-dev/heal/s "${2:-}" "${3:-[]}" "${4:-}"
 }
 
 fail() { echo "FAIL $*" >&2; exit 1; }
@@ -96,6 +96,17 @@ assert "the extra stages are analyzers with their own tool" '[.workflows.check.n
   | .config.command[1] == "run"] | length == 4 and all'
 assert "the rerun knows how to run an extra stage" '.workflows.check.nodes[] | select(.nodeId == "analyzers.r1") | .config.env.YUKTA_HEAL_ANALYZERS
   | test("ui=\u0027sh\u0027 \u0027-c\u0027") and test("(^|\n)reuse=\u0027reuse\u0027 \u0027lint\u0027")'
+
+# --pause before-opus: a WAIT_FOR_SIGNAL stands in front of every opus fixer, and only there
+out="$(render "" "" "$all_extras" before-opus)"
+scope="all (paused)"
+assert "a pause before every opus fixer" '[.workflows.check.nodes[] | select(.type == "WAIT_FOR_SIGNAL") | .nodeId] | sort
+  == ["analyzers.pause", "compile.pause", "coverage.pause", "spotless.pause", "tests.pause"]'
+assert "the opus fixer is only reached through its pause" '.workflows.check.edges as $e
+  | ["spotless", "compile", "tests", "coverage", "analyzers"] | all(. as $s
+      | [$e[] | select(.target == $s + ".f" + (if $s == "spotless" then "4" else "3" end)) | .source] == [$s + ".pause"])'
+assert "the lower rungs skip the pause" '.workflows.check.edges | all(.target != "compile.f1" or .source != "compile.pause")'
+[[ "$(node_stage compile.pause)" == compile && "$(node_stage analyzers.r2)" == analyzers && "$(node_stage verify)" == verify ]] || fail "node_stage"
 echo "ok   details"
 
 [[ "${1:-}" == --online ]] || exit 0
@@ -137,12 +148,13 @@ git -C "$proj" -c user.email=t@t -c user.name=t commit -qm init
 export YUKTA_CLAUDE_BIN="$dir/claude"
 yk="$here/../yk"
 
-scenario() { # label fail-files fix-at expected-pattern expected-exit
+scenario() { # label fail-files fix-at expected-pattern expected-exit [yk check flags]
   local label="$1" files="$2" at="$3" pattern="$4" want="$5" result rc=0 f
   rm -f "$proj"/fail-* "$proj/.fake-fix-at" "$proj/fixed.txt"
   for f in $files; do touch "$proj/fail-$f"; done
   [[ -z "$at" ]] || echo "$at" >"$proj/.fake-fix-at"
-  result="$("$yk" check -p "$proj" 2>&1)" || rc=$?
+  # shellcheck disable=SC2086
+  result="$("$yk" check -p "$proj" ${6:-} 2>&1)" || rc=$?
   tail -1 <<<"$result" | grep -Eq "$pattern" && ((rc == want)) \
     || { tail -15 <<<"$result" >&2; fail "online $label: expected /$pattern/ and exit $want, got exit $rc"; }
   echo "ok   online $label: $(tail -1 <<<"$result" | cut -d' ' -f2-4)"
@@ -152,6 +164,7 @@ scenario "clean run" "" "" 'RESULT status=SUCCESS failed_node=- healed=- ' 0
 scenario "spotless healed by the deterministic fix" "spotlessCheck" "" 'status=SUCCESS .*healed=spotless:auto ' 0
 scenario "an analyzer healed at the sonnet rung" "checkstyleMain" "sonnet" 'status=SUCCESS .*healed=analyzers:sonnet ' 0
 scenario "a compile error healed at the opus rung" "compileJava" "opus" 'status=SUCCESS .*healed=compile:opus ' 0
+YUKTA_PAUSE_SECONDS=2 scenario "a compile error healed at the opus rung behind the before-opus pause" "compileJava" "opus" 'status=SUCCESS .*healed=compile:opus ' 0 "--pause before-opus"
 scenario "licenses fail the run at once" "licensee" "" 'status=FAILURE failed_node=licenses ' 1
 scenario "an unfixable test failure" "test" "" 'status=FAILURE failed_node=tests ' 1
 scenario "an unfixable analyzer" "spotbugsMain" "" 'status=FAILURE failed_node=spotbugs ' 1

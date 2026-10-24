@@ -139,6 +139,21 @@ item) and ONE shared fixer chain `analyzers.f<i>` then ONE gradle rerun `analyze
 edit the tree at once. `licenses` and `security` have no policy: they fail the run at once. `verify` re-runs
 every task if anything was healed (`yukta-heal.sh verify`), then `done`.
 
+**Extra stages.** `ui` (`pnpm lint` + vitest), `docs` (`mint broken-links`), `reuse` (`reuse lint`) and
+`actionlint` (local binary, else the pinned docker image of `ci.yml`) are analyzers too, from `extra` in
+`heal.json`. A stage whose tool is not installed is skipped with a `WARN`; scoped to `-m <mod>` only `ui` and
+`docs` apply to their own module. Only the `actionlint` fixer may edit `.github/workflows/*.yml` (alone, never
+when another analyzer fails with it). `YUKTA_CHECK_EXTRAS=off` leaves them out.
+
+**Checkpoint.** `yk check --pause before-opus` puts a `WAIT_FOR_SIGNAL` (`before-opus`) in front of every opus
+fixer: whoever steers the run can approve it (`yk cli workflow node signal <e> <node> --name before-opus
+--decision approve`), reject it (the run ends), or take over; unanswered it lets the run go on after
+`YUKTA_PAUSE_SECONDS` (600). It is off by default until the steering surface (PR4) shows pending approvals.
+
+**Parallel gradle.** Every gradle node is in the server's `gradle` concurrency group
+(`yukta.concurrency.groups.gradle`, 2 by default, `YUKTA_DEV_GRADLE_PARALLEL` at `yk up`): the analyzers wait
+`QUEUED` instead of each starting a 4 GB daemon.
+
 | stage | `auto` | ladder | in `heal.json` |
 |---|---|---|---|
 | spotless | `spotlessApply` | yes | |
