@@ -57,13 +57,18 @@ public class ExposureGuard {
   @PostConstruct
   public void check() {
     final String address = environment.getProperty("server.address", "");
-    if (!loopback(address)
-        && (authenticator.isOpen(Scope.REST) || authenticator.isOpen(Scope.MCP))) {
+    final boolean restOpen = authenticator.isOpen(Scope.REST);
+    final boolean mcpOpen = authenticator.isOpen(Scope.MCP);
+    if (!loopback(address) && (restOpen || mcpOpen)) {
       throw new IllegalStateException(
           "Refusing to listen on '"
               + (address.isBlank() ? "all interfaces" : address)
-              + "' without an API key. Set yukta.api-key (YUKTA_API_KEY) or yukta.api-keys, or set"
-              + " YUKTA_SERVER_ADDRESS=127.0.0.1.");
+              + "' without an API key: "
+              + (restOpen && mcpOpen
+                  ? "the REST API and MCP have"
+                  : restOpen ? "the REST API has" : "MCP has")
+              + " none. Set yukta.api-key (YUKTA_API_KEY) or yukta.api-keys (one key covers both),"
+              + " or set YUKTA_SERVER_ADDRESS=127.0.0.1.");
     }
   }
 

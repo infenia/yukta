@@ -300,7 +300,7 @@ These parts of the server need no key:
 - `/actuator/health`
 - The web UI's static files and pages
 
-With a key set, the interactive API documentation (`/swagger-ui.html`, `/v3/api-docs`) needs a key too, and the `prod` profile switches it off. A browser cannot send the key header to the Swagger UI page, so use `/v3/api-docs` with a key, or the `dev` profile locally.
+With a key set, the interactive API documentation (`/swagger-ui.html`, `/v3/api-docs`) needs a key too. The `prod` profile, which is the default, switches it off, so a production server publishes no API description. To turn it on behind the key, set `SPRINGDOC_API_DOCS_ENABLED=true` (the description) and `SPRINGDOC_SWAGGER_UI_ENABLED=true` (the page). A browser cannot send the key header to the Swagger UI page, so fetch `/v3/api-docs` with a key, or use the `dev` profile locally.
 
 ## Reporting vulnerabilities
 

@@ -45,6 +45,10 @@ yukta.restart.dir=/var/lib/yukta/checkpoints
   A native binary activates the `prod` profile itself unless a profile is given as a command-line argument. Pass profiles with `--spring.profiles.active=...` for a native binary, not with the environment variable. See [Deployment](/operations/deployment).
 </Warning>
 
+<Warning>
+  `prod` is the default only while no profile is active. Setting `SPRING_PROFILES_ACTIVE=postgres` on its own **replaces** `prod` with `postgres`, which loses the `prod` logging and endpoint settings. Name both: `SPRING_PROFILES_ACTIVE=prod,postgres`.
+</Warning>
+
 ## Server and network
 
 | Setting | Default | Meaning |
