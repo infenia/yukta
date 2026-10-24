@@ -6,6 +6,8 @@
 Usage: junit-failures.py <dir> [limit]       failed and flaky tests (nothing if all passed)
        junit-failures.py --durations <dir>   test time per shard and the slowest test classes
        junit-failures.py --flaky-json <dir>  flaky tests as JSON: [{class, name, detail, module}]
+       junit-failures.py --failed-json <dir> broken tests as findings for auto-found.sh:
+                                             [{key, title, severity, module, detail, repro}]
 
 A test that failed and then passed (the nightly run retries with -PretryFlakyTests) is flaky;
 one that never passed is broken. Shards are the first directory under <dir>, i.e. the
@@ -14,6 +16,7 @@ build-reports-<shard> artifact names.
 import collections
 import json
 import pathlib
+import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -113,11 +116,49 @@ def flaky_json(root):
                       for (cls, name), v in tests.items() if v["failed"] and v["passed"]]))
 
 
+CRITICAL_DETAIL = re.compile(r"stuck|tracker_events_lost|data loss|lost events", re.I)
+CRITICAL_CLASS = re.compile(r"Security|ApiKey|HostOrigin|ExposureGuard")
+
+
+def severity_of(cls, detail):
+    """The Severity field of the project for a broken test: a security check or a stuck run is
+    Critical, an acceptance or property test (the whole application) High, anything else Medium."""
+    if CRITICAL_DETAIL.search(detail) or CRITICAL_CLASS.search(cls):
+        return "Critical"
+    if cls.endswith("AcceptanceTest") or "Smoke" in cls:
+        return "High"
+    return "Medium"
+
+
+SIMPLE_MODULES = {"boot", "core", "mcp", "messaging", "plugin-api", "web"}
+
+
+def repro_of(cls, module):
+    """The Gradle command that runs one broken test; a plugin lives in a nested project, so it runs
+    the class in every project instead."""
+    task = f":{module}:test" if module in SIMPLE_MODULES else "test"
+    return f"./gradlew {task} --tests '{cls}'"
+
+
+def failed_json(root):
+    """Tests that failed and never passed, as findings for auto-found.sh."""
+    found = []
+    for (cls, name), v in outcomes(root).items():
+        if v["failed"] and not v["passed"]:
+            detail = v["failed"][0][:2000]
+            found.append({"key": f"{cls}#{name}", "title": f"Test failure: {cls.split('.')[-1]}.{name}",
+                          "severity": severity_of(cls, detail), "module": v["module"] or "",
+                          "detail": detail, "repro": repro_of(cls, v["module"])})
+    print(json.dumps(found))
+
+
 def main():
     if sys.argv[1] == "--durations":
         durations(sys.argv[2])
     elif sys.argv[1] == "--flaky-json":
         flaky_json(sys.argv[2])
+    elif sys.argv[1] == "--failed-json":
+        failed_json(sys.argv[2])
     else:
         failures(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 50)
 
