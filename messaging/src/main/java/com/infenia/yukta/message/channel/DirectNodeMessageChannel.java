@@ -46,7 +46,12 @@ public class DirectNodeMessageChannel implements NodeMessageChannel {
         ? flux
         : flux.doOnNext(
             msg -> {
-              final long size = PayloadSize.bytesIn(msg.payload());
+              // the payload, but also the headers and failure text, which travel every edge too
+              final long size =
+                  PayloadSize.bytesIn(msg.payload())
+                      + PayloadSize.bytesIn(msg.metadata())
+                      + PayloadSize.bytesIn(msg.failureReason())
+                      + PayloadSize.bytesIn(msg.exceptionDetail());
               if (size > maxPayloadBytes) {
                 throw new PayloadTooLargeException(nodeId, size, maxPayloadBytes);
               }
