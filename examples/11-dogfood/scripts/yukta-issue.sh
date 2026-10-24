@@ -158,8 +158,9 @@ ${result_line:-the check ran in the workflow}
       out="$(jq -c --argjson i "$item" --arg s "$(cat /proc/sys/kernel/random/uuid)" '. + [$i + {implSession: $s}]' <<<"$out")"
     done < <(jq -c '.[]' <<<"$list")
     open="$(jq -r '[.[] | select(.state == "open")] | length' <<<"$subs")"
-    echo "epic #$YUKTA_EPIC: $(jq length <<<"$out") of $open open sub-issues are assigned to $login and Ready" >&2
-    jq -n -c --argjson issues "$out" '{issues: $issues}'
+    # only JSON on stdout: the node's stderr is merged into it
+    jq -n -c --argjson issues "$out" --arg note "epic #$YUKTA_EPIC: $(jq length <<<"$out") of $open open sub-issues are assigned to $login and Ready" \
+      '{issues: $issues, note: $note}'
     ;;
   epic-pause)
     count="${YUKTA_BAD_COUNT:-0}"
