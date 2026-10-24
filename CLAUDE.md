@@ -56,6 +56,7 @@ All commits follow **Conventional Commits** format. See `.gitmessage` template (
 - Minimum coverage thresholds are module-specific.
 - Dogfood loop: watch a run, retry a failed stage, and file each Yukta defect you notice as a `dogfood` GitHub issue (`yk finding`) — see the `yukta` skill and `examples/11-dogfood/README.md`.
 - `yk check` **heals itself** by default: a failing stage gets a deterministic fix (`spotlessApply`), then a ladder of headless Claude Code attempts (haiku, sonnet, opus; `--ladder` for one run), then a `verify` pass. While it runs, do not edit files or run Gradle in that checkout. Act only on the final `RESULT` or an `ESCALATE:`, review everything under `healed=` with `git diff` before committing (the fixer never commits), and use `--no-heal` for the plain fail-fast chain.
+- Steer a run with `yk tree <exec>`, `yk pause|resume|stop <exec> [--tree]`, `yk signals` and `yk approve|reject <exec>`. Claude Code's hooks, status line, slash commands (`/yk-check`, `/yk-up`, `/yk-finding`) and the `yukta` MCP server come with the repo; see the `yukta` skill (`reference/control.md`).
 
 ### Test Execution Policy (speed)
 Waiting on tests is the main development bottleneck. **Run the smallest scope that covers your change**; escalate only when the blast radius justifies it.
