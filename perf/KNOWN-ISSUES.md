@@ -4,7 +4,7 @@ Logged, not fixed. Found 2026-10-11 on `main` at `6070249e`; updated 2026-10-21.
 
 This file is history. Open perf problems are GitHub issues labelled
 [`perf`](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Aperf) (here: 3 and 5);
-file new ones there with `examples/11-dogfood/scripts/report-finding.sh` or the dogfood issue form.
+file new ones there with `examples/11-dogfood/yk finding` or the dogfood issue form.
 
 ## 1. Runs never finish: `CONSOLE_TERMINAL` stays `RUNNING` (fixed)
 

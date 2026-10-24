@@ -253,9 +253,16 @@ The server listens on `127.0.0.1` by default. To expose it, set `YUKTA_SERVER_AD
 ```bash
 ./gradlew bootRun          # run the server
 ./gradlew nativeCompile    # optional GraalVM native image (needs a GraalVM JDK)
-./gradlew check            # tests + Checkstyle + PMD + SpotBugs + JaCoCo (+ OpenGrep if installed)
-./gradlew spotlessApply    # format before committing
+./gradlew check            # tests + Checkstyle + PMD + SpotBugs + JaCoCo (+ OpenGrep if installed); with Yukta: yk check
+./gradlew spotlessApply    # format before committing; with Yukta: yk gradle spotlessApply
 ```
+These plain Gradle commands work anywhere; in Claude Code the build, test and check ones go through `yk`.
+
+**Developing Yukta with Yukta.** Contributors (and Claude Code, which is held to it by hooks) run builds,
+tests and checks through `examples/11-dogfood/yk`. Each Gradle call becomes a Yukta workflow on a local dev
+server that is always built from `origin/main` and listens on **`http://127.0.0.1:9858`** (web UI, REST and
+MCP; `YUKTA_DEV_PORT` overrides). `yk check` is the staged, self-healing quality gate; see
+[`examples/11-dogfood/README.md`](examples/11-dogfood/README.md).
 
 **Persistence.** By default sessions, workflow definitions and the execution log live in memory;
 `yukta.session.store-type=file` and `yukta.execution-log.dir` keep them on disk in the Plus build (`-Pyukta.edition=plus`, AGPL-3.0-only; see [`LICENSING.md`](LICENSING.md)). For PostgreSQL build

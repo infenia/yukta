@@ -8,7 +8,7 @@ controllers as an agent-friendly MCP tool surface backed directly by `core` serv
 ## Build & Development Commands
 ```bash
 # Run MCP tests
-./gradlew :mcp:test
+yk gradle :mcp:test
 ```
 
 ## Tools (`AppMcpTools`)

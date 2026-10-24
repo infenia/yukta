@@ -16,7 +16,7 @@ Message-based inter-node communication framework:
 ## Build & Development Commands
 ```bash
 # Run messaging tests
-./gradlew :messaging:test
+yk gradle :messaging:test
 ```
 
 ## Imports

@@ -6,10 +6,10 @@ Core service layer and workflow orchestration engine.
 ## Build & Development Commands
 ```bash
 # Run tests for core module
-./gradlew :core:test
+yk gradle :core:test
 
 # Run a single test class
-./gradlew :core:test --tests com.infenia.yukta.service.orchestrator.WorkflowOrchestratorTest
+yk gradle :core:test --tests com.infenia.yukta.service.orchestrator.WorkflowOrchestratorTest
 ```
 
 ## Key Architecture & Patterns

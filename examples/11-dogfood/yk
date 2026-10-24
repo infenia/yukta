@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+# yk: develop Yukta with Yukta. The one entry point for builds, tests and checks of this repo; every
+# Gradle run goes through a Yukta workflow on the dev server (built from origin/main, port 9858).
+#
+#   yk up [--background] [--release [tag]]   start the dev server, or swap it for a newer main when idle
+#   yk down | status                         stop the server yk started | show it (exit 3 when down)
+#   yk check [-m mod]... [-p path] [--no-heal] [--fixer auto|fresh] [--detach]
+#                                            the staged, self-healing quality gate (spotless .. cli)
+#   yk gradle <gradle args...>               any gradle args as one Yukta stage, e.g. :core:test --tests X
+#   yk watch <session> <exec|log> [--all]    follow a detached run: problems only, then RESULT
+#   yk retry <exec> <node> | yk stop <exec>  steer a run
+#   yk finding --title ... (see report-finding.sh)   file a dogfood issue
+#   yk cli <args...>                         the yukta CLI against the dev server
+#
+# A run's last line is machine readable; exit 0 only on success:
+#   RESULT status=<S> failed_node=<node|-> healed=<stage:step,..|-> execution=<id> session=<id>
+# Server: $YUKTA_SERVER_URL when it points elsewhere, else the dev server (started on demand).
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$here/scripts/_lib.sh"
+use_dev_key
+
+usage() { sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; }
+
+cmd_up() {
+  local args=() bg=0
+  while (($#)); do
+    case "$1" in
+      --background) bg=1; shift ;;
+      --release) args+=(--release); shift; [[ $# -gt 0 && "$1" != --* ]] && { args+=("$1"); shift; } ;;
+      *) die "unknown option '$1' (yk up [--background] [--release [tag]])" ;;
+    esac
+  done
+  if ((bg)); then
+    mkdir -p "$DEV_HOME"
+    if ! flock -n "$DEV_HOME/up.lock" true 2>/dev/null; then echo "yk up: already in progress"; return 0; fi
+    setsid "${BASH_SOURCE[0]}" up "${args[@]}" >"$DEV_HOME/up.log" 2>&1 </dev/null &
+    echo "yk up: running in the background (log: $DEV_HOME/up.log)"
+    return 0
+  fi
+  server_up "${args[@]}"
+}
+
+cmd_down() {
+  if ours; then server_stop; echo "stopped the dev server"; else echo "no dev server started by yk"; fi
+}
+
+cmd_status() {
+  local main="" building=""
+  main="$(git -C "$DEV_HOME/main" rev-parse "${YUKTA_DEV_MAIN_REF:-origin/main}" 2>/dev/null || true)"
+  [[ ! -e "$DEV_HOME/up.lock" ]] || flock -n "$DEV_HOME/up.lock" true 2>/dev/null || building=" (yk up in progress, log: $DEV_HOME/up.log)"
+  if ! healthy; then
+    echo "down: $DEV_URL$building"
+    return 3
+  fi
+  if ! ours; then
+    echo "up: $DEV_URL, not started by yk"
+    return 0
+  fi
+  local sha state=current
+  sha="$(server_env YUKTA_DEV_SHA)"
+  if [[ "$(server_env YUKTA_DEV_KIND)" == main && -n "$main" && "$main" != "$sha" ]]; then
+    state="stale (origin/main is ${main:0:9}$([[ -s "$DEV_HOME/builds/$main/yukta.jar" ]] && echo ", built; swaps when idle"))"
+  fi
+  echo "up: $DEV_URL $(server_env YUKTA_DEV_LABEL) $state, running=$(busy)$building"
+  echo "log: $DEV_HOME/server.log"
+}
+
+# run_check MODE HEAL FIXER PROJECT MODULES [gradle args...]: applies this checkout's session and runs
+# the staged check (no gradle args) or one gradle-run stage.
+run_check() {
+  local mode="$1" heal="$2" fixer="$3" project="$4" modules="$5"
+  shift 5
+  need jq
+  ensure_server
+  # tmp is global: the EXIT trap runs after this function's locals are gone.
+  local cli branch session workflow=gradle-check scope="${modules:-all}"
+  cli="$(find_cli)"
+  mkdir -p "$STATE_DIR"
+  exec 8>"$STATE_DIR/check.lock"
+  flock -n 8 || die "another check is running in this checkout; wait for it (yk watch) or stop it"
+  branch="$(git -C "$project" rev-parse --abbrev-ref HEAD | tr -c 'A-Za-z0-9\n' '-')"
+  # The path hash keeps checkouts apart on the shared server (feature/a vs feature-a, two clones).
+  session="check-$branch-$(printf '%s' "$project" | sha1sum | cut -c1-8)"
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  if (($#)); then
+    workflow=gradle-run
+    scope="args:$(printf '%.60s' "$*")"
+  fi
+  # Self-healing applies to the staged gradle-check only (see stage_workflows in _lib.sh).
+  local heal_dir="$STATE_DIR/heal/$session" healsh="$here/scripts/yukta-heal.sh"
+  local fork="${CLAUDE_CODE_SESSION_ID:-}" m1=fresh m2=fork
+  rm -rf "$heal_dir"
+  [[ "$fixer" == fresh || -z "$fork" ]] && m2=fresh
+  # shellcheck disable=SC2086
+  {
+    render_session "$here/session.json" "$project" \
+      | jq --arg s "$session" '.sessionId=$s | .name=$s' \
+      | if [[ -n "$modules" ]]; then scope_to_modules $modules; else cat; fi \
+      | if (($#)); then splice_args "$@"; else cat; fi \
+      | if ((heal)) && [[ "$workflow" == gradle-check ]]; then
+        stage_workflows "$(cat "$here/heal.json")" "$modules" "$project" "$healsh" "$heal_dir"
+      else cat; fi
+  } >"$tmp/session.json"
+
+  echo ">> server $YUKTA_SERVER_URL, session $session, project $project" >&2
+  "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 \
+    || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
+  # a CLI built before 'session apply' existed prints the session help and exits 0
+  ! grep -q "Available Commands" "$tmp/apply.out" || die "stale CLI (session apply printed help); run yk up"
+  if ((heal)) && [[ "$workflow" == gradle-check ]]; then
+    # Staged, supervisor-driven check: one small workflow per stage (see stage_workflows). The server's
+    # rule file (rules.json) restarts a stage whose repair worked; this loop moves from stage to stage
+    # and calls the Claude fixer on an escalation.
+    export project modules healsh heal_dir fork m1 m2
+    if [[ "$mode" == detach ]]; then
+      local log="$STATE_DIR/check/$session.log"
+      mkdir -p "$STATE_DIR/check"
+      cp "$tmp/session.json" "$STATE_DIR/check/$session.json"
+      ( run_stages "$session" "$STATE_DIR/check/$session.json" >"$log" 2>&1 ) </dev/null &
+      echo "STARTED session=$session log=$log"
+      return 0
+    fi
+    run_stages "$session" "$tmp/session.json"
+    return
+  fi
+  local exec_id
+  exec_id="$("$cli" -o json workflow start "$session" "$workflow" | jq -r '.data.executionId // .executionId')"
+  [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start workflow"
+  echo "STARTED execution=$exec_id session=$session"
+  [[ "$mode" == detach ]] && return 0
+  YUKTA_SCOPE="$scope" cmd_watch "$session" "$exec_id"
+}
+
+cmd_check() {
+  local project="" modules="" mode=watch heal=1 fixer=auto
+  while (($#)); do
+    case "$1" in
+      -p) project="${2:?-p needs a path}"; shift 2 ;;
+      -m)
+        [[ "${2:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]*$ ]] || die "invalid module '${2:-}'"
+        modules="${modules:+$modules }$2"; shift 2 ;;
+      --detach) mode=detach; shift ;;
+      --watch) shift ;;
+      --no-heal) heal=0; shift ;;
+      --fixer) fixer="${2:?--fixer needs fresh or auto}"; shift 2 ;;
+      *) die "unknown option '$1' (gradle args go to: yk gradle <args>)" ;;
+    esac
+  done
+  [[ "$fixer" =~ ^(fresh|auto)$ ]] || die "invalid --fixer '$fixer' (fresh or auto)"
+  run_check "$mode" "$heal" "$fixer" "$(cd "${project:-$(git rev-parse --show-toplevel)}" && pwd)" "$modules"
+}
+
+cmd_gradle() {
+  local mode=watch
+  [[ "${1:-}" == --detach ]] && { mode=detach; shift; }
+  (($#)) || die "usage: yk gradle [--detach] <gradle args...>"
+  run_check "$mode" 0 auto "$(git rev-parse --show-toplevel)" "" "$@"
+}
+
+# cmd_watch SESSION EXECUTION|LOG [--all]: follows a run until it ends, problems only (--all: every
+# event), then SLOW lines and the RESULT line. A staged check (yk check --detach) gives a log file.
+cmd_watch() {
+  local session="${1:?usage: yk watch <session> <execution|log> [--all]}" target="${2:?usage: yk watch <session> <execution|log> [--all]}"
+  local filter=(--quiet)
+  [[ "${3:-}" == --all ]] && filter=()
+  if [[ -f "$target" ]]; then
+    # The producer writes RESULT last; if it died before that, stop waiting after YUKTA_WATCH_TIMEOUT seconds.
+    timeout "${YUKTA_WATCH_TIMEOUT:-10800}" tail -n +1 -f "$target" | awk '{ print; fflush() } /^RESULT / { exit }' || true
+    grep -q '^RESULT status=COMPLETED' "$target"
+    return
+  fi
+  export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
+  "$(find_cli)" controlbus watch --execution "$target" --until-done "${filter[@]}"
+  record_durations "$session" "$target" "${YUKTA_SCOPE:--}"
+  print_result "$session" "$target"
+}
+
+cmd_cli() {
+  export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
+  exec "$(find_cli)" "$@"
+}
+
+cmd="${1:-help}"
+(($#)) && shift
+case "$cmd" in
+  up) cmd_up "$@" ;;
+  down) cmd_down ;;
+  status) cmd_status ;;
+  check) cmd_check "$@" ;;
+  gradle) cmd_gradle "$@" ;;
+  watch) cmd_watch "$@" ;;
+  retry) cmd_cli workflow node retry "${1:?usage: yk retry <exec> <node>}" "${2:?usage: yk retry <exec> <node>}" ;;
+  stop) cmd_cli workflow executions stop "${1:?usage: yk stop <exec>}" ;;
+  finding) exec "$here/scripts/report-finding.sh" "$@" ;;
+  cli) cmd_cli "$@" ;;
+  help | -h | --help) usage ;;
+  *) usage >&2; die "unknown command '$cmd'" ;;
+esac

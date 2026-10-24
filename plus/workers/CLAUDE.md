@@ -8,7 +8,7 @@ worker) and `WorkerConnections`; the worker's `WorkerAgent` (connects out, regis
 
 ## Build & Development Commands
 ```bash
-./gradlew :plus:workers:test          # includes a real control plane and worker in one JVM
+yk gradle :plus:workers:test          # includes a real control plane and worker in one JVM
 ./gradlew -Pyukta.workers=true :boot:bootRun
 ```
 

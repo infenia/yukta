@@ -6,7 +6,7 @@ Plugin abstraction interfaces and base classes.
 ## Build & Development Commands
 ```bash
 # Run tests
-./gradlew :plugin-api:test
+yk gradle :plugin-api:test
 ```
 
 ## Plugin Categories

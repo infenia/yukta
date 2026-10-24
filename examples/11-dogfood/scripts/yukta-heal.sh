@@ -10,7 +10,7 @@
 #   mode verify  re-run every stage's tasks, but only when an earlier step healed something
 #
 # Environment: YUKTA_HEAL_DIR (records, required), YUKTA_HEAL_TASKS (the stage's gradle tasks),
-# YUKTA_MODULE (module the run is scoped to), YUKTA_FORK_SESSION, YUKTA_HEAL_BUDGET (USD per
+# YUKTA_MODULE (modules the run is scoped to, space separated), YUKTA_FORK_SESSION, YUKTA_HEAL_BUDGET (USD per
 # attempt, default 1), YUKTA_HEAL_MODEL (default sonnet).
 #
 # It prints one line and always exits 0 (the driver reads the record), except verify, and auto, which
@@ -145,7 +145,8 @@ unset_vars=(CLAUDECODE CLAUDE_CODE_SESSION_ID CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE
 env_u=(); for v in "${unset_vars[@]}"; do env_u+=(-u "$v"); done
 
 run_claude() { # extra session args...
-  env "${env_u[@]}" claude -p "$prompt" --model "$model" --permission-mode acceptEdits \
+  # YUKTA_HEAL_FIXER=1: the repo's PreToolUse hook lets this session run ./gradlew directly.
+  env "${env_u[@]}" YUKTA_HEAL_FIXER=1 claude -p "$prompt" --model "$model" --permission-mode acceptEdits \
     --allowedTools "Read" "Edit" "Write" "Grep" "Glob" "Bash(./gradlew:*)" \
     --disallowedTools "Bash(git commit:*)" "Bash(git push:*)" "Skill" "Agent" \
     --append-system-prompt "$rules" --max-budget-usd "$budget" \
@@ -165,7 +166,8 @@ claimed="$(jq -r '.fixed // false' <<<"$answer" 2>/dev/null || echo false)"
 summary="$(jq -r '.summary // "no answer from claude"' <<<"$answer" 2>/dev/null || echo "no answer from claude")"
 
 # A fix must not break formatting, and is judged on what it changed.
-gradle "${module:+:$module:}spotlessApply" >>"$out" 2>&1 || true
+fmt=(); for m in $module; do [[ "$m" == cli ]] || fmt+=(":$m:spotlessApply"); done
+gradle "${fmt[@]:-spotlessApply}" >>"$out" 2>&1 || true
 changed="$(changed_since "$before")"
 
 violations=""
