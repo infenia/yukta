@@ -150,7 +150,9 @@
         $installedServer = $false
         if ($sums.ContainsKey($archive)) {
             $zip = Get-Verified $archive
-            Expand-Archive -Path $zip -DestinationPath $tmp -Force
+            # Not Expand-Archive: it draws its own progress bar even with $ProgressPreference set.
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            [IO.Compression.ZipFile]::ExtractToDirectory($zip, $tmp)
             $src = Join-Path $tmp "yukta-$version-windows-amd64"
             if (-not $cliOnly) { Keep-Prev 'yukta.exe'; Copy-Item (Join-Path $src 'yukta.exe') $dir -Force; $installedServer = $true }
             if (-not $serverOnly) { Keep-Prev 'yukta-cli.exe'; Copy-Item (Join-Path $src 'yukta-cli.exe') $dir -Force }
