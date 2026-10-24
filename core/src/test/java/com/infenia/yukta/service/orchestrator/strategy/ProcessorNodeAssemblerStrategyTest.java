@@ -246,6 +246,49 @@ class ProcessorNodeAssemblerStrategyTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  void createAssembler_concurrencyGroup_passesEmptyAndFailingInputThroughWithoutAPlace() {
+    final ConcurrencyGroups groups = new ConcurrencyGroups(Map.of("gradle", 1));
+    final ProcessorNodeAssemblerStrategy limited =
+        new ProcessorNodeAssemblerStrategy(
+            tracker,
+            Schedulers.boundedElastic(),
+            streamTopologyDecorator,
+            channelProvider,
+            activePluginRegistry,
+            new VariableResolver(mock(SecretProvider.class)),
+            groups);
+    final ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.process(any(), any()))
+        .thenAnswer(invocation -> (Flux<Message<?>>) invocation.getArgument(0));
+    when(streamTopologyDecorator.applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
+        .thenAnswer(invocation -> invocation.getArgument(2));
+    final WorkflowNode node =
+        new WorkflowNode(
+            NODE_ID, "processor", Map.of("engine", Map.of("concurrencyGroup", "gradle")));
+
+    final Flux<Message<?>> empty = Flux.empty();
+    final Flux<Message<?>> failing = Flux.error(new IllegalStateException("up"));
+    StepVerifier.create(gated(limited, node, processor, empty)).verifyComplete();
+    StepVerifier.create(gated(limited, node, processor, failing)).verifyError();
+  }
+
+  private Flux<Message<?>> gated(
+      final ProcessorNodeAssemblerStrategy limited,
+      final WorkflowNode node,
+      final ProcessorPlugin processor,
+      final Flux<Message<?>> input) {
+    final AssemblyContext context = buildContext(NODE_ID, input, null);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(input);
+    limited
+        .createAssembler(node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+    return context.streams()[0];
+  }
+
+  @Test
   void createAssembler_skipFlagTrue_bypassesProcess() {
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "input");
     final ProcessorPlugin processor = mock(ProcessorPlugin.class);
