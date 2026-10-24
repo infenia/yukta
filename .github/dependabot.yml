@@ -12,6 +12,7 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
+      - "dependabot"
       - "java"
     groups:
       # One PR for all minor/patch bumps; majors stay individual
@@ -28,6 +29,7 @@ updates:
       default-days: 7
     labels:
       - "dependencies"
+      - "dependabot"
       - "github-actions"
     groups:
       actions-all:
@@ -42,6 +44,7 @@ updates:
       default-days: 7
     labels:
       - "dependencies"
+      - "dependabot"
       - "go"
     groups:
       go-minor-patch:
@@ -57,6 +60,7 @@ updates:
       default-days: 7
     labels:
       - "dependencies"
+      - "dependabot"
       - "javascript"
     groups:
       npm-minor-patch:
@@ -72,6 +76,7 @@ updates:
       default-days: 7
     labels:
       - "dependencies"
+      - "dependabot"
       - "docker"
 
   - package-ecosystem: "pip"
@@ -82,4 +87,5 @@ updates:
       default-days: 7
     labels:
       - "dependencies"
+      - "dependabot"
       - "python"
