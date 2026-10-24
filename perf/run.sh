@@ -15,7 +15,7 @@ type=${1:?usage: run.sh <perf|load|soak> [k6 args]}; shift
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 
-export CPUS=${CPUS:-2} CPUSET=${CPUSET:-0,1} MEMORY=${MEMORY:-8g}
+export PORT=${PORT:-8080} CPUS=${CPUS:-2} CPUSET=${CPUSET:-0,1} MEMORY=${MEMORY:-8g}
 export JAVA_OPTS=${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Dyukta.rate-limit-per-minute=0}
 export API_KEY=${API_KEY:-$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')}
 case ${MODE:-jar} in
@@ -38,7 +38,7 @@ if [[ -z ${JAR:-} && -z ${BINARY:-} ]]; then
 fi
 export JAR
 if [[ -n ${BINARY:-} ]]; then
-  JAR=$(realpath "$BINARY"); export RUN_CMD=/app/yukta.jar IMAGE=${IMAGE:-debian:12-slim}   # mounted at the jar's path
+  JAR=$(realpath "$BINARY"); export RUN_CMD="/app/yukta.jar -Dyukta.rate-limit-per-minute=0" IMAGE=${IMAGE:-debian:12-slim}   # mounted at the jar's path
   [[ -f $JAR && -x $JAR ]] || { echo "BINARY $JAR is not an executable file" >&2; exit 2; }
 fi
 # One compose project per port, so two runs (two people, two sessions) on one machine never remove each other's server.

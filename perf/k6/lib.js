@@ -14,6 +14,7 @@ if (API_KEY && BASE_URL.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.
   throw new Error('API_KEY requires an https BASE_URL (or localhost)');
 }
 const POLL_OK = http.expectedStatuses(200, 404); // 404 right after start is counted in poll_not_found
+const STOP_OK = http.expectedStatuses({ min: 200, max: 499 }); // the run may have ended already
 const START_OK = http.expectedStatuses(202, 429); // 429 is admission control, judged by workflow_rejected
 // LENIENT=true treats a run as done once every non-terminal node has ended, which hides runs
 // whose own status never turns final. Off by default; stuck_runs (teardown) also catches them.
@@ -91,19 +92,24 @@ export function runOnce(ctx) {
   const tags = { wf: name };
   const start = Date.now();
   const body = { sessionId: sessionId(name), workflowId: 'wf' };
-  if (CATALOG[name].payload) body.payload = CATALOG[name].payload;
+  const w = CATALOG[name];
+  if (w.payload) body.payload = typeof w.payload === 'function' ? w.payload() : w.payload;
   const r = http.post(`${BASE_URL}/api/workflow/start`, JSON.stringify(body), { headers, tags, responseCallback: START_OK });
   rejected.add(r.status === 429, tags);
   if (r.status === 429) return;
   if (!check(r, { 'start 202': (x) => x.status === 202 }, tags)) { success.add(false, tags); return; }
   const id = r.json('data.executionId');
+  if (w.cancelAfterMs && Math.random() < 0.5) {
+    sleep(w.cancelAfterMs / 1000);
+    http.post(`${BASE_URL}/api/executions/${id}/stop`, null, { headers, tags, responseCallback: STOP_OK });
+  }
   for (let i = 0; i < 100; i++) {
     const s = http.get(`${BASE_URL}/api/executions/${id}`, { headers, tags, responseCallback: POLL_OK });
     if (s.status === 404) pollNotFound.add(1, tags);
     const res = s.status === 200 ? outcome(s.json('data')) : null;
     if (res) {
       e2e.add(Date.now() - start, tags);
-      success.add(res === 'ok', tags);
+      success.add(w.chaos || res === 'ok', tags); // a chaos run may legitimately fail or be cancelled
       return;
     }
     sleep(0.05);
