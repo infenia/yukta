@@ -37,6 +37,9 @@ import org.springframework.test.context.DynamicPropertySource;
 @NoArgsConstructor
 class RestartRuleAcceptanceTest {
 
+  /** How long a run count must stay put to show that nothing asks for another run. */
+  private static final Duration STABLE = Duration.ofMillis(1500);
+
   private static final Duration WAIT = Duration.ofSeconds(30);
 
   private static final String RULES_JSON =
@@ -116,31 +119,31 @@ class RestartRuleAcceptanceTest {
   }
 
   @Test
-  void retryOutcome_restartsFromCheck_andSucceeds(@TempDir final Path dir) throws Exception {
+  void retryOutcome_restartsFromCheck_andSucceeds(@TempDir final Path dir) throws IOException {
     final String runs = start(dir, "touch FIXED");
 
     await().atMost(WAIT).untilAsserted(() -> assertThat(runs(runs)).isEqualTo(2));
     // the second run passes the check, so nothing asks for a third
-    Thread.sleep(1500);
+    await().during(STABLE).atMost(WAIT).untilAsserted(() -> assertThat(runs(runs)).isEqualTo(2));
     assertThat(runs(runs)).isEqualTo(2);
   }
 
   @Test
-  void escalateOutcome_isNotRestarted(@TempDir final Path dir) throws Exception {
+  void escalateOutcome_isNotRestarted(@TempDir final Path dir) throws IOException {
     final String runs = start(dir, "false");
 
     await().atMost(WAIT).untilAsserted(() -> assertThat(runs(runs)).isEqualTo(1));
-    Thread.sleep(1500);
+    await().during(STABLE).atMost(WAIT).untilAsserted(() -> assertThat(runs(runs)).isEqualTo(1));
     assertThat(runs(runs)).isEqualTo(1);
   }
 
   @Test
-  void retryOutcome_stopsWhenAttemptBudgetIsSpent(@TempDir final Path dir) throws Exception {
+  void retryOutcome_stopsWhenAttemptBudgetIsSpent(@TempDir final Path dir) throws IOException {
     // the repair claims success but never fixes anything, so every run asks for a retry
     final String runs = start(dir, "true");
 
     await().atMost(WAIT).untilAsserted(() -> assertThat(runs(runs)).isEqualTo(3));
-    Thread.sleep(1500);
+    await().during(STABLE).atMost(WAIT).untilAsserted(() -> assertThat(runs(runs)).isEqualTo(3));
     assertThat(runs(runs)).isEqualTo(3);
   }
 }
