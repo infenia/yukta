@@ -35,6 +35,28 @@
     # Test and mirror hook: a server laid out like GitHub release downloads (<base>/v<ver>/<file>).
     $baseUrl = if ($env:YUKTA_DOWNLOAD_BASE) { $env:YUKTA_DOWNLOAD_BASE } else { "https://github.com/$repo/releases/download" }
 
+    # Animation and colour only on a terminal (and never with NO_COLOR). Yukta logo colours:
+    # orange #E85D0C and blue #2F6BFF.
+    $fun = (-not [Console]::IsOutputRedirected) -and (-not $env:NO_COLOR) -and ($Host.UI.SupportsVirtualTerminal -or $env:WT_SESSION)
+    $esc = [char]27
+    $O = if ($fun) { "$esc[38;2;232;93;12m" } else { '' }
+    $U = if ($fun) { "$esc[38;2;47;107;255m" } else { '' }
+    $B = if ($fun) { "$esc[1m" } else { '' }
+    $Z = if ($fun) { "$esc[0m" } else { '' }
+
+    # Download with a spinner on a terminal; plain Invoke-WebRequest otherwise.
+    function Get-File($url, $out, $label) {
+        if (-not $fun) { Invoke-WebRequest -UseBasicParsing $url -OutFile $out; return }
+        $job = Start-Job { param($u, $o) $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -UseBasicParsing $u -OutFile $o } -ArgumentList $url, $out
+        $frames = '|', '/', '-', '\'; $i = 0
+        while ($job.State -eq 'Running') {
+            Write-Host -NoNewline "`r  $U$($frames[$i % 4])$Z $label "
+            $i++; Start-Sleep -Milliseconds 100
+        }
+        Write-Host -NoNewline "`r$esc[K"
+        try { Receive-Job $job -ErrorAction Stop | Out-Null } finally { Remove-Job $job -Force }
+    }
+
     function Fail($message) { throw "install: $message" }
 
     $dir = if ($env:YUKTA_INSTALL_DIR) { $env:YUKTA_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\Yukta' }
@@ -85,7 +107,7 @@
     $tmp = Join-Path ([IO.Path]::GetTempPath()) ("yukta-install-" + [Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $tmp | Out-Null
     try {
-        Write-Host 'Yukta installer'
+        Write-Host "$U${B}Yukta installer$Z"
         if ($found) { Write-Host "  found:      $found in $dir" }
         Write-Host "  installing: $version  (windows/amd64)  into $dir"
         $sumsPath = Join-Path $tmp 'SHA256SUMS'
@@ -117,9 +139,9 @@
         function Get-Verified($name) {
             if (-not $sums.ContainsKey($name)) { Fail "$name is not listed in SHA256SUMS" }
             $path = Join-Path $tmp $name
-            Invoke-WebRequest -UseBasicParsing "$baseUrl/v$version/$name" -OutFile $path
+            Get-File "$baseUrl/v$version/$name" $path "downloading $name"
             if ((Get-FileHash $path -Algorithm SHA256).Hash.ToLower() -ne $sums[$name]) { Fail "checksum mismatch for $name; not installing" }
-            Write-Host "  verified $name"
+            Write-Host "  $O$([char]0x2713)$Z verified    $name"
             return $path
         }
 
@@ -168,6 +190,7 @@
         }
 
         Write-Host ''
+        Write-Host "$O${B}Done!$Z Yukta $version is ready."
         Write-Host 'Next:'
         if ($installedServer) { Write-Host '  yukta                          # start the server on http://localhost:8080' }
         if (-not $serverOnly) { Write-Host '  yukta-cli session list         # talk to a running server' }

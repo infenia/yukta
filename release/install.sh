@@ -43,9 +43,14 @@ BASE_URL="${YUKTA_DOWNLOAD_BASE:-https://github.com/$REPO/releases/download}"
 say() { printf '%s\n' "$*"; }
 # Animation and colour only on a terminal (and never with NO_COLOR), so pipes and logs stay plain.
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
-  fun=1; G="$(printf '\033[32m')"; C="$(printf '\033[36m')"; B="$(printf '\033[1m')"; Z="$(printf '\033[0m')"
+  # The Yukta logo colours: orange #E85D0C and blue #2F6BFF (256-colour approximations without truecolor).
+  case "${COLORTERM:-}" in
+    truecolor | 24bit) O="$(printf '\033[38;2;232;93;12m')"; U="$(printf '\033[38;2;47;107;255m')" ;;
+    *) O="$(printf '\033[38;5;166m')"; U="$(printf '\033[38;5;69m')" ;;
+  esac
+  fun=1; B="$(printf '\033[1m')"; Z="$(printf '\033[0m')"
 else
-  fun=0; G=""; C=""; B=""; Z=""
+  fun=0; O=""; U=""; B=""; Z=""
 fi
 
 # Run "$@" in the background and show a spinner with <label> until it ends; return its status.
@@ -56,7 +61,7 @@ spin() {
   i=0
   while kill -0 "$job" 2>/dev/null; do
     case $((i % 4)) in 0) c='|' ;; 1) c='/' ;; 2) c='-' ;; *) c='\' ;; esac
-    printf '\r  %s%s%s %s ' "$C" "$c" "$Z" "$label"
+    printf '\r  %s%s%s %s ' "$U" "$c" "$Z" "$label"
     i=$((i + 1)); sleep 0.1
   done
   printf '\r\033[K'
@@ -106,7 +111,7 @@ get_verified() {
   want="$(awk -v f="$1" '$2 == f || $2 == "*" f { print $1; exit }' "$tmp/SHA256SUMS")"
   [ -n "$want" ] || err "$1 is not listed in SHA256SUMS"
   [ "$(sha256_of "$tmp/$1")" = "$want" ] || err "checksum mismatch for $1; not installing"
-  say "  ${G}✓${Z} verified    $1"
+  say "  ${O}✓${Z} verified    $1"
 }
 
 # Verify the Sigstore signature of SHA256SUMS when cosign is installed; say what was checked.
@@ -226,7 +231,7 @@ main() {
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT INT TERM
 
-  say "${B}Yukta installer${Z}"
+  say "${U}${B}Yukta installer${Z}"
   if [ -n "$found" ]; then say "  found:      $found in $dir"; elif [ -e "$dir/yukta" ]; then say "  found:      an unknown version in $dir"; fi
   size=""
   [ "$do_server" = "0" ] || size="$(size_mb "$BASE_URL/v$version/yukta-$version-$os-$arch.tar.gz")"
@@ -292,7 +297,7 @@ main() {
   esac
 
   say ""
-  say "${G}${B}Done!${Z} Yukta $version is ready."
+  say "${O}${B}Done!${Z} Yukta $version is ready."
   say "Next:"
   [ "$installed_server" = "0" ] || say "  yukta                          # start the server on http://localhost:8080"
   [ "$do_cli" = "0" ] || say "  yukta-cli session list         # talk to a running server"
