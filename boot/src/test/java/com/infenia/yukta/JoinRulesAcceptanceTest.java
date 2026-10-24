@@ -44,7 +44,7 @@ class JoinRulesAcceptanceTest {
         Map.of("command", List.of("sh", "-c", script), "outputFormat", "RAW"));
   }
 
-  /** t fans out to "good" and "bad" (exit 3); an ALL_DONE AGGREGATE joins them. */
+  /** Defines a workflow whose "bad" branch (exit 3) fails before an ALL_DONE join with "good". */
   private void defineFanOut(final String session) {
     definitions
         .save(
