@@ -43,6 +43,7 @@ reset() {
   git -C "$repo" worktree prune
   git -C "$repo" branch -D issue/7 >/dev/null 2>&1 || true
   git -C "$dir/origin.git" branch -D issue/7 >/dev/null 2>&1 || true
+  rm -f "$dir"/status-*
   echo Ready >"$dir/status"
 }
 last_status() { tail -1 "$dir/project-status.log" 2>/dev/null | cut -d' ' -f2-; }
