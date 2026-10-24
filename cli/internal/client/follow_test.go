@@ -5,6 +5,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -149,14 +150,14 @@ func TestStream_pingsKeepAQuietConnectionAlive(t *testing.T) {
 	}
 }
 
-func TestScanSSE_deliversAnEventNotFollowedByABlankLine(t *testing.T) {
+func TestScanSSE_dropsAnEventNotFollowedByABlankLine(t *testing.T) {
 	var got []SSEEvent
 	err := ScanSSE(context.Background(), strings.NewReader("id: 7\nevent: e\ndata: tail"), func(e SSEEvent) error {
 		got = append(got, e)
 		return nil
 	})
 
-	if err != nil || len(got) != 1 || got[0].Data != "tail" || got[0].ID != "7" || got[0].Event != "e" {
+	if err != nil || len(got) != 0 {
 		t.Errorf("got=%+v err=%v", got, err)
 	}
 }
@@ -220,5 +221,84 @@ func TestCallbackError_wrapsTheHandlersError(t *testing.T) {
 	e := callbackError{errSentinel}
 	if e.Error() != "stop" || e.Unwrap() != errSentinel {
 		t.Errorf("%v / %v", e.Error(), e.Unwrap())
+	}
+}
+
+func TestFollow_silentServerBeforeHeadersTimesOut(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer srv.Close()
+	c := fastClient(srv.URL)
+	c.StreamIdle = 50 * time.Millisecond
+
+	err := c.StreamExecutionLogs(context.Background(), "s", "e", func(string) error { return nil })
+
+	if err == nil || !strings.Contains(err.Error(), "no response") {
+		t.Errorf("err=%v", err)
+	}
+}
+
+func TestFollow_reconnectStopsAtOnceOnANonRetryableStatus(t *testing.T) {
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/stream") && !strings.Contains(r.URL.Path, "logs") {
+			_, _ = w.Write([]byte(`{"data":{"status":"RUNNING"}}`))
+			return
+		}
+		calls++
+		if calls > 1 {
+			http.Error(w, "revoked", http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprint(w, "id: 1\ndata: x\n\n")
+	}))
+	defer srv.Close()
+	c := fastClient(srv.URL)
+
+	err := c.StreamExecutionLogs(context.Background(), "s", "e", func(string) error { return nil })
+
+	var ae *apiError
+	if !errors.As(err, &ae) || ae.status != 401 || calls != 2 {
+		t.Errorf("calls=%d err=%v", calls, err)
+	}
+}
+
+func TestFollow_reconnectHonoursRetryAfter(t *testing.T) {
+	var calls int
+	var first time.Time
+	var gap time.Duration
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls >= 3 && answerDone(w, r) {
+			return
+		}
+		if !strings.Contains(r.URL.Path, "logs") {
+			_, _ = w.Write([]byte(`{"data":{"status":"RUNNING"}}`))
+			return
+		}
+		calls++
+		switch calls {
+		case 1:
+			w.Header().Set("Content-Type", "text/event-stream")
+			fmt.Fprint(w, "id: 1\ndata: x\n\n")
+			first = time.Now()
+		case 2:
+			gap = time.Since(first)
+			w.Header().Set("Retry-After", "1")
+			http.Error(w, "busy", http.StatusServiceUnavailable)
+		default:
+			w.Header().Set("Content-Type", "text/event-stream")
+			fmt.Fprint(w, "data: y\n\n")
+		}
+	}))
+	defer srv.Close()
+	c := fastClient(srv.URL)
+	c.StreamReconnects = 3
+
+	_ = c.StreamExecutionLogs(context.Background(), "s", "e", func(string) error { return nil })
+
+	if calls < 3 {
+		t.Errorf("calls=%d gap=%v", calls, gap)
 	}
 }

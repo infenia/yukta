@@ -53,6 +53,8 @@ func (c *Client) followSSE(
 			return ctx.Err()
 		case !connected:
 			return err
+		case nonRetryable(err):
+			return err
 		case finished != nil && finished():
 			return nil
 		case finished == nil:
@@ -65,12 +67,23 @@ func (c *Client) followSSE(
 		if failures > c.StreamReconnects {
 			return fmt.Errorf("stream ended before the execution finished (gave up after %d reconnects): %w", c.StreamReconnects, orEOF(err))
 		}
+		pause := c.StreamWait * time.Duration(failures)
+		var ae *apiError
+		if errors.As(err, &ae) && ae.retryAfter > pause {
+			pause = min(ae.retryAfter, maxRetryWait)
+		}
 		select {
-		case <-time.After(c.StreamWait * time.Duration(failures)):
+		case <-time.After(pause):
 		case <-ctx.Done():
 			return ctx.Err()
 		}
 	}
+}
+
+// nonRetryable is an API answer that asking again will not change (401, 403, 404, ...).
+func nonRetryable(err error) bool {
+	var ae *apiError
+	return errors.As(err, &ae) && !retryableStatus(ae.status)
 }
 
 func orEOF(err error) error {
@@ -90,19 +103,26 @@ func (c *Client) streamOnce(
 	connCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	resp, err := c.streamRequestFrom(connCtx, path, lastID)
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-	*connected = true
-
+	// Armed before the request so a server that never sends headers cannot hang it.
 	var idle *time.Timer
 	var onLine func()
 	if c.StreamIdle > 0 {
 		idle = time.AfterFunc(c.StreamIdle, cancel)
 		defer idle.Stop()
 		onLine = func() { idle.Reset(c.StreamIdle) }
+	}
+
+	resp, err := c.streamRequestFrom(connCtx, path, lastID)
+	if err != nil {
+		if ctx.Err() == nil && connCtx.Err() != nil {
+			err = errors.New("no response from the server")
+		}
+		return 0, err
+	}
+	defer resp.Body.Close()
+	*connected = true
+	if idle != nil {
+		idle.Reset(c.StreamIdle)
 	}
 
 	events := 0
