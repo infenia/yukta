@@ -170,6 +170,7 @@ public class FileSystemPluginLogWriter implements PluginLogWriter {
    * @return the message with embedded line terminators escaped
    */
   private static String escapeMessage(final String message) {
-    return message.replace("\r", "\\r").replace("\n", "\\n");
+    // the backslash first, so a literal backslash-n in the message is not read back as a newline
+    return message.replace("\\", "\\\\").replace("\r", "\\r").replace("\n", "\\n");
   }
 }
