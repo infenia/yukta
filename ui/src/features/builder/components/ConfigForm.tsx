@@ -2,12 +2,17 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState } from 'react';
+import {
+  NativeSelect,
+  inputFieldClassName,
+  textareaFieldClassName,
+} from '@/components/ui/native-select';
 import type { ConfigField } from '@/features/plugins/types';
 
 type Values = Record<string, unknown>;
 
-const INPUT =
-  'w-full rounded-lg border border-outline-variant bg-surface px-2 py-1 text-body-md text-on-surface';
+const INPUT = inputFieldClassName;
+const TEXTAREA = `${textareaFieldClassName} text-code-sm`;
 
 /** LIST and MAP values are edited as JSON; the draft text is kept until it parses. */
 export function JsonField({
@@ -32,7 +37,7 @@ export function JsonField({
         spellCheck={false}
         value={text}
         aria-invalid={error}
-        className={`${INPUT} text-code-sm`}
+        className={TEXTAREA}
         onChange={(event) => {
           setText(event.target.value);
           if (!event.target.value.trim()) {
@@ -77,9 +82,8 @@ function FieldInput({
       );
     case 'ENUM':
       return (
-        <select
+        <NativeSelect
           id={id}
-          className={INPUT}
           value={typeof value === 'string' ? value : ''}
           onChange={(event) => onChange(event.target.value || undefined)}
         >
@@ -91,7 +95,7 @@ function FieldInput({
               {option}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       );
     case 'NUMBER':
       return (
@@ -119,7 +123,7 @@ function FieldInput({
           id={id}
           rows={2}
           spellCheck={false}
-          className={`${INPUT} text-code-sm`}
+          className={TEXTAREA}
           value={typeof value === 'string' ? value : ''}
           onChange={(event) => onChange(event.target.value || undefined)}
         />

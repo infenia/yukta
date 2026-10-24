@@ -4,6 +4,8 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { inputFieldClassName } from '@/components/ui/native-select';
 import { InlineError } from '@/components/common/InlineError';
 import { controlErrorMessage } from '../hooks/useExecutionControl';
 import {
@@ -117,7 +119,7 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
           <div className="flex items-center gap-2">
             <input
               aria-label={`Note for ${version.id}`}
-              className="border-outline-variant bg-surface text-on-surface text-body-md w-96 rounded-lg border px-2 py-1"
+              className={cn(inputFieldClassName, 'w-96 max-w-full')}
               placeholder="What is this version for?"
               value={notes[version.id] ?? version.note ?? ''}
               onChange={(event) =>
