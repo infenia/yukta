@@ -163,7 +163,7 @@ function Editor({
 
   return (
     <div className="flex flex-1 flex-col" data-testid="workflow-editor">
-      <div className="border-outline-variant flex flex-wrap items-center gap-3 border-b px-4 py-3 sm:px-6">
+      <div className="border-border flex flex-wrap items-center gap-3 border-b px-4 py-3 sm:px-6">
         <h1 className="text-on-surface text-headline-lg">
           Edit {workflow.workflowId}
         </h1>
@@ -173,7 +173,7 @@ function Editor({
           value={workflow.description}
           maxLength={256}
           onChange={(event) => update({ description: event.target.value })}
-          className="w-72"
+          className="w-full sm:w-72"
         />
         <div className="ml-auto flex items-center gap-2">
           <button
@@ -205,8 +205,13 @@ function Editor({
         )}
       </div>
 
-      <div className="flex min-h-100 flex-1">
-        <aside className="border-outline-variant flex w-80 shrink-0 flex-col gap-4 overflow-y-auto border-r p-4">
+      {/* Three columns from lg up; on phones and tablets the panels stack (list, canvas,
+          inspector) so each one gets the full width */}
+      <div className="flex min-h-100 flex-1 flex-col lg:flex-row">
+        <aside
+          aria-label="Nodes and edges"
+          className="border-border flex w-full shrink-0 flex-col gap-4 border-b p-4 lg:w-80 lg:overflow-y-auto lg:border-r lg:border-b-0"
+        >
           <div className="flex gap-2">
             <NativeSelect
               aria-label="Plugin type"
@@ -285,7 +290,6 @@ function Editor({
             <div className="flex flex-wrap gap-1">
               <NativeSelect
                 aria-label="Edge source"
-
                 value={edge.source}
                 onChange={(event) =>
                   setEdge({
@@ -302,7 +306,6 @@ function Editor({
               </NativeSelect>
               <NativeSelect
                 aria-label="Edge port"
-
                 value={edge.sourcePort ?? ''}
                 onChange={(event) =>
                   setEdge({ ...edge, sourcePort: event.target.value || null })
@@ -315,7 +318,6 @@ function Editor({
               </NativeSelect>
               <NativeSelect
                 aria-label="Edge target"
-
                 value={edge.target}
                 onChange={(event) =>
                   setEdge({ ...edge, target: event.target.value })
@@ -336,7 +338,10 @@ function Editor({
           </div>
         </aside>
 
-        <div className="min-w-0 flex-1">
+        <div
+          data-testid="editor-canvas"
+          className="h-80 min-w-0 shrink-0 lg:h-auto lg:flex-1"
+        >
           <WorkflowCanvas
             key={workflow.nodes.length}
             graph={graph}
@@ -344,7 +349,10 @@ function Editor({
           />
         </div>
 
-        <aside className="border-outline-variant w-96 shrink-0 overflow-y-auto border-l p-4">
+        <aside
+          aria-label="Node inspector"
+          className="border-border w-full shrink-0 border-t p-4 lg:w-96 lg:overflow-y-auto lg:border-t-0 lg:border-l"
+        >
           {node ? (
             <NodeInspector
               key={node.nodeId}

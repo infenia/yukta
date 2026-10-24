@@ -29,6 +29,9 @@ export function WorkflowCanvas({
         edges={edges}
         nodeTypes={NODE_TYPES}
         fitView
+        // fitView stops at minZoom; xyflow's default (0.5) leaves a wide graph cut off on a
+        // phone-width canvas, so let it zoom out further
+        minZoom={0.2}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable
@@ -37,6 +40,8 @@ export function WorkflowCanvas({
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} />
         <Controls showInteractive={false} />
         <MiniMap
+          // No room for a minimap on a phone-sized canvas (! beats xyflow's unlayered CSS)
+          className="max-md:hidden!"
           pannable
           zoomable
           nodeStrokeWidth={0}
