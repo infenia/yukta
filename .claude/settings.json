@@ -1,20 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(yk check)",
-      "Bash(yk check *)",
-      "Bash(yk gradle *)",
-      "Bash(yk watch *)",
-      "Bash(yk status)",
-      "Bash(yk up)",
-      "Bash(yk up *)",
-      "Bash(examples/11-dogfood/yk check)",
-      "Bash(examples/11-dogfood/yk check *)",
-      "Bash(examples/11-dogfood/yk gradle *)",
-      "Bash(examples/11-dogfood/yk watch *)",
-      "Bash(examples/11-dogfood/yk status)",
-      "Bash(examples/11-dogfood/yk up)",
-      "Bash(examples/11-dogfood/yk up *)"
+      "Bash(yk *)",
+      "Bash(yk)",
+      "Bash(examples/11-dogfood/yk *)",
+      "Bash(examples/11-dogfood/yk)",
+      "mcp__yukta__get_execution_tree",
+      "mcp__yukta__get_execution_logs",
+      "mcp__yukta__get_execution_result",
+      "mcp__yukta__get_workflow_status",
+      "mcp__yukta__get_workflow_history",
+      "mcp__yukta__get_workflow_details",
+      "mcp__yukta__list_pending_approvals",
+      "mcp__yukta__get_control_bus_status",
+      "mcp__yukta__list_sessions",
+      "mcp__yukta__get_session_details",
+      "mcp__yukta__list_workflow_versions",
+      "mcp__yukta__diff_workflow_versions"
     ]
   },
   "hooks": {
@@ -48,6 +50,31 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.sh prompt"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.sh post-edit"
+          }
+        ]
+      }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "\"$(git rev-parse --show-toplevel)\"/examples/11-dogfood/yk statusline"
   }
 }

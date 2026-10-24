@@ -7,6 +7,11 @@
         "serve",
         "--mcp"
       ]
+    },
+    "yukta": {
+      "type": "http",
+      "url": "http://127.0.0.1:9858/mcp",
+      "headersHelper": "bash -c 'exec \"$(git rev-parse --show-toplevel)\"/examples/11-dogfood/yk mcp-headers'"
     }
   }
 }

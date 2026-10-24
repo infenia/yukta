@@ -8,7 +8,13 @@
 #                                            the self-healing quality gate (spotless .. cli) as one execution
 #   yk gradle <gradle args...>               any gradle args as one Yukta stage, e.g. :core:test --tests X
 #   yk watch <session> <exec> [--all]        follow a run: problems only, then RESULT
-#   yk retry <exec> <node> | yk stop <exec>  steer a run
+#   yk tree <exec>                           the run and every run below it, one line each: workflow, status,
+#                                            current nodes, pending signal (an execution id may be its first 8 characters)
+#   yk pause|resume|stop <exec> [--tree]     the run, or with --tree every run it started too
+#   yk skip|unskip|retry <exec> <node>       steer one node
+#   yk break <exec> <node> --field F --equals V | --clear    hold a node on a payload value
+#   yk step <exec> <node> on|off|next        step mode of a node
+#   yk signals [exec] | approve|reject <exec> [signal] [--data text]   what waits for an answer; answer it
 #   yk finding --title ... (see report-finding.sh)   file a dogfood issue
 #   yk cli <args...>                         the yukta CLI against the dev server
 #
@@ -114,7 +120,7 @@ run_check() {
   [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start workflow"
   echo "STARTED execution=$exec_id session=$session"
   [[ "$mode" == detach ]] && return 0
-  YUKTA_SCOPE="$scope" cmd_watch "$session" "$exec_id"
+  YUKTA_PROJECT="$project" YUKTA_SCOPE="$scope" cmd_watch "$session" "$exec_id"
 }
 
 cmd_check() {
@@ -165,6 +171,205 @@ cmd_cli() {
   exec "$(find_cli)" "$@"
 }
 
+# ---- steering: the tree of runs, control and approvals (T0: the interactive session) ----
+
+# api METHOD PATH: a call to the server with the key; prints the unwrapped data, or dies with the server's message
+api() {
+  local out code
+  out="$(curl -sS -m 30 -w '\n%{http_code}' -X "$1" ${YUKTA_TOKEN:+-H "X-API-Key: $YUKTA_TOKEN"} "${YUKTA_SERVER_URL:-$DEV_URL}$2")" \
+    || die "$1 $2: the server is not reachable (yk up)"
+  code="${out##*$'\n'}"
+  out="${out%$'\n'*}"
+  ((code < 400)) || die "$1 $2: HTTP $code $(jq -r '.message // empty' <<<"$out" 2>/dev/null)"
+  jq '(.data // .)' <<<"$out"
+}
+
+uri() { jq -rn --arg v "$1" '$v | @uri'; }
+
+# resolve_exec ID: a full execution id, or the unique prefix of one (the tree prints eight characters)
+resolve_exec() {
+  local id="${1:?an execution id is required}" found
+  ((${#id} >= 32)) && { echo "$id"; return; }
+  found="$(api GET '/api/executions?limit=1000' | jq -r --arg p "$id" '[.[] | select(.executionId | startswith($p)) | .executionId] | unique | if length == 1 then .[0] else empty end')"
+  [[ -n "$found" ]] || die "no single execution starts with '$id'"
+  echo "$found"
+}
+
+# session_of EXEC: the session an execution runs in
+session_of() { api GET '/api/executions?limit=1000' | jq -r --arg e "$1" '.[] | select(.executionId == $e) | .sessionId' | head -1; }
+
+# pending SESSION...: the nodes that wait for a signal in these sessions, as a JSON array
+pending() {
+  local s all="[]"
+  for s in "$@"; do all="$(jq -c --argjson a "$(api GET "/api/sessions/$s/approvals")" '. + $a' <<<"$all")"; done
+  echo "$all"
+}
+
+cmd_tree() {
+  local root runs all sessions cur="{}" id nodes
+  root="$(resolve_exec "${1:?usage: yk tree <execution>}")"
+  runs="$(api GET "/api/executions/$root/tree")"
+  all="$(api GET '/api/executions?limit=1000')"
+  mapfile -t sessions < <(jq -r --argjson r "$runs" '[.[] | select(.executionId as $i | $r | any(.executionId == $i)) | .sessionId] | unique[]' <<<"$all")
+  for id in $(jq -r '.[] | select(.status | test("RUNNING|QUEUED|PAUSED")) | .executionId' <<<"$runs"); do
+    # the status stays RUNNING while paused; the control state says PAUSED
+    nodes="$(api GET "/api/executions/$id" | jq -c '{nodes: ([.tasks[] | select(.status | test("RUNNING|QUEUED|PAUSED")) | .nodeId] | join(",")), paused: (.controlState == "PAUSED")}')"
+    cur="$(jq -c --arg i "$id" --argjson n "$nodes" '. + {($i): $n}' <<<"$cur")"
+  done
+  jq -r --argjson cur "$cur" --argjson appr "$(pending "${sessions[@]}")" '
+    (map({(.executionId): .}) | add) as $by
+    | def depth($r): if ($r.parentExecutionId // null) == null or $by[$r.parentExecutionId] == null then 0 else 1 + depth($by[$r.parentExecutionId]) end;
+    .[] | . as $r
+    | "\($r.executionId[:8]) \("  " * depth($r))\($r.workflowId) \($r.status)"
+      + (if $cur[$r.executionId].paused? then " paused" else "" end)
+      + (if ($cur[$r.executionId].nodes? // "") != "" then " [\($cur[$r.executionId].nodes)]" else "" end)
+      + ([$appr[] | select(.executionId == $r.executionId) | " awaiting \(.name)@\(.nodeId)"] | join(""))' <<<"$runs"
+}
+
+# yk pause|resume|stop EXEC [--tree]
+cmd_run_control() {
+  local verb="$1" exec tree=false
+  shift
+  exec="$(resolve_exec "${1:?usage: yk $verb <execution> [--tree]}")"
+  shift
+  while (($#)); do
+    case "$1" in
+      --tree) tree=true; shift ;;
+      *) die "unknown option '$1' (yk $verb <execution> [--tree])" ;;
+    esac
+  done
+  api POST "/api/executions/$exec/$verb?tree=$tree" >/dev/null
+  echo "$verb: $exec$([[ "$tree" == true ]] && echo ' and the runs below it')"
+}
+
+# yk skip|unskip|retry EXEC NODE
+cmd_node_control() {
+  local verb="$1" exec node
+  shift
+  exec="$(resolve_exec "${1:?usage: yk $verb <execution> <node>}")"
+  node="${2:?usage: yk $verb <execution> <node>}"
+  case "$verb" in
+    skip) api POST "/api/executions/$exec/nodes/$node/skip?skip=true" >/dev/null ;;
+    unskip) api POST "/api/executions/$exec/nodes/$node/skip?skip=false" >/dev/null ;;
+    retry) api POST "/api/executions/$exec/nodes/$node/retry" >/dev/null ;;
+  esac
+  echo "$verb: $exec $node"
+}
+
+# yk break EXEC NODE --field F --equals V | --clear
+cmd_break() {
+  local exec node field="" equals="" clear=0
+  exec="$(resolve_exec "${1:?usage: yk break <execution> <node> --field F --equals V | --clear}")"
+  node="${2:?usage: yk break <execution> <node> --field F --equals V | --clear}"
+  shift 2
+  while (($#)); do
+    case "$1" in
+      --field) field="${2:?--field needs a path}"; shift 2 ;;
+      --equals) equals="${2:?--equals needs a value}"; shift 2 ;;
+      --clear) clear=1; shift ;;
+      *) die "unknown option '$1'" ;;
+    esac
+  done
+  if ((clear)); then
+    api DELETE "/api/executions/$exec/nodes/$node/breakpoint" >/dev/null
+    echo "breakpoint cleared: $exec $node"
+  else
+    [[ -n "$field" && -n "$equals" ]] || die "yk break needs --field and --equals (or --clear)"
+    api POST "/api/executions/$exec/nodes/$node/breakpoint?field=$(uri "$field")&equals=$(uri "$equals")" >/dev/null
+    echo "breakpoint set: $exec $node when $field == $equals"
+  fi
+}
+
+# yk step EXEC NODE on|off|next
+cmd_step() {
+  local exec node mode="${3:?usage: yk step <execution> <node> on|off|next}" path
+  exec="$(resolve_exec "${1:?usage: yk step <execution> <node> on|off|next}")"
+  node="${2:?usage: yk step <execution> <node> on|off|next}"
+  case "$mode" in
+    on) path=step/enable ;;
+    off) path=step/disable ;;
+    next) path=step ;;
+    *) die "step takes on, off or next" ;;
+  esac
+  api POST "/api/executions/$exec/nodes/$node/$path" >/dev/null
+  echo "step $mode: $exec $node"
+}
+
+# yk signals [EXEC]: what waits for a signal, in the tree of EXEC or in every session with a running run
+cmd_signals() {
+  local sessions all root=""
+  [[ -z "${1:-}" ]] || root="$(resolve_exec "$1")"
+  all="$(api GET '/api/executions?limit=1000')"
+  if [[ -n "$root" ]]; then
+    mapfile -t sessions < <(jq -r --argjson t "$(api GET "/api/executions/$root/tree")" '[.[] | select(.executionId as $i | $t | any(.executionId == $i)) | .sessionId] | unique[]' <<<"$all")
+  else
+    mapfile -t sessions < <(jq -r '[.[] | select(.status | test("RUNNING|PAUSED|QUEUED")) | .sessionId] | unique[]' <<<"$all")
+  fi
+  ((${#sessions[@]})) || return 0
+  jq -r --arg root "$root" --argjson t "$([[ -n "$root" ]] && api GET "/api/executions/$root/tree" || echo '[]')" '
+    ($t | map(.executionId)) as $ids
+    | .[] | .executionId as $e | select($root == "" or ($ids | index($e) != null))
+    | "\(.executionId[:8]) \(.nodeId) \(.name) since \(.since)"' <<<"$(pending "${sessions[@]}")"
+}
+
+# yk approve|reject EXEC [SIGNAL] [--data TEXT]: answers a node that waits for a signal
+cmd_answer() {
+  local verb="$1" exec signal="" data="" session found node name decision=approve
+  shift
+  exec="$(resolve_exec "${1:?usage: yk $verb <execution> [signal] [--data text]}")"
+  shift
+  [[ "$verb" == reject ]] && decision=reject
+  while (($#)); do
+    case "$1" in
+      --data) data="${2:?--data needs text}"; shift 2 ;;
+      -*) die "unknown option '$1'" ;;
+      *) signal="$1"; shift ;;
+    esac
+  done
+  session="$(session_of "$exec")"
+  [[ -n "$session" ]] || die "execution $exec is not known to the server"
+  found="$(pending "$session" | jq -c --arg e "$exec" --arg s "$signal" '[.[] | select(.executionId == $e and ($s == "" or .name == $s))]')"
+  [[ "$(jq length <<<"$found")" == 1 ]] \
+    || die "$(jq length <<<"$found") pending signals for $exec${signal:+ named $signal}; run: yk signals $exec"
+  node="$(jq -r '.[0].nodeId' <<<"$found")"
+  name="$(jq -r '.[0].name' <<<"$found")"
+  api POST "/api/executions/$exec/nodes/$node/signal?name=$(uri "$name")&decision=$decision${data:+&data=$(uri "$data")}" >/dev/null
+  echo "$decision: $exec $node ($name)"
+}
+
+# refresh_activity: writes "N running · M awaiting" to $DEV_HOME/activity for the status line
+refresh_activity() {
+  local all running sessions waiting=0 s
+  all="$(api GET '/api/executions?limit=1000')" || return 0
+  running="$(jq '[.[] | select(.status | test("RUNNING|PAUSED|QUEUED"))] | length' <<<"$all")"
+  mapfile -t sessions < <(jq -r '[.[] | select(.status | test("RUNNING|PAUSED|QUEUED")) | .sessionId] | unique[]' <<<"$all")
+  for s in "${sessions[@]}"; do waiting=$((waiting + $(api GET "/api/sessions/$s/approvals" | jq length))); done
+  { ((running > 0)) && echo "$running running$( ((waiting > 0)) && echo " · $waiting awaiting")" || echo "idle"; } >"$DEV_HOME/activity.tmp"
+  mv "$DEV_HOME/activity.tmp" "$DEV_HOME/activity"
+}
+
+# yk statusline: one line for Claude Code's status line, from cached files only (no network)
+cmd_statusline() {
+  local label mark="✗" line status scope healed activity f
+  if [[ -s "$DEV_HOME/server.pid" ]] && kill -0 "$(cat "$DEV_HOME/server.pid")" 2>/dev/null; then mark="✓"; fi
+  label="$(server_env YUKTA_DEV_LABEL)"
+  line="yukta :$DEV_PORT ${label:-down} $mark"
+  f="$DEV_HOME/activity"
+  [[ -s "$f" ]] && line+=" | $(<"$f")"
+  if [[ ! -e "$f" || $(($(date +%s) - $(stat -c %Y "$f"))) -gt 10 ]]; then
+    [[ "$mark" == "✓" ]] && (refresh_activity >/dev/null 2>&1 </dev/null &)
+  fi
+  f="$STATE_DIR/last-result"
+  if [[ -s "$f" ]]; then
+    IFS=$'\t' read -r _ status scope healed _ <"$f"
+    line+=" | last: $scope $status$([[ "$healed" != - && -n "$healed" ]] && echo " (healed $healed)")"
+  fi
+  echo "$line"
+}
+
+# yk mcp-headers: the headers for Claude Code's MCP connection (.mcp.json headersHelper)
+cmd_mcp_headers() { jq -n --arg k "$(dev_key)" '{"X-API-Key": $k}'; }
+
 cmd="${1:-help}"
 (($#)) && shift
 case "$cmd" in
@@ -174,8 +379,16 @@ case "$cmd" in
   check) cmd_check "$@" ;;
   gradle) cmd_gradle "$@" ;;
   watch) cmd_watch "$@" ;;
-  retry) cmd_cli workflow node retry "${1:?usage: yk retry <exec> <node>}" "${2:?usage: yk retry <exec> <node>}" ;;
-  stop) cmd_cli workflow executions stop "${1:?usage: yk stop <exec>}" ;;
+  tree) cmd_tree "$@" ;;
+  pause | resume | stop) cmd_run_control "$cmd" "$@" ;;
+  skip | unskip | retry) cmd_node_control "$cmd" "$@" ;;
+  break) cmd_break "$@" ;;
+  step) cmd_step "$@" ;;
+  signals) cmd_signals "$@" ;;
+  approve | reject) cmd_answer "$cmd" "$@" ;;
+  statusline) cmd_statusline ;;
+  mcp-headers) cmd_mcp_headers ;;
+  sum) changes_sum "$REPO_ROOT" ;;
   finding) exec "$here/scripts/report-finding.sh" "$@" ;;
   cli) cmd_cli "$@" ;;
   help | -h | --help) usage ;;
