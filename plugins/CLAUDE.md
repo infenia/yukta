@@ -17,6 +17,9 @@ Note: `triggers/manual-trigger/` exists on disk but has no source and isn't in `
 ## Config schema
 Declare `getConfigSchema()` (see `ConfigField`) on a plugin to get a generated config form in the UI. Every plugin that takes configuration declares one (`API_TRIGGER` and `CONSOLE_TERMINAL` take none); a new plugin without a schema falls back to the JSON editor and the usage pattern. Keep field names equal to the keys the plugin reads, and add a test pinning the names and which are required.
 
+## Conformance kit
+`boot`'s `PluginConformanceSweepTest` runs `PluginConformance` (`plugin-api` test fixtures) over every registered plugin: schema vs. config, bad config gives a clear error, minimal config runs, cancel reaches the input and leaks no thread, a 10 MB message, an upstream error, no secret in logs. A new plugin fails that test until you either add a fixture (a minimal hermetic config, plus `INPUTS` if it reads input fields) to `fixtures()` in the test, or a reason to `boot/src/test/resources/conformance-exemptions.properties`. A `SECRET` schema field gets a canary value, so declare secrets with `ConfigField.Type.SECRET`.
+
 ## Build Commands
 ```bash
 # Build a specific plugin

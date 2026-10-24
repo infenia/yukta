@@ -11,6 +11,11 @@ dependencies {
     implementation(libs.spring.expression)
     implementation(libs.jackson.databind)
     api(project(":messaging"))
+
+    // PluginConformance (test fixtures) watches the logs for leaked secrets
+    testFixturesImplementation(project(":messaging"))
+    testFixturesImplementation(libs.reactor.core)
+    testFixturesImplementation("ch.qos.logback:logback-classic")
 }
 
 coverageConfig {
