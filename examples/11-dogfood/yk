@@ -8,6 +8,9 @@
 #                                            the self-healing quality gate (spotless .. cli) as one execution
 #   yk gradle <gradle args...>               any gradle args as one Yukta stage, e.g. :core:test --tests X
 #   yk watch <session> <exec> [--all]        follow a run: problems only, then RESULT
+#   yk run issue <n> [--detach] [--no-pause before-implement,before-pr]
+#                                            implement an assigned, Ready issue in its own worktree, check it, open a draft PR
+#   yk result <session> <exec>               the RESULT line of a run that ended
 #   yk tree <exec>                           the run and every run below it, one line each: workflow, status,
 #                                            current nodes, pending signal (an execution id may be its first 8 characters)
 #   yk pause|resume|stop <exec> [--tree]     the run, or with --tree every run it started too
@@ -328,11 +331,15 @@ cmd_answer() {
   done
   session="$(session_of "$exec")"
   [[ -n "$session" ]] || die "execution $exec is not known to the server"
-  found="$(pending "$session" | jq -c --arg e "$exec" --arg s "$signal" '[.[] | select(.executionId == $e and ($s == "" or .name == $s))]')"
+  # the node may wait in a run below this one (a sub-workflow): look through the whole tree
+  found="$(pending "$session" | jq -c --argjson t "$(api GET "/api/executions/$exec/tree")" --arg s "$signal" '
+    ($t | map(.executionId)) as $ids
+    | [.[] | select(.executionId as $e | $ids | index($e)) | select($s == "" or .name == $s)]')"
   [[ "$(jq length <<<"$found")" == 1 ]] \
     || die "$(jq length <<<"$found") pending signals for $exec${signal:+ named $signal}; run: yk signals $exec"
   node="$(jq -r '.[0].nodeId' <<<"$found")"
   name="$(jq -r '.[0].name' <<<"$found")"
+  exec="$(jq -r '.[0].executionId' <<<"$found")"
   api POST "/api/executions/$exec/nodes/$node/signal?name=$(uri "$name")&decision=$decision${data:+&data=$(uri "$data")}" >/dev/null
   echo "$decision: $exec $node ($name)"
 }
@@ -370,6 +377,65 @@ cmd_statusline() {
 # yk mcp-headers: the headers for Claude Code's MCP connection (.mcp.json headersHelper)
 cmd_mcp_headers() { jq -n --arg k "$(dev_key)" '{"X-API-Key": $k}'; }
 
+# ---- layered workflows: an issue from claim to draft PR ----
+
+# yk run issue N [--detach] [--no-pause before-implement,before-pr]
+# Implements one assigned, Ready issue in its own worktree (../yukta-issue-N): a headless Claude does the
+# work, the self-healing check runs on the worktree (its fixers resume the implementer), and a draft PR
+# opens once you approve. Two checkpoints wait for you (yk signals / yk approve|reject <e> <signal>):
+# before-implement (edit .yukta-dev/issue-N/brief.md first, then approve) and before-pr.
+cmd_run() {
+  local what="${1:?usage: yk run issue <number> [--detach] [--no-pause before-implement,before-pr]}"
+  shift
+  case "$what" in
+    issue) run_issue "$@" ;;
+    *) die "unknown workflow '$what' (yk run issue <number>)" ;;
+  esac
+}
+
+run_issue() {
+  local n="${1:?usage: yk run issue <number> [--detach] [--no-pause before-implement,before-pr]}" mode=watch nopause="" impl=1 pr=1 p
+  shift
+  [[ "$n" =~ ^[0-9]+$ ]] || die "the issue is a number, not '$n'"
+  while (($#)); do
+    case "$1" in
+      --detach) mode=detach; shift ;;
+      --no-pause) nopause="${2:?--no-pause needs before-implement and/or before-pr}"; shift 2 ;;
+      *) die "unknown option '$1'" ;;
+    esac
+  done
+  for p in ${nopause//,/ }; do
+    case "$p" in
+      before-implement) impl=0 ;;
+      before-pr) pr=0 ;;
+      *) die "unknown checkpoint '$p' (before-implement, before-pr)" ;;
+    esac
+  done
+  need jq
+  ensure_server
+  # tmp is global: the EXIT trap runs after this function's locals are gone
+  local cli workflow="run-issue$(issue_variant "$impl" "$pr")" implsession exec_id worktree
+  cli="$(find_cli)"
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  mkdir -p "$STATE_DIR"
+  worktree="$(dirname "$REPO_ROOT")/yukta-issue-$n"
+  implsession="$(cat /proc/sys/kernel/random/uuid)"
+  dev_session "$here/scripts/yukta-heal.sh" "$here/scripts/yukta-issue.sh" >"$tmp/session.json"
+  echo ">> server $YUKTA_SERVER_URL, session yukta-dev, issue #$n, worktree $worktree" >&2
+  "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
+  rm -rf "$worktree/.yukta-dev/heal"
+  exec_id="$("$cli" -o json workflow start yukta-dev "$workflow" \
+    --payload "$(jq -nc --arg i "$n" --arg r "$REPO_ROOT" --arg w "$worktree" --arg s "$implsession" \
+      '{issue: $i, repo: $r, worktree: $w, implSession: $s}')" | jq -r '.data.executionId // .executionId')"
+  [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start $workflow"
+  echo "STARTED execution=$exec_id session=yukta-dev"
+  ((impl)) && echo "checkpoint before-implement: edit $REPO_ROOT/.yukta-dev/issue-$n/brief.md if you want, then: yk approve ${exec_id:0:8} before-implement" >&2
+  ((pr)) && echo "checkpoint before-pr: yk approve ${exec_id:0:8} before-pr (or yk reject ...)" >&2
+  [[ "$mode" == detach ]] && return 0
+  YUKTA_SCOPE="issue-$n" cmd_watch yukta-dev "$exec_id"
+}
+
 cmd="${1:-help}"
 (($#)) && shift
 case "$cmd" in
@@ -389,6 +455,10 @@ case "$cmd" in
   statusline) cmd_statusline ;;
   mcp-headers) cmd_mcp_headers ;;
   sum) changes_sum "$REPO_ROOT" ;;
+  run) cmd_run "$@" ;;
+  result)
+    export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
+    print_result "${1:?usage: yk result <session> <execution>}" "${2:?usage: yk result <session> <execution>}" ;;
   finding) exec "$here/scripts/report-finding.sh" "$@" ;;
   cli) cmd_cli "$@" ;;
   help | -h | --help) usage ;;

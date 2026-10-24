@@ -21,22 +21,27 @@ Argument: a count (`3`, default 1) or an issue number (`123`).
    if it is assigned to the user. Anything assigned but not Ready lacks acceptance criteria: report it
    and skip it. Nothing left: say so and stop.
 
-2. **Claim each before starting**, so a parallel session does not take the same issue. If it is already
-   In progress, skip it. Otherwise:
+2. **Run each through Yukta.** One command does the rest (claim the issue as In progress, a worktree
+   `../yukta-issue-<n>` on `issue/<n>` from `origin/main`, a headless implementer, the self-healing check
+   with the fixers resuming the implementer, a draft PR with `Fixes #<n>` and the check's RESULT line):
 
    ```bash
-   . .github/scripts/project-lib.sh
-   PROJECT_OWNER=infenia PROJECT_NUMBER=5 PROJECT_TOKEN=$(gh auth token) \
-     project_add_item "<issue url>" Status="In progress"
+   yk run issue <n> --detach          # STARTED execution=<e> session=yukta-dev
    ```
 
-   If this fails (missing `project` scope: `gh auth refresh -s project`), stop and tell the user.
+   The run waits at two checkpoints for you (`yk signals <e>`, then `yk approve <e> <signal>` or
+   `yk reject <e> <signal>`):
+   - `before-implement`: the brief is `.yukta-dev/issue-<n>/brief.md` in the main checkout; edit it if the
+     issue needs a hint or a narrower scope, then approve.
+   - `before-pr`: the check has passed on the worktree; look at the diff (`git -C ../yukta-issue-<n> diff
+     origin/main`), then approve to open the draft PR.
+   `--no-pause before-implement,before-pr` skips them. Watch with `yk watch yukta-dev <e>` under the Monitor tool
+   (or the `yukta-run-watcher` subagent), `yk tree <e>` for where it is. With several issues, start them one at
+   a time and keep the checkpoints: each run builds in its own worktree but shares the dev server.
 
-3. **Work one issue per branch** from `main`: read the issue and its acceptance criteria, implement,
-   and verify with the `yukta` skill (`yk gradle …`, then `yk check`), smallest test scope first.
+3. **Read the end.** `RESULT status=SUCCESS` means the draft PR is open (its URL is in the run's log). `status=ESCALATE`
+   means the run gave up: the issue is Ready again and the worktree is kept, so read the `NODE`/`HEAL` lines, fix
+   it in the worktree yourself (or reject and rewrite the brief) and run `yk run issue <n>` again. Report per issue:
+   PR link, gate result, anything left undone.
 
-4. **Open the PR** with `Fixes #<n>` and the `yk check` RESULT line under Verification. The
-   project moves it to In review.
-
-5. **Report** per issue: PR link, gate result, anything left undone. If an issue cannot be finished,
-   set it back to Ready (same command with `Status="Ready"`) and say why.
+If `yk run issue` reports that the issue is not Ready, it has no acceptance criteria: report it and skip it.
