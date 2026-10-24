@@ -19,7 +19,11 @@ import org.springframework.test.context.aot.DisabledInAotMode;
  */
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
-    properties = {"yukta.workers.token=secret", "spring.rsocket.server.port=0"})
+    properties = {
+      "yukta.workers.token=secret",
+      "yukta.workers.allow-insecure=true",
+      "spring.rsocket.server.port=0"
+    })
 @DisabledInAotMode
 @EnabledIfSystemProperty(named = "yukta.workers", matches = "true")
 @SuppressWarnings({"PMD.CommentRequired", "PMD.LawOfDemeter"})
