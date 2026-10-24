@@ -158,7 +158,7 @@ export function PluginsPage() {
                   />
                   {label}
                 </h2>
-                <ul>
+                <ul className="flex flex-col gap-0.5">
                   {items.map((p) => (
                     <li key={p.type}>
                       <button
@@ -166,15 +166,11 @@ export function PluginsPage() {
                         aria-current={p.type === selected}
                         onClick={() => setParams({ type: p.type })}
                         className={cn(
-                          'transition-standard text-on-surface text-body-md hover:bg-surface-container-low w-full border-l-2 border-transparent px-3 py-1.5 text-left',
-                          p.type === selected &&
-                            'bg-surface-container border-(--sel) font-semibold'
+                          'transition-standard text-body-md w-full rounded-lg px-3 py-1.5 text-left',
+                          p.type === selected
+                            ? 'bg-accent text-accent-foreground font-semibold'
+                            : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
                         )}
-                        style={
-                          {
-                            '--sel': categoryAccent(key),
-                          } as React.CSSProperties
-                        }
                       >
                         {p.type}
                       </button>

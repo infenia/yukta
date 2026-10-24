@@ -20,14 +20,14 @@ export function Modal({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+    <div className="bg-foreground/40 fixed inset-0 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-lg rounded-2xl border border-outline-variant bg-surface p-6 shadow-lg"
+        className="border-border bg-card shadow-raised w-full max-w-lg rounded-2xl border p-6"
       >
-        <h2 className="mb-4 text-lg font-semibold text-on-surface">{title}</h2>
+        <h2 className="text-headline-md text-on-surface mb-4">{title}</h2>
         {children}
       </div>
     </div>

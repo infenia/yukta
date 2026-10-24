@@ -73,7 +73,7 @@ export function SessionInfoPanel({ session, actions }: SessionInfoPanelProps) {
         <div className="space-y-1">
           <h3 className={label}>Initiator</h3>
           <div className="flex items-center gap-2">
-            <div className="bg-primary-container text-on-primary-container text-label-sm flex size-6 items-center justify-center">
+            <div className="bg-accent text-accent-foreground text-label-sm flex size-6 items-center justify-center rounded-full">
               {initials}
             </div>
             <p className="text-on-surface text-body-md">{session.initiator}</p>
@@ -85,7 +85,7 @@ export function SessionInfoPanel({ session, actions }: SessionInfoPanelProps) {
           <button
             onClick={handleCopyPath}
             aria-label={copied ? 'Project path copied' : 'Copy project path'}
-            className="group border-outline-variant bg-surface hover:bg-surface-variant flex w-full items-center justify-between rounded-lg border p-2"
+            className="group border-border bg-card shadow-card hover:border-ring transition-standard flex w-full items-center justify-between rounded-lg border p-2"
           >
             <code className="text-code-sm text-on-surface truncate pr-4">
               {session.projectPath}

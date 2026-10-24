@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { Link } from 'react-router';
+import { cardVariants } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import type {
   WorkflowSummary,
   WorkflowExecutionStatus,
@@ -42,17 +44,27 @@ export function WorkflowCard({ sessionId, workflow }: WorkflowCardProps) {
   return (
     <Link
       to={`/sessions/${sessionId}/workflow/${workflow.workflowId}`}
-      className="group border-outline-variant bg-surface transition-standard hover:bg-surface-variant focus-visible:outline-primary block w-full cursor-pointer border p-6 text-left focus-visible:outline-2 focus-visible:outline-offset-2"
+      className={cn(
+        cardVariants({ interactive: true }),
+        'group block w-full p-5 text-left no-underline'
+      )}
     >
-      <div className="mb-4 flex items-start justify-between">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        {/* Icon tile, as on the docs cards */}
         <span
-          className={`text-label-sm inline-flex items-center gap-2 ${badgeClass}`}
+          className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg"
+          aria-hidden="true"
+        >
+          <span className="material-symbols-outlined">account_tree</span>
+        </span>
+        <span
+          className={`text-label-sm ml-auto inline-flex items-center gap-2 ${badgeClass}`}
         >
           <span aria-hidden className="size-2 rounded-full bg-current" />
           {badgeLabel}
         </span>
         <span
-          className="material-symbols-outlined text-on-surface-variant transition-standard group-hover:translate-x-1"
+          className="material-symbols-outlined text-on-surface-variant transition-standard group-hover:text-primary group-hover:translate-x-1"
           aria-hidden="true"
         >
           arrow_forward
@@ -63,7 +75,7 @@ export function WorkflowCard({ sessionId, workflow }: WorkflowCardProps) {
         {workflow.workflowId}
       </h3>
 
-      <p className="text-body-sm text-on-surface-variant mb-6 line-clamp-2">
+      <p className="text-body-sm text-on-surface-variant mb-5 line-clamp-2">
         {workflow.description}
       </p>
 
