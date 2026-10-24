@@ -222,9 +222,12 @@ public class AppMcpTools {
           "Start a Yukta workflow execution. Returns the execution ID to use with "
               + "get_workflow_status and get_execution_logs. Pass the same idempotencyKey when "
               + "you repeat a start whose answer you did not get: the first execution is returned "
-              + "instead of a second run being started. Without a key, a repeat start of the same "
-              + "workflow within a short window also returns the earlier run, with "
-              + "reusedExecution true; pass a fresh idempotencyKey to force a new run.",
+              + "instead of a second run being started; the key is remembered for the server's "
+              + "yukta.start.idempotency-ttl (10 minutes unless configured). Without a key, a "
+              + "repeat start of the same workflow within yukta.mcp.start-dedupe-window (30 "
+              + "seconds unless configured) also returns the earlier run, with reusedExecution "
+              + "true, so a deliberate second run inside that window needs a fresh "
+              + "idempotencyKey, and a retry after it starts a new run.",
       generateOutputSchema = true,
       annotations =
           @McpTool.McpAnnotations(
@@ -239,7 +242,8 @@ public class AppMcpTools {
               required = false,
               description =
                   "Optional key that makes a repeated start safe: the same key for the same "
-                      + "session and workflow returns the first execution ID (kept for 10 minutes)")
+                      + "session and workflow returns the first execution ID (kept for "
+                      + "yukta.start.idempotency-ttl, 10 minutes by default)")
           final String idempotencyKey) {
     return workflowExecutionProvider.startWorkflow(sessionId, workflowId, idempotencyKey);
   }
