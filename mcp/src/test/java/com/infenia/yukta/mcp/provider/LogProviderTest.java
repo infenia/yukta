@@ -311,4 +311,113 @@ class LogProviderTest {
             })
         .verifyComplete();
   }
+
+  @Test
+  void testTailReportsHowManyOldLinesItLeftOut() {
+    when(logStore.readExecution(EXECUTION))
+        .thenReturn(Flux.just(entry("one"), entry("two"), entry("three")));
+
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, 2, null))
+        .assertNext(logs -> assertThat(logs.omittedLines()).isEqualTo(1))
+        .verifyComplete();
+  }
+
+  @Test
+  void testFollowerBehindByMoreThanTheLimitCatchesUpWithoutLosingLines() {
+    when(logStore.readExecution(EXECUTION))
+        .thenReturn(Flux.range(0, 8).map(i -> entry("line-" + i)));
+
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, 3, null, 0))
+        .assertNext(
+            logs -> {
+              assertThat(logs.lines()).hasSize(3);
+              assertThat(logs.lines().get(0)).contains("line-0");
+              assertThat(logs.lines().get(2)).contains("line-2");
+              assertThat(logs.omittedLines()).isEqualTo(5);
+              assertThat(logs.nextCursor()).isEqualTo(3);
+            })
+        .verifyComplete();
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, 3, null, 3))
+        .assertNext(
+            logs -> {
+              assertThat(logs.lines().get(0)).contains("line-3");
+              assertThat(logs.omittedLines()).isEqualTo(2);
+              assertThat(logs.nextCursor()).isEqualTo(6);
+            })
+        .verifyComplete();
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, 3, null, 6))
+        .assertNext(
+            logs -> {
+              assertThat(logs.lines()).hasSize(2);
+              assertThat(logs.omittedLines()).isZero();
+              assertThat(logs.nextCursor()).isEqualTo(8);
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void testFollowerWithFilterContinuesAfterTheLastLineReturned() {
+    when(logStore.readExecution(EXECUTION))
+        .thenReturn(Flux.just(entry("keep 1"), entry("skip"), entry("keep 2"), entry("keep 3")));
+
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, 2, "keep", 0))
+        .assertNext(
+            logs -> {
+              assertThat(logs.returnedLines()).isEqualTo(2);
+              assertThat(logs.omittedLines()).isEqualTo(1);
+              assertThat(logs.nextCursor()).isEqualTo(3);
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void testLineLongerThanTheCapIsCutNotDroppedAndTheCursorMovesPastItOnly() {
+    final String huge = "x".repeat(500);
+    when(logStore.readExecution(EXECUTION)).thenReturn(Flux.just(entry(huge), entry("after")));
+    provider = new LogProvider(logStore, controlBus, List.of(), 0, 100);
+
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null, 0))
+        .assertNext(
+            logs -> {
+              assertThat(logs.lines()).hasSize(1);
+              assertThat(logs.lines().get(0)).hasSize(100);
+              assertThat(logs.omittedLines()).isEqualTo(1);
+              assertThat(logs.nextCursor()).isEqualTo(1);
+            })
+        .verifyComplete();
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null))
+        .assertNext(logs -> assertThat(logs.lines().get(0)).contains("after"))
+        .verifyComplete();
+  }
+
+  @Test
+  void testCharCapWhenFollowingKeepsTheOldestLinesAndMovesTheCursorPastThemOnly() {
+    when(logStore.readExecution(EXECUTION)).thenReturn(Flux.just(entry("old"), entry("new")));
+    final int one = entry("old").format().length();
+    provider = new LogProvider(logStore, controlBus, List.of(), 2_000, one);
+
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null, 0))
+        .assertNext(
+            logs -> {
+              assertThat(logs.lines()).hasSize(1);
+              assertThat(logs.lines().get(0)).contains("old");
+              assertThat(logs.omittedLines()).isEqualTo(1);
+              assertThat(logs.nextCursor()).isEqualTo(1);
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void testLinesThatFitTheCharCapAreAllReturned() {
+    when(logStore.readExecution(EXECUTION)).thenReturn(Flux.just(entry("old"), entry("new")));
+    provider = new LogProvider(logStore, controlBus, List.of(), 2_000, 10_000);
+
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null, 0))
+        .assertNext(
+            logs -> {
+              assertThat(logs.lines()).hasSize(2);
+              assertThat(logs.omittedLines()).isZero();
+            })
+        .verifyComplete();
+  }
 }
