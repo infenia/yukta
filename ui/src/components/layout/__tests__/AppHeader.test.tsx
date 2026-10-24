@@ -17,14 +17,32 @@ describe('AppHeader', () => {
     expect(header).toHaveClass('fixed', 'inset-x-0', 'top-0', 'z-50');
   });
 
-  it('should render with border and surface styling', () => {
+  it('should render a translucent header with a hairline border', () => {
     const { container } = renderWithRouter(<AppHeader />);
     const header = container.querySelector('header');
     expect(header).toHaveClass(
       'border-b',
-      'border-outline-variant',
-      'bg-surface'
+      'border-border',
+      'bg-background/80',
+      'backdrop-blur-md'
     );
+  });
+
+  it('should draw the decorative brand line at the top', () => {
+    renderWithRouter(<AppHeader />);
+    const line = screen.getByTestId('brand-line');
+    expect(line).toHaveAttribute('aria-hidden', 'true');
+    expect(line).toHaveClass('absolute', 'top-0', 'h-0.5');
+  });
+
+  it('should show the active route as an accent pill', () => {
+    renderWithRouter(<AppHeader />);
+    const active = screen.getByRole('link', { name: /Sessions/ });
+    expect(active).toHaveAttribute('aria-current', 'page');
+    expect(active).toHaveClass('rounded-lg', 'bg-accent', 'font-semibold');
+    const inactive = screen.getByRole('link', { name: /Plugins/ });
+    expect(inactive).not.toHaveAttribute('aria-current');
+    expect(inactive).toHaveClass('text-muted-foreground', 'hover:bg-muted');
   });
 
   it('should render HeaderLogo component', () => {

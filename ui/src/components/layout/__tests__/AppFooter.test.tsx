@@ -24,11 +24,7 @@ describe('AppFooter', () => {
   it('should have correct border and background styling', () => {
     const { container } = render(<AppFooter />);
     const footer = container.querySelector('footer');
-    expect(footer).toHaveClass(
-      'border-t',
-      'border-outline',
-      'bg-surface-container-low'
-    );
+    expect(footer).toHaveClass('border-t', 'border-border', 'bg-background');
   });
 
   it('should have correct text styling', () => {

@@ -51,13 +51,7 @@ describe('HeaderLogo', () => {
   it('should have correct text styling', () => {
     renderWithRouter(<HeaderLogo />);
     const text = screen.getByText('YUKTA');
-    expect(text).toHaveClass(
-      'font-headline',
-      'text-lg',
-      'font-semibold',
-      'tracking-tight',
-      'text-on-surface'
-    );
+    expect(text).toHaveClass('text-headline-md', 'text-on-surface');
   });
 
   it('should render button with ghost variant', () => {
@@ -75,7 +69,7 @@ describe('HeaderLogo', () => {
   it('should have hover effect on button', () => {
     renderWithRouter(<HeaderLogo />);
     const button = screen.getByRole('button');
-    expect(button).toHaveClass('hover:bg-surface-container-low');
+    expect(button).toHaveClass('hover:bg-muted', 'rounded-lg');
   });
 
   it('should navigate home when clicked', async () => {
@@ -94,10 +88,10 @@ describe('HeaderLogo', () => {
     expect(children[1]?.textContent).toContain('YUKTA');
   });
 
-  it('should have dark mode text color', () => {
+  it('should use the theme text colour in both modes', () => {
     renderWithRouter(<HeaderLogo />);
     const text = screen.getByText('YUKTA');
-    expect(text).toHaveClass('dark:text-on-surface');
+    expect(text).toHaveClass('text-on-surface');
   });
 
   it('should render accessible button element', () => {

@@ -60,7 +60,7 @@ describe('App', () => {
   it('should have correct layout classes on main', () => {
     const { container } = renderApp();
     const main = container.querySelector('main');
-    expect(main).toHaveClass('mt-20');
+    expect(main).toHaveClass('mt-header');
     expect(main).toHaveClass('flex');
     expect(main).toHaveClass('flex-1');
     expect(main).toHaveClass('flex-col');
@@ -125,7 +125,7 @@ describe('App', () => {
     it('should have top margin on main', () => {
       const { container } = renderApp();
       const main = container.querySelector('main');
-      expect(main).toHaveClass('mt-20');
+      expect(main).toHaveClass('mt-header');
     });
 
     it('should maintain semantic HTML structure', () => {
