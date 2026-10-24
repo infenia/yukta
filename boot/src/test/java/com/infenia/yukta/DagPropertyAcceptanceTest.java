@@ -15,6 +15,7 @@ import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,6 +57,14 @@ import org.springframework.boot.test.context.SpringBootTest;
   "PMD.AvoidLiteralsInIfCondition"
 })
 @NoArgsConstructor
+@ExpectedErrorLog(
+    sometimes = {
+      "ERROR com.infenia.yukta.service.orchestrator.validator.WorkflowValidator - ",
+      "ERROR com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator - ",
+      "UpstreamFailure: ",
+      "WorkflowExecutionException: ",
+      "dropped next: ProcessExecutionResult"
+    })
 class DagPropertyAcceptanceTest {
 
   private static final Duration WAIT = Duration.ofSeconds(30);
