@@ -55,7 +55,7 @@ All commits follow **Conventional Commits** format. See `.gitmessage` template (
 - Quality gates (Checkstyle, PMD, SpotBugs, OpenGrep) are enforced via `build-logic` — see `.claude/rules/coding-standards.md` for details.
 - Minimum coverage thresholds are module-specific.
 - Dogfood loop: watch a run, retry a failed stage, and file each Yukta defect you notice as a `dogfood` GitHub issue (`yk finding`) — see the `yukta` skill and `examples/11-dogfood/README.md`.
-- `yk check` **heals itself** by default: a failing stage gets a deterministic fix (`spotlessApply`), then up to two headless Claude Code attempts, then a `verify` pass. While it runs, do not edit files or run Gradle in that checkout. Act only on the final `RESULT` or an `ESCALATE:`, review everything under `healed=` with `git diff` before committing (the fixer never commits), and use `--no-heal` for the plain fail-fast chain.
+- `yk check` **heals itself** by default: a failing stage gets a deterministic fix (`spotlessApply`), then a ladder of headless Claude Code attempts (haiku, sonnet, opus; `--ladder` for one run), then a `verify` pass. While it runs, do not edit files or run Gradle in that checkout. Act only on the final `RESULT` or an `ESCALATE:`, review everything under `healed=` with `git diff` before committing (the fixer never commits), and use `--no-heal` for the plain fail-fast chain.
 
 ### Test Execution Policy (speed)
 Waiting on tests is the main development bottleneck. **Run the smallest scope that covers your change**; escalate only when the blast radius justifies it.
