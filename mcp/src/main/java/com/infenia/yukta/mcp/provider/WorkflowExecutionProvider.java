@@ -77,7 +77,19 @@ public class WorkflowExecutionProvider {
    */
   public Mono<WorkflowDefinition> getWorkflowDetails(
       final String sessionId, final String workflowId) {
-    return sessionService.getSessionWorkflow(sessionId, workflowId).map(configRedactor::redact);
+    return sessionService
+        .getSessionWorkflow(sessionId, workflowId)
+        .map(configRedactor::redact)
+        .switchIfEmpty(
+            Mono.error(
+                () ->
+                    new IllegalArgumentException(
+                        "Workflow not found: "
+                            + workflowId
+                            + " in session "
+                            + sessionId
+                            + ". Use list_sessions to see the sessions and get_session_details"
+                            + " for the workflows of one.")));
   }
 
   /**

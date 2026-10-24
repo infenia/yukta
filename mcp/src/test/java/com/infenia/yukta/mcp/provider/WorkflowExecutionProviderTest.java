@@ -70,6 +70,17 @@ class WorkflowExecutionProviderTest {
   }
 
   @Test
+  void testGetWorkflowDetailsOfUnknownSessionOrWorkflowIsAnActionableError() {
+    when(sessionService.getSessionWorkflow("s1", "typo")).thenReturn(Mono.empty());
+
+    StepVerifier.create(provider.getWorkflowDetails("s1", "typo"))
+        .expectErrorMessage(
+            "Workflow not found: typo in session s1. Use list_sessions to see the sessions and"
+                + " get_session_details for the workflows of one.")
+        .verify();
+  }
+
+  @Test
   void testStartWorkflow() {
     WorkflowExecution execution = new WorkflowExecution("exec-1", Mono.empty());
     when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1")))
