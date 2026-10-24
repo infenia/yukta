@@ -6,8 +6,11 @@ import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.NodeControlAction;
 import com.infenia.yukta.mcp.dto.PendingApprovals;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
+import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +36,12 @@ public class WorkflowControlProvider {
   /** Continues runs that a server restart aborted. */
   private final ExecutionResumer resumer;
 
+  /** Applies a command to a whole tree of runs. */
+  private final TreeControl treeControl;
+
+  /** Knows the runs of a tree. */
+  private final TaskTrackerService tracker;
+
   /**
    * Execute a workflow-level control action.
    *
@@ -51,6 +60,30 @@ public class WorkflowControlProvider {
       final String workflowId,
       final String fromNodeId,
       final String reason) {
+    return controlWorkflow(sessionId, action, executionId, workflowId, fromNodeId, reason, false);
+  }
+
+  /**
+   * Execute a workflow-level control action, for PAUSE, RESUME and STOP optionally on the whole
+   * tree of runs below the execution.
+   *
+   * @param sessionId the session that owns the execution
+   * @param action the control action to execute
+   * @param executionId the target execution (required for all actions except {@code STOP_ALL})
+   * @param workflowId the target workflow (required for {@code STOP_ALL})
+   * @param fromNodeId the node to restart from (required for {@code RESTART_FROM_NODE})
+   * @param reason optional reason recorded with stop actions
+   * @param tree whether PAUSE, RESUME and STOP also reach the runs the execution started
+   * @return Mono containing the action result
+   */
+  public Mono<ControlActionResult> controlWorkflow(
+      final String sessionId,
+      final WorkflowControlAction action,
+      final String executionId,
+      final String workflowId,
+      final String fromNodeId,
+      final String reason,
+      final boolean tree) {
     if (action == WorkflowControlAction.STOP_ALL) {
       return stopAllExecutions(sessionId, workflowId, reason);
     }
@@ -64,7 +97,20 @@ public class WorkflowControlProvider {
           new IllegalArgumentException("fromNodeId is required for action RESTART_FROM_NODE."));
     }
     return ExecutionOwnership.require(controlBus, sessionId, executionId)
-        .flatMap(ignored -> executeWorkflowAction(action, executionId, fromNodeId, reason));
+        .flatMap(ignored -> executeWorkflowAction(action, executionId, fromNodeId, reason, tree));
+  }
+
+  /**
+   * The tree of runs below an execution.
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the run at the top
+   * @return the run and every run it started as a sub-workflow, at any depth, oldest first
+   */
+  public Mono<List<WorkflowExecutionSummary>> getExecutionTree(
+      final String sessionId, final String executionId) {
+    return ExecutionOwnership.require(controlBus, sessionId, executionId)
+        .map(ignored -> tracker.getTree(executionId));
   }
 
   /**
@@ -246,16 +292,24 @@ public class WorkflowControlProvider {
       final WorkflowControlAction action,
       final String executionId,
       final String fromNodeId,
-      final String reason) {
+      final String reason,
+      final boolean tree) {
+    final String scope = tree ? " (with the runs below it)" : "";
     return switch (action) {
       case RESUME ->
-          controlBus
-              .resumeWorkflow(executionId)
-              .thenReturn(result(action, executionId, List.of(), "Resume signal sent."));
+          treeControl
+              .apply(executionId, tree, controlBus::resumeWorkflow)
+              .thenReturn(
+                  result(action, executionId, List.of(), "Resume signal sent" + scope + "."));
       case STOP ->
-          controlBus
-              .stopExecution(executionId, reasonOrDefault(reason))
-              .map(stopped -> result(action, executionId, List.of(stopped), "Execution stopped."));
+          treeControl
+              .apply(executionId, tree, id -> controlBus.stopExecution(id, reasonOrDefault(reason)))
+              .thenReturn(
+                  result(
+                      action,
+                      executionId,
+                      List.of(executionId),
+                      "Execution stopped" + scope + "."));
       case RESTART ->
           controlBus
               .restartWorkflow(executionId)
@@ -288,9 +342,10 @@ public class WorkflowControlProvider {
                           "Recovered as execution " + newId + "."));
       // STOP_ALL is dispatched before the ownership check; PAUSE is the remaining action.
       default ->
-          controlBus
-              .pauseWorkflow(executionId)
-              .thenReturn(result(action, executionId, List.of(), "Pause signal sent."));
+          treeControl
+              .apply(executionId, tree, controlBus::pauseWorkflow)
+              .thenReturn(
+                  result(action, executionId, List.of(), "Pause signal sent" + scope + "."));
     };
   }
 

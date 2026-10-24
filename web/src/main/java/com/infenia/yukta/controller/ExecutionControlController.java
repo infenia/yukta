@@ -5,6 +5,7 @@ package com.infenia.yukta.controller;
 import com.infenia.yukta.dto.response.WorkflowStartResponse;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.control.PendingApproval;
+import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,6 +45,10 @@ public class ExecutionControlController {
   /** Execution ID parameter description. */
   private static final String EXECUTION_ID = "Execution ID";
 
+  /** Tree parameter description. */
+  private static final String TREE =
+      "Also every unfinished run the execution started as a sub-workflow, at any depth";
+
   /** The control bus. */
   private final ControlBusGateway controlBus;
 
@@ -53,21 +58,26 @@ public class ExecutionControlController {
   /** Continues runs that a server restart aborted. */
   private final ExecutionResumer resumer;
 
+  /** Applies a command to a whole tree of runs. */
+  private final TreeControl treeControl;
+
   /** Pause a workflow execution. */
   @PostMapping({"/executions/{executionId}/pause", "/workflow/{sessionId}/{executionId}/pause"})
   @Operation(
       summary = "Pause a workflow execution",
       description =
-          "Pauses a specific workflow execution via global backpressure. Legacy path:"
+          "Pauses a specific workflow execution via global backpressure; with tree=true also every"
+              + " run it started as a sub-workflow. Legacy path:"
               + " /api/workflow/{sessionId}/{executionId}/pause (deprecated)")
   public Mono<ApiResponse<WorkflowStartResponse>> pauseWorkflow(
       @Parameter(description = SESSION_ID) @PathVariable(required = false) final String sessionId,
-      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId) {
+      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
+      @Parameter(description = TREE) @RequestParam(defaultValue = "false") final boolean tree) {
     return signal(
         sessionId,
         executionId,
         "Workflow pause signal accepted",
-        () -> controlBus.pauseWorkflow(executionId));
+        () -> treeControl.apply(executionId, tree, controlBus::pauseWorkflow));
   }
 
   /** Resume a workflow execution. */
@@ -75,16 +85,18 @@ public class ExecutionControlController {
   @Operation(
       summary = "Resume a workflow execution",
       description =
-          "Resumes a specific paused workflow execution. Legacy path:"
+          "Resumes a specific paused workflow execution; with tree=true also every run it started"
+              + " as a sub-workflow. Legacy path:"
               + " /api/workflow/{sessionId}/{executionId}/resume (deprecated)")
   public Mono<ApiResponse<WorkflowStartResponse>> resumeWorkflow(
       @Parameter(description = SESSION_ID) @PathVariable(required = false) final String sessionId,
-      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId) {
+      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
+      @Parameter(description = TREE) @RequestParam(defaultValue = "false") final boolean tree) {
     return signal(
         sessionId,
         executionId,
         "Workflow resume signal accepted",
-        () -> controlBus.resumeWorkflow(executionId));
+        () -> treeControl.apply(executionId, tree, controlBus::resumeWorkflow));
   }
 
   /** Continue a run that a server restart aborted, as a new run. */

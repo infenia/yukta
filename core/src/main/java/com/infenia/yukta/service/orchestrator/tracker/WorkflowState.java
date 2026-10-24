@@ -4,6 +4,7 @@ package com.infenia.yukta.service.orchestrator.tracker;
 
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Collections;
@@ -192,5 +193,18 @@ final class WorkflowState {
 
   /* default */ void setEndTime(final LocalDateTime endTime) {
     this.endTime = endTime;
+  }
+
+  /** This run as a history entry. */
+  /* default */ WorkflowExecutionSummary summary() {
+    return new WorkflowExecutionSummary(
+        executionId,
+        workflowId,
+        status,
+        startTime,
+        endTime,
+        parentExecutionId,
+        rootExecutionId,
+        restartOf);
   }
 }

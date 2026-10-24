@@ -461,6 +461,15 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     return false;
   }
 
+  @Override
+  public List<WorkflowExecutionSummary> getTree(@NotBlank final String rootExecutionId) {
+    return executionIndex.values().stream()
+        .filter(state -> isWithin(state.executionId, rootExecutionId))
+        .map(WorkflowState::summary)
+        .sorted(Comparator.comparing(WorkflowExecutionSummary::startTime))
+        .toList();
+  }
+
   /**
    * Record an operator control state for an execution and notify status subscribers.
    *

@@ -8,10 +8,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,6 +40,9 @@ class ExecutionControlControllerTest {
   /** The resumer. */
   private ExecutionResumer resumer;
 
+  /** The tracker, which knows the runs of a tree. */
+  private TaskTrackerService tracker;
+
   /** The client. */
   private WebTestClient client;
 
@@ -44,6 +50,7 @@ class ExecutionControlControllerTest {
   void setUp() {
     controlBus = mock(ControlBusGateway.class);
     resumer = mock(ExecutionResumer.class);
+    tracker = mock(TaskTrackerService.class);
     final WorkflowProgress running =
         new WorkflowProgress(
             "e1", "s1", "wf", "RUNNING", List.of(), LocalDateTime.now(), null, null);
@@ -52,9 +59,33 @@ class ExecutionControlControllerTest {
     client =
         WebTestClient.bindToController(
                 new ExecutionControlController(
-                    controlBus, new ExecutionAccess(controlBus), resumer))
+                    controlBus, new ExecutionAccess(controlBus), resumer, new TreeControl(tracker)))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
+  }
+
+  @Test
+  void testPauseAndResumeWithTree_reachTheUnfinishedRunsBelow() {
+    when(tracker.getTree("e1"))
+        .thenReturn(
+            List.of(
+                new WorkflowExecutionSummary(
+                    "e1", "wf", "RUNNING", LocalDateTime.now(), null, null, "e1", null),
+                new WorkflowExecutionSummary(
+                    "c1", "child", "RUNNING", LocalDateTime.now(), null, "e1", "e1", null),
+                new WorkflowExecutionSummary(
+                    "c2", "child", "SUCCESS", LocalDateTime.now(), null, "e1", "e1", null)));
+    when(controlBus.pauseWorkflow(any())).thenReturn(Mono.empty());
+    when(controlBus.resumeWorkflow("e1")).thenReturn(Mono.empty());
+    when(controlBus.resumeWorkflow("c1")).thenReturn(Mono.error(new IllegalStateException("gone")));
+
+    client.post().uri("/api/executions/e1/pause?tree=true").exchange().expectStatus().isOk();
+    client.post().uri("/api/executions/e1/resume?tree=true").exchange().expectStatus().isOk();
+
+    verify(controlBus).pauseWorkflow("e1");
+    verify(controlBus).pauseWorkflow("c1");
+    verify(controlBus, org.mockito.Mockito.never()).pauseWorkflow("c2");
+    verify(controlBus).resumeWorkflow("c1");
   }
 
   @Test

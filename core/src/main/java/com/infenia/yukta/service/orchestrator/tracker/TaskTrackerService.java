@@ -253,6 +253,15 @@ public interface TaskTrackerService {
   boolean isWithin(@NotBlank String executionId, @NotBlank String ancestorId);
 
   /**
+   * The tracked runs of a tree: the given run and every run it started as a sub-workflow, at any
+   * depth, oldest first.
+   *
+   * @param rootExecutionId the run at the top of the tree
+   * @return the runs, or an empty list when the run is not tracked
+   */
+  List<WorkflowExecutionSummary> getTree(@NotBlank String rootExecutionId);
+
+  /**
    * Emit a log event for asynchronous processing.
    *
    * @param executionId the execution identifier

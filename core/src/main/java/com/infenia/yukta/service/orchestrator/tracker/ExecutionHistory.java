@@ -45,17 +45,7 @@ final class ExecutionHistory {
       history =
           states.values().stream()
               .filter(filter)
-              .map(
-                  s ->
-                      new WorkflowExecutionSummary(
-                          s.executionId,
-                          s.workflowId,
-                          s.status,
-                          s.startTime,
-                          s.endTime,
-                          s.parentExecutionId,
-                          s.rootExecutionId,
-                          s.restartOf))
+              .map(WorkflowState::summary)
               .sorted((a, b) -> b.startTime().compareTo(a.startTime()))
               .toList();
     }

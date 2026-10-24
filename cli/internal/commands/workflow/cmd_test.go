@@ -31,6 +31,10 @@ func TestExecutionCommands(t *testing.T) {
 	}{
 		{"pause", execOK, []string{"pause", "s", "e"}, "POST /api/executions/e/pause", "Execution paused: exec-1"},
 		{"resume", execOK, []string{"resume", "s", "e"}, "POST /api/executions/e/resume", "Execution resumed: exec-1"},
+		{"pause tree", execOK, []string{"pause", "s", "e", "--tree"}, "POST /api/executions/e/pause?tree=true", "Execution paused: exec-1"},
+		{"resume tree", execOK, []string{"resume", "s", "e", "--tree"}, "POST /api/executions/e/resume?tree=true", "Execution resumed: exec-1"},
+		{"tree", `{"data":[{"executionId":"e","workflowId":"w","status":"RUNNING"},{"executionId":"c","workflowId":"child","status":"PAUSED","parentExecutionId":"e"}]}`,
+			[]string{"tree", "e"}, "GET /api/executions/e/tree", "e w RUNNING parent=-\nc child PAUSED parent=e"},
 		{"stop", `{"data":{"executionIds":["a","b"]}}`, []string{"stop", "s", "w"}, "POST /api/workflow/s/w/stop", "Stopped 2 execution(s)\n  - a\n  - b"},
 		{"status", `{"data":{"executionId":"exec-1","workflowId":"w","status":"RUNNING","tasks":[{}]}}`,
 			[]string{"status", "s", "e"}, "GET /api/executions/e", "Tasks:    1"},
@@ -193,5 +197,24 @@ func TestStartCmd_idempotencyKeyIsSentAsAHeader(t *testing.T) {
 
 	if err != nil || key != "run-42" {
 		t.Errorf("key=%q err=%v", key, err)
+	}
+}
+
+func TestTreeCmd_jsonOutput_andError(t *testing.T) {
+	commands.SetTestOutputFormat("json")
+	defer commands.SetTestOutputFormat("table")
+	c, _ := testutil.Server(t, 200, `{"data":[{"executionId":"e","workflowId":"w","status":"RUNNING"}]}`)
+	out, err := testutil.Run(t, WorkflowCmd(c), "tree", "e")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var runs []client.WorkflowExecutionSummary
+	if err := json.Unmarshal([]byte(out), &runs); err != nil || len(runs) != 1 {
+		t.Fatalf("output %q: %v", out, err)
+	}
+
+	failing, _ := testutil.Server(t, 404, `{"message":"Execution not found"}`)
+	if _, err := testutil.Run(t, WorkflowCmd(failing), "tree", "nope"); err == nil {
+		t.Error("an unknown execution must fail")
 	}
 }
