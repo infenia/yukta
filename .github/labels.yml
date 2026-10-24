@@ -60,6 +60,9 @@
 - name: ci-nightly
   color: b60205
   description: Failure of a scheduled (nightly) CI run; closes itself when the run is green
+- name: auto-found
+  color: d93f0b
+  description: Filed by a scheduled run, one issue per distinct failure; closes after 3 green runs
 - name: flaky-test
   color: fef2c0
   description: A test that failed and then passed on retry

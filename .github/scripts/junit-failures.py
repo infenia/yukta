@@ -46,13 +46,14 @@ def outcomes(root):
     for path, suite in reports(root):
         for case in suite.iter("testcase"):
             key = (case.get("classname", "?"), case.get("name", "?"))
-            entry = tests.setdefault(key, {"failed": [], "passed": False,
+            entry = tests.setdefault(key, {"failed": [], "types": [], "passed": False,
                                            "module": module_of(path, pathlib.Path(root))})
             problem = case.find("failure")
             if problem is None:
                 problem = case.find("error")
             if problem is not None:
                 entry["failed"].append((problem.get("message") or problem.text or "").strip())
+                entry["types"].append(problem.get("type") or "")
             elif case.find("skipped") is None:
                 entry["passed"] = True
     return tests

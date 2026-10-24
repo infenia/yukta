@@ -2,14 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 #
-# Tracks a scheduled (nightly) workflow run in a GitHub issue, one open issue per workflow:
-#   failure  -> comment on the open "Nightly failure: <workflow>" issue, or open one;
-#   success  -> comment on that issue and close it.
+# Tracks a scheduled (nightly) workflow run in GitHub issues:
+#   failure  -> one issue per distinct failure (auto-found.sh: a repeat is a comment, not a new issue);
+#   success  -> close an older "Nightly failure: <workflow>" issue, and count the run for the auto-found
+#               issues of the workflow (closed after three green runs in a row).
 # The report lists the failed jobs and steps, and the failed and flaky tests from the build-reports
 # artifacts. Every run also writes test time per shard to the job summary, for balancing the shards.
 #
-# Flaky tests are tracked one issue per test by flaky-tests.sh. A new issue gets the Bug type and, when the project is configured (project-lib.sh), is put on
-# the Yukta Roadmap project in Triage as a P1 CI failure.
+# Flaky tests are tracked one issue per test by flaky-tests.sh. New issues get the Bug type and, when the
+# project is configured (project-lib.sh), are put on the Yukta Roadmap project in Triage.
 #
 # Env: GH_TOKEN, REPO, RUN_ID, RUN_URL, WORKFLOW, CONCLUSION, HEAD_SHA;
 #      optional PROJECT_TOKEN, PROJECT_OWNER, PROJECT_NUMBER
@@ -32,6 +33,8 @@ reports=false
 if gh run download "$RUN_ID" -R "$REPO" -p 'build-reports-*' -D "$work/reports" 2>/dev/null; then
   reports=true
 fi
+# The perf workflows upload their k6 summaries as perf-*; other workflows have none.
+gh run download "$RUN_ID" -R "$REPO" -p 'perf-*' -D "$work/perf" 2>/dev/null || true
 
 # Flaky tests get their own issues (flaky-tests.sh); a problem there must not stop the run report.
 if [ "$reports" = true ]; then
@@ -48,6 +51,7 @@ if [ "$CONCLUSION" = success ]; then
       --comment "The nightly **$WORKFLOW** run is green again on \`$sha\` ($today, [run]($RUN_URL)). Closing."
     echo "Closed #$issue: $WORKFLOW is green again" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
   fi
+  "$here/auto-found.sh" --green
   exit 0
 fi
 
@@ -74,23 +78,9 @@ fi
 cat "$report" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
 [ "$reports" = false ] || python3 -I "$here/junit-failures.py" --durations "$work/reports" >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
 
-if [ -n "$issue" ]; then
-  gh issue comment "$issue" -R "$REPO" -F "$report"
-  echo "Commented on #$issue"
-else
-  gh label create "$label" -R "$REPO" --force --color B60205 \
-    --description "Failure of a scheduled (nightly) CI run; closes itself when the run is green" >/dev/null
-  {
-    echo "The scheduled **$WORKFLOW** run on \`main\` failed. This issue is updated on each failing"
-    echo "nightly run and closed automatically by the first green one."
-    echo
-    cat "$report"
-  } >"$work/body.md"
-  url=$(gh issue create -R "$REPO" --title "$title" --label "$label" -F "$work/body.md")
-  echo "Opened $url"
-  issue_set_type "$REPO" "${url##*/}" Bug
-  if project_enabled; then
-    project_add_item "$url" Status=Triage Kind="CI failure" Priority=P1 Module=build >/dev/null ||
-      echo "warning: could not put $url on the project" >&2
-  fi
-fi
+# One issue per distinct failure (auto-found.py/.sh) instead of one per workflow; the structured results
+# are the JUnit XML, the k6 summaries and the failed jobs. The "Nightly failure" issue of an older run stays
+# until a green run closes it (above).
+gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" --paginate | jq -s '{jobs: map(.jobs) | add}' >"$work/jobs.json"
+python3 -I "$here/auto-found.py" "$WORKFLOW" --jobs "$work/jobs.json" --junit "$work/reports" --k6 "$work/perf" >"$work/failures.json"
+"$here/auto-found.sh" "$work/failures.json"
