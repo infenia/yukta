@@ -5,6 +5,7 @@ package com.infenia.yukta.service.orchestrator.stream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -13,10 +14,16 @@ import org.springframework.core.env.StandardEnvironment;
 import reactor.core.Disposable;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({"PMD.CommentRequired", "PMD.LawOfDemeter"})
 class ConcurrencyGroupsTest {
 
-  private final ConcurrencyGroups groups = new ConcurrencyGroups(Map.of("gradle", 1));
+  private static final String GRADLE = "gradle";
+
+  private final ConcurrencyGroups groups = new ConcurrencyGroups(Map.of(GRADLE, 1));
+
+  private ConcurrencyGroups.Place place() {
+    return Objects.requireNonNull(groups.place(GRADLE));
+  }
 
   @Test
   void limitsAreReadFromTheEnvironment() {
@@ -26,9 +33,9 @@ class ConcurrencyGroupsTest {
         .addFirst(new MapPropertySource("test", Map.of("yukta.concurrency.groups.gradle", "1")));
     final ConcurrencyGroups bound = new ConcurrencyGroups(environment);
 
-    assertThat(bound.place("gradle")).isNotNull();
+    assertThat(bound.place(GRADLE)).isNotNull();
     assertThat(bound.place("other")).isNull();
-    assertThat(new ConcurrencyGroups(new StandardEnvironment()).place("gradle")).isNull();
+    assertThat(new ConcurrencyGroups(new StandardEnvironment()).place(GRADLE)).isNull();
   }
 
   @Test
@@ -42,9 +49,9 @@ class ConcurrencyGroupsTest {
   void secondNode_waitsUntilTheFirstReleases_inArrivalOrder() {
     final AtomicInteger waited = new AtomicInteger();
     final AtomicInteger started = new AtomicInteger();
-    final ConcurrencyGroups.Place first = groups.place("gradle");
-    final ConcurrencyGroups.Place second = groups.place("gradle");
-    final ConcurrencyGroups.Place third = groups.place("gradle");
+    final ConcurrencyGroups.Place first = place();
+    final ConcurrencyGroups.Place second = place();
+    final ConcurrencyGroups.Place third = place();
 
     first.acquire(waited::incrementAndGet).subscribe(null, null, started::incrementAndGet);
     second.acquire(waited::incrementAndGet).subscribe(null, null, started::incrementAndGet);
@@ -60,11 +67,11 @@ class ConcurrencyGroupsTest {
   }
 
   @Test
-  void releaseIsIdempotent_andALeavingWaiterFreesItsTurn() {
+  void releaseIsIdempotent_andLeavingWaiterFreesItsTurn() {
     final AtomicInteger started = new AtomicInteger();
-    final ConcurrencyGroups.Place first = groups.place("gradle");
-    final ConcurrencyGroups.Place waiting = groups.place("gradle");
-    final ConcurrencyGroups.Place last = groups.place("gradle");
+    final ConcurrencyGroups.Place first = place();
+    final ConcurrencyGroups.Place waiting = place();
+    final ConcurrencyGroups.Place last = place();
     first.acquire(() -> {}).subscribe();
     final Disposable gone = waiting.acquire(() -> {}).subscribe();
     last.acquire(() -> {}).subscribe(null, null, started::incrementAndGet);
@@ -79,12 +86,12 @@ class ConcurrencyGroupsTest {
   }
 
   @Test
-  void releasedBeforeAcquire_neverHoldsAPlace() {
-    final ConcurrencyGroups.Place skipped = groups.place("gradle");
+  void releasedBeforeAcquire_neverHoldsPlace() {
+    final ConcurrencyGroups.Place skipped = place();
     skipped.release();
     final AtomicInteger started = new AtomicInteger();
     skipped.acquire(() -> {}).subscribe(null, null, started::incrementAndGet);
-    final ConcurrencyGroups.Place next = groups.place("gradle");
+    final ConcurrencyGroups.Place next = place();
     next.acquire(() -> {}).subscribe(null, null, started::incrementAndGet);
     assertThat(started).hasValue(2);
   }

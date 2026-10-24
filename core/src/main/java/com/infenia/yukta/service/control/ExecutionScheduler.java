@@ -192,11 +192,9 @@ public class ExecutionScheduler implements SmartLifecycle {
     assertLeader();
     assertStartRate(workflowId);
     synchronized (lock) {
-      if (closed) {
-        throw refusal(RejectReason.SHUTDOWN, "The server is shutting down");
-      }
-      if (draining) {
-        throw refusal(RejectReason.DRAINING, DRAINING_MESSAGE);
+      final ExecutionRejectedException unavailable = unavailable();
+      if (unavailable != null) {
+        throw unavailable;
       }
       final String key = key(sessionId, workflowId);
       if (!fits(key)) {
@@ -256,11 +254,9 @@ public class ExecutionScheduler implements SmartLifecycle {
     assertLeader();
     final String key = key(sessionId, workflowId);
     synchronized (lock) {
-      if (closed) {
-        return refused(refusal(RejectReason.SHUTDOWN, "The server is shutting down"));
-      }
-      if (draining) {
-        return refused(refusal(RejectReason.DRAINING, DRAINING_MESSAGE));
+      final ExecutionRejectedException unavailable = unavailable();
+      if (unavailable != null) {
+        return refused(unavailable);
       }
       if (fits(key)) {
         return new Admission(true, Mono.just(take(key)));
@@ -421,6 +417,15 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   private static String key(final String sessionId, final String workflowId) {
     return sessionId + "\0" + workflowId;
+  }
+
+  /** The refusal for every start while the server shuts down or drains, or null when it admits. */
+  @Nullable
+  private ExecutionRejectedException unavailable() {
+    if (closed) {
+      return refusal(RejectReason.SHUTDOWN, "The server is shutting down");
+    }
+    return draining ? refusal(RejectReason.DRAINING, DRAINING_MESSAGE) : null;
   }
 
   private static Admission refused(final ExecutionRejectedException error) {

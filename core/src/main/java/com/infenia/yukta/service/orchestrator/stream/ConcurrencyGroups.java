@@ -25,10 +25,18 @@ import reactor.core.publisher.MonoSink;
  * nodes are served in arrival order. The limits are read at start-up.
  */
 @Component
+@SuppressWarnings({
+  "PMD.AvoidSynchronizedStatement",
+  "PMD.AvoidSynchronizedAtMethodLevel",
+  "PMD.OnlyOneReturn",
+  "PMD.LawOfDemeter"
+})
 public final class ConcurrencyGroups {
 
+  /** The most nodes allowed at once, by group name. */
   private final Map<String, Integer> limits;
 
+  /** The groups in use, created on first use. */
   private final Map<String, Group> groups = new ConcurrentHashMap<>();
 
   /**
@@ -68,14 +76,18 @@ public final class ConcurrencyGroups {
   }
 
   /** One node run's claim on a group; {@link #release()} is safe to call at any time. */
-  @SuppressWarnings("PMD.AvoidUsingVolatile")
   public static final class Place {
 
+    /** The group this place counts against. */
     private final Group group;
 
-    // guarded by group
+    /** True while the place counts as running; guarded by the group. */
     private boolean held;
+
+    /** True once released; guarded by the group. */
     private boolean done;
+
+    /** Completed when the place is granted after waiting; guarded by the group. */
     private MonoSink<Void> waiter;
 
     private Place(final Group group) {
@@ -105,10 +117,16 @@ public final class ConcurrencyGroups {
     }
   }
 
+  /** The state of one named group: its limit, who runs and who waits. */
   private static final class Group {
 
+    /** The most places running at once. */
     private final int limit;
+
+    /** Places waiting for a turn, oldest first. */
     private final Deque<Place> waiting = new ArrayDeque<>();
+
+    /** Places running now. */
     private int running;
 
     private Group(final int limit) {

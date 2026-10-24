@@ -35,7 +35,12 @@ import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyStaticImports", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.CommentRequired",
+  "PMD.TooManyStaticImports",
+  "PMD.TooManyMethods",
+  "PMD.ExcessiveImports"
+})
 class NodeStreamsTest {
 
   private static final String EXEC = "exec-1";

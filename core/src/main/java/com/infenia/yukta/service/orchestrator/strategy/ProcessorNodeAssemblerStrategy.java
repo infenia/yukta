@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -38,6 +39,7 @@ import reactor.core.scheduler.Scheduler;
 @Slf4j
 @Component
 @Order(2)
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
 @RequiredArgsConstructor
 public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
@@ -77,6 +79,25 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
           .log("ProcessorNodeAssemblerStrategy supports this plugin");
     }
     return isSupported;
+  }
+
+  /**
+   * Holds the first input of a node in a concurrency group until the group has room, showing the
+   * node QUEUED meanwhile, so the idle clock and RUNNING start when it really begins.
+   */
+  private Flux<Message<?>> gated(
+      final Flux<Message<?>> input,
+      final ConcurrencyGroups.@Nullable Place place,
+      final String executionId,
+      final WorkflowNode node) {
+    final Runnable queued =
+        () ->
+            tracker.emitTaskStatusEvent(
+                executionId, node.nodeId(), node.type(), TaskStatus.QUEUED, Map.of());
+    return place == null
+        ? input
+        : input.switchOnFirst(
+            (first, flux) -> first.hasValue() ? place.acquire(queued).thenMany(flux) : flux);
   }
 
   /** Whether this is a repeat of a message the plugin already failed on. */
@@ -174,26 +195,12 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final NodeActivity activity = new NodeActivity();
       final ConcurrencyGroups.Place place =
           concurrencyGroups.place(NodePolicy.from(node.config()).concurrencyGroup());
-      Flux<Message<?>> controlled = control.applyPreProcessingControls(node.nodeId(), mergedInput);
-      if (place != null) {
-        // The node waits QUEUED for its first input to be let through, so the idle clock and
-        // RUNNING start when it really begins.
-        controlled =
-            controlled.switchOnFirst(
-                (first, flux) ->
-                    first.hasValue()
-                        ? place
-                            .acquire(
-                                () ->
-                                    tracker.emitTaskStatusEvent(
-                                        context.executionId(),
-                                        node.nodeId(),
-                                        node.type(),
-                                        TaskStatus.QUEUED,
-                                        Map.of()))
-                            .thenMany(flux)
-                        : flux);
-      }
+      final Flux<Message<?>> controlled =
+          gated(
+              control.applyPreProcessingControls(node.nodeId(), mergedInput),
+              place,
+              context.executionId(),
+              node);
       final Flux<Message<?>> safeInput =
           controlled.doOnNext(_ -> activity.touch()).onErrorMap(UpstreamFailure::mark);
       final Flux<Message<?>> timedInput =

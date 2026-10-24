@@ -38,6 +38,7 @@ import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
@@ -198,7 +199,7 @@ class ProcessorNodeAssemblerStrategyTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  void createAssembler_fullConcurrencyGroup_holdsNodeQueuedUntilAPlaceFrees() {
+  void createAssembler_fullConcurrencyGroup_holdsNodeQueuedUntilPlaceFrees() {
     final ConcurrencyGroups groups = new ConcurrencyGroups(Map.of("gradle", 1));
     final ProcessorNodeAssemblerStrategy limited =
         new ProcessorNodeAssemblerStrategy(
@@ -224,7 +225,7 @@ class ProcessorNodeAssemblerStrategyTest {
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any(), any()))
         .thenAnswer(invocation -> invocation.getArgument(2));
-    final ConcurrencyGroups.Place busy = groups.place("gradle");
+    final ConcurrencyGroups.Place busy = Objects.requireNonNull(groups.place("gradle"));
     busy.acquire(() -> {}).subscribe();
 
     limited
@@ -247,7 +248,7 @@ class ProcessorNodeAssemblerStrategyTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  void createAssembler_concurrencyGroup_passesEmptyAndFailingInputThroughWithoutAPlace() {
+  void createAssembler_concurrencyGroup_passesEmptyAndFailingInputThroughWithoutPlace() {
     final ConcurrencyGroups groups = new ConcurrencyGroups(Map.of("gradle", 1));
     final ProcessorNodeAssemblerStrategy limited =
         new ProcessorNodeAssemblerStrategy(
