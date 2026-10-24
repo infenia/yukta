@@ -379,8 +379,11 @@ export function WorkflowEditorPage() {
     queryFn: () => getSessionDraft(sessionId),
     staleTime: 0,
   });
+  // The editor seeds its draft once, and the cache may hold an older definition (after a rollback, or
+  // a save from another tab). So wait for the fetch this mount starts; later refetches keep the draft.
+  const [openedAt] = useState(Date.now);
 
-  if (session.isPending) {
+  if (session.isPending || (session.isSuccess && session.dataUpdatedAt < openedAt)) {
     return <p className="text-on-surface-variant p-6">Loading…</p>;
   }
   if (session.error) {
