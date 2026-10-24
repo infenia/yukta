@@ -73,10 +73,13 @@ assets="$DIST/assets"
 rm -rf "$assets"
 mkdir -p "$assets"
 cp "$DIST"/packages/* "$DIST"/cli/yukta-cli-* "$assets/"
-# The PGO profile this machine's server was built with, kept with the release so it can be rebuilt.
-if ! $skip_server && [[ -s "$REPO_ROOT/boot/pgo/yukta.iprof" ]]; then
-  gzip -9c "$REPO_ROOT/boot/pgo/yukta.iprof" > "$assets/pgo-profile-linux-amd64.iprof.gz"
-fi
+# The PGO profile each server binary was built with (it sits next to the binary, also when the binary
+# comes from CI), kept with the release so it can be rebuilt: NATIVE_PGO_PROFILE=<this file>.
+for platform in "${PLATFORMS[@]}"; do
+  if [[ -s "$DIST/$platform/yukta.iprof" ]]; then
+    gzip -9c "$DIST/$platform/yukta.iprof" > "$assets/pgo-profile-$platform.iprof.gz"
+  fi
+done
 # The install scripts attached to a release install exactly that release.
 sed "s/^DEFAULT_VERSION=\"@VERSION@\"/DEFAULT_VERSION=\"$version\"/" "$RELEASE_DIR/install.sh" > "$assets/install.sh"
 chmod 0755 "$assets/install.sh"

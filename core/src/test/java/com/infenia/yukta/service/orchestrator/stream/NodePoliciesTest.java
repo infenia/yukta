@@ -301,6 +301,27 @@ class NodePoliciesTest {
   }
 
   @Test
+  void retryLists_matchRemoteClassNames() {
+    final com.infenia.yukta.plugin.exception.RemoteFailureException remote =
+        new com.infenia.yukta.plugin.exception.RemoteFailureException(
+            "w1 failed",
+            java.util.Set.of(
+                "java.net.SocketTimeoutException", "java.io.IOException", "a.B$Inner"));
+    final Throwable wrapped = new IllegalStateException("wrapped", remote);
+
+    assertThat(retryOnly(java.util.Set.of("IOException"), java.util.Set.of()).shouldRetry(wrapped))
+        .isTrue();
+    assertThat(retryOnly(java.util.Set.of(), java.util.Set.of("Inner")).shouldRetry(remote))
+        .isFalse();
+    assertThat(
+            retryOnly(java.util.Set.of(), java.util.Set.of("java.io.IOException"))
+                .shouldRetry(remote))
+        .isFalse();
+    assertThat(retryOnly(java.util.Set.of("SQLException"), java.util.Set.of()).shouldRetry(remote))
+        .isFalse();
+  }
+
+  @Test
   void retryOn_retriesOnlyListedExceptions_bySimpleOrFullName() {
     final AtomicInteger ioCalls = new AtomicInteger();
     final AtomicInteger other = new AtomicInteger();

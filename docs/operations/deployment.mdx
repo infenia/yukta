@@ -232,7 +232,7 @@ The triggers, the console and notify terminals, the built-in flow and transform 
 
 With a key set, everything under `/actuator` except `/actuator/health` needs an unrestricted `ADMIN` key. Change which endpoints are exposed with `management.endpoints.web.exposure.include`.
 
-The interactive API documentation is at `/swagger-ui.html` and the OpenAPI description at `/v3/api-docs`. Neither needs a key.
+The interactive API documentation is at `/swagger-ui.html` and the OpenAPI description at `/v3/api-docs`. Both are off in the `prod` profile (the default); the `dev` profile serves them. With a key set they need the key. To publish them from a production server, see [Security](/operations/security).
 
 ## Serving the web UI
 

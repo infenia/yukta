@@ -61,10 +61,24 @@ class NodeRunnerTest {
   @Test
   void startWithoutConfig_runsWithEmptyOne() {
     final NodeFrame start =
-        new NodeFrame(NodeFrame.Kind.START, "e", "n", "UPPER", null, null, null, null);
+        new NodeFrame(NodeFrame.Kind.START, "e", "n", "UPPER", null, null, null, null, null);
 
     StepVerifier.create(runner.run(Flux.just(start, NodeFrame.complete())))
         .assertNext(frame -> assertThat(frame.kind()).isEqualTo(NodeFrame.Kind.COMPLETE))
         .verifyComplete();
+  }
+
+  @Test
+  void types_listsFailureAndCauseClasses_stopsOnCycle() {
+    final IllegalStateException first = new IllegalStateException("a");
+    final java.io.IOException second = new java.io.IOException("b", first);
+    first.initCause(second);
+
+    assertThat(NodeRunner.types(first))
+        .contains(
+            IllegalStateException.class.getName(),
+            RuntimeException.class.getName(),
+            java.io.IOException.class.getName())
+        .doesNotHaveDuplicates();
   }
 }

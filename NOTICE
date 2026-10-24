@@ -10,3 +10,7 @@ Infenia Private Limited (https://infenia.com).
 The plus/ directory is licensed under the GNU Affero General Public License, version 3 only
 (AGPL-3.0-only). Everything else is licensed under the Apache License, Version 2.0.
 See LICENSING.md.
+
+The release binaries and the Docker image are native executables built with Oracle GraalVM and
+include parts of it, used under the GraalVM Free Terms and Conditions (GFTC). They are distributed
+free of charge, as the GFTC requires.

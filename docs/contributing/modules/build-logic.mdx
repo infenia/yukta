@@ -109,7 +109,7 @@ A developer adds a new plugin module and opens a pull request. Click a step to s
 
 **Why it works this way.** A separate workflow runs ./gradlew licensee and a REUSE header check; another runs Trivy for vulnerabilities and secrets.
 
-**Can go wrong.** The dependency lock check is skipped because no lock files are committed, so CI does not prove that dependency versions are reproducible.
+**Can go wrong.** No lock files record the resolved versions, so CI does not prove that two builds resolve the same versions; the BOMs and the version catalog pin them. Vulnerable Gradle dependencies are caught by the dependency graph instead (see Scanning).
 
 </Step>
 <Step title="Merge">
@@ -158,12 +158,12 @@ Holds the repository-wide facts the plugins read: every library and tool version
 
 - gradle/libs.versions.toml is the version catalog. build-logic/settings.gradle.kts loads it with `from(files("../gradle/libs.versions.toml"))`, so the plugins read exactly the same file the modules do. Example: checkstyle = "13.2.0" is read by quality-conventions; springBoot = "4.1.1" by spring-conventions.
 - build-logic/build.gradle.kts lists the Gradle plugins the conventions need (Spotless, SpotBugs, the Lombok plugin, node-gradle, Spring dependency management, Error Prone, licensee) and takes each version from the catalog. A bump in the catalog therefore changes the plugin jars too.
-- The root settings.gradle.kts includes build-logic first, then lists 27 modules. The root build.gradle.kts sets the group, declares `dependencyLocking { lockAllConfigurations() }` for every project, and registers a root-only `trivy` task (HIGH and CRITICAL findings fail it). Trivy is deliberately not part of check; CI owns scanning.
+- The root settings.gradle.kts includes build-logic first, then lists 27 modules. The root build.gradle.kts sets the group and registers a root-only `trivy` task (HIGH and CRITICAL findings fail it). Dependency locking was dropped (#502): no lock files are committed. Trivy is deliberately not part of check; CI owns scanning.
 - gradle.properties holds the build switches: build cache on, parallel on with 8 workers max, configuration cache off (the Go tasks in cli are not compatible with it), a 4 GB Gradle heap, one shared project version (0.0.1-SNAPSHOT) and a leftover `netty.version=4.2.16.Final` next to the catalog's `netty = 4.2.18.Final`. The leftover no longer wins: spring-conventions sets `netty.version` from the catalog (checked on 2026-10-15 with dependencyInsight: boot resolves 4.2.18.Final).
 - Gradle itself is pinned by the wrapper (9.8.0). Dependabot proposes catalog and Action bumps weekly with a 7-day cooldown, grouped into one minor/patch PR.
 
 - **Guarantees.** Every module and build-logic read one catalog, so the same tool version applies everywhere. The project version is defined in one place.
-- **State.** Plain files in git. Nothing runs at run time. Lock files are declared but none are committed, so there is no stored record of resolved versions.
+- **State.** Plain files in git. Nothing runs at run time. No lock files are committed, so there is no stored record of resolved versions; the catalog and the BOMs pin them.
 - **Ceiling.** A catalog or build-logic change makes CI build every module (the planner's root-file list includes gradle/\*\*, config/\*\* and build-logic/\*\*), so version bumps are still the most expensive pull requests. Since PR #391 that full build is split into four parallel shards (platform, infra, plugins, frontend) with shared caches.
 - **On failure.** A typo in the catalog fails configuration of the whole build. A stale leftover (the Netty line in gradle.properties) can mislead a reader even though it no longer wins.
 
@@ -219,7 +219,7 @@ Pins the versions of third-party libraries through three imported BOMs, and adds
 - Every standard module also gets spring-boot-starter-test and reactor-test as test dependencies. Reactor-test is what makes StepVerifier available for the project's reactive code.
 
 - **Guarantees.** All modules resolve a library to the same version, because they all import the same three BOMs in the same order.
-- **State.** None. Resolution happens per Gradle run; no lock file is stored.
+- **State.** None. Resolution happens per Gradle run; no lock file is stored. The resolved graph is submitted to GitHub on every push to main (dependency-submission.yml) and for pull requests (ci.yml), which feeds Dependabot alerts and the PR Dependency Review job.
 - **Ceiling.** BOM imports are fine at this size. The ceiling is human: two places to set one version, and nothing checks that they agree.
 - **On failure.** A BOM that moves a library to an incompatible major version breaks compile or run time in several modules at once. A wrong Netty version stays invisible because tests do not assert it.
 
@@ -330,7 +330,7 @@ Runs the conventions' gates on every pull request and push, plus scans that are 
 - Modules and their shards come from settings.gradle.kts (plugins/\*\* → plugins, plus/\*\* → infra, cli, ui, the rest → platform), so a new module needs only its include line. The lint job runs `ci-tasks.sh --check`, which fails on a project() dependency that names no included module.
 - CI installs the same toolchain locally needed: JDK 25, Go, Node 24, pnpm 10.30.1, OpenGrep v1.25.0 (checksum verified) and Trivy v0.72.0. The wrapper jar is validated and Actions are pinned by commit hash.
 - Separate workflows run Trivy (security.yml: secret scan blocks every run; vulnerability scan blocks only on main, schedule and manual runs, and reports without failing on pull requests), the licence checks, CodeQL and OpenSSF Scorecard. A dependency-review job fails PRs that add HIGH-severity vulnerable dependencies.
-- A lock-file check exists, but it exits early when no gradle.lockfile is tracked, which is the current state. The final job, CI Gate, is the single required check: it passes if every job succeeded or was skipped.
+- There is no lock-file check (dependency locking was dropped, #502). The Dependency Review job fails a pull request that adds a dependency with a known HIGH or CRITICAL advisory, using the Gradle graph that the dependency-submission job submits. The final job, CI Gate, is the single required check: it passes if every job succeeded or was skipped.
 
 - **Guarantees.** Pull requests cannot merge unless CI Gate is green; scans run with pinned tool versions, so a tool upgrade is a visible diff.
 - **State.** Reports and test results are uploaded as run artifacts for 7 days; Trivy SARIF goes to GitHub security. Nothing else persists.
@@ -490,7 +490,7 @@ Every capability below is something a module gets by applying a convention plugi
 |---|---|---|---|---|
 | Imported BOMs | Spring Boot, Spring AI and Netty versions pinned centrally. | dependency-management plugin imports three BOMs in order. | A library has one version across modules. | Nothing checks the resolved Netty version. |
 | Shared catalog | One file lists versions for modules and build-logic. | build-logic/settings.gradle.kts loads ../gradle/libs.versions.toml. | No second copy to drift. | gradle.properties also carries netty.version. |
-| Locking declared | Every project asks Gradle to lock all configurations. | dependencyLocking \{ lockAllConfigurations() \} in the root build. | Nothing yet: no lock files are committed. | CI skips verification without lock files. |
+| Dependency locking | Dropped: no lock files are committed (#502). | Nothing. | The version catalog and the BOMs pin versions. | Resolved versions can drift between builds. |
 
 ### Quality
 
@@ -545,7 +545,7 @@ A pull request builds only changed modules and what depends on them, unless a ro
 | Licence allow-list (licensee) | \*\*Yes.\*\* ./gradlew licensee; check also runs it by plugin default (not verified here) | \*\*Yes.\*\* Own workflow: REUSE headers, licensee, Trivy licence scan | \*\*Yes.\*\* Same |
 | Trivy vulnerabilities | \*\*Note.\*\* On demand: ./gradlew trivy | \*\*Partly.\*\* Reported to GitHub security; does not fail the PR | \*\*Yes.\*\* Fails on HIGH or CRITICAL |
 | Trivy secret scan | \*\*No.\*\* Not run | \*\*Yes.\*\* Blocking | \*\*Yes.\*\* Blocking |
-| Dependency lock verification | \*\*No.\*\* No lock files | \*\*Partly.\*\* Step skipped: no gradle.lockfile is committed | \*\*Partly.\*\* Step skipped |
+| Dependency vulnerabilities (Gradle) | \*\*No.\*\* Left to CI | \*\*Yes.\*\* Dependency Review, from the submitted graph | \*\*Yes.\*\* Dependabot alerts, from the same graph |
 | Dependency review (new vulnerable dependencies) | \*\*No.\*\* Not run | \*\*Yes.\*\* Fails on high severity | \*\*Note.\*\* Graph submitted, no review job |
 | UI unit tests (pnpmTest) | \*\*No.\*\* Not part of check (commented out) | \*\*No.\*\* Not part of check | \*\*No.\*\* Not part of check |
 
@@ -572,7 +572,7 @@ A pull request builds only changed modules and what depends on them, unless a ro
 | Coverage | \*\*Yes.\*\* Enforced | Cannot be disabled; exceptions need reasons below 0.80; stale entries fail |
 | OpenGrep | \*\*Partly.\*\* Enforced when installed | --error; silently skipped when the program is missing |
 | Licences | \*\*Yes.\*\* Enforced | Allow-list plus one named exception |
-| Dependency locking | \*\*No.\*\* Declared only | No lock files are committed |
+| Dependency locking | \*\*No.\*\* Dropped (#502) | No lock files are committed |
 | Go and TypeScript code | \*\*Note.\*\* Other pipelines | cli uses Makefile targets; ui uses pnpm; not covered by this toolchain |
 
 ## Reference
@@ -782,7 +782,7 @@ The old guide listed eight modules with entries; none of that is true now. Verif
 | GraalVM native image | A way to compile a Java app into a standalone executable. | Links libraries statically, which is why licences matter more. |
 | Netty | The network library under Spring WebFlux. | Its version is set in two places here. |
 | CVE | A numbered public record of a security vulnerability. | Netty and plexus-utils are pinned to avoid listed CVEs. |
-| Dependency locking | Recording exact resolved versions of every dependency in files committed to git. | Declared here, but no lock files exist. |
+| Dependency locking | Recording exact resolved versions of every dependency in files committed to git. | Not used: dropped in #502. |
 | Trivy | A scanner for vulnerabilities, secrets and licences in a repository. | On demand locally; in CI it gates main. |
 | Node and pnpm | Node runs JavaScript tools; pnpm installs and runs JavaScript packages. | The ui module builds its React app with them. |
 | buildDependents | A Gradle task that builds a module and every module that depends on it. | CI uses it so a change in a library also retests its users. |

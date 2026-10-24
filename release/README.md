@@ -53,7 +53,8 @@ rehearsals; `release.sh --publish` refuses it.
 3. **GHCR write access for the workflow.** organisation → Packages → `yukta` → Package settings →
    Manage Actions access → add `infenia/yukta` with Write. *Why:* the first image was pushed from a
    person's machine, so the package does not yet grant the workflow access.
-4. **Protect release tags:** a tag ruleset for `v*` that blocks deletion and force-push, and
+4. **Protect release tags:** a tag ruleset for `v*` that blocks deletion, force-push and creation, with the
+   `YUKTA_PROJECT_APP` App as its only bypass actor (so only release-please can create a release tag), and
    Settings → General → Releases → enable immutable releases. *Why:* people pin versions and verify
    them. The price: a wrong tag stays forever, so you ship the next version instead.
 5. **Allow public packages in the organisation** (Settings → Packages → Package creation → Public), and
@@ -74,6 +75,7 @@ One pull request to approve, one button to press.
    - A prerelease advances by itself (`alpha.2` → `alpha.3`). To change the stage or the version, add
      a `Release-As: 0.1.0-beta.1` footer to a commit on `main`.
 2. **CI does the rest** (the **Release** workflow, started by the tag; about an hour):
+   - `assemble` refuses a tag whose commit is not on `main`, because it signs as the workflow;
    - builds the CLI (five platforms) and the linux-amd64 server, runs the Quickstart workflow against the
      server binary, and attests both (`gh attestation verify`);
    - `assemble` runs `release/release.sh --publish`: packages, `SHA256SUMS`, the image pushed to GHCR,
@@ -84,7 +86,8 @@ One pull request to approve, one button to press.
      the `.deb` on a clean Ubuntu container, pulls the image logged out and runs the Quickstart on it.
    A "PGO profile" out-of-memory message in the server job's log is expected on the hosted runner; only
    a red job is a failure.
-3. **Publish.** When the workflow is green, open the draft, add highlights and known limitations to the
+3. **Publish.** When the workflow is green, open the draft, and for a first run of a changed pipeline
+   also run the `cosign verify-blob` from "Verify a download" below on the draft's files yourself, add highlights and known limitations to the
    notes, keep "pre-release" ticked for a version with a `-`, and press Publish. *Why a person:* this is
    the point of no return; from here the assets and tag cannot change. Release notes are also an
    OpenSSF Best Practices requirement.

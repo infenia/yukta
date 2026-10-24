@@ -223,7 +223,7 @@ class TerminalNodeAssemblerStrategyTest {
   }
 
   @Test
-  void createAssembler_terminalNotReached_reportsNotReachedWithoutCompletionMetadata() {
+  void createAssembler_terminalNotReached_isSkippedWithoutCompletionMetadata() {
     final TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.consume(any(), any())).thenReturn(Mono.empty());
     when(terminal.completionMetadata(any())).thenReturn(Map.of("outcome", "RETRY"));
@@ -242,7 +242,7 @@ class TerminalNodeAssemblerStrategyTest {
             eq(EXECUTION_ID),
             eq(NODE_ID),
             anyString(),
-            eq(TaskStatus.SUCCESS),
+            eq(TaskStatus.SKIPPED),
             eq(Map.of("reached", false)));
   }
 

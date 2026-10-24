@@ -12,6 +12,9 @@
 # profile always matches this commit and architecture. If recording fails the build goes on without
 # one and Oracle GraalVM infers a profile itself (GraalNN). NATIVE_PGO=0 skips recording.
 # NATIVE_PGO_INSTRUMENT=1 builds the instrumented binary instead (what pgo-profile.sh uses).
+# NATIVE_PGO_REQUIRED=1 fails the build when no profile can be recorded (the release workflow sets it).
+# NATIVE_PGO_PROFILE=<file[.gz]> builds with that recorded profile instead of recording a new one, to
+# rebuild a release from the pgo-profile asset attached to it.
 # Usage: [NATIVE_HEAP=16g] [NATIVE_QUICK=1] [NATIVE_PGO_INSTRUMENT=1] release/build-server.sh
 # NATIVE_QUICK=1 compiles with -Ob: much faster, for rehearsals and smoke tests. release.sh refuses
 # to publish such a binary.
@@ -30,9 +33,19 @@ out="$DIST/$platform"
 mkdir -p "$out"
 
 profile="$REPO_ROOT/boot/pgo/yukta.iprof"
-if [[ -z "${NATIVE_QUICK:-}" && -z "${NATIVE_PGO_INSTRUMENT:-}" && "${NATIVE_PGO:-1}" != 0 ]]; then
+if [[ -n "${NATIVE_PGO_PROFILE:-}" ]]; then
+  [[ -s "$NATIVE_PGO_PROFILE" ]] || die "NATIVE_PGO_PROFILE=$NATIVE_PGO_PROFILE is not a file"
+  mkdir -p "$(dirname "$profile")"
+  case "$NATIVE_PGO_PROFILE" in
+    *.gz) gunzip -c "$NATIVE_PGO_PROFILE" > "$profile" ;;
+    *) cp "$NATIVE_PGO_PROFILE" "$profile" ;;
+  esac
+elif [[ -z "${NATIVE_QUICK:-}" && -z "${NATIVE_PGO_INSTRUMENT:-}" && "${NATIVE_PGO:-1}" != 0 ]]; then
   rm -f "$profile"
-  "$RELEASE_DIR/pgo-profile.sh" || log "WARNING: no PGO profile recorded; building without one (GraalNN)"
+  if ! "$RELEASE_DIR/pgo-profile.sh"; then
+    [[ -z "${NATIVE_PGO_REQUIRED:-}" ]] || die "no PGO profile recorded and NATIVE_PGO_REQUIRED is set"
+    log "WARNING: no PGO profile recorded; building without one (GraalNN)"
+  fi
 elif [[ -z "${NATIVE_PGO_INSTRUMENT:-}" ]]; then
   rm -f "$profile"   # quick or NATIVE_PGO=0 builds must not pick up a stale profile
 fi
@@ -47,5 +60,7 @@ trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
 docker cp "$cid:/build/boot/build/native/nativeCompile/yukta" "$out/yukta"
 chmod 0755 "$out/yukta"
 write_build_marker "$out"
+# Kept next to the binary so the release can attach the profile this binary was built with.
+if [[ -z "${NATIVE_PGO_INSTRUMENT:-}" && -s "$profile" ]]; then cp "$profile" "$out/yukta.iprof"; else rm -f "$out/yukta.iprof"; fi
 (cd "$out" && sha256sum yukta > SHA256SUMS)
 log "server binary: $out/yukta"

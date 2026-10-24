@@ -37,8 +37,9 @@ import reactor.core.publisher.Mono;
  * and, for a session-limited key, a {@code sessionId} of its own (403 otherwise). The path is
  * matched after decoding, and a path with parameters, encoded separators or dot segments is refused
  * with 400. Each caller (key) may make {@code yukta.mcp.rate-limit-per-minute} requests per minute
- * (default 600, 0 = unlimited); more get 429 with {@code Retry-After}. Also keeps the former
- * {@value #LEGACY_ENDPOINT} path working by rewriting it to the endpoint.
+ * (default 600, 0 = unlimited); more get 429 with {@code Retry-After}. An endpoint with no key
+ * (loopback only) is not limited. Also keeps the former {@value #LEGACY_ENDPOINT} path working by
+ * rewriting it to the endpoint.
  */
 @Component
 @SuppressWarnings({"PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
@@ -126,7 +127,8 @@ public class McpEndpointFilter implements WebFilter {
       return chain.filter(exchange);
     }
     if (authenticator.isOpen(Scope.MCP)) {
-      return limited("open") ? tooMany(exchange) : chain.filter(rewritten(exchange, legacy));
+      // no key means loopback only (ExposureGuard) and no caller to tell apart, like REST: no limit
+      return chain.filter(rewritten(exchange, legacy));
     }
     final ApiKeys.Match match =
         authenticator.authenticate(Scope.MCP, exchange.getRequest().getHeaders());

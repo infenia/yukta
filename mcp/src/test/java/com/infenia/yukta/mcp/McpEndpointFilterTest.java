@@ -294,7 +294,7 @@ class McpEndpointFilterTest {
   }
 
   @Test
-  void testOpenEndpointIsLimitedToo() {
+  void testOpenEndpointIsNotLimited() {
     final var env =
         new org.springframework.mock.env.MockEnvironment()
             .withProperty("yukta.mcp.rate-limit-per-minute", "1");
@@ -305,8 +305,7 @@ class McpEndpointFilterTest {
     filter.filter(first, (ServerWebExchange e) -> Mono.empty()).block();
     filter.filter(second, (ServerWebExchange e) -> Mono.empty()).block();
 
-    assertThat(second.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
-    assertThat(second.getResponse().getHeaders().getFirst("Retry-After")).isEqualTo("60");
+    assertThat(second.getResponse().getStatusCode()).isNull();
   }
 
   @Test
