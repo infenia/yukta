@@ -432,6 +432,63 @@ class DefaultMessageTest {
     assertThat(viaWith.payload()).isEqualTo("new");
   }
 
+  /**
+   * Fails when one of the other withers (retry count, sequence, failure, control, header, history)
+   * drops a component it should not touch: every component is set to a distinct non-default value,
+   * each wither is applied, and only the components it names may differ.
+   */
+  @Test
+  void testEveryWitherChangesOnlyWhatItNames() throws ReflectiveOperationException {
+    final var components = DefaultMessage.class.getRecordComponents();
+    final Object[] values = new Object[components.length];
+    final Class<?>[] types = new Class<?>[components.length];
+    for (int i = 0; i < components.length; i++) {
+      types[i] = components[i].getType();
+      values[i] = sample(components[i].getName(), types[i]);
+    }
+    final DefaultMessage<?> original =
+        (DefaultMessage<?>) DefaultMessage.class.getDeclaredConstructor(types).newInstance(values);
+
+    assertOnlyChanged(original, original.withRetryCount(9), java.util.Set.of("retryCount"));
+    assertOnlyChanged(
+        original,
+        original.withSequence("seq", 2, 5),
+        java.util.Set.of("sequenceId", "sequenceNumber", "sequenceSize"));
+    assertOnlyChanged(
+        original,
+        original.withFailure("dest", "why", "detail"),
+        java.util.Set.of("origDest", "failureReason", "exceptionDetail"));
+    assertOnlyChanged(original, original.withControl(false), java.util.Set.of("controlMessage"));
+    assertOnlyChanged(original, original.withHeader("extra", 1), java.util.Set.of("metadata"));
+    assertOnlyChanged(
+        original, original.withAddedHistory("node"), java.util.Set.of("messageHistory"));
+  }
+
+  private static void assertOnlyChanged(
+      final DefaultMessage<?> original,
+      final Message<?> changed,
+      final java.util.Set<String> allowed)
+      throws ReflectiveOperationException {
+    for (final var component : DefaultMessage.class.getRecordComponents()) {
+      if (allowed.contains(component.getName())) {
+        continue;
+      }
+      assertThat(component.getAccessor().invoke(changed))
+          .as("%s is left alone", component.getName())
+          .isEqualTo(component.getAccessor().invoke(original));
+    }
+    for (final String name : allowed) {
+      final var component =
+          java.util.Arrays.stream(DefaultMessage.class.getRecordComponents())
+              .filter(c -> c.getName().equals(name))
+              .findFirst()
+              .orElseThrow();
+      assertThat(component.getAccessor().invoke(changed))
+          .as("%s is changed", name)
+          .isNotEqualTo(component.getAccessor().invoke(original));
+    }
+  }
+
   private static Object sample(final String name, final Class<?> type) {
     final Object value = type == String.class ? "v-" + name : SAMPLES.get(type);
     return Objects.requireNonNull(value, "Give the new component type a sample value: " + type);
