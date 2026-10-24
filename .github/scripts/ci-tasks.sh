@@ -148,6 +148,10 @@ if [ "$full" = true ] || [ -n "${affected[:plus:persistence-postgres]:-}" ] || [
   shards=$(jq -c '. + [{name: "postgres-acceptance",
     args: "-Pyukta.persistence=postgres :boot:test --tests *PostgresPersistenceAcceptanceTest"}]' <<<"$shards")
 fi
+if [ "$full" = true ] || [ -n "${affected[:plus:workers]:-}" ] || [ -n "${changed[:boot]:-}" ]; then
+  shards=$(jq -c '. + [{name: "workers-acceptance",
+    args: "-Pyukta.workers=true :boot:test --tests *Workers*AcceptanceTest"}]' <<<"$shards")
+fi
 if [ "$full" = true ] || [ -n "${affected[:plus]:-}" ] || [ -n "${changed[:boot]:-}" ]; then
   shards=$(jq -c '. + [{name: "plus-acceptance",
     args: "-Pyukta.edition=plus :boot:test --tests *FileStoreAcceptanceTest"}]' <<<"$shards")

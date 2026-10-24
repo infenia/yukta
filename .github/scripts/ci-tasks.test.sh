@@ -34,7 +34,7 @@ expect 'web/src/A.java' "$affected" '":boot :web"'
 expect 'mcp/src/A.java' "$affected" '":boot :mcp"'
 expect 'core/src/A.java' "$affected" \
   '":boot :core :mcp :plugins:processors:internal:internal-core :plugins:processors:internal:script-js :plus :plus:persistence-postgres :plus:workers :web"'
-expect 'core/src/A.java' "$shards" '"platform infra plugins postgres-acceptance plus-acceptance"'
+expect 'core/src/A.java' "$shards" '"platform infra plugins postgres-acceptance workers-acceptance plus-acceptance"'
 expect 'messaging/src/A.java' '.affected | length' '29'
 expect 'messaging/src/A.java' '.affected | index(":cli")' 'null'
 
@@ -49,7 +49,7 @@ expect 'plugins/processors/http-request/src/A.java' "$shards" '"platform plugins
 
 # The deepest module owns a path: plus/workers is not plus.
 expect 'plus/workers/src/A.java' "$affected" '":boot :plus:workers"'
-expect 'plus/workers/src/A.java' "$shards" '"platform infra"'
+expect 'plus/workers/src/A.java' "$shards" '"platform infra workers-acceptance"'
 expect 'plus/src/A.java' "$shards" '"platform infra plus-acceptance"'
 expect 'plus/persistence-postgres/src/A.java' "$shards" '"platform infra postgres-acceptance"'
 
@@ -59,8 +59,8 @@ expect 'ui/src/a.ts' '.e2e' 'true'
 expect 'cli/main.go' "$shards" '"cli"'
 expect 'cli/main.go' '.e2e' 'false'
 
-# A boot change runs both acceptance suites.
-expect 'boot/src/A.java' "$shards" '"platform postgres-acceptance plus-acceptance"'
+# A boot change runs all three acceptance suites.
+expect 'boot/src/A.java' "$shards" '"platform postgres-acceptance workers-acceptance plus-acceptance"'
 
 # Lint covers the affected JVM modules; boot gets OpenGrep only, cli and ui none.
 expect 'web/src/A.java' '.lint' \
@@ -88,7 +88,7 @@ expect 'core/gradle.lockfile' '.full' 'false'
 
 # FULL=true (main, schedule, dispatch, `ci:full` label) runs every shard and E2E.
 got=$(FULL=true "$planner" </dev/null | jq -c '[([.shards[].name] | join(" ")), (.affected | length), .e2e]')
-want='["platform infra plugins cli ui postgres-acceptance plus-acceptance",32,true]'
+want='["platform infra plugins cli ui postgres-acceptance workers-acceptance plus-acceptance",32,true]'
 [ "$got" = "$want" ] || fail "FULL=true" "$want" "$got"
 
 # A dependency on a module missing from settings.gradle.kts must fail loudly, not be skipped.
