@@ -9,6 +9,7 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.SmartInitializingSingleton;
@@ -119,10 +120,42 @@ public class StartIdempotency implements SmartInitializingSingleton {
    */
   public Mono<String> once(
       final String scope, final String key, final Supplier<Mono<String>> start) {
+    return once(scope, key, start, _ -> true);
+  }
+
+  /**
+   * Starts once per key while the remembered execution is still wanted.
+   *
+   * @param scope what the key is unique within (session and workflow)
+   * @param key the client's idempotency key, or null/blank for none
+   * @param start starts a new execution and returns its id
+   * @param reusable whether the remembered execution still counts as the answer; when it does not
+   *     (for example the restarted run already finished), the key starts a fresh execution
+   * @return the remembered execution id, or the id of a new start
+   */
+  public Mono<String> once(
+      final String scope,
+      final String key,
+      final Supplier<Mono<String>> start,
+      final Predicate<String> reusable) {
     if (key == null || key.isBlank()) {
       return start.get();
     }
     final String mapKey = scope + "\0" + key;
+    final Mono<String> remembered = entries.getIfPresent(mapKey);
+    if (remembered != null) {
+      // Only a remembered id is vetted; the run this call starts is not registered yet.
+      return remembered
+          .flatMap(
+              id -> {
+                if (reusable.test(id)) {
+                  return Mono.just(id);
+                }
+                entries.asMap().remove(mapKey, remembered);
+                return once(scope, key, start, reusable);
+              })
+          .doOnError(_ -> entries.asMap().remove(mapKey, remembered));
+    }
     final Mono<String> result =
         entries.get(
             mapKey,

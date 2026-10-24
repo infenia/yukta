@@ -92,7 +92,8 @@ final class RestartCoordinator extends ControlDispatch {
   /**
    * A repeat of the same restart within the idempotency window (an agent that did not see the
    * answer) returns the first new execution instead of starting another; a failed restart is
-   * forgotten so it can be retried.
+   * forgotten so it can be retried, and so is one whose new run has already finished, since
+   * restarting the original again then asks for a further run.
    */
   private Mono<String> awaitRestart(
       final String executionId,
@@ -106,7 +107,8 @@ final class RestartCoordinator extends ControlDispatch {
         kind,
         () ->
             sendRestart(
-                executionId, commandFactory, onSubscribeLogger, onSuccessLogger, onErrorLogger));
+                executionId, commandFactory, onSubscribeLogger, onSuccessLogger, onErrorLogger),
+        this::isLive);
   }
 
   private Mono<String> sendRestart(
