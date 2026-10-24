@@ -4,6 +4,7 @@ package com.infenia.yukta.event;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.testsupport.Timing;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import lombok.NoArgsConstructor;
@@ -142,7 +143,7 @@ class WorkflowStatusEventTest {
   @Test
   void create_sequentialEvents_haveIncreasingTimestamps() throws InterruptedException {
     final WorkflowStatusEvent event1 = WorkflowStatusEvent.create("exec1", "STARTED");
-    Thread.sleep(10);
+    Timing.nextMillisecond();
     final WorkflowStatusEvent event2 = WorkflowStatusEvent.create("exec1", "COMPLETED");
 
     assertThat(event2.timestamp()).isAfter(event1.timestamp());

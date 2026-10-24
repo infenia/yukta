@@ -5,6 +5,7 @@ package com.infenia.yukta.service.workflow.store;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.testsupport.Timing;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -146,7 +147,7 @@ class InMemoryWorkflowDefinitionStoreTest {
   void distinctSavesAreVersions_newestFirst_andFetchable() throws InterruptedException {
     store.save(SESSION_ID_1, version("one")).block();
     store.save(SESSION_ID_1, version("one")).block();
-    Thread.sleep(2);
+    Timing.nextMillisecond();
     store.save(SESSION_ID_1, version("two")).block();
 
     final List<DefinitionRevision> revisions =
@@ -165,7 +166,7 @@ class InMemoryWorkflowDefinitionStoreTest {
   void onlyTheNewestVersionsAreKept_andRemovingDropsTheHistory() throws InterruptedException {
     for (int i = 0; i < InMemoryWorkflowDefinitionStore.MAX_REVISIONS + 5; i++) {
       store.save(SESSION_ID_1, version("v" + i)).block();
-      Thread.sleep(1);
+      Timing.nextMillisecond();
     }
     assertThat(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).collectList().block())
         .hasSize(InMemoryWorkflowDefinitionStore.MAX_REVISIONS);
@@ -209,7 +210,7 @@ class InMemoryWorkflowDefinitionStoreTest {
 
     store.saveNote(SESSION_ID_1, WORKFLOW_ID_1, revisionId, "old note").block();
     for (int i = 0; i < InMemoryWorkflowDefinitionStore.MAX_REVISIONS; i++) {
-      Thread.sleep(2);
+      Timing.nextMillisecond();
       store.save(SESSION_ID_1, version("v" + i)).block();
     }
     assertThat(
