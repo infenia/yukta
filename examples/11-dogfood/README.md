@@ -61,7 +61,7 @@ examples/11-dogfood/scripts/yukta-server.sh stop dev             # stop it (work
 
 | provider | selected by | how | start time |
 |---|---|---|---|
-| `release` (default) | nothing; `--version <tag>` or `YUKTA_SERVER_VERSION` pins a release | `yukta-release.sh`: the latest GitHub release (pre-releases included), `gh release download`, verified against `SHA256SUMS`, cached in `.yukta-dev/releases/<tag>`, run as native | seconds |
+| `release` (default) | nothing; `--version <tag>` or `YUKTA_SERVER_VERSION` pins a release | `yukta-release.sh`: the latest GitHub release (pre-releases included), `gh release download`, `SHA256SUMS` verified with `cosign` (signed by the release workflow, or by the maintainer for alpha.2; `YUKTA_SKIP_VERIFY=1` skips it) and the archive against it, cached in `.yukta-dev/releases/<tag>`, run as native | seconds |
 | `native` | `YUKTA_SERVER_BIN=<path>` or `YUKTA_SERVER_MODE=native` | `yukta-native.sh`: a local executable, default `boot/build/native/nativeCompile/yukta` (`./gradlew :boot:nativeCompile`) | seconds |
 | `jar` | `YUKTA_SERVER_MODE=jar` (`YUKTA_SERVER_JAR` overrides the newest `boot/build/libs/*.jar`) | `java -jar` of `./gradlew :boot:bootJar`; no Truffle native step | seconds |
 | `docker` | `YUKTA_SERVER_MODE=docker` (`YUKTA_SERVER_IMAGE` picks the image) | `yukta-docker.sh`: a local image from `release/build-image.sh`. The image has no JDK, so it serves the Quickstart/smoke path, not the gradle stages | seconds |
@@ -72,8 +72,10 @@ or `(local jar)`. `stop` uses the provider recorded when the server was started;
 To add a provider, add a `yukta-<mode>.sh` that uses the helpers in `_lib.sh` and write `.yukta-dev/<name>.env`.
 
 ### Running it during development
-`.claude/settings.json` registers a `Stop` hook (`.claude/hooks/dogfood-nudge.sh`): when Claude is about to finish
-with uncommitted code changes it is asked, once per change set, to run `yukta-check.sh --watch` and to file any
+`.claude/settings.json` registers a `SessionStart` hook (`dogfood-baseline.sh`, which records the uncommitted code
+changes present when the session begins) and a `Stop` hook (`.claude/hooks/dogfood-nudge.sh`): when Claude is about
+to finish and the session itself changed uncommitted code (changes that were already there do not count) it is asked,
+once per change set, to run `yukta-check.sh --watch` and to file any
 Yukta defect with `report-finding.sh` (the `dogfood` label). Set `YUKTA_DOGFOOD=off` to opt out.
 
 ## Running checks
