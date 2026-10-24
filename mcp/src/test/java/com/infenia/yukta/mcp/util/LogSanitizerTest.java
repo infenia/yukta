@@ -4,7 +4,10 @@ package com.infenia.yukta.mcp.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class LogSanitizerTest {
@@ -28,6 +31,22 @@ class LogSanitizerTest {
     assertThat(new LogSanitizer(null, 0).clean("a\r\nb" + "x".repeat(5000)))
         .startsWith("a b")
         .hasSize(5003);
+  }
+
+  @Test
+  void redactKeepsOtherValuesAndStopsAtAbsurdDepth() {
+    final LogSanitizer sanitizer = new LogSanitizer(null, 0);
+    final Map<String, Object> withNullKey = new HashMap<>();
+    withNullKey.put(null, "password=x");
+    Object deep = "bottom";
+    for (int i = 0; i < 40; i++) {
+      deep = new ArrayList<>(List.of(deep));
+    }
+
+    assertThat(sanitizer.redact(null)).isNull();
+    assertThat(sanitizer.redact(7)).isEqualTo(7);
+    assertThat(((Map<?, ?>) sanitizer.redact(withNullKey)).get(null)).isEqualTo("[REDACTED]");
+    assertThat(sanitizer.redact(deep).toString()).contains("[REDACTED]").doesNotContain("bottom");
   }
 
   @Test
