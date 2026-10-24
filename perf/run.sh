@@ -4,7 +4,7 @@
 #
 # Run a k6 test against Yukta in a container with fixed resources and keep a report.
 #   perf/run.sh <perf|load|soak> [extra k6 args]
-# Env: CPUS=2 CPUSET=0,1 MEMORY=8g K6_CPUSET=2-15 JAVA_OPTS=... IMAGE=... KEEP=1 (leave server up)
+# Env: PORT=8080 (the host port; a run on another port has its own compose project) CPUS=2 CPUSET=0,1 MEMORY=8g K6_CPUSET=2-15 JAVA_OPTS=... IMAGE=... KEEP=1 (leave server up)
 #      MODE=native builds the native binary (release/build-server.sh; NATIVE_QUICK=1, NATIVE_HEAP=24g) and runs it
 #      BINARY=dist/linux-amd64/yukta runs an existing native binary without building (image debian:12-slim)
 #      plus the k6 -e variables, e.g. RATE=50 WORKFLOWS=mapper DURATION=10m
@@ -26,12 +26,24 @@ case ${MODE:-jar} in
   *) echo "unknown MODE '$MODE' (jar|native)" >&2; exit 2 ;;
 esac
 [[ -n ${JAR:-} || -n ${BINARY:-} ]] || ./gradlew :boot:bootJar -q --console=plain  # no-op when up to date; never run a stale jar
-export JAR=${JAR:-$(ls "$root"/boot/build/libs/boot-*.jar | grep -v -- -plain | head -1)}
+if [[ -z ${JAR:-} && -z ${BINARY:-} ]]; then
+  # The jar is named after the project version: take the newest one, never the first by name (an old
+  # boot-*.jar left in build/libs would be benchmarked). A regular file: Docker leaves a directory
+  # behind when it is asked to mount a path that does not exist.
+  for candidate in "$root"/boot/build/libs/boot-*.jar; do
+    [[ -f $candidate && $candidate != *-plain.jar ]] || continue
+    if [[ -z ${JAR:-} || $candidate -nt $JAR ]]; then JAR=$candidate; fi
+  done
+  [[ -n ${JAR:-} ]] || { echo "no boot jar in boot/build/libs" >&2; exit 2; }
+fi
+export JAR
 if [[ -n ${BINARY:-} ]]; then
   JAR=$(realpath "$BINARY"); export RUN_CMD=/app/yukta.jar IMAGE=${IMAGE:-debian:12-slim}   # mounted at the jar's path
   [[ -f $JAR && -x $JAR ]] || { echo "BINARY $JAR is not an executable file" >&2; exit 2; }
 fi
-compose=(docker compose -f perf/compose.yaml -p yukta-perf)
+# One compose project per port, so two runs (two people, two sessions) on one machine never remove each other's server.
+export PORT=${PORT:-8080}
+compose=(docker compose -f perf/compose.yaml -p "yukta-perf-$PORT")
 
 sha=$(git rev-parse --short HEAD); dirty=$([[ -n $(git status --porcelain -- . ':!perf/reports') ]] && echo true || echo false)
 dir=$root/perf/reports/$type/$(date -u +%Y%m%dT%H%M%SZ)-$sha
@@ -52,19 +64,19 @@ trap cleanup EXIT
 
 "${compose[@]}" up -d --wait
 for _ in $(seq 60); do
-  curl -fs -H "Authorization: Bearer $API_KEY" localhost:8080/actuator/health >/dev/null && break; sleep 1
+  curl -fs -H "Authorization: Bearer $API_KEY" localhost:$PORT/actuator/health >/dev/null && break; sleep 1
 done
 
 cat > "$dir/meta.json" <<JSON
 {"test":"$type","commit":"$sha","dirty":$dirty,"cpus":"$CPUS","cpuset":"$CPUSET","memory":"$MEMORY",
  "javaOpts":"$JAVA_OPTS","image":"${IMAGE:-eclipse-temurin:25-jre}","binary":$(jq -Rn --arg b "${BINARY:-}" '$b'),"k6":"$(k6 version | head -1)",
- "docker":"$(docker --version)","rate":"${RATE:-default}","workflows":"${WORKFLOWS:-default}",
+ "artifact":"$(basename "$JAR")","artifactSha256":"$(sha256sum "$JAR" | cut -c1-16)","port":"$PORT","docker":"$(docker --version)","rate":"${RATE:-default}","workflows":"${WORKFLOWS:-default}",
  "hold":"${HOLD:-default}","duration":"${DURATION:-default}","startedAt":"$(date -u +%FT%TZ)"}
 JSON
 
 ( echo 'time,cpu_perc,mem_usage'
   while sleep 5; do
-    docker stats --no-stream --format "$(date -u +%T),{{.CPUPerc}},{{.MemUsage}}" yukta-perf-yukta-1
+    docker stats --no-stream --format "$(date -u +%T),{{.CPUPerc}},{{.MemUsage}}" yukta-perf-$PORT-yukta-1
   done ) > "$dir/container-stats.csv" 2>/dev/null &
 stats_pid=$!
 
@@ -76,7 +88,7 @@ done
 set +e
 K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT="$dir/dashboard.html" K6_WEB_DASHBOARD_PERIOD=5s \
 taskset -c "${K6_CPUSET:-2-15}" k6 run "perf/k6/$type.js" \
-  -e BASE_URL=http://localhost:8080 -e API_KEY="$API_KEY" "${envs[@]}" \
+  -e BASE_URL=http://localhost:$PORT -e API_KEY="$API_KEY" "${envs[@]}" \
   --summary-export "$dir/summary.json" \
   --summary-trend-stats 'avg,min,med,p(90),p(95),p(99),max' \
   --out csv="$dir/metrics.csv" "$@" 2>&1 | tee "$dir/k6.log"

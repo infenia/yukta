@@ -43,6 +43,7 @@ RATE=200 HOLD=10m perf/run.sh load
 DURATION=8h RATE=10 BINARY=dist/linux-amd64/yukta perf/run.sh soak
 CPUS=4 CPUSET=0-3 MEMORY=16g perf/run.sh load   # another size
 KEEP=1 perf/run.sh load                         # leave the server up to inspect stuck runs (prints the API key)
+PORT=18080 perf/run.sh perf                     # another host port = its own compose project, so two runs never remove each other's server
 ```
 
 To compare jar and native, run the same test and options once per server kind on the same commit, then compare the two
