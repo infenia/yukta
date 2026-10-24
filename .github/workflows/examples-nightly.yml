@@ -62,7 +62,11 @@ jobs:
         env:
           YUKTA_PROCESS_ALLOW_ANY: 'true'
         run: |
-          jar=$(ls boot/build/libs/boot-*.jar | grep -v -- '-plain.jar' | head -n 1)
+          jar=''
+          for candidate in boot/build/libs/boot-*.jar; do
+            case $candidate in *-plain.jar) ;; *) jar=$candidate; break ;; esac
+          done
+          [ -n "$jar" ] || { echo "::error::no boot jar was built"; exit 1; }
           nohup java -jar "$jar" > server.log 2>&1 &
           for _ in $(seq 1 60); do
             curl -fsS http://127.0.0.1:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"' && exit 0
