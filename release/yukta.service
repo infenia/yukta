@@ -30,7 +30,8 @@ PrivateDevices=yes
 ProtectKernelModules=yes
 ProtectKernelLogs=yes
 ProtectClock=yes
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# AF_NETLINK: Netty lists the network interfaces through it when the server starts.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 RestrictNamespaces=yes
 LockPersonality=yes
 RestrictSUIDSGID=yes
