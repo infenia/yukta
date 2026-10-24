@@ -48,7 +48,7 @@ export function useExecutionProgress(
   const progress = liveProgress ?? query.data ?? null;
   const streamUrl =
     sessionId && executionId && progress && !isFinished(progress)
-      ? api`/api/executions/${executionId}/stream?includeHistory=true`
+      ? api`/api/executions/${executionId}/status/stream?includeHistory=true`
       : null;
 
   const onUpdate = useCallback(
