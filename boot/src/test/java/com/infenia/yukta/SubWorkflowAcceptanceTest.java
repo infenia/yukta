@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
@@ -142,7 +143,7 @@ class SubWorkflowAcceptanceTest {
   private static String statusOf(final WorkflowProgress progress, final String nodeId) {
     return progress.tasks().stream()
         .filter(task -> task.nodeId().equals(nodeId))
-        .map(task -> task.status())
+        .map(TaskProgress::status)
         .findFirst()
         .orElse("missing");
   }
@@ -247,7 +248,10 @@ class SubWorkflowAcceptanceTest {
         .filteredOn(
             event ->
                 event.type() == ExecutionLogEvent.Type.RUN_STARTED
-                    && "/from/parent".equals(event.payload().get("project")))
+                    && "/from/parent"
+                        .equals(
+                            java.util.Objects.requireNonNullElse(event.payload(), Map.of())
+                                .get("project")))
         .isNotEmpty();
   }
 

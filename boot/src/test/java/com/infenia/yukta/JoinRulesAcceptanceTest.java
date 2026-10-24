@@ -5,6 +5,7 @@ package com.infenia.yukta;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
@@ -37,9 +38,9 @@ class JoinRulesAcceptanceTest {
   @Autowired private TaskTrackerService tracker;
   @Autowired private SubWorkflowGateway subWorkflows;
 
-  private static Node shell(final String id, final String script) {
+  private static Node shell(final String nodeId, final String script) {
     return new Node(
-        id,
+        nodeId,
         "PROCESS_EXECUTOR",
         Map.of("command", List.of("sh", "-c", script), "outputFormat", "RAW"));
   }
@@ -73,7 +74,7 @@ class JoinRulesAcceptanceTest {
   private static String statusOf(final WorkflowProgress progress, final String nodeId) {
     return progress.tasks().stream()
         .filter(task -> task.nodeId().equals(nodeId))
-        .map(task -> task.status())
+        .map(TaskProgress::status)
         .findFirst()
         .orElse("missing");
   }
