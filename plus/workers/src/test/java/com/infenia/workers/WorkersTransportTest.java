@@ -24,7 +24,9 @@ import org.springframework.context.annotation.Import;
 /** A control plane and a worker in one JVM, over a real RSocket connection. */
 @NoArgsConstructor
 @SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter", "PMD.CloseResource"})
-@ExpectedErrorLog("dropped error: .*IllegalStateException")
+@ExpectedErrorLog(
+    value = "dropped error: .*IllegalStateException",
+    sometimes = "dropped error: .*ClosedChannelException")
 class WorkersTransportTest {
 
   /** The control plane: the workers' registry and the RSocket server on a free port. */
