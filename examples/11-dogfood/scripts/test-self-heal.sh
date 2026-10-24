@@ -70,6 +70,7 @@ check() { # label module-list ladder number-of-ladder-rungs
       else $f == $lad and $r == $lad
            and ($nodes[] | select(.nodeId == "analyzers.r" + ($lad | tostring)) | .config.failureMode) == "ERROR" end' <<<"$out" >/dev/null \
     || fail "$scope: analyzer chain"
+  assert "the join outlasts the slowest analyzer" '[.workflows.check.nodes[] | select(.nodeId == "analyzers.join") | .config.timeoutSeconds >= 3600] | all'
   assert "the join waits for every analyzer" '.workflows.check.nodes as $n
     | ([$n[] | select(.nodeId == "analyzers.join")] | first // null) as $j
     | $j == null or $j.config.size == ([$n[] | select(.type == "PROCESS_EXECUTOR" and .config.command[1] == "run"
@@ -124,6 +125,7 @@ rc=0
 for t in "$@"; do
   case "$t" in -*) continue ;; esac
   if [[ "$t" == spotlessApply ]]; then rm -f fail-spotlessCheck; echo formatted >>src.txt; continue; fi
+  if [[ -e "slow-$t" ]]; then sleep 33; fi
   if [[ -e "fail-$t" ]]; then echo "error: $t failed (violation)" >&2; rc=1; fi
 done
 exit $rc
@@ -150,8 +152,8 @@ yk="$here/../yk"
 
 scenario() { # label fail-files fix-at expected-pattern expected-exit [yk check flags]
   local label="$1" files="$2" at="$3" pattern="$4" want="$5" result rc=0 f
-  rm -f "$proj"/fail-* "$proj/.fake-fix-at" "$proj/fixed.txt"
-  for f in $files; do touch "$proj/fail-$f"; done
+  rm -f "$proj"/fail-* "$proj"/slow-* "$proj/.fake-fix-at" "$proj/fixed.txt"
+  for f in $files; do if [[ "$f" == slow-* ]]; then touch "$proj/$f"; else touch "$proj/fail-$f"; fi; done
   [[ -z "$at" ]] || echo "$at" >"$proj/.fake-fix-at"
   # shellcheck disable=SC2086
   result="$("$yk" check -p "$proj" ${6:-} 2>&1)" || rc=$?
@@ -165,6 +167,8 @@ scenario "spotless healed by the deterministic fix" "spotlessCheck" "" 'status=S
 scenario "an analyzer healed at the sonnet rung" "checkstyleMain" "sonnet" 'status=SUCCESS .*healed=analyzers:sonnet ' 0
 scenario "a compile error healed at the opus rung" "compileJava" "opus" 'status=SUCCESS .*healed=compile:opus ' 0
 YUKTA_PAUSE_SECONDS=2 scenario "a compile error healed at the opus rung behind the before-opus pause" "compileJava" "opus" 'status=SUCCESS .*healed=compile:opus ' 0 "--pause before-opus"
+# longer than the 30 s default idle timeout of a node: the join must not time out waiting for it
+scenario "an analyzer slower than the default node timeout" "slow-checkstyleMain" "" 'status=SUCCESS failed_node=- healed=- ' 0
 scenario "licenses fail the run at once" "licensee" "" 'status=FAILURE failed_node=licenses ' 1
 scenario "an unfixable test failure" "test" "" 'status=FAILURE failed_node=tests ' 1
 scenario "an unfixable analyzer" "spotbugsMain" "" 'status=FAILURE failed_node=spotbugs ' 1

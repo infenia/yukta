@@ -383,7 +383,9 @@ heal_workflow() {
            | join("\n")) as $list
          | {nodes: ($head.nodes
                     + [$analyzers[] | runner(.nodeId; .; ((rungs(.) | length) > 0))]
-                    + [{nodeId: "analyzers.join", type: "AGGREGATE", config: {size: ($analyzers | length)}}]),
+                    + [{nodeId: "analyzers.join", type: "AGGREGATE",
+                        # the join idles while the slowest analyzer runs: as long as an analyzer may
+                        config: {size: ($analyzers | length), timeoutSeconds: 3600}}]),
             edges: ($head.edges
                     + [$analyzers[] | .nodeId as $a | $head.exits[] | edge(.source; $a; .port)]
                     + [$analyzers[] | .nodeId as $a
