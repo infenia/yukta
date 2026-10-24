@@ -160,7 +160,7 @@ See [Security](/operations/security).
 | `yukta.api-keys[i].role` | `VIEWER` | `VIEWER`, `OPERATOR` or `ADMIN` |
 | `yukta.api-keys[i].sessions` | all sessions | Limit the key to these session ids |
 | `yukta.mcp.api-key` | unset | An extra `ADMIN` key that works only on `/mcp` |
-| `yukta.mcp.rate-limit-per-minute` | `600` | Requests per minute one caller (key) may make to `/mcp`; more get `429` with `Retry-After`. `0` turns the limit off |
+| `yukta.mcp.rate-limit-per-minute` | `600` | Requests per minute one caller (key) may make to `/mcp`; more get `429` with `Retry-After`. Not applied when no key is configured (loopback only), like `yukta.rate-limit-per-minute`. `0` turns the limit off |
 | `yukta.mcp.log-redact-patterns` | bearer tokens, `key=value` secrets, `sk-`, `ghp_`, `AKIA` keys | Regexes (comma separated) whose matches an agent sees as `[REDACTED]` in log lines read through MCP. Setting it replaces the defaults. Applied before the log filter, so a filter cannot probe a redacted value |
 | `yukta.mcp.log-max-line-chars` | `2000` | Longest log line MCP returns; line breaks and control characters become spaces so one entry stays one line. `0` turns the cut off |
 | `yukta.mcp.log-max-chars` | `200000` | Most log characters one MCP call returns; the oldest lines are dropped first. `0` turns the cap off |
