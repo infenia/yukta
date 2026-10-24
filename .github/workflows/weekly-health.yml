@@ -28,6 +28,7 @@ jobs:
       contents: read
       issues: write            # create or edit the report issue
       security-events: read    # count open code scanning alerts
+      actions: read            # the last scheduled run of each job, for the robustness verdict
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
