@@ -46,15 +46,20 @@ func NewClient(baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = "http://localhost:8080"
 	}
-	return &Client{
+	c := &Client{
 		BaseURL:          strings.TrimRight(baseURL, "/"),
 		Timeout:          DefaultTimeout,
 		StreamIdle:       DefaultStreamIdle,
 		StreamReconnects: DefaultStreamReconnects,
 		StreamWait:       DefaultStreamWait,
-		// No client-wide Timeout: it would also cut SSE streams.
-		HTTPClient: &http.Client{},
+		// No client-wide Timeout on HTTPClient: it would also cut SSE streams.
 	}
+	// Go keeps Authorization on a same-host redirect whatever the scheme, so re-run the transport
+	// guard on every hop to stop an https -> http downgrade from leaking the token.
+	c.HTTPClient = &http.Client{CheckRedirect: func(req *http.Request, _ []*http.Request) error {
+		return c.checkTokenTransport(req.URL.String())
+	}}
+	return c
 }
 
 // newRequestWithBody creates a new HTTP request with optional body.
