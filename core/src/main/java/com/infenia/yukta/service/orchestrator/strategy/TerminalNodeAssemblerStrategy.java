@@ -212,14 +212,17 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                         .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
                         .addKeyValue("executionId", context.executionId())
                         .log("Terminal node execution completed successfully");
+                    // like a processor: a terminal no input reached did not run
                     tracker.emitTaskStatusEvent(
                         context.executionId(),
                         node.nodeId(),
                         node.type(),
-                        TaskStatus.SUCCESS,
+                        received.get() > 0 ? TaskStatus.SUCCESS : TaskStatus.SKIPPED,
                         completionMetadata(terminal, node.config(), received.get()));
                     resultService.nodeEnd(
-                        context.executionId(), node.nodeId(), TaskStatus.SUCCESS.name());
+                        context.executionId(),
+                        node.nodeId(),
+                        (received.get() > 0 ? TaskStatus.SUCCESS : TaskStatus.SKIPPED).name());
                   })
               .doOnError(
                   e -> {

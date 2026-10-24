@@ -91,8 +91,8 @@ public class ExecutionScheduler implements SmartLifecycle {
   /** Running executions per session. */
   private final Map<String, Integer> runningPerSession = new ConcurrentHashMap<>();
 
-  /** Signals that the last running execution has finished. */
-  private final Sinks.Empty<Void> drained = Sinks.empty();
+  /** Signals that the last running execution has finished; replaced on each {@link #start()}. */
+  private Sinks.Empty<Void> drained = Sinks.empty();
 
   /** Total running executions. */
   private int runningTotal;
@@ -565,6 +565,8 @@ public class ExecutionScheduler implements SmartLifecycle {
       // A stopped scheduler can be started again (Spring pauses and resumes cached test contexts).
       closed = false;
       started = true;
+      // a sink completes once, so each run of the scheduler needs its own
+      drained = Sinks.empty();
     }
   }
 
@@ -575,7 +577,9 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   @Override
   public void stop(final Runnable callback) {
+    final Sinks.Empty<Void> signal;
     synchronized (lock) {
+      signal = drained;
       closed = true;
       started = false;
       queue.forEach(
@@ -593,7 +597,7 @@ public class ExecutionScheduler implements SmartLifecycle {
           .addKeyValue("timeout", shutdownTimeout)
           .log("Waiting for running executions to finish");
     }
-    drained
+    signal
         .asMono()
         .timeout(shutdownTimeout)
         .onErrorResume(

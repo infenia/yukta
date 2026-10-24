@@ -139,9 +139,12 @@ The assurance case is honest about what Yukta does not claim.
 * Scripts have a time and statement limit but no heap limit, because GraalVM Community has none.
 * Yukta serves plain HTTP. Keys travel in request headers, so clients not on the same host must
   reach it through a TLS proxy.
-* `/actuator/health`, the API documentation and the web UI's static files need no key.
+* `/actuator/health` and the web UI's static files need no key. The API documentation
+  (`/swagger-ui.html`, `/v3/api-docs`) needs a key when one is set, and the `prod` profile, which is
+  the default, switches it off.
 * Execution and error logs carry plugin messages and metadata unchanged, so a workflow that logs
-  a secret leaks it to anyone who can read the logs. Log redaction is not implemented.
+  a secret leaks it to anyone who can read the logs. Only the MCP log tools redact common secret
+  patterns (`yukta.mcp.log-redact-patterns`); the REST and UI log APIs and the log files do not.
 * Delivery is at-least-once, so a workflow with side effects must be idempotent.
 
 ## 6. Evidence

@@ -83,13 +83,23 @@ done
 $push || { log "built and tested: ${built[*]} (not pushed)"; exit 0; }
 
 # Every registry in IMAGES gets the same per-architecture images and the same manifest.
+# A tag that is already in a registry is never replaced: a rerun after a failed signing or upload
+# would otherwise rebuild the image and move the tag to a digest that was never signed or attested.
 for image in "${IMAGES[@]}"; do
   sources=()
   for arch in "${built[@]}"; do
-    docker tag "$IMAGE_GHCR:$version-$arch" "$image:$version-$arch"
-    docker push "$image:$version-$arch"
+    if docker buildx imagetools inspect "$image:$version-$arch" >/dev/null 2>&1; then
+      log "$image:$version-$arch is already pushed; keeping it"
+    else
+      docker tag "$IMAGE_GHCR:$version-$arch" "$image:$version-$arch"
+      docker push "$image:$version-$arch"
+    fi
     sources+=("$image:$version-$arch")
   done
-  docker buildx imagetools create -t "$image:$version" "${sources[@]}"
+  if docker buildx imagetools inspect "$image:$version" >/dev/null 2>&1; then
+    log "$image:$version is already pushed; keeping it"
+  else
+    docker buildx imagetools create -t "$image:$version" "${sources[@]}"
+  fi
   docker buildx imagetools inspect "$image:$version"
 done

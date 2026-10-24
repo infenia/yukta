@@ -16,6 +16,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -104,19 +105,32 @@ public class WorkflowExecutionProvider {
     final boolean keyed = idempotencyKey != null && !idempotencyKey.isBlank();
     // Without a key the server derives one from the session and workflow: a model that repeats a
     // start it got no answer to is merged for a short window; a deliberate later start is not.
-    final Mono<String> started =
-        keyed
-            ? workflowService
-                .validateAndStartWorkflow(sessionId, workflowId, Map.of(), idempotencyKey.strip())
-                .map(WorkflowExecution::executionId)
-            : autoKey.once(
-                sessionId + "\0" + workflowId,
-                "auto",
-                () ->
-                    workflowService
-                        .validateAndStartWorkflow(sessionId, workflowId)
-                        .map(WorkflowExecution::executionId));
-    return started.map(WorkflowStartResult::new);
+    return keyed
+        ? workflowService
+            .validateAndStartWorkflow(sessionId, workflowId, Map.of(), idempotencyKey.strip())
+            .map(execution -> new WorkflowStartResult(execution.executionId(), false))
+        : startMergingRepeats(sessionId, workflowId);
+  }
+
+  /** Starts without a client key; a repeat inside the window gets the first run, marked reused. */
+  private Mono<WorkflowStartResult> startMergingRepeats(
+      final String sessionId, final String workflowId) {
+    // Only the call that really starts the run subscribes to the supplier; a merged repeat never
+    // does.
+    final AtomicBoolean started = new AtomicBoolean();
+    return autoKey
+        .once(
+            sessionId + "\0" + workflowId,
+            "auto",
+            () ->
+                Mono.defer(
+                    () -> {
+                      started.set(true);
+                      return workflowService
+                          .validateAndStartWorkflow(sessionId, workflowId)
+                          .map(WorkflowExecution::executionId);
+                    }))
+        .map(executionId -> new WorkflowStartResult(executionId, !started.get()));
   }
 
   /**

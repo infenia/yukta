@@ -219,7 +219,9 @@ public class AppMcpTools {
           "Start a Yukta workflow execution. Returns the execution ID to use with "
               + "get_workflow_status and get_execution_logs. Pass the same idempotencyKey when "
               + "you repeat a start whose answer you did not get: the first execution is returned "
-              + "instead of a second run being started.",
+              + "instead of a second run being started. Without a key, a repeat start of the same "
+              + "workflow within a short window also returns the earlier run, with "
+              + "reusedExecution true; pass a fresh idempotencyKey to force a new run.",
       generateOutputSchema = true,
       annotations =
           @McpTool.McpAnnotations(

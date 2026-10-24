@@ -17,21 +17,25 @@ key="${2:-}"
 auth=()
 [[ -z "$key" ]] || auth=(-H "X-API-Key: $key")
 
+# Each response goes into a variable and is matched with a here-string: a pipe into `grep -q` or
+# `head -1` ends early, and under pipefail the SIGPIPE on the writer would fail a correct answer.
+health=""
 for _ in $(seq 1 60); do
-  curl -fsS "$base/actuator/health" 2>/dev/null | grep -q '"status":"UP"' && break
+  health="$(curl -fsS "$base/actuator/health" 2>/dev/null || true)"
+  grep -q '"status":"UP"' <<< "$health" && break
   sleep 2
 done
-curl -fsS "$base/actuator/health" | grep -q '"status":"UP"' || die "smoke test: /actuator/health never reported UP"
+grep -q '"status":"UP"' <<< "$health" || die "smoke test: /actuator/health never reported UP"
 
 # Plugin loading and MCP: one plugin per module family, and the MCP tool list, both native-only risks.
 plugins="$(curl -fsS "${auth[@]}" "$base/api/plugins")" || die "smoke test: could not list plugins"
 for type in API_TRIGGER SCHEDULE_TRIGGER SQL_QUERY FILE_READ MCP_LIST_TOOLS WAIT_FOR_SIGNAL; do
   grep -q "\"$type\"" <<< "$plugins" || die "smoke test: plugin $type is not registered"
 done
-curl -fsS -X POST "$base/mcp" "${auth[@]}" -H "Content-Type: application/json" \
+tools="$(curl -fsS -X POST "$base/mcp" "${auth[@]}" -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | grep -q start_workflow ||
-  die "smoke test: MCP tools/list does not expose start_workflow"
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}')" || die "smoke test: MCP tools/list failed"
+grep -q start_workflow <<< "$tools" || die "smoke test: MCP tools/list does not expose start_workflow"
 
 curl -fsS "${auth[@]}" -X POST "$base/api/sessions" -H "Content-Type: application/json" \
   -d @"$RELEASE_DIR/smoke-session.json" >/dev/null || die "smoke test: could not apply the Quickstart session"
@@ -44,7 +48,9 @@ execution="$(sed -n 's/.*"executionId":"\([^"]*\)".*/\1/p' <<< "$started")"
 status=""
 for _ in $(seq 1 30); do
   # The first quoted status is the run's; the per-node statuses follow it.
-  status="$(curl -fsS "${auth[@]}" "$base/api/executions/$execution" | grep -o '"status":"[A-Z_]*"' | head -1 | cut -d'"' -f4)"
+  run="$(curl -fsS "${auth[@]}" "$base/api/executions/$execution" || true)"
+  status=""
+  [[ "$run" =~ \"status\":\"([A-Z_]+)\" ]] && status="${BASH_REMATCH[1]}"
   case "$status" in RUNNING | PENDING | STARTING | "") sleep 1 ;; *) break ;; esac
 done
 [[ "$status" == "SUCCESS" ]] || die "smoke test: the Quickstart run ended as '$status', not SUCCESS (execution $execution)"

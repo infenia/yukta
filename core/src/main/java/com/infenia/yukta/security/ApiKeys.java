@@ -27,6 +27,9 @@ import org.springframework.http.HttpHeaders;
  */
 public final class ApiKeys {
 
+  /** The Authorization scheme prefix. */
+  private static final String BEARER = "Bearer ";
+
   /** Prefix of a key given as a hash. */
   private static final String HASH_PREFIX = "sha256:";
 
@@ -147,8 +150,9 @@ public final class ApiKeys {
   public static String presented(final HttpHeaders headers) {
     final String authorization = headers.getFirst(HttpHeaders.AUTHORIZATION);
     final String key =
-        authorization != null && authorization.startsWith("Bearer ")
-            ? authorization.substring("Bearer ".length())
+        // the scheme name is case-insensitive (RFC 7235)
+        authorization != null && authorization.regionMatches(true, 0, BEARER, 0, BEARER.length())
+            ? authorization.substring(BEARER.length())
             : headers.getFirst("X-API-Key");
     return key == null ? "" : key;
   }

@@ -109,7 +109,7 @@ func (c *Client) checkTokenTransport(urlStr string) error {
 	if u.Scheme != "http" || isLoopbackHost(u.Hostname()) {
 		return nil
 	}
-	return fmt.Errorf("refusing to send the token over plain http to %q; use https or pass --insecure-token", u.Hostname())
+	return fmt.Errorf("refusing to send the token over plain http to %q; use https or pass --insecure-token or set YUKTA_INSECURE_TOKEN=1", u.Hostname())
 }
 
 func isLoopbackHost(host string) bool {

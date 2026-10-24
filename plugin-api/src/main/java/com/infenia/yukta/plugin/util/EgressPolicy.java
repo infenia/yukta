@@ -82,6 +82,15 @@ public final class EgressPolicy {
    */
   public @Nullable String refusalFor(final String url, final ContextView ctx) {
     String refusal = deployment.refusalFor(url, "yukta.egress.allowed-hosts");
+    if (refusal == null
+        && !(byWorkflow.isEmpty() && bySession.isEmpty())
+        && !ctx.hasKey(WORKFLOW_KEY)
+        && !ctx.hasKey(SESSION_KEY)) {
+      // per-scope lists are configured but the call cannot be tied to a run: fail closed, not open
+      refusal =
+          "The call has no workflowId or sessionId in its context, so it cannot be checked against"
+              + " yukta.egress.by-workflow or by-session";
+    }
     if (refusal == null) {
       refusal = layer(url, ctx, WORKFLOW_KEY, byWorkflow, "yukta.egress.by-workflow");
     }

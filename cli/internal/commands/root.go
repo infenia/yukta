@@ -88,11 +88,13 @@ logs and results.`,
 		"",
 		"File holding the bearer token (keeps it out of shell history and the process list)",
 	)
+	// An unparsable value stays off: the unsafe path is opt-in only.
+	insecureFromEnv, _ := strconv.ParseBool(os.Getenv("YUKTA_INSECURE_TOKEN"))
 	cmd.PersistentFlags().BoolVar(
 		&c.AllowInsecureToken,
 		"insecure-token",
-		false,
-		"Allow sending the token over plain http to a non-loopback host",
+		insecureFromEnv,
+		"Allow sending the token over plain http to a non-loopback host (env: YUKTA_INSECURE_TOKEN)",
 	)
 	cmd.PersistentPreRunE = func(*cobra.Command, []string) error {
 		// Arguments and flags are parsed by now, so later errors come from the server, not from usage.

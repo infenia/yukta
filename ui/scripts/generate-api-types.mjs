@@ -7,7 +7,7 @@
 //   pnpm run api:types                  fetch http://localhost:8080/v3/api-docs and rewrite the file
 //   pnpm run api:types -- <url|file>    use another spec location
 //   pnpm run api:types -- --check       fail when the committed file is stale (for CI)
-// Start the backend first: ./gradlew :boot:bootRun
+// Start the backend first: ./gradlew :boot:bootRun (the dev profile; prod switches /v3/api-docs off)
 import fs from 'fs';
 import path from 'path';
 import openapiTS, { astToString } from 'openapi-typescript';
