@@ -179,6 +179,8 @@ See [Security](/operations/security).
 | Setting | Default | Meaning and effect |
 |---|---|---|
 | `yukta.process.allowed-commands` | empty | Executables `PROCESS_EXECUTOR` may run, matched by the exact name used in the command. While empty, nothing runs |
+| `yukta.process.allowed-env` | empty | Risky environment variable names (`PATH`, `LD_*`, `GIT_*`, `*_OPTIONS`, ...) a `PROCESS_EXECUTOR` node may set while `allowed-commands` is set; other such names are refused |
+| `yukta.process.working-dir-root` | none | While `allowed-commands` is set, `PROCESS_EXECUTOR` working directories must lie inside this directory (relative ones are taken from it) |
 | `yukta.process.allow-any` | `false` | Let `PROCESS_EXECUTOR` run any executable when no list is set |
 | `yukta.script.timeout-ms` | `10000` | Longest a JavaScript script may run. System property only |
 | `yukta.spel.max-length` | `10000` | Longest expression, in characters, that is parsed; a longer one is refused. System property only |

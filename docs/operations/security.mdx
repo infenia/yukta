@@ -176,6 +176,8 @@ The audit covers control commands only. Ordinary reads and starts are not audite
 |---|---|
 | `yukta.process.allowed-commands` | Comma-separated executables a workflow may run. Matched against the exact executable name in the command. When the list is set, shell mode (`useShell`) is refused |
 | `yukta.process.allow-any=true` | Run any executable. Takes effect only while the list is empty |
+| `yukta.process.allowed-env` | Comma-separated environment variable names a workflow may set although they change what an allowed program runs. While `allowed-commands` is set, a node's `env` (and `inputMode: ENV`) may not set `PATH`, `HOME`, `LD_*`, `DYLD_*`, `GIT_*`, `XDG_*`, `NODE_*`, `PYTHON*`, `PERL*`, `RUBY*`, `*_OPTIONS`, `*_OPTS`, `BASH_ENV`, `CLASSPATH` and similar: with `LD_PRELOAD`, `GIT_SSH_COMMAND` or `JAVA_TOOL_OPTIONS` an allowed `git` or `java` runs any code. The names are a best-effort deny-list, not isolation |
+| `yukta.process.working-dir-root` | While `allowed-commands` is set, a node's `workingDir` is taken from this directory and must stay inside it (`..` and links that leave it are refused); a node with no `workingDir` runs in it. Without it the working directory is not limited |
 
 ```properties
 yukta.process.allowed-commands=git,npm,mvn

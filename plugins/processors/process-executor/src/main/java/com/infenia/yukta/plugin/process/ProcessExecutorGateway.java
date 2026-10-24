@@ -29,7 +29,7 @@ import reactor.core.scheduler.Schedulers;
 /** Gateway for executing external processes with reactive streaming output. */
 @Slf4j
 @Service
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.TooManyMethods", "PMD.GodClass"})
 @NoArgsConstructor
 public class ProcessExecutorGateway {
 
@@ -38,6 +38,9 @@ public class ProcessExecutorGateway {
 
   /** Whether any executable may run while the list is empty. */
   private boolean allowAny;
+
+  /** What a workflow may set for an allowed executable (environment, working directory). */
+  private final ProcessLimits limits = new ProcessLimits();
 
   /** Conversion factor from nanoseconds to milliseconds. */
   private static final long NANOS_PER_MILLI = 1_000_000L;
@@ -116,6 +119,30 @@ public class ProcessExecutorGateway {
     this.allowedCommands = allowed == null ? Set.of() : Set.copyOf(allowed);
   }
 
+  /**
+   * Environment variable names a workflow may set although they can change what an allowed
+   * executable runs (see {@code yukta.process.allowed-commands}); anything else of that kind is
+   * refused while the list of commands is set.
+   *
+   * @param allowed the variable names, exactly as written
+   */
+  @Value("${yukta.process.allowed-env:}")
+  /* default */ void setAllowedEnv(final List<String> allowed) {
+    limits.allowEnv(allowed);
+  }
+
+  /**
+   * Confines the working directory of a process to a directory while the list of commands is set: a
+   * relative {@code workingDir} is taken from it, no working directory means it, and one that
+   * leaves it (by {@code ..} or a link) is refused.
+   *
+   * @param root the directory, or empty for no limit
+   */
+  @Value("${yukta.process.working-dir-root:}")
+  /* default */ void setWorkingDirRoot(final String root) {
+    limits.confineTo(root);
+  }
+
   private String refusalFor(final ProcessExecutionSpec spec) {
     if (allowedCommands.isEmpty()) {
       return allowAny
@@ -127,9 +154,11 @@ public class ProcessExecutorGateway {
       return "useShell is not allowed while yukta.process.allowed-commands is set";
     }
     final String executable = spec.command().get(0);
-    return allowedCommands.contains(executable)
-        ? null
-        : "Command '" + executable + "' is not in yukta.process.allowed-commands";
+    if (!allowedCommands.contains(executable)) {
+      return "Command '" + executable + "' is not in yukta.process.allowed-commands";
+    }
+    final String env = limits.refusalForEnv(spec.env());
+    return env != null ? env : limits.refusalForDirectory(spec.workingDir());
   }
 
   /**
@@ -167,11 +196,13 @@ public class ProcessExecutorGateway {
             () -> {
               log.atDebug().setMessage("Starting process: {}").addArgument(actualCommand).log();
               final ProcessBuilder processBuilder = new ProcessBuilder(actualCommand);
-              if (spec.workingDir() != null && !spec.workingDir().isBlank()) {
-                processBuilder.directory(new File(spec.workingDir()));
+              final File directory =
+                  limits.directory(spec.workingDir(), !allowedCommands.isEmpty());
+              if (directory != null) {
+                processBuilder.directory(directory);
                 log.atDebug()
                     .setMessage("Process working directory set to: {}")
-                    .addArgument(spec.workingDir())
+                    .addArgument(directory)
                     .log();
               }
               if (!spec.env().isEmpty()) {
