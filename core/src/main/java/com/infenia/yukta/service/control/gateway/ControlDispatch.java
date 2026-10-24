@@ -52,6 +52,10 @@ class ControlDispatch {
         .orElseThrow(() -> new NotFoundException("Execution not found: " + executionId));
   }
 
+  /* default */ boolean isLive(final String executionId) {
+    return executionControlRegistry.findByExecutionId(executionId).isPresent();
+  }
+
   /* default */ ExecutionControl requireNodeControl(final String executionId, final String nodeId) {
     final ExecutionControl control = findExecutionOrThrow(executionId);
     if (!control.nodePauseValves().containsKey(nodeId)) {

@@ -982,11 +982,42 @@ class DefaultControlBusGatewayTest {
         .assertNext(id -> assertThat(id).isEqualTo(first.get()))
         .verifyComplete();
 
-    // A repeat (the caller never saw the answer) must not restart again.
+    // A repeat (the caller never saw the answer) must not restart again while the run is live.
+    when(executionControlRegistry.findByExecutionId(first.get()))
+        .thenReturn(Optional.of(mock(ExecutionControl.class)));
     StepVerifier.create(gateway.restartWorkflow(executionId))
         .assertNext(id -> assertThat(id).isEqualTo(first.get()))
         .verifyComplete();
     verify(controlBusService).emit(any());
+  }
+
+  @Test
+  void restartWorkflow_repeatedAfterNewRunFinished_startsAnotherRun() {
+    final String executionId = "exec-15";
+    when(executionControlRegistry.findByExecutionId(executionId))
+        .thenReturn(Optional.of(mock(ExecutionControl.class)));
+    when(controlBusService.emit(any())).thenReturn(Mono.empty());
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+
+    // The first restart's run is no longer registered (it finished), so a second restart is new.
+    StepVerifier.create(gateway.restartWorkflow(executionId))
+        .then(
+            () -> {
+              verify(controlBusService).emit(captor.capture());
+              gateway.completeRestartSuccess(
+                  ((RestartCommand) captor.getValue().payload()).newExecutionId());
+            })
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(gateway.restartWorkflow(executionId))
+        .then(
+            () -> {
+              verify(controlBusService, org.mockito.Mockito.times(2)).emit(captor.capture());
+              gateway.completeRestartSuccess(
+                  ((RestartCommand) captor.getValue().payload()).newExecutionId());
+            })
+        .expectNextCount(1)
+        .verifyComplete();
   }
 
   @Test
