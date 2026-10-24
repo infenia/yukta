@@ -21,7 +21,10 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-/** Collects messages into batches and emits one message {@code {items:[...], count:n}} each. */
+/**
+ * Collects messages into batches and emits one message {@code {items:[...], count:n,
+ * sources:[...]}} each, where {@code sources} names the node each item came from.
+ */
 @Component
 @SuppressWarnings("PMD.AvoidFieldNameMatchingMethodName")
 public final class AggregateProcessor implements ProcessorPlugin {
@@ -99,7 +102,11 @@ public final class AggregateProcessor implements ProcessorPlugin {
 
   private static Message<?> merge(final List<Message<?>> batch) {
     final List<Object> items = batch.stream().<Object>map(Message::payload).toList();
-    return DefaultMessage.create(UUID.randomUUID(), Map.of("items", items, "count", items.size()))
+    // which node each item came from, in the same order ("" for one the engine did not stamp)
+    final List<String> sources =
+        batch.stream().map(m -> m.sourceNodeId() == null ? "" : m.sourceNodeId()).toList();
+    return DefaultMessage.create(
+            UUID.randomUUID(), Map.of("items", items, "count", items.size(), "sources", sources))
         .withTraceId(batch.getFirst().traceId())
         .withHeader("sourceIds", batch.stream().map(Message::id).toList())
         .withSourcePort("default");

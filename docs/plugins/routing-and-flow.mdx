@@ -127,7 +127,7 @@ Batches messages into one message that holds a list. It is the reverse of `SPLIT
 
 Output port: `default`.
 
-The batch message has a new id, the trace id of its first message, and the payload `{"items": [...], "count": n}`, where `items` holds the payloads in arrival order. Batching is by arrival only: messages are not grouped by correlation id. A partial batch is always sent when the input ends. Without `timeoutMs`, a partial batch waits in memory until it fills or the input ends.
+The batch message has a new id, the trace id of its first message, and the payload `{"items": [...], "count": n, "sources": [...]}`, where `items` holds the payloads in arrival order and `sources` the node each one came from, in the same order (useful after a join with `engine.trigger: ALL_DONE`, to see which branches delivered). Batching is by arrival only: messages are not grouped by correlation id. A partial batch is always sent when the input ends. Without `timeoutMs`, a partial batch waits in memory until it fills or the input ends.
 
 ```json
 {
