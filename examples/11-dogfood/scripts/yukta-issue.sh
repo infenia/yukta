@@ -8,20 +8,28 @@
 #   yukta-issue.sh implement  a headless Claude implements the brief in the worktree (opus, $YUKTA_IMPL_BUDGET)
 #   yukta-issue.sh pr         commit, push and open a DRAFT pull request with Fixes #<n> and the check's RESULT line
 #   yukta-issue.sh release    give a claimed issue back (Ready); the worktree stays for whoever picks it up
+#   yukta-issue.sh epic-list  the open, assigned, Ready sub-issues of an epic, as JSON for the epic workflow to fan out
+#   yukta-issue.sh epic-pause two issue runs of the epic ended ESCALATE: pause the epic and the runs below it
 #
-# Environment: YUKTA_ISSUE (number), YUKTA_REPO_DIR (the main checkout), YUKTA_WORKTREE, YUKTA_IMPL_SESSION (a uuid),
+# Environment: YUKTA_ISSUE (number) or, for the epic steps, YUKTA_EPIC and YUKTA_BAD_COUNT; YUKTA_REPO_DIR (the main checkout), YUKTA_WORKTREE, YUKTA_IMPL_SESSION (a uuid),
 # YUKTA_CHECK_EXECUTION (pr: the execution of the check), YUKTA_GH_REPO (default infenia/yukta), YUKTA_GH (gh),
 # YUKTA_IMPL_MODEL (opus), YUKTA_IMPL_BUDGET (USD, 5), YUKTA_PROJECT_STATUS_CMD (tests: replaces the project update).
+# Budgets (USD, optional): YUKTA_BUDGET_ISSUE caps what one issue spends (the implementer and its fixers), YUKTA_BUDGET_EPIC
+# what all issues of the epic do; implement refuses to start over either.
 # State per issue: <repo>/.yukta-dev/issue-<n>/ (claimed, brief.md, implement.json, implement.out).
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-action="${1:?usage: yukta-issue.sh claim|worktree|brief|implement|pr|release}"
-n="${YUKTA_ISSUE:?YUKTA_ISSUE is required}"
+action="${1:?usage: yukta-issue.sh claim|worktree|brief|implement|pr|release|epic-list|epic-pause}"
 repo="${YUKTA_REPO_DIR:?YUKTA_REPO_DIR is required}"
-wt="${YUKTA_WORKTREE:-$repo/../yukta-issue-$n}"
 gh="${YUKTA_GH:-gh}"
 gh_repo="${YUKTA_GH_REPO:-infenia/yukta}"
-state="$repo/.yukta-dev/issue-$n"
+if [[ "$action" == epic-* ]]; then
+  n="" wt="" state="$repo/.yukta-dev/epic-${YUKTA_EPIC:?YUKTA_EPIC is required}"
+else
+  n="${YUKTA_ISSUE:?YUKTA_ISSUE is required}"
+  wt="${YUKTA_WORKTREE:-$repo/../yukta-issue-$n}"
+  state="$repo/.yukta-dev/issue-$n"
+fi
 mkdir -p "$state"
 
 nope() { echo "$*" >&2; exit 3; }
@@ -33,6 +41,12 @@ set_status() {
   . "$repo/.github/scripts/project-lib.sh"
   PROJECT_OWNER=infenia PROJECT_NUMBER=5 PROJECT_TOKEN="$("$gh" auth token)" project_add_item "$1" Status="$2"
 }
+
+# cost_in FILE...: the dollars the records and result files add up to
+cost_in() { cat "$@" 2>/dev/null | jq -s '[.[] | .cost // 0] | add // 0' ; }
+
+# over BUDGET SPENT: true when a budget is set and spent has reached it
+over() { [[ -n "$1" ]] && awk -v b="$1" -v s="$2" 'BEGIN { exit !(s + 0 >= b + 0) }'; }
 
 case "$action" in
   claim)
@@ -78,6 +92,10 @@ TXT
     echo "brief: $state/brief.md"
     ;;
   implement)
+    spent="$(cost_in "$state/implement.json" "$wt"/.yukta-dev/heal/check/*-[0-9]*.json)"
+    if over "${YUKTA_BUDGET_ISSUE:-}" "$spent"; then nope "issue #$n has spent \$$spent, its budget is \$$YUKTA_BUDGET_ISSUE (YUKTA_BUDGET_ISSUE)"; fi
+    epic_spent="$(cost_in "$repo"/.yukta-dev/issue-*/implement.json "$repo"/../yukta-issue-*/.yukta-dev/heal/check/*-[0-9]*.json)"
+    if over "${YUKTA_BUDGET_EPIC:-}" "$epic_spent"; then nope "the issues have spent \$$epic_spent, the budget of the epic is \$$YUKTA_BUDGET_EPIC (YUKTA_BUDGET_EPIC)"; fi
     # shellcheck source=_claude.sh
     source "$here/_claude.sh"
     : "${YUKTA_IMPL_SESSION:?YUKTA_IMPL_SESSION is required}"
@@ -126,6 +144,32 @@ ${result_line:-the check ran in the workflow}
     else
       echo "#$n was not claimed by this run; nothing to release"
     fi
+    ;;
+  epic-list)
+    login="$("$gh" api user -q .login)"
+    subs="$("$gh" api "repos/$gh_repo/issues/$YUKTA_EPIC/sub_issues" --paginate | jq -s 'add // []')" || nope "epic #$YUKTA_EPIC not found"
+    ready="$("$gh" project item-list 5 --owner infenia --limit 700 --format json -q '[.items[] | select(.status == "Ready") | .content.number]')"
+    list="$(jq -c --arg l "$login" --argjson ready "$ready" --arg root "$(dirname "$repo")" '
+      [.[] | select(.state == "open" and (.assignees | any(.login == $l)) and (.number as $n | $ready | index($n) != null))
+       | {issue: (.number | tostring), worktree: ($root + "/yukta-issue-" + (.number | tostring))}]' <<<"$subs")"
+    # a session id for each issue's implementer, so its fixers can resume it
+    out="[]"
+    while IFS= read -r item; do
+      out="$(jq -c --argjson i "$item" --arg s "$(cat /proc/sys/kernel/random/uuid)" '. + [$i + {implSession: $s}]' <<<"$out")"
+    done < <(jq -c '.[]' <<<"$list")
+    open="$(jq -r '[.[] | select(.state == "open")] | length' <<<"$subs")"
+    echo "epic #$YUKTA_EPIC: $(jq length <<<"$out") of $open open sub-issues are assigned to $login and Ready" >&2
+    jq -n -c --argjson issues "$out" '{issues: $issues}'
+    ;;
+  epic-pause)
+    count="${YUKTA_BAD_COUNT:-0}"
+    if ((count < 2)); then echo "epic-escalation: $count issue run(s) ended ESCALATE, not enough to pause"; exit 0; fi
+    echo "warning: epic-escalation: $count issue runs ended ESCALATE; pausing the epic and the runs below it" \
+      "(yk resume ${YUKTA_EXECUTION_ID:0:8} --tree to go on, yk stop ${YUKTA_EXECUTION_ID:0:8} --tree to give up)"
+    echo "count=$count" >>"$state/epic-pause.log"
+    # the server's own port and key directory, so yk reaches the server this node runs on
+    [[ -z "${SERVER_PORT:-}" ]] || export YUKTA_DEV_PORT="$SERVER_PORT"
+    "$here/../yk" pause "${YUKTA_EXECUTION_ID:?}" --tree || echo "could not pause the epic" >&2
     ;;
   *) echo "unknown action '$action'" >&2; exit 2 ;;
 esac

@@ -164,6 +164,16 @@ case "$key" in
   *) echo "HEAL $stage attempt=$attempt unknown mode '$mode'"; exit 1 ;;
 esac
 
+# An issue run keeps to its budget: what the implementer and the earlier attempts spent. Over it, an attempt
+# refuses without spending, so the ladder runs out of rungs and the run ends.
+if [[ -n "${YUKTA_BUDGET_ISSUE:-}" ]]; then
+  spent="$(cat "${YUKTA_IMPL_COSTFILE:-/dev/null}" "$dir"/*-[0-9]*.json 2>/dev/null | jq -s '[.[] | .cost // 0] | add // 0')"
+  if awk -v b="$YUKTA_BUDGET_ISSUE" -v s="${spent:-0}" 'BEGIN { exit !(s + 0 >= b + 0) }'; then
+    record false '[]' 0 "over the issue budget: spent \$$spent of \$$YUKTA_BUDGET_ISSUE (YUKTA_BUDGET_ISSUE)"
+    exit 1
+  fi
+fi
+
 # ---- a Claude attempt ---------------------------------------------------------------------------------
 # The stage already ran in the node before; its output is kept in $dir/<stage>.run.out.
 model="$mode"
