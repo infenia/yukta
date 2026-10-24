@@ -49,7 +49,4 @@ jobs:
           . .github/scripts/project-lib.sh
           status="In review"
           [ "$IS_DRAFT" = true ] && status="In progress"
-          # ponytail: sleep lets the built-in "Item added to project -> Triage" run first so we
-          # overwrite it; remove once that built-in is limited to issues (PROJECT.md).
-          sleep 30
           project_add_item "$PR_URL" Status="$status"
