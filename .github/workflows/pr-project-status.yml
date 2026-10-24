@@ -9,7 +9,7 @@ name: PR project status
 # nothing.
 on:
   pull_request:
-    types: [opened, ready_for_review, converted_to_draft]
+    types: [opened, ready_for_review, converted_to_draft, edited]
 
 permissions:
   contents: read
@@ -45,8 +45,15 @@ jobs:
           PROJECT_NUMBER: ${{ vars.YUKTA_PROJECT_NUMBER }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           IS_DRAFT: ${{ github.event.pull_request.draft }}
+          EVENT_ACTION: ${{ github.event.action }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           . .github/scripts/project-lib.sh
           status="In review"
           [ "$IS_DRAFT" = true ] && status="In progress"
-          project_add_item "$PR_URL" Status="$status"
+          agent=Human
+          [[ $PR_BODY == *"Generated with [Claude Code]"* ]] && agent=Claude
+          # Agent is the project's single-select field; skipped (not fatal) if it does not exist.
+          # An edit only reclassifies the Agent; it must not move a PR back to In review.
+          [ "$EVENT_ACTION" = edited ] && status=
+          project_add_item "$PR_URL" Status="$status" Agent="$agent"
