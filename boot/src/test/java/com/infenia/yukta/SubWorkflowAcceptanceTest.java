@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
@@ -95,6 +96,10 @@ class SubWorkflowAcceptanceTest {
                 assertThat(started.payload())
                     .containsEntry(SubWorkflowGateway.PARENT_KEY, "parent-run")
                     .containsEntry(SubWorkflowGateway.DEPTH_KEY, 1));
+    final WorkflowProgress child = tracker.getProgressByExecutionId(result.executionId());
+    assertThat(child.parentExecutionId()).isEqualTo("parent-run");
+    assertThat(child.rootExecutionId()).isEqualTo("parent-run");
+    assertThat(tracker.isWithin(result.executionId(), "parent-run")).isTrue();
   }
 
   @Test
@@ -115,6 +120,139 @@ class SubWorkflowAcceptanceTest {
 
     assertThat(good.status()).isEqualTo("SUCCESS");
     assertThat(bad.status()).isEqualTo("FAILURE");
+  }
+
+  /** A parent whose SUB_WORKFLOW routes on how the child ended, into one terminal per port. */
+  private void defineRoutingParent(final String session, final String workflowId) {
+    final List<String> ports = List.of("success", "failure", "retry", "escalate");
+    final List<Node> nodes = new java.util.ArrayList<>();
+    final List<Edge> edges = new java.util.ArrayList<>();
+    nodes.add(new Node("t", "CONSTANT_SOURCE", Map.of()));
+    nodes.add(
+        new Node("sub", "SUB_WORKFLOW", Map.of("workflowId", workflowId, "routeByOutcome", true)));
+    edges.add(new Edge("t", "sub", null));
+    for (final String port : ports) {
+      nodes.add(new Node("on-" + port, "CONSOLE_TERMINAL", Map.of()));
+      edges.add(new Edge("sub", "on-" + port, port));
+    }
+    definitions
+        .save(session, new WorkflowDefinition("parent-of-" + workflowId, "routes", nodes, edges))
+        .block();
+  }
+
+  private static String statusOf(final WorkflowProgress progress, final String nodeId) {
+    return progress.tasks().stream()
+        .filter(task -> task.nodeId().equals(nodeId))
+        .map(TaskProgress::status)
+        .findFirst()
+        .orElse("missing");
+  }
+
+  @Test
+  void routeByOutcome_takesThePortOfTheOutcomeTheChildReached_orFailureWhenItFailed() {
+    final String session = "sub-" + UUID.randomUUID();
+    definitions
+        .save(
+            session,
+            new WorkflowDefinition(
+                "escalating",
+                "ends in ESCALATE",
+                List.of(
+                    new Node("t", "CONSTANT_SOURCE", Map.of()),
+                    new Node(
+                        "out",
+                        "OUTCOME_TERMINAL",
+                        Map.of("outcome", "ESCALATE", "reason", "needs a human"))),
+                List.of(new Edge("t", "out", null))))
+        .block();
+    define(
+        session,
+        "failing",
+        new Node("p", "PROCESS_EXECUTOR", Map.of("command", List.of("sh", "-c", "exit 3"))));
+    defineRoutingParent(session, "escalating");
+    defineRoutingParent(session, "failing");
+
+    final WorkflowProgress escalated =
+        awaitTerminal(gateway.startWorkflow(session, "parent-of-escalating").block());
+    final WorkflowProgress failed =
+        awaitTerminal(gateway.startWorkflow(session, "parent-of-failing").block());
+
+    assertThat(escalated.status()).isEqualTo("SUCCESS");
+    assertThat(statusOf(escalated, "on-escalate")).isEqualTo("SUCCESS");
+    assertThat(statusOf(escalated, "on-success")).isNotEqualTo("SUCCESS");
+    assertThat(failed.status()).isEqualTo("SUCCESS");
+    assertThat(statusOf(failed, "on-failure")).isEqualTo("SUCCESS");
+    assertThat(statusOf(failed, "on-success")).isNotEqualTo("SUCCESS");
+  }
+
+  @Test
+  void startVariables_reachEveryNodeOfTheChild_fromTheSubWorkflowPayload() {
+    final String session = "sub-" + UUID.randomUUID();
+    definitions
+        .save(
+            session,
+            new WorkflowDefinition(
+                "child",
+                "reads its start payload two nodes in",
+                List.of(
+                    new Node("t", "CONSTANT_SOURCE", Map.of()),
+                    new Node(
+                        "first",
+                        "PROCESS_EXECUTOR",
+                        Map.of("command", List.of("echo", "first"), "outputFormat", "RAW")),
+                    new Node(
+                        "second",
+                        "PROCESS_EXECUTOR",
+                        Map.of(
+                            "command",
+                            List.of("echo", "project=${start.project}"),
+                            "outputFormat",
+                            "RAW")),
+                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                List.of(
+                    new Edge("t", "first", null),
+                    new Edge("first", "second", null),
+                    new Edge("second", "end", null))))
+        .block();
+
+    final SubWorkflowGateway.Result result =
+        subWorkflows
+            .run(session, "child", Map.of("project", "/work/x"), "parent-run", 1)
+            .block(WAIT);
+
+    assertThat(result).isNotNull();
+    assertThat(String.valueOf(result.results())).contains("project=/work/x");
+
+    // a parent hands its own start payload on: SUB_WORKFLOW payload values are templated
+    definitions
+        .save(
+            session,
+            new WorkflowDefinition(
+                "parent",
+                "passes its start payload on",
+                List.of(
+                    new Node("t", "CONSTANT_SOURCE", Map.of()),
+                    new Node(
+                        "sub",
+                        "SUB_WORKFLOW",
+                        Map.of(
+                            "workflowId", "child", "payload", Map.of("project", "${start.root}"))),
+                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                List.of(new Edge("t", "sub", null), new Edge("sub", "end", null))))
+        .block();
+    final WorkflowProgress parent =
+        awaitTerminal(
+            gateway.startWorkflow(session, "parent", Map.of("root", "/from/parent")).block());
+    assertThat(parent.status()).isEqualTo("SUCCESS");
+    assertThat(executionLog.readAll())
+        .filteredOn(
+            event ->
+                event.type() == ExecutionLogEvent.Type.RUN_STARTED
+                    && "/from/parent"
+                        .equals(
+                            java.util.Objects.requireNonNullElse(event.payload(), Map.of())
+                                .get("project")))
+        .isNotEmpty();
   }
 
   @Test

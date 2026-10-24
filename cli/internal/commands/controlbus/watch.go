@@ -25,10 +25,17 @@ import (
 // otherwise never be reported.
 var snapshotInterval = 3 * time.Second
 
+// successorWait is how long --follow-restarts looks for the run that restarts the one that ended,
+// and successorPoll how often.
+var (
+	successorWait = 10 * time.Second
+	successorPoll = time.Second
+)
+
 // WatchCmd creates the "controlbus watch" command.
 func WatchCmd(c *client.Client) *cobra.Command {
 	var executionID, eventType string
-	var untilDone, noLogs, quiet bool
+	var untilDone, noLogs, quiet, tree, followRestarts bool
 
 	cmd := &cobra.Command{
 		Use:   "watch",
@@ -50,14 +57,25 @@ reports, the error and warning lines of the output as
 workflow status.
 With -o json, each event is printed as one JSON object per line.
 
+With --execution the runs it starts as sub-workflows are watched too (--tree, the default): their
+lines name the child workflow, as in "NODE check/style FAILURE" or "WORKFLOW check FAILURE".
+
 The server does not replay events: only what happens after the stream opens is shown.
 With --until-done (needs --execution) the command also checks the execution's status while it
-waits, and exits once the execution has ended, including when it ended before the watch began.
+waits, and exits once the execution itself has ended, including when it ended before the watch
+began. With --follow-restarts it then moves on to the run that restarted it, if one starts within
+a few seconds, and prints "RESTARTED <old> <new>".
 Press Ctrl-C to stop watching at any time.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if strings.HasPrefix(executionID, "-") {
+				return fmt.Errorf("--execution needs an execution id, not %q", executionID)
+			}
 			if untilDone && executionID == "" {
 				return errors.New("--until-done needs --execution")
+			}
+			if followRestarts && !untilDone {
+				return errors.New("--follow-restarts needs --until-done")
 			}
 
 			baseCtx := cmd.Context()
@@ -66,31 +84,29 @@ Press Ctrl-C to stop watching at any time.`,
 			}
 			sigCtx, stopSignals := signal.NotifyContext(baseCtx, os.Interrupt, syscall.SIGTERM)
 			defer stopSignals()
-			ctx, cancel := context.WithCancel(sigCtx)
-			defer cancel()
 
-			w := &watcher{
-				cancel:    cancel,
-				eventType: eventType,
-				untilDone: untilDone,
-				noLogs:    noLogs,
-				json:      commands.GetOutputFormat() == "json",
+			for {
+				w := &watcher{
+					root:      executionID,
+					tree:      tree && executionID != "",
+					eventType: eventType,
+					untilDone: untilDone,
+					noLogs:    noLogs,
+					json:      commands.GetOutputFormat() == "json",
+				}
+				if quiet {
+					w.problems = newProblemFilter()
+				}
+				if err := w.run(sigCtx, c); err != nil || !followRestarts || sigCtx.Err() != nil {
+					return err
+				}
+				next := successorOf(sigCtx, c, executionID)
+				if next == "" {
+					return nil
+				}
+				fmt.Printf("RESTARTED %s %s\n", executionID, next)
+				executionID = next
 			}
-			if quiet {
-				w.problems = newProblemFilter()
-			}
-			if untilDone {
-				go w.pollStatus(ctx, c, executionID)
-			}
-
-			err := c.StreamEvents(ctx, executionID, eventType, "", w.handle)
-			if pollErr := w.pollFailure(); pollErr != nil {
-				return pollErr
-			}
-			if errors.Is(err, context.Canceled) {
-				return nil
-			}
-			return err
 		},
 	}
 
@@ -98,6 +114,10 @@ Press Ctrl-C to stop watching at any time.`,
 	cmd.Flags().StringVar(&eventType, "type", "",
 		"Only events of this kind: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome or LogLine")
 	cmd.Flags().BoolVar(&untilDone, "until-done", false, "Exit when the execution has ended (needs --execution)")
+	cmd.Flags().BoolVar(&tree, "tree", true,
+		"With --execution, also watch the runs it starts as sub-workflows, at any depth")
+	cmd.Flags().BoolVar(&followRestarts, "follow-restarts", false,
+		"With --until-done, go on with the run that restarts the execution when it ends")
 	cmd.Flags().BoolVar(&noLogs, "no-logs", false, "Leave out log lines")
 	cmd.Flags().BoolVar(&quiet, "quiet", false,
 		"Only problems (with their reasons and error lines) and the final workflow status")
@@ -110,6 +130,9 @@ type watcher struct {
 	mu        sync.Mutex
 	finished  bool
 	cancel    context.CancelFunc
+	root      string            // the watched execution; --until-done ends with it
+	tree      bool              // the runs root starts are streamed too
+	workflows map[string]string // workflow of each child run seen, to name its lines
 	eventType string
 	untilDone bool
 	noLogs    bool
@@ -118,6 +141,52 @@ type watcher struct {
 	seen      map[nodeKey]string // last status printed per execution node, to drop snapshot/stream duplicates
 	pollErr   error              // the status poll's permanent failure (404, 401, ...), which ends the watch
 	pollWarn  bool               // the first transient poll failure has been reported
+}
+
+// run streams the events until the watch ends: ctx ends, the stream fails, or with --until-done the
+// root execution ends.
+func (w *watcher) run(parent context.Context, c *client.Client) error {
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+	w.cancel = cancel
+	if w.untilDone {
+		go w.pollStatus(ctx, c, w.root)
+	}
+	err := c.StreamTreeEvents(ctx, w.root, w.tree, w.eventType, "", w.handle)
+	if pollErr := w.pollFailure(); pollErr != nil {
+		return pollErr
+	}
+	if errors.Is(err, context.Canceled) {
+		return nil
+	}
+	return err
+}
+
+// successorOf finds the run that restarted executionID (its restartOf), waiting a little for it to
+// start; "" when none starts in time or the execution cannot be read.
+func successorOf(ctx context.Context, c *client.Client, executionID string) string {
+	progress, err := c.GetExecution(executionID)
+	if err != nil {
+		return ""
+	}
+	deadline := time.Now().Add(successorWait)
+	for {
+		if history, err := c.GetWorkflowHistory(progress.SessionID); err == nil {
+			for _, run := range history {
+				if run.RestartOf == executionID {
+					return run.ExecutionID
+				}
+			}
+		}
+		if time.Now().After(deadline) {
+			return ""
+		}
+		select {
+		case <-ctx.Done():
+			return ""
+		case <-time.After(successorPoll):
+		}
+	}
 }
 
 func (w *watcher) pollFailure() error {
@@ -165,9 +234,21 @@ func (w *watcher) handle(e client.ExecutionEvent) error {
 		}
 		w.seen[key] = e.Status
 	}
-	if w.untilDone && e.Type == client.EventWorkflowStatusChanged && client.IsTerminalStatus(e.Status) {
+	child := w.root != "" && e.ExecutionID != "" && e.ExecutionID != w.root
+	if child && e.WorkflowID != "" {
+		if w.workflows == nil {
+			w.workflows = map[string]string{}
+		}
+		w.workflows[e.ExecutionID] = e.WorkflowID
+	}
+	if !child && w.untilDone && e.Type == client.EventWorkflowStatusChanged &&
+		client.IsTerminalStatus(e.Status) {
 		w.finished = true
 		defer w.cancel()
+	}
+	// a child run that went well is not news when only problems are wanted
+	if child && w.problems != nil && e.Type == client.EventWorkflowStatusChanged && e.Status == "SUCCESS" {
+		return nil
 	}
 	if w.noLogs && e.Type == client.EventLogLine {
 		return nil
@@ -178,8 +259,29 @@ func (w *watcher) handle(e client.ExecutionEvent) error {
 	if w.eventType != "" && !strings.EqualFold(w.eventType, e.Type) {
 		return nil
 	}
+	if child && !w.json {
+		e = w.named(e)
+	}
 	w.print(e)
 	return nil
+}
+
+// named marks an event of a child run with the child's workflow (or the start of its execution id
+// until the workflow is known): "check/style" for a node, "check" for the run itself.
+func (w *watcher) named(e client.ExecutionEvent) client.ExecutionEvent {
+	name := w.workflows[e.ExecutionID]
+	if name == "" {
+		name = e.ExecutionID
+		if len(name) > 8 {
+			name = name[:8]
+		}
+	}
+	if e.Type == client.EventWorkflowStatusChanged {
+		e.Status = name + " " + e.Status
+	} else if e.NodeID != "" {
+		e.NodeID = name + "/" + e.NodeID
+	}
+	return e
 }
 
 // isProblemOrEnd keeps what --quiet shows: the end of the workflow, final node statuses other than

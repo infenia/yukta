@@ -7,6 +7,8 @@ import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.QueueTimeoutException;
+import com.infenia.yukta.service.orchestrator.compiler.ExecutionTimeoutException;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.util.HashMap;
@@ -70,18 +72,37 @@ public class SubWorkflowRunner implements SubWorkflowGateway {
                               prepared,
                               start,
                               scheduler.borrowed())
-                          .contextWrite(ctx -> ctx.put("resultCollector", collector)))
+                          .contextWrite(ctx -> ctx.put("resultCollector", collector))
+                          // even a grandchild's failure is reported as this child's
+                          .onErrorMap(e -> new ChildFailed(executionId, failureStatus(e), e)))
               // Registering and archiving the child do file work, so not on the caller's thread.
               .subscribeOn(Schedulers.boundedElastic())
-              .then(
-                  Mono.fromSupplier(
-                      () ->
-                          new Result(
-                              executionId,
-                              collector.getResults().stream()
-                                  .<Object>map(message -> message.payload())
-                                  .toList())));
+              .then(Mono.fromSupplier(() -> result(executionId, collector)));
         });
+  }
+
+  /** What the child produced, and the outcome terminal it reached, if any. */
+  private static Result result(final String executionId, final ResultCollector collector) {
+    final Map<String, Object> ended =
+        collector.getCompletions().stream()
+            .map(ResultCollector.Completion::metadata)
+            .filter(metadata -> metadata.get("outcome") != null)
+            .findFirst()
+            .orElse(Map.of());
+    final Object outcome = ended.get("outcome");
+    final Object reason = ended.get("reason");
+    return new Result(
+        executionId,
+        collector.getResults().stream().<Object>map(message -> message.payload()).toList(),
+        "SUCCESS",
+        outcome == null ? null : outcome.toString(),
+        reason == null ? null : reason.toString());
+  }
+
+  private static String failureStatus(final Throwable error) {
+    return error instanceof QueueTimeoutException || error instanceof ExecutionTimeoutException
+        ? "TIMED_OUT"
+        : "FAILURE";
   }
 
   private Mono<PreparedWorkflow> prepared(final String sessionId, final String workflowId) {

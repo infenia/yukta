@@ -26,6 +26,9 @@ class AggregateProcessorTest {
   /** Literal items. */
   private static final String ITEMS = "items";
 
+  /** Literal sources. */
+  private static final String SOURCES = "sources";
+
   /** Literal size. */
   private static final String SIZE = "size";
 
@@ -39,8 +42,27 @@ class AggregateProcessorTest {
   @Test
   void process_batchesBySizeAndFlushesRemainder() {
     StepVerifier.create(processor.process(Flux.just(msg(1), msg(2), msg(3)), Map.of(SIZE, 2)))
-        .assertNext(m -> assertThat(m.payload()).isEqualTo(Map.of(ITEMS, List.of(1, 2), COUNT, 2)))
-        .assertNext(m -> assertThat(m.payload()).isEqualTo(Map.of(ITEMS, List.of(3), COUNT, 1)))
+        .assertNext(
+            m ->
+                assertThat(m.payload())
+                    .isEqualTo(Map.of(ITEMS, List.of(1, 2), COUNT, 2, SOURCES, List.of("", ""))))
+        .assertNext(
+            m ->
+                assertThat(m.payload())
+                    .isEqualTo(Map.of(ITEMS, List.of(3), COUNT, 1, SOURCES, List.of(""))))
+        .verifyComplete();
+  }
+
+  @Test
+  void process_namesTheNodeEachItemCameFrom() {
+    StepVerifier.create(
+            processor.process(
+                Flux.just(msg(1).withSourceNodeId("style"), msg(2).withSourceNodeId("spotbugs")),
+                Map.of(SIZE, 2)))
+        .assertNext(
+            m ->
+                assertThat(((Map<?, ?>) m.payload()).get(SOURCES))
+                    .isEqualTo(List.of("style", "spotbugs")))
         .verifyComplete();
   }
 
@@ -61,7 +83,10 @@ class AggregateProcessorTest {
     final Sinks.Many<Message<?>> sink = Sinks.many().unicast().onBackpressureBuffer();
     StepVerifier.create(processor.process(sink.asFlux(), Map.of(SIZE, 10, "timeoutMs", 50)))
         .then(() -> sink.tryEmitNext(msg(1)))
-        .assertNext(m -> assertThat(m.payload()).isEqualTo(Map.of(ITEMS, List.of(1), COUNT, 1)))
+        .assertNext(
+            m ->
+                assertThat(m.payload())
+                    .isEqualTo(Map.of(ITEMS, List.of(1), COUNT, 1, SOURCES, List.of(""))))
         .thenCancel()
         .verify(Duration.ofSeconds(5));
   }
@@ -69,7 +94,10 @@ class AggregateProcessorTest {
   @Test
   void process_nonPositiveTimeoutFallsBackToSizeOnly() {
     StepVerifier.create(processor.process(Flux.just(msg(1)), Map.of(SIZE, 2, "timeoutMs", 0)))
-        .assertNext(m -> assertThat(m.payload()).isEqualTo(Map.of(ITEMS, List.of(1), COUNT, 1)))
+        .assertNext(
+            m ->
+                assertThat(m.payload())
+                    .isEqualTo(Map.of(ITEMS, List.of(1), COUNT, 1, SOURCES, List.of(""))))
         .verifyComplete();
   }
 

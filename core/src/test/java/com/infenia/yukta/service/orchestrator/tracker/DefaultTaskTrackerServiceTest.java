@@ -150,6 +150,70 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void testLineageIsReported_andTreeIsWalkedUpFromAnyRunInIt() {
+    for (final String exec : List.of("top", "child", "grandchild", "again")) {
+      StepVerifier.create(tracker.startWorkflow(exec, "l-sess", "l-wf", List.of("a")))
+          .verifyComplete();
+    }
+    tracker.recordLineage("top", null, null);
+    tracker.recordLineage("child", "top", null);
+    tracker.recordLineage("grandchild", "child", null);
+    tracker.recordLineage("again", null, "top");
+    tracker.recordLineage("unknown", "top", null);
+
+    assertThat(tracker.getProgressByExecutionId("grandchild").parentExecutionId())
+        .isEqualTo("child");
+    assertThat(tracker.getProgressByExecutionId("grandchild").rootExecutionId()).isEqualTo("top");
+    assertThat(tracker.getProgress("l-sess", "again").restartOf()).isEqualTo("top");
+    assertThat(tracker.getProgressByExecutionId("top").rootExecutionId()).isEqualTo("top");
+    assertThat(tracker.getHistory("l-sess").block())
+        .filteredOn(run -> "child".equals(run.executionId()))
+        .singleElement()
+        .satisfies(run -> assertThat(run.parentExecutionId()).isEqualTo("top"));
+
+    assertThat(tracker.isWithin("grandchild", "top")).isTrue();
+    assertThat(tracker.isWithin("grandchild", "child")).isTrue();
+    assertThat(tracker.isWithin("top", "top")).isTrue();
+    assertThat(tracker.isWithin("again", "top")).isFalse();
+    assertThat(tracker.isWithin("unknown", "top")).isFalse();
+  }
+
+  @Test
+  void testChildWhoseParentIsNotTracked_hasItsParentAsRoot() {
+    StepVerifier.create(tracker.startWorkflow("orphan", "o-sess", "o-wf", List.of("a")))
+        .verifyComplete();
+
+    tracker.recordLineage("orphan", "gone", null);
+
+    assertThat(tracker.getProgressByExecutionId("orphan").rootExecutionId()).isEqualTo("gone");
+  }
+
+  @Test
+  void testChildOfTrackedParentWithoutLineage_hasThatParentAsRoot() {
+    for (final String exec : List.of("p-untold", "c-untold")) {
+      StepVerifier.create(tracker.startWorkflow(exec, "u-sess", "u-wf", List.of("a")))
+          .verifyComplete();
+    }
+
+    tracker.recordLineage("c-untold", "p-untold", null);
+
+    assertThat(tracker.getProgressByExecutionId("c-untold").rootExecutionId())
+        .isEqualTo("p-untold");
+  }
+
+  @Test
+  void testCyclicLineage_endsTheWalkUpTheTree() {
+    for (final String exec : List.of("loop-a", "loop-b")) {
+      StepVerifier.create(tracker.startWorkflow(exec, "c-sess", "c-wf", List.of("a")))
+          .verifyComplete();
+    }
+    tracker.recordLineage("loop-a", "loop-b", null);
+    tracker.recordLineage("loop-b", "loop-a", null);
+
+    assertThat(tracker.isWithin("loop-a", "elsewhere")).isFalse();
+  }
+
+  @Test
   void testEachNodeRunIsOneObservation() {
     final var observations = io.micrometer.observation.ObservationRegistry.create();
     final var seen = new java.util.concurrent.CopyOnWriteArrayList<String>();

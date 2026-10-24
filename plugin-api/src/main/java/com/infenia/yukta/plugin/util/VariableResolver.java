@@ -75,6 +75,15 @@ public class VariableResolver {
   /** Prefix for paths into the message payload. */
   private static final String PAYLOAD_PREFIX = "payload.";
 
+  /** Prefix for paths into the start payload of the run. */
+  private static final String START_PREFIX = "start.";
+
+  /**
+   * Reactor context key under which the engine keeps the run's start payload, read by {@code
+   * ${start...}}.
+   */
+  public static final String START_PAYLOAD_KEY = "payload";
+
   /** Prefix for keys into the message metadata. */
   private static final String METADATA_PREFIX = "metadata.";
 
@@ -111,7 +120,9 @@ public class VariableResolver {
    * <p>In addition to the message-independent sources, expressions may reference the message via
    * {@code ${payload}}, {@code ${payload.some.field}} (nested map access), and {@code
    * ${metadata.someKey}}. When {@code message} is null, such expressions fall back to the default
-   * behavior of returning the key literally.
+   * behavior of returning the key literally. {@code ${start.some.field}} reads the start payload of
+   * the run (what the run, or a parent's SUB_WORKFLOW, was started with), which every node can see
+   * however many nodes lie in between; the engine's own {@code yukta.*} entries stay hidden.
    *
    * @param value the value to resolve
    * @param message the message being processed, or null when no message context is available
@@ -182,6 +193,8 @@ public class VariableResolver {
       return resolveHostValue(key);
     } else if (key.startsWith("context.")) {
       return resolveContextVariable(key.substring(8));
+    } else if (key.startsWith(START_PREFIX)) {
+      return resolveStartValue(key.substring(START_PREFIX.length()));
     } else if (message != null && isMessageKey(key)) {
       return resolveMessageValue(key, message);
     }
@@ -258,6 +271,15 @@ public class VariableResolver {
     }
     return Mono.deferContextual(ctx -> Mono.justOrEmpty(ctx.getOrEmpty(varName)))
         .filter(v -> v instanceof CharSequence || v instanceof Number || v instanceof Boolean);
+  }
+
+  /** Reads a path of the run's start payload; an absent run or path resolves to nothing. */
+  private Mono<Object> resolveStartValue(final String path) {
+    if (path.startsWith("yukta.")) {
+      return Mono.empty();
+    }
+    return Mono.deferContextual(
+        ctx -> Mono.justOrEmpty(getNested(ctx.getOrDefault(START_PAYLOAD_KEY, null), path)));
   }
 
   private Mono<String> resolveSecret(final String key) {

@@ -48,7 +48,14 @@ final class ExecutionHistory {
               .map(
                   s ->
                       new WorkflowExecutionSummary(
-                          s.executionId, s.workflowId, s.status, s.startTime, s.endTime))
+                          s.executionId,
+                          s.workflowId,
+                          s.status,
+                          s.startTime,
+                          s.endTime,
+                          s.parentExecutionId,
+                          s.rootExecutionId,
+                          s.restartOf))
               .sorted((a, b) -> b.startTime().compareTo(a.startTime()))
               .toList();
     }

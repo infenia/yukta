@@ -33,6 +33,15 @@ final class WorkflowState {
   /** The definition version (graph hash) this run uses, or null until recorded. */
   /* default */ volatile String definitionVersion;
 
+  /** The run that started this one as a sub-workflow, or null. */
+  /* default */ volatile String parentExecutionId;
+
+  /** The top of this run's tree of runs (itself when it has no parent), or null until recorded. */
+  /* default */ volatile String rootExecutionId;
+
+  /** The run this one restarts, or null. */
+  /* default */ volatile String restartOf;
+
   /** Map of task progress by node ID. */
   /* default */ final Map<String, TaskProgress> taskMap;
 

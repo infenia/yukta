@@ -230,6 +230,29 @@ public interface TaskTrackerService {
   void recordDefinitionVersion(@NotBlank String executionId, @NotBlank String version);
 
   /**
+   * Record where an execution sits in a tree of runs, so it is reported with its progress and
+   * history and can be followed with its ancestors: the run that started it as a sub-workflow, and
+   * the run it restarts. Its root is the top of the tree (its parent's root, or itself). Ignored
+   * for an unknown execution.
+   *
+   * @param executionId the execution identifier
+   * @param parentExecutionId the run that started it as a sub-workflow, or null
+   * @param restartOf the run it restarts, or null
+   */
+  void recordLineage(
+      @NotBlank String executionId, @Nullable String parentExecutionId, @Nullable String restartOf);
+
+  /**
+   * Whether an execution is the given run or one of its descendants (a sub-workflow it started, at
+   * any depth).
+   *
+   * @param executionId the execution to test
+   * @param ancestorId the run at the top of the tree
+   * @return true when executionId is ancestorId or lies below it
+   */
+  boolean isWithin(@NotBlank String executionId, @NotBlank String ancestorId);
+
+  /**
    * Emit a log event for asynchronous processing.
    *
    * @param executionId the execution identifier

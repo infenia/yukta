@@ -79,6 +79,7 @@ With `retry` or `onError` of `CONTINUE` or `ROUTE`, whatever an attempt emitted 
 | Situation | Outcome |
 |---|---|
 | A processor fails with `onError: FAIL` | The node ends `FAILURE`; nodes after it end `UPSTREAM_FAILED` unless a join rule lets them carry on |
+| A branch fails before a join with `trigger: ALL_DONE` (or `ONE_SUCCESS` with another branch working) | The failed node stays `FAILURE`, the join carries on with what the other branches sent, and the execution can end `SUCCESS`. Check the node statuses, or the `sources` of an `AGGREGATE` join, to see which branches delivered |
 | A terminal fails | The execution ends at once and the other branches are `CANCELLED` |
 | A time limit expires | The node ends `TIMED_OUT` (or the attempt fails, for the element timeout, so retry and error routing apply) |
 | A node's configuration cannot be resolved | That message fails like any plugin failure, so retry and error routing apply |

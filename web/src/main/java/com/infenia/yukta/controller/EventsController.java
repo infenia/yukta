@@ -3,6 +3,7 @@
 package com.infenia.yukta.controller;
 
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -35,6 +36,9 @@ public class EventsController {
   /** The execution event feed. */
   private final ExecutionEventFeed feed;
 
+  /** Knows which runs a run started, for {@code tree}. */
+  private final TaskTrackerService tracker;
+
   /** One event on the wire. */
   public record Envelope(String type, EventSeverity severity, ExecutionEvent event) {}
 
@@ -44,6 +48,8 @@ public class EventsController {
    * <p>Events are not replayed, and a slow reader misses events.
    *
    * @param executionId only events of this execution
+   * @param tree with executionId, also the events of every run it started as a sub-workflow, at any
+   *     depth
    * @param type only events of this kind: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome
    *     or LogLine
    * @param severity only events of this severity or above: INFO, WARN or ERROR
@@ -58,6 +64,12 @@ public class EventsController {
   public Flux<ServerSentEvent<Envelope>> stream(
       @Parameter(description = "Only events of this execution") @RequestParam(required = false)
           final String executionId,
+      @Parameter(
+              description =
+                  "With executionId, also the events of the sub-workflow runs it started, at any"
+                      + " depth")
+          @RequestParam(defaultValue = "false")
+          final boolean tree,
       @Parameter(description = "Only events of this kind") @RequestParam(required = false)
           final String type,
       @Parameter(description = "Only events of this severity or above: INFO, WARN or ERROR")
@@ -67,7 +79,11 @@ public class EventsController {
         severity == null ? EventSeverity.INFO : EventSeverity.parse(severity);
     return SseStreams.events(
         feed.events()
-            .filter(event -> executionId == null || executionId.equals(event.executionId()))
+            .filter(
+                event ->
+                    executionId == null
+                        || executionId.equals(event.executionId())
+                        || tree && tracker.isWithin(event.executionId(), executionId))
             .map(
                 event ->
                     new Envelope(event.getClass().getSimpleName(), EventSeverity.of(event), event))

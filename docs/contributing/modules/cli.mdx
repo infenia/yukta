@@ -605,7 +605,7 @@ What each command calls. sid = session id, eid = execution id, nid = node id, wi
 | controlbus all-nodes | GET /api/control/nodes |  |
 | controlbus heartbeat &lt;wid&gt; &lt;nid&gt; | GET /api/control/workflows/\{wid\}/nodes/\{nid\}/heartbeat | Table rows in random order. |
 | controlbus command &lt;wid&gt; &lt;nid&gt; &lt;json-or-file&gt; | POST /api/control/workflows/\{wid\}/nodes/\{nid\}/command | Body is the raw JSON object; the server needs 1 to 100 entries. |
-| controlbus watch [--execution] [--type] [--until-done] [--quiet] | GET /api/events/stream | One line per event; --quiet shows only problems and the end. |
+| controlbus watch [--execution] [--tree] [--type] [--until-done] [--follow-restarts] [--quiet] | GET /api/events/stream | One line per event; --quiet shows only problems and the end; --tree (default) includes the sub-workflow runs; --follow-restarts goes on with a restart. |
 | result &lt;sid&gt; &lt;eid&gt; | GET /api/sessions/\{sid\}/executions/\{eid\}/results | What reached the terminal nodes. |
 | workflow node retry &lt;eid&gt; &lt;nid&gt; | POST /api/executions/\{eid\}/nodes/\{nid\}/retry | Restart from a failed node; prints the new execution id. |
 | workflow node breakpoint &lt;eid&gt; &lt;nid&gt; | POST and DELETE /api/executions/\{eid\}/nodes/\{nid\}/breakpoint | Data-driven breakpoint. |

@@ -36,6 +36,7 @@ import reactor.test.StepVerifier;
   "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyStaticImports",
+  "PMD.TooManyMethods",
   "unchecked"
 })
 class SubWorkflowRunnerTest {
@@ -116,13 +117,103 @@ class SubWorkflowRunnerTest {
   }
 
   @Test
-  void failingChild_failsTheCaller() {
+  void failingChild_failsTheCaller_withItsOwnMessage_andTellsWhichRunFailedHow() {
     when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
     when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
         .thenReturn(Mono.error(new IllegalStateException("child failed")));
 
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
-        .verifyErrorMessage("child failed");
+        .verifyErrorSatisfies(
+            e -> {
+              assertThat(e).isInstanceOf(SubWorkflowGateway.ChildFailed.class);
+              assertThat(e).hasMessage("child failed");
+              final SubWorkflowGateway.ChildFailed failed = (SubWorkflowGateway.ChildFailed) e;
+              assertThat(failed.status()).isEqualTo("FAILURE");
+              assertThat(failed.executionId()).isNotBlank();
+            });
+  }
+
+  @Test
+  void childThatTimesOut_failsAsTimedOut() {
+    when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
+        .thenReturn(
+            Mono.error(
+                new com.infenia.yukta.service.orchestrator.compiler.ExecutionTimeoutException(5)));
+
+    StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
+        .verifyErrorSatisfies(
+            e -> assertThat(((SubWorkflowGateway.ChildFailed) e).status()).isEqualTo("TIMED_OUT"));
+  }
+
+  @Test
+  void childThatWaitedTooLongForSlot_failsAsTimedOut() {
+    when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
+        .thenReturn(
+            Mono.error(new com.infenia.yukta.service.control.QueueTimeoutException("no slot")));
+
+    StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
+        .verifyErrorSatisfies(
+            e -> assertThat(((SubWorkflowGateway.ChildFailed) e).status()).isEqualTo("TIMED_OUT"));
+  }
+
+  @Test
+  void grandchildsFailure_isReportedAsThisChilds() {
+    when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
+        .thenReturn(
+            Mono.error(
+                new SubWorkflowGateway.ChildFailed(
+                    "grandchild", "FAILURE", new IllegalStateException("deep"))));
+
+    StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
+        .verifyErrorSatisfies(
+            e -> {
+              assertThat(e).hasMessage("deep");
+              assertThat(((SubWorkflowGateway.ChildFailed) e).executionId())
+                  .isNotEqualTo("grandchild");
+            });
+  }
+
+  @Test
+  void theOutcomeTerminalTheChildReached_isReported() {
+    when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
+        .thenReturn(
+            Mono.deferContextual(
+                ctx -> {
+                  final ResultCollector collector = ctx.get("resultCollector");
+                  collector.addCompletion("done", Map.of("reached", true));
+                  collector.addCompletion(
+                      "escalate",
+                      Map.of("reached", true, "outcome", "ESCALATE", "reason", "flaky"));
+                  return Mono.empty();
+                }));
+
+    StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
+        .assertNext(
+            result -> {
+              assertThat(result.status()).isEqualTo("SUCCESS");
+              assertThat(result.outcome()).isEqualTo("ESCALATE");
+              assertThat(result.reason()).isEqualTo("flaky");
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void childThatReachedNoOutcomeTerminal_hasNoOutcome() {
+    when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
+        .thenReturn(delivering("out"));
+
+    StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
+        .assertNext(
+            result -> {
+              assertThat(result.outcome()).isNull();
+              assertThat(result.reason()).isNull();
+            })
+        .verifyComplete();
   }
 
   @Test

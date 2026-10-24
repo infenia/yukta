@@ -124,6 +124,7 @@ A live feed of what happens across the server, for monitors and external supervi
 | Query parameter | Meaning |
 |---|---|
 | `executionId` | Only events of this run |
+| `tree` | With `executionId`: `true` also sends the events of every run it started as a [sub-workflow](/concepts/sub-workflows), at any depth, so one stream follows a whole tree of runs. Default `false` |
 | `type` | Only this kind: `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome` or `LogLine`. Not case sensitive |
 | `severity` | Only this severity or higher: `INFO`, `WARN` or `ERROR`. An invalid value answers `400` |
 

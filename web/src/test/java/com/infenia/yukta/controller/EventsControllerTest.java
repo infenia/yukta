@@ -4,8 +4,13 @@ package com.infenia.yukta.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import java.time.Duration;
 import java.time.Instant;
@@ -18,7 +23,11 @@ import reactor.core.scheduler.Schedulers;
 
 /** Tests for the behaviour described by {@link EventsController}. */
 @NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports"})
 class EventsControllerTest {
+
+  /** Answers which runs lie within a tree, for the tree filter. */
+  private final TaskTrackerService tracker = mock(TaskTrackerService.class);
 
   /** Envelope type of a workflow status change. */
   private static final String WORKFLOW_STATUS = "WorkflowStatusChanged";
@@ -32,13 +41,22 @@ class EventsControllerTest {
         executionId, "PauseWorkflowCommand", "rules", true, null, Instant.now());
   }
 
-  private static List<EventsController.Envelope> collect(
+  private List<EventsController.Envelope> collect(
       final ExecutionEventFeed feed,
       final String executionId,
       final String type,
       final String severity) {
+    return collect(feed, executionId, false, type, severity);
+  }
+
+  private List<EventsController.Envelope> collect(
+      final ExecutionEventFeed feed,
+      final String executionId,
+      final boolean tree,
+      final String type,
+      final String severity) {
     final Flux<ServerSentEvent<EventsController.Envelope>> stream =
-        new EventsController(feed).stream(executionId, type, severity);
+        new EventsController(feed, tracker).stream(executionId, tree, type, severity);
     final var received =
         stream
             .filter(event -> event.data() != null)
@@ -91,9 +109,9 @@ class EventsControllerTest {
 
   @Test
   void stream_withUnknownSeverity_isRejected() {
-    final var controller = new EventsController(new ExecutionEventFeed());
+    final var controller = new EventsController(new ExecutionEventFeed(), tracker);
 
-    assertThatThrownBy(() -> controller.stream(null, null, "loud"))
+    assertThatThrownBy(() -> controller.stream(null, false, null, "loud"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("loud");
   }
@@ -105,5 +123,46 @@ class EventsControllerTest {
     assertThat(events)
         .extracting(envelope -> envelope.event().executionId())
         .containsExactly("e1", "e1");
+  }
+
+  @Test
+  void stream_withTree_alsoDeliversTheEventsOfTheRunsTheExecutionStarted() {
+    when(tracker.isWithin(anyString(), anyString())).thenReturn(false);
+    when(tracker.isWithin("e2", "e1")).thenReturn(true);
+
+    final var events = collect(new ExecutionEventFeed(), "e1", true, null, null);
+
+    assertThat(events)
+        .extracting(envelope -> envelope.event().executionId())
+        .containsExactly("e1", "e1", "e2", "e1");
+  }
+
+  @Test
+  void stream_withTree_leavesOutEventsOfNoRun() {
+    final var feed = new ExecutionEventFeed();
+    final var received =
+        new EventsController(feed, tracker)
+            .stream("e1", true, null, null)
+                .filter(event -> event.data() != null)
+                .map(ServerSentEvent::data)
+                .take(Duration.ofMillis(500))
+                .collectList()
+                .toFuture();
+    Flux.just(new ExecutionEvent.EventsMissed(3, Instant.now()), workflow("e1", "SUCCESS"))
+        .delaySubscription(Duration.ofMillis(100))
+        .publishOn(Schedulers.single())
+        .subscribe(feed::publish);
+
+    assertThat(received.join())
+        .extracting(envelope -> envelope.event().executionId())
+        .containsExactly("e1");
+  }
+
+  @Test
+  void stream_withoutTree_leavesTheRunsTheExecutionStartedOut() {
+    final var events = collect(new ExecutionEventFeed(), "e1", false, null, null);
+
+    assertThat(events).extracting(envelope -> envelope.event().executionId()).containsOnly("e1");
+    verifyNoInteractions(tracker);
   }
 }

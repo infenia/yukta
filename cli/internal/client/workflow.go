@@ -113,15 +113,24 @@ type WorkflowProgress struct {
 	Tasks       []TaskProgress `json:"tasks"`
 	StartTime   Timestamp      `json:"startTime"`
 	EndTime     Timestamp      `json:"endTime"`
+	// ParentExecutionID is the run that started this one as a sub-workflow, if any.
+	ParentExecutionID string `json:"parentExecutionId,omitempty"`
+	// RootExecutionID is the top of this run's tree of runs (itself when it has no parent).
+	RootExecutionID string `json:"rootExecutionId,omitempty"`
+	// RestartOf is the run this one restarts, if any.
+	RestartOf string `json:"restartOf,omitempty"`
 }
 
 // WorkflowExecutionSummary is a brief summary of a workflow execution.
 type WorkflowExecutionSummary struct {
-	ExecutionID string    `json:"executionId"`
-	WorkflowID  string    `json:"workflowId"`
-	Status      string    `json:"status"`
-	StartTime   Timestamp `json:"startTime"`
-	EndTime     Timestamp `json:"endTime"`
+	ExecutionID       string    `json:"executionId"`
+	WorkflowID        string    `json:"workflowId"`
+	Status            string    `json:"status"`
+	StartTime         Timestamp `json:"startTime"`
+	EndTime           Timestamp `json:"endTime"`
+	ParentExecutionID string    `json:"parentExecutionId,omitempty"`
+	RootExecutionID   string    `json:"rootExecutionId,omitempty"`
+	RestartOf         string    `json:"restartOf,omitempty"`
 }
 
 // StartWorkflow initiates execution of a workflow in a session.
