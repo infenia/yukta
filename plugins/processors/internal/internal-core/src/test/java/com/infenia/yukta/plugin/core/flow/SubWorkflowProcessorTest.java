@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -256,6 +257,88 @@ class SubWorkflowProcessorTest {
 
     StepVerifier.create(run("x", Map.of("workflowId", "child")))
         .verifyError(IllegalStateException.class);
+  }
+
+  @Test
+  void concurrency_runsThatManyChildrenAtOnce_andKeepsTheOrderOfTheMessages() {
+    available();
+    final AtomicInteger running = new AtomicInteger();
+    final AtomicInteger most = new AtomicInteger();
+    when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
+        .thenAnswer(
+            call -> {
+              final Object id = ((Map<String, Object>) call.getArgument(2)).get("n");
+              return Mono.defer(
+                  () -> {
+                    most.accumulateAndGet(running.incrementAndGet(), Math::max);
+                    // the first message is the slowest, so a wrong order would show
+                    return Mono.delay(Duration.ofMillis("1".equals(id) ? 150 : 50))
+                        .map(
+                            _ -> {
+                              // done before the result goes on: the next child may start right
+                              // after
+                              running.decrementAndGet();
+                              return new SubWorkflowGateway.Result("child-" + id, List.of());
+                            });
+                  });
+            });
+    final Flux<Message<?>> input =
+        Flux.range(1, 4)
+            .map(i -> (Message<?>) DefaultMessage.create(UUID.randomUUID(), Map.of("n", "" + i)));
+
+    StepVerifier.create(
+            processor
+                .process(input, Map.of("workflowId", "child", "concurrency", 2))
+                .contextWrite(Context.of("sessionId", "s1", "executionId", "e1")))
+        .assertNext(out -> assertThat(out.payload()).isInstanceOf(Map.class))
+        .expectNextCount(3)
+        .verifyComplete();
+
+    assertThat(most).hasValue(2);
+  }
+
+  @Test
+  void concurrencyOfOne_isTheDefault_andRunsOneChildAtATime() {
+    available();
+    final AtomicInteger running = new AtomicInteger();
+    final AtomicInteger most = new AtomicInteger();
+    when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
+        .thenAnswer(
+            call ->
+                Mono.defer(
+                    () -> {
+                      most.accumulateAndGet(running.incrementAndGet(), Math::max);
+                      return Mono.delay(Duration.ofMillis(20))
+                          .map(
+                              _ -> {
+                                running.decrementAndGet();
+                                return new SubWorkflowGateway.Result("c", List.of());
+                              });
+                    }));
+    final Flux<Message<?>> input =
+        Flux.range(1, 3).map(i -> (Message<?>) DefaultMessage.create(UUID.randomUUID(), "x"));
+
+    StepVerifier.create(
+            processor
+                .process(input, Map.of("workflowId", "child"))
+                .contextWrite(Context.of("sessionId", "s1", "executionId", "e1")))
+        .expectNextCount(3)
+        .verifyComplete();
+
+    assertThat(most).hasValue(1);
+  }
+
+  @Test
+  void concurrencyIsValidated() {
+    StepVerifier.create(processor.validateConfig(Map.of("workflowId", "c", "concurrency", 16)))
+        .verifyComplete();
+    for (final Object bad : List.of(0, 17, "many")) {
+      assertThatThrownBy(
+              () -> processor.validateConfig(Map.of("workflowId", "c", "concurrency", bad)).block())
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("concurrency");
+    }
+    assertThat(processor.getConfigSchema()).extracting("name").contains("concurrency");
   }
 
   @Test

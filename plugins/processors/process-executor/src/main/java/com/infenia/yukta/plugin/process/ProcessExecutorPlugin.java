@@ -31,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.context.ContextView;
 import reactor.util.function.Tuple5;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
@@ -312,29 +313,29 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
 
   private Flux<Message<?>> executeWithConfig(
       final Message<?> message, final ProcessExecutorConfig config) {
-    final ProcessExecutionSpec spec =
-        ProcessExecutionSpec.builder()
-            .command(config.command())
-            .workingDir(config.workingDir())
-            .timeoutSeconds(config.timeout())
-            .env(buildEnv(message, config))
-            .useShell(config.useShell())
-            .stdin(buildStdin(message, config))
-            .captureStderr(config.captureStderr())
-            .maxOutputLines(config.maxOutputLines())
-            .maxOutputBytes(config.maxOutputBytes())
-            .build();
-
     log.atInfo().log(
         "Starting process execution: timeout={}s, workingDir={}",
         config.timeout(),
         config.workingDir());
 
     return Mono.deferContextual(
-            ctx ->
-                ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
-                    .map(sink -> gateway.executeForResult(spec, sink))
-                    .orElseGet(() -> gateway.executeForResult(spec)))
+            ctx -> {
+              final ProcessExecutionSpec spec =
+                  ProcessExecutionSpec.builder()
+                      .command(config.command())
+                      .workingDir(config.workingDir())
+                      .timeoutSeconds(config.timeout())
+                      .env(withRunIds(buildEnv(message, config), ctx))
+                      .useShell(config.useShell())
+                      .stdin(buildStdin(message, config))
+                      .captureStderr(config.captureStderr())
+                      .maxOutputLines(config.maxOutputLines())
+                      .maxOutputBytes(config.maxOutputBytes())
+                      .build();
+              return ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
+                  .map(sink -> gateway.executeForResult(spec, sink))
+                  .orElseGet(() -> gateway.executeForResult(spec));
+            })
         .flatMapMany(result -> mapResult(message, config, result))
         .onErrorMap(error -> handleExecutionError(config, error));
   }
@@ -413,6 +414,20 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
       payload.put("parseError", e.getMessage());
     }
     return payload;
+  }
+
+  /**
+   * Adds the ids of the run to the environment of the process, so a script can steer its own run
+   * (pause it, read its tree): {@code YUKTA_EXECUTION_ID} and {@code YUKTA_SESSION_ID}. An entry
+   * the workflow configures with the same name wins.
+   */
+  private static Map<String, String> withRunIds(
+      final Map<String, String> env, final ContextView ctx) {
+    final Map<String, String> all = new HashMap<>();
+    ctx.<String>getOrEmpty("executionId").ifPresent(id -> all.put("YUKTA_EXECUTION_ID", id));
+    ctx.<String>getOrEmpty("sessionId").ifPresent(id -> all.put("YUKTA_SESSION_ID", id));
+    all.putAll(env);
+    return all;
   }
 
   private Map<String, String> buildEnv(

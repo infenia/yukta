@@ -37,7 +37,7 @@ The server refuses every command until you allow some. Set `yukta.process.allowe
 | `workingDir` | string | the server's directory | Working directory. Variables allowed |
 | `timeout` | number | `300` | Seconds the process may run. Positive. Variables allowed. When it runs out, the process and every process it started are stopped (asked to end first, killed after 2 seconds) |
 | `concurrency` | number | `4` | Messages handled at once for this node; each starts a process. Positive |
-| `env` | map | empty | Extra environment variables. Variables allowed. Explicit entries win over `inputMode` ones |
+| `env` | map | empty | Extra environment variables. Variables allowed. Explicit entries win over `inputMode` ones. The process always gets `YUKTA_EXECUTION_ID` and `YUKTA_SESSION_ID`, the ids of the run it belongs to, so a script can steer its own run (for example pause it through the API); an entry of the same name here wins |
 | `useShell` | boolean | `false` | Run the `command` elements as one script through `/bin/sh -c` (or `cmd.exe /c` on Windows). The elements are joined with spaces and run as written, so `\|`, `&&` and `>` work. An element that uses `${...}` becomes one quoted word, so message data cannot add shell syntax. Write `true` or `false`, not an expression. Needs `yukta.process.allow-any=true` |
 | `captureStderr` | boolean | `false` | Capture standard error separately. When `false`, it is merged into standard output |
 | `maxOutputLines` | number | `10000` | Most lines kept per stream. `0` means unlimited |
