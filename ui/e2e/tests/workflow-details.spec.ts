@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { test, expect } from '../fixtures';
+import { test, expect, defaultProgress, sseBody } from '../fixtures';
 
 const WORKFLOW_URL = '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11';
 
@@ -94,6 +94,46 @@ test.describe('Workflow Details Page', () => {
 
     await page.getByRole('button', { name: 'Workflow progress' }).click();
     await expect(page.getByTestId('progress-panel')).toBeVisible();
+  });
+
+  test('updates node status live from the status stream', async ({ page }) => {
+    let release: () => void = () => undefined;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const advanced = {
+      ...defaultProgress,
+      tasks: defaultProgress.tasks.map((task) =>
+        task.nodeId === 'Vectorize_Batch'
+          ? { ...task, status: 'SUCCESS', endTime: '2026-07-26T14:23:20' }
+          : task
+      ),
+    };
+    // Hold the stream open until the snapshot has rendered, then push the frame.
+    await page.route('**/api/executions/*/status/stream*', async (route) => {
+      await released;
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body: sseBody([advanced]),
+      });
+    });
+
+    await page.goto(WORKFLOW_URL);
+    const node = page.getByTestId('workflow-node-Vectorize_Batch');
+    await expect(node).toContainText('Active');
+    await page.evaluate(() => {
+      (window as unknown as { notReloaded: boolean }).notReloaded = true;
+    });
+
+    release();
+
+    await expect(node).toContainText('Done');
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { notReloaded?: boolean }).notReloaded
+      )
+    ).toBe(true);
   });
 
   test('collapses the execution logs panel', async ({ page }) => {

@@ -54,7 +54,7 @@ describe('useExecutionProgress', () => {
 
     await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
     expect(MockEventSource.latest().url).toBe(
-      '/api/executions/exec-091-qp-55/stream?includeHistory=true'
+      '/api/executions/exec-091-qp-55/status/stream?includeHistory=true'
     );
     expect(result.current.isStreaming).toBe(true);
   });

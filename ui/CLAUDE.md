@@ -85,7 +85,7 @@ Report location: `coverage/index.html` (generated, git-ignored)
 
 ### Data Fetching
 - REST: TanStack Query for session list, plugin metadata, workflow configs
-- SSE: `useEventSourceJson` streams execution status (`GET /api/workflow/{sessionId}/status/{executionId}/stream`) and logs (`GET /api/sessions/{sessionId}/executions/{executionId}/logs/entries`). It reconnects with backoff (1 s to 30 s) while the execution is live; the server replays history, so consumers dedupe
+- SSE: `useEventSourceJson` streams execution status (`GET /api/executions/{executionId}/status/stream?includeHistory=true`) and logs (`GET /api/sessions/{sessionId}/executions/{executionId}/logs/entries`). It reconnects with backoff (1 s to 30 s) while the execution is live; the server replays history, so consumers dedupe
 - API client unwraps the `ApiResponse<T>` envelope and throws `ApiError` carrying the server's `message` and `FieldError[]`. Build URLs with ``api`/api/sessions/${id}` `` so IDs are encoded
 - Server statuses are mapped only in `features/workflow/lib/statusMapper.ts`. `NODE_*` values are node-level, never execution-terminal
 

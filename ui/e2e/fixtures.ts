@@ -155,7 +155,7 @@ const defaultExecutions: ExecutionSummary[] = [
   },
 ];
 
-const defaultProgress: WorkflowProgress = {
+export const defaultProgress: WorkflowProgress = {
   executionId: 'exec-091-qp-55',
   sessionId: 'SESSION_A92_XP_2024',
   workflowId: 'wf-982-xk-11',
@@ -228,7 +228,7 @@ const defaultLogs: LogEntry[] = [
   ...entry,
 }));
 
-function sseBody(frames: unknown[]): string {
+export function sseBody(frames: unknown[]): string {
   return frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join('');
 }
 
