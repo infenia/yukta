@@ -31,11 +31,25 @@ public record McpCallSpec(
   }
 
   /**
-   * Key under which the server session is cached: the same endpoint and credentials share one.
+   * Key under which the server session is cached: the same endpoint and credentials share one. The
+   * headers enter as themselves (sorted, each name and value after its length), not as a hash, so
+   * two different credentials can never share a session by a collision. The key lives only in the
+   * session cache; it is not logged.
    *
    * @return the session cache key
    */
   public String sessionKey() {
-    return url + '#' + headers.hashCode();
+    final StringBuilder key = new StringBuilder(url).append('#');
+    headers.entrySet().stream()
+        .sorted(Map.Entry.comparingByKey())
+        .forEach(
+            header ->
+                key.append(header.getKey().length())
+                    .append(':')
+                    .append(header.getKey())
+                    .append(header.getValue().length())
+                    .append(':')
+                    .append(header.getValue()));
+    return key.toString();
   }
 }

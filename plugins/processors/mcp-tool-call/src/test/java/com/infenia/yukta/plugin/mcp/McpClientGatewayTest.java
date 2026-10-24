@@ -29,6 +29,7 @@ import tools.jackson.databind.ObjectMapper;
 
 @SuppressWarnings({
   "PMD.AvoidInstantiatingObjectsInLoops",
+  "PMD.UseConcurrentHashMap",
   "PMD.NcssCount",
   "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
@@ -544,6 +545,39 @@ class McpClientGatewayTest {
         new McpCallSpec(
             a.url(), a.tool(), a.arguments(), Map.of("Authorization", "x"), a.meta(), a.timeout());
     assertThat(a.sessionKey()).isNotEqualTo(b.sessionKey());
+  }
+
+  private McpCallSpec withHeaders(final Map<String, String> headers) {
+    final McpCallSpec base = spec("ping");
+    return new McpCallSpec(
+        base.url(), base.tool(), base.arguments(), headers, base.meta(), base.timeout());
+  }
+
+  @Test
+  void spec_sessionKeyDoesNotShareSessionsWhenHeaderHashesCollide() {
+    // "Aa" and "BB" have the same String.hashCode, so the two header maps have the same hashCode.
+    final Map<String, String> one = Map.of("Authorization", "Aa");
+    final Map<String, String> two = Map.of("Authorization", "BB");
+    assertThat(one.hashCode()).isEqualTo(two.hashCode());
+
+    assertThat(withHeaders(one).sessionKey()).isNotEqualTo(withHeaders(two).sessionKey());
+  }
+
+  @Test
+  void spec_sessionKeyIsStableWhateverTheOrderOfTheHeaders() {
+    final Map<String, String> ordered = new java.util.TreeMap<>();
+    ordered.put("Authorization", "Bearer s3cret-token");
+    ordered.put("X-Tenant", "t1");
+    final Map<String, String> reversed =
+        new java.util.TreeMap<>(java.util.Comparator.reverseOrder());
+    reversed.put("X-Tenant", "t1");
+    reversed.put("Authorization", "Bearer s3cret-token");
+
+    assertThat(withHeaders(ordered).sessionKey()).isEqualTo(withHeaders(reversed).sessionKey());
+    // Names and values are length-prefixed, so moving a character across the border changes it.
+    assertThat(withHeaders(Map.of("ab", "c")).sessionKey())
+        .isNotEqualTo(withHeaders(Map.of("a", "bc")).sessionKey());
+    assertThat(withHeaders(Map.of()).sessionKey()).startsWith(spec("ping").url() + "#");
   }
 
   @Test
