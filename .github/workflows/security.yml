@@ -37,6 +37,7 @@ env:
 jobs:
   security:
     name: Trivy Security Scan
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
