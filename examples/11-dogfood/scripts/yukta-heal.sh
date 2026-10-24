@@ -160,7 +160,7 @@ case "$key" in
     [[ "$fixed" == true ]]
     exit $?
     ;;
-  haiku | sonnet | opus) ;;
+  haiku | sonnet | opus | resume) ;;
   *) echo "HEAL $stage attempt=$attempt unknown mode '$mode'"; exit 1 ;;
 esac
 
@@ -214,29 +214,11 @@ Then answer with the JSON object only."
 
 schema='{"type":"object","properties":{"fixed":{"type":"boolean"},"summary":{"type":"string"}},"required":["fixed","summary"]}'
 
-# A headless claude must not think it is the session that started the server.
-unset_vars=(CLAUDECODE CLAUDE_CODE_SESSION_ID CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE_SSE_PORT
-  CLAUDE_CODE_MESSAGING_SOCKET CLAUDE_CODE_MESSAGING_TOKEN CLAUDE_CODE_CHILD_SESSION
-  CLAUDE_CODE_SESSION_ATTENDED CLAUDE_PID)
-env_u=(); for v in "${unset_vars[@]}"; do env_u+=(-u "$v"); done
+# shellcheck source=_claude.sh
+source "$here/_claude.sh"
+YK_SCHEMA="$schema"
 
-# yk_claude MODEL PROMPT: the one launcher of every headless Claude. Slim on purpose: none of the
-# user's plugins, skills, settings or MCP servers (their tool schemas cost more than a fix), a fixed tool
-# list and a constant system prompt, so the cached prefix is byte-identical across attempts and runs.
-# Not --bare: it would also drop the login. The project hooks still load (they keep the gradle guard).
-yk_claude() {
-  # YUKTA_HEAL_FIXER=1: the repo's PreToolUse hook lets this session run ./gradlew directly.
-  env "${env_u[@]}" YUKTA_HEAL_FIXER=1 "${YUKTA_CLAUDE_BIN:-claude}" -p "$2" --model "$1" \
-    --setting-sources project --strict-mcp-config --disable-slash-commands \
-    --exclude-dynamic-system-prompt-sections \
-    --tools Read,Edit,Write,Grep,Glob,Bash --permission-mode acceptEdits \
-    --allowedTools "Read" "Edit" "Write" "Grep" "Glob" "Bash(./gradlew:*)" "Bash(codegraph:*)" \
-    --disallowedTools "Bash(git commit:*)" "Bash(git push:*)" \
-    --append-system-prompt "$(cat "$here/../fixer-rules.md")" --max-budget-usd "$budget" \
-    --output-format json --json-schema "$schema" --no-session-persistence 2>>"$out"
-}
-
-result="$(yk_claude "$model" "$prompt")"
+result="$(yk_claude "$model" "$prompt" "$here/../fixer-rules.md" "$budget" "$out")"
 
 cost="$(jq -r '.total_cost_usd // 0' <<<"$result" 2>/dev/null || echo 0)"
 usage="$(jq -c '.usage // null | if . == null then null else {input: .input_tokens, cache_creation: .cache_creation_input_tokens, cache_read: .cache_read_input_tokens, output: .output_tokens} end' <<<"$result" 2>/dev/null || echo null)"

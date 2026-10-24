@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Shared helpers for `yk` and the dogfood scripts. Sourced, not executed.
 
-REPO_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+REPO_ROOT="${YUKTA_REPO_ROOT:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)}"
 # Per checkout: heal records, durations, check logs, hook marks.
 STATE_DIR="${YUKTA_DEV_STATE_DIR:-$REPO_ROOT/.yukta-dev}"
 # Per machine: the one dev server every checkout shares (main worktree, builds by commit, pid, log, sessions).
@@ -310,7 +310,7 @@ heal_extras() {
   echo "$nodes"
 }
 
-# heal_workflow POLICY MODULES PROJECT HEALSH HEALDIR LADDER [EXTRAS [PAUSES]]: reads session JSON on stdin and adds the
+# heal_workflow POLICY MODULES PROJECT HEALSH HEALDIR LADDER [EXTRAS [PAUSES [WORKFLOW [IMPL]]]]: reads session JSON on stdin and adds the
 # workflow "check", the gradle-check stages unrolled into ONE graph, so a run is one execution that
 # `yk watch` follows and `yk retry` can steer. POLICY is heal.json (the ladder, which stages are
 # analyzers, and per stage {auto, claude, ladder}); LADDER (comma separated) overrides its ladder.
@@ -325,7 +325,7 @@ heal_extras() {
 heal_workflow() {
   # true when any analyzer of the join failed (an analyzer is skipped by the gate when none did)
   local gate="payload['items'].?[['success'] == false].size() > 0"
-  jq --arg gate "$gate" --argjson extras "${7:-[]}" --arg pauses "${8:-}" --arg pausewait "${YUKTA_PAUSE_SECONDS:-600}" --argjson policy "$1" --arg modules "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" --arg lad "$6" '
+  jq --arg gate "$gate" --argjson extras "${7:-[]}" --arg pauses "${8:-}" --arg wfid "${9:-check}" --arg impl "${10:-}" --arg pausewait "${YUKTA_PAUSE_SECONDS:-600}" --argjson policy "$1" --arg modules "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" --arg lad "$6" '
     ($modules | split(" ") | map(select(. != ""))) as $mods
     | ($lad | split(",") | map(select(. != ""))) as $override
     | (if ($override | length) > 0 then $override else $policy.ladder end) as $ladder
@@ -336,7 +336,9 @@ heal_workflow() {
         | (if $p.auto then ["auto"] else [] end) + (if $p.claude then ($p.ladder // $ladder) else [] end);
     # YUKTA_CLAUDE_BIN swaps the claude binary of the fixers (test-self-heal.sh uses a fake one)
     def env($tasks; $extra): {YUKTA_HEAL_DIR: $healdir, YUKTA_HEAL_TASKS: $tasks, YUKTA_MODULE: $modules}
-        + (if $ENV.YUKTA_CLAUDE_BIN then {YUKTA_CLAUDE_BIN: $ENV.YUKTA_CLAUDE_BIN} else {} end) + $extra;
+        + (if $ENV.YUKTA_CLAUDE_BIN then {YUKTA_CLAUDE_BIN: $ENV.YUKTA_CLAUDE_BIN} else {} end)
+        # the session of the implementer, which the "resume" rung continues instead of starting a new one
+        + (if $impl != "" then {YUKTA_IMPL_SESSION: $impl} else {} end) + $extra;
     def pe($id; $cfg): {nodeId: $id, type: "PROCESS_EXECUTOR",
         config: ({workingDir: $project, timeout: 3600, timeoutSeconds: 3600} + $cfg)};
     def routed($on): if $on then {failureMode: "CONTINUE", routeByExitCode: true} else {failureMode: "ERROR"} end;
@@ -425,7 +427,7 @@ heal_workflow() {
     | ([$stages[] | select(.config.command[0] == "./gradlew") | .config.command[1:][] | select(startswith("-") | not)]
        | unique | join(" ")) as $everything
     | del(.workflows["gradle-check"])
-    | .workflows.check = {workflowId: "check", description: "The quality gate with self-healing, one execution",
+    | .workflows[$wfid] = {workflowId: $wfid, description: "The quality gate with self-healing, one execution",
         nodes: ($body.nodes
                 + [pe("verify"; {command: [$healsh, "verify"], env: env($everything; {})} + routed(false)),
                    {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}}]),
@@ -441,7 +443,7 @@ node_stage() { sed -E 's/\.(run[0-9]+|f[0-9]+|r[0-9]+|pause)$//' <<<"$1"; }
 # print_result SESSION EXECUTION: prints the machine readable RESULT line; returns 0 only when the
 # execution ended SUCCESS.
 print_result() {
-  local progress status failed healed
+  local progress status failed healed outcome
   progress="$("$(find_cli)" -o json workflow status "$1" "$2" | jq '(.data // .)')"
   status="$(jq -r '.status' <<<"$progress")"
   failed="$(jq -r '[.tasks[] | select(.status == "FAILURE" or .status == "TIMED_OUT") | .nodeId][0] // "-"' <<<"$progress")"
@@ -453,6 +455,9 @@ print_result() {
     fi
   fi
   healed="$(healed_stages "$1" "$failed")"
+  # a run can end well and still not be done: an OUTCOME_TERMINAL that reached ESCALATE, FAILED or RETRY
+  outcome="$(jq -r '[.tasks[] | select(.module == "OUTCOME_TERMINAL" and .metadata.reached == true) | .metadata.outcome][0] // "-"' <<<"$progress")"
+  [[ "$status" == SUCCESS && "$outcome" != - && "$outcome" != SUCCESS ]] && status="$outcome"
   echo "RESULT status=$status failed_node=$failed healed=${healed:--} execution=$2 session=$1"
   # what the status line and the Stop hook read: the changes this result is for, and how it ended
   mkdir -p "$STATE_DIR"
@@ -465,7 +470,7 @@ print_result() {
 # that fixed its stage (records written by yukta-heal.sh, step = auto or the model), except the stage
 # that still failed; empty when nothing was healed.
 healed_stages() {
-  local dir="$STATE_DIR/heal/$1"
+  local dir="${YUKTA_HEAL_RECORDS:-$STATE_DIR/heal/$1}"
   [[ -d "$dir" ]] || return 0
   jq -rs --arg failed "${2:--}" '[.[] | select(.fixed and .stage != $failed) | "\(.stage):\(.mode)"] | unique | join(",")' \
     "$dir"/*-[0-9]*.json 2>/dev/null || true
@@ -502,4 +507,95 @@ record_durations() {
     | [$p.tasks[] | select((.startTime // "0001")[:4] != "0001" and (.endTime // "0001")[:4] != "0001")
        | {stage: (.nodeId | stage), secs: ((.endTime | secs) - (.startTime | secs))}]
     | group_by(.stage)[] | "\($p.workflowId)\t\(.[0].stage)\t\(map(.secs) | add)"')
+}
+
+# ---- The issue workflows ----
+
+# issue_variant IMPL_PAUSE PR_PAUSE: the suffix of the workflows without the checkpoints that are off (0)
+issue_variant() {
+  if [[ "$1" == 1 && "$2" == 1 ]]; then echo ""
+  elif [[ "$1" == 0 && "$2" == 1 ]]; then echo "-no-impl-pause"
+  elif [[ "$1" == 1 && "$2" == 0 ]]; then echo "-no-pr-pause"
+  else echo "-no-pauses"; fi
+}
+
+# issue_workflows ISSUESH IMPL_PAUSE PR_PAUSE: prints {"workflows": {...}} with run-issue and implement-issue
+# (suffixed by issue_variant). Everything varying per run comes from the start payload: issue, repo (the
+# main checkout), worktree, implSession.
+#
+#   run-issue        the outer run: implement-issue as a sub-workflow; however it ends badly (a failing node,
+#                    a rejected or unanswered checkpoint, a failing check) release gives the issue back to Ready
+#                    and the run ends ESCALATE, the worktree kept
+#   implement-issue  claim -> worktree -> brief -> [before-implement] -> implement -> check-impl
+#                    -> [before-pr] -> pr -> done
+issue_workflows() {
+  local suffix
+  suffix="$(issue_variant "$2" "$3")"
+  jq -n --arg sh "$1" --arg impl "$2" --arg pr "$3" --arg suffix "$suffix" '
+    def env: {YUKTA_ISSUE: "${start.issue}", YUKTA_REPO_DIR: "${start.repo}", YUKTA_WORKTREE: "${start.worktree}",
+              YUKTA_IMPL_SESSION: "${start.implSession}"}
+             + (if $ENV.YUKTA_CLAUDE_BIN then {YUKTA_CLAUDE_BIN: $ENV.YUKTA_CLAUDE_BIN} else {} end)
+             + (if $ENV.YUKTA_GH then {YUKTA_GH: $ENV.YUKTA_GH} else {} end)
+             + (if $ENV.YUKTA_PROJECT_STATUS_CMD then {YUKTA_PROJECT_STATUS_CMD: $ENV.YUKTA_PROJECT_STATUS_CMD} else {} end);
+    def step($id; $action; $secs; $extra):
+      {nodeId: $id, type: "PROCESS_EXECUTOR",
+       config: {command: [$sh, $action], workingDir: "${start.repo}", timeout: $secs, timeoutSeconds: $secs,
+                failureMode: "ERROR", env: (env + $extra)}};
+    def pause($id; $signal; $secs; $onTimeout):
+      {nodeId: $id, type: "WAIT_FOR_SIGNAL", config: {signal: $signal, timeoutSeconds: $secs, onTimeout: $onTimeout}};
+    def edge($s; $t): {source: $s, target: $t};
+    def chain($ids): [range(1; $ids | length) as $i | edge($ids[$i - 1]; $ids[$i])];
+    ([{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}},
+      step("claim"; "claim"; 600; {}),
+      step("worktree"; "worktree"; 1800; {}),
+      step("brief"; "brief"; 600; {})]
+     + (if $impl == "1" then [pause("before-implement"; "before-implement"; 3600; "CONTINUE")] else [] end)
+     + [step("implement"; "implement"; 14400; {}),
+        {nodeId: "check", type: "SUB_WORKFLOW",
+         config: {workflowId: "check-impl", timeoutSeconds: 14400,
+                  payload: {project: "${start.worktree}", implSession: "${start.implSession}"}}}]
+     + (if $pr == "1" then [pause("before-pr"; "before-pr"; 14400; "FAIL")] else [] end)
+     + [step("pr"; "pr"; 1800; {YUKTA_CHECK_EXECUTION: "${payload.executionId}"}),
+        {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}}]) as $nodes
+    | {workflows: {
+        ("implement-issue" + $suffix): {workflowId: ("implement-issue" + $suffix),
+          description: "Implement one issue in its own worktree, check it, open a draft PR",
+          nodes: $nodes, edges: chain($nodes | map(.nodeId))},
+        ("run-issue" + $suffix): {workflowId: ("run-issue" + $suffix),
+          description: "implement-issue, and the issue back to Ready when it does not end well",
+          nodes: [{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}},
+                  {nodeId: "issue", type: "SUB_WORKFLOW",
+                   config: {workflowId: ("implement-issue" + $suffix), timeoutSeconds: 28800, routeByOutcome: true,
+                            payload: {issue: "${start.issue}", repo: "${start.repo}", worktree: "${start.worktree}",
+                                      implSession: "${start.implSession}"}}},
+                  {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}},
+                  (step("release"; "release"; 600; {}) | .config.failureMode = "CONTINUE"),
+                  {nodeId: "escalate", type: "OUTCOME_TERMINAL",
+                   config: {outcome: "ESCALATE", reason: "the issue run did not finish: the issue is Ready again, the worktree is kept"}}],
+          edges: [edge("trigger"; "issue"),
+                  {source: "issue", target: "done", sourcePort: "success"},
+                  {source: "issue", target: "release", sourcePort: "failure"},
+                  {source: "issue", target: "release", sourcePort: "escalate"},
+                  {source: "issue", target: "release", sourcePort: "retry"},
+                  edge("release"; "escalate")]}}}'
+}
+
+# dev_session HEALSH ISSUESH: the shared session "yukta-dev", parameterised by the start payload so it serves
+# every checkout and every issue worktree: check (a project given as ${start.project}), check-impl (the same,
+# whose fixers resume the implementer's session instead of starting new ones), and the issue workflows.
+dev_session() {
+  local healsh="$1" issuesh="$2" policy base c1 c2 extras ci v ip pp
+  policy="$(cat "$here/heal.json")"
+  base="$(render_session "$here/session.json" "/unused" | jq '.sessionId = "yukta-dev" | .name = "yukta-dev"')"
+  extras="$(heal_extras "$policy" "")"
+  c1="$(heal_workflow "$policy" "" '${start.project}' "$healsh" '${start.project}/.yukta-dev/heal/check' "" "$extras" "" check "" <<<"$base")"
+  c2="$(heal_workflow "$policy" "" '${start.project}' "$healsh" '${start.project}/.yukta-dev/heal/check' "resume,resume" "$extras" "" check-impl '${start.implSession}' <<<"$base")"
+  ci="$(jq -s '. as $a | $a[0] | .workflows = {check: $a[0].workflows.check, "check-impl": $a[1].workflows["check-impl"]}' <(echo "$c1") <(echo "$c2"))"
+  for ip in 1 0; do
+    for pp in 1 0; do
+      v="$(issue_workflows "$issuesh" "$ip" "$pp")"
+      ci="$(jq --argjson v "$v" '.workflows += $v.workflows' <<<"$ci")"
+    done
+  done
+  echo "$ci"
 }
