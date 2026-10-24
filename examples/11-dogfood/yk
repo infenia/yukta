@@ -99,7 +99,8 @@ run_check() {
       | if [[ -n "$modules" ]]; then scope_to_modules $modules; else cat; fi \
       | if (($#)); then splice_args "$@"; else cat; fi \
       | if [[ "$workflow" == check ]]; then
-        heal_workflow "$(cat "$here/heal.json")" "$modules" "$project" "$healsh" "$heal_dir" "$ladder"
+        heal_workflow "$(cat "$here/heal.json")" "$modules" "$project" "$healsh" "$heal_dir" "$ladder" \
+          "$(heal_extras "$(cat "$here/heal.json")" "$modules")"
       else cat; fi
   } >"$tmp/session.json"
 
@@ -149,7 +150,10 @@ cmd_watch() {
   local filter=(--quiet)
   [[ "${3:-}" == --all ]] && filter=()
   export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
-  "$(find_cli)" controlbus watch --execution "$target" --until-done "${filter[@]}"
+  # A node that never ran (a rung nobody needed, or one behind the failure) is not news: the check has
+  # dozens of them. ponytail: filtered here; belongs in the CLI's --quiet if other callers want it.
+  "$(find_cli)" controlbus watch --execution "$target" --until-done "${filter[@]}" \
+    | { if ((${#filter[@]})); then grep -v -E '^NODE [^ ]+ (SKIPPED|UPSTREAM_FAILED|CANCELLED)$'; else cat; fi; } || true
   record_durations "$session" "$target" "${YUKTA_SCOPE:--}"
   print_result "$session" "$target"
 }

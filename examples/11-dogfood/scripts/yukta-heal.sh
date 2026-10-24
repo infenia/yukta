@@ -102,10 +102,10 @@ failed_analyzers() {
   return 0
 }
 
-# analyzer_tasks NAME...: the gradle tasks of the named analyzers, once each.
+# analyzer_tasks NAME...: the gradle tasks of the named gradle analyzers, once each.
 analyzer_tasks() {
   local n
-  for n in "$@"; do analyzer_command "$n"; done \
+  for n in "$@"; do analyzer_command "$n"; done | grep '^\./gradlew ' \
     | tr ' ' '\n' | grep -v '^-' | grep -v '^\./gradlew$' | grep -v '^$' | awk '!seen[$0]++' | paste -sd' '
 }
 
@@ -115,7 +115,6 @@ key="$action"
 case "$key" in
   verify)
     if ! ls "$dir"/*-[0-9]*.json >/dev/null 2>&1 || ! jq -e -s 'any(.[]; .fixed)' "$dir"/*-[0-9]*.json >/dev/null; then
-      echo "HEAL verify skipped: nothing was healed"
       exit 0
     fi
     echo "HEAL verify running every stage again after a heal"
@@ -168,15 +167,22 @@ esac
 # ---- a Claude attempt ---------------------------------------------------------------------------------
 # The stage already ran in the node before; its output is kept in $dir/<stage>.run.out.
 model="$mode"
+allowed='^$'
 : >"$out"
 if [[ "$stage" == analyzers ]]; then
   mapfile -t failed < <(failed_analyzers)
   ((${#failed[@]})) || { record true '[]' 0 "no analyzer is failing"; exit 0; }
   tasks="$(analyzer_tasks "${failed[@]}")"
-  problems=""
-  for n in "${failed[@]}"; do problems+="[$n]"$'\n'"$(problem_lines "$dir/$n.run.out" 25)"$'\n'; done
+  problems="" verify=""
+  for n in "${failed[@]}"; do
+    problems+="[$n]"$'\n'"$(problem_lines "$dir/$n.run.out" 25)"$'\n'
+    verify+="$(analyzer_command "$n")"$'\n'
+  done
   printf '%s\n' "${failed[@]}" | paste -sd, >"$dir/analyzers.failed"
+  # only the actionlint fixer may edit the workflows; with another analyzer failing they stay protected
+  [[ "${failed[*]}" == actionlint ]] && allowed='^\.github/workflows/[^/]+\.ya?ml$'
 else
+  verify="./gradlew $tasks -q --console=plain"
   problems="$(problem_lines "$dir/$stage.run.out")"
   [[ "$stage" == tests ]] && problems+=$'\n'"failing test classes: $(failing_tests | paste -sd' ')"
 fi
@@ -202,7 +208,9 @@ $problems
 ${previous:+$previous
 }Files already changed in the working tree (by the developer, keep them):
 ${stat:-none}
-Verify with only: ./gradlew $tasks -q --console=plain. Then answer with the JSON object only."
+Verify with only:
+$verify
+Then answer with the JSON object only."
 
 schema='{"type":"object","properties":{"fixed":{"type":"boolean"},"summary":{"type":"string"}},"required":["fixed","summary"]}'
 
@@ -242,8 +250,9 @@ gradle "${fmt[@]:-spotlessApply}" >>"$out" 2>&1 || true
 changed="$(changed_since "$before")"
 
 violations=""
-if grep -Eq "$protected" <<<"$changed"; then
-  violations+=" touched protected path: $(grep -E "$protected" <<<"$changed" | head -3 | paste -sd,)."
+touched="$(grep -E "$protected" <<<"$changed" | grep -v -E "$allowed")"
+if [[ -n "$touched" ]]; then
+  violations+=" touched protected path: $(head -3 <<<"$touched" | paste -sd,)."
 fi
 diffs="$(while IFS= read -r f; do [[ -n "$f" && -f "$f" ]] && git diff -U0 "$base" -- "$f" 2>/dev/null; done <<<"$changed")"
 untracked="$(git ls-files -o --exclude-standard | grep -F -x -f <(printf '%s\n' "$changed") | head -50)"

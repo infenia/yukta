@@ -10,10 +10,13 @@ source "$here/_lib.sh"
 need jq
 policy="$(cat "$here/../heal.json")"
 
-render() { # module-list ladder
+# every extra stage with its first variant, as if all the tools were installed
+all_extras="$(jq -c '[.extra | to_entries[] | {nodeId: .key, type: "PROCESS_EXECUTOR", config: {command: .value.variants[0].command}}]' <<<"$policy")"
+
+render() { # module-list ladder extras
   render_session "$here/../session.json" /p \
     | if [[ -n "$1" ]]; then scope_to_modules $1; else cat; fi \
-    | heal_workflow "$policy" "$1" /p /p/heal.sh /p/.yukta-dev/heal/s "${2:-}"
+    | heal_workflow "$policy" "$1" /p /p/heal.sh /p/.yukta-dev/heal/s "${2:-}" "${3:-[]}"
 }
 
 fail() { echo "FAIL $*" >&2; exit 1; }
@@ -24,7 +27,7 @@ assert() { jq -e "$2" <<<"$out" >/dev/null || fail "$scope: $1"; }
 check() { # label module-list ladder number-of-ladder-rungs
   scope="$1"
   local rungs="${4:?}"
-  out="$(render "$2" "$3")"
+  out="$(render "$2" "$3" "${5:-[]}")"
   assert "edges name existing nodes" '.workflows.check as $w | ($w.nodes | map(.nodeId)) as $ids
     | ($ids | length) == ($ids | unique | length)
       and ($w.edges | all(.source as $s | .target as $t | ($ids | index($s)) != null and ($ids | index($t)) != null))'
@@ -75,12 +78,12 @@ check() { # label module-list ladder number-of-ladder-rungs
 }
 
 # 3 ladder rungs; spotless adds the auto rung
-check "all" "" "" 3
+check "all" "" "" 3 "$all_extras"
 check "core" "core" "" 3
 check "core web" "core web" "" 3
 check "ladder sonnet,opus" "" "sonnet,opus" 2
 
-out="$(render "" "")"
+out="$(render "" "" "$all_extras")"
 scope=all
 assert "licenses and security fail the run at once" '[.workflows.check.nodes[] | select(.nodeId == "licenses" or .nodeId == "security")]
   | length == 2 and all(.config.failureMode == "ERROR")'
@@ -89,6 +92,10 @@ assert "stage order" '[.workflows.check.nodes[] | select(.nodeId | test("\\.run1
 assert "the ladder models are in the fixers" '[.workflows.check.nodes[] | select(.nodeId == "compile.f1" or .nodeId == "compile.f3") | .config.command[4]]
   == ["haiku", "opus"] and (.workflows.check.nodes[] | select(.nodeId == "spotless.f1") | .config.command[4]) == "auto"'
 assert "the gate routes on a failed analyzer" '.workflows.check.nodes[] | select(.nodeId == "analyzers.gate") | .config.cases | keys[0] | test("success.*false")'
+assert "the extra stages are analyzers with their own tool" '[.workflows.check.nodes[] | select(.nodeId == "ui" or .nodeId == "docs" or .nodeId == "reuse" or .nodeId == "actionlint")
+  | .config.command[1] == "run"] | length == 4 and all'
+assert "the rerun knows how to run an extra stage" '.workflows.check.nodes[] | select(.nodeId == "analyzers.r1") | .config.env.YUKTA_HEAL_ANALYZERS
+  | test("ui=\u0027sh\u0027 \u0027-c\u0027") and test("(^|\n)reuse=\u0027reuse\u0027 \u0027lint\u0027")'
 echo "ok   details"
 
 [[ "${1:-}" == --online ]] || exit 0

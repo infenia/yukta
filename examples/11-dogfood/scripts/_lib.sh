@@ -278,7 +278,32 @@ ensure_server() {
 
 # ---- The self-healing check ----
 
-# heal_workflow POLICY MODULES PROJECT HEALSH HEALDIR LADDER: reads session JSON on stdin and adds the
+# heal_extras POLICY MODULES: prints, as a JSON array of stage nodes, the extra stages (ui, docs, reuse,
+# actionlint) that apply: those whose module is in scope (all of them unscoped, except ui and docs only
+# with their module) and whose tool is installed. A missing tool is a WARN on stderr, not a failure.
+heal_extras() {
+  local name tool command nodes="[]"
+  # YUKTA_CHECK_EXTRAS=off: only the gradle stages (the online test of the graph runs without the tools)
+  [[ "${YUKTA_CHECK_EXTRAS:-}" == off ]] && { echo "[]"; return; }
+  for name in $(jq -r '.extra // {} | keys[]' <<<"$1"); do
+    jq -e --arg n "$name" --arg mods "$2" '.extra[$n] as $e | ($mods | split(" ") | map(select(. != ""))) as $m
+      | ($m | length) == 0 or (($e.modules // []) | any(. as $x | $m | index($x)))' <<<"$1" >/dev/null || continue
+    command=""
+    for tool in $(jq -r --arg n "$name" '.extra[$n].variants[].tool' <<<"$1"); do
+      command -v "$tool" >/dev/null 2>&1 || continue
+      command="$(jq -c --arg n "$name" --arg t "$tool" '.extra[$n].variants[] | select(.tool == $t) | .command' <<<"$1")"
+      break
+    done
+    if [[ -z "$command" ]]; then
+      echo "WARN: stage $name skipped, none of: $(jq -r --arg n "$name" '[.extra[$n].variants[].tool] | join(", ")' <<<"$1") is installed" >&2
+      continue
+    fi
+    nodes="$(jq -c --arg n "$name" --argjson c "$command" '. + [{nodeId: $n, type: "PROCESS_EXECUTOR", config: {command: $c}}]' <<<"$nodes")"
+  done
+  echo "$nodes"
+}
+
+# heal_workflow POLICY MODULES PROJECT HEALSH HEALDIR LADDER [EXTRAS]: reads session JSON on stdin and adds the
 # workflow "check", the gradle-check stages unrolled into ONE graph, so a run is one execution that
 # `yk watch` follows and `yk retry` can steer. POLICY is heal.json (the ladder, which stages are
 # analyzers, and per stage {auto, claude, ladder}); LADDER (comma separated) overrides its ladder.
@@ -293,7 +318,7 @@ ensure_server() {
 heal_workflow() {
   # true when any analyzer of the join failed (an analyzer is skipped by the gate when none did)
   local gate="payload['items'].?[['success'] == false].size() > 0"
-  jq --arg gate "$gate" --argjson policy "$1" --arg modules "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" --arg lad "$6" '
+  jq --arg gate "$gate" --argjson extras "${7:-[]}" --argjson policy "$1" --arg modules "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" --arg lad "$6" '
     ($modules | split(" ") | map(select(. != ""))) as $mods
     | ($lad | split(",") | map(select(. != ""))) as $override
     | (if ($override | length) > 0 then $override else $policy.ladder end) as $ladder
@@ -334,7 +359,7 @@ heal_workflow() {
     .workflows["gradle-check"].nodes as $all
     | [$all[] | select(.type == "PROCESS_EXECUTOR")] as $stages
     | [$stages[] | select(.nodeId as $x | $policy.analyzers | index($x) | not)] as $sequential
-    | [$stages[] | select(.nodeId as $x | $policy.analyzers | index($x))] as $analyzers
+    | ([$stages[] | select(.nodeId as $x | $policy.analyzers | index($x))] + $extras) as $analyzers
     | [$analyzers[] | select((rungs(.) | length) > 0)] as $healable
     | (reduce $sequential[] as $n ({nodes: [{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}}], edges: [],
                                     exits: [{source: "trigger", port: null}]};
@@ -344,7 +369,8 @@ heal_workflow() {
     | ($ladder | length) as $k
     | (if ($analyzers | length) == 0 then $head
        else
-         ([$healable[] | .nodeId + "=" + (.config.command | join(" "))] | join("\n")) as $list
+         ([$healable[] | .nodeId + "=" + (if .config.command[0] == "./gradlew" then (.config.command | join(" ")) else (.config.command | @sh) end)]
+           | join("\n")) as $list
          | {nodes: ($head.nodes
                     + [$analyzers[] | runner(.nodeId; .; ((rungs(.) | length) > 0))]
                     + [{nodeId: "analyzers.join", type: "AGGREGATE", config: {size: ($analyzers | length)}}]),
