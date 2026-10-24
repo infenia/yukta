@@ -97,14 +97,30 @@ and a `warn`/`deprecat…` line are `WARN`. A failed node's status event also ca
 `HEAL …`, `WORKFLOW <status>`, then `SLOW <node> <s>s (median <m>s, <n> runs)` for a stage over 15s and
 1.5x the median of its last 10 runs at the same scope (`.yukta-dev/durations.tsv`), then `RESULT`.
 
-Steer a run:
+Steer a run (an execution id may be its first 8 characters):
 ```bash
-yk retry <e> <node>                                   # new execution from a failed stage
-yk stop <e>
-yk cli workflow pause <s> <e>                         # or resume
-yk cli workflow node signal <e> <node> --name approval --decision approve
-yk cli workflow node breakpoint <e> <node> --field payload.status --equals error
+yk tree <e>                                           # the run and the runs below it, with current nodes and pending signals
+yk pause <e> [--tree]                                 # or resume / stop; --tree: and every run it started
+yk retry <e> <node>                                   # re-run a failed node and what is behind it
+yk skip <e> <node>                                    # or unskip
+yk signals [<e>]                                      # what waits for an answer
+yk approve <e> [signal]                               # or reject
+yk break <e> <node> --field payload.status --equals error   # --clear removes it
+yk step <e> <node> on                                 # or off / next
 ```
+`scripts/test-steer.sh` runs these against the dev server with a throwaway project.
+
+### Inside Claude Code
+`.claude/settings.json` wires it up (hooks run from `.claude/hooks/yk-hook.sh`, found through
+`git rev-parse --show-toplevel` so they also work when Claude starts in a module folder):
+- **SessionStart** starts the server in the background and tells Claude to build and test through `yk`;
+  **UserPromptSubmit** adds one line naming the yukta skill when a prompt is about building, testing or checking;
+  **PreToolUse** denies direct `./gradlew`, `gradle` and `go test` with the `yk` command to use instead;
+  **PostToolUse** records the Gradle module of every file the session edits; **Stop** asks once for `yk check -m <those
+  modules>` unless a check already passed on exactly the current changes (`.yukta-dev/last-result`).
+- The **status line** (`yk statusline`, cached, no network) shows `yukta :9858 main@ab12cd3 ✓ | 2 running · 1 awaiting | last: core SUCCESS (healed style)`.
+- **Slash commands** `/yk-check`, `/yk-up`, `/yk-finding`; the **MCP** server `yukta` (`.mcp.json`, key from `yk mcp-headers`)
+  with the read-only tools pre-approved; `YUKTA_DOGFOOD=off` turns the hooks off.
 
 ### Dogfood backlog
 Findings are GitHub issues labelled `dogfood`, filed with `yk finding` (`scripts/report-finding.sh`, or

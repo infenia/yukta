@@ -99,6 +99,13 @@ splice_args() {
         else . end)' --args -- "$@"
 }
 
+# changes_sum ROOT: a hash of the uncommitted code changes of a checkout (the Stop hook skips a check
+# that already passed on the same hash)
+changes_sum() {
+  (git -C "$1" diff HEAD; git -C "$1" status --porcelain -- '*.java' '*.kts' '*.gradle' '*.go' '*.ts' '*.tsx' '*.json') 2>/dev/null \
+    | sha1sum | cut -d' ' -f1
+}
+
 # ---- The dev server: built from origin/main, one per machine, on $DEV_PORT ----
 
 healthy() { curl -fsS -m 3 "${1:-$DEV_URL}/actuator/health" >/dev/null 2>&1; }
@@ -447,6 +454,10 @@ print_result() {
   fi
   healed="$(healed_stages "$1" "$failed")"
   echo "RESULT status=$status failed_node=$failed healed=${healed:--} execution=$2 session=$1"
+  # what the status line and the Stop hook read: the changes this result is for, and how it ended
+  mkdir -p "$STATE_DIR"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$(changes_sum "${YUKTA_PROJECT:-$REPO_ROOT}")" "$status" "${YUKTA_SCOPE:--}" "${healed:--}" "$(date +%s)" \
+    >"$STATE_DIR/last-result"
   [[ "$status" == COMPLETED || "$status" == SUCCESS ]]
 }
 

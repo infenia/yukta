@@ -48,8 +48,9 @@ yk check --detach [-m mod]          # STARTED execution=<e> session=<s>   (yk gr
 yk watch <s> <e>                    # blocks until the end: problems only, then RESULT
 ```
 Hand the watching to the `yukta-run-watcher` subagent (Haiku, `run_in_background`) or the Monitor tool,
-so routine events never reach your context. Steer only runs you started:
-`yk retry <e> <node>` (re-run from a fixed stage), `yk stop <e>`, `yk cli workflow pause|resume <s> <e>`.
+so routine events never reach your context. Steer only runs you started: `yk tree <e>`, `yk pause|resume|stop <e>
+[--tree]`, `yk retry|skip <e> <node>`, `yk signals`, `yk approve|reject <e>`; when to use which:
+[reference/control.md](reference/control.md).
 
 ## Dogfood: every anomaly is fixed or filed
 A run is also a test of Yukta. Fix what your change broke; retry a flaky/env failure once; file

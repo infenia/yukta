@@ -17,18 +17,17 @@ stage live; never monitor it, compile warnings alone flood it).
 
 ## Triage every failure or anomaly (root cause, not symptom)
 Start from the failed stage's `ERROR` lines, then:
-- **Caused by your change / blocks this run**: fix it, then rerun. `yk retry <e> <node>` takes a node of
-  that execution: `gradle` for a `yk gradle` run; in the staged check each stage is its own workflow
-  (`STAGE <stage> … execution=<e>`), whose stage node is `run`, so `yk retry <e> run`. Rerunning
+- **Caused by your change / blocks this run**: fix it, then rerun. `yk retry <e> <node>` re-runs a failed node of
+  that execution and what is behind it: `gradle` for a `yk gradle` run; in the check the node that failed is the
+  last run of its stage (`compile.run4`; `yk tree <e>` or the NODE FAILURE line names it). Rerunning
   `yk check` is usually simpler: passing stages are up to date and fast.
 - **Flaky/env** (JVM crash, port clash): retry once; if it recurs, it is a defect: record it.
 - **Unrelated Yukta issue**: don't fix it inline; record it and carry on.
 Also record what you notice while watching: broken functionality, monitoring/execution gaps, performance,
 security. Stop a run early once a stage shows an `ERROR` you cannot be wrong about (`yk stop <e>`).
-Other levers, only on executions you started: `yk cli workflow pause|resume <s> <e>`,
-`yk cli workflow node pause|resume|stop|skip <s> <e> <node>`,
-`yk cli workflow node signal <e> <node> --name N --decision D`,
-`yk cli workflow node breakpoint <e> <node> --field F --equals V [--clear]`.
+Other levers, only on executions you started: `yk pause|resume [--tree] <e>`, `yk skip <e> <node>`,
+`yk approve|reject <e> [signal]`, `yk break <e> <node> --field F --equals V [--clear]`
+([reference/control.md](control.md)).
 If the Go CLI or `yk` falls short (missing flag, filter or output), improve it in `cli/` or
 `examples/11-dogfood/` as part of the work (`:cli:check` needs 100% function coverage).
 
