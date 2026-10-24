@@ -9,6 +9,11 @@ plugins {
 
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
+// Mutation testing is opt-in (-Pmutation): it re-runs the tests once per mutant.
+if (providers.gradleProperty("mutation").isPresent) {
+    apply(plugin = "com.infenia.yukta.mutation-conventions")
+}
+
 // Patch releases of the BOM-managed libraries that fix published CVEs (Dependabot). Boot's BOM reads
 // these properties, so they keep the same minor line; drop each one once Spring Boot ships it.
 extra["jackson-2-bom.version"] = "2.21.7"

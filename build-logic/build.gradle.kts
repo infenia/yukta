@@ -31,6 +31,7 @@ dependencies {
     implementation("net.ltgt.gradle:gradle-errorprone-plugin:${libs.versions.errorpronePlugin.get()}")
     implementation("app.cash.licensee:licensee-gradle-plugin:${libs.versions.licensee.get()}")
     implementation("org.gradle:test-retry-gradle-plugin:${libs.versions.testRetry.get()}")
+    implementation("info.solidsoft.gradle.pitest:gradle-pitest-plugin:${libs.versions.pitestPlugin.get()}")
 
     // Build-time transitives of the plugins above with published CVEs (Dependabot); same minor line
     constraints {
