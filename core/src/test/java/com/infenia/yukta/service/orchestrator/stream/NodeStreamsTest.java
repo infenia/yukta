@@ -18,6 +18,7 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +42,7 @@ import reactor.test.StepVerifier;
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports"
 })
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.stream.NodeStreams - ")
 class NodeStreamsTest {
 
   private static final String EXEC = "exec-1";

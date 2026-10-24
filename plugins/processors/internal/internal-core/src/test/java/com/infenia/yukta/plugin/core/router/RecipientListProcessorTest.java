@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.UiDesign;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,6 +28,7 @@ import reactor.util.context.Context;
   "PMD.UnitTestAssertionsShouldIncludeMessage"
 })
 @NoArgsConstructor
+@ExpectedErrorLog("ERROR com.infenia.yukta.plugin.core.router.RecipientListProcessor - ")
 class RecipientListProcessorTest {
 
   /** Literal DYNAMIC. */

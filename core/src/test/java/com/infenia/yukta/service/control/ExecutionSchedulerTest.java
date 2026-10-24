@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.infenia.yukta.service.control.ExecutionScheduler.Admission;
 import com.infenia.yukta.service.control.ExecutionScheduler.OnLimit;
 import com.infenia.yukta.service.control.ExecutionScheduler.Permit;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
@@ -18,6 +19,7 @@ import reactor.test.StepVerifier;
 
 @NoArgsConstructor
 @SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods"})
+@ExpectedErrorLog("dropped error: .*ErrorCallbackNotImplemented")
 class ExecutionSchedulerTest {
 
   private static final String LATE = "late";

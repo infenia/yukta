@@ -35,6 +35,7 @@ import com.infenia.yukta.service.orchestrator.stream.ConcurrencyGroups;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
@@ -65,6 +66,10 @@ import reactor.test.StepVerifier;
   "PMD.CouplingBetweenObjects",
   "PMD.AvoidDuplicateLiterals",
   "PMD.UseShortArrayInitializer"
+})
+@ExpectedErrorLog({
+  "ERROR com.infenia.yukta.service.orchestrator.strategy.StreamAssemblyHelper - ",
+  "ERROR com.infenia.yukta.service.orchestrator.stream.NodeStreams - "
 })
 class ProcessorNodeAssemblerStrategyTest {
 

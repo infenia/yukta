@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.service.worker.WorkerRegistry;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
@@ -23,6 +24,7 @@ import org.springframework.context.annotation.Import;
 /** A control plane and a worker in one JVM, over a real RSocket connection. */
 @NoArgsConstructor
 @SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter", "PMD.CloseResource"})
+@ExpectedErrorLog("dropped error: .*IllegalStateException")
 class WorkersTransportTest {
 
   /** The control plane: the workers' registry and the RSocket server on a free port. */

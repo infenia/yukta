@@ -15,6 +15,7 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,6 +39,14 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(properties = "yukta.stop.drain-timeout=2s")
 @SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 @NoArgsConstructor
+@ExpectedErrorLog({
+  "ERROR com.infenia.yukta.plugin.process.ProcessExecutorPlugin - ",
+  "ERROR com.infenia.yukta.service.orchestrator.stream.NodeStreams - ",
+  "ERROR com.infenia.yukta.service.orchestrator.strategy.StreamAssemblyHelper - ",
+  "ERROR com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator - ",
+  "ERROR com.infenia.yukta.service.orchestrator.WorkflowOrchestrator - ",
+  "ERROR com.infenia.yukta.service.control.gateway.WorkflowStarter - "
+})
 class WorkflowAcceptanceTest {
 
   private static final Duration WAIT = Duration.ofSeconds(30);

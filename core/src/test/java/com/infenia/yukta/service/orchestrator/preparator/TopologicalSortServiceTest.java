@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.model.workflow.WorkflowNode;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -15,6 +16,8 @@ import org.junit.jupiter.api.Test;
 /** Unit tests for {@link TopologicalSortService}. */
 @NoArgsConstructor
 @SuppressWarnings({"PMD.ShortVariable", "PMD.TooManyMethods"})
+@ExpectedErrorLog(
+    "ERROR com.infenia.yukta.service.orchestrator.preparator.TopologicalSortService - ")
 class TopologicalSortServiceTest {
 
   /** Instance under test. */

@@ -17,6 +17,7 @@ import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.util.VariableResolver;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -58,6 +59,7 @@ import tools.jackson.databind.ObjectMapper;
 @NoArgsConstructor
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
+@ExpectedErrorLog("ERROR com.infenia.yukta.plugin.process.ProcessExecutorPlugin - ")
 class ProcessExecutorPluginTest {
 
   private ProcessExecutorPlugin plugin;

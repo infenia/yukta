@@ -5,6 +5,7 @@ package com.infenia.yukta.persistence.postgres;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -20,6 +21,10 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.TooManyMethods",
   "PMD.AvoidAccessibilityAlteration",
   "PMD.UnitTestShouldIncludeAssert"
+})
+@ExpectedErrorLog({
+  "ERROR com.infenia.yukta.persistence.postgres.Fencing - ",
+  "ERROR com.infenia.yukta.persistence.postgres.R2dbcExecutionLogStore - "
 })
 class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
 
