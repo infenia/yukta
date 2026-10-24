@@ -221,6 +221,31 @@ unanswered `before-implement` goes on after an hour, an unanswered `before-pr` f
 happens by itself). `scripts/yukta-issue.sh` holds the steps (`YUKTA_GH` swaps `gh`, `YUKTA_PROJECT_STATUS_CMD` the project
 update, for tests); `scripts/test-issue.sh` runs them on the dev server with a fake repository, gh and claude.
 
+## Epics: `yk run epic`
+```
+yk run epic 12 [--detach] [--no-pause before-implement,before-pr,between-issues]
+```
+`run-epic` takes the open sub-issues of epic 12 that are assigned to you and Ready (`yukta-issue.sh epic-list`, which
+prints the list as JSON for a `SPLITTER`) and runs `run-issue` for each, **two at a time** (`SUB_WORKFLOW` with
+`concurrency: 2`; each issue has its own worktree, so their checks do not collide, and the gradle concurrency group keeps
+the Gradle builds to two). The implementers start `YUKTA_WARM_DELAY` seconds apart (20), so the second one finds the first
+one's prompt prefix cached. An issue that is not Ready is left out; every issue still ends with its own draft PR, or Ready
+again with its worktree kept.
+- **between-issues** is a checkpoint in front of each issue: an issue starts when you approve it (`yk approve <e> between-issues`,
+  once for each). `--no-pause between-issues` starts them as slots free.
+- **Escalation.** Two issue runs that end `ESCALATE` pause the epic and every run below it (`epic-pause` calls `yk pause --tree`
+  through the run's own `YUKTA_EXECUTION_ID`) and print a warning with the commands to go on (`yk resume <e> --tree`) or give up
+  (`yk stop <e> --tree`). The epic ends `RESULT status=ESCALATE` when any issue did not finish.
+- **Budgets.** `YUKTA_BUDGET_ISSUE` (USD) caps what one issue spends, the implementer and its fixers together; `YUKTA_BUDGET_EPIC` what
+  all issues do. Over a budget `implement` refuses to start and a fixer refuses to spend, so the run ends instead of paying more;
+  set them in the environment of `yk run`. The implementer's own cap is `YUKTA_IMPL_BUDGET` (5).
+- **`yk stats`** adds up what the loop spent from its records: per step (`compile haiku`, `tests resume`, `implement`, ...) the attempts,
+  how many fixed, the dollars and how much of the prompt was read from the cache (the target is 70 % and more).
+
+`yk watch` prints `APPROVAL <signal> waits at <node>: yk approve <e> <signal>` once for each checkpoint that starts waiting, so a watcher
+(the Monitor tool, the `yukta-run-watcher` subagent) sees what needs an answer. `scripts/test-epic.sh` runs the epic on the dev server with a
+fake repository.
+
 ## The check workflow
 `session.json` is `CONSTANT_SOURCE` → one `PROCESS_EXECUTOR` per stage → `CONSOLE_TERMINAL`.
 Stages run sequentially and fail fast (avoids concurrent Gradle runs fighting over one build dir):
