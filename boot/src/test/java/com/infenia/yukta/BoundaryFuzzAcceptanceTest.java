@@ -138,7 +138,8 @@ class BoundaryFuzzAcceptanceTest {
 
   /**
    * The open issue behind a 500 we know about, or null. Each case is narrow on purpose: any other
-   * 5xx still fails the test. Delete a case when its issue is fixed.
+   * 5xx still fails the test. Each case has a probe test
+   * (probe<issue>_...) that fails the day the bug is fixed; delete the probe and the case then.
    */
   private static String knownIssue(
       final String path, final int status, final String mutation, final String body) {
@@ -266,6 +267,57 @@ class BoundaryFuzzAcceptanceTest {
             HttpResponse.BodyHandlers.ofString());
     assertThat(response.statusCode()).as("status for a 5000-node workflow").isLessThan(500);
     assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(LIMIT);
+  }
+
+  private HttpResponse<String> send(final String path, final String body) throws Exception {
+    return client.send(
+        HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+            .timeout(LIMIT)
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json, text/event-stream")
+            .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+            .build(),
+        HttpResponse.BodyHandlers.ofString());
+  }
+
+  // The probes below pin each bug that knownIssue() and check() tolerate. They pass while the bug
+  // exists and fail the day it is fixed, so the tolerance cannot outlive the bug: when one fails,
+  // delete that probe and the matching case in knownIssue() (or the stack-trace allowance in
+  // check()).
+
+  @Test
+  void probe1103_mcpStillLeaksStackTraceForMalformedMessage() throws Exception {
+    final String broken = MCP_START.substring(0, 40) + MCP_START.substring(60);
+    assertThat(send("/mcp", broken).body())
+        .as("#1103 seems fixed: delete this probe and the stack-trace allowance in check()")
+        .contains("\"stackTrace\"");
+  }
+
+  @Test
+  void probe1104_mcpStillAnswersPaddedOversizedBodyWith500() throws Exception {
+    final String padded =
+        MCP_START.substring(0, MCP_START.length() - 1)
+            + ",\"pad\":\""
+            + "x".repeat(2_200_000)
+            + "\"}";
+    assertThat(send("/mcp", padded).statusCode())
+        .as("#1104 seems fixed: delete this probe and the op7 case in knownIssue()")
+        .isEqualTo(500);
+  }
+
+  @Test
+  void probe1109_sessionWithAnExpressionThatDoesNotParseIsStill500() throws Exception {
+    final String badExpression = SESSION.replace("payload.n", "pa?load.n");
+    assertThat(send("/api/sessions", badExpression).statusCode())
+        .as("#1109 seems fixed: delete this probe and the #1109 case in knownIssue()")
+        .isEqualTo(500);
+  }
+
+  @Test
+  void probe1110_mcpStillAnswersNullBodyWith500() throws Exception {
+    assertThat(send("/mcp", "null").statusCode())
+        .as("#1110 seems fixed: delete this probe and the #1110 case in knownIssue()")
+        .isEqualTo(500);
   }
 
   @Test
