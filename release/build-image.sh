@@ -3,16 +3,17 @@
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 # Build the runtime image for each platform that has a server binary in dist/, smoke test it, and
-# optionally push one multi-architecture manifest to GHCR and Docker Hub.
+# optionally push one manifest (a single platform today, linux-amd64) to the registries in IMAGES
+# (GHCR; Docker Hub too when YUKTA_IMAGES lists it).
 #
 # Usage: release/build-image.sh <version> [--push | --promote]
 #   without --push: builds and tests each platform locally (an image for another architecture runs
 #   under QEMU; install it once with: docker run --privileged --rm tonistiigi/binfmt --install all)
-#   with --push: pushes per-architecture tags, then the manifest, to both registries; run
-#   'docker login ghcr.io' and 'docker login' first. Moves no X.Y or latest tag: until the release is
+#   with --push: pushes per-architecture tags, then the manifest, to every registry in IMAGES;
+#   run 'docker login' for each (ghcr.io by default) first. Moves no X.Y or latest tag: until the release is
 #   published, only the exact version is visible
 #   with --promote: after the release is published and tested, points X.Y and latest at the exact
-#   version in both registries (stable releases only)
+#   version in every registry in IMAGES (stable releases only)
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 

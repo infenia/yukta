@@ -14,7 +14,8 @@
 #
 # Before this: set the version in gradle.properties and ui/package.json, merge to main, wait for CI,
 # push the tag, and check it out. install.ps1 is not attached until it has run on a real Windows machine.
-# The arm64 binary comes from the release workflow run for the tag (artifact server-linux-amd64).
+# The server binary comes from the release workflow run for the tag (artifact server-linux-amd64).
+# Only linux-amd64 is published (PLATFORMS in lib.sh); arm64 returns when its runner build is proven.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
