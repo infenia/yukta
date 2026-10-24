@@ -58,8 +58,10 @@ jobs:
         run: make build-all
 
       - name: Checksums
-        working-directory: cli/build
-        run: sha256sum yukta-cli-* > SHA256SUMS
+        run: |
+          source release/lib.sh
+          write_build_marker cli/build   # release.sh refuses a CLI build of another version or commit
+          cd cli/build && sha256sum yukta-cli-* > SHA256SUMS
 
       - name: Attest build provenance
         if: github.ref_type == 'tag'

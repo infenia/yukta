@@ -52,9 +52,13 @@ if ! compgen -G "$DIST/cli/yukta-cli-*" >/dev/null; then
   "$RELEASE_DIR/build-cli.sh"
 fi
 if ! $skip_server; then "$RELEASE_DIR/build-server.sh"; fi
+# Binaries in dist/ may be left over from another version or a -Ob rehearsal, or be downloaded CI
+# artifacts: each directory carries a BUILD marker that must match this release.
+check_build_marker "$DIST/cli" "$version" "$publish"
 
 for platform in "${PLATFORMS[@]}"; do
   if [[ -x "$DIST/$platform/yukta" ]]; then
+    check_build_marker "$DIST/$platform" "$version" "$publish"
     "$RELEASE_DIR/package.sh" "$version" "$platform"
   elif $publish; then
     die "no server binary for $platform: a published release needs every platform (see release/README.md)"
