@@ -63,7 +63,7 @@ function PluginDetail({ type }: { type: string }) {
         )}
         <section>
           <h3 className="text-on-surface text-label-md mb-1.5">Output ports</h3>
-          <p className="text-on-surface-variant text-sm">{ports}</p>
+          <p className="text-on-surface-variant text-body-md">{ports}</p>
         </section>
         {plugin.configSchema && plugin.configSchema.length > 0 && (
           <section>

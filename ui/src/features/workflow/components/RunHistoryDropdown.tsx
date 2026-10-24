@@ -22,7 +22,10 @@ export function RunHistoryDropdown({
 }) {
   if (executions.length === 0) {
     return (
-      <span className="text-xs text-on-surface-variant" data-testid="run-history-empty">
+      <span
+        className="text-body-sm text-on-surface-variant"
+        data-testid="run-history-empty"
+      >
         No runs yet
       </span>
     );
@@ -31,13 +34,15 @@ export function RunHistoryDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex items-center gap-1 text-xs text-on-surface transition-colors hover:text-primary"
+        className="text-body-sm text-on-surface hover:text-primary flex items-center gap-1 transition-colors"
         aria-label="Run history"
       >
         <span className="material-symbols-outlined text-sm">history</span>
         <span className="font-medium">Run History:</span>
         <span className="font-mono">{selectedExecutionId ?? '—'}</span>
-        <span className="material-symbols-outlined text-sm">arrow_drop_down</span>
+        <span className="material-symbols-outlined text-sm">
+          arrow_drop_down
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {executions.map((execution) => (
@@ -47,10 +52,12 @@ export function RunHistoryDropdown({
           >
             <span className="flex w-full items-center gap-3">
               <span className="material-symbols-outlined text-sm">
-                {execution.executionId === selectedExecutionId ? 'check' : 'schedule'}
+                {execution.executionId === selectedExecutionId
+                  ? 'check'
+                  : 'schedule'}
               </span>
-              <span className="font-mono text-xs">{execution.executionId}</span>
-              <span className="ml-auto text-xs text-on-surface-variant">
+              <span className="text-code-sm">{execution.executionId}</span>
+              <span className="text-body-sm text-on-surface-variant ml-auto">
                 {formatClockTime(execution.startTime)} · {execution.status}
               </span>
             </span>

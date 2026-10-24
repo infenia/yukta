@@ -16,22 +16,37 @@ import {
   createMockGraph,
   createMockProgress,
 } from '@/test/factories/workflowFactory';
-import { installMockEventSource, MockEventSource } from '@/test/mocks/MockEventSource';
+import {
+  installMockEventSource,
+  MockEventSource,
+} from '@/test/mocks/MockEventSource';
 
 let executionsPayload = () => [
   createMockExecution(),
-  createMockExecution({ executionId: 'exec-old-1', status: 'SUCCESS', endTime: '2026-07-25T10:00:00' }),
+  createMockExecution({
+    executionId: 'exec-old-1',
+    status: 'SUCCESS',
+    endTime: '2026-07-25T10:00:00',
+  }),
 ];
 
 const server = setupServer(
   http.get('/api/sessions/:sessionId/workflows/:workflowId/graph', () =>
     HttpResponse.json({
-      timestamp: 't', status: 200, message: 'ok', data: createMockGraph(), path: '/graph',
+      timestamp: 't',
+      status: 200,
+      message: 'ok',
+      data: createMockGraph(),
+      path: '/graph',
     })
   ),
   http.get('/api/sessions/:sessionId/workflows/:workflowId/executions', () =>
     HttpResponse.json({
-      timestamp: 't', status: 200, message: 'ok', data: executionsPayload(), path: '/executions',
+      timestamp: 't',
+      status: 200,
+      message: 'ok',
+      data: executionsPayload(),
+      path: '/executions',
     })
   ),
   http.get('/api/executions/:executionId', ({ params }) =>
@@ -41,7 +56,11 @@ const server = setupServer(
       message: 'ok',
       data: createMockProgress(
         params.executionId === 'exec-old-1'
-          ? { executionId: 'exec-old-1', status: 'COMPLETED', endTime: '2026-07-25T10:05:00' }
+          ? {
+              executionId: 'exec-old-1',
+              status: 'COMPLETED',
+              endTime: '2026-07-25T10:05:00',
+            }
           : {}
       ),
       path: '/status',
@@ -52,7 +71,9 @@ const server = setupServer(
 beforeAll(() => server.listen());
 afterAll(() => server.close());
 
-function renderPage(initialEntry = '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11') {
+function renderPage(
+  initialEntry = '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11'
+) {
   return render(
     <QueryClientProvider client={createTestQueryClient()}>
       <BreadcrumbOverridesProvider>
@@ -60,7 +81,10 @@ function renderPage(initialEntry = '/sessions/SESSION_A92_XP_2024/workflow/wf-98
           <div id="header-actions" />
           <div id="breadcrumb-actions" />
           <Routes>
-            <Route path="/sessions/:sessionId/workflow/:workflowId" element={<WorkflowDetailsPage />} />
+            <Route
+              path="/sessions/:sessionId/workflow/:workflowId"
+              element={<WorkflowDetailsPage />}
+            />
           </Routes>
         </MemoryRouter>
       </BreadcrumbOverridesProvider>
@@ -89,7 +113,9 @@ describe('WorkflowDetailsPage', () => {
   it('renders the full page for a running workflow', async () => {
     renderPage();
 
-    expect(await screen.findByTestId('workflow-details-page')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('workflow-details-page')
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Supply_Chain_Optimizer_V2' })
     ).toBeInTheDocument();
@@ -98,8 +124,12 @@ describe('WorkflowDetailsPage', () => {
     expect(screen.getByTestId('progress-panel')).toBeInTheDocument();
     expect(screen.getByTestId('logs-panel')).toBeInTheDocument();
 
-    await waitFor(() => expect(screen.getByTestId('status-chip')).toHaveTextContent('RUNNING'));
-    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent('Done');
+    await waitFor(() =>
+      expect(screen.getByTestId('status-chip')).toHaveTextContent('RUNNING')
+    );
+    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent(
+      'Done'
+    );
   });
 
   it('portals the progress toggle into the header and the run history into the breadcrumb bar', async () => {
@@ -107,7 +137,7 @@ describe('WorkflowDetailsPage', () => {
     await screen.findByTestId('workflow-details-page');
 
     const headerSlot = must(document.getElementById('header-actions'));
-    expect(headerSlot.textContent).toContain('WORKFLOW PROGRESS');
+    expect(headerSlot.textContent).toContain('Workflow progress');
 
     const breadcrumbSlot = must(document.getElementById('breadcrumb-actions'));
     expect(breadcrumbSlot.textContent).toContain('Run History:');
@@ -141,10 +171,14 @@ describe('WorkflowDetailsPage', () => {
     renderPage();
     await screen.findByTestId('progress-panel');
 
-    await user.click(screen.getByRole('button', { name: /close workflow progress/i }));
+    await user.click(
+      screen.getByRole('button', { name: /close workflow progress/i })
+    );
     expect(screen.queryByTestId('progress-panel')).toBeNull();
 
-    await user.click(screen.getByRole('button', { name: /workflow progress/i }));
+    await user.click(
+      screen.getByRole('button', { name: /workflow progress/i })
+    );
     expect(screen.getByTestId('progress-panel')).toBeInTheDocument();
   });
 
@@ -157,17 +191,25 @@ describe('WorkflowDetailsPage', () => {
     await user.click(await screen.findByText('exec-old-1'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('execution-summary')).toHaveTextContent('exec-old-1')
+      expect(screen.getByTestId('execution-summary')).toHaveTextContent(
+        'exec-old-1'
+      )
     );
-    await waitFor(() => expect(screen.getByTestId('status-chip')).toHaveTextContent('COMPLETED'));
+    await waitFor(() =>
+      expect(screen.getByTestId('status-chip')).toHaveTextContent('COMPLETED')
+    );
   });
 
   it('honours a preselected execution from the URL', async () => {
-    renderPage('/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11?exec=exec-old-1');
+    renderPage(
+      '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11?exec=exec-old-1'
+    );
     await screen.findByTestId('workflow-details-page');
 
     await waitFor(() =>
-      expect(screen.getByTestId('execution-summary')).toHaveTextContent('exec-old-1')
+      expect(screen.getByTestId('execution-summary')).toHaveTextContent(
+        'exec-old-1'
+      )
     );
   });
 
@@ -178,8 +220,12 @@ describe('WorkflowDetailsPage', () => {
 
     expect(screen.getByTestId('status-chip')).toHaveTextContent('NOT RUN');
     expect(screen.getByTestId('run-history-empty')).toBeInTheDocument();
-    expect(screen.getByTestId('execution-summary')).toHaveTextContent('NOT RUN');
-    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent('Waiting');
+    expect(screen.getByTestId('execution-summary')).toHaveTextContent(
+      'NOT RUN'
+    );
+    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent(
+      'Waiting'
+    );
     expect(screen.getByTestId('logs-body')).toHaveTextContent('No log output.');
     expect(MockEventSource.instances).toHaveLength(0);
   });
@@ -188,7 +234,9 @@ describe('WorkflowDetailsPage', () => {
     renderPage();
     await screen.findByTestId('workflow-details-page');
 
-    await waitFor(() => expect(MockEventSource.byUrl('/logs/entries')).toBeDefined());
+    await waitFor(() =>
+      expect(MockEventSource.byUrl('/logs/entries')).toBeDefined()
+    );
     const logStream = MockEventSource.byUrl('/logs/entries');
     logStream.open();
     logStream.emit({
@@ -202,7 +250,9 @@ describe('WorkflowDetailsPage', () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByTestId('logs-body')).toHaveTextContent('Processing batch 2/45...')
+      expect(screen.getByTestId('logs-body')).toHaveTextContent(
+        'Processing batch 2/45...'
+      )
     );
     expect(screen.getByTestId('streaming-pill')).toBeInTheDocument();
   });
@@ -211,12 +261,18 @@ describe('WorkflowDetailsPage', () => {
     server.use(
       http.get('/api/sessions/:sessionId/workflows/:workflowId/graph', () =>
         HttpResponse.json({
-          timestamp: 't', status: 500, message: 'boom', error: 'Internal error', path: '/graph',
+          timestamp: 't',
+          status: 500,
+          message: 'boom',
+          error: 'Internal error',
+          path: '/graph',
         })
       )
     );
     renderPage();
 
-    expect(await screen.findByText('Failed to load workflow')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Failed to load workflow')
+    ).toBeInTheDocument();
   });
 });

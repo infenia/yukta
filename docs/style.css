@@ -9,6 +9,14 @@
  * Green and red appear only for success and failure. Depth comes from 1px borders and soft
  * neutral shadows, never from coloured glows or gradients.
  *
+ * The app carries the same finish, so a change here usually has a twin in ui/src/index.css:
+ *   --yk-shadow-sm / -md      -> --elevation-card / -raised (shadow-card, shadow-raised)
+ *   --yk-ease                 -> --ease-out-soft (transition-standard)
+ *   heading letter-spacing    -> text-headline-lg / -md, text-display-01
+ *   table head, sidebar label -> text-overline
+ *   .yk-live                  -> live-dot;  .yk-landing::before -> hero-backdrop
+ *   body::before brand line   -> the AppHeader brand line
+ *
  * Sections: tokens, base, chrome, content, components, page pieces, motion.
  * Selectors are Mintlify's documented ids and the data-component-part attributes of its components.
  */

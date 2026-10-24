@@ -48,10 +48,7 @@ export function SupervisorsPanel() {
       aria-labelledby="supervisors-heading"
       className="flex flex-col gap-2"
     >
-      <h2
-        id="supervisors-heading"
-        className="text-on-surface text-lg font-semibold"
-      >
+      <h2 id="supervisors-heading" className="text-on-surface text-headline-md">
         Supervisors and control planes
       </h2>
       {supervisors.error ? (

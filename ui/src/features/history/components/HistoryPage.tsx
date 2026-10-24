@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { api, fetchApi } from '@/lib/apiClient';
+import { NativeSelect } from '@/components/ui/native-select';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useSessionSummaries } from '@/features/sessions/hooks/useSessionSummaries';
@@ -49,18 +50,18 @@ export function HistoryPage() {
         title="History"
         description="Recent runs of a session, newest first."
         actions={
-          <select
+          <NativeSelect
             aria-label="Session"
             value={sessionId}
             onChange={(event) => setChosen(event.target.value)}
-            className="border-outline-variant bg-surface text-on-surface h-8 rounded-lg border px-2 text-sm"
+            className="w-56"
           >
             {sessions.data?.map((session) => (
               <option key={session.sessionId} value={session.sessionId}>
                 {session.name || session.sessionId}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         }
       />
 

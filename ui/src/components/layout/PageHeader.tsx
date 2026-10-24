@@ -3,19 +3,30 @@
 
 import type { ReactNode } from 'react';
 
-/** The single h1 per page, with optional description and actions. */
+/** The single h1 per page, with optional eyebrow, description and actions. */
 export function PageHeader({
   title,
+  eyebrow,
   description,
   actions,
 }: {
   title: ReactNode;
+  /** A small pill above the title, like the docs' eyebrow. */
+  eyebrow?: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
     <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
+        {eyebrow && (
+          <span
+            data-testid="page-eyebrow"
+            className="border-border bg-card text-label-sm text-on-surface-variant mb-3 inline-flex items-center gap-2 rounded-full border px-3 py-1"
+          >
+            {eyebrow}
+          </span>
+        )}
         <h1 className="text-headline-lg text-on-surface">{title}</h1>
         {description && (
           <p className="text-body-md text-on-surface-variant mt-1">

@@ -4,6 +4,8 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { inputFieldClassName } from '@/components/ui/native-select';
 import { InlineError } from '@/components/common/InlineError';
 import { controlErrorMessage } from '../hooks/useExecutionControl';
 import {
@@ -84,10 +86,8 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
       {versions.data?.map((version) => (
         <div key={version.id} className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
-            <span className="text-on-surface font-mono text-sm">
-              {version.id}
-            </span>
-            <span className="text-on-surface-variant text-sm">
+            <span className="text-on-surface text-code-sm">{version.id}</span>
+            <span className="text-on-surface-variant text-body-md">
               {new Date(version.savedAt).toLocaleString()}
             </span>
             <Button
@@ -119,7 +119,7 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
           <div className="flex items-center gap-2">
             <input
               aria-label={`Note for ${version.id}`}
-              className="border-outline-variant bg-surface text-on-surface w-96 rounded-lg border px-2 py-1 text-sm"
+              className={cn(inputFieldClassName, 'w-96 max-w-full')}
               placeholder="What is this version for?"
               value={notes[version.id] ?? version.note ?? ''}
               onChange={(event) =>
@@ -141,7 +141,10 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
             </Button>
           </div>
           {compared === version.id && diff.isLoading && (
-            <p role="status" className="text-on-surface-variant ml-4 text-xs">
+            <p
+              role="status"
+              className="text-on-surface-variant text-body-sm ml-4"
+            >
               Loading changes…
             </p>
           )}
@@ -151,7 +154,7 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
           {compared === version.id && diff.data && (
             <ul
               aria-live="polite"
-              className="text-on-surface-variant ml-4 font-mono text-xs"
+              className="text-on-surface-variant text-code-sm ml-4"
             >
               {changes(diff.data).length === 0 ? (
                 <li>Same as the current definition</li>

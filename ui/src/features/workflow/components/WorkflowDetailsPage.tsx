@@ -122,7 +122,7 @@ export function WorkflowDetailsPage() {
           <span className="material-symbols-outlined text-base">
             right_panel_open
           </span>
-          WORKFLOW PROGRESS
+          Workflow progress
         </button>
       </HeaderPortal>
       <HeaderPortal targetId="breadcrumb-actions">

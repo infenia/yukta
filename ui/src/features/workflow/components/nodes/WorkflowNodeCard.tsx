@@ -138,7 +138,7 @@ export function WorkflowNodeCard({
             data-testid="port-label"
             aria-hidden="true"
             style={{ top: outputHandleTop(index, outputPorts.length) }}
-            className="text-on-surface-variant bg-surface pointer-events-none absolute right-3 -translate-y-1/2 pl-1 text-xs"
+            className="text-on-surface-variant bg-surface text-body-sm pointer-events-none absolute right-3 -translate-y-1/2 pl-1"
           >
             {port}
           </span>

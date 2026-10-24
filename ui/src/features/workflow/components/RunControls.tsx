@@ -3,6 +3,7 @@
 
 import { buttonVariants } from '@/components/ui/button';
 import { useState } from 'react';
+import { textareaFieldClassName } from '@/components/ui/native-select';
 import { InlineError } from '@/components/common/InlineError';
 import { Modal } from '@/components/common/Modal';
 import {
@@ -12,8 +13,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { StopMode } from '../api/executionControl';
-import { controlErrorMessage, useExecutionControl } from '../hooks/useExecutionControl';
-import { isTerminalExecStatus, toExecStatusCategory } from '../lib/statusMapper';
+import {
+  controlErrorMessage,
+  useExecutionControl,
+} from '../hooks/useExecutionControl';
+import {
+  isTerminalExecStatus,
+  toExecStatusCategory,
+} from '../lib/statusMapper';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
 
@@ -46,13 +53,20 @@ function RunDialog({
       onSubmit(parsePayload(text));
       setParseError(null);
     } catch (e) {
-      setParseError(e instanceof SyntaxError ? 'Payload is not valid JSON' : (e as Error).message);
+      setParseError(
+        e instanceof SyntaxError
+          ? 'Payload is not valid JSON'
+          : (e as Error).message
+      );
     }
   };
 
   return (
     <Modal title="Run workflow" onClose={onClose}>
-      <label className="mb-1 block text-sm text-on-surface" htmlFor="run-payload">
+      <label
+        className="text-body-md text-on-surface mb-1 block"
+        htmlFor="run-payload"
+      >
         Trigger payload (JSON, optional)
       </label>
       <textarea
@@ -62,14 +76,19 @@ function RunDialog({
         rows={8}
         spellCheck={false}
         placeholder='{"key": "value"}'
-        className="mb-3 w-full rounded-lg border border-outline-variant bg-surface-container-low p-2 font-mono text-xs text-on-surface"
+        className={`${textareaFieldClassName} text-code-sm mb-3`}
       />
       <InlineError message={parseError ?? error} />
       <div className="mt-4 flex justify-end gap-2">
         <button type="button" className={BUTTON} onClick={onClose}>
           Cancel
         </button>
-        <button type="button" className={BUTTON} onClick={submit} disabled={pending}>
+        <button
+          type="button"
+          className={BUTTON}
+          onClick={submit}
+          disabled={pending}
+        >
           Run
         </button>
       </div>
@@ -96,10 +115,14 @@ export function RunControls({
 }) {
   const control = useExecutionControl(sessionId, workflowId);
   const [running, setRunning] = useState(false);
-  const [confirm, setConfirm] = useState<{ label: string; mode: StopMode | null } | null>(null);
+  const [confirm, setConfirm] = useState<{
+    label: string;
+    mode: StopMode | null;
+  } | null>(null);
 
   const category = toExecStatusCategory(status);
-  const live = category === 'running' || category === 'paused' || category === 'pending';
+  const live =
+    category === 'running' || category === 'paused' || category === 'pending';
   const canRestart = executionId !== null && isTerminalExecStatus(status);
   const failure = [control.runAction, control.stopAll, control.start]
     .map((mutation) => mutation.error)
@@ -109,20 +132,31 @@ export function RunControls({
     executionId &&
     control.runAction.mutate(
       { executionId, action },
-      { onSuccess: (result) => action === 'restart' && onStarted(result.executionId) }
+      {
+        onSuccess: (result) =>
+          action === 'restart' && onStarted(result.executionId),
+      }
     );
 
   // The stop menu is only enabled for a live execution, so executionId is set here.
   const doStop = (mode: StopMode | null) => {
     if (mode) control.stopAll.mutate(mode);
-    else control.runAction.mutate({ executionId: executionId as string, action: 'stop' });
+    else
+      control.runAction.mutate({
+        executionId: executionId as string,
+        action: 'stop',
+      });
     setConfirm(null);
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2" data-testid="run-controls">
+    <div
+      className="flex flex-wrap items-center gap-2"
+      data-testid="run-controls"
+    >
       <button type="button" className={BUTTON} onClick={() => setRunning(true)}>
-        <span className="material-symbols-outlined text-base">play_arrow</span>Run
+        <span className="material-symbols-outlined text-base">play_arrow</span>
+        Run
       </button>
       <button
         type="button"
@@ -138,15 +172,24 @@ export function RunControls({
         disabled={category !== 'paused'}
         onClick={() => act('resume')}
       >
-        <span className="material-symbols-outlined text-base">play_circle</span>Resume
+        <span className="material-symbols-outlined text-base">play_circle</span>
+        Resume
       </button>
       <DropdownMenu>
-        <DropdownMenuTrigger className={BUTTON} disabled={!live} aria-label="Stop options">
+        <DropdownMenuTrigger
+          className={BUTTON}
+          disabled={!live}
+          aria-label="Stop options"
+        >
           <span className="material-symbols-outlined text-base">stop</span>Stop
-          <span className="material-symbols-outlined text-base">arrow_drop_down</span>
+          <span className="material-symbols-outlined text-base">
+            arrow_drop_down
+          </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setConfirm({ label: 'Stop this run', mode: null })}>
+          <DropdownMenuItem
+            onClick={() => setConfirm({ label: 'Stop this run', mode: null })}
+          >
             Stop this run
           </DropdownMenuItem>
           {(['DRAIN', 'CANCEL', 'KILL'] as const).map((mode) => (
@@ -154,20 +197,35 @@ export function RunControls({
               key={mode}
               onClick={() => setConfirm({ label: `${mode} all runs`, mode })}
             >
-              {mode === 'DRAIN' ? 'Drain' : mode === 'CANCEL' ? 'Cancel' : 'Kill'} all runs
+              {mode === 'DRAIN'
+                ? 'Drain'
+                : mode === 'CANCEL'
+                  ? 'Cancel'
+                  : 'Kill'}{' '}
+              all runs
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      <button type="button" className={BUTTON} disabled={!canRestart} onClick={() => act('restart')}>
-        <span className="material-symbols-outlined text-base">restart_alt</span>Restart
+      <button
+        type="button"
+        className={BUTTON}
+        disabled={!canRestart}
+        onClick={() => act('restart')}
+      >
+        <span className="material-symbols-outlined text-base">restart_alt</span>
+        Restart
       </button>
       <InlineError message={failure ? controlErrorMessage(failure) : null} />
 
       {running && (
         <RunDialog
           pending={control.start.isPending}
-          error={control.start.error ? controlErrorMessage(control.start.error) : null}
+          error={
+            control.start.error
+              ? controlErrorMessage(control.start.error)
+              : null
+          }
           onClose={() => setRunning(false)}
           onSubmit={(payload) =>
             control.start.mutate(payload, {
@@ -181,14 +239,22 @@ export function RunControls({
       )}
       {confirm && (
         <Modal title={`${confirm.label}?`} onClose={() => setConfirm(null)}>
-          <p className="mb-4 text-sm text-on-surface-variant">
+          <p className="text-body-md text-on-surface-variant mb-4">
             This cannot be undone. A stopped run can only be restarted.
           </p>
           <div className="flex justify-end gap-2">
-            <button type="button" className={BUTTON} onClick={() => setConfirm(null)}>
+            <button
+              type="button"
+              className={BUTTON}
+              onClick={() => setConfirm(null)}
+            >
               Cancel
             </button>
-            <button type="button" className={BUTTON} onClick={() => doStop(confirm.mode)}>
+            <button
+              type="button"
+              className={BUTTON}
+              onClick={() => doStop(confirm.mode)}
+            >
               Confirm
             </button>
           </div>
