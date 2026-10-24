@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -26,8 +27,9 @@ import reactor.util.context.ContextView;
  * it reached. The child gets the message payload (a map, or {@code {input: ...}}) as its start
  * payload, or the configured {@code payload} map, whose values may use {@code ${...}} variables
  * (for example {@code ${start.project}} to hand on the parent's start payload). Messages are
- * handled one at a time. With {@code routeByOutcome} a failed child does not fail this node: the
- * message goes out on a port named after how the child ended, so the parent can branch on it.
+ * handled one at a time, or with {@code concurrency} that many at once (results keep the order of
+ * the messages). With {@code routeByOutcome} a failed child does not fail this node: the message
+ * goes out on a port named after how the child ended, so the parent can branch on it.
  */
 @Component
 @SuppressWarnings({"PMD.LawOfDemeter", "PMD.UseConcurrentHashMap"})
@@ -44,6 +46,12 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
 
   /** Config key: route on how the child ended instead of failing when it fails. */
   private static final String ROUTE_BY_OUTCOME = "routeByOutcome";
+
+  /** Config key: how many messages run their child at the same time. */
+  private static final String CONCURRENCY = "concurrency";
+
+  /** Most children one node may run at the same time. */
+  private static final int MAX_CONCURRENCY = 16;
 
   /** Longest wait used when none is configured. */
   private static final long DEFAULT_TIMEOUT_SECONDS = 300;
@@ -80,6 +88,8 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
         - timeoutSeconds: longest the child may run, default 300.
         - routeByOutcome: true to route on how the child ended (ports success, failure, retry,
           escalate) instead of failing this node when the child fails.
+        - concurrency: how many messages run their child at once, default 1 (one at a time), at
+          most 16; the results keep the order of the messages.
         Emits {executionId, results[], status, outcome?, reason?}: outcome is the OUTCOME_TERMINAL the
         child reached (SUCCESS, RETRY, ESCALATE, FAILED), absent when it reached none. Nesting is limited to 5 levels. With
         yukta.execution.max-concurrent the limit must allow the parent and its children together.
@@ -95,7 +105,9 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
         ConfigField.optional(
             TIMEOUT_SECONDS, ConfigField.Type.NUMBER, DEFAULT_TIMEOUT_SECONDS, "Longest run"),
         ConfigField.optional(
-            ROUTE_BY_OUTCOME, ConfigField.Type.BOOLEAN, false, "Route on how the child ended"));
+            ROUTE_BY_OUTCOME, ConfigField.Type.BOOLEAN, false, "Route on how the child ended"),
+        ConfigField.optional(
+            CONCURRENCY, ConfigField.Type.NUMBER, 1, "Children running at the same time"));
   }
 
   @Override
@@ -119,6 +131,7 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
         () -> {
           workflowId(config);
           timeout(config);
+          concurrency(config);
           if (config.get(PAYLOAD) != null && !(config.get(PAYLOAD) instanceof Map<?, ?>)) {
             throw new IllegalArgumentException("payload must be a map");
           }
@@ -130,7 +143,8 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
     final String workflowId = workflowId(config);
     final Duration timeout = timeout(config);
     final boolean route = routeByOutcome(config);
-    return input.concatMap(
+    final int concurrency = concurrency(config);
+    final Function<Message<?>, Mono<Message<?>>> child =
         message ->
             Mono.deferContextual(
                 ctx -> {
@@ -159,7 +173,8 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
                               route
                                   ? SubWorkflowResults.routed(message, result)
                                   : SubWorkflowResults.message(message, result));
-                }));
+                });
+    return concurrency == 1 ? input.concatMap(child) : input.flatMapSequential(child, concurrency);
   }
 
   /** How deep the running workflow is nested, from the start payload of the run. */
@@ -201,6 +216,16 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
       start = Mono.just(map);
     }
     return start;
+  }
+
+  private static int concurrency(final Map<String, Object> config) {
+    final Object value = config.getOrDefault(CONCURRENCY, 1);
+    if (value instanceof Number number
+        && number.intValue() >= 1
+        && number.intValue() <= MAX_CONCURRENCY) {
+      return number.intValue();
+    }
+    throw new IllegalArgumentException("concurrency must be a number from 1 to " + MAX_CONCURRENCY);
   }
 
   private static boolean routeByOutcome(final Map<String, Object> config) {
