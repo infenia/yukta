@@ -48,7 +48,7 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
   private static final String ROUTE_BY_OUTCOME = "routeByOutcome";
 
   /** Config key: how many messages run their child at the same time. */
-  private static final String CONCURRENCY = "concurrency";
+  private static final String CONCURRENCY_KEY = "concurrency";
 
   /** Most children one node may run at the same time. */
   private static final int MAX_CONCURRENCY = 16;
@@ -107,7 +107,7 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
         ConfigField.optional(
             ROUTE_BY_OUTCOME, ConfigField.Type.BOOLEAN, false, "Route on how the child ended"),
         ConfigField.optional(
-            CONCURRENCY, ConfigField.Type.NUMBER, 1, "Children running at the same time"));
+            CONCURRENCY_KEY, ConfigField.Type.NUMBER, 1, "Children running at the same time"));
   }
 
   @Override
@@ -219,7 +219,7 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
   }
 
   private static int concurrency(final Map<String, Object> config) {
-    final Object value = config.getOrDefault(CONCURRENCY, 1);
+    final Object value = config.getOrDefault(CONCURRENCY_KEY, 1);
     if (value instanceof Number number
         && number.intValue() >= 1
         && number.intValue() <= MAX_CONCURRENCY) {
