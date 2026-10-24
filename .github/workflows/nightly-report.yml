@@ -12,6 +12,8 @@ on:
       - "Java CI with Gradle"
       - "Security Scanning (Trivy)"
       - "CodeQL"
+      - "Perf nightly"
+      - "Perf weekly"
     types: [completed]
 
 # One report at a time per workflow, so two runs cannot both open an issue.
