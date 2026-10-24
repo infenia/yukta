@@ -27,6 +27,9 @@ import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
+import com.infenia.yukta.testsupport.ErrorGuardExtension;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,6 +51,8 @@ import reactor.test.StepVerifier;
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports"
 })
+@ExpectedErrorLog(
+    "ERROR com.infenia.yukta.service.control.processor.RestartFromNodeCommandProcessor - ")
 class RestartFromNodeCommandProcessorTest {
 
   private static final String EXEC = "exec-1";
@@ -55,8 +60,7 @@ class RestartFromNodeCommandProcessorTest {
   private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private ExecutionScheduler scheduler =
-      new ExecutionScheduler(
-          0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30));
+      new ExecutionScheduler(0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
   private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
   private final ExecutionArchive archive = new ExecutionArchive();
   private final InMemoryNodeCheckpointStore checkpoints = new InMemoryNodeCheckpointStore(3);
@@ -157,8 +161,7 @@ class RestartFromNodeCommandProcessorTest {
   @Test
   void finishedExecution_isRefusedWhenTheLimitsAreFull() {
     when(registry.findByExecutionId(EXEC)).thenReturn(Optional.empty());
-    scheduler =
-        new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+    scheduler = new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
     scheduler.acquire("s1", "w1");
     processor =
         new RestartFromNodeCommandProcessor(
@@ -253,6 +256,8 @@ class RestartFromNodeCommandProcessorTest {
 
     verify(completionSink).completeRestartSuccess("new-1");
     verify(completionSink, never()).completeRestartFailure(any(), any());
+    // the failure is logged on another thread: wait, or the error lands in the next test
+    ErrorGuardExtension.awaitLogged("Restarted execution from node failed", Duration.ofSeconds(2));
   }
 
   @Test

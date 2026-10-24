@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.Map;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
@@ -15,6 +16,10 @@ import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
 @SuppressWarnings("PMD.CommentRequired")
+@ExpectedErrorLog({
+  "ERROR com.infenia.yukta.persistence.postgres.Fencing - ",
+  "ERROR com.infenia.yukta.persistence.postgres.R2dbcNodeCheckpointStore - "
+})
 class R2dbcNodeCheckpointStoreTest extends PostgresTestSupport {
 
   private R2dbcNodeCheckpointStore store;

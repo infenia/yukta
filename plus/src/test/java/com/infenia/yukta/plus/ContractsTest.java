@@ -23,7 +23,10 @@ import com.infenia.yukta.service.workflow.store.FileWorkflowDefinitionStore;
 import com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.ObjectMapper;
@@ -54,9 +57,21 @@ class ContractsTest {
   public class JsonlExecutionLog extends ExecutionLogStoreContract {
     @TempDir /* default */ Path dir;
 
+    private final List<JsonlExecutionLogStore> created = new ArrayList<>();
+
     @Override
     protected ExecutionLogStore create() {
-      return new JsonlExecutionLogStore(dir.toString(), MAPPER, 500, 10_000, false);
+      final JsonlExecutionLogStore store =
+          new JsonlExecutionLogStore(dir.toString(), MAPPER, 500, 10_000, false);
+      created.add(store);
+      return store;
+    }
+
+    // close drains the writer thread; left open it logs once the temp directory is gone, in a later
+    // test
+    @AfterEach
+    void closeStores() {
+      created.forEach(JsonlExecutionLogStore::close);
     }
   }
 

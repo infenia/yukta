@@ -7,7 +7,6 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
-import ch.qos.logback.core.read.ListAppender;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.NoArgsConstructor;
@@ -19,7 +18,7 @@ import org.slf4j.LoggerFactory;
 @NoArgsConstructor
 final class LogbackProbe implements Probe {
 
-  private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
+  private final EventCollector appender = new EventCollector();
   private final List<Logger> attached = new ArrayList<>();
 
   /** Whether Logback is the SLF4J backend of this JVM. */
@@ -31,7 +30,7 @@ final class LogbackProbe implements Probe {
   @Override
   public void start() {
     final LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
-    appender.list.clear();
+    appender.events.clear();
     appender.setContext(context);
     appender.start();
     // A logger that is not additive keeps its events away from the root, so it gets the appender
@@ -45,12 +44,21 @@ final class LogbackProbe implements Probe {
   }
 
   @Override
+  public List<String> snapshot() {
+    return errors(List.copyOf(appender.events));
+  }
+
+  @Override
   public List<String> stop() {
     attached.forEach(logger -> logger.detachAppender(appender));
     attached.clear();
     appender.stop();
+    return errors(List.copyOf(appender.events));
+  }
+
+  private static List<String> errors(final List<ILoggingEvent> events) {
     final List<String> seen = new ArrayList<>();
-    for (final ILoggingEvent event : List.copyOf(appender.list)) {
+    for (final ILoggingEvent event : events) {
       if (event.getLevel().isGreaterOrEqual(Level.ERROR)) {
         final IThrowableProxy thrown = event.getThrowableProxy();
         seen.add(

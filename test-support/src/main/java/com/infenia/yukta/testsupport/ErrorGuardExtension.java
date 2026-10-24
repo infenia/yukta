@@ -3,12 +3,19 @@
 package com.infenia.yukta.testsupport;
 
 import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.Method;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 import java.util.regex.Pattern;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +23,7 @@ import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.platform.commons.support.ReflectionSupport;
 import org.opentest4j.AssertionFailedError;
 
 /**
@@ -34,7 +42,12 @@ import org.opentest4j.AssertionFailedError;
  */
 @Slf4j
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.CommentRequired",
+  "PMD.TooManyMethods",
+  "PMD.LawOfDemeter",
+  "PMD.AvoidCatchingGenericException"
+})
 public final class ErrorGuardExtension
     implements BeforeEachCallback, AfterEachCallback, AfterAllCallback {
 
@@ -46,6 +59,15 @@ public final class ErrorGuardExtension
 
   private static final ExtensionContext.Namespace NAMESPACE =
       ExtensionContext.Namespace.create(ErrorGuardExtension.class);
+
+  /** System property that, when {@code false}, limits what is expected to the running test. */
+  public static final String MODULE_WIDE_PROPERTY = "yukta.errorGuard.moduleWide";
+
+  /** The patterns declared anywhere in the test classes of this JVM, found once. */
+  private static final AtomicReference<List<Pattern>> DECLARED = new AtomicReference<>();
+
+  /** The probes of the test that is running, for {@link #awaitLogged}. */
+  private static final AtomicReference<List<Probe>> ACTIVE = new AtomicReference<>(List.of());
 
   /** A pattern from an annotation, and where it was declared. */
   private record Expectation(Class<?> owner, String where, Pattern pattern) {}
@@ -62,18 +84,22 @@ public final class ErrorGuardExtension
       }
       probes.forEach(Probe::start);
       context.getStore(NAMESPACE).put(Probe.class, probes);
+      ACTIVE.set(probes);
     }
   }
 
   @Override
   public void afterEach(final ExtensionContext context) {
     final List<?> probes = context.getStore(NAMESPACE).remove(Probe.class, List.class);
+    ACTIVE.set(List.of());
     if (probes != null) {
       final List<String> seen = new ArrayList<>();
       probes.forEach(probe -> seen.addAll(((Probe) probe).stop()));
       final List<Expectation> expected = expectations(context);
-      final List<String> offenders =
-          new ArrayList<>(unexpected(seen, expected.stream().map(Expectation::pattern).toList()));
+      final List<Pattern> known =
+          new ArrayList<>(expected.stream().map(Expectation::pattern).toList());
+      known.addAll(declaredInModule(context.getRequiredTestClass()));
+      final List<String> offenders = new ArrayList<>(unexpected(seen, known));
       for (final Expectation expectation : expected) {
         if (seen.stream().anyMatch(line -> expectation.pattern().matcher(line).find())) {
           matched(context).add(key(expectation));
@@ -97,6 +123,79 @@ public final class ErrorGuardExtension
               .map(ErrorGuardExtension::unused)
               .toList();
       report(context, offenders);
+    }
+  }
+
+  /**
+   * Waits until the running test has logged an ERROR (or dropped a signal) matching {@code regex}.
+   * For a test that provokes an error on another thread: without it the error may be logged after
+   * the test ended and land in the next one. Fails when nothing matches within {@code timeout}.
+   *
+   * @param regex searched in each recorded line
+   * @param timeout how long to wait
+   */
+  public static void awaitLogged(final String regex, final Duration timeout) {
+    final Pattern pattern = Pattern.compile(regex);
+    final long deadline = System.nanoTime() + timeout.toNanos();
+    boolean found = matches(pattern);
+    while (!found && System.nanoTime() < deadline) {
+      LockSupport.parkNanos(Duration.ofMillis(10).toNanos());
+      found = matches(pattern);
+    }
+    if (!found) {
+      throw new AssertionFailedError(
+          "Nothing matching /" + regex + "/ was logged within " + timeout + "; seen: " + seen());
+    }
+  }
+
+  private static boolean matches(final Pattern pattern) {
+    return seen().stream().anyMatch(line -> pattern.matcher(line).find());
+  }
+
+  private static List<String> seen() {
+    final List<String> lines = new ArrayList<>();
+    ACTIVE.get().forEach(probe -> lines.addAll(probe.snapshot()));
+    return lines;
+  }
+
+  /**
+   * Every pattern that any test class of the module declares (on the class, a nested class or a
+   * method). An error that the module's tests expect somewhere is a known source: it is not
+   * reported again when it is logged late, on another thread, while a neighbouring test runs. Only
+   * an error source that no test declares fails. Switched off by {@link #MODULE_WIDE_PROPERTY}.
+   */
+  private static List<Pattern> declaredInModule(final Class<?> testClass) {
+    List<Pattern> found = List.of();
+    if (!"false".equalsIgnoreCase(System.getProperty(MODULE_WIDE_PROPERTY))) {
+      found = DECLARED.updateAndGet(current -> current != null ? current : scan(testClass));
+    }
+    return found;
+  }
+
+  /* default */ static List<Pattern> scan(final Class<?> testClass) {
+    final List<Pattern> patterns = new ArrayList<>();
+    try {
+      final URI root = testClass.getProtectionDomain().getCodeSource().getLocation().toURI();
+      for (final Class<?> type :
+          ReflectionSupport.findAllClassesInClasspathRoot(root, candidate -> true, name -> true)) {
+        collectPatterns(type, patterns);
+        for (final Method method : type.getDeclaredMethods()) {
+          collectPatterns(method, patterns);
+        }
+      }
+    } catch (URISyntaxException | RuntimeException | LinkageError e) {
+      log.warn("[error-guard] could not scan the test classes, using the running test only", e);
+    }
+    return List.copyOf(patterns);
+  }
+
+  private static void collectPatterns(
+      final AnnotatedElement element, final Collection<Pattern> into) {
+    final ExpectedErrorLog annotation = element.getAnnotation(ExpectedErrorLog.class);
+    if (annotation != null) {
+      for (final String regex : annotation.value()) {
+        into.add(Pattern.compile(regex));
+      }
     }
   }
 

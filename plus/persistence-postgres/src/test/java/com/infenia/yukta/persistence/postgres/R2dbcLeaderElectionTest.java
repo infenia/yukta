@@ -5,6 +5,7 @@ package com.infenia.yukta.persistence.postgres;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
 @SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@ExpectedErrorLog("ERROR com.infenia.yukta.persistence.postgres.R2dbcLeaderElection - ")
 class R2dbcLeaderElectionTest extends PostgresTestSupport {
 
   private static final Duration LEASE = Duration.ofSeconds(2);

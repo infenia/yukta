@@ -25,6 +25,7 @@ import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
@@ -52,6 +53,10 @@ import reactor.test.StepVerifier;
   "PMD.AvoidDuplicateLiterals",
   "PMD.ExcessiveImports",
   "PMD.TooManyStaticImports"
+})
+@ExpectedErrorLog({
+  "ERROR com.infenia.yukta.service.orchestrator.strategy.StreamAssemblyHelper - ",
+  "ERROR com.infenia.yukta.service.orchestrator.stream.NodeStreams - "
 })
 class StreamAssemblyHelperTest {
 

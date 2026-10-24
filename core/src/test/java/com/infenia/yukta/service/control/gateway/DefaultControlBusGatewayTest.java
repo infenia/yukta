@@ -49,6 +49,7 @@ import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +79,13 @@ import reactor.test.StepVerifier;
 })
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
+@ExpectedErrorLog({
+  "ERROR com.infenia.yukta.service.control.gateway.DefaultControlBusGateway - ",
+  "ERROR com.infenia.yukta.service.control.gateway.ExecutionQueries - ",
+  "ERROR com.infenia.yukta.service.control.gateway.NodeCommands - ",
+  "ERROR com.infenia.yukta.service.control.gateway.RestartCoordinator - ",
+  "ERROR com.infenia.yukta.service.control.gateway.WorkflowStarter - "
+})
 class DefaultControlBusGatewayTest {
 
   @Mock private ControlBusService controlBusService;

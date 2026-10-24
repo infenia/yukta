@@ -11,11 +11,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.locks.LockSupport;
 import lombok.NoArgsConstructor;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.opentest4j.AssertionFailedError;
@@ -23,7 +25,7 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 
 /** The extension itself: what it does in each mode, driven by a stubbed JUnit context. */
-@ExpectedErrorLog(".*")
+@ExpectedErrorLog({"ERROR guard\\.[a-z]+ - ", "dropped error: .*IllegalStateException"})
 @SuppressWarnings({
   "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
@@ -36,10 +38,13 @@ class ErrorGuardExtensionTest {
 
   private final ErrorGuardExtension extension = new ErrorGuardExtension();
 
-  @AfterEach
-  void clearMode() {
+  // Reset at the start, not the end: the guard that watches this very test runs after any
+  // @AfterEach, and must see the mode the test left behind.
+  @BeforeEach
+  void resetProperties() {
     System.clearProperty(ErrorGuardExtension.MODE_PROPERTY);
     System.clearProperty(ErrorGuardExtension.STALE_PROPERTY);
+    System.setProperty(ErrorGuardExtension.MODULE_WIDE_PROPERTY, "false");
   }
 
   @Test
@@ -161,6 +166,73 @@ class ErrorGuardExtensionTest {
     System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "off");
     final ExtensionContext unused = context(GuardFixtures.Unused.class, "plain");
     assertThatCode(() -> extension.afterAll(unused)).doesNotThrowAnyException();
+  }
+
+  @Test
+  void awaitLogged_waitsForAnErrorLoggedOnAnotherThread() throws Exception {
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "strict");
+    final ExtensionContext context = context(GuardFixtures.Plain.class, "expecting");
+    extension.beforeEach(context);
+    final Thread later =
+        new Thread(
+            () -> {
+              LockSupport.parkNanos(Duration.ofMillis(150).toNanos());
+              LoggerFactory.getLogger("guard.later").error("went wrong later");
+            });
+    later.start();
+    assertThatCode(() -> ErrorGuardExtension.awaitLogged("went wrong later", Duration.ofSeconds(5)))
+        .doesNotThrowAnyException();
+    later.join();
+    extension.afterEach(context);
+  }
+
+  @Test
+  void awaitLogged_failsWhenNothingMatchesInTime() throws Exception {
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "strict");
+    final ExtensionContext context = context(GuardFixtures.Plain.class, "plain");
+    extension.beforeEach(context);
+    LoggerFactory.getLogger("guard.log").error("something else");
+    assertThatThrownBy(
+            () -> ErrorGuardExtension.awaitLogged("never logged", Duration.ofMillis(100)))
+        .isInstanceOf(AssertionFailedError.class)
+        .hasMessageContaining("Nothing matching /never logged/")
+        .hasMessageContaining("something else");
+    assertThatThrownBy(() -> extension.afterEach(context)).isInstanceOf(AssertionFailedError.class);
+  }
+
+  @Test
+  void moduleWide_acceptsAnErrorSourceThatAnotherTestDeclares() throws Exception {
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "strict");
+    System.setProperty(ErrorGuardExtension.MODULE_WIDE_PROPERTY, "true");
+    // "went wrong" is declared by the fixtures: a late error from that test is not this test's
+    // fault
+    final ExtensionContext context = context(GuardFixtures.Plain.class, "plain");
+    extension.beforeEach(context);
+    LoggerFactory.getLogger("guard.log").error("went wrong");
+    assertThatCode(() -> extension.afterEach(context)).doesNotThrowAnyException();
+  }
+
+  @Test
+  void moduleWide_stillFailsAnErrorSourceNoTestDeclares() throws Exception {
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "strict");
+    System.setProperty(ErrorGuardExtension.MODULE_WIDE_PROPERTY, "true");
+    final ExtensionContext context = context(GuardFixtures.Plain.class, "plain");
+    extension.beforeEach(context);
+    LoggerFactory.getLogger("other.source").error("a source no test declares");
+    assertThatThrownBy(() -> extension.afterEach(context))
+        .isInstanceOf(AssertionFailedError.class)
+        .hasMessageContaining("a source no test declares");
+    // the guard that watches this test must not fail it for the error it provoked on purpose
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "off");
+  }
+
+  @Test
+  void scan_findsTheDeclarationsOfTheModule_andFallsBackToNothing() {
+    assertThat(ErrorGuardExtension.scan(GuardFixtures.class))
+        .extracting(java.util.regex.Pattern::pattern)
+        .contains("went wrong", "never happens");
+    // a JDK class has no code source to scan: the guard then uses the running test only
+    assertThat(ErrorGuardExtension.scan(String.class)).isEmpty();
   }
 
   @Test

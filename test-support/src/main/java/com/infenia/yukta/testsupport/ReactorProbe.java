@@ -22,6 +22,11 @@ final class ReactorProbe implements Probe {
   }
 
   @Override
+  public List<String> snapshot() {
+    return List.copyOf(seen);
+  }
+
+  @Override
   public List<String> stop() {
     Hooks.resetOnErrorDropped();
     Hooks.resetOnNextDropped();

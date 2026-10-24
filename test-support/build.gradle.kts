@@ -8,6 +8,7 @@ plugins {
 // module that lacks Reactor or Logback still works: the matching probe is simply not used.
 dependencies {
     compileOnly("org.junit.jupiter:junit-jupiter-api")
+    compileOnly("org.junit.platform:junit-platform-commons")
     compileOnly(libs.reactor.core)
     compileOnly("ch.qos.logback:logback-classic")
 }

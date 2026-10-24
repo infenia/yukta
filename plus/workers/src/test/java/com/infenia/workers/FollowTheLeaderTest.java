@@ -7,6 +7,7 @@ import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.worker.WorkerRegistry;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
@@ -24,6 +25,7 @@ import org.springframework.context.annotation.Import;
 /** A worker that knows several control planes ends up on the leader. */
 @NoArgsConstructor
 @SuppressWarnings("PMD.LawOfDemeter")
+@ExpectedErrorLog("dropped error: .*IllegalStateException")
 class FollowTheLeaderTest {
 
   /** A control plane whose leadership the test decides. */

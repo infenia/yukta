@@ -13,6 +13,7 @@ import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +30,7 @@ import reactor.test.StepVerifier;
 @MockitoSettings
 @NoArgsConstructor
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "PMD.CyclomaticComplexity"})
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.validator.WorkflowValidator - ")
 class WorkflowValidatorTest {
 
   /** Trigger plugin type identifier. */

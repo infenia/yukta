@@ -16,6 +16,7 @@ import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -41,6 +42,7 @@ import reactor.test.StepVerifier;
   "PMD.UseShortArrayInitializer",
   "PMD.TooManyStaticImports"
 })
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator - ")
 class StreamTopologyDecoratorTest {
 
   /** Test data payload. */

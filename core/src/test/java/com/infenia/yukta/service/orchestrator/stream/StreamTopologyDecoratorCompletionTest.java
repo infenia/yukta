@@ -15,6 +15,7 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -30,6 +31,7 @@ import reactor.test.StepVerifier;
 /** The end of a node is made durable once, after its output, before the completion goes on. */
 @NoArgsConstructor
 @SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyStaticImports"})
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator - ")
 class StreamTopologyDecoratorCompletionTest {
 
   private final NodeCheckpointStore store = mock(NodeCheckpointStore.class);

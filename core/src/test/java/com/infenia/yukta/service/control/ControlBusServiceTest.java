@@ -15,6 +15,7 @@ import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -132,6 +133,7 @@ class ControlBusServiceTest {
   @Nested
   @DisplayName("compileAndCacheWorkflow")
   @NoArgsConstructor
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.ControlBusService - ")
   class CompileAndCacheWorkflowTests {
 
     @Test
@@ -419,6 +421,7 @@ class ControlBusServiceTest {
   @Nested
   @DisplayName("sendCommand")
   @NoArgsConstructor
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.ControlBusService - ")
   class SendCommandTests {
 
     @Test
@@ -503,6 +506,7 @@ class ControlBusServiceTest {
   @Nested
   @DisplayName("consumer failure")
   @NoArgsConstructor
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.ControlBusService - ")
   class ConsumerFailureTests {
 
     @Test
@@ -738,6 +742,7 @@ class ControlBusServiceTest {
   @Nested
   @DisplayName("Error handling and resilience")
   @NoArgsConstructor
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.ControlBusService - ")
   class ErrorHandlingTests {
 
     @Test
@@ -821,6 +826,7 @@ class ControlBusServiceTest {
   @DisplayName("handleControlBatch dispatch")
   @MockitoSettings(strictness = Strictness.LENIENT)
   @NoArgsConstructor
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.ControlBusService - ")
   class HandleControlBatchTests {
 
     private Message<?> makeMessage(final Object payload, final int priority) {
@@ -1245,6 +1251,7 @@ class ControlBusServiceTest {
   @DisplayName("Logging branch coverage")
   @MockitoSettings(strictness = Strictness.LENIENT)
   @NoArgsConstructor
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.ControlBusService - ")
   class LoggingBranchTests {
 
     @Test

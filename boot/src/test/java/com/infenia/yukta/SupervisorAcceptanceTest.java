@@ -16,6 +16,7 @@ import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,6 +40,7 @@ import org.springframework.test.context.DynamicPropertySource;
     properties = "yukta.process.allow-any=true")
 @SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.control.gateway.DefaultControlBusGateway - ")
 class SupervisorAcceptanceTest {
 
   private static final Duration WAIT = Duration.ofSeconds(30);

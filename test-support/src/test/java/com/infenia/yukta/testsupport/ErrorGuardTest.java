@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 
 // These tests provoke the very errors the guard looks for, so the guard itself must not mind them.
-@ExpectedErrorLog(".*")
+@ExpectedErrorLog({"ERROR guard\\.[a-z]+ - ", "dropped error: .*IllegalStateException"})
 @SuppressWarnings({"PMD.CommentRequired", "PMD.GuardLogStatement"})
 @NoArgsConstructor
 class ErrorGuardTest {
