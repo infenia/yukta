@@ -280,13 +280,13 @@ jobs:
 
       # boot depends on the ui module, so the shards that build boot or ui need Node and pnpm.
       - name: Set up Node.js
-        if: contains(fromJson('["platform", "ui", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
+        if: contains(fromJson('["platform", "ui", "postgres-acceptance", "plus-acceptance", "workers-acceptance"]'), matrix.name)
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
 
       - name: Set up pnpm
-        if: contains(fromJson('["platform", "ui", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
+        if: contains(fromJson('["platform", "ui", "postgres-acceptance", "plus-acceptance", "workers-acceptance"]'), matrix.name)
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.30.1
@@ -296,11 +296,11 @@ jobs:
       # never runs `pnpm install`.
       - name: Locate pnpm store
         id: pnpm-store
-        if: contains(fromJson('["platform", "ui", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
+        if: contains(fromJson('["platform", "ui", "postgres-acceptance", "plus-acceptance", "workers-acceptance"]'), matrix.name)
         run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm store
-        if: contains(fromJson('["platform", "ui", "postgres-acceptance", "plus-acceptance"]'), matrix.name)
+        if: contains(fromJson('["platform", "ui", "postgres-acceptance", "plus-acceptance", "workers-acceptance"]'), matrix.name)
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
