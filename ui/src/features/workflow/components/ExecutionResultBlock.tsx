@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { CodeBlock } from '@/components/common/CodeBlock';
+import { Card } from '@/components/ui/card';
 import { useExecutionResults } from '../hooks/useExecutionResults';
 
 function formatPayload(payload: unknown): string {
@@ -28,12 +30,9 @@ export function ExecutionResultBlock({
   }
 
   return (
-    <div
-      className="border-outline-variant rounded-xl border p-4"
-      data-testid="execution-result"
-    >
-      <h3 className="text-on-surface mb-2 flex items-center gap-2 text-xs font-semibold tracking-wider">
-        RESULT
+    <Card className="p-4" data-testid="execution-result">
+      <h3 className="text-overline mb-2 flex items-center gap-2">
+        Result
         {isStreaming && (
           <span
             className="text-label-sm text-primary"
@@ -44,7 +43,7 @@ export function ExecutionResultBlock({
         )}
       </h3>
       {results.length === 0 ? (
-        <p className="text-on-surface-variant text-xs">
+        <p className="text-on-surface-variant text-body-sm">
           {complete
             ? 'The execution produced no result.'
             : 'Waiting for a result…'}
@@ -53,16 +52,17 @@ export function ExecutionResultBlock({
         <ul className="flex flex-col gap-2">
           {results.map((result) => (
             <li key={result.sequence}>
-              <span className="text-on-surface-variant text-xs">
+              <span className="text-on-surface-variant text-body-sm">
                 {result.nodeId}
               </span>
-              <pre className="bg-surface-container text-on-surface max-h-48 overflow-auto rounded p-2 font-mono text-xs break-all whitespace-pre-wrap">
-                {formatPayload(result.payload)}
-              </pre>
+              <CodeBlock
+                code={formatPayload(result.payload)}
+                label={`${result.nodeId} result`}
+              />
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }

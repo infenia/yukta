@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-/** Compact error line for failed actions. */
+import { Callout } from './Callout';
+
+/** Compact error notice for failed actions (a danger Callout, role=alert). */
 export function InlineError({ message }: { message: string | null }) {
   return message ? (
-    <p role="alert" className="text-sm text-error">
+    <Callout kind="danger" compact>
       {message}
-    </p>
+    </Callout>
   ) : null;
 }

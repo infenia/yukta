@@ -310,7 +310,10 @@ Defines colours, type, spacing, dark mode, shared page pieces and the icon font 
 - Plugin categories have their own colours (trigger orange, processor blue, terminal slate), used only on the canvas, the plugin catalogue and edges. Node effects (glow, flowing edges) are switched off when the user prefers reduced motion.
 - Components such as button, input, table and dropdown are copied-in shadcn primitives built on Base UI. Re-adding one needs three fixes by hand: the cn import path, Material Symbols instead of lucide-react, and the license header.
 - Icons are Material Symbols Outlined from a self-hosted subset. A script scans src for icon names, asks Google Fonts for a font with just those glyphs and writes src/assets/material-symbols-subset.woff2 (about 13.7 KB now, versus 3.96 MB for the full font).
-- Fonts are Inter Variable and JetBrains Mono, packaged from npm. Minimum text size is 12 px. Shared pieces: PageHeader, StateMessage, CodeBlock and StatusChip.
+- Fonts are Inter Variable and JetBrains Mono, packaged from npm. Minimum text size is 12 px. Text uses named sizes (page title, section, body, label, code and a small "overline" for panel and table labels) rather than raw Tailwind sizes.
+- The app follows the docs site's theme, so the two read as one product. Surfaces are cards on a hairline border with a soft neutral shadow, and clickable cards lift slightly with a blue-tinted border on hover. There is one easing curve, one table style, tinted notices (Callout) and a live dot with an expanding ring for anything running. The header carries the logo's blue-to-orange line and pill-shaped navigation. The session list has the docs' hero glow and grid behind its header.
+- Shared pieces: PageHeader, StateMessage (the only loading, empty and error pattern), CodeBlock, StatusChip, Callout, Card, the table frame and native form fields styled like the inputs.
+- The class-merging helper (cn) is taught the custom type and shadow names. Without that, it mistakes a named text size for a colour and silently drops it.
 
 - **Guarantees.** No screen hardcodes a colour for status or logs; dark mode and reduced motion are honoured everywhere the tokens are used.
 - **State.** The theme choice is stored in localStorage; the rest is static.
@@ -672,6 +675,7 @@ Measured from the ui/dist/assets folder present in the working tree when this pa
 | Rule: live data through useEventSourceJson | Consumers must tolerate replayed history |
 | Rule: map statuses only in statusMapper.ts | Never interpret raw status words elsewhere |
 | Rule: colours via tokens | Use success, warning, terminal and log-\* tokens; never hardcode black or neutral grays |
+| Rule: one look with the docs | Use Card, TableFrame, StateMessage and Callout, shadow-card or shadow-raised and the named text sizes; register any new text-\* or shadow-\* utility in lib/utils.ts |
 
 ## Architecture decisions
 
