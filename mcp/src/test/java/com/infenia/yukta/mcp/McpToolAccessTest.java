@@ -66,4 +66,50 @@ class McpToolAccessTest {
     final byte[] ok = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
     assertThat(McpToolAccess.permitted(key("OPERATOR", null), ok)).isTrue();
   }
+
+  private static byte[] read(final String uri) {
+    return ("{\"method\":\"resources/read\",\"params\":{\"uri\":\"" + uri + "\"}}")
+        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+  }
+
+  @Test
+  void sessionKeysReadOnlyTheLogsOfTheirOwnSession() {
+    final var team = key("VIEWER", "a");
+
+    assertThat(McpToolAccess.permitted(team, read("yukta://sessions/a/executions/e1/logs")))
+        .isTrue();
+    assertThat(McpToolAccess.permitted(team, read("yukta://sessions/b/executions/e1/logs")))
+        .isFalse();
+    assertThat(McpToolAccess.permitted(team, read("yukta://sessions/%61/executions/e1/logs")))
+        .isFalse();
+    assertThat(McpToolAccess.permitted(team, read("yukta://sessions//executions/e1/logs")))
+        .isFalse();
+    assertThat(McpToolAccess.permitted(team, read("yukta://sessions/a"))).isTrue();
+    assertThat(McpToolAccess.permitted(team, read("yukta://sessions/b"))).isFalse();
+  }
+
+  @Test
+  void resourcesWithoutSessionAreOpenToAnyRoleAndUnknownOnesToUnrestrictedAdmins() {
+    assertThat(McpToolAccess.permitted(key("VIEWER", "a"), read("yukta://overview"))).isTrue();
+    assertThat(McpToolAccess.permitted(key("VIEWER", "a"), read("yukta://architecture"))).isTrue();
+    assertThat(McpToolAccess.permitted(key("VIEWER", "a"), read("yukta://other"))).isFalse();
+    assertThat(McpToolAccess.permitted(key("VIEWER", null), read("yukta://other"))).isFalse();
+    assertThat(McpToolAccess.permitted(key("ADMIN", "a"), read("yukta://other"))).isFalse();
+    assertThat(McpToolAccess.permitted(key("ADMIN", null), read("yukta://other"))).isTrue();
+    assertThat(
+            McpToolAccess.permitted(
+                key("VIEWER", null), read("yukta://sessions/b/executions/e/logs")))
+        .isTrue();
+  }
+
+  @Test
+  void batchWithOneForeignResourceReadIsRefused() {
+    final byte[] batch =
+        ("[{\"method\":\"resources/read\",\"params\":{\"uri\":\"yukta://overview\"}},"
+                + "{\"method\":\"resources/read\",\"params\":{\"uri\":"
+                + "\"yukta://sessions/b/executions/e/logs\"}}]")
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+    assertThat(McpToolAccess.permitted(key("VIEWER", "a"), batch)).isFalse();
+  }
 }
