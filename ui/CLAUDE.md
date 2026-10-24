@@ -23,16 +23,16 @@ cd ui && pnpm dev
 ### Production Build
 ```bash
 # Build the React SPA and create JAR with static assets
-./gradlew :ui:build
+yk gradle :ui:build
 ```
 
 ### Testing
 ```bash
 # Unit/component tests (Vitest + React Testing Library)
-./gradlew :ui:pnpmTest
+yk gradle :ui:pnpmTest
 
 # E2E tests (Playwright, requires browsers installed)
-./gradlew :ui:pnpmTestE2e -PrunE2e=true
+yk gradle :ui:pnpmTestE2e -PrunE2e=true
 ```
 
 ### Test Coverage Reporting
@@ -110,7 +110,7 @@ Report location: `coverage/index.html` (generated, git-ignored)
 1. **Frontend dev**: `cd ui && pnpm dev` (Vite dev server auto-rebuilds, HMR enabled)
 2. **Backend dev**: `./gradlew :boot:bootRun -x test` (proxies `/api/**` to Spring via vite.config.ts server.proxy)
 3. **Tests**: `pnpm test` (watch mode) or `pnpm test:e2e` (Playwright against dev server)
-4. **Production**: `./gradlew :ui:build` wires Vite output into JAR; `boot` serves it as static resources
+4. **Production**: `yk gradle :ui:build` wires Vite output into JAR; `boot` serves it as static resources
 
 ## Native Image Support
 - `boot` module includes GraalVM native-image configuration
@@ -128,7 +128,7 @@ All UI source files include SPDX license headers. This is managed through a **th
 - Defines copyright holder, license, and excludes generated files (dist/, node_modules/)
 - Validated by `reuse lint` (run via CI/CD)
 
-### 2. **Gradle Task** (`./gradlew :ui:check`)
+### 2. **Gradle Task** (`yk gradle :ui:check`)
 
 - `validateHeaders` task runs on every `check`
 - Calls `pnpm run lint:headers` (Node.js-based glob validation)
@@ -158,7 +158,7 @@ pnpm run lint:headers
 cat config/license/header-js.txt | cat - <newfile> > <newfile>.tmp && mv <newfile>.tmp <newfile>
 
 # Gradle validation (runs on every check)
-./gradlew :ui:check
+yk gradle :ui:check
 ```
 
 ## Imports

@@ -27,24 +27,20 @@ This is a multi-module Gradle monorepo. Launch Claude from the specific package 
 
 ## Global Commands
 
+Builds, tests and checks run **through Yukta**, never `./gradlew` directly (a hook blocks it and names the
+command to use). `yk` is `examples/11-dogfood/yk` (on PATH in Claude Code sessions); it runs every Gradle
+call as a Yukta workflow on the **dev server: built from `origin/main`, on `http://127.0.0.1:9858`** (web UI,
+REST, MCP at `/mcp`), started on demand. See the `yukta` skill.
+
 ```bash
-# Start the application (Swagger UI at http://localhost:8080/swagger-ui.html)
+yk check                    # all quality gates, staged and self-healing (tests, Checkstyle, PMD, SpotBugs, OpenGrep, JaCoCo, CLI)
+yk check -m core            # the same gates for one module (repeat -m)
+yk gradle :core:test --tests com.infenia.yukta.service.orchestrator.WorkflowOrchestratorTest
+yk gradle spotlessApply     # format (before commit)
+yk status | up | down       # the dev server
+
+# Run the application you are developing (not a build: stays direct; Swagger UI at http://localhost:8080/swagger-ui.html)
 ./gradlew bootRun
-
-# Run all quality checks across all modules (tests, Checkstyle, PMD, SpotBugs, OpenGrep, JaCoCo)
-./gradlew check
-
-# Run every test in one module
-./gradlew :core:test
-
-# Run a single test class
-./gradlew :core:test --tests com.infenia.yukta.service.orchestrator.WorkflowOrchestratorTest
-
-# Format code (must do before commit)
-./gradlew spotlessApply
-
-# Clean build the entire project
-./gradlew clean build
 ```
 
 ## Commit Message Conventions
@@ -56,27 +52,26 @@ All commits follow **Conventional Commits** format. See `.gitmessage` template (
 - Use `StepVerifier` for testing reactive streams.
 - Quality gates (Checkstyle, PMD, SpotBugs, OpenGrep) are enforced via `build-logic` — see `.claude/rules/coding-standards.md` for details.
 - Minimum coverage thresholds are module-specific.
-- Dogfood loop: watch a run with control-bus events, retry a failed stage, and file each Yukta defect you notice as a `dogfood` GitHub issue (`examples/11-dogfood/scripts/report-finding.sh`) — see the `yukta` skill and `examples/11-dogfood/README.md`.
-- The full `check` gate can run as a staged Yukta workflow with a single `RESULT` line: `examples/11-dogfood/scripts/yukta-check.sh [-m <module> | <gradle args>]` (see the `yukta` skill and `examples/11-dogfood/README.md`).
-- The staged check **heals itself** by default: a failing stage gets a deterministic fix (`spotlessApply`), then up to two headless Claude Code attempts (fresh, then a fork of your session), then a `verify` pass. While it runs, do not edit files or run Gradle in that checkout. Act only on the final `RESULT` or an `ESCALATE:`, review everything under `healed=` with `git diff` before committing (the fixer never commits), and use `--no-heal` to get the plain fail-fast chain. Details: the `yukta` skill, "Self-healing runs".
+- Dogfood loop: watch a run, retry a failed stage, and file each Yukta defect you notice as a `dogfood` GitHub issue (`yk finding`) — see the `yukta` skill and `examples/11-dogfood/README.md`.
+- `yk check` **heals itself** by default: a failing stage gets a deterministic fix (`spotlessApply`), then up to two headless Claude Code attempts, then a `verify` pass. While it runs, do not edit files or run Gradle in that checkout. Act only on the final `RESULT` or an `ESCALATE:`, review everything under `healed=` with `git diff` before committing (the fixer never commits), and use `--no-heal` for the plain fail-fast chain.
 
 ### Test Execution Policy (speed)
 Waiting on tests is the main development bottleneck. **Run the smallest scope that covers your change**; escalate only when the blast radius justifies it.
 
 | Tier | When | Command |
 |---|---|---|
-| 0 | Quick compile feedback after an edit | `./gradlew :<mod>:compileJava :<mod>:compileTestJava -q` |
-| 1 (default) | Changed a few classes | `./gradlew :<mod>:test --tests '<FQCN>'` (repeat `--tests` per class; `Class.method` while iterating) — tests of the modified classes only |
-| 2 | Changed a public contract or many classes in a package | `./gradlew :<mod>:test --tests 'com.infenia.yukta.<package>.*'` |
-| 3 | Many files changed across a module, or shared code (`plugin-api`, `messaging`, config, `build-logic`) | `./gradlew :<mod>:test` |
-| 4 | Final gate, once, before commit/PR, or cross-module impact | `./gradlew spotlessApply check` |
+| 0 | Quick compile feedback after an edit | `yk gradle :<mod>:compileJava :<mod>:compileTestJava` |
+| 1 (default) | Changed a few classes | `yk gradle :<mod>:test --tests '<FQCN>'` (repeat `--tests` per class; `Class.method` while iterating) — tests of the modified classes only |
+| 2 | Changed a public contract or many classes in a package | `yk gradle :<mod>:test --tests 'com.infenia.yukta.<package>.*'` |
+| 3 | Many files changed across a module, or shared code (`plugin-api`, `messaging`, config, `build-logic`) | `yk check -m <mod>` |
+| 4 | Final gate, once, before commit/PR, or cross-module impact | `yk check` |
 
-- Run Tier 3 as `yukta-check.sh -m <module> --watch` and Tier 4 as `yukta-check.sh --watch` (the `yukta` skill; the server defaults to the latest GitHub release). A Stop hook asks for it (only when the session changed code itself) when code is uncommitted (`YUKTA_DOGFOOD=off` opts out). Tier 4 is best run as `yukta-check.sh --watch` (the `yukta` skill): same gates, staged, self-healing, one `RESULT` line. Use plain `./gradlew spotlessApply check` when no server is running.
+- Every run ends with one `RESULT status=… failed_node=… healed=…` line; read that and the `ERROR` lines before it, not logs. A Stop hook asks for `yk check -m <changed modules>` when the session changed code (`YUKTA_DOGFOOD=off` opts out).
 - Never start at Tier 3/4. When you escalate, state the reason in one line (e.g. "14 files changed across orchestrator + store").
 - Run `spotlessApply` and `check` **once at the end**, not after every edit.
 - Don't use `clean` or `--rerun-tasks`; Gradle's up-to-date/build cache already skips unchanged work.
-- Run Tier 3/4 with `run_in_background` and keep working; don't block on them.
-- Use `-q --console=plain`; on failure read only the failing test's report in `build/test-results`, not the full log.
+- Run Tier 3/4 with `run_in_background` (or `--detach` + the `yukta-run-watcher` subagent) and keep working; don't block on them.
+- On failure read only the failing test's report in `build/test-results`, not the full log.
 - Add `--continue` on multi-module runs to see all failures in one pass; `-PfailFast` to stop at the first failing test; `-Pcoverage` to produce a JaCoCo report on a scoped run.
 - Locate tests via `<Class>Test` naming or CodeGraph, not repo-wide grep.
 
@@ -98,7 +93,7 @@ gh project item-list 5 --owner infenia --limit 700 --format json \
 
 Take issues that are both assigned to the user and in Status **Ready**, highest Priority first. An
 issue not in Ready lacks acceptance criteria: report it and ask rather than start. Open the PR with
-`Fixes #<n>` and paste the `yukta-check.sh` RESULT line into its description.
+`Fixes #<n>` and paste the `yk check` RESULT line into its description.
 
 ## Imports
 @.claude/rules/coding-standards.md

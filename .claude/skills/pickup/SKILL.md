@@ -33,9 +33,9 @@ Argument: a count (`3`, default 1) or an issue number (`123`).
    If this fails (missing `project` scope: `gh auth refresh -s project`), stop and tell the user.
 
 3. **Work one issue per branch** from `main`: read the issue and its acceptance criteria, implement,
-   and verify with the `yukta` skill (`yukta-check.sh`), smallest test scope first.
+   and verify with the `yukta` skill (`yk gradle …`, then `yk check`), smallest test scope first.
 
-4. **Open the PR** with `Fixes #<n>` and the `yukta-check.sh` RESULT line under Verification. The
+4. **Open the PR** with `Fixes #<n>` and the `yk check` RESULT line under Verification. The
    project moves it to In review.
 
 5. **Report** per issue: PR link, gate result, anything left undone. If an issue cannot be finished,

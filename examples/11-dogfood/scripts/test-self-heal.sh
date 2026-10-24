@@ -12,7 +12,7 @@ policy="$(cat "$here/../heal.json")"
 check() { # scope-label module
   local out
   out="$(render_session "$here/../session.json" /p \
-    | if [[ -n "$2" ]]; then scope_to_module "$2"; else cat; fi \
+    | if [[ -n "$2" ]]; then scope_to_modules $2; else cat; fi \
     | stage_workflows "$policy" "$2" /p /p/heal.sh /p/.yukta-dev/heal/s)"
   jq -e --argjson policy "$policy" '
     [.workflows | to_entries[] | select(.key | startswith("stage-"))] as $stages
@@ -44,6 +44,7 @@ check() { # scope-label module
 
 check all ""
 check core core
+check "core web" "core web"
 # stage order comes from gradle-check, and licenses (no policy) is a single fail-fast exit
 render_session "$here/../session.json" /p | stage_workflows "$policy" "" /p /p/heal.sh /p/h \
   | jq -e '.workflows["stage-licenses"].nodes | map(.config.outcome) | index("FAILED") != null' >/dev/null \

@@ -8,16 +8,16 @@ A lightweight, cross-platform command-line interface (CLI) for Yukta, built in G
 ### Gradle Commands
 ```bash
 # Build for current platform
-./gradlew :cli:goBuild
+yk gradle :cli:goBuild
 
 # Build for all platforms
-./gradlew :cli:goBuildAll
+yk gradle :cli:goBuildAll
 
 # Run Go tests
-./gradlew :cli:goTest
+yk gradle :cli:goTest
 
 # Run all Go checks (format, vet, lint, security, vuln scan) — wired into :cli:check
-./gradlew :cli:check
+yk gradle :cli:check
 ```
 
 ### Makefile Commands (from cli/ folder)

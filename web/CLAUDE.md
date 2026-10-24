@@ -6,7 +6,7 @@ Web layer with REST controllers and UI support.
 ## Build & Development Commands
 ```bash
 # Run web tests
-./gradlew :web:test
+yk gradle :web:test
 ```
 
 ## Patterns

@@ -23,7 +23,7 @@ Declare `getConfigSchema()` (see `ConfigField`) on a plugin to get a generated c
 ## Build Commands
 ```bash
 # Build a specific plugin
-./gradlew :plugins:processors:process-executor:build
+yk gradle :plugins:processors:process-executor:build
 ```
 
 ## Development

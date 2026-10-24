@@ -9,7 +9,7 @@ Spring Boot application entry point and application-level configuration.
 ./gradlew bootRun
 
 # Build native image (GraalVM)
-./gradlew nativeCompile
+yk gradle nativeCompile
 ```
 
 ## Configuration
