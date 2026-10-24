@@ -24,6 +24,22 @@ ProtectSystem=strict
 ProtectHome=yes
 ProtectKernelTunables=yes
 ProtectControlGroups=yes
+# Workflows run user-supplied SQL, files, shell commands and expressions: give the process only what a
+# server needs. Commands started by PROCESS_EXECUTOR inherit these limits.
+PrivateDevices=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+# Valid for the native image, but a child inherits it, so it breaks a PROCESS_EXECUTOR command that
+# JIT-compiles (java, node). Uncomment if workflows run no such command.
+#MemoryDenyWriteExecute=yes
 
 [Install]
 WantedBy=multi-user.target

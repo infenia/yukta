@@ -3,6 +3,7 @@
 package com.infenia.workers;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
@@ -19,6 +20,7 @@ import org.jspecify.annotations.Nullable;
  * @param message a message as plain JSON values (MESSAGE only)
  * @param errorClass the class name of the failure (ERROR only)
  * @param errorMessage the text of the failure (ERROR only)
+ * @param errorTypes class names of the failure, its superclasses and its causes (ERROR only)
  */
 @SuppressFBWarnings(
     value = "EI_EXPOSE_REP",
@@ -31,7 +33,8 @@ public record NodeFrame(
     @Nullable Map<String, Object> config,
     @Nullable Map<String, Object> message,
     @Nullable String errorClass,
-    @Nullable String errorMessage) {
+    @Nullable String errorMessage,
+    @Nullable List<String> errorTypes) {
 
   /** Kind of frame. */
   public enum Kind {
@@ -61,7 +64,8 @@ public record NodeFrame(
       final String nodeId,
       final String pluginType,
       final Map<String, Object> config) {
-    return new NodeFrame(Kind.START, executionId, nodeId, pluginType, config, null, null, null);
+    return new NodeFrame(
+        Kind.START, executionId, nodeId, pluginType, config, null, null, null, null);
   }
 
   /**
@@ -71,7 +75,7 @@ public record NodeFrame(
    * @return the frame
    */
   public static NodeFrame message(final Map<String, Object> message) {
-    return new NodeFrame(Kind.MESSAGE, null, null, null, null, message, null, null);
+    return new NodeFrame(Kind.MESSAGE, null, null, null, null, message, null, null, null);
   }
 
   /**
@@ -80,7 +84,7 @@ public record NodeFrame(
    * @return the frame
    */
   public static NodeFrame heartbeat() {
-    return new NodeFrame(Kind.HEARTBEAT, null, null, null, null, null, null, null);
+    return new NodeFrame(Kind.HEARTBEAT, null, null, null, null, null, null, null, null);
   }
 
   /**
@@ -89,7 +93,7 @@ public record NodeFrame(
    * @return the frame
    */
   public static NodeFrame complete() {
-    return new NodeFrame(Kind.COMPLETE, null, null, null, null, null, null, null);
+    return new NodeFrame(Kind.COMPLETE, null, null, null, null, null, null, null, null);
   }
 
   /**
@@ -97,9 +101,12 @@ public record NodeFrame(
    *
    * @param errorClass the class name of the failure
    * @param errorMessage the text of the failure
+   * @param errorTypes class names of the failure, its superclasses and its causes
    * @return the frame
    */
-  public static NodeFrame error(final String errorClass, final String errorMessage) {
-    return new NodeFrame(Kind.ERROR, null, null, null, null, null, errorClass, errorMessage);
+  public static NodeFrame error(
+      final String errorClass, final String errorMessage, final List<String> errorTypes) {
+    return new NodeFrame(
+        Kind.ERROR, null, null, null, null, null, errorClass, errorMessage, errorTypes);
   }
 }

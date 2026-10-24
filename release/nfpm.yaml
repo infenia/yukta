@@ -43,3 +43,4 @@ contents:
 scripts:
   postinstall: release/postinstall.sh
   preremove: release/preremove.sh
+  postremove: release/postremove.sh

@@ -63,6 +63,8 @@
         $version = $release.tag_name
     }
     $version = $version.TrimStart('v')
+    # The version goes into URLs and file names: X.Y.Z or X.Y.Z-rc.1, nothing else (\z: no trailing newline).
+    if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?\z') { Fail "'$version' is not a version (expected X.Y.Z or X.Y.Z-rc.1)" }
 
     $tmp = Join-Path ([IO.Path]::GetTempPath()) ("yukta-install-" + [Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $tmp | Out-Null

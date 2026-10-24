@@ -138,6 +138,13 @@ main() {
   if [ -z "$version" ] && [ "$DEFAULT_VERSION" != "@VERSION@" ]; then version="$DEFAULT_VERSION"; fi
   if [ -z "$version" ]; then version="$(latest_version)"; fi
   version="${version#v}"
+  # The version goes into URLs and file names, so it must be one: X.Y.Z or X.Y.Z-rc.1, nothing else
+  # (no "/", "..", "?" or "#", no newline). release.sh checks the same pattern.
+  case "$version" in
+    *[!0-9A-Za-z.-]* | "") err "'$version' is not a version (expected X.Y.Z or X.Y.Z-rc.1)" ;;
+  esac
+  printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' ||
+    err "'$version' is not a version (expected X.Y.Z or X.Y.Z-rc.1)"
 
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT INT TERM
@@ -157,6 +164,10 @@ main() {
     get_verified "$archive"
     tar -xzf "$tmp/$archive" -C "$tmp"
     src="$tmp/yukta-$version-$os-$arch"
+    # Install only regular files that the archive put in its own folder, never a link or a stray path.
+    for f in yukta yukta-cli; do
+      [ -f "$src/$f" ] && [ ! -L "$src/$f" ] || err "$archive does not contain a regular file $f; not installing"
+    done
     [ "$do_server" = "1" ] && { install -m 0755 "$src/yukta" "$dir/yukta"; installed_server=1; }
     [ "$do_cli" = "1" ] && install -m 0755 "$src/yukta-cli" "$dir/yukta-cli"
   else

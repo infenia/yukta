@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { renderWithProviders } from '@/test/utils/testUtils';
+import { createTestQueryClient, must, renderWithProviders } from '@/test/utils/testUtils';
 import type { SessionDraft, ValidationResult } from '../../types';
 import { toPreviewGraph, WorkflowEditorPage } from '../WorkflowEditorPage';
 
@@ -96,13 +96,14 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
-function renderEditor(workflowId = 'wf') {
+function renderEditor(workflowId = 'wf', queryClient = createTestQueryClient()) {
   window.history.pushState({}, '', `/sessions/s1/workflow/${workflowId}/edit`);
   return renderWithProviders(
     <Routes>
       <Route path="sessions/:sessionId/workflow/:workflowId/edit" element={<WorkflowEditorPage />} />
       <Route path="*" element={<p>elsewhere</p>} />
-    </Routes>
+    </Routes>,
+    { queryClient }
   );
 }
 
@@ -135,6 +136,32 @@ describe('WorkflowEditorPage', () => {
     expect(screen.getByLabelText('Description')).toHaveValue('first');
     expect(screen.getByTestId('canvas')).toHaveTextContent('2 nodes 1 edges');
     expect(await screen.findByRole('region', { name: 'Node start' })).toBeInTheDocument();
+  });
+
+  it('waits for the fresh session instead of seeding the draft from a stale cache', async () => {
+    // e.g. after a rollback: the cache still holds the pre-rollback definition
+    const queryClient = createTestQueryClient();
+    const stale = session();
+    stale.workflows.wf = { ...must(stale.workflows.wf), description: 'before the rollback' };
+    queryClient.setQueryData(['sessions', 's1', 'config'], stale);
+
+    renderEditor('wf', queryClient);
+
+    expect(screen.getByText('Loading…')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Description')).not.toBeInTheDocument();
+    expect(await screen.findByLabelText('Description')).toHaveValue('first');
+  });
+
+  it('keeps the draft when the session is refetched after the editor is open', async () => {
+    const queryClient = createTestQueryClient();
+    renderEditor('wf', queryClient);
+    const description = await screen.findByLabelText('Description');
+    await userEvent.clear(description);
+    await userEvent.type(description, 'my edit');
+
+    await queryClient.invalidateQueries({ queryKey: ['sessions', 's1', 'config'] });
+
+    expect(screen.getByLabelText('Description')).toHaveValue('my edit');
   });
 
   it('reports a session that cannot be loaded', async () => {

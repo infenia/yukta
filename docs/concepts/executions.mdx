@@ -48,7 +48,7 @@ Run and node status only move forward:
 | `FAILURE`, `ERROR` | Failed |
 | `STOPPED`, `CANCELLED` | Ended by a stop command, or because the caller cancelled |
 | `TIMED_OUT` | A time limit expired; see [Time limits](/concepts/time-limits) |
-| `SKIPPED` | A processor that was skipped |
+| `SKIPPED` | The node never ran: no input reached it (for example behind a routed edge that was not taken), or the run ended before it started. An operator skip is not this status; it shows as `controlState: NODE_SKIPPED`. |
 | `UPSTREAM_FAILED` | A node that never ran because an upstream node failed |
 | `ABORTED` | The server stopped while the execution was running; assigned on the next boot |
 

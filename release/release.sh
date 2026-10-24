@@ -14,7 +14,8 @@
 #
 # Before this: set the version in gradle.properties and ui/package.json, merge to main, wait for CI,
 # push the tag, and check it out. install.ps1 is not attached until it has run on a real Windows machine.
-# The arm64 binary comes from the release workflow run for the tag (artifact server-linux-amd64).
+# The server binary comes from the release workflow run for the tag (artifact server-linux-amd64).
+# Only linux-amd64 is published (PLATFORMS in lib.sh); arm64 returns when its runner build is proven.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -52,9 +53,13 @@ if ! compgen -G "$DIST/cli/yukta-cli-*" >/dev/null; then
   "$RELEASE_DIR/build-cli.sh"
 fi
 if ! $skip_server; then "$RELEASE_DIR/build-server.sh"; fi
+# Binaries in dist/ may be left over from another version or a -Ob rehearsal, or be downloaded CI
+# artifacts: each directory carries a BUILD marker that must match this release.
+check_build_marker "$DIST/cli" "$version" "$publish"
 
 for platform in "${PLATFORMS[@]}"; do
   if [[ -x "$DIST/$platform/yukta" ]]; then
+    check_build_marker "$DIST/$platform" "$version" "$publish"
     "$RELEASE_DIR/package.sh" "$version" "$platform"
   elif $publish; then
     die "no server binary for $platform: a published release needs every platform (see release/README.md)"
@@ -69,10 +74,13 @@ assets="$DIST/assets"
 rm -rf "$assets"
 mkdir -p "$assets"
 cp "$DIST"/packages/* "$DIST"/cli/yukta-cli-* "$assets/"
-# The PGO profile this machine's server was built with, kept with the release so it can be rebuilt.
-if ! $skip_server && [[ -s "$REPO_ROOT/boot/pgo/yukta.iprof" ]]; then
-  gzip -9c "$REPO_ROOT/boot/pgo/yukta.iprof" > "$assets/pgo-profile-linux-amd64.iprof.gz"
-fi
+# The PGO profile each server binary was built with (it sits next to the binary, also when the binary
+# comes from CI), kept with the release so it can be rebuilt: NATIVE_PGO_PROFILE=<this file>.
+for platform in "${PLATFORMS[@]}"; do
+  if [[ -s "$DIST/$platform/yukta.iprof" ]]; then
+    gzip -9c "$DIST/$platform/yukta.iprof" > "$assets/pgo-profile-$platform.iprof.gz"
+  fi
+done
 # The install scripts attached to a release install exactly that release.
 sed "s/^DEFAULT_VERSION=\"@VERSION@\"/DEFAULT_VERSION=\"$version\"/" "$RELEASE_DIR/install.sh" > "$assets/install.sh"
 chmod 0755 "$assets/install.sh"

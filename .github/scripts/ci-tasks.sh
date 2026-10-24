@@ -66,7 +66,7 @@ group_of() {
 # Files that change how every module builds.
 is_root_file() {
   case $1 in
-    .github/workflows/*|.github/scripts/*|build-logic/*|gradle/*|config/*) return 0 ;;
+    .github/workflows/*|.github/scripts/*|build-logic/*|gradle/*|config/*|test-support/*) return 0 ;;
     build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat) return 0 ;;
     .java-version|lombok.config) return 0 ;;
     *.lockfile) [[ $1 != */* ]] ;;

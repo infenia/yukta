@@ -480,6 +480,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Not on push to main: the merge queue just ran the same tree through this job.
+    # (The queue runs the full plan, e2e included, on the tree that lands; this holds only while the
+    # main-branch ruleset has no bypass actor. Add one and e2e must run on push again.)
     if: needs.changes.outputs.e2e == 'true' && github.event_name != 'push'
     permissions:
       contents: read

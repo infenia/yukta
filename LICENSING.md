@@ -30,6 +30,27 @@ Yukta comes in three editions. Only the first two are in this repository.
 - **A commercial licence** for Plus is available to anyone who cannot accept the AGPL. Contact
   Infenia Private Limited (https://infenia.com).
 
+## Native binaries and the Docker image
+
+The release binaries and the Docker image are built with Oracle GraalVM (GraalVM Free Terms and
+Conditions, "GFTC"), not GraalVM CE. Oracle GraalVM provides the `-O3` level and profile-guided
+optimization (see `boot.mdx`). A native executable counts as the unmodified GraalVM program under
+the GFTC, so the GFTC applies to the binaries and the image on top of the Apache-2.0 or AGPL terms
+of Yukta's own code.
+
+- **The binaries and the image are free of charge, always.** The GFTC allows redistribution only if
+  no fee is charged for it, including for products that bundle the program. Infenia therefore does
+  not sell or bill for a binary or image built this way. This is a condition of the toolchain choice,
+  not only a policy.
+- **The commercial Plus licence** (above) covers the source-code terms. It must not be priced or
+  invoiced as a fee for a native binary or image built with Oracle GraalVM; build one with GraalVM
+  CE instead (the `-O3` and `--pgo` options in `boot/build.gradle.kts` are Oracle-only).
+- **Notices stay.** Oracle's and its licensors' notices in the builder image's output are not removed.
+- **Open for legal review:** how the GFTC fits with the AGPL on a Plus binary, which bundles
+  Oracle's runtime, and Oracle's current GFTC text for the GraalVM release in use. The free GFTC
+  releases of an LTS run until one year after the next LTS, so the builder image needs a plan before
+  then.
+
 ## Extending Yukta
 
 An extension is a module that replaces one of the single-server defaults or adds a feature to a Plus build.

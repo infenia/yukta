@@ -46,7 +46,7 @@ class ExposureGuardTest {
                 new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, ALL_INTERFACES))
                     .check())
         .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("API key");
+        .hasMessageContaining("the REST API and MCP have none");
     assertThat(new MockEnvironment().getProperty(ADDRESS)).isNull();
     assertThatThrownBy(() -> new ExposureGuard(new MockEnvironment()).check())
         .isInstanceOf(IllegalStateException.class);
@@ -74,7 +74,7 @@ class ExposureGuardTest {
                             .withProperty("yukta.mcp.api-key", "k"))
                     .check())
         .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("API key");
+        .hasMessageContaining("the REST API has none");
   }
 
   @Test
@@ -103,6 +103,7 @@ class ExposureGuardTest {
                 new ExposureGuard(
                         new MockEnvironment().withProperty(ADDRESS, ALL_INTERFACES), mcpOpen)
                     .check())
-        .isInstanceOf(IllegalStateException.class);
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("MCP has none");
   }
 }

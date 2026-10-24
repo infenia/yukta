@@ -5,8 +5,8 @@
 # (or a CI artifact), so the image and the downloadable archive contain the same executable.
 # The all-in-one Dockerfile at the repository root builds from source instead.
 #
-# Build one architecture:
-#   docker buildx build --platform linux/arm64 -f release/Dockerfile -t yukta:test .
+# Build one architecture (only linux-amd64 is published today; see PLATFORMS in lib.sh):
+#   docker buildx build --platform linux/amd64 -f release/Dockerfile -t yukta:test .
 # The build context is the dist/ directory layout: dist/linux-<arch>/yukta
 #
 # Same pinned base image as the root Dockerfile. Check that it is a multi-architecture index:

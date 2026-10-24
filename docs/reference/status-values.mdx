@@ -24,7 +24,7 @@ Statuses only move forward: `PENDING` → `QUEUED` → `RUNNING` → one termina
 | `STOPPED` | yes | Ended by a stop command |
 | `CANCELLED` | yes | Cancelled: by the caller, or because another branch's terminal failed |
 | `TIMED_OUT` | yes | A time limit expired (queue wait, run deadline, node idle or node deadline) |
-| `SKIPPED` | yes | A processor that was skipped |
+| `SKIPPED` | yes | The node never ran: no input reached it (for example behind a routed edge that was not taken), or the run ended before it started. An operator skip is not this status; it shows as `controlState: NODE_SKIPPED`. |
 | `UPSTREAM_FAILED` | yes | A node that never ran because an upstream node failed |
 | `ABORTED` | yes | The server stopped while the execution ran; assigned on the next boot |
 
