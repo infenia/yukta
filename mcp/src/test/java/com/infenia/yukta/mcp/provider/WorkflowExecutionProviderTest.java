@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -75,7 +76,7 @@ class WorkflowExecutionProviderTest {
         .thenReturn(Mono.just(execution));
 
     StepVerifier.create(provider.startWorkflow("sess-1", "wf-1"))
-        .expectNext(new WorkflowStartResult("exec-1"))
+        .expectNext(new WorkflowStartResult("exec-1", false))
         .verifyComplete();
 
     verify(workflowService).validateAndStartWorkflow(eq("sess-1"), eq("wf-1"));
@@ -88,7 +89,7 @@ class WorkflowExecutionProviderTest {
         .thenReturn(Mono.just(execution));
 
     StepVerifier.create(provider.startWorkflow("sess-1", "wf-1", " k-1 "))
-        .expectNext(new WorkflowStartResult("exec-1"))
+        .expectNext(new WorkflowStartResult("exec-1", false))
         .verifyComplete();
   }
 
@@ -100,14 +101,36 @@ class WorkflowExecutionProviderTest {
         .thenReturn(Mono.just(new WorkflowExecution("exec-2", Mono.empty())));
 
     StepVerifier.create(provider.startWorkflow("sess-1", "wf-1"))
-        .expectNext(new WorkflowStartResult("exec-1"))
+        .expectNext(new WorkflowStartResult("exec-1", false))
         .verifyComplete();
     StepVerifier.create(provider.startWorkflow("sess-1", "wf-1"))
-        .expectNext(new WorkflowStartResult("exec-1"))
+        .expectNext(new WorkflowStartResult("exec-1", true))
         .verifyComplete();
     // Another workflow is not merged.
     StepVerifier.create(provider.startWorkflow("sess-1", "wf-2"))
-        .expectNext(new WorkflowStartResult("exec-2"))
+        .expectNext(new WorkflowStartResult("exec-2", false))
+        .verifyComplete();
+  }
+
+  @Test
+  void testKeylessRepeatIsMarkedReusedButKeyedStartIsNot() {
+    when(workflowService.validateAndStartWorkflow("sess-1", "wf-1"))
+        .thenReturn(Mono.just(new WorkflowExecution("exec-1", Mono.empty())));
+    when(workflowService.validateAndStartWorkflow("sess-1", "wf-1", Map.of(), "fresh"))
+        .thenReturn(Mono.just(new WorkflowExecution("exec-2", Mono.empty())));
+
+    StepVerifier.create(provider.startWorkflow("sess-1", "wf-1"))
+        .assertNext(result -> assertThat(result.reusedExecution()).isFalse())
+        .verifyComplete();
+    StepVerifier.create(provider.startWorkflow("sess-1", "wf-1"))
+        .assertNext(result -> assertThat(result.reusedExecution()).isTrue())
+        .verifyComplete();
+    StepVerifier.create(provider.startWorkflow("sess-1", "wf-1", "fresh"))
+        .assertNext(
+            result -> {
+              assertThat(result.executionId()).isEqualTo("exec-2");
+              assertThat(result.reusedExecution()).isFalse();
+            })
         .verifyComplete();
   }
 
@@ -117,7 +140,7 @@ class WorkflowExecutionProviderTest {
         .thenReturn(Mono.just(new WorkflowExecution("exec-2", Mono.empty())));
 
     StepVerifier.create(provider.startWorkflow("sess-1", "wf-1", "  "))
-        .expectNext(new WorkflowStartResult("exec-2"))
+        .expectNext(new WorkflowStartResult("exec-2", false))
         .verifyComplete();
   }
 

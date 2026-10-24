@@ -123,7 +123,7 @@ class AppMcpToolsTest {
 
   @Test
   void testStartWorkflow() {
-    var result = new WorkflowStartResult("exec-1");
+    var result = new WorkflowStartResult("exec-1", false);
     when(workflowExecutionProvider.startWorkflow("s1", "w1", "k1")).thenReturn(Mono.just(result));
 
     StepVerifier.create(mcpTools.startWorkflow("s1", "w1", "k1"))
