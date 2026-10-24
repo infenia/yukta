@@ -18,7 +18,7 @@ Web layer with REST controllers and UI support.
 - `GET /api/workflow/{s}/history` takes `workflowId`, `status`, `text` (in the execution id), `since` and `until` (start time, ISO date-time) before it pages (`HistoryFilter`).
 - `GET /api/executions?sessionId=&limit=&workflowId=&status=&text=&since=&until=` searches the runs of all sessions, newest first (`ExecutionSearchController`; each session's history is bounded by `yukta.execution-log.retained-runs`; a key limited to sessions cannot use it).
 - `GET /api/control/audit?limit=&executionId=` lists the newest control commands from the execution log (applied or refused, with the actor); the UI shows it on the Control page.
-- `GET /api/events/stream` envelopes carry a `severity` (`EventSeverity`: `ERROR` for a failed node/run or an error line, `WARN` for a rejected command, cancelled node/run or warning line, else `INFO`); `?severity=WARN` sends that and above. Log lines are rated by keyword (`ponytail:` in `EventSeverity`), so a plugin that reports a level should replace it.
+- `GET /api/events/stream` envelopes carry a `severity` (`EventSeverity`: `ERROR` for a failed node/run or an error line, `WARN` for a rejected command, cancelled node/run or warning line, else `INFO`); `?severity=WARN` sends that and above. Each envelope also carries `rootExecutionId` and `depth` (the run's place in its tree of sub-workflow runs; a run without a parent is its own root at depth 0). Log lines are rated by keyword (`ponytail:` in `EventSeverity`), so a plugin that reports a level should replace it.
 - **MapStruct**: Used for DTO mapping (`AppConfigMapper`).
 
 ## Key Files

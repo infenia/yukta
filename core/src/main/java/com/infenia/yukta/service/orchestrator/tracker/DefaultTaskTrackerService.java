@@ -462,6 +462,25 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   @Override
+  public Lineage lineage(@NotBlank final String executionId) {
+    String root = executionId;
+    int depth = 0;
+    // bounded like isWithin, so a broken (cyclic) record ends
+    for (String parent = parentOf(root); parent != null && depth < MAX_TREE_DEPTH; ) {
+      root = parent;
+      depth++;
+      parent = parentOf(root);
+    }
+    return new Lineage(root, depth);
+  }
+
+  private @Nullable String parentOf(final String executionId) {
+    return Optional.ofNullable(findState(executionId))
+        .map(state -> state.parentExecutionId)
+        .orElse(null);
+  }
+
+  @Override
   public List<WorkflowExecutionSummary> getTree(@NotBlank final String rootExecutionId) {
     return executionIndex.values().stream()
         .filter(state -> isWithin(state.executionId, rootExecutionId))

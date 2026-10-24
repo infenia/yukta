@@ -18,6 +18,9 @@ class ApiRoleTest {
     assertThat(ApiRole.VIEWER.allows(HttpMethod.HEAD, "/api/x")).isTrue();
     assertThat(ApiRole.VIEWER.allows(HttpMethod.OPTIONS, "/api/x")).isTrue();
     assertThat(ApiRole.VIEWER.allows(HttpMethod.POST, "/api/executions/e/priority")).isFalse();
+    assertThat(ApiRole.VIEWER.allows(HttpMethod.POST, "/api/executions/e/pause")).isFalse();
+    assertThat(ApiRole.VIEWER.allows(HttpMethod.POST, "/api/executions/e/nodes/n/skip")).isFalse();
+    assertThat(ApiRole.VIEWER.allows(HttpMethod.GET, "/api/executions/e/tree")).isTrue();
   }
 
   @Test

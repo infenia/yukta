@@ -176,6 +176,11 @@ class DefaultTaskTrackerServiceTest {
     assertThat(tracker.isWithin("top", "top")).isTrue();
     assertThat(tracker.isWithin("again", "top")).isFalse();
     assertThat(tracker.isWithin("unknown", "top")).isFalse();
+
+    assertThat(tracker.lineage("grandchild")).isEqualTo(new TaskTrackerService.Lineage("top", 2));
+    assertThat(tracker.lineage("child")).isEqualTo(new TaskTrackerService.Lineage("top", 1));
+    assertThat(tracker.lineage("top")).isEqualTo(new TaskTrackerService.Lineage("top", 0));
+    assertThat(tracker.lineage("unknown")).isEqualTo(new TaskTrackerService.Lineage("unknown", 0));
   }
 
   @Test
@@ -231,6 +236,7 @@ class DefaultTaskTrackerServiceTest {
     tracker.recordLineage("loop-b", "loop-a", null);
 
     assertThat(tracker.isWithin("loop-a", "elsewhere")).isFalse();
+    assertThat(tracker.lineage("loop-a").depth()).isPositive().isLessThanOrEqualTo(16);
   }
 
   @Test
