@@ -27,7 +27,7 @@ from other cores, and writes a report. the server is one of:
 
 | Server | Runs | Image | Needs |
 |---|---|---|---|
-| jar (default) | `boot/build/libs/boot-0.0.1-SNAPSHOT.jar` on a JVM | `eclipse-temurin:25-jre` | nothing: the script runs `./gradlew :boot:bootJar` every time (a no-op when up to date), unless you set `JAR=<path>` |
+| jar (default) | `boot/build/libs/boot-<version>.jar` on a JVM | `eclipse-temurin:25-jre` | nothing: the script runs `./gradlew :boot:bootJar` every time (a no-op when up to date), unless you set `JAR=<path>` |
 | `BINARY=<path>` (native) | the GraalVM binary, e.g. `dist/linux-amd64/yukta` | `debian:12-slim` | the binary, built once with `release/build-server.sh` (add `NATIVE_QUICK=1` for a fast, slower-running rehearsal build; `NATIVE_HEAP=24g` for more builder heap). |
 
 `MODE=native perf/run.sh ...` builds the binary first with `release/build-server.sh` (a full build with a PGO profile

@@ -26,7 +26,7 @@ case ${MODE:-jar} in
   *) echo "unknown MODE '$MODE' (jar|native)" >&2; exit 2 ;;
 esac
 [[ -n ${JAR:-} || -n ${BINARY:-} ]] || ./gradlew :boot:bootJar -q --console=plain  # no-op when up to date; never run a stale jar
-export JAR=${JAR:-$root/boot/build/libs/boot-0.0.1-SNAPSHOT.jar}
+export JAR=${JAR:-$(ls "$root"/boot/build/libs/boot-*.jar | grep -v -- -plain | head -1)}
 if [[ -n ${BINARY:-} ]]; then
   JAR=$(realpath "$BINARY"); export RUN_CMD=/app/yukta.jar IMAGE=${IMAGE:-debian:12-slim}   # mounted at the jar's path
   [[ -f $JAR && -x $JAR ]] || { echo "BINARY $JAR is not an executable file" >&2; exit 2; }
