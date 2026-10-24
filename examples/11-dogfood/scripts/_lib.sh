@@ -537,6 +537,7 @@ issue_workflows() {
               YUKTA_IMPL_SESSION: "${start.implSession}"}
              + (if $ENV.YUKTA_CLAUDE_BIN then {YUKTA_CLAUDE_BIN: $ENV.YUKTA_CLAUDE_BIN} else {} end)
              + (if $ENV.YUKTA_GH then {YUKTA_GH: $ENV.YUKTA_GH} else {} end)
+             + (if $ENV.YUKTA_WARM_DELAY then {YUKTA_WARM_DELAY: $ENV.YUKTA_WARM_DELAY} else {} end)
              + (if $ENV.YUKTA_BUDGET_ISSUE then {YUKTA_BUDGET_ISSUE: $ENV.YUKTA_BUDGET_ISSUE} else {} end)
              + (if $ENV.YUKTA_BUDGET_EPIC then {YUKTA_BUDGET_EPIC: $ENV.YUKTA_BUDGET_EPIC} else {} end)
              + (if $ENV.YUKTA_PROJECT_STATUS_CMD then {YUKTA_PROJECT_STATUS_CMD: $ENV.YUKTA_PROJECT_STATUS_CMD} else {} end);

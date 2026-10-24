@@ -44,4 +44,7 @@ Argument: a count (`3`, default 1) or an issue number (`123`).
    it in the worktree yourself (or reject and rewrite the brief) and run `yk run issue <n>` again. Report per issue:
    PR link, gate result, anything left undone.
 
+For an epic, `yk run epic <n> --detach` takes the Ready, assigned sub-issues two at a time (see the `yukta` skill); answer
+`between-issues` once for each issue, and look at the tree when it pauses itself after two issues gave up.
+
 If `yk run issue` reports that the issue is not Ready, it has no acceptance criteria: report it and skip it.

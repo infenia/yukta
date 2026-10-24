@@ -11,6 +11,7 @@
 #   yk run issue|epic <n> [--detach] [--no-pause before-implement,before-pr,between-issues]
 #                                            implement an assigned, Ready issue (or the sub-issues of an epic, two at a
 #                                            time) in its own worktree, check it, open a draft PR
+#   yk stats                                 dollars, attempts and cache-read share per step, from the records the loop keeps
 #   yk result <session> <exec>               the RESULT line of a run that ended
 #   yk tree <exec>                           the run and every run below it, one line each: workflow, status,
 #                                            current nodes, pending signal (an execution id may be its first 8 characters)
@@ -162,12 +163,33 @@ cmd_watch() {
   local filter=(--quiet)
   [[ "${3:-}" == --all ]] && filter=()
   export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
+  # a checkpoint that waits for an answer is news too: say so, once, while the run is watched
+  announce_signals "$target" &
+  local announcer=$!
   # A node that never ran (a rung nobody needed, or one behind the failure) is not news: the check has
   # dozens of them. ponytail: filtered here; belongs in the CLI's --quiet if other callers want it.
   "$(find_cli)" controlbus watch --execution "$target" --until-done "${filter[@]}" \
     | { if ((${#filter[@]})); then grep -v -E '^NODE [^ ]+ (SKIPPED|UPSTREAM_FAILED|CANCELLED)$'; else cat; fi; } || true
+  kill "$announcer" 2>/dev/null || true
+  wait "$announcer" 2>/dev/null || true
   record_durations "$session" "$target" "${YUKTA_SCOPE:--}"
   print_result "$session" "$target"
+}
+
+# announce_signals EXEC: prints "APPROVAL <signal> waits at <node>: yk approve <e> <signal>" once for each node
+# of the tree of EXEC that starts waiting for a signal; runs until killed
+announce_signals() {
+  local seen="" line key
+  while sleep 3; do
+    while IFS= read -r line; do
+      [[ -n "$line" ]] || continue
+      key="${line%% since*}"
+      [[ "$seen" == *"|$key|"* ]] && continue
+      seen+="|$key|"
+      read -r e node name _ <<<"$line"
+      echo "APPROVAL $name waits at $node: yk approve $e $name (or yk reject $e $name)"
+    done < <( (cmd_signals "$1") 2>/dev/null || true)
+  done
 }
 
 cmd_cli() {
@@ -375,6 +397,30 @@ cmd_statusline() {
   echo "$line"
 }
 
+# yk stats: what the dev loop spent, from the records it keeps: the fixers' attempts of this checkout's checks and of
+# the issue worktrees next to it, and the implementers. Per step: attempts, how many fixed, dollars, and how much of
+# the prompt was read from the cache (the target is 70 % and more once a model has run twice in the cache's time).
+cmd_stats() {
+  need jq
+  local files=()
+  mapfile -t files < <(ls "$STATE_DIR"/heal/*/*-[0-9]*.json "$(dirname "$REPO_ROOT")"/yukta-issue-*/.yukta-dev/heal/check/*-[0-9]*.json \
+    "$STATE_DIR"/issue-*/implement.json 2>/dev/null)
+  ((${#files[@]})) || { echo "no records yet (yk check and yk run write them)"; return 0; }
+  jq -rs '
+    map(if has("stage") then {step: "\(.stage) \(.mode)", fixed: .fixed, cost: (.cost // 0), usage: (.usage // {})}
+        else {step: "implement", fixed: (.done // false), cost: (.cost // 0), usage: (.usage // {})} end
+        | .tokens = {i: (.usage.input // .usage.input_tokens // 0), c: (.usage.cache_creation // .usage.cache_creation_input_tokens // 0),
+                     r: (.usage.cache_read // .usage.cache_read_input_tokens // 0)})
+    | def row($k; $g): [$k, ($g | length), ($g | map(select(.fixed)) | length),
+        ("$" + ((($g | map(.cost) | add) * 100 | round) / 100 | tostring)),
+        (($g | map(.tokens.i + .tokens.c + .tokens.r) | add) as $all
+         | if $all > 0 then (($g | map(.tokens.r) | add) * 100 / $all | floor | tostring + "%") else "-" end)];
+    (["step", "attempts", "fixed", "cost", "cache-read"],
+     (group_by(.step)[] | row(.[0].step; .)),
+     row("total"; .))
+    | @tsv' "${files[@]}" | column -t -s $'\t'
+}
+
 # yk mcp-headers: the headers for Claude Code's MCP connection (.mcp.json headersHelper)
 cmd_mcp_headers() { jq -n --arg k "$(dev_key)" '{"X-API-Key": $k}'; }
 
@@ -464,6 +510,7 @@ case "$cmd" in
   statusline) cmd_statusline ;;
   mcp-headers) cmd_mcp_headers ;;
   sum) changes_sum "$REPO_ROOT" ;;
+  stats) cmd_stats ;;
   run) cmd_run "$@" ;;
   result)
     export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
