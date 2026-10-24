@@ -34,4 +34,23 @@ class LogSanitizerTest {
   void longLineIsCutAndMarked() {
     assertThat(new LogSanitizer(null, 3).clean("abcdef")).isEqualTo("abc…[cut]");
   }
+
+  @Test
+  void quotedNamesAndValuesAreRedactedToTheClosingQuote() {
+    final LogSanitizer sanitizer = new LogSanitizer(null, 0);
+
+    assertThat(sanitizer.clean("{\"password\": \"hunter2\", \"apiKey\": \"abc\", \"ok\": 1}"))
+        .isEqualTo("{[REDACTED], [REDACTED], \"ok\": 1}");
+    assertThat(sanitizer.clean("secret='a b\\'c d' next")).isEqualTo("[REDACTED] next");
+    assertThat(sanitizer.clean("{\"token\": 12345}")).isEqualTo("{[REDACTED]}");
+  }
+
+  @Test
+  void anUnquotedValueOfSeveralWordsIsRedactedWhole() {
+    final LogSanitizer sanitizer = new LogSanitizer(null, 0);
+
+    assertThat(sanitizer.clean("password: my secret phrase")).isEqualTo("[REDACTED]");
+    assertThat(sanitizer.clean("token=abc status=200")).isEqualTo("[REDACTED] status=200");
+    assertThat(sanitizer.clean("a=1&password=x y&b=2")).isEqualTo("a=1&[REDACTED]&b=2");
+  }
 }

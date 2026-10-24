@@ -21,7 +21,11 @@ public final class LogSanitizer {
   public static final List<String> DEFAULT_PATTERNS =
       List.of(
           "(?i)bearer\\s+[a-z0-9._~+/=-]{8,}",
-          "(?i)(?:api[_-]?key|secret|password|passwd|token|authorization)\\s*[=:]\\s*\\S+",
+          // name (maybe quoted), = or :, then a quoted value (to its closing quote) or an unquoted
+          // one up to a delimiter or the next name=value, so several words are redacted whole
+          "(?i)[\"']?(?:api[_-]?key|secret|password|passwd|token|authorization)[\"']?\\s*[=:]\\s*"
+              + "(?:\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'"
+              + "|(?:(?!\\s+[\\w.-]+=)[^,;&}\\]\"'])+)",
           "\\bsk-[A-Za-z0-9_-]{16,}",
           "\\bgh[pousr]_[A-Za-z0-9]{20,}",
           "\\bAKIA[0-9A-Z]{16}\\b");
