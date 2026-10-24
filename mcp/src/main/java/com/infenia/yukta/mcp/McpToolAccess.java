@@ -52,12 +52,20 @@ class McpToolAccess {
           "get_session_creation_instructions",
           "get_plugin_creation_guide");
 
+  /** Resources that name no session, so a session key may read them. */
+  private static final Set<String> SESSIONLESS_RESOURCES =
+      Set.of("yukta://overview", "yukta://architecture");
+
+  /** Prefix of the resources that belong to a session: {@code yukta://sessions/<id>/...}. */
+  private static final String SESSION_RESOURCE = "yukta://sessions/";
+
   /** Reads JSON-RPC messages. */
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
   /**
-   * Whether the key may send these JSON-RPC messages: every {@code tools/call} in them must be
-   * allowed, other methods (initialize, tools/list, notifications) are not restricted.
+   * Whether the key may send these JSON-RPC messages: every {@code tools/call} and {@code
+   * resources/read} in them must be allowed, other methods (initialize, tools/list, notifications)
+   * are not restricted.
    *
    * @param key the key that sent the request
    * @param body the request body, one message or a batch
@@ -73,6 +81,10 @@ class McpToolAccess {
                 key,
                 params.path("name").asString(""),
                 params.path("arguments").path("sessionId").asString(null))) {
+          return false;
+        }
+        if ("resources/read".equals(message.path("method").asString(""))
+            && !permittedResource(key, params.path("uri").asString(""))) {
           return false;
         }
       }
@@ -99,5 +111,27 @@ class McpToolAccess {
       return true;
     }
     return sessionId != null && key.reaches(sessionId);
+  }
+
+  /**
+   * Whether the key may read the resource: the one of a session needs the session to be the key's
+   * (and the VIEWER role of {@code get_execution_logs}), one that names none is open to any key. A
+   * resource this class does not know needs an unrestricted ADMIN key.
+   *
+   * @param key the key that sent the request
+   * @param uri the {@code uri} of the {@code resources/read} request
+   * @return true if the key may read it
+   */
+  /* default */ boolean permittedResource(final ApiKeys.Match key, final String uri) {
+    if (SESSIONLESS_RESOURCES.contains(uri)) {
+      return true; // VIEWER is the lowest role
+    }
+    if (uri.startsWith(SESSION_RESOURCE)) {
+      final int end = uri.indexOf('/', SESSION_RESOURCE.length());
+      final String sessionId =
+          uri.substring(SESSION_RESOURCE.length(), end < 0 ? uri.length() : end);
+      return permitted(key, "get_execution_logs", sessionId.isEmpty() ? null : sessionId);
+    }
+    return key.role().compareTo(ApiRole.ADMIN) >= 0 && key.sessions().isEmpty();
   }
 }
