@@ -23,18 +23,59 @@ exit $rc
 SH
 cat >"$dir/claude" <<'SH'
 #!/usr/bin/env bash
-# fake claude: fixes the failing tasks only when run with the model named in .fake-fix-at
-prompt="" model=""
-while (($#)); do case "$1" in -p) prompt="$2"; shift 2 ;; --model) model="$2"; shift 2 ;; *) shift ;; esac; done
-if [[ "$model" == "$(cat .fake-fix-at 2>/dev/null)" ]]; then
+# fake claude. As the implementer (the prompt starts with "# Issue #") it writes a change and .yukta-dev/pr.md
+# (and, when the file "implement-breaks" is next to this script, breaks compileJava). As a fixer it fixes the
+# failing tasks only when run with the model (or "resume") named in .fake-fix-at (in the project) or "fix-at"
+# (next to this script). Every call is logged in claude.log next to this script.
+here="$(cd "$(dirname "$0")" && pwd)"
+prompt="" model="" session="" resume=""
+while (($#)); do case "$1" in -p) prompt="$2"; shift 2 ;; --model) model="$2"; shift 2 ;; --session-id) session="$2"; shift 2 ;; --resume) resume="$2"; shift 2 ;; *) shift ;; esac; done
+echo "model=${model:--} session=${session:--} resume=${resume:--} cwd=$PWD" >>"$here/claude.log"
+if [[ "$prompt" == "# Issue #"* ]]; then
+  echo "implemented" >>feature.txt
+  mkdir -p .yukta-dev
+  printf 'feat: fake change\n\nWhat the fake implementer changed.\n' >.yukta-dev/pr.md
+  [[ -e "$here/implement-breaks" ]] && touch fail-compileJava
+  echo '{"total_cost_usd":0.5,"usage":{"input_tokens":10,"cache_creation_input_tokens":5,"cache_read_input_tokens":100,"output_tokens":3},"structured_output":{"done":true,"summary":"fake implementation"}}'
+  exit 0
+fi
+want="$model"
+[[ -n "$resume" ]] && want=resume
+if [[ "$want" == "$(cat .fake-fix-at 2>/dev/null || cat "$here/fix-at" 2>/dev/null)" ]]; then
   for t in $(sed -n 's/^Gradle tasks: //p' <<<"$prompt"); do rm -f "fail-$t"; done
-  echo "fix by $model" >>fixed.txt
+  echo "fix by $want" >>fixed.txt
   echo '{"total_cost_usd":0.01,"usage":{"input_tokens":10,"cache_creation_input_tokens":5,"cache_read_input_tokens":100,"output_tokens":3},"structured_output":{"fixed":true,"summary":"fake fix"}}'
 else
   echo '{"total_cost_usd":0.005,"structured_output":{"fixed":false,"summary":"cannot fix"}}'
 fi
 SH
-chmod +x "$proj/gradlew" "$dir/claude"
+cat >"$dir/gh" <<'SH'
+#!/usr/bin/env bash
+# fake gh for yukta-issue.sh: the issue is open and assigned to "tester"; its project status is in the file
+# "status" next to this script (Ready by default); "pr create" is logged in gh.log and answers a URL.
+here="$(cd "$(dirname "$0")" && pwd)"
+echo "$*" >>"$here/gh.log"
+q="" args=("$@")
+for ((i = 0; i < ${#args[@]}; i++)); do [[ "${args[i]}" == -q ]] && q="${args[i + 1]}"; done
+case "$1 $2" in
+  "api user") out='"tester"'; q='' ; echo tester; exit 0 ;;
+  "auth token") echo tok; exit 0 ;;
+  "pr create") echo "https://example.invalid/pull/1"; exit 0 ;;
+  "issue view")
+    out='{"number":7,"title":"Fake issue","url":"https://example.invalid/issues/7","state":"OPEN","assignees":[{"login":"tester"}],"body":"Do the fake thing.\n\nAcceptance: it works."}' ;;
+  "project item-list") out="{\"items\":[{\"content\":{\"number\":7},\"status\":\"$(cat "$here/status" 2>/dev/null || echo Ready)\"}]}" ;;
+  *) echo "fake gh: unsupported: $*" >&2; exit 1 ;;
+esac
+if [[ -n "$q" ]]; then jq -r "$q" <<<"$out"; else echo "$out"; fi
+SH
+cat >"$dir/project-status" <<'SH'
+#!/usr/bin/env bash
+# fake project update: logs "<url> <status>" in project-status.log next to this script and keeps the status
+here="$(cd "$(dirname "$0")" && pwd)"
+echo "$1 $2" >>"$here/project-status.log"
+echo "$2" >"$here/status"
+SH
+chmod +x "$proj/gradlew" "$dir/claude" "$dir/gh" "$dir/project-status"
 git -C "$proj" init -q
 git -C "$proj" -c user.email=t@t -c user.name=t add -A
 git -C "$proj" -c user.email=t@t -c user.name=t commit -qm init
