@@ -33,6 +33,9 @@ Guide: `../docs/contributing/modules/plugins.mdx` (module guide); open risks, bu
 ## Conformance check
 `boot/.../plugins/PluginConformanceAcceptanceTest` checks every registered plugin against the plugin contract (type name, category, config schema, output ports, timeout and buffer defaults, a description, `validateConfig` rejecting an empty config when a field is required, no crash on `validateConfig` or `shutdown`). A new plugin is covered with no test change; `PluginCoverageAcceptanceTest` still needs its type listed. If a plugin must break a rule, add `"TYPE: rule" -> reason` to `EXEMPT` in the conformance test.
 
+## Runtime check
+`boot/.../plugins/PluginRuntimeAcceptanceTest` runs every plugin that does not need the outside world and checks that a cancel reaches the upstream, that a 10 MB message is handled or refused cleanly, and that initialize and shutdown can repeat. A new plugin must add a fixture (type to a valid config, in `FIXTURES`) or a reasoned entry in `EXEMPT` (for example, it calls an LLM or a URL); the test fails otherwise.
+
 ## Imports
 @.claude/rules/coding-standards.md
 @.claude/rules/git-workflow.md
