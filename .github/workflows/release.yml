@@ -105,15 +105,8 @@ jobs:
       - name: Native compile
         env:
           NATIVE_HEAP: 12g
+          NATIVE_PGO_REQUIRED: 1   # a release without a recorded profile is a different binary: fail
         run: release/build-server.sh
-
-      # Kept for audit and to rebuild a release the same way; the build never reads an old one.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: pgo-profile-${{ matrix.platform }}
-          path: boot/pgo/yukta.iprof
-          if-no-files-found: warn
-          retention-days: 90
 
       # Starts the binary, then runs the Quickstart workflow against it (release/smoke-test.sh), so a
       # native image whose expressions or reflection data are broken cannot be released.
