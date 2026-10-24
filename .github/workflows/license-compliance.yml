@@ -22,6 +22,7 @@ permissions:
 jobs:
   reuse-compliance:
     name: REUSE License Headers
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -33,6 +34,7 @@ jobs:
 
   plus-isolation:
     name: Apache modules never depend on Plus
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -50,6 +52,7 @@ jobs:
 
   gradle-license-validation:
     name: Dependency License Validation (Licensee)
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -115,6 +118,7 @@ jobs:
 
   trivy-license-scan:
     name: Trivy License Scanning
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

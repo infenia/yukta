@@ -36,6 +36,8 @@ jobs:
   # ─────────────────────────────────────────────
   lint-workflows:
     name: Lint Workflows
+    # Release PRs skip PR CI; the merge queue runs the full gate on the queued commit.
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -85,6 +87,7 @@ jobs:
   # ─────────────────────────────────────────────
   wrapper-validation:
     name: Validate Gradle Wrapper
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -101,6 +104,7 @@ jobs:
   # ─────────────────────────────────────────────
   changes:
     name: Detect Changed Modules
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -400,7 +404,8 @@ jobs:
     if: |
       github.event_name != 'merge_group' &&
       (github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository)
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      !startsWith(github.head_ref, 'release-please--')))
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
