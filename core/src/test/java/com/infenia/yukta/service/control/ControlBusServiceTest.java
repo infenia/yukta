@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.control;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.*;
 
 import ch.qos.logback.classic.Logger;
@@ -895,9 +896,10 @@ class ControlBusServiceTest {
       svc.init();
 
       svc.emit(msg).subscribe();
-      Thread.sleep(200);
-
-      verify(handler1, never()).handle(any(), any(), any());
+      await()
+          .during(Duration.ofMillis(200))
+          .atMost(Duration.ofSeconds(2))
+          .untilAsserted(() -> verify(handler1, never()).handle(any(), any(), any()));
     }
 
     @Test
@@ -921,9 +923,10 @@ class ControlBusServiceTest {
       svc.init();
 
       svc.emit(msg).subscribe();
-      Thread.sleep(200);
-
-      verify(handler1, never()).handle(any(), any(), any());
+      await()
+          .during(Duration.ofMillis(200))
+          .atMost(Duration.ofSeconds(2))
+          .untilAsserted(() -> verify(handler1, never()).handle(any(), any(), any()));
     }
 
     @Test
@@ -949,9 +952,10 @@ class ControlBusServiceTest {
       svc.init();
 
       svc.emit(msg).subscribe();
-      Thread.sleep(200);
-
-      verify(handler1, never()).handle(any(), any(), any());
+      await()
+          .during(Duration.ofMillis(200))
+          .atMost(Duration.ofSeconds(2))
+          .untilAsserted(() -> verify(handler1, never()).handle(any(), any(), any()));
     }
 
     @Test
@@ -1010,9 +1014,10 @@ class ControlBusServiceTest {
 
       final Message<?> msg = makeMessage(payload, 0);
       svc.emit(msg).subscribe();
-      Thread.sleep(200);
-
-      verify(handler1, never()).handle(any(), any(), any());
+      await()
+          .during(Duration.ofMillis(200))
+          .atMost(Duration.ofSeconds(2))
+          .untilAsserted(() -> verify(handler1, never()).handle(any(), any(), any()));
       verify(handler2, never()).handle(any(), any(), any());
     }
 

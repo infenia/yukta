@@ -16,6 +16,7 @@ import com.infenia.yukta.service.control.directive.ControlStatisticsHandler;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
+import com.infenia.yukta.testsupport.Timing;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -76,7 +77,7 @@ class ControlBusServiceRunScopeTest {
   void heartbeatsOfTwoRunsOfTheSameNodeAreKeptApart() throws InterruptedException {
     final Message<?> first = heartbeat("run-1");
     emitAndWaitFor(first, "run-1");
-    Thread.sleep(5);
+    Timing.nextMillisecond();
     final Message<?> second = heartbeat("run-2");
     emitAndWaitFor(second, "run-2");
 

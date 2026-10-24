@@ -3,8 +3,10 @@
 package com.infenia.yukta.service.workflow.store;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +19,7 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for PreparedWorkflowCache. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class PreparedWorkflowCacheTest {
   /** Session 1 ID. */
   private static final String SESSION_1 = "s1";
@@ -77,11 +79,18 @@ class PreparedWorkflowCacheTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.LawOfDemeter")
   void entryExpiredAfterTtl() throws InterruptedException {
     final PreparedWorkflow prepared = mockPrepared();
     cache.put(SESSION_1, WORKFLOW_1, prepared);
-    Thread.sleep(300L); // past the 200ms TTL
-    cache.evictExpired(); // trigger eviction manually
+    // past the 200 ms TTL: evict until the entry is gone
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .until(
+            () -> {
+              cache.evictExpired();
+              return cache.getStats().evictionCount() == 1; // get() would refresh the entry
+            });
     assertThat(cache.get(SESSION_1, WORKFLOW_1)).isEmpty();
   }
 

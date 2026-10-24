@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.testsupport.Timing;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -69,7 +70,7 @@ class FileWorkflowDefinitionStoreTest {
       throws InterruptedException {
     store.save("s", definition("w", "one")).block();
     store.save("s", definition("w", "one")).block();
-    Thread.sleep(2);
+    Timing.nextMillisecond();
     store.save("s", definition("w", "two")).block();
 
     final List<DefinitionRevision> revisions = store.revisions("s", "w").collectList().block();
@@ -88,7 +89,7 @@ class FileWorkflowDefinitionStoreTest {
   void onlyTheNewestVersionsAreKept() throws InterruptedException {
     for (int i = 0; i < FileWorkflowDefinitionStore.MAX_REVISIONS + 3; i++) {
       store.save("s", definition("w", "v" + i)).block();
-      Thread.sleep(1);
+      Timing.nextMillisecond();
     }
 
     final List<DefinitionRevision> revisions = store.revisions("s", "w").collectList().block();
@@ -193,7 +194,7 @@ class FileWorkflowDefinitionStoreTest {
     assertThat(restarted.revisions("s", "w1").blockFirst().note()).isEqualTo("first cut");
 
     for (int i = 0; i < FileWorkflowDefinitionStore.MAX_REVISIONS + 2; i++) {
-      Thread.sleep(2);
+      Timing.nextMillisecond();
       restarted.save("s", definition("w1", "v" + i)).block();
     }
     assertThat(restarted.revisions("s", "w1").collectList().block())
