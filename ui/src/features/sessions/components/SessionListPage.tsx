@@ -17,6 +17,7 @@ import {
   TableCell,
   TableHead,
   TableHeader,
+  TableFrame,
   TableRow,
 } from '@/components/ui/table';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -104,7 +105,10 @@ export function SessionListPage() {
           actions={
             <Link
               to="/sessions/new"
-              className={buttonVariants({ variant: 'outline', size: 'default' })}
+              className={buttonVariants({
+                variant: 'outline',
+                size: 'default',
+              })}
             >
               <span className="material-symbols-outlined text-base">add</span>
               New session
@@ -120,19 +124,13 @@ export function SessionListPage() {
         />
 
         <div className="px-4 pb-8 sm:px-6">
-          <div className="border-outline-variant bg-surface-container overflow-hidden rounded-xl border">
+          <TableFrame>
             <Table>
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup: any) => (
-                  <TableRow
-                    key={headerGroup.id}
-                    className="border-outline-variant bg-surface-container-high hover:bg-surface-container-high border-b"
-                  >
+                  <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header: any) => (
-                      <TableHead
-                        key={header.id}
-                        className="text-label-sm h-10 tracking-wider uppercase"
-                      >
+                      <TableHead key={header.id} className="px-4">
                         {header.isPlaceholder
                           ? null
                           : flexRender(
@@ -146,7 +144,7 @@ export function SessionListPage() {
               </TableHeader>
               <TableBody>
                 {table.getRowModel().rows.length === 0 ? (
-                  <TableRow className="border-outline-variant hover:bg-surface-container-high border-b">
+                  <TableRow className="hover:bg-transparent">
                     <TableCell
                       colSpan={columns.length}
                       className="py-8 text-center"
@@ -157,7 +155,7 @@ export function SessionListPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  table.getRowModel().rows.map((row: any, idx: number) => (
+                  table.getRowModel().rows.map((row: any) => (
                     <TableRow
                       key={row.id}
                       tabIndex={0}
@@ -170,9 +168,7 @@ export function SessionListPage() {
                           navigate(`/sessions/${row.original.sessionId}`);
                         }
                       }}
-                      className={`border-outline-variant transition-standard hover:bg-surface-container-high focus-visible:outline-primary cursor-pointer border-b py-3 focus-visible:outline focus-visible:outline-2 ${
-                        idx % 2 === 1 ? 'bg-surface-container-low' : ''
-                      }`}
+                      className="cursor-pointer focus-visible:-outline-offset-2"
                     >
                       {row.getVisibleCells().map((cell: any) => (
                         <TableCell key={cell.id} className="px-4">
@@ -189,7 +185,7 @@ export function SessionListPage() {
             </Table>
 
             <SessionsPaginationFooter table={table} />
-          </div>
+          </TableFrame>
         </div>
       </div>
     </div>

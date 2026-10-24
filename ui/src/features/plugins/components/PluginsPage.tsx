@@ -7,6 +7,15 @@ import { cn } from '@/lib/utils';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFrame,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { categoryAccent } from '@/features/workflow/lib/categoryAccent';
 import type { PluginCategory } from '@/features/workflow/types/workflow';
@@ -61,31 +70,35 @@ function PluginDetail({ type }: { type: string }) {
             <h3 className="text-on-surface text-label-md mb-1.5">
               Configuration
             </h3>
-            <div className="border-outline-variant overflow-hidden rounded-xl border">
-              <table className="w-full text-left text-sm">
-                <tbody>
+            <TableFrame>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Field</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Description</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {plugin.configSchema.map((field) => (
-                    <tr
-                      key={field.name}
-                      className="border-outline-variant border-b align-top"
-                    >
-                      <td className="text-code-sm px-3 py-2">
+                    <TableRow key={field.name} className="align-top">
+                      <TableCell className="text-code-sm">
                         {field.name}
                         {field.required && (
                           <span className="text-error"> *</span>
                         )}
-                      </td>
-                      <td className="text-body-sm text-on-surface-variant pr-3">
+                      </TableCell>
+                      <TableCell className="text-body-sm text-on-surface-variant">
                         {field.type}
-                      </td>
-                      <td className="text-body-sm text-on-surface-variant pr-3">
+                      </TableCell>
+                      <TableCell className="text-body-sm text-on-surface-variant whitespace-normal">
                         {field.description}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
+            </TableFrame>
           </section>
         )}
         {plugin.usagePattern && (

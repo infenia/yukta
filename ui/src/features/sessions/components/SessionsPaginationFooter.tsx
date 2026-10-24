@@ -15,7 +15,9 @@ interface SessionsPaginationFooterProps {
   table: LegacyReactTable<SessionListItem>;
 }
 
-export function SessionsPaginationFooter({ table }: SessionsPaginationFooterProps) {
+export function SessionsPaginationFooter({
+  table,
+}: SessionsPaginationFooterProps) {
   const pageSize = table.getState().pagination.pageSize;
   const pageIndex = table.getState().pagination.pageIndex;
   const totalRows = table.getFilteredRowModel().rows.length;
@@ -24,7 +26,7 @@ export function SessionsPaginationFooter({ table }: SessionsPaginationFooterProp
   const end = Math.min((pageIndex + 1) * pageSize, totalRows);
 
   return (
-    <div className="flex h-10 items-center justify-end gap-6 bg-surface-container-high px-4 text-xs text-on-surface-variant">
+    <div className="border-border bg-card text-on-surface-variant flex h-10 items-center justify-end gap-6 border-t px-4 text-xs">
       <div className="flex items-center gap-2">
         <span className="text-body-sm">Rows per page:</span>
         <DropdownMenu>
@@ -32,7 +34,12 @@ export function SessionsPaginationFooter({ table }: SessionsPaginationFooterProp
             render={(state) => (
               <Button variant="outline" size="sm" {...state}>
                 {pageSize}
-                <span className="material-symbols-outlined ml-1" aria-hidden="true">arrow_drop_down</span>
+                <span
+                  className="material-symbols-outlined ml-1"
+                  aria-hidden="true"
+                >
+                  arrow_drop_down
+                </span>
               </Button>
             )}
           />
@@ -49,11 +56,11 @@ export function SessionsPaginationFooter({ table }: SessionsPaginationFooterProp
         </DropdownMenu>
       </div>
 
-      <div className="border-l border-outline-variant pl-4 text-body-sm">
+      <div className="border-outline-variant text-body-sm border-l pl-4">
         {start}–{end} of {totalRows} items
       </div>
 
-      <div className="flex gap-1 border-l border-outline-variant pl-4">
+      <div className="border-outline-variant flex gap-1 border-l pl-4">
         <Button
           variant="ghost"
           size="sm"
@@ -62,7 +69,9 @@ export function SessionsPaginationFooter({ table }: SessionsPaginationFooterProp
           className="disabled:opacity-30"
           aria-label="First page"
         >
-          <span className="material-symbols-outlined" aria-hidden="true">first_page</span>
+          <span className="material-symbols-outlined" aria-hidden="true">
+            first_page
+          </span>
         </Button>
         <Button
           variant="ghost"
@@ -72,7 +81,9 @@ export function SessionsPaginationFooter({ table }: SessionsPaginationFooterProp
           className="disabled:opacity-30"
           aria-label="Previous page"
         >
-          <span className="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+          <span className="material-symbols-outlined" aria-hidden="true">
+            chevron_left
+          </span>
         </Button>
         <Button
           variant="ghost"
@@ -82,7 +93,9 @@ export function SessionsPaginationFooter({ table }: SessionsPaginationFooterProp
           className="disabled:opacity-30"
           aria-label="Next page"
         >
-          <span className="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+          <span className="material-symbols-outlined" aria-hidden="true">
+            chevron_right
+          </span>
         </Button>
         <Button
           variant="ghost"
@@ -92,7 +105,9 @@ export function SessionsPaginationFooter({ table }: SessionsPaginationFooterProp
           className="disabled:opacity-30"
           aria-label="Last page"
         >
-          <span className="material-symbols-outlined" aria-hidden="true">last_page</span>
+          <span className="material-symbols-outlined" aria-hidden="true">
+            last_page
+          </span>
         </Button>
       </div>
     </div>
