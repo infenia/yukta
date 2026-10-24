@@ -301,13 +301,13 @@ func (c *Client) PauseWorkflow(sessionID, executionID string) (WorkflowStartResp
 		return WorkflowStartResponse{}, fmt.Errorf("executionID cannot be empty")
 	}
 
-	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
-		return WorkflowStartResponse{}, err
-	}
-
 	path := apiPath("/api/executions/%s/pause", executionID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
 		return WorkflowStartResponse{}, err
 	}
 
@@ -336,13 +336,13 @@ func (c *Client) ResumeWorkflow(sessionID, executionID string) (WorkflowStartRes
 		return WorkflowStartResponse{}, fmt.Errorf("executionID cannot be empty")
 	}
 
-	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
-		return WorkflowStartResponse{}, err
-	}
-
 	path := apiPath("/api/executions/%s/resume", executionID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
 		return WorkflowStartResponse{}, err
 	}
 
@@ -420,13 +420,13 @@ func (c *Client) PauseNode(sessionID, executionID, nodeID string) (WorkflowStart
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
-	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
-		return WorkflowStartResponse{}, err
-	}
-
 	path := apiPath("/api/executions/%s/nodes/%s/pause", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
 		return WorkflowStartResponse{}, err
 	}
 
@@ -458,13 +458,13 @@ func (c *Client) ResumeNode(sessionID, executionID, nodeID string) (WorkflowStar
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
-	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
-		return WorkflowStartResponse{}, err
-	}
-
 	path := apiPath("/api/executions/%s/nodes/%s/resume", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
 		return WorkflowStartResponse{}, err
 	}
 
@@ -496,13 +496,13 @@ func (c *Client) EnableStepMode(sessionID, executionID, nodeID string) (Workflow
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
-	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
-		return WorkflowStartResponse{}, err
-	}
-
 	path := apiPath("/api/executions/%s/nodes/%s/step/enable", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
 		return WorkflowStartResponse{}, err
 	}
 
@@ -534,13 +534,13 @@ func (c *Client) DisableStepMode(sessionID, executionID, nodeID string) (Workflo
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
-	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
-		return WorkflowStartResponse{}, err
-	}
-
 	path := apiPath("/api/executions/%s/nodes/%s/step/disable", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
 		return WorkflowStartResponse{}, err
 	}
 
@@ -572,13 +572,13 @@ func (c *Client) StepNode(sessionID, executionID, nodeID string) (WorkflowStartR
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
-	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
-		return WorkflowStartResponse{}, err
-	}
-
 	path := apiPath("/api/executions/%s/nodes/%s/step", executionID, nodeID)
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
 		return WorkflowStartResponse{}, err
 	}
 
@@ -610,10 +610,6 @@ func (c *Client) StopNode(sessionID, executionID, nodeID string, immediate bool,
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
-	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
-		return WorkflowStartResponse{}, err
-	}
-
 	params := url.Values{}
 	params.Set("immediate", strconv.FormatBool(immediate))
 	if reason != "" { // absent, the server records its own default reason
@@ -623,6 +619,10 @@ func (c *Client) StopNode(sessionID, executionID, nodeID string, immediate bool,
 	path := apiPath("/api/executions/%s/nodes/%s/stop", executionID, nodeID) + "?" + params.Encode()
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
 		return WorkflowStartResponse{}, err
 	}
 
@@ -654,16 +654,16 @@ func (c *Client) SkipNode(sessionID, executionID, nodeID string, skip bool) (Wor
 		return WorkflowStartResponse{}, fmt.Errorf("nodeID cannot be empty")
 	}
 
-	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
-		return WorkflowStartResponse{}, err
-	}
-
 	params := url.Values{}
 	params.Set("skip", strconv.FormatBool(skip))
 
 	path := apiPath("/api/executions/%s/nodes/%s/skip", executionID, nodeID) + "?" + params.Encode()
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {
+		return WorkflowStartResponse{}, err
+	}
+
+	if err := c.checkExecutionSession(sessionID, executionID); err != nil {
 		return WorkflowStartResponse{}, err
 	}
 

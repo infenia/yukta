@@ -792,6 +792,9 @@ func TestPauseWorkflow_emptyExecutionID(t *testing.T) {
 // TestPauseWorkflow_httpError tests HTTP error response
 func TestPauseWorkflow_httpError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.WriteHeader(http.StatusConflict)
 		_, _ = w.Write([]byte("Conflict"))
 	}))
@@ -828,6 +831,9 @@ func TestResumeWorkflow_emptyExecutionID(t *testing.T) {
 // TestResumeWorkflow_httpError tests HTTP error response
 func TestResumeWorkflow_httpError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = w.Write([]byte("Service Unavailable"))
 	}))
@@ -970,6 +976,9 @@ func TestPauseNode_emptyNodeID(t *testing.T) {
 // TestPauseNode_httpError tests HTTP error response
 func TestPauseNode_httpError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.WriteHeader(http.StatusBadGateway)
 		_, _ = w.Write([]byte("Bad Gateway"))
 	}))
@@ -1016,6 +1025,9 @@ func TestResumeNode_emptyNodeID(t *testing.T) {
 // TestResumeNode_httpError tests HTTP error response
 func TestResumeNode_httpError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.WriteHeader(http.StatusTooManyRequests)
 		_, _ = w.Write([]byte("Too Many Requests"))
 	}))
@@ -1062,6 +1074,9 @@ func TestEnableStepMode_emptyNodeID(t *testing.T) {
 // TestEnableStepMode_httpError tests HTTP error response
 func TestEnableStepMode_httpError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.WriteHeader(http.StatusPreconditionFailed)
 		_, _ = w.Write([]byte("Precondition Failed"))
 	}))
@@ -1108,6 +1123,9 @@ func TestDisableStepMode_emptyNodeID(t *testing.T) {
 // TestDisableStepMode_httpError tests HTTP error response
 func TestDisableStepMode_httpError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.WriteHeader(http.StatusRequestTimeout)
 		_, _ = w.Write([]byte("Request Timeout"))
 	}))
@@ -1154,6 +1172,9 @@ func TestStepNode_emptyNodeID(t *testing.T) {
 // TestStepNode_httpError tests HTTP error response
 func TestStepNode_httpError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte("Internal Server Error"))
 	}))
@@ -1170,6 +1191,9 @@ func TestStepNode_httpError(t *testing.T) {
 // TestStopNode_emptySessionID tests validation error
 func TestStopNode_noReasonSendsNoReasonParameter(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		if _, present := r.URL.Query()["reason"]; present {
 			t.Errorf("expected no reason parameter, got %q", r.URL.RawQuery)
 		}
@@ -1178,7 +1202,7 @@ func TestStopNode_noReasonSendsNoReasonParameter(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if _, err := NewClient(server.URL).StopNode("s", "exec-123", "node-1", false, ""); err != nil {
+	if _, err := NewClient(server.URL).StopNode("session-1", "exec-123", "node-1", false, ""); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -1215,6 +1239,9 @@ func TestStopNode_emptyNodeID(t *testing.T) {
 // TestStopNode_httpError tests HTTP error response
 func TestStopNode_httpError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte("Not Found"))
 	}))
@@ -1261,6 +1288,9 @@ func TestSkipNode_emptyNodeID(t *testing.T) {
 // TestSkipNode_httpError tests HTTP error response
 func TestSkipNode_httpError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.WriteHeader(http.StatusConflict)
 		_, _ = w.Write([]byte("Conflict"))
 	}))
@@ -1314,6 +1344,9 @@ func TestStreamWorkflowStatus_nilOnProgress(t *testing.T) {
 // TestStreamWorkflowStatus_httpError tests HTTP error response
 func TestStreamWorkflowStatus_httpError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte("Forbidden"))
 	}))
@@ -1332,6 +1365,9 @@ func TestStreamWorkflowStatus_httpError(t *testing.T) {
 // TestStreamWorkflowStatus_invalidJSON tests JSON unmarshaling error in streaming
 func TestStreamWorkflowStatus_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "data: {invalid json\n\n")
@@ -1410,6 +1446,9 @@ func TestRestartFromNode_invalidJSON(t *testing.T) {
 // TestPauseWorkflow_invalidJSON tests JSON unmarshaling error
 func TestPauseWorkflow_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`not json`))
@@ -1428,6 +1467,9 @@ func TestPauseWorkflow_invalidJSON(t *testing.T) {
 // TestResumeWorkflow_invalidJSON tests JSON unmarshaling error
 func TestResumeWorkflow_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"data":[]}`))
@@ -1448,6 +1490,9 @@ func TestResumeWorkflow_invalidJSON(t *testing.T) {
 // TestPauseNode_invalidJSON tests JSON unmarshaling error
 func TestPauseNode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"data":"invalid type"}`))
@@ -1466,6 +1511,9 @@ func TestPauseNode_invalidJSON(t *testing.T) {
 // TestResumeNode_invalidJSON tests JSON unmarshaling error
 func TestResumeNode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{`))
@@ -1484,6 +1532,9 @@ func TestResumeNode_invalidJSON(t *testing.T) {
 // TestEnableStepMode_invalidJSON tests JSON unmarshaling error
 func TestEnableStepMode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"data":{}`))
@@ -1502,6 +1553,9 @@ func TestEnableStepMode_invalidJSON(t *testing.T) {
 // TestDisableStepMode_invalidJSON tests JSON unmarshaling error
 func TestDisableStepMode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"data":"string"}`))
@@ -1520,6 +1574,9 @@ func TestDisableStepMode_invalidJSON(t *testing.T) {
 // TestStepNode_invalidJSON tests JSON unmarshaling error
 func TestStepNode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`]]`))
@@ -1538,6 +1595,9 @@ func TestStepNode_invalidJSON(t *testing.T) {
 // TestStopNode_invalidJSON tests JSON unmarshaling error
 func TestStopNode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"data":["array","not","object"]}`))
@@ -1556,6 +1616,9 @@ func TestStopNode_invalidJSON(t *testing.T) {
 // TestSkipNode_invalidJSON tests JSON unmarshaling error
 func TestSkipNode_invalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if answerSession(w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"data":0}`))
@@ -1674,14 +1737,28 @@ func TestMutatingCalls_refuseAnExecutionOfAnotherSession(t *testing.T) {
 	}))
 	defer server.Close()
 	c := NewClient(server.URL)
+	const s, e, n = "other-session", "exec-123", "node-1"
 
-	_, err := c.PauseWorkflow("other-session", "exec-123")
-
-	if err == nil || !strings.Contains(err.Error(), "not found in session") || posts != 0 {
-		t.Errorf("err=%v posts=%d", err, posts)
+	calls := map[string]func() error{
+		"PauseWorkflow":   func() error { _, err := c.PauseWorkflow(s, e); return err },
+		"ResumeWorkflow":  func() error { _, err := c.ResumeWorkflow(s, e); return err },
+		"PauseNode":       func() error { _, err := c.PauseNode(s, e, n); return err },
+		"ResumeNode":      func() error { _, err := c.ResumeNode(s, e, n); return err },
+		"EnableStepMode":  func() error { _, err := c.EnableStepMode(s, e, n); return err },
+		"DisableStepMode": func() error { _, err := c.DisableStepMode(s, e, n); return err },
+		"StepNode":        func() error { _, err := c.StepNode(s, e, n); return err },
+		"StopNode":        func() error { _, err := c.StopNode(s, e, n, false, ""); return err },
+		"SkipNode":        func() error { _, err := c.SkipNode(s, e, n, true); return err },
+		"StreamWorkflowStatus": func() error {
+			return c.StreamWorkflowStatus(context.Background(), s, e, false, func(WorkflowProgress) error { return nil })
+		},
 	}
-	err = c.StreamWorkflowStatus(context.Background(), "other-session", "exec-123", false, func(WorkflowProgress) error { return nil })
-	if err == nil || !strings.Contains(err.Error(), "not found in session") {
-		t.Errorf("stream err=%v", err)
+	for name, call := range calls {
+		if err := call(); err == nil || !strings.Contains(err.Error(), "not found in session") {
+			t.Errorf("%s: err=%v", name, err)
+		}
+	}
+	if posts != 0 {
+		t.Errorf("%d mutating requests were sent", posts)
 	}
 }
