@@ -1012,7 +1012,7 @@ class DefaultControlBusGatewayTest {
     StepVerifier.create(gateway.restartWorkflow(executionId))
         .then(
             () -> {
-              verify(controlBusService, org.mockito.Mockito.times(2)).emit(captor.capture());
+              verify(controlBusService, times(2)).emit(captor.capture());
               gateway.completeRestartSuccess(
                   ((RestartCommand) captor.getValue().payload()).newExecutionId());
             })
