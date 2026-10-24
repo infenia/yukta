@@ -71,4 +71,17 @@ echo "7. bad input"
 if sh "$script" --bogus 2>/dev/null; then fail "unknown option accepted"; fi
 if YUKTA_ARCH=riscv64 sh "$script" --version "$version" --install-dir "$work/h" 2>/dev/null; then fail "unsupported arch accepted"; fi
 
+for bad in '1.0/../../x' '1.0.0?x=1' '1.0.0#frag' '1.0' 'latest' '1.0.0
+../x'; do
+  if sh "$script" --version "$bad" --install-dir "$work/i" 2>"$work/err"; then fail "version '$bad' accepted"; fi
+  grep -q "is not a version" "$work/err" || fail "no version message for '$bad'"
+done
+
+echo "8. an archive with a link instead of a file is refused"
+ln -sf /etc/hostname "$work/stage/yukta-$version-linux-amd64/yukta"
+tar -C "$work/stage" -czf "$rel/yukta-$version-linux-amd64.tar.gz" "yukta-$version-linux-amd64"
+(cd "$rel" && sha256sum -- $(ls | grep -v '^SHA256SUMS$') > SHA256SUMS)
+if sh "$script" --version "$version" --install-dir "$work/j" 2>"$work/err"; then fail "linked file was installed"; fi
+grep -q "regular file" "$work/err" || fail "no regular-file message"
+
 echo "install.sh: all checks passed"
