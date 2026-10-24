@@ -32,6 +32,7 @@ import reactor.util.context.Context;
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
   "PMD.CommentRequired",
+  "PMD.TooManyMethods",
   "PMD.TooManyStaticImports",
   "unchecked"
 })
@@ -63,7 +64,14 @@ class SubWorkflowProcessorTest {
         .assertNext(
             out ->
                 assertThat(out.payload())
-                    .isEqualTo(Map.of("executionId", "child-1", "results", List.of("a", "b"))))
+                    .isEqualTo(
+                        Map.of(
+                            "executionId",
+                            "child-1",
+                            "results",
+                            List.of("a", "b"),
+                            "status",
+                            "SUCCESS")))
         .verifyComplete();
 
     final ArgumentCaptor<Map<String, Object>> start = ArgumentCaptor.forClass(Map.class);
@@ -109,6 +117,21 @@ class SubWorkflowProcessorTest {
   }
 
   @Test
+  void routeByOutcome_stillFailsTheNode_whenItsOwnWaitTimesOut() {
+    available();
+    when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
+        .thenReturn(Mono.never());
+
+    StepVerifier.withVirtualTime(
+            () ->
+                run(
+                    "x",
+                    Map.of("workflowId", "child", "timeoutSeconds", 2, "routeByOutcome", true)))
+        .thenAwait(Duration.ofSeconds(3))
+        .verifyError(java.util.concurrent.TimeoutException.class);
+  }
+
+  @Test
   void slowChild_timesOut() {
     available();
     when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
@@ -117,6 +140,89 @@ class SubWorkflowProcessorTest {
     StepVerifier.withVirtualTime(() -> run("x", Map.of("workflowId", "child", "timeoutSeconds", 2)))
         .thenAwait(Duration.ofSeconds(3))
         .verifyError(java.util.concurrent.TimeoutException.class);
+  }
+
+  private void childEnds(final String outcome) {
+    when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
+        .thenReturn(
+            Mono.just(new SubWorkflowGateway.Result("c", List.of(), "SUCCESS", outcome, "why")));
+  }
+
+  @Test
+  void routeByOutcome_sendsTheResultOutOnThePortOfTheReachedOutcome() {
+    available();
+    final Map<String, Object> config = Map.of("workflowId", "child", "routeByOutcome", true);
+    final Map<String, String> ports =
+        Map.of("SUCCESS", "success", "RETRY", "retry", "ESCALATE", "escalate", "FAILED", "failure");
+
+    ports.forEach(
+        (outcome, port) -> {
+          childEnds(outcome);
+          StepVerifier.create(run("x", config))
+              .assertNext(
+                  out -> {
+                    assertThat(out.sourcePort()).isEqualTo(port);
+                    assertThat((Map<String, Object>) out.payload())
+                        .containsEntry("outcome", outcome)
+                        .containsEntry("reason", "why")
+                        .containsEntry("status", "SUCCESS");
+                  })
+              .verifyComplete();
+        });
+    childEnds(null);
+    StepVerifier.create(run("x", config))
+        .assertNext(
+            out -> {
+              assertThat(out.sourcePort()).isEqualTo("success");
+              assertThat((Map<String, Object>) out.payload()).doesNotContainKeys("outcome");
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void routeByOutcome_turnsFailedChildIntoMessageOnTheFailurePort() {
+    available();
+    when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
+        .thenReturn(
+            Mono.error(
+                new SubWorkflowGateway.ChildFailed(
+                    "c9", "TIMED_OUT", new IllegalStateException("too slow"))));
+
+    StepVerifier.create(run("x", Map.of("workflowId", "child", "routeByOutcome", "true")))
+        .assertNext(
+            out -> {
+              assertThat(out.sourcePort()).isEqualTo("failure");
+              assertThat((Map<String, Object>) out.payload())
+                  .containsEntry("executionId", "c9")
+                  .containsEntry("status", "TIMED_OUT")
+                  .containsEntry("reason", "too slow");
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void withoutRouteByOutcome_failedChildFailsTheNode_withTheChildsError() {
+    available();
+    when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
+        .thenReturn(
+            Mono.error(
+                new SubWorkflowGateway.ChildFailed(
+                    "c9", "FAILURE", new IllegalStateException("child broke"))));
+
+    StepVerifier.create(run("x", Map.of("workflowId", "child")))
+        .verifyErrorSatisfies(
+            e ->
+                assertThat(e)
+                    .isInstanceOf(SubWorkflowGateway.ChildFailed.class)
+                    .hasMessage("child broke"));
+  }
+
+  @Test
+  void portsAreDeclaredOnlyWhenRoutingByOutcome() {
+    assertThat(processor.getOutputPorts(Map.of("workflowId", "c", "routeByOutcome", true)))
+        .containsExactly("success", "failure", "retry", "escalate");
+    assertThat(processor.getOutputPorts(Map.of("workflowId", "c")))
+        .isEqualTo(processor.getOutputPorts());
   }
 
   @Test

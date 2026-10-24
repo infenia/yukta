@@ -193,6 +193,19 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
       completion =
           completion
+              // A parent waiting on this run as a sub-workflow learns where it ended.
+              .doOnEach(
+                  signal -> {
+                    final ResultCollector collector =
+                        signal.isOnComplete() && received.get() > 0
+                            ? signal.getContextView().getOrDefault("resultCollector", null)
+                            : null;
+                    if (collector != null) {
+                      collector.addCompletion(
+                          node.nodeId(),
+                          completionMetadata(terminal, node.config(), received.get()));
+                    }
+                  })
               .doOnSubscribe(
                   s -> {
                     log.atDebug()

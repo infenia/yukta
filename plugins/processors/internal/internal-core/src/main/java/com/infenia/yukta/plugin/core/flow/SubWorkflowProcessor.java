@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.core.flow;
 
-import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
@@ -21,9 +20,12 @@ import reactor.util.context.ContextView;
 
 /**
  * Runs another workflow of the same session for every message and emits what it produced: {@code
- * {executionId, results}}, where {@code results} holds the payload of each message that reached a
- * terminal node of the child. The child gets the message payload (a map, or {@code {input: ...}})
- * as its start payload, or the configured {@code payload} map. Messages are handled one at a time.
+ * {executionId, results, status, outcome, reason}}, where {@code results} holds the payload of each
+ * message that reached a terminal node of the child and {@code outcome} names the OUTCOME_TERMINAL
+ * it reached. The child gets the message payload (a map, or {@code {input: ...}}) as its start
+ * payload, or the configured {@code payload} map. Messages are handled one at a time. With {@code
+ * routeByOutcome} a failed child does not fail this node: the message goes out on a port named
+ * after how the child ended, so the parent can branch on it.
  */
 @Component
 @SuppressWarnings({"PMD.LawOfDemeter", "PMD.UseConcurrentHashMap"})
@@ -37,6 +39,9 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
 
   /** Config key: longest the child may run. */
   private static final String TIMEOUT_SECONDS = "timeoutSeconds";
+
+  /** Config key: route on how the child ended instead of failing when it fails. */
+  private static final String ROUTE_BY_OUTCOME = "routeByOutcome";
 
   /** Longest wait used when none is configured. */
   private static final long DEFAULT_TIMEOUT_SECONDS = 300;
@@ -62,7 +67,10 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
         - workflowId: the workflow to run (required); it must exist in the same session.
         - payload: map used as the child's start payload (default: the message payload).
         - timeoutSeconds: longest the child may run, default 300.
-        Emits {executionId, results[]}. Nesting is limited to 5 levels. With
+        - routeByOutcome: true to route on how the child ended (ports success, failure, retry,
+          escalate) instead of failing this node when the child fails.
+        Emits {executionId, results[], status, outcome?, reason?}: outcome is the OUTCOME_TERMINAL the
+        child reached (SUCCESS, RETRY, ESCALATE, FAILED), absent when it reached none. Nesting is limited to 5 levels. With
         yukta.execution.max-concurrent the limit must allow the parent and its children together.
         """,
         Optional.empty());
@@ -74,7 +82,14 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
         ConfigField.required(WORKFLOW_ID, ConfigField.Type.STRING, "Workflow to run"),
         ConfigField.optional(PAYLOAD, ConfigField.Type.MAP, null, "Start payload of the child"),
         ConfigField.optional(
-            TIMEOUT_SECONDS, ConfigField.Type.NUMBER, DEFAULT_TIMEOUT_SECONDS, "Longest run"));
+            TIMEOUT_SECONDS, ConfigField.Type.NUMBER, DEFAULT_TIMEOUT_SECONDS, "Longest run"),
+        ConfigField.optional(
+            ROUTE_BY_OUTCOME, ConfigField.Type.BOOLEAN, false, "Route on how the child ended"));
+  }
+
+  @Override
+  public List<String> getOutputPorts(final Map<String, Object> config) {
+    return routeByOutcome(config) ? SubWorkflowResults.PORTS : getOutputPorts();
   }
 
   @Override
@@ -103,6 +118,7 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     final String workflowId = workflowId(config);
     final Duration timeout = timeout(config);
+    final boolean route = routeByOutcome(config);
     return input.concatMap(
         message ->
             Mono.deferContextual(
@@ -120,7 +136,16 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
                           ctx.getOrDefault("executionId", "unknown"),
                           depth + 1)
                       .timeout(timeout)
-                      .map(result -> result(message, result));
+                      .onErrorResume(
+                          e -> route && e instanceof SubWorkflowGateway.ChildFailed,
+                          e ->
+                              Mono.just(
+                                  SubWorkflowResults.failed((SubWorkflowGateway.ChildFailed) e)))
+                      .map(
+                          result ->
+                              route
+                                  ? SubWorkflowResults.routed(message, result)
+                                  : SubWorkflowResults.message(message, result));
                 }));
   }
 
@@ -145,12 +170,9 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
     return start;
   }
 
-  private static Message<?> result(
-      final Message<?> message, final SubWorkflowGateway.Result outcome) {
-    final Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("executionId", outcome.executionId());
-    payload.put("results", outcome.results());
-    return DefaultMessage.from(message, payload);
+  private static boolean routeByOutcome(final Map<String, Object> config) {
+    return Boolean.TRUE.equals(config.get(ROUTE_BY_OUTCOME))
+        || "true".equalsIgnoreCase(String.valueOf(config.get(ROUTE_BY_OUTCOME)));
   }
 
   private static String workflowId(final Map<String, Object> config) {

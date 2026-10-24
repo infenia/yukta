@@ -117,6 +117,69 @@ class SubWorkflowAcceptanceTest {
     assertThat(bad.status()).isEqualTo("FAILURE");
   }
 
+  /** A parent whose SUB_WORKFLOW routes on how the child ended, into one terminal per port. */
+  private void defineRoutingParent(final String session, final String workflowId) {
+    final List<String> ports = List.of("success", "failure", "retry", "escalate");
+    final List<Node> nodes = new java.util.ArrayList<>();
+    final List<Edge> edges = new java.util.ArrayList<>();
+    nodes.add(new Node("t", "CONSTANT_SOURCE", Map.of()));
+    nodes.add(
+        new Node("sub", "SUB_WORKFLOW", Map.of("workflowId", workflowId, "routeByOutcome", true)));
+    edges.add(new Edge("t", "sub", null));
+    for (final String port : ports) {
+      nodes.add(new Node("on-" + port, "CONSOLE_TERMINAL", Map.of()));
+      edges.add(new Edge("sub", "on-" + port, port));
+    }
+    definitions
+        .save(session, new WorkflowDefinition("parent-of-" + workflowId, "routes", nodes, edges))
+        .block();
+  }
+
+  private static String statusOf(final WorkflowProgress progress, final String nodeId) {
+    return progress.tasks().stream()
+        .filter(task -> task.nodeId().equals(nodeId))
+        .map(task -> task.status())
+        .findFirst()
+        .orElse("missing");
+  }
+
+  @Test
+  void routeByOutcome_takesThePortOfTheOutcomeTheChildReached_orFailureWhenItFailed() {
+    final String session = "sub-" + UUID.randomUUID();
+    definitions
+        .save(
+            session,
+            new WorkflowDefinition(
+                "escalating",
+                "ends in ESCALATE",
+                List.of(
+                    new Node("t", "CONSTANT_SOURCE", Map.of()),
+                    new Node(
+                        "out",
+                        "OUTCOME_TERMINAL",
+                        Map.of("outcome", "ESCALATE", "reason", "needs a human"))),
+                List.of(new Edge("t", "out", null))))
+        .block();
+    define(
+        session,
+        "failing",
+        new Node("p", "PROCESS_EXECUTOR", Map.of("command", List.of("sh", "-c", "exit 3"))));
+    defineRoutingParent(session, "escalating");
+    defineRoutingParent(session, "failing");
+
+    final WorkflowProgress escalated =
+        awaitTerminal(gateway.startWorkflow(session, "parent-of-escalating").block());
+    final WorkflowProgress failed =
+        awaitTerminal(gateway.startWorkflow(session, "parent-of-failing").block());
+
+    assertThat(escalated.status()).isEqualTo("SUCCESS");
+    assertThat(statusOf(escalated, "on-escalate")).isEqualTo("SUCCESS");
+    assertThat(statusOf(escalated, "on-success")).isNotEqualTo("SUCCESS");
+    assertThat(failed.status()).isEqualTo("SUCCESS");
+    assertThat(statusOf(failed, "on-failure")).isEqualTo("SUCCESS");
+    assertThat(statusOf(failed, "on-success")).isNotEqualTo("SUCCESS");
+  }
+
   @Test
   void unknownChildAndTooDeepNesting_areRefused() {
     final String session = "sub-" + UUID.randomUUID();

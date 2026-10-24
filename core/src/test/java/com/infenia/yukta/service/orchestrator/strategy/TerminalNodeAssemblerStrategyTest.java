@@ -5,6 +5,7 @@ package com.infenia.yukta.service.orchestrator.strategy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -513,6 +514,36 @@ class TerminalNodeAssemblerStrategyTest {
     StepVerifier.create(terminalMono).verifyComplete();
 
     verify(collector).add(any());
+    verify(collector)
+        .addCompletion(eq(NODE_ID), argThat(m -> Boolean.TRUE.equals(m.get("reached"))));
+  }
+
+  @Test
+  void
+      createAssembler_resultCollectorInContext_recordsNoCompletion_whenNothingReachedTheTerminal() {
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    final ResultCollector collector = mock(ResultCollector.class);
+    when(terminal.consume(any(), any()))
+        .thenAnswer(
+            inv -> {
+              final Flux<Message<?>> input = inv.getArgument(0);
+              return input.then();
+            });
+    when(terminal.isBlocking()).thenReturn(false);
+
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final AssemblyContext context = buildContext(Flux.empty());
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(Flux.empty());
+
+    strategy
+        .createAssembler(node, terminal, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(
+            context.terminals().getFirst().contextWrite(Context.of("resultCollector", collector)))
+        .verifyComplete();
+    verify(collector, never()).addCompletion(any(), any());
   }
 
   @Test
