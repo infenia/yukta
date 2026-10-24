@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.message.DefaultMessage;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
@@ -22,7 +23,8 @@ import reactor.test.StepVerifier;
   "PMD.ShortClassName",
   "PMD.ShortVariable",
   "PMD.TooManyMethods",
-  "PMD.UseConcurrentHashMap"
+  "PMD.UseConcurrentHashMap",
+  "PMD.AvoidAccessibilityAlteration"
 })
 class SignalWaitsTest {
 
@@ -109,6 +111,54 @@ class SignalWaitsTest {
     assertThat(first).isCompleted();
     assertThat(third).isCompleted();
     assertThat(answer(waits, "three")).isEqualTo(SignalWaits.NOT_WAITING);
+  }
+
+  @Test
+  void deliver_skipsEndedWaitStillQueued_andAnswersAcceptedOnlyForOneThatTookIt()
+      throws ReflectiveOperationException {
+    final SignalWaits waits = new SignalWaits();
+    final var first = waits.await("e", "n", "ok", Duration.ofSeconds(5)).toFuture();
+    final var second = waits.await("e", "n", "ok", Duration.ofSeconds(5)).toFuture();
+    // The first wait has just timed out or been cancelled, but its cleanup has not run yet.
+    final var field = SignalWaits.class.getDeclaredField("waiting");
+    field.setAccessible(true);
+    final var queue = ((Map<?, java.util.Deque<?>>) field.get(waits)).get("e\0n\0ok");
+    final Object waiter = queue.peekFirst();
+    final var open = waiter.getClass().getDeclaredMethod("open");
+    open.setAccessible(true);
+    ((java.util.concurrent.atomic.AtomicBoolean) open.invoke(waiter)).set(false);
+
+    assertThat(answer(waits, "one")).isEqualTo(SignalWaits.ACCEPTED);
+    assertThat(first).isNotDone();
+    assertThat(second).isCompleted();
+    // Nobody is left: the next signal is not reported as taken.
+    assertThat(answer(waits, "two")).isNotEqualTo(SignalWaits.ACCEPTED);
+  }
+
+  @Test
+  void deliver_withMissingExecutionNodeOrName_isRefusedAndTakesNoEarlySlot() {
+    final SignalWaits waits = new SignalWaits();
+    for (final String missing : List.of("executionId", "nodeId", "name")) {
+      final Map<String, Object> body = new java.util.HashMap<>();
+      body.put("executionId", "e");
+      body.put("nodeId", "n");
+      body.put("name", "ok");
+      body.put("decision", "approve");
+      body.remove(missing);
+      final var reply =
+          java.util.Objects.requireNonNull(
+              waits.deliver(DefaultMessage.create(UUID.randomUUID(), body)).block());
+      assertThat(reply.payload()).isEqualTo(SignalWaits.NOT_WAITING);
+    }
+    for (int i = 0; i < SignalWaits.EARLY_CAP; i++) {
+      final Map<String, Object> body = new java.util.HashMap<>();
+      body.put("executionId", "e" + i);
+      body.put("nodeId", "n");
+      body.put("name", "ok");
+      body.put("decision", "approve");
+      assertThat(waits.deliver(DefaultMessage.create(UUID.randomUUID(), body)).block().payload())
+          .isEqualTo(SignalWaits.QUEUED);
+    }
   }
 
   @Test
