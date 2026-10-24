@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import reactor.core.publisher.Mono;
@@ -32,7 +33,7 @@ import reactor.core.publisher.Sinks;
  * signal that follows an accepted one on the same key within {@link #DUPLICATE_WINDOW} is taken for
  * a double submit and answered {@link #NOT_WAITING}, so it cannot be kept for a later wait.
  */
-@SuppressWarnings("PMD.OnlyOneReturn")
+@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.TooManyMethods"})
 @SuppressFBWarnings(
     value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR",
     justification = "shared() is a convenience; tests and plugins may still own an instance")
@@ -74,7 +75,10 @@ public final class SignalWaits {
   /** Keeps the capacity check and the put of {@link #early} together. */
   private final ReentrantLock earlyLock = new ReentrantLock();
 
-  private record Waiter(Sinks.One<Decision> sink, Instant since) {}
+  /**
+   * A wait; {@code open} is cleared when it ends (timeout, cancel) so no signal is handed to it.
+   */
+  private record Waiter(Sinks.One<Decision> sink, Instant since, AtomicBoolean open) {}
 
   private record Early(Decision decision, Instant stored) {}
 
@@ -146,20 +150,28 @@ public final class SignalWaits {
         () -> {
           final String key = key(executionId, nodeId, name);
           final Sinks.One<Decision> sink = Sinks.one();
-          final Waiter waiter = new Waiter(sink, Instant.now(clock));
+          final Waiter waiter = new Waiter(sink, Instant.now(clock), new AtomicBoolean(true));
+          final AtomicBoolean oldest = new AtomicBoolean();
           waiting.compute(
               key,
               (_, queue) -> {
                 final Deque<Waiter> waits = queue == null ? new ArrayDeque<>() : queue;
+                oldest.set(waits.isEmpty());
                 waits.add(waiter);
                 return waits;
               });
-          // After registering, so a signal that came in between is not lost.
-          final Decision sent = takeEarly(key);
+          // After registering, so a signal that came in between is not lost. Only the oldest wait
+          // takes a signal that came early: an older one that is still open has the right to it.
+          final Decision sent = oldest.get() ? takeEarly(key) : null;
           if (sent != null) {
+            waiter.open().set(false); // answered: a later signal must not be handed to this wait
             sink.tryEmitValue(sent);
           }
-          return sink.asMono().timeout(timeout).doFinally(_ -> forget(key, waiter));
+          return sink.asMono()
+              .timeout(timeout)
+              .doOnError(_ -> waiter.open().set(false))
+              .doOnCancel(() -> waiter.open().set(false))
+              .doFinally(_ -> forget(key, waiter));
         });
   }
 
@@ -175,19 +187,20 @@ public final class SignalWaits {
     if (!(signal.payload() instanceof Map<?, ?> body)) {
       return Mono.empty();
     }
-    final String key =
-        key(
-            String.valueOf(body.get("executionId")),
-            String.valueOf(body.get("nodeId")),
-            String.valueOf(body.get("name")));
+    final String executionId = text(body.get("executionId"));
+    final String nodeId = text(body.get("nodeId"));
+    final String name = text(body.get("name"));
+    if (executionId.isBlank() || nodeId.isBlank() || name.isBlank()) {
+      // A signal that names no wait must not take one of the early slots under a made-up key.
+      return Mono.just(DefaultMessage.create(UUID.randomUUID(), NOT_WAITING));
+    }
+    final String key = key(executionId, nodeId, name);
     final Decision decision =
         new Decision(
             String.valueOf(body.get("decision")),
             body.get("data") == null ? "" : String.valueOf(body.get("data")));
-    final Waiter waiter = next(key);
     final String answer;
-    if (waiter != null) {
-      waiter.sink().tryEmitValue(decision); // a fresh sink; only this call ever emits to it
+    if (handToWaiter(key, decision)) {
       answer = ACCEPTED;
       final Instant now = Instant.now(clock);
       accepted.values().removeIf(t -> t.plus(DUPLICATE_WINDOW).isBefore(now));
@@ -198,6 +211,27 @@ public final class SignalWaits {
       answer = keepEarly(key, decision) ? QUEUED : NOT_WAITING;
     }
     return Mono.just(DefaultMessage.create(UUID.randomUUID(), answer));
+  }
+
+  private static String text(final Object value) {
+    return value == null ? "" : String.valueOf(value);
+  }
+
+  /**
+   * Gives the decision to the oldest wait that can still take it. A wait that has just timed out,
+   * been cancelled or already took an early signal is closed but may not have left the queue yet:
+   * it is skipped, so the caller is not told ACCEPTED for a decision nobody received. Closing the
+   * wait is atomic, so exactly one caller gets to emit to its sink.
+   */
+  private boolean handToWaiter(final String key, final Decision decision) {
+    Waiter waiter = next(key);
+    while (waiter != null && !waiter.open().getAndSet(false)) {
+      waiter = next(key);
+    }
+    if (waiter != null) {
+      waiter.sink().tryEmitValue(decision);
+    }
+    return waiter != null;
   }
 
   private boolean isDuplicate(final String key) {
