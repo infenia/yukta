@@ -30,6 +30,7 @@ com.infenia.yukta.filter.ApiKeyFilter
 com.infenia.yukta.filter.HostOriginFilter
 com.infenia.yukta.filter.RequestLoggingFilter
 com.infenia.yukta.filter.RequestTracingFilter
+com.infenia.yukta.filter.SecurityHeadersFilter
 com.infenia.yukta.logging.api.PluginLogStoreConfig
 com.infenia.yukta.logging.impl.memory.InMemoryPluginLogStore
 com.infenia.yukta.logging.impl.memory.LogStoreAutoConfiguration
