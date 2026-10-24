@@ -71,6 +71,9 @@ jobs:
       - name: Test the project helpers and issue triage
         run: .github/scripts/project-lib.test.sh
 
+      - name: Test the auto-found issue filing (dedupe, reopen, auto-close)
+        run: .github/scripts/auto-found.test.sh
+
       - name: Lint workflows (actionlint)
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo \
