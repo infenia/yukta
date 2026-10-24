@@ -91,6 +91,12 @@
   --cat-trigger: oklch(0.62 0.19 45);
   --cat-processor: oklch(0.58 0.21 264);
   --cat-terminal: oklch(0.57 0.05 262);
+
+  /* Elevation, as in the docs theme (docs/style.css): soft neutral shadows, never coloured glows */
+  --elevation-card:
+    0 1px 2px rgb(17 22 31 / 0.05), 0 1px 3px rgb(17 22 31 / 0.04);
+  --elevation-raised:
+    0 2px 4px rgb(17 22 31 / 0.04), 0 12px 28px -12px rgb(17 22 31 / 0.16);
 }
 
 .dark {
@@ -137,6 +143,10 @@
   --cat-trigger: oklch(0.75 0.16 50);
   --cat-processor: oklch(0.72 0.15 262);
   --cat-terminal: oklch(0.7 0.05 262);
+
+  --elevation-card: 0 1px 2px rgb(0 0 0 / 0.35);
+  --elevation-raised:
+    0 2px 4px rgb(0 0 0 / 0.3), 0 14px 32px -12px rgb(0 0 0 / 0.55);
 }
 
 @theme inline {
@@ -223,9 +233,21 @@
   --color-cat-trigger: var(--cat-trigger);
   --color-cat-processor: var(--cat-processor);
   --color-cat-terminal: var(--cat-terminal);
-  --color-cat-trigger-soft: color-mix(in oklab, var(--cat-trigger) 14%, var(--background));
-  --color-cat-processor-soft: color-mix(in oklab, var(--cat-processor) 14%, var(--background));
-  --color-cat-terminal-soft: color-mix(in oklab, var(--cat-terminal) 14%, var(--background));
+  --color-cat-trigger-soft: color-mix(
+    in oklab,
+    var(--cat-trigger) 14%,
+    var(--background)
+  );
+  --color-cat-processor-soft: color-mix(
+    in oklab,
+    var(--cat-processor) 14%,
+    var(--background)
+  );
+  --color-cat-terminal-soft: color-mix(
+    in oklab,
+    var(--cat-terminal) 14%,
+    var(--background)
+  );
 
   /* Radius: the rhea preset's scale */
   --radius-sm: calc(var(--radius) * 0.6);
@@ -236,6 +258,10 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   --color-attention: var(--attention);
+
+  /* Elevation: shadow-card for panels, code and tables; shadow-raised for hover and overlays */
+  --shadow-card: var(--elevation-card);
+  --shadow-raised: var(--elevation-raised);
 }
 
 @theme {
@@ -248,15 +274,18 @@
   --spacing-spacing-xl: 32px;
   --spacing-gutter: 1px;
   --spacing-margin-compact: 16px;
+
+  /* The docs theme's one easing curve: short, functional, ease-out */
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 /* Named typography utilities */
 @utility text-display-01 {
   font-family: var(--font-sans);
   font-size: 42px;
-  font-weight: 300;
-  line-height: 48px;
-  letter-spacing: 0px;
+  font-weight: 600;
+  line-height: 46px;
+  letter-spacing: -0.03em;
 }
 
 @utility text-headline-lg {
@@ -264,15 +293,15 @@
   font-size: 24px;
   font-weight: 600;
   line-height: 32px;
-  letter-spacing: 0px;
+  letter-spacing: -0.022em;
 }
 
 @utility text-headline-lg-mobile {
   font-family: var(--font-sans);
   font-size: 28px;
-  font-weight: 400;
+  font-weight: 600;
   line-height: 34px;
-  letter-spacing: 0px;
+  letter-spacing: -0.022em;
 }
 
 @utility text-headline-md {
@@ -280,7 +309,7 @@
   font-size: 20px;
   font-weight: 600;
   line-height: 26px;
-  letter-spacing: 0px;
+  letter-spacing: -0.016em;
 }
 
 @utility text-body-md {
@@ -323,12 +352,21 @@
   letter-spacing: 0px;
 }
 
+/* Section and table labels: small, semibold, muted (the docs' table head and sidebar group) */
+@utility text-overline {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+}
+
 @utility transition-standard {
-  transition:
-    color 150ms,
-    background-color 150ms,
-    border-color 150ms,
-    opacity 150ms;
+  transition-property:
+    color, background-color, border-color, opacity, box-shadow, transform;
+  transition-duration: 180ms;
+  transition-timing-function: var(--ease-out-soft);
 }
 
 @layer base {
@@ -339,6 +377,19 @@
   body {
     font-family: var(--font-sans);
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 22%, transparent);
+  }
+
+  /* A visible ring for keyboard focus; components with their own focus-visible:ring-* keep theirs */
+  :focus-visible {
+    outline: 2px solid color-mix(in oklch, var(--primary) 55%, transparent);
+    outline-offset: 2px;
   }
 
   .material-symbols-outlined {
@@ -371,7 +422,11 @@
   --xy-controls-button-border-color: var(--border);
   --xy-controls-box-shadow: none;
   --xy-minimap-background-color: var(--card);
-  --xy-minimap-mask-background-color: color-mix(in oklch, var(--background) 70%, transparent);
+  --xy-minimap-mask-background-color: color-mix(
+    in oklch,
+    var(--background) 70%,
+    transparent
+  );
   --xy-minimap-mask-stroke-color: var(--outline);
   --xy-minimap-node-background-color: var(--muted);
   --xy-minimap-node-stroke-color: transparent;
@@ -451,4 +506,19 @@
 .react-flow__minimap {
   border-radius: 10px;
   overflow: hidden;
+}
+
+/* Reduced motion: no transitions or animations (as in the docs theme), except loading spinners,
+   which carry meaning rather than decoration */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+  }
+  *:not(.animate-spin),
+  *::before,
+  *::after {
+    animation: none !important;
+  }
 }
