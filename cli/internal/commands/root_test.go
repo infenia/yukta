@@ -401,6 +401,17 @@ func TestRootCmd_tokenFileIsReadAndTrimmed(t *testing.T) {
 	}
 }
 
+func TestRootCmd_insecureTokenEnv(t *testing.T) {
+	for env, want := range map[string]bool{"1": true, "true": true, "0": false, "": false, "yes": false} {
+		t.Setenv("YUKTA_INSECURE_TOKEN", env)
+		c := client.NewClient("http://localhost:8080")
+		RootCmd(c)
+		if c.AllowInsecureToken != want {
+			t.Errorf("YUKTA_INSECURE_TOKEN=%q: AllowInsecureToken = %v, want %v", env, c.AllowInsecureToken, want)
+		}
+	}
+}
+
 func TestRootCmd_missingTokenFileFails(t *testing.T) {
 	cmd := RootCmd(client.NewClient("http://localhost:8080"))
 	cmd.AddCommand(&cobra.Command{Use: "noop", Run: func(*cobra.Command, []string) {}})
