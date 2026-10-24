@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import reactor.core.Disposable;
@@ -36,6 +37,8 @@ import reactor.test.StepVerifier;
   "PMD.AvoidDuplicateLiterals", // Common test string constants
   "PMD.CommentRequired", // Constants are self-documenting in test context
   "PMD.TooManyMethods", // Comprehensive test coverage requires multiple methods
+  "PMD.CyclomaticComplexity", // one test class covers the whole gateway
+  "PMD.LawOfDemeter", // fluent assertions and builders
 })
 class ProcessExecutorGatewayTest {
 
@@ -584,6 +587,126 @@ class ProcessExecutorGatewayTest {
     StepVerifier.create(gateway.executeForResult(other))
         .expectNextMatches(result -> result.exitCode() == 0)
         .verifyComplete();
+  }
+
+  private static ProcessExecutionSpec echoWith(
+      final Map<String, String> env, final String workingDir) {
+    return ProcessExecutionSpec.builder()
+        .command(List.of("echo", "hi"))
+        .env(env)
+        .workingDir(workingDir)
+        .timeoutSeconds(10L)
+        .build();
+  }
+
+  @Test
+  void allowedCommands_refuseEnvironmentVariablesThatChangeWhatAnAllowedProgramRuns() {
+    gateway.setAllowedCommands(List.of("echo"));
+
+    for (final String name :
+        List.of(
+            "LD_PRELOAD", "PATH", "GIT_SSH_COMMAND", "JAVA_TOOL_OPTIONS", "ld_preload", "HOME")) {
+      StepVerifier.create(gateway.executeForResult(echoWith(Map.of(name, "x"), null)))
+          .expectErrorMatches(
+              e ->
+                  e.getMessage().contains("'" + name + "'")
+                      && e.getMessage().contains("allowed-env"))
+          .verify();
+    }
+    StepVerifier.create(gateway.executeForResult(echoWith(Map.of("GREETING", "x"), null)))
+        .assertNext(result -> assertThat(result.exitCode()).isZero())
+        .verifyComplete();
+  }
+
+  @Test
+  void allowedEnv_letsTheOperatorAllowRiskyNameOnPurpose() {
+    gateway.setAllowedCommands(List.of("echo"));
+    gateway.setAllowedEnv(List.of("GIT_AUTHOR_NAME"));
+
+    StepVerifier.create(gateway.executeForResult(echoWith(Map.of("GIT_AUTHOR_NAME", "bob"), null)))
+        .assertNext(result -> assertThat(result.exitCode()).isZero())
+        .verifyComplete();
+    StepVerifier.create(gateway.executeForResult(echoWith(Map.of("GIT_SSH_COMMAND", "x"), null)))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    gateway.setAllowedEnv(null);
+  }
+
+  @Test
+  void withoutTheCommandList_environmentAndWorkingDirectoryAreNotChecked(
+      @TempDir final Path root, @TempDir final Path elsewhere) {
+    gateway.setAllowAny(true);
+    gateway.setWorkingDirRoot(root.toString());
+
+    StepVerifier.create(
+            gateway.executeForResult(echoWith(Map.of("LD_PRELOAD", ""), elsewhere.toString())))
+        .assertNext(result -> assertThat(result.exitCode()).isZero())
+        .verifyComplete();
+    gateway.setWorkingDirRoot(null);
+  }
+
+  @Test
+  void workingDirRoot_keepsTheProcessInsideIt(@TempDir final Path root) throws IOException {
+    Files.createDirectories(root.resolve("sub"));
+    final Path outside = Files.createTempDirectory("outside");
+    Files.createSymbolicLink(root.resolve("escape"), outside);
+    final String realRoot = root.toRealPath().toString();
+    gateway.setAllowedCommands(List.of("pwd"));
+    gateway.setWorkingDirRoot(root.toString());
+    final ProcessExecutionSpec inside =
+        ProcessExecutionSpec.builder()
+            .command(List.of("pwd"))
+            .workingDir("sub")
+            .timeoutSeconds(10L)
+            .build();
+    final ProcessExecutionSpec none =
+        ProcessExecutionSpec.builder().command(List.of("pwd")).timeoutSeconds(10L).build();
+
+    StepVerifier.create(gateway.executeForResult(inside))
+        .assertNext(result -> assertThat(result.stdout()).endsWith("/sub"))
+        .verifyComplete();
+    StepVerifier.create(gateway.executeForResult(none))
+        .assertNext(result -> assertThat(result.stdout()).isEqualTo(realRoot))
+        .verifyComplete();
+    StepVerifier.create(gateway.executeForResult(echoWithCommand("pwd", "  ")))
+        .assertNext(result -> assertThat(result.stdout()).isEqualTo(realRoot))
+        .verifyComplete();
+    for (final String escape : List.of("..", "../x", "/etc", "escape", "sub/../..")) {
+      StepVerifier.create(gateway.executeForResult(echoWithCommand("pwd", escape)))
+          .expectErrorMatches(
+              e -> e.getMessage().contains("outside yukta.process.working-dir-root"))
+          .verify();
+    }
+    gateway.setWorkingDirRoot(null);
+  }
+
+  @Test
+  void workingDirRoot_refusesWhatItCannotCheck_andAllowsSubdirectoryNotCreatedYet(
+      @TempDir final Path root) {
+    gateway.setAllowedCommands(List.of("pwd"));
+    gateway.setWorkingDirRoot(root.toString());
+
+    StepVerifier.create(gateway.executeForResult(echoWithCommand("pwd", "bad\0name")))
+        .expectErrorMatches(e -> e.getMessage().contains("cannot be checked"))
+        .verify();
+    // Not there yet: it passes the check and then fails to start, like any missing directory.
+    StepVerifier.create(gateway.executeForResult(echoWithCommand("pwd", "missing")))
+        .expectError(IOException.class)
+        .verify();
+    gateway.setWorkingDirRoot(root.resolve("gone").toString());
+    StepVerifier.create(gateway.executeForResult(echoWithCommand("pwd", "x")))
+        .expectErrorMatches(e -> e.getMessage().contains("cannot be checked"))
+        .verify();
+    gateway.setWorkingDirRoot("  ");
+    gateway.setWorkingDirRoot(null);
+  }
+
+  private static ProcessExecutionSpec echoWithCommand(final String command, final String dir) {
+    return ProcessExecutionSpec.builder()
+        .command(List.of(command))
+        .workingDir(dir)
+        .timeoutSeconds(10L)
+        .build();
   }
 
   @Test
