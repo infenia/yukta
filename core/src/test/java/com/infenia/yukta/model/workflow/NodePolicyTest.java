@@ -112,6 +112,8 @@ class NodePolicyTest {
         .hasMessageContaining("engine.stallAfterMs must be positive");
     assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("concurrencyGroup", " "))))
         .hasMessageContaining("engine.concurrencyGroup");
+    assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("concurrencyGroup", 5))))
+        .hasMessageContaining("engine.concurrencyGroup");
   }
 
   @Test

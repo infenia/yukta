@@ -444,7 +444,7 @@ public class ExecutionControlController {
                 "queued",
                 queued,
                 "idle",
-                running == 0 && queued == 0)));
+                running + queued == 0)));
   }
 
   private Mono<ApiResponse<WorkflowStartResponse>> signal(
