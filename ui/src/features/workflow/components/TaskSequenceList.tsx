@@ -165,9 +165,7 @@ export function TaskSequenceList({
 
   return (
     <div data-testid="task-sequence">
-      <h3 className="text-on-surface mb-2 text-xs font-semibold tracking-wider">
-        TASK SEQUENCE
-      </h3>
+      <h3 className="text-overline mb-2">TASK SEQUENCE</h3>
       <ul className="flex flex-col">
         {tasks.map((task) => (
           <TaskSequenceItem

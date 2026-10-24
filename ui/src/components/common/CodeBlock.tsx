@@ -21,12 +21,12 @@ export function CodeBlock({ code, label }: { code: string; label?: string }) {
     );
   };
   return (
-    <div className="border-outline-variant bg-surface-container-low relative overflow-hidden rounded-lg border">
+    <div className="border-border bg-muted/50 shadow-card relative overflow-hidden rounded-xl border">
       <button
         type="button"
         onClick={copy}
         aria-label={label ? `Copy ${label}` : 'Copy'}
-        className="text-label-sm transition-standard text-on-surface-variant hover:bg-surface-container-high absolute top-1 right-1 px-2 py-1"
+        className="text-label-sm transition-standard text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface bg-card/80 border-border absolute top-1.5 right-1.5 rounded-lg border px-2 py-1"
       >
         {status === 'copied'
           ? 'Copied'

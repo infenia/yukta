@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { CodeBlock } from '@/components/common/CodeBlock';
+import { Card } from '@/components/ui/card';
 import { useExecutionResults } from '../hooks/useExecutionResults';
 
 function formatPayload(payload: unknown): string {
@@ -28,11 +30,8 @@ export function ExecutionResultBlock({
   }
 
   return (
-    <div
-      className="border-outline-variant rounded-xl border p-4"
-      data-testid="execution-result"
-    >
-      <h3 className="text-on-surface mb-2 flex items-center gap-2 text-xs font-semibold tracking-wider">
+    <Card className="p-4" data-testid="execution-result">
+      <h3 className="text-overline mb-2 flex items-center gap-2">
         RESULT
         {isStreaming && (
           <span
@@ -56,13 +55,14 @@ export function ExecutionResultBlock({
               <span className="text-on-surface-variant text-xs">
                 {result.nodeId}
               </span>
-              <pre className="bg-surface-container text-on-surface max-h-48 overflow-auto rounded p-2 font-mono text-xs break-all whitespace-pre-wrap">
-                {formatPayload(result.payload)}
-              </pre>
+              <CodeBlock
+                code={formatPayload(result.payload)}
+                label={`${result.nodeId} result`}
+              />
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }
