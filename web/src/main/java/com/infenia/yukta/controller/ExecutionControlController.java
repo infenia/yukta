@@ -5,6 +5,7 @@ package com.infenia.yukta.controller;
 import com.infenia.yukta.dto.response.WorkflowStartResponse;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.control.PendingApproval;
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
@@ -60,6 +61,9 @@ public class ExecutionControlController {
 
   /** Applies a command to a whole tree of runs. */
   private final TreeControl treeControl;
+
+  /** Admits the runs; its drain switch backs {@code /admin/drain}. */
+  private final ExecutionScheduler scheduler;
 
   /** Pause a workflow execution. */
   @PostMapping({"/executions/{executionId}/pause", "/workflow/{sessionId}/{executionId}/pause"})
@@ -400,6 +404,47 @@ public class ExecutionControlController {
                 200,
                 "Limits changed",
                 Map.of("maxConcurrent", maxConcurrent, "maxPerWorkflow", maxPerWorkflow)));
+  }
+
+  /** Refuse new starts so the server can be swapped; the runs already going are not touched. */
+  @PostMapping("/admin/drain")
+  @Operation(
+      summary = "Drain the server",
+      description =
+          "Refuses new starts (HTTP 429) while running ones carry on. Poll GET until idle is true,"
+              + " then swap the server; DELETE admits starts again. Admin keys only.")
+  public Mono<ApiResponse<Map<String, Object>>> drain() {
+    scheduler.setDraining(true);
+    return drainStatus();
+  }
+
+  /** Admit new starts again after a drain. */
+  @DeleteMapping("/admin/drain")
+  @Operation(summary = "Stop draining the server")
+  public Mono<ApiResponse<Map<String, Object>>> undrain() {
+    scheduler.setDraining(false);
+    return drainStatus();
+  }
+
+  /** Whether the server drains and whether anything is still running or waiting. */
+  @GetMapping("/admin/drain")
+  @Operation(summary = "Drain state", description = "idle is true once nothing runs or waits")
+  public Mono<ApiResponse<Map<String, Object>>> drainStatus() {
+    final int running = scheduler.running();
+    final int queued = scheduler.queued();
+    return Mono.just(
+        ApiResponse.success(
+            200,
+            "Drain state",
+            Map.of(
+                "draining",
+                scheduler.isDraining(),
+                "running",
+                running,
+                "queued",
+                queued,
+                "idle",
+                running == 0 && queued == 0)));
   }
 
   private Mono<ApiResponse<WorkflowStartResponse>> signal(

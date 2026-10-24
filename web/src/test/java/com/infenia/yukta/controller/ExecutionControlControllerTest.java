@@ -11,6 +11,7 @@ import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
@@ -43,6 +44,11 @@ class ExecutionControlControllerTest {
   /** The tracker, which knows the runs of a tree. */
   private TaskTrackerService tracker;
 
+  /** The scheduler behind the drain switch. */
+  private final ExecutionScheduler scheduler =
+      new ExecutionScheduler(
+          0, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+
   /** The client. */
   private WebTestClient client;
 
@@ -59,7 +65,11 @@ class ExecutionControlControllerTest {
     client =
         WebTestClient.bindToController(
                 new ExecutionControlController(
-                    controlBus, new ExecutionAccess(controlBus), resumer, new TreeControl(tracker)))
+                    controlBus,
+                    new ExecutionAccess(controlBus),
+                    resumer,
+                    new TreeControl(tracker),
+                    scheduler))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
   }
@@ -285,5 +295,42 @@ class ExecutionControlControllerTest {
         .expectBody()
         .jsonPath("$.message")
         .value(org.hamcrest.Matchers.containsString("maintenance window"));
+  }
+
+  @Test
+  void drain_refusesStartsAndReportsWhenIdle_untilUndone() {
+    final ExecutionScheduler.Permit running = scheduler.acquire("s1", "wf").permit().block();
+
+    client
+        .post()
+        .uri("/api/admin/drain")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.draining")
+        .isEqualTo(true)
+        .jsonPath("$.data.running")
+        .isEqualTo(1)
+        .jsonPath("$.data.idle")
+        .isEqualTo(false);
+    org.assertj.core.api.Assertions.assertThat(scheduler.acquire("s1", "wf").refused()).isTrue();
+
+    running.release();
+    client
+        .get()
+        .uri("/api/admin/drain")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.idle")
+        .isEqualTo(true);
+    client
+        .delete()
+        .uri("/api/admin/drain")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.draining")
+        .isEqualTo(false);
+    org.assertj.core.api.Assertions.assertThat(scheduler.acquire("s1", "wf").refused()).isFalse();
   }
 }

@@ -25,6 +25,7 @@ class ApiRoleTest {
     assertThat(ApiRole.OPERATOR.allows(HttpMethod.POST, "/api/executions/e/priority")).isTrue();
     assertThat(ApiRole.OPERATOR.allows(HttpMethod.POST, "/api/workflow/start")).isTrue();
     assertThat(ApiRole.OPERATOR.allows(HttpMethod.POST, "/api/sessions")).isFalse();
+    assertThat(ApiRole.OPERATOR.allows(HttpMethod.POST, "/api/admin/drain")).isFalse();
     assertThat(ApiRole.OPERATOR.allows(HttpMethod.POST, "/api/executions/../sessions")).isFalse();
   }
 

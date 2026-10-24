@@ -521,4 +521,26 @@ class ExecutionSchedulerTest {
         .isInstanceOf(com.infenia.yukta.service.leader.NotLeaderException.class);
     assertThat(scheduler.running()).isZero();
   }
+
+  @Test
+  void draining_refusesNewStarts_keepsRunningOnes_andCanBeUndone() {
+    final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
+    final Permit running = granted(scheduler.acquire("s", "w"));
+
+    scheduler.setDraining(true);
+
+    assertThat(scheduler.isDraining()).isTrue();
+    assertThat(scheduler.running()).isEqualTo(1);
+    assertThatThrownBy(() -> scheduler.assertCanAccept("s", "w"))
+        .isInstanceOf(ExecutionRejectedException.class)
+        .hasMessageContaining("draining");
+    assertThat(scheduler.acquire("s", "w").refused()).isTrue();
+    assertThat(scheduler.rejected(ExecutionScheduler.RejectReason.DRAINING)).isEqualTo(2);
+    // a child run of a running parent still gets through
+    assertThat(scheduler.borrowed().refused()).isFalse();
+
+    running.release();
+    scheduler.setDraining(false);
+    assertThat(scheduler.acquire("s", "w").refused()).isFalse();
+  }
 }
