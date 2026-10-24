@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -96,10 +97,17 @@ logs and results.`,
 		insecureFromEnv,
 		"Allow sending the token over plain http to a non-loopback host (env: YUKTA_INSECURE_TOKEN)",
 	)
-	cmd.PersistentPreRunE = func(*cobra.Command, []string) error {
+	cmd.PersistentPreRunE = func(run *cobra.Command, _ []string) error {
 		// Arguments and flags are parsed by now, so later errors come from the server, not from usage.
 		cmd.SilenceUsage = true
+		if tokenFile != "" && run.Flags().Changed("token") {
+			return errors.New("--token and --token-file are mutually exclusive")
+		}
 		if tokenFile == "" {
+			// Read here, not as the flag default: cobra prints defaults in --help.
+			if c.Token == "" {
+				c.Token = os.Getenv("YUKTA_TOKEN")
+			}
 			return nil
 		}
 		data, err := os.ReadFile(tokenFile) // #nosec G304 -- the user names this file on purpose
@@ -113,7 +121,7 @@ logs and results.`,
 	cmd.PersistentFlags().StringVar(
 		&c.Token,
 		"token",
-		os.Getenv("YUKTA_TOKEN"),
+		"",
 		"Bearer token for authenticated servers (env: YUKTA_TOKEN)",
 	)
 
