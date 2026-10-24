@@ -32,14 +32,14 @@ class EventsControllerTest {
   /** Answers which runs lie within a tree, for the tree filter. */
   private final TaskTrackerService tracker = mock(TaskTrackerService.class);
 
+  /** Envelope type of a workflow status change. */
+  private static final String WORKFLOW_STATUS = "WorkflowStatusChanged";
+
   @BeforeEach
   void everyRunIsItsOwnRoot() {
     when(tracker.lineage(anyString()))
         .thenAnswer(call -> new TaskTrackerService.Lineage(call.getArgument(0), 0));
   }
-
-  /** Envelope type of a workflow status change. */
-  private static final String WORKFLOW_STATUS = "WorkflowStatusChanged";
 
   private static ExecutionEvent workflow(final String executionId, final String status) {
     return new ExecutionEvent.WorkflowStatusChanged(executionId, "wf", status, Instant.now());

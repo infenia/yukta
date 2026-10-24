@@ -29,7 +29,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = {"yukta.process.allow-any=true", "yukta.concurrency.groups.tiny=2"})
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 class EngineLimitsAcceptanceTest {
 
@@ -40,9 +40,9 @@ class EngineLimitsAcceptanceTest {
   @Autowired private TaskTrackerService tracker;
   @Autowired private ExecutionEventFeed feed;
 
-  private static Node sleeper(final String id, final Map<String, Object> engine) {
+  private static Node sleeper(final String name, final Map<String, Object> engine) {
     return new Node(
-        id,
+        name,
         "PROCESS_EXECUTOR",
         Map.of("command", List.of("sleep", "1"), "outputFormat", "RAW", "engine", engine));
   }
@@ -93,7 +93,7 @@ class EngineLimitsAcceptanceTest {
   }
 
   @Test
-  void threeNodesInAGroupOfTwo_neverRunMoreThanTwoAtOnce() {
+  void threeNodesInGroupOfTwo_neverRunMoreThanTwoAtOnce() {
     final String session = "group-" + UUID.randomUUID();
     final Map<String, Object> engine = Map.of("concurrencyGroup", "tiny");
     define(session, List.of(sleeper("a", engine), sleeper("b", engine), sleeper("c", engine)));

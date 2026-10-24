@@ -37,10 +37,12 @@ import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -463,15 +465,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   @Override
   public Lineage lineage(@NotBlank final String executionId) {
-    String root = executionId;
-    int depth = 0;
     // bounded like isWithin, so a broken (cyclic) record ends
-    for (String parent = parentOf(root); parent != null && depth < MAX_TREE_DEPTH; ) {
-      root = parent;
-      depth++;
-      parent = parentOf(root);
-    }
-    return new Lineage(root, depth);
+    final List<String> chain =
+        Stream.iterate(executionId, Objects::nonNull, this::parentOf)
+            .limit(MAX_TREE_DEPTH + 1L)
+            .toList();
+    return new Lineage(chain.getLast(), chain.size() - 1);
   }
 
   private @Nullable String parentOf(final String executionId) {
