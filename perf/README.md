@@ -27,7 +27,7 @@ from other cores, and writes a report. the server is one of:
 
 | Server | Runs | Image | Needs |
 |---|---|---|---|
-| jar (default) | `boot/build/libs/boot-0.0.1-SNAPSHOT.jar` on a JVM | `eclipse-temurin:25-jre` | nothing: the script runs `./gradlew :boot:bootJar` every time (a no-op when up to date), unless you set `JAR=<path>` |
+| jar (default) | `boot/build/libs/boot-<version>.jar` on a JVM | `eclipse-temurin:25-jre` | nothing: the script runs `./gradlew :boot:bootJar` every time (a no-op when up to date), unless you set `JAR=<path>` |
 | `BINARY=<path>` (native) | the GraalVM binary, e.g. `dist/linux-amd64/yukta` | `debian:12-slim` | the binary, built once with `release/build-server.sh` (add `NATIVE_QUICK=1` for a fast, slower-running rehearsal build; `NATIVE_HEAP=24g` for more builder heap). |
 
 `MODE=native perf/run.sh ...` builds the binary first with `release/build-server.sh` (a full build with a PGO profile
@@ -51,7 +51,7 @@ the jar is usually faster after warm-up, so use `load` or `soak` rather than a s
 
 Env: `JAR`, `BINARY`, `CPUS` (2), `CPUSET` (0,1; the cores the server is pinned to), `MEMORY` (8g,
 no swap), `K6_CPUSET` (2-15; keep it off the server cores), `JAVA_OPTS` (jar only,
-`-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError`), `IMAGE` (per mode, see the table). `RATE`, `RAMP`,
+`-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Dyukta.rate-limit-per-minute=0`: the per-key limit of 1200 requests/min would otherwise refuse about a third of the starts at 10 starts/s; a native binary ignores `JAVA_OPTS`, so raise the limit another way there), `IMAGE` (per mode, see the table). `RATE`, `RAMP`,
 `HOLD`, `DURATION`, `WORKFLOWS`, `GRACE`, `LENIENT`, `MAX_REJECTED` are passed to k6.
 
 Report in `perf/reports/<perf|load|soak>/<UTC time>-<jar|native>-<commit>/` (git-ignored): `meta.json` (mode, hash

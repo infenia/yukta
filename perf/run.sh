@@ -16,7 +16,7 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 
 export CPUS=${CPUS:-2} CPUSET=${CPUSET:-0,1} MEMORY=${MEMORY:-8g}
-export JAVA_OPTS=${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError}
+export JAVA_OPTS=${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Dyukta.rate-limit-per-minute=0}
 export API_KEY=${API_KEY:-$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')}
 case ${MODE:-jar} in
   jar) ;;
@@ -26,7 +26,7 @@ case ${MODE:-jar} in
   *) echo "unknown MODE '$MODE' (jar|native)" >&2; exit 2 ;;
 esac
 [[ -n ${JAR:-} || -n ${BINARY:-} ]] || ./gradlew :boot:bootJar -q --console=plain  # no-op when up to date; never run a stale jar
-export JAR=${JAR:-$root/boot/build/libs/boot-0.0.1-SNAPSHOT.jar}
+export JAR=${JAR:-$(ls "$root"/boot/build/libs/boot-*.jar | grep -v -- -plain | head -1)}
 if [[ -n ${BINARY:-} ]]; then
   JAR=$(realpath "$BINARY"); export RUN_CMD=/app/yukta.jar IMAGE=${IMAGE:-debian:12-slim}   # mounted at the jar's path
   [[ -f $JAR && -x $JAR ]] || { echo "BINARY $JAR is not an executable file" >&2; exit 2; }

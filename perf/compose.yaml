@@ -11,7 +11,7 @@ services:
     mem_limit: ${MEMORY:-8g}
     memswap_limit: ${MEMORY:-8g}   # no swap: results must not depend on it
     environment:
-      JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError}
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Dyukta.rate-limit-per-minute=0}
       SPRING_PROFILES_ACTIVE: prod
       YUKTA_SERVER_ADDRESS: 0.0.0.0
       YUKTA_API_KEY: ${API_KEY:?set by run.sh}
