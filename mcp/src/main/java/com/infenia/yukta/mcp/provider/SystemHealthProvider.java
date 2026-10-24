@@ -160,7 +160,9 @@ public class SystemHealthProvider {
   }
 
   private static boolean isTerminal(final String status) {
-    return TaskStatus.isTerminalName(status) || LEGACY_TERMINAL_STATUSES.contains(status);
+    // Set.of(...).contains(null) throws; an execution with no status is still counted as active
+    return status != null
+        && (TaskStatus.isTerminalName(status) || LEGACY_TERMINAL_STATUSES.contains(status));
   }
 
   private ExecutionRecord toExecutionRecord(
@@ -168,7 +170,9 @@ public class SystemHealthProvider {
     final String duration =
         summary.endTime() == null
             ? "running"
-            : Duration.between(summary.startTime(), summary.endTime()).toMillis() + "ms";
+            : summary.startTime() == null
+                ? "unknown"
+                : Duration.between(summary.startTime(), summary.endTime()).toMillis() + "ms";
     return new ExecutionRecord(sessionId, summary.executionId(), summary.status(), duration);
   }
 
