@@ -115,7 +115,7 @@ release/release.sh X.Y.Z --publish                            # in a real termin
 ```
 
 Say in the release notes that this server binary was built and signed by a person, not attested by GitHub.
-The image is pushed before signing, so after a failed sign-in do not rerun everything: run
+The image is pushed before signing. After a failed sign-in you can rerun (pushed tags are kept), or run
 `cosign sign-blob --yes --bundle dist/assets/SHA256SUMS.sigstore.json dist/assets/SHA256SUMS`,
 `cosign sign --yes ghcr.io/infenia/yukta@<index digest>` and `gh release upload vX.Y.Z dist/assets/* --clobber`.
 Signatures made this way carry your identity, not the workflow's; name it in the release notes.
@@ -127,7 +127,7 @@ Signatures made this way carry your identity, not the workflow's; name it in the
 | Found a bug after tagging, before publishing | Do not publish. Delete the draft (`gh release delete vX.Y.Z`), fix on `main`, and merge the next release PR. The tag stays; that is fine |
 | `assemble` fails at `docker push` | Setup step 3 |
 | `assemble` fails before the image push | Fix the cause and rerun the job |
-| `assemble` fails after the image push (signing, upload) | Do not rerun it: that rebuilds and replaces the image tag. Sign and upload by hand as in the fallback above |
+| `assemble` fails after the image push (signing, upload) | Rerun it. An image tag already in a registry is kept, never replaced, so the digest that gets signed is the one that was pushed. Or sign and upload by hand as in the fallback above |
 | `verify` fails | Read the log. The assets are intact, so rerunning `verify` alone is safe |
 | Package cannot be made public | Setup step 5 |
 | Release PR has no CI checks | The App token is missing or not installed (setup step 1) |
