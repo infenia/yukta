@@ -1,0 +1,39 @@
+{
+  "cost": 0.33952800000000005,
+  "usage": {
+    "input_tokens": 20,
+    "cache_creation_input_tokens": 26354,
+    "cache_read_input_tokens": 186780,
+    "output_tokens": 4563,
+    "output_tokens_details": {
+      "thinking_tokens": 95
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 26354,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 371,
+        "cache_read_input_tokens": 25704,
+        "cache_creation_input_tokens": 650,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 650
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "done": true,
+  "summary": "Warnings can no longer push the error that failed a node out of `controlbus watch --quiet`. Before, WARN and ERROR lines shared one 20-line limit per node, filled in arrival order. Now each level has its own 20-line limit and its own \"… more problem lines suppressed\" notice. The change is one budget key in `problemFilter.admit` (cli/internal/commands/controlbus/problems.go), plus updated comments. A node now shows at most 42 problem lines instead of 21: 20 per level plus one notice each. I added `TestProblemFilter_warningsNeverCrowdOutTheError`, which fills the WARN limit and then checks that a later ERROR line is still printed. `./gradlew :cli:goTest` passes. I did not run `:cli:check`, which includes the 100% coverage check; the workflow's full gate runs it. The PR text is in .yukta-dev/pr.md."
+}

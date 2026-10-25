@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yukta Token Evaluation</title>
+<style>
+:root {
+  --bg: #fbfaf7; --panel: #ffffff; --ink: #1d2433; --muted: #5b6475; --line: #e3e0d8; --accent: #1f5fbf;
+  --ok: #1b7a43; --okbg: #e3f4ea; --bad: #a82a2a; --badbg: #fbe6e6; --warn: #8a5a00; --warnbg: #fdf0d2;
+  --c1: #4f7bd9; --c2: #2f9e8f; --c3: #d9733a; --c4: #7a5cc4;
+  --t1: #9aa3b5; --t2: #e0a93b; --t3: #4f9d6a; --t4: #b8527a;
+  --code: #f1efe9;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14171f; --panel: #1b1f2a; --ink: #e8eaf0; --muted: #a0a8ba; --line: #2c3242; --accent: #7aa5f0;
+    --ok: #6fd69a; --okbg: #17352a; --bad: #f08a8a; --badbg: #3b1d1d; --warn: #f0c26a; --warnbg: #3a2e12;
+    --c1: #6f97ee; --c2: #4cc2b2; --c3: #f09258; --c4: #a58ae8;
+    --t1: #6f788c; --t2: #e0a93b; --t3: #5fbf84; --t4: #d9709a; --code: #232838;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 24px 16px 80px; }
+header.top { padding: 28px 0 8px; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 6px; }
+h2 { font-size: 1.45rem; margin: 2.4rem 0 .6rem; padding-top: .6rem; border-top: 1px solid var(--line); }
+h3 { font-size: 1.1rem; margin: 1.6rem 0 .4rem; }
+p { margin: .6rem 0; }
+.sub { color: var(--muted); margin: 0; }
+.meta { color: var(--muted); font-size: .9rem; margin-top: 10px; }
+nav.toc { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin: 18px 0; font-size: .95rem; }
+nav.toc a { color: var(--accent); text-decoration: none; margin-right: 14px; white-space: nowrap; display: inline-block; }
+nav.toc a:hover { text-decoration: underline; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 16px 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.card .k { color: var(--muted); font-size: .85rem; }
+.card .v { font-size: 1.9rem; font-weight: 700; line-height: 1.2; }
+.card .d { color: var(--muted); font-size: .85rem; margin-top: 2px; }
+.callout { border-left: 4px solid var(--accent); background: var(--panel); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 16px 0; border-top: 1px solid var(--line); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.callout.warn { border-left-color: var(--warn); }
+.callout.bad { border-left-color: var(--bad); }
+.callout.ok { border-left-color: var(--ok); }
+.callout b.t { display: block; margin-bottom: 2px; }
+table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: .93rem; margin: 10px 0 16px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { background: var(--code); font-weight: 600; font-size: .85rem; }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.small { font-size: .8rem; color: var(--muted); }
+.tablewrap { overflow-x: auto; }
+code, pre { background: var(--code); border-radius: 6px; font: .88em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+code { padding: 1px 5px; }
+pre { padding: 12px 14px; overflow-x: auto; line-height: 1.45; }
+.tag { display: inline-block; font-size: .75rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; }
+.tag.ok { background: var(--okbg); color: var(--ok); } .tag.bad { background: var(--badbg); color: var(--bad); } .tag.warn { background: var(--warnbg); color: var(--warn); }
+.chart { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 12px 0 18px; }
+.barrow { display: grid; grid-template-columns: 38px 1fr 150px; gap: 10px; align-items: center; margin: 6px 0; }
+.barlabel { font-weight: 600; } .barval { font-variant-numeric: tabular-nums; font-size: .9rem; }
+.bartrack { display: flex; height: 22px; background: var(--code); border-radius: 5px; overflow: hidden; }
+.seg { height: 100%; display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: .82rem; color: var(--muted); }
+.lg i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+dl.gloss dt { font-weight: 700; margin-top: 10px; } dl.gloss dd { margin: 2px 0 0 0; color: var(--muted); }
+ul, ol { padding-left: 1.3rem; } li { margin: .25rem 0; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } @media (max-width: 720px) { .two { grid-template-columns: 1fr; } .barrow { grid-template-columns: 34px 1fr 96px; } }
+details { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; margin: 10px 0; }
+summary { cursor: pointer; font-weight: 600; }
+a { color: var(--accent); }
+.foot { color: var(--muted); font-size: .85rem; margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>Yukta token evaluation</h1>
+  <p class="sub">Does letting Claude Code orchestrate Yukta sub-flows use fewer tokens than letting Claude Code do the fix itself?</p>
+  <p class="meta">Test subject: issue <a href="https://github.com/infenia/yukta/issues/1207">#1207</a> · base commit <code>main@{{BASE}}</code> (includes PR #1214) · model: Opus · 3 runs per arm · run on 2026-10-25</p>
+</header>
+
+<nav class="toc">
+  <a href="#summary">1. Summary</a><a href="#what">2. What was tested</a><a href="#results">3. Results</a><a href="#why">4. Why arm B cost more</a>
+  <a href="#tokens">5. Token efficiency</a><a href="#quality">6. Correctness and delivery</a><a href="#findings">7. Findings filed</a>
+  <a href="#caveats">8. How far to trust this</a><a href="#next">9. Next steps</a><a href="#appendix">Appendix: technical detail</a><a href="#glossary">Glossary</a>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<div class="cards">
+  <div class="card"><div class="k">Arm A: Claude fixes it itself</div><div class="v">{{A_COST}}</div><div class="d">median cost, range {{A_RANGE}} · {{A_WALL}} median</div></div>
+  <div class="card"><div class="k">Arm B: Claude orchestrates Yukta</div><div class="v">{{B_COST}}</div><div class="d">median of recorded costs, range {{B_RANGE}} · {{B_WALL}} median. About {{B_COST_CORR}} counting the lost first run of B2 (<a href="#caveats">why</a>)</div></div>
+  <div class="card"><div class="k">B compared with A</div><div class="v">{{RATIO}}×</div><div class="d">more money for the same issue, today ({{RATIO_CORR}}× counting the lost first run of B2)</div></div>
+  <div class="card"><div class="k">B without the unrelated repairs</div><div class="v">{{B_CORE_COST}}</div><div class="d">orchestrator + implementer only (median), about the cost of A</div></div>
+</div>
+
+<div class="callout bad"><b class="t">Short answer</b>
+Today, for this issue, the orchestrator approach (arm B) costs about {{RATIO}} times as much as the simple approach (arm A), or {{RATIO_CORR}} times once the lost first run of B2 is counted, and takes about ten times longer. It also delivered only {{DELIVERED}} of 3 times.
+</div>
+
+<div class="callout ok"><b class="t">But the extra cost is not caused by orchestration itself</b>
+{{FIX_SHARE}} of everything arm B spent ({{FIX_TOTAL}} of {{B_TOTAL}}) went to "fixer" attempts that repaired <em>unrelated</em> problems in other parts of the code base, not the issue itself. The cause is a defect in Yukta's own dev setup: the dev server's settings leak into the tests that the check runs, so two tests fail on a clean copy of <code>main</code> (filed as <a href="https://github.com/infenia/yukta/issues/1232">#1232</a>). Because the flow also runs the check on the whole repository for a one-module change, it ran into that failure every time (<a href="https://github.com/infenia/yukta/issues/1233">#1233</a>). Take those repairs away and arm B costs about {{B_CORE_COST}} per issue against arm A's {{A_CORE_MED}}.
+That second number is an estimate from the measured parts, not a measured run. Re-running arm B after fixing #1232 and #1233 would measure it.
+</div>
+
+<p><b>Other results in one line each:</b></p>
+<ul>
+  <li><b>Caching works.</b> Between {{CACHE_MIN}} and {{CACHE_MAX}} of all tokens in every run were cheap "cache reads". The plan's target was 70%.</li>
+  <li><b>The orchestrator keeps the main conversation small.</b> Arm B's main Claude session used a median of {{B_MAIN_TOK}} tokens, against {{A_MAIN_TOK}} when Claude did the work in its own session. The work moved into sub-flows, which is where the cost went.</li>
+  <li><b>Fixer attempts are expensive.</b> The plan expected a typical fix attempt under $0.30. These attempts cost $0.72 to $1.37 each. {{NOOP_N}} of {{ATT_N}} attempts changed nothing and still cost {{NOOP_COST}}.</li>
+  <li><b>The first fixer attempt re-pays for the implementer's conversation.</b> Fixers resume the implementer's session so they know the change, but their answer format differs, which changes a tool definition at the front of the cached text and makes the whole conversation count as new (<a href="https://github.com/infenia/yukta/issues/1248">#1248</a>, confirmed with a small experiment, <a href="#tokens">section 5</a>). It costs roughly $0.1 per run, small next to the failures that started the fixers.</li>
+  <li><b>The workers share little.</b> The implementer's knowledge reaches the fixers, but nothing reaches the implementer from the orchestrator, and nothing is remembered from run to run: each run re-discovered the same unrelated failure (<a href="https://github.com/infenia/yukta/issues/1249">#1249</a>).</li>
+  <li><b>The fix itself was easy.</b> All six runs wrote a code change that passes an independent test. Every arm used the same approach: give warnings and errors separate budgets.</li>
+  <li><b>Four defects were filed</b> from this evaluation (<a href="#findings">section 7</a>).</li>
+</ul>
+
+<h2 id="what">2. What was tested</h2>
+
+<h3>The question, in plain words</h3>
+<p>Yukta can run a whole software task as an automated workflow: start a fix, run quality checks, repair what fails, and open a pull request. Claude Code can use Yukta in two ways, and the question is which one wastes fewer "tokens" (the unit AI models are billed in; see the <a href="#glossary">glossary</a>).</p>
+<div class="two">
+  <div class="card"><b>Arm A: do it yourself</b><p class="d" style="font-size:.95rem">One Claude Code session reads the code, edits it, and fixes whatever fails. Yukta is only the inspector: it runs the checks and reports pass or fail. It never fixes anything.</p><p class="d">Like one contractor who does the repair and calls an inspector at the end.</p></div>
+  <div class="card"><b>Arm B: orchestrate</b><p class="d" style="font-size:.95rem">The same Claude Code session does <em>not</em> touch the code. It starts one Yukta workflow (<code>yk run issue</code>) and waits. Yukta runs a separate implementer, checks the result, and sends in separate "fixer" Claude sessions when a check fails.</p><p class="d">Like a site manager who hires a crew and a repair team, each billing separately.</p></div>
+</div>
+
+<h3>The test subject</h3>
+<p>Issue <a href="https://github.com/infenia/yukta/issues/1207">#1207</a> is a small, real bug in the Go command-line tool: when it shows only the problems in a failed step, a step with many <em>warnings</em> uses up the 20-line limit and the one <em>error</em> that actually failed the step is cut off. The expected fix: warnings and errors get separate limits. It is a good test because it is small, clearly right or wrong, and touches only one module (<code>cli</code>).</p>
+
+<h3>How fairness was kept</h3>
+<ul>
+  <li><b>Same start.</b> Both arms get the same issue text, the same model (Opus), the same tools and the same $5 spending cap. The only difference is who does the work.</li>
+  <li><b>Same code.</b> Each run starts from a fresh copy of the exact same commit, <code>main@{{BASE}}</code>.</li>
+  <li><b>No side effects.</b> Every run happens in a throw-away copy. GitHub writes (claiming the issue, project board, opening a PR) are replaced by a stub that only records them. Issue #1207 stayed untouched.</li>
+  <li><b>Independent grading.</b> After each run, a hidden test (never shown to Claude) checks that the error line survives a flood of warnings, that output stays bounded, and that nodes do not affect each other. The existing test suite must also pass.</li>
+  <li><b>Everything billed counts.</b> Arm B's total includes the main session <em>and</em> every sub-flow Claude session it started, split out separately.</li>
+</ul>
+
+<h2 id="results">3. Results</h2>
+
+<h3>Cost per run, and who spent it</h3>
+<div class="chart">
+  {{COST_CHART}}
+  <div class="legend">{{COST_LEGEND}}</div>
+</div>
+<p class="sub">Cost is what Claude Code reported for each session (list prices). <span class="tag warn">lower bound</span> on B2: see <a href="#caveats">section 8</a>.</p>
+
+<h3>All runs</h3>
+<div class="tablewrap"><table>
+<tr><th>Run</th><th class="num">Cost</th><th class="num">Tokens</th><th class="num">Cache read</th><th class="num">Main-session turns</th><th class="num">Fixer attempts</th><th class="num">Wall time</th><th>Code correct</th><th>Delivered</th></tr>
+{{RUN_ROWS}}
+</table></div>
+<p class="sub"><b>Code correct</b> = the hidden test and the existing suite pass on the code the run produced. <b>Delivered</b> = for arm B, whether the workflow itself ended <code>SUCCESS</code> (a branch ready for a draft PR). For arm A the session simply finished with a passing check.</p>
+
+<h3>Where arm B's money went</h3>
+<div class="tablewrap"><table>
+<tr><th>Run</th><th class="num">Orchestrator session</th><th class="num">Implementer</th><th class="num">Fixers that touched <code>cli/</code></th><th class="num">Fixers elsewhere</th><th class="num">Total</th><th class="num">Without fixers</th></tr>
+{{BREAKDOWN_ROWS}}
+</table></div>
+<p>The column that matters is the third: <b>no fixer attempt ever changed a file in <code>cli/</code></b>, the module the issue is about. The implementer got that part right the first time in all three runs. Every dollar of fixer spend went to problems somewhere else.</p>
+
+<h2 id="why">4. Why arm B cost more</h2>
+<p>This is the heart of the evaluation, so here is the chain of events, in order:</p>
+<ol>
+  <li>The implementer changes <code>problems.go</code> and its test (cost: $0.20 to $0.34, cheaper than all of arm A's session).</li>
+  <li>Yukta runs the quality check, and because nothing tells it otherwise, it runs the <b>whole repository's</b> check, including Java modules the change cannot affect (<a href="https://github.com/infenia/yukta/issues/1233">#1233</a>).</li>
+  <li>Two Java tests fail: <code>BeanInventoryTest</code> and <code>ConcurrencyGroupsTest</code>. They fail because the <b>dev server's own environment variables</b> (<code>YUKTA_CONCURRENCY_GROUPS_GRADLE</code>, <code>YUKTA_SUPERVISOR_RULES_FILE</code>) are inherited by the test processes and change how those tests behave (<a href="https://github.com/infenia/yukta/issues/1232">#1232</a>). Nothing about #1207 causes this.</li>
+  <li>A fixer is started. To save tokens, Yukta resumes the <i>implementer's</i> Claude session, so the fixer is an Opus session carrying the whole earlier conversation. Each attempt costs $0.72 to $1.37.</li>
+  <li>The first fixer often says, correctly, "this failure is not caused by this branch" and changes nothing. It still bills for reading its context. A second attempt then either gives up (B2) or edits the two Java test files (B1, B3).</li>
+  <li>Those Java edits are committed into the issue's branch next to the real fix (<a href="https://github.com/infenia/yukta/issues/1234">#1234</a>), and the final result line does not even mention that fixers ran (<a href="https://github.com/infenia/yukta/issues/1235">#1235</a>).</li>
+</ol>
+<div class="callout warn"><b class="t">What this means</b>The comparison measured two things at once: the cost of the approach (orchestration plus sub-flows) and the cost of a defect in the environment. The defect dominates. Fixing #1232 and #1233 should remove most of arm B's extra spend, but that has to be measured, not assumed.</div>
+
+<h3>Every fixer attempt</h3>
+<div class="tablewrap"><table>
+<tr><th>Run</th><th>Record</th><th>Outcome</th><th class="num">Cost</th><th class="num">Tokens</th><th class="num">Cache read</th><th>Files changed</th></tr>
+{{ATTEMPT_ROWS}}
+</table></div>
+
+<h2 id="tokens">5. Token efficiency</h2>
+<p>Tokens, not dollars, are the unit this evaluation was asked about. Each bar below is one run's total tokens, split by how the model was billed for them.</p>
+<div class="chart">
+  {{TOK_CHART}}
+  <div class="legend">{{TOK_LEGEND}}</div>
+</div>
+<ul>
+  <li><b>Most tokens are re-reads, and that is good.</b> Claude re-sends the whole conversation on every turn; a cache makes those re-reads about ten times cheaper. Cache reads were {{CACHE_MIN}} to {{CACHE_MAX}} of tokens in all runs, above the plan's 70% target. The slim, byte-identical prompt prefix the sub-flows share is doing its job.</li>
+  <li><b>The orchestrator pattern shrinks the main conversation.</b> The main session in arm B ended after 2 to 5 turns and a median {{B_MAIN_TOK}} tokens, versus {{A_MAIN_TOK}} in arm A. If the main conversation is the expensive or limited resource (for example a long-lived session you keep working in), this is a real benefit.</li>
+  <li><b>But total tokens were higher.</b> Median total: {{B_TOK}} for arm B against {{A_TOK}} for arm A. Without the fixer attempts, arm B's median is {{B_CORE_TOK}}.</li>
+  <li><b>The cost target for a fix attempt was missed.</b> The plan says a typical heal attempt should cost under $0.30. In arm B they cost $0.72 to $1.37, because they resume an Opus session that carries the earlier conversation (up to 650k tokens re-read in one attempt). A cheap model on a fresh, small prompt would cost a fraction of that, and an attempt that is not about the implementer's files does not need the implementer's context at all (see <a href="#next">next steps</a>).</li>
+</ul>
+
+<h3 id="cache">How the prompt cache was used</h3>
+<p>Every turn re-sends the whole conversation. The provider keeps a copy of the unchanged beginning (the "prefix"), so the repeat costs about a tenth. If anything near the start changes, such as the tool list, the system prompt or an earlier message, everything after it counts as new and is written again.</p>
+<ul>
+  <li><b>Inside one session the cache works.</b> Implementer sessions read 87% to 92% of their tokens from cache, and so did the fixers once running.</li>
+  <li><b>The first fixer turn does not reuse the implementer's conversation.</b> It reads only the small shared start (6.4k tokens, or nothing in B1) and writes the rest again:</li>
+</ul>
+<div class="tablewrap"><table>
+<tr><th>Session</th><th class="num">Pause since last turn</th><th class="num">Tokens written again</th><th class="num">Tokens read from cache</th></tr>
+{{REWRITE_ROWS}}
+</table></div>
+<p>It is not cache expiry: the pauses were 89 to 276 seconds, and a later 313-second pause in B1 still hit the cache. Only the first fixer attempt after the implementer re-writes; the second and later attempts of the same run do not, because they share the fixer's settings.</p>
+<h3>What causes it (tested)</h3>
+<p>I first suspected the different instructions each role appends to the system prompt. A small experiment ruled that out and found the real cause. Each row is one conversation with a tool call, resumed in a copy (<code>claude -p --resume --fork-session</code>), on Sonnet unless noted.</p>
+<div class="tablewrap"><table>
+<tr><th>Resume with</th><th class="num">Tokens written</th><th class="num">Cost</th><th>Cache kept?</th></tr>
+<tr><td>The same appended instructions</td><td class="num">38 (Opus: 87)</td><td class="num">$0.017</td><td><span class="tag ok">yes</span></td></tr>
+<tr><td>Different appended instructions (the fixer's)</td><td class="num">0 (Opus: 0)</td><td class="num">$0.017</td><td><span class="tag ok">yes</span></td></tr>
+<tr><td>The same answer format (<code>--json-schema</code>)</td><td class="num">735</td><td class="num">$0.061</td><td><span class="tag ok">yes</span></td></tr>
+<tr><td>A different answer format (fixer's <code>{fixed, summary}</code> instead of <code>{done, summary}</code>)</td><td class="num">10,919</td><td class="num">$0.105</td><td><span class="tag bad">no: about +70% cost</span></td></tr>
+</table></div>
+<p>The answer format is added to the model as a tool, and tools sit at the very front of the cached text, so changing it invalidates everything behind it. The implementer and the fixers use different formats, which is filed as <a href="https://github.com/infenia/yukta/issues/1248">#1248</a>. One run per row on a small conversation, so this confirms the mechanism, not the exact size.</p>
+<p><b>How much it matters here:</b> each run re-wrote 17k to 27k tokens once. At the prices the experiment implies that is roughly $0.1 per run, under 5% of a run and far below the $0.72 to $1.37 a fixer attempt costs. The fix is cheap and worth doing, but it is not where the money went.</p>
+
+<h3>Who shared what with whom</h3>
+<p>You asked whether the workers shared what they learned. This is how knowledge moves in the issue workflow today.</p>
+<div class="tablewrap"><table>
+<tr><th>From → to</th><th>Shared?</th><th>How, and what the runs showed</th></tr>
+<tr><td>Orchestrator → implementer</td><td><span class="tag bad">no</span></td><td>The workflow gives the implementer only the issue text and a fixed rule file. The orchestrator was told not to analyse, and has no channel for what it learns, except editing the brief file at the <code>before-implement</code> checkpoint, which this evaluation skipped (<code>--no-pause</code>). Its own start-up (about 28k tokens of your plugin and tool setup) bought the workers nothing.</td></tr>
+<tr><td>Implementer → fixer</td><td><span class="tag ok">yes</span></td><td>Fixers resume the implementer's session: in B1 the implementer and all fixer attempts are one transcript of 40 turns, so a fixer knows what was changed and why.</td></tr>
+<tr><td>Fixer attempt → next attempt</td><td><span class="tag ok">yes</span></td><td>Same session, plus a one-line summary of the previous attempt in the prompt. B2's second attempt finished after about 54k tokens with "same failures as attempt 1".</td></tr>
+<tr><td>Run → run</td><td><span class="tag bad">no</span></td><td>All three runs paid $0.72 to $0.90 to learn that the failing tests are not caused by the change. Nothing remembers that they already fail on a clean <code>main</code> (<a href="https://github.com/infenia/yukta/issues/1249">#1249</a>).</td></tr>
+<tr><td>Parallel worker → worker (epics)</td><td><span class="tag warn">prefix only</span></td><td>Not tested here. By design parallel issues share only the identical system-prompt start and a staggered launch so the second finds it cached; they do not share findings.</td></tr>
+<tr><td>Sub-flow → orchestrator</td><td><span class="tag warn">result line only</span></td><td>The orchestrator sees the final <code>RESULT</code> line. What the fixers concluded is not passed up, and the line said <code>healed=-</code> although fixers ran (<a href="https://github.com/infenia/yukta/issues/1235">#1235</a>).</td></tr>
+</table></div>
+
+<h2 id="quality">6. Correctness and delivery</h2>
+<ul>
+  <li><b>The code was right in all six runs.</b> The hidden test and the full existing suite passed every time. All fixes use the same idea (a separate limit for warnings, about 10, next to 20 for errors) and add a regression test.</li>
+  <li><b>Arm B did not always deliver.</b> B1 and B3 ended <code>SUCCESS</code>. <b>B2 ended <code>ESCALATE</code>:</b> the orchestrator ran the flow twice, as instructed, and both runs stopped at the same unrelated Java failures. The correct fix was sitting in the worktree, but no branch was committed. A reader who only looked at the hidden test would call B2 a success; the workflow did not.</li>
+  <li><b>B1 and B3 delivered more than the fix.</b> Their branches also contain edits to <code>BeanInventoryTest.java</code> and <code>ConcurrencyGroupsTest.java</code>. The edits look reasonable (they stop the dev environment leaking in), but they are unrelated to the issue and would reach a reviewer inside the PR (#1234).</li>
+  <li><b>Arm A's changes were exactly the issue.</b> Each run changed two files in <code>cli/</code> (the fix and its test) and nothing else.</li>
+</ul>
+
+<h2 id="findings">7. Findings filed</h2>
+<p>Each of these was found by running the evaluation and filed with its evidence through the dogfood loop. All of them sit under the epic <a href="https://github.com/infenia/yukta/issues/1218">#1218</a> (dogfood efficiency).</p>
+<div class="tablewrap"><table>
+<tr><th>Issue</th><th>What is wrong</th><th>Priority</th><th>Why it matters here</th></tr>
+<tr><td><a href="https://github.com/infenia/yukta/issues/1232">#1232</a></td><td>The dev server's environment leaks into the Gradle test processes; two tests fail the full check on a clean <code>main</code></td><td>P1</td><td>Root cause of nearly all fixer spend</td></tr>
+<tr><td><a href="https://github.com/infenia/yukta/issues/1233">#1233</a></td><td><code>yk run issue</code> checks the whole repository for a one-module change</td><td>P2</td><td>Why a Go-only change hit Java failures at all</td></tr>
+<tr><td><a href="https://github.com/infenia/yukta/issues/1234">#1234</a></td><td>A fixer can change files outside the issue and they are committed into its PR</td><td>P2</td><td>Unrelated edits reached the branch in B1 and B3</td></tr>
+<tr><td><a href="https://github.com/infenia/yukta/issues/1235">#1235</a></td><td>The final <code>RESULT</code> line says <code>healed=-</code> although fixers changed files</td><td>P2</td><td>Hides that fixers ran, so a review of "what healed" is skipped</td></tr>
+<tr><td><a href="https://github.com/infenia/yukta/issues/1248">#1248</a></td><td>A fixer that resumes the implementer re-writes its conversation cache because the answer format differs</td><td>P2</td><td>About 17k to 27k tokens re-written once per run (<a href="#cache">section 5</a>)</td></tr>
+<tr><td><a href="https://github.com/infenia/yukta/issues/1249">#1249</a></td><td>Remember which stages already fail on a clean <code>main</code>, so fixers are not started for them</td><td>P2</td><td>The same unrelated failure cost $0.72 to $0.90 in every run</td></tr>
+<tr><td><a href="https://github.com/infenia/yukta/issues/1250">#1250</a></td><td>Restarting an issue run overwrites its implement and heal records, so budgets and <code>yk stats</code> undercount</td><td>P2</td><td>B2's first run is missing from its records; the issue budget sums these files too</td></tr>
+</table></div>
+<p class="sub">#1232 was first mis-described as "unrelated failures" during the evaluation. Reading the fixers' own code comments showed the real cause, and the issue text reflects that. #1232 was inferred from run evidence and the server's startup code (<code>_lib.sh</code>); a clean run of <code>main</code> through the dev server was not done separately.</p>
+
+<h2 id="caveats">8. How far to trust this</h2>
+<table>
+<tr><th>Limit</th><th>Effect on the conclusions</th></tr>
+<tr><td><b>Small sample.</b> 3 runs per arm, one issue.</td><td>Arm A's three runs agree closely ($0.35 to $0.58). Arm B's vary ($1.95 to $4.15) because the number of fixer attempts varied. Treat the medians as indicative, not precise, and one issue does not represent all issues.</td></tr>
+<tr><td><b>B2's recorded cost is a lower bound.</b></td><td>The orchestrator ran the flow twice, and the second run overwrote the first run's record files (they are named by attempt number; <a href="https://github.com/infenia/yukta/issues/1250">#1250</a>). The first run is still in the session transcripts: {{B2_LOST_TOK}} cache tokens. Scaling the recorded second run's sub-flow cost to that gives about {{B2_EST}} for B2 instead of the recorded {{B2_REC}}. The tables and charts use the recorded figures, so they understate arm B; counting the lost run moves arm B's median to about {{B_COST_CORR}} ({{RATIO_CORR}}× arm A).</td></tr>
+<tr><td><b>The cache experiment is small.</b></td><td>Each row of the cache table is one conversation on Sonnet (the same-rules check also on Opus), and the answer-format result is one pair. It shows that the answer format breaks the cache and that different appended instructions do not. It does not give an exact saving.</td></tr>
+<tr><td><b>Different check scope.</b></td><td>Arm A was told to finish with the check on the <code>cli</code> module. Arm B's flow ran the whole repository (#1233). This asymmetry is exactly what drove the cost gap; it is a finding, not an accident of the test, but it means the arms did not run an identical gate.</td></tr>
+<tr><td><b>Projection is not a measurement.</b></td><td>"About {{B_CORE_COST}} without the unrelated repairs" adds the measured orchestrator and implementer costs. It assumes the implementer would still get it right first time and that no other failures would appear. Only a re-run after fixing #1232 and #1233 can confirm.</td></tr>
+<tr><td><b>Workspace-trust warning.</b></td><td>Each run used a new folder, so Claude Code reported "workspace not trusted: ignoring 16 permissions.allow entries" in every session of both arms. The sessions still worked (tools were passed explicitly), and it affects both arms the same way, but the project's permission list was not in force.</td></tr>
+<tr><td><b>Back-to-back runs share a cache.</b></td><td>Runs were serial and alternated A, B, A, B, A, B, so neither arm always ran first. Prompt-cache hits across runs can still lower later runs' cost a little. It is not corrected for.</td></tr>
+<tr><td><b>Cost is list-price.</b></td><td>The dollar figures are Claude Code's own <code>total_cost_usd</code>. Under a subscription plan the bill differs, but the token counts and the ratios still hold.</td></tr>
+<tr><td><b>The grader looks at one function.</b></td><td>The hidden test calls <code>problemFilter.admit</code> (the function the issue names). A solver that renamed it would fail to compile and need manual review. None did.</td></tr>
+</table>
+
+<h2 id="next">9. Next steps</h2>
+<ol>
+  <li><b>Fix #1232</b> (make the two tests independent of the host environment, or strip those variables from the Gradle stages). This alone removes the failure that every arm-B run hit.</li>
+  <li><b>Fix #1233</b> (scope the issue flow's check to the modules the implementer touched).</li>
+  <li><b>Re-run arm B three times.</b> About $2 per run if the projection holds. That turns the estimate in this report into a measurement. Arm A does not need re-running.</li>
+  <li><b>Rethink the fixer's model for out-of-scope failures</b> (part of #1234). A failure outside the implementer's files does not benefit from resuming the implementer on Opus. Options: stop and escalate at once, or use a cheap rung (Haiku or Sonnet) on a small fresh prompt. The no-change attempts alone cost {{NOOP_COST}}.</li>
+  <li><b>Fix #1248</b> (one answer format for the implementer and every fixer) and check with <code>cache_trace.py</code> that no turn re-writes the implementer's conversation. <b>Fix #1250</b> so budgets and <code>yk stats</code> count every attempt of an issue.</li>
+  <li><b>Let workers share what is already known</b> (#1249): compare a failing stage with a result for the base commit before starting a fixer, and when the orchestrator has analysed something, put it in the brief file for the implementer.</li>
+  <li><b>Optional follow-ups for a fuller picture:</b> a second issue with a different shape (a Java change, so the scoped check matters), an orchestrator on a cheaper model (Sonnet) for arm B, and two issues in parallel (an epic) to measure what parallel workers share.</li>
+</ol>
+
+<h2 id="appendix">Appendix: technical detail</h2>
+
+<h3>A. Tokens by category, all runs</h3>
+<div class="tablewrap"><table>
+<tr><th>Run</th><th class="num">Fresh input</th><th class="num">Cache write</th><th class="num">Cache read</th><th class="num">Output</th><th class="num">Total</th></tr>
+{{CAT_ROWS}}
+</table></div>
+<p class="sub">Totals include the main session plus, for arm B, the implementer and every recorded fixer attempt.</p>
+
+<h3>B. Tokens by session</h3>
+<div class="tablewrap"><table>
+<tr><th>Run</th><th class="num">Main Claude session</th><th class="num">Implementer sub-flow</th><th class="num">Fixer sub-flows</th></tr>
+{{SPLIT_ROWS}}
+</table></div>
+
+<h3>C. Method</h3>
+<ul>
+  <li><b>Base.</b> Every run clones the repository, creates a bare <code>origin</code> and points its <code>main</code> at <code>{{BASE}}</code>. Arm B's flow creates its own worktree <code>yukta-issue-1207</code> beside the clone, as it does in real use.</li>
+  <li><b>Server.</b> Arm B used the standard dev server on port 9858, built from <code>main@{{BASE}}</code> through <code>yk up</code>. The <code>yk</code> scripts came from the same commit.</li>
+  <li><b>Main session launch</b> (both arms): <code>claude -p … --model opus --permission-mode acceptEdits --max-budget-usd 5 --max-turns 60 --output-format json</code>, with tool permissions limited to file tools, <code>yk</code>, <code>go</code>, read-only <code>git</code> and <code>codegraph</code>; <code>git commit</code>, <code>git push</code> and <code>gh</code> were refused.</li>
+  <li><b>Sub-flow launch</b> (arm B): the dev loop's own slim launcher (<code>yk_claude</code>): project settings only, no MCP servers, fixed tool list, constant system prompt, $5 cap, Opus implementer. In issue runs the fixers resume the implementer's session.</li>
+  <li><b>Stubs.</b> <code>gh</code> serves a saved copy of the issue and logs everything else; the project-status command only logs. <code>YUKTA_WARM_DELAY=0</code> and <code>YUKTA_CHECK_EXTRAS=off</code> were set.</li>
+  <li><b>Grading.</b> <code>hidden_test.go</code> is copied into <code>cli/internal/commands/controlbus</code> after the run and run with <code>go test -run TestHidden</code>; then <code>go test ./...</code> for the whole <code>cli</code> module. The hidden test was first checked to fail on the unfixed code and pass with a reference fix.</li>
+  <li><b>Where the numbers come from.</b> Main session: the <code>usage</code> and <code>total_cost_usd</code> of <code>claude -p --output-format json</code>. Sub-flows: <code>implement.json</code> and the <code>heal/check/*-N.json</code> records the workflow writes. The dollar value is each session's own <code>total_cost_usd</code>.</li>
+</ul>
+
+<h3>D. The two prompts</h3>
+<details><summary>Arm A (do it yourself)</summary>
+<pre>[the issue title, URL and body]
+
+You are working in &lt;run&gt;/yukta (a clone of the repository). Fix the issue yourself: change the code, add tests, and
+make the checks pass. Run Gradle only through Yukta: `yk gradle &lt;args&gt;` for a scope while you work, and finish with
+`yk check --no-heal -p &lt;run&gt;/yukta -m cli` (Yukta runs the check and reports; it does not fix anything, you fix
+failures). Do not commit or push. When the check passes, answer with one short sentence.</pre></details>
+<details><summary>Arm B (orchestrate)</summary>
+<pre>Issue #1207 in &lt;run&gt;/yukta must be fixed, and you are the orchestrator, not the implementer: do not edit code
+yourself. Start Yukta's issue workflow:
+
+  yk run issue 1207 --no-pause before-implement,before-pr
+
+Run it in the foreground with the Bash timeout set to 600000 ms. It prints a few lines and ends with a RESULT line.
+If the command times out before RESULT, re-attach with `yk watch &lt;session&gt; &lt;execution&gt;` the same way. If the run
+ends ESCALATE, read what it says and start it once more with the same command; do not do more. Do not commit or push.
+Finish with the RESULT line and one short sentence.</pre></details>
+
+<h3>E. Reproduce</h3>
+<pre>cd examples/11-dogfood/eval
+yk up                                  # the dev server, built from the code under test
+EVAL_BASE=&lt;commit sha&gt; ./eval.sh run A 1    # one run of arm A (B likewise); repeat for 2, 3
+./eval.sh report                       # comparison table
+./split.sh                             # where arm B's sub-flow money went
+python3 -I cache_trace.py B1 --summary # per-turn cache trace of a run
+python3 -I report/make_report.py results/2026-10-25-1207/runs out.html   # rebuild this page from the archived data</pre>
+<p class="sub">The harness lives in <code>examples/11-dogfood/eval/</code> (see its README). The data of this evaluation is archived in <code>eval/results/2026-10-25-1207/</code>: one folder per run with <code>main.json</code>, <code>result.json</code> and the sub-flow records, plus <code>extra.json</code> for what the transcripts added.</p>
+
+<h3>F. The plan's own token targets</h3>
+<table>
+<tr><th>Target (design plan §9)</th><th>Measured</th><th>Verdict</th></tr>
+<tr><td>At least 70% of tokens are cache reads in later sessions</td><td>{{CACHE_MIN}} to {{CACHE_MAX}} in every run</td><td><span class="tag ok">met</span></td></tr>
+<tr><td>A typical heal attempt costs under $0.30</td><td>$0.72 to $1.37 per fixer attempt</td><td><span class="tag bad">missed</span></td></tr>
+<tr><td>Spawn Claude only when nothing cheaper works</td><td>Every fixer attempt was an Opus session; none was a cheaper rung</td><td><span class="tag warn">not followed in issue runs</span></td></tr>
+</table>
+
+<h2 id="glossary">Glossary</h2>
+<dl class="gloss">
+  <dt>Token</dt><dd>The unit an AI model reads and writes: roughly three-quarters of a word. Models are billed per token, at different rates for different kinds.</dd>
+  <dt>Cache read / cache write</dt><dd>Claude re-reads the whole conversation on every turn. The first time it stores that text (a cache write, a little dearer than normal input); later turns re-read the stored copy (a cache read, much cheaper). A high cache-read share means the model is not paying full price to repeat itself.</dd>
+  <dt>Orchestrator</dt><dd>A Claude Code session that only starts and watches other workflows and does not do the detailed work itself.</dd>
+  <dt>Sub-flow</dt><dd>A workflow started by another one. Here, the implementer and the fixers are sessions run inside Yukta's issue workflow.</dd>
+  <dt>Implementer / fixer</dt><dd>The implementer makes the change the issue asks for. A fixer is started when a quality check fails and tries to repair that failure.</dd>
+  <dt>Check / gate</dt><dd>The automated quality run: formatting, compiling, tests, test coverage, code-style tools (Checkstyle, PMD, SpotBugs), licence and security scans.</dd>
+  <dt>PMD / Checkstyle</dt><dd>Tools that read code for style and quality problems without running it.</dd>
+  <dt>ESCALATE</dt><dd>Yukta's way of saying "I could not finish this by myself": a person needs to look.</dd>
+  <dt>Worktree</dt><dd>An extra working copy of the same repository, so several tasks can be edited side by side.</dd>
+  <dt>Dev server</dt><dd>The local Yukta server the dev loop runs its workflows on (port 9858), built from <code>main</code>.</dd>
+  <dt>Dogfood finding</dt><dd>A defect in Yukta found while using Yukta to build Yukta; filed as a GitHub issue with the evidence.</dd>
+  <dt>Hidden test</dt><dd>A test the grader adds after a run, never shown to Claude, so it cannot be tuned for.</dd>
+</dl>
+
+<p class="foot">Generated from the archived run data by <code>eval/report/make_report.py</code>. Findings #1232 to #1235 and #1248 to #1250 are filed on infenia/yukta, under epic #1218.</p>
+</div>
+</body>
+</html>

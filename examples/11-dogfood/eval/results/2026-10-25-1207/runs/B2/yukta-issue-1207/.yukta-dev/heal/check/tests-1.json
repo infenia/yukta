@@ -1,0 +1,15 @@
+{
+  "stage": "tests",
+  "attempt": 1,
+  "mode": "resume",
+  "fixed": false,
+  "files": [],
+  "cost": 0.7236846,
+  "summary": "Not fixed. The two failing tests are in core and boot, which this branch does not touch: the issue change only edits cli/internal/commands/controlbus/problems.g",
+  "usage": {
+    "input": 24,
+    "cache_creation": 45177,
+    "cache_read": 399227,
+    "output": 3954
+  }
+}
