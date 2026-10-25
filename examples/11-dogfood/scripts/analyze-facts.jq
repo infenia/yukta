@@ -7,6 +7,7 @@
 #   modules         the modules the issue text names (issue-size.sh module_names), the fallback for the issue's modules
 #   files           every file the run changed (committed on the branch or still in the worktree)
 #   traces          eval/cache_trace.py --json of the worktree: {sessions: [{id, turns, write, read, tools, rewrites}]}
+#   nav             method C: the issue's nav.json (backend, ok, index_seconds, attempts), or null
 # Output: {facts, findings}; every finding is {rule, evidence} and rule names a row of analyzer-known.json.
 
 def under($mods): . as $f | any($mods[]; . as $m | $f | startswith($m + "/"));
@@ -46,7 +47,11 @@ def cache: (.usage // {}) | ((.cache_creation_input_tokens // .cache_creation //
     rewrite_turns: $rewrite_turns, rewrites: ($sessions | map(.rewrites[]) | .[0:4]),
     tool_use: ($sessions | map(.tools | to_entries) | flatten | group_by(.key) | map({(.[0].key): (map(.value) | add)}) | add // {}),
     record_cache_tokens: $record_cache, transcript_cache_tokens: $transcript_cache,
-    transcript_to_record: (if $record_cache > 0 then ($transcript_cache / $record_cache | r2) else null end)
+    transcript_to_record: (if $record_cache > 0 then ($transcript_cache / $record_cache | r2) else null end),
+    nav: (if .nav then {backend: .nav.backend, ok: (.nav.ok // false), index_seconds: (.nav.index_seconds // 0), version: (.nav.version // ""),
+                        skipped: ((.nav.attempts // []) | map(select(.ok | not) | "\(.backend): \(.reason)"))} else null end),
+    nav_calls: ($sessions | map(.tools | to_entries) | flatten
+                | map(select(.key | startswith("mcp__codebase-memory-mcp__") or startswith("mcp__intellij-index__") or . == "Bash:codegraph") | .value) | add // 0)
   } as $f
 | {
     facts: $f,
@@ -66,6 +71,12 @@ def cache: (.usage // {}) | ((.cache_creation_input_tokens // .cache_creation //
       (if ($f.transcript_to_record // 0) > 1.1 then
         {rule: "records-undercount",
          evidence: "the transcripts hold \($f.transcript_cache_tokens) cache tokens, \($f.transcript_to_record)x the \($f.record_cache_tokens) on record."} else empty end),
+      (if $f.method == "C" and (($f.nav.ok // false) | not) then
+        {rule: "nav-backend-none",
+         evidence: "method C ran without a navigation backend: \(($f.nav.skipped // []) | join("; "))."} else empty end),
+      (if $f.method == "C" and ($f.nav.ok // false) and $f.nav_calls == 0 then
+        {rule: "nav-unused",
+         evidence: "the \($f.nav.backend) index took \($f.nav.index_seconds)s to build and the implementer made no navigation call (\($f.turns) turns, tools \($f.tool_use | tojson))."} else empty end),
       (if $f.healed_field == "-" and ($att | any(.fixed)) then
         {rule: "healed-field-mismatch",
          evidence: "the RESULT line says healed=- although \($att | map(select(.fixed)) | length) fixer attempt(s) reported a fix (\($att | map(select(.fixed) | "\(.stage):\(.mode)") | join(", ")))."} else empty end)

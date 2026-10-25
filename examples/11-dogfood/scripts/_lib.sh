@@ -546,6 +546,12 @@ issue_workflows() {
              + (if $ENV.YUKTA_SOLO_MODEL then {YUKTA_SOLO_MODEL: $ENV.YUKTA_SOLO_MODEL} else {} end)
              + (if $ENV.YUKTA_SOLO_BUDGET then {YUKTA_SOLO_BUDGET: $ENV.YUKTA_SOLO_BUDGET} else {} end)
              + (if $ENV.YUKTA_SOLO_TURNS then {YUKTA_SOLO_TURNS: $ENV.YUKTA_SOLO_TURNS} else {} end)
+             + (if $ENV.YUKTA_NAV_BACKENDS then {YUKTA_NAV_BACKENDS: $ENV.YUKTA_NAV_BACKENDS} else {} end)
+             + (if $ENV.YUKTA_NAV_IDE then {YUKTA_NAV_IDE: $ENV.YUKTA_NAV_IDE} else {} end)
+             + (if $ENV.YUKTA_NAV_IDE_URL then {YUKTA_NAV_IDE_URL: $ENV.YUKTA_NAV_IDE_URL} else {} end)
+             + (if $ENV.YUKTA_NAV_CBM_BIN then {YUKTA_NAV_CBM_BIN: $ENV.YUKTA_NAV_CBM_BIN} else {} end)
+             + (if $ENV.YUKTA_NAV_CBM_CACHE then {YUKTA_NAV_CBM_CACHE: $ENV.YUKTA_NAV_CBM_CACHE} else {} end)
+             + (if $ENV.YUKTA_NAV_INDEX_TIMEOUT then {YUKTA_NAV_INDEX_TIMEOUT: $ENV.YUKTA_NAV_INDEX_TIMEOUT} else {} end)
              + (if $ENV.YUKTA_PROJECT_STATUS_CMD then {YUKTA_PROJECT_STATUS_CMD: $ENV.YUKTA_PROJECT_STATUS_CMD} else {} end);
     def step($id; $action; $secs; $extra):
       {nodeId: $id, type: "PROCESS_EXECUTOR",
@@ -555,6 +561,23 @@ issue_workflows() {
       {nodeId: $id, type: "WAIT_FOR_SIGNAL", config: {signal: $signal, timeoutSeconds: $secs, onTimeout: $onTimeout}};
     def edge($s; $t): {source: $s, target: $t};
     def chain($ids): [range(1; $ids | length) as $i | edge($ids[$i - 1]; $ids[$i])];
+    def runner($wid; $inner; $desc):
+      {workflowId: $wid, description: $desc,
+       nodes: [{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}},
+               {nodeId: "issue", type: "SUB_WORKFLOW",
+                config: {workflowId: $inner, timeoutSeconds: 28800, routeByOutcome: true,
+                         payload: {issue: "${start.issue}", repo: "${start.repo}", worktree: "${start.worktree}",
+                                   implSession: "${start.implSession}"}}},
+               {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}},
+               (step("release"; "release"; 600; {}) | .config.failureMode = "CONTINUE"),
+               {nodeId: "escalate", type: "OUTCOME_TERMINAL",
+                config: {outcome: "ESCALATE", reason: "the issue run did not finish: the issue is Ready again, the worktree is kept"}}],
+       edges: [edge("trigger"; "issue"),
+               {source: "issue", target: "done", sourcePort: "success"},
+               {source: "issue", target: "release", sourcePort: "failure"},
+               {source: "issue", target: "release", sourcePort: "escalate"},
+               {source: "issue", target: "release", sourcePort: "retry"},
+               edge("release"; "escalate")]};
     ([{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}},
       step("claim"; "claim"; 600; {}),
       step("worktree"; "worktree"; 1800; {}),
@@ -568,6 +591,7 @@ issue_workflows() {
      + (if $pr == "1" then [pause("before-pr"; "before-pr"; 14400; "FAIL")] else [] end)
      + [step("pr"; "pr"; 1800; {YUKTA_CHECK_EXECUTION: "${payload.executionId}"}),
         {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}}]) as $nodes
+    | ([$nodes[] | if .nodeId == "implement" then (step("nav"; "nav"; 3600; {}), .) else . end]) as $nav_nodes
     | (if $pr == "1" then "" else "-no-pr-pause" end) as $psuffix
     | ([{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}},
         step("claim"; "claim"; 600; {}),
@@ -583,43 +607,15 @@ issue_workflows() {
         ("solo-issue" + $psuffix): {workflowId: ("solo-issue" + $psuffix),
           description: "Method A: one Claude session does the issue in its own worktree, Yukta only checks, a draft PR opens",
           nodes: $solo_nodes, edges: chain($solo_nodes | map(.nodeId))},
-        ("run-issue-solo" + $psuffix): {workflowId: ("run-issue-solo" + $psuffix),
-          description: "solo-issue, and the issue back to Ready when it does not end well",
-          nodes: [{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}},
-                  {nodeId: "issue", type: "SUB_WORKFLOW",
-                   config: {workflowId: ("solo-issue" + $psuffix), timeoutSeconds: 28800, routeByOutcome: true,
-                            payload: {issue: "${start.issue}", repo: "${start.repo}", worktree: "${start.worktree}",
-                                      implSession: "${start.implSession}"}}},
-                  {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}},
-                  (step("release"; "release"; 600; {}) | .config.failureMode = "CONTINUE"),
-                  {nodeId: "escalate", type: "OUTCOME_TERMINAL",
-                   config: {outcome: "ESCALATE", reason: "the issue run did not finish: the issue is Ready again, the worktree is kept"}}],
-          edges: [edge("trigger"; "issue"),
-                  {source: "issue", target: "done", sourcePort: "success"},
-                  {source: "issue", target: "release", sourcePort: "failure"},
-                  {source: "issue", target: "release", sourcePort: "escalate"},
-                  {source: "issue", target: "release", sourcePort: "retry"},
-                  edge("release"; "escalate")]},
+        ("run-issue-solo" + $psuffix): runner("run-issue-solo" + $psuffix; "solo-issue" + $psuffix; "solo-issue, and the issue back to Ready when it does not end well"),
         ("implement-issue" + $suffix): {workflowId: ("implement-issue" + $suffix),
           description: "Implement one issue in its own worktree, check it, open a draft PR",
           nodes: $nodes, edges: chain($nodes | map(.nodeId))},
-        ("run-issue" + $suffix): {workflowId: ("run-issue" + $suffix),
-          description: "implement-issue, and the issue back to Ready when it does not end well",
-          nodes: [{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}},
-                  {nodeId: "issue", type: "SUB_WORKFLOW",
-                   config: {workflowId: ("implement-issue" + $suffix), timeoutSeconds: 28800, routeByOutcome: true,
-                            payload: {issue: "${start.issue}", repo: "${start.repo}", worktree: "${start.worktree}",
-                                      implSession: "${start.implSession}"}}},
-                  {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}},
-                  (step("release"; "release"; 600; {}) | .config.failureMode = "CONTINUE"),
-                  {nodeId: "escalate", type: "OUTCOME_TERMINAL",
-                   config: {outcome: "ESCALATE", reason: "the issue run did not finish: the issue is Ready again, the worktree is kept"}}],
-          edges: [edge("trigger"; "issue"),
-                  {source: "issue", target: "done", sourcePort: "success"},
-                  {source: "issue", target: "release", sourcePort: "failure"},
-                  {source: "issue", target: "release", sourcePort: "escalate"},
-                  {source: "issue", target: "release", sourcePort: "retry"},
-                  edge("release"; "escalate")]}}}'
+        ("run-issue" + $suffix): runner("run-issue" + $suffix; "implement-issue" + $suffix; "implement-issue, and the issue back to Ready when it does not end well"),
+        ("implement-issue-nav" + $suffix): {workflowId: ("implement-issue-nav" + $suffix),
+          description: "Method C: implement-issue with a code-navigation index prepared by the nav step before implement",
+          nodes: $nav_nodes, edges: chain($nav_nodes | map(.nodeId))},
+        ("run-issue-nav" + $suffix): runner("run-issue-nav" + $suffix; "implement-issue-nav" + $suffix; "implement-issue-nav, and the issue back to Ready when it does not end well")}}'
 }
 
 # epic_variant IMPL_PAUSE PR_PAUSE BETWEEN_PAUSE: the suffix of run-epic for the checkpoints that are off (0)

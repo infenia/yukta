@@ -56,6 +56,9 @@ def read_session(path):
                 if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("id") not in tool_ids:
                     tool_ids.add(b.get("id"))
                     tools[b.get("name", "?")] += 1
+                    cmd = str((b.get("input") or {}).get("command", "")).lstrip()
+                    if b.get("name") == "Bash" and cmd.startswith("codegraph"):
+                        tools["Bash:codegraph"] += 1  # a navigation call made through the CLI
             u = m.get("usage")
             if not u or not str(m.get("model", "")).startswith("claude"):
                 continue

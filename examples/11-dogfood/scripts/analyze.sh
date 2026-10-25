@@ -8,7 +8,7 @@
 # Stage 2 (one cheap model call, YUKTA_ANALYZER_MODEL sonnet, YUKTA_ANALYZER_BUDGET 0.30 USD): an open-code note about
 #   the run and at most two proposals the rules and the open issues do not cover (analyzer-rules.md).
 # Stage 3: a rule finding becomes a comment on the first still-open issue that describes it (analyzer-known.json), or a
-#   new issue when all are closed; a proposal that duplicates an open issue becomes a comment, a new one is filed with
+#   new issue when all are closed (a rule marked "file": false is only noted); a proposal that duplicates an open issue becomes a comment, a new one is filed with
 #   report-finding.sh (at most YUKTA_ANALYZER_MAX_FILED, 3, per run) and attached under the epic (YUKTA_LOOP_EPIC, 1218).
 #   Nothing is implemented: you decide by marking an issue Ready.
 # --dry-run prints what it would comment on and file and writes nothing to GitHub. --no-judge skips stage 2.
@@ -57,10 +57,11 @@ files='[]'
 if [[ -d "$wt" ]]; then
   files="$({ git -C "$wt" diff --name-only origin/main...HEAD 2>/dev/null; git -C "$wt" status --porcelain 2>/dev/null | awk '{print $NF}'; } | { grep -v '^\.yukta-dev/' || true; } | sort -u | jq -R . | jq -sc .)"
 fi
+nav=null; [[ -s "$state/nav.json" ]] && nav="$(json_or "$state/nav.json" null)"
 traces="$(python3 -I "$here/../eval/cache_trace.py" --worktree "$wt" --json 2>/dev/null || echo '{"sessions":[]}')"
 stage1="$(jq -n --argjson draw "$draw" --argjson outcome "$outcome" --argjson attempts "$attempts" --argjson implement "$implement" \
-  --argjson modules "$modules" --argjson files "$files" --argjson traces "$traces" \
-  '{draw: $draw, outcome: $outcome, attempts: $attempts, implement: $implement, modules: $modules, files: $files, traces: $traces}' \
+  --argjson modules "$modules" --argjson files "$files" --argjson traces "$traces" --argjson nav "$nav" \
+  '{draw: $draw, outcome: $outcome, attempts: $attempts, implement: $implement, modules: $modules, files: $files, traces: $traces, nav: $nav}' \
   | jq -c -f "$here/analyze-facts.jq")"
 
 # ---- stage 2: the judge
@@ -125,6 +126,7 @@ file_issue() { # TITLE MODULE PRIORITY KIND EVIDENCE EXPECTED
 while IFS= read -r f; do
   [[ -n "$f" ]] || continue
   rule="$(jq -r .rule <<<"$f")" evidence="$(jq -r .evidence <<<"$f")" target=""
+  if [[ "$(jq -r --arg r "$rule" '.[$r] | if has("file") then .file else true end' <<<"$known")" == false ]]; then say "NOTED $rule: ${evidence:0:160}"; continue; fi
   for n in $(jq -r --arg r "$rule" '.[$r].issues[]' <<<"$known"); do
     if [[ "$("$gh" issue view "$n" -R "$gh_repo" --json state -q .state 2>/dev/null)" == OPEN ]]; then target="$n"; break; fi
   done

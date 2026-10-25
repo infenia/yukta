@@ -9,6 +9,10 @@
 #   loop.sh total                               dollars spent so far and the limit
 #   loop.sh ledger                              one line per draw and outcome
 #   loop.sh record <json>                       append a record (the analyzer's analysis record)
+#   loop.sh report [--loop SHA] [--min-n 8]     what each method cost and delivered, with the uncertainty (loop-report.py)
+#   loop.sh sync                                add what happened after the PR (CI, review comments, human commits, merged)
+#                                               and the state of the issues the analyzer filed
+#   loop.sh themes [--post] [--no-judge]        count the analyzer's findings and notes by theme (themes.sh)
 #
 # Every draw is appended to the ledger BEFORE the run starts, so the assignment cannot depend on how the run
 # goes. An issue that already has a draw keeps its method on a second pick. Draws are block-randomized inside
@@ -21,7 +25,8 @@
 #   YUKTA_LOOP_RUNNER (tests: a command that stands in for the method run), YUKTA_GH, YUKTA_ISSUES_REPO.
 # Methods: A  one Claude Code session fixes the issue itself, Yukta only checks.
 #          B  a Claude Code session orchestrates `yk run issue`; slim sub-flow sessions do the work.
-#          C  B with a code-navigation backend for the sub-flows.
+#          C  B with a code-navigation index for the sub-flows (yk run issue --nav, scripts/nav.sh): the IDE index if you opted
+#             in (YUKTA_NAV_IDE=open), else codebase-memory-mcp, else CodeGraph. The backend and the index time go on the outcome.
 # After a run, analyze.sh reads it and files what it finds (YUKTA_LOOP_ANALYZE=file|dry|off, default file).
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -58,7 +63,7 @@ loop_sha() {
 
 enabled_methods() {
   local m out=()
-  IFS=, read -ra out <<<"${YUKTA_LOOP_METHODS:-A,B}"
+  IFS=, read -ra out <<<"${YUKTA_LOOP_METHODS:-A,B,C}"
   for m in "${out[@]}"; do [[ "$m" =~ ^[ABC]$ ]] || die "YUKTA_LOOP_METHODS holds A, B or C, not '$m'"; done
   printf '%s\n' "${out[@]}"
 }
@@ -66,7 +71,7 @@ enabled_methods() {
 issue_json() { "$gh" issue view "$1" -R "$gh_repo" --json number,title,body,labels,state,assignees; }
 
 spent_total() {
-  ledger_all | jq -s '[.[] | select(.type == "outcome" or .type == "analysis") | (.cost_usd // 0) + (.analyzer_cost_usd // 0)] | add // 0'
+  ledger_all | jq -s '[.[] | select(.type == "outcome" or .type == "analysis" or .type == "themes") | (.cost_usd // 0) + (.analyzer_cost_usd // 0)] | add // 0'
 }
 
 gate() {
@@ -154,6 +159,7 @@ run_method() {
   case "$method" in
     A) run_method_a "$n" "$dir" ;;
     B) run_method_b "$n" "$dir" ;;
+    C) run_method_b "$n" "$dir" --nav ;;
     *) die "method $method is not available yet (YUKTA_LOOP_METHODS=$YUKTA_LOOP_METHODS)" ;;
   esac
 }
@@ -166,14 +172,14 @@ run_method_a() {
   cp "$REPO_ROOT/.yukta-dev/issue-$n/solo.out.json" "$dir/main.json" 2>/dev/null || true
 }
 
-# B: a headless Claude Code session (your own setup) orchestrates: it starts yk run issue and reports the RESULT line
-run_method_b() {
-  local n="$1" dir="$2" yk="$here/../yk"
+# B (and C, with --nav): a headless Claude Code session (your own setup) orchestrates: it starts yk run issue and reports the RESULT line
+run_method_b() { # N DIR [--nav]: method C is method B with --nav
+  local n="$1" dir="$2" nav="${3:-}" yk="$here/../yk"
   (cd "$REPO_ROOT" && env -u CLAUDECODE -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_SSE_PORT \
     YUKTA_DOGFOOD=off YUKTA_BUDGET_ISSUE="$BUDGET_SESSION" YUKTA_IMPL_BUDGET="$BUDGET_SESSION" \
     "${YUKTA_CLAUDE_BIN:-claude}" -p "Issue #$n must be fixed, and you are the orchestrator, not the implementer: do not edit code yourself. Start Yukta's issue workflow:
 
-  $yk run issue $n --no-pause before-implement,before-pr
+  $yk run issue $n${nav:+ $nav} --no-pause before-implement,before-pr
 
 Run it in the foreground with the Bash timeout set to 600000 ms. It prints a few lines and ends with a \`RESULT status=...\` line. If the command times out before RESULT, re-attach with \`$yk watch <session> <execution>\` (both are in its STARTED line) the same way. If the run ends ESCALATE, read what it says and stop; do not start it again. Do not commit or push. Finish with the RESULT line and one short sentence." \
     --model "${YUKTA_LOOP_MODEL:-opus}" --no-session-persistence --permission-mode acceptEdits \
@@ -206,12 +212,14 @@ cmd_pick() {
   out="$(YUKTA_LOOP_DRAW_ID="$id" "${YUKTA_LOOP_RUNNER:-run_method}" "$n" "$method" "$dir" 2>"$dir/run.err" || true)"
   end="$(date +%s)"
   main="$(usage_of "$dir/main.json")"
+  nav="$(jq -c '{backend, ok, index_seconds, version}' "$REPO_ROOT/.yukta-dev/issue-$n/nav.json" 2>/dev/null || echo null)"
+  [[ "$method" == C ]] || nav=null
   sub='{"cost_usd":0,"attempts":0,"fixed":0}'
   [[ "$method" == A ]] || sub="$(usage_sub "$REPO_ROOT/.yukta-dev/issue-$n/implement.json" "$(dirname "$REPO_ROOT")/yukta-issue-$n/.yukta-dev/heal/check")"
   res="$(grep -o 'RESULT status=[A-Z]*.*' <<<"$out" | tail -1 || true)"
   ledger_append "$(jq -nc --arg id "$id" --argjson n "$n" --arg method "$method" --arg res "${res:-}" --arg pr "$(grep -o 'https://github.com/[^ ]*/pull/[0-9]*' <<<"$out" | tail -1 || true)" \
-    --argjson wall "$((end - start))" --argjson main "$main" --argjson sub "$sub" --arg t "$(date -u +%FT%TZ)" \
-    '{type: "outcome", draw: $id, time: $t, issue: $n, method: $method, result: $res, pr_url: $pr, wall_s: $wall, main: $main, sub: $sub,
+    --argjson wall "$((end - start))" --argjson main "$main" --argjson sub "$sub" --argjson nav "$nav" --arg t "$(date -u +%FT%TZ)" \
+    '{type: "outcome", draw: $id, time: $t, issue: $n, method: $method, result: $res, pr_url: $pr, wall_s: $wall, main: $main, sub: $sub, nav: $nav,
       cost_usd: (($main.cost_usd // 0) + ($sub.cost_usd // 0)), analyzer_cost_usd: 0}')"
   echo "$out" | tail -3
   # the analyzer reads the finished run and files what it finds under the epic (YUKTA_LOOP_ANALYZE=file, the default),
@@ -242,6 +250,39 @@ cmd_record() {
   ledger_append "$(jq -c . <<<"$1")"
 }
 
+# sync: for every run with a pull request, CI, review comments, human commits and whether it merged; for every issue the
+# analyzer filed, whether it was closed as done. Appends "sync" and "issue-sync" records (the last one per run counts).
+cmd_sync() {
+  local draw url repo_pr num pr inline rec n ir
+  while IFS=$'\t' read -r draw url; do
+    [[ "$url" =~ ^https://github.com/([^/]+/[^/]+)/pull/([0-9]+)$ ]] || continue
+    repo_pr="${BASH_REMATCH[1]}" num="${BASH_REMATCH[2]}"
+    if ledger_all | jq -se --arg d "$draw" '[.[] | select(.type == "sync" and .draw == $d)] | last | (.state // "") | IN("MERGED", "CLOSED")' >/dev/null 2>&1; then continue; fi
+    pr="$("$gh" pr view "$url" --json state,mergedAt,createdAt,statusCheckRollup,reviews,comments,commits 2>/dev/null)" || { echo "could not read $url" >&2; continue; }
+    inline="$("$gh" api "repos/$repo_pr/pulls/$num/comments" --jq length 2>/dev/null || echo 0)"
+    rec="$(jq -c --arg d "$draw" --arg u "$url" --argjson inline "${inline:-0}" --arg t "$(date -u +%FT%TZ)" '
+      def failed: ((.conclusion // .state // "") | IN("FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "STARTUP_FAILURE", "ACTION_REQUIRED"));
+      def pending: (((.status // "COMPLETED") != "COMPLETED") or ((.state // "") | IN("PENDING", "EXPECTED")));
+      {type: "sync", draw: $d, time: $t, pr_url: $u, state: .state,
+       ci: (if (.statusCheckRollup | length) == 0 then "none" elif any(.statusCheckRollup[]; failed) then "failure" elif any(.statusCheckRollup[]; pending) then "pending" else "success" end),
+       review_comments: ((.reviews | length) + (.comments | length) + $inline),
+       human_commits: ([.commits[] | select((.messageBody // "") | test("Co-Authored-By: Claude") | not)] | length),
+       merged: (.mergedAt != null),
+       lead_time_h: (if .mergedAt then ((.mergedAt | fromdateiso8601) - (.createdAt | fromdateiso8601)) / 3600 | . * 10 | round / 10 else null end)}' <<<"$pr")"
+    ledger_append "$rec"
+    echo "SYNC $draw $(jq -r '"ci=\(.ci) review_comments=\(.review_comments) human_commits=\(.human_commits) merged=\(.merged)"' <<<"$rec")"
+  done < <(ledger_all | jq -rs '[.[] | select(.type == "outcome" and (.pr_url // "") != "")] | group_by(.draw) | map(last) | .[] | [.draw, .pr_url] | @tsv')
+  # the issues the analyzer filed: closed as done, closed otherwise, or still open
+  while read -r n; do
+    [[ -n "$n" ]] || continue
+    ir="$("$gh" issue view "$n" -R "$gh_repo" --json state,stateReason 2>/dev/null)" || continue
+    ledger_append "$(jq -c --argjson n "$n" --arg t "$(date -u +%FT%TZ)" '{type: "issue-sync", issue: $n, time: $t, state: (.state | ascii_downcase), state_reason: ((.stateReason // "") | ascii_downcase)}' <<<"$ir")"
+    echo "ISSUE-SYNC #$n $(jq -r '"\(.state | ascii_downcase) \(.stateReason // "")"' <<<"$ir")"
+  done < <(ledger_all | jq -rs '[.[] | select(.type == "analysis" and (.dry_run | not)) | .filed[]? | select(.action == "file" and (.url // "") != "") | .url | split("/") | last] | unique | .[]')
+}
+
+cmd_report() { python3 -I "$here/loop-report.py" --ledger "$LEDGER" --budget "$BUDGET_TOTAL" "$@"; }
+
 cmd_total() {
   printf '$%s of $%s\n' "$(spent_total)" "$BUDGET_TOTAL"
 }
@@ -256,6 +297,9 @@ case "${1:-}" in
   pick) shift; cmd_pick "$@" ;;
   next) cmd_next ;;
   record) shift; cmd_record "$@" ;;
+  report) shift; cmd_report "$@" ;;
+  sync) cmd_sync ;;
+  themes) shift; exec "$here/themes.sh" "$@" ;;
   total) cmd_total ;;
   ledger) cmd_ledger ;;
   *) sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; exit 2 ;;
