@@ -167,7 +167,25 @@ hassert "each effort is time-boxed and budgeted" '.workflows["fix-from-low"].nod
     and ([.[] | select(.nodeId == "fix.high") | .config.env.YUKTA_HEAL_BUDGET] == ["2"])'
 hassert "the fixer is told model, stage and effort" '.workflows["fix-from-low"].nodes[] | select(.nodeId == "fix.medium")
   | .config.command == ["/p/heal.sh", "fix", "${start.stage}", "0", "${start.model}", "--effort", "medium"]'
+hassert "triage asks the long question and describes each level with its signals" '.workflows.heal.nodes[] | select(.nodeId == "triage")
+  | (.config.question | length) > 300 and ([.config.labels[] | length] | min) > 100'
 echo "ok   heal and fix workflows"
+
+# ---- brief: what the triage model reads
+bd="$(mktemp -d)"; trap 'rm -rf "$bd"' EXIT
+git init -q "$bd/r"; (cd "$bd/r" && git config user.email t@t && git config user.name t && echo a >A.java && git add -A && git commit -q -m x && echo b >>A.java && echo n >New.java)
+mkdir -p "$bd/heal"
+printf './gradlew test -q' >"$bd/heal/tests.cmd"
+printf '> Task :core:test FAILED\nOrderServiceTest > shouldApplyDiscount() FAILED\n    AssertionFailedError: expected: <90> but was: <100>\n        at OrderServiceTest.java:48\n1 test failed\n' >"$bd/heal/tests.run.out"
+brief="$(cd "$bd/r" && YUKTA_HEAL_DIR="$bd/heal" bash "$here/yukta-heal.sh" brief tests)"
+for want in "stage: tests" "command: ./gradlew test" "FAILED" "files changed so far: 2" "changed files: A.java (+1 -0), New.java (new)" "at OrderServiceTest.java:48"; do
+  grep -qF -- "$want" <<<"$brief" || fail "brief lacks '$want': $brief"
+done
+for want in "---" "log:"; do grep -qxF -- "$want" <<<"$brief" || fail "brief lacks the line '$want': $brief"; done
+big="$(for i in $(seq 1 400); do echo "error: line $i $(printf 'x%.0s' $(seq 1 200))"; done)"
+printf '%s\n' "$big" >"$bd/heal/tests.run.out"
+[[ "$(cd "$bd/r" && YUKTA_HEAL_DIR="$bd/heal" bash "$here/yukta-heal.sh" brief tests | wc -c)" -le 12000 ]] || fail "brief is over 12000 characters"
+echo "ok   brief"
 
 heal="$(YUKTA_TRIAGE=off heal_subflows "$policy" /p/heal.sh)"
 hassert "no triage when it is off: brief goes straight to the default level" '.workflows.heal | ([.nodes[] | select(.nodeId == "triage")] | length) == 0

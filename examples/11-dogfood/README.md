@@ -153,10 +153,11 @@ fix     fix@low ▶ recheck ─failure▶ fix@medium ▶ recheck ─failure▶ f
            (fix-from-<effort> starts at that effort; model, stage and effort come from the start payload)
 ```
 - **triage** is a `CLASSIFY` on the System One backend (`heal.json` `triage.model`, `kev:4b-q4_K_M`; it needs Ollama 0.35 or newer with that decision model, and any failure of the call starts at the default level). `minProbability` is 0.3, not the usual 0.6: the probability is spread over seven ordered levels (a clear answer is 35 to 55 %), and a vague one falls back to the default level, which is the right guess for it: `brief` (the stage, its
-  command, the problem lines, the failing tests) goes in, a difficulty comes out and `triage.levels` maps it to a
+  command, the problem lines, the failing tests, then the files changed with their added and removed lines and the first 60 lines of the log) goes in, a difficulty comes out and `triage.levels` maps it to a
   start rung: `trivial` haiku/low, `easy` haiku/medium, `simple` haiku/high, `moderate` sonnet/low, `average`
   sonnet/medium (the default, also for an uncertain answer or a model that is down), `hard` sonnet/high,
   `veryhard` opus/low. It only picks where to start: a failure always goes on to the next model.
+  The question and the level descriptions in `heal.json` are the prompt and matter most: on 14 held-out hand-labelled failures, longer descriptions with concrete signals took the exact match from 4 to 8 and, with the longer question and the log, to 10 (13 within one level).
 - **fix** runs one model at rising effort. Every attempt is time-boxed and budgeted (`heal.json` `efforts`:
   `timeoutSeconds`, `budget`), and `recheck` re-runs the failing stage's own command (`yukta-heal.sh run`
   records it) after each one, so the attempt is judged by the check it was meant to fix.

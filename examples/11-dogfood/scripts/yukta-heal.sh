@@ -107,6 +107,14 @@ failing_tests() {
     | xargs -0 -r grep -lE '<(failure|error) ' | sed -E 's#.*/TEST-(.*)\.xml#\1#' | sort -u | head -15
 }
 
+# changed_summary: the files the working tree changes against HEAD, "path (+added -removed)", at most 20, new files as (new)
+changed_summary() {
+  {
+    git diff HEAD --numstat 2>/dev/null | awk '{ printf "%s (+%s -%s)\n", $3, $1, $2 }'
+    git ls-files -o --exclude-standard 2>/dev/null | sed 's/$/ (new)/'
+  } | awk 'NR <= 20 { out = out (out == "" ? "" : ", ") $0 } END { if (NR > 20) out = out ", ... " NR " files"; print (out == "" ? "none" : out) }'
+}
+
 # analyzer_command NAME: the command of a healable analyzer (YUKTA_HEAL_ANALYZERS holds name=command lines).
 analyzer_command() { sed -n "s/^$1=//p" <<<"${YUKTA_HEAL_ANALYZERS:-}"; }
 
@@ -131,7 +139,9 @@ key="$action"
 [[ "$action" == fix ]] && key="$mode"
 case "$key" in
   brief)
-    # the triage state: short, so a small decision model can judge it
+    # the triage state: what the failure says (the lines a human would read first), then what changed and the log
+    # itself, so a small decision model can judge the breadth and the clarity of the cause. Capped at 12000 characters
+    # (the decision plugins cut the state at 15000).
     {
       echo "stage: $stage"
       if [[ "$stage" == analyzers ]]; then
@@ -145,7 +155,15 @@ case "$key" in
         [[ "$stage" == tests ]] && echo "failing test classes: $(failing_tests | paste -sd' ')"
       fi
       echo "files changed so far: $(git ls-files -m -o --exclude-standard | wc -l)"
-    } | cut -c1-300 | head -c 4000
+      echo "---"
+      echo "changed files: $(changed_summary)"
+      echo "log:"
+      if [[ "$stage" == analyzers ]]; then
+        for n in "${failed[@]}"; do echo "[$n]"; sed 's/\x1b\[[0-9;]*m//g' "$dir/$n.run.out" 2>/dev/null | head -40; done
+      else
+        sed 's/\x1b\[[0-9;]*m//g' "$dir/$stage.run.out" 2>/dev/null | head -60
+      fi
+    } | cut -c1-300 | head -c 12000
     exit 0
     ;;
   recheck)
