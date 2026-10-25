@@ -17,7 +17,7 @@ for t in "$@"; do
   case "$t" in -*) continue ;; esac
   if [[ "$t" == spotlessApply ]]; then rm -f fail-spotlessCheck; echo formatted >>src.txt; continue; fi
   if [[ -e "slow-$t" ]]; then sleep 33; fi
-  if [[ -e "fail-$t" ]]; then echo "error: $t failed (violation)" >&2; [[ -e difficulty ]] && echo "difficulty: $(cat difficulty)" >&2; rc=1; fi
+  if [[ -e "fail-$t" ]]; then echo "error: $t failed (violation)$([[ -e difficulty ]] && echo " difficulty: $(cat difficulty)")" >&2; rc=1; fi
 done
 exit $rc
 SH

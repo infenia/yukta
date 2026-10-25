@@ -26,10 +26,11 @@ for _ in $(seq 1 50); do [[ -s "$dir/port" ]] && break; sleep 0.1; done
 export OLLAMA_URL="http://127.0.0.1:$(cat "$dir/port")"
 out="$(python3 -I "$here/eval.py" --cases "$here/fixtures/synthetic-b.json" --misses)"
 grep -q '^14 labelled case' <<<"$out" || fail "case count: $out"
-# the stub always says average: 2 of the 14 synthetic-b cases are average, 4 are within one level of it (moderate and hard: 2 each)
-grep -qE '^heal.json +2/14 +6/14 ' <<<"$out" || fail "exact and within one: $out"
-grep -q 'policy-exact' <<<"$out" && grep -qE '^heal.json .* 2/14 +[0-9.]+s/call, 0 failed' <<<"$out" || fail "policy: $out"
-grep -q 'miss .*h-license .*trivial *got average' <<<"$out" || fail "misses are not listed: $out"
+# the stub always says average; heal.json has the levels easy, average and hard, and the seven labels map onto them (from7): 4 of the 14
+# synthetic-b cases are average or moderate, which is the level it says; every level is within one of average
+grep -qE '^heal.json +4/14 +14/14 ' <<<"$out" || fail "exact and within one: $out"
+grep -q 'policy-exact' <<<"$out" && grep -qE '^heal.json .* 4/14 +4/14 +[0-9.]+s/call, 0 failed' <<<"$out" || fail "policy and 3 classes: $out"
+grep -q 'miss .*h-license .*easy *got average' <<<"$out" || fail "misses are not listed: $out"
 # labels by id and the split
 printf '{"h-license": {"level": "trivial", "set": "dev"}, "h-404": {"level": "moderate", "set": "test"}}' >"$dir/labels.json"
 out="$(python3 -I "$here/eval.py" --cases "$here/fixtures/synthetic-b.json" --labels "$dir/labels.json" --split test)"
