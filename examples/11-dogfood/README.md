@@ -218,6 +218,61 @@ edits) and never commits.
 - The server needs `YUKTA_PROCESS_ALLOW_ANY=true` (`yk up` sets it) and a logged-in `claude` on its PATH
   (not `--bare`, which loses the login).
 
+## Monitoring heal: the events log, `yk heal report`, `yk heal analyze`
+
+To improve heal you have to see what it does. Every step of a `yk check` appends one JSON line to **one persistent file**,
+`$DEV_HOME/heal-events.jsonl` (`~/.local/state/yukta-dev/heal-events.jsonl`; `YUKTA_HEAL_EVENTS=<file>` moves it, `off` turns it off).
+It outlives the per-run heal dir (which is wiped at the next run) and is append-only, so it grows with every run; the lines are small
+(a heal is a dozen of them). Every line has `v` (1), `ts` (UTC), `run` (the execution that ran the stages), `session`, `project` and
+`event`; the rest depends on the event:
+
+| event | written by | fields |
+|---|---|---|
+| `stage` | `yukta-heal.sh run` | `stage`, `secs`, `exit`, `ok`, `cmd`; on a failure `sig` (a hash of the failure with its numbers and paths blurred, so the same failure counts as one) and `head` (its first lines) |
+| `brief` | `brief` | `stage`, `chars` (what the triage model reads), `secs` |
+| `triage` | `triage-log` | `stage`, `route` (`level`, `uncertain` or `error`), `label`, `p`, `start` (the rung heal starts at), `model`, `secs` (since the brief, so the wait for the model), `chars`, `fallback` (`uncertain`, `error` or null), `error`, and `raw` when a classification could not be read |
+| `fix` | `fix` | `stage`, `attempt`, `model`, `effort`, `fixed`, `claimed` (what the fixer said), `files`, `cost`, `usage` (tokens, cache), `secs`, `guard` (why the attempt was rejected), `summary`, `modules`, `budget` |
+| `recheck`, `verify` | `recheck`, `verify` | `stage`, `secs`, `ok` |
+| `giveup` | `giveup` | `stage`: every model failed at every effort |
+| `result` | `yk` when a run ends | `workflow`, `status`, `failed_node`, `healed`, `secs` (the whole run), `durations` (seconds per stage, summed over its nodes), `scope`, `sha`, `branch` |
+
+```
+yk heal report [--since 7d|DATE] [--run ID] [--project NAME] [--json]   # where the time and the money went
+yk heal analyze [same options]                                          # what looks wrong; exit 1 when something does
+yk heal show [same options]                                             # the events, one line each (pipe it to jq)
+```
+
+`yk heal report` prints: the runs and their wall time; **where the time goes** (stage runs, triage, fix attempts, rechecks, verify, with
+shares); a table of the stages (runs, failures, mean and p95 time, slowest first); the heals (how many, how many solved, at which rung,
+attempts per heal); the triage (calls, routes, fallbacks and why, latency p50 and p95, confidence, the rungs it started at, and how many
+heals needed a stronger model than it started at); the cost per rung (attempts, fixed, dollars, time, cache-read share); and the failures
+that came back. `--json` gives the same as data. The same data is in the file for anything else:
+
+```bash
+yk heal show | jq -s 'map(select(.event == "fix")) | group_by(.model + "/" + .effort) | map({rung: .[0].model, n: length, usd: (map(.cost) | add)})'
+```
+
+`yk heal analyze` applies rules to the events (the heal rules of the old analyzer, now over the log, with no model call and nothing filed):
+
+| rule | it fires when | what it points at |
+|---|---|---|
+| `noop-fixers` | a fixer attempt changed nothing | money spent on failures the fixer could not or would not touch |
+| `fixer-outside-module` | an attempt changed files outside the module(s) the run was scoped to | a fixer wandering, or a failure the change did not cause |
+| `healed-field-mismatch` | a run says `healed=-` although a fixer fixed something | the RESULT line undercounts |
+| `triage-fallbacks` | more than a fifth of the triage calls fell back to the default level | Ollama down, a model that cannot be loaded, a call over 60 s, or answers below the confidence floor |
+| `triage-slow` | the p95 of the triage latency is over 45 s | the brief or the level descriptions are too long (Ollama cuts a System One call off at 60 s) |
+| `under-triage` | half of the triaged heals were fixed by a stronger model than the start | the levels are rated too low: tune the prompt (`eval/triage`) |
+| `guard-hits` | an attempt touched a protected path, added a suppression or removed assertions | a fixer cheating to pass |
+| `giveups` | a heal gave up after every model | what to fix by hand |
+| `repeated-failure` | the same failure came back three times or more | a flaky check or a cause worth fixing at the root |
+
+Read it as a loop: `yk heal report` shows where the time goes; `analyze` names what looks wrong; a triage problem is then measured and
+fixed with `eval/triage` (real failures, a labelled set, the prompt); a fixer problem is read in the events (`yk heal show --run ID`).
+Notes: `head` and `summary` hold text of your logs, so the file stays on your machine; the `run` of an issue run's `result` event is the
+issue run, while the `stage`, `triage` and `fix` events carry the id of the `check` below it; the time a node waits for the gradle group is
+inside its stage's seconds, not separate. Offline test: `scripts/test-heal-report.sh`; the events themselves are checked by
+`scripts/test-self-heal.sh` (`--online` runs the triage against a stand-in for Ollama, `scripts/fake-ollama.py`).
+
 ## Issues: `yk run issue`
 ```
 yk run issue 123 [--detach] [--no-pause before-implement,before-pr]

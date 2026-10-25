@@ -1,0 +1,70 @@
+# Heal runbook
+
+How to run the dogfood check, watch heal work and improve it. The design is in [README.md](README.md) ("Self-healing check",
+"Monitoring heal"); this is the operator's manual.
+
+## What costs money, what touches the outside
+
+| Command | Spends | Touches |
+|---|---|---|
+| `yk check`, `yk gradle` | Claude only when a stage fails and heal runs a fixer ($ per attempt: `heal.json` `efforts` budgets) | your working tree (fixers edit it, never commit) |
+| `yk run issue|epic` | an implementer ($5 cap) and fixers | the issue and the project board, a worktree, a pushed branch, a draft PR |
+| `yk heal report|analyze|show` | nothing | nothing (reads `heal-events.jsonl`) |
+| `eval/triage/eval.py` | nothing (local Ollama) | nothing |
+| `eval/triage/collect.py` | nothing | `gh` reads of your CI |
+
+## Where things are
+
+| What | Where |
+|---|---|
+| the events log (all runs, all checkouts) | `$DEV_HOME/heal-events.jsonl` (`~/.local/state/yukta-dev/`), `YUKTA_HEAL_EVENTS` |
+| the records of one run (attempts, outputs, exit codes) | `<checkout>/.yukta-dev/heal/<session>/` (wiped by the next `yk check`) |
+| the heal policy (models, efforts, triage prompt) | `heal.json` |
+| the triage evaluation: labels, data | `eval/triage/labels.json`, `eval/triage/data/` (not committed) |
+
+## The improvement loop
+
+1. **Run it.** `yk check` (or let the Stop hook do it). Nothing to configure: events are on by default.
+2. **Look.** `yk heal report --since 7d`. Read it top to bottom: *where the time goes*, the stage table (a slow stage is a slow
+   check, not a heal problem), the heals (solved at which rung), the triage block, the cost per rung, the failures that came back.
+3. **Find what is wrong.** `yk heal analyze`. Each rule names a cause (README "Monitoring heal"). For one run: `yk heal show --run <id>`.
+4. **Fix it, and measure.**
+   - triage falls back or is slow: `yk heal show | jq 'select(.event == "triage")'` (`error`, `raw`), `ollama ps`, `journalctl -u ollama`;
+     shorten the brief (`yukta-heal.sh brief`, caps in `eval/triage/eval.py`);
+   - triage rates too low or too high: `eval/triage/eval.py --split test` against the labelled failures, change the prompt in
+     `heal.json`, compare variants (`--variant`), tune on `dev`, report on `test`;
+   - a fixer wastes money or wanders: read its `fix` events (`summary`, `files`, `guard`), fix `fixer-rules.md` or the guard;
+   - the same failure keeps coming: fix the cause, or its check.
+5. **Grow the evaluation.** `eval/triage/collect.py` downloads new failed CI runs; label the new distinct failures in `labels.json`
+   (`level`, `basis`, `confidence`, `set`; `exclude` for what is not a code failure).
+
+## Knobs
+
+`YUKTA_HEAL_EVENTS` (file, or `off`), `YUKTA_HEAL_BUDGET` (USD per attempt, set per effort by `heal.json`), `YUKTA_TRIAGE=off` (skip the
+System One call: heal starts at the default level), `YUKTA_TRIAGE_URL` (another Ollama), `YUKTA_BUDGET_ISSUE` (USD per issue run),
+`yk check --models sonnet,opus`, `yk check --triage off`, `yk check --pause before-opus`.
+For issue runs: `YUKTA_IMPL_MODEL` (opus), `YUKTA_IMPL_BUDGET` (5), `YUKTA_BUDGET_EPIC`, `YUKTA_WARM_DELAY`, `YUKTA_NAV_BACKENDS`,
+`YUKTA_NAV_IDE`, `YUKTA_NAV_IDE_URL`, `YUKTA_NAV_CBM_BIN`, `YUKTA_NAV_CBM_CACHE`, `YUKTA_NAV_INDEX_TIMEOUT`.
+
+## When something is off
+
+| Symptom | Cause and fix |
+|---|---|
+| `triage-fallbacks` with `error` | the model is missing or in an unsupported format (`ollama list`, `ollama pull`), Ollama is down, or the call took over 60 s: Ollama cuts a System One call off at 60 s and the machine reads about 50 tokens a second without a big GPU, so keep the brief near 5000 characters |
+| the triage always answers `average` | the confidence floor (`minProbability` 0.3) sends vague answers to the default: look at `p` in the triage events and at `eval/triage` |
+| `yk check` says another check is running | the watcher of the last run holds the lock for a few seconds; wait or `yk stop` |
+| no events | `YUKTA_HEAL_EVENTS=off` is set, or the dev server was started before this change: `yk up` |
+| `yk heal report` says no events for this selection | `--since`, `--run` or `--project` filter everything out |
+| a fixer hit a guard (`guard-hits`) | it touched `config/`, `build-logic/`, `gradle/`, `.github/`, `.claude/`, the dogfood tooling, added a suppression or removed assertions; its edits stay in the tree: `git diff` |
+| the dev server runs old code | `yk up` rebuilds from `origin/main`; the workflows come from your checkout, the plugins from the server |
+
+## Tests
+
+```bash
+scripts/test-self-heal.sh            # offline: the graphs, the brief, the events
+scripts/test-heal-report.sh          # offline: the report and the rules
+scripts/test-nav.sh scripts/test-hooks.sh eval/triage/selftest.sh
+# on the dev server (yk up), against fakes: ~5 to 15 minutes each
+scripts/test-self-heal.sh --online   # every heal path, the triage against a stub of Ollama, the events, the report
+scripts/test-issue.sh; scripts/test-epic.sh; scripts/test-steer.sh
+```

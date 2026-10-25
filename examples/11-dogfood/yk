@@ -12,6 +12,9 @@
 #                                            implement an assigned, Ready issue (or the sub-issues of an epic, two at a
 #                                            time) in its own worktree with a code-navigation index (IDE, codebase-memory-mcp or
 #                                            CodeGraph, see scripts/nav.sh), check and heal it, open a draft PR
+#   yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]
+#                                            what heal did: where the time and money went (report), what looks wrong (analyze), the
+#                                            raw events (show); from the monitoring log, see "Monitoring heal" below
 #   yk result <session> <exec>               the RESULT line of a run that ended
 #   yk tree <exec>                           the run and every run below it, one line each: workflow, status,
 #                                            current nodes, pending signal (an execution id may be its first 8 characters)
@@ -489,6 +492,10 @@ case "$cmd" in
   mcp-headers) cmd_mcp_headers ;;
   sum) changes_sum "$REPO_ROOT" ;;
   run) cmd_run "$@" ;;
+  heal)
+    sub="${1:-report}"; (($#)) && shift
+    [[ "$sub" =~ ^(report|analyze|show)$ ]] || die "usage: yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]"
+    exec python3 -I "$here/scripts/heal-report.py" "$sub" --events "$(heal_events_file)" "$@" ;;
   result)
     export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
     print_result "${1:?usage: yk result <session> <execution>}" "${2:?usage: yk result <session> <execution>}" ;;

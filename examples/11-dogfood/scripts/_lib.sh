@@ -310,6 +310,14 @@ heal_extras() {
   echo "$nodes"
 }
 
+# heal_events_file: where heal's monitoring events go: YUKTA_HEAL_EVENTS, else heal-events.jsonl in the dev state dir; "off" or an empty
+# YUKTA_HEAL_EVENTS turns it off (prints nothing). One append-only file per machine: it outlives the per-run heal dirs.
+heal_events_file() {
+  local f="${YUKTA_HEAL_EVENTS-$DEV_HOME/heal-events.jsonl}"
+  [[ "$f" == off ]] && f=""
+  printf '%s' "$f"
+}
+
 # heal_workflow POLICY MODULES PROJECT HEALSH HEALDIR [EXTRAS [WORKFLOW [ISSUESTATE]]]: reads session JSON on stdin and adds the
 # workflow "check", the gradle-check stages unrolled into ONE graph, so a run is one execution that
 # `yk watch` follows and `yk retry` can steer. POLICY is heal.json (which stages are analyzers, and per stage
@@ -327,7 +335,7 @@ heal_extras() {
 heal_workflow() {
   # true when any analyzer of the join failed (an analyzer is skipped by the gate when none did)
   local gate="payload['items'].?[['success'] == false].size() > 0"
-  jq --arg gate "$gate" --argjson extras "${6:-[]}" --arg wfid "${7:-check}" --arg issuestate "${8:--}" --argjson policy "$1" --arg modules "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" '
+  jq --arg gate "$gate" --arg events "$(heal_events_file)" --argjson extras "${6:-[]}" --arg wfid "${7:-check}" --arg issuestate "${8:--}" --argjson policy "$1" --arg modules "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" '
     ($modules | split(" ") | map(select(. != ""))) as $mods
     | def px: . as $t | if ($mods | length) > 0 and ($t | startswith(":") | not)
         then $mods[] | select(. != "cli") | ":" + . + ":" + $t else $t end;   # cli (Go) has no gradle fix tasks
@@ -335,6 +343,7 @@ heal_workflow() {
     def healable($n): ($policy.stages[$n.nodeId] // {}).claude == true;
     # YUKTA_CLAUDE_BIN swaps the claude binary of the fixers (test-self-heal.sh uses a fake one)
     def env($tasks): {YUKTA_HEAL_DIR: $healdir, YUKTA_HEAL_TASKS: $tasks, YUKTA_MODULE: $modules}
+        + (if $events != "" then {YUKTA_HEAL_EVENTS: $events} else {} end)
         + (if $ENV.YUKTA_CLAUDE_BIN then {YUKTA_CLAUDE_BIN: $ENV.YUKTA_CLAUDE_BIN} else {} end);
     def pe($id; $cfg): {nodeId: $id, type: "PROCESS_EXECUTOR",
         config: ({workingDir: $project, timeout: 3600, timeoutSeconds: 3600} + $cfg)};
@@ -427,7 +436,7 @@ heal_workflow() {
 # YUKTA_TRIAGE=off leaves the triage out: heal then starts at the policy's default level.
 # --pause before-opus: a WAIT_FOR_SIGNAL in front of every opus fixer, as in the unrolled chain.
 heal_subflows() {
-  jq -n --argjson policy "$1" --arg healsh "$2" --arg pauses "${3:-}" --arg triage "${YUKTA_TRIAGE:-on}" \
+  jq -n --argjson policy "$1" --arg healsh "$2" --arg pauses "${3:-}" --arg triage "${YUKTA_TRIAGE:-on}" --arg events "$(heal_events_file)" \
     --arg pausewait "${YUKTA_PAUSE_SECONDS:-600}" '
     ($policy.models) as $models
     | ($policy.efforts | keys_unsorted) as $efforts
@@ -437,6 +446,7 @@ heal_subflows() {
                         # an issue run: what the implementer spent counts against the budget of the issue, and its nav.json
                         # (next to the cost file) gives the fixers the same code index
                         YUKTA_IMPL_COSTFILE: "${start.issueState}/implement.json"}
+        + (if $events != "" then {YUKTA_HEAL_EVENTS: $events} else {} end)
         + (if $ENV.YUKTA_CLAUDE_BIN then {YUKTA_CLAUDE_BIN: $ENV.YUKTA_CLAUDE_BIN} else {} end)
         + (if $ENV.YUKTA_BUDGET_ISSUE then {YUKTA_BUDGET_ISSUE: $ENV.YUKTA_BUDGET_ISSUE} else {} end) + $extra;
       def pe($id; $cfg): {nodeId: $id, type: "PROCESS_EXECUTOR",
@@ -485,12 +495,21 @@ heal_subflows() {
                   + (if $triage == "off" then [] else
                       [{nodeId: "triage", type: "CLASSIFY",
                         config: {model: $tri.model, state: "payload.stdout", routeByLabel: true, minProbability: $tri.minProbability, timeout: ($tri.timeoutSeconds // 55),
+                                 # tests point it at a stand-in for Ollama
+                                 baseUrl: ($ENV.YUKTA_TRIAGE_URL // "http://localhost:11434"),
                                  question: ($tri.question // "How hard is it to fix this failed check of a Java build?"),
                                  labels: ($tri.levels | with_entries({key, value: .value.describe})),
                                  engine: {onError: "ROUTE"}}}] end)
                   + [$rungs[] | fixnode(.model; .effort)]
                   + [$pausedmodels[] | {nodeId: pause_id(.), type: "WAIT_FOR_SIGNAL",
                                         config: {signal: "before-opus", timeoutSeconds: ($pausewait | tonumber), onTimeout: "CONTINUE"}}]
+                  # how the triage ended is logged by a node per way it can end (the message of the classification arrives as
+                  # YUKTA_METADATA_* variables); each is a second target of the ports of the triage, so it never decides where the heal goes
+                  + (if $triage == "off" then [] else
+                      [("level", "uncertain", "error") | {nodeId: ("triage-log-" + .), type: "PROCESS_EXECUTOR",
+                         config: {command: [$healsh, "triage-log", "${start.stage}", .], workingDir: "${start.project}", inputMode: "ENV",
+                                  failureMode: "CONTINUE", timeout: 60, timeoutSeconds: 60, env: env({})}}]
+                      + [{nodeId: "triage-sink", type: "CONSOLE_TERMINAL", config: {}}] end)
                   + [{nodeId: "giveup", type: "PROCESS_EXECUTOR",
                       config: {command: [$healsh, "giveup", "${start.stage}"], workingDir: "${start.project}", failureMode: "ERROR",
                                env: env({})}},
@@ -501,7 +520,11 @@ heal_subflows() {
                           + [$tri.levels | keys_unsorted[] | . as $l | level_start($l) as $s
                              | edge("triage"; (if paused($s.model) and $s.effort == "low" then pause_id($s.model) else rung($s.model; $s.effort) end); $l)]
                           + [edge("triage"; rung(level_start($tri.default).model; level_start($tri.default).effort); "uncertain"),
-                             edge("triage"; rung(level_start($tri.default).model; level_start($tri.default).effort); "error")] end)
+                             edge("triage"; rung(level_start($tri.default).model; level_start($tri.default).effort); "error")]
+                          + [$tri.levels | keys_unsorted[] | edge("triage"; "triage-log-level"; .)]
+                          + [edge("triage"; "triage-log-uncertain"; "uncertain"), edge("triage"; "triage-log-error"; "error"),
+                             edge("triage-log-level"; "triage-sink"; null), edge("triage-log-uncertain"; "triage-sink"; null),
+                             edge("triage-log-error"; "triage-sink"; null)] end)
                   + [$pausedmodels[] | edge(pause_id(.); rung(.; "low"); null)]
                   + [$rungs[] | . as $r
                      | edge(rung($r.model; $r.effort); "done"; "success"),
@@ -525,6 +548,30 @@ check_nodes() { jq -r '.workflows.check.nodes[].nodeId'; }
 # node_stage NODE: the stage a node of the check belongs to (S.run2 and S.f1 belong to S).
 node_stage() { sed -E 's/\.(run[0-9]+|f[0-9]+|r[0-9]+|pause|heal)$//' <<<"$1"; }
 
+# emit_result SESSION EXECUTION STATUS FAILED HEALED PROGRESS: the `result` event of the monitoring log: how the run ended, its wall time,
+# and the seconds each node took (a node reports its own start, so a stage is the sum of its nodes: S.run1, S.f1, S.heal ...).
+emit_result() {
+  local events project
+  events="$(heal_events_file)"
+  [[ -n "$events" ]] || return 0
+  project="${YUKTA_PROJECT:-$REPO_ROOT}"
+  mkdir -p "$(dirname "$events")" 2>/dev/null || return 0
+  jq -nc --arg session "$1" --arg run "$2" --arg status "$3" --arg failed "$4" --arg healed "$5" --arg scope "${YUKTA_SCOPE:-all}" \
+    --arg project "$(basename "$project")" --arg sha "$(git -C "$project" rev-parse --short=9 HEAD 2>/dev/null || echo unknown)" \
+    --arg branch "$(git -C "$project" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson progress "$6" '
+    # whole seconds plus the fraction the server prints, so a short stage is not rounded to nothing
+    def secs: ((.[:19] | strptime("%Y-%m-%dT%H:%M:%S") | mktime) + ((.[19:] | capture("^\\.(?<f>[0-9]+)") | "0." + .f | tonumber) // 0));
+    def stage: sub("\\.(run[0-9]+|f[0-9]+|r[0-9]+|pause|heal)$"; "");
+    def r1: (. * 10 | round) / 10;
+    [$progress.tasks[] | select((.startTime // "0001")[:4] != "0001" and (.endTime // "0001")[:4] != "0001")
+     | {node: .nodeId, s: (.startTime | secs), e: (.endTime | secs)}] as $t
+    | {v: 1, ts: $ts, run: $run, session: $session, project: $project, event: "result", workflow: ($progress.workflowId // ""), status: $status, failed_node: $failed,
+       healed: $healed, scope: $scope, sha: $sha, branch: $branch,
+       secs: (if ($t | length) > 0 then ((([$t[].e] | max) - ([$t[].s] | min)) | r1) else null end),
+       durations: ($t | group_by(.node | stage) | map({key: (.[0].node | stage), value: (map(.e - .s) | add | r1)}) | from_entries)}' 2>/dev/null \
+    | { flock 9; cat >>"$events"; } 9>>"$events.lock" 2>/dev/null || true
+}
+
 # print_result SESSION EXECUTION: prints the machine readable RESULT line; returns 0 only when the
 # execution ended SUCCESS.
 print_result() {
@@ -543,6 +590,7 @@ print_result() {
   # a run can end well and still not be done: an OUTCOME_TERMINAL that reached ESCALATE, FAILED or RETRY
   outcome="$(jq -r '[.tasks[] | select(.module == "OUTCOME_TERMINAL" and .metadata.reached == true) | .metadata.outcome][0] // "-"' <<<"$progress")"
   [[ "$status" == SUCCESS && "$outcome" != - && "$outcome" != SUCCESS ]] && status="$outcome"
+  emit_result "$1" "$2" "$status" "$failed" "${healed:--}" "$progress"
   echo "RESULT status=$status failed_node=$failed healed=${healed:--} execution=$2 session=$1"
   # what the status line and the Stop hook read: the changes this result is for, and how it ended
   mkdir -p "$STATE_DIR"

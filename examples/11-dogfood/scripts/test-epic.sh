@@ -17,7 +17,7 @@ git clone -q "$dir/origin.git" "$repo"
 git -C "$repo" config user.email t@t
 git -C "$repo" config user.name t
 export YUKTA_REPO_ROOT="$repo" YUKTA_CLAUDE_BIN="$dir/claude" YUKTA_GH="$dir/gh" YUKTA_PROJECT_STATUS_CMD="$dir/project-status"
-export YUKTA_WARM_DELAY=2 YUKTA_NAV_BACKENDS=none YUKTA_TRIAGE=off YUKTA_CHECK_EXTRAS=off GIT_AUTHOR_NAME=t GIT_COMMITTER_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_EMAIL=t@t
+export YUKTA_WARM_DELAY=2 YUKTA_NAV_BACKENDS=none YUKTA_TRIAGE=off YUKTA_HEAL_EVENTS=off YUKTA_CHECK_EXTRAS=off GIT_AUTHOR_NAME=t GIT_COMMITTER_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_EMAIL=t@t
 
 exec_id="" session=""
 # start KIND N FLAGS...: yk run KIND N --detach; sets exec_id and session

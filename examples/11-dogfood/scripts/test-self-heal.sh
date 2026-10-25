@@ -161,6 +161,48 @@ brief="$(cd "$bd/r" && YUKTA_HEAL_DIR="$bd/heal" bash "$here/yukta-heal.sh" brie
 grep -qF "BUILD FAILED: the real cause is at the end" <<<"$brief" || fail "the end of the log was cut off, not the start"
 echo "ok   brief"
 
+# ---- monitoring: every step leaves a line on the events log
+mon="$(mktemp -d)"
+git init -q "$mon/r"; (cd "$mon/r" && git config user.email t@t && git config user.name t && echo a >A.java && git add -A && git commit -q -m x)
+printf '#!/usr/bin/env bash\nexit 0\n' >"$mon/r/gradlew"; chmod +x "$mon/r/gradlew"
+cat >"$mon/claude" <<'SH'
+#!/usr/bin/env bash
+echo fixed >>A.java
+echo '{"total_cost_usd":0.25,"usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":900,"output_tokens":20},"structured_output":{"fixed":true,"summary":"fixed the thing"}}'
+SH
+chmod +x "$mon/claude"
+heal() { (cd "$mon/r" && YUKTA_HEAL_DIR="$mon/heal" YUKTA_HEAL_EVENTS="${EV-$mon/events.jsonl}" YUKTA_EXECUTION_ID=exec-1 YUKTA_SESSION_ID=sess-1 YUKTA_CLAUDE_BIN="$mon/claude" \
+  YUKTA_HEAL_TASKS=compileJava bash "$here/yukta-heal.sh" "$@"); }
+heal run compile -- sh -c 'echo "error: Foo.java:3: boom 42"; exit 1' >/dev/null || true
+heal brief compile >/dev/null
+YUKTA_METADATA_CLASSIFICATION='{"label":"easy","choice":"easy","probability":0.55}' heal triage-log compile level >/dev/null
+YUKTA_METADATA_FAILURE_EXCEPTION='HTTP 500 after 60s' heal triage-log compile error >/dev/null
+YUKTA_METADATA_CLASSIFICATION='{choice=hard, probability=0.7, probabilities={moderate=0.05, hard=0.7}, label=hard, uncertain=false}' heal triage-log compile level >/dev/null
+heal fix compile 0 sonnet --effort medium >/dev/null || true
+heal recheck compile >/dev/null || true
+heal verify >/dev/null || true
+heal giveup compile >/dev/null || true
+ev="$mon/events.jsonl"
+[[ "$(wc -l <"$ev")" == 9 ]] || fail "events: $(cat "$ev")"
+mevent() { jq -e -s "$2" "$ev" >/dev/null || fail "event $1: $(cat "$ev")"; }
+mevent "all carry the run, session, project and version" 'all(.v == 1 and .run == "exec-1" and .session == "sess-1" and .project == "r" and (.ts | test("^20[0-9-]+T[0-9:]+Z$")))'
+mevent stage '.[0] | .event == "stage" and .stage == "compile" and .ok == false and .exit == 1 and (.sig | length) == 12 and (.head | test("boom")) and .secs >= 0'
+mevent brief '.[1] | .event == "brief" and .chars > 0 and .chars <= 5000'
+mevent "triage level" '.[2] | .event == "triage" and .route == "level" and .label == "easy" and .p == 0.55 and .start == "haiku/medium" and .fallback == null and .secs >= 0 and .chars > 0 and (.model | length) > 0'
+mevent "triage error" '.[3] | .route == "error" and .fallback == "error" and (.error | test("HTTP 500")) and .start == "sonnet/medium"'
+mevent "triage from the text of a map" '.[4] | .route == "level" and .label == "hard" and .p == 0.7 and .start == "sonnet/high" and (.raw | not)'
+mevent fix '.[5] | .event == "fix" and .model == "sonnet" and .effort == "medium" and .fixed == true and .claimed == true and .files == ["A.java"] and .cost == 0.25 and .usage.cache_read == 900 and .secs >= 0 and .guard == null and .summary == "fixed the thing" and .attempt == 1'
+mevent recheck '.[6] | .event == "recheck" and .stage == "compile" and .ok == false'
+mevent verify '.[7] | .event == "verify" and .ok == true'
+mevent giveup '.[8] | .event == "giveup" and .stage == "compile"'
+# the same failure hashes the same, whatever its numbers and paths
+sig1="$(jq -s -r '.[0].sig' "$ev")"
+heal run compile -- sh -c 'echo "error: Foo.java:99: boom 7"; exit 1' >/dev/null || true
+[[ "$(jq -s -r 'last.sig' "$ev")" == "$sig1" ]] || fail "the signature changed with the numbers"
+# off: no log
+rm -f "$ev"; EV="" heal run compile -- true >/dev/null; [[ ! -e "$ev" ]] || fail "events were written although they are off"
+echo "ok   events"
+
 heal="$(YUKTA_TRIAGE=off heal_subflows "$policy" /p/heal.sh)"
 hassert "no triage when it is off: brief goes straight to the default level" '.workflows.heal | ([.nodes[] | select(.nodeId == "triage")] | length) == 0
   and (.edges | any(.source == "brief" and .target == "fix-sonnet-medium"))'
@@ -182,7 +224,7 @@ dir="$(mktemp -d)"
 trap 'rm -rf "$dir"' EXIT
 "$here/fake-project.sh" "$dir"
 proj="$dir/proj"
-export YUKTA_CLAUDE_BIN="$dir/claude" YUKTA_CHECK_EXTRAS=off
+export YUKTA_CLAUDE_BIN="$dir/claude" YUKTA_CHECK_EXTRAS=off YUKTA_HEAL_EVENTS=off
 yk="$here/../yk"
 
 scenario() { # label fail-files fix-at expected-pattern expected-exit [yk check flags]
@@ -211,4 +253,38 @@ scenario "an analyzer slower than the default node timeout" "slow-checkstyleMain
 scenario "licenses fail the run at once" "licensee" "" 'status=FAILURE failed_node=licenses ' 1
 scenario "an unfixable test failure: every model at every effort fails" "test" "" 'status=FAILURE failed_node=tests ' 1
 scenario "an unfixable analyzer" "spotbugsMain" "" 'status=FAILURE failed_node=spotbugs ' 1
+# ---- the triage and the monitoring log, end to end: a stand-in for Ollama answers the difficulty the failure output names
+python3 -I "$here/fake-ollama.py" "$dir/ollama.port" &
+ollama_pid=$!
+trap 'kill "$ollama_pid" 2>/dev/null || true; rm -rf "$dir"' EXIT
+for _ in $(seq 1 50); do [[ -s "$dir/ollama.port" ]] && break; sleep 0.1; done
+export YUKTA_TRIAGE_URL="http://127.0.0.1:$(cat "$dir/ollama.port")"
+export YUKTA_HEAL_EVENTS="$dir/events.jsonl"
+unset YUKTA_TRIAGE
+triage_scenario() { # label difficulty fix-at expected-first-rung expected-route
+  local label="$1" diff="$2" at="$3" first="$4" route="$5" result rc=0
+  rm -f "$proj"/fail-* "$proj"/difficulty "$proj/.fake-fix-at" "$proj/fixed.txt" "$dir/claude.log" "$dir/events.jsonl"
+  touch "$proj/fail-compileJava"; echo "$diff" >"$proj/difficulty"; echo "$at" >"$proj/.fake-fix-at"
+  result="$("$yk" check -p "$proj" 2>&1)" || rc=$?
+  sleep 6   # the watcher of the last run holds the lock for a moment
+  [[ "$(head -1 "$dir/claude.log" | sed -E 's/.*model=([a-z]+) effort=([a-z]+).*/\1\/\2/')" == "$first" ]] || { tail -12 <<<"$result" >&2; fail "triage $label: the first fixer was $(head -1 "$dir/claude.log"), want $first"; }
+  jq -e -s --arg route "$route" --arg first "$first" 'map(select(.event == "triage")) | length == 1 and .[0].route == $route and .[0].start != null' "$dir/events.jsonl" >/dev/null \
+    || fail "triage $label: no triage event of route $route: $(grep triage "$dir/events.jsonl")"
+  echo "ok   triage $label: first fixer $first, route $route"
+}
+triage_scenario "a hard failure starts at sonnet/high" hard sonnet/high sonnet/high level
+jq -e -s 'map(select(.event == "triage"))[0] | .label == "hard" and .p == 0.7 and .start == "sonnet/high" and .fallback == null and .secs > 0 and .chars > 0' "$dir/events.jsonl" >/dev/null || fail "the triage event: $(grep triage "$dir/events.jsonl")"
+jq -e -s '. as $e | ([$e[].event] | contains(["stage", "brief", "triage", "fix", "recheck", "result"])) and ([$e[] | select(.event == "result")][0] | .status == "SUCCESS" and .healed == "compile:sonnet/high" and .secs >= 0 and (.durations | has("compile")))' "$dir/events.jsonl" >/dev/null \
+  || fail "the events of a healed run: $(jq -c .event "$dir/events.jsonl" | paste -sd' ')"
+jq -e -s '[.[] | select(.event == "stage" or .event == "fix" or .event == "triage" or .event == "recheck")] | map(.run) | unique | length == 1' "$dir/events.jsonl" >/dev/null || fail "the events of one run do not share a run id"
+triage_scenario "an uncertain answer falls back to sonnet/medium" uncertain sonnet/medium sonnet/medium uncertain
+triage_scenario "a failed call falls back to sonnet/medium and says why" boom sonnet/medium sonnet/medium error
+jq -e -s 'map(select(.event == "triage"))[0] | .fallback == "error" and .error != null' "$dir/events.jsonl" >/dev/null || fail "the error is not recorded: $(grep triage "$dir/events.jsonl")"
+# the report and the findings read what the runs wrote
+out="$("$yk" heal report)" || fail "yk heal report"
+grep -q 'Triage: 1 call' <<<"$out" && grep -q 'compile' <<<"$out" || fail "report: $out"
+"$yk" heal analyze | grep -q 'triage-fallbacks\|no findings\|giveups' || fail "analyze"
+"$yk" heal show | grep -q '"event": "result"' || fail "show"
+unset YUKTA_TRIAGE_URL YUKTA_HEAL_EVENTS
+echo "ok   triage and monitoring"
 echo "ok   online"

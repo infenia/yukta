@@ -37,3 +37,6 @@ until the run is approved, rejected or `YUKTA_PAUSE_SECONDS` (600) pass; it is o
 `YUKTA_HEAL_BUDGET` (USD per attempt, default 1). The fixer runs with `YUKTA_HEAL_FIXER=1`, which lets it
 call `./gradlew` past the repo's hook; it never commits or pushes and must not run with `claude --bare`
 (that loses the login). The server needs `YUKTA_PROCESS_ALLOW_ANY=true` (`yk up` sets it).
+
+## Monitoring
+Every step appends a line to `~/.local/state/yukta-dev/heal-events.jsonl` (`YUKTA_HEAL_EVENTS`; `off` disables). `yk heal report` shows where the heal time and money went, `yk heal analyze` names what looks wrong (noop fixers, triage fallbacks, repeated failures), `yk heal show` prints the events. Details: `examples/11-dogfood/README.md`, "Monitoring heal".
