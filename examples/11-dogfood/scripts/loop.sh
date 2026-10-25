@@ -21,7 +21,8 @@
 #   YUKTA_LOOP_RUNNER (tests: a command that stands in for the method run), YUKTA_GH, YUKTA_ISSUES_REPO.
 # Methods: A  one Claude Code session fixes the issue itself, Yukta only checks.
 #          B  a Claude Code session orchestrates `yk run issue`; slim sub-flow sessions do the work.
-#          C  B with a code-navigation backend for the sub-flows.
+#          C  B with a code-navigation index for the sub-flows (yk run issue --nav, scripts/nav.sh): the IDE index if you opted
+#             in (YUKTA_NAV_IDE=open), else codebase-memory-mcp, else CodeGraph. The backend and the index time go on the outcome.
 # After a run, analyze.sh reads it and files what it finds (YUKTA_LOOP_ANALYZE=file|dry|off, default file).
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -58,7 +59,7 @@ loop_sha() {
 
 enabled_methods() {
   local m out=()
-  IFS=, read -ra out <<<"${YUKTA_LOOP_METHODS:-A,B}"
+  IFS=, read -ra out <<<"${YUKTA_LOOP_METHODS:-A,B,C}"
   for m in "${out[@]}"; do [[ "$m" =~ ^[ABC]$ ]] || die "YUKTA_LOOP_METHODS holds A, B or C, not '$m'"; done
   printf '%s\n' "${out[@]}"
 }
@@ -154,6 +155,7 @@ run_method() {
   case "$method" in
     A) run_method_a "$n" "$dir" ;;
     B) run_method_b "$n" "$dir" ;;
+    C) run_method_b "$n" "$dir" --nav ;;
     *) die "method $method is not available yet (YUKTA_LOOP_METHODS=$YUKTA_LOOP_METHODS)" ;;
   esac
 }
@@ -166,14 +168,14 @@ run_method_a() {
   cp "$REPO_ROOT/.yukta-dev/issue-$n/solo.out.json" "$dir/main.json" 2>/dev/null || true
 }
 
-# B: a headless Claude Code session (your own setup) orchestrates: it starts yk run issue and reports the RESULT line
-run_method_b() {
-  local n="$1" dir="$2" yk="$here/../yk"
+# B (and C, with --nav): a headless Claude Code session (your own setup) orchestrates: it starts yk run issue and reports the RESULT line
+run_method_b() { # N DIR [--nav]: method C is method B with --nav
+  local n="$1" dir="$2" nav="${3:-}" yk="$here/../yk"
   (cd "$REPO_ROOT" && env -u CLAUDECODE -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_SSE_PORT \
     YUKTA_DOGFOOD=off YUKTA_BUDGET_ISSUE="$BUDGET_SESSION" YUKTA_IMPL_BUDGET="$BUDGET_SESSION" \
     "${YUKTA_CLAUDE_BIN:-claude}" -p "Issue #$n must be fixed, and you are the orchestrator, not the implementer: do not edit code yourself. Start Yukta's issue workflow:
 
-  $yk run issue $n --no-pause before-implement,before-pr
+  $yk run issue $n${nav:+ $nav} --no-pause before-implement,before-pr
 
 Run it in the foreground with the Bash timeout set to 600000 ms. It prints a few lines and ends with a \`RESULT status=...\` line. If the command times out before RESULT, re-attach with \`$yk watch <session> <execution>\` (both are in its STARTED line) the same way. If the run ends ESCALATE, read what it says and stop; do not start it again. Do not commit or push. Finish with the RESULT line and one short sentence." \
     --model "${YUKTA_LOOP_MODEL:-opus}" --no-session-persistence --permission-mode acceptEdits \
@@ -206,12 +208,14 @@ cmd_pick() {
   out="$(YUKTA_LOOP_DRAW_ID="$id" "${YUKTA_LOOP_RUNNER:-run_method}" "$n" "$method" "$dir" 2>"$dir/run.err" || true)"
   end="$(date +%s)"
   main="$(usage_of "$dir/main.json")"
+  nav="$(jq -c '{backend, ok, index_seconds, version}' "$REPO_ROOT/.yukta-dev/issue-$n/nav.json" 2>/dev/null || echo null)"
+  [[ "$method" == C ]] || nav=null
   sub='{"cost_usd":0,"attempts":0,"fixed":0}'
   [[ "$method" == A ]] || sub="$(usage_sub "$REPO_ROOT/.yukta-dev/issue-$n/implement.json" "$(dirname "$REPO_ROOT")/yukta-issue-$n/.yukta-dev/heal/check")"
   res="$(grep -o 'RESULT status=[A-Z]*.*' <<<"$out" | tail -1 || true)"
   ledger_append "$(jq -nc --arg id "$id" --argjson n "$n" --arg method "$method" --arg res "${res:-}" --arg pr "$(grep -o 'https://github.com/[^ ]*/pull/[0-9]*' <<<"$out" | tail -1 || true)" \
-    --argjson wall "$((end - start))" --argjson main "$main" --argjson sub "$sub" --arg t "$(date -u +%FT%TZ)" \
-    '{type: "outcome", draw: $id, time: $t, issue: $n, method: $method, result: $res, pr_url: $pr, wall_s: $wall, main: $main, sub: $sub,
+    --argjson wall "$((end - start))" --argjson main "$main" --argjson sub "$sub" --argjson nav "$nav" --arg t "$(date -u +%FT%TZ)" \
+    '{type: "outcome", draw: $id, time: $t, issue: $n, method: $method, result: $res, pr_url: $pr, wall_s: $wall, main: $main, sub: $sub, nav: $nav,
       cost_usd: (($main.cost_usd // 0) + ($sub.cost_usd // 0)), analyzer_cost_usd: 0}')"
   echo "$out" | tail -3
   # the analyzer reads the finished run and files what it finds under the epic (YUKTA_LOOP_ANALYZE=file, the default),

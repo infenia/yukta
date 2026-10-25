@@ -29,13 +29,13 @@ Every number this guide produces serves one goal and five questions (the Goal-Qu
 | Touches GitHub | never | yes (claims the issue, opens a draft PR) | never |
 | Needs | a grader per issue | nothing extra | a grader per issue |
 | Best for | a controlled comparison, checking a loop change, finding root causes | the day-to-day stream and the analyzer's findings | regression checks of the loop itself |
-| Status | available (PR #1252) | `yk pick`, `yk next`, `yk loop` (PR #1266), method A (PR #1267), the analyzer (this PR); method C, `yk loop report`, themes: planned | planned |
+| Status | available (PR #1252) | `yk pick`, `yk next`, `yk loop` (PR #1266), method A (PR #1267), the analyzer (PR #1268), method C (this PR); `yk loop report`, themes: planned | planned |
 
 Rule of thumb: use the **paired evaluation** when you need a trustworthy comparison or are verifying a fix to the loop; use the **continuous loop** when you want the loop to improve itself as you work through issues.
 
 ## 3. Concepts you need
 
-- **Methods (arms).** **A**: one Claude Code session fixes the issue itself; Yukta only checks (`yk gradle`, `yk check --no-heal`). **B**: the same session is an *orchestrator* that starts `yk run issue`; slim headless sessions (implementer, fixers) do the work. **C**: B plus a code-navigation backend for the sub-flows (planned).
+- **Methods (arms).** **A**: one Claude Code session fixes the issue itself; Yukta only checks (`yk gradle`, `yk check --no-heal`). **B**: the same session is an *orchestrator* that starts `yk run issue`; slim headless sessions (implementer, fixers) do the work. **C**: B plus a code-navigation index for the sub-flows (`yk run issue <n> --nav`): the IDE index if you opted in (`YUKTA_NAV_IDE=open`), else codebase-memory-mcp, else CodeGraph. The backend that ran and the time it took to index are recorded; compare C only within one backend.
 - **Main session versus sub-flow.** The main session is your Claude Code setup (plugins, skills, MCP servers). Sub-flows are the headless sessions Yukta starts (`yk_claude` in `scripts/_claude.sh`): six built-in tools, no plugins, a constant system prompt. Arm B's cost is the sum of both.
 - **Tokens by category.** *Fresh input*, *cache write* (storing new context, a little dearer), *cache read* (re-reading stored context, about a tenth of the price), *output*. Every turn re-sends the conversation, so most tokens are cache reads; a high read share is good. A turn that writes a lot where it should read means the cache was not reused.
 - **Correct is not delivered.** *Correct* = the hidden test and the suite pass on the code. *Delivered* = the workflow itself ended `SUCCESS` (a branch ready for a draft PR). A run can hold correct code and still end `ESCALATE`.
@@ -119,7 +119,7 @@ For each run also read **`result.json` → `answer`**: the end of the main sessi
 
 ## 6. Runbook 2: the continuous loop (`yk pick`)
 
-Available since PR #1266 (method A since #1267, the analyzer since the analyzer PR). Method C, `yk loop report`, `yk loop sync` and `yk loop themes` come in later steps (see the plan). With A and B enabled the draw is random between two methods.
+Available since PR #1266 (method A since #1267, the analyzer since the analyzer PR). Method C (this PR) enables the third arm; `yk loop report`, `yk loop sync` and `yk loop themes` come in later steps (see the plan). With A, B and C enabled the draw is random between three methods.
 
 ```bash
 yk next                       # assigned, Ready issues by priority with size S/M/L
@@ -145,6 +145,7 @@ What a run leaves behind: a `draw` record and an `outcome` record in `$DEV_HOME/
 
 1. **Stage 1, no model.** Facts from the ledger, heal records, the issue worktree's git diff and the session transcripts, and six rules: a fixer changed files outside the module of the implementer's change, fixer attempts that changed nothing, a turn that re-wrote context on resume, a second implementer session (a restart), transcripts holding more tokens than the records, and a `healed=-` RESULT line although a fixer fixed something.
 2. **Stage 2, one cheap judge call** (about $0.07, capped at $0.30): a free-text note about the run (your open-coding input, section 8) and at most two proposals nothing else covers. Often it proposes nothing.
+Two more rules note method C problems: a run that had no navigation backend, and a run that built an index and never called it. They are only noted, never filed.
 3. **Stage 3, filing.** A rule finding comments on the open issue that already describes it, so the epic collects counts; a new proposal is filed under the epic. Nothing is implemented without you marking it Ready.
 
 `YUKTA_LOOP_ANALYZE=dry` shows what it would do; the analysis of a run is `$DEV_HOME/loop/analysis/<draw-id>.json`. Treat the analyzer as a grader whose precision you measure: how many of its proposals you approve.

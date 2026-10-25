@@ -167,6 +167,37 @@ YUKTA_LOOP_METHODS=B YUKTA_LOOP_RUNNER="$dir/runner" YUKTA_LOOP_ANALYZE=off "$he
 [[ "$(jq -s '[.[] | select(.type == "analysis")] | length' "$YUKTA_LOOP_DIR/ledger.jsonl")" == "$before" ]] || fail "YUKTA_LOOP_ANALYZE=off still analyzed"
 echo "ok   pick runs the analyzer"
 
+# ---- method C: a run without a backend and a run whose index was never used are noted, never filed
+cid=1700000001-9
+jq -nc --arg id "$cid" '{type: "draw", id: $id, issue: 9, size: "S", method: "C", loop_changing: false, loop_sha: "abc123", regime: "A,B,C"}' >>"$YUKTA_LOOP_DIR/ledger.jsonl"
+jq -nc --arg id "$cid" '{type: "outcome", draw: $id, issue: 9, method: "C", result: "RESULT status=SUCCESS failed_node=- healed=- execution=e session=s", wall_s: 100, cost_usd: 1, main: {cost_usd: 0.2}, sub: {cost_usd: 0.8}, analyzer_cost_usd: 0}' >>"$YUKTA_LOOP_DIR/ledger.jsonl"
+rm -f "$dir/closed" "$tdir/bbbb2222.jsonl"
+echo '{"backend":"none","ok":false,"index_seconds":0,"version":"","attempts":[{"backend":"ide","ok":false,"reason":"not enabled"},{"backend":"cbm","ok":false,"reason":"codebase-memory-mcp is not installed"}]}' >"$repo/.yukta-dev/issue-9/nav.json"
+: >"$dir/gh.log"
+"$analyze" "$cid" --no-judge >"$dir/out9" 2>&1 || fail "analyze of a method C run failed: $(cat "$dir/out9")"
+ca="$YUKTA_LOOP_DIR/analysis/$cid.json"
+jq -e '.findings | map(.rule) | index("nav-backend-none")' "$ca" >/dev/null || fail "no nav-backend-none: $(jq -c '.findings' "$ca")"
+grep -q 'NOTED nav-backend-none' "$dir/out9" || fail "the finding is not noted: $(cat "$dir/out9")"
+! grep -qE '^(issue create|issue comment|api -X)' <(grep -v 'issue comment 1234\|issue comment 1235\|issue comment 1248\|issue comment 1256' "$dir/gh.log") || fail "a nav finding was filed or commented: $(cat "$dir/gh.log")"
+echo '{"backend":"cbm","ok":true,"index_seconds":13,"version":"9.9.9","attempts":[]}' >"$repo/.yukta-dev/issue-9/nav.json"
+"$analyze" "$cid" --no-judge >"$dir/out10" 2>&1 || fail "analyze failed: $(cat "$dir/out10")"
+jq -e '.findings | map(.rule) | index("nav-unused")' "$ca" >/dev/null || fail "no nav-unused: $(jq -c '.findings' "$ca")"
+jq -e '.findings | map(.rule) | index("nav-backend-none") | not' "$ca" >/dev/null || fail "nav-backend-none with a working backend"
+# the same run with navigation calls in the transcript: nothing to note (an mcp tool call and a codegraph call through Bash)
+python3 -I - "$tdir/cccc3333.jsonl" <<'EOF'
+import json, sys
+with open(sys.argv[1], "w") as f:
+    for i, (name, inp) in enumerate([("mcp__codebase-memory-mcp__search_graph", {}), ("Bash", {"command": "codegraph explore x"}), ("Read", {})]):
+        f.write(json.dumps({"type": "assistant", "timestamp": "2026-10-25T11:00:%02dZ" % i, "message": {"id": "n%d" % i, "model": "claude-opus-5-5",
+            "content": [{"type": "tool_use", "id": "u%d" % i, "name": name, "input": inp}],
+            "usage": {"input_tokens": 1, "cache_creation_input_tokens": 100, "cache_read_input_tokens": 100, "output_tokens": 5}}}) + "\n")
+EOF
+"$analyze" "$cid" --no-judge >"$dir/out11" 2>&1 || fail "analyze failed: $(cat "$dir/out11")"
+jq -e '.facts.nav_calls == 2' "$ca" >/dev/null || fail "navigation calls: $(jq -c '.facts | {nav_calls, tool_use}' "$ca")"
+jq -e '.findings | map(.rule) | index("nav-unused") | not' "$ca" >/dev/null || fail "nav-unused although the index was used"
+rm -f "$tdir/cccc3333.jsonl" "$repo/.yukta-dev/issue-9/nav.json"
+echo "ok   method C rules"
+
 # ---- unknown draw
 "$analyze" nope >"$dir/out7" 2>&1 && fail "an unknown draw was analyzed"
 grep -q 'no draw nope' "$dir/out7" || fail "message: $(cat "$dir/out7")"
