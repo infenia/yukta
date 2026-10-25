@@ -12,6 +12,10 @@
 #                                            implement an assigned, Ready issue (or the sub-issues of an epic, two at a
 #                                            time) in its own worktree, check it, open a draft PR
 #   yk stats                                 dollars, attempts and cache-read share per step, from the records the loop keeps
+#   yk next                                  your assigned, Ready issues, by priority, with their size
+#   yk pick <n> [--method A|B|C] [--dry-run] draw a method for the issue at random (balanced by size), run it, record
+#                                            tokens and dollars in the ledger (see scripts/loop.sh)
+#   yk loop plan|total|ledger                the draw of an issue without running it | dollars spent of the budget | the ledger
 #   yk result <session> <exec>               the RESULT line of a run that ended
 #   yk tree <exec>                           the run and every run below it, one line each: workflow, status,
 #                                            current nodes, pending signal (an execution id may be its first 8 characters)
@@ -511,6 +515,8 @@ case "$cmd" in
   mcp-headers) cmd_mcp_headers ;;
   sum) changes_sum "$REPO_ROOT" ;;
   stats) cmd_stats ;;
+  next | pick) exec "$here/scripts/loop.sh" "$cmd" "$@" ;;
+  loop) exec "$here/scripts/loop.sh" "$@" ;;
   run) cmd_run "$@" ;;
   result)
     export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"

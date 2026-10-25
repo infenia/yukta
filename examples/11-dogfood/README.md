@@ -246,6 +246,27 @@ again with its worktree kept.
 (the Monitor tool, the `yukta-run-watcher` subagent) sees what needs an answer. `scripts/test-epic.sh` runs the epic on the dev server with a
 fake repository.
 
+## Improvement loop: `yk next`, `yk pick`, `yk loop`
+
+Runs your assigned, Ready issues one at a time, **one method per issue drawn at random**, and records what each run cost so the loop can be improved from data (plan: `design/plans/dogfood-improvement-loop.md`; the token evaluation it builds on is `eval/`, PR #1252).
+
+```bash
+yk next                          # your assigned, Ready issues by priority, with their size (S, M, L)
+yk pick 1234 --dry-run           # size, loop-changing flag and the drawn method; nothing is written
+yk pick 1234                     # draw (written to the ledger first), run the method, record the outcome
+yk loop total                    # dollars spent of the budget ($60 by default)
+yk loop ledger                   # one line per draw and outcome
+```
+
+- **Methods.** **A**: one Claude Code session fixes the issue itself and Yukta only checks. **B**: a Claude Code session orchestrates `yk run issue`; slim sub-flow sessions do the work. **C**: B with a code-navigation backend. `YUKTA_LOOP_METHODS` lists the enabled ones (default `B`; A and C are enabled as they land). With only B enabled the draw is not random yet.
+- **Draw.** Block-randomized inside each size stratum: a block holds every enabled method once in a seeded order, so the methods stay balanced even with few issues. The draw is appended to the ledger **before** the run starts, so it cannot depend on how the run goes. A second `yk pick` of the same issue keeps its method. `--method X` forces one; it is recorded as forced and left out of the method comparison.
+- **Size** (`scripts/issue-size.sh`): `2 x acceptance criteria + 3 x modules named + words / 150`, bucketed S below 6, M below 9, L from 9 (set on the open issues of epic #1218). A label `size:S|M|L` overrides it.
+- **Loop-changing issues** (their text names `examples/11-dogfood`, `yk`, `build-logic`, the heal or issue scripts, `controlbus`; or the label `loop-changing`, overridden by `loop-neutral`) are flagged, because the ground moves under them and they should stay out of a method comparison.
+- **Ledger** `$DEV_HOME/loop/ledger.jsonl` (per machine): a `draw` record (issue, size, method, seed, block, loop commit, base commit) and an `outcome` record (result, PR, wall time, cost, and tokens of the main session and the sub-flows). Token fields use the OpenTelemetry GenAI names (`gen_ai.usage.input_tokens`, `output_tokens`, `cache_creation.input_tokens`, `cache_read.input_tokens`). The loop commit is `-dirty` when `examples/11-dogfood` has uncommitted changes.
+- **Budget.** `YUKTA_LOOP_BUDGET_SESSION` ($5) caps each Claude session; `YUKTA_LOOP_BUDGET_TOTAL` ($60) stops `yk pick` until you raise it, which is the review point. Costs of the sub-flows come from the heal and implement records, which a restarted run overwrites (issue #1250), so a restart can undercount.
+- **Before the draw** the issue must be open, assigned to you and Ready; an ineligible issue draws nothing.
+- Offline test: `scripts/test-loop.sh`.
+
 ## The check workflow
 `session.json` is `CONSTANT_SOURCE` → one `PROCESS_EXECUTOR` per stage → `CONSOLE_TERMINAL`.
 Stages run sequentially and fail fast (avoids concurrent Gradle runs fighting over one build dir):
