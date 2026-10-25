@@ -198,6 +198,29 @@ edits) and never commits.
 - The server needs `YUKTA_PROCESS_ALLOW_ANY=true` (`yk up` sets it) and a logged-in `claude` on its PATH
   (not `--bare`, which loses the login).
 
+## Issues: `yk run issue`
+```
+yk run issue 123 [--detach] [--no-pause before-implement,before-pr]
+```
+One command takes an assigned, **Ready** issue of the Yukta Roadmap project to a draft pull request. The shared session
+`yukta-dev` (applied by `yk`, parameterised by the start payload `issue`, `repo`, `worktree`, `implSession`) holds:
+- `run-issue`: runs `implement-issue` as a sub-workflow. However that ends badly (a failing node, a rejected or
+  unanswered checkpoint, a failing check) `release` puts the issue back to Ready and the run ends `ESCALATE`
+  (`RESULT status=ESCALATE`); the worktree is kept.
+- `implement-issue`: `claim` (open, assigned to you, Ready; moves it to In progress) → `worktree` (`../yukta-issue-<n>` on
+  `issue/<n>` from `origin/main`) → `brief` (`.yukta-dev/issue-<n>/brief.md`) → **before-implement** → `implement` (a headless
+  Claude, `YUKTA_IMPL_MODEL` opus, `YUKTA_IMPL_BUDGET` $5, in the worktree with the implementer rules in `implementer-rules.md`)
+  → `check` → **before-pr** → `pr` (commit, push, a *draft* PR with `Fixes #<n>` and the check's `RESULT` line).
+- `check` and `check-impl`: the self-healing check with the project given as `${start.project}`, so it runs on any
+  worktree. In `check-impl` the ladder is `resume`, `resume`: a fixer **resumes the implementer's own session** (same model, warm
+  cache, it knows the change) instead of starting a fresh one.
+
+The two checkpoints are `WAIT_FOR_SIGNAL` nodes: answer with `yk signals <e>` / `yk approve|reject <e> <signal>` (the root
+execution id is enough, the signal waits in a run below it). `before-implement` is the time to edit the brief; an
+unanswered `before-implement` goes on after an hour, an unanswered `before-pr` fails the run (nothing outward-facing
+happens by itself). `scripts/yukta-issue.sh` holds the steps (`YUKTA_GH` swaps `gh`, `YUKTA_PROJECT_STATUS_CMD` the project
+update, for tests); `scripts/test-issue.sh` runs them on the dev server with a fake repository, gh and claude.
+
 ## The check workflow
 `session.json` is `CONSTANT_SOURCE` → one `PROCESS_EXECUTOR` per stage → `CONSOLE_TERMINAL`.
 Stages run sequentially and fail fast (avoids concurrent Gradle runs fighting over one build dir):
