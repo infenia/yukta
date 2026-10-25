@@ -1,0 +1,18 @@
+{
+  "stage": "tests",
+  "attempt": 2,
+  "mode": "resume",
+  "fixed": true,
+  "files": [
+    "boot/src/test/java/com/infenia/yukta/BeanInventoryTest.java",
+    "core/src/test/java/com/infenia/yukta/service/orchestrator/stream/ConcurrencyGroupsTest.java"
+  ],
+  "cost": 0.93513,
+  "summary": "The tests stage passes now. `./gradlew test jacocoTestReport -q --console=plain` ran to completion and no test result in `core` or `boot` records a failure.  Bo",
+  "usage": {
+    "input": 18,
+    "cache_creation": 6979,
+    "cache_read": 456934,
+    "output": 3178
+  }
+}

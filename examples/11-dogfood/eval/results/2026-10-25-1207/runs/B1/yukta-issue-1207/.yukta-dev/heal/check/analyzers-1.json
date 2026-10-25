@@ -1,0 +1,17 @@
+{
+  "stage": "analyzers",
+  "attempt": 1,
+  "mode": "resume",
+  "fixed": true,
+  "files": [
+    "core/src/test/java/com/infenia/yukta/service/orchestrator/stream/ConcurrencyGroupsTest.java"
+  ],
+  "cost": 1.3653027999999998,
+  "summary": "The analyzers stage passes now: `./gradlew checkstyleMain checkstyleTest pmdMain pmdTest -q --console=plain` finished with no violations. Its only output was Lo",
+  "usage": {
+    "input": 10,
+    "cache_creation": 3126,
+    "cache_read": 333536,
+    "output": 1076
+  }
+}
