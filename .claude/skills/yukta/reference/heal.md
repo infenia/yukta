@@ -12,7 +12,7 @@ before the run fails, by calling the `heal` workflow and waiting for it:
 - a healed stage re-runs only itself; the analyzers (style, spotbugs, cli) run in parallel and share ONE
   `analyzers.heal`; `licenses` and `security` fail at once;
 - a final `verify` re-runs every task when anything was healed, so `SUCCESS` means the whole tree passes.
-An issue run (`yk run issue`, method C) uses the same `check`, so its fixers are fresh sessions too; nothing resumes the implementer.
+An issue run (`yk run issue`) uses the same `check`, so its fixers are fresh sessions too; nothing resumes the implementer.
 
 Output: the problem lines of the run, `HEAL` lines, `SLOW` lines, then `RESULT`.
 

@@ -93,14 +93,13 @@ assert "the analyzers hand the failing ones to one heal" '.workflows.check.edges
 [[ "$(node_stage compile.heal)" == compile && "$(node_stage analyzers.heal)" == analyzers ]] || fail "node_stage heal"
 echo "ok   check hands over to heal"
 
-# ---- the shared dev session: the issue run (method C) goes nav -> implement -> check, and the fixers are fresh sessions
+# ---- the shared dev session: the issue run  goes nav -> implement -> check, and the fixers are fresh sessions
 out="$(here="$here/.." dev_session /p/heal.sh /p/issue.sh)"
 scope="dev session"
-assert "no resume: no check-impl, no -nav variants, no implSession" '(.workflows | keys | any(test("check-impl|-nav"))) | not'
+assert "no resume, no solo or plain-check workflows, no -nav variants, no implSession" '(.workflows | keys | any(test("check-impl|check-plain|solo|-nav"))) | not'
 assert "the issue run indexes the worktree, implements, then runs the self-healing check" '.workflows["implement-issue"] as $w
   | ($w.nodes | map(.nodeId)) == ["trigger", "claim", "worktree", "brief", "before-implement", "nav", "implement", "check", "before-pr", "pr", "done"]
     and ($w.nodes[] | select(.nodeId == "check") | .config.workflowId == "check" and .config.payload.issueState == "${start.repo}/.yukta-dev/issue-${start.issue}")'
-assert "the solo run still checks without healing" '.workflows["solo-issue"].nodes[] | select(.nodeId == "check") | .config.workflowId == "check-plain"'
 assert "heal and fix carry the issue state, so fixers keep to the issue budget and see the same index" \
   '.workflows["fix-from-low"].nodes[] | select(.nodeId == "fix.low") | .config.env.YUKTA_IMPL_COSTFILE == "${start.issueState}/implement.json"'
 assert "a stage of check passes the issue state on to heal" '.workflows.check.nodes[] | select(.nodeId == "tests.heal") | .config.payload.issueState == "${start.issueState}"'

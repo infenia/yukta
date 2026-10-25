@@ -61,7 +61,7 @@ triage picks fresh fixers), a draft PR. It waits at `before-implement` and `befo
 ## An epic, two issues at a time
 `yk run epic <n>`: the epic's open, assigned, Ready sub-issues, each as above, two at a time. `between-issues` waits before each
 issue starts; two issues that give up (ESCALATE) pause the whole tree, `yk resume <e> --tree` or `yk stop <e> --tree`. Budgets:
-`YUKTA_BUDGET_ISSUE`, `YUKTA_BUDGET_EPIC` (USD). `yk stats` shows where the money went. `yk watch` prints an `APPROVAL ...` line
+`YUKTA_BUDGET_ISSUE`, `YUKTA_BUDGET_EPIC` (USD). `yk heal report` shows where the heal time and money went. `yk watch` prints an `APPROVAL ...` line
 for every checkpoint that waits.
 
 ## Dogfood: every anomaly is fixed or filed

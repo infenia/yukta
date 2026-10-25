@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Offline test of the navigation backends of method C (nav.sh, and how yk_claude hands them to a session): a fake
+# Offline test of the navigation backends (nav.sh, and how yk_claude hands them to a session): a fake
 # codebase-memory-mcp, a fake codegraph and a stub of the IDE's MCP server stand in for the real ones. No server, no Claude, no
 # IDE window, no spend.
 set -euo pipefail
