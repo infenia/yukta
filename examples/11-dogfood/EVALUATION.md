@@ -29,7 +29,7 @@ Every number this guide produces serves one goal and five questions (the Goal-Qu
 | Touches GitHub | never | yes (claims the issue, opens a draft PR) | never |
 | Needs | a grader per issue | nothing extra | a grader per issue |
 | Best for | a controlled comparison, checking a loop change, finding root causes | the day-to-day stream and the analyzer's findings | regression checks of the loop itself |
-| Status | available (PR #1252) | `yk pick`, `yk next`, `yk loop` (PR #1266), method A (PR #1267), the analyzer (PR #1268), method C (this PR); `yk loop report`, themes: planned | planned |
+| Status | available (PR #1252) | `yk pick`, `yk next`, `yk loop` (PR #1266), method A (PR #1267), the analyzer (PR #1268), method C (PR #1269), `yk loop report` / `sync` / `themes` (this PR); the golden set: planned | planned |
 
 Rule of thumb: use the **paired evaluation** when you need a trustworthy comparison or are verifying a fix to the loop; use the **continuous loop** when you want the loop to improve itself as you work through issues.
 
@@ -119,7 +119,7 @@ For each run also read **`result.json` → `answer`**: the end of the main sessi
 
 ## 6. Runbook 2: the continuous loop (`yk pick`)
 
-Available since PR #1266 (method A since #1267, the analyzer since the analyzer PR). Method C (this PR) enables the third arm; `yk loop report`, `yk loop sync` and `yk loop themes` come in later steps (see the plan). With A, B and C enabled the draw is random between three methods.
+Available since PR #1266 (method A since #1267, the analyzer since the analyzer PR). Method C enables the third arm. `yk loop sync`, `yk loop report` and `yk loop themes` (this PR, below) read what the loop collected. The golden set comes later (see the plan). With A, B and C enabled the draw is random between three methods.
 
 ```bash
 yk next                       # assigned, Ready issues by priority with size S/M/L
@@ -149,6 +149,14 @@ Two more rules note method C problems: a run that had no navigation backend, and
 3. **Stage 3, filing.** A rule finding comments on the open issue that already describes it, so the epic collects counts; a new proposal is filed under the epic. Nothing is implemented without you marking it Ready.
 
 `YUKTA_LOOP_ANALYZE=dry` shows what it would do; the analysis of a run is `$DEV_HOME/loop/analysis/<draw-id>.json`. Treat the analyzer as a grader whose precision you measure: how many of its proposals you approve.
+
+### 6.2 Reading the loop: sync, report, themes
+
+Run `yk loop sync` after PRs have been reviewed, then `yk loop report`:
+
+1. **`yk loop sync`** adds what happened after each PR (CI, review comments, human commits, merged, lead time) and how the analyzer's filed issues ended (done, closed otherwise, open).
+2. **`yk loop report`** shows each method's cost with a bootstrap interval, the size-adjusted cost ratio, what was left out (forced draws, issues that change the loop, other loop commits), the numbers after the PR and the analyzer's precision. **Below 8 runs per method it prints "No verdict"**: take it literally. With about 20 to 30 issues over three methods you will mostly see directions, not results; the paired evaluation (section 5) is where a comparison is trustworthy.
+3. **`yk loop themes`** counts the recurring causes: by rule (no model) and by theme (one cheap judge call over the analyzer's notes), and `--post` puts the counts on the epic issue that matches. This is the axial-coding step of section 8: rank what to fix by how often it happens and what it costs.
 
 ## 7. Reading numbers without fooling yourself
 

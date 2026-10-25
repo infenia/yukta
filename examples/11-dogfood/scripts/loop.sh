@@ -9,6 +9,10 @@
 #   loop.sh total                               dollars spent so far and the limit
 #   loop.sh ledger                              one line per draw and outcome
 #   loop.sh record <json>                       append a record (the analyzer's analysis record)
+#   loop.sh report [--loop SHA] [--min-n 8]     what each method cost and delivered, with the uncertainty (loop-report.py)
+#   loop.sh sync                                add what happened after the PR (CI, review comments, human commits, merged)
+#                                               and the state of the issues the analyzer filed
+#   loop.sh themes [--post] [--no-judge]        count the analyzer's findings and notes by theme (themes.sh)
 #
 # Every draw is appended to the ledger BEFORE the run starts, so the assignment cannot depend on how the run
 # goes. An issue that already has a draw keeps its method on a second pick. Draws are block-randomized inside
@@ -67,7 +71,7 @@ enabled_methods() {
 issue_json() { "$gh" issue view "$1" -R "$gh_repo" --json number,title,body,labels,state,assignees; }
 
 spent_total() {
-  ledger_all | jq -s '[.[] | select(.type == "outcome" or .type == "analysis") | (.cost_usd // 0) + (.analyzer_cost_usd // 0)] | add // 0'
+  ledger_all | jq -s '[.[] | select(.type == "outcome" or .type == "analysis" or .type == "themes") | (.cost_usd // 0) + (.analyzer_cost_usd // 0)] | add // 0'
 }
 
 gate() {
@@ -246,6 +250,39 @@ cmd_record() {
   ledger_append "$(jq -c . <<<"$1")"
 }
 
+# sync: for every run with a pull request, CI, review comments, human commits and whether it merged; for every issue the
+# analyzer filed, whether it was closed as done. Appends "sync" and "issue-sync" records (the last one per run counts).
+cmd_sync() {
+  local draw url repo_pr num pr inline rec n ir
+  while IFS=$'\t' read -r draw url; do
+    [[ "$url" =~ ^https://github.com/([^/]+/[^/]+)/pull/([0-9]+)$ ]] || continue
+    repo_pr="${BASH_REMATCH[1]}" num="${BASH_REMATCH[2]}"
+    if ledger_all | jq -se --arg d "$draw" '[.[] | select(.type == "sync" and .draw == $d)] | last | (.state // "") | IN("MERGED", "CLOSED")' >/dev/null 2>&1; then continue; fi
+    pr="$("$gh" pr view "$url" --json state,mergedAt,createdAt,statusCheckRollup,reviews,comments,commits 2>/dev/null)" || { echo "could not read $url" >&2; continue; }
+    inline="$("$gh" api "repos/$repo_pr/pulls/$num/comments" --jq length 2>/dev/null || echo 0)"
+    rec="$(jq -c --arg d "$draw" --arg u "$url" --argjson inline "${inline:-0}" --arg t "$(date -u +%FT%TZ)" '
+      def failed: ((.conclusion // .state // "") | IN("FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "STARTUP_FAILURE", "ACTION_REQUIRED"));
+      def pending: (((.status // "COMPLETED") != "COMPLETED") or ((.state // "") | IN("PENDING", "EXPECTED")));
+      {type: "sync", draw: $d, time: $t, pr_url: $u, state: .state,
+       ci: (if (.statusCheckRollup | length) == 0 then "none" elif any(.statusCheckRollup[]; failed) then "failure" elif any(.statusCheckRollup[]; pending) then "pending" else "success" end),
+       review_comments: ((.reviews | length) + (.comments | length) + $inline),
+       human_commits: ([.commits[] | select((.messageBody // "") | test("Co-Authored-By: Claude") | not)] | length),
+       merged: (.mergedAt != null),
+       lead_time_h: (if .mergedAt then ((.mergedAt | fromdateiso8601) - (.createdAt | fromdateiso8601)) / 3600 | . * 10 | round / 10 else null end)}' <<<"$pr")"
+    ledger_append "$rec"
+    echo "SYNC $draw $(jq -r '"ci=\(.ci) review_comments=\(.review_comments) human_commits=\(.human_commits) merged=\(.merged)"' <<<"$rec")"
+  done < <(ledger_all | jq -rs '[.[] | select(.type == "outcome" and (.pr_url // "") != "")] | group_by(.draw) | map(last) | .[] | [.draw, .pr_url] | @tsv')
+  # the issues the analyzer filed: closed as done, closed otherwise, or still open
+  while read -r n; do
+    [[ -n "$n" ]] || continue
+    ir="$("$gh" issue view "$n" -R "$gh_repo" --json state,stateReason 2>/dev/null)" || continue
+    ledger_append "$(jq -c --argjson n "$n" --arg t "$(date -u +%FT%TZ)" '{type: "issue-sync", issue: $n, time: $t, state: (.state | ascii_downcase), state_reason: ((.stateReason // "") | ascii_downcase)}' <<<"$ir")"
+    echo "ISSUE-SYNC #$n $(jq -r '"\(.state | ascii_downcase) \(.stateReason // "")"' <<<"$ir")"
+  done < <(ledger_all | jq -rs '[.[] | select(.type == "analysis" and (.dry_run | not)) | .filed[]? | select(.action == "file" and (.url // "") != "") | .url | split("/") | last] | unique | .[]')
+}
+
+cmd_report() { python3 -I "$here/loop-report.py" --ledger "$LEDGER" --budget "$BUDGET_TOTAL" "$@"; }
+
 cmd_total() {
   printf '$%s of $%s\n' "$(spent_total)" "$BUDGET_TOTAL"
 }
@@ -260,6 +297,9 @@ case "${1:-}" in
   pick) shift; cmd_pick "$@" ;;
   next) cmd_next ;;
   record) shift; cmd_record "$@" ;;
+  report) shift; cmd_report "$@" ;;
+  sync) cmd_sync ;;
+  themes) shift; exec "$here/themes.sh" "$@" ;;
   total) cmd_total ;;
   ledger) cmd_ledger ;;
   *) sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; exit 2 ;;
