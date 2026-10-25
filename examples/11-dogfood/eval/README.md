@@ -1,5 +1,7 @@
 # Token evaluation harness
 
+This is the reference for the harness. For how to plan, run and read an evaluation end to end, start with the [evaluation guide](../EVALUATION.md).
+
 Measures what the dev loop costs in tokens and dollars on a real issue, and compares two ways of using Yukta from Claude Code:
 
 | Arm | Who does the work | What Yukta does |
