@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.conformance.ConformanceFixture;
 import com.infenia.yukta.plugin.conformance.PluginConformance;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -48,6 +49,11 @@ import org.springframework.boot.test.context.SpringBootTest;
   "PMD.UseConcurrentHashMap",
   "PMD.AvoidDuplicateLiterals"
 })
+@ExpectedErrorLog(
+    sometimes = {
+      "ERROR com.infenia.yukta.plugin.core.router.BranchProcessor - ",
+      "ERROR com.infenia.yukta.plugin.core.router.SplitterProcessor - "
+    })
 class PluginConformanceSweepTest {
 
   private static final String H2_URL = "jdbc:h2:mem:conformance;DB_CLOSE_DELAY=-1";

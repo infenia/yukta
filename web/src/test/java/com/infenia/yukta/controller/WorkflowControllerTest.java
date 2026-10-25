@@ -19,6 +19,7 @@ import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowService;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,7 @@ import reactor.core.publisher.Mono;
   "PMD.TooManyMethods",
   "PMD.ShortVariable"
 })
+@ExpectedErrorLog("ERROR com.infenia.yukta.exception.GlobalExceptionHandler - ")
 class WorkflowControllerTest {
 
   /** The request body that starts workflow wf of session s1. */

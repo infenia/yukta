@@ -15,6 +15,7 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.lang.reflect.Field;
 import java.time.Duration;
@@ -38,6 +39,7 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 @SuppressWarnings({
   "PMD.UnitTestShouldIncludeAssert",
+  "PMD.ExcessiveImports",
   "PMD.AvoidInstantiatingObjectsInLoops",
   "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
@@ -46,6 +48,10 @@ import reactor.test.StepVerifier;
   "PMD.AvoidAccessibilityAlteration",
   "PMD.ShortVariable",
   "PMD.CouplingBetweenObjects"
+})
+@ExpectedErrorLog({
+  "ERROR com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService - ",
+  "ERROR com.infenia.yukta.service.orchestrator.tracker.TrackerEventApplier - "
 })
 class DefaultTaskTrackerServiceTest {
 

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
@@ -30,6 +31,7 @@ import reactor.test.StepVerifier;
   "PMD.UseConcurrentHashMap"
 })
 @NoArgsConstructor
+@ExpectedErrorLog("ERROR com.infenia.yukta.plugin.core.router.SplitterProcessor - ")
 class SplitterProcessorTest {
 
   /** Literal default. */

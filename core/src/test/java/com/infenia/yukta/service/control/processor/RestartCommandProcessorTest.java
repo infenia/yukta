@@ -22,6 +22,7 @@ import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.Map;
 import java.util.Optional;
 import lombok.NoArgsConstructor;
@@ -39,6 +40,7 @@ import reactor.test.StepVerifier;
   "PMD.TooManyStaticImports",
   "PMD.TooManyMethods"
 })
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.control.processor.RestartCommandProcessor - ")
 class RestartCommandProcessorTest {
 
   private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);

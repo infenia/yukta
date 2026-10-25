@@ -14,6 +14,7 @@ import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -32,6 +33,7 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods", "PMD.TooManyStaticImports"})
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.session.SessionService - ")
 class SessionServiceTest {
 
   private static final String DESC = "desc";

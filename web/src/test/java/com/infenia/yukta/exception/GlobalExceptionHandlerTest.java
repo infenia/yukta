@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import java.util.Set;
@@ -32,6 +33,7 @@ import reactor.test.StepVerifier;
 /** Tests for GlobalExceptionHandler. */
 @NoArgsConstructor
 @SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@ExpectedErrorLog("ERROR com.infenia.yukta.exception.GlobalExceptionHandler - ")
 class GlobalExceptionHandlerTest {
 
   /** Validation failed message constant. */

@@ -22,6 +22,7 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -36,12 +37,14 @@ import reactor.test.StepVerifier;
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
 @SuppressWarnings({
+  "PMD.ExcessiveImports",
   "PMD.TooManyStaticImports",
   "PMD.CommentRequired",
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
   "PMD.ShortVariable"
 })
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator - ")
 class WorkflowPreparatorTest {
 
   @Mock private PluginRegistry registry;

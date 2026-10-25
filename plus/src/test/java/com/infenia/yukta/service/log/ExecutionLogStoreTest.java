@@ -4,6 +4,7 @@ package com.infenia.yukta.service.log;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -18,6 +19,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 @NoArgsConstructor
 @SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.log.JsonlExecutionLogStore - ")
 class ExecutionLogStoreTest {
 
   @TempDir /* default */ Path dir;
@@ -97,6 +99,8 @@ class ExecutionLogStoreTest {
 
     broken.append(ExecutionLogEvent.started("e1", "s", "w", "v"));
     broken.replaceAll(List.of(ExecutionLogEvent.started("e2", "s", "w", "v")));
+    // close drains the writer, so its error is logged now and not during a later test
+    broken.close();
 
     assertThat(broken.readAll()).isEmpty();
   }

@@ -122,7 +122,18 @@ public class R2dbcLeaderElection implements LeaderElection, SmartLifecycle {
       renewal =
           Flux.interval(Duration.ZERO, lease.dividedBy(3))
               .onBackpressureDrop()
-              .concatMap(_ -> renew(), 1)
+              // defer: an exception while the statement is being built must not end the loop
+              .concatMap(
+                  _ ->
+                      Mono.defer(this::renew)
+                          .onErrorResume(
+                              error -> {
+                                log.atWarn()
+                                    .setCause(error)
+                                    .log("Could not renew the leader lease");
+                                return Mono.empty();
+                              }),
+                  1)
               .subscribe();
     }
   }

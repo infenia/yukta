@@ -9,6 +9,7 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.exception.NoMatchingBranchException;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ import reactor.util.context.Context;
   "PMD.UseConcurrentHashMap"
 })
 @NoArgsConstructor
+@ExpectedErrorLog("ERROR com.infenia.yukta.plugin.core.router.BranchProcessor - ")
 class BranchProcessorTest {
 
   /** Literal EXPRESSION. */

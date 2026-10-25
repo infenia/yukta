@@ -15,6 +15,7 @@ import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.time.Instant;
 import lombok.NoArgsConstructor;
@@ -183,6 +184,7 @@ class LogStoreSubscriberTest {
   @Nested
   @DisplayName("Error Handling")
   @NoArgsConstructor
+  @ExpectedErrorLog("ERROR com.infenia.yukta.logging.impl.memory.LogStoreSubscriber - ")
   class ErrorHandlingTests {
 
     @Test
@@ -408,6 +410,7 @@ class LogStoreSubscriberTest {
   @Nested
   @DisplayName("Pipeline Testing")
   @NoArgsConstructor
+  @ExpectedErrorLog("ERROR com.infenia.yukta.logging.impl.memory.LogStoreSubscriber - ")
   class PipelineTests {
 
     @Test
