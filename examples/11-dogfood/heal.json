@@ -1,9 +1,58 @@
 {
-  "ladder": [
+  "models": [
     "haiku",
     "sonnet",
     "opus"
   ],
+  "efforts": {
+    "low": {
+      "timeoutSeconds": 600,
+      "budget": 0.5
+    },
+    "medium": {
+      "timeoutSeconds": 1200,
+      "budget": 1
+    },
+    "high": {
+      "timeoutSeconds": 1800,
+      "budget": 2
+    }
+  },
+  "triage": {
+    "model": "tev1:0.8b",
+    "default": "average",
+    "minProbability": 0.6,
+    "levels": {
+      "trivial": {
+        "start": "haiku/low",
+        "describe": "Formatting, an unused import, a typo: a mechanical fix"
+      },
+      "easy": {
+        "start": "haiku/medium",
+        "describe": "An obvious one-line compile or style error"
+      },
+      "simple": {
+        "start": "haiku/high",
+        "describe": "A compile or style error confined to one file"
+      },
+      "moderate": {
+        "start": "sonnet/low",
+        "describe": "A single straightforward failing assertion"
+      },
+      "average": {
+        "start": "sonnet/medium",
+        "describe": "A failing unit test or a typical analyzer finding"
+      },
+      "hard": {
+        "start": "sonnet/high",
+        "describe": "A logic bug across several classes"
+      },
+      "veryhard": {
+        "start": "opus/low",
+        "describe": "Concurrency or a design-level failure"
+      }
+    }
+  },
   "analyzers": [
     "style",
     "spotbugs",

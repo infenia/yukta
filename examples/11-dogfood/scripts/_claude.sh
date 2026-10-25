@@ -6,6 +6,7 @@
 #               resume: continues the session $YUKTA_IMPL_SESSION (same model, warm cache, knows the change)
 #   RULES_FILE  the system prompt, one constant file per role, so the cached prefix is byte-identical
 #   OUT         file that collects claude's stderr
+# $YK_EFFORT (low, medium, high), when set, is the effort of a new session; a resumed one keeps its own.
 # The answer is claude's JSON result on stdout; $YK_SCHEMA is the JSON schema of its final answer.
 #
 # Slim on purpose: none of the user's plugins, skills, settings or MCP servers (their tool schemas cost more
@@ -25,6 +26,7 @@ yk_claude() {
   case "$mode" in
     resume) session=(--resume "${YUKTA_IMPL_SESSION:?resume needs YUKTA_IMPL_SESSION}") model=() ;;
     *) model=(--model "$mode")
+       [[ -z "${YK_EFFORT:-}" ]] || model+=(--effort "$YK_EFFORT")
        if [[ -n "$sid" ]]; then session=(--session-id "$sid"); else session=(--no-session-persistence); fi ;;
   esac
   # Method C: the issue's nav.json (next to implement.json, written by nav.sh) gives the implementer and its fixers the same MCP

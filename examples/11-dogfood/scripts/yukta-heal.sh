@@ -3,7 +3,12 @@
 # PROCESS_EXECUTOR node of the `check` workflow, but usable by hand.
 #
 #   yukta-heal.sh run <stage> -- <command...>   run a stage's command, keep its output and exit code
-#   yukta-heal.sh fix <stage> <n> <mode>        one repair attempt; mode auto or a model (haiku, sonnet, opus)
+#   yukta-heal.sh fix <stage> <n> <mode> [--effort <low|medium|high>]
+#                                               one repair attempt; mode auto or a model (haiku, sonnet, opus).
+#                                               With --effort the attempt is numbered from the records (n is 0) and
+#                                               the Claude session runs at that effort (the `fix` workflow)
+#   yukta-heal.sh brief <stage>                 what failed, in a few lines: the state the triage model judges
+#   yukta-heal.sh recheck <stage>               run the stage's own command again (the `fix` workflow's check)
 #   yukta-heal.sh rerun analyzers               one gradle run (plus the other tools) of the analyzers still failing
 #   yukta-heal.sh verify                        re-run every stage's tasks, only when something was healed
 #
@@ -26,6 +31,10 @@ tasks="${YUKTA_HEAL_TASKS:-}"
 module="${YUKTA_MODULE:-}"
 budget="${YUKTA_HEAL_BUDGET:-1}"
 mkdir -p "$dir"
+# the workflows pass "-" for a value that is empty (a start variable cannot be)
+[[ "$tasks" == - ]] && tasks=""
+[[ "$module" == - ]] && module=""
+[[ "${YUKTA_HEAL_ANALYZERS:-}" == - ]] && YUKTA_HEAL_ANALYZERS=""
 
 # Paths a fixer must not touch: the rules it is being measured against, the build and this tooling.
 protected='^(config/|build-logic/|gradle/|\.github/|\.claude/|examples/11-dogfood/|REUSE\.toml|.*\.gradle\.kts$)'
@@ -40,6 +49,7 @@ if [[ "$action" == run ]]; then
   stage="${2:?stage}"
   [[ "${3:-}" == -- ]] || { echo "usage: yukta-heal.sh run <stage> -- <command...>" >&2; exit 2; }
   shift 3
+  printf '%q ' "$@" >"$dir/$stage.cmd"
   "$@" 2>&1 | tee "$dir/$stage.run.out"
   rc="${PIPESTATUS[0]}"
   echo "$rc" >"$dir/$stage.exit"
@@ -49,6 +59,13 @@ fi
 stage="${2:-$action}"
 attempt="${3:-0}"
 mode="${4:-$action}"
+effort=""
+if [[ "${5:-}" == --effort ]]; then
+  effort="${6:?--effort needs low, medium or high}"
+  # the attempts of a heal run in child executions, so the number comes from the records
+  # shellcheck disable=SC2012
+  attempt=$(($(ls "$dir/$stage"-[0-9]*.json 2>/dev/null | wc -l) + 1))
+fi
 out="$dir/$stage-$attempt.out"
 
 # snapshot: "<hash> <path>" for every modified or untracked file, to tell what a step changed.
@@ -64,12 +81,12 @@ changed_since() { diff <(cat "$1") <(snapshot) | sed -n 's/^[<>] [^ ]* //p' | so
 record() { # fixed files cost summary [usage-json]
   local summary="${4//$'\n'/ }"
   summary="${summary:0:160}"
-  jq -n --arg stage "$stage" --argjson attempt "$attempt" --arg mode "$mode" --argjson fixed "$1" \
+  jq -n --arg stage "$stage" --argjson attempt "$attempt" --arg mode "$mode" --arg effort "$effort" --argjson fixed "$1" \
     --argjson files "$2" --arg cost "$3" --arg summary "$summary" --argjson usage "${5:-null}" \
-    '{stage: $stage, attempt: $attempt, mode: $mode, fixed: $fixed, files: $files, cost: ($cost | tonumber),
-      summary: $summary, usage: $usage}' >"$dir/$stage-$attempt.json"
-  printf 'HEAL %s attempt=%s mode=%s fixed=%s files=%s cost=$%s summary=%s\n' \
-    "$stage" "$attempt" "$mode" "$1" "$(jq 'length' <<<"$2")" "$3" "${summary:0:120}"
+    '{stage: $stage, attempt: $attempt, mode: $mode, effort: (if $effort == "" then null else $effort end),
+      fixed: $fixed, files: $files, cost: ($cost | tonumber), summary: $summary, usage: $usage}' >"$dir/$stage-$attempt.json"
+  printf 'HEAL %s attempt=%s mode=%s%s fixed=%s files=%s cost=$%s summary=%s\n' \
+    "$stage" "$attempt" "$mode" "${effort:+ effort=$effort}" "$1" "$(jq 'length' <<<"$2")" "$3" "${summary:0:120}"
 }
 
 files_json() { if [[ -n "$1" ]]; then printf '%s\n' "$1" | jq -R . | jq -sc .; else echo '[]'; fi; }
@@ -113,6 +130,36 @@ analyzer_tasks() {
 key="$action"
 [[ "$action" == fix ]] && key="$mode"
 case "$key" in
+  brief)
+    # the triage state: short, so a small decision model can judge it
+    {
+      echo "stage: $stage"
+      if [[ "$stage" == analyzers ]]; then
+        mapfile -t failed < <(failed_analyzers)
+        for n in "${failed[@]}"; do
+          echo "failing analyzer: $n"; problem_lines "$dir/$n.run.out" 12
+        done
+      else
+        echo "command: $(cat "$dir/$stage.cmd" 2>/dev/null)"
+        problem_lines "$dir/$stage.run.out" 25
+        [[ "$stage" == tests ]] && echo "failing test classes: $(failing_tests | paste -sd' ')"
+      fi
+      echo "files changed so far: $(git ls-files -m -o --exclude-standard | wc -l)"
+    } | cut -c1-300 | head -c 4000
+    exit 0
+    ;;
+  recheck)
+    if [[ "$stage" == analyzers ]]; then exec "${BASH_SOURCE[0]}" rerun analyzers 0 rerun; fi
+    [[ -f "$dir/$stage.cmd" ]] || { echo "HEAL recheck $stage: no recorded command"; exit 1; }
+    eval "$(cat "$dir/$stage.cmd")" 2>&1 | tee "$dir/$stage.run.out"
+    rc="${PIPESTATUS[0]}"
+    echo "$rc" >"$dir/$stage.exit"
+    exit "$rc"
+    ;;
+  giveup)
+    echo "HEAL $stage giveup every model failed at every effort"
+    exit 1
+    ;;
   verify)
     if ! ls "$dir"/*-[0-9]*.json >/dev/null 2>&1 || ! jq -e -s 'any(.[]; .fixed)' "$dir"/*-[0-9]*.json >/dev/null; then
       exit 0
@@ -220,7 +267,8 @@ ${previous:+$previous
 ${stat:-none}
 Verify with only:
 $verify
-Then answer with the JSON object only."
+${YUKTA_HEAL_TIMEOUT:+You have about $((YUKTA_HEAL_TIMEOUT / 60)) minutes at ${effort:-this} effort. If you cannot fix it in that time, stop and answer fixed=false with what you learned.
+}Then answer with the JSON object only."
 
 schema='{"type":"object","properties":{"fixed":{"type":"boolean"},"summary":{"type":"string"}},"required":["fixed","summary"]}'
 
@@ -228,7 +276,7 @@ schema='{"type":"object","properties":{"fixed":{"type":"boolean"},"summary":{"ty
 source "$here/_claude.sh"
 YK_SCHEMA="$schema"
 
-result="$(yk_claude "$model" "$prompt" "$here/../fixer-rules.md" "$budget" "$out")"
+result="$(YK_EFFORT="$effort" yk_claude "$model" "$prompt" "$here/../fixer-rules.md" "$budget" "$out")"
 
 cost="$(jq -r '.total_cost_usd // 0' <<<"$result" 2>/dev/null || echo 0)"
 usage="$(jq -c '.usage // null | if . == null then null else {input: .input_tokens, cache_creation: .cache_creation_input_tokens, cache_read: .cache_read_input_tokens, output: .output_tokens} end' <<<"$result" 2>/dev/null || echo null)"

@@ -27,11 +27,11 @@ cat >"$dir/claude" <<'SH'
 # (and, when the file "implement-breaks" is next to this script, breaks compileJava). A prompt that mentions
 # --no-heal (method A, solo) is logged as solo-prompt. As a fixer it fixes the
 # failing tasks only when run with the model (or "resume") named in .fake-fix-at (in the project) or "fix-at"
-# (next to this script). Every call is logged in claude.log next to this script.
+# (next to this script); a value like sonnet/high also names the effort (--effort). Every call is logged in claude.log next to this script.
 here="$(cd "$(dirname "$0")" && pwd)"
-prompt="" model="" session="" resume="" mcp=""
-while (($#)); do case "$1" in -p) prompt="$2"; shift 2 ;; --model) model="$2"; shift 2 ;; --session-id) session="$2"; shift 2 ;; --resume) resume="$2"; shift 2 ;; --mcp-config) mcp="$2"; shift 2 ;; *) shift ;; esac; done
-echo "$(date +%s.%N) model=${model:--} session=${session:--} resume=${resume:--} mcp=${mcp:--} cwd=$PWD" >>"$here/claude.log"
+prompt="" model="" session="" resume="" mcp="" effort=""
+while (($#)); do case "$1" in -p) prompt="$2"; shift 2 ;; --model) model="$2"; shift 2 ;; --session-id) session="$2"; shift 2 ;; --resume) resume="$2"; shift 2 ;; --mcp-config) mcp="$2"; shift 2 ;; --effort) effort="$2"; shift 2 ;; *) shift ;; esac; done
+echo "$(date +%s.%N) model=${model:--} effort=${effort:--} session=${session:--} resume=${resume:--} mcp=${mcp:--} cwd=$PWD" >>"$here/claude.log"
 grep -q 'code index of this worktree' <<<"$prompt" && echo "nav-note" >>"$here/claude.log"
 if [[ "$prompt" == "# Issue #"* ]]; then
   # a method A (solo) prompt tells the session to check with yk; the log says so
@@ -46,8 +46,10 @@ if [[ "$prompt" == "# Issue #"* ]]; then
   exit 0
 fi
 want="$model"
+at="$(cat .fake-fix-at 2>/dev/null || cat "$here/fix-at" 2>/dev/null)"
+[[ "$at" == */* ]] && want="$model/$effort"
 [[ -n "$resume" ]] && want=resume
-if [[ "$want" == "$(cat .fake-fix-at 2>/dev/null || cat "$here/fix-at" 2>/dev/null)" ]]; then
+if [[ "$want" == "$at" ]]; then
   for t in $(sed -n 's/^Gradle tasks: //p' <<<"$prompt"); do rm -f "fail-$t"; done
   echo "fix by $want" >>fixed.txt
   echo '{"total_cost_usd":0.01,"usage":{"input_tokens":10,"cache_creation_input_tokens":5,"cache_read_input_tokens":100,"output_tokens":3},"structured_output":{"fixed":true,"summary":"fake fix"}}'

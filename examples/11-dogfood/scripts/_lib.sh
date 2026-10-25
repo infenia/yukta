@@ -328,12 +328,15 @@ heal_workflow() {
   jq --arg gate "$gate" --argjson extras "${7:-[]}" --arg pauses "${8:-}" --arg wfid "${9:-check}" --arg impl "${10:-}" --arg pausewait "${YUKTA_PAUSE_SECONDS:-600}" --argjson policy "$1" --arg modules "$2" --arg project "$3" --arg healsh "$4" --arg healdir "$5" --arg lad "$6" '
     ($modules | split(" ") | map(select(. != ""))) as $mods
     | ($lad | split(",") | map(select(. != ""))) as $override
-    | (if ($override | length) > 0 then $override else $policy.ladder end) as $ladder
+    # an override ladder (the resume rungs of check-impl) keeps the unrolled chain; otherwise a failing stage hands
+    # over to the `heal` workflow (see heal_subflows)
+    | (($override | length) > 0) as $legacy
+    | (if $legacy then $override else [] end) as $ladder
     | def px: . as $t | if ($mods | length) > 0 and ($t | startswith(":") | not)
         then $mods[] | select(. != "cli") | ":" + . + ":" + $t else $t end;   # cli (Go) has no gradle fix tasks
     def gradle_tasks($n): [$n.config.command[1:][] | select(startswith("-") | not)] | join(" ");
     def rungs($n): ($policy.stages[$n.nodeId] // {}) as $p
-        | (if $p.auto then ["auto"] else [] end) + (if $p.claude then ($p.ladder // $ladder) else [] end);
+        | (if $p.auto then ["auto"] else [] end) + (if $p.claude then ($p.ladder // (if $legacy then $ladder else ["heal"] end)) else [] end);
     # YUKTA_CLAUDE_BIN swaps the claude binary of the fixers (test-self-heal.sh uses a fake one)
     def env($tasks; $extra): {YUKTA_HEAL_DIR: $healdir, YUKTA_HEAL_TASKS: $tasks, YUKTA_MODULE: $modules}
         + (if $ENV.YUKTA_CLAUDE_BIN then {YUKTA_CLAUDE_BIN: $ENV.YUKTA_CLAUDE_BIN} else {} end)
@@ -349,6 +352,10 @@ heal_workflow() {
     def runner($id; $n; $on): pe($id; {command: ([$healsh, "run", $n.nodeId, "--"] + $n.config.command), env: env(""; {})} + grouped($n) + routed($on));
     def fixer($id; $stage; $i; $mode; $tasks; $extra):
         pe($id; {command: [$healsh, "fix", $stage, ($i | tostring), $mode], env: env($tasks; $extra)} + routed(true));
+    def heal_node($s; $tasks; $analyzers): {nodeId: ($s + ".heal"), type: "SUB_WORKFLOW",
+        config: {workflowId: "heal", timeoutSeconds: 14400,
+                 payload: {project: $project, stage: $s, tasks: (if $tasks == "" then "-" else $tasks end), healDir: $healdir,
+                           modules: (if $modules == "" then "-" else $modules end), analyzers: $analyzers}}};
     def edge($s; $t; $port): {source: $s, target: $t} + (if $port == null then {} else {sourcePort: $port} end);
     def id($n; $pre; $i): $n + "." + $pre + ($i | tostring);
     # --pause before-opus: a WAIT_FOR_SIGNAL in front of the opus fixer of every stage. Whoever steers the
@@ -376,6 +383,26 @@ heal_workflow() {
            exits: ([range(1; $k + 1) as $j | {source: id($s; "run"; $j), port: "success"}]
                    + [{source: id($s; "run"; $k + 1), port: null}])};
 
+    # a sequential stage S that hands a failure to `heal`: [auto fix, rerun,] heal. Its exits are what the next stage hangs on
+    def seqh($n; $in):
+        ($policy.stages[$n.nodeId] // {}) as $p | $n.nodeId as $s
+        | (if (($p.auto // []) | length) > 0 then 1 else 0 end) as $a
+        | (if $p.claude then 1 else 0 end) as $h
+        | (1 + $a) as $r
+        | def routed_run($j): $j < $r or $h == 1;
+        {nodes: ([range(1; $r + 1) as $j | runner(id($s; "run"; $j); $n; routed_run($j))]
+                 + [range(0; $a) as $i | fixer(id($s; "f"; $i + 1); $s; $i + 1; "auto";
+                     (($policy.stages[$s].auto // []) | map(px) | join(" ")); {})]
+                 + (if $h == 1 then [heal_node($s; gradle_tasks($n); "-")] else [] end)),
+         edges: ([$in[] | edge(.source; id($s; "run"; 1); .port)]
+                 + [range(1; $r + 1) as $j | select(routed_run($j))
+                    | edge(id($s; "run"; $j); (if $j <= $a then id($s; "f"; $j) else id($s; "heal"; "") end); "failure")]
+                 + [range(0; $a) as $i
+                    | edge(id($s; "f"; $i + 1); id($s; "run"; $i + 2); "success"),
+                      edge(id($s; "f"; $i + 1); (if $h == 1 then id($s; "heal"; "") else id($s; "run"; $i + 2) end); "failure")]),
+         exits: ([range(1; $r + 1) as $j | select(routed_run($j)) | {source: id($s; "run"; $j), port: "success"}]
+                 + (if $h == 1 then [{source: id($s; "heal"; ""), port: null}] else [{source: id($s; "run"; $r), port: null}] end))};
+
     .workflows["gradle-check"].nodes as $all
     | [$all[] | select(.type == "PROCESS_EXECUTOR")] as $stages
     | [$stages[] | select(.nodeId as $x | $policy.analyzers | index($x) | not)] as $sequential
@@ -383,7 +410,7 @@ heal_workflow() {
     | [$analyzers[] | select((rungs(.) | length) > 0)] as $healable
     | (reduce $sequential[] as $n ({nodes: [{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}}], edges: [],
                                     exits: [{source: "trigger", port: null}]};
-          seq($n; .exits) as $s
+          (if $legacy then seq($n; .exits) else seqh($n; .exits) end) as $s
           | {nodes: (.nodes + $s.nodes), edges: (.edges + $s.edges), exits: $s.exits})) as $head
     # analyzers: parallel, joined; the gate and the shared fixer chain only when one can be healed
     | ($ladder | length) as $k
@@ -404,6 +431,12 @@ heal_workflow() {
                          else edge($a; "analyzers.join"; null) end]),
             exits: [{source: "analyzers.join", port: null}]}
          | if ($healable | length) == 0 then .
+           elif ($legacy | not) then
+             .nodes += [{nodeId: "analyzers.gate", type: "BRANCH",
+                         config: {mode: "EXPRESSION", defaultPort: "pass", cases: {($gate): "fail"}}},
+                        heal_node("analyzers"; ""; $list)]
+             | .edges += [edge("analyzers.join"; "analyzers.gate"; null), edge("analyzers.gate"; "analyzers.heal"; "fail")]
+             | .exits = [{source: "analyzers.gate", port: "pass"}, {source: "analyzers.heal", port: null}]
            else
              .nodes += [{nodeId: "analyzers.gate", type: "BRANCH",
                          config: {mode: "EXPRESSION", defaultPort: "pass",
@@ -435,11 +468,110 @@ heal_workflow() {
         edges: ($body.edges + [$body.exits[] | edge(.source; "verify"; .port)] + [edge("verify"; "done"; null)])}'
 }
 
+# heal_subflows POLICY HEALSH [PAUSES]: the workflows a failing stage of `check` hands over to, as {workflows: {...}}.
+#   heal            brief -> triage (System One, CLASSIFY) -> fix at the start rung chosen from the difficulty,
+#                   then the next model at low effort, until the last model fails (the run fails then):
+#     triage --<level>--> fix-<m>/<e> --failure--> fix-<next m>/low --failure--> ... --failure--> giveup
+#     any fix --success--> done
+#   fix-from-<e>    one model, effort climbing from <e>: fix@e -> recheck -> (fail) fix@next -> recheck ... -> done;
+#                   the last recheck fails the run. Model, stage and the rest come from the start payload, and each
+#                   fixer is time-boxed and budgeted by its effort (heal.json "efforts").
+# YUKTA_TRIAGE=off leaves the triage out: heal then starts at the policy's default level.
+# --pause before-opus: a WAIT_FOR_SIGNAL in front of every opus fixer, as in the unrolled chain.
+heal_subflows() {
+  jq -n --argjson policy "$1" --arg healsh "$2" --arg pauses "${3:-}" --arg triage "${YUKTA_TRIAGE:-on}" \
+    --arg pausewait "${YUKTA_PAUSE_SECONDS:-600}" '
+    ($policy.models) as $models
+    | ($policy.efforts | keys_unsorted) as $efforts
+    | $policy.triage as $tri
+    | def env($extra): {YUKTA_HEAL_DIR: "${start.healDir}", YUKTA_HEAL_TASKS: "${start.tasks}",
+                        YUKTA_MODULE: "${start.modules}", YUKTA_HEAL_ANALYZERS: "${start.analyzers}"}
+        + (if $ENV.YUKTA_CLAUDE_BIN then {YUKTA_CLAUDE_BIN: $ENV.YUKTA_CLAUDE_BIN} else {} end) + $extra;
+      def pe($id; $cfg): {nodeId: $id, type: "PROCESS_EXECUTOR",
+          config: ({workingDir: "${start.project}", timeout: 3600, timeoutSeconds: 3600} + $cfg)};
+      def routed($on): if $on then {failureMode: "CONTINUE", routeByExitCode: true} else {failureMode: "ERROR"} end;
+      def edge($s; $t; $port): {source: $s, target: $t} + (if $port == null then {} else {sourcePort: $port} end);
+      def rung($m; $e): "fix-" + $m + "-" + $e;
+      def paused($m): ($pauses | split(",") | index("before-opus")) != null and $m == "opus";
+      def pause_id($m): "pause-" + $m;
+      # where a failure that wants model $m goes: its pause, or its low rung
+      def enter($m): if paused($m) then pause_id($m) else rung($m; "low") end;
+      def fixwf($from):
+        ($efforts | index($from)) as $i | $efforts[$i:] as $es | ($es | length) as $n
+        | {workflowId: ("fix-from-" + $from),
+           description: "One model at rising effort, the failing check re-run after every attempt",
+           nodes: ([{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}}]
+                   + [range(0; $n) as $j | $es[$j] as $e | $policy.efforts[$e] as $c
+                      | pe("fix." + $e; {command: [$healsh, "fix", "${start.stage}", "0", "${start.model}", "--effort", $e],
+                                         timeout: $c.timeoutSeconds, timeoutSeconds: $c.timeoutSeconds,
+                                         env: env({YUKTA_HEAL_BUDGET: ($c.budget | tostring), YUKTA_HEAL_TIMEOUT: ($c.timeoutSeconds | tostring)})}
+                                        + routed(true)),
+                        pe("check." + $e; {command: [$healsh, "recheck", "${start.stage}"], env: env({})} + routed($j < $n - 1))]
+                   + [{nodeId: "done", type: "CONSOLE_TERMINAL", config: {}}]),
+           edges: ([edge("trigger"; "fix." + $es[0]; null)]
+                   + [range(0; $n) as $j | $es[$j] as $e
+                      | edge("fix." + $e; "check." + $e; "success"),
+                        edge("fix." + $e; (if $j < $n - 1 then "fix." + $es[$j + 1] else "check." + $e end); "failure"),
+                        (if $j < $n - 1 then edge("check." + $e; "fix." + $es[$j + 1]; "failure") else empty end),
+                        edge("check." + $e; "done"; (if $j < $n - 1 then "success" else null end))])};
+      def level_start($l): $tri.levels[$l].start | split("/") | {model: .[0], effort: .[1]};
+      # the SUB_WORKFLOW node of one rung
+      def fixnode($m; $e):
+        {nodeId: rung($m; $e), type: "SUB_WORKFLOW",
+         config: {workflowId: ("fix-from-" + $e), timeoutSeconds: 14400, routeByOutcome: true,
+                  payload: {project: "${start.project}", stage: "${start.stage}", tasks: "${start.tasks}", healDir: "${start.healDir}",
+                            modules: "${start.modules}", analyzers: "${start.analyzers}", model: $m}}};
+      # only the rungs a failure can reach (a node nothing leads to is refused): the starts, and each later model at low
+      (if $triage == "off" then [$tri.levels[$tri.default].start] else [$tri.levels[] | .start] end
+        | map(split("/")) | map({model: .[0], effort: .[1]})) as $starts
+      | ($starts + [$starts[] | .model as $m | $models[($models | index($m)) + 1:][] | {model: ., effort: "low"}]) as $all
+      | ($all | unique_by([.model, .effort])) as $rungs
+      | ([$models[] | select(paused(.)) | select(. as $m | $rungs | any(.model == $m and .effort == "low"))]) as $pausedmodels
+      | {workflows: ({heal: {workflowId: "heal", description: "Triage a failed check, then fix it with the cheapest model that can",
+          nodes: ([{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}},
+                   pe("brief"; {command: [$healsh, "brief", "${start.stage}"], env: env({})} + routed(false))]
+                  + (if $triage == "off" then [] else
+                      [{nodeId: "triage", type: "CLASSIFY",
+                        config: {model: $tri.model, state: "payload.stdout", routeByLabel: true, minProbability: $tri.minProbability,
+                                 question: "How hard is it to fix this failed check of a Java build?",
+                                 labels: ($tri.levels | with_entries({key, value: .value.describe})),
+                                 engine: {onError: "ROUTE"}}}] end)
+                  + [$rungs[] | fixnode(.model; .effort)]
+                  + [$pausedmodels[] | {nodeId: pause_id(.), type: "WAIT_FOR_SIGNAL",
+                                        config: {signal: "before-opus", timeoutSeconds: ($pausewait | tonumber), onTimeout: "CONTINUE"}}]
+                  + [{nodeId: "giveup", type: "PROCESS_EXECUTOR",
+                      config: {command: [$healsh, "giveup", "${start.stage}"], workingDir: "${start.project}", failureMode: "ERROR",
+                               env: env({})}},
+                     {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}}]),
+          edges: ([edge("trigger"; "brief"; null), edge("giveup"; "done"; null)] + (if $triage == "off"
+                     then [edge("brief"; rung(level_start($tri.default).model; level_start($tri.default).effort); null)]
+                     else [edge("brief"; "triage"; null)]
+                          + [$tri.levels | keys_unsorted[] | . as $l | level_start($l) as $s
+                             | edge("triage"; (if paused($s.model) and $s.effort == "low" then pause_id($s.model) else rung($s.model; $s.effort) end); $l)]
+                          + [edge("triage"; rung(level_start($tri.default).model; level_start($tri.default).effort); "uncertain"),
+                             edge("triage"; rung(level_start($tri.default).model; level_start($tri.default).effort); "error")] end)
+                  + [$pausedmodels[] | edge(pause_id(.); rung(.; "low"); null)]
+                  + [$rungs[] | . as $r
+                     | edge(rung($r.model; $r.effort); "done"; "success"),
+                       (($models | index($r.model)) as $mi
+                        | edge(rung($r.model; $r.effort); (if $mi + 1 < ($models | length) then enter($models[$mi + 1]) else "giveup" end); "failure"))])}}
+        + ([$efforts[] | . as $e | {key: ("fix-from-" + $e), value: fixwf($e)}] | from_entries))}'
+}
+
+# policy_models POLICY MODELS: the policy limited to the comma separated MODELS (yk check --models), in the order of
+# the policy; a triage level that starts at a model left out starts at the first model kept, at the same effort.
+policy_models() {
+  [[ -z "$2" ]] && { echo "$1"; return; }
+  jq --arg m "$2" '($m | split(",")) as $keep | ([.models[] | select(. as $x | $keep | index($x))]) as $models
+    | .models = $models
+    | .triage.levels |= map_values(.start |= (split("/") | (if (.[0] as $x | $models | index($x)) then . else [$models[0], .[1]] end) | join("/")))' <<<"$1"
+}
+
 # check_stages: reads session JSON on stdin and prints the nodes of the check workflow, one per line.
 check_nodes() { jq -r '.workflows.check.nodes[].nodeId'; }
 
 # node_stage NODE: the stage a node of the check belongs to (S.run2 and S.f1 belong to S).
-node_stage() { sed -E 's/\.(run[0-9]+|f[0-9]+|r[0-9]+|pause)$//' <<<"$1"; }
+node_stage() { sed -E 's/\.(run[0-9]+|f[0-9]+|r[0-9]+|pause|heal)$//' <<<"$1"; }
 
 # print_result SESSION EXECUTION: prints the machine readable RESULT line; returns 0 only when the
 # execution ended SUCCESS.
@@ -473,7 +605,7 @@ print_result() {
 healed_stages() {
   local dir="${YUKTA_HEAL_RECORDS:-$STATE_DIR/heal/$1}"
   [[ -d "$dir" ]] || return 0
-  jq -rs --arg failed "${2:--}" '[.[] | select(.fixed and .stage != $failed) | "\(.stage):\(.mode)"] | unique | join(",")' \
+  jq -rs --arg failed "${2:--}" '[.[] | select(.fixed and .stage != $failed) | "\(.stage):\(.mode)\(if .effort then "/" + .effort else "" end)"] | unique | join(",")' \
     "$dir"/*-[0-9]*.json 2>/dev/null || true
 }
 
@@ -503,7 +635,7 @@ record_durations() {
     printf '%s\t%s\t%s\t%s\t%s\n' "$(date -Is)" "$key" "$stage" "$secs" "$exec" >>"$file"
   done < <("$(find_cli)" -o json workflow status "$session" "$exec" | jq -r '
     def secs: .[:19] | strptime("%Y-%m-%dT%H:%M:%S") | mktime;
-    def stage: sub("\\.(run[0-9]+|f[0-9]+|r[0-9]+|pause)$"; "");
+    def stage: sub("\\.(run[0-9]+|f[0-9]+|r[0-9]+|pause|heal)$"; "");
     (.data // .) as $p
     | [$p.tasks[] | select((.startTime // "0001")[:4] != "0001" and (.endTime // "0001")[:4] != "0001")
        | {stage: (.nodeId | stage), secs: ((.endTime | secs) - (.startTime | secs))}]
@@ -685,6 +817,8 @@ dev_session() {
   c1="$(heal_workflow "$policy" "" '${start.project}' "$healsh" '${start.project}/.yukta-dev/heal/check' "" "$extras" "" check "" <<<"$base")"
   c2="$(heal_workflow "$policy" "" '${start.project}' "$healsh" '${start.project}/.yukta-dev/heal/check' "resume,resume" "$extras" "" check-impl '${start.implSession}' <<<"$base")"
   ci="$(jq -s '. as $a | $a[0] | .workflows = {check: $a[0].workflows.check, "check-impl": $a[1].workflows["check-impl"]}' <(echo "$c1") <(echo "$c2"))"
+  # the workflows a failing stage of check hands over to (check-impl keeps its resume rungs)
+  ci="$(jq --argjson h "$(heal_subflows "$policy" "$healsh" "")" '.workflows += $h.workflows' <<<"$ci")"
   # check-plain: the same gate without healing (what a method A run is judged by)
   ci="$(jq --argjson p "$(render_session "$here/session.json" '${start.project}' | jq '.workflows["gradle-check"] | .workflowId = "check-plain"')" \
     '.workflows["check-plain"] = $p' <<<"$ci")"

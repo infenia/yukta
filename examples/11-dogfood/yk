@@ -4,7 +4,7 @@
 #
 #   yk up [--background] [--release [tag]]   start the dev server, or swap it for a newer main when idle
 #   yk down | status                         stop the server yk started | show it (exit 3 when down)
-#   yk check [-m mod]... [-p path] [--no-heal] [--ladder haiku,sonnet,opus] [--pause before-opus] [--detach]
+#   yk check [-m mod]... [-p path] [--no-heal] [--models haiku,sonnet,opus] [--triage off] [--pause before-opus] [--detach]
 #                                            the self-healing quality gate (spotless .. cli) as one execution
 #   yk gradle <gradle args...>               any gradle args as one Yukta stage, e.g. :core:test --tests X
 #   yk watch <session> <exec> [--all]        follow a run: problems only, then RESULT
@@ -89,10 +89,10 @@ cmd_status() {
   echo "log: $DEV_HOME/server.log"
 }
 
-# run_check MODE HEAL LADDER PROJECT MODULES [gradle args...]: applies this checkout's session and runs
+# run_check MODE HEAL MODELS PROJECT MODULES [gradle args...]: applies this checkout's session and runs
 # the check (no gradle args) or one gradle-run stage.
 run_check() {
-  local mode="$1" heal="$2" ladder="$3" project="$4" modules="$5" pause="${6:-}"
+  local mode="$1" heal="$2" models="$3" project="$4" modules="$5" pause="${6:-}"
   shift 6
   need jq
   ensure_server
@@ -122,8 +122,10 @@ run_check() {
       | if [[ -n "$modules" ]]; then scope_to_modules $modules; else cat; fi \
       | if (($#)); then splice_args "$@"; else cat; fi \
       | if [[ "$workflow" == check ]]; then
-        heal_workflow "$(cat "$here/heal.json")" "$modules" "$project" "$healsh" "$heal_dir" "$ladder" \
-          "$(heal_extras "$(cat "$here/heal.json")" "$modules")" "$pause"
+        heal_workflow "$(cat "$here/heal.json")" "$modules" "$project" "$healsh" "$heal_dir" "" \
+          "$(heal_extras "$(cat "$here/heal.json")" "$modules")" "$pause" \
+          | jq --argjson h "$(heal_subflows "$(policy_models "$(cat "$here/heal.json")" "$models")" "$healsh" "$pause")" \
+            '.workflows += $h.workflows'
       else cat; fi
   } >"$tmp/session.json"
 
@@ -141,7 +143,7 @@ run_check() {
 }
 
 cmd_check() {
-  local project="" modules="" mode=watch heal=1 ladder="" pause=""
+  local project="" modules="" mode=watch heal=1 models="" pause=""
   while (($#)); do
     case "$1" in
       -p) project="${2:?-p needs a path}"; shift 2 ;;
@@ -152,13 +154,14 @@ cmd_check() {
       --watch) shift ;;
       --no-heal) heal=0; shift ;;
       --pause) pause="${2:?--pause needs a checkpoint, e.g. before-opus}"; shift 2 ;;
-      --ladder) ladder="${2:?--ladder needs models, e.g. haiku,sonnet,opus}"; shift 2 ;;
+      --models) models="${2:?--models needs models, e.g. sonnet,opus}"; shift 2 ;;
+      --triage) [[ "${2:-}" == off ]] || die "invalid --triage '${2:-}' (off)"; export YUKTA_TRIAGE=off; shift 2 ;;
       *) die "unknown option '$1' (gradle args go to: yk gradle <args>)" ;;
     esac
   done
-  [[ -z "$ladder" || "$ladder" =~ ^(haiku|sonnet|opus)(,(haiku|sonnet|opus))*$ ]] || die "invalid --ladder '$ladder' (models from haiku, sonnet, opus)"
+  [[ -z "$models" || "$models" =~ ^(haiku|sonnet|opus)(,(haiku|sonnet|opus))*$ ]] || die "invalid --models '$models' (models from haiku, sonnet, opus)"
   [[ -z "$pause" || "$pause" == before-opus ]] || die "invalid --pause '$pause' (before-opus)"
-  run_check "$mode" "$heal" "$ladder" "$(cd "${project:-$(git rev-parse --show-toplevel)}" && pwd)" "$modules" "$pause"
+  run_check "$mode" "$heal" "$models" "$(cd "${project:-$(git rev-parse --show-toplevel)}" && pwd)" "$modules" "$pause"
 }
 
 cmd_gradle() {
@@ -419,7 +422,7 @@ cmd_stats() {
     "$STATE_DIR"/issue-*/implement.json 2>/dev/null)
   ((${#files[@]})) || { echo "no records yet (yk check and yk run write them)"; return 0; }
   jq -rs '
-    map(if has("stage") then {step: "\(.stage) \(.mode)", fixed: .fixed, cost: (.cost // 0), usage: (.usage // {})}
+    map(if has("stage") then {step: "\(.stage) \(.mode)\(if .effort then "/" + .effort else "" end)", fixed: .fixed, cost: (.cost // 0), usage: (.usage // {})}
         else {step: "implement", fixed: (.done // false), cost: (.cost // 0), usage: (.usage // {})} end
         | .tokens = {i: (.usage.input // .usage.input_tokens // 0), c: (.usage.cache_creation // .usage.cache_creation_input_tokens // 0),
                      r: (.usage.cache_read // .usage.cache_read_input_tokens // 0)})

@@ -2,23 +2,27 @@
 
 `yk check` runs ONE workflow, `check`, built from the staged `gradle-check` (`heal_workflow` in
 `examples/11-dogfood/scripts/_lib.sh`, policy `examples/11-dogfood/heal.json`). A failing stage repairs itself
-before the run fails, climbing a fixed ladder of rungs:
-- a deterministic fix where one exists (`spotless`: `spotlessApply`);
-- then headless Claude Code on the ladder `haiku → sonnet → opus` (`yukta-heal.sh`; `--ladder sonnet,opus`
-  for one run), each rung given the earlier attempts' summaries;
+before the run fails, by calling the `heal` workflow and waiting for it:
+- a deterministic fix first where one exists (`spotless`: `spotlessApply`);
+- then `heal`: a System One triage rates the failure (`trivial` .. `veryhard`, default `average` = sonnet at
+  medium effort) and picks the starting model and effort; `fix` runs that model at `low → medium → high`, each
+  attempt time-boxed and followed by a re-run of the failing check; a model that fails at every effort hands over
+  to the next one (`haiku → sonnet → opus`) at `low`; when opus has failed too the run fails
+  (`yk check --models sonnet,opus` limits the models, `--triage off` skips the triage);
 - a healed stage re-runs only itself; the analyzers (style, spotbugs, cli) run in parallel and share ONE
-  fixer chain; `licenses` and `security` fail at once;
+  `analyzers.heal`; `licenses` and `security` fail at once;
 - a final `verify` re-runs every task when anything was healed, so `SUCCESS` means the whole tree passes.
+`check-impl` (after `yk run issue`) keeps its `resume` rungs.
 
 Output: the problem lines of the run, `HEAL` lines, `SLOW` lines, then `RESULT`.
 
 ## Reading HEAL lines
-`HEAL <stage> attempt=<n> mode=<auto|haiku|sonnet|opus> fixed=<bool> files=<n> cost=$<x> summary=<text>` is one attempt.
+`HEAL <stage> attempt=<n> mode=<auto|haiku|sonnet|opus> [effort=<low|medium|high>] fixed=<bool> files=<n> cost=$<x> summary=<text>` is one attempt.
 - `ERROR <stage>: …` lines before a `HEAL <stage>` line are the failure being handled, not yours to fix.
 - `summary=GUARD: …` means the attempt was rejected: it touched `config/`, `build-logic/`, `gradle/`,
   `.github/`, `.claude/` or the dogfood tooling, added a suppression, removed assertions, or changed nothing.
   Its edits stay in the tree: look at `git diff` and decide.
-- `RESULT … healed=style:haiku,spotless:auto` lists what was fixed (`analyzers:<model>` for the shared analyzer
+- `RESULT … healed=style:haiku/low,spotless:auto` lists what was fixed (`analyzers:<model>/<effort>` for the shared analyzer
   chain). Records, with token usage: `.yukta-dev/heal/<session>/`.
 - A failure after healing (`failed_node=<stage>`, or the analyzers still failing) is exhausted: take over, fix
   it, rerun `yk check`.

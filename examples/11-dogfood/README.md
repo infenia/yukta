@@ -141,19 +141,40 @@ RESULT status=FAILURE failed_node=style healed=spotless:auto execution=<id> sess
 ## Self-healing check
 `yk check` turns the `gradle-check` stage table into ONE workflow, `check`, so a run is one execution that
 `yk watch` follows and `yk retry` can steer. `heal_workflow` (`scripts/_lib.sh`) builds it from `session.json`
-and the policy `heal.json` (so `-m` works). A stage is a chain; the attempt and the model of every
-fixer are fixed in the graph, nothing counts at run time:
+and the policy `heal.json` (so `-m` works). The success path is the stage chain; a failing stage hands over
+to another workflow, `heal`, which `check` calls as a `SUB_WORKFLOW` and waits for:
 ```
-S.run1 ──failure▶ S.f1 ──success▶ S.run2 ──failure▶ S.f2 ──success▶ S.run3 … S.run<k+1>   (ERROR: the run fails)
-   └─success▶ next stage            └─failure▶ S.f2 (the next rung)
+check   S.run1 ─failure▶ [S.f1 auto ▶ S.run2 ─failure▶] S.heal (heal) ─ok▶ next stage
+           └─success▶ next stage                                  └─fails▶ the run fails (failed_node=S)
+
+heal    brief ▶ triage (System One CLASSIFY) ─ difficulty ▶ fix-<model>-<effort> ─failure▶ fix-<next model>-low ▶ … ▶ giveup
+                                                                     └─success▶ done
+fix     fix@low ▶ recheck ─failure▶ fix@medium ▶ recheck ─failure▶ fix@high ▶ recheck ─failure▶ the fix fails
+           (fix-from-<effort> starts at that effort; model, stage and effort come from the start payload)
 ```
-The rungs are the deterministic fix (`auto`, only `spotless`: `spotlessApply`) and then the **ladder**
-`haiku → sonnet → opus` (`heal.json`; `yk check --ladder sonnet,opus` for one run). A healed stage re-runs
-only itself. After `coverage` the **analyzers** (style, spotbugs, licenses, security, cli) run in parallel;
-those with a policy go through `analyzers.join` (an `AGGREGATE`), `analyzers.gate` (a `BRANCH` on a failed
-item) and ONE shared fixer chain `analyzers.f<i>` then ONE gradle rerun `analyzers.r<i>`, so two fixers never
-edit the tree at once. `licenses` and `security` have no policy: they fail the run at once. `verify` re-runs
-every task if anything was healed (`yukta-heal.sh verify`), then `done`.
+- **triage** is a `CLASSIFY` on the System One backend (`heal.json` `triage.model`): `brief` (the stage, its
+  command, the problem lines, the failing tests) goes in, a difficulty comes out and `triage.levels` maps it to a
+  start rung: `trivial` haiku/low, `easy` haiku/medium, `simple` haiku/high, `moderate` sonnet/low, `average`
+  sonnet/medium (the default, also for an uncertain answer or a model that is down), `hard` sonnet/high,
+  `veryhard` opus/low. It only picks where to start: a failure always goes on to the next model.
+- **fix** runs one model at rising effort. Every attempt is time-boxed and budgeted (`heal.json` `efforts`:
+  `timeoutSeconds`, `budget`), and `recheck` re-runs the failing stage's own command (`yukta-heal.sh run`
+  records it) after each one, so the attempt is judged by the check it was meant to fix.
+- **heal** escalates the model: a model that fails at every effort hands over to the next one at `low` again.
+  When the last model has failed, `giveup` fails `heal` and so the run.
+- Depth is check → heal → fix (2; the engine allows 5). `heal.json` `models` is the order of the models.
+
+`yk check --models sonnet,opus` limits the models for one run, `--triage off` skips the System One call (heal
+then starts at the default level; the online test has no Ollama), `YUKTA_TRIAGE=off` is the same.
+
+The deterministic fix (`auto`, only `spotless`: `spotlessApply`) still comes first. `check-impl` (the gate of
+`yk run issue`) keeps the unrolled chain with its `resume` rungs, a fixer that continues the implementer's own
+session: `S.run1 ─failure▶ S.f1 ─success▶ S.run2 ─failure▶ S.f2 …`. A healed stage re-runs only itself. After `coverage` the
+**analyzers** (style, spotbugs, licenses, security, cli) run in parallel; those with a policy go through
+`analyzers.join` (an `AGGREGATE`), `analyzers.gate` (a `BRANCH` on a failed item) and ONE `analyzers.heal`, so two
+fixers never edit the tree at once (`recheck` of the analyzers is one gradle rerun of the failing ones). `licenses` and
+`security` have no policy: they fail the run at once. `verify` re-runs every task if anything was healed
+(`yukta-heal.sh verify`), then `done`.
 
 **Extra stages.** `ui` (`:ui:pnpmLint :ui:pnpmTest`, the Gradle toolchain's pnpm), `docs` (`mint broken-links`), `reuse` (`reuse lint`) and
 `actionlint` (local binary, else the pinned docker image of `ci.yml`) are analyzers too, from `extra` in
@@ -162,7 +183,7 @@ every task if anything was healed (`yukta-heal.sh verify`), then `done`.
 when another analyzer fails with it). `YUKTA_CHECK_EXTRAS=off` leaves them out.
 
 **Checkpoint.** `yk check --pause before-opus` puts a `WAIT_FOR_SIGNAL` (`before-opus`) in front of every opus
-fixer: whoever steers the run can approve it (`yk cli workflow node signal <e> <node> --name before-opus
+fixer (`pause-opus` in `heal`): whoever steers the run can approve it (`yk cli workflow node signal <e> <node> --name before-opus
 --decision approve`), reject it (the run ends), or take over; unanswered it lets the run go on after
 `YUKTA_PAUSE_SECONDS` (600). It is off by default until the steering surface (PR4) shows pending approvals.
 
@@ -170,7 +191,7 @@ fixer: whoever steers the run can approve it (`yk cli workflow node signal <e> <
 (`yukta.concurrency.groups.gradle`, 2 by default, `YUKTA_DEV_GRADLE_PARALLEL` at `yk up`): the analyzers wait
 `QUEUED` instead of each starting a 4 GB daemon.
 
-| stage | `auto` | ladder | in `heal.json` |
+| stage | `auto` | heal | in `heal.json` |
 |---|---|---|---|
 | spotless | `spotlessApply` | yes | |
 | compile, tests, coverage, style, spotbugs, cli | | yes | |
