@@ -10,7 +10,7 @@ dir="$(mktemp -d)"
 trap 'rm -rf "$dir"' EXIT
 "$here/fake-project.sh" "$dir"
 proj="$dir/proj"
-export YUKTA_CLAUDE_BIN="$dir/claude" YUKTA_CHECK_EXTRAS=off YUKTA_TRIAGE=off YUKTA_PAUSE_SECONDS=120
+export YUKTA_CLAUDE_BIN="$dir/claude" YUKTA_CHECK_EXTRAS=off YUKTA_TRIAGE=off YUKTA_HEAL_EVENTS=off YUKTA_PAUSE_SECONDS=120
 
 exec_id="" session=""
 # start FLAGS...: a detached check of the fake project; sets exec_id and session

@@ -8,22 +8,13 @@
 #                                            the self-healing quality gate (spotless .. cli) as one execution
 #   yk gradle <gradle args...>               any gradle args as one Yukta stage, e.g. :core:test --tests X
 #   yk watch <session> <exec> [--all]        follow a run: problems only, then RESULT
-#   yk run issue <n> --nav [--detach] [--no-pause before-implement,before-pr]
-#                                            method C: yk run issue with a code-navigation index (IDE, codebase-memory-mcp or CodeGraph, see scripts/nav.sh)
-#   yk run issue <n> --solo [--detach] [--no-pause before-pr]
-#                                            method A: one Claude session does the issue itself, Yukta only checks, then the PR
 #   yk run issue|epic <n> [--detach] [--no-pause before-implement,before-pr,between-issues]
 #                                            implement an assigned, Ready issue (or the sub-issues of an epic, two at a
-#                                            time) in its own worktree, check it, open a draft PR
-#   yk stats                                 dollars, attempts and cache-read share per step, from the records the loop keeps
-#   yk next                                  your assigned, Ready issues, by priority, with their size
-#   yk pick <n> [--method A|B|C] [--dry-run] draw a method for the issue at random (balanced by size), run it, record
-#                                            tokens and dollars in the ledger (see scripts/loop.sh)
-#   yk loop plan|total|ledger                the draw of an issue without running it | dollars spent of the budget | the ledger
-#   yk loop report [--loop SHA]              what each method cost and delivered, with the uncertainty and no verdict on small samples
-#   yk loop sync                             CI, review comments, human commits and merged for every run's PR; the state of the issues the analyzer filed
-#   yk loop themes [--post] [--no-judge]     the analyzer's findings and notes counted by theme (--post puts the counts on the matching epic issue)
-#   yk analyze <draw-id> [--dry-run]         read a finished run and file what it finds under the epic (scripts/analyze.sh)
+#                                            time) in its own worktree with a code-navigation index (IDE, codebase-memory-mcp or
+#                                            CodeGraph, see scripts/nav.sh), check and heal it, open a draft PR
+#   yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]
+#                                            what heal did: where the time and money went (report), what looks wrong (analyze), the
+#                                            raw events (show); from the monitoring log, see "Monitoring heal" below
 #   yk result <session> <exec>               the RESULT line of a run that ended
 #   yk tree <exec>                           the run and every run below it, one line each: workflow, status,
 #                                            current nodes, pending signal (an execution id may be its first 8 characters)
@@ -122,8 +113,8 @@ run_check() {
       | if [[ -n "$modules" ]]; then scope_to_modules $modules; else cat; fi \
       | if (($#)); then splice_args "$@"; else cat; fi \
       | if [[ "$workflow" == check ]]; then
-        heal_workflow "$(cat "$here/heal.json")" "$modules" "$project" "$healsh" "$heal_dir" "" \
-          "$(heal_extras "$(cat "$here/heal.json")" "$modules")" "$pause" \
+        heal_workflow "$(cat "$here/heal.json")" "$modules" "$project" "$healsh" "$heal_dir" \
+          "$(heal_extras "$(cat "$here/heal.json")" "$modules")" \
           | jq --argjson h "$(heal_subflows "$(policy_models "$(cat "$here/heal.json")" "$models")" "$healsh" "$pause")" \
             '.workflows += $h.workflows'
       else cat; fi
@@ -412,30 +403,6 @@ cmd_statusline() {
   echo "$line"
 }
 
-# yk stats: what the dev loop spent, from the records it keeps: the fixers' attempts of this checkout's checks and of
-# the issue worktrees next to it, and the implementers. Per step: attempts, how many fixed, dollars, and how much of
-# the prompt was read from the cache (the target is 70 % and more once a model has run twice in the cache's time).
-cmd_stats() {
-  need jq
-  local files=()
-  mapfile -t files < <(ls "$STATE_DIR"/heal/*/*-[0-9]*.json "$(dirname "$REPO_ROOT")"/yukta-issue-*/.yukta-dev/heal/check/*-[0-9]*.json \
-    "$STATE_DIR"/issue-*/implement.json 2>/dev/null)
-  ((${#files[@]})) || { echo "no records yet (yk check and yk run write them)"; return 0; }
-  jq -rs '
-    map(if has("stage") then {step: "\(.stage) \(.mode)\(if .effort then "/" + .effort else "" end)", fixed: .fixed, cost: (.cost // 0), usage: (.usage // {})}
-        else {step: "implement", fixed: (.done // false), cost: (.cost // 0), usage: (.usage // {})} end
-        | .tokens = {i: (.usage.input // .usage.input_tokens // 0), c: (.usage.cache_creation // .usage.cache_creation_input_tokens // 0),
-                     r: (.usage.cache_read // .usage.cache_read_input_tokens // 0)})
-    | def row($k; $g): [$k, ($g | length), ($g | map(select(.fixed)) | length),
-        ("$" + ((($g | map(.cost) | add) * 100 | round) / 100 | tostring)),
-        (($g | map(.tokens.i + .tokens.c + .tokens.r) | add) as $all
-         | if $all > 0 then (($g | map(.tokens.r) | add) * 100 / $all | floor | tostring + "%") else "-" end)];
-    (["step", "attempts", "fixed", "cost", "cache-read"],
-     (group_by(.step)[] | row(.[0].step; .)),
-     row("total"; .))
-    | @tsv' "${files[@]}" | column -t -s $'\t'
-}
-
 # yk mcp-headers: the headers for Claude Code's MCP connection (.mcp.json headersHelper)
 cmd_mcp_headers() { jq -n --arg k "$(dev_key)" '{"X-API-Key": $k}'; }
 
@@ -444,8 +411,8 @@ cmd_mcp_headers() { jq -n --arg k "$(dev_key)" '{"X-API-Key": $k}'; }
 # yk run issue N [--detach] [--no-pause before-implement,before-pr]
 # yk run epic N  [--detach] [--no-pause before-implement,before-pr,between-issues]
 # issue: implements one assigned, Ready issue in its own worktree (../yukta-issue-N): a headless Claude does the
-# work, the self-healing check runs on the worktree (its fixers resume the implementer), and a draft PR
-# opens once you approve. epic: the same for every open, assigned, Ready sub-issue of epic N, two at a time.
+# work (after a code-navigation index of the worktree), the self-healing check runs on the worktree
+# (a triage picks the model and effort of fresh fixer sessions), and a draft PR opens once you approve. epic: the same for every open, assigned, Ready sub-issue of epic N, two at a time.
 # The checkpoints wait for you (yk signals / yk approve|reject <e> <signal>): before-implement (edit
 # .yukta-dev/issue-N/brief.md first, then approve), before-pr, and for an epic between-issues (each issue
 # starts when you approve it). Budgets: YUKTA_BUDGET_ISSUE and YUKTA_BUDGET_EPIC (USD) stop the spending.
@@ -458,15 +425,13 @@ cmd_run() {
 
 # run_layered KIND N [--detach] [--no-pause a,b]
 run_layered() {
-  local kind="$1" n="${2:?usage: yk run $1 <number> [--detach] [--no-pause <checkpoints>]}" mode=watch nopause="" impl=1 pr=1 between=1 solo=0 nav=0 p
+  local kind="$1" n="${2:?usage: yk run $1 <number> [--detach] [--no-pause <checkpoints>]}" mode=watch nopause="" impl=1 pr=1 between=1 p
   shift 2
   [[ "$n" =~ ^[0-9]+$ ]] || die "the $kind is a number, not '$n'"
   while (($#)); do
     case "$1" in
       --detach) mode=detach; shift ;;
       --no-pause) nopause="${2:?--no-pause needs checkpoints}"; shift 2 ;;
-      --solo) [[ "$kind" == issue ]] || die "--solo is for an issue"; solo=1; shift ;;
-      --nav) [[ "$kind" == issue ]] || die "--nav is for an issue"; nav=1; shift ;;
       *) die "unknown option '$1'" ;;
     esac
   done
@@ -487,17 +452,8 @@ run_layered() {
   trap 'rm -rf "$tmp"' EXIT
   mkdir -p "$STATE_DIR"
   if [[ "$kind" == issue ]]; then
-    if ((solo)); then
-      impl=0  # method A has no implementer checkpoint
-      workflow="run-issue-solo$([[ "$pr" == 1 ]] || echo "-no-pr-pause")"
-    elif ((nav)); then
-      workflow="run-issue-nav$(issue_variant "$impl" "$pr")"  # method C: a nav step indexes the worktree before implement
-    else
-      workflow="run-issue$(issue_variant "$impl" "$pr")"
-    fi
-    ((nav)) || rm -f "$REPO_ROOT/.yukta-dev/issue-$n/nav.json"  # a plain run must not pick up the index of an earlier method C run
-    payload="$(jq -nc --arg i "$n" --arg r "$REPO_ROOT" --arg w "$(dirname "$REPO_ROOT")/yukta-issue-$n" --arg s "$(cat /proc/sys/kernel/random/uuid)" \
-      '{issue: $i, repo: $r, worktree: $w, implSession: $s}')"
+    workflow="run-issue$(issue_variant "$impl" "$pr")"  # a nav step indexes the worktree before implement
+    payload="$(jq -nc --arg i "$n" --arg r "$REPO_ROOT" --arg w "$(dirname "$REPO_ROOT")/yukta-issue-$n" '{issue: $i, repo: $r, worktree: $w}')"
     rm -rf "$(dirname "$REPO_ROOT")/yukta-issue-$n/.yukta-dev/heal"
   else
     workflow="run-epic$(epic_variant "$impl" "$pr" "$between")"
@@ -535,11 +491,11 @@ case "$cmd" in
   statusline) cmd_statusline ;;
   mcp-headers) cmd_mcp_headers ;;
   sum) changes_sum "$REPO_ROOT" ;;
-  stats) cmd_stats ;;
-  next | pick) exec "$here/scripts/loop.sh" "$cmd" "$@" ;;
-  loop) exec "$here/scripts/loop.sh" "$@" ;;
-  analyze) exec "$here/scripts/analyze.sh" "$@" ;;
   run) cmd_run "$@" ;;
+  heal)
+    sub="${1:-report}"; (($#)) && shift
+    [[ "$sub" =~ ^(report|analyze|show)$ ]] || die "usage: yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]"
+    exec python3 -I "$here/scripts/heal-report.py" "$sub" --events "$(heal_events_file)" "$@" ;;
   result)
     export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
     print_result "${1:?usage: yk result <session> <execution>}" "${2:?usage: yk result <session> <execution>}" ;;

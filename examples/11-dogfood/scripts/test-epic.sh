@@ -17,7 +17,7 @@ git clone -q "$dir/origin.git" "$repo"
 git -C "$repo" config user.email t@t
 git -C "$repo" config user.name t
 export YUKTA_REPO_ROOT="$repo" YUKTA_CLAUDE_BIN="$dir/claude" YUKTA_GH="$dir/gh" YUKTA_PROJECT_STATUS_CMD="$dir/project-status"
-export YUKTA_WARM_DELAY=2 YUKTA_CHECK_EXTRAS=off GIT_AUTHOR_NAME=t GIT_COMMITTER_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_EMAIL=t@t
+export YUKTA_WARM_DELAY=2 YUKTA_NAV_BACKENDS=none YUKTA_TRIAGE=off YUKTA_HEAL_EVENTS=off YUKTA_CHECK_EXTRAS=off GIT_AUTHOR_NAME=t GIT_COMMITTER_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_EMAIL=t@t
 
 exec_id="" session=""
 # start KIND N FLAGS...: yk run KIND N --detach; sets exec_id and session
@@ -118,11 +118,11 @@ echo "ok   between issues"
 reset
 echo 7 >"$dir/sub-issues"
 touch "$dir/implement-breaks"
-echo resume >"$dir/fix-at"
+echo sonnet/medium >"$dir/fix-at"
 YUKTA_BUDGET_ISSUE=0.4 start epic 9 --no-pause before-implement,before-pr,between-issues
 wait_for 240 ended || fail "the epic did not end (budget)"
 got="$(result)"
 grep -q "status=ESCALATE" <<<"$got" || fail "an issue over its budget did not end ESCALATE: $got"
-! grep -q "resume=[0-9a-f]\{8\}" "$dir/claude.log" || fail "a fixer ran although the issue was over its budget"
+! grep -q "model=sonnet" "$dir/claude.log" || fail "a fixer ran although the issue was over its budget"
 echo "ok   budget"
 echo "ok   epic"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Offline test of the navigation backends of method C (nav.sh, and how yk_claude hands them to a session): a fake
+# Offline test of the navigation backends (nav.sh, and how yk_claude hands them to a session): a fake
 # codebase-memory-mcp, a fake codegraph and a stub of the IDE's MCP server stand in for the real ones. No server, no Claude, no
 # IDE window, no spend.
 set -euo pipefail
@@ -149,8 +149,8 @@ SH
 chmod +x "$dir/claude"
 echo "base rules" >"$dir/rules.md"
 call() { # STATE: yk_claude as an implementer or fixer of the issue whose state directory is STATE
-  ( source "$here/_claude.sh"; export YUKTA_CLAUDE_BIN="$dir/claude" YUKTA_IMPL_COSTFILE="$1/implement.json" YUKTA_IMPL_SESSION=00000000-0000-0000-0000-000000000000
-    YK_SCHEMA='{"type":"object"}'; yk_claude resume "prompt" "$dir/rules.md" 1 "$dir/out.err" >/dev/null )
+  ( source "$here/_claude.sh"; export YUKTA_CLAUDE_BIN="$dir/claude" YUKTA_IMPL_COSTFILE="$1/implement.json"
+    YK_SCHEMA='{"type":"object"}'; yk_claude sonnet "prompt" "$dir/rules.md" 1 "$dir/out.err" >/dev/null )
 }
 call "$dir/state1"
 grep -qx -- '--strict-mcp-config' "$dir/argv.txt" || fail "strict MCP config must stay on"
