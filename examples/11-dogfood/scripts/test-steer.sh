@@ -74,6 +74,19 @@ got="$(result)"
 grep -Eq "status=FAILURE failed_node=compile " <<<"$got" || fail "rejected run did not end at compile: $got"
 echo "ok   reject"
 
+# --- yk watch says when a checkpoint waits for an answer
+reset fail-compileJava
+echo opus >"$proj/.fake-fix-at"
+log="$dir/watch.out"
+"$yk" check -p "$proj" --pause before-opus >"$log" 2>&1 &
+checker=$!
+wait_for 90 grep -q "APPROVAL before-opus waits at compile.pause" "$log" || fail "watch did not announce the checkpoint: $(tail -5 "$log")"
+e8="$(grep -o 'yk approve [0-9a-f]\{8\}' "$log" | head -1 | awk '{print $3}')"
+"$yk" approve "$e8" before-opus >/dev/null
+wait "$checker" || fail "the watched check did not succeed: $(tail -3 "$log")"
+tail -1 "$log" | grep -Eq "status=SUCCESS .*healed=compile:opus" || fail "the watched check did not heal at the opus rung: $(tail -2 "$log")"
+echo "ok   watch announces a checkpoint"
+
 # --- a prefix that matches no run is an error with a message
 got="$("$yk" pause 00000000 2>&1 || true)"
 grep -q "no single execution" <<<"$got" || fail "an unknown prefix is not reported: $got"

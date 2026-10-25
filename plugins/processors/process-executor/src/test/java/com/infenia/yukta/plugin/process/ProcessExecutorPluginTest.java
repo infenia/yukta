@@ -119,6 +119,46 @@ class ProcessExecutorPluginTest {
     verify(gateway).executeForResult(any(), eq(sink));
   }
 
+  @Test
+  void process_exportsTheIdsOfTheRun_andTheWorkflowsOwnEntryWins() {
+    final ArgumentCaptor<ProcessExecutionSpec> specCaptor =
+        ArgumentCaptor.forClass(ProcessExecutionSpec.class);
+    when(gateway.executeForResult(specCaptor.capture())).thenReturn(Mono.just(successResult("ok")));
+
+    StepVerifier.create(
+            plugin
+                .process(
+                    Flux.just(message("in")),
+                    Map.of(
+                        "command",
+                        List.of("echo"),
+                        "env",
+                        Map.of("YUKTA_SESSION_ID", "mine", "OTHER", "x")))
+                .contextWrite(Context.of("executionId", "e-1", "sessionId", "s-1")))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(specCaptor.getValue().env())
+        .containsEntry("YUKTA_EXECUTION_ID", "e-1")
+        .containsEntry("YUKTA_SESSION_ID", "mine")
+        .containsEntry("OTHER", "x");
+  }
+
+  @Test
+  void process_withoutRunContext_addsNoIds() {
+    final ArgumentCaptor<ProcessExecutionSpec> specCaptor =
+        ArgumentCaptor.forClass(ProcessExecutionSpec.class);
+    when(gateway.executeForResult(specCaptor.capture())).thenReturn(Mono.just(successResult("ok")));
+
+    StepVerifier.create(
+            plugin.process(Flux.just(message("in")), Map.of("command", List.of("echo"))))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(specCaptor.getValue().env())
+        .doesNotContainKeys("YUKTA_EXECUTION_ID", "YUKTA_SESSION_ID");
+  }
+
   /** Runs {@code count} messages through the plugin and returns the most calls seen at once. */
   private int peakConcurrency(final Map<String, Object> config, final int count) {
     final AtomicInteger inFlight = new AtomicInteger();
