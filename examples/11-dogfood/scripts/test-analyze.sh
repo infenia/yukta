@@ -45,11 +45,11 @@ tdir="$CLAUDE_CONFIG_DIR/projects/$(python3 -I -c 'import os,re,sys;print(re.sub
 mkdir -p "$tdir"
 transcript "$tdir/aaaa1111.jsonl" 0
 
-# the ledger: a draw and an outcome of method B whose RESULT line says healed=-
+# the ledger: a draw and an outcome of method C whose RESULT line says healed=-
 mkdir -p "$YUKTA_LOOP_DIR"
 id=1700000000-9
-jq -nc --arg id "$id" '{type: "draw", id: $id, issue: 9, size: "S", method: "B", loop_changing: false, loop_sha: "abc123", regime: "A,B"}' >"$YUKTA_LOOP_DIR/ledger.jsonl"
-jq -nc --arg id "$id" '{type: "outcome", draw: $id, issue: 9, method: "B", result: "RESULT status=SUCCESS failed_node=- healed=- execution=e session=s", wall_s: 600, cost_usd: 2.4,
+jq -nc --arg id "$id" '{type: "draw", id: $id, issue: 9, size: "S", method: "C", loop_changing: false, loop_sha: "abc123", regime: "A,C"}' >"$YUKTA_LOOP_DIR/ledger.jsonl"
+jq -nc --arg id "$id" '{type: "outcome", draw: $id, issue: 9, method: "C", result: "RESULT status=SUCCESS failed_node=- healed=- execution=e session=s", wall_s: 600, cost_usd: 2.4,
   main: {cost_usd: 0.3}, sub: {cost_usd: 2.1}, analyzer_cost_usd: 0}' >>"$YUKTA_LOOP_DIR/ledger.jsonl"
 
 # ---- a fake gh: the issue names the cli module; #1234, #1248, #1235 and #1256 are open (list in $dir/closed for closed ones)
@@ -97,14 +97,14 @@ a="$YUKTA_LOOP_DIR/analysis/$id.json"
 [[ "$(jq -r '.facts.rewrite_turns' "$a")" == 1 && "$(jq -r '.facts.sessions' "$a")" == 1 ]] || fail "cache trace: $(jq -c .facts "$a")"
 [[ "$(jq -c '.facts.tool_use' "$a")" == '{"Bash":3,"Read":1}' ]] || fail "tool use: $(jq -c .facts.tool_use "$a")"
 [[ "$(jq -r '.facts.healed_field' "$a")" == "-" && "$(jq -r '.facts.status' "$a")" == SUCCESS ]] || fail "result fields"
-[[ "$(rules)" == "cache-rewrite-on-resume fixer-outside-module healed-field-mismatch noop-fixers" ]] || fail "rules: $(rules)"
+[[ "$(rules)" == "fixer-outside-module healed-field-mismatch nav-backend-none noop-fixers" ]] || fail "rules: $(rules)"
 echo "ok   facts and rules"
 
 # ---- dry run: names what it would do and writes nothing to GitHub
 : >"$dir/gh.log"
 "$analyze" "$id" --dry-run >"$dir/out2" 2>&1 || fail "dry run failed: $(cat "$dir/out2")"
 grep -q 'WOULD COMMENT #1234' "$dir/out2" || fail "no comment on 1234: $(cat "$dir/out2")"
-grep -q 'WOULD COMMENT #1235' "$dir/out2" && grep -q 'WOULD COMMENT #1256' "$dir/out2" && grep -q 'WOULD COMMENT #1248' "$dir/out2" || fail "known issues: $(cat "$dir/out2")"
+grep -q 'WOULD COMMENT #1235' "$dir/out2" && grep -q 'WOULD COMMENT #1256' "$dir/out2" || fail "known issues: $(cat "$dir/out2")"
 grep -q 'WOULD FILE: The issue run never checks that a fixer stays inside the module' "$dir/out2" || fail "no new issue proposed: $(cat "$dir/out2")"
 [[ "$(grep -c 'WOULD COMMENT #1234' "$dir/out2")" == 2 ]] || fail "the duplicate proposal should comment on #1234 too: $(cat "$dir/out2")"
 ! grep -qE '^(issue create|issue comment|api -X)' "$dir/gh.log" || fail "a dry run wrote to GitHub: $(cat "$dir/gh.log")"
@@ -115,7 +115,7 @@ echo "ok   dry run"
 : >"$dir/gh.log"
 before="$("$here/loop.sh" total)"
 "$analyze" "$id" >"$dir/out3" 2>&1 || fail "analyze failed: $(cat "$dir/out3")"
-for n in 1234 1235 1248 1256; do grep -q "issue comment $n " "$dir/gh.log" || fail "no comment on #$n: $(cat "$dir/gh.log")"; done
+for n in 1234 1235 1256; do grep -q "issue comment $n " "$dir/gh.log" || fail "no comment on #$n: $(cat "$dir/gh.log")"; done
 [[ "$(grep -c 'issue create' "$dir/gh.log")" == 1 ]] || fail "one new issue expected: $(grep 'issue create' "$dir/gh.log")"
 grep -q 'sub_issues -F sub_issue_id=42' "$dir/gh.log" || fail "the new issue was not attached under the epic: $(cat "$dir/gh.log")"
 grep -q 'ATTACHED #9001 to #1218' "$dir/out3" || fail "output: $(cat "$dir/out3")"
@@ -134,7 +134,7 @@ rm -f "$dir/closed"
 echo "ok   closed known issue"
 
 # ---- at most YUKTA_ANALYZER_MAX_FILED new issues per run
-: >"$dir/gh.log"; echo "1234 1235 1248 1256" | tr ' ' '\n' >"$dir/closed"
+: >"$dir/gh.log"; echo "1234 1235 1249 1256" | tr ' ' '\n' >"$dir/closed"
 YUKTA_ANALYZER_MAX_FILED=2 "$analyze" "$id" --no-judge >"$dir/out5" 2>&1 || fail "analyze failed: $(cat "$dir/out5")"
 [[ "$(grep -c 'issue create' "$dir/gh.log")" == 2 ]] || fail "the cap of 2 new issues was not kept: $(grep 'issue create' "$dir/gh.log")"
 grep -q 'SKIPPED (at most 2 new issues per run)' "$dir/out5" || fail "no note about the cap: $(cat "$dir/out5")"
@@ -158,18 +158,18 @@ echo "RESULT status=SUCCESS failed_node=- healed=- execution=e session=s"
 SH
 chmod +x "$dir/runner"
 : >"$dir/gh.log"
-YUKTA_LOOP_METHODS=B YUKTA_LOOP_RUNNER="$dir/runner" YUKTA_LOOP_ANALYZE=dry "$here/loop.sh" pick 10 >"$dir/out8" 2>&1 || fail "pick failed: $(cat "$dir/out8")"
+YUKTA_LOOP_METHODS=A YUKTA_LOOP_RUNNER="$dir/runner" YUKTA_LOOP_ANALYZE=dry "$here/loop.sh" pick 10 >"$dir/out8" 2>&1 || fail "pick failed: $(cat "$dir/out8")"
 grep -q '^ANALYSIS ' "$dir/out8" || fail "pick did not run the analyzer: $(cat "$dir/out8")"
 ! grep -qE '^(issue create|issue comment|api -X)' "$dir/gh.log" || fail "the analyzer wrote to GitHub in dry mode: $(cat "$dir/gh.log")"
 [[ "$(jq -s '[.[] | select(.type == "analysis" and .issue == 10)] | length' "$YUKTA_LOOP_DIR/ledger.jsonl")" == 1 ]] || fail "no analysis record for the picked issue"
 before="$(jq -s '[.[] | select(.type == "analysis")] | length' "$YUKTA_LOOP_DIR/ledger.jsonl")"
-YUKTA_LOOP_METHODS=B YUKTA_LOOP_RUNNER="$dir/runner" YUKTA_LOOP_ANALYZE=off "$here/loop.sh" pick 11 >/dev/null 2>&1 || fail "pick with the analyzer off failed"
+YUKTA_LOOP_METHODS=A YUKTA_LOOP_RUNNER="$dir/runner" YUKTA_LOOP_ANALYZE=off "$here/loop.sh" pick 11 >/dev/null 2>&1 || fail "pick with the analyzer off failed"
 [[ "$(jq -s '[.[] | select(.type == "analysis")] | length' "$YUKTA_LOOP_DIR/ledger.jsonl")" == "$before" ]] || fail "YUKTA_LOOP_ANALYZE=off still analyzed"
 echo "ok   pick runs the analyzer"
 
 # ---- method C: a run without a backend and a run whose index was never used are noted, never filed
 cid=1700000001-9
-jq -nc --arg id "$cid" '{type: "draw", id: $id, issue: 9, size: "S", method: "C", loop_changing: false, loop_sha: "abc123", regime: "A,B,C"}' >>"$YUKTA_LOOP_DIR/ledger.jsonl"
+jq -nc --arg id "$cid" '{type: "draw", id: $id, issue: 9, size: "S", method: "C", loop_changing: false, loop_sha: "abc123", regime: "A,C"}' >>"$YUKTA_LOOP_DIR/ledger.jsonl"
 jq -nc --arg id "$cid" '{type: "outcome", draw: $id, issue: 9, method: "C", result: "RESULT status=SUCCESS failed_node=- healed=- execution=e session=s", wall_s: 100, cost_usd: 1, main: {cost_usd: 0.2}, sub: {cost_usd: 0.8}, analyzer_cost_usd: 0}' >>"$YUKTA_LOOP_DIR/ledger.jsonl"
 rm -f "$dir/closed" "$tdir/bbbb2222.jsonl"
 echo '{"backend":"none","ok":false,"index_seconds":0,"version":"","attempts":[{"backend":"ide","ok":false,"reason":"not enabled"},{"backend":"cbm","ok":false,"reason":"codebase-memory-mcp is not installed"}]}' >"$repo/.yukta-dev/issue-9/nav.json"
@@ -178,7 +178,7 @@ echo '{"backend":"none","ok":false,"index_seconds":0,"version":"","attempts":[{"
 ca="$YUKTA_LOOP_DIR/analysis/$cid.json"
 jq -e '.findings | map(.rule) | index("nav-backend-none")' "$ca" >/dev/null || fail "no nav-backend-none: $(jq -c '.findings' "$ca")"
 grep -q 'NOTED nav-backend-none' "$dir/out9" || fail "the finding is not noted: $(cat "$dir/out9")"
-! grep -qE '^(issue create|issue comment|api -X)' <(grep -v 'issue comment 1234\|issue comment 1235\|issue comment 1248\|issue comment 1256' "$dir/gh.log") || fail "a nav finding was filed or commented: $(cat "$dir/gh.log")"
+! grep -qE '^(issue create|issue comment|api -X)' <(grep -v 'issue comment 1234\|issue comment 1235\|issue comment 1256' "$dir/gh.log") || fail "a nav finding was filed or commented: $(cat "$dir/gh.log")"
 echo '{"backend":"cbm","ok":true,"index_seconds":13,"version":"9.9.9","attempts":[]}' >"$repo/.yukta-dev/issue-9/nav.json"
 "$analyze" "$cid" --no-judge >"$dir/out10" 2>&1 || fail "analyze failed: $(cat "$dir/out10")"
 jq -e '.findings | map(.rule) | index("nav-unused")' "$ca" >/dev/null || fail "no nav-unused: $(jq -c '.findings' "$ca")"

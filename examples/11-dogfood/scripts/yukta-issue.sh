@@ -5,7 +5,7 @@
 #   yukta-issue.sh claim      the issue is open, assigned to you and Ready: move it to In progress (exit 3 otherwise)
 #   yukta-issue.sh worktree   a git worktree on a new branch issue/<n> from origin/main
 #   yukta-issue.sh brief      write the brief the implementer reads (T0 may edit it before the work starts)
-#   yukta-issue.sh nav        method C: index the worktree for code navigation (nav.sh); never fails the run
+#   yukta-issue.sh nav        index the worktree for code navigation (nav.sh); never fails the run
 #   yukta-issue.sh implement  a headless Claude implements the brief in the worktree (opus, $YUKTA_IMPL_BUDGET)
 #   yukta-issue.sh solo       method A: one headless Claude Code session (your own setup) does the whole issue in the
 #                             worktree and checks it with yk; Yukta only checks ($YUKTA_SOLO_BUDGET)
@@ -14,7 +14,7 @@
 #   yukta-issue.sh epic-list  the open, assigned, Ready sub-issues of an epic, as JSON for the epic workflow to fan out
 #   yukta-issue.sh epic-pause two issue runs of the epic ended ESCALATE: pause the epic and the runs below it
 #
-# Environment: YUKTA_ISSUE (number) or, for the epic steps, YUKTA_EPIC and YUKTA_BAD_COUNT; YUKTA_REPO_DIR (the main checkout), YUKTA_WORKTREE, YUKTA_IMPL_SESSION (a uuid),
+# Environment: YUKTA_ISSUE (number) or, for the epic steps, YUKTA_EPIC and YUKTA_BAD_COUNT; YUKTA_REPO_DIR (the main checkout), YUKTA_WORKTREE,
 # YUKTA_CHECK_EXECUTION (pr: the execution of the check), YUKTA_GH_REPO (default infenia/yukta), YUKTA_GH (gh),
 # YUKTA_IMPL_MODEL (opus), YUKTA_IMPL_BUDGET (USD, 5), YUKTA_PROJECT_STATUS_CMD (tests: replaces the project update).
 # YUKTA_SOLO_MODEL (opus), YUKTA_SOLO_BUDGET (USD, 5), YUKTA_SOLO_TURNS (60) for solo.
@@ -22,7 +22,7 @@
 # Budgets (USD, optional): YUKTA_BUDGET_ISSUE caps what one issue spends (the implementer and its fixers), YUKTA_BUDGET_EPIC
 # what all issues of the epic do; implement refuses to start over either.
 # State per issue: <repo>/.yukta-dev/issue-<n>/ (claimed, brief.md, implement.json, implement.out; solo.json, solo.out.json;
-# nav.json, nav-mcp.json, nav-rules.md for method C).
+# nav.json, nav-mcp.json, nav-rules.md from the nav step).
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 action="${1:?usage: yukta-issue.sh claim|worktree|brief|nav|implement|solo|pr|release|epic-list|epic-pause}"
@@ -100,7 +100,8 @@ TXT
     echo "brief: $state/brief.md"
     ;;
   nav)
-    # Method C. Index the worktree with the first navigation backend that works (nav.sh); with none the run goes on as method B.
+    # Index the worktree with the first navigation backend that works (nav.sh); with none the run goes on without an index
+    # (nav.json says backend none).
     "$here/nav.sh" prepare "$wt" "$state"
     ;;
   implement)
@@ -122,7 +123,6 @@ TXT
     fi
     # shellcheck source=_claude.sh
     source "$here/_claude.sh"
-    : "${YUKTA_IMPL_SESSION:?YUKTA_IMPL_SESSION is required}"
     export YK_SCHEMA='{"type":"object","properties":{"done":{"type":"boolean"},"summary":{"type":"string"}},"required":["done","summary"]}'
     cd "$wt" || exit 1
     out="$state/implement.out"
@@ -135,7 +135,7 @@ TXT
       prompt+=$'\n\n'"$(jq -r .prompt_note "$state/nav.json")"
     fi
     result="$(yk_claude "${YUKTA_IMPL_MODEL:-opus}" "$prompt" "$rules" \
-      "${YUKTA_IMPL_BUDGET:-5}" "$out" "$YUKTA_IMPL_SESSION")"
+      "${YUKTA_IMPL_BUDGET:-5}" "$out" "$(cat /proc/sys/kernel/random/uuid)")"
     answer="$(jq -c '.structured_output // (.result | fromjson? ) // {}' <<<"$result" 2>/dev/null || echo '{}')"
     jq -n --argjson r "${result:-null}" --argjson a "$answer" \
       '{cost: ($r.total_cost_usd // 0), usage: ($r.usage // null), done: ($a.done // false), summary: ($a.summary // "")}' \
@@ -207,11 +207,7 @@ ${result_line:-the check ran in the workflow}
     list="$(jq -c --arg l "$login" --argjson ready "$ready" --arg root "$(dirname "$repo")" '
       [.[] | select(.state == "open" and (.assignees | any(.login == $l)) and (.number as $n | $ready | index($n) != null))
        | {issue: (.number | tostring), worktree: ($root + "/yukta-issue-" + (.number | tostring))}]' <<<"$subs")"
-    # a session id for each issue's implementer, so its fixers can resume it
-    out="[]"
-    while IFS= read -r item; do
-      out="$(jq -c --argjson i "$item" --arg s "$(cat /proc/sys/kernel/random/uuid)" '. + [$i + {implSession: $s}]' <<<"$out")"
-    done < <(jq -c '.[]' <<<"$list")
+    out="$list"
     open="$(jq -r '[.[] | select(.state == "open")] | length' <<<"$subs")"
     # only JSON on stdout: the node's stderr is merged into it
     jq -n -c --argjson issues "$out" --arg note "epic #$YUKTA_EPIC: $(jq length <<<"$out") of $open open sub-issues are assigned to $login and Ready" \

@@ -17,7 +17,8 @@ git clone -q "$dir/origin.git" "$repo"
 git -C "$repo" config user.email t@t
 git -C "$repo" config user.name t
 export YUKTA_REPO_ROOT="$repo" YUKTA_CLAUDE_BIN="$dir/claude" YUKTA_GH="$dir/gh" YUKTA_PROJECT_STATUS_CMD="$dir/project-status"
-export YUKTA_CHECK_EXTRAS=off GIT_AUTHOR_NAME=t GIT_COMMITTER_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_EMAIL=t@t
+# no code index unless a test asks for one (the nav step would probe the real backends), and no System One triage (no Ollama)
+export YUKTA_NAV_BACKENDS=none YUKTA_TRIAGE=off YUKTA_CHECK_EXTRAS=off GIT_AUTHOR_NAME=t GIT_COMMITTER_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_EMAIL=t@t
 worktree="$dir/work/yukta-issue-7"
 
 exec_id="" session=""
@@ -56,7 +57,7 @@ wait_for 90 waiting_for before-implement || fail "never waited at before-impleme
 grep -q "Do the fake thing" "$repo/.yukta-dev/issue-7/brief.md" || fail "the brief does not hold the issue"
 "$yk" approve "${exec_id:0:8}" before-implement >/dev/null
 wait_for 180 waiting_for before-pr || fail "never waited at before-pr: $("$yk" tree "${exec_id:0:8}")"
-"$yk" tree "${exec_id:0:8}" | grep -q "check-impl" || fail "the tree does not show the check below the run"
+"$yk" tree "${exec_id:0:8}" | grep -q "check" || fail "the tree does not show the check below the run"
 "$yk" approve "${exec_id:0:8}" before-pr >/dev/null
 wait_for 60 ended || fail "the run did not end after the approval"
 got="$(result)"
@@ -70,19 +71,19 @@ git -C "$dir/origin.git" rev-parse --verify -q issue/7 >/dev/null || fail "the b
 grep -q "session=[0-9a-f-]\{36\}" "$dir/claude.log" || fail "the implementer was not started with a session id"
 echo "ok   issue to draft PR"
 
-# --- the check fails and the fixer resumes the implementer's own session
+# --- the check fails and a fresh fixer session heals it (the triage is off: heal starts at sonnet, medium effort)
 reset
 touch "$dir/implement-breaks"
-echo resume >"$dir/fix-at"
+echo sonnet/medium >"$dir/fix-at"
 start --no-pause before-implement,before-pr
 wait_for 240 ended || fail "the run did not end"
 got="$(result)"
 grep -q "status=SUCCESS" <<<"$got" || fail "the run did not succeed after the fixer: $got"
 # the check's RESULT line, with what was healed, goes into the pull request
-grep -Eq "RESULT status=SUCCESS .*healed=compile:resume" "$dir/gh.log" || fail "the PR does not say the fixer healed by resuming: $(cat "$dir/gh.log")"
-impl="$(grep -o 'session=[0-9a-f-]\{36\}' "$dir/claude.log" | head -1 | cut -d= -f2)"
-grep -q "resume=$impl" "$dir/claude.log" || fail "the fixer did not resume the implementer's session $impl: $(cat "$dir/claude.log")"
-echo "ok   the fixer resumes the implementer"
+grep -Eq "RESULT status=SUCCESS .*healed=compile:sonnet/medium" "$dir/gh.log" || fail "the PR does not say what the fixer healed: $(cat "$dir/gh.log")"
+grep -q "model=sonnet effort=medium session=- resume=-" "$dir/claude.log" || fail "the fixer is not a fresh session of its own: $(cat "$dir/claude.log")"
+! grep -q "resume=[0-9a-f]" "$dir/claude.log" || fail "a session was resumed: $(cat "$dir/claude.log")"
+echo "ok   a fresh fixer heals the check"
 
 # --- not Ready: nothing is claimed, no worktree, the run ends ESCALATE
 reset
@@ -149,7 +150,7 @@ out="$(jq -s '[.[] | select(.type == "outcome")] | last' "$dir/loop/ledger.jsonl
 [[ "$(jq -r '.main."gen_ai.usage.cache_read.input_tokens"' <<<"$out")" == 100 ]] || fail "outcome tokens: $out"
 echo "ok   pick with method A"
 
-# --- method C (--nav): the nav step indexes the worktree and the implementer gets the index
+# --- method C: the nav step indexes the worktree and the implementer gets the index
 cat >"$dir/cbm" <<'SH'
 #!/usr/bin/env bash
 [[ "$1" == --version ]] && { echo "codebase-memory-mcp 9.9.9"; exit 0; }
@@ -158,7 +159,7 @@ SH
 chmod +x "$dir/cbm"
 export YUKTA_NAV_BACKENDS=cbm YUKTA_NAV_CBM_BIN="$dir/cbm" YUKTA_NAV_CBM_CACHE="$dir/cbm-cache"
 reset
-start --nav --no-pause before-implement,before-pr
+start --no-pause before-implement,before-pr
 wait_for 240 ended || fail "the method C run did not end: $("$yk" tree "${exec_id:0:8}")"
 got="$(result)"
 grep -q "status=SUCCESS" <<<"$got" || fail "the method C run did not succeed: $got"
@@ -167,30 +168,20 @@ n="$repo/.yukta-dev/issue-7/nav.json"
 mcp="$repo/.yukta-dev/issue-7/nav-mcp.json"
 grep -q "session=[0-9a-f-]\{36\} .*mcp=$mcp" "$dir/claude.log" || fail "the implementer did not get the MCP config: $(cat "$dir/claude.log")"
 grep -q nav-note "$dir/claude.log" || fail "the implementer's prompt does not name the index: $(cat "$dir/claude.log")"
-"$yk" tree "${exec_id:0:8}" | grep -q "implement-issue-nav" || fail "the run did not use the nav workflow: $("$yk" tree "${exec_id:0:8}")"
+"$yk" tree "${exec_id:0:8}" | grep -q "implement-issue" || fail "the run did not use the issue workflow: $("$yk" tree "${exec_id:0:8}")"
 echo "ok   method C"
 
-# --- method C: a fixer that resumes the implementer gets the very same MCP config (else the cache is re-written)
+# --- method C: a fresh fixer gets the very same MCP config and index as the implementer
 reset
 touch "$dir/implement-breaks"
-echo resume >"$dir/fix-at"
-start --nav --no-pause before-implement,before-pr
+echo sonnet/medium >"$dir/fix-at"
+start --no-pause before-implement,before-pr
 wait_for 300 ended || fail "the method C run with a failing check did not end"
 got="$(result)"
 grep -q "status=SUCCESS" <<<"$got" || fail "the method C run did not succeed after the fixer: $got"
 [[ "$(grep -c "mcp=$mcp" "$dir/claude.log")" -ge 2 ]] || fail "the fixer did not get the implementer's MCP config: $(cat "$dir/claude.log")"
-impl="$(grep -o 'session=[0-9a-f-]\{36\}' "$dir/claude.log" | head -1 | cut -d= -f2)"
-grep -q "resume=$impl mcp=$mcp" "$dir/claude.log" || fail "the resumed fixer has another tool set than the implementer: $(cat "$dir/claude.log")"
+grep -q "model=sonnet effort=medium session=- resume=- mcp=$mcp" "$dir/claude.log" || fail "the fixer is not a fresh session with the index: $(cat "$dir/claude.log")"
+unset YUKTA_NAV_BACKENDS YUKTA_NAV_CBM_BIN YUKTA_NAV_CBM_CACHE
 echo "ok   method C fixer"
 
-# --- a plain run does not pick up the index of an earlier method C run
-reset
-echo Backlog >"$dir/status"
-mkdir -p "$repo/.yukta-dev/issue-7"
-echo '{"ok":true,"backend":"cbm","mcp_config":"/nowhere","tools":[]}' >"$repo/.yukta-dev/issue-7/nav.json"
-start --no-pause before-implement,before-pr
-wait_for 60 ended || fail "the run did not end (stale nav.json)"
-[[ ! -e "$repo/.yukta-dev/issue-7/nav.json" ]] || fail "a plain run left the stale nav.json of a method C run"
-unset YUKTA_NAV_BACKENDS YUKTA_NAV_CBM_BIN YUKTA_NAV_CBM_CACHE
-echo "ok   no stale index"
 echo "ok   issue"

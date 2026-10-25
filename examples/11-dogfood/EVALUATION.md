@@ -36,8 +36,8 @@ Rule of thumb: use the **paired evaluation** when you need a trustworthy compari
 
 ## 3. Concepts you need
 
-- **Methods (arms).** **A**: one Claude Code session fixes the issue itself; Yukta only checks (`yk gradle`, `yk check --no-heal`). **B**: the same session is an *orchestrator* that starts `yk run issue`; slim headless sessions (implementer, fixers) do the work. **C**: B plus a code-navigation index for the sub-flows (`yk run issue <n> --nav`): the IDE index if you opted in (`YUKTA_NAV_IDE=open`), else codebase-memory-mcp, else CodeGraph. The backend that ran and the time it took to index are recorded; compare C only within one backend.
-- **Main session versus sub-flow.** The main session is your Claude Code setup (plugins, skills, MCP servers). Sub-flows are the headless sessions Yukta starts (`yk_claude` in `scripts/_claude.sh`): six built-in tools, no plugins, a constant system prompt. Arm B's cost is the sum of both.
+- **Methods (arms).** Two arms, A and C. (Arm B, C without the index and with fixers that resumed the implementer, is retired: its first-evaluation runs stay archived, and its ledger records are relabelled C with `was: B`.) **A**: one Claude Code session fixes the issue itself; Yukta only checks (`yk gradle`, `yk check --no-heal`). **C**: the same session is an *orchestrator* that starts `yk run issue`; slim headless sessions (an implementer with a code-navigation index, and fixers chosen by a triage that start fresh) do the work. The index is the IDE index if you opted in (`YUKTA_NAV_IDE=open`), else codebase-memory-mcp, else CodeGraph. The backend that ran and the time it took to index are recorded; compare C only within one backend.
+- **Main session versus sub-flow.** The main session is your Claude Code setup (plugins, skills, MCP servers). Sub-flows are the headless sessions Yukta starts (`yk_claude` in `scripts/_claude.sh`): six built-in tools, no plugins, a constant system prompt. Arm C's cost is the sum of both.
 - **Tokens by category.** *Fresh input*, *cache write* (storing new context, a little dearer), *cache read* (re-reading stored context, about a tenth of the price), *output*. Every turn re-sends the conversation, so most tokens are cache reads; a high read share is good. A turn that writes a lot where it should read means the cache was not reused.
 - **Correct is not delivered.** *Correct* = the hidden test and the suite pass on the code. *Delivered* = the workflow itself ended `SUCCESS` (a branch ready for a draft PR). A run can hold correct code and still end `ESCALATE`.
 - **Grader.** Code that decides whether an issue is fixed, written against the behaviour the issue asks for and never shown to Claude. Check it before you spend money: it must fail on the base commit and pass with a reference fix.
@@ -59,7 +59,7 @@ Check each line before the first run.
   ```
 
   A server built from another commit than the evaluation's base measures the wrong code. `yk status` shows what is running.
-- **Money.** A real run spends up to `EVAL_BUDGET` (default $5) for the main session and, in arm B, up to the same per implementer or fixer session. At the first evaluation's costs ($0.35 to $4 per run) three runs per arm cost roughly $15 to $30. Decide the limit before you start.
+- **Money.** A real run spends up to `EVAL_BUDGET` (default $5) for the main session and, in arm C, up to the same per implementer or fixer session. At the first evaluation's costs ($0.35 to $4 per run) three runs per arm cost roughly $15 to $30. Decide the limit before you start.
 - **Workspace trust.** Each scratch clone is a new folder, so every session prints "workspace not trusted: ignoring `permissions.allow` entries". It is harmless: tools are passed explicitly, and it affects both arms alike.
 
 ## 5. Runbook 1: a paired evaluation of one issue
@@ -105,7 +105,7 @@ export EVAL_BASE=$(git rev-parse origin/main)   # pin ONE base commit for every 
 
 ```bash
 ./eval.sh report                          # per run and per arm: median [min..max]
-./split.sh                                # arm B: implementer, fixers inside the module, fixers elsewhere
+./split.sh                                # arm C: implementer, fixers inside the module, fixers elsewhere
 python3 -I cache_trace.py B1 --summary    # turns that re-wrote context (per session)
 python3 -I cache_trace.py B1              # every turn: write, read, pause since the last turn
 ```
@@ -120,7 +120,7 @@ For each run also read **`result.json` → `answer`**: the end of the main sessi
 
 ## 6. Runbook 2: the continuous loop (`yk pick`)
 
-Available since PR #1266 (method A since #1267, the analyzer since the analyzer PR). Method C enables the third arm. `yk loop sync`, `yk loop report` and `yk loop themes` (this PR, below) read what the loop collected. The golden set comes later (see the plan). With A, B and C enabled the draw is random between three methods.
+Available since PR #1266 (method A since #1267, the analyzer since the analyzer PR). Method C replaced B (the two were merged into C, #1275). `yk loop sync`, `yk loop report` and `yk loop themes` (this PR, below) read what the loop collected. The golden set comes later (see the plan). With A and C enabled the draw is random between the two methods.
 
 ```bash
 yk next                       # assigned, Ready issues by priority with size S/M/L
@@ -173,7 +173,7 @@ eval/golden.sh report --loop X --against Y   # does loop commit X cost or delive
 ```
 
 - **When:** once per major loop change, on a committed checkout (an uncommitted tree is refused: it is not a version). A loop commit that already has a complete replay is refused unless `--force`; a replay that stopped on its budget or was interrupted is resumed by the next `run`.
-- **Money:** its own budget, `YUKTA_GOLDEN_BUDGET_TOTAL` ($30), separate from the loop's $60; no run starts at the limit. One issue in three methods with three trials is nine runs, roughly $15 to $25 judging by the first evaluation.
+- **Money:** its own budget, `YUKTA_GOLDEN_BUDGET_TOTAL` ($30), separate from the loop's $60; no run starts at the limit. One issue in two methods with three trials is six runs, roughly $10 to $15 judging by the first evaluation.
 - **What it reports:** per method the success rate (code correct, and for B and C the workflow ended `SUCCESS`), **pass^k** (the chance that k trials in a row all succeed), the median cost with a bootstrap interval and the spread of the cost over trials; per issue and method the cells; a **comparison paired by issue** (per issue the ratio of median costs against method A, then the geometric mean over issues with a bootstrap interval), and with `--against` the same between two loop commits.
 - **No verdict below five issues** (`--min-issues`): with fewer, the per-issue numbers are shown and no conclusion across issues is drawn. The set has one issue today (#1207), so the cross-issue comparison is not available yet: add issues (`eval/README.md`, "Adding an issue", then add it to `eval/golden/set.json` with its frozen base commit and `golden.sh validate`), preferring issues whose first-run outcomes were mixed.
 - Offline test: `eval/golden-selftest.sh`.
@@ -182,12 +182,12 @@ eval/golden.sh report --loop X --against Y   # does loop commit X cost or delive
 
 | Pitfall | What to do |
 |---|---|
-| **Small samples.** Three runs per arm show a direction, not a number; 20 to 30 issues over three methods leave 2 to 4 runs per method and size. | Report median and range, never a mean alone. Do not call a difference below 8 runs per method. The planned report prints "no verdict" there. |
+| **Small samples.** Three runs per arm show a direction, not a number; 20 to 30 issues over two methods leave 3 to 5 runs per method and size. | Report median and range, never a mean alone. Do not call a difference below 8 runs per method. The planned report prints "no verdict" there. |
 | **Different issues are not comparable.** An expensive issue in one arm looks like an expensive method. | Compare within a size stratum, or adjust for size; use the paired evaluation for a real comparison. |
 | **Correct is not delivered.** A hidden test pass can hide an `ESCALATE`. | Read the `RESULT` line of every B run. |
 | **Records undercount.** A restarted run in the same worktree overwrites the first run's heal and implement records (issue #1250). | Compare `cache_trace.py` totals with the records; add the missing run to `extra.json`. |
 | **Cost is not value.** Tokens and dollars say nothing about whether the change is good. | Always read cost next to a quality measure (hidden test, delivered, CI, review). |
-| **Check scope differs between arms.** Arm A is told to finish with `yk check --no-heal -m <module>`; arm B's flow chose its own scope (the whole repository at the first evaluation). | Treat it as a finding about the loop, but say so when you compare. |
+| **Check scope differs between arms.** Arm A is told to finish with `yk check --no-heal -m <module>`; arm C's flow chose its own scope (the whole repository at the first evaluation). | Treat it as a finding about the loop, but say so when you compare. |
 | **Dollars versus tokens.** `total_cost_usd` is list price; a subscription changes the bill, not the token counts. | Report both; the ratios hold either way. |
 | **The loop moves.** A fix to the loop changes what you measure. | Record the loop commit, compare within one, re-run the golden set after a major change. |
 | **Self-reports mislead.** In a 2025 randomized trial developers believed AI made them about 20% faster while it made them 19% slower. | Trust the measured numbers; do not substitute impressions. |
@@ -252,7 +252,7 @@ Issue #1207, three runs per arm, base `main@4349e6247`: arm A (Claude fixes alon
 
 ## 13. Glossary
 
-- **Arm / method**: one way of doing the work (A, B, C).
+- **Arm / method**: one way of doing the work (A or C; B is retired, see Methods).
 - **Stratum**: a size group (S, M, L) inside which methods are balanced.
 - **Block randomization**: draws in blocks that hold each method once, so counts stay balanced.
 - **Ledger**: the append-only record of draws and outcomes.

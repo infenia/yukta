@@ -26,17 +26,18 @@ Keep this open while you run. It is the operator's manual for the improvement lo
 
 1. **The random stream (`yk pick`).** You work through your real issues one by one. For each, a method is drawn at random (balanced by issue size), the run is recorded in a **ledger**, and an **analyzer** reads it. This is the day-to-day mode; it produces real pull requests and finds waste inside the loop. It compares methods only on *different* issues, so it shows directions, not results.
 2. **The paired evaluation (`eval/eval.sh`).** One issue, run in several methods on throw-away clones with a stubbed GitHub. Use it for a controlled look at one issue, or to find root causes. Nothing touches GitHub.
-3. **The golden set (`eval/golden.sh`).** A few frozen issues, each replayed in every method with several trials, once per major loop change. This is the only place methods are compared on **the same** issues, repeated; also where a change to the loop itself is checked.
+3. **The golden set (`eval/golden.sh`).** A few frozen issues, each replayed in both methods (A and C) with several trials, once per major loop change. This is the only place methods are compared on **the same** issues, repeated; also where a change to the loop itself is checked.
 
-**The three methods.**
+**The two methods.**
 
 | Method | Who does the work | What Yukta does |
 |---|---|---|
 | **A** | One Claude Code session (your own setup) fixes the issue itself | only checks (`yk gradle`, `yk check --no-heal`), no healing |
-| **B** | A Claude Code session is an orchestrator that starts `yk run issue` | a slim implementer, the check, and fixer sessions that resume the implementer |
-| **C** | like B | like B plus a code-navigation index for the implementer and fixers (IDE index if you opted in, else codebase-memory-mcp, else CodeGraph) |
+| **C** | A Claude Code session is an orchestrator that starts `yk run issue` | a slim implementer with a code-navigation index (IDE index if you opted in, else codebase-memory-mcp, else CodeGraph), then the self-healing check: a triage picks the model and effort of fresh fixer sessions |
 
-**Where the triage heal applies.** A plain `yk check` (what your own session and the Stop hook run) heals through `heal`: a System One triage picks the model and effort, `fix` climbs effort, and a failing model hands over to the next ([README.md](README.md), "Self-healing check"). None of the three methods uses it: A runs `--no-heal`, and B and C heal inside `check-impl` with `resume` rungs, so their costs are not affected. Heal records of a plain check carry `effort`.
+(There was a method B: C without the index, with fixers that resumed the implementer. It is retired. Old B records in the ledger are relabelled C with `was: B`, and the old ledger is kept as `ledger.jsonl.pre-arm-c`. Do not compare old B-as-C runs with new C runs: the heal mechanism differs.)
+
+**Where the triage heal applies.** A plain `yk check` (what your own session and the Stop hook run) heals through `heal`: a System One triage picks the model and effort, `fix` climbs effort, and a failing model hands over to the next ([README.md](README.md), "Self-healing check"). Method C heals the same way inside its issue run (the same `check`, with the issue's budget and code index); method A runs `--no-heal`. Heal records carry `effort`.
 
 **How data flows (continuous loop).**
 
@@ -57,7 +58,7 @@ yk loop themes           -> what keeps going wrong, counted (rules without a mod
 | a run's main session output | `$DEV_HOME/loop/runs/<draw-id>/` |
 | a run's analysis | `$DEV_HOME/loop/analysis/<draw-id>.json` |
 | themes output and what was posted | `$DEV_HOME/loop/themes/` |
-| the issue's worktree and records (method B and C) | `../yukta-issue-<n>/` and `<checkout>/.yukta-dev/issue-<n>/` |
+| the issue's worktree and records (method C) | `../yukta-issue-<n>/` and `<checkout>/.yukta-dev/issue-<n>/` |
 | the paired evaluation's runs | `<checkout>/.yukta-dev/eval/runs/<arm><n>/` |
 | the golden set's ledger and runs | `<checkout>/.yukta-dev/golden/` |
 | codebase-memory-mcp's indexes (method C) | `$DEV_HOME/cbm/` (about 120 MB per worktree; safe to delete) |
@@ -96,10 +97,9 @@ scripts/test-loop.sh && scripts/test-analyze.sh && scripts/test-nav.sh && script
 For one issue, no draw, no ledger, no analyzer. Useful to try a method by hand or to reproduce something.
 
 ```bash
-yk run issue 1234                                   # method B with both checkpoints (you approve before the work and before the PR)
+yk run issue 1234                                   # method C with both checkpoints (you approve before the work and before the PR)
 yk run issue 1234 --no-pause before-implement,before-pr   # unattended
 yk run issue 1234 --solo --no-pause before-pr       # method A
-yk run issue 1234 --nav  --no-pause before-implement,before-pr   # method C
 yk run issue 1234 --detach                          # start and return; follow with: yk watch <session> <exec>, yk tree <exec>
 yk signals; yk approve <exec> before-pr             # answer a checkpoint (or: yk reject <exec> before-pr)
 ```
@@ -124,7 +124,7 @@ What `yk pick` does, in order, and what to expect on screen:
 
 1. Checks the budget (refuses at $60: that is your review point) and that the issue is open, assigned to you and Ready. The Ready check reads the whole project board and can take a minute or more.
 2. Computes the size (S, M, L) and whether the issue changes the loop itself, then **draws the method** (seeded blocks inside the size, so methods stay balanced) and prints the draw as JSON. A second `pick` of the same issue keeps its method.
-3. Runs the method in the foreground. **Method A** takes minutes. **Methods B and C** take about 8 to 17 minutes (the orchestrator waits in the foreground). Run it in a terminal you can leave alone, for example `tmux`.
+3. Runs the method in the foreground. **Method A** takes minutes. **Method C** takes about 8 to 17 minutes (the orchestrator waits in the foreground). Run it in a terminal you can leave alone, for example `tmux`.
 4. Records the outcome (cost and tokens of the main session and the sub-flows, wall time, the RESULT line, the PR URL; for C the backend and index time).
 5. Runs the analyzer (section 5.2) unless `YUKTA_LOOP_ANALYZE=off`.
 
@@ -132,7 +132,7 @@ What `yk pick` does, in order, and what to expect on screen:
 
 | Variable | Default | Effect |
 |---|---|---|
-| `YUKTA_LOOP_METHODS` | `A,B,C` | the pool the draw uses; `A,B` leaves C out; one letter makes the draw trivial |
+| `YUKTA_LOOP_METHODS` | `A,C` | the pool the draw uses; one letter makes the draw trivial (B is retired and refused) |
 | `YUKTA_LOOP_SEED` | a random seed kept in `$DEV_HOME/loop/seed` | fix it to reproduce a draw sequence |
 | `YUKTA_LOOP_ANALYZE` | `file` | `file`: the analyzer comments and files issues; `dry`: shows what it would do; `off`: skips it |
 | `YUKTA_LOOP_BUDGET_TOTAL` | 60 | USD; `yk pick` refuses at the limit |
@@ -162,9 +162,9 @@ cd eval
 export EVAL_ISSUE=1234                              # default 1207
 export EVAL_BASE=$(git rev-parse origin/main)       # pin ONE base commit for every run
 ./eval.sh validate                                  # the grader must fail on the base and pass with the reference fix (needs issues/1234/ set up: see below)
-./eval.sh run A 1; ./eval.sh run B 1; ./eval.sh run C 1      # alternate the arms: A1 B1 C1 A2 B2 C2 ...
+./eval.sh run A 1; ./eval.sh run C 1      # alternate the arms: A1 C1 A2 C2 ...
 ./eval.sh report                                    # per run and per arm tables
-./split.sh                                          # where arm B/C's sub-flow money went
+./split.sh                                          # where arm C's sub-flow money went
 python3 -I cache_trace.py B1 --summary              # turns that re-wrote the cache, per session
 ```
 
@@ -227,7 +227,7 @@ jq . ~/.local/state/yukta-dev/loop/analysis/<draw-id>.json | less   # facts, rul
 
 Open the PR and review it like any PR. If something is off, fix it in the loop (a dogfood issue), not around it.
 
-**Step 4: run a B on another small issue** (about $2 to $4, 8 to 17 minutes): `yk pick <m> --method B`. Compare the two outcomes' costs in `yk loop ledger`, and read the analyzer's note: it names what was wasteful.
+**Step 4: run a C on another small issue** (a few dollars, 8 to 17 minutes): `yk pick <m> --method C`. Compare the two outcomes' costs in `yk loop ledger`, and read the analyzer's note: it names what was wasteful.
 
 **Step 5: look at the report.** `yk loop sync` (after the PRs are reviewed or merged), then `yk loop report`. With two forced runs it will say there is nothing in the comparison set yet: that is correct.
 
@@ -253,11 +253,10 @@ For each run `$DEV_HOME/loop/analysis/<draw-id>.json` holds `facts`, `findings` 
 |---|---|---|
 | `fixer-outside-module` | a fixer changed files outside the module of the implementer's change; they are in the PR | read the PR diff for unrelated edits; known issue #1234 |
 | `noop-fixers` | fixer attempts that changed nothing but cost money | look at the cost line; known issues #1256, #1249 |
-| `cache-rewrite-on-resume` | a turn re-wrote context the cache should have served (the first fixer after the implementer) | tokens, not much money; known issue #1248 |
 | `restart-overwrites-records` | two implementer sessions in one worktree: the run was started again, the earlier records were overwritten | the cost on record is too low; known issues #1250, #1257 |
 | `records-undercount` | the transcripts hold more cache tokens than the records | same: trust the transcripts (`eval/cache_trace.py`) |
 | `healed-field-mismatch` | the RESULT line says `healed=-` but a fixer fixed something | known issue #1235 |
-| `nav-backend-none` | method C ran with no backend: it was a B run | exclude it from C when you analyze by hand |
+| `nav-backend-none` | method C ran with no backend: it ran without an index | exclude it from C when you analyze by hand |
 | `nav-unused` | the index was built (and its time spent) but the implementer never called it | cost of C without benefit: look at the rules the implementer got |
 
 A finding for a known issue becomes a **comment** on that issue (so the epic collects counts); a closed known issue is filed again. The judge may add up to two **proposals** the rules and the open issues do not cover: it often adds none, which is the right answer. The note is the part to read: it is the analyzer's plain-language account of the run with numbers.
@@ -295,7 +294,7 @@ Reads, for every run with a PR: CI (`success`, `failure`, `pending`, `none`), re
 |---|---|
 | `eval.sh report` | per run and per arm: cost, tokens (main vs sub-flows), cache-read share, turns, attempts, wall, **hidden test and suite pass** (the code is right) |
 | `result.json` → `answer` | the end of the main session's reply with the workflow's `RESULT` line: **count only `status=SUCCESS` as delivered**. A run can hold correct code and still end ESCALATE |
-| `split.sh` | arm B/C's money by where it went: implementer, fixers that touched the issue's module, fixers elsewhere. A big "elsewhere" means the check ran into failures the change did not cause |
+| `split.sh` | arm C's (or old B's) money by where it went: implementer, fixers that touched the issue's module, fixers elsewhere. A big "elsewhere" means the check ran into failures the change did not cause |
 | `cache_trace.py B1 --summary` | turns that re-wrote context; `--worktree <path> --json` for tools used per session |
 | records vs transcripts | the heal and implement records are overwritten by a restart: if `cache_trace.py` totals exceed the records, add the missing run to `extra.json` |
 
@@ -324,7 +323,7 @@ To grow the set: set up the issue's folder (section 3.3), give it a frozen base 
 
 **Analyzer / themes:** `YUKTA_ANALYZER_MODEL` (sonnet), `YUKTA_ANALYZER_BUDGET` (0.30), `YUKTA_ANALYZER_MAX_FILED` (3).
 
-**Method A:** `YUKTA_SOLO_MODEL` (opus), `YUKTA_SOLO_BUDGET` (5), `YUKTA_SOLO_TURNS` (60). **Methods B and C (sub-flows):** `YUKTA_IMPL_MODEL` (opus), `YUKTA_IMPL_BUDGET` (5), `YUKTA_BUDGET_ISSUE` (per issue, optional).
+**Method A:** `YUKTA_SOLO_MODEL` (opus), `YUKTA_SOLO_BUDGET` (5), `YUKTA_SOLO_TURNS` (60). **Method C (sub-flows):** `YUKTA_IMPL_MODEL` (opus), `YUKTA_IMPL_BUDGET` (5), `YUKTA_BUDGET_ISSUE` (per issue, optional).
 
 **Method C:** `YUKTA_NAV_BACKENDS`, `YUKTA_NAV_IDE` (`open`), `YUKTA_NAV_IDE_URL`, `YUKTA_NAV_CBM_BIN`, `YUKTA_NAV_CBM_CACHE`, `YUKTA_NAV_INDEX_TIMEOUT` (1500 s).
 
@@ -339,11 +338,10 @@ To grow the set: set up the issue's folder (section 3.3), give it a frozen base 
 | What | Cost | Time |
 |---|---|---|
 | a method A run | about $0.35 to $0.60 | 1 to 3 minutes |
-| a method B run | about $2 to $4 (it was mostly fixers working on failures outside the issue) | 8 to 17 minutes |
-| a method C run | not measured yet: B's cost plus the index time (13 s `cbm`, 8.5 min CodeGraph) | B's time plus the index |
+| a method C run | not measured yet with triage heal. The retired B cost about $2 to $4 (mostly resumed Opus fixers on failures outside the issue); C adds the index time (13 s `cbm`, 8.5 min CodeGraph) | 8 to 17 minutes plus the index |
 | the analyzer's judge call | about $0.07 | seconds |
 | the themes judge call | about $0.07 | seconds |
-| one golden replay of one issue, 3 methods x 3 trials | roughly $15 to $25 | roughly 1 to 2 hours (an estimate: serial, about 15 minutes for each B or C run, a few minutes for each A) |
+| one golden replay of one issue, 2 methods x 3 trials | roughly $10 to $15 | roughly 1 to 1.5 hours (an estimate: serial, about 15 minutes for each C run, a few minutes for each A) |
 | the loop's budget | $60 total, $5 per session | |
 | the golden set's budget | $30 | |
 
@@ -382,7 +380,7 @@ export YUKTA_LOOP_ANALYZE=dry          # first runs; unset later
 ./yk loop sync; ./yk loop report; ./yk loop themes; ./yk loop themes --post
 ./yk analyze <draw-id> --dry-run
 # paired evaluation (cd eval)
-./eval.sh validate; ./eval.sh run A 1; ./eval.sh run B 1; ./eval.sh run C 1; ./eval.sh report; ./split.sh
+./eval.sh validate; ./eval.sh run A 1; ./eval.sh run C 1; ./eval.sh report; ./split.sh
 # golden set (cd eval)
 ./golden.sh status; ./golden.sh validate; ./golden.sh run --dry-run; ./golden.sh run --trials 3; ./golden.sh report
 ./golden.sh report --loop <new> --against <old>

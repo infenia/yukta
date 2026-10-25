@@ -3,7 +3,7 @@
 #
 #   golden.sh status                 the set, the loop commit of this checkout, the replays so far and the budget
 #   golden.sh validate [issue...]    each grader must fail on the frozen base and pass with its reference fix (eval.sh validate)
-#   golden.sh run [--trials 3] [--methods A,B,C] [--issues 1207,...] [--dry-run] [--force]
+#   golden.sh run [--trials 3] [--methods A,C] [--issues 1207,...] [--dry-run] [--force]
 #   golden.sh report [--loop SHA] [--against SHA] [--min-issues 5]
 #
 # A replay runs, for the loop commit of THIS checkout (the dogfood scripts under test), every issue of the set in every method, K trials each, on
@@ -13,7 +13,7 @@
 # stopped (budget, interruption) is resumed by the next `run`: runs already recorded are skipped.
 # Budget: YUKTA_GOLDEN_BUDGET_TOTAL (30 USD, separate from the loop's $60), EVAL_BUDGET (5 USD) per session; no run starts at the limit.
 # Where: $YUKTA_GOLDEN_DIR (default <checkout>/.yukta-dev/golden): ledger.jsonl and runs/<loop>/<replay>/<issue>/runs/<method><trial>.
-# A run counts as a success when its code is correct (the hidden test and the suite pass) and, for B and C, the workflow ended SUCCESS.
+# A run counts as a success when its code is correct (the hidden test and the suite pass) and, for C, the workflow ended SUCCESS.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(git -C "$here" rev-parse --show-toplevel)"
@@ -69,7 +69,7 @@ cmd_validate() {
 }
 
 cmd_run() {
-  local trials=3 methods="A,B,C" issues="" dry=0 force=0 sha plan=() n id trial i base m rid state
+  local trials=3 methods="A,C" issues="" dry=0 force=0 sha plan=() n id trial i base m rid state
   while (($#)); do
     case "$1" in
       --trials) trials="${2:?--trials needs a number}"; shift 2 ;;
@@ -81,6 +81,8 @@ cmd_run() {
     esac
   done
   [[ "$trials" =~ ^[0-9]+$ ]] && ((trials >= 1)) || die "--trials is a positive number"
+  [[ ",$methods," != *,B,* ]] || die "--methods: method B is retired, it is part of C now"
+  [[ "$methods" =~ ^(A|C)(,(A|C))*$ ]] || die "--methods is a list of A and C"
   sha="$(loop_sha)"
   [[ "$sha" != *-dirty && "$sha" != unknown ]] || ((force)) || die "this checkout has uncommitted changes in examples/11-dogfood: a dirty tree is not a loop version. Commit first, or --force."
   # which replay: resume the latest one of this loop commit that is not complete (stopped or interrupted), else a new one (refused after a complete one without --force)

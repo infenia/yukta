@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Code navigation for method C of the improvement loop: index an issue worktree with the first backend that works, so the
+# Code navigation for the issue runs of the improvement loop (method C): index an issue worktree with the first backend that works, so the
 # implementer and its fixers can search the code instead of reading files one by one.
 #
 #   nav.sh probe                        which backends could run now, in order, and why the others are skipped (JSON)
@@ -18,8 +18,7 @@
 # and counts as part of the cost of method C.
 #
 # nav.json: {backend, ok, index_seconds, version, mcp_config, tools, rules, prompt_note, attempts: [{backend, ok, reason, seconds}]}.
-# yk_claude (_claude.sh) reads it to give the implementer and the fixers the same MCP config and tools (a fixer that resumes the
-# implementer must not see other tool definitions, or the cache is re-written, yukta issue #1248).
+# yk_claude (_claude.sh) reads it to give the implementer and the fixers the same MCP config and tools.
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$here/_lib.sh"

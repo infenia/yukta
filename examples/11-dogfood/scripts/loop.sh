@@ -19,14 +19,17 @@
 # each size stratum: a block holds each enabled method once, in a seeded order, so the methods stay balanced
 # even with few issues.
 #
-# Environment: YUKTA_LOOP_METHODS (comma list of A, B, C; default B: A and C are enabled as they land),
+# Environment: YUKTA_LOOP_METHODS (comma list of A and C; default A,C),
 #   YUKTA_LOOP_SEED (default: a random seed kept in $LOOP_DIR/seed), YUKTA_LOOP_BUDGET_TOTAL (60 USD),
 #   YUKTA_LOOP_BUDGET_SESSION (5 USD per Claude session), YUKTA_LOOP_DIR (default $DEV_HOME/loop),
 #   YUKTA_LOOP_RUNNER (tests: a command that stands in for the method run), YUKTA_GH, YUKTA_ISSUES_REPO.
 # Methods: A  one Claude Code session fixes the issue itself, Yukta only checks.
-#          B  a Claude Code session orchestrates `yk run issue`; slim sub-flow sessions do the work.
-#          C  B with a code-navigation index for the sub-flows (yk run issue --nav, scripts/nav.sh): the IDE index if you opted
-#             in (YUKTA_NAV_IDE=open), else codebase-memory-mcp, else CodeGraph. The backend and the index time go on the outcome.
+#          C  a Claude Code session orchestrates `yk run issue`; slim sub-flow sessions do the work: an implementer with a
+#             code-navigation index (scripts/nav.sh: the IDE index if you opted in (YUKTA_NAV_IDE=open), else codebase-memory-mcp,
+#             else CodeGraph; the backend and the index time go on the outcome), then the self-healing check, whose triage
+#             picks the model and effort of fresh fixer sessions.
+#          (There was a method B, C without the index and with fixers that resumed the implementer. It is retired: the
+#          ledger records of B are relabelled C, with the original in `was`.)
 # After a run, analyze.sh reads it and files what it finds (YUKTA_LOOP_ANALYZE=file|dry|off, default file).
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,6 +42,20 @@ gh_repo="${YUKTA_ISSUES_REPO:-infenia/yukta}"
 BUDGET_TOTAL="${YUKTA_LOOP_BUDGET_TOTAL:-60}"
 BUDGET_SESSION="${YUKTA_LOOP_BUDGET_SESSION:-5}"
 need jq
+
+# Method B was merged into C: relabel its records once (the original method stays in `was`; the ledger as it was is kept
+# next to it, ledger.jsonl.pre-arm-c).
+migrate_ledger() {
+  [[ -s "$LEDGER" ]] && grep -q '"method":"B"' "$LEDGER" || return 0
+  (
+    flock 9
+    grep -q '"method":"B"' "$LEDGER" || exit 0
+    [[ -e "$LEDGER.pre-arm-c" ]] || cp "$LEDGER" "$LEDGER.pre-arm-c"
+    jq -c 'if .method == "B" then .method = "C" | .was = "B" else . end' "$LEDGER" >"$LEDGER.tmp" && mv "$LEDGER.tmp" "$LEDGER"
+    echo "ledger: method B records relabelled C (was: B); the old ledger is $LEDGER.pre-arm-c" >&2
+  ) 9>"$LOOP_DIR/ledger.lock"
+}
+migrate_ledger
 
 ledger_all() { [[ -s "$LEDGER" ]] && cat "$LEDGER" || true; }
 ledger_append() { # JSON
@@ -61,10 +78,17 @@ loop_sha() {
   echo "$sha"
 }
 
+# check_method M WHAT: A or C; B is retired
+check_method() {
+  [[ "$1" =~ ^[AC]$ ]] && return 0
+  [[ "$1" == B ]] && die "$2: method B is retired, it is part of C now (use C)"
+  die "$2 holds A or C, not '$1'"
+}
+
 enabled_methods() {
   local m out=()
-  IFS=, read -ra out <<<"${YUKTA_LOOP_METHODS:-A,B,C}"
-  for m in "${out[@]}"; do [[ "$m" =~ ^[ABC]$ ]] || die "YUKTA_LOOP_METHODS holds A, B or C, not '$m'"; done
+  IFS=, read -ra out <<<"${YUKTA_LOOP_METHODS:-A,C}"
+  for m in "${out[@]}"; do check_method "$m" YUKTA_LOOP_METHODS; done
   printf '%s\n' "${out[@]}"
 }
 
@@ -119,12 +143,12 @@ cmd_plan() {
   shift
   while (($#)); do
     case "$1" in
-      --method) forced="${2:?--method needs A, B or C}"; shift 2 ;;
+      --method) forced="${2:?--method needs A or C}"; shift 2 ;;
       --dry-run) dry=1; shift ;;
       *) die "unknown option '$1'" ;;
     esac
   done
-  [[ -z "$forced" || "$forced" =~ ^[ABC]$ ]] || die "--method is A, B or C"
+  [[ -z "$forced" ]] || check_method "$forced" "--method"
   json="$(issue_json "$n")"
   size_json="$("$here/issue-size.sh" - <<<"$json")"
   size="$(jq -r .size <<<"$size_json")" score="$(jq -r .score <<<"$size_json")" ssrc="$(jq -r .source <<<"$size_json")"
@@ -158,8 +182,7 @@ run_method() {
   local n="$1" method="$2" dir="$3"
   case "$method" in
     A) run_method_a "$n" "$dir" ;;
-    B) run_method_b "$n" "$dir" ;;
-    C) run_method_b "$n" "$dir" --nav ;;
+    C) run_method_c "$n" "$dir" ;;
     *) die "method $method is not available yet (YUKTA_LOOP_METHODS=$YUKTA_LOOP_METHODS)" ;;
   esac
 }
@@ -172,14 +195,14 @@ run_method_a() {
   cp "$REPO_ROOT/.yukta-dev/issue-$n/solo.out.json" "$dir/main.json" 2>/dev/null || true
 }
 
-# B (and C, with --nav): a headless Claude Code session (your own setup) orchestrates: it starts yk run issue and reports the RESULT line
-run_method_b() { # N DIR [--nav]: method C is method B with --nav
-  local n="$1" dir="$2" nav="${3:-}" yk="$here/../yk"
+# C: a headless Claude Code session (your own setup) orchestrates: it starts yk run issue and reports the RESULT line
+run_method_c() { # N DIR
+  local n="$1" dir="$2" yk="$here/../yk"
   (cd "$REPO_ROOT" && env -u CLAUDECODE -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_SSE_PORT \
     YUKTA_DOGFOOD=off YUKTA_BUDGET_ISSUE="$BUDGET_SESSION" YUKTA_IMPL_BUDGET="$BUDGET_SESSION" \
     "${YUKTA_CLAUDE_BIN:-claude}" -p "Issue #$n must be fixed, and you are the orchestrator, not the implementer: do not edit code yourself. Start Yukta's issue workflow:
 
-  $yk run issue $n${nav:+ $nav} --no-pause before-implement,before-pr
+  $yk run issue $n --no-pause before-implement,before-pr
 
 Run it in the foreground with the Bash timeout set to 600000 ms. It prints a few lines and ends with a \`RESULT status=...\` line. If the command times out before RESULT, re-attach with \`$yk watch <session> <execution>\` (both are in its STARTED line) the same way. If the run ends ESCALATE, read what it says and stop; do not start it again. Do not commit or push. Finish with the RESULT line and one short sentence." \
     --model "${YUKTA_LOOP_MODEL:-opus}" --no-session-persistence --permission-mode acceptEdits \
@@ -195,7 +218,7 @@ cmd_pick() {
   while (($#)); do
     case "$1" in
       --dry-run) dry=1; plan_args+=("$1"); shift ;;
-      --method) plan_args+=("$1" "${2:?--method needs A, B or C}"); shift 2 ;;
+      --method) plan_args+=("$1" "${2:?--method needs A or C}"); shift 2 ;;
       *) die "unknown option '$1'" ;;
     esac
   done

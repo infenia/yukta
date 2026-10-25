@@ -22,20 +22,23 @@ grep -q '#9001 base' <<<"$out" && grep -q 'Due: this loop commit (abc123)' <<<"$
 
 # ---- the plan: every method once per issue and trial, in a seeded order that differs between trials and is the same every time
 plan="$("$golden" run --trials 3 --dry-run)"
-[[ "$(grep -c '^  9001:' <<<"$plan")" == 9 ]] || fail "3 trials x 3 methods = 9 runs expected: $plan"
+[[ "$(grep -c '^  9001:' <<<"$plan")" == 6 ]] || fail "3 trials x 2 methods = 6 runs expected: $plan"
 for t in 1 2 3; do
-  [[ "$(grep -E "^  9001:[ABC]:$t\$" <<<"$plan" | cut -d: -f2 | sort | paste -sd,)" == A,B,C ]] || fail "trial $t does not hold every method once: $plan"
+  [[ "$(grep -E "^  9001:[AC]:$t\$" <<<"$plan" | cut -d: -f2 | sort | paste -sd,)" == A,C ]] || fail "trial $t does not hold every method once: $plan"
 done
 [[ "$("$golden" run --trials 3 --dry-run)" == "$plan" ]] || fail "the plan is not the same twice"
-orders="$(for t in 1 2 3; do grep -E "^  9001:[ABC]:$t\$" <<<"$plan" | cut -d: -f2 | paste -sd,; done | sort -u | wc -l)"
-(( orders >= 2 )) || fail "the method order is the same in every trial (no shuffle): $plan"
+plan8="$("$golden" run --trials 8 --dry-run)"
+orders="$(for t in 1 2 3 4 5 6 7 8; do grep -E "^  9001:[AC]:$t\$" <<<"$plan8" | cut -d: -f2 | paste -sd,; done | sort -u | wc -l)"
+(( orders >= 2 )) || fail "the method order is the same in every trial (no shuffle): $plan8"
 [[ "$(YUKTA_GOLDEN_SHA=other "$golden" run --trials 3 --dry-run)" != "$plan" ]] || fail "the order does not depend on the loop commit"
 echo "ok   plan"
 
 # ---- a dirty loop commit is refused; --methods and --issues narrow the plan
 YUKTA_GOLDEN_SHA=abc123-dirty "$golden" run --dry-run >"$dir/o1" 2>&1 && fail "a dirty tree was accepted"
 grep -q 'a dirty tree is not a loop version' "$dir/o1" || fail "message: $(cat "$dir/o1")"
-[[ "$("$golden" run --trials 1 --methods A,C --dry-run | grep -c '^  9001:')" == 2 ]] || fail "--methods"
+[[ "$("$golden" run --trials 1 --methods A --dry-run | grep -c '^  9001:')" == 1 ]] || fail "--methods"
+"$golden" run --trials 1 --methods A,B --dry-run >"$dir/o5" 2>&1 && fail "retired method B was accepted"
+grep -q 'method B is retired' "$dir/o5" || fail "message for B: $(cat "$dir/o5")"
 "$golden" run --issues 4242 --dry-run >"$dir/o2" 2>&1 && fail "an issue outside the set was replayed"
 echo "ok   refusals"
 
@@ -46,7 +49,7 @@ grep -q 'STOP: the replay has spent' "$dir/o3" || fail "no budget stop: $(tail -
 [[ "$(jq -s 'map(select(.type == "replay-end")) | last | .state' -r "$dir/golden/ledger.jsonl")" == stopped ]] || fail "a stopped replay is not marked stopped"
 "$golden" run --trials 2 >"$dir/o4" 2>&1 || fail "the resume failed: $(tail -5 "$dir/o4")"
 grep -c 'skip #9001' "$dir/o4" | grep -q '^1$' || fail "the run already done was not skipped: $(cat "$dir/o4")"
-[[ "$(jq -s '[.[] | select(.type == "run")] | length' "$dir/golden/ledger.jsonl")" == 6 ]] || fail "after the resume the replay holds 6 runs"
+[[ "$(jq -s '[.[] | select(.type == "run")] | length' "$dir/golden/ledger.jsonl")" == 4 ]] || fail "after the resume the replay holds 4 runs"
 [[ "$(jq -s '[.[] | select(.type == "replay")] | length' "$dir/golden/ledger.jsonl")" == 1 ]] || fail "the resume opened a second replay"
 [[ "$(jq -s 'map(select(.type == "replay-end")) | last | .state' -r "$dir/golden/ledger.jsonl")" == complete ]] || fail "the replay did not complete"
 echo "ok   budget stop and resume"
@@ -77,8 +80,8 @@ for loop, mult in (("X1", 1.0), ("X2", 1.5)):  # X2 is a loop commit that makes 
     for trial in (1, 2, 3):
         for i in range(n_issues):
             f = 1.0 + i * 0.5
-            for m, c in (("A", 1.0), ("B", 2.0), ("C", 1.5)):
-                ok = not (m == "B" and trial == 3)  # B fails its third trial everywhere: 2 successes in 3
+            for m, c in (("A", 1.0), ("C", 2.0)):
+                ok = not (m == "C" and trial == 3)  # C fails its third trial everywhere: 2 successes in 3
                 rows.append({"type": "run", "replay": loop + "-1", "loop_sha": loop, "issue": 1000 + i, "method": m, "trial": trial,
                              "cost_usd": f * c * mult * (1 + rng.uniform(-0.1, 0.1)), "success": ok, "backend": "cbm" if m == "C" else None})
 open(path, "w").write("\n".join(json.dumps(r) for r in rows) + "\n")
@@ -86,11 +89,10 @@ EOF
 rep() { python3 -I "$here/golden-report.py" --ledger "$dir/synth.jsonl" "$@"; }
 r="$(rep --loop X1)"
 grep -qE '^\| A \| 18 \| 18/18 \| 1.00 / 1.00 / 1.00 \|' <<<"$r" || fail "method A: $(grep '^| A ' <<<"$r")"
-grep -qE '^\| B \| 18 \| 12/18 \| 0.67 / 0.33 / 0.00 \|' <<<"$r" || fail "pass^k of B (2 of 3 trials succeed): $(grep '^| B ' <<<"$r")"
-grep -qE 'B vs A: geometric mean cost ratio \*\*x(1\.9[0-9]|2\.0[0-9]|2\.1[0-9])\*\* over 6 issues' <<<"$r" || fail "the planted x2 of B over A: $(grep 'B vs A:' <<<"$r")"
-grep -qE 'C vs A: geometric mean cost ratio \*\*x1\.[45][0-9]\*\* over 6 issues' <<<"$r" || fail "the planted x1.5 of C over A: $(grep 'C vs A:' <<<"$r")"
+grep -qE '^\| C \| 18 \| 12/18 \| 0.67 / 0.33 / 0.00 \|' <<<"$r" || fail "pass^k of C (2 of 3 trials succeed): $(grep '^| C ' <<<"$r")"
+grep -qE 'C vs A: geometric mean cost ratio \*\*x(1\.9[0-9]|2\.0[0-9]|2\.1[0-9])\*\* over 6 issues' <<<"$r" || fail "the planted x2 of C over A: $(grep 'C vs A:' <<<"$r")"
 grep -q 'clear (interval excludes x1.00): yes' <<<"$r" || fail "the interval should exclude 1"
-grep -qE '^\| #1000 \| C \| 3 \| 3/3 \| \$[0-9.]+ \| \$[0-9.]+\.\.\$[0-9.]+ \| cbm \|' <<<"$r" || fail "per issue row with the backend: $(grep '#1000 | C' <<<"$r")"
+grep -qE '^\| #1000 \| C \| 3 \| 2/3 \| \$[0-9.]+ \| \$[0-9.]+\.\.\$[0-9.]+ \| cbm \|' <<<"$r" || fail "per issue row with the backend: $(grep '#1000 | C' <<<"$r")"
 grep -qE '^\| A \| 18 \| 18/18 \| .* \| [0-9]+% \|' <<<"$r" || fail "the cost spread (CV) is missing"
 # the default loop is the one with the latest run, and --against compares two loop commits on the same issues
 [[ "$(rep | head -1)" == "# Golden-set report, loop commit X2" ]] || fail "default loop: $(rep | head -1)"
@@ -103,12 +105,12 @@ import json, sys
 rows = []
 for trial in (1, 2, 3):
     for i in range(int(sys.argv[2])):
-        for m, c in (("A", 1.0), ("B", 2.0)):
+        for m, c in (("A", 1.0), ("C", 2.0)):
             rows.append({"type": "run", "replay": "X1-1", "loop_sha": "X1", "issue": 1000 + i, "method": m, "trial": trial, "cost_usd": c * (1 + i), "success": True})
 open(sys.argv[1], "w").write("\n".join(json.dumps(r) for r in rows) + "\n")
 EOF
 r3="$(python3 -I "$here/golden-report.py" --ledger "$dir/synth3.jsonl")"
-grep -q 'No verdict\.\*\* B vs A: only 3 issue(s) have both sides' <<<"$r3" || fail "3 issues must give no verdict: $(grep -i 'verdict' <<<"$r3")"
+grep -q 'No verdict\.\*\* C vs A: only 3 issue(s) have both sides' <<<"$r3" || fail "3 issues must give no verdict: $(grep -i 'verdict' <<<"$r3")"
 ! grep -q 'geometric mean cost ratio' <<<"$r3" || fail "a ratio was claimed from 3 issues"
 [[ "$(python3 -I "$here/golden-report.py" --ledger "$dir/none.jsonl")" == *"No golden-set run"* ]] || fail "empty ledger"
 echo "ok   report"

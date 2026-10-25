@@ -53,8 +53,8 @@ so routine events never reach your context. Steer only runs you started: `yk tre
 [reference/control.md](reference/control.md).
 
 ## An issue, start to draft PR
-`yk run issue <n>` (the `pickup` skill, `/yk-pickup`): claim, worktree, headless implementer, the check on the worktree (its
-fixers resume the implementer), a draft PR. It waits at `before-implement` and `before-pr`: `yk signals <e>`,
+`yk run issue <n>` (the `pickup` skill, `/yk-pickup`): claim, worktree, headless implementer, a code index, the check on the worktree (a
+triage picks fresh fixers), a draft PR. It waits at `before-implement` and `before-pr`: `yk signals <e>`,
 `yk approve|reject <e> <signal>`. `RESULT status=ESCALATE` means it gave up and the issue is Ready again.
 [reference/control.md](reference/control.md), `examples/11-dogfood/README.md`.
 

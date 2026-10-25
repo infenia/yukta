@@ -16,9 +16,9 @@ analysis() { # RUN METHOD COST SHA NOTE RULES...
   jq -n --arg run "$run" --arg m "$method" --argjson c "$cost" --arg sha "$sha" --arg note "$note" --argjson rules "$(printf '%s\n' "$@" | jq -R . | jq -sc 'map(select(. != ""))')" \
     '{facts: {run: $run, method: $m, size: "S", cost_usd: $c, loop_sha: $sha}, findings: ($rules | map({rule: ., evidence: "e"})), note: $note, filed: [], analyzer_cost_usd: 0.07}' >"$YUKTA_LOOP_DIR/analysis/$run.json"
 }
-analysis r1 B 4.0 aaa111 "Fixers spent most of the money on tests in other modules." noop-fixers fixer-outside-module
-analysis r2 B 2.0 aaa111 "Two fixer attempts on failures the change did not cause." noop-fixers
-analysis r3 B 1.0 aaa111 "A fixer edited tests outside the module." fixer-outside-module
+analysis r1 C 4.0 aaa111 "Fixers spent most of the money on tests in other modules." noop-fixers fixer-outside-module
+analysis r2 C 2.0 aaa111 "Two fixer attempts on failures the change did not cause." noop-fixers
+analysis r3 C 1.0 aaa111 "A fixer edited tests outside the module." fixer-outside-module
 analysis r4 A 0.5 bbb222 "The session re-ran the whole gate three times."
 analysis r5 A 0.5 bbb222 "The session re-ran the whole gate again."
 analysis r6 C 0.3 bbb222 ""

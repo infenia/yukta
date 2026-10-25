@@ -207,7 +207,7 @@ case "$key" in
     [[ "$fixed" == true ]]
     exit $?
     ;;
-  haiku | sonnet | opus | resume) ;;
+  haiku | sonnet | opus) ;;
   *) echo "HEAL $stage attempt=$attempt unknown mode '$mode'"; exit 1 ;;
 esac
 

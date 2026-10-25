@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Where arm B's sub-flow money went: the implementer, fixer attempts that touched the issue's own module
+# Where arm C's (or the retired arm B's) sub-flow money went: the implementer, fixer attempts that touched the issue's own module
 # (MODULE in issues/<n>/grade.env) and fixer attempts that did not (failures elsewhere in the repo, or no
-# fix made). One row per B run of EVAL_DIR.
+# fix made). One row per C (or B) run of EVAL_DIR.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(git -C "$here" rev-parse --show-toplevel)"
@@ -10,7 +10,7 @@ EVAL_DIR="${EVAL_DIR:-${YUKTA_DEV_STATE_DIR:-$repo_root/.yukta-dev}/eval}"
 # shellcheck source=/dev/null
 source "$here/issues/$EVAL_ISSUE/grade.env"
 printf '%-4s %9s %9s %9s %9s %s\n' run implement "fix-in-$MODULE" fix-other total 'other attempts (stage#fixed[files changed])'
-for d in "$EVAL_DIR"/runs/B*; do
+for d in "$EVAL_DIR"/runs/[BC]*; do
   [[ -d "$d" ]] || continue
   run="$(basename "$d")"
   impl="$(jq -s 'map(.cost // 0) | add // 0' "$d"/yukta/.yukta-dev/issue-*/implement.json 2>/dev/null || echo 0)"

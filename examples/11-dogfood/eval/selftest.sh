@@ -10,17 +10,17 @@ export EVAL_DIR="$dir" EVAL_ISSUE=selftest EVAL_CLAUDE="$here/fake-claude.sh" EV
 EVAL_BASE="$(git -C "$here" rev-parse HEAD)"; export EVAL_BASE
 
 "$here/eval.sh" run A 1 >"$dir/a.out" 2>/dev/null
-"$here/eval.sh" run B 1 >"$dir/b.out" 2>/dev/null
+"$here/eval.sh" run C 1 >"$dir/c.out" 2>/dev/null
 
-a="$dir/runs/A1/result.json" b="$dir/runs/B1/result.json"
+a="$dir/runs/A1/result.json" b="$dir/runs/C1/result.json"
 [[ "$(jq -r '.total.cost' "$a")" == 2.5 ]] || fail "arm A cost: $(jq -c .total "$a")"
 [[ "$(jq -r '.total.cache_read' "$a")" == 600000 ]] || fail "arm A cache read"
 [[ "$(jq -r '.sub.attempts' "$a")" == 0 ]] || fail "arm A has sub-flow records"
-# arm B: orchestrator 0.2 + implementer 0.9 + two fixers 0.1 and 0.2
-awk -v c="$(jq -r '.total.cost' "$b")" 'BEGIN { exit !(c > 1.39 && c < 1.41) }' || fail "arm B cost: $(jq -c .total "$b")"
-[[ "$(jq -r '.sub.attempts' "$b")" == 3 ]] || fail "arm B attempts (implementer and two fixers): $(jq -c .sub "$b")"
-[[ "$(jq -r '.sub.cache_read' "$b")" == 48000 ]] || fail "arm B sub-flow cache read: $(jq -c .sub "$b")"
-[[ "$(jq -r '.main.turns' "$b")" == 4 ]] || fail "arm B main turns"
+# arm C: orchestrator 0.2 + implementer 0.9 + two fixers 0.1 and 0.2
+awk -v c="$(jq -r '.total.cost' "$b")" 'BEGIN { exit !(c > 1.39 && c < 1.41) }' || fail "arm C cost: $(jq -c .total "$b")"
+[[ "$(jq -r '.sub.attempts' "$b")" == 3 ]] || fail "arm C attempts (implementer and two fixers): $(jq -c .sub "$b")"
+[[ "$(jq -r '.sub.cache_read' "$b")" == 48000 ]] || fail "arm C sub-flow cache read: $(jq -c .sub "$b")"
+[[ "$(jq -r '.main.turns' "$b")" == 4 ]] || fail "arm C main turns"
 for r in "$a" "$b"; do
   [[ "$(jq -r '.grade.hidden_pass' "$r")" == true && "$(jq -r '.grade.suite_pass' "$r")" == true ]] || fail "grading: $(jq -c .grade "$r")"
 done
@@ -29,21 +29,19 @@ done
 [[ "$(git -C "$dir/runs/A1/yukta" rev-parse HEAD)" == "$EVAL_BASE" ]] || fail "the clone is not on the base commit"
 
 out="$("$here/eval.sh" report)"
-grep -q '^| A1 ' <<<"$out" && grep -q '^| B1 ' <<<"$out" || fail "report rows: $out"
+grep -q '^| A1 ' <<<"$out" && grep -q '^| C1 ' <<<"$out" || fail "report rows: $out"
 grep -q '^| A | 1 | 1/1 ' <<<"$out" || fail "report per-arm row: $out"
 
 split="$("$here/split.sh")"
-grep -q '^B1 ' <<<"$split" || fail "split rows: $split"
+grep -q '^C1 ' <<<"$split" || fail "split rows: $split"
 # both fixers are outside cli/ (one changed core/X.java, one nothing): 0.30 of the 1.40 total
-[[ "$(awk '/^B1 /{print $4}' <<<"$split")" == 0.30 ]] || fail "split fix-other: $split"
+[[ "$(awk '/^C1 /{print $4}' <<<"$split")" == 0.30 ]] || fail "split fix-other: $split"
 
-# ---- arm C: the orchestrator is told --nav, the result records the backend and the loop commit
-"$here/eval.sh" run C 1 >"$dir/c.out" 2>/dev/null
-c="$dir/runs/C1/result.json"
-[[ "$(jq -r .arm "$c")" == C && "$(jq -r .nav.backend "$c")" == cbm && "$(jq -r .nav.ok "$c")" == true ]] || fail "arm C result: $(jq -c '{arm, nav}' "$c")"
-[[ -n "$(jq -r .loop_sha "$c")" && "$(jq -r .loop_sha "$c")" != null ]] || fail "no loop commit in the result"
-[[ "$(jq -r .nav "$dir/runs/B1/result.json")" == null ]] || fail "arm B must record nav null"
-[[ "$(jq -r .sub.attempts "$c")" == 3 ]] || fail "arm C is arm B plus an index: $(jq -c .sub "$c")"
+# ---- arm C records the backend that ran and the loop commit
+[[ "$(jq -r .arm "$b")" == C && "$(jq -r .nav.backend "$b")" == cbm && "$(jq -r .nav.ok "$b")" == true ]] || fail "arm C result: $(jq -c '{arm, nav}' "$b")"
+[[ -n "$(jq -r .loop_sha "$b")" && "$(jq -r .loop_sha "$b")" != null ]] || fail "no loop commit in the result"
+"$here/eval.sh" run B 1 >"$dir/b.out" 2>&1 && fail "arm B was accepted"
+grep -q 'arm B is retired' "$dir/b.out" || fail "message for B: $(cat "$dir/b.out")"
 
 # ---- validate: a sound grader fails on the base and passes with the fix; a weak one is refused
 vi="$dir/issues"

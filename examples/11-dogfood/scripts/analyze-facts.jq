@@ -62,9 +62,6 @@ def cache: (.usage // {}) | ((.cache_creation_input_tokens // .cache_creation //
       (if $f.noop_attempts > 0 then
         {rule: "noop-fixers",
          evidence: "\($f.noop_attempts) of \($f.fixer_attempts) fixer attempt(s) changed nothing and cost $\($f.noop_cost_usd) of $\($f.fixer_cost_usd) fixer spend (run cost $\($f.cost_usd | r2))."} else empty end),
-      (if $f.rewrite_turns > 0 and $f.method != "A" then
-        {rule: "cache-rewrite-on-resume",
-         evidence: "\($f.rewrite_turns) turn(s) re-wrote context the cache should have served: \($f.rewrites | map("at +\(.at_s)s wrote \(.write), read \(.read)") | join("; "))."} else empty end),
       (if $f.sessions > 1 and $f.method != "A" then
         {rule: "restart-overwrites-records",
          evidence: "\($f.sessions) implementer sessions in one worktree: the run was started again, and the records of the earlier run were overwritten."} else empty end),

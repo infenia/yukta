@@ -167,9 +167,7 @@ fix     fix@low ▶ recheck ─failure▶ fix@medium ▶ recheck ─failure▶ f
 `yk check --models sonnet,opus` limits the models for one run, `--triage off` skips the System One call (heal
 then starts at the default level; the online test has no Ollama), `YUKTA_TRIAGE=off` is the same.
 
-The deterministic fix (`auto`, only `spotless`: `spotlessApply`) still comes first. `check-impl` (the gate of
-`yk run issue`) keeps the unrolled chain with its `resume` rungs, a fixer that continues the implementer's own
-session: `S.run1 ─failure▶ S.f1 ─success▶ S.run2 ─failure▶ S.f2 …`. A healed stage re-runs only itself. After `coverage` the
+The deterministic fix (`auto`, only `spotless`: `spotlessApply`) still comes first. A healed stage re-runs only itself. After `coverage` the
 **analyzers** (style, spotbugs, licenses, security, cli) run in parallel; those with a policy go through
 `analyzers.join` (an `AGGREGATE`), `analyzers.gate` (a `BRANCH` on a failed item) and ONE `analyzers.heal`, so two
 fixers never edit the tree at once (`recheck` of the analyzers is one gradle rerun of the failing ones). `licenses` and
@@ -224,17 +222,18 @@ edits) and never commits.
 yk run issue 123 [--detach] [--no-pause before-implement,before-pr]
 ```
 One command takes an assigned, **Ready** issue of the Yukta Roadmap project to a draft pull request. The shared session
-`yukta-dev` (applied by `yk`, parameterised by the start payload `issue`, `repo`, `worktree`, `implSession`) holds:
+`yukta-dev` (applied by `yk`, parameterised by the start payload `issue`, `repo`, `worktree`) holds:
 - `run-issue`: runs `implement-issue` as a sub-workflow. However that ends badly (a failing node, a rejected or
   unanswered checkpoint, a failing check) `release` puts the issue back to Ready and the run ends `ESCALATE`
   (`RESULT status=ESCALATE`); the worktree is kept.
 - `implement-issue`: `claim` (open, assigned to you, Ready; moves it to In progress) → `worktree` (`../yukta-issue-<n>` on
-  `issue/<n>` from `origin/main`) → `brief` (`.yukta-dev/issue-<n>/brief.md`) → **before-implement** → `implement` (a headless
+  `issue/<n>` from `origin/main`) → `brief` (`.yukta-dev/issue-<n>/brief.md`) → **before-implement** → `nav` (a code-navigation index of the worktree, below) → `implement` (a headless
   Claude, `YUKTA_IMPL_MODEL` opus, `YUKTA_IMPL_BUDGET` $5, in the worktree with the implementer rules in `implementer-rules.md`)
   → `check` → **before-pr** → `pr` (commit, push, a *draft* PR with `Fixes #<n>` and the check's `RESULT` line).
-- `check` and `check-impl`: the self-healing check with the project given as `${start.project}`, so it runs on any
-  worktree. In `check-impl` the ladder is `resume`, `resume`: a fixer **resumes the implementer's own session** (same model, warm
-  cache, it knows the change) instead of starting a fresh one.
+- `check`, `heal`, `fix-from-<effort>`: the self-healing check with the project given as `${start.project}`, so it runs on any
+  worktree (see "Self-healing check"). In an issue run it also gets `issueState` (`.yukta-dev/issue-<n>/`): the implementer's cost
+  counts against `YUKTA_BUDGET_ISSUE`, and `nav.json` there gives the fixers the same code index as the implementer. The fixers are
+  **fresh sessions** chosen by the triage; they do not resume the implementer.
 
 The two checkpoints are `WAIT_FOR_SIGNAL` nodes: answer with `yk signals <e>` / `yk approve|reject <e> <signal>` (the root
 execution id is enough, the signal waits in a run below it). `before-implement` is the time to edit the brief; an
@@ -251,19 +250,21 @@ claim -> worktree -> brief -> solo -> check-plain -> [before-pr] -> pr -> done  
 ```
 
 - `solo` starts a headless Claude Code session with **your own setup** (plugins, skills, MCP servers), not the slim launcher of the implementer: `YUKTA_SOLO_MODEL` (opus), `YUKTA_SOLO_BUDGET` (USD, 5) and `YUKTA_SOLO_TURNS` (60). It is told to run Gradle only through `yk gradle`, to finish with `yk check --no-heal -p <worktree>`, to write `.yukta-dev/pr.md`, and not to commit or push. Its answer and usage are kept in `.yukta-dev/issue-<n>/solo.out.json` and `solo.json`.
-- There are **no fixers**. After the session, `check-plain` runs the whole gate without healing (the same stages as `check`); a failing gate ends the run `ESCALATE`, the issue goes back to Ready and the worktree stays. That is the point of the method: whatever fails, the session itself has to fix. The gate is the whole repository, as in method B, so failures that do not come from the change (issues #1232 and #1233, while open) hit method A too; the session sees them when it runs `yk check --no-heal` and has to deal with them.
+- There are **no fixers**. After the session, `check-plain` runs the whole gate without healing (the same stages as `check`); a failing gate ends the run `ESCALATE`, the issue goes back to Ready and the worktree stays. That is the point of the method: whatever fails, the session itself has to fix. The gate is the whole repository, as in method C, so failures that do not come from the change (issues #1232 and #1233, while open) hit method A too; the session sees them when it runs `yk check --no-heal` and has to deal with them.
 - Only the `before-pr` checkpoint exists (`--no-pause before-pr` to skip it); there is no `before-implement`.
 - `YUKTA_BUDGET_ISSUE` still refuses to start a second `solo` over its budget.
 
-### Method C: `yk run issue <n> --nav`
+### Method C: `yk run issue <n>`
 
-Method B plus a **code-navigation index** for the implementer and its fixers, so they can search the code instead of reading files one by one (by default the sub-flows have six built-in tools and no index; see issue #1251):
+The method of the plain issue run: a slim implementer with a **code-navigation index**, so it and its fixers can search the code instead of reading files one by one (the sub-flows otherwise have six built-in tools and no index; see issue #1251), then the self-healing `check`:
 
 ```
-claim -> worktree -> brief -> [before-implement] -> nav -> implement -> check-impl -> [before-pr] -> pr -> done      (run-issue-nav)
+claim -> worktree -> brief -> [before-implement] -> nav -> implement -> check (heal) -> [before-pr] -> pr -> done      (run-issue)
 ```
 
-`nav` (`scripts/nav.sh prepare`) indexes the issue worktree with the first backend that works, in the order of `YUKTA_NAV_BACKENDS` (default `ide,cbm,codegraph`), and writes `.yukta-dev/issue-<n>/nav.json`. It never fails the run: with no working backend the run goes on as method B (`backend: none`, which the analyzer notes).
+(There was a method B: the same without the index, and with fixers that resumed the implementer's session. It is retired; `yk pick --method B` is refused, and the old ledger records of B are relabelled C with `was: B`.)
+
+`nav` (`scripts/nav.sh prepare`) indexes the issue worktree with the first backend that works, in the order of `YUKTA_NAV_BACKENDS` (default `ide,cbm,codegraph`), and writes `.yukta-dev/issue-<n>/nav.json`. It never fails the run: with no working backend the run goes on without an index (`backend: none`, which the analyzer notes).
 
 | Backend | What it is | Cost to index (measured on this repository) | Notes |
 |---|---|---|---|
@@ -272,8 +273,8 @@ claim -> worktree -> brief -> [before-implement] -> nav -> implement -> check-im
 | `codegraph` | CodeGraph, `codegraph init` in the worktree, used through Bash | about 8.5 minutes | The last resort; the time is wall time, not tokens. |
 
 - **Your Claude configuration is not touched.** A backend that needs an MCP server is handed to the headless sessions with `--mcp-config` for that run only (`nav-mcp.json`); the sessions keep `--strict-mcp-config`, so nothing else loads.
-- **One tool set for the whole issue.** `yk_claude` reads `nav.json` (next to `implement.json`) for the implementer *and* for a fixer that resumes it. Different tool definitions on resume would make the cache re-write the conversation (issue #1248). The rules are one constant file per backend (the implementer's rules plus `nav/rules-<backend>.md`); what differs per issue (the project name or path) goes in the prompt.
-- **A plain `yk run issue` removes a stale `nav.json`** of an earlier method C run, so it does not pick up an index.
+- **One tool set for the whole issue.** `yk_claude` reads `nav.json` (next to `implement.json`) for the implementer *and* for every fixer, so they all see the same index. The rules are one constant file per backend (the implementer's rules plus `nav/rules-<backend>.md`); what differs per issue (the project name or path) goes in the prompt.
+- **Every run indexes again:** the `nav` step rewrites `nav.json` (an earlier run's index is never reused).
 - The outcome in the ledger carries `nav: {backend, ok, index_seconds, version}`. The index time is part of method C's wall time; compare method C only within one backend.
 - Settings: `YUKTA_NAV_BACKENDS`, `YUKTA_NAV_IDE`, `YUKTA_NAV_IDE_URL`, `YUKTA_NAV_CBM_BIN`, `YUKTA_NAV_CBM_CACHE`, `YUKTA_NAV_INDEX_TIMEOUT` (1500 s, per backend). `scripts/nav.sh probe` shows what could run now and why a backend is skipped.
 - Offline test: `scripts/test-nav.sh` (fake backends and a stub IDE server).
@@ -296,7 +297,7 @@ again with its worktree kept.
 - **Budgets.** `YUKTA_BUDGET_ISSUE` (USD) caps what one issue spends, the implementer and its fixers together; `YUKTA_BUDGET_EPIC` what
   all issues do. Over a budget `implement` refuses to start and a fixer refuses to spend, so the run ends instead of paying more;
   set them in the environment of `yk run`. The implementer's own cap is `YUKTA_IMPL_BUDGET` (5).
-- **`yk stats`** adds up what the loop spent from its records: per step (`compile haiku`, `tests resume`, `implement`, ...) the attempts,
+- **`yk stats`** adds up what the loop spent from its records: per step (`compile haiku/low`, `tests sonnet/medium`, `implement`, ...) the attempts,
   how many fixed, the dollars and how much of the prompt was read from the cache (the target is 70 % and more).
 
 `yk watch` prints `APPROVAL <signal> waits at <node>: yk approve <e> <signal>` once for each checkpoint that starts waiting, so a watcher
@@ -317,7 +318,7 @@ yk loop total                    # dollars spent of the budget ($60 by default)
 yk loop ledger                   # one line per draw and outcome
 ```
 
-- **Methods.** **A**: one Claude Code session fixes the issue itself and Yukta only checks (`yk run issue <n> --solo`, below). **B**: a Claude Code session orchestrates `yk run issue`; slim sub-flow sessions do the work. **C**: B with a code-navigation index for the sub-flows (`yk run issue <n> --nav`, below). `YUKTA_LOOP_METHODS` lists the enabled ones (default `A,B,C`).
+- **Methods.** **A**: one Claude Code session fixes the issue itself and Yukta only checks (`yk run issue <n> --solo`, below). **C**: a Claude Code session orchestrates `yk run issue`; slim sub-flow sessions do the work: an implementer with a code-navigation index, then the self-healing check with triage-picked fixers (`yk run issue <n>`, below). `YUKTA_LOOP_METHODS` lists the enabled ones (default `A,C`). Method B (C without the index, fixers resuming the implementer) is retired; its ledger records are relabelled C with `was: B`, and the original ledger is kept as `ledger.jsonl.pre-arm-c`.
 - **Draw.** Block-randomized inside each size stratum: a block holds every enabled method once in a seeded order, so the methods stay balanced even with few issues. The draw is appended to the ledger **before** the run starts, so it cannot depend on how the run goes. A second `yk pick` of the same issue keeps its method. `--method X` forces one; it is recorded as forced and left out of the method comparison.
 - **Size** (`scripts/issue-size.sh`): `2 x acceptance criteria + 3 x modules named + words / 150`, bucketed S below 6, M below 9, L from 9 (set on the open issues of epic #1218). A label `size:S|M|L` overrides it.
 - **Loop-changing issues** (their text names `examples/11-dogfood`, `yk`, `build-logic`, the heal or issue scripts, `controlbus`; or the label `loop-changing`, overridden by `loop-neutral`) are flagged, because the ground moves under them and they should stay out of a method comparison.
@@ -330,7 +331,7 @@ yk loop ledger                   # one line per draw and outcome
 
 After every `yk pick` a finished run is read by `scripts/analyze.sh`, which says what was wasteful and files it under the epic (#1218). `YUKTA_LOOP_ANALYZE=dry` only shows what it would do, `off` skips it; `yk analyze <draw-id> --dry-run` re-reads any run in the ledger (`yk loop ledger` lists the ids).
 
-1. **Facts and rules, no model** (`scripts/analyze-facts.jq`): cost and wall time, the heal and implement records, the files the run changed, the session transcripts (`eval/cache_trace.py --json`: turns, cache write and read, tool use, turns that re-wrote context). Eight rules turn them into findings (the last two, for method C, are only noted): a fixer changed files outside the module of the implementer's change (`fixer-outside-module`), fixer attempts that changed nothing (`noop-fixers`), a turn re-wrote context on resume (`cache-rewrite-on-resume`), a second implementer session in one worktree (`restart-overwrites-records`), the transcripts hold more tokens than the records (`records-undercount`), the RESULT line says `healed=-` although a fixer fixed something (`healed-field-mismatch`), a method C run without a navigation backend (`nav-backend-none`), a method C run that built an index and never called it (`nav-unused`). The issue's modules are taken from the implementer's own files (the files on the branch no fixer touched), the modules its text names only when that is empty.
+1. **Facts and rules, no model** (`scripts/analyze-facts.jq`): cost and wall time, the heal and implement records, the files the run changed, the session transcripts (`eval/cache_trace.py --json`: turns, cache write and read, tool use, turns that re-wrote context). Seven rules turn them into findings (the last two, for method C, are only noted): a fixer changed files outside the module of the implementer's change (`fixer-outside-module`), fixer attempts that changed nothing (`noop-fixers`), a second implementer session in one worktree (`restart-overwrites-records`), the transcripts hold more tokens than the records (`records-undercount`), the RESULT line says `healed=-` although a fixer fixed something (`healed-field-mismatch`), a method C run without a navigation backend (`nav-backend-none`), a method C run that built an index and never called it (`nav-unused`). The issue's modules are taken from the implementer's own files (the files on the branch no fixer touched), the modules its text names only when that is empty.
 2. **One cheap judge call** (`YUKTA_ANALYZER_MODEL` sonnet, `YUKTA_ANALYZER_BUDGET` $0.30; about $0.07 on the evaluation's runs), with a constant system prompt (`analyzer-rules.md`): an open-code note about the run and at most two proposals the rules and the open epic issues do not cover. It is told to prefer no proposal over a weak one.
 3. **Filing** (nothing is implemented; you mark an issue Ready): a rule finding comments on the first still-open issue that describes it (`analyzer-known.json`), or files a new issue when all of them are closed; a proposal that duplicates an open epic issue becomes a comment, a new one is filed with `report-finding.sh` and attached under the epic. At most `YUKTA_ANALYZER_MAX_FILED` (3) new issues per run, and the evidence names the run and the loop commit.
 

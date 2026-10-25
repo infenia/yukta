@@ -2,18 +2,19 @@
 # Token-efficiency evaluation of the Yukta dev loop on one issue (see README.md in this directory).
 #
 #   eval.sh fixture N       save issue N as eval/issues/N/issue.json (the stub gh serves it)
-#   eval.sh run A|B|C N     one run of an arm (prep, claude, collect, grade); N is the repetition
+#   eval.sh run A|C N       one run of an arm (prep, claude, collect, grade); N is the repetition
 #   eval.sh validate        check the grader of EVAL_ISSUE: it must fail on the base commit and pass with the reference fix
-#   eval.sh collect A|B N   collect and grade a run again from its files, without running Claude
-#   eval.sh grade A|B N     only grade a run
+#   eval.sh collect A|C N   collect and grade a run again from its files, without running Claude
+#   eval.sh grade A|C N     only grade a run
 #   eval.sh report          the comparison table of every run that has a result.json
 #
 # Arm A: one Claude Code session fixes the issue itself; Yukta is only its check (yk gradle / yk check --no-heal).
-# Arm B: the same Claude Code session is an orchestrator: it starts `yk run issue`, whose slim headless
-#        implementer and fixers (Yukta sub-flows) do the work, and it reports the RESULT line.
-# Arm C: arm B with a code-navigation index for the sub-flows (yk run issue --nav; the backend that ran is recorded).
+# Arm C: the same Claude Code session is an orchestrator: it starts `yk run issue`, whose slim headless implementer
+#        (with a code-navigation index; the backend that ran is recorded) and fixers (chosen by a triage; fresh
+#        sessions) do the work, and it reports the RESULT line. (Arm B, C without the index and with fixers that
+#        resumed the implementer, is retired; its runs under runs/B* of old results still collect and grade.)
 # Both main sessions start the same way (same model, tools and the user's own Claude Code setup), so the
-# difference is who does the work. Sub-flow tokens are counted in arm B's total. Every run is isolated:
+# difference is who does the work. Sub-flow tokens are counted in arm C's total. Every run is isolated:
 # a fresh clone of the base commit with a bare origin, a stub gh and project status (the real issue stays
 # untouched, no PR opens), and a grading test applied after the run.
 #
@@ -115,12 +116,12 @@ anything, you fix failures). Do not commit or push. When the check passes, answe
 TXT
 }
 
-prompt_b() {
+prompt_c() {
   cat <<TXT
 Issue #$EVAL_ISSUE in $1/yukta must be fixed, and you are the orchestrator, not the implementer: do not edit code
 yourself. Start Yukta's issue workflow:
 
-  $EVAL_YK run issue $EVAL_ISSUE${2:+ $2} --no-pause before-implement,before-pr
+  $EVAL_YK run issue $EVAL_ISSUE --no-pause before-implement,before-pr
 
 Run it in the foreground with the Bash timeout set to 600000 ms. It prints a few lines and ends with a
 \`RESULT status=...\` line. If the command times out before RESULT, re-attach with
@@ -187,11 +188,12 @@ write_result() { # ARM N DIR START END
   jq . "$d/result.json"
 }
 
-run_dir() { echo "$EVAL_DIR/runs/${1:?arm A|B}${2:?run number}"; }
+run_dir() { echo "$EVAL_DIR/runs/${1:?arm A|C}${2:?run number}"; }
 
 cmd_run() {
-  local arm="${1:?arm A|B}" n="${2:?run number}" d start end
-  [[ "$arm" =~ ^[ABC]$ ]] || die "arm must be A, B or C"
+  local arm="${1:?arm A|C}" n="${2:?run number}" d start end
+  [[ "$arm" == B ]] && die "arm B is retired, it is part of C now (use C)"
+  [[ "$arm" =~ ^[AC]$ ]] || die "arm must be A or C"
   load_issue
   d="$(run_dir "$arm" "$n")"
   prep "$d"
@@ -199,8 +201,7 @@ cmd_run() {
   start="$(date +%s)"
   case "$arm" in
     A) main_claude "$d" "$(prompt_a "$d")" "$d/main.json" ;;
-    B) main_claude "$d" "$(prompt_b "$d")" "$d/main.json" ;;
-    C) main_claude "$d" "$(prompt_b "$d" --nav)" "$d/main.json" ;;
+    C) main_claude "$d" "$(prompt_c "$d")" "$d/main.json" ;;
   esac
   end="$(date +%s)"
   write_result "$arm" "$n" "$d" "$start" "$end"
@@ -244,7 +245,7 @@ cmd_report() {
       "| \($a) | \($g | length) | \($g | map(select(.grade.hidden_pass and .grade.suite_pass)) | length)/\($g | length) | $\($g | map(.total.cost) | med | r2) [\($g | map(.total.cost) | min | r2)..\($g | map(.total.cost) | max | r2)] | \($g | map(tok) | med | floor) [\($g | map(tok) | min)..\($g | map(tok) | max)] | \($g | map(mtok) | med | floor) | \($g | map(stok) | med | floor) | \($g | map(.wall_s) | med | floor)s |")
   ' "${files[@]}"
   echo
-  echo "Note: 'hidden test' and 'suite' grade the code, not the delivery. For arm B check the workflow's own"
+  echo "Note: 'hidden test' and 'suite' grade the code, not the delivery. For arm C check the workflow's own"
   echo "RESULT line in each run's result.json (answer): an ESCALATE run can hold correct code and deliver nothing."
 }
 

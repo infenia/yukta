@@ -19,15 +19,6 @@
     "priority": "P2",
     "kind": "perf"
   },
-  "cache-rewrite-on-resume": {
-    "issues": [
-      1248
-    ],
-    "title": "A fixer that resumes the implementer re-writes the implementer's conversation cache because its answer schema differs",
-    "module": "build",
-    "priority": "P2",
-    "kind": "perf"
-  },
   "restart-overwrites-records": {
     "issues": [
       1250,

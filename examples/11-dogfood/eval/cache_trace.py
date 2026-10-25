@@ -6,7 +6,7 @@
   python3 -I cache_trace.py /path/to/runs/B1         # a run directory
   python3 -I cache_trace.py --worktree ../yukta-issue-1234 --json   # one issue worktree, machine-readable
 
-It reads the session transcripts Claude Code keeps for the worktree (arm B: the implementer and every resumed
+It reads the session transcripts Claude Code keeps for the worktree (arm C: the implementer and every
 fixer share one transcript; a restarted run adds another). After the first turn of a session, 'read' should be
 about the whole previous context. A turn that writes a lot and reads far less than the previous turn's context
 paid again for context a cache could have served (flagged '<== re-wrote context'). Claude Code logs one entry

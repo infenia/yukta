@@ -133,7 +133,7 @@ def main():
         rows.append((m, len(rs), f"{sum(r['success'] for r in rs)}/{len(rs)}", " / ".join(pk), f"{usd(med(c))} [{usd(lo)}..{usd(hi)}]",
                      f"{med(cvs) * 100:.0f}%" if cvs else "-", sum(1 for r in rs if r.get("failed"))))
     out.append(table(["method", "runs", "success", f"pass^1..{maxk}", "median cost [90%]", "cost spread (CV)", "failed to run"], rows))
-    out.append("\nSuccess = the code is correct and, for B and C, the workflow ended SUCCESS. pass^k = the chance that k trials in a row all succeed.")
+    out.append("\nSuccess = the code is correct and, for C, the workflow ended SUCCESS. pass^k = the chance that k trials in a row all succeed.")
 
     out.append("\n## Per issue and method\n")
     rows = []
