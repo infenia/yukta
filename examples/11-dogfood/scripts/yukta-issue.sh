@@ -24,6 +24,8 @@ action="${1:?usage: yukta-issue.sh claim|worktree|brief|implement|pr|release|epi
 repo="${YUKTA_REPO_DIR:?YUKTA_REPO_DIR is required}"
 gh="${YUKTA_GH:-gh}"
 gh_repo="${YUKTA_GH_REPO:-infenia/yukta}"
+# git_locked CMD...: parallel issue runs of an epic share one .git/config; git fails when two writes meet
+git_locked() { flock "$(git -C "$repo" rev-parse --path-format=absolute --git-common-dir)/yukta-issue.lock" "$@"; }
 if [[ "$action" == epic-* ]]; then
   n="" wt="" state="$repo/.yukta-dev/epic-${YUKTA_EPIC:?YUKTA_EPIC is required}"
 else
@@ -67,9 +69,9 @@ case "$action" in
     if [[ -e "$wt/.git" ]]; then
       echo "reusing the worktree $wt"
     elif git -C "$repo" show-ref -q --verify "refs/heads/issue/$n"; then
-      git -C "$repo" worktree add -q "$wt" "issue/$n" || exit 1
+      git_locked git -C "$repo" worktree add -q "$wt" "issue/$n" || exit 1
     else
-      git -C "$repo" worktree add -q "$wt" -b "issue/$n" origin/main || exit 1
+      git_locked git -C "$repo" worktree add -q --no-track "$wt" -b "issue/$n" origin/main || exit 1
     fi
     # the ui build needs the node/pnpm toolchain Gradle downloaded into ui/.gradle: reuse this checkout's copy
     if [[ -d "$repo/ui/.gradle/pnpm" && ! -d "$wt/ui/.gradle/pnpm" ]]; then
@@ -139,7 +141,7 @@ TXT
     git -c user.name="${GIT_AUTHOR_NAME:-$(git config user.name)}" commit -q -m "$title
 
 Co-Authored-By: Claude <noreply@anthropic.com>" || { echo "nothing to commit" >&2; exit 1; }
-    git push -q -u origin "issue/$n" || exit 1
+    git_locked git push -q -u origin "issue/$n" || exit 1
     url="$("$gh" pr create -R "$gh_repo" --draft --base main --head "issue/$n" --title "$title" --body "$body
 
 Fixes #$n
