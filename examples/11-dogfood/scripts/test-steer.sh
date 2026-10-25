@@ -10,7 +10,7 @@ dir="$(mktemp -d)"
 trap 'rm -rf "$dir"' EXIT
 "$here/fake-project.sh" "$dir"
 proj="$dir/proj"
-export YUKTA_CLAUDE_BIN="$dir/claude" YUKTA_CHECK_EXTRAS=off YUKTA_PAUSE_SECONDS=120
+export YUKTA_CLAUDE_BIN="$dir/claude" YUKTA_CHECK_EXTRAS=off YUKTA_TRIAGE=off YUKTA_HEAL_EVENTS=off YUKTA_PAUSE_SECONDS=120
 
 exec_id="" session=""
 # start FLAGS...: a detached check of the fake project; sets exec_id and session
@@ -56,17 +56,17 @@ echo "ok   stop"
 
 # --- approve and reject a before-opus checkpoint
 reset fail-compileJava
-echo opus >"$proj/.fake-fix-at"
+echo opus/low >"$proj/.fake-fix-at"
 start --pause before-opus
 wait_for 60 signals_have before-opus || fail "the before-opus checkpoint never waited"
-"$yk" tree "${exec_id:0:8}" | grep -q "awaiting before-opus@compile.pause" || fail "tree does not show the pending signal"
+"$yk" tree "${exec_id:0:8}" | grep -q "awaiting before-opus@pause-opus" || fail "tree does not show the pending signal"
 "$yk" approve "${exec_id:0:8}" before-opus >/dev/null
 got="$(result)"
-grep -Eq "status=SUCCESS .*healed=compile:opus" <<<"$got" || fail "approved run did not heal at the opus rung: $got"
+grep -Eq "status=SUCCESS .*healed=compile:opus/low" <<<"$got" || fail "approved run did not heal at the opus rung: $got"
 echo "ok   approve"
 
 reset fail-compileJava
-echo opus >"$proj/.fake-fix-at"
+echo opus/low >"$proj/.fake-fix-at"
 start --pause before-opus
 wait_for 60 signals_have before-opus || fail "the before-opus checkpoint never waited (reject)"
 "$yk" reject "${exec_id:0:8}" before-opus >/dev/null
@@ -76,15 +76,15 @@ echo "ok   reject"
 
 # --- yk watch says when a checkpoint waits for an answer
 reset fail-compileJava
-echo opus >"$proj/.fake-fix-at"
+echo opus/low >"$proj/.fake-fix-at"
 log="$dir/watch.out"
 "$yk" check -p "$proj" --pause before-opus >"$log" 2>&1 &
 checker=$!
-wait_for 90 grep -q "APPROVAL before-opus waits at compile.pause" "$log" || fail "watch did not announce the checkpoint: $(tail -5 "$log")"
+wait_for 90 grep -q "APPROVAL before-opus waits at pause-opus" "$log" || fail "watch did not announce the checkpoint: $(tail -5 "$log")"
 e8="$(grep -o 'yk approve [0-9a-f]\{8\}' "$log" | head -1 | awk '{print $3}')"
 "$yk" approve "$e8" before-opus >/dev/null
 wait "$checker" || fail "the watched check did not succeed: $(tail -3 "$log")"
-tail -1 "$log" | grep -Eq "status=SUCCESS .*healed=compile:opus" || fail "the watched check did not heal at the opus rung: $(tail -2 "$log")"
+tail -1 "$log" | grep -Eq "status=SUCCESS .*healed=compile:opus/low" || fail "the watched check did not heal at the opus rung: $(tail -2 "$log")"
 echo "ok   watch announces a checkpoint"
 
 # --- a prefix that matches no run is an error with a message

@@ -1,3 +1,5 @@
+> **Superseded (#1277).** The arms (methods A, B and C), the draw and ledger, the analyzer and its judge, the evaluations and the golden set were removed; what remains is heal and its monitoring (`examples/11-dogfood/README.md`, "Monitoring heal"). This plan is kept as history.
+
 # Plan: dogfood improvement loop (random method per issue, analyzer after each task)
 
 ## Context

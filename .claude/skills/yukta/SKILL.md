@@ -37,10 +37,10 @@ log whole, and never `yk cli logs` (it streams everything).
 
 ## Self-healing (`yk check`)
 A failing stage repairs itself before the run fails: deterministic fix first (`spotlessApply`), then up
-to a ladder of headless Claude attempts (haiku, sonnet, opus), then a verify pass. While it runs, don't edit files or run Gradle in
+to a `heal` workflow (a System One triage rates the failure easy, average or hard and picks the starting model and effort; fresh headless Claude attempts climb effort `low → medium → high` and escalate haiku, sonnet, opus), then a verify pass. While it runs, don't edit files or run Gradle in
 that checkout; act only on the final RESULT or an `ESCALATE:`. Review everything listed in `healed=`
 with `git diff` before committing (the fixer never commits). `--no-heal` gives the plain fail-fast
-chain (to see a failure as it is). Details, guards and budget: [reference/heal.md](reference/heal.md).
+chain (to see a failure as it is). Details, guards and budget: [reference/heal.md](reference/heal.md). What heal did, where its time and money went: `yk heal report`; what looks wrong: `yk heal analyze`; one run: `yk heal show --run <id>`.
 
 ## Long runs: detach and watch cheaply
 ```bash
@@ -53,15 +53,15 @@ so routine events never reach your context. Steer only runs you started: `yk tre
 [reference/control.md](reference/control.md).
 
 ## An issue, start to draft PR
-`yk run issue <n>` (the `pickup` skill, `/yk-pickup`): claim, worktree, headless implementer, the check on the worktree (its
-fixers resume the implementer), a draft PR. It waits at `before-implement` and `before-pr`: `yk signals <e>`,
+`yk run issue <n>` (the `pickup` skill, `/yk-pickup`): claim, worktree, headless implementer, a code index, the check on the worktree (a
+triage picks fresh fixers), a draft PR. It waits at `before-implement` and `before-pr`: `yk signals <e>`,
 `yk approve|reject <e> <signal>`. `RESULT status=ESCALATE` means it gave up and the issue is Ready again.
 [reference/control.md](reference/control.md), `examples/11-dogfood/README.md`.
 
 ## An epic, two issues at a time
 `yk run epic <n>`: the epic's open, assigned, Ready sub-issues, each as above, two at a time. `between-issues` waits before each
 issue starts; two issues that give up (ESCALATE) pause the whole tree, `yk resume <e> --tree` or `yk stop <e> --tree`. Budgets:
-`YUKTA_BUDGET_ISSUE`, `YUKTA_BUDGET_EPIC` (USD). `yk stats` shows where the money went. `yk watch` prints an `APPROVAL ...` line
+`YUKTA_BUDGET_ISSUE`, `YUKTA_BUDGET_EPIC` (USD). `yk heal report` shows where the heal time and money went. `yk watch` prints an `APPROVAL ...` line
 for every checkpoint that waits.
 
 ## Dogfood: every anomaly is fixed or filed

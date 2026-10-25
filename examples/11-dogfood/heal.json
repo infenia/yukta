@@ -1,9 +1,52 @@
 {
-  "ladder": [
+  "models": [
     "haiku",
     "sonnet",
     "opus"
   ],
+  "efforts": {
+    "low": {
+      "timeoutSeconds": 600,
+      "budget": 0.5
+    },
+    "medium": {
+      "timeoutSeconds": 1200,
+      "budget": 1
+    },
+    "high": {
+      "timeoutSeconds": 1800,
+      "budget": 2
+    }
+  },
+  "triage": {
+    "model": "kev:4b-q4_K_M",
+    "default": "average",
+    "minProbability": 0.3,
+    "question": "How hard is it to fix this failed check of a Java build? Judge the work a fix needs, not how scary the message looks.",
+    "levels": {
+      "easy": {
+        "start": "haiku/medium",
+        "describe": "A mechanical or small obvious fix: formatting, an import, a license header, a typo, a missing semicolon, a style or analyzer finding in one file, a type or signature change at a few call sites."
+      },
+      "average": {
+        "start": "sonnet/medium",
+        "describe": "One failing test or runtime error whose cause is visible, or a few classes and tests to change together, or tests to add (a coverage threshold missed)."
+      },
+      "hard": {
+        "start": "sonnet/high",
+        "describe": "Needs investigation: many failing tests with one shared cause, concurrency, flaky or timing or order-dependent failures, memory, a migration or a build-wide change."
+      }
+    },
+    "from7": {
+      "trivial": "easy",
+      "easy": "easy",
+      "simple": "easy",
+      "moderate": "average",
+      "average": "average",
+      "hard": "hard",
+      "veryhard": "hard"
+    }
+  },
   "analyzers": [
     "style",
     "spotbugs",

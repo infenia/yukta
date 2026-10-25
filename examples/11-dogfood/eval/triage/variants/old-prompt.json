@@ -1,0 +1,15 @@
+{
+ "state": "short",
+ "triage": {
+  "question": "How hard is it to fix this failed check of a Java build?",
+  "levels": {
+   "trivial": "Formatting, an unused import, a typo: a mechanical fix",
+   "easy": "An obvious one-line compile or style error",
+   "simple": "A compile or style error confined to one file",
+   "moderate": "A single straightforward failing assertion",
+   "average": "A failing unit test or a typical analyzer finding",
+   "hard": "A logic bug across several classes",
+   "veryhard": "Concurrency or a design-level failure"
+  }
+ }
+}
