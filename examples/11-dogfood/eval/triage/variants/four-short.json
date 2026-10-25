@@ -1,0 +1,31 @@
+{
+ "state": "short",
+ "caps": {
+  "short": 1000
+ },
+ "triage": {
+  "question": "How hard is it to fix this failed check of a Java build? Judge the work a fix needs, not how scary the message looks.",
+  "default": "average",
+  "levels": {
+   "trivial": "Mechanical or an obvious one-line edit: formatting, an unused import, a license header, a missing semicolon, a misspelled name. The message names the exact fix.",
+   "simple": "A small fix in one or two files that needs a little reading: a style or analyzer finding, a type or signature change at a few call sites, one failing test whose cause is visible in the message.",
+   "average": "A few classes or tests change together, or tests must be added: a coverage threshold missed, two related tests that disagree, a mapping or serialization change.",
+   "hard": "Real investigation: many failing tests with one shared cause, concurrency, flaky, timing or order-dependent failures, memory, a migration, or a build-wide change."
+  }
+ },
+ "from7": {
+  "trivial": "trivial",
+  "easy": "trivial",
+  "simple": "simple",
+  "moderate": "simple",
+  "average": "average",
+  "hard": "hard",
+  "veryhard": "hard"
+ },
+ "collapse": {
+  "trivial": "easy",
+  "simple": "easy",
+  "average": "average",
+  "hard": "hard"
+ }
+}

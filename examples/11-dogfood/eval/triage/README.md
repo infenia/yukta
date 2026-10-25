@@ -19,6 +19,22 @@ selftest.sh  offline test of eval.py with a stub server
 ./eval.py --cases fixtures/synthetic-b.json   # the synthetic held-out set
 ```
 
+## What it found (54 real failures, `kev:4b-q4_K_M`, labels by reading, so treat one case as noise)
+
+| variant (`variants/`) | exact | within one | on 3 classes | per call |
+|---|---|---|---|---|
+| seven levels, old one-line descriptions, problem lines | 14 | 43 | | 10 s |
+| seven levels, long descriptions, problem lines | 18 | 35 | | 17 s |
+| seven levels, long descriptions, changed files and log end (5000 chars) | 19 | 37 | | 35 s |
+| seven levels, 2,500 chars (`seven-mid`) | 19 | 38 | 32 | 22 s |
+| four levels, problem lines (`four-short`) | 24 | 43 | 29 | 8 s |
+| four levels, 2,500 chars (`four-mid`) | 22 | 41 | 28 | 18 s |
+| three levels, 2,500 chars (`three-mid`) | 31 | 49 | 31 | 18 s |
+| **three levels, problem lines (`three-short`, what `heal.json` has)** | **33** | **50** | **33** | **7 s** |
+
+Fewer levels and a shorter brief both helped; the log end and the changed files added time and no accuracy. The model's confidence did not
+separate right answers from wrong ones, so the confidence floor does nothing with three levels.
+
 ## Labels
 
 A label is one of `trivial, easy, simple, moderate, average, hard, veryhard` (the levels of `heal.json`, which map to a start

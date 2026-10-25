@@ -142,13 +142,12 @@ hassert "edges name existing nodes" '.workflows | all(. as $w | ($w.nodes | map(
   | ($ids | length) == ($ids | unique | length) and ($w.edges | all(.source as $s | .target as $t | ($ids | index($s)) != null and ($ids | index($t)) != null)))'
 hassert "triage is a System One CLASSIFY routed on the label, with a port per difficulty" '.workflows.heal.nodes[] | select(.nodeId == "triage")
   | .type == "CLASSIFY" and .config.routeByLabel == true and (.config.backend // "SYSTEMONE") == "SYSTEMONE"
-    and (.config.labels | keys | sort) == ["average", "easy", "hard", "moderate", "simple", "trivial", "veryhard"]'
+    and (.config.labels | keys | sort) == ["average", "easy", "hard"]'
 hassert "each difficulty starts at its model and effort" '.workflows.heal.edges as $e
-  | {trivial: "fix-haiku-low", easy: "fix-haiku-medium", simple: "fix-haiku-high", moderate: "fix-sonnet-low",
-     average: "fix-sonnet-medium", hard: "fix-sonnet-high", veryhard: "fix-opus-low", uncertain: "fix-sonnet-medium", error: "fix-sonnet-medium"}
+  | {easy: "fix-haiku-medium", average: "fix-sonnet-medium", hard: "fix-sonnet-high", uncertain: "fix-sonnet-medium", error: "fix-sonnet-medium"}
     | to_entries | all(. as $c | $e | any(.source == "triage" and .sourcePort == $c.key and .target == $c.value))'
 hassert "a failed model hands over to the next one at low effort; the last gives up" '.workflows.heal.edges as $e
-  | ($e | any(.source == "fix-haiku-high" and .target == "fix-sonnet-low" and .sourcePort == "failure"))
+  | ($e | any(.source == "fix-haiku-medium" and .target == "fix-sonnet-low" and .sourcePort == "failure"))
     and ($e | any(.source == "fix-sonnet-high" and .target == "fix-opus-low" and .sourcePort == "failure"))
     and ($e | any(.source == "fix-sonnet-medium" and .target == "fix-opus-low" and .sourcePort == "failure"))
     and ($e | any(.source == "fix-opus-low" and .target == "giveup" and .sourcePort == "failure"))'
@@ -168,8 +167,8 @@ hassert "each effort is time-boxed and budgeted" '.workflows["fix-from-low"].nod
 hassert "the fixer is told model, stage and effort" '.workflows["fix-from-low"].nodes[] | select(.nodeId == "fix.medium")
   | .config.command == ["/p/heal.sh", "fix", "${start.stage}", "0", "${start.model}", "--effort", "medium"]'
 hassert "the triage call waits less than the 60 seconds Ollama allows, more than the 35 of the default" '.workflows.heal.nodes[] | select(.nodeId == "triage") | .config.timeout > 35 and .config.timeout < 60'
-hassert "triage asks the long question and describes each level with its signals" '.workflows.heal.nodes[] | select(.nodeId == "triage")
-  | (.config.question | length) > 300 and ([.config.labels[] | length] | min) > 100'
+hassert "triage asks its question and describes each level" '.workflows.heal.nodes[] | select(.nodeId == "triage")
+  | (.config.question | length) > 50 and ([.config.labels[] | length] | min) > 60'
 echo "ok   heal and fix workflows"
 
 # ---- brief: what the triage model reads
@@ -179,15 +178,14 @@ mkdir -p "$bd/heal"
 printf './gradlew test -q' >"$bd/heal/tests.cmd"
 printf '> Task :core:test FAILED\nOrderServiceTest > shouldApplyDiscount() FAILED\n    AssertionFailedError: expected: <90> but was: <100>\n        at OrderServiceTest.java:48\n1 test failed\n' >"$bd/heal/tests.run.out"
 brief="$(cd "$bd/r" && YUKTA_HEAL_DIR="$bd/heal" bash "$here/yukta-heal.sh" brief tests)"
-for want in "stage: tests" "command: ./gradlew test" "FAILED" "files changed so far: 2" "changed files: A.java (+1 -0), New.java (new)" "at OrderServiceTest.java:48"; do
+for want in "stage: tests" "command: ./gradlew test" "FAILED" "files changed so far: 2" "shouldApplyDiscount"; do
   grep -qF -- "$want" <<<"$brief" || fail "brief lacks '$want': $brief"
 done
-for want in "---" "log (the end):"; do grep -qxF -- "$want" <<<"$brief" || fail "brief lacks the line '$want': $brief"; done
-big="$(for i in $(seq 1 400); do echo "error: line $i $(printf 'x%.0s' $(seq 1 200))"; done; echo "BUILD FAILED: the real cause is at the end")"
+! grep -qF "changed files:" <<<"$brief" || fail "the brief holds more than the problem lines: $brief"
+big="$(for i in $(seq 1 400); do echo "error: line $i $(printf 'x%.0s' $(seq 1 200))"; done)"
 printf '%s\n' "$big" >"$bd/heal/tests.run.out"
 brief="$(cd "$bd/r" && YUKTA_HEAL_DIR="$bd/heal" bash "$here/yukta-heal.sh" brief tests)"
-[[ "${#brief}" -le 5000 ]] || fail "brief is over 5000 characters: ${#brief}"
-grep -qF "BUILD FAILED: the real cause is at the end" <<<"$brief" || fail "the end of the log was cut off, not the start"
+[[ "${#brief}" -le 1001 ]] || fail "brief is over 1000 characters: ${#brief}"
 echo "ok   brief"
 
 heal="$(YUKTA_TRIAGE=off heal_subflows "$policy" /p/heal.sh)"
@@ -197,10 +195,10 @@ heal="$(heal_subflows "$policy" /p/heal.sh before-opus)"
 hassert "a pause stands in front of every way into opus" '.workflows.heal.edges
   | [.[] | select(.target == "fix-opus-low") | .source] == ["pause-opus"]
     and any(.source == "fix-sonnet-high" and .target == "pause-opus" and .sourcePort == "failure")
-    and any(.source == "triage" and .target == "pause-opus" and .sourcePort == "veryhard")'
+    and (any(.source == "triage" and .target == "pause-opus") | not)'
 heal="$(heal_subflows "$(policy_models "$policy" sonnet,opus)" /p/heal.sh)"
-hassert "--models sonnet,opus: no haiku, and a haiku level starts at sonnet" '.workflows.heal | ([.nodes[] | select(.nodeId | test("haiku"))] | length) == 0
-  and (.edges | any(.source == "triage" and .sourcePort == "trivial" and .target == "fix-sonnet-low"))'
+hassert "--models sonnet,opus: no haiku, and the easy level starts at sonnet" '.workflows.heal | ([.nodes[] | select(.nodeId | test("haiku"))] | length) == 0
+  and (.edges | any(.source == "triage" and .sourcePort == "easy" and .target == "fix-sonnet-medium"))'
 echo "ok   heal variants"
 
 [[ "${1:-}" == --online ]] || exit 0

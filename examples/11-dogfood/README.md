@@ -152,12 +152,18 @@ heal    brief ▶ triage (System One CLASSIFY) ─ difficulty ▶ fix-<model>-<e
 fix     fix@low ▶ recheck ─failure▶ fix@medium ▶ recheck ─failure▶ fix@high ▶ recheck ─failure▶ the fix fails
            (fix-from-<effort> starts at that effort; model, stage and effort come from the start payload)
 ```
-- **triage** is a `CLASSIFY` on the System One backend (`heal.json` `triage.model`, `kev:4b-q4_K_M`; it needs Ollama 0.35 or newer with that decision model, and any failure of the call starts at the default level). `minProbability` is 0.3, not the usual 0.6: the probability is spread over seven ordered levels (a clear answer is 35 to 55 %), and a vague one falls back to the default level, which is the right guess for it: `brief` (the stage, its
-  command, the problem lines, the failing tests, then the files changed with their added and removed lines and the end of the log, 5000 characters in all) goes in, a difficulty comes out and `triage.levels` maps it to a
-  start rung: `trivial` haiku/low, `easy` haiku/medium, `simple` haiku/high, `moderate` sonnet/low, `average`
-  sonnet/medium (the default, also for an uncertain answer or a model that is down), `hard` sonnet/high,
-  `veryhard` opus/low. It only picks where to start: a failure always goes on to the next model.
-  The question and the level descriptions in `heal.json` are the prompt and matter most: on 14 held-out hand-labelled failures, longer descriptions with concrete signals took the exact match from 4 to 8 and, with the longer question and the log, to 10 (13 within one level).
+- **triage** is a `CLASSIFY` on the System One backend (`heal.json` `triage.model`, `kev:4b-q4_K_M`; it needs Ollama 0.35 or newer with that
+  decision model, and any failure of the call starts at the default level). `brief` (the stage, its command, the problem lines and the
+  failing tests, 1000 characters) goes in, one of three difficulties comes out, and `triage.levels` maps it to a start rung: `easy`
+  haiku/medium (a mechanical or small obvious fix), `average` sonnet/medium (the default, also for an uncertain answer or a model that is
+  down) and `hard` sonnet/high (needs investigation). It only picks where to start: a failure always goes on to the next model, so opus is
+  reached by escalation. `minProbability` (0.3) is below the least a top answer of three can have (0.33), so it never fires: on the
+  real failures the model's confidence did not tell right answers from wrong ones.
+  The prompt was measured, not guessed (`eval/triage`, 54 real failures of this repository's CI labelled by reading, `kev`): seven levels
+  with the longest descriptions, the changed files and the end of the log scored 19 exact and took 35 s a call; **three levels and the
+  problem lines alone scored 33 exact, 50 within one level, and took 7 s a call**. Four levels scored 24, a 2,500-character brief 31.
+  Every 1000 characters of the brief cost about 4 s (System One reads about 50 tokens a second without a big GPU) and Ollama cuts a call
+  off at 60 s, which is why the brief stays short. The variants are in `eval/triage/variants/`.
 - **fix** runs one model at rising effort. Every attempt is time-boxed and budgeted (`heal.json` `efforts`:
   `timeoutSeconds`, `budget`), and `recheck` re-runs the failing stage's own command (`yukta-heal.sh run`
   records it) after each one, so the attempt is judged by the check it was meant to fix.
