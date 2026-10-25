@@ -111,6 +111,7 @@ That second number is an estimate from the measured parts, not a measured run. R
   <li><b>The orchestrator keeps the main conversation small.</b> Arm B's main Claude session used a median of 116k tokens, against 293k when Claude did the work in its own session. The work moved into sub-flows, which is where the cost went.</li>
   <li><b>Fixer attempts are expensive.</b> The plan expected a typical fix attempt under $0.30. These attempts cost $0.72 to $1.37 each. 4 of 7 attempts changed nothing and still cost $3.11.</li>
   <li><b>The first fixer attempt re-pays for the implementer's conversation.</b> Fixers resume the implementer's session so they know the change, but their answer format differs, which changes a tool definition at the front of the cached text and makes the whole conversation count as new (<a href="https://github.com/infenia/yukta/issues/1248">#1248</a>, confirmed with a small experiment, <a href="#tokens">section 5</a>). It costs roughly $0.1 per run, small next to the failures that started the fixers.</li>
+  <li><b>The sub-flows are slim on purpose.</b> They get six built-in tools and no plugins, skills, IDE or MCP tools; the CodeGraph rule in their instructions cannot work because worktrees have no index (<a href="https://github.com/infenia/yukta/issues/1251">#1251</a>). They used CodeGraph zero times. Whether better navigation tooling would make them cheaper is untested (<a href="#tooling">section 5</a>).</li>
   <li><b>The workers share little.</b> The implementer's knowledge reaches the fixers, but nothing reaches the implementer from the orchestrator, and nothing is remembered from run to run: each run re-discovered the same unrelated failure (<a href="https://github.com/infenia/yukta/issues/1249">#1249</a>).</li>
   <li><b>The fix itself was easy.</b> All six runs wrote a code change that passes an independent test. Every arm used the same approach: give warnings and errors separate budgets.</li>
   <li><b>Four defects were filed</b> from this evaluation (<a href="#findings">section 7</a>).</li>
@@ -226,6 +227,26 @@ That second number is an estimate from the measured parts, not a measured run. R
 <tr><td>Sub-flow → orchestrator</td><td><span class="tag warn">result line only</span></td><td>The orchestrator sees the final <code>RESULT</code> line. What the fixers concluded is not passed up, and the line said <code>healed=-</code> although fixers ran (<a href="https://github.com/infenia/yukta/issues/1235">#1235</a>).</td></tr>
 </table></div>
 
+<h3 id="tooling">Tools each role could use</h3>
+<p>The orchestrator and your own Claude Code setup come with plugins, skills and tool servers (for code navigation, an IDE index, and more). Did the implementer get them too? I started a main session and a sub-flow session with the exact flags the harness uses and read the list of tools each one was given.</p>
+<div class="tablewrap"><table>
+<tr><th></th><th>Main session (both arms)</th><th>Implementer and fixer sub-flows</th></tr>
+<tr><td>Built-in tools</td><td class="num">28</td><td class="num">6 (Read, Edit, Write, Grep, Glob, Bash)</td></tr>
+<tr><td>MCP servers (extra tool sets)</td><td class="num">30 (Slack, Linear, Gmail, Figma and more)</td><td class="num">0 (<code>--strict-mcp-config</code>)</td></tr>
+<tr><td>Plugins</td><td class="num">12</td><td class="num">0 of yours (only the managed policy plugins)</td></tr>
+<tr><td>Skills / slash commands</td><td class="num">51 / 89</td><td class="num">0 / 0</td></tr>
+<tr><td>Code navigation</td><td>Read, Grep, Glob. No IDE index and no CodeGraph in these scratch clones.</td><td>Read, Grep, Glob, Bash. CodeGraph is named in the rules but has no index (<a href="https://github.com/infenia/yukta/issues/1251">#1251</a>).</td></tr>
+<tr><td>Start-up cost of a session</td><td class="num">about 23k to 29k tokens written to cache</td><td class="num">8k written, 6.4k read</td></tr>
+</table></div>
+<ul>
+  <li><b>So no: the sub-flows are deliberately slim.</b> They get six built-in tools and nothing else. That keeps the prompt small (and the cache-friendly start identical for every session), but it also means none of the navigation help an interactive session has.</li>
+  <li><b>The orchestrator's efficiency did not come from tools.</b> In arm B it did no code navigation at all, because its prompt told it not to edit code. It was cheap because it did almost nothing: 2 to 5 turns, $0.20 to $0.29.</li>
+  <li><b>In this evaluation neither arm had an IDE index or CodeGraph.</b> A fresh clone is not an open IDE project, the project's own MCP servers are not loaded for an untrusted workspace, and the CodeGraph index is not in git. I also did not find a tool called "ponytail" in the plugin, skill or MCP lists of either session. If it is part of your daily setup, this evaluation did not include it.</li>
+  <li><b>What the implementers really used</b> (4 sessions, B1 to B3, implementer plus fixers): Bash 138, Edit 36, Grep 36, Read 34, structured answers 22, Write 8, Glob 4, <b>CodeGraph 0</b>. Bash is mostly Gradle and Go test runs. The rule "run <code>codegraph explore</code> once before reading files" had no effect, because <code>codegraph explore</code> answers "CodeGraph isn't available here" in a worktree without an index.</li>
+  <li><b>Trade-off.</b> Every tool definition is part of the cached start of every turn. One extra tool (a code index, about 1k tokens) is cheap. The main session's full set (30 servers, 51 skills) is the 23k to 29k start-up you see above. Whether a navigation tool saves more turns than it costs is <b>not measured</b>. The implementer was already inexpensive ($0.20 to $0.34, against $0.35 to $0.58 for arm A's whole session on the same fix), so the likelier gain is in the fixers' investigation turns.</li>
+  <li><b>How to test it:</b> an arm C that gives the sub-flows a working code index (built by you, since indexing is your decision) and compares tokens with arm B. <code>cache_trace.py</code> and the tool counts above are the measurements to use.</li>
+</ul>
+
 <h2 id="quality">6. Correctness and delivery</h2>
 <ul>
   <li><b>The code was right in all six runs.</b> The hidden test and the full existing suite passed every time. All fixes use the same idea (a separate limit for warnings, about 10, next to 20 for errors) and add a regression test.</li>
@@ -244,6 +265,7 @@ That second number is an estimate from the measured parts, not a measured run. R
 <tr><td><a href="https://github.com/infenia/yukta/issues/1235">#1235</a></td><td>The final <code>RESULT</code> line says <code>healed=-</code> although fixers changed files</td><td>P2</td><td>Hides that fixers ran, so a review of "what healed" is skipped</td></tr>
 <tr><td><a href="https://github.com/infenia/yukta/issues/1248">#1248</a></td><td>A fixer that resumes the implementer re-writes its conversation cache because the answer format differs</td><td>P2</td><td>About 17k to 27k tokens re-written once per run (<a href="#cache">section 5</a>)</td></tr>
 <tr><td><a href="https://github.com/infenia/yukta/issues/1249">#1249</a></td><td>Remember which stages already fail on a clean <code>main</code>, so fixers are not started for them</td><td>P2</td><td>The same unrelated failure cost $0.72 to $0.90 in every run</td></tr>
+<tr><td><a href="https://github.com/infenia/yukta/issues/1251">#1251</a></td><td>Issue worktrees have no CodeGraph index, so the implementer's CodeGraph rule cannot work</td><td>P2</td><td>Sub-flows navigate with Grep, Read and Bash only; CodeGraph was used 0 times</td></tr>
 <tr><td><a href="https://github.com/infenia/yukta/issues/1250">#1250</a></td><td>Restarting an issue run overwrites its implement and heal records, so budgets and <code>yk stats</code> undercount</td><td>P2</td><td>B2's first run is missing from its records; the issue budget sums these files too</td></tr>
 </table></div>
 <p class="sub">#1232 was first mis-described as "unrelated failures" during the evaluation. Reading the fixers' own code comments showed the real cause, and the issue text reflects that. #1232 was inferred from run evidence and the server's startup code (<code>_lib.sh</code>); a clean run of <code>main</code> through the dev server was not done separately.</p>
@@ -270,6 +292,7 @@ That second number is an estimate from the measured parts, not a measured run. R
   <li><b>Rethink the fixer's model for out-of-scope failures</b> (part of #1234). A failure outside the implementer's files does not benefit from resuming the implementer on Opus. Options: stop and escalate at once, or use a cheap rung (Haiku or Sonnet) on a small fresh prompt. The no-change attempts alone cost $3.11.</li>
   <li><b>Fix #1248</b> (one answer format for the implementer and every fixer) and check with <code>cache_trace.py</code> that no turn re-writes the implementer's conversation. <b>Fix #1250</b> so budgets and <code>yk stats</code> count every attempt of an issue.</li>
   <li><b>Let workers share what is already known</b> (#1249): compare a failing stage with a result for the base commit before starting a fixer, and when the orchestrator has analysed something, put it in the brief file for the implementer.</li>
+  <li><b>Test navigation tooling for the sub-flows (#1251).</b> Run an arm C where the implementer and fixers have a working code index, or drop the dead CodeGraph rule if it does not pay.</li>
   <li><b>Optional follow-ups for a fuller picture:</b> a second issue with a different shape (a Java change, so the scoped check matters), an orchestrator on a cheaper model (Sonnet) for arm B, and two issues in parallel (an epic) to measure what parallel workers share.</li>
 </ol>
 
@@ -352,7 +375,7 @@ python3 -I report/make_report.py results/2026-10-25-1207/runs out.html   # rebui
   <dt>Hidden test</dt><dd>A test the grader adds after a run, never shown to Claude, so it cannot be tuned for.</dd>
 </dl>
 
-<p class="foot">Generated from the archived run data by <code>eval/report/make_report.py</code>. Findings #1232 to #1235 and #1248 to #1250 are filed on infenia/yukta, under epic #1218.</p>
+<p class="foot">Generated from the archived run data by <code>eval/report/make_report.py</code>. Findings #1232 to #1235 and #1248 to #1251 are filed on infenia/yukta, under epic #1218.</p>
 </div>
 </body>
 </html>
