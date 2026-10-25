@@ -8,6 +8,7 @@ dir="$(mktemp -d)"
 trap 'rm -rf "$dir"' EXIT
 mkdir -p "$dir/issues" "$dir/repo/.yukta-dev"
 export YUKTA_LOOP_DIR="$dir/loop" YUKTA_REPO_ROOT="$dir/repo" YUKTA_GH="$dir/gh" YUKTA_LOOP_SEED=seed-one YUKTA_LOOP_METHODS=A,B,C
+export YUKTA_LOOP_ANALYZE=off  # pick would otherwise run the analyzer, whose judge call spends money (test-analyze.sh covers it)
 loop="$here/loop.sh"
 
 # fake gh: issue JSON from $dir/issues/<n>.json, you are "tester", every issue is Ready except those listed in $dir/notready
@@ -123,11 +124,12 @@ SH
 chmod +x "$dir/runner"
 YUKTA_LOOP_RUNNER="$dir/runner" "$loop" pick 400 >"$dir/pick.out" 2>&1 || fail "pick failed: $(cat "$dir/pick.out")"
 out="$(jq -s '[.[] | select(.type == "outcome")] | last' "$YUKTA_LOOP_DIR/ledger.jsonl")"
-[[ "$(jq -r .result <<<"$out")" == "RESULT status=SUCCESS" ]] || fail "outcome result: $out"
+[[ "$(jq -r .result <<<"$out")" == "RESULT status=SUCCESS failed_node=- healed=- execution=abc session=yukta-dev" ]] || fail "outcome keeps the whole RESULT line: $out"
 [[ "$(jq -r .pr_url <<<"$out")" == *pull/9999 ]] || fail "outcome pr: $out"
 [[ "$(jq -r .cost_usd <<<"$out")" == 1.25 ]] || fail "outcome cost: $out"
 [[ "$(jq -r '.main."gen_ai.usage.cache_read.input_tokens"' <<<"$out")" == 8000 ]] || fail "outcome tokens use the OTel names: $out"
 [[ "$("$loop" total)" == '$1.25 of $60' ]] || fail "total: $("$loop" total)"
+[[ "$(jq -s '[.[] | select(.type == "analysis")] | length' "$YUKTA_LOOP_DIR/ledger.jsonl")" == 0 ]] || fail "the analyzer ran although YUKTA_LOOP_ANALYZE=off"
 
 # a pick of an issue that is not yours, or not Ready, draws nothing
 issue 401 "$small" '[]' "someone"

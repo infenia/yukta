@@ -29,7 +29,7 @@ Every number this guide produces serves one goal and five questions (the Goal-Qu
 | Touches GitHub | never | yes (claims the issue, opens a draft PR) | never |
 | Needs | a grader per issue | nothing extra | a grader per issue |
 | Best for | a controlled comparison, checking a loop change, finding root causes | the day-to-day stream and the analyzer's findings | regression checks of the loop itself |
-| Status | available (PR #1252) | `yk pick`, `yk next`, `yk loop` available (PR #1266); analyzer, methods A and C, report: planned | planned |
+| Status | available (PR #1252) | `yk pick`, `yk next`, `yk loop` (PR #1266), method A (PR #1267), the analyzer (this PR); method C, `yk loop report`, themes: planned | planned |
 
 Rule of thumb: use the **paired evaluation** when you need a trustworthy comparison or are verifying a fix to the loop; use the **continuous loop** when you want the loop to improve itself as you work through issues.
 
@@ -119,7 +119,7 @@ For each run also read **`result.json` → `answer`**: the end of the main sessi
 
 ## 6. Runbook 2: the continuous loop (`yk pick`)
 
-Available since PR #1266. The analyzer, methods A and C and `yk loop report` come in later steps (see the plan); until then only method B is enabled, so the draw is not yet random.
+Available since PR #1266 (method A since #1267, the analyzer since the analyzer PR). Method C, `yk loop report`, `yk loop sync` and `yk loop themes` come in later steps (see the plan). With A and B enabled the draw is random between two methods.
 
 ```bash
 yk next                       # assigned, Ready issues by priority with size S/M/L
@@ -137,7 +137,17 @@ How it protects the experiment:
 - The **budget** is $5 per Claude session and **$60 in total**; at $60 `yk pick` refuses and tells you to review. That review is the point to decide whether to continue.
 - An issue must be open, assigned to you and **Ready** on the project before anything is drawn; an ineligible issue uses no slot.
 
+After every pick the **analyzer** reads the run and files what it finds (below); `yk analyze <draw-id> [--dry-run]` re-reads any run.
+
 What a run leaves behind: a `draw` record and an `outcome` record in `$DEV_HOME/loop/ledger.jsonl`, the main session's output under `$DEV_HOME/loop/runs/<id>/`, and, for B, the issue worktree (`../yukta-issue-<n>`), a draft PR, and the heal and implement records. After the PR is reviewed, the outcome proxies (CI, review comments, human commits, merged) are what tell you whether the change was good; they are filled by `yk loop sync` (planned).
+
+### 6.1 What the analyzer does with a finished run
+
+1. **Stage 1, no model.** Facts from the ledger, heal records, the issue worktree's git diff and the session transcripts, and six rules: a fixer changed files outside the module of the implementer's change, fixer attempts that changed nothing, a turn that re-wrote context on resume, a second implementer session (a restart), transcripts holding more tokens than the records, and a `healed=-` RESULT line although a fixer fixed something.
+2. **Stage 2, one cheap judge call** (about $0.07, capped at $0.30): a free-text note about the run (your open-coding input, section 8) and at most two proposals nothing else covers. Often it proposes nothing.
+3. **Stage 3, filing.** A rule finding comments on the open issue that already describes it, so the epic collects counts; a new proposal is filed under the epic. Nothing is implemented without you marking it Ready.
+
+`YUKTA_LOOP_ANALYZE=dry` shows what it would do; the analysis of a run is `$DEV_HOME/loop/analysis/<draw-id>.json`. Treat the analyzer as a grader whose precision you measure: how many of its proposals you approve.
 
 ## 7. Reading numbers without fooling yourself
 

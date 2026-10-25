@@ -8,6 +8,7 @@
 #   loop.sh next                                your assigned, Ready issues, by priority, with their size
 #   loop.sh total                               dollars spent so far and the limit
 #   loop.sh ledger                              one line per draw and outcome
+#   loop.sh record <json>                       append a record (the analyzer's analysis record)
 #
 # Every draw is appended to the ledger BEFORE the run starts, so the assignment cannot depend on how the run
 # goes. An issue that already has a draw keeps its method on a second pick. Draws are block-randomized inside
@@ -21,6 +22,7 @@
 # Methods: A  one Claude Code session fixes the issue itself, Yukta only checks.
 #          B  a Claude Code session orchestrates `yk run issue`; slim sub-flow sessions do the work.
 #          C  B with a code-navigation backend for the sub-flows.
+# After a run, analyze.sh reads it and files what it finds (YUKTA_LOOP_ANALYZE=file|dry|off, default file).
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$here/_lib.sh"
@@ -64,7 +66,7 @@ enabled_methods() {
 issue_json() { "$gh" issue view "$1" -R "$gh_repo" --json number,title,body,labels,state,assignees; }
 
 spent_total() {
-  ledger_all | jq -s '[.[] | select(.type == "outcome") | (.cost_usd // 0) + (.analyzer_cost_usd // 0)] | add // 0'
+  ledger_all | jq -s '[.[] | select(.type == "outcome" or .type == "analysis") | (.cost_usd // 0) + (.analyzer_cost_usd // 0)] | add // 0'
 }
 
 gate() {
@@ -206,13 +208,19 @@ cmd_pick() {
   main="$(usage_of "$dir/main.json")"
   sub='{"cost_usd":0,"attempts":0,"fixed":0}'
   [[ "$method" == A ]] || sub="$(usage_sub "$REPO_ROOT/.yukta-dev/issue-$n/implement.json" "$(dirname "$REPO_ROOT")/yukta-issue-$n/.yukta-dev/heal/check")"
-  res="$(grep -o 'RESULT status=[A-Z]*' <<<"$out" | tail -1 || true)"
+  res="$(grep -o 'RESULT status=[A-Z]*.*' <<<"$out" | tail -1 || true)"
   ledger_append "$(jq -nc --arg id "$id" --argjson n "$n" --arg method "$method" --arg res "${res:-}" --arg pr "$(grep -o 'https://github.com/[^ ]*/pull/[0-9]*' <<<"$out" | tail -1 || true)" \
     --argjson wall "$((end - start))" --argjson main "$main" --argjson sub "$sub" --arg t "$(date -u +%FT%TZ)" \
     '{type: "outcome", draw: $id, time: $t, issue: $n, method: $method, result: $res, pr_url: $pr, wall_s: $wall, main: $main, sub: $sub,
       cost_usd: (($main.cost_usd // 0) + ($sub.cost_usd // 0)), analyzer_cost_usd: 0}')"
   echo "$out" | tail -3
-  [[ ! -x "$here/analyze.sh" ]] || "$here/analyze.sh" "$id" || true
+  # the analyzer reads the finished run and files what it finds under the epic (YUKTA_LOOP_ANALYZE=file, the default),
+  # shows it only (dry) or stays out (off)
+  case "${YUKTA_LOOP_ANALYZE:-file}" in
+    off) ;;
+    dry) "$here/analyze.sh" "$id" --dry-run || true ;;
+    *) "$here/analyze.sh" "$id" || true ;;
+  esac
 }
 
 # next: the issues assigned to you that are Ready on the project, by priority then number, with their size
@@ -228,6 +236,12 @@ cmd_next() {
   done < <(sort -t$'\t' -k2,2 -k1,1n <<<"$ready")
 }
 
+# record JSON: append one record to the ledger (the analyzer writes its analysis record this way)
+cmd_record() {
+  jq -e 'type == "object" and has("type")' <<<"${1:?usage: loop.sh record <json>}" >/dev/null || die "a ledger record is a JSON object with a type"
+  ledger_append "$(jq -c . <<<"$1")"
+}
+
 cmd_total() {
   printf '$%s of $%s\n' "$(spent_total)" "$BUDGET_TOTAL"
 }
@@ -241,6 +255,7 @@ case "${1:-}" in
   plan) shift; cmd_plan "$@" ;;
   pick) shift; cmd_pick "$@" ;;
   next) cmd_next ;;
+  record) shift; cmd_record "$@" ;;
   total) cmd_total ;;
   ledger) cmd_ledger ;;
   *) sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; exit 2 ;;

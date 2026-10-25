@@ -30,6 +30,7 @@ export EVAL_BASE=$(git rev-parse origin/main)   # pin one base commit for all ru
 ./eval.sh report                       # per-run and per-arm tables (median [min..max])
 ./split.sh                             # where arm B's sub-flow money went
 python3 -I cache_trace.py B1 --summary # per-turn prompt-cache trace of a run
+python3 -I cache_trace.py --worktree ../yukta-issue-1234 --json   # one issue worktree, machine-readable (the analyzer uses it)
 ```
 
 Runs go to `$EVAL_DIR/runs/<arm><n>/` (default `<checkout>/.yukta-dev/eval`, git-ignored). Run them **serially**, alternating arms, so neither arm always runs first and parallel load does not skew wall time.

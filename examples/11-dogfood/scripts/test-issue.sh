@@ -139,12 +139,12 @@ echo "ok   solo with a failing check"
 
 # --- yk pick with only method A enabled: the draw comes first, the solo run follows, the ledger gets the session's usage
 reset
-export YUKTA_LOOP_DIR="$dir/loop" YUKTA_LOOP_METHODS=A
+export YUKTA_LOOP_DIR="$dir/loop" YUKTA_LOOP_METHODS=A YUKTA_LOOP_ANALYZE=off
 "$here/loop.sh" pick 7 >"$dir/pick.out" 2>&1 || fail "pick failed: $(tail -5 "$dir/pick.out")"
-unset YUKTA_LOOP_DIR YUKTA_LOOP_METHODS
+unset YUKTA_LOOP_DIR YUKTA_LOOP_METHODS YUKTA_LOOP_ANALYZE
 [[ "$(jq -s '[.[] | select(.type == "draw")] | length' "$dir/loop/ledger.jsonl")" == 1 ]] || fail "no single draw: $(cat "$dir/loop/ledger.jsonl")"
 out="$(jq -s '[.[] | select(.type == "outcome")] | last' "$dir/loop/ledger.jsonl")"
-[[ "$(jq -r .method <<<"$out")" == A && "$(jq -r .result <<<"$out")" == "RESULT status=SUCCESS" ]] || fail "outcome: $out"
+[[ "$(jq -r .method <<<"$out")" == A && "$(jq -r .result <<<"$out")" == "RESULT status=SUCCESS"* ]] || fail "outcome: $out"
 [[ "$(jq -r .cost_usd <<<"$out")" == 0.5 && "$(jq -r .sub.attempts <<<"$out")" == 0 ]] || fail "the outcome of method A is the solo session alone: $out"
 [[ "$(jq -r '.main."gen_ai.usage.cache_read.input_tokens"' <<<"$out")" == 100 ]] || fail "outcome tokens: $out"
 echo "ok   pick with method A"

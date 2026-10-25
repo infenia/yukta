@@ -18,6 +18,7 @@
 #   yk pick <n> [--method A|B|C] [--dry-run] draw a method for the issue at random (balanced by size), run it, record
 #                                            tokens and dollars in the ledger (see scripts/loop.sh)
 #   yk loop plan|total|ledger                the draw of an issue without running it | dollars spent of the budget | the ledger
+#   yk analyze <draw-id> [--dry-run]         read a finished run and file what it finds under the epic (scripts/analyze.sh)
 #   yk result <session> <exec>               the RESULT line of a run that ended
 #   yk tree <exec>                           the run and every run below it, one line each: workflow, status,
 #                                            current nodes, pending signal (an execution id may be its first 8 characters)
@@ -525,6 +526,7 @@ case "$cmd" in
   stats) cmd_stats ;;
   next | pick) exec "$here/scripts/loop.sh" "$cmd" "$@" ;;
   loop) exec "$here/scripts/loop.sh" "$@" ;;
+  analyze) exec "$here/scripts/analyze.sh" "$@" ;;
   run) cmd_run "$@" ;;
   result)
     export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"

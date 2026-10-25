@@ -145,7 +145,7 @@ You are working in the git worktree $wt on branch issue/$n. Fix the issue and it
     cd "$wt" || exit 1
     out="$state/solo.out.json"
     env -u CLAUDECODE -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_SSE_PORT YUKTA_DOGFOOD=off \
-      "${YUKTA_CLAUDE_BIN:-claude}" -p "$prompt" --model "${YUKTA_SOLO_MODEL:-opus}" --no-session-persistence --permission-mode acceptEdits \
+      "${YUKTA_CLAUDE_BIN:-claude}" -p "$prompt" --model "${YUKTA_SOLO_MODEL:-opus}" --permission-mode acceptEdits \
       --allowedTools "Read" "Edit" "Write" "Grep" "Glob" "Bash($yk:*)" "Bash(go:*)" "Bash(git diff:*)" "Bash(git status:*)" "Bash(git log:*)" "Bash(codegraph:*)" \
       --disallowedTools "Bash(git commit:*)" "Bash(git push:*)" "Bash(gh:*)" \
       --max-budget-usd "${YUKTA_SOLO_BUDGET:-5}" --max-turns "${YUKTA_SOLO_TURNS:-60}" --output-format json >"$out" 2>"$state/solo.err" || true

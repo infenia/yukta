@@ -280,6 +280,16 @@ yk loop ledger                   # one line per draw and outcome
 - **Before the draw** the issue must be open, assigned to you and Ready; an ineligible issue draws nothing.
 - Offline test: `scripts/test-loop.sh`.
 
+### The analyzer: `yk analyze <draw-id>`
+
+After every `yk pick` a finished run is read by `scripts/analyze.sh`, which says what was wasteful and files it under the epic (#1218). `YUKTA_LOOP_ANALYZE=dry` only shows what it would do, `off` skips it; `yk analyze <draw-id> --dry-run` re-reads any run in the ledger (`yk loop ledger` lists the ids).
+
+1. **Facts and rules, no model** (`scripts/analyze-facts.jq`): cost and wall time, the heal and implement records, the files the run changed, the session transcripts (`eval/cache_trace.py --json`: turns, cache write and read, tool use, turns that re-wrote context). Six rules turn them into findings: a fixer changed files outside the module of the implementer's change (`fixer-outside-module`), fixer attempts that changed nothing (`noop-fixers`), a turn re-wrote context on resume (`cache-rewrite-on-resume`), a second implementer session in one worktree (`restart-overwrites-records`), the transcripts hold more tokens than the records (`records-undercount`), the RESULT line says `healed=-` although a fixer fixed something (`healed-field-mismatch`). The issue's modules are taken from the implementer's own files (the files on the branch no fixer touched), the modules its text names only when that is empty.
+2. **One cheap judge call** (`YUKTA_ANALYZER_MODEL` sonnet, `YUKTA_ANALYZER_BUDGET` $0.30; about $0.07 on the evaluation's runs), with a constant system prompt (`analyzer-rules.md`): an open-code note about the run and at most two proposals the rules and the open epic issues do not cover. It is told to prefer no proposal over a weak one.
+3. **Filing** (nothing is implemented; you mark an issue Ready): a rule finding comments on the first still-open issue that describes it (`analyzer-known.json`), or files a new issue when all of them are closed; a proposal that duplicates an open epic issue becomes a comment, a new one is filed with `report-finding.sh` and attached under the epic. At most `YUKTA_ANALYZER_MAX_FILED` (3) new issues per run, and the evidence names the run and the loop commit.
+
+The analysis is written to `$DEV_HOME/loop/analysis/<draw-id>.json` and an `analysis` record, with the judge's cost (counted in the budget), goes to the ledger. A failing judge leaves stages 1 and 3 intact. Offline test: `scripts/test-analyze.sh`.
+
 ## The check workflow
 `session.json` is `CONSTANT_SOURCE` → one `PROCESS_EXECUTOR` per stage → `CONSOLE_TERMINAL`.
 Stages run sequentially and fail fast (avoids concurrent Gradle runs fighting over one build dir):
