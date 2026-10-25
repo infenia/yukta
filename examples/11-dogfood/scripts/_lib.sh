@@ -494,7 +494,7 @@ heal_subflows() {
                    pe("brief"; {command: [$healsh, "brief", "${start.stage}"], env: env({})} + routed(false))]
                   + (if $triage == "off" then [] else
                       [{nodeId: "triage", type: "CLASSIFY",
-                        config: {model: $tri.model, state: "payload.stdout", routeByLabel: true, minProbability: $tri.minProbability, timeout: ($tri.timeoutSeconds // 55),
+                        config: {model: ($ENV.YUKTA_TRIAGE_MODEL // $tri.model), state: "payload.stdout", routeByLabel: true, minProbability: $tri.minProbability, timeout: ($tri.timeoutSeconds // 55),
                                  # tests point it at a stand-in for Ollama
                                  baseUrl: ($ENV.YUKTA_TRIAGE_URL // "http://localhost:11434"),
                                  question: ($tri.question // "How hard is it to fix this failed check of a Java build?"),

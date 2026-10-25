@@ -41,7 +41,7 @@ How to run the dogfood check, watch heal work and improve it. The design is in [
 ## Knobs
 
 `YUKTA_HEAL_EVENTS` (file, or `off`), `YUKTA_HEAL_BUDGET` (USD per attempt, set per effort by `heal.json`), `YUKTA_TRIAGE=off` (skip the
-System One call: heal starts at the default level), `YUKTA_TRIAGE_URL` (another Ollama), `YUKTA_BUDGET_ISSUE` (USD per issue run),
+System One call: heal starts at the default level), `YUKTA_TRIAGE_URL` (another Ollama, default `http://localhost:11434`), `YUKTA_TRIAGE_MODEL` (another System One model, default `heal.json` `triage.model`; see "Choosing the System One model" in the README), `YUKTA_BUDGET_ISSUE` (USD per issue run),
 `yk check --models sonnet,opus`, `yk check --triage off`, `yk check --pause before-opus`.
 For issue runs: `YUKTA_IMPL_MODEL` (opus), `YUKTA_IMPL_BUDGET` (5), `YUKTA_BUDGET_EPIC`, `YUKTA_WARM_DELAY`, `YUKTA_NAV_BACKENDS`,
 `YUKTA_NAV_IDE`, `YUKTA_NAV_IDE_URL`, `YUKTA_NAV_CBM_BIN`, `YUKTA_NAV_CBM_CACHE`, `YUKTA_NAV_INDEX_TIMEOUT`.

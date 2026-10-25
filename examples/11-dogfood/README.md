@@ -171,6 +171,28 @@ fix     fix@low ▶ recheck ─failure▶ fix@medium ▶ recheck ─failure▶ f
   When the last model has failed, `giveup` fails `heal` and so the run.
 - Depth is check → heal → fix (2; the engine allows 5). `heal.json` `models` is the order of the models.
 
+### Choosing the System One model
+
+The triage needs an Ollama with a System One (`decision`) model. Where it runs and which model it uses are two environment
+variables, so a changed IP or model needs no edit to the repository (`heal.json` only holds the default):
+
+```bash
+export YUKTA_TRIAGE_URL=http://192.168.1.37:11434   # the Ollama host; default http://localhost:11434
+export YUKTA_TRIAGE_MODEL=tev1                      # the model name; default heal.json triage.model
+```
+
+Export them in the shell that starts the run (`yk check`, `yk run issue`, `yk up` pick them up when the workflow is built; set them
+before `yk up` if the server is started on demand). Check the endpoint and the model before a run:
+
+```bash
+curl -s "$YUKTA_TRIAGE_URL/v1/models" | jq -r '.data[].id'                    # the model must be listed
+curl -s "$YUKTA_TRIAGE_URL/api/show" -d "{\"model\":\"$YUKTA_TRIAGE_MODEL\"}" | jq .capabilities   # must contain "decision"
+```
+
+A model without the `decision` capability (a chat model) cannot triage: the call fails, the triage routes to `error`, and heal starts at
+the default level. That is visible in `yk heal show` as a `triage` event with `fallback=error` and the `model` that was used.
+The model that does the fixing is separate (`heal.json` `models`, `yk check --models`) and must be a Claude model.
+
 `yk check --models sonnet,opus` limits the models for one run, `--triage off` skips the System One call (heal
 then starts at the default level; the online test has no Ollama), `YUKTA_TRIAGE=off` is the same.
 
