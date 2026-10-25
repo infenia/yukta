@@ -529,6 +529,9 @@ issue_variant() {
 #                    and the run ends ESCALATE, the worktree kept
 #   implement-issue  claim -> worktree -> brief -> [before-implement] -> implement -> check-impl
 #                    -> [before-pr] -> pr -> done
+#   solo-issue       method A of the improvement loop: claim -> worktree -> brief -> solo (one Claude session does the
+#                    whole issue, Yukta only checks) -> check-plain -> [before-pr] -> pr -> done; run-issue-solo is its
+#                    run-issue (suffix -no-pr-pause without the checkpoint)
 issue_workflows() {
   local suffix
   suffix="$(issue_variant "$2" "$3")"
@@ -540,6 +543,15 @@ issue_workflows() {
              + (if $ENV.YUKTA_WARM_DELAY then {YUKTA_WARM_DELAY: $ENV.YUKTA_WARM_DELAY} else {} end)
              + (if $ENV.YUKTA_BUDGET_ISSUE then {YUKTA_BUDGET_ISSUE: $ENV.YUKTA_BUDGET_ISSUE} else {} end)
              + (if $ENV.YUKTA_BUDGET_EPIC then {YUKTA_BUDGET_EPIC: $ENV.YUKTA_BUDGET_EPIC} else {} end)
+             + (if $ENV.YUKTA_SOLO_MODEL then {YUKTA_SOLO_MODEL: $ENV.YUKTA_SOLO_MODEL} else {} end)
+             + (if $ENV.YUKTA_SOLO_BUDGET then {YUKTA_SOLO_BUDGET: $ENV.YUKTA_SOLO_BUDGET} else {} end)
+             + (if $ENV.YUKTA_SOLO_TURNS then {YUKTA_SOLO_TURNS: $ENV.YUKTA_SOLO_TURNS} else {} end)
+             + (if $ENV.YUKTA_NAV_BACKENDS then {YUKTA_NAV_BACKENDS: $ENV.YUKTA_NAV_BACKENDS} else {} end)
+             + (if $ENV.YUKTA_NAV_IDE then {YUKTA_NAV_IDE: $ENV.YUKTA_NAV_IDE} else {} end)
+             + (if $ENV.YUKTA_NAV_IDE_URL then {YUKTA_NAV_IDE_URL: $ENV.YUKTA_NAV_IDE_URL} else {} end)
+             + (if $ENV.YUKTA_NAV_CBM_BIN then {YUKTA_NAV_CBM_BIN: $ENV.YUKTA_NAV_CBM_BIN} else {} end)
+             + (if $ENV.YUKTA_NAV_CBM_CACHE then {YUKTA_NAV_CBM_CACHE: $ENV.YUKTA_NAV_CBM_CACHE} else {} end)
+             + (if $ENV.YUKTA_NAV_INDEX_TIMEOUT then {YUKTA_NAV_INDEX_TIMEOUT: $ENV.YUKTA_NAV_INDEX_TIMEOUT} else {} end)
              + (if $ENV.YUKTA_PROJECT_STATUS_CMD then {YUKTA_PROJECT_STATUS_CMD: $ENV.YUKTA_PROJECT_STATUS_CMD} else {} end);
     def step($id; $action; $secs; $extra):
       {nodeId: $id, type: "PROCESS_EXECUTOR",
@@ -549,6 +561,23 @@ issue_workflows() {
       {nodeId: $id, type: "WAIT_FOR_SIGNAL", config: {signal: $signal, timeoutSeconds: $secs, onTimeout: $onTimeout}};
     def edge($s; $t): {source: $s, target: $t};
     def chain($ids): [range(1; $ids | length) as $i | edge($ids[$i - 1]; $ids[$i])];
+    def runner($wid; $inner; $desc):
+      {workflowId: $wid, description: $desc,
+       nodes: [{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}},
+               {nodeId: "issue", type: "SUB_WORKFLOW",
+                config: {workflowId: $inner, timeoutSeconds: 28800, routeByOutcome: true,
+                         payload: {issue: "${start.issue}", repo: "${start.repo}", worktree: "${start.worktree}",
+                                   implSession: "${start.implSession}"}}},
+               {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}},
+               (step("release"; "release"; 600; {}) | .config.failureMode = "CONTINUE"),
+               {nodeId: "escalate", type: "OUTCOME_TERMINAL",
+                config: {outcome: "ESCALATE", reason: "the issue run did not finish: the issue is Ready again, the worktree is kept"}}],
+       edges: [edge("trigger"; "issue"),
+               {source: "issue", target: "done", sourcePort: "success"},
+               {source: "issue", target: "release", sourcePort: "failure"},
+               {source: "issue", target: "release", sourcePort: "escalate"},
+               {source: "issue", target: "release", sourcePort: "retry"},
+               edge("release"; "escalate")]};
     ([{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}},
       step("claim"; "claim"; 600; {}),
       step("worktree"; "worktree"; 1800; {}),
@@ -562,27 +591,31 @@ issue_workflows() {
      + (if $pr == "1" then [pause("before-pr"; "before-pr"; 14400; "FAIL")] else [] end)
      + [step("pr"; "pr"; 1800; {YUKTA_CHECK_EXECUTION: "${payload.executionId}"}),
         {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}}]) as $nodes
+    | ([$nodes[] | if .nodeId == "implement" then (step("nav"; "nav"; 3600; {}), .) else . end]) as $nav_nodes
+    | (if $pr == "1" then "" else "-no-pr-pause" end) as $psuffix
+    | ([{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}},
+        step("claim"; "claim"; 600; {}),
+        step("worktree"; "worktree"; 1800; {}),
+        step("brief"; "brief"; 600; {}),
+        step("solo"; "solo"; 14400; {}),
+        {nodeId: "check", type: "SUB_WORKFLOW",
+         config: {workflowId: "check-plain", timeoutSeconds: 14400, payload: {project: "${start.worktree}"}}}]
+       + (if $pr == "1" then [pause("before-pr"; "before-pr"; 14400; "FAIL")] else [] end)
+       + [step("pr"; "pr"; 1800; {YUKTA_CHECK_EXECUTION: "${payload.executionId}"}),
+          {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}}]) as $solo_nodes
     | {workflows: {
+        ("solo-issue" + $psuffix): {workflowId: ("solo-issue" + $psuffix),
+          description: "Method A: one Claude session does the issue in its own worktree, Yukta only checks, a draft PR opens",
+          nodes: $solo_nodes, edges: chain($solo_nodes | map(.nodeId))},
+        ("run-issue-solo" + $psuffix): runner("run-issue-solo" + $psuffix; "solo-issue" + $psuffix; "solo-issue, and the issue back to Ready when it does not end well"),
         ("implement-issue" + $suffix): {workflowId: ("implement-issue" + $suffix),
           description: "Implement one issue in its own worktree, check it, open a draft PR",
           nodes: $nodes, edges: chain($nodes | map(.nodeId))},
-        ("run-issue" + $suffix): {workflowId: ("run-issue" + $suffix),
-          description: "implement-issue, and the issue back to Ready when it does not end well",
-          nodes: [{nodeId: "trigger", type: "CONSTANT_SOURCE", config: {}},
-                  {nodeId: "issue", type: "SUB_WORKFLOW",
-                   config: {workflowId: ("implement-issue" + $suffix), timeoutSeconds: 28800, routeByOutcome: true,
-                            payload: {issue: "${start.issue}", repo: "${start.repo}", worktree: "${start.worktree}",
-                                      implSession: "${start.implSession}"}}},
-                  {nodeId: "done", type: "CONSOLE_TERMINAL", config: {}},
-                  (step("release"; "release"; 600; {}) | .config.failureMode = "CONTINUE"),
-                  {nodeId: "escalate", type: "OUTCOME_TERMINAL",
-                   config: {outcome: "ESCALATE", reason: "the issue run did not finish: the issue is Ready again, the worktree is kept"}}],
-          edges: [edge("trigger"; "issue"),
-                  {source: "issue", target: "done", sourcePort: "success"},
-                  {source: "issue", target: "release", sourcePort: "failure"},
-                  {source: "issue", target: "release", sourcePort: "escalate"},
-                  {source: "issue", target: "release", sourcePort: "retry"},
-                  edge("release"; "escalate")]}}}'
+        ("run-issue" + $suffix): runner("run-issue" + $suffix; "implement-issue" + $suffix; "implement-issue, and the issue back to Ready when it does not end well"),
+        ("implement-issue-nav" + $suffix): {workflowId: ("implement-issue-nav" + $suffix),
+          description: "Method C: implement-issue with a code-navigation index prepared by the nav step before implement",
+          nodes: $nav_nodes, edges: chain($nav_nodes | map(.nodeId))},
+        ("run-issue-nav" + $suffix): runner("run-issue-nav" + $suffix; "implement-issue-nav" + $suffix; "implement-issue-nav, and the issue back to Ready when it does not end well")}}'
 }
 
 # epic_variant IMPL_PAUSE PR_PAUSE BETWEEN_PAUSE: the suffix of run-epic for the checkpoints that are off (0)
@@ -642,7 +675,8 @@ epic_workflows() {
 
 # dev_session HEALSH ISSUESH: the shared session "yukta-dev", parameterised by the start payload so it serves
 # every checkout and every issue worktree: check (a project given as ${start.project}), check-impl (the same,
-# whose fixers resume the implementer's session instead of starting new ones), and the issue workflows.
+# whose fixers resume the implementer's session instead of starting new ones), check-plain (the gate without
+# healing), and the issue workflows.
 dev_session() {
   local healsh="$1" issuesh="$2" policy base c1 c2 extras ci v ip pp bp
   policy="$(cat "$here/heal.json")"
@@ -651,6 +685,9 @@ dev_session() {
   c1="$(heal_workflow "$policy" "" '${start.project}' "$healsh" '${start.project}/.yukta-dev/heal/check' "" "$extras" "" check "" <<<"$base")"
   c2="$(heal_workflow "$policy" "" '${start.project}' "$healsh" '${start.project}/.yukta-dev/heal/check' "resume,resume" "$extras" "" check-impl '${start.implSession}' <<<"$base")"
   ci="$(jq -s '. as $a | $a[0] | .workflows = {check: $a[0].workflows.check, "check-impl": $a[1].workflows["check-impl"]}' <(echo "$c1") <(echo "$c2"))"
+  # check-plain: the same gate without healing (what a method A run is judged by)
+  ci="$(jq --argjson p "$(render_session "$here/session.json" '${start.project}' | jq '.workflows["gradle-check"] | .workflowId = "check-plain"')" \
+    '.workflows["check-plain"] = $p' <<<"$ci")"
   for ip in 1 0; do
     for pp in 1 0; do
       v="$(issue_workflows "$issuesh" "$ip" "$pp")"

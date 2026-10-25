@@ -5,7 +5,7 @@
 #   issue-size.sh -       reads {"body": ..., "labels": [{"name": ...}]} on stdin
 #
 # score = 2 x acceptance criteria + 3 x modules named + words / 150. A label size:S, size:M or size:L overrides it.
-# Output: {"size":"S|M|L","score":N,"source":"label|heuristic","criteria":N,"modules":N,"words":N}
+# Output: {"size":"S|M|L","score":N,"source":"label|heuristic","criteria":N,"modules":N,"module_names":[...],"words":N}
 # Thresholds (YUKTA_SIZE_M, YUKTA_SIZE_L; default 6 and 9) were set on the 41 open issues of epic #1218 (2026-10-25),
 # which fall 15 S, 15 M, 10 L.
 set -euo pipefail
@@ -26,10 +26,11 @@ jq -c --argjson m "${YUKTA_SIZE_M:-6}" --argjson l "${YUKTA_SIZE_L:-9}" '
       else . end) | .n) as $criteria
   | ($b | ascii_downcase) as $low
   | (["boot","build-logic","cli","core","mcp","messaging","plugin-api","plugins","persistence-postgres","workers","ui","web"]
-     | map(. as $mod | select($low | test("(^|[^a-z-])" + $mod + "(/|[^a-z-]|$)"))) | length) as $modules
+     | map(. as $mod | select($low | test("(^|[^a-z-])" + $mod + "(/|[^a-z-]|$)")))) as $names
+  | ($names | length) as $modules
   | ([$b | match("\\S+"; "g")] | length) as $words
   | (2 * $criteria + 3 * $modules + ($words / 150 | floor)) as $score
   | ([.labels[]?.name | select(test("^size:[SML]$")) | .[5:]] | first) as $label
   | {size: ($label // (if $score >= $l then "L" elif $score >= $m then "M" else "S" end)), score: $score,
-     source: (if $label then "label" else "heuristic" end), criteria: $criteria, modules: $modules, words: $words}
+     source: (if $label then "label" else "heuristic" end), criteria: $criteria, modules: $modules, module_names: $names, words: $words}
 ' <<<"$json"

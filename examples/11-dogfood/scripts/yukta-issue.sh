@@ -5,7 +5,10 @@
 #   yukta-issue.sh claim      the issue is open, assigned to you and Ready: move it to In progress (exit 3 otherwise)
 #   yukta-issue.sh worktree   a git worktree on a new branch issue/<n> from origin/main
 #   yukta-issue.sh brief      write the brief the implementer reads (T0 may edit it before the work starts)
+#   yukta-issue.sh nav        method C: index the worktree for code navigation (nav.sh); never fails the run
 #   yukta-issue.sh implement  a headless Claude implements the brief in the worktree (opus, $YUKTA_IMPL_BUDGET)
+#   yukta-issue.sh solo       method A: one headless Claude Code session (your own setup) does the whole issue in the
+#                             worktree and checks it with yk; Yukta only checks ($YUKTA_SOLO_BUDGET)
 #   yukta-issue.sh pr         commit, push and open a DRAFT pull request with Fixes #<n> and the check's RESULT line
 #   yukta-issue.sh release    give a claimed issue back (Ready); the worktree stays for whoever picks it up
 #   yukta-issue.sh epic-list  the open, assigned, Ready sub-issues of an epic, as JSON for the epic workflow to fan out
@@ -14,13 +17,15 @@
 # Environment: YUKTA_ISSUE (number) or, for the epic steps, YUKTA_EPIC and YUKTA_BAD_COUNT; YUKTA_REPO_DIR (the main checkout), YUKTA_WORKTREE, YUKTA_IMPL_SESSION (a uuid),
 # YUKTA_CHECK_EXECUTION (pr: the execution of the check), YUKTA_GH_REPO (default infenia/yukta), YUKTA_GH (gh),
 # YUKTA_IMPL_MODEL (opus), YUKTA_IMPL_BUDGET (USD, 5), YUKTA_PROJECT_STATUS_CMD (tests: replaces the project update).
+# YUKTA_SOLO_MODEL (opus), YUKTA_SOLO_BUDGET (USD, 5), YUKTA_SOLO_TURNS (60) for solo.
 # YUKTA_WARM_DELAY (seconds, 20) spreads the starts of the implementers.
 # Budgets (USD, optional): YUKTA_BUDGET_ISSUE caps what one issue spends (the implementer and its fixers), YUKTA_BUDGET_EPIC
 # what all issues of the epic do; implement refuses to start over either.
-# State per issue: <repo>/.yukta-dev/issue-<n>/ (claimed, brief.md, implement.json, implement.out).
+# State per issue: <repo>/.yukta-dev/issue-<n>/ (claimed, brief.md, implement.json, implement.out; solo.json, solo.out.json;
+# nav.json, nav-mcp.json, nav-rules.md for method C).
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-action="${1:?usage: yukta-issue.sh claim|worktree|brief|implement|pr|release|epic-list|epic-pause}"
+action="${1:?usage: yukta-issue.sh claim|worktree|brief|nav|implement|solo|pr|release|epic-list|epic-pause}"
 repo="${YUKTA_REPO_DIR:?YUKTA_REPO_DIR is required}"
 gh="${YUKTA_GH:-gh}"
 gh_repo="${YUKTA_GH_REPO:-infenia/yukta}"
@@ -94,6 +99,10 @@ TXT
     } >"$state/brief.md"
     echo "brief: $state/brief.md"
     ;;
+  nav)
+    # Method C. Index the worktree with the first navigation backend that works (nav.sh); with none the run goes on as method B.
+    "$here/nav.sh" prepare "$wt" "$state"
+    ;;
   implement)
     spent="$(cost_in "$state/implement.json" "$wt"/.yukta-dev/heal/check/*-[0-9]*.json)"
     if over "${YUKTA_BUDGET_ISSUE:-}" "$spent"; then nope "issue #$n has spent \$$spent, its budget is \$$YUKTA_BUDGET_ISSUE (YUKTA_BUDGET_ISSUE)"; fi
@@ -118,7 +127,14 @@ TXT
     cd "$wt" || exit 1
     out="$state/implement.out"
     : >"$out"
-    result="$(yk_claude "${YUKTA_IMPL_MODEL:-opus}" "$(cat "$state/brief.md")" "$here/../implementer-rules.md" \
+    # method C: the rules and a note naming the index come from nav.json; yk_claude finds it next to this file
+    export YUKTA_IMPL_COSTFILE="$state/implement.json"
+    rules="$here/../implementer-rules.md" prompt="$(cat "$state/brief.md")"
+    if [[ "$(jq -r '.ok // false' "$state/nav.json" 2>/dev/null)" == true ]]; then
+      rules="$(jq -r .rules "$state/nav.json")"
+      prompt+=$'\n\n'"$(jq -r .prompt_note "$state/nav.json")"
+    fi
+    result="$(yk_claude "${YUKTA_IMPL_MODEL:-opus}" "$prompt" "$rules" \
       "${YUKTA_IMPL_BUDGET:-5}" "$out" "$YUKTA_IMPL_SESSION")"
     answer="$(jq -c '.structured_output // (.result | fromjson? ) // {}' <<<"$result" 2>/dev/null || echo '{}')"
     jq -n --argjson r "${result:-null}" --argjson a "$answer" \
@@ -127,6 +143,30 @@ TXT
     echo "IMPLEMENT #$n done=$(jq -r .done "$state/implement.json") cost=\$$(jq -r .cost "$state/implement.json") summary=$(jq -r '.summary[0:200]' "$state/implement.json")"
     [[ "$(jq -r .done "$state/implement.json")" == true ]] || exit 1
     [[ -n "$(git status --porcelain)" ]] || { echo "the implementer reported done but changed nothing" >&2; exit 1; }
+    ;;
+  solo)
+    # Method A of the improvement loop. One headless Claude Code session with the user's own setup does the whole
+    # issue; unlike the implementer it is not slim and has no fixers: Yukta only checks (check-plain, then the PR).
+    spent="$(cost_in "$state/solo.json")"
+    if over "${YUKTA_BUDGET_ISSUE:-}" "$spent"; then nope "issue #$n has spent \$$spent, its budget is \$$YUKTA_BUDGET_ISSUE (YUKTA_BUDGET_ISSUE)"; fi
+    [[ -s "$state/brief.md" ]] || nope "no brief for #$n: run the brief step first"
+    # yk reaches the server this node runs on (its port and key directory)
+    [[ -z "${SERVER_PORT:-}" ]] || export YUKTA_DEV_PORT="$SERVER_PORT"
+    yk="$here/../yk"
+    prompt="$(sed '/^You are working in the git worktree/,$d' "$state/brief.md")
+You are working in the git worktree $wt on branch issue/$n. Fix the issue and its acceptance criteria above yourself: change the code, add tests, and make the checks pass. Run Gradle only through Yukta: \`$yk gradle <args>\` for a scope while you work, and finish with \`$yk check --no-heal -p $wt\` (Yukta runs the check and reports; it does not fix anything, you fix failures). Write the pull request to .yukta-dev/pr.md: the first line is the title as a conventional commit (\`feat: ...\`, \`fix: ...\`), the rest is a short description of what changed and why. Do not commit or push. When the check passes, answer with one short sentence."
+    cd "$wt" || exit 1
+    out="$state/solo.out.json"
+    env -u CLAUDECODE -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_SSE_PORT YUKTA_DOGFOOD=off \
+      "${YUKTA_CLAUDE_BIN:-claude}" -p "$prompt" --model "${YUKTA_SOLO_MODEL:-opus}" --permission-mode acceptEdits \
+      --allowedTools "Read" "Edit" "Write" "Grep" "Glob" "Bash($yk:*)" "Bash(go:*)" "Bash(git diff:*)" "Bash(git status:*)" "Bash(git log:*)" "Bash(codegraph:*)" \
+      --disallowedTools "Bash(git commit:*)" "Bash(git push:*)" "Bash(gh:*)" \
+      --max-budget-usd "${YUKTA_SOLO_BUDGET:-5}" --max-turns "${YUKTA_SOLO_TURNS:-60}" --output-format json >"$out" 2>"$state/solo.err" || true
+    jq -n --slurpfile r "$out" --arg done "$([[ -n "$(git status --porcelain)" ]] && echo true || echo false)" \
+      '($r[0] // {}) as $r | {cost: ($r.total_cost_usd // 0), usage: ($r.usage // null), done: ($done == "true"), summary: ($r.result // "")}' \
+      >"$state/solo.json" 2>/dev/null || echo '{}' >"$state/solo.json"
+    echo "SOLO #$n done=$(jq -r .done "$state/solo.json") cost=\$$(jq -r .cost "$state/solo.json") summary=$(jq -r '.summary[0:200]' "$state/solo.json")"
+    [[ "$(jq -r .done "$state/solo.json")" == true ]] || { echo "the session changed nothing" >&2; exit 1; }
     ;;
   pr)
     cd "$wt" || exit 1

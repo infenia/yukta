@@ -2,7 +2,8 @@
 # Token-efficiency evaluation of the Yukta dev loop on one issue (see README.md in this directory).
 #
 #   eval.sh fixture N       save issue N as eval/issues/N/issue.json (the stub gh serves it)
-#   eval.sh run A|B N       one run of an arm (prep, claude, collect, grade); N is the repetition
+#   eval.sh run A|B|C N     one run of an arm (prep, claude, collect, grade); N is the repetition
+#   eval.sh validate        check the grader of EVAL_ISSUE: it must fail on the base commit and pass with the reference fix
 #   eval.sh collect A|B N   collect and grade a run again from its files, without running Claude
 #   eval.sh grade A|B N     only grade a run
 #   eval.sh report          the comparison table of every run that has a result.json
@@ -10,13 +11,14 @@
 # Arm A: one Claude Code session fixes the issue itself; Yukta is only its check (yk gradle / yk check --no-heal).
 # Arm B: the same Claude Code session is an orchestrator: it starts `yk run issue`, whose slim headless
 #        implementer and fixers (Yukta sub-flows) do the work, and it reports the RESULT line.
+# Arm C: arm B with a code-navigation index for the sub-flows (yk run issue --nav; the backend that ran is recorded).
 # Both main sessions start the same way (same model, tools and the user's own Claude Code setup), so the
 # difference is who does the work. Sub-flow tokens are counted in arm B's total. Every run is isolated:
 # a fresh clone of the base commit with a bare origin, a stub gh and project status (the real issue stays
 # untouched, no PR opens), and a grading test applied after the run.
 #
 # Environment: EVAL_ISSUE (1207), EVAL_DIR (runs go here, default <checkout>/.yukta-dev/eval),
-#   EVAL_SRC (repository to clone, default this checkout), EVAL_BASE (commit to start from, default
+#   EVAL_ISSUES_DIR (where issues/<n>/ live, default eval/issues; tests use a temporary one), EVAL_SRC (repository to clone, default this checkout), EVAL_BASE (commit to start from, default
 #   origin/main of EVAL_SRC, fetched), EVAL_YK (the yk to use, default ../yk), EVAL_CLAUDE (claude),
 #   EVAL_MODEL (opus), EVAL_BUDGET (USD per run and per sub-flow session, 5), EVAL_MAIN_TURNS (turn cap of the
 #   main session, 60). The dev server must be running (yk up) and built from the code under test.
@@ -31,7 +33,7 @@ EVAL_CLAUDE="${EVAL_CLAUDE:-claude}"
 EVAL_MODEL="${EVAL_MODEL:-opus}"
 EVAL_BUDGET="${EVAL_BUDGET:-5}"
 EVAL_MAIN_TURNS="${EVAL_MAIN_TURNS:-60}"
-issue_dir="$here/issues/$EVAL_ISSUE"
+issue_dir="${EVAL_ISSUES_DIR:-$here/issues}/$EVAL_ISSUE"
 die() { echo "eval: $*" >&2; exit 1; }
 command -v jq >/dev/null || die "jq is required"
 
@@ -118,7 +120,7 @@ prompt_b() {
 Issue #$EVAL_ISSUE in $1/yukta must be fixed, and you are the orchestrator, not the implementer: do not edit code
 yourself. Start Yukta's issue workflow:
 
-  $EVAL_YK run issue $EVAL_ISSUE --no-pause before-implement,before-pr
+  $EVAL_YK run issue $EVAL_ISSUE${2:+ $2} --no-pause before-implement,before-pr
 
 Run it in the foreground with the Bash timeout set to 600000 ms. It prints a few lines and ends with a
 \`RESULT status=...\` line. If the command times out before RESULT, re-attach with
@@ -170,12 +172,15 @@ grade() {
 
 write_result() { # ARM N DIR START END
   local arm="$1" n="$2" d="$3" main sub
+  local nav loop
+  nav="$(jq -c '{backend, ok, index_seconds, version}' "$(ls "$d"/yukta/.yukta-dev/issue-*/nav.json 2>/dev/null | head -1)" 2>/dev/null || echo null)"; [[ -n "$nav" ]] || nav=null
+  loop="$(git -C "$here" rev-parse --short=9 HEAD 2>/dev/null || echo unknown)"; [[ -z "$(git -C "$here" status --porcelain -- "$here/.." 2>/dev/null)" ]] || loop+=-dirty
   main="$(usage_of "$d/main.json")"
   sub="$(sub_of "$d")"
   jq -nc --arg arm "$arm" --argjson n "$n" --arg base "$(cat "$d/base")" --arg model "$EVAL_MODEL" \
-    --argjson wall "$(($5 - $4))" --argjson main "$main" --argjson sub "$sub" --argjson g "$(grade "$d")" \
+    --argjson wall "$(($5 - $4))" --argjson main "$main" --argjson sub "$sub" --argjson g "$(grade "$d")" --argjson nav "$nav" --arg loop "$loop" \
     --arg answer "$(jq -r '.result // ""' "$d/main.json" 2>/dev/null | tail -c 400)" \
-    '{arm: $arm, run: $n, base: $base, model: $model, wall_s: $wall, main: $main, sub: $sub, grade: $g,
+    '{arm: $arm, run: $n, base: $base, model: $model, loop_sha: $loop, nav: $nav, wall_s: $wall, main: $main, sub: $sub, grade: $g,
       total: {input: ($main.input + $sub.input), cache_creation: ($main.cache_creation + $sub.cache_creation),
               cache_read: ($main.cache_read + $sub.cache_read), output: ($main.output + $sub.output),
               cost: ($main.cost + $sub.cost)}, answer: $answer}' >"$d/result.json"
@@ -186,15 +191,35 @@ run_dir() { echo "$EVAL_DIR/runs/${1:?arm A|B}${2:?run number}"; }
 
 cmd_run() {
   local arm="${1:?arm A|B}" n="${2:?run number}" d start end
-  [[ "$arm" == A || "$arm" == B ]] || die "arm must be A or B"
+  [[ "$arm" =~ ^[ABC]$ ]] || die "arm must be A, B or C"
   load_issue
   d="$(run_dir "$arm" "$n")"
   prep "$d"
   echo ">> run $arm$n on base $(cut -c1-9 "$d/base"), model $EVAL_MODEL, budget \$$EVAL_BUDGET" >&2
   start="$(date +%s)"
-  if [[ "$arm" == A ]]; then main_claude "$d" "$(prompt_a "$d")" "$d/main.json"; else main_claude "$d" "$(prompt_b "$d")" "$d/main.json"; fi
+  case "$arm" in
+    A) main_claude "$d" "$(prompt_a "$d")" "$d/main.json" ;;
+    B) main_claude "$d" "$(prompt_b "$d")" "$d/main.json" ;;
+    C) main_claude "$d" "$(prompt_b "$d" --nav)" "$d/main.json" ;;
+  esac
   end="$(date +%s)"
   write_result "$arm" "$n" "$d" "$start" "$end"
+}
+
+# validate: the grader of EVAL_ISSUE must fail on the base commit and pass with the reference fix (issues/<n>/reference-fix.patch),
+# and the existing suite must pass in both. Prints a JSON verdict; exit 0 when the grader is sound.
+cmd_validate() {
+  load_issue
+  [[ -f "$issue_dir/reference-fix.patch" ]] || die "$issue_dir/reference-fix.patch is missing: a grader is validated against a known fix"
+  local d="$EVAL_DIR/validate" before after
+  prep "$d"
+  before="$(grade "$d")"
+  git -C "$d/yukta" apply "$issue_dir/reference-fix.patch" || die "the reference fix does not apply to the base commit $(cut -c1-9 "$d/base")"
+  after="$(grade "$d")"
+  jq -n --argjson b "$before" --argjson a "$after" --arg base "$(cut -c1-9 "$d/base")" \
+    '{base: $base, on_base: {hidden_pass: $b.hidden_pass, suite_pass: $b.suite_pass}, with_fix: {hidden_pass: $a.hidden_pass, suite_pass: $a.suite_pass},
+      sound: ($b.hidden_pass == false and $b.suite_pass == true and $a.hidden_pass == true and $a.suite_pass == true)}' | tee "$d/validate.json"
+  jq -e .sound "$d/validate.json" >/dev/null || { echo "the grader is not sound: it must FAIL on the base commit and PASS with the fix, the suite passing in both" >&2; exit 1; }
 }
 
 cmd_report() {
@@ -226,10 +251,10 @@ cmd_report() {
 case "${1:-}" in
   fixture)
     n="${2:-$EVAL_ISSUE}"
-    mkdir -p "$here/issues/$n"
+    mkdir -p "${EVAL_ISSUES_DIR:-$here/issues}/$n"
     gh issue view "$n" -R "${YUKTA_ISSUES_REPO:-infenia/yukta}" --json number,title,url,state,body \
-      | jq '. + {assignees: [{login: "tester"}]}' >"$here/issues/$n/issue.json"
-    echo "saved $here/issues/$n/issue.json; add grade.env and hidden_test.go next (README.md)" ;;
+      | jq '. + {assignees: [{login: "tester"}]}' >"${EVAL_ISSUES_DIR:-$here/issues}/$n/issue.json"
+    echo "saved ${EVAL_ISSUES_DIR:-$here/issues}/$n/issue.json; add grade.env and hidden_test.go next (README.md)" ;;
   run) shift; cmd_run "$@" ;;
   collect)
     load_issue
@@ -237,5 +262,6 @@ case "${1:-}" in
     write_result "$2" "$3" "$d" "$(stat -c %Y "$d/base")" "$(stat -c %Y "$d/main.json")" ;;
   grade) load_issue; grade "$(run_dir "${2:-}" "${3:-}")" ;;
   report) cmd_report ;;
+  validate) cmd_validate ;;
   *) sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; exit 2 ;;
 esac

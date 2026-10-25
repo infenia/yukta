@@ -24,12 +24,14 @@ cd examples/11-dogfood/eval
 ./selftest.sh                          # offline check of the harness, no spend (do this first)
 yk up                                  # the dev server
 export EVAL_BASE=$(git rev-parse origin/main)   # pin one base commit for all runs (default: fetch origin/main)
-./eval.sh run A 1                      # one run of arm A; prints result.json
+./eval.sh run A 1                      # one run of arm A (B and C likewise: C is B with a code-navigation index); prints result.json
 ./eval.sh run B 1
 # alternate the arms: A1 B1 A2 B2 A3 B3
+./eval.sh validate                     # the grader of EVAL_ISSUE must fail on the base commit and pass with its reference fix
 ./eval.sh report                       # per-run and per-arm tables (median [min..max])
 ./split.sh                             # where arm B's sub-flow money went
 python3 -I cache_trace.py B1 --summary # per-turn prompt-cache trace of a run
+python3 -I cache_trace.py --worktree ../yukta-issue-1234 --json   # one issue worktree, machine-readable (the analyzer uses it)
 ```
 
 Runs go to `$EVAL_DIR/runs/<arm><n>/` (default `<checkout>/.yukta-dev/eval`, git-ignored). Run them **serially**, alternating arms, so neither arm always runs first and parallel load does not skew wall time.
@@ -41,6 +43,7 @@ Runs go to `$EVAL_DIR/runs/<arm><n>/` (default `<checkout>/.yukta-dev/eval`, git
 | `EVAL_ISSUE` | `1207` | the issue to run; needs `issues/<n>/` (below) |
 | `EVAL_BASE` | fetched `origin/main` of `EVAL_SRC` | the commit every run starts from; pin it for a comparable set |
 | `EVAL_SRC` | this checkout | repository cloned for each run |
+| `EVAL_ISSUES_DIR` | `eval/issues` | where `issues/<n>/` live; the self-tests use a temporary one |
 | `EVAL_DIR` | `.yukta-dev/eval` | where runs are written |
 | `EVAL_YK` | `../yk` | the `yk` the sessions use |
 | `EVAL_MODEL` | `opus` | main-session model, and the implementer's (`YUKTA_IMPL_MODEL`) |
@@ -99,6 +102,7 @@ Pick an issue that is small, clearly right or wrong, unfixed on the base commit,
 | `split.sh` | arm B sub-flow cost by where the fixer worked |
 | `cache_trace.py` | per-turn prompt-cache trace from the session transcripts |
 | `selftest.sh`, `fake-claude.sh`, `issues/selftest/` | offline check of the harness; run it after changing `eval.sh` |
+| `golden.sh`, `golden-report.py`, `golden/set.json`, `golden-selftest.sh` | the golden set: frozen issues replayed in every method with several trials on a loop change; its report; the set; its offline test (see the [guide](../EVALUATION.md), section 6.3) |
 | `issues/<n>/` | the saved issue, `grade.env`, the hidden test (and a reference fix for #1207) |
 | `report/` | `make_report.py` and `template.html`: the page of the first evaluation |
 | `results/<date>-<issue>/` | archived run data (`runs/`, `extra.json`) and the generated `report.html` |
