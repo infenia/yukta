@@ -36,6 +36,8 @@ Keep this open while you run. It is the operator's manual for the improvement lo
 | **B** | A Claude Code session is an orchestrator that starts `yk run issue` | a slim implementer, the check, and fixer sessions that resume the implementer |
 | **C** | like B | like B plus a code-navigation index for the implementer and fixers (IDE index if you opted in, else codebase-memory-mcp, else CodeGraph) |
 
+**Where the triage heal applies.** A plain `yk check` (what your own session and the Stop hook run) heals through `heal`: a System One triage picks the model and effort, `fix` climbs effort, and a failing model hands over to the next ([README.md](README.md), "Self-healing check"). None of the three methods uses it: A runs `--no-heal`, and B and C heal inside `check-impl` with `resume` rungs, so their costs are not affected. Heal records of a plain check carry `effort`.
+
 **How data flows (continuous loop).**
 
 ```
