@@ -31,7 +31,7 @@ yk approve <e> [signal] [--data text]     yk reject <e> [signal]
   `resume` continues. Stop to give up on the run (it ends CANCELLED and cannot continue; start a new one).
   Pausing the parent alone leaves a child it waits on running: use `--tree`.
 - **Retry** re-runs a node that ended FAILURE or TIMED_OUT, with everything behind it. A healing check already
-  retries its stages; retry a stage that its ladder gave up on only after you fixed the cause.
+  retries its stages; retry a stage that its heal gave up on only after you fixed the cause.
 - **An epic** (`yk run epic <n>`) waits at `between-issues` before each issue; two ESCALATEd issues pause the tree by themselves:
   look at `yk tree <e>` and the HEAL / NODE lines of the failed issues, fix the cause (or the briefs), then `yk resume <e> --tree`,
   or `yk stop <e> --tree`. A budget (`YUKTA_BUDGET_ISSUE`, `YUKTA_BUDGET_EPIC`) is not a signal: the run just ends ESCALATE; raising it

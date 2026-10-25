@@ -23,7 +23,7 @@ Argument: a count (`3`, default 1) or an issue number (`123`).
 
 2. **Run each through Yukta.** One command does the rest (claim the issue as In progress, a worktree
    `../yukta-issue-<n>` on `issue/<n>` from `origin/main`, a headless implementer, the self-healing check
-   with the fixers resuming the implementer, a draft PR with `Fixes #<n>` and the check's RESULT line):
+   whose failures go to a triage that picks fresh fixers, a draft PR with `Fixes #<n>` and the check's RESULT line):
 
    ```bash
    yk run issue <n> --detach          # STARTED execution=<e> session=yukta-dev

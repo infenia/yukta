@@ -37,10 +37,10 @@ log whole, and never `yk cli logs` (it streams everything).
 
 ## Self-healing (`yk check`)
 A failing stage repairs itself before the run fails: deterministic fix first (`spotlessApply`), then up
-to a `heal` workflow (a System One triage picks the model and effort, then headless Claude attempts climb effort and escalate haiku, sonnet, opus), then a verify pass. While it runs, don't edit files or run Gradle in
+to a `heal` workflow (a System One triage rates the failure easy, average or hard and picks the starting model and effort; fresh headless Claude attempts climb effort `low → medium → high` and escalate haiku, sonnet, opus), then a verify pass. While it runs, don't edit files or run Gradle in
 that checkout; act only on the final RESULT or an `ESCALATE:`. Review everything listed in `healed=`
 with `git diff` before committing (the fixer never commits). `--no-heal` gives the plain fail-fast
-chain (to see a failure as it is). Details, guards and budget: [reference/heal.md](reference/heal.md).
+chain (to see a failure as it is). Details, guards and budget: [reference/heal.md](reference/heal.md). What heal did, where its time and money went: `yk heal report`; what looks wrong: `yk heal analyze`; one run: `yk heal show --run <id>`.
 
 ## Long runs: detach and watch cheaply
 ```bash

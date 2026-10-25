@@ -4,8 +4,9 @@
 `examples/11-dogfood/scripts/_lib.sh`, policy `examples/11-dogfood/heal.json`). A failing stage repairs itself
 before the run fails, by calling the `heal` workflow and waiting for it:
 - a deterministic fix first where one exists (`spotless`: `spotlessApply`);
-- then `heal`: a System One triage rates the failure (`trivial` .. `veryhard`, default `average` = sonnet at
-  medium effort) and picks the starting model and effort; `fix` runs that model at `low → medium → high`, each
+- then `heal`: a System One triage rates the failure from its problem lines in three levels (`easy` = haiku at medium
+  effort, `average` = sonnet at medium, the default, `hard` = sonnet at high; a failed or vague triage starts at the default)
+  and picks the starting model and effort; `fix` runs that model at `low → medium → high`, each
   attempt time-boxed and followed by a re-run of the failing check; a model that fails at every effort hands over
   to the next one (`haiku → sonnet → opus`) at `low`; when opus has failed too the run fails
   (`yk check --models sonnet,opus` limits the models, `--triage off` skips the triage);
