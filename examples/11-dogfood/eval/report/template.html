@@ -266,8 +266,14 @@ That second number is an estimate from the measured parts, not a measured run. R
 <tr><td><a href="https://github.com/infenia/yukta/issues/1248">#1248</a></td><td>A fixer that resumes the implementer re-writes its conversation cache because the answer format differs</td><td>P2</td><td>About 17k to 27k tokens re-written once per run (<a href="#cache">section 5</a>)</td></tr>
 <tr><td><a href="https://github.com/infenia/yukta/issues/1249">#1249</a></td><td>Remember which stages already fail on a clean <code>main</code>, so fixers are not started for them</td><td>P2</td><td>The same unrelated failure cost $0.72 to $0.90 in every run</td></tr>
 <tr><td><a href="https://github.com/infenia/yukta/issues/1251">#1251</a></td><td>Issue worktrees have no CodeGraph index, so the implementer's CodeGraph rule cannot work</td><td>P2</td><td>Sub-flows navigate with Grep, Read and Bash only; CodeGraph was used 0 times</td></tr>
+<tr><td><a href="https://github.com/infenia/yukta/issues/1256">#1256</a></td><td>Fixers in an issue run resume the implementer on Opus even for failures outside its files</td><td>P2</td><td>$0.72 to $1.37 per attempt against a $0.30 target; 4 of 7 changed nothing</td></tr>
+<tr><td><a href="https://github.com/infenia/yukta/issues/1257">#1257</a></td><td>Restarting <code>yk run issue</code> after <code>ESCALATE</code> starts a new implementer instead of continuing at the failed stage</td><td>P2</td><td>B2 paid for a second implementer and a second round of fixers</td></tr>
+<tr><td><a href="https://github.com/infenia/yukta/issues/1259">#1259</a></td><td>Let the orchestrator pass its analysis to the implementer</td><td>P3</td><td>The implementer explores from scratch; nothing flows down</td></tr>
+<tr><td><a href="https://github.com/infenia/yukta/issues/1260">#1260</a></td><td>Follow-up evaluations: navigation-index arm, a Java issue, a cheaper orchestrator, parallel issues, a rerun after the fixes</td><td>P3</td><td>Turns this report's estimates and untested questions into measurements</td></tr>
+<tr><td><a href="https://github.com/infenia/yukta/issues/1261">#1261</a></td><td>Lean orchestrator: a main session that only runs <code>yk run issue</code> costs $0.20 to $0.29</td><td>P3</td><td>23k to 29k tokens written to cache just to start and wait</td></tr>
 <tr><td><a href="https://github.com/infenia/yukta/issues/1250">#1250</a></td><td>Restarting an issue run overwrites its implement and heal records, so budgets and <code>yk stats</code> undercount</td><td>P2</td><td>B2's first run is missing from its records; the issue budget sums these files too</td></tr>
 </table></div>
+<p class="sub">#1235 also covers the empty <code>failed_node</code> on an <code>ESCALATE</code> (same cause, added as a comment).</p>
 <p class="sub">#1232 was first mis-described as "unrelated failures" during the evaluation. Reading the fixers' own code comments showed the real cause, and the issue text reflects that. #1232 was inferred from run evidence and the server's startup code (<code>_lib.sh</code>); a clean run of <code>main</code> through the dev server was not done separately.</p>
 
 <h2 id="caveats">8. How far to trust this</h2>
@@ -375,7 +381,7 @@ python3 -I report/make_report.py results/2026-10-25-1207/runs out.html   # rebui
   <dt>Hidden test</dt><dd>A test the grader adds after a run, never shown to Claude, so it cannot be tuned for.</dd>
 </dl>
 
-<p class="foot">Generated from the archived run data by <code>eval/report/make_report.py</code>. Findings #1232 to #1235 and #1248 to #1251 are filed on infenia/yukta, under epic #1218.</p>
+<p class="foot">Generated from the archived run data by <code>eval/report/make_report.py</code>. Findings #1232 to #1235, #1248 to #1251 and #1256 to #1261 are filed on infenia/yukta, under epic #1218.</p>
 </div>
 </body>
 </html>
