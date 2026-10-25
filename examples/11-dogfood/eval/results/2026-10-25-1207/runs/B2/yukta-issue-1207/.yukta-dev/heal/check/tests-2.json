@@ -1,0 +1,15 @@
+{
+  "stage": "tests",
+  "attempt": 2,
+  "mode": "resume",
+  "fixed": false,
+  "files": [],
+  "cost": 0.7587704,
+  "summary": "Not fixed, and I left the source unchanged. The failures are the same as in attempt 1, and nothing in this branch causes them: the issue change only edits cli/i",
+  "usage": {
+    "input": 2,
+    "cache_creation": 1735,
+    "cache_read": 51589,
+    "output": 544
+  }
+}

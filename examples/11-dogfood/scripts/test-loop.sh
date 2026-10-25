@@ -8,6 +8,7 @@ dir="$(mktemp -d)"
 trap 'rm -rf "$dir"' EXIT
 mkdir -p "$dir/issues" "$dir/repo/.yukta-dev"
 export YUKTA_LOOP_DIR="$dir/loop" YUKTA_REPO_ROOT="$dir/repo" YUKTA_GH="$dir/gh" YUKTA_LOOP_SEED=seed-one YUKTA_LOOP_METHODS=A,B,C
+export YUKTA_LOOP_ANALYZE=off  # pick would otherwise run the analyzer, whose judge call spends money (test-analyze.sh covers it)
 loop="$here/loop.sh"
 
 # fake gh: issue JSON from $dir/issues/<n>.json, you are "tester", every issue is Ready except those listed in $dir/notready
@@ -101,12 +102,12 @@ issue 302 "Change examples/11-dogfood/yk." '[{"name":"loop-neutral"}]'
 [[ "$("$loop" plan 201 --dry-run | jq -r .loop_changing)" == false ]] || fail "plain issue flagged"
 [[ -n "$("$loop" plan 201 --dry-run | jq -r .loop_sha)" ]] || fail "no loop sha"
 
-# default pool: A and B
-issue 600 "$small"; issue 601 "$small"
+# default pool: A, B and C
+issue 600 "$small"; issue 601 "$small"; issue 602 "$small"
 default="$(env -u YUKTA_LOOP_METHODS bash -c 'for n in 600 601; do "'"$loop"'" plan "$n" --dry-run | jq -r .regime; done' | sort -u)"
-[[ "$default" == "A,B" ]] || fail "default pool is '$default', not A,B"
-d="$(env -u YUKTA_LOOP_DIR -u YUKTA_LOOP_METHODS YUKTA_LOOP_DIR="$dir/loop5" bash -c '"'"$loop"'" plan 600 | jq -r .method; "'"$loop"'" plan 601 | jq -r .method' | sort | paste -sd' ')"
-[[ "$d" == "A B" ]] || fail "the first block of the default pool is '$d', not A B"
+[[ "$default" == "A,B,C" ]] || fail "default pool is '$default', not A,B,C"
+d="$(env -u YUKTA_LOOP_METHODS YUKTA_LOOP_DIR="$dir/loop5" bash -c 'for n in 600 601 602; do "'"$loop"'" plan "$n" | jq -r .method; done' | sort | paste -sd' ')"
+[[ "$d" == "A B C" ]] || fail "the first block of the default pool is '$d', not A B C"
 
 # --- pick with a stand-in runner: the draw is in the ledger before the run, the outcome after it
 export YUKTA_LOOP_DIR="$dir/loop4" YUKTA_LOOP_METHODS=B
@@ -123,11 +124,12 @@ SH
 chmod +x "$dir/runner"
 YUKTA_LOOP_RUNNER="$dir/runner" "$loop" pick 400 >"$dir/pick.out" 2>&1 || fail "pick failed: $(cat "$dir/pick.out")"
 out="$(jq -s '[.[] | select(.type == "outcome")] | last' "$YUKTA_LOOP_DIR/ledger.jsonl")"
-[[ "$(jq -r .result <<<"$out")" == "RESULT status=SUCCESS" ]] || fail "outcome result: $out"
+[[ "$(jq -r .result <<<"$out")" == "RESULT status=SUCCESS failed_node=- healed=- execution=abc session=yukta-dev" ]] || fail "outcome keeps the whole RESULT line: $out"
 [[ "$(jq -r .pr_url <<<"$out")" == *pull/9999 ]] || fail "outcome pr: $out"
 [[ "$(jq -r .cost_usd <<<"$out")" == 1.25 ]] || fail "outcome cost: $out"
 [[ "$(jq -r '.main."gen_ai.usage.cache_read.input_tokens"' <<<"$out")" == 8000 ]] || fail "outcome tokens use the OTel names: $out"
 [[ "$("$loop" total)" == '$1.25 of $60' ]] || fail "total: $("$loop" total)"
+[[ "$(jq -s '[.[] | select(.type == "analysis")] | length' "$YUKTA_LOOP_DIR/ledger.jsonl")" == 0 ]] || fail "the analyzer ran although YUKTA_LOOP_ANALYZE=off"
 
 # a pick of an issue that is not yours, or not Ready, draws nothing
 issue 401 "$small" '[]' "someone"
@@ -154,6 +156,26 @@ nxt="$(YUKTA_GH="$dir/g2/gh" "$loop" next)"
 grep -q '^#502 .*P0 .*S ' <<<"$nxt" || fail "next row for 502: $nxt"
 grep -q '^#501 .*P1 .*M ' <<<"$nxt" || fail "next row for 501: $nxt"
 grep -q '^#503 .*P3 .*L ' <<<"$nxt" || fail "next row for 503: $nxt"
+
+# --- pick with the real runner: method C starts the orchestrator with --nav, method B without
+cat >"$dir/claude-cap" <<'SH'
+#!/usr/bin/env bash
+printf '%s' "$2" >"$(dirname "$0")/captured-prompt"
+echo '{"result":"RESULT status=SUCCESS failed_node=- healed=- execution=e session=s","total_cost_usd":0.2,"num_turns":3,"usage":{"input_tokens":1,"cache_creation_input_tokens":1,"cache_read_input_tokens":1,"output_tokens":1}}'
+SH
+chmod +x "$dir/claude-cap"
+issue 700 "$small"; issue 701 "$small"
+YUKTA_LOOP_DIR="$dir/loop6" YUKTA_CLAUDE_BIN="$dir/claude-cap" "$loop" pick 700 --method C >/dev/null 2>&1 || fail "pick with method C failed"
+grep -q 'run issue 700 --nav --no-pause before-implement,before-pr' "$dir/captured-prompt" || fail "method C did not run yk run issue --nav: $(cat "$dir/captured-prompt")"
+YUKTA_LOOP_DIR="$dir/loop6" YUKTA_CLAUDE_BIN="$dir/claude-cap" "$loop" pick 701 --method B >/dev/null 2>&1 || fail "pick with method B failed"
+grep -q 'run issue 701 --no-pause' "$dir/captured-prompt" && ! grep -q -- '--nav' "$dir/captured-prompt" || fail "method B must not use --nav: $(cat "$dir/captured-prompt")"
+[[ "$(jq -s '[.[] | select(.type == "outcome" and .method == "C")] | last | .nav' "$dir/loop6/ledger.jsonl")" == null ]] || fail "a method C outcome without nav.json records nav null"
+mkdir -p "$dir/repo/.yukta-dev/issue-702"
+echo '{"backend":"cbm","ok":true,"index_seconds":13,"version":"9.9.9","tools":[]}' >"$dir/repo/.yukta-dev/issue-702/nav.json"
+issue 702 "$small"
+YUKTA_LOOP_DIR="$dir/loop6" YUKTA_CLAUDE_BIN="$dir/claude-cap" "$loop" pick 702 --method C >/dev/null 2>&1 || fail "pick 702 failed"
+[[ "$(jq -s '[.[] | select(.type == "outcome" and .issue == 702)] | last | .nav | "\(.backend) \(.index_seconds) \(.version)"' -r "$dir/loop6/ledger.jsonl")" == "cbm 13 9.9.9" ]] || fail "the outcome does not hold the backend and index time"
+echo "ok   pick method C"
 
 # --- budget: under the limit it runs, at the limit it stops and says so
 issue 410 "$small"

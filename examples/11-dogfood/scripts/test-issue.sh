@@ -139,13 +139,58 @@ echo "ok   solo with a failing check"
 
 # --- yk pick with only method A enabled: the draw comes first, the solo run follows, the ledger gets the session's usage
 reset
-export YUKTA_LOOP_DIR="$dir/loop" YUKTA_LOOP_METHODS=A
+export YUKTA_LOOP_DIR="$dir/loop" YUKTA_LOOP_METHODS=A YUKTA_LOOP_ANALYZE=off
 "$here/loop.sh" pick 7 >"$dir/pick.out" 2>&1 || fail "pick failed: $(tail -5 "$dir/pick.out")"
-unset YUKTA_LOOP_DIR YUKTA_LOOP_METHODS
+unset YUKTA_LOOP_DIR YUKTA_LOOP_METHODS YUKTA_LOOP_ANALYZE
 [[ "$(jq -s '[.[] | select(.type == "draw")] | length' "$dir/loop/ledger.jsonl")" == 1 ]] || fail "no single draw: $(cat "$dir/loop/ledger.jsonl")"
 out="$(jq -s '[.[] | select(.type == "outcome")] | last' "$dir/loop/ledger.jsonl")"
-[[ "$(jq -r .method <<<"$out")" == A && "$(jq -r .result <<<"$out")" == "RESULT status=SUCCESS" ]] || fail "outcome: $out"
+[[ "$(jq -r .method <<<"$out")" == A && "$(jq -r .result <<<"$out")" == "RESULT status=SUCCESS"* ]] || fail "outcome: $out"
 [[ "$(jq -r .cost_usd <<<"$out")" == 0.5 && "$(jq -r .sub.attempts <<<"$out")" == 0 ]] || fail "the outcome of method A is the solo session alone: $out"
 [[ "$(jq -r '.main."gen_ai.usage.cache_read.input_tokens"' <<<"$out")" == 100 ]] || fail "outcome tokens: $out"
 echo "ok   pick with method A"
+
+# --- method C (--nav): the nav step indexes the worktree and the implementer gets the index
+cat >"$dir/cbm" <<'SH'
+#!/usr/bin/env bash
+[[ "$1" == --version ]] && { echo "codebase-memory-mcp 9.9.9"; exit 0; }
+echo '{"project":"fake-project","status":"indexed"}'
+SH
+chmod +x "$dir/cbm"
+export YUKTA_NAV_BACKENDS=cbm YUKTA_NAV_CBM_BIN="$dir/cbm" YUKTA_NAV_CBM_CACHE="$dir/cbm-cache"
+reset
+start --nav --no-pause before-implement,before-pr
+wait_for 240 ended || fail "the method C run did not end: $("$yk" tree "${exec_id:0:8}")"
+got="$(result)"
+grep -q "status=SUCCESS" <<<"$got" || fail "the method C run did not succeed: $got"
+n="$repo/.yukta-dev/issue-7/nav.json"
+[[ "$(jq -r .backend "$n")" == cbm && "$(jq -r .ok "$n")" == true ]] || fail "nav.json: $(cat "$n")"
+mcp="$repo/.yukta-dev/issue-7/nav-mcp.json"
+grep -q "session=[0-9a-f-]\{36\} .*mcp=$mcp" "$dir/claude.log" || fail "the implementer did not get the MCP config: $(cat "$dir/claude.log")"
+grep -q nav-note "$dir/claude.log" || fail "the implementer's prompt does not name the index: $(cat "$dir/claude.log")"
+"$yk" tree "${exec_id:0:8}" | grep -q "implement-issue-nav" || fail "the run did not use the nav workflow: $("$yk" tree "${exec_id:0:8}")"
+echo "ok   method C"
+
+# --- method C: a fixer that resumes the implementer gets the very same MCP config (else the cache is re-written)
+reset
+touch "$dir/implement-breaks"
+echo resume >"$dir/fix-at"
+start --nav --no-pause before-implement,before-pr
+wait_for 300 ended || fail "the method C run with a failing check did not end"
+got="$(result)"
+grep -q "status=SUCCESS" <<<"$got" || fail "the method C run did not succeed after the fixer: $got"
+[[ "$(grep -c "mcp=$mcp" "$dir/claude.log")" -ge 2 ]] || fail "the fixer did not get the implementer's MCP config: $(cat "$dir/claude.log")"
+impl="$(grep -o 'session=[0-9a-f-]\{36\}' "$dir/claude.log" | head -1 | cut -d= -f2)"
+grep -q "resume=$impl mcp=$mcp" "$dir/claude.log" || fail "the resumed fixer has another tool set than the implementer: $(cat "$dir/claude.log")"
+echo "ok   method C fixer"
+
+# --- a plain run does not pick up the index of an earlier method C run
+reset
+echo Backlog >"$dir/status"
+mkdir -p "$repo/.yukta-dev/issue-7"
+echo '{"ok":true,"backend":"cbm","mcp_config":"/nowhere","tools":[]}' >"$repo/.yukta-dev/issue-7/nav.json"
+start --no-pause before-implement,before-pr
+wait_for 60 ended || fail "the run did not end (stale nav.json)"
+[[ ! -e "$repo/.yukta-dev/issue-7/nav.json" ]] || fail "a plain run left the stale nav.json of a method C run"
+unset YUKTA_NAV_BACKENDS YUKTA_NAV_CBM_BIN YUKTA_NAV_CBM_CACHE
+echo "ok   no stale index"
 echo "ok   issue"

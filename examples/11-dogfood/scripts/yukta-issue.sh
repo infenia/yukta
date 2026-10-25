@@ -5,6 +5,7 @@
 #   yukta-issue.sh claim      the issue is open, assigned to you and Ready: move it to In progress (exit 3 otherwise)
 #   yukta-issue.sh worktree   a git worktree on a new branch issue/<n> from origin/main
 #   yukta-issue.sh brief      write the brief the implementer reads (T0 may edit it before the work starts)
+#   yukta-issue.sh nav        method C: index the worktree for code navigation (nav.sh); never fails the run
 #   yukta-issue.sh implement  a headless Claude implements the brief in the worktree (opus, $YUKTA_IMPL_BUDGET)
 #   yukta-issue.sh solo       method A: one headless Claude Code session (your own setup) does the whole issue in the
 #                             worktree and checks it with yk; Yukta only checks ($YUKTA_SOLO_BUDGET)
@@ -20,10 +21,11 @@
 # YUKTA_WARM_DELAY (seconds, 20) spreads the starts of the implementers.
 # Budgets (USD, optional): YUKTA_BUDGET_ISSUE caps what one issue spends (the implementer and its fixers), YUKTA_BUDGET_EPIC
 # what all issues of the epic do; implement refuses to start over either.
-# State per issue: <repo>/.yukta-dev/issue-<n>/ (claimed, brief.md, implement.json, implement.out; solo.json, solo.out.json).
+# State per issue: <repo>/.yukta-dev/issue-<n>/ (claimed, brief.md, implement.json, implement.out; solo.json, solo.out.json;
+# nav.json, nav-mcp.json, nav-rules.md for method C).
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-action="${1:?usage: yukta-issue.sh claim|worktree|brief|implement|solo|pr|release|epic-list|epic-pause}"
+action="${1:?usage: yukta-issue.sh claim|worktree|brief|nav|implement|solo|pr|release|epic-list|epic-pause}"
 repo="${YUKTA_REPO_DIR:?YUKTA_REPO_DIR is required}"
 gh="${YUKTA_GH:-gh}"
 gh_repo="${YUKTA_GH_REPO:-infenia/yukta}"
@@ -97,6 +99,10 @@ TXT
     } >"$state/brief.md"
     echo "brief: $state/brief.md"
     ;;
+  nav)
+    # Method C. Index the worktree with the first navigation backend that works (nav.sh); with none the run goes on as method B.
+    "$here/nav.sh" prepare "$wt" "$state"
+    ;;
   implement)
     spent="$(cost_in "$state/implement.json" "$wt"/.yukta-dev/heal/check/*-[0-9]*.json)"
     if over "${YUKTA_BUDGET_ISSUE:-}" "$spent"; then nope "issue #$n has spent \$$spent, its budget is \$$YUKTA_BUDGET_ISSUE (YUKTA_BUDGET_ISSUE)"; fi
@@ -121,7 +127,14 @@ TXT
     cd "$wt" || exit 1
     out="$state/implement.out"
     : >"$out"
-    result="$(yk_claude "${YUKTA_IMPL_MODEL:-opus}" "$(cat "$state/brief.md")" "$here/../implementer-rules.md" \
+    # method C: the rules and a note naming the index come from nav.json; yk_claude finds it next to this file
+    export YUKTA_IMPL_COSTFILE="$state/implement.json"
+    rules="$here/../implementer-rules.md" prompt="$(cat "$state/brief.md")"
+    if [[ "$(jq -r '.ok // false' "$state/nav.json" 2>/dev/null)" == true ]]; then
+      rules="$(jq -r .rules "$state/nav.json")"
+      prompt+=$'\n\n'"$(jq -r .prompt_note "$state/nav.json")"
+    fi
+    result="$(yk_claude "${YUKTA_IMPL_MODEL:-opus}" "$prompt" "$rules" \
       "${YUKTA_IMPL_BUDGET:-5}" "$out" "$YUKTA_IMPL_SESSION")"
     answer="$(jq -c '.structured_output // (.result | fromjson? ) // {}' <<<"$result" 2>/dev/null || echo '{}')"
     jq -n --argjson r "${result:-null}" --argjson a "$answer" \
@@ -145,7 +158,7 @@ You are working in the git worktree $wt on branch issue/$n. Fix the issue and it
     cd "$wt" || exit 1
     out="$state/solo.out.json"
     env -u CLAUDECODE -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_SSE_PORT YUKTA_DOGFOOD=off \
-      "${YUKTA_CLAUDE_BIN:-claude}" -p "$prompt" --model "${YUKTA_SOLO_MODEL:-opus}" --no-session-persistence --permission-mode acceptEdits \
+      "${YUKTA_CLAUDE_BIN:-claude}" -p "$prompt" --model "${YUKTA_SOLO_MODEL:-opus}" --permission-mode acceptEdits \
       --allowedTools "Read" "Edit" "Write" "Grep" "Glob" "Bash($yk:*)" "Bash(go:*)" "Bash(git diff:*)" "Bash(git status:*)" "Bash(git log:*)" "Bash(codegraph:*)" \
       --disallowedTools "Bash(git commit:*)" "Bash(git push:*)" "Bash(gh:*)" \
       --max-budget-usd "${YUKTA_SOLO_BUDGET:-5}" --max-turns "${YUKTA_SOLO_TURNS:-60}" --output-format json >"$out" 2>"$state/solo.err" || true

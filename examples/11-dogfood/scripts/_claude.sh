@@ -9,7 +9,8 @@
 # The answer is claude's JSON result on stdout; $YK_SCHEMA is the JSON schema of its final answer.
 #
 # Slim on purpose: none of the user's plugins, skills, settings or MCP servers (their tool schemas cost more
-# than a fix), a fixed tool list and nothing that varies per run in the system prompt. Not --bare: it would
+# than a fix), a fixed tool list and nothing that varies per run in the system prompt. Method C adds one MCP server (a code
+# index) through the issue's nav.json; nothing else of the user's setup. Not --bare: it would
 # also drop the login. The project hooks still load (they keep the gradle guard); YUKTA_HEAL_FIXER=1 lets
 # the session call ./gradlew directly. It never commits or pushes: the workflow does.
 
@@ -26,11 +27,19 @@ yk_claude() {
     *) model=(--model "$mode")
        if [[ -n "$sid" ]]; then session=(--session-id "$sid"); else session=(--no-session-persistence); fi ;;
   esac
+  # Method C: the issue's nav.json (next to implement.json, written by nav.sh) gives the implementer and its fixers the same MCP
+  # config and tools, so a fixer that resumes the implementer sees the same tool definitions and the cache is not re-written.
+  local nav=() navtools=() navf
+  navf="$(dirname "${YUKTA_IMPL_COSTFILE:-/nonexistent/x}")/nav.json"
+  if [[ -s "$navf" && "$(jq -r '.ok // false' "$navf" 2>/dev/null)" == true ]]; then
+    [[ "$(jq -r '.mcp_config // ""' "$navf")" == "" ]] || nav=(--mcp-config "$(jq -r .mcp_config "$navf")")
+    mapfile -t navtools < <(jq -r '.tools[]?' "$navf")
+  fi
   env "${_yk_env_u[@]}" YUKTA_HEAL_FIXER=1 "${YUKTA_CLAUDE_BIN:-claude}" -p "$prompt" "${model[@]}" "${session[@]}" \
-    --setting-sources project --strict-mcp-config --disable-slash-commands \
+    --setting-sources project --strict-mcp-config "${nav[@]}" --disable-slash-commands \
     --exclude-dynamic-system-prompt-sections \
     --tools Read,Edit,Write,Grep,Glob,Bash --permission-mode acceptEdits \
-    --allowedTools "Read" "Edit" "Write" "Grep" "Glob" "Bash(./gradlew:*)" "Bash(codegraph:*)" \
+    --allowedTools "Read" "Edit" "Write" "Grep" "Glob" "Bash(./gradlew:*)" "Bash(codegraph:*)" "${navtools[@]}" \
     --disallowedTools "Bash(git commit:*)" "Bash(git push:*)" \
     --append-system-prompt "$(cat "$rules")" --max-budget-usd "$budget" \
     --output-format json --json-schema "${YK_SCHEMA:?YK_SCHEMA is the answer schema}" 2>>"$out"

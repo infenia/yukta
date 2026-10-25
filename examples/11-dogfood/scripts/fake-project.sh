@@ -29,9 +29,10 @@ cat >"$dir/claude" <<'SH'
 # failing tasks only when run with the model (or "resume") named in .fake-fix-at (in the project) or "fix-at"
 # (next to this script). Every call is logged in claude.log next to this script.
 here="$(cd "$(dirname "$0")" && pwd)"
-prompt="" model="" session="" resume=""
-while (($#)); do case "$1" in -p) prompt="$2"; shift 2 ;; --model) model="$2"; shift 2 ;; --session-id) session="$2"; shift 2 ;; --resume) resume="$2"; shift 2 ;; *) shift ;; esac; done
-echo "$(date +%s.%N) model=${model:--} session=${session:--} resume=${resume:--} cwd=$PWD" >>"$here/claude.log"
+prompt="" model="" session="" resume="" mcp=""
+while (($#)); do case "$1" in -p) prompt="$2"; shift 2 ;; --model) model="$2"; shift 2 ;; --session-id) session="$2"; shift 2 ;; --resume) resume="$2"; shift 2 ;; --mcp-config) mcp="$2"; shift 2 ;; *) shift ;; esac; done
+echo "$(date +%s.%N) model=${model:--} session=${session:--} resume=${resume:--} mcp=${mcp:--} cwd=$PWD" >>"$here/claude.log"
+grep -q 'code index of this worktree' <<<"$prompt" && echo "nav-note" >>"$here/claude.log"
 if [[ "$prompt" == "# Issue #"* ]]; then
   # a method A (solo) prompt tells the session to check with yk; the log says so
   grep -q -- '--no-heal' <<<"$prompt" && echo "solo-prompt" >>"$here/claude.log"
