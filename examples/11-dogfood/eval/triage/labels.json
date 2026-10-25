@@ -1,0 +1,514 @@
+{
+ "40164850295": {
+  "level": "hard",
+  "basis": "reading",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "40145024147": {
+  "level": "hard",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "40138136941": {
+  "level": "trivial",
+  "basis": "fix",
+  "confidence": "high",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "40137828505": {
+  "level": "moderate",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 6,
+  "set": "test"
+ },
+ "40131307255": {
+  "level": "veryhard",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 13,
+  "set": "test"
+ },
+ "40125861656": {
+  "exclude": "the log holds no failure text",
+  "cluster": 12
+ },
+ "40122631470": {
+  "level": "hard",
+  "basis": "reading",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "40116279245": {
+  "level": "average",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 2,
+  "set": "test"
+ },
+ "40111331111": {
+  "level": "simple",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "40104481641": {
+  "level": "easy",
+  "basis": "fix",
+  "confidence": "high",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "40087498865": {
+  "exclude": "the log holds no failure text",
+  "cluster": 2
+ },
+ "40084513538": {
+  "level": "simple",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 2,
+  "set": "test"
+ },
+ "40083848449": {
+  "level": "veryhard",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "40076745212": {
+  "level": "hard",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "40076651490": {
+  "level": "simple",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "40031948233": {
+  "level": "moderate",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 2,
+  "set": "test"
+ },
+ "40029907606": {
+  "level": "moderate",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "40019928385": {
+  "level": "simple",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "39982806473": {
+  "level": "moderate",
+  "basis": "reading",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 6,
+  "set": "dev"
+ },
+ "39981097772": {
+  "level": "moderate",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 2,
+  "set": "dev"
+ },
+ "39979709103": {
+  "level": "simple",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39979207256": {
+  "level": "simple",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 2,
+  "set": "test"
+ },
+ "39976434623": {
+  "level": "average",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 2,
+  "set": "test"
+ },
+ "39966331723": {
+  "level": "simple",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39959617904": {
+  "level": "simple",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39949973967": {
+  "level": "easy",
+  "basis": "fix",
+  "confidence": "high",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 2,
+  "set": "dev"
+ },
+ "39934975471": {
+  "level": "hard",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "39933656187": {
+  "level": "hard",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39918004710": {
+  "level": "hard",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "39917091134": {
+  "level": "hard",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39913389645": {
+  "level": "average",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 2,
+  "set": "dev"
+ },
+ "39913385310": {
+  "level": "simple",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 2,
+  "set": "test"
+ },
+ "39901113379": {
+  "level": "hard",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "39900609395": {
+  "level": "hard",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39899867163": {
+  "level": "hard",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "39897724529": {
+  "level": "easy",
+  "basis": "fix",
+  "confidence": "high",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "39895488178": {
+  "level": "easy",
+  "basis": "fix",
+  "confidence": "high",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 2,
+  "set": "test"
+ },
+ "39894542318": {
+  "level": "easy",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39860118290": {
+  "level": "average",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 2,
+  "set": "test"
+ },
+ "39840307882": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 7
+ },
+ "39840307947": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 4
+ },
+ "39785627989": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 2
+ },
+ "39784520141": {
+  "level": "average",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39723178155": {
+  "level": "moderate",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39719045067": {
+  "level": "moderate",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39680214695": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 7
+ },
+ "39680214490": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 1
+ },
+ "39674558197": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 1
+ },
+ "39660564763": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 1
+ },
+ "39660564780": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 3
+ },
+ "39654669292": {
+  "level": "average",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 2,
+  "set": "test"
+ },
+ "39623206706": {
+  "level": "trivial",
+  "basis": "fix",
+  "confidence": "high",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39622618248": {
+  "level": "easy",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39610936706": {
+  "level": "moderate",
+  "basis": "fix",
+  "confidence": "medium",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "39610023219": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 4
+ },
+ "39608703808": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 2
+ },
+ "39608703873": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 1
+ },
+ "39598586339": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 1
+ },
+ "39556300465": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 1
+ },
+ "39548871783": {
+  "level": "average",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39548492382": {
+  "level": "average",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39547606898": {
+  "level": "average",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 2,
+  "set": "test"
+ },
+ "39505867322": {
+  "exclude": "the CI environment (XmlPullParserException while configuring Gradle), not the code",
+  "cluster": 1
+ },
+ "39503449635": {
+  "exclude": "a CI canary, failing on purpose",
+  "cluster": 1
+ },
+ "39502984750": {
+  "exclude": "a CI canary, failing on purpose",
+  "cluster": 1
+ },
+ "39502984744": {
+  "exclude": "a CI canary, failing on purpose",
+  "cluster": 1
+ },
+ "39502621314": {
+  "level": "simple",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "39489674915": {
+  "level": "easy",
+  "basis": "reading",
+  "confidence": "high",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "39481587791": {
+  "level": "moderate",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "39472546029": {
+  "level": "easy",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "38840333451": {
+  "level": "moderate",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "dev"
+ },
+ "38751414190": {
+  "level": "moderate",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "38749990399": {
+  "level": "moderate",
+  "basis": "reading",
+  "confidence": "low",
+  "by": "claude, reading the log and the fix that followed",
+  "cluster": 1,
+  "set": "test"
+ },
+ "38746573016": {
+  "exclude": "the CI environment (pnpm install), not the code",
+  "cluster": 1
+ }
+}

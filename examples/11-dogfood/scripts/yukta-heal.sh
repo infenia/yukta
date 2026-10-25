@@ -139,31 +139,38 @@ key="$action"
 [[ "$action" == fix ]] && key="$mode"
 case "$key" in
   brief)
-    # the triage state: what the failure says (the lines a human would read first), then what changed and the log
-    # itself, so a small decision model can judge the breadth and the clarity of the cause. Capped at 12000 characters
-    # (the decision plugins cut the state at 15000).
-    {
-      echo "stage: $stage"
-      if [[ "$stage" == analyzers ]]; then
-        mapfile -t failed < <(failed_analyzers)
-        for n in "${failed[@]}"; do
-          echo "failing analyzer: $n"; problem_lines "$dir/$n.run.out" 12
-        done
-      else
-        echo "command: $(cat "$dir/$stage.cmd" 2>/dev/null)"
-        problem_lines "$dir/$stage.run.out" 25
-        [[ "$stage" == tests ]] && echo "failing test classes: $(failing_tests | paste -sd' ')"
-      fi
-      echo "files changed so far: $(git ls-files -m -o --exclude-standard | wc -l)"
+    # the triage state: what the failure says (the lines a human would read first), then what changed and the END of the log
+    # (a failure is reported last), so a small decision model can judge the breadth and the clarity of the cause. Capped at
+    # 5000 characters: System One reads about 50 tokens a second on a modest machine (a character costs about 4 ms, 5000 of
+    # them about 25 seconds) and Ollama cuts a call off at 60 seconds. The caps are the ones of eval/triage/eval.py.
+    top="$(
+      {
+        echo "stage: $stage"
+        echo "files changed so far: $(git ls-files -m -o --exclude-standard | wc -l)"
+        if [[ "$stage" == analyzers ]]; then
+          mapfile -t failed < <(failed_analyzers)
+          for n in "${failed[@]}"; do
+            echo "failing analyzer: $n"; problem_lines "$dir/$n.run.out" 12
+          done
+        else
+          echo "command: $(cat "$dir/$stage.cmd" 2>/dev/null)"
+          problem_lines "$dir/$stage.run.out" 25
+          [[ "$stage" == tests ]] && echo "failing test classes: $(failing_tests | paste -sd' ')"
+        fi
+      } | cut -c1-300 | head -c 1800
+      echo
       echo "---"
-      echo "changed files: $(changed_summary)"
-      echo "log:"
-      if [[ "$stage" == analyzers ]]; then
-        for n in "${failed[@]}"; do echo "[$n]"; sed 's/\x1b\[[0-9;]*m//g' "$dir/$n.run.out" 2>/dev/null | head -40; done
-      else
-        sed 's/\x1b\[[0-9;]*m//g' "$dir/$stage.run.out" 2>/dev/null | head -60
-      fi
-    } | cut -c1-300 | head -c 12000
+      echo "changed files: $(changed_summary)" | head -c 600
+      echo
+      echo "log (the end):"
+    )"
+    printf '%s\n' "$top"
+    room=$((5000 - ${#top} - 1))
+    if [[ "$stage" == analyzers ]]; then
+      for n in "${failed[@]}"; do echo "[$n]"; sed 's/\x1b\[[0-9;]*m//g' "$dir/$n.run.out" 2>/dev/null | tail -n 25; done
+    else
+      sed 's/\x1b\[[0-9;]*m//g' "$dir/$stage.run.out" 2>/dev/null | tail -n 60
+    fi | cut -c1-300 | tail -c "$room"
     exit 0
     ;;
   recheck)
