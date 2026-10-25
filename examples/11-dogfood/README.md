@@ -152,7 +152,7 @@ heal    brief ▶ triage (System One CLASSIFY) ─ difficulty ▶ fix-<model>-<e
 fix     fix@low ▶ recheck ─failure▶ fix@medium ▶ recheck ─failure▶ fix@high ▶ recheck ─failure▶ the fix fails
            (fix-from-<effort> starts at that effort; model, stage and effort come from the start payload)
 ```
-- **triage** is a `CLASSIFY` on the System One backend (`heal.json` `triage.model`): `brief` (the stage, its
+- **triage** is a `CLASSIFY` on the System One backend (`heal.json` `triage.model`, `kev:4b-q4_K_M`; it needs Ollama 0.35 or newer with that decision model, and any failure of the call starts at the default level). `minProbability` is 0.3, not the usual 0.6: the probability is spread over seven ordered levels (a clear answer is 35 to 55 %), and a vague one falls back to the default level, which is the right guess for it: `brief` (the stage, its
   command, the problem lines, the failing tests) goes in, a difficulty comes out and `triage.levels` maps it to a
   start rung: `trivial` haiku/low, `easy` haiku/medium, `simple` haiku/high, `moderate` sonnet/low, `average`
   sonnet/medium (the default, also for an uncertain answer or a model that is down), `hard` sonnet/high,
