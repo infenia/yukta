@@ -101,8 +101,12 @@ issue 302 "Change examples/11-dogfood/yk." '[{"name":"loop-neutral"}]'
 [[ "$("$loop" plan 201 --dry-run | jq -r .loop_changing)" == false ]] || fail "plain issue flagged"
 [[ -n "$("$loop" plan 201 --dry-run | jq -r .loop_sha)" ]] || fail "no loop sha"
 
-# default pool: B only
-[[ "$(env -u YUKTA_LOOP_METHODS "$loop" plan 201 --dry-run | jq -r .method)" == B ]] || fail "default pool is not B"
+# default pool: A and B
+issue 600 "$small"; issue 601 "$small"
+default="$(env -u YUKTA_LOOP_METHODS bash -c 'for n in 600 601; do "'"$loop"'" plan "$n" --dry-run | jq -r .regime; done' | sort -u)"
+[[ "$default" == "A,B" ]] || fail "default pool is '$default', not A,B"
+d="$(env -u YUKTA_LOOP_DIR -u YUKTA_LOOP_METHODS YUKTA_LOOP_DIR="$dir/loop5" bash -c '"'"$loop"'" plan 600 | jq -r .method; "'"$loop"'" plan 601 | jq -r .method' | sort | paste -sd' ')"
+[[ "$d" == "A B" ]] || fail "the first block of the default pool is '$d', not A B"
 
 # --- pick with a stand-in runner: the draw is in the ledger before the run, the outcome after it
 export YUKTA_LOOP_DIR="$dir/loop4" YUKTA_LOOP_METHODS=B

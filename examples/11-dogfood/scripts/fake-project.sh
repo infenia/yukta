@@ -24,7 +24,8 @@ SH
 cat >"$dir/claude" <<'SH'
 #!/usr/bin/env bash
 # fake claude. As the implementer (the prompt starts with "# Issue #") it writes a change and .yukta-dev/pr.md
-# (and, when the file "implement-breaks" is next to this script, breaks compileJava). As a fixer it fixes the
+# (and, when the file "implement-breaks" is next to this script, breaks compileJava). A prompt that mentions
+# --no-heal (method A, solo) is logged as solo-prompt. As a fixer it fixes the
 # failing tasks only when run with the model (or "resume") named in .fake-fix-at (in the project) or "fix-at"
 # (next to this script). Every call is logged in claude.log next to this script.
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -32,6 +33,8 @@ prompt="" model="" session="" resume=""
 while (($#)); do case "$1" in -p) prompt="$2"; shift 2 ;; --model) model="$2"; shift 2 ;; --session-id) session="$2"; shift 2 ;; --resume) resume="$2"; shift 2 ;; *) shift ;; esac; done
 echo "$(date +%s.%N) model=${model:--} session=${session:--} resume=${resume:--} cwd=$PWD" >>"$here/claude.log"
 if [[ "$prompt" == "# Issue #"* ]]; then
+  # a method A (solo) prompt tells the session to check with yk; the log says so
+  grep -q -- '--no-heal' <<<"$prompt" && echo "solo-prompt" >>"$here/claude.log"
   # "implement-sleep" next to this script makes the implementer take that many seconds (to see runs overlap)
   [[ -s "$here/implement-sleep" ]] && sleep "$(cat "$here/implement-sleep")"
   echo "implemented" >>feature.txt

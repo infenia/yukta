@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Online test of `yk run issue` on the dev server, with a throwaway repository (a fake gradlew, a fake claude
+# Online test of `yk run issue` (the implementer, and --solo: method A) on the dev server, with a throwaway repository (a fake gradlew, a fake claude
 # that also plays the implementer, a fake gh and a bare origin; fake-project.sh). Needs a running server.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -107,4 +107,45 @@ grep -q "status=ESCALATE" <<<"$got" || fail "a rejected run did not end ESCALATE
 [[ -e "$worktree/feature.txt" ]] || fail "the worktree was not kept"
 ! grep -q "pr create" "$dir/gh.log" || fail "a PR was opened although the run was rejected"
 echo "ok   reject"
+
+# --- method A (--solo): one Claude session does the issue, the check is plain (no healing), a draft PR opens
+reset
+start --solo --no-pause before-pr
+wait_for 240 ended || fail "the solo run did not end: $("$yk" tree "${exec_id:0:8}")"
+got="$(result)"
+grep -q "status=SUCCESS" <<<"$got" || fail "the solo run did not succeed: $got"
+grep -q "pr create.*--draft" "$dir/gh.log" || fail "no draft PR was opened by the solo run: $(cat "$dir/gh.log")"
+grep -q "Fixes #7" "$dir/gh.log" || fail "the solo PR does not say Fixes #7"
+grep -q "RESULT status=SUCCESS" "$dir/gh.log" || fail "the solo PR has no RESULT line"
+"$yk" tree "${exec_id:0:8}" | grep -q "check-plain" || fail "the solo run was not judged by check-plain: $("$yk" tree "${exec_id:0:8}")"
+[[ "$(grep -c solo-prompt "$dir/claude.log")" == 1 ]] || fail "the solo session was not started once with the solo prompt: $(cat "$dir/claude.log")"
+! grep -q "session=[0-9a-f-]\{36\}" "$dir/claude.log" || fail "the solo session was started as a resumable implementer: $(cat "$dir/claude.log")"
+[[ "$(jq -r .done "$repo/.yukta-dev/issue-7/solo.json")" == true && "$(jq -r .cost "$repo/.yukta-dev/issue-7/solo.json")" == 0.5 ]] || fail "solo.json: $(cat "$repo/.yukta-dev/issue-7/solo.json")"
+[[ "$(jq -r .total_cost_usd "$repo/.yukta-dev/issue-7/solo.out.json")" == 0.5 ]] || fail "solo.out.json is not the session's output"
+echo "ok   solo to draft PR"
+
+# --- method A with a failing check: nothing heals it; the run ends ESCALATE, the issue is Ready again, no PR
+reset
+touch "$dir/implement-breaks"
+start --solo --no-pause before-pr
+wait_for 240 ended || fail "the failing solo run did not end"
+got="$(result)"
+grep -q "status=ESCALATE" <<<"$got" || fail "a failing solo run did not end ESCALATE: $got"
+[[ "$(grep -c 'model=' "$dir/claude.log")" == 1 ]] || fail "something other than the solo session ran Claude: $(cat "$dir/claude.log")"
+[[ "$(last_status)" == Ready ]] || fail "the issue is not Ready again: $(cat "$dir/project-status.log")"
+! grep -q "pr create" "$dir/gh.log" || fail "a PR was opened although the check failed"
+[[ -e "$worktree/feature.txt" ]] || fail "the worktree was not kept"
+echo "ok   solo with a failing check"
+
+# --- yk pick with only method A enabled: the draw comes first, the solo run follows, the ledger gets the session's usage
+reset
+export YUKTA_LOOP_DIR="$dir/loop" YUKTA_LOOP_METHODS=A
+"$here/loop.sh" pick 7 >"$dir/pick.out" 2>&1 || fail "pick failed: $(tail -5 "$dir/pick.out")"
+unset YUKTA_LOOP_DIR YUKTA_LOOP_METHODS
+[[ "$(jq -s '[.[] | select(.type == "draw")] | length' "$dir/loop/ledger.jsonl")" == 1 ]] || fail "no single draw: $(cat "$dir/loop/ledger.jsonl")"
+out="$(jq -s '[.[] | select(.type == "outcome")] | last' "$dir/loop/ledger.jsonl")"
+[[ "$(jq -r .method <<<"$out")" == A && "$(jq -r .result <<<"$out")" == "RESULT status=SUCCESS" ]] || fail "outcome: $out"
+[[ "$(jq -r .cost_usd <<<"$out")" == 0.5 && "$(jq -r .sub.attempts <<<"$out")" == 0 ]] || fail "the outcome of method A is the solo session alone: $out"
+[[ "$(jq -r '.main."gen_ai.usage.cache_read.input_tokens"' <<<"$out")" == 100 ]] || fail "outcome tokens: $out"
+echo "ok   pick with method A"
 echo "ok   issue"

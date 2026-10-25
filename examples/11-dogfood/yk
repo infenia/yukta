@@ -8,6 +8,8 @@
 #                                            the self-healing quality gate (spotless .. cli) as one execution
 #   yk gradle <gradle args...>               any gradle args as one Yukta stage, e.g. :core:test --tests X
 #   yk watch <session> <exec> [--all]        follow a run: problems only, then RESULT
+#   yk run issue <n> --solo [--detach] [--no-pause before-pr]
+#                                            method A: one Claude session does the issue itself, Yukta only checks, then the PR
 #   yk run issue|epic <n> [--detach] [--no-pause before-implement,before-pr,between-issues]
 #                                            implement an assigned, Ready issue (or the sub-issues of an epic, two at a
 #                                            time) in its own worktree, check it, open a draft PR
@@ -447,13 +449,14 @@ cmd_run() {
 
 # run_layered KIND N [--detach] [--no-pause a,b]
 run_layered() {
-  local kind="$1" n="${2:?usage: yk run $1 <number> [--detach] [--no-pause <checkpoints>]}" mode=watch nopause="" impl=1 pr=1 between=1 p
+  local kind="$1" n="${2:?usage: yk run $1 <number> [--detach] [--no-pause <checkpoints>]}" mode=watch nopause="" impl=1 pr=1 between=1 solo=0 p
   shift 2
   [[ "$n" =~ ^[0-9]+$ ]] || die "the $kind is a number, not '$n'"
   while (($#)); do
     case "$1" in
       --detach) mode=detach; shift ;;
       --no-pause) nopause="${2:?--no-pause needs checkpoints}"; shift 2 ;;
+      --solo) [[ "$kind" == issue ]] || die "--solo is for an issue"; solo=1; shift ;;
       *) die "unknown option '$1'" ;;
     esac
   done
@@ -474,7 +477,12 @@ run_layered() {
   trap 'rm -rf "$tmp"' EXIT
   mkdir -p "$STATE_DIR"
   if [[ "$kind" == issue ]]; then
-    workflow="run-issue$(issue_variant "$impl" "$pr")"
+    if ((solo)); then
+      impl=0  # method A has no implementer checkpoint
+      workflow="run-issue-solo$([[ "$pr" == 1 ]] || echo "-no-pr-pause")"
+    else
+      workflow="run-issue$(issue_variant "$impl" "$pr")"
+    fi
     payload="$(jq -nc --arg i "$n" --arg r "$REPO_ROOT" --arg w "$(dirname "$REPO_ROOT")/yukta-issue-$n" --arg s "$(cat /proc/sys/kernel/random/uuid)" \
       '{issue: $i, repo: $r, worktree: $w, implSession: $s}')"
     rm -rf "$(dirname "$REPO_ROOT")/yukta-issue-$n/.yukta-dev/heal"

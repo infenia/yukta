@@ -221,6 +221,19 @@ unanswered `before-implement` goes on after an hour, an unanswered `before-pr` f
 happens by itself). `scripts/yukta-issue.sh` holds the steps (`YUKTA_GH` swaps `gh`, `YUKTA_PROJECT_STATUS_CMD` the project
 update, for tests); `scripts/test-issue.sh` runs them on the dev server with a fake repository, gh and claude.
 
+### Method A: `yk run issue <n> --solo`
+
+The same claim, worktree, brief and draft PR, but **one Claude Code session does the whole issue itself** and Yukta only checks:
+
+```
+claim -> worktree -> brief -> solo -> check-plain -> [before-pr] -> pr -> done      (run-issue-solo ends ESCALATE and gives the issue back, like run-issue)
+```
+
+- `solo` starts a headless Claude Code session with **your own setup** (plugins, skills, MCP servers), not the slim launcher of the implementer: `YUKTA_SOLO_MODEL` (opus), `YUKTA_SOLO_BUDGET` (USD, 5) and `YUKTA_SOLO_TURNS` (60). It is told to run Gradle only through `yk gradle`, to finish with `yk check --no-heal -p <worktree>`, to write `.yukta-dev/pr.md`, and not to commit or push. Its answer and usage are kept in `.yukta-dev/issue-<n>/solo.out.json` and `solo.json`.
+- There are **no fixers**. After the session, `check-plain` runs the whole gate without healing (the same stages as `check`); a failing gate ends the run `ESCALATE`, the issue goes back to Ready and the worktree stays. That is the point of the method: whatever fails, the session itself has to fix. The gate is the whole repository, as in method B, so failures that do not come from the change (issues #1232 and #1233, while open) hit method A too; the session sees them when it runs `yk check --no-heal` and has to deal with them.
+- Only the `before-pr` checkpoint exists (`--no-pause before-pr` to skip it); there is no `before-implement`.
+- `YUKTA_BUDGET_ISSUE` still refuses to start a second `solo` over its budget.
+
 ## Epics: `yk run epic`
 ```
 yk run epic 12 [--detach] [--no-pause before-implement,before-pr,between-issues]
@@ -258,7 +271,7 @@ yk loop total                    # dollars spent of the budget ($60 by default)
 yk loop ledger                   # one line per draw and outcome
 ```
 
-- **Methods.** **A**: one Claude Code session fixes the issue itself and Yukta only checks. **B**: a Claude Code session orchestrates `yk run issue`; slim sub-flow sessions do the work. **C**: B with a code-navigation backend. `YUKTA_LOOP_METHODS` lists the enabled ones (default `B`; A and C are enabled as they land). With only B enabled the draw is not random yet.
+- **Methods.** **A**: one Claude Code session fixes the issue itself and Yukta only checks (`yk run issue <n> --solo`, below). **B**: a Claude Code session orchestrates `yk run issue`; slim sub-flow sessions do the work. **C**: B with a code-navigation backend (not available yet). `YUKTA_LOOP_METHODS` lists the enabled ones (default `A,B`; C is enabled when it lands).
 - **Draw.** Block-randomized inside each size stratum: a block holds every enabled method once in a seeded order, so the methods stay balanced even with few issues. The draw is appended to the ledger **before** the run starts, so it cannot depend on how the run goes. A second `yk pick` of the same issue keeps its method. `--method X` forces one; it is recorded as forced and left out of the method comparison.
 - **Size** (`scripts/issue-size.sh`): `2 x acceptance criteria + 3 x modules named + words / 150`, bucketed S below 6, M below 9, L from 9 (set on the open issues of epic #1218). A label `size:S|M|L` overrides it.
 - **Loop-changing issues** (their text names `examples/11-dogfood`, `yk`, `build-logic`, the heal or issue scripts, `controlbus`; or the label `loop-changing`, overridden by `loop-neutral`) are flagged, because the ground moves under them and they should stay out of a method comparison.

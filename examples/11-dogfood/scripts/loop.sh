@@ -56,7 +56,7 @@ loop_sha() {
 
 enabled_methods() {
   local m out=()
-  IFS=, read -ra out <<<"${YUKTA_LOOP_METHODS:-B}"
+  IFS=, read -ra out <<<"${YUKTA_LOOP_METHODS:-A,B}"
   for m in "${out[@]}"; do [[ "$m" =~ ^[ABC]$ ]] || die "YUKTA_LOOP_METHODS holds A, B or C, not '$m'"; done
   printf '%s\n' "${out[@]}"
 }
@@ -150,9 +150,18 @@ cmd_plan() {
 run_method() {
   local n="$1" method="$2" dir="$3"
   case "$method" in
+    A) run_method_a "$n" "$dir" ;;
     B) run_method_b "$n" "$dir" ;;
     *) die "method $method is not available yet (YUKTA_LOOP_METHODS=$YUKTA_LOOP_METHODS)" ;;
   esac
+}
+
+# A: yk run issue --solo: one headless Claude Code session does the issue, Yukta only checks, no orchestrator.
+# The session's own usage is the main session's usage of the outcome.
+run_method_a() {
+  local n="$1" dir="$2" yk="$here/../yk"
+  YUKTA_BUDGET_ISSUE="$BUDGET_SESSION" YUKTA_SOLO_BUDGET="$BUDGET_SESSION" "$yk" run issue "$n" --solo --no-pause before-pr 2>"$dir/main.err" || true
+  cp "$REPO_ROOT/.yukta-dev/issue-$n/solo.out.json" "$dir/main.json" 2>/dev/null || true
 }
 
 # B: a headless Claude Code session (your own setup) orchestrates: it starts yk run issue and reports the RESULT line
