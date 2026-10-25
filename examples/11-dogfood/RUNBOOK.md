@@ -4,7 +4,7 @@ Keep this open while you run. It is the operator's manual for the improvement lo
 
 ## 0. Read this first
 
-**Where to run it from.** Until the pull requests #1252, #1266 to #1271 are merged, the commands exist only in the branch `feat/dogfood-golden-set` (it contains all of them). Use that checkout: `cd /media/arun/Infenia/Infenia/Development/Public/yukta-loop/examples/11-dogfood` (a worktree of this repository). After the merge, use any up-to-date checkout of `main`. All paths below are relative to `examples/11-dogfood` unless they start with `yk` (the `yk` script in that directory; in Claude Code it is on your PATH).
+**Where to run it from.** Everything is on `main`. Use an up-to-date checkout of `main`: `cd /media/arun/Infenia/Infenia/Development/Public/yukta && git fetch origin && git switch main && git pull --ff-only`, then `cd examples/11-dogfood`. If that checkout is on another branch and you would rather not switch it, use a separate worktree of `main`: `git worktree add ../yukta-main main`. All paths below are relative to `examples/11-dogfood` unless they start with `yk` (the `yk` script in that directory; in Claude Code it is on your PATH).
 
 **What has and has not been proven.** The pieces are tested offline with fakes, against the real dev server with a fake `claude` and `gh`, and with a few real model calls (the analyzer, the themes judge, one headless session using the navigation index). **No real issue has gone through `yk pick`, and no real golden replay has run.** Your first real run is therefore also the first end-to-end test. Section 4 walks you through it carefully and cheaply.
 
@@ -66,8 +66,9 @@ yk loop themes           -> what keeps going wrong, counted (rules without a mod
 Run these once. Each line says what a good answer looks like.
 
 ```bash
-cd /media/arun/Infenia/Infenia/Development/Public/yukta-loop/examples/11-dogfood   # the checkout that has all the loop commands
-git branch --show-current                    # feat/dogfood-golden-set (or main once merged)
+cd /media/arun/Infenia/Infenia/Development/Public/yukta/examples/11-dogfood   # a checkout of main
+git branch --show-current                    # main
+git pull --ff-only                           # up to date (the loop's scripts are the version under test)
 claude --version                             # claude is installed and logged in
 gh auth status                               # logged in; the token needs the project scope:
 gh auth refresh -s project                   #   run this if the issue claim later says it cannot move the project item

@@ -5,7 +5,7 @@ This guide explains how to measure what the dev loop (`yk`, `yk run issue`, the 
 - **Operating the loop and the evaluations step by step: [RUNBOOK.md](RUNBOOK.md)**
 - Harness reference (files, settings, `grade.env`): [eval/README.md](eval/README.md)
 - The first evaluation, with its data and report page: `eval/results/2026-10-25-1207/`
-- The plan for the continuous loop: `design/plans/dogfood-improvement-loop.md` (added with PR #1266)
+- The plan for the continuous loop: `design/plans/dogfood-improvement-loop.md`
 
 ## 1. What an evaluation answers
 
@@ -23,14 +23,14 @@ Every number this guide produces serves one goal and five questions (the Goal-Qu
 
 ## 2. Pick the right tool
 
-| | **Paired evaluation** (`eval/eval.sh`) | **Continuous loop** (`yk pick`) | **Golden set** (planned) |
+| | **Paired evaluation** (`eval/eval.sh`) | **Continuous loop** (`yk pick`) | **Golden set** (`eval/golden.sh`) |
 |---|---|---|---|
 | What it does | Runs one issue in several methods, in scratch clones, with stubbed `gh` | Runs your real issues one by one, one random method each, real PRs | Replays a few frozen issues in all methods, repeated, on each major loop change (`eval/golden.sh`) |
 | Compares methods on | the same issue (paired) | different issues (random, balanced by size) | the same issues (paired, repeated) |
 | Touches GitHub | never | yes (claims the issue, opens a draft PR) | never |
 | Needs | a grader per issue | nothing extra | a grader per issue |
 | Best for | a controlled comparison, checking a loop change, finding root causes | the day-to-day stream and the analyzer's findings | regression checks of the loop itself |
-| Status | available (PR #1252) | `yk pick`, `yk next`, `yk loop` (PR #1266), method A (PR #1267), the analyzer (PR #1268), method C (PR #1269), `yk loop report` / `sync` / `themes` (PR #1270) | available (this PR: `eval/golden.sh`) |
+| Status | available | available: `yk next`, `yk pick`, `yk loop`, `yk analyze`, methods A, B and C, `yk loop report` / `sync` / `themes` | available |
 
 Rule of thumb: use the **paired evaluation** when you need a trustworthy comparison or are verifying a fix to the loop; use the **continuous loop** when you want the loop to improve itself as you work through issues.
 
@@ -120,7 +120,7 @@ For each run also read **`result.json` → `answer`**: the end of the main sessi
 
 ## 6. Runbook 2: the continuous loop (`yk pick`)
 
-Available since PR #1266 (method A since #1267, the analyzer since the analyzer PR). Method C enables the third arm. `yk loop sync`, `yk loop report` and `yk loop themes` (this PR, below) read what the loop collected. The golden set comes later (see the plan). With A, B and C enabled the draw is random between three methods.
+All of it is on `main`: `yk next`, `yk pick`, `yk analyze`, `yk loop sync`, `report` and `themes`, and methods A, B and C. With A, B and C enabled the draw is random between three methods. `yk loop sync`, `report` and `themes` (section 6.2) read what the loop collected, and the golden set (section 6.3) is the paired check.
 
 ```bash
 yk next                       # assigned, Ready issues by priority with size S/M/L
@@ -140,7 +140,7 @@ How it protects the experiment:
 
 After every pick the **analyzer** reads the run and files what it finds (below); `yk analyze <draw-id> [--dry-run]` re-reads any run.
 
-What a run leaves behind: a `draw` record and an `outcome` record in `$DEV_HOME/loop/ledger.jsonl`, the main session's output under `$DEV_HOME/loop/runs/<id>/`, and, for B, the issue worktree (`../yukta-issue-<n>`), a draft PR, and the heal and implement records. After the PR is reviewed, the outcome proxies (CI, review comments, human commits, merged) are what tell you whether the change was good; they are filled by `yk loop sync` (planned).
+What a run leaves behind: a `draw` record and an `outcome` record in `$DEV_HOME/loop/ledger.jsonl`, the main session's output under `$DEV_HOME/loop/runs/<id>/`, and, for B, the issue worktree (`../yukta-issue-<n>`), a draft PR, and the heal and implement records. After the PR is reviewed, the outcome proxies (CI, review comments, human commits, merged) are what tell you whether the change was good; they are filled by `yk loop sync` (section 6.2).
 
 ### 6.1 What the analyzer does with a finished run
 
@@ -182,7 +182,7 @@ eval/golden.sh report --loop X --against Y   # does loop commit X cost or delive
 
 | Pitfall | What to do |
 |---|---|
-| **Small samples.** Three runs per arm show a direction, not a number; 20 to 30 issues over three methods leave 2 to 4 runs per method and size. | Report median and range, never a mean alone. Do not call a difference below 8 runs per method. The planned report prints "no verdict" there. |
+| **Small samples.** Three runs per arm show a direction, not a number; 20 to 30 issues over three methods leave 2 to 4 runs per method and size. | Report median and range, never a mean alone. Do not call a difference below 8 runs per method. `yk loop report` prints "no verdict" there. |
 | **Different issues are not comparable.** An expensive issue in one arm looks like an expensive method. | Compare within a size stratum, or adjust for size; use the paired evaluation for a real comparison. |
 | **Correct is not delivered.** A hidden test pass can hide an `ESCALATE`. | Read the `RESULT` line of every B run. |
 | **Records undercount.** A restarted run in the same worktree overwrites the first run's heal and implement records (issue #1250). | Compare `cache_trace.py` totals with the records; add the missing run to `extra.json`. |
@@ -274,4 +274,4 @@ Issue #1207, three runs per arm, base `main@4349e6247`: arm A (Claude fixes alon
 - Basili et al., the Goal-Question-Metric approach
 - OpenTelemetry GenAI semantic conventions (token usage attribute names)
 
-The links are listed at the end of `design/plans/dogfood-improvement-loop.md` (added with PR #1266).
+The links are listed at the end of `design/plans/dogfood-improvement-loop.md`.
