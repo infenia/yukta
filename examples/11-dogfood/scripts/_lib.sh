@@ -485,7 +485,7 @@ heal_subflows() {
                   + (if $triage == "off" then [] else
                       [{nodeId: "triage", type: "CLASSIFY",
                         config: {model: $tri.model, state: "payload.stdout", routeByLabel: true, minProbability: $tri.minProbability,
-                                 question: "How hard is it to fix this failed check of a Java build?",
+                                 question: ($tri.question // "How hard is it to fix this failed check of a Java build?"),
                                  labels: ($tri.levels | with_entries({key, value: .value.describe})),
                                  engine: {onError: "ROUTE"}}}] end)
                   + [$rungs[] | fixnode(.model; .effort)]
