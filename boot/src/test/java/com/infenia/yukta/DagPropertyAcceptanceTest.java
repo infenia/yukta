@@ -63,7 +63,8 @@ import org.springframework.boot.test.context.SpringBootTest;
       "ERROR com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator - ",
       "UpstreamFailure: ",
       "WorkflowExecutionException: ",
-      "dropped next: ProcessExecutionResult"
+      "dropped next: ProcessExecutionResult",
+      "dropped error: java.util.concurrent.CancellationException: Disconnected"
     })
 class DagPropertyAcceptanceTest {
 

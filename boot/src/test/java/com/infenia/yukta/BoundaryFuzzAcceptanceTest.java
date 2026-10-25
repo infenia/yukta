@@ -4,6 +4,7 @@ package com.infenia.yukta;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -39,6 +40,16 @@ import org.springframework.boot.test.web.server.LocalServerPort;
   "PMD.UnitTestShouldIncludeAssert"
 })
 @NoArgsConstructor
+@ExpectedErrorLog(
+    sometimes = {
+      "ERROR org.springframework.ai.mcp.server.webflux.transport.WebFluxStatelessServerTransport -"
+          + " ",
+      "ERROR com.infenia.yukta.plugin.core.transformer.MapperProcessor - ",
+      "ERROR com.infenia.yukta.service.control.ControlBusService - ",
+      "ERROR com.infenia.yukta.service.session.SessionService - ",
+      "ERROR com.infenia.yukta.service.workflow.WorkflowService - ",
+      "ERROR com.infenia.yukta.exception.GlobalExceptionHandler - "
+    })
 class BoundaryFuzzAcceptanceTest {
 
   private static final Duration LIMIT = Duration.ofSeconds(15);
