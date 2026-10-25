@@ -669,6 +669,7 @@ issue_workflows() {
     def env: {YUKTA_ISSUE: "${start.issue}", YUKTA_REPO_DIR: "${start.repo}", YUKTA_WORKTREE: "${start.worktree}"}
              + (if $ENV.YUKTA_CLAUDE_BIN then {YUKTA_CLAUDE_BIN: $ENV.YUKTA_CLAUDE_BIN} else {} end)
              + (if $ENV.YUKTA_GH then {YUKTA_GH: $ENV.YUKTA_GH} else {} end)
+             + (if $ENV.YUKTA_HEAL_EVENTS then {YUKTA_HEAL_EVENTS: $ENV.YUKTA_HEAL_EVENTS} else {} end)
              + (if $ENV.YUKTA_WARM_DELAY then {YUKTA_WARM_DELAY: $ENV.YUKTA_WARM_DELAY} else {} end)
              + (if $ENV.YUKTA_BUDGET_ISSUE then {YUKTA_BUDGET_ISSUE: $ENV.YUKTA_BUDGET_ISSUE} else {} end)
              + (if $ENV.YUKTA_BUDGET_EPIC then {YUKTA_BUDGET_EPIC: $ENV.YUKTA_BUDGET_EPIC} else {} end)

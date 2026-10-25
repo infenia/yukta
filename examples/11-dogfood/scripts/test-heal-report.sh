@@ -36,6 +36,7 @@ e("3ccccccc", 2, "triage", stage="tests", route="uncertain", p=0.2, start="sonne
 e("3ccccccc", 3, "fix", stage="tests", attempt=1, model="opus", effort="high", fixed=False, claimed=True, files=["config/pmd.xml"], cost=1.5, secs=900, guard="touched protected path: config/pmd.xml.", summary="x")
 e("3ccccccc", 4, "giveup", stage="tests")
 e("3ccccccc", 5, "result", status="FAILURE", failed_node="tests", healed="-", secs=2500, scope="all")
+e("2bbbbbbbb", 5, "result", status="SUCCESS", failed_node="-", healed="-", secs=400, scope="core")  # written twice: counted once
 open(sys.argv[1], "w").write("\n".join(json.dumps(x) for x in ev) + "\n")
 PY
 
@@ -62,7 +63,7 @@ grep -q 'web/B.java' <<<"$out" || fail "outside-module evidence: $out"
 grep -q 'HTTP 500 after 60s' <<<"$out" || fail "fallback evidence: $out"
 
 # filters
-[[ "$(rep show --run 2bbb | wc -l)" == 4 ]] || fail "--run"
+[[ "$(rep show --run 2bbb | wc -l)" == 5 ]] || fail "--run"
 rep report --since 2026-10-26 | grep -q 'no heal events' || fail "--since in the future"
 rep report --project other | grep -q 'no heal events' || fail "--project"
 rep report --json | python3 -I -c "import json,sys; d=json.load(sys.stdin); assert d['heals']['solved']==2 and len(d['findings'])>=7, d" || fail "--json"

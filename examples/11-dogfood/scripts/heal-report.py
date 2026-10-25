@@ -80,7 +80,12 @@ def analyse(ev):
 def report(ev):
     runs, heals = analyse(ev)
     R = {}
-    results = [e for e in ev if e["event"] == "result" and e.get("workflow") != "gradle-run"]  # a plain gradle run has no heal
+    # a plain gradle run has no heal; a run's result can be written twice (by yk watch and by the PR step's yk result): the last one counts
+    last = {}
+    for e in ev:
+        if e["event"] == "result" and e.get("workflow") != "gradle-run":
+            last[e.get("run")] = e
+    results = list(last.values())
     R["runs"] = {"with_events": len(runs), "results": len(results), "status": dict(collections.Counter(e.get("status") for e in results)),
                  "wall_median_s": statistics.median([e["secs"] for e in results if "secs" in e] or [0]),
                  "wall_p95_s": pct([e["secs"] for e in results if "secs" in e], 0.95)}
