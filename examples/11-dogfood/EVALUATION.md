@@ -2,6 +2,7 @@
 
 This guide explains how to measure what the dev loop (`yk`, `yk run issue`, the fixers) costs in tokens and dollars, whether the output is good, and where the waste is. It covers the two ways of evaluating, step-by-step runbooks, how to read the numbers without fooling yourself, and what to do when something breaks.
 
+- **Operating the loop and the evaluations step by step: [RUNBOOK.md](RUNBOOK.md)**
 - Harness reference (files, settings, `grade.env`): [eval/README.md](eval/README.md)
 - The first evaluation, with its data and report page: `eval/results/2026-10-25-1207/`
 - The plan for the continuous loop: `design/plans/dogfood-improvement-loop.md` (added with PR #1266)
@@ -24,12 +25,12 @@ Every number this guide produces serves one goal and five questions (the Goal-Qu
 
 | | **Paired evaluation** (`eval/eval.sh`) | **Continuous loop** (`yk pick`) | **Golden set** (planned) |
 |---|---|---|---|
-| What it does | Runs one issue in several methods, in scratch clones, with stubbed `gh` | Runs your real issues one by one, one random method each, real PRs | Replays a few frozen issues in all methods, repeated, on each major loop change |
+| What it does | Runs one issue in several methods, in scratch clones, with stubbed `gh` | Runs your real issues one by one, one random method each, real PRs | Replays a few frozen issues in all methods, repeated, on each major loop change (`eval/golden.sh`) |
 | Compares methods on | the same issue (paired) | different issues (random, balanced by size) | the same issues (paired, repeated) |
 | Touches GitHub | never | yes (claims the issue, opens a draft PR) | never |
 | Needs | a grader per issue | nothing extra | a grader per issue |
 | Best for | a controlled comparison, checking a loop change, finding root causes | the day-to-day stream and the analyzer's findings | regression checks of the loop itself |
-| Status | available (PR #1252) | `yk pick`, `yk next`, `yk loop` (PR #1266), method A (PR #1267), the analyzer (PR #1268), method C (this PR); `yk loop report`, themes: planned | planned |
+| Status | available (PR #1252) | `yk pick`, `yk next`, `yk loop` (PR #1266), method A (PR #1267), the analyzer (PR #1268), method C (PR #1269), `yk loop report` / `sync` / `themes` (PR #1270) | available (this PR: `eval/golden.sh`) |
 
 Rule of thumb: use the **paired evaluation** when you need a trustworthy comparison or are verifying a fix to the loop; use the **continuous loop** when you want the loop to improve itself as you work through issues.
 
@@ -71,7 +72,7 @@ Work in `examples/11-dogfood/eval`.
 2. **Save it.** `./eval.sh fixture 1234` writes `issues/1234/issue.json` (the stub `gh` serves it, so the real issue is never touched).
 3. **Write `issues/1234/grade.env`:** `MODULE` (the issue's module; arm A's check scope), `HIDDEN_DEST` (where the grading test is copied), `HIDDEN_CMD`, `SUITE_CMD` (shell commands run in the repo root). Copy `issues/1207/grade.env` as a template.
 4. **Write the grading test** in `issues/1234/`. Test the behaviour the issue asks for, through the most stable entry point; avoid anything a solver would naturally rename.
-5. **Validate it.** On a scratch copy of the base commit it must **fail**; with a reference fix applied it must **pass**, and the existing tests must still pass. Keep the reference fix as `reference-fix.patch` next to it. Skip this and a grader that always passes (or always fails) will quietly ruin the evaluation.
+5. **Validate it.** On a scratch copy of the base commit it must **fail**; with a reference fix applied it must **pass**, and the existing tests must still pass. Keep the reference fix as `reference-fix.patch` next to it. Skip this and a grader that always passes (or always fails) will quietly ruin the evaluation. `./eval.sh validate` does exactly this (it applies `reference-fix.patch` to a clone of the base commit and runs the grader on both) and exits non-zero when the grader is not sound.
 
 ### 5.2 Check the harness (free)
 
@@ -119,7 +120,7 @@ For each run also read **`result.json` → `answer`**: the end of the main sessi
 
 ## 6. Runbook 2: the continuous loop (`yk pick`)
 
-Available since PR #1266 (method A since #1267, the analyzer since the analyzer PR). Method C (this PR) enables the third arm; `yk loop report`, `yk loop sync` and `yk loop themes` come in later steps (see the plan). With A, B and C enabled the draw is random between three methods.
+Available since PR #1266 (method A since #1267, the analyzer since the analyzer PR). Method C enables the third arm. `yk loop sync`, `yk loop report` and `yk loop themes` (this PR, below) read what the loop collected. The golden set comes later (see the plan). With A, B and C enabled the draw is random between three methods.
 
 ```bash
 yk next                       # assigned, Ready issues by priority with size S/M/L
@@ -149,6 +150,33 @@ Two more rules note method C problems: a run that had no navigation backend, and
 3. **Stage 3, filing.** A rule finding comments on the open issue that already describes it, so the epic collects counts; a new proposal is filed under the epic. Nothing is implemented without you marking it Ready.
 
 `YUKTA_LOOP_ANALYZE=dry` shows what it would do; the analysis of a run is `$DEV_HOME/loop/analysis/<draw-id>.json`. Treat the analyzer as a grader whose precision you measure: how many of its proposals you approve.
+
+### 6.2 Reading the loop: sync, report, themes
+
+Run `yk loop sync` after PRs have been reviewed, then `yk loop report`:
+
+1. **`yk loop sync`** adds what happened after each PR (CI, review comments, human commits, merged, lead time) and how the analyzer's filed issues ended (done, closed otherwise, open).
+2. **`yk loop report`** shows each method's cost with a bootstrap interval, the size-adjusted cost ratio, what was left out (forced draws, issues that change the loop, other loop commits), the numbers after the PR and the analyzer's precision. **Below 8 runs per method it prints "No verdict"**: take it literally. With about 20 to 30 issues over three methods you will mostly see directions, not results; the paired evaluation (section 5) is where a comparison is trustworthy.
+3. **`yk loop themes`** counts the recurring causes: by rule (no model) and by theme (one cheap judge call over the analyzer's notes), and `--post` puts the counts on the epic issue that matches. This is the axial-coding step of section 8: rank what to fix by how often it happens and what it costs.
+
+### 6.3 The golden set: replay on a loop change
+
+The random stream compares methods on different issues, so it can only show directions. The golden set is where methods are compared on **the same issues**, repeated: a few frozen issues, each with a grader and a frozen base commit, replayed in every method with several trials, whenever the loop changes in a way that matters.
+
+```bash
+eval/golden.sh status                    # the set, this checkout's loop commit, replays so far, the budget, and whether a replay is due
+eval/golden.sh validate                  # every grader fails on its frozen base and passes with its reference fix
+eval/golden.sh run --dry-run             # the plan: every method once per issue and trial, in a seeded shuffled order
+eval/golden.sh run --trials 3            # the replay (serial, isolated clones, nothing touches GitHub)
+eval/golden.sh report                    # reliability (pass^k), cost spread, a comparison paired by issue
+eval/golden.sh report --loop X --against Y   # does loop commit X cost or deliver differently from Y on the same issues?
+```
+
+- **When:** once per major loop change, on a committed checkout (an uncommitted tree is refused: it is not a version). A loop commit that already has a complete replay is refused unless `--force`; a replay that stopped on its budget or was interrupted is resumed by the next `run`.
+- **Money:** its own budget, `YUKTA_GOLDEN_BUDGET_TOTAL` ($30), separate from the loop's $60; no run starts at the limit. One issue in three methods with three trials is nine runs, roughly $15 to $25 judging by the first evaluation.
+- **What it reports:** per method the success rate (code correct, and for B and C the workflow ended `SUCCESS`), **pass^k** (the chance that k trials in a row all succeed), the median cost with a bootstrap interval and the spread of the cost over trials; per issue and method the cells; a **comparison paired by issue** (per issue the ratio of median costs against method A, then the geometric mean over issues with a bootstrap interval), and with `--against` the same between two loop commits.
+- **No verdict below five issues** (`--min-issues`): with fewer, the per-issue numbers are shown and no conclusion across issues is drawn. The set has one issue today (#1207), so the cross-issue comparison is not available yet: add issues (`eval/README.md`, "Adding an issue", then add it to `eval/golden/set.json` with its frozen base commit and `golden.sh validate`), preferring issues whose first-run outcomes were mixed.
+- Offline test: `eval/golden-selftest.sh`.
 
 ## 7. Reading numbers without fooling yourself
 

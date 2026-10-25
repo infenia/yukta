@@ -20,6 +20,9 @@
 #   yk pick <n> [--method A|B|C] [--dry-run] draw a method for the issue at random (balanced by size), run it, record
 #                                            tokens and dollars in the ledger (see scripts/loop.sh)
 #   yk loop plan|total|ledger                the draw of an issue without running it | dollars spent of the budget | the ledger
+#   yk loop report [--loop SHA]              what each method cost and delivered, with the uncertainty and no verdict on small samples
+#   yk loop sync                             CI, review comments, human commits and merged for every run's PR; the state of the issues the analyzer filed
+#   yk loop themes [--post] [--no-judge]     the analyzer's findings and notes counted by theme (--post puts the counts on the matching epic issue)
 #   yk analyze <draw-id> [--dry-run]         read a finished run and file what it finds under the epic (scripts/analyze.sh)
 #   yk result <session> <exec>               the RESULT line of a run that ended
 #   yk tree <exec>                           the run and every run below it, one line each: workflow, status,

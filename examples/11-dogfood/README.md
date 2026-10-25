@@ -284,6 +284,8 @@ fake repository.
 
 ## Improvement loop: `yk next`, `yk pick`, `yk loop`
 
+**Operating it: [RUNBOOK.md](RUNBOOK.md)** (every command, a first-run walkthrough, how to read each output, settings, costs, troubleshooting).
+
 Runs your assigned, Ready issues one at a time, **one method per issue drawn at random**, and records what each run cost so the loop can be improved from data (plan: `design/plans/dogfood-improvement-loop.md`; the token evaluation it builds on is `eval/`, PR #1252).
 
 ```bash
@@ -313,6 +315,22 @@ After every `yk pick` a finished run is read by `scripts/analyze.sh`, which says
 
 The analysis is written to `$DEV_HOME/loop/analysis/<draw-id>.json` and an `analysis` record, with the judge's cost (counted in the budget), goes to the ledger. A failing judge leaves stages 1 and 3 intact. Offline test: `scripts/test-analyze.sh`.
 
+### Reading what the loop learned: `yk loop report`, `sync`, `themes`
+
+```bash
+yk loop sync                  # what happened after each PR, and how the analyzer's issues ended up
+yk loop report                # what each method cost and delivered
+yk loop report --loop 4349e6  # within one loop commit
+yk loop themes                # what keeps going wrong, counted
+yk loop themes --post         # and put the counts on the matching epic issue
+```
+
+- **`yk loop sync`** reads, for every run that opened a PR, its CI (`success`, `failure`, `pending`, `none`), the review comments (reviews, comments and inline comments), the **human commits** (commits without a `Co-Authored-By: Claude` trailer: your fixes after the agent's), whether it merged and the lead time, and for every issue the analyzer filed whether it was closed as done. Records are appended to the ledger; a merged or closed PR is not read again.
+- **`yk loop report`** (`scripts/loop-report.py`) prints the runs, a table per method (n, delivered, median cost with a 90% bootstrap interval, tokens, wall time), the median cost per method and size, the comparison, what was left out and why (forced draws, issues that change the loop, another loop commit), the numbers after the PR, and how the analyzer is doing (comments on known issues, issues filed and how they ended, precision). A restarted run counts once with its costs added up.
+- **The comparison is deliberately cautious.** It regresses log(cost) on method and size and prints a cost ratio per method against the baseline (A, else the first method) with a 90% bootstrap interval; "clear" means the interval excludes x1.00, it is not a p-value. A method with fewer than 8 runs (`--min-n`) gets **no verdict**: the numbers are shown, a conclusion is not. A Pareto line (no other method is cheaper and delivers at least as often) appears only when every method has enough runs. The report is deterministic (seeded bootstrap), so the same ledger gives the same text.
+- **`yk loop themes`** counts, for each analyzer rule, the analyzed runs it fired in and what they cost (no model), then asks one cheap judge call (about $0.07; counted in the budget) to group the free-text notes of the analyses into at most six causes. The model only groups run ids: the counts and dollars are computed from the analyses, and an invented run id counts for nothing. `--post` comments the counts on the open epic issue a theme matches, once per change. `--no-judge` stops after the rules; `--loop` limits it to one loop commit.
+- Offline tests: `scripts/test-loop-report.sh` (a planted x2 effect is recovered, small samples get no verdict, exclusions, restarts, determinism, sync) and `scripts/test-themes.sh`.
+
 ## The check workflow
 `session.json` is `CONSTANT_SOURCE` → one `PROCESS_EXECUTOR` per stage → `CONSOLE_TERMINAL`.
 Stages run sequentially and fail fast (avoids concurrent Gradle runs fighting over one build dir):
@@ -334,7 +352,7 @@ Stages run sequentially and fail fast (avoids concurrent Gradle runs fighting ov
 
 ## Measuring token cost: `eval/`
 
-`eval/` compares two ways of using Yukta from Claude Code on a real issue (Claude fixing it alone, with Yukta only checking, against Claude orchestrating `yk run issue`) and reports tokens and dollars per run, the cost split between the main session and the sub-flows, and a per-turn prompt-cache trace. It runs in a scratch clone with stubbed `gh`, so no issue or PR is touched. How to run and read an evaluation: [EVALUATION.md](EVALUATION.md); harness reference: [eval/README.md](eval/README.md); the first evaluation (issue #1207) is archived in `eval/results/`.
+`eval/` compares two ways of using Yukta from Claude Code on a real issue (Claude fixing it alone, with Yukta only checking, against Claude orchestrating `yk run issue`) and reports tokens and dollars per run, the cost split between the main session and the sub-flows, and a per-turn prompt-cache trace. It runs in a scratch clone with stubbed `gh`, so no issue or PR is touched. How to run and read an evaluation: [EVALUATION.md](EVALUATION.md); the golden set (frozen issues replayed in every method on a loop change): `eval/golden.sh`; harness reference: [eval/README.md](eval/README.md); the first evaluation (issue #1207) is archived in `eval/results/`.
 
 ## Using the CLI directly
 ```bash
