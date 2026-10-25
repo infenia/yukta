@@ -1,0 +1,64 @@
+{
+  "note": "What the per-attempt records lost or the transcripts showed (eval/cache_trace.py). B2 ran yk run issue twice in one worktree; the second run overwrote the first run's records, so the first run's sub-flow tokens are only in the transcript (80,059 cache-write + 648,527 cache-read).",
+  "lost_runs": {
+    "B2": {
+      "cache_tokens": 728586
+    }
+  },
+  "resume_rewrites": [
+    {
+      "run": "B1",
+      "gap_s": 276,
+      "write": 27304,
+      "read": 0
+    },
+    {
+      "run": "B2, run 1 (records lost)",
+      "gap_s": 138,
+      "write": 20569,
+      "read": 6412
+    },
+    {
+      "run": "B2, run 2",
+      "gap_s": 89,
+      "write": 16630,
+      "read": 6412
+    },
+    {
+      "run": "B3",
+      "gap_s": 117,
+      "write": 19786,
+      "read": 6412
+    }
+  ],
+  "tooling": {
+    "how": "claude -p 'Reply ok.' --model sonnet --no-session-persistence --max-turns 1 --output-format stream-json --verbose, then the system/init event; the sub-flow row adds the yk_claude flags (--setting-sources project --strict-mcp-config --disable-slash-commands --exclude-dynamic-system-prompt-sections --tools Read,Edit,Write,Grep,Glob,Bash)",
+    "main_session": {
+      "tools": 36,
+      "builtin_tools": 28,
+      "mcp_tools": 8,
+      "mcp_servers": 30,
+      "plugins": 12,
+      "skills": 51,
+      "slash_commands": 89
+    },
+    "sub_flow_session": {
+      "tools": 6,
+      "builtin_tools": 6,
+      "mcp_servers": 0,
+      "skills": 0,
+      "slash_commands": 0
+    },
+    "sub_flow_tool_use_B1_to_B3": {
+      "Bash": 138,
+      "Edit": 36,
+      "Grep": 36,
+      "Read": 34,
+      "StructuredOutput": 22,
+      "Write": 8,
+      "Glob": 4,
+      "codegraph_calls": 0
+    },
+    "codegraph": "no index in a fresh worktree: codegraph status says Not initialized (only .codegraph/.gitignore is tracked)"
+  }
+}

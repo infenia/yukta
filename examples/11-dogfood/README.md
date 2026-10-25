@@ -265,6 +265,10 @@ Stages run sequentially and fail fast (avoids concurrent Gradle runs fighting ov
 `failed_node` tells you which stage broke; open only that stage's report. With `-m <module>`, the
 `<module>` in the report paths is that module.
 
+## Measuring token cost: `eval/`
+
+`eval/` compares two ways of using Yukta from Claude Code on a real issue (Claude fixing it alone, with Yukta only checking, against Claude orchestrating `yk run issue`) and reports tokens and dollars per run, the cost split between the main session and the sub-flows, and a per-turn prompt-cache trace. It runs in a scratch clone with stubbed `gh`, so no issue or PR is touched. How to run and read an evaluation: [EVALUATION.md](EVALUATION.md); harness reference: [eval/README.md](eval/README.md); the first evaluation (issue #1207) is archived in `eval/results/`.
+
 ## Using the CLI directly
 ```bash
 yk cli session list                               # the CLI built with the server, pointed at it
