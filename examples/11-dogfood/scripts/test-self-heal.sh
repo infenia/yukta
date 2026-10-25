@@ -139,6 +139,7 @@ hassert "each effort is time-boxed and budgeted" '.workflows["fix-from-low"].nod
     and ([.[] | select(.nodeId == "fix.high") | .config.env.YUKTA_HEAL_BUDGET] == ["2"])'
 hassert "the fixer is told model, stage and effort" '.workflows["fix-from-low"].nodes[] | select(.nodeId == "fix.medium")
   | .config.command == ["/p/heal.sh", "fix", "${start.stage}", "0", "${start.model}", "--effort", "medium"]'
+hassert "the triage call waits less than the 60 seconds Ollama allows, more than the 35 of the default" '.workflows.heal.nodes[] | select(.nodeId == "triage") | .config.timeout > 35 and .config.timeout < 60'
 hassert "triage asks the long question and describes each level with its signals" '.workflows.heal.nodes[] | select(.nodeId == "triage")
   | (.config.question | length) > 300 and ([.config.labels[] | length] | min) > 100'
 echo "ok   heal and fix workflows"
@@ -153,10 +154,12 @@ brief="$(cd "$bd/r" && YUKTA_HEAL_DIR="$bd/heal" bash "$here/yukta-heal.sh" brie
 for want in "stage: tests" "command: ./gradlew test" "FAILED" "files changed so far: 2" "changed files: A.java (+1 -0), New.java (new)" "at OrderServiceTest.java:48"; do
   grep -qF -- "$want" <<<"$brief" || fail "brief lacks '$want': $brief"
 done
-for want in "---" "log:"; do grep -qxF -- "$want" <<<"$brief" || fail "brief lacks the line '$want': $brief"; done
-big="$(for i in $(seq 1 400); do echo "error: line $i $(printf 'x%.0s' $(seq 1 200))"; done)"
+for want in "---" "log (the end):"; do grep -qxF -- "$want" <<<"$brief" || fail "brief lacks the line '$want': $brief"; done
+big="$(for i in $(seq 1 400); do echo "error: line $i $(printf 'x%.0s' $(seq 1 200))"; done; echo "BUILD FAILED: the real cause is at the end")"
 printf '%s\n' "$big" >"$bd/heal/tests.run.out"
-[[ "$(cd "$bd/r" && YUKTA_HEAL_DIR="$bd/heal" bash "$here/yukta-heal.sh" brief tests | wc -c)" -le 12000 ]] || fail "brief is over 12000 characters"
+brief="$(cd "$bd/r" && YUKTA_HEAL_DIR="$bd/heal" bash "$here/yukta-heal.sh" brief tests)"
+[[ "${#brief}" -le 5000 ]] || fail "brief is over 5000 characters: ${#brief}"
+grep -qF "BUILD FAILED: the real cause is at the end" <<<"$brief" || fail "the end of the log was cut off, not the start"
 echo "ok   brief"
 
 heal="$(YUKTA_TRIAGE=off heal_subflows "$policy" /p/heal.sh)"

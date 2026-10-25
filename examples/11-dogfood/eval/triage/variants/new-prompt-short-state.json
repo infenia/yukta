@@ -1,0 +1,36 @@
+{
+ "state": "short",
+ "triage": {
+  "question": "A check of a Java build (Gradle: compile, tests, coverage, Checkstyle, PMD, SpotBugs) failed on a branch that a developer is working on. Judge how much reasoning and how many edits a fix needs, not how scary the message looks. Decide by: how many files and classes the cause touches, whether the cause is stated in the message or has to be found, whether it is deterministic, and whether it is a mechanical edit or a design decision. Many failures with one shared cause are as hard as that cause. Pick the one level that fits best.",
+  "levels": {
+   "trivial": {
+    "start": "haiku/low",
+    "describe": "Mechanical, no judgement: formatting, an unused import, a missing license header, trailing whitespace. One obvious edit, usually in one place, nothing to investigate."
+   },
+   "easy": {
+    "start": "haiku/medium",
+    "describe": "A small, obvious fix in one file: a missing semicolon or bracket, a misspelled name or package, a missing import, a missing javadoc. The error message names the exact line and the fix."
+   },
+   "simple": {
+    "start": "haiku/high",
+    "describe": "A compile or style error confined to one or two files that needs a small understanding of the code: a changed return type or parameter at a few call sites, a method that is too complex to pass the analyzer, an incompatible type, a possible null path."
+   },
+   "moderate": {
+    "start": "sonnet/low",
+    "describe": "One failing test or one runtime error in one class whose cause is visible in the message: a wrong expected value, a null pointer or index out of bounds at a named line, a wrong status code. Reading one class and its test is enough."
+   },
+   "average": {
+    "start": "sonnet/medium",
+    "describe": "A failure that needs reading and changing a few classes together, or adding tests: two related test classes that disagree, a coverage threshold missed, a serialization or mapping change that touches a few classes and their tests."
+   },
+   "hard": {
+    "start": "sonnet/high",
+    "describe": "A logic or design bug that spans several classes or modules: many failing test classes with one shared cause, reactive pipelines or timeouts, a changed model that several components disagree on, a migration, a native-image or build-configuration problem. Needs real investigation."
+   },
+   "veryhard": {
+    "start": "opus/low",
+    "describe": "Concurrency, races, deadlocks, flaky or load-dependent or order-dependent failures, memory leaks, or a change that breaks the build across dozens of files (a public interface or generics refactor). Needs deep reasoning and wide edits."
+   }
+  }
+ }
+}
