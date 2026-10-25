@@ -9,7 +9,7 @@
 # The answer is claude's JSON result on stdout; $YK_SCHEMA is the JSON schema of its final answer.
 #
 # Slim on purpose: none of the user's plugins, skills, settings or MCP servers (their tool schemas cost more
-# than a fix), a fixed tool list and nothing that varies per run in the system prompt. Method C adds one MCP server (a code
+# than a fix), a fixed tool list and nothing that varies per run in the system prompt. An issue run adds one MCP server (a code
 # index) through the issue's nav.json; nothing else of the user's setup. Not --bare: it would
 # also drop the login. The project hooks still load (they keep the gradle guard); YUKTA_HEAL_FIXER=1 lets
 # the session call ./gradlew directly. It never commits or pushes: the workflow does.

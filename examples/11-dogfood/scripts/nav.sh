@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Code navigation for the issue runs of the improvement loop (method C): index an issue worktree with the first backend that works, so the
+# Code navigation for the issue runs: index an issue worktree with the first backend that works, so the
 # implementer and its fixers can search the code instead of reading files one by one.
 #
 #   nav.sh probe                        which backends could run now, in order, and why the others are skipped (JSON)
@@ -15,7 +15,7 @@
 #              the sessions with --mcp-config, so your Claude configuration is not touched.
 #   codegraph  CodeGraph: codegraph init in the worktree (about 8 minutes on this repository), used through Bash.
 # YUKTA_NAV_INDEX_TIMEOUT (seconds, 1500) bounds the indexing of one backend; the time it took is recorded as index_seconds
-# and counts as part of the cost of method C.
+# and counts as part of the cost of the run.
 #
 # nav.json: {backend, ok, index_seconds, version, mcp_config, tools, rules, prompt_note, attempts: [{backend, ok, reason, seconds}]}.
 # yk_claude (_claude.sh) reads it to give the implementer and the fixers the same MCP config and tools.

@@ -12,7 +12,7 @@ before the run fails, by calling the `heal` workflow and waiting for it:
 - a healed stage re-runs only itself; the analyzers (style, spotbugs, cli) run in parallel and share ONE
   `analyzers.heal`; `licenses` and `security` fail at once;
 - a final `verify` re-runs every task when anything was healed, so `SUCCESS` means the whole tree passes.
-An issue run (`yk run issue`, method C) uses the same `check`, so its fixers are fresh sessions too; nothing resumes the implementer.
+An issue run (`yk run issue`) uses the same `check`, so its fixers are fresh sessions too; nothing resumes the implementer.
 
 Output: the problem lines of the run, `HEAL` lines, `SLOW` lines, then `RESULT`.
 
@@ -37,3 +37,6 @@ until the run is approved, rejected or `YUKTA_PAUSE_SECONDS` (600) pass; it is o
 `YUKTA_HEAL_BUDGET` (USD per attempt, default 1). The fixer runs with `YUKTA_HEAL_FIXER=1`, which lets it
 call `./gradlew` past the repo's hook; it never commits or pushes and must not run with `claude --bare`
 (that loses the login). The server needs `YUKTA_PROCESS_ALLOW_ANY=true` (`yk up` sets it).
+
+## Monitoring
+Every step appends a line to `~/.local/state/yukta-dev/heal-events.jsonl` (`YUKTA_HEAL_EVENTS`; `off` disables). `yk heal report` shows where the heal time and money went, `yk heal analyze` names what looks wrong (noop fixers, triage fallbacks, repeated failures), `yk heal show` prints the events. Details: `examples/11-dogfood/README.md`, "Monitoring heal".

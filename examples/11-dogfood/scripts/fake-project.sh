@@ -17,15 +17,14 @@ for t in "$@"; do
   case "$t" in -*) continue ;; esac
   if [[ "$t" == spotlessApply ]]; then rm -f fail-spotlessCheck; echo formatted >>src.txt; continue; fi
   if [[ -e "slow-$t" ]]; then sleep 33; fi
-  if [[ -e "fail-$t" ]]; then echo "error: $t failed (violation)" >&2; rc=1; fi
+  if [[ -e "fail-$t" ]]; then echo "error: $t failed (violation)$([[ -e difficulty ]] && echo " difficulty: $(cat difficulty)")" >&2; rc=1; fi
 done
 exit $rc
 SH
 cat >"$dir/claude" <<'SH'
 #!/usr/bin/env bash
 # fake claude. As the implementer (the prompt starts with "# Issue #") it writes a change and .yukta-dev/pr.md
-# (and, when the file "implement-breaks" is next to this script, breaks compileJava). A prompt that mentions
-# --no-heal (method A, solo) is logged as solo-prompt. As a fixer it fixes the
+# (and, when the file "implement-breaks" is next to this script, breaks compileJava). As a fixer it fixes the
 # failing tasks only when run with the model (or "resume") named in .fake-fix-at (in the project) or "fix-at"
 # (next to this script); a value like sonnet/high also names the effort (--effort). Every call is logged in claude.log next to this script.
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -34,8 +33,6 @@ while (($#)); do case "$1" in -p) prompt="$2"; shift 2 ;; --model) model="$2"; s
 echo "$(date +%s.%N) model=${model:--} effort=${effort:--} session=${session:--} resume=${resume:--} mcp=${mcp:--} cwd=$PWD" >>"$here/claude.log"
 grep -q 'code index of this worktree' <<<"$prompt" && echo "nav-note" >>"$here/claude.log"
 if [[ "$prompt" == "# Issue #"* ]]; then
-  # a method A (solo) prompt tells the session to check with yk; the log says so
-  grep -q -- '--no-heal' <<<"$prompt" && echo "solo-prompt" >>"$here/claude.log"
   # "implement-sleep" next to this script makes the implementer take that many seconds (to see runs overlap)
   [[ -s "$here/implement-sleep" ]] && sleep "$(cat "$here/implement-sleep")"
   echo "implemented" >>feature.txt
