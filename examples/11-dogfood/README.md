@@ -284,6 +284,8 @@ fake repository.
 
 ## Improvement loop: `yk next`, `yk pick`, `yk loop`
 
+**Operating it: [RUNBOOK.md](RUNBOOK.md)** (every command, a first-run walkthrough, how to read each output, settings, costs, troubleshooting).
+
 Runs your assigned, Ready issues one at a time, **one method per issue drawn at random**, and records what each run cost so the loop can be improved from data (plan: `design/plans/dogfood-improvement-loop.md`; the token evaluation it builds on is `eval/`, PR #1252).
 
 ```bash

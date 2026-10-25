@@ -2,6 +2,7 @@
 
 This guide explains how to measure what the dev loop (`yk`, `yk run issue`, the fixers) costs in tokens and dollars, whether the output is good, and where the waste is. It covers the two ways of evaluating, step-by-step runbooks, how to read the numbers without fooling yourself, and what to do when something breaks.
 
+- **Operating the loop and the evaluations step by step: [RUNBOOK.md](RUNBOOK.md)**
 - Harness reference (files, settings, `grade.env`): [eval/README.md](eval/README.md)
 - The first evaluation, with its data and report page: `eval/results/2026-10-25-1207/`
 - The plan for the continuous loop: `design/plans/dogfood-improvement-loop.md` (added with PR #1266)
