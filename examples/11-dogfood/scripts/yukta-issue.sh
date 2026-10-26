@@ -59,7 +59,7 @@ case "$action" in
     info="$("$gh" issue view "$n" -R "$gh_repo" --json number,title,url,state,assignees)" || nope "issue #$n not found"
     [[ "$(jq -r .state <<<"$info")" == OPEN ]] || nope "issue #$n is not open"
     jq -e --arg l "$login" '.assignees | any(.login == $l)' <<<"$info" >/dev/null || nope "issue #$n is not assigned to $login"
-    status="$("$gh" project item-list 5 --owner infenia --limit 700 --format json -q ".items[] | select(.content.number == $n) | .status")"
+    status="$("$gh" project item-list 5 --owner infenia --limit "${YUKTA_PROJECT_LIMIT:-5000}" --format json -q ".items[] | select(.content.number == $n) | .status")"
     [[ "$status" == Ready ]] || nope "issue #$n is ${status:-not on the project}, not Ready: it has no acceptance criteria yet"
     url="$(jq -r .url <<<"$info")"
     set_status "$url" "In progress" || { echo "could not move #$n to In progress (gh auth refresh -s project?)" >&2; exit 1; }
@@ -176,7 +176,7 @@ ${result_line:-the check ran in the workflow}
   epic-list)
     login="$("$gh" api user -q .login)"
     subs="$("$gh" api "repos/$gh_repo/issues/$YUKTA_EPIC/sub_issues" --paginate | jq -s 'add // []')" || nope "epic #$YUKTA_EPIC not found"
-    ready="$("$gh" project item-list 5 --owner infenia --limit 700 --format json -q '[.items[] | select(.status == "Ready") | .content.number]')"
+    ready="$("$gh" project item-list 5 --owner infenia --limit "${YUKTA_PROJECT_LIMIT:-5000}" --format json -q '[.items[] | select(.status == "Ready") | .content.number]')"
     list="$(jq -c --arg l "$login" --argjson ready "$ready" --arg root "$(dirname "$repo")" '
       [.[] | select(.state == "open" and (.assignees | any(.login == $l)) and (.number as $n | $ready | index($n) != null))
        | {issue: (.number | tostring), worktree: ($root + "/yukta-issue-" + (.number | tostring))}]' <<<"$subs")"
