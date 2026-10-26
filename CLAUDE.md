@@ -90,7 +90,7 @@ When asked to work on "my issues" / "assigned issues", list them yourself; never
 
 ```bash
 gh issue list -R infenia/yukta --assignee @me --state open --json number,title,labels,url
-gh project item-list 5 --owner infenia --limit 700 --format json \
+gh project item-list 5 --owner infenia --limit 5000 --format json \
   -q '.items[] | select(.status=="Ready") | [.content.number, .priority, .module, .title] | @tsv'
 ```
 

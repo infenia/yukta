@@ -212,6 +212,13 @@ hassert "a pause stands in front of every way into opus" '.workflows.heal.edges
 heal="$(heal_subflows "$(policy_models "$policy" sonnet,opus)" /p/heal.sh)"
 hassert "--models sonnet,opus: no haiku, and the easy level starts at sonnet" '.workflows.heal | ([.nodes[] | select(.nodeId | test("haiku"))] | length) == 0
   and (.edges | any(.source == "triage" and .sourcePort == "easy" and .target == "fix-sonnet-medium"))'
+heal="$(YUKTA_TRIAGE_MODEL=tev1 YUKTA_TRIAGE_URL=http://10.0.0.9:11434 heal_subflows "$policy" /p/heal.sh)"
+hassert "YUKTA_TRIAGE_MODEL and YUKTA_TRIAGE_URL choose the model and host of the triage" '.workflows.heal.nodes[] | select(.nodeId == "triage")
+  | .config.model == "tev1" and .config.baseUrl == "http://10.0.0.9:11434"'
+hassert "the triage log nodes are told the same model and host" '[.workflows.heal.nodes[] | select(.nodeId | startswith("triage-log-")) | .config.env]
+  | all(.YUKTA_TRIAGE_MODEL == "tev1" and .YUKTA_TRIAGE_URL == "http://10.0.0.9:11434")'
+heal="$(heal_subflows "$policy" /p/heal.sh)"
+hassert "without them the triage model comes from heal.json" ".workflows.heal.nodes[] | select(.nodeId == \"triage\") | .config.model == \"$(jq -r .triage.model <<<"$policy")\""
 cs="$(mktemp -d)"; git -C "$cs" init -q -b main && git -C "$cs" -c user.name=t -c user.email=t@t commit -q --allow-empty -m x
 a="$(check_session "$cs" 0)"; g="$(check_session "$cs" 3)"
 [[ "$a" =~ ^check-main-[0-9a-f]{8}$ ]] || fail "check session name: '$a'"
@@ -219,6 +226,28 @@ a="$(check_session "$cs" 0)"; g="$(check_session "$cs" 3)"
 rm -rf "$cs"
 echo "ok   sessions of a check and of yk gradle"
 echo "ok   heal variants"
+
+# ---- healed: an issue run keeps its heal records in the worktree (YUKTA_HEAL_RECORDS), not in $STATE_DIR
+hr="$(mktemp -d)"
+mkdir -p "$hr/wt/.yukta-dev/heal/check"
+echo '{"stage":"analyzers","mode":"sonnet","effort":"medium","fixed":true}' >"$hr/wt/.yukta-dev/heal/check/analyzers-1.json"
+echo '{"stage":"tests","mode":"sonnet","effort":"medium","fixed":false}' >"$hr/wt/.yukta-dev/heal/check/tests-1.json"
+echo '{"stage":"tests","mode":"opus","effort":"low","fixed":true}' >"$hr/wt/.yukta-dev/heal/check/tests-2.json"
+[[ -z "$(STATE_DIR="$hr/state" healed_stages yukta-dev)" ]] || fail "healed found records where there are none"
+got="$(STATE_DIR="$hr/state" YUKTA_HEAL_RECORDS="$hr/wt/.yukta-dev/heal/check" healed_stages yukta-dev)"
+[[ "$got" == "analyzers:sonnet/medium,tests:opus/low" ]] || fail "healed from the worktree records: '$got'"
+got="$(STATE_DIR="$hr/state" YUKTA_HEAL_RECORDS="$hr/wt/.yukta-dev/heal/check" healed_stages yukta-dev tests)"
+[[ "$got" == "analyzers:sonnet/medium" ]] || fail "healed lists the stage that still failed: '$got'"
+# a detached issue run is read later, by a yk watch or yk result that has no YUKTA_HEAL_RECORDS: the pointer yk wrote
+mkdir -p "$hr/home/heal-records"; echo "$hr/wt/.yukta-dev/heal/check" >"$hr/home/heal-records/rootexec"
+got="$(DEV_HOME="$hr/home" STATE_DIR="$hr/state" healed_stages yukta-dev -)"
+[[ -z "$got" ]] || fail "without a root execution the session records are read: '$got'"
+got="$(DEV_HOME="$hr/home" STATE_DIR="$hr/state" healed_stages yukta-dev - "$(DEV_HOME="$hr/home" STATE_DIR="$hr/state" heal_records yukta-dev rootexec)")"
+[[ "$got" == "analyzers:sonnet/medium,tests:opus/low" ]] || fail "healed through the pointer of the run: '$got'"
+[[ "$(DEV_HOME="$hr/home" STATE_DIR="$hr/state" heal_records yukta-dev other)" == "$hr/state/heal/yukta-dev" ]] || fail "an unknown run falls back to the session records"
+grep -qF 'heal-records/$exec_id' "$here/../yk" || fail "yk run issue does not record where its heal records are"
+rm -rf "$hr"
+echo "ok   healed"
 
 [[ "${1:-}" == --online ]] || exit 0
 

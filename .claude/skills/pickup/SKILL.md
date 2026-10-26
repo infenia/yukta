@@ -13,7 +13,7 @@ Argument: a count (`3`, default 1) or an issue number (`123`).
 
    ```bash
    gh issue list -R infenia/yukta --assignee @me --state open --json number,title,url -q '.[]|[.number,.url]|@tsv'
-   gh project item-list 5 --owner infenia --limit 700 --format json \
+   gh project item-list 5 --owner infenia --limit 5000 --format json \
      -q '.items[] | select(.status=="Ready") | [.content.number, .priority, .module, .title] | @tsv'
    ```
 

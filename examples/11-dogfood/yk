@@ -463,6 +463,11 @@ run_layered() {
   exec_id="$("$cli" -o json workflow start yukta-dev "$workflow" --payload "$payload" | jq -r '.data.executionId // .executionId')"
   [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start $workflow"
   echo "STARTED execution=$exec_id session=yukta-dev"
+  # an issue run heals in its worktree: say where, for the RESULT of this run (a later yk watch or yk result too)
+  if [[ "$kind" == issue ]]; then
+    mkdir -p "$DEV_HOME/heal-records"
+    echo "$(dirname "$REPO_ROOT")/yukta-issue-$n/.yukta-dev/heal/check" >"$DEV_HOME/heal-records/$exec_id"
+  fi
   ((impl)) && echo "checkpoint before-implement: edit $REPO_ROOT/.yukta-dev/issue-<n>/brief.md if you want, then: yk approve ${exec_id:0:8} before-implement" >&2
   ((pr)) && echo "checkpoint before-pr: yk approve ${exec_id:0:8} before-pr (or yk reject ...)" >&2
   [[ "$kind" == epic ]] && ((between)) && echo "checkpoint between-issues: yk approve ${exec_id:0:8} between-issues, once for each issue" >&2

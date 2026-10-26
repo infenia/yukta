@@ -494,7 +494,7 @@ heal_subflows() {
                    pe("brief"; {command: [$healsh, "brief", "${start.stage}"], env: env({})} + routed(false))]
                   + (if $triage == "off" then [] else
                       [{nodeId: "triage", type: "CLASSIFY",
-                        config: {model: $tri.model, state: "payload.stdout", routeByLabel: true, minProbability: $tri.minProbability, timeout: ($tri.timeoutSeconds // 55),
+                        config: {model: ($ENV.YUKTA_TRIAGE_MODEL // $tri.model), state: "payload.stdout", routeByLabel: true, minProbability: $tri.minProbability, timeout: ($tri.timeoutSeconds // 55),
                                  # tests point it at a stand-in for Ollama
                                  baseUrl: ($ENV.YUKTA_TRIAGE_URL // "http://localhost:11434"),
                                  question: ($tri.question // "How hard is it to fix this failed check of a Java build?"),
@@ -508,7 +508,10 @@ heal_subflows() {
                   + (if $triage == "off" then [] else
                       [("level", "uncertain", "error") | {nodeId: ("triage-log-" + .), type: "PROCESS_EXECUTOR",
                          config: {command: [$healsh, "triage-log", "${start.stage}", .], workingDir: "${start.project}", inputMode: "ENV",
-                                  failureMode: "CONTINUE", timeout: 60, timeoutSeconds: 60, env: env({})}}]
+                                  failureMode: "CONTINUE", timeout: 60, timeoutSeconds: 60,
+                                  # the model and host the triage node was built with, so the event names what answered
+                                  env: env({YUKTA_TRIAGE_MODEL: ($ENV.YUKTA_TRIAGE_MODEL // $tri.model),
+                                            YUKTA_TRIAGE_URL: ($ENV.YUKTA_TRIAGE_URL // "http://localhost:11434")})}}]
                       + [{nodeId: "triage-sink", type: "CONSOLE_TERMINAL", config: {}}] end)
                   + [{nodeId: "giveup", type: "PROCESS_EXECUTOR",
                       config: {command: [$healsh, "giveup", "${start.stage}"], workingDir: "${start.project}", failureMode: "ERROR",
@@ -586,18 +589,20 @@ check_session() {
 # print_result SESSION EXECUTION: prints the machine readable RESULT line; returns 0 only when the
 # execution ended SUCCESS.
 print_result() {
-  local progress status failed healed outcome
+  local progress status failed healed outcome root records
   progress="$("$(find_cli)" -o json workflow status "$1" "$2" | jq '(.data // .)')"
+  root="$(jq -r '.rootExecutionId // .executionId // empty' <<<"$progress")"
+  records="$(heal_records "$1" "$root")"
   status="$(jq -r '.status' <<<"$progress")"
   failed="$(jq -r '[.tasks[] | select(.status == "FAILURE" or .status == "TIMED_OUT") | .nodeId][0] // "-"' <<<"$progress")"
   if [[ "$failed" != - ]]; then
     failed="$(node_stage "$failed")"
     # the analyzers share one fixer chain; name the ones still failing
-    if [[ "$failed" == analyzers && -s "$STATE_DIR/heal/$1/analyzers.failed" ]]; then
-      failed="$(cat "$STATE_DIR/heal/$1/analyzers.failed")"
+    if [[ "$failed" == analyzers && -s "$records/analyzers.failed" ]]; then
+      failed="$(cat "$records/analyzers.failed")"
     fi
   fi
-  healed="$(healed_stages "$1" "$failed")"
+  healed="$(healed_stages "$1" "$failed" "$records")"
   # a run can end well and still not be done: an OUTCOME_TERMINAL that reached ESCALATE, FAILED or RETRY
   outcome="$(jq -r '[.tasks[] | select(.module == "OUTCOME_TERMINAL" and .metadata.reached == true) | .metadata.outcome][0] // "-"' <<<"$progress")"
   [[ "$status" == SUCCESS && "$outcome" != - && "$outcome" != SUCCESS ]] && status="$outcome"
@@ -610,11 +615,22 @@ print_result() {
   [[ "$status" == COMPLETED || "$status" == SUCCESS ]]
 }
 
-# healed_stages SESSION [FAILED_STAGE]: "stage:step,..." for every heal step of the last check run
-# that fixed its stage (records written by yukta-heal.sh, step = auto or the model), except the stage
+# heal_records SESSION [ROOT_EXECUTION]: the directory with the heal records of the last check run:
+# YUKTA_HEAL_RECORDS when set, else the one recorded for the run (yk run issue writes
+# $DEV_HOME/heal-records/<execution>: an issue run heals in its worktree, <worktree>/.yukta-dev/heal/check,
+# and a detached run is read by a later yk watch or yk result), else the session's own.
+heal_records() {
+  local pointer="$DEV_HOME/heal-records/${2:-none}"
+  if [[ -n "${YUKTA_HEAL_RECORDS:-}" ]]; then echo "$YUKTA_HEAL_RECORDS"
+  elif [[ -s "$pointer" ]]; then cat "$pointer"
+  else echo "$STATE_DIR/heal/$1"; fi
+}
+
+# healed_stages SESSION [FAILED_STAGE [RECORDS_DIR]]: "stage:step,..." for every heal step of the last check
+# run that fixed its stage (records written by yukta-heal.sh, step = auto or the model), except the stage
 # that still failed; empty when nothing was healed.
 healed_stages() {
-  local dir="${YUKTA_HEAL_RECORDS:-$STATE_DIR/heal/$1}"
+  local dir="${3:-$(heal_records "$1")}"
   [[ -d "$dir" ]] || return 0
   jq -rs --arg failed "${2:--}" '[.[] | select(.fixed and .stage != $failed) | "\(.stage):\(.mode)\(if .effort then "/" + .effort else "" end)"] | unique | join(",")' \
     "$dir"/*-[0-9]*.json 2>/dev/null || true
