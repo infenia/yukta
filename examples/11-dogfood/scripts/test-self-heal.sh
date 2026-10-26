@@ -219,6 +219,12 @@ hassert "the triage log nodes are told the same model and host" '[.workflows.hea
   | all(.YUKTA_TRIAGE_MODEL == "tev1" and .YUKTA_TRIAGE_URL == "http://10.0.0.9:11434")'
 heal="$(heal_subflows "$policy" /p/heal.sh)"
 hassert "without them the triage model comes from heal.json" ".workflows.heal.nodes[] | select(.nodeId == \"triage\") | .config.model == \"$(jq -r .triage.model <<<"$policy")\""
+cs="$(mktemp -d)"; git -C "$cs" init -q -b main && git -C "$cs" -c user.name=t -c user.email=t@t commit -q --allow-empty -m x
+a="$(check_session "$cs" 0)"; g="$(check_session "$cs" 3)"
+[[ "$a" =~ ^check-main-[0-9a-f]{8}$ ]] || fail "check session name: '$a'"
+[[ "$g" == "$a-gradle" ]] || fail "a yk gradle must not share the session of the check: '$a' vs '$g'"
+rm -rf "$cs"
+echo "ok   sessions of a check and of yk gradle"
 echo "ok   heal variants"
 
 # ---- healed: an issue run keeps its heal records in the worktree (YUKTA_HEAL_RECORDS), not in $STATE_DIR
