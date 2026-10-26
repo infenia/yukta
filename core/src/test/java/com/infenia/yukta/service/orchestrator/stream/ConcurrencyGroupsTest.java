@@ -25,9 +25,20 @@ class ConcurrencyGroupsTest {
     return Objects.requireNonNull(groups.place(GRADLE));
   }
 
+  private static StandardEnvironment isolatedEnvironment() {
+    final StandardEnvironment environment = new StandardEnvironment();
+    environment
+        .getPropertySources()
+        .remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
+    environment
+        .getPropertySources()
+        .remove(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME);
+    return environment;
+  }
+
   @Test
   void limitsAreReadFromTheEnvironment() {
-    final StandardEnvironment environment = new StandardEnvironment();
+    final StandardEnvironment environment = isolatedEnvironment();
     environment
         .getPropertySources()
         .addFirst(new MapPropertySource("test", Map.of("yukta.concurrency.groups.gradle", "1")));
@@ -35,7 +46,7 @@ class ConcurrencyGroupsTest {
 
     assertThat(bound.place(GRADLE)).isNotNull();
     assertThat(bound.place("other")).isNull();
-    assertThat(new ConcurrencyGroups(new StandardEnvironment()).place(GRADLE)).isNull();
+    assertThat(new ConcurrencyGroups(isolatedEnvironment()).place(GRADLE)).isNull();
   }
 
   @Test

@@ -214,6 +214,28 @@ hassert "--models sonnet,opus: no haiku, and the easy level starts at sonnet" '.
   and (.edges | any(.source == "triage" and .sourcePort == "easy" and .target == "fix-sonnet-medium"))'
 echo "ok   heal variants"
 
+# ---- healed: an issue run keeps its heal records in the worktree (YUKTA_HEAL_RECORDS), not in $STATE_DIR
+hr="$(mktemp -d)"
+mkdir -p "$hr/wt/.yukta-dev/heal/check"
+echo '{"stage":"analyzers","mode":"sonnet","effort":"medium","fixed":true}' >"$hr/wt/.yukta-dev/heal/check/analyzers-1.json"
+echo '{"stage":"tests","mode":"sonnet","effort":"medium","fixed":false}' >"$hr/wt/.yukta-dev/heal/check/tests-1.json"
+echo '{"stage":"tests","mode":"opus","effort":"low","fixed":true}' >"$hr/wt/.yukta-dev/heal/check/tests-2.json"
+[[ -z "$(STATE_DIR="$hr/state" healed_stages yukta-dev)" ]] || fail "healed found records where there are none"
+got="$(STATE_DIR="$hr/state" YUKTA_HEAL_RECORDS="$hr/wt/.yukta-dev/heal/check" healed_stages yukta-dev)"
+[[ "$got" == "analyzers:sonnet/medium,tests:opus/low" ]] || fail "healed from the worktree records: '$got'"
+got="$(STATE_DIR="$hr/state" YUKTA_HEAL_RECORDS="$hr/wt/.yukta-dev/heal/check" healed_stages yukta-dev tests)"
+[[ "$got" == "analyzers:sonnet/medium" ]] || fail "healed lists the stage that still failed: '$got'"
+# a detached issue run is read later, by a yk watch or yk result that has no YUKTA_HEAL_RECORDS: the pointer yk wrote
+mkdir -p "$hr/home/heal-records"; echo "$hr/wt/.yukta-dev/heal/check" >"$hr/home/heal-records/rootexec"
+got="$(DEV_HOME="$hr/home" STATE_DIR="$hr/state" healed_stages yukta-dev -)"
+[[ -z "$got" ]] || fail "without a root execution the session records are read: '$got'"
+got="$(DEV_HOME="$hr/home" STATE_DIR="$hr/state" healed_stages yukta-dev - "$(DEV_HOME="$hr/home" STATE_DIR="$hr/state" heal_records yukta-dev rootexec)")"
+[[ "$got" == "analyzers:sonnet/medium,tests:opus/low" ]] || fail "healed through the pointer of the run: '$got'"
+[[ "$(DEV_HOME="$hr/home" STATE_DIR="$hr/state" heal_records yukta-dev other)" == "$hr/state/heal/yukta-dev" ]] || fail "an unknown run falls back to the session records"
+grep -qF 'heal-records/$exec_id' "$here/../yk" || fail "yk run issue does not record where its heal records are"
+rm -rf "$hr"
+echo "ok   healed"
+
 [[ "${1:-}" == --online ]] || exit 0
 
 # ---- online: the whole workflow on the dev server, with a fake gradlew and a fake claude --------------
