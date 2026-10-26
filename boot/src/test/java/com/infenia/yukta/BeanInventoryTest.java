@@ -31,7 +31,9 @@ import org.springframework.util.ClassUtils;
 @DisabledIfSystemProperty(named = "yukta.workers", matches = ".+")
 @DisabledIfSystemProperty(named = "yukta.plugins", matches = ".+")
 @DisabledInAotMode
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.MOCK,
+    properties = "yukta.supervisor.rules.file=false")
 @SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 class BeanInventoryTest {
