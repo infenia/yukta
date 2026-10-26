@@ -215,6 +215,8 @@ hassert "--models sonnet,opus: no haiku, and the easy level starts at sonnet" '.
 heal="$(YUKTA_TRIAGE_MODEL=tev1 YUKTA_TRIAGE_URL=http://10.0.0.9:11434 heal_subflows "$policy" /p/heal.sh)"
 hassert "YUKTA_TRIAGE_MODEL and YUKTA_TRIAGE_URL choose the model and host of the triage" '.workflows.heal.nodes[] | select(.nodeId == "triage")
   | .config.model == "tev1" and .config.baseUrl == "http://10.0.0.9:11434"'
+hassert "the triage log nodes are told the same model and host" '[.workflows.heal.nodes[] | select(.nodeId | startswith("triage-log-")) | .config.env]
+  | all(.YUKTA_TRIAGE_MODEL == "tev1" and .YUKTA_TRIAGE_URL == "http://10.0.0.9:11434")'
 heal="$(heal_subflows "$policy" /p/heal.sh)"
 hassert "without them the triage model comes from heal.json" ".workflows.heal.nodes[] | select(.nodeId == \"triage\") | .config.model == \"$(jq -r .triage.model <<<"$policy")\""
 echo "ok   heal variants"

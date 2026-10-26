@@ -508,7 +508,10 @@ heal_subflows() {
                   + (if $triage == "off" then [] else
                       [("level", "uncertain", "error") | {nodeId: ("triage-log-" + .), type: "PROCESS_EXECUTOR",
                          config: {command: [$healsh, "triage-log", "${start.stage}", .], workingDir: "${start.project}", inputMode: "ENV",
-                                  failureMode: "CONTINUE", timeout: 60, timeoutSeconds: 60, env: env({})}}]
+                                  failureMode: "CONTINUE", timeout: 60, timeoutSeconds: 60,
+                                  # the model and host the triage node was built with, so the event names what answered
+                                  env: env({YUKTA_TRIAGE_MODEL: ($ENV.YUKTA_TRIAGE_MODEL // $tri.model),
+                                            YUKTA_TRIAGE_URL: ($ENV.YUKTA_TRIAGE_URL // "http://localhost:11434")})}}]
                       + [{nodeId: "triage-sink", type: "CONSOLE_TERMINAL", config: {}}] end)
                   + [{nodeId: "giveup", type: "PROCESS_EXECUTOR",
                       config: {command: [$healsh, "giveup", "${start.stage}"], workingDir: "${start.project}", failureMode: "ERROR",

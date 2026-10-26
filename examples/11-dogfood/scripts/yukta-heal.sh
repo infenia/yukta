@@ -221,8 +221,8 @@ case "$key" in
     secs="$(secs_since "$t0")"
     echo "TRIAGE $stage route=$route label=${label:--} p=$p start=${start:--} secs=$secs${fallback:+ fallback=$fallback}${err:+ error=${err:0:120}}"
     emit triage "$(jq -nc --arg stage "$stage" --arg route "$route" --arg label "$label" --argjson p "${p:-0}" --arg start "$start" --arg secs "$secs" \
-      --arg model "${YUKTA_TRIAGE_MODEL:-$(jq -r '.triage.model' "$here/../heal.json" 2>/dev/null)}" --arg fallback "$fallback" --arg error "$err" --arg raw "$raw" --argjson chars "$(cat "$dir/$stage.brief.chars" 2>/dev/null || echo 0)" \
-      '{stage: $stage, route: $route, label: $label, p: $p, start: $start, model: $model, secs: ($secs | tonumber), chars: $chars,
+      --arg model "${YUKTA_TRIAGE_MODEL:-$(jq -r '.triage.model' "$here/../heal.json" 2>/dev/null)}" --arg url "${YUKTA_TRIAGE_URL:-}" --arg fallback "$fallback" --arg error "$err" --arg raw "$raw" --argjson chars "$(cat "$dir/$stage.brief.chars" 2>/dev/null || echo 0)" \
+      '{stage: $stage, route: $route, label: $label, p: $p, start: $start, model: $model, url: (if $url == "" then null else $url end), secs: ($secs | tonumber), chars: $chars,
         fallback: (if $fallback == "" then null else $fallback end), error: (if $error == "" then null else $error end)} + (if $raw == "" then {} else {raw: $raw} end)')"
     exit 0
     ;;

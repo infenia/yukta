@@ -181,8 +181,7 @@ export YUKTA_TRIAGE_URL=http://192.168.1.37:11434   # the Ollama host; default h
 export YUKTA_TRIAGE_MODEL=tev1                      # the model name; default heal.json triage.model
 ```
 
-Export them in the shell that starts the run (`yk check`, `yk run issue`, `yk up` pick them up when the workflow is built; set them
-before `yk up` if the server is started on demand). Check the endpoint and the model before a run:
+Export them in the shell that runs `yk` (`yk check`, `yk run issue`): `yk` builds the heal workflow there and the triage node carries the model and host with it, so the server needs no restart and no environment of its own. Every `triage` event in `yk heal show` records the `model` and `url` that answered. Check the endpoint and the model before a run:
 
 ```bash
 curl -s "$YUKTA_TRIAGE_URL/v1/models" | jq -r '.data[].id'                    # the model must be listed
