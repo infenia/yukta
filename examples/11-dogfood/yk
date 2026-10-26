@@ -93,9 +93,7 @@ run_check() {
   mkdir -p "$STATE_DIR"
   exec 8>"$STATE_DIR/check.lock"
   flock -n 8 || die "another check is running in this checkout; wait for it (yk watch) or stop it"
-  branch="$(git -C "$project" rev-parse --abbrev-ref HEAD | tr -c 'A-Za-z0-9\n' '-')"
-  # The path hash keeps checkouts apart on the shared server (feature/a vs feature-a, two clones).
-  session="check-$branch-$(printf '%s' "$project" | sha1sum | cut -c1-8)"
+  session="$(check_session "$project" "$#")"
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
   if (($#)); then

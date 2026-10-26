@@ -572,6 +572,17 @@ emit_result() {
     | { flock 9; cat >>"$events"; } 9>>"$events.lock" 2>/dev/null || true
 }
 
+# check_session PROJECT NARGS: the session a check of PROJECT runs in on the shared server. The path hash keeps
+# checkouts apart (feature/a vs feature-a, two clones). A run with gradle args (yk gradle) gets a session of its own:
+# applying a session replaces its workflows and a run clears its heal records, so a yk gradle of a fixer in the
+# checkout (the pre-bash hook sends it there) must not share the session of the check it is healing.
+check_session() {
+  local branch suffix=""
+  branch="$(git -C "$1" rev-parse --abbrev-ref HEAD | tr -c 'A-Za-z0-9\n' '-')"
+  (( ${2:-0} > 0 )) && suffix="-gradle"
+  echo "check-$branch-$(printf '%s' "$1" | sha1sum | cut -c1-8)$suffix"
+}
+
 # print_result SESSION EXECUTION: prints the machine readable RESULT line; returns 0 only when the
 # execution ended SUCCESS.
 print_result() {

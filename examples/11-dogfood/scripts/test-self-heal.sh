@@ -212,6 +212,12 @@ hassert "a pause stands in front of every way into opus" '.workflows.heal.edges
 heal="$(heal_subflows "$(policy_models "$policy" sonnet,opus)" /p/heal.sh)"
 hassert "--models sonnet,opus: no haiku, and the easy level starts at sonnet" '.workflows.heal | ([.nodes[] | select(.nodeId | test("haiku"))] | length) == 0
   and (.edges | any(.source == "triage" and .sourcePort == "easy" and .target == "fix-sonnet-medium"))'
+cs="$(mktemp -d)"; git -C "$cs" init -q -b main && git -C "$cs" -c user.name=t -c user.email=t@t commit -q --allow-empty -m x
+a="$(check_session "$cs" 0)"; g="$(check_session "$cs" 3)"
+[[ "$a" =~ ^check-main-[0-9a-f]{8}$ ]] || fail "check session name: '$a'"
+[[ "$g" == "$a-gradle" ]] || fail "a yk gradle must not share the session of the check: '$a' vs '$g'"
+rm -rf "$cs"
+echo "ok   sessions of a check and of yk gradle"
 echo "ok   heal variants"
 
 [[ "${1:-}" == --online ]] || exit 0
