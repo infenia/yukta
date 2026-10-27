@@ -891,12 +891,7 @@ class DefaultTaskTrackerServiceTest {
     assertThat(progress1.tasks().getFirst().endTime()).isNotNull();
     final java.time.LocalDateTime firstEndTime = progress1.tasks().getFirst().endTime();
 
-    // Wait a bit then emit another status (FAILURE) — should not change endTime
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    // Emit another status (FAILURE) — should not change endTime
     tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.FAILURE, Map.of());
 
     // Wait again
@@ -976,8 +971,7 @@ class DefaultTaskTrackerServiceTest {
     trackerWithError.emitTaskStatusEvent(
         "exec-id", "node-id", "module", TaskStatus.SUCCESS, Map.of());
 
-    // Wait for async processing
-    Thread.sleep(200);
+    settle();
 
     // If we reach here, the error handler worked
     assertThat(true).isTrue();
@@ -1012,8 +1006,7 @@ class DefaultTaskTrackerServiceTest {
     // Emit a workflow status event — should not crash
     trackerWithError.emitWorkflowStatusEvent("exec-id", TaskStatus.SUCCESS);
 
-    // Wait for async processing
-    Thread.sleep(200);
+    settle();
 
     assertThat(true).isTrue();
   }
@@ -1048,8 +1041,7 @@ class DefaultTaskTrackerServiceTest {
     // Emit a log event — should not crash
     trackerWithError.emitLogEvent("exec-id", "system", "log line");
 
-    // Wait for async processing
-    Thread.sleep(200);
+    settle();
 
     assertThat(true).isTrue();
   }
@@ -1591,27 +1583,17 @@ class DefaultTaskTrackerServiceTest {
     final var firstStartTime = prog1.tasks().getFirst().startTime();
     assertThat(firstStartTime).isNotNull();
 
-    // Wait a bit
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
-
     // Second update to RUNNING again — startTime should NOT change
     tracker.emitTaskStatusEvent(executionId, "node1", "module2", TaskStatus.RUNNING, Map.of());
 
-    // Wait for processing
-    for (int i = 0; i < 20; i++) {
-      try {
-        Thread.sleep(50);
-      } catch (final InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    }
-
-    final var prog2 = tracker.getProgress(sessionId, executionId);
-    assertThat(prog2.tasks().getFirst().startTime()).isEqualTo(firstStartTime);
+    await()
+        .during(Duration.ofMillis(300))
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertThat(
+                        tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime())
+                    .isEqualTo(firstStartTime));
   }
 
   @Test
@@ -1643,27 +1625,16 @@ class DefaultTaskTrackerServiceTest {
     final var firstEndTime = prog1.tasks().getFirst().endTime();
     assertThat(firstEndTime).isNotNull();
 
-    // Wait a bit
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
-
     // Emit ERROR — endTime should NOT change (already terminal)
     tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.ERROR, Map.of());
 
-    // Wait for processing
-    for (int i = 0; i < 20; i++) {
-      try {
-        Thread.sleep(50);
-      } catch (final InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    }
-
-    final var prog2 = tracker.getProgress(sessionId, executionId);
-    assertThat(prog2.tasks().getFirst().endTime()).isEqualTo(firstEndTime);
+    await()
+        .during(Duration.ofMillis(300))
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime())
+                    .isEqualTo(firstEndTime));
   }
 
   @Test
@@ -1725,15 +1696,6 @@ class DefaultTaskTrackerServiceTest {
     // Then emit non-terminal to test that path
     tracker.emitTaskStatusEvent(
         executionId, "node1", "mod2", TaskStatus.PENDING, Map.of("k2", "v2"));
-
-    // Wait for processing
-    for (int i = 0; i < 20; i++) {
-      try {
-        Thread.sleep(50);
-      } catch (final InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    }
 
     // Then emit ERROR to set endTime
     tracker.emitTaskStatusEvent(executionId, "node1", "mod3", TaskStatus.ERROR, Map.of("k3", "v3"));
@@ -1866,14 +1828,7 @@ class DefaultTaskTrackerServiceTest {
     tracker.emitTaskStatusEvent(
         "non-existent-exec", "node1", "module", TaskStatus.SUCCESS, Map.of());
 
-    // Wait for async processing
-    for (int i = 0; i < 20; i++) {
-      try {
-        Thread.sleep(50);
-      } catch (final InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    }
+    settle();
 
     // Should not crash - handled gracefully
     assertThat(true).isTrue();
@@ -2172,23 +2127,16 @@ class DefaultTaskTrackerServiceTest {
     shortTtlTracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
 
     // Wait for cleanup to happen
-    try {
-      Thread.sleep(250);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .until(() -> shortTtlTracker.getProgressByExecutionId(executionId) == null);
 
     // Now try to emit task status for the cleaned-up execution
     // notifyStatusChange will be called but state should be null
     shortTtlTracker.emitTaskStatusEvent(
         executionId, "node1", "module", TaskStatus.SUCCESS, Map.of());
 
-    // Wait for processing
-    try {
-      Thread.sleep(100);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+    settle();
 
     // Should handle gracefully without errors
     assertThat(true).isTrue();
@@ -2406,23 +2354,39 @@ class DefaultTaskTrackerServiceTest {
 
     // 1. status == "RUNNING", current != null (already set)
     tracker.emitTaskStatusEvent(executionId, "node1", "mod", TaskStatus.RUNNING, Map.of());
-    Thread.sleep(100);
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .until(
+            () ->
+                tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime() != null);
     final java.time.LocalDateTime firstStart =
         tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime();
     tracker.emitTaskStatusEvent(executionId, "node1", "mod", TaskStatus.RUNNING, Map.of());
-    Thread.sleep(100);
-    assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime())
-        .isEqualTo(firstStart);
+    await()
+        .during(Duration.ofMillis(200))
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertThat(
+                        tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime())
+                    .isEqualTo(firstStart));
 
     // 2. Terminal status, current != null (already terminal)
     tracker.emitTaskStatusEvent(executionId, "node1", "mod", TaskStatus.SUCCESS, Map.of());
-    Thread.sleep(100);
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .until(
+            () -> tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime() != null);
     final java.time.LocalDateTime firstEnd =
         tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime();
     tracker.emitTaskStatusEvent(executionId, "node1", "mod", TaskStatus.FAILURE, Map.of());
-    Thread.sleep(100);
-    assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime())
-        .isEqualTo(firstEnd);
+    await()
+        .during(Duration.ofMillis(200))
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime())
+                    .isEqualTo(firstEnd));
   }
 
   @Test
@@ -2603,14 +2567,7 @@ class DefaultTaskTrackerServiceTest {
     // Emit status event - sink exists but state is null
     tracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
 
-    // Wait for async processing
-    for (int i = 0; i < 20; i++) {
-      try {
-        Thread.sleep(50);
-      } catch (final InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    }
+    settle();
 
     // Should handle gracefully - sink exists but state is null (condition at line 448 is false)
     assertThat(true).isTrue();
@@ -3266,5 +3223,10 @@ class DefaultTaskTrackerServiceTest {
 
     assertThat(meters.get("yukta.edge.dropped").tag("type", "HTTP_REQUEST").counter().count())
         .isEqualTo(1);
+  }
+
+  /** Lets fire-and-forget events drain; the caller asserts nothing broke (no event, no signal). */
+  private static void settle() {
+    await().during(Duration.ofMillis(200)).atMost(Duration.ofSeconds(5)).until(() -> true);
   }
 }
