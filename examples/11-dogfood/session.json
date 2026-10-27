@@ -95,7 +95,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.reuse}",
+              "command": "${start.chain.reuse}",
               "timeout": "${start.timeout}",
               "label": "reuse"
             }
@@ -157,7 +157,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.actionlint}",
+              "command": "${start.chain.actionlint}",
               "timeout": "${start.timeout}",
               "label": "actionlint"
             }
@@ -219,7 +219,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.docs}",
+              "command": "${start.chain.docs}",
               "timeout": "${start.timeout}",
               "label": "docs"
             }
@@ -273,6 +273,21 @@
           }
         },
         {
+          "nodeId": "fast",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.fast}",
+              "timeout": "${start.timeout}",
+              "label": "fast"
+            }
+          }
+        },
+        {
           "nodeId": "spotless",
           "type": "SUB_WORKFLOW",
           "config": {
@@ -281,7 +296,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.spotless}",
+              "command": "${start.chain.spotless}",
               "timeout": "${start.timeout}",
               "label": "spotless"
             }
@@ -343,7 +358,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.cli_fmt_check}",
+              "command": "${start.chain.cli_fmt_check}",
               "timeout": "${start.timeout}",
               "label": "cli_fmt_check"
             }
@@ -405,7 +420,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.cli_mod_verify}",
+              "command": "${start.chain.cli_mod_verify}",
               "timeout": "${start.timeout}",
               "label": "cli_mod_verify"
             }
@@ -467,7 +482,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.ui_prettier}",
+              "command": "${start.chain.ui_prettier}",
               "timeout": "${start.timeout}",
               "label": "ui_prettier"
             }
@@ -529,7 +544,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.compile}",
+              "command": "${start.chain.compile}",
               "timeout": "${start.timeout}",
               "label": "compile"
             }
@@ -591,7 +606,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.cli_vet}",
+              "command": "${start.chain.cli_vet}",
               "timeout": "${start.timeout}",
               "label": "cli_vet"
             }
@@ -653,7 +668,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.ui_tsc}",
+              "command": "${start.chain.ui_tsc}",
               "timeout": "${start.timeout}",
               "label": "ui_tsc"
             }
@@ -715,7 +730,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.ui_eslint}",
+              "command": "${start.chain.ui_eslint}",
               "timeout": "${start.timeout}",
               "label": "ui_eslint"
             }
@@ -777,7 +792,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.ui_headers}",
+              "command": "${start.chain.ui_headers}",
               "timeout": "${start.timeout}",
               "label": "ui_headers"
             }
@@ -839,7 +854,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.style}",
+              "command": "${start.chain.style}",
               "timeout": "${start.timeout}",
               "label": "style"
             }
@@ -901,7 +916,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.spotbugs}",
+              "command": "${start.chain.spotbugs}",
               "timeout": "${start.timeout}",
               "label": "spotbugs"
             }
@@ -963,7 +978,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.cli_lint}",
+              "command": "${start.chain.cli_lint}",
               "timeout": "${start.timeout}",
               "label": "cli_lint"
             }
@@ -1025,7 +1040,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.cli_sec}",
+              "command": "${start.chain.cli_sec}",
               "timeout": "${start.timeout}",
               "label": "cli_sec"
             }
@@ -1087,7 +1102,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.tests}",
+              "command": "${start.chain.tests}",
               "timeout": "${start.timeout}",
               "label": "tests"
             }
@@ -1149,7 +1164,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.ui_vitest}",
+              "command": "${start.chain.ui_vitest}",
               "timeout": "${start.timeout}",
               "label": "ui_vitest"
             }
@@ -1211,7 +1226,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.coverage}",
+              "command": "${start.chain.coverage}",
               "timeout": "${start.timeout}",
               "label": "coverage"
             }
@@ -1273,7 +1288,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.cli_cover_check}",
+              "command": "${start.chain.cli_cover_check}",
               "timeout": "${start.timeout}",
               "label": "cli_cover_check"
             }
@@ -1335,7 +1350,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.cli_vuln}",
+              "command": "${start.chain.cli_vuln}",
               "timeout": "${start.timeout}",
               "label": "cli_vuln"
             }
@@ -1397,7 +1412,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.licenses}",
+              "command": "${start.chain.licenses}",
               "timeout": "${start.timeout}",
               "label": "licenses"
             }
@@ -1420,7 +1435,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.security}",
+              "command": "${start.chain.security}",
               "timeout": "${start.timeout}",
               "label": "security"
             }
@@ -1443,7 +1458,7 @@
             "routeByOutcome": true,
             "payload": {
               "project": "${start.project}",
-              "command": "${start.cmd.ui_build}",
+              "command": "${start.chain.ui_build}",
               "timeout": "${start.timeout}",
               "label": "ui_build"
             }
@@ -1654,13 +1669,23 @@
         },
         {
           "source": "docs",
-          "target": "spotless",
+          "target": "fast",
           "sourcePort": "success"
         },
         {
           "source": "docs.heal",
+          "target": "fast",
+          "sourcePort": "success"
+        },
+        {
+          "source": "fast",
           "target": "spotless",
           "sourcePort": "success"
+        },
+        {
+          "source": "fast",
+          "target": "spotless",
+          "sourcePort": "failure"
         },
         {
           "source": "spotless",
