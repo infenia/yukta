@@ -168,7 +168,7 @@ public class NodeOutputPager {
    * Char sequence that aborts the regex engine once its deadline has passed (catastrophic
    * backtracking).
    */
-  private record Budgeted(String text, long deadline) implements CharSequence {
+  /* package */ record Budgeted(String text, long deadline) implements CharSequence {
     @Override
     public char charAt(final int index) {
       if (System.nanoTime() > deadline) {

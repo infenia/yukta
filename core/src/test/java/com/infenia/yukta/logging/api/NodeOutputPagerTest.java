@@ -176,6 +176,17 @@ class NodeOutputPagerTest {
   }
 
   @Test
+  void budgetedLine_readsLikeItsText() {
+    final CharSequence line =
+        new NodeOutputPager.Budgeted("hello", System.nanoTime() + 1_000_000_000L);
+
+    assertThat(line).hasSize(5);
+    assertThat(line.charAt(1)).isEqualTo('e');
+    assertThat(line.subSequence(1, 3)).hasToString("el");
+    assertThat(line).hasToString("hello");
+  }
+
+  @Test
   void emptyGrep_meansNoFilter() {
     assertThat(slice(BIG, null, null, null, null, "", null).matchedLines()).isEqualTo(10_000);
   }
