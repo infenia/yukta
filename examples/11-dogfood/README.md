@@ -93,6 +93,6 @@ a per-effort budget and time box. `YK_ADVISOR=sonnet` (experimental, off by defa
 | `backup/` | the previous implementation, kept while the loop is rebuilt |
 
 ## Notes
-- Sessions: one session, `yukta-dev`, for everything; the project path travels in the start payload.
+- Sessions: one per checkout and command (`check-<branch>-<hash of the path>`, suffix `-plan` for `yk check`, `-gradle` for `yk gradle`/`yk tool`); the library is applied to it on every run, and the project path travels in the start payload.
 - One check per checkout at a time (`.yukta-dev/check.lock`).
 - The previous README (issue and epic runs, heal analysis, the analyzers heal) is in git history before this change.
