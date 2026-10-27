@@ -128,4 +128,16 @@ CMD_compile='echo error: compile failed difficulty: hard; test -f compile.ok' TR
 expect "status=SUCCESS"; expect "compile:sonnet/low"
 grep -q ' haiku ' "$dir/claude.log" && fail "$name: haiku was called for a hard failure"
 
+name="reuse auto fix"
+if command -v reuse >/dev/null; then
+  r="$dir/reuse-proj"; mkdir -p "$r/LICENSES"
+  cp "$here/../../REUSE.toml" "$r/"; cp "$here/../../LICENSES/Apache-2.0.txt" "$r/LICENSES/"
+  git -C "$r" init -q; echo 'class A {}' >"$r/A.java"; echo '{}' >"$r/b.json"; git -C "$r" add -A
+  (cd "$r" && reuse lint -q >/dev/null 2>&1) && fail "$name: the fixture is compliant before the fix"
+  (cd "$r" && "$here/scripts/fix-reuse.sh" >/dev/null) || fail "$name: fix-reuse.sh failed"
+  (cd "$r" && reuse lint -q >/dev/null 2>&1) || fail "$name: still not compliant after the fix"
+else
+  echo "skip $name: reuse is not installed"
+fi
+
 echo "ok   heal"
