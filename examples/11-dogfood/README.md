@@ -27,9 +27,11 @@ Every run ends with `RESULT status=<S> failed_node=<stage|-> healed=<stage:model
 only on success. `yk watch <session> <execution>` follows a detached run and prints problems only. Run the smallest scope
 that covers your change.
 
+The Stop hook (`.claude/hooks/yk-hook.sh`) asks Claude Code once, before it finishes with uncommitted code changes, to run `yk check`; it stays quiet when a `yk check` already passed on those changes or the changes were there at session start. `YUKTA_DOGFOOD=off` turns the hooks off.
+
 Steering: `yk tree|pause|resume|stop|skip|retry|break|step|signals|approve|reject` (`stop` is a drain of up to 30 s; add `--tree` to reach the runs below). A foreground `yk` ends its run when it is interrupted or stopped (Ctrl-C, or Claude Code stopping a background task); `--detach` runs outlive their client.
 
-The other commands (`yk run issue|epic`, `yk heal report|analyze|show`, steering, the Stop hook, the slash commands) are
+The other commands (`yk run issue|epic`, `yk heal report|analyze|show`, steering, the slash commands) are
 switched off while the loop is rebuilt; their pieces are in `backup/`, and `backup/README.md` says how to bring each back.
 
 ## Prerequisites

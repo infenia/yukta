@@ -60,17 +60,6 @@
           }
         ]
       }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.sh post-edit"
-          }
-        ]
-      }
     ]
   },
   "statusLine": {

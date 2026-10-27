@@ -11,7 +11,7 @@ visible, move its pieces back and re-add the matching lines to the skill, CLAUDE
 | `dot-claude/skills/pickup/` | `.claude/skills/pickup/` | `yk run issue|epic` |
 | `dot-claude/commands/` | `.claude/commands/` | /yk-check /yk-up /yk-finding /yk-pickup |
 | `dot-claude/agents/yukta-run-watcher.md` | `.claude/agents/` | watching detached runs |
-| `dot-claude/hooks/yk-hook.sh` | `.claude/hooks/` | the Stop nudge for `yk check`, check-aware deny text |
+| `dot-claude/hooks/yk-hook.sh` | `.claude/hooks/` | the old Stop nudge (module-scoped `yk check -m`, issue findings); the live hook has the Stop nudge for plain `yk check` |
 | `CLAUDE.md`, `dot-claude/rules/git-workflow.md` | repo root, `.claude/rules/` | the full guide |
 | `yk.full.sh` | (reference) | the full `yk` usage text |
 
