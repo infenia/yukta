@@ -157,14 +157,16 @@ afterEvaluate {
 val verifyCoverageData = tasks.register("verifyCoverageData") {
     val projectPath = project.path
     val noTests = extension.noTests
-    val execFiles = tasks.withType<Test>().map { t -> t.extensions.getByType<JacocoTaskExtension>().destinationFile }
+    val execFiles = provider {
+        tasks.withType<Test>().map { t -> t.extensions.getByType<JacocoTaskExtension>().destinationFile }
+    }
     val hasClasses = provider {
         project.extensions.findByType<SourceSetContainer>()?.findByName("main")
             ?.output?.classesDirs?.asFileTree?.files?.any { it.name.endsWith(".class") } ?: false
     }
     mustRunAfter(tasks.withType<Test>())
     doLast {
-        if (hasClasses.get() && !noTests.get() && execFiles.none { it?.exists() == true }) {
+        if (hasClasses.get() && !noTests.get() && execFiles.get().none { it?.exists() == true }) {
             throw GradleException(
                 "$projectPath: no coverage data (tests deleted, filtered out or not run); " +
                     "set coverageConfig.noTests = true if this module legitimately has no tests"

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
+import com.github.spotbugs.snom.SpotBugsTask
 import net.ltgt.gradle.errorprone.errorprone
 import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
@@ -210,17 +211,10 @@ tasks.withType<Checkstyle>().configureEach {
 }
 
 // Disable quality tasks for AOT generated code
-tasks.configureEach {
-    val task = this
-    val isQualityTask = task is Checkstyle || task is Pmd ||
-        task::class.java.name.contains("SpotBugs") ||
-        task.name == "opengrep" ||
-        task.name.startsWith("spotless")
-
-    if (isQualityTask && task.name.contains("Aot")) {
-        task.enabled = false
-    }
-}
+// Registered per task type so no task is created just to be inspected (configuration avoidance).
+tasks.withType<Checkstyle>().configureEach { if (name.contains("Aot")) enabled = false }
+tasks.withType<Pmd>().configureEach { if (name.contains("Aot")) enabled = false }
+tasks.withType<SpotBugsTask>().configureEach { if (name.contains("Aot")) enabled = false }
 
 // Quality tasks that a module may switch off, each with the reason. Anything else fails the build,
 // like lowering coverage does. Burn these down; do not add to them without a tracking issue.
