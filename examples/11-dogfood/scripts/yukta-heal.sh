@@ -24,7 +24,7 @@ set -uo pipefail
 action="${1:?usage: yukta-heal.sh brief|record-auto|healed|prepare|claimed|judge|report}"
 dir="${YUKTA_HEAL_DIR:?YUKTA_HEAL_DIR is required}"
 for v in YUKTA_STAGE YUKTA_MODEL YUKTA_EFFORT YUKTA_TRIAGE_ROUTE YUKTA_TRIAGE_START YUKTA_TRIAGE_MODEL YUKTA_MODELS YUKTA_MODULE YUKTA_COMMAND YUKTA_PROBLEMS YUKTA_TRIAGE YUKTA_HEAL_TIMEOUT \
-  YUKTA_HEAL_EVENTS; do
+  YUKTA_HEAL_EVENTS YUKTA_BUDGET_CHECK; do
   [[ "${!v:-}" == - ]] && unset "$v"
 done
 stage="${YUKTA_STAGE:-}"
@@ -52,6 +52,18 @@ emit() {
       '{v: 1, ts: $ts, run: "-", session: $session, project: $project, event: $ev} + $f' \
       | { flock 9; cat >>"$events"; } 9>>"$events.lock"
   } 2>/dev/null || true
+}
+
+# excerpts PROBLEMS: up to 6 file:line spots named in the problem lines, 6 lines either side, so a cheap model needs fewer reads. Only tracked files.
+excerpts() {
+  local spec f l shown=0
+  while IFS=: read -r f l; do
+    [[ -n "$f" && -f "$f" ]] && git ls-files --error-unmatch -- "$f" >/dev/null 2>&1 || continue
+    printf '%s:%s\n' "$f" "$l"
+    awk -v a="$((l > 6 ? l - 6 : 1))" -v b="$((l + 6))" 'NR >= a && NR <= b { printf "%5d  %s\n", NR, substr($0, 1, 200) }' "$f"
+    shown=$((shown + 1))
+    ((shown >= 6)) && break
+  done < <(grep -oE '[A-Za-z0-9_./-]+\.(java|go|ts|tsx|js|kts|sh|py|md|mdx|json):[0-9]+' <<<"$1" | sed -E 's#^(/[^:]*/)?##' | awk '!seen[$0]++' | head -20)
 }
 
 # snapshot: "<hash> <path>" for every modified or untracked file, to tell what a step changed.
@@ -175,6 +187,14 @@ case "$action" in
       echo "model $model is not allowed in this run (--models $YUKTA_MODELS)" >&2
       exit 4
     fi
+    # the budget of the whole check: what the attempts of every stage have cost so far; at the cap no rung starts (the ladder ends, nothing is spent)
+    if [[ -n "${YUKTA_BUDGET_CHECK:-}" ]] && ls "$dir"/*-[0-9]*.json >/dev/null 2>&1; then
+      spent="$(jq -s 'map(.cost // 0) | add // 0' "$dir"/*-[0-9]*.json)"
+      if awk -v s="$spent" -v c="$YUKTA_BUDGET_CHECK" 'BEGIN { exit !(s >= c) }'; then
+        echo "the budget of this check is spent: \$$spent of \$$YUKTA_BUDGET_CHECK (YUKTA_BUDGET_CHECK)" >&2
+        exit 4
+      fi
+    fi
     snapshot >"$dir/$stage-$n.before"
     # the working tree as it is now (the developer's own edits included), to diff this attempt against
     base="$(git stash create 2>/dev/null)"
@@ -183,10 +203,13 @@ case "$action" in
     previous="$(jq -r '.previous // ""' <<<"$msg")"
     stat="$(git diff --stat | tail -8)"
     # everything that varies per run is in the user prompt; the system prompt is one constant file, so every attempt shares the cached prefix
+    excerpts="$(excerpts "$problems")"
     prompt="Stage \"$stage\" of the Yukta quality gate failed. Fix the root cause in the source so it passes.
 Problems (from the run):
 $problems
-${previous:+Earlier attempt: $previous
+${excerpts:+The code around the failures (file:line, a few lines either side):
+$excerpts
+}${previous:+Earlier attempt: $previous
 }Files already changed in the working tree (by the developer, keep them):
 ${stat:-none}
 Verify with only:
