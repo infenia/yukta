@@ -4,6 +4,7 @@ package com.infenia.yukta.model.execution;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.annotation.JsonSerialize;
 
 /** Represents the progress of a single node within a workflow DAG. */
@@ -11,8 +12,8 @@ public record TaskProgress(
     String nodeId,
     String module,
     String status,
-    @JsonSerialize(using = OffsetTimestampSerializer.class) LocalDateTime startTime,
-    @JsonSerialize(using = OffsetTimestampSerializer.class) LocalDateTime endTime,
+    @JsonSerialize(using = OffsetTimestampSerializer.class) @Nullable LocalDateTime startTime,
+    @JsonSerialize(using = OffsetTimestampSerializer.class) @Nullable LocalDateTime endTime,
     Map<String, Object> metadata) {
 
   /**
