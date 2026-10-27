@@ -21,10 +21,6 @@ All endpoints live under `/api` on the server address, `http://localhost:8080` b
 
 A server started with the `dev` profile (for example `./gradlew bootRun`) publishes an OpenAPI description at `/v3/api-docs` and interactive documentation at `/swagger-ui.html`; the default `prod` profile switches both off (see [Security](/operations/security) to turn them on behind a key). Both list every endpoint with its schemas. The same description is rendered under **All endpoints** in this tab, where every endpoint has its parameters, request and response schemas and a request playground. Use the pages below for behaviour and **All endpoints** for exact shapes.
 
-<Warning>
-  On the native `0.1.0-alpha.2` server and the published Docker image, `/v3/api-docs` and `/swagger-ui.html` fail because of a build problem ([#773](https://github.com/infenia/yukta/issues/773)). Use **All endpoints** on this site, or run the server from source.
-</Warning>
-
 | Page | Covers |
 |---|---|
 | [Sessions](/api/sessions) | Session configuration, listing, validation |
