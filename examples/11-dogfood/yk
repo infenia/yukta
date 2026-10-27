@@ -3,7 +3,7 @@
 # server (built from origin/main, port 9858, started on demand).
 #
 #   yk gradle [--detach] <gradle args...>    run Gradle once, e.g. :core:test --tests X
-#   yk check [--full] [--base REF] [--no-heal] [--detach]  the scoped, self-healing gate: yk plan's stages one after the other; a failure is
+#   yk check [--full] [--base REF] [--stage a,b] [--skip a,b] [--no-heal] [--detach]  the scoped, self-healing gate: yk plan's stages one after the other; a failure is
 #                                            fixed (free fix, then a System One triage picks model and effort) or stops the run (--no-heal: at once)
 #   yk plan [--full] [--base REF]            dry run: the stages a scoped check of your changes would run, nothing is executed
 #   yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]
@@ -77,8 +77,7 @@ run_tool() {
   local cli session cmdline label exec_id
   cli="$(find_cli)"
   mkdir -p "$STATE_DIR"
-  exec 8>"$STATE_DIR/check.lock"
-  flock -n 8 || die "another run is going in this checkout; wait for it (yk watch) or stop it"
+  # no lock: yk gradle and yk tool do not edit the checkout, and the server's tool concurrency group queues them (QUEUED in yk tree)
   session="$(check_session "$project" 1)"
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
@@ -105,22 +104,29 @@ run_tool() {
 # System One triage rates the failure and picks the model and effort to start with, and fresh Claude sessions climb from there.
 # --no-heal sends heal = "off": heal ends at once, so the first failing stage ends the run.
 cmd_check() {
-  local mode=watch plan_args=() heal=on models="" triage=on root plan cmds
+  local mode=watch plan_args=() heal=on models="" triage=on root plan cmds only="" skip=""
   while (($#)); do
     case "$1" in
       --detach) mode=detach; shift ;;
       --full) plan_args+=(--full); shift ;;
       --base) plan_args+=(--base "${2:?--base needs a ref}"); shift 2 ;;
       --no-heal) heal=off; shift ;;
+      --stage) only="${2:?--stage needs stage names, e.g. tests,style}"; shift 2 ;;
+      --skip) skip="${2:?--skip needs stage names, e.g. security}"; shift 2 ;;
       --models) models="${2:?--models needs models, e.g. haiku,sonnet}"; shift 2 ;;
       --triage) [[ "${2:-}" == off ]] || die "invalid --triage '${2:-}' (off)"; triage=off; shift 2 ;;
-      *) die "unknown option '$1' (yk check [--full] [--base REF] [--no-heal] [--models ..] [--triage off] [--detach])" ;;
+      *) die "unknown option '$1' (yk check [--full] [--base REF] [--stage a,b] [--skip a,b] [--no-heal] [--models ..] [--triage off] [--detach])" ;;
     esac
   done
   [[ -z "$models" || "$models" =~ ^(haiku|sonnet)(,(haiku|sonnet))*$ ]] || die "invalid --models '$models' (models from haiku, sonnet)"
   need jq
   root="$(git rev-parse --show-toplevel)"
   plan="$("$here/scripts/plan.sh" "${plan_args[@]}")" || die "yk plan failed"
+  if [[ -n "$only$skip" ]]; then
+    # --stage keeps only the named stages of the plan, --skip drops them (a name matches with - or _ either way, as yk plan prints it)
+    plan="$(filter_plan "$only" "$skip" <<<"$plan")"
+    grep -qv '^#' <<<"$plan" || die "no stage of the plan is left after --stage/--skip (yk plan shows the stages)"
+  fi
   grep '^#' <<<"$plan" >&2 || true
   local session healdir events
   session="$(check_session "$root" 0)-plan"
@@ -153,8 +159,11 @@ cmd_check() {
   cli="$(find_cli)"
   modules="$(sed -n 's/^# modules: //p' <<<"$plan" | head -1)"
   mkdir -p "$STATE_DIR"
-  exec 8>"$STATE_DIR/check.lock"
-  flock -n 8 || die "another check is running in this checkout; wait for it (yk watch) or stop it"
+  # only a healing check edits the checkout, so only it excludes another one (a --no-heal check and yk gradle queue on the server instead)
+  if [[ "$heal" == on ]]; then
+    exec 8>"$STATE_DIR/check.lock"
+    flock -n 8 || die "another healing check is running in this checkout (execution $(cat "$STATE_DIR/check.holder" 2>/dev/null || echo unknown)); wait for it (yk watch) or stop it, or use --no-heal"
+  fi
   rm -rf "$healdir.prev"; [[ ! -d "$healdir" ]] || mv "$healdir" "$healdir.prev"; mkdir -p "$healdir"
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
@@ -171,6 +180,7 @@ cmd_check() {
        cmd: $c.cmd, auto: $c.auto, fmt: $c.fmt}')" \
     | jq -r '.data.executionId // .executionId')"
   [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start the check"
+  [[ "$heal" != on ]] || echo "$exec_id" >"$STATE_DIR/check.holder"
   echo "STARTED execution=$exec_id session=$session"
   [[ "$mode" == detach ]] && return 0
   YUKTA_FAILED_OUTPUT=1 YUKTA_PROJECT="$root" YUKTA_SCOPE=check watch_owned "$session" "$exec_id"

@@ -30,6 +30,13 @@ e="$(exec_of <(echo "$out"))"
 "$yk" stop "$e" >/dev/null
 echo "ok   detach"
 
+# concurrent: a second yk tool/gradle in the same checkout is not refused, it runs (queued by the server's tool group when it is full)
+out="$("$yk" tool --detach sleep 6 2>&1)"; e1="$(exec_of <(echo "$out"))"
+out2="$("$yk" tool echo concurrent 2>&1)" || { echo "$out2" >&2; fail "concurrent: second run refused"; }
+grep -q '^RESULT status=SUCCESS' <<<"$out2" || { echo "$out2" >&2; fail "concurrent: second run did not finish"; }
+"$yk" stop "$e1" >/dev/null 2>&1 || true
+echo "ok   concurrent"
+
 # stages: a progress line without --all
 out="$("$yk" tool --detach sleep 2 2>&1)"
 e="$(exec_of <(echo "$out"))"
