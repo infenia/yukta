@@ -102,5 +102,5 @@ a per-effort budget and time box. `YK_ADVISOR=sonnet` (experimental, off by defa
 
 ## Notes
 - Sessions: one per checkout and command (`check-<branch>-<hash of the path>`, suffix `-plan` for `yk check`, `-gradle` for `yk gradle`/`yk tool`); the library is applied to it on every run, and the project path travels in the start payload.
-- One check per checkout at a time (`.yukta-dev/check.lock`).
+- One healing `yk check` per checkout at a time (`.yukta-dev/check.lock`; the refusal names the execution that holds it). `yk gradle`, `yk tool` and `yk check --no-heal` do not edit the checkout, take no lock and queue on the server (`yk tree` shows QUEUED).
 - The previous README (issue and epic runs, heal analysis, the analyzers heal) is in git history before this change.

@@ -54,7 +54,7 @@ For issue runs: `YUKTA_IMPL_MODEL` (opus), `YUKTA_IMPL_BUDGET` (5), `YUKTA_BUDGE
 |---|---|
 | `triage-fallbacks` with `error` | the model is missing or in an unsupported format (`ollama list`, `ollama pull`), Ollama is down, or the call took over 60 s: Ollama cuts a System One call off at 60 s and the machine reads about 50 tokens a second without a big GPU, so keep the brief near 5000 characters |
 | the triage always answers `average` | the confidence floor (`minProbability` 0.3) sends vague answers to the default: look at `p` in the triage events and at `eval/triage` |
-| `yk check` says another check is running | the watcher of the last run holds the lock for a few seconds; wait or `yk stop` |
+| `yk check` says another healing check is running | the watcher of the last run holds the lock for a few seconds; wait or `yk stop` |
 | no events | `YUKTA_HEAL_EVENTS=off` is set, or the dev server was started before this change: `yk up` |
 | `yk heal report` says no events for this selection | `--since`, `--run` or `--project` filter everything out |
 | a fixer hit a guard (`guard-hits`) | it touched `config/`, `build-logic/`, `gradle/`, `.github/`, `.claude/`, the dogfood tooling, added a suppression or removed assertions; its edits stay in the tree: `git diff` |
