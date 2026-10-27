@@ -6,10 +6,11 @@
 #   yk check [--full] [--base REF] [--no-heal] [--detach]  the scoped, self-healing gate: yk plan's stages one after the other; a failure is
 #                                            fixed (free fix, then a System One triage picks model and effort) or stops the run (--no-heal: at once)
 #   yk plan [--full] [--base REF]            dry run: the stages a scoped check of your changes would run, nothing is executed
+#   yk stats                                 runs, median bytes shown to you, median wall and heal dollars per kind of run
 #   yk tool [--detach] [-C dir] <cmd...>     run any other command once, e.g. -C ui pnpm lint | -C cli go test ./...
 #
 # A run's last line is machine readable; exit 0 only on success:
-#   RESULT status=<S> failed_node=<node|-> healed=<stage:step,..|-> execution=<id> session=<id>
+#   RESULT status=<S> failed_node=<node|-> healed=<stage:step,..|-> execution=<id> session=<id> wall=<s> cost=$<heal spend> bytes=<shown to you>
 #
 # Rebuild step 1: the other commands still work but are not advertised. The full usage text is in
 # backup/yk.full.sh; restore it step by step (see backup/README.md).
@@ -213,7 +214,8 @@ watch_owned() {
 # RESULT line.
 cmd_watch() {
   local session="${1:?usage: yk watch <session> <execution> [--all|--stages]}" target="${2:?usage: yk watch <session> <execution> [--all|--stages]}"
-  local filter=(--quiet) progress=""
+  local filter=(--quiet) progress="" shown
+  shown="$(mktemp)"
   [[ "${3:-}" == --all ]] && filter=()
   export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
   # a checkpoint that waits for an answer is news too: say so, once, while the run is watched
@@ -222,13 +224,16 @@ cmd_watch() {
   if [[ "${3:-}" == --stages ]]; then
     ("$(find_cli)" controlbus watch --execution "$target" --until-done 2>/dev/null \
       | grep --line-buffered -E '^NODE ([a-z_]+|verify)(\.heal)? SUCCESS$' | grep --line-buffered -v -E '^NODE (trigger|done) ' \
-      | sed -u 's/^NODE \(.*\) SUCCESS$/STAGE \1 finished/') 8>&- &
+      | sed -u 's/^NODE \(.*\) SUCCESS$/STAGE \1 finished/' | tee -a "$shown") 8>&- &
     progress=$!
   fi
   # A node that never ran (a rung nobody needed, or one behind the failure) is not news: the check has
   # dozens of them. ponytail: filtered here; belongs in the CLI's --quiet if other callers want it.
   "$(find_cli)" controlbus watch --execution "$target" --until-done "${filter[@]}" \
-    | { if ((${#filter[@]})); then grep -v -E '^NODE [^ ]+ (SKIPPED|UPSTREAM_FAILED|CANCELLED)$|^(ERROR|WARN) (heal|attempt|claude|fix-from)/(trigger|heal\?|auto\?|brief|prepare|first|triage\?|report|fixed\?|carry\.[a-z]+):|^WARN [^ ]+: (\* Deprecated licenses: 0|Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true`.*)$'; else cat; fi; } || true
+    | { if ((${#filter[@]})); then grep -v -E '^NODE [^ ]+ (SKIPPED|UPSTREAM_FAILED|CANCELLED)$|^(ERROR|WARN) (heal|attempt|claude|fix-from)/(trigger|heal\?|auto\?|brief|prepare|first|triage\?|report|fixed\?|carry\.[a-z]+):|^WARN [^ ]+: (\* Deprecated licenses: 0|Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true`.*)$'; else cat; fi; } | tee -a "$shown" || true
+  YUKTA_WATCHED_BYTES="$(stat -c %s "$shown")"
+  export YUKTA_WATCHED_BYTES
+  rm -f "$shown"
   kill "$announcer" 2>/dev/null || true
   wait "$announcer" 2>/dev/null || true
   [[ -z "$progress" ]] || wait "$progress" 2>/dev/null || true
@@ -438,6 +443,20 @@ refresh_activity() {
   mv "$DEV_HOME/activity.tmp" "$DEV_HOME/activity"
 }
 
+# yk stats: runs, median bytes shown to the agent, median wall seconds and heal dollars per kind of run, from runs.tsv
+cmd_stats() {
+  local f="$STATE_DIR/runs.tsv"
+  [[ -s "$f" ]] || { echo "no runs recorded yet ($f)"; return 0; }
+  printf '%-14s %5s %8s %12s %10s %8s\n' kind runs failed median_bytes median_wall cost
+  sort -t$'\t' -k2,2 "$f" | awk -F'\t' '
+    function med(a, n,   i, j, t) { for (i = 2; i <= n; i++) { t = a[i]; for (j = i - 1; j >= 1 && a[j] + 0 > t + 0; j--) a[j + 1] = a[j]; a[j + 1] = t } return (n % 2) ? a[(n + 1) / 2] : (a[n / 2] + a[n / 2 + 1]) / 2 }
+    function flush() { if (k == "") return; for (i = 1; i <= n; i++) { b[i] = B[i]; w[i] = W[i] }
+      printf "%-14s %5d %8d %12d %10.1f %8.2f\n", k, n, bad, med(b, n), med(w, n), cost }
+    $2 != k { flush(); k = $2; n = 0; bad = 0; cost = 0 }
+    { n++; B[n] = $6; W[n] = $4; cost += $5; if ($3 != "SUCCESS") bad++ }
+    END { flush() }'
+}
+
 # yk statusline: one line for Claude Code's status line, from cached files only (no network)
 cmd_statusline() {
   local label mark="✗" line status scope healed activity f
@@ -479,6 +498,7 @@ case "$cmd" in
   step) cmd_step "$@" ;;
   signals) cmd_signals "$@" ;;
   approve | reject) cmd_answer "$cmd" "$@" ;;
+  stats) cmd_stats ;;
   statusline) cmd_statusline ;;
   mcp-headers) cmd_mcp_headers ;;
   sum) changes_sum "$REPO_ROOT" ;;

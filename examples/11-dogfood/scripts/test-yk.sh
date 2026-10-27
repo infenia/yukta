@@ -37,4 +37,8 @@ s="$(sed -n 's/.*session=\([^ ]*\).*/\1/p' <<<"$out" | tail -1)"
 "$yk" watch "$s" "$e" --stages >"$tmp/watch.out" 2>&1 || true
 grep -q '^STAGE run finished$' "$tmp/watch.out" || { cat "$tmp/watch.out" >&2; fail "stages: no STAGE line"; }
 grep -q '^RESULT status=SUCCESS' "$tmp/watch.out" || fail "stages: no RESULT line"
+# bytes= is what the watch printed (the STAGE lines and the RESULT line), wall= and cost= are there, runs.tsv got a row, yk stats reads it
+[[ "$(sed -n 's/^RESULT .* bytes=\([0-9]*\)$/\1/p' "$tmp/watch.out")" == "$(wc -c <"$tmp/watch.out" | tr -d ' ')" ]] || { cat "$tmp/watch.out" >&2; fail "bytes: does not match the output"; }
+grep -qE '^RESULT .* wall=[0-9.]+ cost=\$[0-9.]+ bytes=[0-9]+$' "$tmp/watch.out" || fail "result: no wall, cost, bytes"
+[[ "$("$yk" stats)" == *median_bytes* ]] || fail "stats"
 echo "ok   stages"
