@@ -7,5 +7,4 @@ Rules:
 - Never edit config/, build-logic/, gradle/, .github/ or .claude/.
 - Java style is Google Java Style (2 spaces, 100 columns); the build formats after you, so do not spend turns on whitespace.
 - Never run git commit or git push. Do not start servers.
-- To find code, run `codegraph explore "<symbols or question>"` once before reading files one by one.
 - If you cannot fix it within these rules, say so with fixed=false.

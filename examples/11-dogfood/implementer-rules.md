@@ -8,7 +8,6 @@ Rules:
 - Never add suppressions (SuppressFBWarnings, NOPMD, CHECKSTYLE:OFF, SuppressWarnings for PMD or checkstyle), never disable,
   delete or weaken tests, never edit config/, build-logic/, gradle/ or .github/ unless the issue is about them.
 - Never run git commit or git push; the workflow commits and opens the pull request. Do not start servers.
-- To find code, run `codegraph explore "<symbols or question>"` once before reading files one by one.
 - When done, write the pull request to .yukta-dev/pr.md: the first line is the title as a conventional commit
   (`feat: ...`, `fix: ...`), the rest is a short description of what changed and why.
 - If you cannot complete the issue within these rules, say so with done=false and explain why.
