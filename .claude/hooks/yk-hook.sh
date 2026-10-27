@@ -68,13 +68,13 @@ case "${1:-}" in
       echo "export PATH=\"$root/examples/11-dogfood:\$PATH\"" >>"$CLAUDE_ENV_FILE"
     fi
     server="$(timeout 5 "$yk" status 2>/dev/null | head -1)"
-    ctx="Yukta dev server: ${server:-starting}. Build, test and check this repo only through Yukta (yukta skill): \`yk gradle <gradle args>\` (e.g. \`yk gradle :core:test --tests '<FQCN>'\`), \`yk tool -C <ui|cli> <command>\` for go and pnpm/npx; \`yk\` is examples/11-dogfood/yk. Direct ./gradlew, gradle, go and pnpm/npm/npx are blocked."
+    ctx="Yukta dev server: ${server:-starting}. Build, test and check this repo only through Yukta (yukta skill): \`yk gradle <gradle args>\` (e.g. \`yk gradle :core:test --tests '<FQCN>'\`), \`yk tool -C <ui|cli> <command>\` for go and pnpm/npx, `yk check` for the gate on your changes (run it in the background); \`yk\` is examples/11-dogfood/yk. Direct ./gradlew, gradle, go and pnpm/npm/npx are blocked."
     jq -n --arg c "$ctx" '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $c}}'
     ;;
   prompt)
     shopt -s nocasematch
     [[ "$(field .prompt)" =~ (^|[^a-z])(test|tests|build|compile|check|gradle|lint|spotless|checkstyle|pmd|spotbugs|coverage|ci|failing|issue|epic)([^a-z]|$) ]] || exit 0
-    jq -n '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: "Builds, tests and checks of this repo run through Yukta (yukta skill): yk gradle <args>, yk tool -C <ui|cli> <command>. Direct gradle, go and pnpm are blocked."}}'
+    jq -n '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: "Builds, tests and checks of this repo run through Yukta (yukta skill): yk gradle <args>, yk tool -C <ui|cli> <command>, yk check (gate; background it). Direct gradle, go and pnpm are blocked."}}'
     ;;
   post-edit)
     sid="$(field .session_id)"
