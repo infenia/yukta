@@ -8,9 +8,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Yukta Dogfood Design</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <script>try{const t=localStorage.getItem('yk-design-theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
 <style>
 /* Yukta brand tokens, from ui/src/index.css (logo blue #2F6BFF, slate #6A7A9B, orange #E85D0C).
@@ -49,1449 +46,194 @@
   --shadow-card:0 1px 2px rgb(0 0 0/.35);--shadow-raised:0 2px 4px rgb(0 0 0/.3),0 14px 32px -12px rgb(0 0 0/.55);
   color-scheme:dark;}
 *{box-sizing:border-box}
-html{scroll-padding-top:calc(var(--hdr) + 12px)}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "Inter","Inter Variable",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-code,pre,.mono,kbd{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.84em;border:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
-pre{position:relative;background:var(--code);border:1px solid var(--line);padding:14px 16px;border-radius:var(--r);overflow:auto;font-size:13px;line-height:1.55;margin:10px 0;box-shadow:var(--shadow-card)}
+html{scroll-padding-top:16px}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+code,pre{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.84em;border:1px solid var(--line)}
+pre{background:var(--code);border:1px solid var(--line);padding:14px 16px;border-radius:var(--r);overflow:auto;font-size:13px}
 pre code{background:none;padding:0;border:0}
-kbd{display:inline-block;min-width:1.6em;text-align:center;font-size:12px;padding:1px 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;background:var(--panel);color:var(--ink)}
 a{color:var(--accent)}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-::selection{background:color-mix(in srgb,var(--accent) 28%,transparent)}
-
-/* header */
-header{position:sticky;top:0;z-index:20;height:var(--hdr);padding:0 20px;display:flex;gap:14px;align-items:center;
-  background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);flex:none}
-.brand svg{width:30px;height:30px;border-radius:8px;box-shadow:var(--shadow-card)}
-.brand b{font-size:16px;letter-spacing:-.01em}.brand span{color:var(--muted);font-weight:500}
-.hdr-progress{flex:1;display:flex;align-items:center;gap:10px;justify-content:flex-end;color:var(--muted);font-size:12px;min-width:0}
-.meter{width:120px;height:6px;border-radius:99px;background:var(--code);overflow:hidden;flex:none}
-.meter i{display:block;height:100%;width:0;background:var(--accent);border-radius:inherit;transition:width .4s var(--ease)}
-.iconbtn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border-radius:var(--r)}
-.iconbtn svg{width:18px;height:18px}
-button,select,input[type=search]{font:inherit;font-size:14px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:6px 12px}
-select{padding-right:28px}
-input[type=search]{padding-left:32px;background:var(--panel) no-repeat 10px 50%/14px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236A7A9B' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E")}
-input[type=search]:focus,select:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
-button{cursor:pointer;font-weight:500}
-button:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));background:var(--accent-soft)}
-button:disabled,select:disabled{opacity:.5;cursor:not-allowed}
-button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-button.primary:hover{background:color-mix(in srgb,var(--accent) 88%,var(--ink))}
-
-/* layout and navigation */
-.layout{display:flex;align-items:flex-start}
-nav{position:sticky;top:var(--hdr);width:236px;flex:none;padding:18px 12px;display:flex;flex-direction:column;gap:2px;height:calc(100vh - var(--hdr));overflow:auto;border-right:1px solid var(--line)}
-nav .navh{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:4px 12px 8px}
-nav a{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--r);text-decoration:none;color:var(--muted);font-weight:500;font-size:14px}
-nav a .num{flex:none;width:22px;height:22px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;background:var(--code);color:var(--muted)}
-nav a.seen .num{background:color-mix(in srgb,var(--ok) 16%,var(--panel));color:var(--ok)}
-nav a:hover{background:var(--code);color:var(--ink)}
-nav a.on{background:var(--accent-soft);color:var(--accent-ink)}
-nav a.on .num{background:var(--accent);color:var(--on-accent)}
-nav .navfoot{margin-top:auto;padding:14px 12px 4px;font-size:12px;color:var(--muted);line-height:1.8}
-main{flex:1;min-width:0;padding:28px 32px 80px;max-width:1500px}
-section.tab{display:none}section.tab.on{display:block}
-h2{margin:6px 0 6px;font-size:26px;font-weight:600;letter-spacing:-.02em}
-h3{margin:34px 0 8px;font-size:17px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.lead{color:var(--muted);margin:0 0 18px;max-width:82ch}
-.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
-
-/* hero (backdrop sits behind the hero only, never behind data) */
-.hero{position:relative;margin:-28px -32px 8px;padding:48px 32px 30px;overflow:hidden}
-.hero::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.75;
-  background-image:radial-gradient(ellipse 60% 75% at 30% 0%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 70%),
-    linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
-  background-size:auto,2.5rem 2.5rem,2.5rem 2.5rem;mask-image:linear-gradient(to bottom,#000 25%,transparent);-webkit-mask-image:linear-gradient(to bottom,#000 25%,transparent)}
-.hero>*{position:relative;z-index:1}
-.pill{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:99px;border:1px solid var(--line);background:var(--panel);font-size:13px;color:var(--muted);box-shadow:var(--shadow-card)}
-.live{position:relative;width:8px;height:8px;border-radius:50%;background:var(--attention);flex:none}
-.hero h2{font-size:clamp(28px,3.6vw,42px);line-height:1.1;letter-spacing:-.03em;margin:18px 0 12px;max-width:26ch}
-.hero h2 em{font-style:normal;color:var(--accent)}
-.hero .lead{font-size:17px}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:24px 0 6px;max-width:900px}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:12px 16px;box-shadow:var(--shadow-card)}
-.stat b{display:block;font-size:26px;font-weight:600;letter-spacing:-.02em;color:var(--ink);font-variant-numeric:tabular-nums}
-.stat span{font-size:13px;color:var(--muted)}
-.starts{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin:22px 0 4px}
-.start{display:flex;flex-direction:column;gap:6px;padding:16px 18px;text-decoration:none;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--k,var(--accent));border-radius:var(--r-xl);box-shadow:var(--shadow-card)}
-.start .ico{width:34px;height:34px;border-radius:var(--r);display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--k,var(--accent)) 14%,transparent);color:var(--k,var(--accent))}
-.start .ico svg{width:18px;height:18px}
-.start b{font-size:15px}.start span{font-size:13px;color:var(--muted)}
-.start .go{margin-top:auto;font-size:13px;font-weight:600;color:var(--k,var(--accent))}
-
-/* cards, chips, tables */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:16px 18px;box-shadow:var(--shadow-card)}
-.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
-.grid .card b:first-child{display:block;margin-bottom:4px}
-.chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
-.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:var(--panel)}
-.chip i{width:10px;height:10px;border-radius:3px;display:inline-block;border:2px solid currentColor;background:color-mix(in srgb,currentColor 18%,transparent)}
-.chip[role=button]{cursor:pointer;user-select:none}
-.chip[role=button]:hover{border-color:currentColor}
-.chip.off{opacity:.4}
-.chip.only{border-color:currentColor;background:color-mix(in srgb,currentColor 10%,var(--panel))}
-.chips .hint{font-size:12px;color:var(--muted);align-self:center;margin-left:4px}
-.sw-proc{color:var(--c-proc)}.sw-sub{color:var(--c-sub)}.sw-wait{color:var(--c-wait)}.sw-cls{color:var(--c-cls)}.sw-flow{color:var(--c-flow)}.sw-term{color:var(--c-term)}.sw-out{color:var(--c-out)}.sw-entry{color:var(--c-entry)}
-table{border-collapse:collapse;width:100%;font-size:14px}
-th,td{text-align:left;vertical-align:top;padding:9px 14px;border-bottom:1px solid var(--line)}
-tr:last-child td{border-bottom:0}
-tbody tr:hover td,tr.r:hover td{background:color-mix(in srgb,var(--accent) 5%,transparent)}
-th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);position:sticky;top:0;background:var(--code);z-index:1}
-.tw{overflow:auto;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--panel);box-shadow:var(--shadow-card)}
-.tcount{font-size:12px;font-weight:500;color:var(--muted)}
-td.empty{text-align:center;color:var(--muted);padding:22px}
-#ref td:first-child code,.copyable{cursor:copy}
-#ref td:first-child code:hover{border-color:var(--accent)}
-mark{background:color-mix(in srgb,var(--attention) 28%,transparent);color:inherit;border-radius:3px;padding:0 1px}
-
-/* layers */
-.layers{display:flex;flex-direction:column;gap:0;counter-reset:layer;max-width:900px}
-.layer{counter-increment:layer;position:relative;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:var(--r-xl);background:var(--panel);padding:12px 44px 12px 56px;cursor:pointer;box-shadow:var(--shadow-card)}
-.layer::before{content:counter(layer);position:absolute;left:16px;top:13px;width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;background:var(--accent-soft);color:var(--accent-ink)}
-.layer::after{content:"";position:absolute;right:18px;top:20px;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg)}
-.layer.on::after{transform:rotate(-135deg);top:24px}
-.layer:nth-child(4n+1){border-left-color:var(--attention)}.layer:nth-child(4n+1)::before{background:color-mix(in srgb,var(--attention) 16%,var(--panel));color:var(--attention)}
-.layer:hover,.layer.on{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
-.layer b{display:block}.layer small{color:var(--muted);font-size:13.5px}
-.layer .more{display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:14px}.layer.on .more{display:block}
-.arrow{width:2px;height:16px;margin:0 0 0 41px;background:var(--line);font-size:0}
-
-/* graph */
-.gwrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);overflow:auto;position:relative;box-shadow:var(--shadow-card);cursor:grab;
-  background-image:radial-gradient(color-mix(in srgb,var(--muted) 22%,transparent) 1px,transparent 1px);background-size:18px 18px}
-.gwrap.panning{cursor:grabbing;user-select:none}
-.gtools{display:flex;gap:6px;align-items:center;margin:10px 0;flex-wrap:wrap;color:var(--muted);font-size:13px}
-.gtools button{min-width:36px;padding:5px 10px}
-.gtools span{margin-left:6px}
-.ginfo{margin-top:12px;min-height:92px;border-left:4px solid var(--accent)}
-.ginfo h4{margin:0 0 6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:15px}
-.ginfo h4 button{margin-left:auto}
-.ginfo .badge{font-size:11px;font-weight:600;padding:1px 9px;border-radius:99px;border:1px solid currentColor;background:color-mix(in srgb,currentColor 10%,transparent)}
-.ginfo .empty-hint{color:var(--muted);display:flex;align-items:center;gap:8px}
-svg text{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-.node{cursor:pointer;outline:none}
-.node rect{stroke-width:2;fill:var(--panel)}
-.node .nid{font-size:12px;font-weight:600;fill:var(--ink)}
-.node .nsub{font-size:10px;fill:var(--muted)}
-.node.grp rect{stroke-dasharray:5 3}
-.t-proc rect{stroke:var(--c-proc);fill:color-mix(in srgb,var(--c-proc) 10%,var(--panel))}
-.t-sub rect,.t-wf rect{stroke:var(--c-sub);fill:color-mix(in srgb,var(--c-sub) 12%,var(--panel))}
-.t-wait rect{stroke:var(--c-wait);fill:color-mix(in srgb,var(--c-wait) 12%,var(--panel))}
-.t-cls rect{stroke:var(--c-cls);fill:color-mix(in srgb,var(--c-cls) 12%,var(--panel))}
-.t-flow rect{stroke:var(--c-flow);fill:color-mix(in srgb,var(--c-flow) 8%,var(--panel))}
-.t-term rect{stroke:var(--c-term);fill:color-mix(in srgb,var(--c-term) 10%,var(--panel))}
-.t-out rect{stroke:var(--c-out);fill:color-mix(in srgb,var(--c-out) 10%,var(--panel))}
-.t-entry rect{stroke:var(--c-entry);fill:color-mix(in srgb,var(--c-entry) 8%,var(--panel));stroke-dasharray:3 3}
-.node:hover rect,.node:focus rect,.node.sel rect{stroke-width:3.5}
-.node.sel rect{stroke:var(--accent)}
-.node.visited rect{stroke-width:3}
-.node.active rect{stroke:var(--attention);stroke-width:4}
-svg.hl .node:not(.nb){opacity:.28}svg.hl .edge:not(.nb){opacity:.1}
-svg.dimun .node:not(.visited):not(.active){opacity:.4}
-.node,.edge{transition:opacity .18s var(--ease)}
-.node.typeoff{opacity:.18}
-.edge path{fill:none;stroke-width:2}
-.edge.k-ok path{stroke:var(--ok)}.edge.k-fail path{stroke:var(--fail);stroke-dasharray:6 4}.edge.k-none path{stroke:var(--muted)}
-.edge.k-call path{stroke:var(--call);stroke-width:2.5}.edge.k-log path{stroke:var(--muted);stroke-dasharray:2 4;stroke-width:1.5}
-.edge text{font-size:10.5px;fill:var(--muted);text-anchor:middle}
-.edge .lb{fill:var(--panel);stroke:var(--line)}
-.edge.k-fail text{fill:var(--fail)}.edge.k-ok text{fill:var(--ok)}.edge.k-call text{fill:var(--call)}
-
-/* simulator */
-.sim{display:grid;grid-template-columns:minmax(280px,380px) minmax(0,1fr);gap:16px;align-items:start}
-.sim>div{min-width:0}
-.presets{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 16px}
-.preset{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;padding:8px 14px;border-radius:var(--r-xl)}
-.preset b{font-size:13.5px}.preset small{font-size:12px;color:var(--muted);font-weight:400}
-.preset.on{border-color:var(--accent);background:var(--accent-soft)}
-.ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px;padding:14px 16px}
-.ctl label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:500;color:var(--muted)}
-.player{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
-.player .sp{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
-.player select{padding:5px 26px 5px 8px;font-size:13px}
-.prog{height:6px;border-radius:99px;background:var(--code);overflow:hidden;margin:4px 0 14px}
-.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--attention));border-radius:inherit;transition:width .3s var(--ease)}
-.log{max-height:680px;overflow:auto;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--panel);box-shadow:var(--shadow-card)}
-.ev{display:flex;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
-.ev:hover{background:var(--code)}.ev.cur{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}.ev.future{opacity:.38}
-.ev .d{flex:none;width:9px;height:9px;border-radius:50%;margin-top:6px;background:var(--muted)}
-.ev.ok .d{background:var(--ok)}.ev.fail .d{background:var(--fail)}.ev.warn .d{background:var(--c-wait)}.ev.open .d{background:var(--c-sub)}.ev.result .d{background:var(--attention)}
-.ev .w{color:var(--muted);font-size:11px;display:block;font-family:"JetBrains Mono",ui-monospace,monospace}
-.scard{margin-bottom:12px;padding:12px 14px}.scard h4{margin:0 0 8px;font-size:13px;display:flex;gap:8px;align-items:center}
-.scard .gwrap{border:0;background-image:none;box-shadow:none}
-.res{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:13px;background:var(--code);border:1px solid var(--line);border-left:4px solid var(--ok);padding:12px 14px;border-radius:var(--r);margin-top:12px;word-break:break-all}
-.res.bad{border-left-color:var(--fail)}.res.esc{border-left-color:var(--attention)}
-.kv{display:flex;gap:18px;flex-wrap:wrap;margin:6px 0;color:var(--muted);font-size:13px}.kv b{color:var(--ink);font-variant-numeric:tabular-nums}
-.note{border:1px solid color-mix(in srgb,var(--attention) 30%,var(--line));border-left:4px solid var(--attention);background:color-mix(in srgb,var(--attention) 7%,var(--panel));padding:10px 14px;border-radius:var(--r);margin:16px 0;font-size:14px}
-.sub-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
-.sub-tabs button{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:13px;border-radius:99px}
-.sub-tabs button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
-.steps{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;margin:12px 0}
-.steps .card{flex:1;min-width:190px}
-.steps .card h4{margin:0 0 6px;font-size:14px}
-.sarrow{align-self:center;color:var(--accent);font-weight:600}
-ul.tight{margin:6px 0;padding-left:20px}ul.tight li{margin:4px 0}
-
-/* plain-language layer: boxes, story, glossary terms, narrator */
-.plain{display:flex;gap:12px;align-items:flex-start;margin:4px 0 18px;max-width:900px;padding:14px 16px;border-radius:var(--r-xl);
-  background:color-mix(in srgb,var(--c-term) 7%,var(--panel));border:1px solid color-mix(in srgb,var(--c-term) 28%,var(--line))}
-.plain p{margin:0;font-size:15.5px;line-height:1.65}
-.plain-tag{flex:none;margin-top:2px;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2px 9px;border-radius:99px;color:var(--c-term);background:color-mix(in srgb,var(--c-term) 14%,var(--panel))}
-body.no-plain .plain,body.no-plain .plain-line,body.no-plain .narr,body.no-plain .story-wrap,body.no-plain .ctl small{display:none}
-dfn{font-style:normal;text-decoration:underline dotted color-mix(in srgb,var(--accent) 70%,transparent);text-decoration-thickness:2px;text-underline-offset:3px;cursor:help}
-dfn:hover,dfn:focus{color:var(--accent);outline:none}
-.gtip{position:fixed;z-index:60;max-width:300px;padding:10px 12px;border-radius:var(--r);background:var(--ink);color:var(--bg);font-size:13px;line-height:1.5;box-shadow:var(--shadow-raised);pointer-events:none;opacity:0;transition:opacity .12s}
-.gtip.show{opacity:1}.gtip b{display:block;margin-bottom:2px}
-.gtip small{display:block;margin-top:4px;opacity:.7}
-.story-wrap h3{margin-top:30px}
-.story{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;max-width:900px}
-.story-steps{display:flex;gap:6px;flex-wrap:wrap}
-.story-steps button{display:flex;align-items:center;gap:8px;border-radius:99px;padding:5px 12px 5px 6px;font-size:13px}
-.story-steps button span{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--code);font-size:11px;font-weight:600}
-.story-steps button.done span{background:color-mix(in srgb,var(--ok) 18%,var(--panel));color:var(--ok)}
-.story-steps button.on{border-color:var(--accent);background:var(--accent-soft)}
-.story-steps button.on span{background:var(--accent);color:var(--on-accent)}
-.story-card{display:grid;grid-template-columns:88px minmax(0,1fr);gap:18px;align-items:start;padding:22px 24px;min-height:190px}
-.story-card .big{width:88px;height:88px;border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:46px;background:var(--accent-soft)}
-.story-card h4{margin:2px 0 8px;font-size:19px;letter-spacing:-.01em}
-.story-card p{margin:0 0 10px;font-size:15.5px;line-height:1.65}
-.story-card .aside{font-size:13.5px;color:var(--muted);border-left:3px solid var(--attention);padding-left:10px;margin:0}
-.story-nav{display:flex;gap:8px;justify-content:space-between;align-items:center}
-.story-nav small{color:var(--muted)}
-.cast{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;max-width:900px;margin:10px 0}
-.cast .card{display:flex;gap:10px;align-items:flex-start;padding:12px 14px}
-.cast .card .e{font-size:24px;line-height:1}.cast .card b{display:block;font-size:14px}.cast .card span{font-size:13px;color:var(--muted)}
-.plain-line{margin:0 0 8px;padding:8px 12px;border-radius:var(--r);background:color-mix(in srgb,var(--c-term) 8%,var(--panel));font-size:14px}
-.narr{display:flex;gap:14px;align-items:center;margin-bottom:14px;padding:12px 16px;border-left:4px solid var(--c-term)}
-.narr .ni{font-size:30px;line-height:1;flex:none}
-.narr small{display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--c-term)}
-.narr p{margin:2px 0 0;font-size:16px;line-height:1.5}
-.ctl label>span{display:flex;flex-direction:column;gap:1px;color:var(--ink);font-size:13px;font-weight:600}
-.ctl small{font-weight:400;color:var(--muted);font-size:12px}
-#glossDlg{max-width:min(620px,calc(100vw - 32px));width:620px;max-height:min(80vh,760px);padding:0}
-#glossDlg .gh{position:sticky;top:0;background:var(--panel);padding:18px 22px 12px;border-bottom:1px solid var(--line);z-index:1}
-#glossDlg .gh input{width:100%;margin-top:10px}
-#glossDlg dl{margin:0;padding:6px 22px 18px}
-#glossDlg dt{font-weight:600;margin-top:14px}
-#glossDlg dd{margin:2px 0 0;color:var(--muted);font-size:14px}
-#glossDlg .hit{background:var(--accent-soft);border-radius:6px;box-shadow:0 0 0 6px var(--accent-soft)}
-#plainBtn{width:auto;padding:0 12px;gap:6px;font-size:13px}
-#plainBtn[aria-pressed="true"]{background:color-mix(in srgb,var(--c-term) 12%,var(--panel));border-color:color-mix(in srgb,var(--c-term) 45%,var(--line));color:var(--c-term)}
-@media(max-width:700px){.story-card{grid-template-columns:1fr}.story-card .big{width:64px;height:64px;font-size:34px}#plainBtn .lbl2{display:none}}
-
-/* section pager, toast, shortcut sheet */
-.pager{display:flex;justify-content:space-between;gap:12px;margin-top:48px;padding-top:20px;border-top:1px solid var(--line)}
-.pager a{flex:1;max-width:320px;display:flex;flex-direction:column;gap:2px;padding:12px 16px;border:1px solid var(--line);border-radius:var(--r-xl);text-decoration:none;color:var(--ink);background:var(--panel);box-shadow:var(--shadow-card)}
-.pager a small{color:var(--muted);font-size:12px}.pager a b{font-weight:600}
-.pager a.next{text-align:right;margin-left:auto}
-.pager a:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
-.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;z-index:50;padding:9px 16px;border-radius:99px;background:var(--ink);color:var(--bg);font-size:13px;font-weight:500;box-shadow:var(--shadow-raised);transition:opacity .2s var(--ease),transform .2s var(--ease)}
-.toast.show{opacity:1;transform:translate(-50%,0)}
-.copybtn{position:absolute;top:8px;right:8px;font-size:12px;padding:3px 9px;opacity:.75}
-pre:hover .copybtn{opacity:1}
-dialog{border:1px solid var(--line);border-radius:var(--r-xl);background:var(--panel);color:var(--ink);padding:20px 24px;box-shadow:var(--shadow-raised);max-width:min(440px,calc(100vw - 32px))}
-dialog::backdrop{background:rgb(10 14 22/.45);backdrop-filter:blur(2px)}
-dialog h4{margin:0 0 12px;font-size:16px}
-dialog table td{border:0;padding:5px 8px 5px 0}
-dialog .close{float:right;margin:-6px -8px 0 0}
-
-@media (prefers-reduced-motion:no-preference){
-  .card,.start,.stat,.layer,.pager a,.preset,button,nav a{transition:transform .18s var(--ease),box-shadow .18s var(--ease),border-color .18s var(--ease),background-color .18s var(--ease),color .18s var(--ease)}
-  .start:hover,.pager a:hover,.grid .card:hover,.steps .card:hover{transform:translateY(-2px);box-shadow:var(--shadow-raised)}
-  section.tab.on{animation:fadein .28s var(--ease)}
-  @keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  .live::after{content:"";position:absolute;inset:0;border-radius:inherit;background:inherit;animation:live 2.4s var(--ease) infinite}
-  @keyframes live{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(2.6);opacity:0}}
-  .node.active rect{animation:breathe 1.6s ease-in-out infinite}
-  @keyframes breathe{50%{stroke-width:6;stroke-opacity:.6}}
-  .edge.nb.k-call path,.edge.nb.k-ok path{stroke-dasharray:7 5;animation:flow .9s linear infinite}
-  @keyframes flow{to{stroke-dashoffset:-24}}
-}
-
-@media(max-width:1000px){
-  .layout{display:block}
-  nav{position:sticky;top:var(--hdr);z-index:10;width:auto;height:auto;flex-direction:row;gap:6px;padding:10px 16px;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);background:var(--bg);scrollbar-width:none}
-  nav .navh,nav .navfoot{display:none}
-  nav a{flex:none;border:1px solid var(--line);border-radius:99px;padding:5px 12px 5px 6px}
-  main{padding:22px 16px 64px}
-  .hero{margin:-22px -16px 8px;padding:36px 16px 24px}
-  .sim{grid-template-columns:1fr}
-  .hdr-progress .meter,.hdr-progress .lbl{display:none}
-  .brand span{display:none}
-  header{padding:0 16px}
-}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 16px 80px}
+nav{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 0 18px;border-bottom:1px solid var(--line);margin-bottom:8px;font-size:14px}
+h1{font-size:28px;margin:18px 0 4px}h2{font-size:21px;margin:40px 0 8px;padding-top:8px;border-top:1px solid var(--line)}h3{font-size:16px;margin:24px 0 6px}
+.lead{color:var(--muted);margin:0 0 12px}
+.note{background:var(--accent-soft);color:var(--accent-ink);border-radius:var(--r);padding:10px 14px;margin:14px 0}
+.warn{background:color-mix(in srgb,var(--attention) 14%,var(--panel));border-left:3px solid var(--attention);border-radius:var(--r);padding:10px 14px;margin:14px 0}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0 16px}
+th,td{text-align:left;vertical-align:top;padding:7px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.tw{overflow-x:auto}
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin:12px 0}
+.flow>div{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:8px 12px;box-shadow:var(--shadow-card);flex:1 1 150px;font-size:14px}
+.flow>div b{display:block}.flow>.arrow{flex:0 0 auto;border:0;background:none;box-shadow:none;padding:8px 0;color:var(--muted);align-self:center}
+.ok{color:var(--ok)}.bad{color:var(--fail)}
+button#theme{float:right;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:var(--r);padding:4px 10px;cursor:pointer}
 </style>
 </head>
 <body>
-<header>
-  <a class="brand" href="#overview" aria-label="Yukta dogfood design, overview">
-    <svg viewBox="18 19 212 212" aria-hidden="true"><rect x="18" y="19" width="212" height="212" rx="40" fill="#fff"/><g fill="none" stroke="#6A7A9B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M67 62 82 77H138"/><path d="M82 77V89"/><path d="M61 184 82 163H131"/><path d="M82 163V151"/><path d="M35 120H51"/><path d="M165 104V129"/><path d="M130 128 141 139"/><path d="M184 58 194 48"/><path d="M189 187 195 193"/></g><circle cx="54" cy="49" r="10" fill="none" stroke="#E85D0C" stroke-width="5"/><circle cx="82" cy="120" r="25" fill="#2F6BFF"/><circle cx="165" cy="77" r="15" fill="none" stroke="#2F6BFF" stroke-width="12"/><circle cx="165" cy="163" r="20" fill="none" stroke="#2F6BFF" stroke-width="16"/><circle cx="206" cy="204" r="10" fill="#E85D0C"/></svg>
-    <b>Yukta</b><span>dogfood design</span>
-  </a>
-  <div class="hdr-progress"><span class="lbl" id="seenLbl">0 of 9 explored</span><div class="meter" aria-hidden="true"><i id="seenBar"></i></div></div>
-  <button id="plainBtn" class="iconbtn" aria-pressed="true" title="Show or hide the plain-language explanations (p)"><span aria-hidden="true">💬</span><span class="lbl2">Plain words</span></button>
-  <button id="glossBtn" class="iconbtn" title="Glossary: what the words mean (g)" aria-label="Glossary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></button>
-  <button id="keys" class="iconbtn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></button>
-  <button id="theme" class="iconbtn" title="Toggle light and dark (t)" aria-label="Toggle light and dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
-</header>
-<div class="layout">
-<nav id="nav" aria-label="Sections"><div class="navh">Sections</div></nav>
-<main>
+<div class="wrap">
+<button id="theme" type="button">Light / dark</button>
+<h1>Developing Yukta with Yukta</h1>
+<p class="lead">The dogfood loop: every build and check of this repo runs as a Yukta workflow on a local dev server, and a failed check is repaired by Claude models, cheapest first, before a developer has to step in.</p>
+<nav>
+  <a href="#state">What is built</a><a href="#flow">A run</a><a href="#workflows">Workflows</a><a href="#heal">Heal</a><a href="#guard">The guard</a>
+  <a href="#fixer">The fixer session</a><a href="#config">Configuration</a><a href="#commands">Commands</a><a href="#evidence">Evidence</a><a href="#gaps">Engine gaps</a><a href="#open">Open items</a>
+</nav>
 
-<!-- ============ OVERVIEW ============ -->
-<section class="tab" id="overview" data-title="Overview">
-  <div class="hero">
-    <span class="pill"><span class="live"></span>Developing Yukta with Yukta</span>
-    <h2>Every build of Yukta runs <em>as a Yukta workflow</em>.</h2>
-    <p class="lead" style="color:var(--ink)"><dfn data-g="yukta">Yukta</dfn> runs jobs as step-by-step flowcharts. Its own team uses it to check Yukta's code (<dfn data-g="dogfood">dogfooding</dfn>), and when a check fails, AI helpers try to repair it, cheapest first, before a person has to step in. <b>New here?</b> <a href="#overview" id="toStory">Start with the 6-step story ↓</a></p>
-    <p class="lead">Builds, tests and checks run on a local <em>dev server</em> that is itself built from <code>origin/main</code>. One command, <code>yk</code>, is the only entry point, and every run ends in one machine-readable <code>RESULT</code> line.</p>
-    <div class="stats">
-      <div class="stat"><b>1</b><span>command to type: <dfn data-g="yk"><code>yk</code></dfn></span></div>
-      <div class="stat"><b>8</b><span>flowcharts (<dfn data-g="workflow">workflows</dfn>)</span></div>
-      <div class="stat"><b>3</b><span>AI repairers, cheapest first</span></div>
-      <div class="stat"><b>5</b><span>flowcharts deep at most, one inside another</span></div>
-    </div>
-    <div class="starts">
-      <a class="start" href="#simulator"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><b>Replay a failure</b><span>Pick what breaks and watch heal escalate through the nested workflows.</span><span class="go">Open the simulator →</span></a>
-      <a class="start" href="#callgraph" style="--k:var(--c-sub)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7.5 6h9M6.3 8.2l4.4 7.6M17.7 8.2l-4.4 7.6"/></svg></span><b>See who calls whom</b><span>From <code>yk run epic</code> down to a single fix attempt.</span><span class="go">Open the call graph →</span></a>
-      <a class="start" href="#workflows" style="--k:var(--c-term)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/><path d="M10 7h4a3 3 0 0 1 3 3v4"/></svg></span><b>Read each workflow</b><span>The real node graphs the generators emit, node by node.</span><span class="go">Open the workflows →</span></a>
-      <a class="start" href="#reference" style="--k:var(--attention)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 17 6-5-6-5M12 19h8"/></svg></span><b>Look up a command</b><span>Every <code>yk</code> command and knob, searchable, one click to copy.</span><span class="go">Open the reference →</span></a>
-    </div>
-  </div>
+<h2 id="state">What is built</h2>
+<p class="lead">This page describes the code as it is. The older, larger design (analyzers healed in parallel, <code>fix-from</code> with efforts climbing, issue and epic runs) is in git history before this commit.</p>
+<div class="tw"><table>
+<tr><th>Part</th><th>State</th><th>Where</th></tr>
+<tr><td><code>yk gradle</code>, <code>yk tool</code>, <code>yk plan</code>, <code>yk check</code></td><td class="ok">built</td><td><code>yk</code>, <code>scripts/plan.sh</code></td></tr>
+<tr><td>Workflows <code>tool</code>, <code>claude</code>, <code>attempt</code>, <code>heal</code>, <code>check</code></td><td class="ok">built</td><td><code>session.json</code>, generated by <code>scripts/gen-heal.py</code> and <code>scripts/gen-check.py</code></td></tr>
+<tr><td>Free fixes, System One triage, model ladders, guard, verify</td><td class="ok">built, run end to end on planted failures</td><td><code>heal.json</code>, <code>scripts/yukta-heal.sh</code></td></tr>
+<tr><td><code>yk run issue|epic</code>, <code>implement-issue</code>, <code>run-issue</code>, <code>run-epic</code></td><td class="bad">switched off until rebuilt on the new check</td><td><code>backup/</code>, <code>scripts/yukta-issue.sh</code></td></tr>
+<tr><td><code>yk heal report|analyze|show</code>, steering commands, Stop hook, slash commands</td><td class="bad">hidden</td><td><code>backup/</code>, <code>scripts/heal-report.py</code></td></tr>
+</table></div>
 
-  <div class="story-wrap">
-    <h3>The whole idea in 6 steps</h3>
-    <p class="lead">No programming needed. Think of a factory with an inspection line and a repair crew.</p>
-    <div class="story" id="story"></div>
-    <h3>Who's who</h3>
-    <div class="cast">
-      <div class="card"><span class="e">🧑‍💻</span><div><b>The developer</b><span>A person, or <dfn data-g="claudecode">Claude Code</dfn>, changing the code.</span></div></div>
-      <div class="card"><span class="e">🎛️</span><div><b><code>yk</code></b><span>The remote control. The only command anyone types.</span></div></div>
-      <div class="card"><span class="e">🏭</span><div><b>The dev server</b><span>Yukta itself, on your computer, running the flowcharts.</span></div></div>
-      <div class="card"><span class="e">🔍</span><div><b>Inspectors</b><span>Automatic <dfn data-g="stage">checks</dfn>: format, tests, style, security…</span></div></div>
-      <div class="card"><span class="e">🩺</span><div><b>The triage nurse</b><span>A small free AI on your computer that rates how hard a fix is.</span></div></div>
-      <div class="card"><span class="e">🧑‍🔧</span><div><b>Repairers</b><span><dfn data-g="haiku">Haiku</dfn>, <dfn data-g="sonnet">Sonnet</dfn>, <dfn data-g="opus">Opus</dfn>: Claude AI models, junior to senior.</span></div></div>
-    </div>
-  </div>
-
-  <h3>The layers (click one)</h3>
-  <div class="layers" id="layers"></div>
-
-  <h3>Workflows are generated, not hand-written</h3>
-  <p class="lead">The stage chain is the data; the graph around it is produced by <code>jq</code> in <code>scripts/_lib.sh</code> each time you run <code>yk</code>.</p>
-  <div class="steps">
-    <div class="card"><h4>session.json</h4>The linear spec: <code>gradle-check</code> (spotless → … → cli), <code>quick-check</code>, <code>gradle-run</code>. Also the <code>--no-heal</code> path.</div>
-    <div class="sarrow">+</div>
-    <div class="card"><h4>heal.json</h4>The policy: models <code>haiku, sonnet, opus</code>, efforts with timeout and budget, triage prompt and levels, which stages are analyzers, which have an auto fix.</div>
-    <div class="sarrow">→</div>
-    <div class="card"><h4>jq generators</h4><code>heal_workflow</code> unrolls <code>check</code>; <code>heal_subflows</code> makes <code>heal</code> and <code>fix-from-*</code>; <code>issue_workflows</code> and <code>epic_workflows</code> add the issue layers.</div>
-    <div class="sarrow">→</div>
-    <div class="card"><h4>session apply, workflow start</h4>The CLI uploads one session JSON, then starts one workflow. <code>yk watch</code> follows it.</div>
-  </div>
-  <div class="note"><b>Two kinds of session.</b> <code>yk check</code> / <code>yk gradle</code> apply a session per checkout, <code>check-&lt;branch&gt;-&lt;hash of path&gt;</code>, with the project path baked in. <code>yk run issue|epic</code> apply the shared session <code>yukta-dev</code>, where the project is a start variable (<code>start.project</code>) so the same <code>check</code> serves any worktree.</div>
-
-  <h3>Design decisions worth knowing</h3>
-  <div class="grid">
-    <div class="card"><b>One execution per check</b><br>The whole gate, heals included, is one run, so <code>yk watch</code>, <code>yk tree</code> and <code>yk retry</code> steer a single thing.</div>
-    <div class="card"><b>Route by exit code</b><br>Stage nodes use <code>failureMode: CONTINUE</code> + <code>routeByExitCode</code>, so a failing stage takes a <code>failure</code> edge instead of killing the run.</div>
-    <div class="card"><b>Escalation is composition</b><br><code>check</code> calls <code>heal</code>, which calls <code>fix-from-&lt;effort&gt;</code> as <code>SUB_WORKFLOW</code>s. Cheap and deterministic first, then Claude haiku → sonnet → opus.</div>
-    <div class="card"><b>Fixers are judged by the check</b><br>After every attempt the failing stage's own command re-runs. A guard rejects edits to config, build, CI, added suppressions or removed assertions. Fixers never commit.</div>
-    <div class="card"><b>One fixer at a time</b><br>Analyzers run in parallel, but a single <code>analyzers.heal</code> fixes all failures, so two models never edit the tree together. Gradle nodes share a concurrency group (2).</div>
-    <div class="card"><b>Nothing outward-facing by itself</b><br><code>before-pr</code> fails the run if nobody answers. <code>before-implement</code> merely continues after an hour.</div>
-    <div class="card"><b>Server from main, workflows from your checkout</b><br>The server swaps to a newer main only while idle, so a run never changes under itself.</div>
-    <div class="card"><b>Every step is logged</b><br>One append-only <code>heal-events.jsonl</code> feeds <code>yk heal report</code> and <code>analyze</code>, which is how the heal itself gets improved.</div>
-  </div>
-</section>
-
-<!-- ============ CALL GRAPH ============ -->
-<section class="tab" id="callgraph" data-title="Workflow call graph">
-  <h2>Workflow call graph</h2>
-  <div class="plain"><span class="plain-tag">In plain words</span><p>Flowcharts can hand work to other flowcharts, like a manager delegating to a team lead, who delegates to a specialist. This map shows who delegates to whom. Orange boxes are commands a person types; each violet arrow means <em>“start this one and wait until it finishes”</em> (a <dfn data-g="subworkflow">sub-workflow</dfn>).</p></div>
-  <p class="lead">Which workflow calls which. Violet arrows are <code>SUB_WORKFLOW</code> nodes: the caller waits for the child and routes on how it ended. Click a workflow to read it, then <em>Open workflow</em> to see its internals.</p>
-  <div class="chips">
-    <span class="chip sw-entry"><i></i>entry point (a command)</span>
-    <span class="chip sw-sub"><i></i>workflow</span>
-    <span class="chip sw-flow"><i></i>plain workflow (no sub-workflows)</span>
-  </div>
-  <div class="gtools" data-g="callgraph"></div>
-  <div class="gwrap" id="g-callgraph"></div>
-  <div class="card ginfo" id="i-callgraph"><span class="empty-hint">👆 Click a node for its detail.</span></div>
-  <div class="note"><b>Nesting depth.</b> The deepest chain is <code>yk run epic</code> → <code>run-epic</code> → <code>run-issue</code> → <code>implement-issue</code> → <code>check</code> → <code>heal</code> → <code>fix-from-&lt;effort&gt;</code>: five levels below the epic. The README says the engine allows depth 5, so this is the whole budget. Started by <code>yk check</code> directly, the chain is just check → heal → fix (depth 2).</div>
-</section>
-
-<!-- ============ WORKFLOWS ============ -->
-<section class="tab" id="workflows" data-title="Workflows">
-  <h2>The workflows, one by one</h2>
-  <div class="plain"><span class="plain-tag">In plain words</span><p>Each tab is one <dfn data-g="workflow">flowchart</dfn>. Every box is a step (a <dfn data-g="node">node</dfn>); a <span style="color:var(--ok);font-weight:600">green arrow</span> means “if this worked, go here”, a <span style="color:var(--fail);font-weight:600">red dashed arrow</span> means “if it failed, go here”. Click any box: the panel underneath explains it, first in plain words, then in detail. Start with <b>check</b> (the inspection line), then <b>heal</b> (the repair crew).</p></div>
-  <p class="lead">Each diagram is the real node graph the generators emit (the unrolled <code>check</code> shows one sequential stage in full and collapses the repeats). Green edges are the <code>success</code> port, red dashed the <code>failure</code> port, dotted edges only log.</p>
-  <div class="chips">
-    <span class="chip sw-proc"><i></i>PROCESS_EXECUTOR</span>
-    <span class="chip sw-sub"><i></i>SUB_WORKFLOW</span>
-    <span class="chip sw-wait"><i></i>WAIT_FOR_SIGNAL</span>
-    <span class="chip sw-cls"><i></i>CLASSIFY</span>
-    <span class="chip sw-flow"><i></i>flow control / source</span>
-    <span class="chip sw-term"><i></i>CONSOLE_TERMINAL</span>
-    <span class="chip sw-out"><i></i>OUTCOME_TERMINAL</span>
-  </div>
-  <div class="sub-tabs" id="wfTabs"></div>
-  <p id="wfDesc" class="lead"></p>
-  <div class="gtools" data-g="wf"></div>
-  <div class="gwrap" id="g-wf"></div>
-  <div class="card ginfo" id="i-wf"><span class="empty-hint">👆 Click a node for its detail.</span></div>
-</section>
-
-<!-- ============ SIMULATOR ============ -->
-<section class="tab" id="simulator" data-title="Failure simulator">
-  <h2>Replay a failure</h2>
-  <div class="plain"><span class="plain-tag">In plain words</span><p>A safe “what if” playground: nothing really runs and nothing costs money. Pick a scenario, press <b>Play</b>, and read the green narrator box. It tells you in everyday words what is happening while the work passes from flowchart to flowchart. The diagrams on the right show where you are.</p></div>
-  <p class="lead">Choose what fails and how hard it is, then step through. The cards on the right are the workflows currently running, nested the way the engine nests them; visited nodes are lit and the current one pulses orange. Pick a scenario to start, or set your own below. Spend figures are the <em>caps</em> from <code>heal.json</code>, not measurements.</p>
-  <div class="presets" id="s-presets" aria-label="Scenarios"></div>
-  <div class="ctl card">
-    <label><span>Failing stage <small>which inspection breaks</small></span><select id="s-stage"></select></label>
-    <label><span>Triage answer <small>how hard the small AI thinks it is</small></span><select id="s-triage">
-      <option value="easy">easy → haiku/medium</option>
-      <option value="average" selected>average → sonnet/medium</option>
-      <option value="hard">hard → sonnet/high</option>
-      <option value="uncertain">uncertain → default (average)</option>
-      <option value="error">Ollama down or slow → default</option>
-      <option value="off">--triage off → default</option></select></label>
-    <label><span>Who can fix it <small>the cheapest AI that would succeed</small></span><select id="s-fixer"></select></label>
-    <label><span>Effort needed <small>how hard that AI must think</small></span><select id="s-need"><option>low</option><option>medium</option><option>high</option></select></label>
-    <label><span>Context <small>typed by hand, or part of a ticket</small></span><select id="s-issue"><option value="0">yk check</option><option value="1">inside yk run issue (adds 2 outer workflows)</option></select></label>
-  </div>
-  <div class="player">
-    <button class="primary" id="s-play">Play</button><button id="s-back" title="Previous step (←)">← Back</button><button id="s-step" title="Next step (→)">Step →</button><button id="s-reset">Reset</button>
-    <label class="sp">Speed<select id="s-speed"><option value="1800">slow</option><option value="1000" selected>normal</option><option value="450">fast</option></select></label>
-    <span id="s-meta" class="kv" style="margin:0 0 0 8px"></span>
-  </div>
-  <div class="prog" aria-hidden="true"><i id="s-prog"></i></div>
-  <div class="narr card" id="s-narr" aria-live="polite"><span class="ni" id="s-ni">▶️</span><div><small>What's happening, in plain words</small><p id="s-nt"></p></div></div>
-  <div class="sim">
-    <div><div class="log" id="s-log"></div></div>
-    <div><div id="s-stack"></div><div class="res" id="s-result" hidden></div></div>
-  </div>
-</section>
-
-<!-- ============ SERVER AND CLIENT ============ -->
-<section class="tab" id="server" data-title="Server and client">
-  <h2>Dev server and a <code>yk check</code> run</h2>
-  <div class="plain"><span class="plain-tag">In plain words</span><p>The <dfn data-g="devserver">dev server</dfn> is the engine that actually runs the flowcharts: a private copy of Yukta on the developer’s own computer, always rebuilt from the latest approved code (<dfn data-g="main">main</dfn>). It never swaps itself out in the middle of a job. <code>yk</code> is the remote control: it starts the server if needed, sends the flowchart, follows it, and prints the result.</p></div>
-  <h3>The dev server: <code>yk up</code></h3>
-  <p class="lead">One server per machine, always built from <code>origin/main</code> into <code>~/.local/state/yukta-dev/builds/&lt;sha&gt;</code> (three kept), on <code>127.0.0.1:9858</code>. It needs an API key because it runs arbitrary processes.</p>
-  <div class="gtools" data-g="srv"></div>
-  <div class="gwrap" id="g-srv"></div>
-  <div class="card ginfo" id="i-srv"><span class="empty-hint">👆 Click a node for its detail.</span></div>
-
-  <h3>One invocation, client side</h3>
-  <p class="lead">What <code>yk check</code> does before and after the server runs the workflow.</p>
-  <div class="gtools" data-g="cli"></div>
-  <div class="gwrap" id="g-cli"></div>
-  <div class="card ginfo" id="i-cli"><span class="empty-hint">👆 Click a node for its detail.</span></div>
-
-  <h3>State on disk</h3>
-  <div class="tw"><table>
-    <tr><th>Where</th><th>What</th></tr>
-    <tr><td><code>~/.local/state/yukta-dev/</code></td><td><code>server.log, server.env, server.pid, up.log, build.log, sessions/, api-key (0600), builds/&lt;sha&gt;/, main/ (managed worktree), heal-events.jsonl, durations.tsv</code></td></tr>
-    <tr><td><code>&lt;checkout&gt;/.yukta-dev/</code> (git-ignored)</td><td><code>check.lock</code> (one check per checkout), <code>heal/&lt;session&gt;/</code> (this run's attempts, outputs, exit codes; wiped by the next check), <code>last-result</code> (statusline and Stop hook), <code>issue-&lt;n&gt;/</code> (brief, implement.json, nav.json)</td></tr>
-  </table></div>
-</section>
-
-<!-- ============ MONITORING ============ -->
-<section class="tab" id="monitoring" data-title="Monitoring heal">
-  <h2>Monitoring: events, report, analyze</h2>
-  <div class="plain"><span class="plain-tag">In plain words</span><p>Every repair attempt is written down in a diary file on your computer: what failed, which AI tried, how long it took, what it cost. Two reports read that diary: one shows <em>where the time and money went</em>, the other points out <em>what keeps going wrong</em>. That is how the repair process itself gets better over time.</p></div>
-  <p class="lead">Every step appends one JSON line to <code>heal-events.jsonl</code>. The log outlives the per-run heal dir and holds log text, so it stays on your machine. This is the improvement loop for heal.</p>
-  <div class="steps">
-    <div class="card"><h4>1 Run</h4><code>yk check</code> (or let the Stop hook). Events are on by default.</div><div class="sarrow">→</div>
-    <div class="card"><h4>2 Look</h4><code>yk heal report --since 7d</code>: where time and money went.</div><div class="sarrow">→</div>
-    <div class="card"><h4>3 Diagnose</h4><code>yk heal analyze</code> names what looks wrong; <code>yk heal show --run ID</code> for one run.</div><div class="sarrow">→</div>
-    <div class="card"><h4>4 Fix and measure</h4>Triage problems: <code>eval/triage</code> against labelled real failures. Fixer problems: <code>fixer-rules.md</code> or the guard.</div>
-  </div>
-  <h3>Events</h3>
-  <div class="tw"><table>
-    <tr><th>event</th><th>written by</th><th>fields</th></tr>
-    <tr><td><code>stage</code></td><td><code>yukta-heal.sh run</code></td><td>stage, secs, exit, ok, cmd; on failure <code>sig</code> (failure hash with numbers and paths blurred) and <code>head</code></td></tr>
-    <tr><td><code>brief</code></td><td><code>brief</code></td><td>stage, chars, secs</td></tr>
-    <tr><td><code>triage</code></td><td><code>triage-log</code></td><td>route (level / uncertain / error), label, p, start rung, model, secs, fallback, error, raw</td></tr>
-    <tr><td><code>fix</code></td><td><code>fix</code></td><td>stage, attempt, model, effort, fixed, claimed, files, cost, usage, secs, guard, summary, modules, budget</td></tr>
-    <tr><td><code>recheck</code>, <code>verify</code></td><td><code>recheck</code>, <code>verify</code></td><td>stage, secs, ok</td></tr>
-    <tr><td><code>giveup</code></td><td><code>giveup</code></td><td>stage: every model failed at every effort</td></tr>
-    <tr><td><code>result</code></td><td><code>yk</code> when a run ends</td><td>workflow, status, failed_node, healed, secs, durations per stage, scope, sha, branch</td></tr>
-  </table></div>
-  <h3>Rules of <code>yk heal analyze</code> <input type="search" id="ruleq" placeholder="filter rules" style="margin-left:8px"></h3>
-  <div class="tw"><table id="rules"><tr><th>rule</th><th>fires when</th><th>points at</th></tr></table></div>
-  <h3>How the triage prompt was chosen</h3>
-  <p>Measured on 54 real failures of this repository's CI, labelled by reading (<code>eval/triage</code>). Seven levels with long descriptions: 19 exact, 35 s a call. <strong>Three levels with the problem lines alone: 33 exact, 50 within one level, 7 s a call.</strong> The brief stays near 1000 characters because System One reads about 50 tokens a second without a big GPU and Ollama cuts a call off at 60 s.</p>
-</section>
-
-<!-- ============ CLAUDE CODE ============ -->
-<section class="tab" id="claude" data-title="Claude Code integration">
-  <h2>Inside Claude Code</h2>
-  <div class="plain"><span class="plain-tag">In plain words</span><p><dfn data-g="claudecode">Claude Code</dfn> is an AI coding assistant. In this project it follows house rules, set by small automatic scripts (<dfn data-g="hook">hooks</dfn>): it may not run builds directly but must go through <code>yk</code>, and before it finishes it is reminded to run the checks. The AI repairers are separate, stripped-down Claude sessions that can edit files but can never publish anything.</p></div>
-  <p class="lead">The repo wires Claude Code to the dev loop through <code>.claude/settings.json</code> and <code>.claude/hooks/yk-hook.sh</code>. <code>YUKTA_DOGFOOD=off</code> turns all of it off.</p>
-  <div class="grid">
-    <div class="card"><b>SessionStart</b><br>Records the uncommitted changes the session began with, runs <code>yk up --background</code>, puts <code>yk</code> on PATH and tells Claude to build and test through it.</div>
-    <div class="card"><b>UserPromptSubmit</b><br>When a prompt is about building, testing or checking, adds one line naming the <code>yukta</code> skill.</div>
-    <div class="card"><b>PreToolUse (Bash)</b><br>Denies <code>./gradlew</code>, <code>gradle</code> and <code>go test|vet</code>, and names the <code>yk</code> command instead. <code>bootRun</code> stays allowed; the self-heal fixer (<code>YUKTA_HEAL_FIXER=1</code>) is exempt.</div>
-    <div class="card"><b>PostToolUse</b><br>Records the Gradle module of every file the session edits.</div>
-    <div class="card"><b>Stop</b><br>Asks once for <code>yk check -m &lt;changed modules&gt;</code> unless a check already passed on exactly the current changes (<code>.yukta-dev/last-result</code>).</div>
-    <div class="card"><b>Status line</b><br><code>yk statusline</code> from cached files: <code>yukta :9858 main@ab12cd3 ✓ | 2 running · 1 awaiting | last: core SUCCESS (healed style)</code></div>
-    <div class="card"><b>Slash commands and skills</b><br><code>/yk-check</code>, <code>/yk-up</code>, <code>/yk-finding</code>, <code>/yk-pickup</code>, and the <code>yukta</code> skill.</div>
-    <div class="card"><b>MCP server <code>yukta</code></b><br><code>.mcp.json</code>, key from <code>yk mcp-headers</code>, read-only tools pre-approved.</div>
-  </div>
-  <h3>The headless Claude sessions heal and implement run</h3>
-  <ul class="tight">
-    <li>Launched through one slim launcher (<code>yk_claude</code>): none of your plugins, skills, settings or MCP servers; a fixed tool list; <code>acceptEdits</code>; no <code>git commit</code> or <code>push</code>.</li>
-    <li>The system prompt is the constant <code>fixer-rules.md</code> (or <code>implementer-rules.md</code> plus <code>nav/rules-&lt;backend&gt;.md</code>). Everything that varies goes in the user prompt, so every attempt shares one cached prefix.</li>
-    <li>Fixers are <strong>fresh sessions</strong> chosen by the triage. They do not resume the implementer.</li>
-    <li>Budgets: <code>YUKTA_HEAL_BUDGET</code> per attempt (per effort in <code>heal.json</code>), <code>YUKTA_IMPL_BUDGET</code> $5 for the implementer, <code>YUKTA_BUDGET_ISSUE</code> and <code>YUKTA_BUDGET_EPIC</code> as overall caps. Over a budget a step refuses to start.</li>
-  </ul>
-  <h3>Code navigation for issue runs (<code>nav</code> step)</h3>
-  <div class="tw"><table>
-    <tr><th>backend</th><th>what</th><th>cost to index</th></tr>
-    <tr><td><code>ide</code></td><td>IntelliJ index MCP server. Opt-in (<code>YUKTA_NAV_IDE=open</code>); read-only tools only.</td><td>the IDE's own indexing</td></tr>
-    <tr><td><code>cbm</code></td><td>codebase-memory-mcp binary on PATH. Query tools only; not pinned.</td><td>about 13 s</td></tr>
-    <tr><td><code>codegraph</code></td><td><code>codegraph init</code> in the worktree, used through Bash. Last resort.</td><td>about 8.5 min</td></tr>
-  </table></div>
-  <p>The first backend that works, in <code>YUKTA_NAV_BACKENDS</code> order (<code>ide,cbm,codegraph</code>), wins. It never fails the run: with none, the run goes on with <code>backend: none</code>. The index is handed to the headless sessions with <code>--mcp-config</code> for that run only, so your own Claude configuration is not touched.</p>
-</section>
-
-<!-- ============ CONCEPTS ============ -->
-<section class="tab" id="concepts" data-title="Engine concepts">
-  <h2>Engine concepts used here</h2>
-  <div class="plain"><span class="plain-tag">In plain words</span><p>Every Yukta flowchart is built from a handful of kinds of box. This is the parts list: a box that runs a command, a box that starts another flowchart, a box that waits for a person, a box that asks a small AI to choose, and boxes that end the run.</p></div>
-  <p class="lead">The Yukta node types and routing flags that the dogfood workflows rely on.</p>
-  <div class="tw"><table>
-    <tr><th>node type</th><th>used for in dogfood</th></tr>
-    <tr><td><code>CONSTANT_SOURCE</code></td><td>The <code>trigger</code> at the start of each workflow.</td></tr>
-    <tr><td><code>PROCESS_EXECUTOR</code></td><td>Runs a command (<code>gradle</code>, <code>yukta-heal.sh &lt;action&gt;</code>, <code>yukta-issue.sh &lt;action&gt;</code>). With <code>failureMode: CONTINUE</code> and <code>routeByExitCode</code>, exit 0 leaves by port <code>success</code>, non-zero by <code>failure</code>. With <code>failureMode: ERROR</code> a non-zero exit fails the node and the run.</td></tr>
-    <tr><td><code>SUB_WORKFLOW</code></td><td>Calls another workflow with a <code>payload</code> (read there as <code>start.*</code>) and waits. <code>routeByOutcome</code> routes on how the child ended: <code>success</code>, <code>failure</code>, <code>escalate</code>, <code>retry</code>. <code>concurrency: 2</code> in <code>run-epic</code> runs two children at once.</td></tr>
-    <tr><td><code>CLASSIFY</code></td><td>The triage: asks the System One model one question and routes by label (<code>routeByLabel</code>). <code>engine.onError: ROUTE</code> sends a failed call to port <code>error</code>.</td></tr>
-    <tr><td><code>WAIT_FOR_SIGNAL</code></td><td>Checkpoints (<code>before-implement</code>, <code>before-pr</code>, <code>between-issues</code>, <code>before-opus</code>). Answered with <code>yk approve|reject</code>. <code>onTimeout</code> is <code>CONTINUE</code> or <code>FAIL</code>.</td></tr>
-    <tr><td><code>SPLITTER</code>, <code>AGGREGATE</code></td><td>Fan out a JSON list of issues; collect results (the analyzers join, the epic's ok / bad / bad-count counters).</td></tr>
-    <tr><td><code>BRANCH</code></td><td><code>analyzers.gate</code>: an expression over the join's items, port <code>fail</code> if any item has <code>success == false</code>, else <code>pass</code>.</td></tr>
-    <tr><td><code>CONSOLE_TERMINAL</code></td><td>Ends a run in success (<code>done</code>).</td></tr>
-    <tr><td><code>OUTCOME_TERMINAL</code></td><td>Ends a run with a named outcome. <code>escalate</code> makes <code>RESULT status=ESCALATE</code> even though the engine run itself succeeded.</td></tr>
-  </table></div>
-  <h3>Concurrency and limits</h3>
-  <ul class="tight">
-    <li>Gradle nodes are in the server's <code>gradle</code> concurrency group (<code>YUKTA_DEV_GRADLE_PARALLEL</code>, default 2): the parallel analyzers wait <code>QUEUED</code> instead of each starting a 4 GB daemon.</li>
-    <li>Only one check per checkout (<code>.yukta-dev/check.lock</code>).</li>
-    <li>Fixers and the gate nodes are time-boxed: stage nodes 3600 s, sub-workflows 14400 s, implement 14400 s, whole issue run 28800 s.</li>
-  </ul>
-</section>
-
-<!-- ============ REFERENCE ============ -->
-<section class="tab" id="reference" data-title="Command reference">
-  <h2>Command and knob reference</h2>
-  <div class="plain"><span class="plain-tag">In plain words</span><p>Every command you can type and every setting you can change. You don’t need this page to understand the design; it is here for when you want to <em>do</em> something. Type in the box to filter, and click a command to copy it.</p></div>
-  <p><input type="search" id="refq" placeholder="filter commands and knobs" style="width:min(420px,100%)"></p>
-  <div class="tw"><table id="ref"><tr><th>command or variable</th><th>what it does</th></tr></table></div>
-  <h3>The RESULT line</h3>
-  <pre><code>RESULT status=&lt;SUCCESS|FAILURE|ESCALATE&gt; failed_node=&lt;stage|-&gt; healed=&lt;stage:step[/effort],..|-&gt; execution=&lt;id&gt; session=&lt;id&gt;</code></pre>
-  <p>Exit code 0 only on success. <code>yk watch</code> prints problems only: <code>NODE</code>, <code>ERROR|WARN &lt;node&gt;: &lt;line&gt;</code>, <code>CONTROL</code>, <code>HEAL</code>, <code>WORKFLOW</code>, <code>SLOW</code> (stage over 15 s and 1.5x its median), <code>APPROVAL</code> for a waiting checkpoint, then <code>RESULT</code>.</p>
-  <h3>Cost and side effects</h3>
-  <div class="tw"><table>
-    <tr><th>command</th><th>spends</th><th>touches</th></tr>
-    <tr><td><code>yk check</code>, <code>yk gradle</code></td><td>Claude only when a stage fails and heal runs a fixer</td><td>your working tree (fixers edit, never commit)</td></tr>
-    <tr><td><code>yk run issue|epic</code></td><td>implementer (cap $5) and fixers</td><td>the issue and board, a worktree, a pushed branch, a draft PR</td></tr>
-    <tr><td><code>yk heal report|analyze|show</code></td><td>nothing</td><td>nothing</td></tr>
-  </table></div>
-</section>
-
-</main>
+<h2 id="flow">A run</h2>
+<div class="flow">
+  <div><b>yk check</b>reads the changes, runs <code>plan.sh</code>, applies <code>session.json</code>, starts <code>check</code></div><div class="arrow">→</div>
+  <div><b>check</b>one <code>tool</code> call per planned stage, in order, cheap first</div><div class="arrow">→</div>
+  <div><b>stage fails</b>its output goes to <code>heal</code></div><div class="arrow">→</div>
+  <div><b>heal</b>free fix, triage, model ladder</div><div class="arrow">→</div>
+  <div><b>verify</b>only if something was healed: the Gradle tasks of all stages once more</div>
 </div>
+<p>Everything ends in one line: <code>RESULT status=&lt;S&gt; failed_node=&lt;stage|-&gt; healed=&lt;stage:model/effort,..|-&gt; execution=&lt;id&gt; session=&lt;id&gt;</code>. Exit code 0 only on success. <code>yk</code> starts the dev server on demand; it is built from <code>origin/main</code>, so a run does not change under itself.</p>
+<p>The scope comes from <code>plan.sh</code>: the changed Gradle modules get every stage, their dependents compile and test only, <code>cli/</code> and <code>ui/</code> get their own tools, and the repo checks (<code>reuse</code>, <code>actionlint</code>, docs links) run when their files changed. Stages are ordered cheapest first: reuse, actionlint, docs, spotless, cli formatting, compile, vet, tsc, eslint, style, spotbugs, tests, coverage, vulnerability and licence checks, security, build. <code>licenses</code> and <code>security</code> are never healed.</p>
 
+<h2 id="workflows">Workflows</h2>
+<p class="lead">Five fixed workflows in one session (<code>yukta-dev</code>). What changes per run travels in the start payload, never in the graph. Each layer is one level of SUB_WORKFLOW nesting: check (0) → heal (1) → attempt (2) → claude or tool (3), inside the engine's depth limit of 5.</p>
+<div class="tw"><table>
+<tr><th>Workflow</th><th>Job</th><th>Calls</th></tr>
+<tr><td><code>tool</code></td><td>Run one shell command in one project, once. A non-zero exit or a timeout ends at <code>OUTCOME_TERMINAL FAILED</code>; the caller decides what that means. Concurrency group <code>tool</code>.</td><td>-</td></tr>
+<tr><td><code>claude</code></td><td>One headless Claude Code session (<code>scripts/claude.sh</code>); returns Claude's JSON result and cost. Concurrency group <code>claude</code>.</td><td>-</td></tr>
+<tr><td><code>attempt</code></td><td>One repair attempt at one model and effort: prepare, claude, claimed, format, judge (the guard), recheck, report.</td><td>claude, tool</td></tr>
+<tr><td><code>heal</code></td><td>Repair one failed stage: free fix, brief, triage, a ladder of attempts.</td><td>tool, attempt</td></tr>
+<tr><td><code>check</code></td><td>The scoped gate: a <code>tool</code> call per stage, <code>heal</code> on a failure, then verify.</td><td>tool, heal</td></tr>
+</table></div>
+<p>Failures are data: process nodes use <code>failureMode: CONTINUE</code> with <code>routeByExitCode</code>, sub-workflow calls use <code>routeByOutcome</code> and <code>engine.onError: ROUTE</code>, so a caller always gets a port to route on instead of a crash. The script steps of heal and attempt are the actions of <code>scripts/yukta-heal.sh</code> (<code>brief</code>, <code>triage-log</code>, <code>record-auto</code>, <code>healed</code>, <code>prepare</code>, <code>claimed</code>, <code>judge</code>, <code>report</code>); each appends one JSON line to the events log.</p>
+
+<h2 id="heal">Heal</h2>
+<div class="flow">
+  <div><b>1 · free fix</b>spotlessApply, <code>make fmt</code>, prettier, eslint --fix, <code>make mod-tidy</code>. No model, no cost. Recheck decides.</div><div class="arrow">→</div>
+  <div><b>2 · brief</b>the problem lines, at most 1000 characters for triage</div><div class="arrow">→</div>
+  <div><b>3 · triage</b>a CLASSIFY node asks the local System One model: easy, average or hard</div><div class="arrow">→</div>
+  <div><b>4 · ladder</b>rungs of <code>model/effort</code>, one attempt each</div>
+</div>
+<h3>Triage</h3>
+<p>The label only picks the first rung. Below <code>minProbability</code> (0.3), or when the model is unreachable, heal starts at the <code>default</code> level (average). <code>--triage off</code> skips the call. The triage model and URL are in <code>heal.json</code> and overridden by <code>YUKTA_TRIAGE_MODEL</code> and <code>YUKTA_TRIAGE_URL</code>.</p>
+<h3>Ladders</h3>
+<div class="tw"><table>
+<tr><th>Level</th><th>Ladder</th><th>For</th></tr>
+<tr><td>easy</td><td><code>haiku/low</code> → <code>sonnet/low</code></td><td>mechanical or small obvious fixes: formatting, an import, a header, one analyzer finding</td></tr>
+<tr><td>average</td><td><code>haiku/high</code> → <code>sonnet/low</code></td><td>one failing test, a few classes together, tests to add for coverage</td></tr>
+<tr><td>hard</td><td><code>sonnet/low</code></td><td>many failures with one cause, concurrency, flaky or order-dependent, memory, build-wide changes</td></tr>
+</table></div>
+<p>Each effort has a budget and a time box in <code>heal.json</code>: low $0.50 and 10 min, medium $1 and 20 min, high $2 and 30 min. Every attempt is a fresh session (no resume): measured, a conversation cache is lost anyway when the model changes, and a fresh session carries only the brief and the previous attempt's summary. Opus is not on any ladder.</p>
+<h3>When a rung fails</h3>
+<ul>
+<li>The next rung gets the new failure output and the previous attempt's summary plus the files it changed.</li>
+<li><b>An attempt that changed no file ends the ladder.</b> A stronger model asked the same question rarely answers it differently; this saves the 15 to 20 times higher cost of the next rung. A timeout or crash still escalates.</li>
+<li>The end of the ladder gives up: heal ends FAILED and <code>check</code> ends with <code>failed_node</code> = the stage.</li>
+<li>An issue run's budget (<code>YUKTA_BUDGET_ISSUE</code>) and <code>--models</code> can stop a rung before it starts.</li>
+</ul>
+<h3>Verify</h3>
+<p>When anything was healed, the Gradle tasks of every planned stage run once more, because a fix can break a stage that ran before it. A failed verify goes back to heal as the stage <code>verify</code> (its command is the verify command, the formatter is spotless) instead of ending the run.</p>
+
+<h2 id="guard">The guard</h2>
+<p class="lead">What Claude says is recorded but decides nothing. <code>judge</code> looks at what changed on disk, and only the recheck of the stage's own command makes an attempt a fix.</p>
+<div class="tw"><table>
+<tr><th>Rejected</th><th>How it is detected</th></tr>
+<tr><td>Touching <code>config/</code>, <code>build-logic/</code>, <code>gradle/</code>, <code>.github/</code>, <code>.claude/</code>, this folder, <code>REUSE.toml</code>, <code>*.gradle.kts</code></td><td>changed paths against a pattern</td></tr>
+<tr><td>An added suppression: <code>@SuppressWarnings("PMD"|"checkstyle")</code>, <code>@SuppressFBWarnings</code>, <code>NOPMD</code>, <code>CHECKSTYLE:OFF</code>, <code>@Disabled</code>, <code>spotless:off</code></td><td>added lines of the diff, and whole new files</td></tr>
+<tr><td>Removed assertions</td><td>more removed than added lines with <code>assert</code>, <code>@Test</code> or <code>verify(</code></td></tr>
+<tr><td>Test expectations changed with no code changed</td><td>only test files changed, and assertion lines were both removed and added (a test made to fit the code). A fix that edits a test and its code together passes.</td></tr>
+<tr><td>A claimed fix with no change</td><td>claimed fixed, nothing differs from the snapshot taken before the attempt</td></tr>
+</table></div>
+<p>Fixers also never run <code>git commit</code> or <code>git push</code> (disallowed tools), and <code>fixer-rules.md</code> is the one constant system prompt, so every attempt shares the cached prefix.</p>
+
+<h2 id="fixer">The fixer session</h2>
+<p class="lead">One launcher for every headless Claude (<code>scripts/_claude.sh</code>, called by <code>scripts/claude.sh</code>), deliberately slim.</p>
+<div class="tw"><table>
+<tr><th>Setting</th><th>Why</th></tr>
+<tr><td><code>--setting-sources project --strict-mcp-config --disable-slash-commands</code>, <code>CLAUDE_CODE_DISABLE_CLAUDE_MDS=1</code></td><td>none of the user's plugins, skills, MCP servers or CLAUDE.md files (a measured 15.9k to 9.7k tokens of prefix); the project's hooks still load, they keep the Gradle guard</td></tr>
+<tr><td><code>--tools Read,Edit,Write,Grep,Glob,Bash</code> and an allowlist of <code>Bash(./gradlew:*)</code>, <code>make</code>, <code>go test</code>, <code>go vet</code>, <code>node_modules/.bin</code>, <code>codegraph</code>, <code>reuse</code>, <code>actionlint</code>, <code>mint</code>, <code>cd</code></td><td>a fixed tool list; the allowlist is resolved before auto mode's classifier, so the usual commands cost no classifier call</td></tr>
+<tr><td><code>--permission-mode auto --permission-prompts none</code></td><td>a classifier reviews anything outside the allowlist; nothing can prompt in an unattended run, and Claude is told not to retry a denial. Needs Haiku 5.5 or Sonnet 4.6 and later, Claude Code 2.1.302 or later. The classifier defaults to Sonnet and adds a call per reviewed action.</td></tr>
+<tr><td><code>ANTHROPIC_DEFAULT_HAIKU_MODEL=claude-haiku-5-5</code>, <code>ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-5-5</code></td><td>aliases move when a model ships; cost and behaviour of a rung must not</td></tr>
+<tr><td><code>--max-budget-usd</code>, <code>--output-format json --json-schema {fixed, summary}</code>, <code>--no-session-persistence</code></td><td>a cost cap per attempt, a parseable answer and cost, and no transcript left behind</td></tr>
+<tr><td><code>--advisor $YK_ADVISOR</code> (off unless set)</td><td>experimental: a stronger model consulted at decision points, a possible replacement for the sonnet rung. Anthropic API only. Not yet settable per rung from <code>heal.json</code>.</td></tr>
+</table></div>
+<p>A failed run is visible in the summary: <code>claimed</code> adds the result's subtype when Claude returned no answer, for example <code>no answer from claude (error_max_budget_usd: …)</code>. The tool was checked against the headless documentation: the <code>Bash(cmd:*)</code> rule syntax is honoured, and <code>--bare</code> is not used because it needs an API key and skips the hooks.</p>
+
+<h2 id="config">Configuration</h2>
+<div class="tw"><table>
+<tr><th>File</th><th>What it holds</th></tr>
+<tr><td><code>heal.json</code></td><td>models, efforts (budget, time box), triage (model, URL, question, levels with ladders and descriptions, <code>minProbability</code>, <code>default</code>), the healable stages and their free fixes, the extra non-Gradle stages (ui, docs, reuse, actionlint)</td></tr>
+<tr><td><code>fixer-rules.md</code></td><td>the constant system prompt of every fixer</td></tr>
+<tr><td><code>session.json</code></td><td>the five workflows. Generated: edit <code>heal.json</code>, <code>gen-heal.py</code> or <code>gen-check.py</code>, run them, commit the result.</td></tr>
+</table></div>
+<div class="tw"><table>
+<tr><th>Variable</th><th>Effect</th></tr>
+<tr><td><code>YUKTA_TRIAGE_MODEL</code>, <code>YUKTA_TRIAGE_URL</code></td><td>override the triage model and the Ollama URL in <code>heal.json</code></td></tr>
+<tr><td><code>YUKTA_CLAUDE_BIN</code></td><td>a stand-in for <code>claude</code> (tests)</td></tr>
+<tr><td><code>YK_ADVISOR</code></td><td>advisor model for the fixers; unset = off</td></tr>
+<tr><td><code>YUKTA_DEV_PORT</code>, <code>YUKTA_DEV_HOME</code>, <code>YUKTA_DEV_STATE_DIR</code>, <code>YUKTA_DEV_MAIN_REF</code></td><td>dev server port (9858), its state folder, the per-checkout state folder, the ref the server is built from (<code>origin/main</code>)</td></tr>
+<tr><td><code>YUKTA_HEAL_EVENTS</code></td><td>the events log (all runs, all checkouts): <code>~/.local/state/yukta-dev/heal-events.jsonl</code></td></tr>
+</table></div>
+
+<h2 id="commands">Commands</h2>
+<div class="tw"><table>
+<tr><th>Command</th><th>Does</th><th>Spends</th></tr>
+<tr><td><code>yk gradle [--detach] &lt;args&gt;</code></td><td>one Gradle run as the <code>tool</code> workflow</td><td>nothing</td></tr>
+<tr><td><code>yk tool [--detach] [-C dir] &lt;cmd&gt;</code></td><td>any other command once (go, pnpm, node_modules/.bin)</td><td>nothing</td></tr>
+<tr><td><code>yk plan [--full] [--base REF]</code></td><td>dry run: the stages a scoped check would run</td><td>nothing</td></tr>
+<tr><td><code>yk check [--full] [--base REF] [--no-heal] [--models m,..] [--triage off] [--detach]</code></td><td>the scoped, self-healing gate</td><td>Claude only when a stage fails and the free fix did not help; fixers edit the working tree, never commit</td></tr>
+</table></div>
+<p><code>yk watch</code> prints problems only: <code>NODE</code>, <code>ERROR|WARN</code>, <code>HEAL</code>, <code>SLOW</code>, then <code>RESULT</code>. Read that line and the <code>ERROR</code> lines before it, not the logs.</p>
+
+<h2 id="evidence">Evidence</h2>
+<p class="lead">From planted-failure runs (format, style, compile, test, coverage, docs, a cli lint file). Small samples: they show the pipeline works and where it is weak, not rates.</p>
+<ul>
+<li>A planted compile error was fixed by <code>haiku/high</code> on the first attempt for $0.0024 in 22 s; the whole check, with a second stage healed, took 193 s. Wall time is dominated by Gradle and tool runs; a Claude call is about 15 s.</li>
+<li>Haiku attempts cost $0.002 to $0.006; a sonnet escalation costs $0.018 to $0.035. Escalation paid off in the deliberate escalation test and was wasted on the stages no code edit could fix.</li>
+<li>The guard bug that mattered: <code>grep -q</code> on a pipe ends early and, under <code>set -o pipefail</code>, the writer's SIGPIPE read as "no match", so added suppressions got through. The text is now captured in a variable first.</li>
+<li>A fixer treats an unexpected planted file as the developer's work and changes nothing; a fixer deleted an untracked run log that broke <code>reuse lint</code>.</li>
+<li>One verify run reported a PMD violation after both stages had been healed, a second run was clean: flaky, and the reason for sending verify back to heal.</li>
+</ul>
+
+<h2 id="gaps">Engine gaps found while building</h2>
+<p class="lead">Things the workflow engine cannot do yet, and the workaround each one has here. G4 (nesting depth 5) does not bite the current five workflows; it will when issue and epic runs return.</p>
+<div class="tw"><table>
+<tr><th>#</th><th>Gap</th><th>Workaround</th></tr>
+<tr><td>G1</td><td><b>A command argument cannot be a list</b><br>PROCESS_EXECUTOR turns each <code>command</code> element into one string, so a task list in a start-payload key is one argument.</td><td><code>tool</code> runs <code>sh -c</code> with the command in an environment variable; <code>yk</code> shell-quotes every argument.</td></tr>
+<tr><td>G2</td><td><b>No declared inputs or defaults</b><br>A workflow is only id, description, nodes and edges. A missing start key resolves to nothing, and a PROCESS_EXECUTOR <code>timeout</code> then falls back to 300 s.</td><td>Every caller passes every key (<code>KEYS</code> in <code>gen-heal.py</code>, <code>PASS</code> in <code>gen-check.py</code>).</td></tr>
+<tr><td>G3</td><td><b>Only workflows of the same session can be called</b><br>SUB_WORKFLOW looks the child up in the parent's session.</td><td><code>yk</code> applies the whole library to the one session <code>yukta-dev</code>.</td></tr>
+<tr><td>G5</td><td><b>Outcome FAILED does not fail the caller by itself</b><br>Without <code>routeByOutcome</code> a child that ended at <code>OUTCOME_TERMINAL FAILED</code> still has status SUCCESS.</td><td>Every call sets <code>routeByOutcome: true</code> and wires <code>failure</code>.</td></tr>
+<tr><td>G6</td><td><b><code>${…}</code> cannot index a list</b><br>The variable resolver walks maps only, so <code>results[0].stdout</code> cannot be written as a path.</td><td>MAPPER nodes (PROJECTION, SpEL) flatten <code>results[0]</code>; script steps read whole results as JSON on stdin.</td></tr>
+<tr><td>G7</td><td><b>A timeout drops the output</b><br>On a process timeout the gateway returns exit -1 with an empty stdout.</td><td>The brief says the stage timed out; the fixer reads the run log.</td></tr>
+<tr><td>G8</td><td><b>Some SUB_WORKFLOW errors are never routed</b><br>The node's own <code>timeoutSeconds</code>, an unknown workflow and too deep a nesting fail the node even with <code>routeByOutcome</code>.</td><td><code>engine.onError: ROUTE</code> and an <code>error</code> edge next to <code>failure</code>.</td></tr>
+<tr><td>G9</td><td><b>A sub-workflow cannot inherit the start payload</b><br>SUB_WORKFLOW's <code>payload</code> must be a map of resolved top-level values.</td><td>Every key is listed one by one; a key added to a contract is added to every caller.</td></tr>
+<tr><td>G10</td><td><b>BRANCH and MAPPER cannot read the start payload</b><br>SpEL sees only the message, so a start switch (<code>heal</code>, <code>triage</code>, <code>auto</code>) must first be copied into it.</td><td>The trigger copies it (CONSTANT_SOURCE), or a script step echoes it into its JSON output.</td></tr>
+<tr><td>G11</td><td><b>A <code>${payload}</code> in a sub-workflow payload arrives as text</b><br>The value becomes the Java text of the map, not the map.</td><td>A MAPPER per stage (<code>&lt;stage&gt;.fail</code>) projects the failed output to a string, <code>stdout</code>.</td></tr>
+<tr><td>G12</td><td><b>The CLASSIFY answer is not in the node's task metadata</b><br><code>workflow status</code> shows <code>metadata: {}</code> for the triage node.</td><td>A <code>triage-log.&lt;port&gt;</code> node on every triage port records the route as an event.</td></tr>
+<tr><td>G13</td><td><b>A script step with <code>outputFormat: JSON</code> must print nothing else</b><br>The engine merges stderr into stdout; one extra line and the output is not parsed.</td><td>Those steps print only JSON; <code>claimed</code> prints the live <code>HEAL</code> line; <code>report</code> always exits 0.</td></tr>
+</table></div>
+
+<h2 id="open">Open items</h2>
+<ul>
+<li><b>Timeouts lose the cost.</b> A process timeout sends SIGTERM (exit 143) and records no result, so that attempt's spend is $0 in the records and the issue budget. <code>stream-json</code> would capture it.</li>
+<li><b>Silent code-index failures.</b> An issue run's <code>--mcp-config</code> entry that fails validation is skipped with a clean exit; the failure shows only in <code>system/init</code>, which plain <code>json</code> output lacks.</li>
+<li><b>Docs stage.</b> <code>mint broken-links</code> works locally (exit 1 on a bad link). A heal run once failed to clear it; the leading suspect was the spinner output hiding the report, which is now stripped. Unconfirmed.</li>
+<li><b>Advisor.</b> Compare <code>haiku</code> with <code>--advisor sonnet</code> against the haiku → sonnet ladder on the same failures before using it; it needs a per-rung field in <code>heal.json</code>.</li>
+<li><b>Guard.</b> A test expectation changed together with unrelated code still passes.</li>
+<li><b>Rebuild.</b> Issue and epic runs, <code>yk heal report|analyze</code>, steering commands, the Stop hook and the slash commands are in <code>backup/</code>; <code>backup/README.md</code> says how to bring each back.</li>
+</ul>
+</div>
 <script>
-'use strict';
-/* ---------------- helpers ---------------- */
-const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
-const NS='http://www.w3.org/2000/svg';
-function svgEl(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
-const TYPE_NAME={proc:'PROCESS_EXECUTOR',sub:'SUB_WORKFLOW',wait:'WAIT_FOR_SIGNAL',cls:'CLASSIFY',flow:'flow control',term:'CONSOLE_TERMINAL',out:'OUTCOME_TERMINAL',entry:'entry point',wf:'workflow',ext:'external'};
-const TYPE_PLAIN={proc:'A step that runs one command, as if someone typed it into a terminal.',sub:'A step that starts another whole flowchart and waits for it to finish.',
-  wait:'A pause: nothing happens until a person approves (or a timer runs out).',cls:'A step that asks a small AI to put something into a category, then follows the matching arrow.',
-  flow:'Plumbing: starts the flowchart, splits work up, collects results, or picks which way to go.',term:'The finish line: the flowchart ended well.',
-  out:'A finish line with a special message, such as “a person needs to look at this”.',entry:'A command a person (or Claude Code) types to start things.',wf:'A whole flowchart. Click “Open workflow” to see inside it.'};
-const NODE_PLAIN={'spotless.run1':'Inspector 1 checks that the code is neatly formatted.','spotless.f1':'A tool reformats the code automatically. No AI, no cost.',
-  'S.run1':'The next inspectors: does the code build, do the tests pass, are enough lines tested?','analyzers':'Several automatic reviewers read the code side by side, looking for style problems and likely bugs.',
-  'nopolicy':'License and security inspectors. They have no repair crew: if they fail, the whole run stops.','verify':'If anything was repaired, every inspection runs once more, to be sure the repairs work together.',
-  'brief':'Write a short note for the AI to read: what broke, or what the ticket asks for.','check':'The full inspection line, run as a flowchart of its own.',
-  'nav':'Build a searchable map of the code, so the AI can find its way around.','before-implement':'A pause where a person can read and edit the AI’s instructions first.','triage':'A small, free AI on your computer guesses how hard the fix is: easy, average or hard. That decides which repairer goes first.',
-  'giveup':'Every repairer failed. A person has to fix this one.','implement':'An AI writes the code the ticket asks for.','before-pr':'Wait for a person to say “yes, publish it”. Nothing goes public by itself.',
-  'pr':'Publish the change as a draft for people to review.','release':'Something went wrong: hand the ticket back so someone else can pick it up.',
-  'claim':'Take the ticket, so nobody else works on it at the same time.','worktree':'Make a separate copy of the project folder for this ticket.'};
-const SIM_ICON={ok:'✅',fail:'❌',warn:'⚠️',open:'📂',info:'🔎',result:'🧾'};
-const WHO={haiku:'Haiku, the junior (cheapest)',sonnet:'Sonnet, the mid-level repairer',opus:'Opus, the senior (most expensive)'};
-function plainSim(e){
-  const ic=SIM_ICON[e.kind]||'🔎';
-  if(e.kind==='result')return['🧾',/SUCCESS/.test(e.text)?'All done, and it passed. This one line is the receipt: what failed (nothing) and what was repaired.':/ESCALATE/.test(e.text)?'Handed to a person. The ticket is back on the board and the work-in-progress is kept.':'It failed and nobody could repair it. This one line is the receipt, naming the inspection that failed.'];
-  const top=e.stack[e.stack.length-1];
-  if(!top)return[ic,e.text];
-  const wf=top.wf.startsWith('fix-from')?'fix':top.wf,id=top.active;
-  if(e.kind==='open'||!id)return['📂',{check:'The quality check begins: the inspectors look at the code one after another.',heal:'An inspection failed, so instead of stopping, the repair process (“heal”) takes over.',
-    fix:'An AI repairer gets to work. If its first try fails, it tries again, thinking harder each time.','implement-issue':'Working a ticket: claim it, set up a separate folder, and let an AI write the code.',
-    'run-issue':'A ticket run begins. If anything goes wrong, the ticket will be handed back.'}[wf]||e.text];
-  if(id==='done')return['✅',{check:'Every inspection passed.',heal:'Repaired! Back to the inspection line.',fix:'This repairer fixed it.','implement-issue':'The ticket is done: a draft is waiting for review.','run-issue':'The ticket run finished.'}[wf]||'Finished.'];
-  if(/\.heal$/.test(id))return e.kind==='fail'?['❌','The repair crew could not fix it, so the check fails.']:['⚠️','An inspection failed. The repair crew is called in.'];
-  if(id.startsWith('fix-')){const m=id.split('-')[1];return['🧑‍🔧',`Send in ${WHO[m]}. `+(m==='opus'?'It is the last in line.':'If it can’t fix it, the next one up takes over.')];}
-  if(id.startsWith('fix.'))return[e.kind==='warn'?'😓':'🧑‍🔧',e.kind==='warn'?`The AI tried (effort: ${id.slice(4)}) but did not manage to repair it.`:`The AI edits the code (effort: ${id.slice(4)}).`];
-  if(id.startsWith('check.'))return[e.kind==='ok'?'✅':'❌',e.kind==='ok'?'The failed inspection is run again, and now it passes. Only the inspection decides, not the AI’s word.':'The failed inspection is run again and still fails, so try harder, or pass it to the next repairer.'];
-  if(id==='spotless.run2')return[ic,e.kind==='ok'?'Formatting checked again: fine now. Repaired for free.':'Still not right after the automatic fix, so the repair crew is needed.'];
-  if(id==='spotless.run1')return[ic,e.kind==='ok'?'Inspector 1: the formatting is fine.':'Inspector 1: the formatting is off.'];
-  if(id==='S.run1')return[ic,e.kind==='ok'?'The code builds, the tests pass, and enough of it is tested.':'One of the core inspections (build, tests, how much is tested) failed.'];
-  if(id==='triage-log')return['📝','The guess is written down in the diary, for later reports.'];
-  if(id==='triage'&&/error|uncertain/.test(e.text))return['🤷','The small AI could not answer (or wasn’t sure), so start with the default repairer, Sonnet.'];
-  if(id==='analyzers.gate')return[ic,e.kind==='ok'?'Did any reviewer complain? No.':'Did any reviewer complain? Yes, so one repair crew handles all of them.'];
-  if(id==='analyzers.join')return['⏳','Waiting for every reviewer to finish.'];
-  if(id==='issue')return['📂','Start the work on the ticket.'];
-  if(id==='check'&&e.kind==='fail')return['❌','The inspection line failed, so the ticket can’t go forward.'];
-  if(id==='escalate')return['🙋','A person needs to look at this.'];
-  return[ic,NODE_PLAIN[id]||e.text];
-}
-const TYPE_VAR={proc:'--c-proc',sub:'--c-sub',wait:'--c-wait',cls:'--c-cls',flow:'--c-flow',term:'--c-term',out:'--c-out',entry:'--c-entry',wf:'--c-wf'};
-const N=(id,x,y,t,info,o={})=>Object.assign({id,x,y,t,info},o);
-const E=(f,t,label,k,o={})=>Object.assign({f,t,label:label||'',k:k||'none'},o);
-
-/* ---------------- graph renderer ---------------- */
-let gid=0;
-function renderGraph(host,spec,o={}){
-  const zoom=o.zoom||1, uid='g'+(++gid);
-  host.innerHTML='';
-  const nodes=new Map();
-  spec.nodes.forEach(n=>{n.w=Math.max(n.w||0,130,(n.label||n.id).length*7.4+26);n.h=n.h||50;nodes.set(n.id,n);});
-  const svg=svgEl('svg',{viewBox:`0 0 ${spec.w} ${spec.h}`,width:spec.w*zoom,height:spec.h*zoom,role:'img','aria-label':spec.title||'workflow diagram'},host);
-  const defs=svgEl('defs',{},svg);
-  ['ok','fail','none','call','log'].forEach(k=>{
-    const m=svgEl('marker',{id:`${uid}-${k}`,viewBox:'0 0 10 10',refX:'9',refY:'5',markerWidth:'7',markerHeight:'7',orient:'auto-start-reverse'},defs);
-    const p=svgEl('path',{d:'M0 0L10 5L0 10z'},m);
-    p.style.fill=k==='ok'?'var(--ok)':k==='fail'?'var(--fail)':k==='call'?'var(--call)':'var(--muted)';
-  });
-  const pt=(n,a)=>a==='r'?[n.x+n.w,n.y+n.h/2]:a==='l'?[n.x,n.y+n.h/2]:a==='t'?[n.x+n.w/2,n.y]:[n.x+n.w/2,n.y+n.h];
-  const auto=(s,t)=>{if(t.x-(s.x+s.w)>=20)return['r','l'];if(s.x-(t.x+t.w)>=20)return['l','r'];return t.y>s.y?['b','t']:['t','b'];};
-  const edgeEls=[];
-  spec.edges.forEach(e=>{
-    const s=nodes.get(e.f),t=nodes.get(e.t);
-    if(!s||!t){console.warn('edge to unknown node',e);return;}
-    const [fa0,ta0]=auto(s,t), fa=e.fa||fa0, ta=e.ta||ta0;
-    const p0=pt(s,fa),p1=pt(t,ta);
-    let d,lp;
-    if(e.via){
-      const pts=[p0,...e.via,p1];
-      d='M'+pts.map(p=>p.join(' ')).join(' L ');
-      let tot=0;const segs=[];for(let i=1;i<pts.length;i++){const l=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);segs.push(l);tot+=l;}
-      let acc=0,half=tot/2;lp=pts[0];
-      for(let i=0;i<segs.length;i++){if(acc+segs[i]>=half){const r=(half-acc)/segs[i];lp=[pts[i][0]+(pts[i+1][0]-pts[i][0])*r,pts[i][1]+(pts[i+1][1]-pts[i][1])*r];break;}acc+=segs[i];}
-    }else{
-      const horiz=fa==='r'||fa==='l';
-      const dist=horiz?Math.abs(p1[0]-p0[0]):Math.abs(p1[1]-p0[1]);
-      const off=Math.max(40,dist/2);
-      const sd=(fa==='r'||fa==='b')?1:-1, td=(ta==='l'||ta==='t')?-1:1;
-      const c1=horiz?[p0[0]+sd*off,p0[1]]:[p0[0],p0[1]+sd*off];
-      const c2=horiz?[p1[0]+td*off,p1[1]]:[p1[0],p1[1]+td*off];
-      d=`M${p0} C${c1} ${c2} ${p1}`;
-      lp=[(p0[0]+3*c1[0]+3*c2[0]+p1[0])/8,(p0[1]+3*c1[1]+3*c2[1]+p1[1])/8];
-    }
-    if(e.lp)lp=e.lp;
-    const g=svgEl('g',{class:`edge k-${e.k}`},svg);
-    const path=svgEl('path',{d,'marker-end':`url(#${uid}-${e.k})`,'stroke-linejoin':'round'},g);
-    if(e.label){
-      const w=e.label.length*5.6+12;
-      svgEl('rect',{class:'lb',x:lp[0]-w/2,y:lp[1]-9,width:w,height:17,rx:4},g);
-      const tx=svgEl('text',{x:lp[0],y:lp[1]+3.5},g);tx.textContent=e.label;
-    }
-    edgeEls.push({g,f:e.f,t:e.t});
-  });
-  const nodeEls=new Map();
-  spec.nodes.forEach(n=>{
-    const g=svgEl('g',{class:`node t-${n.t}${n.grp?' grp':''}`,transform:`translate(${n.x},${n.y})`,tabindex:0,role:'button','aria-label':n.label||n.id},svg);
-    svgEl('rect',{width:n.w,height:n.h,rx:9},g);
-    const a=svgEl('text',{class:'nid',x:n.w/2,y:n.s?n.h/2-3:n.h/2+4,'text-anchor':'middle'},g);a.textContent=n.label||n.id;
-    if(n.s){const b=svgEl('text',{class:'nsub',x:n.w/2,y:n.h/2+13,'text-anchor':'middle'},g);b.textContent=n.s;}
-    nodeEls.set(n.id,g);
-    const hl=on=>{
-      if(!on){svg.classList.remove('hl');$$('.nb',svg).forEach(x=>x.classList.remove('nb'));return;}
-      svg.classList.add('hl');g.classList.add('nb');
-      edgeEls.forEach(x=>{if(x.f===n.id||x.t===n.id){x.g.classList.add('nb');nodeEls.get(x.f).classList.add('nb');nodeEls.get(x.t).classList.add('nb');}});
-    };
-    g.addEventListener('mouseenter',()=>hl(true));g.addEventListener('mouseleave',()=>hl(false));
-    g.addEventListener('focus',()=>hl(true));g.addEventListener('blur',()=>hl(false));
-    const pick=()=>{$$('.sel',svg).forEach(x=>x.classList.remove('sel'));g.classList.add('sel');if(o.onSelect)o.onSelect(n);};
-    g.addEventListener('click',pick);g.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();pick();}});
-  });
-  if(o.marks){
-    svg.classList.add('dimun');
-    (o.marks.visited||[]).forEach(id=>nodeEls.get(id)&&nodeEls.get(id).classList.add('visited'));
-    if(o.marks.active&&nodeEls.get(o.marks.active))nodeEls.get(o.marks.active).classList.add('active');
-  }
-  return {svg,nodes,nodeEls};
-}
-
-/* a graph with zoom buttons and an info panel */
-function mountGraph(key,getSpec,opts={}){
-  const host=$('#g-'+key),tools=$(`.gtools[data-g="${key}"]`),info=$('#i-'+key);
-  let zoom=null,spec=null,last=1;
-  tools.innerHTML='<button data-z="-">−</button><button data-z="+">+</button><button data-z="fit">Fit width</button><span>Hover to trace edges · click for detail · drag to pan</span>';
-  const show=n=>{
-    const col=`var(${TYPE_VAR[n.t]||'--c-flow'})`;
-    info.innerHTML=`<h4><span class="mono">${n.label||n.id}</span><span class="badge" style="color:${col}">${n.typeName||TYPE_NAME[n.t]||n.t}</span>${n.goto?`<button data-goto="${n.goto}">Open workflow →</button>`:''}</h4>${TYPE_PLAIN[n.t]?`<div class="plain-line"><b>In plain words:</b> ${NODE_PLAIN[n.id]||TYPE_PLAIN[n.t]}</div>`:''}<div>${n.info||''}</div>`;
-    const b=$('[data-goto]',info);if(b)b.onclick=()=>go('workflows/'+b.dataset.goto);
-  };
-  const draw=()=>{spec=getSpec();last=zoom||Math.min(1.2,Math.max(.75,(host.clientWidth-6)/spec.w));renderGraph(host,spec,{zoom:last,onSelect:show});};
-  tools.onclick=ev=>{const z=ev.target.dataset&&ev.target.dataset.z;if(!z)return;
-    if(z==='fit')zoom=null;
-    else zoom=Math.min(1.6,Math.max(.3,last+(z==='+'?.15:-.15)));
-    draw();};
-  draw();
-  return {redraw:draw,reset(){zoom=null;info.innerHTML='<span class="empty-hint">👆 Click a node for its detail.</span>';}};
-}
-
-/* ---------------- workflow specs ---------------- */
-const HEALSH='<code>scripts/yukta-heal.sh</code>', ISSUESH='<code>scripts/yukta-issue.sh</code>';
-const SPECS={};
-
-SPECS.check={
-  title:'check',w:2070,h:400,
-  desc:'The self-healing quality gate as ONE execution (<code>heal_workflow</code> in <code>_lib.sh</code>). A sequential stage S that fails goes to its deterministic fix if it has one, then to <code>heal</code>. After coverage the analyzers run in parallel and share one heal. <code>S</code> stands for compile, tests and coverage in turn; spotless is drawn in full because it is the one with an automatic fix.',
-  nodes:[
-    N('trigger',10,170,'flow','<code>CONSTANT_SOURCE</code>. Starts the run. In an issue run the start payload carries <code>project</code> (the worktree) and <code>issueState</code>.',{s:'CONSTANT_SOURCE'}),
-    N('spotless.run1',190,170,'proc',HEALSH+' <code>run spotless -- ./gradlew spotlessCheck …</code> keeps the stage output and exit code under <code>.yukta-dev/heal/&lt;session&gt;/</code> (the fixers read the problem lines from there, nothing runs twice). <code>failureMode CONTINUE</code> + <code>routeByExitCode</code>, in the <code>gradle</code> concurrency group.',{s:'spotlessCheck'}),
-    N('spotless.f1',330,290,'proc','The deterministic fix: <code>yukta-heal.sh fix spotless 1 auto</code> runs <code>spotlessApply</code>. No model, no cost. Only <code>spotless</code> has an <code>auto</code> entry in <code>heal.json</code>.',{s:'auto: spotlessApply'}),
-    N('spotless.run2',520,290,'proc','The same command again after the automatic fix. Success continues to the next stage; failure hands over to <code>heal</code>.',{s:'spotlessCheck again'}),
-    N('spotless.heal',710,290,'sub','<code>SUB_WORKFLOW</code> <b>heal</b> with payload <code>{project, stage, tasks, healDir, modules, analyzers, issueState}</code>, timeout 14400 s. If heal fails, this node fails and so does the run (<code>failed_node=spotless</code>).',{s:'→ heal',goto:'heal'}),
-    N('S.run1',930,170,'proc','Stands for <b>compile</b> (<code>compileJava compileTestJava</code>), <b>tests</b> (<code>test jacocoTestReport</code>) and <b>coverage</b> (<code>jacocoTestCoverageVerification</code>), each unrolled the same way but with no automatic fix: <code>run1 -failure→ heal</code>. Stages are sequential and fail fast so Gradle runs never fight over one build dir.',{w:200,label:'S.run1',s:'compile · tests · coverage',grp:true}),
-    N('S.heal',930,290,'sub','<code>SUB_WORKFLOW</code> heal for this stage. Success lets the run continue to the next stage; a healed stage re-runs only itself (the fix\'s <code>recheck</code> did that).',{w:200,label:'S.heal',s:'→ heal',goto:'heal',grp:true}),
-    N('analyzers',1190,80,'proc','After coverage, in parallel: <b>style</b> (checkstyle + PMD), <b>spotbugs</b>, <b>cli</b> (<code>:cli:check</code>, Go) and the extras <b>ui</b>, <b>docs</b>, <b>reuse</b>, <b>actionlint</b> (a stage whose tool is not installed is skipped with a WARN). Gradle ones wait <code>QUEUED</code> for the gradle group, so only two run at once. Each has a heal policy, so a failure takes the <code>failure</code> port to the join.',{w:190,label:'analyzers',s:'style · spotbugs · cli · extras',grp:true}),
-    N('nopolicy',1190,230,'proc','<b>licenses</b> (<code>licensee</code>) and <b>security</b> (<code>opengrep trivy</code>) have <b>no entry</b> in <code>heal.json</code>: <code>failureMode ERROR</code>, so a failure fails the run at once. They are not healed.',{w:190,label:'licenses · security',s:'no policy: fail fast',grp:true}),
-    N('analyzers.join',1430,150,'flow','<code>AGGREGATE</code> with size = number of analyzers, waits for the slowest (timeout 3600 s).'),
-    N('analyzers.gate',1590,150,'flow','<code>BRANCH</code> (EXPRESSION). Port <code>fail</code> when any item of the join has <code>success == false</code>, otherwise <code>pass</code>: no fixer is started for a clean run.'),
-    N('analyzers.heal',1590,290,'sub','<b>ONE</b> <code>SUB_WORKFLOW</code> heal for all failing analyzers, so two fixers never edit the tree at once. The payload <code>analyzers</code> holds <code>name=command</code> lines; its <code>recheck</code> is one rerun of the failing ones. <code>failed_node</code> then names the analyzers still failing.',{s:'→ heal (one for all)',goto:'heal'}),
-    N('verify',1760,150,'proc',HEALSH+' <code>verify</code>: when anything was healed, re-runs every task once to prove the whole tree is green together. Nothing healed: a no-op. <code>failureMode ERROR</code>.'),
-    N('done',1920,150,'term','<code>CONSOLE_TERMINAL</code>. The run ends <code>SUCCESS</code>; <code>yk</code> then prints the RESULT line.')],
-  edges:[
-    E('trigger','spotless.run1'),
-    E('spotless.run1','spotless.f1','failure','fail'),
-    E('spotless.run1','S.run1','success','ok',{via:[],fa:'r',ta:'l'}),
-    E('spotless.f1','spotless.run2','success','ok'),
-    E('spotless.f1','spotless.heal','failure','fail',{fa:'b',ta:'b',via:[[395,370],[775,370]],lp:[585,370]}),
-    E('spotless.run2','spotless.heal','failure','fail'),
-    E('spotless.run2','S.run1','success','ok',{fa:'t',ta:'l',via:[[585,250],[900,250],[900,195]],lp:[740,250]}),
-    E('spotless.heal','S.run1','','ok',{fa:'t',ta:'l',via:[[775,250],[900,250],[900,195]]}),
-    E('S.run1','S.heal','failure','fail'),
-    E('S.run1','analyzers','success','ok'),E('S.run1','nopolicy','','ok'),
-    E('S.heal','analyzers','','ok'),E('S.heal','nopolicy','','ok'),
-    E('analyzers','analyzers.join','success / failure'),E('nopolicy','analyzers.join',''),
-    E('analyzers.join','analyzers.gate'),
-    E('analyzers.gate','analyzers.heal','fail','fail'),
-    E('analyzers.gate','verify','pass','ok'),
-    E('analyzers.heal','verify','','ok'),
-    E('verify','done')]
-};
-
-SPECS.heal=(()=>{
-  const R=(id,x,y,model,eff,why)=>N(id,x,y,'sub',`<code>SUB_WORKFLOW fix-from-${eff}</code> with <code>model: ${model}</code>, <code>routeByOutcome</code>. ${why} If it ends in failure (every effort of this model spent) the next model is tried at <code>low</code>.`,{s:`${model} from ${eff}`,goto:'fix-from-'+eff});
-  return {title:'heal',w:1590,h:420,
-  desc:'Triage a failed check, then fix it with the cheapest model that can (<code>heal_subflows</code>). The triage only picks where to start; a failure always goes on to the next model, so opus is reached by escalation.',
-  nodes:[
-    N('trigger',10,190,'flow','<code>CONSTANT_SOURCE</code>'),
-    N('brief',180,190,'proc',HEALSH+' <code>brief &lt;stage&gt;</code>: the stage, its command, the problem lines and the failing tests, about 1000 characters. Its stdout becomes the triage state. Short on purpose: System One reads about 50 tokens a second and Ollama cuts a call off at 60 s.'),
-    N('triage',350,190,'cls','<code>CLASSIFY</code> on the System One model <code>kev:4b-q4_K_M</code> through Ollama (0.35+), <code>routeByLabel</code>. One question: <em>how hard is it to fix this failed check of a Java build?</em> Three levels: <b>easy</b> (mechanical: format, import, header, one-file analyzer finding), <b>average</b> (one visible cause, a few classes, tests to add), <b>hard</b> (investigation: shared cause, concurrency, flaky, migration). <code>minProbability 0.3</code> sits below the least a top answer of three can have, so it never fires. Any failure of the call (<code>engine.onError ROUTE</code>) takes port <code>error</code>. <code>--triage off</code> or <code>YUKTA_TRIAGE=off</code> drops this node and goes straight to the default rung.',{s:'System One, 3 labels'}),
-    N('triage-log',350,340,'proc','Three tiny <code>PROCESS_EXECUTOR</code>s (<code>triage-log-level|uncertain|error</code>) that are a <em>second</em> target of the triage ports and end in <code>triage-sink</code>. They write the <code>triage</code> event (route, label, p, start rung, latency, fallback) and never decide where heal goes.',{w:190,label:'triage-log-*',s:'→ triage-sink (logging only)',grp:true}),
-    R('fix-haiku-medium',600,40,'haiku','medium','Start rung of <b>easy</b>.'),
-    R('fix-sonnet-medium',600,150,'sonnet','medium','Start rung of <b>average</b>, and the default for an uncertain answer, a down model or <code>--triage off</code>.'),
-    R('fix-sonnet-high',600,260,'sonnet','high','Start rung of <b>hard</b>.'),
-    R('fix-sonnet-low',860,40,'sonnet','low','Reached only by escalation from haiku.'),
-    R('fix-opus-low',1100,150,'opus','low','Reached by escalation from sonnet. With <code>yk check --pause before-opus</code> a <code>WAIT_FOR_SIGNAL</code> (<code>pause-opus</code>) sits in front: approve it, reject it (the run ends) or take over; unanswered it goes on after 600 s.'),
-    N('giveup',1340,290,'proc',HEALSH+' <code>giveup &lt;stage&gt;</code> records the event and fails (<code>failureMode ERROR</code>): every model failed at every effort. heal fails, so the calling stage fails, so the run fails. The failure is yours to fix by hand.'),
-    N('done',1340,150,'term','<code>CONSOLE_TERMINAL</code>. The stage is repaired; the caller (<code>check</code>) goes on to the next stage.')],
-  edges:[
-    E('trigger','brief'),E('brief','triage'),
-    E('triage','fix-haiku-medium','easy'),
-    E('triage','fix-sonnet-medium','average (default)',null,{lp:[540,160]}),
-    E('triage','fix-sonnet-high','hard'),
-    E('triage','triage-log','logs','log'),
-    E('fix-haiku-medium','fix-sonnet-low','failure','fail'),
-    E('fix-sonnet-low','fix-opus-low','failure','fail'),
-    E('fix-sonnet-medium','fix-opus-low','failure','fail'),
-    E('fix-sonnet-high','fix-opus-low','failure','fail'),
-    E('fix-opus-low','giveup','failure','fail'),
-    E('fix-opus-low','done','success','ok'),
-    E('fix-haiku-medium','done','','ok',{fa:'t',ta:'r',via:[[675,10],[1530,10],[1530,175]]}),
-    E('fix-sonnet-low','done','','ok',{fa:'t',ta:'r',via:[[925,10],[1530,10],[1530,175]]}),
-    E('fix-sonnet-medium','done','','ok',{fa:'b',ta:'r',via:[[675,230],[805,230],[805,390],[1530,390],[1530,175]]}),
-    E('fix-sonnet-high','done','success (every rung)','ok',{fa:'b',ta:'r',via:[[675,390],[1530,390],[1530,175]],lp:[1100,390]})]};
-})();
-
-function fixSpec(from){
-  const EF=['low','medium','high'],es=EF.slice(EF.indexOf(from)),CAPS={low:'$0.50 · 600 s',medium:'$1 · 1200 s',high:'$2 · 1800 s'};
-  const nodes=[N('trigger',10,120,'flow','<code>CONSTANT_SOURCE</code>. The model, stage, tasks and the rest arrive in the start payload, so one workflow serves every stage and model.')];
-  const edges=[E('trigger','fix.'+es[0])];
-  es.forEach((e,j)=>{
-    const x=190+j*500,last=j===es.length-1;
-    nodes.push(N('fix.'+e,x,120,'proc',HEALSH+` <code>fix &lt;stage&gt; 0 &lt;model&gt; --effort ${e}</code>. Builds a short brief (problem lines, failing test classes, working-tree diffstat, previous attempt\'s summary) and runs <code>claude -p</code> through the slim launcher at effort <b>${e}</b>, cap <b>${CAPS[e]}</b>. Then runs <code>spotlessApply</code> and judges the attempt by what changed on disk: touching <code>config/ build-logic/ gradle/ .github/ .claude/</code> or this folder, adding a suppression, removing assertions or changing nothing makes it <code>fixed=false</code> (<code>GUARD: …</code>). It never reverts and never commits. Writes <code>HEAL … fixed=… cost=…</code> and a <code>fix</code> event.`,{w:190,s:`effort ${e} · ${CAPS[e]}`}));
-    nodes.push(N('check.'+e,x+260,120,'proc',HEALSH+` <code>recheck &lt;stage&gt;</code> re-runs the <i>failing stage's own command</i> (recorded by <code>run</code>), so an attempt is judged by the check it was meant to fix, not by what the model claims.`+(last?' This is the last rung: the fix\'s success <i>and</i> failure both lead here, and <code>failureMode ERROR</code> makes a failed recheck fail <code>fix-from</code>, so heal escalates to the next model.':''),{s:'recheck the stage'}));
-    edges.push(E('fix.'+e,'check.'+e,last?'':'success','ok'));
-    if(!last){
-      edges.push(E('fix.'+e,'fix.'+es[j+1],'failure','fail',{fa:'t',ta:'t',via:[[x+95,70],[x+500+95,70]],lp:[x+300,70]}));
-      edges.push(E('check.'+e,'fix.'+es[j+1],'failure','fail'));
-      edges.push(E('check.'+e,'done','success','ok',{fa:'b',ta:'b',via:[[x+325,230],[0,230]]}));
-    }
-  });
-  const dx=190+(es.length-1)*500+260+130+70;
-  nodes.push(N('done',dx,120,'term','<code>CONSOLE_TERMINAL</code>. The attempt repaired the stage.'));
-  edges.push(E('check.'+es[es.length-1],'done','success','ok'));
-  // fix the bottom-bus end point to done's bottom centre
-  edges.forEach(e=>{if(e.t==='done'&&e.via)e.via=[e.via[0],[dx+65,230]];});
-  return {title:'fix-from-'+from,w:dx+200,h:270,
-    desc:`One model at rising effort, starting at <b>${from}</b>: fix → recheck → (fail) next effort … The same workflow serves haiku, sonnet and opus; the model comes from the start payload. Each attempt is time-boxed and budgeted by its effort (<code>heal.json</code> <code>efforts</code>). The last failed recheck fails the workflow.`,
-    nodes,edges};
-}
-['low','medium','high'].forEach(e=>SPECS['fix-from-'+e]=fixSpec(e));
-
-SPECS['implement-issue']={
-  title:'implement-issue',w:1330,h:300,
-  desc:'<code>yk run issue N</code>: from an assigned, Ready issue to a draft PR (<code>issue_workflows</code>). A straight chain; every step but the check is one <code>yukta-issue.sh</code> action, and any failing node fails the workflow.',
-  nodes:[
-    N('trigger',10,40,'flow','<code>CONSTANT_SOURCE</code>. Start payload: <code>issue</code>, <code>repo</code> (the main checkout), <code>worktree</code> (<code>../yukta-issue-&lt;n&gt;</code>).'),
-    N('claim',190,40,'proc',ISSUESH+' <code>claim</code>: the issue must be open, assigned to you and <b>Ready</b> on the Yukta Roadmap project (exit 3 otherwise); moves it to In progress.'),
-    N('worktree',370,40,'proc',ISSUESH+' <code>worktree</code>: a git worktree <code>../yukta-issue-&lt;n&gt;</code> on a new branch <code>issue/&lt;n&gt;</code> from <code>origin/main</code>.'),
-    N('brief',550,40,'proc',ISSUESH+' <code>brief</code> writes <code>.yukta-dev/issue-&lt;n&gt;/brief.md</code>, what the implementer reads.'),
-    N('before-implement',730,40,'wait','<code>WAIT_FOR_SIGNAL</code>. The time to edit the brief, then <code>yk approve &lt;e&gt; before-implement</code>. <code>onTimeout CONTINUE</code> after an hour. Dropped by <code>--no-pause before-implement</code>.',{s:'edit the brief, approve'}),
-    N('nav',910,40,'proc',ISSUESH+' <code>nav</code> → <code>nav.sh prepare</code> indexes the worktree with the first working backend of <code>ide, cbm, codegraph</code> and writes <code>nav.json</code>. Never fails the run; with none the run goes on without an index.',{s:'code-navigation index'}),
-    N('implement',1090,40,'proc',ISSUESH+' <code>implement</code>: a headless Claude (<code>YUKTA_IMPL_MODEL</code> opus, <code>YUKTA_IMPL_BUDGET</code> $5, timeout 14400 s) in the worktree with the implementer rules and the nav tools. Refuses to start over <code>YUKTA_BUDGET_ISSUE</code>.',{s:'headless Claude, opus'}),
-    N('check',1090,210,'sub','<code>SUB_WORKFLOW check</code> on the worktree, with <code>issueState</code> so the implementer\'s cost counts against the issue budget and the fixers get the same code index. The fixers are <b>fresh sessions</b> chosen by the triage; they do not resume the implementer.',{s:'self-healing gate',goto:'check'}),
-    N('before-pr',910,210,'wait','<code>WAIT_FOR_SIGNAL</code>, <code>onTimeout FAIL</code>: nothing outward-facing happens by itself. <code>yk approve &lt;e&gt; before-pr</code> (or reject). Dropped by <code>--no-pause before-pr</code>.',{s:'approve to publish'}),
-    N('pr',730,210,'proc',ISSUESH+' <code>pr</code>: commit, push, and open a <b>draft</b> PR with <code>Fixes #&lt;n&gt;</code> and the check\'s RESULT line (<code>YUKTA_CHECK_EXECUTION</code>).'),
-    N('done',550,210,'term','<code>CONSOLE_TERMINAL</code>')],
-  edges:['trigger>claim','claim>worktree','worktree>brief','brief>before-implement','before-implement>nav','nav>implement','implement>check','check>before-pr','before-pr>pr','pr>done'].map(s=>E(...s.split('>')))
-};
-
-SPECS['run-issue']={
-  title:'run-issue',w:900,h:300,
-  desc:'The outer run of one issue (<code>issue_workflows</code>). It runs <code>implement-issue</code> as a sub-workflow and guarantees the issue never stays claimed: however that ends badly, the issue goes back to Ready and the run ends <code>ESCALATE</code> with the worktree kept.',
-  nodes:[
-    N('trigger',10,130,'flow','<code>CONSTANT_SOURCE</code>'),
-    N('issue',190,130,'sub','<code>SUB_WORKFLOW implement-issue</code>, timeout 28800 s, <code>routeByOutcome</code>: its <code>success</code>, <code>failure</code>, <code>escalate</code> and <code>retry</code> outcomes each take their own edge. A failing node, a rejected or unanswered <code>before-pr</code> or a failing check all land on <code>failure</code>.',{s:'→ implement-issue',goto:'implement-issue'}),
-    N('done',440,40,'term','<code>CONSOLE_TERMINAL</code>: a draft PR exists. <code>RESULT status=SUCCESS</code>.'),
-    N('release',440,220,'proc',ISSUESH+' <code>release</code> gives the claimed issue back (Ready) and keeps the worktree for whoever picks it up. <code>failureMode CONTINUE</code>: a failed release must not hide the escalation.'),
-    N('escalate',650,220,'out','<code>OUTCOME_TERMINAL ESCALATE</code>: <em>the issue run did not finish; the issue is Ready again, the worktree is kept</em>. The engine run succeeded, but <code>yk</code> reports <code>RESULT status=ESCALATE</code>.')],
-  edges:[E('trigger','issue'),E('issue','done','success','ok'),E('issue','release','failure · escalate · retry','fail'),E('release','escalate')]
-};
-
-SPECS['run-epic']={
-  title:'run-epic',w:1450,h:340,
-  desc:'<code>yk run epic N</code> (<code>epic_workflows</code>): the epic\'s open, assigned, Ready sub-issues, two at a time. Two issue runs that end ESCALATE pause the whole tree for a human.',
-  nodes:[
-    N('trigger',10,150,'flow','<code>CONSTANT_SOURCE</code>. Start payload: <code>epic</code>, <code>repo</code>.'),
-    N('list',190,150,'proc',ISSUESH+' <code>epic-list</code> prints the open, assigned, Ready sub-issues as JSON (<code>outputFormat JSON</code>). Issues that are not Ready are left out.'),
-    N('split',370,150,'flow','<code>SPLITTER</code> over <code>payload.output.issues</code>: one item per issue.'),
-    N('between-issues',550,150,'wait','<code>WAIT_FOR_SIGNAL</code> in front of each issue: an issue starts when you <code>yk approve &lt;e&gt; between-issues</code> (once each). <code>--no-pause between-issues</code> starts them as slots free.'),
-    N('issue',750,150,'sub','<code>SUB_WORKFLOW run-issue</code> per issue with <b><code>concurrency: 2</code></b>. Each issue has its own worktree so checks do not collide; the gradle concurrency group keeps Gradle to two. Implementers start <code>YUKTA_WARM_DELAY</code> (20 s) apart so the second finds the first one\'s prompt prefix cached.',{s:'×2 → run-issue',goto:'run-issue'}),
-    N('ok',960,50,'flow','<code>AGGREGATE</code> collecting the issues that succeeded.'),
-    N('done',1120,50,'term','<code>CONSOLE_TERMINAL</code>'),
-    N('bad',960,150,'flow','<code>AGGREGATE</code> collecting every issue that did not finish.'),
-    N('escalate',1120,150,'out','<code>OUTCOME_TERMINAL ESCALATE</code>: the epic ends <code>RESULT status=ESCALATE</code> when any issue did not finish. Each issue is Ready again with its worktree kept.'),
-    N('bad-count',960,260,'flow','<code>AGGREGATE size 2</code>: fires when <b>two</b> issue runs have ended badly.'),
-    N('pause',1120,260,'proc',ISSUESH+' <code>epic-pause</code> calls <code>yk pause --tree</code> through the run\'s own <code>YUKTA_EXECUTION_ID</code> and prints how to go on (<code>yk resume &lt;e&gt; --tree</code>) or give up (<code>yk stop &lt;e&gt; --tree</code>).'),
-    N('paused',1280,260,'term','<code>CONSOLE_TERMINAL</code>')],
-  edges:[E('trigger','list'),E('list','split'),E('split','between-issues'),E('between-issues','issue'),
-    E('issue','ok','success','ok'),E('ok','done'),
-    E('issue','bad','failure · escalate · retry','fail'),E('bad','escalate'),
-    E('issue','bad-count','same three ports','fail'),E('bad-count','pause'),E('pause','paused')]
-};
-
-SPECS.callgraph={
-  title:'call graph',w:1600,h:600,
-  nodes:[
-    N('e-epic',10,40,'entry','<code>yk run epic N [--detach] [--no-pause …]</code>. Applies the shared session <code>yukta-dev</code> and starts <code>run-epic</code> with <code>{epic, repo}</code>. Budget: <code>YUKTA_BUDGET_EPIC</code>.',{label:'yk run epic N'}),
-    N('e-issue',10,140,'entry','<code>yk run issue N</code>. Starts <code>run-issue</code> with <code>{issue, repo, worktree}</code> on <code>yukta-dev</code>. Budget: <code>YUKTA_BUDGET_ISSUE</code>.',{label:'yk run issue N'}),
-    N('e-check',10,260,'entry','<code>yk check [-m mod]… [--no-heal] [--models …] [--triage off] [--pause before-opus] [--detach]</code>. Applies a per-checkout session and starts <code>check</code> (or <code>gradle-check</code> with <code>--no-heal</code>).',{label:'yk check'}),
-    N('e-gradle',10,360,'entry','<code>yk gradle &lt;args…&gt;</code>: any Gradle arguments as ONE stage (<code>failed_node=gradle</code>), no healing.',{label:'yk gradle <args>'}),
-    N('e-run',10,470,'entry','<code>examples/11-dogfood/run.sh</code>: runs <code>quick-check</code>, or <code>gradle-check</code> with <code>FULL=1</code>. The original example, no healing.',{label:'run.sh'}),
-    N('run-epic',260,40,'wf','<b>depth 0</b> when started by <code>yk run epic</code>. Fans out the epic\'s Ready issues.',{s:'depth 0',goto:'run-epic'}),
-    N('run-issue',480,140,'wf','<b>depth 1</b> under an epic, 0 under <code>yk run issue</code>. Releases the issue when anything goes wrong.',{s:'depth 0-1',goto:'run-issue'}),
-    N('implement-issue',700,140,'wf','claim → worktree → brief → implement → check → pr.',{s:'depth 1-2',goto:'implement-issue'}),
-    N('check',930,260,'wf','The self-healing gate. Depth 3 under an epic, 0 under <code>yk check</code>.',{s:'depth 0-3',goto:'check'}),
-    N('heal',1150,260,'wf','Triage, then escalating fixers. Called as <code>S.heal</code> for a stage and <code>analyzers.heal</code> for the analyzers.',{s:'depth 1-4',goto:'heal'}),
-    N('fix-from',1370,260,'wf','<code>fix-from-low|medium|high</code>: one model at rising effort. Depth 5 under an epic: the engine limit.',{label:'fix-from-<effort>',s:'depth 2-5',goto:'fix-from-low'}),
-    N('gradle-run',480,360,'flow','One <code>PROCESS_EXECUTOR</code> between a source and a terminal. Used by <code>yk gradle</code> with the args spliced in.',{s:'1 stage'}),
-    N('gradle-check',480,445,'flow','The linear spec in <code>session.json</code>: spotless → compile → tests → coverage → style → spotbugs → licenses → security → cli. Fail fast, no healing. <code>yk check --no-heal</code> and <code>FULL=1 run.sh</code>.',{s:'linear, no heal'}),
-    N('quick-check',480,530,'flow','Formatting plus Go vet. The default of <code>run.sh</code>.',{s:'spotless + vet'})],
-  edges:[
-    E('e-epic','run-epic','start','call'),
-    E('e-issue','run-issue','start','call'),
-    E('run-epic','run-issue','issue ×2','call'),
-    E('run-issue','implement-issue','issue','call'),
-    E('implement-issue','check','check','call'),
-    E('e-check','check','start','call'),
-    E('check','heal','S.heal · analyzers.heal','call'),
-    E('heal','fix-from','fix-<model>-<effort>','call'),
-    E('e-gradle','gradle-run','start','call'),
-    E('e-check','gradle-check','--no-heal','log',{lp:[330,430]}),
-    E('e-run','gradle-check','FULL=1','log'),
-    E('e-run','quick-check','default','log')]
-};
-SPECS.callgraph.edges[0].lp=null;
-
-/* a graph that shows the dev server lifecycle */
-SPECS.srv={
-  title:'server',w:1260,h:380,
-  nodes:[
-    N('up',10,150,'entry','<code>yk up [--background] [--release [tag]]</code>. Also run by the SessionStart hook and, on demand, by <code>yk check</code> / <code>yk gradle</code> when the server is down (<code>ensure_server</code>). Takes <code>up.lock</code> so two ups never race.',{label:'yk up'}),
-    N('sync',190,150,'proc','<code>main_sync</code>: fetches <code>origin/main</code> into the managed worktree <code>~/.local/state/yukta-dev/main</code> and checks it out detached. The worktree belongs to yk; local edits in it are discarded.'),
-    N('build',380,150,'proc','<code>main_build &lt;sha&gt;</code>: <code>./gradlew :boot:bootJar :cli:goBuild</code> into <code>builds/&lt;sha&gt;/{yukta.jar, yukta-cli}</code>, skipped when that build exists. Minutes the first time per commit; the three newest builds are kept.'),
-    N('healthy',570,150,'flow','Is a server healthy on :9858, and is it the one yk started? If something else holds the port yk refuses and tells you.',{label:'healthy?',s:'/actuator/health'}),
-    N('launch',790,50,'proc','<code>server_launch</code>: starts the jar in its own process group with <code>YUKTA_PROCESS_ALLOW_ANY=true</code>, the gradle concurrency group, loopback address and the API key in a 0600 properties file (not the environment, because the Gradle test JVMs inherit it). Waits up to 120 s for health. Records <code>server.env</code>.'),
-    N('ready',790,150,'term','Already current: <b>ready</b>, nothing to do.',{label:'ready'}),
-    N('busy',790,260,'flow','Are executions running? <code>busy</code> counts them.',{label:'idle?',s:'busy = 0'}),
-    N('swap',1000,200,'proc','<code>server_stop</code> (whole process group) then <code>server_launch</code> of the new build.',{label:'swap',s:'stop → launch'}),
-    N('stale',1000,300,'wait','<b>STALE … swap pending.</b> A run is never swapped from under itself. The next <code>yk check</code> / <code>yk gradle</code> completes the swap when idle; <code>yk status</code> shows it.',{label:'STALE',s:'swap pending'})],
-  edges:[E('up','sync'),E('sync','build'),E('build','healthy'),
-    E('healthy','launch','down','fail'),E('healthy','ready','same sha','ok'),E('healthy','busy','newer main','none'),
-    E('busy','swap','idle','ok'),E('busy','stale','running','fail'),
-    E('swap','launch','then','call',{fa:'t',ta:'r',via:[[1105,75],[1030,75]]})]
-};
-
-SPECS.cli={
-  title:'client',w:1950,h:240,
-  nodes:[
-    N('yk',10,90,'entry','<code>yk check -m core</code> (or <code>yk gradle …</code>). Needs jq, curl, flock, git.',{label:'yk check'}),
-    N('ensure',180,90,'proc','<code>ensure_server</code>: starts the dev server if it is down, or completes a pending swap to an already built newer main while idle. <code>YUKTA_SERVER_URL</code> pointing elsewhere opts out.'),
-    N('lock',350,90,'proc','<code>flock</code> on <code>.yukta-dev/check.lock</code>: one check per checkout. Session id <code>check-&lt;branch&gt;-&lt;sha1 of path&gt;</code>, so branches and clones are kept apart on the shared server.',{label:'lock',s:'one per checkout'}),
-    N('render',520,90,'proc','<code>render_session</code> fills <code>__PROJECT_PATH__</code> in <code>session.json</code>; <code>scope_to_modules</code> restricts the stages to <code>-m</code> modules (and drops root-only trivy and other modules\' tasks); <code>splice_args</code> turns <code>yk gradle</code> args into one stage.',{label:'render session',s:'+ scope to modules'}),
-    N('gen',730,90,'proc','<code>heal_workflow</code> unrolls <code>check</code> from <code>session.json</code> + <code>heal.json</code> (+ <code>heal_extras</code>); <code>heal_subflows</code> adds <code>heal</code> and <code>fix-from-*</code> for the models in <code>--models</code>.',{label:'generate workflows',s:'check + heal + fix-from'}),
-    N('apply',950,90,'proc','<code>yukta-cli session apply</code> uploads the whole session. A CLI too old for <code>session apply</code> prints help and exits 0; yk detects that and says to <code>yk up</code>.',{label:'session apply'}),
-    N('start',1130,90,'proc','<code>yukta-cli workflow start &lt;session&gt; check</code> returns the execution id; <code>--detach</code> stops here and prints <code>STARTED execution=… session=…</code>.',{label:'workflow start'}),
-    N('watch',1310,90,'proc','<code>controlbus watch --until-done --quiet</code> streams events with severity: only problems (<code>NODE</code>, <code>ERROR|WARN</code>, <code>CONTROL</code>, <code>HEAL</code>). A second loop prints <code>APPROVAL</code> when a checkpoint starts waiting.',{label:'yk watch',s:'problems only'}),
-    N('record',1490,90,'proc','<code>record_durations</code> appends each stage\'s seconds to <code>durations.tsv</code> and prints <code>SLOW</code> for a stage over 15 s and 1.5x the median of its last 10 runs at the same scope.',{label:'durations',s:'SLOW lines'}),
-    N('result',1670,90,'term','<code>print_result</code>: reads the final status and failed node (heal and node suffixes stripped), names the healed stages from the heal records, honours an <code>OUTCOME_TERMINAL</code> (ESCALATE), writes the <code>result</code> event and <code>last-result</code>, prints the RESULT line. Exit 0 only on success.',{label:'RESULT',s:'exit 0 on success'})],
-  edges:'yk>ensure,ensure>lock,lock>render,render>gen,gen>apply,apply>start,start>watch,watch>record,record>result'.split(',').map(s=>E(...s.split('>')))
-};
-
-/* ---------------- info for workflows tab ---------------- */
-const WF_ORDER=[['check','check'],['heal','heal'],['fix-from-low','fix-from-low'],['fix-from-medium','fix-from-medium'],['fix-from-high','fix-from-high'],['implement-issue','implement-issue'],['run-issue','run-issue'],['run-epic','run-epic']];
-SPECS.check.goto=undefined;
-
-/* ---------------- layers ---------------- */
-const LAYERS=[
- ['You, Claude Code or CI','The people and agents that start work.','Claude Code is wired in by hooks that <em>deny</em> direct Gradle and steer every build through <code>yk</code>. The same commands work from a plain shell.'],
- ['<code>yk</code> (bash): examples/11-dogfood/yk','The one entry point. Builds the session, starts the run, follows it, prints RESULT.','Commands: <code>up down status check gradle watch run issue|epic tree pause resume stop skip retry break step signals approve reject heal finding cli statusline</code>. It generates workflows with <code>jq</code> (scripts/_lib.sh) and talks to the server with the Yukta CLI built from the same main.'],
- ['Dev server: Yukta built from origin/main, :9858','Runs the workflows. Web UI, REST and MCP on the same port.','One per machine, started and swapped by <code>yk up</code>, API-keyed, with a <code>gradle</code> concurrency group of 2. It holds the sessions and the control bus (events with severity, pause, retry, approvals).'],
- ['Workflows','check → heal → fix-from-*, and run-epic → run-issue → implement-issue → check.','The graphs on the next tabs. Composition by <code>SUB_WORKFLOW</code> gives escalation (cheap to expensive) and layering (epic to issue to check).'],
- ['Step scripts','<code>yukta-heal.sh</code>, <code>yukta-issue.sh</code>, <code>nav.sh</code>, <code>_claude.sh</code>: what each PROCESS_EXECUTOR node actually runs.','heal: <code>run, fix, brief, recheck, triage-log, rerun, verify, giveup</code>. issue: <code>claim, worktree, brief, nav, implement, pr, release, epic-list, epic-pause</code>. Each is usable by hand.'],
- ['The outside world','Gradle, <code>claude -p</code>, Ollama (System One), <code>gh</code>, git, an index backend.','Gradle runs on <em>your checkout</em>; fixers edit it but never commit; <code>gh</code> moves the issue and opens the draft PR; Ollama answers the triage.']];
-(()=>{const h=$('#layers');LAYERS.forEach((l,i)=>{
-  if(i)h.insertAdjacentHTML('beforeend','<div class="arrow">▼</div>');
-  const d=document.createElement('div');d.className='layer';d.tabIndex=0;
-  d.innerHTML=`<b>${l[0]}</b><small>${l[1]}</small><div class="more">${l[2]}</div>`;
-  const t=()=>d.classList.toggle('on');d.onclick=t;d.onkeydown=e=>{if(e.key==='Enter')t();};h.appendChild(d);});})();
-
-/* ---------------- rules and reference tables ---------------- */
-const RULES=[
- ['noop-fixers','a fixer attempt changed nothing','money spent on failures the fixer could not or would not touch'],
- ['fixer-outside-module','an attempt changed files outside the module(s) the run was scoped to','a fixer wandering, or a failure the change did not cause'],
- ['healed-field-mismatch','a run says healed=- although a fixer fixed something','the RESULT line undercounts'],
- ['triage-fallbacks','more than a fifth of triage calls fell back to the default level','Ollama down, a model that cannot be loaded, a call over 60 s, or answers below the confidence floor'],
- ['triage-slow','p95 of triage latency over 45 s','the brief or level descriptions are too long (Ollama cuts a call off at 60 s)'],
- ['under-triage','half of the triaged heals were fixed by a stronger model than the start','levels are rated too low: tune the prompt in eval/triage'],
- ['guard-hits','an attempt touched a protected path, added a suppression or removed assertions','a fixer cheating to pass'],
- ['giveups','a heal gave up after every model','what to fix by hand'],
- ['repeated-failure','the same failure came back three times or more','a flaky check, or a cause worth fixing at the root']];
-const REF=[
- ['yk up [--background] [--release [tag]]','Build origin/main and start the dev server, or swap an idle one for a newer main. --release runs a published native build (cosign-verified).'],
- ['yk down | yk status','Stop the server yk started | show it (exit 3 when down).'],
- ['yk check [-m mod]… [-p path]','The staged, self-healing gate. -m restricts to modules (-m cli runs only :cli:check).'],
- ['yk check --no-heal','The plain fail-fast chain (gradle-check) with no healing.'],
- ['yk check --models sonnet,opus','Limit the models for one run; a triage level that starts at a dropped model starts at the first kept one.'],
- ['yk check --triage off | YUKTA_TRIAGE=off','Skip the System One call; heal starts at the default level (sonnet/medium).'],
- ['yk check --pause before-opus','A WAIT_FOR_SIGNAL in front of every opus fixer (pause-opus).'],
- ['yk check --detach / yk watch <s> <e> [--all]','Start and return STARTED execution=…, then follow it later; --all prints every event.'],
- ['yk gradle [--detach] <args…>','Any Gradle args as one stage (failed_node=gradle), no healing.'],
- ['yk run issue N [--detach] [--no-pause before-implement,before-pr]','Take an assigned, Ready issue to a draft PR.'],
- ['yk run epic N [--no-pause before-implement,before-pr,between-issues]','The Ready sub-issues of an epic, two at a time.'],
- ['yk tree <e>','The run and every run below it: workflow, status, current nodes, pending signals. An id may be its first 8 characters.'],
- ['yk pause|resume|stop <e> [--tree]','Control a run; --tree includes every run it started.'],
- ['yk retry|skip|unskip <e> <node>','Re-run a failed node and what is behind it; skip a node.'],
- ['yk break <e> <node> --field F --equals V | --clear','Hold a node on a payload value.'],
- ['yk step <e> <node> on|off|next','Step mode of a node.'],
- ['yk signals [e] | yk approve|reject <e> [signal]','What waits for an answer; answer it. The root execution id is enough.'],
- ['yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]','Where time and money went | what looks wrong (exit 1) | the raw events.'],
- ['yk finding --title … --module … --priority … --kind …','File a dogfood issue; the same title adds a comment to the open one. --dry-run prints it.'],
- ['yk cli <args…>','The Yukta CLI built with the server, pointed at it.'],
- ['YUKTA_DEV_PORT / YUKTA_DEV_HOME','Dev server port (9858) and state dir (~/.local/state/yukta-dev).'],
- ['YUKTA_DEV_GRADLE_PARALLEL','Size of the server\'s gradle concurrency group (2).'],
- ['YUKTA_HEAL_EVENTS','Events file, or off.'],
- ['YUKTA_HEAL_BUDGET','USD per fix attempt (set per effort by heal.json).'],
- ['YUKTA_TRIAGE_URL','Another Ollama for the triage.'],
- ['YUKTA_PAUSE_SECONDS','How long pause-opus waits before going on (600).'],
- ['YUKTA_CHECK_EXTRAS=off','Leave out the ui, docs, reuse and actionlint stages.'],
- ['YUKTA_CLAUDE_BIN','Swap the claude binary of fixers (the tests use a fake).'],
- ['YUKTA_IMPL_MODEL / YUKTA_IMPL_BUDGET','The implementer: model (opus) and USD cap (5).'],
- ['YUKTA_BUDGET_ISSUE / YUKTA_BUDGET_EPIC','USD caps for one issue (implementer + fixers) and for all issues of an epic.'],
- ['YUKTA_WARM_DELAY','Seconds between implementer starts in an epic (20), so the prompt prefix is cached.'],
- ['YUKTA_NAV_BACKENDS / YUKTA_NAV_IDE / YUKTA_NAV_IDE_URL','Code-navigation backends and the IDE opt-in.'],
- ['YUKTA_NAV_CBM_BIN / YUKTA_NAV_CBM_CACHE / YUKTA_NAV_INDEX_TIMEOUT','codebase-memory binary, its cache, and the per-backend index timeout (1500 s).'],
- ['YUKTA_DOGFOOD=off','Turn off the Claude Code hooks.'],
- ['YUKTA_GH / YUKTA_PROJECT_STATUS_CMD','Swap gh / the project update (for tests).']];
-function fillTable(tableSel,rows,qSel){
-  const t=$(tableSel),q=$(qSel);
-  const draw=()=>{const f=q.value.toLowerCase();$$('tr.r',t).forEach(r=>r.remove());
-    rows.filter(r=>!f||r.join(' ').toLowerCase().includes(f)).forEach(r=>{const tr=document.createElement('tr');tr.className='r';
-      tr.innerHTML=r.map((c,i)=>{c=c.replace(/&/g,'&amp;').replace(/</g,'&lt;');return `<td>${i===0?'<code>'+c+'</code>':c}</td>`;}).join('');t.appendChild(tr);});};
-  q.oninput=draw;draw();
-}
-fillTable('#rules',RULES,'#ruleq');fillTable('#ref',REF,'#refq');
-
-/* ---------------- simulator ---------------- */
-const MODELS=['haiku','sonnet','opus'],EFF=['low','medium','high'];
-const CAP={low:.5,medium:1,high:2},TMO={low:600,medium:1200,high:1800};
-const START={easy:['haiku','medium'],average:['sonnet','medium'],hard:['sonnet','high']};
-const STAGES={spotless:'spotless (has an automatic fix)',compile:'compile',tests:'tests',coverage:'coverage',style:'style (an analyzer, healable)',security:'security (analyzer, no heal policy)'};
-function simulate(o){
-  const ev=[],stack=[];let cap=0,healed='-',failed='-';
-  const snap=()=>stack.map(s=>({wf:s.wf,spec:s.spec,visited:[...s.vis],active:s.active}));
-  const log=(text,kind)=>ev.push({text,kind:kind||'info',cap,stack:snap(),wf:stack.length?stack[stack.length-1].wf:''});
-  const open=(wf,text,spec)=>{stack.push({wf,spec:spec||wf,vis:new Set(),active:null});log(text,'open');};
-  const at=(id,text,kind)=>{const s=stack[stack.length-1];s.vis.add(id);s.active=id;log(text,kind);};
-  const quiet=(...ids)=>{const s=stack[stack.length-1];ids.forEach(i=>s.vis.add(i));};
-  const close=(text,kind)=>{log(text,kind);stack.pop();};
-  const fixes=(m,e)=>MODELS.indexOf(m)>=MODELS.indexOf(o.fixer)&&EFF.indexOf(e)>=EFF.indexOf(o.need)&&o.fixer!=='nobody'&&o.fixer!=='auto';
-
-  function heal(stage,node){
-    const analyzers=node==='analyzers.heal';
-    at(node,`${node} → SUB_WORKFLOW heal for ${analyzers?'the failing analyzers (one heal for all)':stage}`,'warn');
-    open('heal','heal starts: brief → triage → fixers');
-    at('trigger','');ev.pop();
-    at('brief',`brief: the stage, its command, the problem lines, the failing tests (about 1000 chars)`);
-    let lvl='average',rungText;
-    if(o.triage==='off'){lvl='average';at('brief','--triage off: no triage node; start at the default rung sonnet/medium');}
-    else{
-      const t={easy:'easy',average:'average',hard:'hard',uncertain:'uncertain (answer below the confidence floor)',error:'error (Ollama down or the call took over 60 s)'}[o.triage];
-      at('triage',`System One classifies the failure: ${t}`,['uncertain','error'].includes(o.triage)?'warn':'info');
-      at('triage-log',`triage-log-${['uncertain','error'].includes(o.triage)?o.triage:'level'} writes the triage event (logging only)`);
-      if(START[o.triage])lvl=o.triage;
-    }
-    const st=START[lvl],rungs=[st];
-    MODELS.slice(MODELS.indexOf(st[0])+1).forEach(m=>rungs.push([m,'low']));
-    for(const [m,e] of rungs){
-      at(`fix-${m}-${e}`,`SUB_WORKFLOW fix-from-${e} with model ${m}`);
-      open('fix-from-'+e,`fix-from-${e} starts (${m})`,'fix-from-'+e);
-      at('trigger','');ev.pop();
-      for(const x of EFF.slice(EFF.indexOf(e))){
-        cap+=CAP[x];
-        const ok=fixes(m,x);
-        at('fix.'+x,`claude -p --model ${m}, effort ${x} (cap $${CAP[x]}, ${TMO[x]} s): ${ok?'edits the code':'does not repair it'}`,ok?'info':'warn');
-        if(ok){
-          at('check.'+x,'recheck: the failing stage\'s own command passes','ok');
-          at('done','fix-from ends in success','ok');
-          close(`fix-from-${e} succeeded with ${m}/${x}`,'ok');
-          healed=`${stage}:${m}/${x}`;
-          at('done','heal ends in success','ok');
-          close(`${node} succeeded: the stage re-ran only itself`,'ok');
-          return true;
-        }
-        at('check.'+x,x==='high'?'recheck fails: every effort of this model is spent':'recheck fails, so the next effort','fail');
-      }
-      close(`fix-from-${e} fails: heal escalates`,'fail');
-    }
-    at('giveup','giveup: every model failed at every effort','fail');
-    close('heal fails','fail');
-    failed=stage;
-    return false;
-  }
-
-  const seq=['spotless','compile','tests','coverage'].includes(o.stage);
-  if(o.issue){
-    open('run-issue','`yk run issue 123` starts run-issue');
-    at('trigger','');ev.pop();
-    at('issue','run-issue calls implement-issue as a SUB_WORKFLOW');
-    open('implement-issue','implement-issue starts');
-    at('trigger','');ev.pop();
-    quiet('claim','worktree','brief','before-implement','nav');
-    at('implement','claim → worktree → brief → before-implement → nav → implement (opus, up to $5)');
-    at('check','implement-issue calls check as a SUB_WORKFLOW','warn');
-    open('check','check starts on the worktree');
-  }else open('check','`yk check` starts the check workflow');
-  at('trigger','');ev.pop();
-  let ok=true;
-  if(o.stage==='spotless'){
-    at('spotless.run1','spotlessCheck fails','fail');
-    at('spotless.f1','automatic fix: spotlessApply');
-    if(o.fixer==='auto'){at('spotless.run2','spotlessCheck passes: healed with no model, no cost','ok');healed='spotless:auto';}
-    else{at('spotless.run2','still failing after spotlessApply','fail');ok=heal('spotless','spotless.heal');}
-  }else at('spotless.run1','spotless passes','ok');
-  if(ok){
-    if(['compile','tests','coverage'].includes(o.stage)){at('S.run1',`${o.stage} fails`,'fail');ok=heal(o.stage,'S.heal');}
-    else at('S.run1','compile, tests and coverage pass','ok');
-  }
-  if(ok){
-    if(o.stage==='security'){
-      at('analyzers','analyzers run in parallel and pass','ok');
-      at('nopolicy','security fails: no heal policy, so the node fails the run at once','fail');
-      ok=false;failed='security';
-    }else if(o.stage==='style'){
-      at('analyzers','analyzers run in parallel (two gradle nodes at a time); style fails, the rest pass','warn');
-      at('nopolicy','licenses and security pass','ok');
-      at('analyzers.join','AGGREGATE collects every analyzer\'s result');
-      at('analyzers.gate','BRANCH: an item has success=false → port fail','warn');
-      ok=heal('style','analyzers.heal');
-    }else{
-      at('analyzers','analyzers run in parallel and pass','ok');
-      at('nopolicy','licenses and security pass','ok');
-      at('analyzers.join','AGGREGATE collects every analyzer\'s result');
-      at('analyzers.gate','BRANCH: nothing failed → port pass','ok');
-    }
-  }
-  if(ok){
-    at('verify',healed==='-'?'verify: nothing was healed, nothing to re-run':'verify: re-runs every task once because something was healed','ok');
-    at('done','check ends SUCCESS','ok');
-  }else log('check fails','fail');
-  // closing the check
-  const status=ok?'SUCCESS':'FAILURE';
-  if(o.issue){
-    close(ok?'check workflow ended SUCCESS':'check workflow ended FAILURE',ok?'ok':'fail');
-    if(ok){
-      at('before-pr','WAIT_FOR_SIGNAL: waits for yk approve <e> before-pr (unanswered, the run fails)','warn');
-      at('pr','commit, push, open a DRAFT PR with Fixes #123 and the check\'s RESULT line','ok');
-      at('done','implement-issue ends SUCCESS','ok');
-      close('implement-issue succeeded','ok');
-      at('done','run-issue ends SUCCESS','ok');
-      close('run-issue succeeded','ok');
-      log(`RESULT status=SUCCESS failed_node=- healed=${healed} execution=… session=yukta-dev`,'result');
-    }else{
-      close('implement-issue fails: check failed','fail');
-      at('release','issue port failure → release: the issue is Ready again, the worktree is kept','warn');
-      at('escalate','OUTCOME_TERMINAL ESCALATE','fail');
-      close('run-issue ends ESCALATE','fail');
-      log(`RESULT status=ESCALATE failed_node=${failed} healed=- execution=… session=yukta-dev`,'result');
-    }
-  }else{
-    close(`check ends ${status}`,ok?'ok':'fail');
-    log(`RESULT status=${status} failed_node=${ok?'-':failed} healed=${ok?healed:'-'} execution=… session=check-<branch>-<hash>`,'result');
-  }
-  return ev;
-}
-
-(function initSim(){
-  const sel=(id,opts)=>{const s=$(id);s.innerHTML=Object.entries(opts).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');return s;};
-  const stage=sel('#s-stage',STAGES);stage.value='compile';
-  const fixer=sel('#s-fixer',{haiku:'haiku',sonnet:'sonnet',opus:'opus',nobody:'nobody (no model can)'});fixer.value='sonnet';
-  const triage=$('#s-triage'),need=$('#s-need'),issue=$('#s-issue');need.value='medium';
-  let ev=[],i=0,timer=null;
-  const opts=()=>({stage:stage.value,triage:triage.value,fixer:fixer.value,need:need.value,issue:issue.value==='1'});
-  function syncFixer(){
-    const has=stage.value==='spotless';
-    if(has&&!$('option[value=auto]',fixer)){fixer.insertAdjacentHTML('afterbegin','<option value="auto">spotlessApply (no model)</option>');}
-    if(!has&&$('option[value=auto]',fixer)){$('option[value=auto]',fixer).remove();if(fixer.value==='auto')fixer.value='sonnet';}
-    const none=stage.value==='security';
-    [triage,fixer,need].forEach(x=>x.disabled=none);
-  }
-  function rebuild(){syncFixer();stop();ev=simulate(opts());i=0;drawLog();drawStack();}
-  function stop(){if(timer){clearInterval(timer);timer=null;$('#s-play').textContent='Play';}}
-  function drawLog(){
-    const L=$('#s-log');
-    L.innerHTML=ev.map((e,k)=>`<div class="ev ${e.kind} ${k===i?'cur':''} ${k>i?'future':''}" data-k="${k}"><span class="d"></span><span>${e.text.replace(/</g,'&lt;')}${e.wf&&e.kind!=='result'?`<span class="w">${e.wf}</span>`:''}</span></div>`).join('');
-    L.onclick=x=>{const d=x.target.closest('.ev');if(d){i=+d.dataset.k;stop();drawLog();drawStack();}};
-    const cur=$('.cur',L);if(cur)cur.scrollIntoView({block:'nearest'});
-  }
-  function drawStack(){
-    const e=ev[i],H=$('#s-stack');H.innerHTML='';
-    $('#s-meta').innerHTML=`<span>step <b>${i+1}</b> / ${ev.length}</span><span>depth <b>${e.stack.length}</b></span><span>fixer spend so far, at most <b>$${e.cap.toFixed(2)}</b></span>`;
-    e.stack.forEach((s,d)=>{
-      const card=document.createElement('div');card.className='card scard';
-      card.innerHTML=`<h4><span class="chip">level ${d}</span><span class="mono">${s.wf}</span></h4><div class="gwrap"></div>`;
-      H.appendChild(card);
-      const r=renderGraph($('.gwrap',card),SPECS[s.spec],{zoom:.7,marks:{visited:s.visited,active:s.active}});
-      const a=s.active&&r.nodeEls.get(s.active);
-      if(a){const w=$('.gwrap',card);const bb=r.nodes.get(s.active);w.scrollLeft=Math.max(0,bb.x*.7-w.clientWidth/2+bb.w*.35);}
-    });
-    const R=$('#s-result');
-    if(e.kind==='result'){R.hidden=false;R.textContent=e.text;R.className='res'+(/status=FAILURE/.test(e.text)?' bad':/status=ESCALATE/.test(e.text)?' esc':'');}else R.hidden=true;
-    const pn=plainSim(e);$('#s-ni').textContent=pn[0];$('#s-nt').textContent=pn[1];
-    $('#s-prog').style.width=(ev.length>1?i/(ev.length-1)*100:0)+'%';
-  }
-  function step(d){i=Math.min(ev.length-1,Math.max(0,i+d));drawLog();drawStack();if(i===ev.length-1)stop();}
-  $('#s-step').onclick=()=>{stop();step(1);};
-  $('#s-back').onclick=()=>{stop();step(-1);};
-  $('#s-reset').onclick=()=>{stop();i=0;drawLog();drawStack();};
-  $('#s-play').onclick=()=>{
-    if(timer){stop();return;}
-    if(i>=ev.length-1)i=0;
-    $('#s-play').textContent='Pause';
-    timer=setInterval(()=>step(1),+$('#s-speed').value);drawLog();drawStack();
-  };
-  [stage,triage,fixer,need,issue].forEach(x=>x.onchange=rebuild);
-  window.__simInit=rebuild;
-})();
-
-/* ---------------- workflows tab ---------------- */
-let wfGraph=null,wfCur='check';
-(function(){
-  const tabs=$('#wfTabs');
-  WF_ORDER.forEach(([k,l])=>{const b=document.createElement('button');b.textContent=l;b.dataset.k=k;b.onclick=()=>go('workflows/'+k);tabs.appendChild(b);});
-})();
-function showWf(k){
-  if(!SPECS[k])k='check';
-  wfCur=k;
-  $$('#wfTabs button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
-  $('#wfDesc').innerHTML=SPECS[k].desc;
-  if(!wfGraph)wfGraph=mountGraph('wf',()=>SPECS[wfCur],{});
-  wfGraph.reset();wfGraph.redraw();
-}
-
-/* ---------------- router ---------------- */
-const TABS=$$('section.tab');
-const nav=$('#nav');
-TABS.forEach(s=>{const a=document.createElement('a');a.href='#'+s.id;a.textContent=s.dataset.title;a.dataset.id=s.id;nav.appendChild(a);});
-function go(h){location.hash='#'+h;}
-const mounted={};
-function route(){
-  const [id,sub]=(location.hash.slice(1)||'overview').split('/');
-  const sec=TABS.find(s=>s.id===id)||TABS[0];
-  TABS.forEach(s=>s.classList.toggle('on',s===sec));
-  $$('a',nav).forEach(a=>a.classList.toggle('on',a.dataset.id===sec.id));
-  if(sec.id==='callgraph'&&!mounted.cg){mounted.cg=mountGraph('callgraph',()=>SPECS.callgraph,{});}
-  if(sec.id==='workflows')showWf(sub||wfCur);
-  if(sec.id==='simulator'&&!mounted.sim){mounted.sim=true;window.__simInit();}
-  if(sec.id==='server'&&!mounted.srv){mounted.srv=true;mountGraph('srv',()=>SPECS.srv,{});mountGraph('cli',()=>SPECS.cli,{});}
-  window.scrollTo(0,0);
-}
-window.addEventListener('hashchange',route);route();
-
-/* ---------------- theme ---------------- */
-const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
-function toggleTheme(){
-  const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;
-  r.dataset.theme=dark?'light':'dark';store.set('yk-design-theme',r.dataset.theme);
-}
-$('#theme').onclick=toggleTheme;
-
-/* ---------------- reading aids: numbered nav, progress, pager ---------------- */
-const seen=new Set((store.get('yk-design-seen')||'').split(',').filter(Boolean));
-$$('a',nav).forEach((a,k)=>{a.insertAdjacentHTML('afterbegin',`<span class="num">${k+1}</span>`);a.title=`${a.textContent.slice(String(k+1).length)} (${k+1})`;});
-nav.insertAdjacentHTML('beforeend','<div class="navfoot"><kbd>1</kbd>–<kbd>9</kbd> jump · <kbd>/</kbd> search<br><kbd>g</kbd> glossary · <kbd>t</kbd> theme<br><kbd>?</kbd> all keys</div>');
-function markSeen(){
-  const id=(location.hash.slice(1)||'overview').split('/')[0];
-  if(TABS.some(s=>s.id===id))seen.add(id);
-  store.set('yk-design-seen',[...seen].join(','));
-  $$('a',nav).forEach(a=>a.classList.toggle('seen',seen.has(a.dataset.id)&&!a.classList.contains('on')));
-  $('#seenLbl').textContent=`${seen.size} of ${TABS.length} explored`;
-  $('#seenBar').style.width=seen.size/TABS.length*100+'%';
-  const cur=$('a.on',nav);if(cur)cur.scrollIntoView({block:'nearest',inline:'nearest'});
-}
-window.addEventListener('hashchange',markSeen);markSeen();
-TABS.forEach((s,k)=>{
-  const p=TABS[k-1],n=TABS[k+1];
-  s.insertAdjacentHTML('beforeend',`<div class="pager">${p?`<a href="#${p.id}"><small>← Previous</small><b>${p.dataset.title}</b></a>`:''}${n?`<a class="next" href="#${n.id}"><small>Next →</small><b>${n.dataset.title}</b></a>`:''}</div>`);
-});
-
-/* ---------------- copy to clipboard ---------------- */
-let toastT;
-function toast(msg){let t=$('.toast');if(!t){t=document.createElement('div');t.className='toast';t.setAttribute('role','status');document.body.appendChild(t);}
-  t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600);}
-function copy(text){
-  const done=()=>toast('Copied: '+(text.length>48?text.slice(0,46)+'…':text));
-  if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(text).then(done,()=>fallback());else fallback();
-  function fallback(){const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
-    try{document.execCommand('copy');done();}catch(e){toast('Copy failed');}ta.remove();}
-}
-$$('pre').forEach(p=>{const b=document.createElement('button');b.className='copybtn';b.textContent='Copy';b.onclick=()=>copy(p.textContent.replace(/Copy$/,'').trim());p.appendChild(b);});
-$('#ref').addEventListener('click',e=>{const c=e.target.closest('td:first-child code');if(c)copy(c.textContent);});
-$('#ref').title='Click a command to copy it';
-$('#s-result').classList.add('copyable');$('#s-result').title='Click to copy';$('#s-result').onclick=()=>copy($('#s-result').textContent);
-
-/* ---------------- table filters: match count and highlight ---------------- */
-[['#rules','#ruleq'],['#ref','#refq']].forEach(([ts,qs])=>{
-  const t=$(ts),q=$(qs),cnt=document.createElement('span');cnt.className='tcount';q.after(cnt);
-  const total=$$('tr.r',t).length;
-  const mark=()=>{
-    const f=q.value.trim().toLowerCase(),rows=$$('tr.r',t);
-    cnt.textContent=f?`${rows.length} of ${total}`:`${total}`;
-    if(!rows.length)t.insertAdjacentHTML('beforeend',`<tr class="r"><td class="empty" colspan="3">Nothing matches “${q.value.replace(/[<&]/g,'')}”.</td></tr>`);
-    if(!f)return;
-    rows.forEach(r=>{const w=document.createTreeWalker(r,NodeFilter.SHOW_TEXT),hits=[];
-      while(w.nextNode())if(w.currentNode.nodeValue.toLowerCase().includes(f))hits.push(w.currentNode);
-      hits.forEach(n=>{const v=n.nodeValue,i=v.toLowerCase().indexOf(f),m=document.createElement('mark');
-        m.textContent=v.slice(i,i+f.length);const rest=n.splitText(i);rest.nodeValue=rest.nodeValue.slice(f.length);n.after(m);});});
-  };
-  q.addEventListener('input',mark);mark();
-});
-
-/* ---------------- graphs: drag to pan, legend chips filter node types ---------------- */
-document.addEventListener('pointerdown',e=>{
-  const w=e.target.closest('.gwrap');
-  if(!w||e.pointerType!=='mouse'||e.button!==0||e.target.closest('.node'))return;
-  const x=e.clientX,y=e.clientY,sl=w.scrollLeft,st=w.scrollTop;w.classList.add('panning');
-  const mv=ev=>{w.scrollLeft=sl-(ev.clientX-x);w.scrollTop=st-(ev.clientY-y);};
-  const up=()=>{w.classList.remove('panning');removeEventListener('pointermove',mv);removeEventListener('pointerup',up);};
-  addEventListener('pointermove',mv);addEventListener('pointerup',up);
-});
-$$('#workflows .chips, #callgraph .chips').forEach(box=>{
-  const host=$('.gwrap',box.closest('section'));let only=null;
-  const types=c=>{const t=[...c.classList].find(x=>x.startsWith('sw-')).slice(3);return t==='sub'?['sub','wf']:[t];};
-  const apply=()=>{const svg=$('svg',host);if(!svg)return;
-    $$('.node',svg).forEach(n=>n.classList.toggle('typeoff',!!only&&!only.some(t=>n.classList.contains('t-'+t))));
-    $$('.chip',box).forEach(c=>{c.classList.toggle('only',!!only&&c.dataset.t===only.join());c.classList.toggle('off',!!only&&c.dataset.t!==only.join());});};
-  $$('.chip',box).forEach(c=>{c.setAttribute('role','button');c.tabIndex=0;c.dataset.t=types(c).join();c.title='Show only this kind (click again to show all)';
-    const pick=()=>{only=c.classList.contains('only')?null:types(c);apply();};
-    c.onclick=pick;c.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();pick();}};});
-  box.insertAdjacentHTML('beforeend','<span class="hint">click a kind to isolate it</span>');
-  new MutationObserver(apply).observe(host,{childList:true});
-});
-
-/* ---------------- simulator scenarios ---------------- */
-const SCENARIOS=[
- ['Format slip','spotlessApply fixes it, free',{stage:'spotless',fixer:'auto'}],
- ['Easy analyzer finding','haiku fixes style',{stage:'style',triage:'easy',fixer:'haiku',need:'medium'}],
- ['Escalate to opus','sonnet can\'t, opus can',{stage:'tests',triage:'average',fixer:'opus',need:'low'}],
- ['Ollama is down','triage falls back to default',{stage:'tests',triage:'error',fixer:'sonnet',need:'medium'}],
- ['Hopeless','every model gives up',{stage:'compile',triage:'hard',fixer:'nobody'}],
- ['Issue run escalates','the issue goes back to Ready',{stage:'coverage',triage:'average',fixer:'nobody',issue:'1'}],
- ['Security finding','no heal policy, fails fast',{stage:'security'}]];
-(()=>{
-  const box=$('#s-presets'),ctl=$('.ctl');
-  SCENARIOS.forEach(([name,sub,o])=>{
-    const b=document.createElement('button');b.className='preset';b.innerHTML=`<b>${name}</b><small>${sub}</small>`;
-    b.onclick=()=>{
-      const st=$('#s-stage');st.value=o.stage;st.dispatchEvent(new Event('change'));
-      const v={triage:'average',fixer:'sonnet',need:'medium',issue:'0',...o};
-      $('#s-triage').value=v.triage;$('#s-fixer').value=v.fixer;$('#s-need').value=v.need;$('#s-issue').value=v.issue;
-      window.__simInit();$$('.preset',box).forEach(x=>x.classList.toggle('on',x===b));
-      $('#s-play').click();
-    };
-    box.appendChild(b);
-  });
-  ctl.addEventListener('change',e=>{if(e.isTrusted)$$('.preset',box).forEach(x=>x.classList.remove('on'));});
-})();
-
-/* ---------------- plain words: toggle, glossary, story ---------------- */
-const GLOSS={
- yukta:['Yukta','The product: a server that runs “workflows” (flowcharts of jobs), started from a web page, a command line or an AI assistant.'],
- dogfood:['Dogfooding','“Eating your own dog food”: a team using its own product for its own daily work, so it finds problems before customers do.'],
- workflow:['Workflow','A flowchart of jobs. Each box is a step; arrows say what runs next, often depending on whether the step worked.'],
- node:['Node','One box in a workflow: one step, such as running a command, asking an AI or waiting for a person.'],
- edge:['Edge','An arrow between two boxes. Green: go here if it worked. Red dashed: go here if it failed.'],
- yk:['yk','The one command developers type. It starts the dev server if needed, runs the right workflow and prints the result.'],
- devserver:['Dev server','A private copy of Yukta running on the developer’s own computer, rebuilt from the latest approved code. It runs the workflows.'],
- main:['main (origin/main)','The shared, approved version of the code that everyone builds on.'],
- gradle:['Gradle','The build tool for Java: it turns the code into a program, runs the tests and runs the checkers.'],
- check:['Check (quality gate)','The full set of inspections code must pass before it can be shared.'],
- stage:['Stage','One inspection in the check: formatting, building, tests, test coverage, style, bugs, licenses or security.'],
- spotless:['Spotless','The formatting inspector. It can also fix formatting by itself, at no cost.'],
- tests:['Tests','Small programs that confirm the code still does what it should.'],
- coverage:['Coverage','How much of the code the tests actually exercise. Too little, and the check fails.'],
- analyzer:['Analyzer','An automatic reviewer that reads the code for style problems or likely bugs (Checkstyle, PMD, SpotBugs and others).'],
- heal:['Heal','Yukta’s repair process: when an inspection fails, AI repairers try to fix the code instead of the run just stopping.'],
- triage:['Triage','Sorting by difficulty, as nurses do in a hospital. Here a small AI guesses whether a fix is easy, average or hard.'],
- systemone:['System One','A small AI model running on your own computer (through Ollama). Fast and free, so it is used for quick judgments like triage.'],
- ollama:['Ollama','A free program that runs small AI models on your own computer.'],
- haiku:['Haiku','The smallest, fastest and cheapest Claude AI model: the junior repairer.'],
- sonnet:['Sonnet','The mid-sized Claude AI model: the everyday repairer, and where heal starts when unsure.'],
- opus:['Opus','The largest, most capable Claude AI model: the senior repairer, tried last because it costs the most.'],
- effort:['Effort','How hard an AI is allowed to think: low, medium or high. More effort takes longer and costs more.'],
- fixer:['Fixer','An AI session started only to repair one failed inspection. It edits files, but never publishes them.'],
- recheck:['Recheck','Running the failed inspection again after a repair. The repair counts only if the inspection now passes.'],
- guard:['Guard','A safety rule: a repair that changes the rules, silences a warning or deletes a test is rejected.'],
- subworkflow:['Sub-workflow','A step that starts another whole workflow and waits for it, like a manager delegating to a team.'],
- escalate:['Escalate','Pass the problem up: to a stronger AI, or finally to a person.'],
- result:['RESULT line','The last line every run prints: did it pass, what failed, what was repaired. Easy for people and programs to read.'],
- issue:['Issue (ticket)','A note on GitHub describing one piece of work to do.'],
- epic:['Epic','A big ticket made up of several smaller tickets.'],
- pr:['Pull request (PR)','A proposed change that people review before it is accepted. A “draft” is not ready to accept yet.'],
- worktree:['Worktree','A second, separate folder with a copy of the project, so two jobs never edit the same files.'],
- claudecode:['Claude Code','Anthropic’s AI coding assistant, which works in a terminal and can edit code.'],
- hook:['Hook','A small script that runs automatically at a set moment, for example just before Claude Code runs a command.'],
- mcp:['MCP','Model Context Protocol: a standard way for AI assistants to use outside tools. Here it lets an AI control Yukta.'],
- budget:['Budget','A spending cap in US dollars. A step that would go over it refuses to start.'],
- signal:['Signal (checkpoint)','A pause that waits for a person to answer “approve” or “reject”.']};
-// the plain-words toggle
-const plainBtn=$('#plainBtn');
-function setPlain(on){document.body.classList.toggle('no-plain',!on);plainBtn.setAttribute('aria-pressed',on);store.set('yk-design-plain',on?'1':'0');}
-setPlain(store.get('yk-design-plain')!=='0');
-plainBtn.onclick=()=>setPlain(document.body.classList.contains('no-plain'));
-// the glossary
-const glossDlg=document.createElement('dialog');glossDlg.id='glossDlg';
-glossDlg.innerHTML=`<div class="gh"><button class="close iconbtn" aria-label="Close">✕</button><h4>Glossary: the words, in plain English</h4><input type="search" placeholder="find a word"></div><dl>${
-  Object.entries(GLOSS).sort((a,b)=>a[1][0].localeCompare(b[1][0])).map(([k,[t,d]])=>`<div data-k="${k}"><dt>${t}</dt><dd>${d}</dd></div>`).join('')}</dl>`;
-document.body.appendChild(glossDlg);
-const gq=$('input',glossDlg);
-gq.oninput=()=>{const f=gq.value.toLowerCase();$$('dl>div',glossDlg).forEach(d=>d.hidden=!!f&&!d.textContent.toLowerCase().includes(f));};
-$('.close',glossDlg).onclick=()=>glossDlg.close();
-glossDlg.addEventListener('click',e=>{if(e.target===glossDlg)glossDlg.close();});
-function openGloss(k){
-  gq.value='';gq.oninput();glossDlg.showModal();$$('.hit',glossDlg).forEach(x=>x.classList.remove('hit'));
-  const d=k&&$(`[data-k="${k}"]`,glossDlg);if(d){d.classList.add('hit');d.scrollIntoView({block:'center'});}else gq.focus();
-}
-$('#glossBtn').onclick=()=>openGloss();
-// hover and focus tooltips on <dfn data-g>
-const tip=document.createElement('div');tip.className='gtip';tip.setAttribute('role','tooltip');document.body.appendChild(tip);
-function showTip(el){const g=GLOSS[el.dataset.g];if(!g)return;
-  tip.innerHTML=`<b>${g[0]}</b>${g[1]}<small>Click for the full glossary</small>`;tip.classList.add('show');
-  const r=el.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight;
-  tip.style.left=Math.max(8,Math.min(innerWidth-w-8,r.left+r.width/2-w/2))+'px';
-  tip.style.top=(r.top-h-8<8?r.bottom+8:r.top-h-8)+'px';}
-const hideTip=()=>tip.classList.remove('show');
-$$('dfn[data-g]').forEach(d=>{d.tabIndex=0;d.setAttribute('role','button');});
-document.addEventListener('mouseover',e=>{const d=e.target.closest('dfn[data-g]');if(d)showTip(d);});
-document.addEventListener('mouseout',e=>{if(e.target.closest('dfn[data-g]'))hideTip();});
-document.addEventListener('focusin',e=>{const d=e.target.closest('dfn[data-g]');if(d)showTip(d);else hideTip();});
-document.addEventListener('click',e=>{const d=e.target.closest('dfn[data-g]');if(d){e.preventDefault();hideTip();openGloss(d.dataset.g);}});
-addEventListener('scroll',hideTip,{passive:true});
-// the story stepper
-const STORY=[
- ['🧑‍💻','Someone changes the code','A developer, or an AI assistant like <dfn data-g="claudecode">Claude Code</dfn>, edits Yukta’s code. Before the change can be shared with the team, it must pass a series of inspections.','Like a dish that has to pass the kitchen’s quality checks before it leaves for the table.'],
- ['🎛️','One command starts the inspection line','They type <code>yk check</code>. <dfn data-g="yk">yk</dfn> asks the <dfn data-g="devserver">dev server</dfn> (Yukta, running on their own computer) to run the inspections as a <dfn data-g="workflow">flowchart</dfn>.','Yukta is checking its own code. That is “<dfn data-g="dogfood">dogfooding</dfn>”: using your own product for real work.'],
- ['🔍','Inspectors each check one thing','Is the formatting neat? Does it build? Do the <dfn data-g="tests">tests</dfn> pass? Is enough of it tested? Then style, likely bugs, licenses and security. If everything passes, the job is done.','Each inspector is a <dfn data-g="stage">stage</dfn>. They run in a fixed order, so a broken build is found before slower checks waste time.'],
- ['🩺','A failure calls in triage, not a stop','Instead of just stopping, a failed inspection starts <dfn data-g="heal">heal</dfn>. First a small, free AI on your own computer reads a short note about the failure and rates it: <b>easy</b>, <b>average</b> or <b>hard</b>.','Like a triage nurse deciding who should see the patient first. This is <dfn data-g="triage">triage</dfn>.'],
- ['🧑‍🔧','Cheapest repairer first, then escalate','Easy jobs go to <dfn data-g="haiku">Haiku</dfn>, the junior and cheapest AI. Others start with <dfn data-g="sonnet">Sonnet</dfn>. A repairer that fails tries again, thinking harder, then hands over to the next one up, all the way to <dfn data-g="opus">Opus</dfn>, the senior.','Like calling a handyman before an engineer: you only pay for the expert when you need one.'],
- ['✅','Trust the inspection, not the claim','After every repair the same inspector looks again. Only that decides. Repairers may not change the rules, silence warnings or delete tests (a <dfn data-g="guard">guard</dfn> rejects that), and they never publish anything.','The run ends with one line, the <dfn data-g="result">RESULT</dfn>: passed or not, and what was repaired. A person reviews the changes before they are shared.']];
-(()=>{
-  const host=$('#story');let k=0;const seenS=new Set([0]);
-  host.innerHTML=`<div class="story-steps" role="tablist">${STORY.map((s,i)=>`<button role="tab" data-i="${i}"><span>${i+1}</span>${s[1]}</button>`).join('')}</div>
-    <div class="card story-card" role="tabpanel" aria-live="polite"><div class="big"></div><div><h4></h4><p class="sp"></p><p class="aside"></p></div></div>
-    <div class="story-nav"><button data-d="-1">← Back</button><small></small><button class="primary" data-d="1">Next →</button></div>`;
-  const draw=()=>{const s=STORY[k];seenS.add(k);
-    $('.big',host).textContent=s[0];$('h4',host).textContent=s[1];$('.sp',host).innerHTML=s[2];$('.aside',host).innerHTML=s[3];
-    $$('.story-steps button',host).forEach((b,i)=>{b.classList.toggle('on',i===k);b.classList.toggle('done',seenS.has(i)&&i!==k);b.setAttribute('aria-selected',i===k);});
-    $('.story-nav small',host).textContent=`Step ${k+1} of ${STORY.length}`;
-    $('[data-d="-1"]',host).disabled=k===0;
-    const nx=$('[data-d="1"]',host);nx.textContent=k===STORY.length-1?'Try it in the simulator →':'Next →';
-    $$('dfn[data-g]',host).forEach(d=>{d.tabIndex=0;d.setAttribute('role','button');});};
-  host.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-    if(b.dataset.i)k=+b.dataset.i;else if(b.dataset.d==='1'&&k===STORY.length-1){go('simulator');return;}else if(b.dataset.d)k=Math.max(0,Math.min(STORY.length-1,k+ +b.dataset.d));draw();});
-  draw();
-  $('#toStory').onclick=e=>{e.preventDefault();$('.story-wrap').scrollIntoView({behavior:'smooth'});};
-})();
-
-/* ---------------- keyboard ---------------- */
-const keysDlg=document.createElement('dialog');
-keysDlg.innerHTML=`<button class="close iconbtn" aria-label="Close">✕</button><h4>Keyboard shortcuts</h4><table>
-<tr><td><kbd>1</kbd>–<kbd>9</kbd></td><td>Jump to a section</td></tr><tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Previous / next section</td></tr>
-<tr><td><kbd>/</kbd></td><td>Focus the filter on this page</td></tr><tr><td><kbd>t</kbd></td><td>Toggle light and dark</td></tr><tr><td><kbd>g</kbd></td><td>Open the glossary</td></tr><tr><td><kbd>p</kbd></td><td>Show or hide plain words</td></tr>
-<tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Step the simulator</td></tr><tr><td><kbd>Space</kbd></td><td>Play or pause the simulator</td></tr>
-<tr><td><kbd>Tab</kbd> <kbd>Enter</kbd></td><td>Move between graph nodes, open one</td></tr><tr><td>drag</td><td>Pan a large graph</td></tr></table>`;
-document.body.appendChild(keysDlg);$('.close',keysDlg).onclick=()=>keysDlg.close();
-$('#keys').onclick=()=>keysDlg.showModal();
-document.addEventListener('keydown',e=>{
-  if(e.ctrlKey||e.metaKey||e.altKey||keysDlg.open||glossDlg.open)return;
-  if(e.target.closest('input,select,textarea')){if(e.key==='Escape')e.target.blur();return;}
-  const cur=TABS.findIndex(s=>s.classList.contains('on'));
-  if(/^[1-9]$/.test(e.key)&&TABS[+e.key-1])go(TABS[+e.key-1].id);
-  else if(e.key===']'&&TABS[cur+1])go(TABS[cur+1].id);
-  else if(e.key==='['&&cur>0)go(TABS[cur-1].id);
-  else if(e.key==='t')toggleTheme();
-  else if(e.key==='g')openGloss();
-  else if(e.key==='p')plainBtn.click();
-  else if(e.key==='?')keysDlg.showModal();
-  else if(e.key==='/'){const q=$('input[type=search]',TABS[cur]);if(q){e.preventDefault();q.focus();}}
-  else if(TABS[cur].id==='simulator'){
-    if(e.key==='ArrowRight'){e.preventDefault();$('#s-step').click();}
-    else if(e.key==='ArrowLeft'){e.preventDefault();$('#s-back').click();}
-    else if(e.key===' '&&!e.target.closest('button,.node,[role=button]')){e.preventDefault();$('#s-play').click();}
-  }
+document.getElementById('theme').addEventListener('click',()=>{
+  const d=document.documentElement,dark=d.dataset.theme==='dark'||(!d.dataset.theme&&matchMedia('(prefers-color-scheme:dark)').matches);
+  d.dataset.theme=dark?'light':'dark';try{localStorage.setItem('yk-design-theme',d.dataset.theme)}catch(e){}
 });
 </script>
 </body>

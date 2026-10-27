@@ -1,7 +1,9 @@
 # Heal runbook
 
-How to run the dogfood check, watch heal work and improve it. The design is in [README.md](README.md) ("Self-healing check",
-"Monitoring heal"); this is the operator's manual.
+> The loop is being rebuilt: `yk run issue|epic` and `yk heal report|analyze|show` are switched off (see `backup/README.md`), and
+> the design is [DESIGN.html](DESIGN.html). Sections below that use those commands apply once they are restored.
+
+How to run the dogfood check, watch heal work and improve it. The design is in [DESIGN.html](DESIGN.html) and the short guide in [README.md](README.md); this is the operator's manual.
 
 ## What costs money, what touches the outside
 

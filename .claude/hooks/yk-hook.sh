@@ -4,7 +4,7 @@
 # so they work when Claude starts in a module folder ($CLAUDE_PROJECT_DIR is then that folder).
 #   session-start  remember the uncommitted changes the session began with, start or refresh the dev
 #                  server in the background, put yk on PATH, and tell Claude how to build and test
-#   pre-bash       deny ./gradlew, gradle and go test/vet, naming the yk command to use instead
+#   pre-bash       deny ./gradlew, gradle, go test/vet/build/fmt and pnpm/npm/npx, naming the yk command to use instead
 #   prompt         a prompt about building, testing or checking gets one line naming the yukta skill
 #   post-edit      remember the Gradle module of every file the session edits (.yukta-dev/touched-<session>)
 #   stop           when the session changed code and no check passed on it, ask once for `yk check`
@@ -68,13 +68,13 @@ case "${1:-}" in
       echo "export PATH=\"$root/examples/11-dogfood:\$PATH\"" >>"$CLAUDE_ENV_FILE"
     fi
     server="$(timeout 5 "$yk" status 2>/dev/null | head -1)"
-    ctx="Yukta dev server: ${server:-starting}. Build, test and check this repo only through Yukta (yukta skill): \`yk gradle <gradle args>\` (e.g. \`yk gradle :core:test --tests '<FQCN>'\`), \`yk check -m <module>\`, \`yk check\` before a commit; \`yk\` is examples/11-dogfood/yk. Direct ./gradlew, gradle and go test are blocked."
+    ctx="Yukta dev server: ${server:-starting}. Build, test and check this repo only through Yukta (yukta skill): \`yk gradle <gradle args>\` (e.g. \`yk gradle :core:test --tests '<FQCN>'\`), \`yk tool -C <ui|cli> <command>\` for go and pnpm/npx; \`yk\` is examples/11-dogfood/yk. Direct ./gradlew, gradle, go and pnpm/npm/npx are blocked."
     jq -n --arg c "$ctx" '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $c}}'
     ;;
   prompt)
     shopt -s nocasematch
     [[ "$(field .prompt)" =~ (^|[^a-z])(test|tests|build|compile|check|gradle|lint|spotless|checkstyle|pmd|spotbugs|coverage|ci|failing|issue|epic)([^a-z]|$) ]] || exit 0
-    jq -n '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: "Builds, tests and checks of this repo run through Yukta (yukta skill): yk gradle <args>, yk check -m <module>. Direct gradle is blocked."}}'
+    jq -n '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: "Builds, tests and checks of this repo run through Yukta (yukta skill): yk gradle <args>, yk tool -C <ui|cli> <command>. Direct gradle, go and pnpm are blocked."}}'
     ;;
   post-edit)
     sid="$(field .session_id)"
@@ -98,37 +98,35 @@ case "${1:-}" in
       ((${#w[@]})) || continue
       case "$(basename -- "${w[0]}")" in
         gradlew | gradle) hit=gradle args=("${w[@]:1}"); break ;;
-        go) [[ "${w[1]:-}" =~ ^(test|vet)$ ]] && { hit=go; break; } ;;
+        go) [[ "${w[1]:-}" =~ ^(test|vet|build|fmt)$ ]] && { hit=go; args=("${w[@]}"); break; } ;;
+        pnpm | npm | npx | pnpx) hit=js args=("${w[@]}"); break ;;
       esac
     done < <(sed -E 's/(&&|\|\||[;|&()])/\n/g' <<<"$cmd")
     [[ -n "$hit" ]] || exit 0
     # Running the app being developed is not a build or a check: bootRun/nativeRun stay direct.
     [[ " ${args[*]:-} " =~ [[:space:]:](bootRun|nativeRun)[[:space:]] ]] && exit 0
     if [[ "$hit" == go ]]; then
-      use="yk gradle :cli:check"
+      use="yk tool -C cli ${args[*]}"
+    elif [[ "$hit" == js ]]; then
+      use="yk tool -C ui ${args[*]}"
     else
-      tasks=() kept=()
+      kept=()
       for a in "${args[@]}"; do
         case "$a" in
           -q | --quiet | --console=* | --continue | --offline | --daemon | --no-daemon | --parallel) ;;
           [0-9]\>* | \>* | \<*) ;;  # redirections
           -*) kept+=("$a") ;;
-          *) kept+=("$a"); tasks+=("$a") ;;
+          *) kept+=("$a") ;;
         esac
       done
-      t="${tasks[*]:-}"
-      if [[ "$t" =~ ^(spotlessApply\ )?(check|build)$ && ${#kept[@]} -eq ${#tasks[@]} ]]; then
-        use="yk check"
-      elif [[ -n "$t" && ${#kept[@]} -eq ${#tasks[@]} ]] && ! grep -qvE '^:[A-Za-z0-9:_-]+:check$' <<<"${t// /$'\n'}"; then
-        use="yk check$(for x in "${tasks[@]}"; do x="${x#:}"; printf ' -m %s' "${x%:check}"; done)"
-      else
-        use="yk gradle ${kept[*]:-<tasks>}"
-      fi
+      use="yk gradle ${kept[*]:-<tasks>}"
     fi
     reason="Builds and tests of this repo run through Yukta (yukta skill). Run instead: $use   (yk is examples/11-dogfood/yk; the run prints a RESULT line). To bypass for one session the user can set YUKTA_DOGFOOD=off."
     jq -n --arg r "$reason" '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r}}'
     ;;
   stop)
+    # rebuild step 1: only yk gradle is exposed, so no nudge towards yk check. Remove this line to re-enable it.
+    exit 0
     [[ "$(field .stop_hook_active)" == true ]] && exit 0
     [[ -n "$(git -C "$root" status --porcelain "${code[@]}" 2>/dev/null)" ]] || exit 0
     sid="$(field .session_id)"

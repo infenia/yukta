@@ -8,9 +8,78 @@
     "example": "11-dogfood"
   },
   "workflows": {
-    "gradle-check": {
-      "workflowId": "gradle-check",
-      "description": "gradle check, split into fail-fast stages",
+    "tool": {
+      "workflowId": "tool",
+      "description": "Run one shell command (gradle, go, pnpm, ...) in one project, once. The caller decides what a failure means. An empty command passes with a warning.",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "CONSTANT_SOURCE",
+          "config": {
+            "variables": {
+              "label": "${start.label}"
+            }
+          }
+        },
+        {
+          "nodeId": "run",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "sh",
+              "-c",
+              "{ [ -n \"$YUKTA_TOOL_COMMAND\" ] && [ \"$YUKTA_TOOL_COMMAND\" != - ]; } || { echo \"tool $YUKTA_TOOL_LABEL: nothing to run\"; exit 0; }; eval \"$YUKTA_TOOL_COMMAND\""
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YUKTA_TOOL_COMMAND": "${start.command}",
+              "YUKTA_TOOL_LABEL": "${start.label}"
+            },
+            "timeout": "${start.timeout:int}",
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "includeInput": true,
+            "engine": {
+              "concurrencyGroup": "tool"
+            }
+          }
+        },
+        {
+          "nodeId": "ok",
+          "type": "CONSOLE_TERMINAL",
+          "config": {
+            "displayOutput": true
+          }
+        },
+        {
+          "nodeId": "failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the command exited non-zero or timed out"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "run"
+        },
+        {
+          "source": "run",
+          "target": "ok",
+          "sourcePort": "success"
+        },
+        {
+          "source": "run",
+          "target": "failed",
+          "sourcePort": "failure"
+        }
+      ]
+    },
+    "check": {
+      "workflowId": "check",
+      "description": "The scoped, self-healing quality gate: one tool call per planned stage, a failed stage goes to heal (yk check)",
       "nodes": [
         {
           "nodeId": "trigger",
@@ -18,154 +87,1540 @@
           "config": {}
         },
         {
-          "nodeId": "spotless",
-          "type": "PROCESS_EXECUTOR",
+          "nodeId": "reuse",
+          "type": "SUB_WORKFLOW",
           "config": {
-            "command": [
-              "./gradlew",
-              "spotlessCheck",
-              "-q",
-              "--console=plain"
-            ],
-            "workingDir": "__PROJECT_PATH__",
-            "timeout": 3600,
-            "failureMode": "ERROR",
-            "timeoutSeconds": 3600
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.reuse}",
+              "timeout": "${start.timeout}",
+              "label": "reuse"
+            }
+          }
+        },
+        {
+          "nodeId": "reuse.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "reuse"
+          }
+        },
+        {
+          "nodeId": "reuse.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "reuse.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "reuse",
+              "command": "${start.cmd.reuse}",
+              "format": "${start.fmt.reuse}",
+              "auto": "${start.auto.reuse}"
+            }
+          }
+        },
+        {
+          "nodeId": "actionlint",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.actionlint}",
+              "timeout": "${start.timeout}",
+              "label": "actionlint"
+            }
+          }
+        },
+        {
+          "nodeId": "actionlint.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "actionlint"
+          }
+        },
+        {
+          "nodeId": "actionlint.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "actionlint.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "actionlint",
+              "command": "${start.cmd.actionlint}",
+              "format": "${start.fmt.actionlint}",
+              "auto": "${start.auto.actionlint}"
+            }
+          }
+        },
+        {
+          "nodeId": "docs",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.docs}",
+              "timeout": "${start.timeout}",
+              "label": "docs"
+            }
+          }
+        },
+        {
+          "nodeId": "docs.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "docs"
+          }
+        },
+        {
+          "nodeId": "docs.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "docs.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "docs",
+              "command": "${start.cmd.docs}",
+              "format": "${start.fmt.docs}",
+              "auto": "${start.auto.docs}"
+            }
+          }
+        },
+        {
+          "nodeId": "spotless",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.spotless}",
+              "timeout": "${start.timeout}",
+              "label": "spotless"
+            }
+          }
+        },
+        {
+          "nodeId": "spotless.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "spotless"
+          }
+        },
+        {
+          "nodeId": "spotless.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "spotless.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "spotless",
+              "command": "${start.cmd.spotless}",
+              "format": "${start.fmt.spotless}",
+              "auto": "${start.auto.spotless}"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_fmt_check",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.cli_fmt_check}",
+              "timeout": "${start.timeout}",
+              "label": "cli_fmt_check"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_fmt_check.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "cli_fmt_check"
+          }
+        },
+        {
+          "nodeId": "cli_fmt_check.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_fmt_check.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "cli_fmt_check",
+              "command": "${start.cmd.cli_fmt_check}",
+              "format": "${start.fmt.cli_fmt_check}",
+              "auto": "${start.auto.cli_fmt_check}"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_mod_verify",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.cli_mod_verify}",
+              "timeout": "${start.timeout}",
+              "label": "cli_mod_verify"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_mod_verify.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "cli_mod_verify"
+          }
+        },
+        {
+          "nodeId": "cli_mod_verify.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_mod_verify.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "cli_mod_verify",
+              "command": "${start.cmd.cli_mod_verify}",
+              "format": "${start.fmt.cli_mod_verify}",
+              "auto": "${start.auto.cli_mod_verify}"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_prettier",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.ui_prettier}",
+              "timeout": "${start.timeout}",
+              "label": "ui_prettier"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_prettier.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "ui_prettier"
+          }
+        },
+        {
+          "nodeId": "ui_prettier.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_prettier.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "ui_prettier",
+              "command": "${start.cmd.ui_prettier}",
+              "format": "${start.fmt.ui_prettier}",
+              "auto": "${start.auto.ui_prettier}"
+            }
           }
         },
         {
           "nodeId": "compile",
-          "type": "PROCESS_EXECUTOR",
+          "type": "SUB_WORKFLOW",
           "config": {
-            "command": [
-              "./gradlew",
-              "compileJava",
-              "compileTestJava",
-              "-q",
-              "--console=plain"
-            ],
-            "workingDir": "__PROJECT_PATH__",
-            "timeout": 3600,
-            "failureMode": "ERROR",
-            "timeoutSeconds": 3600
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.compile}",
+              "timeout": "${start.timeout}",
+              "label": "compile"
+            }
           }
         },
         {
-          "nodeId": "tests",
-          "type": "PROCESS_EXECUTOR",
+          "nodeId": "compile.failed",
+          "type": "OUTCOME_TERMINAL",
           "config": {
-            "command": [
-              "./gradlew",
-              "test",
-              "jacocoTestReport",
-              "-q",
-              "--console=plain"
-            ],
-            "workingDir": "__PROJECT_PATH__",
-            "timeout": 3600,
-            "failureMode": "ERROR",
-            "timeoutSeconds": 3600
+            "outcome": "FAILED",
+            "reason": "compile"
           }
         },
         {
-          "nodeId": "coverage",
-          "type": "PROCESS_EXECUTOR",
+          "nodeId": "compile.fail",
+          "type": "MAPPER",
           "config": {
-            "command": [
-              "./gradlew",
-              "jacocoTestCoverageVerification",
-              "-q",
-              "--console=plain"
-            ],
-            "workingDir": "__PROJECT_PATH__",
-            "timeout": 3600,
-            "failureMode": "ERROR",
-            "timeoutSeconds": 3600
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "compile.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "compile",
+              "command": "${start.cmd.compile}",
+              "format": "${start.fmt.compile}",
+              "auto": "${start.auto.compile}"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_vet",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.cli_vet}",
+              "timeout": "${start.timeout}",
+              "label": "cli_vet"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_vet.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "cli_vet"
+          }
+        },
+        {
+          "nodeId": "cli_vet.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_vet.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "cli_vet",
+              "command": "${start.cmd.cli_vet}",
+              "format": "${start.fmt.cli_vet}",
+              "auto": "${start.auto.cli_vet}"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_tsc",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.ui_tsc}",
+              "timeout": "${start.timeout}",
+              "label": "ui_tsc"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_tsc.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "ui_tsc"
+          }
+        },
+        {
+          "nodeId": "ui_tsc.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_tsc.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "ui_tsc",
+              "command": "${start.cmd.ui_tsc}",
+              "format": "${start.fmt.ui_tsc}",
+              "auto": "${start.auto.ui_tsc}"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_eslint",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.ui_eslint}",
+              "timeout": "${start.timeout}",
+              "label": "ui_eslint"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_eslint.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "ui_eslint"
+          }
+        },
+        {
+          "nodeId": "ui_eslint.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_eslint.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "ui_eslint",
+              "command": "${start.cmd.ui_eslint}",
+              "format": "${start.fmt.ui_eslint}",
+              "auto": "${start.auto.ui_eslint}"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_headers",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.ui_headers}",
+              "timeout": "${start.timeout}",
+              "label": "ui_headers"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_headers.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "ui_headers"
+          }
+        },
+        {
+          "nodeId": "ui_headers.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_headers.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "ui_headers",
+              "command": "${start.cmd.ui_headers}",
+              "format": "${start.fmt.ui_headers}",
+              "auto": "${start.auto.ui_headers}"
+            }
           }
         },
         {
           "nodeId": "style",
-          "type": "PROCESS_EXECUTOR",
+          "type": "SUB_WORKFLOW",
           "config": {
-            "command": [
-              "./gradlew",
-              "checkstyleMain",
-              "checkstyleTest",
-              "pmdMain",
-              "pmdTest",
-              "-q",
-              "--console=plain"
-            ],
-            "workingDir": "__PROJECT_PATH__",
-            "timeout": 3600,
-            "failureMode": "ERROR",
-            "timeoutSeconds": 3600
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.style}",
+              "timeout": "${start.timeout}",
+              "label": "style"
+            }
+          }
+        },
+        {
+          "nodeId": "style.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "style"
+          }
+        },
+        {
+          "nodeId": "style.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "style.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "style",
+              "command": "${start.cmd.style}",
+              "format": "${start.fmt.style}",
+              "auto": "${start.auto.style}"
+            }
           }
         },
         {
           "nodeId": "spotbugs",
-          "type": "PROCESS_EXECUTOR",
+          "type": "SUB_WORKFLOW",
           "config": {
-            "command": [
-              "./gradlew",
-              "spotbugsMain",
-              "spotbugsTest",
-              "-q",
-              "--console=plain"
-            ],
-            "workingDir": "__PROJECT_PATH__",
-            "timeout": 3600,
-            "failureMode": "ERROR",
-            "timeoutSeconds": 3600
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.spotbugs}",
+              "timeout": "${start.timeout}",
+              "label": "spotbugs"
+            }
+          }
+        },
+        {
+          "nodeId": "spotbugs.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "spotbugs"
+          }
+        },
+        {
+          "nodeId": "spotbugs.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "spotbugs.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "spotbugs",
+              "command": "${start.cmd.spotbugs}",
+              "format": "${start.fmt.spotbugs}",
+              "auto": "${start.auto.spotbugs}"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_lint",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.cli_lint}",
+              "timeout": "${start.timeout}",
+              "label": "cli_lint"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_lint.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "cli_lint"
+          }
+        },
+        {
+          "nodeId": "cli_lint.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_lint.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "cli_lint",
+              "command": "${start.cmd.cli_lint}",
+              "format": "${start.fmt.cli_lint}",
+              "auto": "${start.auto.cli_lint}"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_sec",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.cli_sec}",
+              "timeout": "${start.timeout}",
+              "label": "cli_sec"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_sec.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "cli_sec"
+          }
+        },
+        {
+          "nodeId": "cli_sec.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_sec.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "cli_sec",
+              "command": "${start.cmd.cli_sec}",
+              "format": "${start.fmt.cli_sec}",
+              "auto": "${start.auto.cli_sec}"
+            }
+          }
+        },
+        {
+          "nodeId": "tests",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.tests}",
+              "timeout": "${start.timeout}",
+              "label": "tests"
+            }
+          }
+        },
+        {
+          "nodeId": "tests.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "tests"
+          }
+        },
+        {
+          "nodeId": "tests.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "tests.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "tests",
+              "command": "${start.cmd.tests}",
+              "format": "${start.fmt.tests}",
+              "auto": "${start.auto.tests}"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_vitest",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.ui_vitest}",
+              "timeout": "${start.timeout}",
+              "label": "ui_vitest"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_vitest.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "ui_vitest"
+          }
+        },
+        {
+          "nodeId": "ui_vitest.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_vitest.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "ui_vitest",
+              "command": "${start.cmd.ui_vitest}",
+              "format": "${start.fmt.ui_vitest}",
+              "auto": "${start.auto.ui_vitest}"
+            }
+          }
+        },
+        {
+          "nodeId": "coverage",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.coverage}",
+              "timeout": "${start.timeout}",
+              "label": "coverage"
+            }
+          }
+        },
+        {
+          "nodeId": "coverage.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "coverage"
+          }
+        },
+        {
+          "nodeId": "coverage.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "coverage.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "coverage",
+              "command": "${start.cmd.coverage}",
+              "format": "${start.fmt.coverage}",
+              "auto": "${start.auto.coverage}"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_cover_check",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.cli_cover_check}",
+              "timeout": "${start.timeout}",
+              "label": "cli_cover_check"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_cover_check.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "cli_cover_check"
+          }
+        },
+        {
+          "nodeId": "cli_cover_check.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_cover_check.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "cli_cover_check",
+              "command": "${start.cmd.cli_cover_check}",
+              "format": "${start.fmt.cli_cover_check}",
+              "auto": "${start.auto.cli_cover_check}"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_vuln",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.cli_vuln}",
+              "timeout": "${start.timeout}",
+              "label": "cli_vuln"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_vuln.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "cli_vuln"
+          }
+        },
+        {
+          "nodeId": "cli_vuln.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "cli_vuln.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "cli_vuln",
+              "command": "${start.cmd.cli_vuln}",
+              "format": "${start.fmt.cli_vuln}",
+              "auto": "${start.auto.cli_vuln}"
+            }
           }
         },
         {
           "nodeId": "licenses",
-          "type": "PROCESS_EXECUTOR",
+          "type": "SUB_WORKFLOW",
           "config": {
-            "command": [
-              "./gradlew",
-              "licensee",
-              "-q",
-              "--console=plain"
-            ],
-            "workingDir": "__PROJECT_PATH__",
-            "timeout": 3600,
-            "failureMode": "ERROR",
-            "timeoutSeconds": 3600
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.licenses}",
+              "timeout": "${start.timeout}",
+              "label": "licenses"
+            }
+          }
+        },
+        {
+          "nodeId": "licenses.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "licenses"
           }
         },
         {
           "nodeId": "security",
-          "type": "PROCESS_EXECUTOR",
+          "type": "SUB_WORKFLOW",
           "config": {
-            "command": [
-              "./gradlew",
-              "opengrep",
-              "trivy",
-              "-q",
-              "--console=plain"
-            ],
-            "workingDir": "__PROJECT_PATH__",
-            "timeout": 3600,
-            "failureMode": "ERROR",
-            "timeoutSeconds": 3600
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.security}",
+              "timeout": "${start.timeout}",
+              "label": "security"
+            }
           }
         },
         {
-          "nodeId": "cli",
+          "nodeId": "security.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "security"
+          }
+        },
+        {
+          "nodeId": "ui_build",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.cmd.ui_build}",
+              "timeout": "${start.timeout}",
+              "label": "ui_build"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_build.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "ui_build"
+          }
+        },
+        {
+          "nodeId": "ui_build.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "ui_build.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "ui_build",
+              "command": "${start.cmd.ui_build}",
+              "format": "${start.fmt.ui_build}",
+              "auto": "${start.auto.ui_build}"
+            }
+          }
+        },
+        {
+          "nodeId": "healed?",
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "./gradlew",
-              ":cli:check",
-              "-q",
-              "--console=plain"
+              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "healed"
             ],
-            "workingDir": "__PROJECT_PATH__",
-            "timeout": 3600,
-            "failureMode": "ERROR",
-            "timeoutSeconds": 3600
+            "workingDir": "${start.project}",
+            "env": {
+              "YUKTA_HEAL_DIR": "${start.healDir}",
+              "YUKTA_STAGE": "-"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "verify",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.verifyCommand}",
+              "timeout": "${start.timeout}",
+              "label": "verify"
+            }
+          }
+        },
+        {
+          "nodeId": "verify.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "verify"
+          }
+        },
+        {
+          "nodeId": "verify.fail",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "stdout": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['stdout'] : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "verify.heal",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "heal",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "healDir": "${start.healDir}",
+              "modules": "${start.modules}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "triage": "${start.triage}",
+              "triageModel": "${start.triageModel}",
+              "triageUrl": "${start.triageUrl}",
+              "heal": "${start.heal}",
+              "stdout": "${payload.stdout}",
+              "stage": "verify",
+              "command": "${start.verifyCommand}",
+              "format": "${start.fmt.spotless}",
+              "auto": "-"
+            }
           }
         },
         {
@@ -179,151 +1634,1600 @@
       "edges": [
         {
           "source": "trigger",
-          "target": "spotless"
+          "target": "reuse"
+        },
+        {
+          "source": "reuse",
+          "target": "reuse.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "reuse.fail",
+          "target": "reuse.heal"
+        },
+        {
+          "source": "reuse.heal",
+          "target": "reuse.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "reuse",
+          "target": "actionlint",
+          "sourcePort": "success"
+        },
+        {
+          "source": "reuse.heal",
+          "target": "actionlint",
+          "sourcePort": "success"
+        },
+        {
+          "source": "actionlint",
+          "target": "actionlint.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "actionlint.fail",
+          "target": "actionlint.heal"
+        },
+        {
+          "source": "actionlint.heal",
+          "target": "actionlint.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "actionlint",
+          "target": "docs",
+          "sourcePort": "success"
+        },
+        {
+          "source": "actionlint.heal",
+          "target": "docs",
+          "sourcePort": "success"
+        },
+        {
+          "source": "docs",
+          "target": "docs.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "docs.fail",
+          "target": "docs.heal"
+        },
+        {
+          "source": "docs.heal",
+          "target": "docs.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "docs",
+          "target": "spotless",
+          "sourcePort": "success"
+        },
+        {
+          "source": "docs.heal",
+          "target": "spotless",
+          "sourcePort": "success"
         },
         {
           "source": "spotless",
-          "target": "compile"
+          "target": "spotless.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "spotless.fail",
+          "target": "spotless.heal"
+        },
+        {
+          "source": "spotless.heal",
+          "target": "spotless.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "spotless",
+          "target": "cli_fmt_check",
+          "sourcePort": "success"
+        },
+        {
+          "source": "spotless.heal",
+          "target": "cli_fmt_check",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_fmt_check",
+          "target": "cli_fmt_check.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_fmt_check.fail",
+          "target": "cli_fmt_check.heal"
+        },
+        {
+          "source": "cli_fmt_check.heal",
+          "target": "cli_fmt_check.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_fmt_check",
+          "target": "cli_mod_verify",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_fmt_check.heal",
+          "target": "cli_mod_verify",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_mod_verify",
+          "target": "cli_mod_verify.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_mod_verify.fail",
+          "target": "cli_mod_verify.heal"
+        },
+        {
+          "source": "cli_mod_verify.heal",
+          "target": "cli_mod_verify.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_mod_verify",
+          "target": "ui_prettier",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_mod_verify.heal",
+          "target": "ui_prettier",
+          "sourcePort": "success"
+        },
+        {
+          "source": "ui_prettier",
+          "target": "ui_prettier.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "ui_prettier.fail",
+          "target": "ui_prettier.heal"
+        },
+        {
+          "source": "ui_prettier.heal",
+          "target": "ui_prettier.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "ui_prettier",
+          "target": "compile",
+          "sourcePort": "success"
+        },
+        {
+          "source": "ui_prettier.heal",
+          "target": "compile",
+          "sourcePort": "success"
         },
         {
           "source": "compile",
-          "target": "tests"
+          "target": "compile.fail",
+          "sourcePort": "failure"
         },
         {
-          "source": "tests",
-          "target": "coverage"
+          "source": "compile.fail",
+          "target": "compile.heal"
         },
         {
-          "source": "coverage",
-          "target": "style"
+          "source": "compile.heal",
+          "target": "compile.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "compile",
+          "target": "cli_vet",
+          "sourcePort": "success"
+        },
+        {
+          "source": "compile.heal",
+          "target": "cli_vet",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_vet",
+          "target": "cli_vet.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_vet.fail",
+          "target": "cli_vet.heal"
+        },
+        {
+          "source": "cli_vet.heal",
+          "target": "cli_vet.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_vet",
+          "target": "ui_tsc",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_vet.heal",
+          "target": "ui_tsc",
+          "sourcePort": "success"
+        },
+        {
+          "source": "ui_tsc",
+          "target": "ui_tsc.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "ui_tsc.fail",
+          "target": "ui_tsc.heal"
+        },
+        {
+          "source": "ui_tsc.heal",
+          "target": "ui_tsc.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "ui_tsc",
+          "target": "ui_eslint",
+          "sourcePort": "success"
+        },
+        {
+          "source": "ui_tsc.heal",
+          "target": "ui_eslint",
+          "sourcePort": "success"
+        },
+        {
+          "source": "ui_eslint",
+          "target": "ui_eslint.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "ui_eslint.fail",
+          "target": "ui_eslint.heal"
+        },
+        {
+          "source": "ui_eslint.heal",
+          "target": "ui_eslint.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "ui_eslint",
+          "target": "ui_headers",
+          "sourcePort": "success"
+        },
+        {
+          "source": "ui_eslint.heal",
+          "target": "ui_headers",
+          "sourcePort": "success"
+        },
+        {
+          "source": "ui_headers",
+          "target": "ui_headers.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "ui_headers.fail",
+          "target": "ui_headers.heal"
+        },
+        {
+          "source": "ui_headers.heal",
+          "target": "ui_headers.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "ui_headers",
+          "target": "style",
+          "sourcePort": "success"
+        },
+        {
+          "source": "ui_headers.heal",
+          "target": "style",
+          "sourcePort": "success"
         },
         {
           "source": "style",
-          "target": "spotbugs"
+          "target": "style.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "style.fail",
+          "target": "style.heal"
+        },
+        {
+          "source": "style.heal",
+          "target": "style.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "style",
+          "target": "spotbugs",
+          "sourcePort": "success"
+        },
+        {
+          "source": "style.heal",
+          "target": "spotbugs",
+          "sourcePort": "success"
         },
         {
           "source": "spotbugs",
-          "target": "licenses"
+          "target": "spotbugs.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "spotbugs.fail",
+          "target": "spotbugs.heal"
+        },
+        {
+          "source": "spotbugs.heal",
+          "target": "spotbugs.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "spotbugs",
+          "target": "cli_lint",
+          "sourcePort": "success"
+        },
+        {
+          "source": "spotbugs.heal",
+          "target": "cli_lint",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_lint",
+          "target": "cli_lint.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_lint.fail",
+          "target": "cli_lint.heal"
+        },
+        {
+          "source": "cli_lint.heal",
+          "target": "cli_lint.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_lint",
+          "target": "cli_sec",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_lint.heal",
+          "target": "cli_sec",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_sec",
+          "target": "cli_sec.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_sec.fail",
+          "target": "cli_sec.heal"
+        },
+        {
+          "source": "cli_sec.heal",
+          "target": "cli_sec.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_sec",
+          "target": "tests",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_sec.heal",
+          "target": "tests",
+          "sourcePort": "success"
+        },
+        {
+          "source": "tests",
+          "target": "tests.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "tests.fail",
+          "target": "tests.heal"
+        },
+        {
+          "source": "tests.heal",
+          "target": "tests.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "tests",
+          "target": "ui_vitest",
+          "sourcePort": "success"
+        },
+        {
+          "source": "tests.heal",
+          "target": "ui_vitest",
+          "sourcePort": "success"
+        },
+        {
+          "source": "ui_vitest",
+          "target": "ui_vitest.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "ui_vitest.fail",
+          "target": "ui_vitest.heal"
+        },
+        {
+          "source": "ui_vitest.heal",
+          "target": "ui_vitest.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "ui_vitest",
+          "target": "coverage",
+          "sourcePort": "success"
+        },
+        {
+          "source": "ui_vitest.heal",
+          "target": "coverage",
+          "sourcePort": "success"
+        },
+        {
+          "source": "coverage",
+          "target": "coverage.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "coverage.fail",
+          "target": "coverage.heal"
+        },
+        {
+          "source": "coverage.heal",
+          "target": "coverage.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "coverage",
+          "target": "cli_cover_check",
+          "sourcePort": "success"
+        },
+        {
+          "source": "coverage.heal",
+          "target": "cli_cover_check",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_cover_check",
+          "target": "cli_cover_check.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_cover_check.fail",
+          "target": "cli_cover_check.heal"
+        },
+        {
+          "source": "cli_cover_check.heal",
+          "target": "cli_cover_check.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_cover_check",
+          "target": "cli_vuln",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_cover_check.heal",
+          "target": "cli_vuln",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_vuln",
+          "target": "cli_vuln.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_vuln.fail",
+          "target": "cli_vuln.heal"
+        },
+        {
+          "source": "cli_vuln.heal",
+          "target": "cli_vuln.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "cli_vuln",
+          "target": "licenses",
+          "sourcePort": "success"
+        },
+        {
+          "source": "cli_vuln.heal",
+          "target": "licenses",
+          "sourcePort": "success"
         },
         {
           "source": "licenses",
-          "target": "security"
+          "target": "licenses.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "licenses",
+          "target": "security",
+          "sourcePort": "success"
         },
         {
           "source": "security",
-          "target": "cli"
+          "target": "security.failed",
+          "sourcePort": "failure"
         },
         {
-          "source": "cli",
-          "target": "done"
+          "source": "security",
+          "target": "ui_build",
+          "sourcePort": "success"
+        },
+        {
+          "source": "ui_build",
+          "target": "ui_build.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "ui_build.fail",
+          "target": "ui_build.heal"
+        },
+        {
+          "source": "ui_build.heal",
+          "target": "ui_build.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "ui_build",
+          "target": "healed?",
+          "sourcePort": "success"
+        },
+        {
+          "source": "ui_build.heal",
+          "target": "healed?",
+          "sourcePort": "success"
+        },
+        {
+          "source": "healed?",
+          "target": "verify",
+          "sourcePort": "success"
+        },
+        {
+          "source": "healed?",
+          "target": "done",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "verify",
+          "target": "done",
+          "sourcePort": "success"
+        },
+        {
+          "source": "verify",
+          "target": "verify.fail",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "verify.fail",
+          "target": "verify.heal"
+        },
+        {
+          "source": "verify.heal",
+          "target": "done",
+          "sourcePort": "success"
+        },
+        {
+          "source": "verify.heal",
+          "target": "verify.failed",
+          "sourcePort": "failure"
         }
       ]
     },
-    "quick-check": {
-      "workflowId": "quick-check",
-      "description": "Fast subset (formatting + Go vet) for a smoke test",
+    "claude": {
+      "workflowId": "claude",
+      "description": "One headless Claude Code session in a project; returns its JSON answer and what it cost.",
       "nodes": [
         {
           "nodeId": "trigger",
           "type": "CONSTANT_SOURCE",
+          "config": {
+            "variables": {
+              "prompt": "${start.prompt}"
+            }
+          }
+        },
+        {
+          "nodeId": "run",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__DOGFOOD__/scripts/claude.sh"
+            ],
+            "workingDir": "${start.project}",
+            "inputMode": "STDIN",
+            "outputFormat": "JSON",
+            "env": {
+              "YK_MODEL": "${start.model}",
+              "YK_EFFORT": "${start.effort}",
+              "YK_BUDGET": "${start.budget}",
+              "YK_RULES": "${start.rules}",
+              "YK_SCHEMA": "${start.schema}",
+              "YK_NAV": "${start.navFile}",
+              "YK_SESSION": "${start.sessionId}",
+              "YK_CLAUDE_BIN": "${start.claudeBin}"
+            },
+            "timeout": "${start.timeout:int}",
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "engine": {
+              "concurrencyGroup": "claude"
+            }
+          }
+        },
+        {
+          "nodeId": "ok",
+          "type": "CONSOLE_TERMINAL",
           "config": {}
         },
         {
-          "nodeId": "spotless",
-          "type": "PROCESS_EXECUTOR",
+          "nodeId": "failed",
+          "type": "OUTCOME_TERMINAL",
           "config": {
-            "command": [
-              "./gradlew",
-              "spotlessCheck",
-              "-q",
-              "--console=plain"
-            ],
-            "workingDir": "__PROJECT_PATH__",
-            "timeout": 150,
-            "failureMode": "ERROR",
-            "timeoutSeconds": 150
-          }
-        },
-        {
-          "nodeId": "vet",
-          "type": "PROCESS_EXECUTOR",
-          "config": {
-            "command": [
-              "./gradlew",
-              ":cli:goVet",
-              "-q",
-              "--console=plain"
-            ],
-            "workingDir": "__PROJECT_PATH__",
-            "timeoutSeconds": 150,
-            "timeout": 150,
-            "failureMode": "ERROR"
-          }
-        },
-        {
-          "nodeId": "done",
-          "type": "CONSOLE_TERMINAL",
-          "config": {
-            "displayOutput": true
+            "outcome": "FAILED",
+            "reason": "the claude session failed, ran out of budget or ran out of time"
           }
         }
       ],
       "edges": [
         {
           "source": "trigger",
-          "target": "spotless"
+          "target": "run"
         },
         {
-          "source": "spotless",
-          "target": "vet"
+          "source": "run",
+          "target": "ok",
+          "sourcePort": "success"
         },
         {
-          "source": "vet",
-          "target": "done"
+          "source": "run",
+          "target": "failed",
+          "sourcePort": "failure"
         }
       ]
     },
-    "gradle-run": {
-      "workflowId": "gradle-run",
-      "description": "Run arbitrary gradle args (any task, any module) as one fail-fast stage",
+    "attempt": {
+      "workflowId": "attempt",
+      "description": "One repair attempt: one Claude session at one model and effort, judged by re-running the failed stage.",
       "nodes": [
         {
           "nodeId": "trigger",
           "type": "CONSTANT_SOURCE",
-          "config": {}
-        },
-        {
-          "nodeId": "gradle",
-          "type": "PROCESS_EXECUTOR",
           "config": {
-            "command": [
-              "./gradlew",
-              "__GRADLE_ARGS__",
-              "-q",
-              "--console=plain"
-            ],
-            "workingDir": "__PROJECT_PATH__",
-            "timeout": 3600,
-            "failureMode": "ERROR",
-            "timeoutSeconds": 3600
+            "variables": {
+              "problems": "${start.problems}",
+              "previous": "${start.previous}"
+            }
           }
         },
         {
-          "nodeId": "done",
-          "type": "CONSOLE_TERMINAL",
+          "nodeId": "prepare",
+          "type": "PROCESS_EXECUTOR",
           "config": {
-            "displayOutput": true
+            "command": [
+              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "prepare"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YUKTA_HEAL_DIR": "${start.healDir}",
+              "YUKTA_STAGE": "${start.stage}",
+              "YUKTA_MODULE": "${start.modules}",
+              "YUKTA_HEAL_EVENTS": "${start.events}",
+              "YUKTA_MODEL": "${start.model}",
+              "YUKTA_EFFORT": "${start.effort}",
+              "YUKTA_COMMAND": "${start.command}",
+              "YUKTA_MODELS": "${start.models}",
+              "YUKTA_BUDGET_ISSUE": "${start.budgetIssue}",
+              "YUKTA_IMPL_COSTFILE": "${start.issueState}/implement.json",
+              "YUKTA_HEAL_TIMEOUT": "${start.claudeTimeout}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "inputMode": "STDIN",
+            "outputFormat": "JSON",
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "claude",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "claude",
+            "timeoutSeconds": 7200,
+            "routeByOutcome": true,
+            "engine": {
+              "onError": "ROUTE"
+            },
+            "payload": {
+              "project": "${start.project}",
+              "prompt": "${payload.output.prompt}",
+              "model": "${start.model}",
+              "effort": "${start.effort}",
+              "budget": "${start.budget}",
+              "timeout": "${start.claudeTimeout}",
+              "rules": "${start.rules}",
+              "schema": "{\"type\":\"object\",\"properties\":{\"fixed\":{\"type\":\"boolean\"},\"summary\":{\"type\":\"string\"}},\"required\":[\"fixed\",\"summary\"]}",
+              "navFile": "${start.navFile}",
+              "sessionId": "-",
+              "claudeBin": "${start.claudeBin}"
+            }
+          }
+        },
+        {
+          "nodeId": "claimed",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "claimed"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YUKTA_HEAL_DIR": "${start.healDir}",
+              "YUKTA_STAGE": "${start.stage}",
+              "YUKTA_MODULE": "${start.modules}",
+              "YUKTA_HEAL_EVENTS": "${start.events}",
+              "YUKTA_MODEL": "${start.model}",
+              "YUKTA_EFFORT": "${start.effort}",
+              "YUKTA_COMMAND": "${start.command}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "inputMode": "STDIN",
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "format",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.format}",
+              "timeout": "${start.timeout}",
+              "label": "format"
+            },
+            "engine": {
+              "onError": "ROUTE"
+            }
+          }
+        },
+        {
+          "nodeId": "judge",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "judge"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YUKTA_HEAL_DIR": "${start.healDir}",
+              "YUKTA_STAGE": "${start.stage}",
+              "YUKTA_MODULE": "${start.modules}",
+              "YUKTA_HEAL_EVENTS": "${start.events}",
+              "YUKTA_MODEL": "${start.model}",
+              "YUKTA_EFFORT": "${start.effort}",
+              "YUKTA_COMMAND": "${start.command}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "recheck",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.command}",
+              "timeout": "${start.timeout}",
+              "label": "${start.stage}"
+            },
+            "engine": {
+              "onError": "ROUTE"
+            }
+          }
+        },
+        {
+          "nodeId": "report",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "report"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YUKTA_HEAL_DIR": "${start.healDir}",
+              "YUKTA_STAGE": "${start.stage}",
+              "YUKTA_MODULE": "${start.modules}",
+              "YUKTA_HEAL_EVENTS": "${start.events}",
+              "YUKTA_MODEL": "${start.model}",
+              "YUKTA_EFFORT": "${start.effort}",
+              "YUKTA_COMMAND": "${start.command}",
+              "YUKTA_PROBLEMS": "${start.problems}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "inputMode": "STDIN",
+            "outputFormat": "JSON",
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "fixed?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "payload['output']['fixed']",
+            "cases": {
+              "true": "fixed"
+            },
+            "defaultPort": "notfixed"
+          }
+        },
+        {
+          "nodeId": "ok",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        },
+        {
+          "nodeId": "failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the attempt did not fix the stage"
           }
         }
       ],
       "edges": [
         {
           "source": "trigger",
-          "target": "gradle"
+          "target": "prepare"
         },
         {
-          "source": "gradle",
+          "source": "prepare",
+          "target": "claude",
+          "sourcePort": "success"
+        },
+        {
+          "source": "prepare",
+          "target": "report",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "claude",
+          "target": "claimed",
+          "sourcePort": "success"
+        },
+        {
+          "source": "claude",
+          "target": "claimed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "claude",
+          "target": "claimed",
+          "sourcePort": "error"
+        },
+        {
+          "source": "claimed",
+          "target": "format"
+        },
+        {
+          "source": "format",
+          "target": "judge",
+          "sourcePort": "success"
+        },
+        {
+          "source": "format",
+          "target": "judge",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "format",
+          "target": "judge",
+          "sourcePort": "error"
+        },
+        {
+          "source": "judge",
+          "target": "recheck",
+          "sourcePort": "success"
+        },
+        {
+          "source": "judge",
+          "target": "report",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "recheck",
+          "target": "report",
+          "sourcePort": "success"
+        },
+        {
+          "source": "recheck",
+          "target": "report",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "recheck",
+          "target": "report",
+          "sourcePort": "error"
+        },
+        {
+          "source": "report",
+          "target": "fixed?"
+        },
+        {
+          "source": "fixed?",
+          "target": "ok",
+          "sourcePort": "fixed"
+        },
+        {
+          "source": "fixed?",
+          "target": "failed",
+          "sourcePort": "notfixed"
+        }
+      ]
+    },
+    "heal": {
+      "workflowId": "heal",
+      "description": "Repair a failed stage: the free automatic fix first, then triage and the model ladder, escalating on failure.",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "CONSTANT_SOURCE",
+          "config": {
+            "variables": {
+              "stdout": "${start.stdout}",
+              "heal": "${start.heal}",
+              "auto": "${start.auto}"
+            }
+          }
+        },
+        {
+          "nodeId": "heal?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "payload['heal']",
+            "cases": {
+              "off": "off"
+            },
+            "defaultPort": "on"
+          }
+        },
+        {
+          "nodeId": "disabled",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "healing is off (yk check --no-heal)"
+          }
+        },
+        {
+          "nodeId": "auto?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload['auto'] != null and payload['auto'] != '' and payload['auto'] != '-'": "auto"
+            },
+            "defaultPort": "model"
+          }
+        },
+        {
+          "nodeId": "auto-fix",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.auto}",
+              "timeout": "${start.timeout}",
+              "label": "auto-fix"
+            },
+            "engine": {
+              "onError": "ROUTE"
+            }
+          }
+        },
+        {
+          "nodeId": "auto-check",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "tool",
+            "timeoutSeconds": 3720,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "command": "${start.command}",
+              "timeout": "${start.timeout}",
+              "label": "${start.stage}"
+            },
+            "engine": {
+              "onError": "ROUTE"
+            }
+          }
+        },
+        {
+          "nodeId": "auto-record",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "record-auto"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YUKTA_HEAL_DIR": "${start.healDir}",
+              "YUKTA_STAGE": "${start.stage}",
+              "YUKTA_MODULE": "${start.modules}",
+              "YUKTA_HEAL_EVENTS": "${start.events}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "brief",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "brief"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YUKTA_HEAL_DIR": "${start.healDir}",
+              "YUKTA_STAGE": "${start.stage}",
+              "YUKTA_MODULE": "${start.modules}",
+              "YUKTA_HEAL_EVENTS": "${start.events}",
+              "YUKTA_COMMAND": "${start.command}",
+              "YUKTA_TRIAGE": "${start.triage}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "inputMode": "STDIN",
+            "outputFormat": "JSON",
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "first",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "brief": "payload['output']['brief']",
+              "problems": "payload['output']['problems']",
+              "previous": "''",
+              "triage": "payload['output']['triage']"
+            }
+          }
+        },
+        {
+          "nodeId": "triage?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "payload['triage']",
+            "cases": {
+              "off": "off"
+            },
+            "defaultPort": "on"
+          }
+        },
+        {
+          "nodeId": "triage",
+          "type": "CLASSIFY",
+          "config": {
+            "model": "${start.triageModel}",
+            "baseUrl": "${start.triageUrl}",
+            "state": "payload['brief']",
+            "question": "How hard is it to fix this failed check of a Java build? Judge the work a fix needs, not how scary the message looks.",
+            "labels": {
+              "easy": "A mechanical or small obvious fix: formatting, an import, a license header, a typo, a missing semicolon, a style or analyzer finding in one file, a type or signature change at a few call sites.",
+              "average": "One failing test or runtime error whose cause is visible, or a few classes and tests to change together, or tests to add (a coverage threshold missed).",
+              "hard": "Needs investigation: many failing tests with one shared cause, concurrency, flaky or timing or order-dependent failures, memory, a migration or a build-wide change."
+            },
+            "minProbability": 0.3,
+            "routeByLabel": true,
+            "timeout": 55,
+            "engine": {
+              "onError": "ROUTE"
+            }
+          }
+        },
+        {
+          "nodeId": "triage-log.easy",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "triage-log"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YUKTA_HEAL_DIR": "${start.healDir}",
+              "YUKTA_STAGE": "${start.stage}",
+              "YUKTA_MODULE": "${start.modules}",
+              "YUKTA_HEAL_EVENTS": "${start.events}",
+              "YUKTA_TRIAGE_ROUTE": "easy",
+              "YUKTA_TRIAGE_START": "haiku/low",
+              "YUKTA_TRIAGE_MODEL": "${start.triageModel}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "inputMode": "STDIN",
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "triage-log.average",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "triage-log"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YUKTA_HEAL_DIR": "${start.healDir}",
+              "YUKTA_STAGE": "${start.stage}",
+              "YUKTA_MODULE": "${start.modules}",
+              "YUKTA_HEAL_EVENTS": "${start.events}",
+              "YUKTA_TRIAGE_ROUTE": "average",
+              "YUKTA_TRIAGE_START": "haiku/high",
+              "YUKTA_TRIAGE_MODEL": "${start.triageModel}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "inputMode": "STDIN",
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "triage-log.hard",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "triage-log"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YUKTA_HEAL_DIR": "${start.healDir}",
+              "YUKTA_STAGE": "${start.stage}",
+              "YUKTA_MODULE": "${start.modules}",
+              "YUKTA_HEAL_EVENTS": "${start.events}",
+              "YUKTA_TRIAGE_ROUTE": "hard",
+              "YUKTA_TRIAGE_START": "sonnet/low",
+              "YUKTA_TRIAGE_MODEL": "${start.triageModel}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "inputMode": "STDIN",
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "triage-log.uncertain",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "triage-log"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YUKTA_HEAL_DIR": "${start.healDir}",
+              "YUKTA_STAGE": "${start.stage}",
+              "YUKTA_MODULE": "${start.modules}",
+              "YUKTA_HEAL_EVENTS": "${start.events}",
+              "YUKTA_TRIAGE_ROUTE": "uncertain",
+              "YUKTA_TRIAGE_START": "haiku/high",
+              "YUKTA_TRIAGE_MODEL": "${start.triageModel}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "inputMode": "STDIN",
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "triage-log.error",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "triage-log"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YUKTA_HEAL_DIR": "${start.healDir}",
+              "YUKTA_STAGE": "${start.stage}",
+              "YUKTA_MODULE": "${start.modules}",
+              "YUKTA_HEAL_EVENTS": "${start.events}",
+              "YUKTA_TRIAGE_ROUTE": "error",
+              "YUKTA_TRIAGE_START": "haiku/high",
+              "YUKTA_TRIAGE_MODEL": "${start.triageModel}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "inputMode": "STDIN",
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "carry.fix-sonnet-low",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "problems": "payload['results'] == null ? payload['problems'] : (payload['results'].size() > 0 ? payload['results'][0]['output']['problems'] : 'The previous attempt did not finish: ' + payload['reason'])",
+              "previous": "payload['results'] == null ? 'The previous attempt ran out of time.' : (payload['results'].size() > 0 ? payload['results'][0]['output']['summary'] : '')",
+              "changed": "payload['results'] == null ? true : (payload['results'].size() > 0 ? payload['results'][0]['output']['changed'] : true)"
+            }
+          }
+        },
+        {
+          "nodeId": "carry.fix-sonnet-low?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload['changed'] == false": "stop"
+            },
+            "defaultPort": "go"
+          }
+        },
+        {
+          "nodeId": "fix-haiku-low",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "attempt",
+            "timeoutSeconds": 7200,
+            "routeByOutcome": true,
+            "engine": {
+              "onError": "ROUTE"
+            },
+            "payload": {
+              "project": "${start.project}",
+              "stage": "${start.stage}",
+              "command": "${start.command}",
+              "format": "${start.format}",
+              "modules": "${start.modules}",
+              "healDir": "${start.healDir}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "model": "haiku",
+              "effort": "low",
+              "budget": 0.5,
+              "claudeTimeout": 600,
+              "problems": "${payload.problems}",
+              "previous": "${payload.previous}"
+            }
+          }
+        },
+        {
+          "nodeId": "fix-sonnet-low",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "attempt",
+            "timeoutSeconds": 7200,
+            "routeByOutcome": true,
+            "engine": {
+              "onError": "ROUTE"
+            },
+            "payload": {
+              "project": "${start.project}",
+              "stage": "${start.stage}",
+              "command": "${start.command}",
+              "format": "${start.format}",
+              "modules": "${start.modules}",
+              "healDir": "${start.healDir}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "model": "sonnet",
+              "effort": "low",
+              "budget": 0.5,
+              "claudeTimeout": 600,
+              "problems": "${payload.problems}",
+              "previous": "${payload.previous}"
+            }
+          }
+        },
+        {
+          "nodeId": "fix-haiku-high",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "attempt",
+            "timeoutSeconds": 7200,
+            "routeByOutcome": true,
+            "engine": {
+              "onError": "ROUTE"
+            },
+            "payload": {
+              "project": "${start.project}",
+              "stage": "${start.stage}",
+              "command": "${start.command}",
+              "format": "${start.format}",
+              "modules": "${start.modules}",
+              "healDir": "${start.healDir}",
+              "issueState": "${start.issueState}",
+              "budgetIssue": "${start.budgetIssue}",
+              "events": "${start.events}",
+              "models": "${start.models}",
+              "timeout": "${start.timeout}",
+              "rules": "${start.rules}",
+              "navFile": "${start.navFile}",
+              "claudeBin": "${start.claudeBin}",
+              "model": "haiku",
+              "effort": "high",
+              "budget": 2,
+              "claudeTimeout": 1800,
+              "problems": "${payload.problems}",
+              "previous": "${payload.previous}"
+            }
+          }
+        },
+        {
+          "nodeId": "done",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        },
+        {
+          "nodeId": "logged",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        },
+        {
+          "nodeId": "giveup",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "every model failed at every effort"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "heal?"
+        },
+        {
+          "source": "heal?",
+          "target": "disabled",
+          "sourcePort": "off"
+        },
+        {
+          "source": "heal?",
+          "target": "auto?",
+          "sourcePort": "on"
+        },
+        {
+          "source": "auto?",
+          "target": "auto-fix",
+          "sourcePort": "auto"
+        },
+        {
+          "source": "auto?",
+          "target": "brief",
+          "sourcePort": "model"
+        },
+        {
+          "source": "auto-fix",
+          "target": "auto-check",
+          "sourcePort": "success"
+        },
+        {
+          "source": "auto-fix",
+          "target": "auto-check",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "auto-fix",
+          "target": "auto-check",
+          "sourcePort": "error"
+        },
+        {
+          "source": "auto-check",
+          "target": "auto-record",
+          "sourcePort": "success"
+        },
+        {
+          "source": "auto-check",
+          "target": "brief",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "auto-check",
+          "target": "brief",
+          "sourcePort": "error"
+        },
+        {
+          "source": "auto-record",
           "target": "done"
+        },
+        {
+          "source": "brief",
+          "target": "first"
+        },
+        {
+          "source": "first",
+          "target": "triage?"
+        },
+        {
+          "source": "triage?",
+          "target": "triage",
+          "sourcePort": "on"
+        },
+        {
+          "source": "triage?",
+          "target": "fix-haiku-high",
+          "sourcePort": "off"
+        },
+        {
+          "source": "triage",
+          "target": "triage-log.easy",
+          "sourcePort": "easy"
+        },
+        {
+          "source": "triage-log.easy",
+          "target": "logged"
+        },
+        {
+          "source": "triage",
+          "target": "triage-log.average",
+          "sourcePort": "average"
+        },
+        {
+          "source": "triage-log.average",
+          "target": "logged"
+        },
+        {
+          "source": "triage",
+          "target": "triage-log.hard",
+          "sourcePort": "hard"
+        },
+        {
+          "source": "triage-log.hard",
+          "target": "logged"
+        },
+        {
+          "source": "triage",
+          "target": "triage-log.uncertain",
+          "sourcePort": "uncertain"
+        },
+        {
+          "source": "triage-log.uncertain",
+          "target": "logged"
+        },
+        {
+          "source": "triage",
+          "target": "triage-log.error",
+          "sourcePort": "error"
+        },
+        {
+          "source": "triage-log.error",
+          "target": "logged"
+        },
+        {
+          "source": "triage",
+          "target": "fix-haiku-low",
+          "sourcePort": "easy"
+        },
+        {
+          "source": "triage",
+          "target": "fix-haiku-high",
+          "sourcePort": "average"
+        },
+        {
+          "source": "triage",
+          "target": "fix-haiku-high",
+          "sourcePort": "uncertain"
+        },
+        {
+          "source": "triage",
+          "target": "fix-haiku-high",
+          "sourcePort": "error"
+        },
+        {
+          "source": "triage",
+          "target": "fix-sonnet-low",
+          "sourcePort": "hard"
+        },
+        {
+          "source": "fix-haiku-low",
+          "target": "done",
+          "sourcePort": "success"
+        },
+        {
+          "source": "carry.fix-sonnet-low",
+          "target": "carry.fix-sonnet-low?"
+        },
+        {
+          "source": "carry.fix-sonnet-low?",
+          "target": "fix-sonnet-low",
+          "sourcePort": "go"
+        },
+        {
+          "source": "carry.fix-sonnet-low?",
+          "target": "giveup",
+          "sourcePort": "stop"
+        },
+        {
+          "source": "fix-haiku-low",
+          "target": "carry.fix-sonnet-low",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "fix-haiku-low",
+          "target": "carry.fix-sonnet-low",
+          "sourcePort": "error"
+        },
+        {
+          "source": "fix-sonnet-low",
+          "target": "done",
+          "sourcePort": "success"
+        },
+        {
+          "source": "fix-sonnet-low",
+          "target": "giveup",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "fix-sonnet-low",
+          "target": "giveup",
+          "sourcePort": "error"
+        },
+        {
+          "source": "fix-haiku-high",
+          "target": "done",
+          "sourcePort": "success"
+        },
+        {
+          "source": "fix-haiku-high",
+          "target": "carry.fix-sonnet-low",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "fix-haiku-high",
+          "target": "carry.fix-sonnet-low",
+          "sourcePort": "error"
         }
       ]
     }

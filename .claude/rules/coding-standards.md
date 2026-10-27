@@ -18,7 +18,7 @@
 - **Spotless** enforces **Google Java Style Guide** (2-space indentation, 100-char line limit)
 - Every Java file MUST have an Apache License 2.0 header (managed by Spotless)
 - Do NOT add SPDX headers to Markdown (`.md`) files; they are licensed via the `**/*.md` annotation in `REUSE.toml`. Remove any that appear.
-- Always run `yk gradle spotlessApply` before committing (`yk check` also applies it when it heals the spotless stage)
+- Always run `yk gradle spotlessApply` before committing
 
 ### Static Analysis
 - **Checkstyle**: Style violations (config: `config/checkstyle/checkstyle.xml`)
