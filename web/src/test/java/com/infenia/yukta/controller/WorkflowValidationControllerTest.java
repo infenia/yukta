@@ -130,4 +130,35 @@ class WorkflowValidationControllerTest {
         .jsonPath("$.data.message")
         .isEqualTo("Duplicate node id 'n1'");
   }
+
+  @Test
+  void testPluginThatCannotListPortsForADraftConfigIsNotAServerError() {
+    final Plugin plugin = mock(Plugin.class);
+    when(plugin.getOutputPorts(any())).thenThrow(new IllegalStateException("config incomplete"));
+    when(pluginRegistry.get("BRANCH")).thenReturn(plugin);
+    when(workflowValidator.validate(any())).thenReturn(Mono.empty());
+
+    post()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.valid")
+        .isEqualTo(true)
+        .jsonPath("$.data.outputPorts.n1.length()")
+        .isEqualTo(0);
+  }
+
+  @Test
+  void testFailureWithoutMessageStillSaysWhatFailed() {
+    when(workflowValidator.validate(any())).thenReturn(Mono.error(new IllegalStateException()));
+
+    post()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.valid")
+        .isEqualTo(false)
+        .jsonPath("$.data.message")
+        .isEqualTo("java.lang.IllegalStateException");
+  }
 }
