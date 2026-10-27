@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -64,8 +65,8 @@ class SinkEmitTest {
   @Test
   @SuppressWarnings("unchecked")
   void offer_keepsTryingPastTheSpinPhaseWhileTheOtherEmitterIsDescheduled() {
-    // a little past the 1000 busy spins, so the yielding phase is reached without the run depending
-    // on how fast a loaded machine gets through the 250 ms retry deadline
+    // a little past the 1000 busy spins, so the yielding phase is reached; the deadline is far off,
+    // so a loaded machine slow to answer 1100 mock calls cannot end the retries early (#897)
     final AtomicInteger clashes = new AtomicInteger();
     final Sinks.Many<String> sink = mock(Sinks.Many.class);
     when(sink.tryEmitNext("a"))
@@ -75,6 +76,6 @@ class SinkEmitTest {
                     ? Sinks.EmitResult.FAIL_NON_SERIALIZED
                     : Sinks.EmitResult.OK);
 
-    assertThat(SinkEmit.offer(sink, "a")).isTrue();
+    assertThat(SinkEmit.offer(sink, "a", TimeUnit.MINUTES.toNanos(1))).isTrue();
   }
 }
