@@ -1,39 +1,44 @@
 {
-  "models": [
-    "haiku",
-    "sonnet",
-    "opus"
-  ],
   "efforts": {
     "low": {
       "timeoutSeconds": 600,
       "budget": 0.5
-    },
-    "medium": {
-      "timeoutSeconds": 1200,
-      "budget": 1
     },
     "high": {
       "timeoutSeconds": 1800,
       "budget": 2
     }
   },
+  "singleAttempt": [
+    "reuse",
+    "docs",
+    "actionlint"
+  ],
   "triage": {
-    "model": "kev:4b-q4_K_M",
+    "model": "tev1",
+    "url": "http://192.168.1.37:11434",
     "default": "average",
     "minProbability": 0.3,
-    "question": "How hard is it to fix this failed check of a Java build? Judge the work a fix needs, not how scary the message looks.",
+    "question": "How hard is it to fix this failed check of a software project? Judge the work a fix needs, not how scary the message looks.",
     "levels": {
       "easy": {
-        "start": "haiku/medium",
+        "ladder": [
+          "haiku/low",
+          "sonnet/low"
+        ],
         "describe": "A mechanical or small obvious fix: formatting, an import, a license header, a typo, a missing semicolon, a style or analyzer finding in one file, a type or signature change at a few call sites."
       },
       "average": {
-        "start": "sonnet/medium",
+        "ladder": [
+          "haiku/high",
+          "sonnet/low"
+        ],
         "describe": "One failing test or runtime error whose cause is visible, or a few classes and tests to change together, or tests to add (a coverage threshold missed)."
       },
       "hard": {
-        "start": "sonnet/high",
+        "ladder": [
+          "sonnet/low"
+        ],
         "describe": "Needs investigation: many failing tests with one shared cause, concurrency, flaky or timing or order-dependent failures, memory, a migration or a build-wide change."
       }
     },
@@ -47,69 +52,7 @@
       "veryhard": "hard"
     }
   },
-  "analyzers": [
-    "style",
-    "spotbugs",
-    "licenses",
-    "security",
-    "cli"
-  ],
-  "stages": {
-    "spotless": {
-      "auto": [
-        "spotlessApply"
-      ],
-      "claude": true
-    },
-    "compile": {
-      "claude": true
-    },
-    "tests": {
-      "claude": true
-    },
-    "coverage": {
-      "claude": true
-    },
-    "style": {
-      "claude": true
-    },
-    "spotbugs": {
-      "claude": true
-    },
-    "cli": {
-      "claude": true
-    },
-    "ui": {
-      "claude": true
-    },
-    "docs": {
-      "claude": true
-    },
-    "reuse": {
-      "claude": true
-    },
-    "actionlint": {
-      "claude": true
-    }
-  },
   "extra": {
-    "ui": {
-      "modules": [
-        "ui"
-      ],
-      "variants": [
-        {
-          "tool": "sh",
-          "command": [
-            "./gradlew",
-            ":ui:pnpmLint",
-            ":ui:pnpmTest",
-            "-q",
-            "--console=plain"
-          ]
-        }
-      ]
-    },
     "docs": {
       "modules": [
         "docs"

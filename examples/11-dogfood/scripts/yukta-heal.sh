@@ -1,81 +1,58 @@
 #!/usr/bin/env bash
-# The steps of the self-healing dogfood check (see heal_workflow in _lib.sh). Each is run by a Yukta
-# PROCESS_EXECUTOR node of the `check` workflow, but usable by hand.
+# The script steps of heal and attempt (workflows heal, fix-from and attempt in session.json, see scripts/gen-heal.py). Each is run
+# by a PROCESS_EXECUTOR node; they are usable by hand too.
 #
-#   yukta-heal.sh run <stage> -- <command...>   run a stage's command, keep its output and exit code
-#   yukta-heal.sh fix <stage> <n> <mode> [--effort <low|medium|high>]
-#                                               one repair attempt; mode auto or a model (haiku, sonnet, opus).
-#                                               With --effort the attempt is numbered from the records (n is 0) and
-#                                               the Claude session runs at that effort (the `fix` workflow)
-#   yukta-heal.sh brief <stage>                 what failed, in a few lines: the state the triage model judges
-#   yukta-heal.sh recheck <stage>               run the stage's own command again (the `fix` workflow's check)
-#   yukta-heal.sh triage-log <stage> <route>    record how the triage ended (level, uncertain or error); the triage node's message
-#                                               arrives as YUKTA_METADATA_* variables (inputMode ENV)
-#   yukta-heal.sh rerun analyzers               one gradle run (plus the other tools) of the analyzers still failing
-#   yukta-heal.sh verify                        re-run every stage's tasks, only when something was healed
+#   brief           heal: stdin {stdout, ...} (the failed stage's output) or a tool result {results: [{stdout}]}; prints
+#                   {brief, problems, triage}: the short text the triage model reads and the problem lines the fixer reads
+#   triage-log      heal: a side branch of every port of the triage: writes the triage event (route, label, probability, seconds)
+#   record-auto     heal: the free fix made the stage pass: writes the record behind healed=<stage>:auto
+#   healed          check: exit 0 when anything was healed (so verify runs), else 1
+#   prepare         attempt: stdin {problems, previous}; numbers the attempt, snapshots the tree, prints {prompt, attempt};
+#                   exit 4 when the model is not in YUKTA_MODELS
+#   claimed         attempt: stdin = the claude workflow's result; keeps its cost, usage and claim
+#   judge           attempt: the guard. Decides from what changed on disk, not from what Claude said; exit 0 = a clean change
+#   report          attempt: stdin = the last node's result; writes the attempt's record and prints
+#                   {stage, model, effort, attempt, fixed, cost, summary, problems}; always exit 0 (the workflow branches on fixed)
 #
-# Environment: YUKTA_HEAL_DIR (records, required), YUKTA_HEAL_TASKS (the gradle tasks of the stage; for
-# mode auto the fix tasks), YUKTA_MODULE (modules the run is scoped to, space separated),
-# YUKTA_HEAL_ANALYZERS (name=command lines of the healable analyzers), YUKTA_HEAL_BUDGET (USD per
-# attempt, default 1).
-#
-# fix exits non-zero when it did not repair the stage (the workflow routes on that); it never commits
-# and never reverts, and marks the attempt as not fixed when it touched protected paths, added a
-# suppression or removed assertions. It prints one line
-#   HEAL <stage> attempt=<n> mode=<m> fixed=<true|false> files=<n> cost=$<x> summary=<text>
-# and writes <YUKTA_HEAL_DIR>/<stage>-<n>.json, with the token usage of the Claude session.
-#
-# Monitoring: every step also appends one JSON line to YUKTA_HEAL_EVENTS (when set; the file outlives the per-run heal dir): stage,
-# triage, fix, recheck, verify and giveup events, see "Monitoring heal" in examples/11-dogfood/README.md. `yk heal report` reads it.
+# Environment: YUKTA_HEAL_DIR (the records of the run, required), YUKTA_STAGE, YUKTA_MODEL, YUKTA_EFFORT, YUKTA_MODELS, YUKTA_MODULE,
+# YUKTA_COMMAND (the command that proves the stage), YUKTA_PROBLEMS, YUKTA_TRIAGE, YUKTA_HEAL_TIMEOUT, YUKTA_HEAL_EVENTS (a file;
+# every step appends one JSON line).
+# A value of "-" means empty: a start variable of a workflow cannot be.
+# Nothing here commits or reverts.
 set -uo pipefail
 
-here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-action="${1:?usage: yukta-heal.sh run|fix|rerun|verify ...}"
+action="${1:?usage: yukta-heal.sh brief|record-auto|healed|prepare|claimed|judge|report}"
 dir="${YUKTA_HEAL_DIR:?YUKTA_HEAL_DIR is required}"
-tasks="${YUKTA_HEAL_TASKS:-}"
+for v in YUKTA_STAGE YUKTA_MODEL YUKTA_EFFORT YUKTA_TRIAGE_ROUTE YUKTA_TRIAGE_START YUKTA_TRIAGE_MODEL YUKTA_MODELS YUKTA_MODULE YUKTA_COMMAND YUKTA_PROBLEMS YUKTA_TRIAGE YUKTA_HEAL_TIMEOUT \
+  YUKTA_HEAL_EVENTS; do
+  [[ "${!v:-}" == - ]] && unset "$v"
+done
+stage="${YUKTA_STAGE:-}"
+model="${YUKTA_MODEL:-}"
+effort="${YUKTA_EFFORT:-}"
 module="${YUKTA_MODULE:-}"
-budget="${YUKTA_HEAL_BUDGET:-1}"
 mkdir -p "$dir"
-# the workflows pass "-" for a value that is empty (a start variable cannot be)
-[[ "$tasks" == - ]] && tasks=""
-[[ "$module" == - ]] && module=""
-[[ "${YUKTA_HEAL_ANALYZERS:-}" == - ]] && YUKTA_HEAL_ANALYZERS=""
+t_start="$(date +%s.%N)"
 
 # Paths a fixer must not touch: the rules it is being measured against, the build and this tooling.
 protected='^(config/|build-logic/|gradle/|\.github/|\.claude/|examples/11-dogfood/|REUSE\.toml|.*\.gradle\.kts$)'
 # Ways to make a check pass without fixing the code.
 suppression='SuppressFBWarnings|NOPMD|CHECKSTYLE:OFF|@SuppressWarnings\("(PMD|checkstyle)|@Disabled|spotless:off'
 
-gradle() { ./gradlew "$@" -q --console=plain; }
-
-events="${YUKTA_HEAL_EVENTS:-}"
-t_start="$(date +%s.%N)"
-# secs_since T0: seconds (one decimal) from a `date +%s.%N` stamp
 secs_since() { awk -v a="$1" -v b="$(date +%s.%N)" 'BEGIN { printf "%.1f", b - a }'; }
-# emit EVENT [JSON-OBJECT]: one line on the monitoring log, with the run (the execution of the check that ran the stages), session and
-# project. Never fails a step: monitoring must not break a heal.
+
+# emit EVENT JSON-OBJECT: one line on the monitoring log. Never fails a step: monitoring must not break a heal.
 emit() {
+  local events="${YUKTA_HEAL_EVENTS:-}"
   [[ -n "$events" ]] || return 0
   {
     mkdir -p "$(dirname "$events")"
-    jq -nc --arg ev "$1" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg run "$(cat "$dir/root.exec" 2>/dev/null || echo "${YUKTA_EXECUTION_ID:--}")" \
-      --arg session "${YUKTA_SESSION_ID:--}" --arg project "$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")" \
-      --argjson f "${2:-{\}}" '{v: 1, ts: $ts, run: $run, session: $session, project: $project, event: $ev} + $f' \
+    jq -nc --arg ev "$1" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg session "${YUKTA_SESSION_ID:--}" \
+      --arg project "$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")" --argjson f "${2:-{\}}" \
+      '{v: 1, ts: $ts, run: "-", session: $session, project: $project, event: $ev} + $f' \
       | { flock 9; cat >>"$events"; } 9>>"$events.lock"
   } 2>/dev/null || true
 }
-
-stage="${2:-$action}"
-attempt="${3:-0}"
-mode="${4:-$action}"
-effort=""
-if [[ "${5:-}" == --effort ]]; then
-  effort="${6:?--effort needs low, medium or high}"
-  # the attempts of a heal run in child executions, so the number comes from the records
-  # shellcheck disable=SC2012
-  attempt=$(($(ls "$dir/$stage"-[0-9]*.json 2>/dev/null | wc -l) + 1))
-fi
-out="$dir/$stage-$attempt.out"
 
 # snapshot: "<hash> <path>" for every modified or untracked file, to tell what a step changed.
 snapshot() {
@@ -83,314 +60,228 @@ snapshot() {
     printf '%s %s\n' "$(git hash-object -- "$f" 2>/dev/null || echo deleted)" "$f"
   done | sort
 }
-
 # changed_since FILE: paths whose state differs from the snapshot in FILE.
 changed_since() { diff <(cat "$1") <(snapshot) | sed -n 's/^[<>] [^ ]* //p' | sort -u; }
-
-record() { # fixed files cost summary [usage-json]
-  local summary="${4//$'\n'/ }"
-  summary="${summary:0:160}"
-  jq -n --arg stage "$stage" --argjson attempt "$attempt" --arg mode "$mode" --arg effort "$effort" --argjson fixed "$1" \
-    --argjson files "$2" --arg cost "$3" --arg summary "$summary" --argjson usage "${5:-null}" \
-    '{stage: $stage, attempt: $attempt, mode: $mode, effort: (if $effort == "" then null else $effort end),
-      fixed: $fixed, files: $files, cost: ($cost | tonumber), summary: $summary, usage: $usage}' >"$dir/$stage-$attempt.json"
-  printf 'HEAL %s attempt=%s mode=%s%s fixed=%s files=%s cost=$%s summary=%s\n' \
-    "$stage" "$attempt" "$mode" "${effort:+ effort=$effort}" "$1" "$(jq 'length' <<<"$2")" "$3" "${summary:0:120}"
-  emit fix "$(jq -nc --arg stage "$stage" --argjson attempt "$attempt" --arg model "$mode" --arg effort "$effort" --argjson fixed "$1" \
-    --argjson claimed "${claimed:-false}" --argjson files "$2" --arg cost "$3" --argjson usage "${5:-null}" --arg secs "$(secs_since "$t_start")" \
-    --arg guard "${violations:-}" --arg summary "$summary" --arg modules "$module" --arg budget "$budget" \
-    '{stage: $stage, attempt: $attempt, model: $model, effort: (if $effort == "" then null else $effort end), fixed: $fixed, claimed: $claimed,
-      files: $files, cost: ($cost | tonumber), usage: $usage, secs: ($secs | tonumber), guard: (if $guard == "" then null else $guard end),
-      summary: $summary, modules: ($modules | split(" ") | map(select(. != ""))), budget: ($budget | tonumber)}')"
-}
-
-# failure_sig FILE: a stable hash of what went wrong (the numbers and the machine's paths blurred) for counting the same failure again
-failure_sig() { problem_lines "$1" 3 | sed -E 's/[0-9]+/N/g; s#/(home|tmp|work)/[^ ]*#PATH#g' | sha1sum | cut -c1-12; }
-
 files_json() { if [[ -n "$1" ]]; then printf '%s\n' "$1" | jq -R . | jq -sc .; else echo '[]'; fi; }
+
+# plain: spinner and colour codes out (mint redraws one line many times), carriage returns as newlines
+plain() { sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/\r/\n/g'; }
+
+# ecosystem STAGE: what the stage checks, from its name (plan.sh names the stages), so the triage question can stay neutral
+ecosystem() {
+  case "$1" in
+    cli_*) echo "go (cli)" ;;
+    ui_*) echo "typescript (ui)" ;;
+    reuse | actionlint | docs) echo "repo files" ;;
+    *) echo "java (gradle)" ;;
+  esac
+}
 
 # problem_lines FILE [MAX]: the lines of a run that say what went wrong, as yukta's --quiet picks them.
 problem_lines() {
-  awk '
+  plain <"$1" | awk '
     /What went wrong/ { ctx = 3; print; next }
     ctx > 0 && /^\* / { ctx = 0; next }
     ctx > 0 { ctx--; print; next }
     tolower($0) ~ /(^|[^a-z])(error|failed|failure)([^a-z]|$)|exception|see the report at|violation/ { print }
-  ' "$1" | cut -c1-300 | awk '!seen[$0]++' | head -"${2:-60}"
+  ' | cut -c1-300 | awk '!seen[$0]++' | head -"${2:-60}"
 }
 
-# failing_tests: test classes with a failure in a report newer than the tests stage's run output.
+# failing_tests: test classes with a failure in a recent report.
 failing_tests() {
-  find . -path '*/build/test-results/*' -name 'TEST-*.xml' -newer "$dir/tests.run.out" -print0 2>/dev/null \
+  find . -path '*/build/test-results/*' -name 'TEST-*.xml' -mmin -120 -print0 2>/dev/null \
     | xargs -0 -r grep -lE '<(failure|error) ' | sed -E 's#.*/TEST-(.*)\.xml#\1#' | sort -u | head -15
 }
 
-# analyzer_command NAME: the command of a healable analyzer (YUKTA_HEAL_ANALYZERS holds name=command lines).
-analyzer_command() { sed -n "s/^$1=//p" <<<"${YUKTA_HEAL_ANALYZERS:-}"; }
+# the stdout of a failed stage out of a message: a tool result {results: [{stdout}]}
+stdout_of() { jq -r '(.results[0].stdout // .stdout // "")'; }
 
-# failed_analyzers: the healable analyzers whose last run failed, one per line.
-failed_analyzers() {
-  local name
-  while IFS='=' read -r name _; do
-    [[ -n "$name" && -e "$dir/$name.exit" && "$(cat "$dir/$name.exit")" != 0 ]] && echo "$name"
-  done <<<"${YUKTA_HEAL_ANALYZERS:-}"
-  return 0
+# attempt_no: the number of the attempt that prepare started (kept in the records)
+attempt_no() { cat "$dir/$stage.attempt" 2>/dev/null || echo 0; }
+
+# record FIXED FILES-JSON COST SUMMARY [USAGE-JSON]: <dir>/<stage>-<n>.json, what healed= and the next attempt read
+record() {
+  local n summary="${4//$'\n'/ }"
+  n="$(attempt_no)"
+  summary="${summary:0:160}"
+  jq -n --arg stage "$stage" --argjson attempt "$n" --arg mode "$model" --arg effort "$effort" --argjson fixed "$1" \
+    --argjson files "$2" --arg cost "$3" --arg summary "$summary" --argjson usage "${5:-null}" \
+    '{stage: $stage, attempt: $attempt, mode: $mode, effort: (if $effort == "" then null else $effort end),
+      fixed: $fixed, files: $files, cost: ($cost | tonumber), summary: $summary, usage: $usage}' >"$dir/$stage-$n.json"
+  printf 'HEAL %s attempt=%s mode=%s%s fixed=%s files=%s cost=$%s summary=%s\n' \
+    "$stage" "$n" "$model" "${effort:+ effort=$effort}" "$1" "$(jq 'length' <<<"$2")" "$3" "${summary:0:120}" >&2
 }
 
-# analyzer_tasks NAME...: the gradle tasks of the named gradle analyzers, once each.
-analyzer_tasks() {
-  local n
-  for n in "$@"; do analyzer_command "$n"; done | grep '^\./gradlew ' \
-    | tr ' ' '\n' | grep -v '^-' | grep -v '^\./gradlew$' | grep -v '^$' | awk '!seen[$0]++' | paste -sd' '
-}
-
-# ---- run: a stage's command with its output and exit code kept -------------------------------------
-
-if [[ "$action" == run ]]; then
-  stage="${2:?stage}"
-  [[ "${3:-}" == -- ]] || { echo "usage: yukta-heal.sh run <stage> -- <command...>" >&2; exit 2; }
-  shift 3
-  printf '%q ' "$@" >"$dir/$stage.cmd"
-  # the run id of the monitoring log: the execution that runs the stages (the heal workflows run in children of it)
-  [[ -z "${YUKTA_EXECUTION_ID:-}" ]] || printf '%s' "$YUKTA_EXECUTION_ID" >"$dir/root.exec"
-  "$@" 2>&1 | tee "$dir/$stage.run.out"
-  rc="${PIPESTATUS[0]}"
-  echo "$rc" >"$dir/$stage.exit"
-  if ((rc == 0)); then
-    emit stage "$(jq -nc --arg stage "$stage" --arg secs "$(secs_since "$t_start")" --arg cmd "$(cut -c1-200 "$dir/$stage.cmd")" '{stage: $stage, secs: ($secs | tonumber), exit: 0, ok: true, cmd: $cmd}')"
-  else
-    emit stage "$(jq -nc --arg stage "$stage" --arg secs "$(secs_since "$t_start")" --argjson rc "$rc" --arg cmd "$(cut -c1-200 "$dir/$stage.cmd")" \
-      --arg sig "$(failure_sig "$dir/$stage.run.out")" --arg head "$(problem_lines "$dir/$stage.run.out" 3 | head -c 600)" \
-      '{stage: $stage, secs: ($secs | tonumber), exit: $rc, ok: false, cmd: $cmd, sig: $sig, head: $head}')"
-  fi
-  exit "$rc"
-fi
-
-# fix is routed by its mode; the other actions are their own
-key="$action"
-[[ "$action" == fix ]] && key="$mode"
-case "$key" in
+case "$action" in
   brief)
-    date +%s.%N >"$dir/$stage.brief.ts"
-    # the triage state: what the failure says, the lines a human would read first, and nothing else. Measured on 54 real failures
-    # (eval/triage): the problem lines alone rate the difficulty as well as a brief with the changed files and the end of the log,
-    # and System One reads about 50 tokens a second on a modest machine (a character costs about 4 ms) while Ollama cuts a call off at
-    # 60 seconds: 1000 characters take about 7 seconds, 5000 about 35. The cap is the one of eval/triage/eval.py.
-    text="$(
+    msg="$(cat)"
+    out="$(mktemp)"
+    jq -r '(.stdout // .results[0].stdout // "")' <<<"$msg" >"$out"
+    # the triage state: what the failure says, the lines a human would read first, and nothing else (measured on 54 real failures,
+    # eval/triage); System One reads about 50 tokens a second and Ollama cuts a call off at 60 seconds: 1000 characters take about 7
+    brief="$(
       {
         echo "stage: $stage"
+        echo "ecosystem: $(ecosystem "$stage")"
         echo "files changed so far: $(git ls-files -m -o --exclude-standard | wc -l)"
-        if [[ "$stage" == analyzers ]]; then
-          mapfile -t failed < <(failed_analyzers)
-          for n in "${failed[@]}"; do
-            echo "failing analyzer: $n"; problem_lines "$dir/$n.run.out" 12
-          done
-        else
-          echo "command: $(cat "$dir/$stage.cmd" 2>/dev/null)"
-          problem_lines "$dir/$stage.run.out" 25
-          [[ "$stage" == tests ]] && echo "failing test classes: $(failing_tests | paste -sd' ')"
-        fi
+        echo "command: ${YUKTA_COMMAND:-}"
+        problem_lines "$out" 25
+        [[ "$stage" == tests ]] && echo "failing test classes: $(failing_tests | paste -sd' ')"
       } | cut -c1-300 | head -c 1000
     )"
-    printf '%s\n' "$text"
-    echo "${#text}" >"$dir/$stage.brief.chars"
-    emit brief "$(jq -nc --arg stage "$stage" --argjson chars "${#text}" --arg secs "$(secs_since "$t_start")" '{stage: $stage, chars: $chars, secs: ($secs | tonumber)}')"
-    exit 0
+    # the keyword lines do not say it for every tool (reuse lists the files without a licence): the end of the output too
+    problems="$(
+      problem_lines "$out" 60
+      echo "Output (last 40 lines):"
+      plain <"$out" | tail -n 40 | cut -c1-300
+      [[ "$stage" == tests ]] && echo "failing test classes: $(failing_tests | paste -sd' ')"
+    )"
+    rm -f "$out"
+    echo "$t_start" >"$dir/$stage.triage-t0"
+    emit brief "$(jq -nc --arg stage "$stage" --argjson chars "${#brief}" --arg secs "$(secs_since "$t_start")" '{stage: $stage, chars: $chars, secs: ($secs | tonumber)}')"
+    jq -nc --arg brief "$brief" --arg problems "$problems" --arg triage "${YUKTA_TRIAGE:-on}" '{brief: $brief, problems: $problems, triage: $triage}'
     ;;
+
   triage-log)
-    # how the triage ended: the classification of the CLASSIFY node (metadata `classification`), or why there is none. The time is
-    # since the brief, so it includes the wait for the model. A level, an uncertain answer and an error each have their own node.
-    route="${3:?route: level, uncertain or error}"
-    # the classification arrives as the text of a map ({choice=hard, probability=0.7, ..., label=hard, uncertain=false}), or as JSON
-    cls="${YUKTA_METADATA_CLASSIFICATION:-}"
-    if [[ -n "$cls" ]] && jq -e . <<<"$cls" >/dev/null 2>&1; then
-      label="$(jq -r '.label // .choice // ""' <<<"$cls")"
-      p="$(jq -r '.probability // ((.probabilities // {})[.choice // .label // ""] // 0)' <<<"$cls")"
-    else
-      label="$(sed -n 's/.*[{ ,]label=\([^,}]*\).*/\1/p' <<<"$cls" | head -1)"
-      [[ -n "$label" ]] || label="$(sed -n 's/.*[{ ,]choice=\([^,}]*\).*/\1/p' <<<"$cls" | head -1)"
-      p="$(sed -n 's/.*[{ ,]probability=\([0-9.eE-]*\).*/\1/p' <<<"$cls" | head -1)"
+    # stdin: the message the triage routed. The classification is in its metadata; where a step sees it is not documented, so look
+    # in the places it can be and keep the raw text of the first 300 characters for the report when none has it.
+    msg="$(cat)"
+    t0="$(cat "$dir/$stage.triage-t0" 2>/dev/null || echo "$t_start")"
+    emit triage "$(jq -nc --arg stage "$stage" --arg route "${YUKTA_TRIAGE_ROUTE:-}" --arg start "${YUKTA_TRIAGE_START:-}" --arg model "${YUKTA_TRIAGE_MODEL:-}" \
+      --arg secs "$(secs_since "$t0")" --arg raw "${msg:0:300}" --argjson m "$(jq -c '.' <<<"$msg" 2>/dev/null || echo null)" '
+      ($m | (.metadata.classification // .classification // .results[0].metadata.classification // {})) as $c
+      | {stage: $stage, route: (if $route == "error" or $route == "uncertain" then $route else "level" end), label: ($c.label // (if $route == "error" or $route == "uncertain" then null else $route end)),
+         p: ($c.probability // null), start: $start, model: $model, secs: ($secs | tonumber), chars: (($m.brief // "") | length),
+         fallback: (if $route == "error" or $route == "uncertain" then $route else null end), classification_seen: ($c != {}), raw: (if $c == {} then $raw else null end)}')"
+    ;;
+
+  record-auto)
+    n=$(($(ls "$dir/$stage"-[0-9]*.json 2>/dev/null | wc -l) + 1))
+    echo "$n" >"$dir/$stage.attempt"
+    model=auto effort=""
+    record true '[]' 0 "the free automatic fix made the stage pass"
+    ;;
+
+  healed)
+    ls "$dir"/*-[0-9]*.json >/dev/null 2>&1 && jq -e -s 'any(.[]; .fixed)' "$dir"/*-[0-9]*.json >/dev/null
+    ;;
+
+  prepare)
+    msg="$(cat)"
+    n=$(($(ls "$dir/$stage"-[0-9]*.json 2>/dev/null | wc -l) + 1))
+    echo "$n" >"$dir/$stage.attempt"
+    # a model that is left out (yk check --models) still has its rungs; the attempt stops here and costs nothing
+    if [[ -n "${YUKTA_MODELS:-}" && ",${YUKTA_MODELS}," != *",$model,"* ]]; then
+      echo "model $model is not allowed in this run (--models $YUKTA_MODELS)" >&2
+      exit 4
     fi
-    p="${p:-0}"
-    if [[ "$route" == level ]]; then fallback=""; else fallback="$route"; fi
-    err="$(env | sed -n 's/^YUKTA_METADATA_FAILURE[A-Z_]*=//p' | head -c 300 | tr '\n' ' ')"
-    # a level route without a readable classification: keep what arrived, so the log says what to fix
-    raw=""; [[ -z "$label" && "$route" == level ]] && raw="$(env | grep '^YUKTA_METADATA_' | cut -c1-200 | head -c 600 | tr '\n' ' ')"
-    start="$(jq -r --arg l "$label" '.triage as $t | ($t.levels[$l].start // $t.levels[$t.default].start)' "$here/../heal.json" 2>/dev/null || echo "")"
-    t0="$(cat "$dir/$stage.brief.ts" 2>/dev/null || echo "$t_start")"
-    secs="$(secs_since "$t0")"
-    echo "TRIAGE $stage route=$route label=${label:--} p=$p start=${start:--} secs=$secs${fallback:+ fallback=$fallback}${err:+ error=${err:0:120}}"
-    emit triage "$(jq -nc --arg stage "$stage" --arg route "$route" --arg label "$label" --argjson p "${p:-0}" --arg start "$start" --arg secs "$secs" \
-      --arg model "${YUKTA_TRIAGE_MODEL:-$(jq -r '.triage.model' "$here/../heal.json" 2>/dev/null)}" --arg url "${YUKTA_TRIAGE_URL:-}" --arg fallback "$fallback" --arg error "$err" --arg raw "$raw" --argjson chars "$(cat "$dir/$stage.brief.chars" 2>/dev/null || echo 0)" \
-      '{stage: $stage, route: $route, label: $label, p: $p, start: $start, model: $model, url: (if $url == "" then null else $url end), secs: ($secs | tonumber), chars: $chars,
-        fallback: (if $fallback == "" then null else $fallback end), error: (if $error == "" then null else $error end)} + (if $raw == "" then {} else {raw: $raw} end)')"
-    exit 0
-    ;;
-  recheck)
-    if [[ "$stage" == analyzers ]]; then exec "${BASH_SOURCE[0]}" rerun analyzers 0 rerun; fi
-    [[ -f "$dir/$stage.cmd" ]] || { echo "HEAL recheck $stage: no recorded command"; exit 1; }
-    eval "$(cat "$dir/$stage.cmd")" 2>&1 | tee "$dir/$stage.run.out"
-    rc="${PIPESTATUS[0]}"
-    echo "$rc" >"$dir/$stage.exit"
-    emit recheck "$(jq -nc --arg stage "$stage" --arg secs "$(secs_since "$t_start")" --argjson ok "$([[ $rc == 0 ]] && echo true || echo false)" '{stage: $stage, secs: ($secs | tonumber), ok: $ok}')"
-    exit "$rc"
-    ;;
-  giveup)
-    echo "HEAL $stage giveup every model failed at every effort"
-    emit giveup "$(jq -nc --arg stage "$stage" '{stage: $stage}')"
-    exit 1
-    ;;
-  verify)
-    if ! ls "$dir"/*-[0-9]*.json >/dev/null 2>&1 || ! jq -e -s 'any(.[]; .fixed)' "$dir"/*-[0-9]*.json >/dev/null; then
-      exit 0
-    fi
-    echo "HEAL verify running every stage again after a heal"
-    # shellcheck disable=SC2086
-    gradle --continue $tasks
-    rc=$?
-    emit verify "$(jq -nc --arg secs "$(secs_since "$t_start")" --argjson ok "$([[ $rc == 0 ]] && echo true || echo false)" '{secs: ($secs | tonumber), ok: $ok}')"
-    exit "$rc"
-    ;;
-  rerun)
-    # One gradle run for every failed gradle analyzer (never parallel gradle: each build would start a
-    # daemon), then the other tools one by one. Keeps the exit file of each analyzer up to date.
-    mapfile -t failed < <(failed_analyzers)
-    ((${#failed[@]})) || { echo "HEAL rerun: nothing failed"; exit 0; }
-    rc=0
-    gradle_names=() other_names=()
-    for n in "${failed[@]}"; do
-      if [[ "$(analyzer_command "$n")" == ./gradlew* ]]; then gradle_names+=("$n"); else other_names+=("$n"); fi
-    done
-    if ((${#gradle_names[@]})); then
-      # shellcheck disable=SC2046
-      gradle --continue $(analyzer_tasks "${gradle_names[@]}") 2>&1 | tee "$dir/analyzers-gradle.run.out"
-      grc="${PIPESTATUS[0]}"
-      # ponytail: one gradle run cannot say which analyzer failed, so they all share its exit code
-      for n in "${gradle_names[@]}"; do echo "$grc" >"$dir/$n.exit"; done
-      ((grc == 0)) || rc=1
-    fi
-    for n in "${other_names[@]}"; do
-      eval "$(analyzer_command "$n")" 2>&1 | tee "$dir/$n.run.out"
-      orc="${PIPESTATUS[0]}"
-      echo "$orc" >"$dir/$n.exit"
-      ((orc == 0)) || rc=1
-    done
-    failed_analyzers | paste -sd, >"$dir/analyzers.failed"
-    emit recheck "$(jq -nc --arg secs "$(secs_since "$t_start")" --argjson ok "$([[ $rc == 0 ]] && echo true || echo false)" '{stage: "analyzers", secs: ($secs | tonumber), ok: $ok}')"
-    exit "$rc"
-    ;;
-  auto)
-    before="$(mktemp)"; snapshot >"$before"
-    # shellcheck disable=SC2086
-    gradle $tasks >"$out" 2>&1; rc=$?
-    changed="$(changed_since "$before")"; rm -f "$before"
-    if ((rc == 0)) && [[ -n "$changed" ]]; then fixed=true; else fixed=false; fi
-    record "$fixed" "$(files_json "$changed")" 0 "ran ${tasks:-nothing} (exit $rc)"
-    # the workflow routes on this: 0 = repaired (the stage runs again), non-zero = the next rung
-    [[ "$fixed" == true ]]
-    exit $?
-    ;;
-  haiku | sonnet | opus) ;;
-  *) echo "HEAL $stage attempt=$attempt unknown mode '$mode'"; exit 1 ;;
-esac
-
-# An issue run keeps to its budget: what the implementer and the earlier attempts spent. Over it, an attempt
-# refuses without spending, so the ladder runs out of rungs and the run ends.
-if [[ -n "${YUKTA_BUDGET_ISSUE:-}" ]]; then
-  spent="$(cat "${YUKTA_IMPL_COSTFILE:-/dev/null}" "$dir"/*-[0-9]*.json 2>/dev/null | jq -s '[.[] | .cost // 0] | add // 0')"
-  if awk -v b="$YUKTA_BUDGET_ISSUE" -v s="${spent:-0}" 'BEGIN { exit !(s + 0 >= b + 0) }'; then
-    record false '[]' 0 "over the issue budget: spent \$$spent of \$$YUKTA_BUDGET_ISSUE (YUKTA_BUDGET_ISSUE)"
-    exit 1
-  fi
-fi
-
-# ---- a Claude attempt ---------------------------------------------------------------------------------
-# The stage already ran in the node before; its output is kept in $dir/<stage>.run.out.
-model="$mode"
-allowed='^$'
-: >"$out"
-if [[ "$stage" == analyzers ]]; then
-  mapfile -t failed < <(failed_analyzers)
-  ((${#failed[@]})) || { record true '[]' 0 "no analyzer is failing"; exit 0; }
-  tasks="$(analyzer_tasks "${failed[@]}")"
-  problems="" verify=""
-  for n in "${failed[@]}"; do
-    problems+="[$n]"$'\n'"$(problem_lines "$dir/$n.run.out" 25)"$'\n'
-    verify+="$(analyzer_command "$n")"$'\n'
-  done
-  printf '%s\n' "${failed[@]}" | paste -sd, >"$dir/analyzers.failed"
-  # only the actionlint fixer may edit the workflows; with another analyzer failing they stay protected
-  [[ "${failed[*]}" == actionlint ]] && allowed='^\.github/workflows/[^/]+\.ya?ml$'
-else
-  verify="./gradlew $tasks -q --console=plain"
-  problems="$(problem_lines "$dir/$stage.run.out")"
-  [[ "$stage" == tests ]] && problems+=$'\n'"failing test classes: $(failing_tests | paste -sd' ')"
-fi
-
-before="$(mktemp)"; snapshot >"$before"
-# the working tree as it is now (the developer's own edits included), to diff this attempt against
-base="$(git stash create 2>/dev/null)"; base="${base:-HEAD}"
-previous=""
-for ((i = attempt - 1; i >= 1; i--)); do
-  if [[ -f "$dir/$stage-$i.json" ]]; then
-    previous="$(jq -r '"Attempt \(.attempt) (\(.mode)) said: \(.summary) [fixed=\(.fixed)]"' "$dir/$stage-$i.json")"
-    break
-  fi
-done
-stat="$(git diff --stat | tail -8)"
-
-# Everything that varies per run is in the user prompt; the system prompt is one constant file, so every
-# attempt of every run shares the same cached prefix.
-prompt="Stage \"$stage\" of the Yukta quality gate failed. Fix the root cause in the source so it passes.
-Gradle tasks: $tasks
+    snapshot >"$dir/$stage-$n.before"
+    # the working tree as it is now (the developer's own edits included), to diff this attempt against
+    base="$(git stash create 2>/dev/null)"
+    echo "${base:-HEAD}" >"$dir/$stage-$n.base"
+    problems="$(jq -r '.problems // ""' <<<"$msg")"
+    previous="$(jq -r '.previous // ""' <<<"$msg")"
+    stat="$(git diff --stat | tail -8)"
+    # everything that varies per run is in the user prompt; the system prompt is one constant file, so every attempt shares the cached prefix
+    prompt="Stage \"$stage\" of the Yukta quality gate failed. Fix the root cause in the source so it passes.
 Problems (from the run):
 $problems
-${previous:+$previous
+${previous:+Earlier attempt: $previous
 }Files already changed in the working tree (by the developer, keep them):
 ${stat:-none}
 Verify with only:
-$verify
+${YUKTA_COMMAND:-the failing command}
 ${YUKTA_HEAL_TIMEOUT:+You have about $((YUKTA_HEAL_TIMEOUT / 60)) minutes at ${effort:-this} effort. If you cannot fix it in that time, stop and answer fixed=false with what you learned.
 }Then answer with the JSON object only."
+    jq -nc --arg prompt "$prompt" --argjson attempt "$n" '{prompt: $prompt, attempt: $attempt}'
+    ;;
 
-schema='{"type":"object","properties":{"fixed":{"type":"boolean"},"summary":{"type":"string"}},"required":["fixed","summary"]}'
+  claimed)
+    n="$(attempt_no)"
+    msg="$(cat)"
+    # the claude workflow's result: {results: [{output: <claude's JSON>}]}
+    jq -c '(.results[0].output // .output // {}) as $r
+      | {cost: ($r.total_cost_usd // 0),
+         usage: ($r.usage | if . == null then null else {input: .input_tokens, cache_creation: .cache_creation_input_tokens, cache_read: .cache_read_input_tokens, output: .output_tokens} end),
+         answer: ($r.structured_output // (($r.result // "") | fromjson? ) // {})}
+      | {cost, usage, claimed: (.answer.fixed // false),
+         summary: (.answer.summary // ("no answer from claude" + (if $r.is_error == true or ($r.subtype // "success") != "success" then " (\($r.subtype // "error"): \(($r.result // "")[0:100]))" else "" end)))}' <<<"$msg" >"$dir/$stage-$n.claude" \
+      || echo '{"cost":0,"usage":null,"claimed":false,"summary":"no answer from claude"}' >"$dir/$stage-$n.claude"
+    # the live line of the attempt (the recheck decides whether it fixed the stage; healed= in RESULT says so)
+    jq -r --arg l "HEAL $stage attempt=$n mode=$model effort=$effort" '"\($l) claimed=\(.claimed) cost=$\(.cost) summary=\(.summary[0:120])"' "$dir/$stage-$n.claude" >&2
+    ;;
 
-# shellcheck source=_claude.sh
-source "$here/_claude.sh"
-YK_SCHEMA="$schema"
+  judge)
+    n="$(attempt_no)"
+    claimed="$(jq -r '.claimed' "$dir/$stage-$n.claude" 2>/dev/null || echo false)"
+    changed="$(changed_since "$dir/$stage-$n.before")"
+    base="$(cat "$dir/$stage-$n.base" 2>/dev/null || echo HEAD)"
+    violations=""
+    touched="$(grep -E "$protected" <<<"$changed")"
+    [[ -z "$touched" ]] || violations+=" touched protected path: $(head -3 <<<"$touched" | paste -sd,)."
+    diffs="$(while IFS= read -r f; do [[ -n "$f" && -f "$f" ]] && git diff -U0 "$base" -- "$f" 2>/dev/null; done <<<"$changed")"
+    untracked="$(git ls-files -o --exclude-standard | grep -F -x -f <(printf '%s\n' "$changed") | head -50)"
+    # into a variable first: grep -q on a pipe ends early and, under pipefail, the writer's SIGPIPE would hide the match
+    added_text="$({ grep -E '^\+[^+]' <<<"$diffs"; [[ -n "$untracked" ]] && xargs -d '\n' cat <<<"$untracked"; } 2>/dev/null)"
+    if grep -Eq "$suppression" <<<"$added_text"; then
+      violations+=" added a suppression."
+    fi
+    removed="$(grep -cE '^-[^-].*(assert|@Test|verify\()' <<<"$diffs")"
+    added="$(grep -cE '^\+[^+].*(assert|@Test|verify\()' <<<"$diffs")"
+    ((removed > added)) && violations+=" removed assertions ($removed removed, $added added)."
+    # a test whose assertion was edited, with no code changed beside it, is a test made to fit the code
+    tests_re='(/src/test/|Test\.java$|_test\.go$|\.(test|spec)\.[jt]sx?$)'
+    if grep -Eq "$tests_re" <<<"$changed" && ! grep -Ev "$tests_re" <<<"$changed" | grep -q . \
+      && [[ "$removed" -gt 0 && "$added" -gt 0 ]]; then
+      violations+=" changed test expectations without changing any code."
+    fi
+    [[ "$claimed" == true && -z "$changed" ]] && violations+=" claimed a fix but changed nothing."
+    jq -nc --argjson files "$(files_json "$changed")" --arg violations "$violations" '{files: $files, violations: $violations}' >"$dir/$stage-$n.verdict"
+    # 0 = a clean change that Claude says fixes it: the stage runs again
+    [[ "$claimed" == true && -z "$violations" && -n "$changed" ]]
+    ;;
 
-result="$(YK_EFFORT="$effort" yk_claude "$model" "$prompt" "$here/../fixer-rules.md" "$budget" "$out")"
+  report)
+    n="$(attempt_no)"
+    msg="$(cat)"
+    claude="$dir/$stage-$n.claude"
+    verdict="$dir/$stage-$n.verdict"
+    cost="$(jq -r '.cost // 0' "$claude" 2>/dev/null || echo 0)"
+    usage="$(jq -c '.usage' "$claude" 2>/dev/null || echo null)"
+    summary="$(jq -r '.summary // ""' "$claude" 2>/dev/null)"
+    [[ -n "$summary" ]] || summary="the attempt did not start (model not allowed, or the issue budget is spent)"
+    files="$(jq -c '.files // []' "$verdict" 2>/dev/null || echo '[]')"
+    guard="$(jq -r '.violations // ""' "$verdict" 2>/dev/null)"
+    # the recheck ran when the message is a tool result labelled with this stage: it passed when its command exited 0
+    ran="$(jq -r --arg s "$stage" '((.results[0].input.label // "") == $s)' <<<"$msg")"
+    ok="$(jq -r '(.results[0].success // false)' <<<"$msg")"
+    problems="${YUKTA_PROBLEMS:-}"
+    if [[ "$ran" == true && "$ok" != true ]]; then
+      tmp="$(mktemp)"; stdout_of <<<"$msg" >"$tmp"
+      problems="$(problem_lines "$tmp" 60)"$'\n'"Output (last 40 lines):"$'\n'"$(plain <"$tmp" | tail -n 40 | cut -c1-300)"
+      rm -f "$tmp"
+    fi
+    fixed=false
+    [[ "$ran" == true && "$ok" == true ]] && fixed=true
+    [[ -n "$guard" ]] && summary="GUARD:$guard $summary"
+    # a step with outputFormat JSON must print nothing but the JSON (the engine merges stderr into stdout): no HEAL line here, claimed prints it
+    record "$fixed" "$files" "$cost" "$summary" "$usage" 2>/dev/null
+    emit fix "$(jq -nc --arg stage "$stage" --argjson attempt "$n" --arg model "$model" --arg effort "$effort" --argjson fixed "$fixed" \
+      --argjson files "$files" --arg cost "$cost" --argjson usage "$usage" --arg secs "$(secs_since "$t_start")" --arg guard "$guard" --arg summary "${summary:0:160}" \
+      --arg modules "$module" \
+      '{stage: $stage, attempt: $attempt, model: $model, effort: (if $effort == "" then null else $effort end), fixed: $fixed, files: $files,
+        cost: ($cost | tonumber), usage: $usage, secs: ($secs | tonumber), guard: (if $guard == "" then null else $guard end), summary: $summary,
+        modules: ($modules | split(" ") | map(select(. != "")))}')"
+    # what the next attempt reads as "Earlier attempt": the summary plus the files this one changed, so it does not explore them again
+    handoff="${summary:0:300}"
+    [[ "$files" == '[]' ]] || handoff+=" Files it changed (still in the working tree): $(jq -r 'join(", ")' <<<"$files" | cut -c1-300)."
+    jq -nc --arg stage "$stage" --arg model "$model" --arg effort "$effort" --argjson attempt "$n" --argjson fixed "$fixed" --arg cost "$cost" \
+      --arg summary "$handoff" --arg problems "$problems" --arg files "$files" \
+      '{stage: $stage, model: $model, effort: $effort, attempt: $attempt, fixed: $fixed, changed: ($files != "[]"), cost: ($cost | tonumber), summary: $summary,
+        problems: (if $fixed then "" else $problems end)}'
+    # always 0: a step that exits non-zero has no parsed `output`, and the carry of the next attempt reads it. The workflow branches on fixed.
+    exit 0
+    ;;
 
-cost="$(jq -r '.total_cost_usd // 0' <<<"$result" 2>/dev/null || echo 0)"
-usage="$(jq -c '.usage // null | if . == null then null else {input: .input_tokens, cache_creation: .cache_creation_input_tokens, cache_read: .cache_read_input_tokens, output: .output_tokens} end' <<<"$result" 2>/dev/null || echo null)"
-answer="$(jq -c '.structured_output // (.result | fromjson? ) // {}' <<<"$result" 2>/dev/null || echo '{}')"
-claimed="$(jq -r '.fixed // false' <<<"$answer" 2>/dev/null || echo false)"
-summary="$(jq -r '.summary // "no answer from claude"' <<<"$answer" 2>/dev/null || echo "no answer from claude")"
-
-# A fix must not break formatting, and is judged on what it changed.
-fmt=(); for m in $module; do [[ "$m" == cli ]] || fmt+=(":$m:spotlessApply"); done
-gradle "${fmt[@]:-spotlessApply}" >>"$out" 2>&1 || true
-changed="$(changed_since "$before")"
-
-violations=""
-touched="$(grep -E "$protected" <<<"$changed" | grep -v -E "$allowed")"
-if [[ -n "$touched" ]]; then
-  violations+=" touched protected path: $(head -3 <<<"$touched" | paste -sd,)."
-fi
-diffs="$(while IFS= read -r f; do [[ -n "$f" && -f "$f" ]] && git diff -U0 "$base" -- "$f" 2>/dev/null; done <<<"$changed")"
-untracked="$(git ls-files -o --exclude-standard | grep -F -x -f <(printf '%s\n' "$changed") | head -50)"
-if { grep -E '^\+[^+]' <<<"$diffs"; [[ -n "$untracked" ]] && xargs -d '\n' cat <<<"$untracked"; } 2>/dev/null | grep -Eq "$suppression"; then
-  violations+=" added a suppression."
-fi
-removed="$(grep -cE '^-[^-].*(assert|@Test|verify\()' <<<"$diffs")"
-added="$(grep -cE '^\+[^+].*(assert|@Test|verify\()' <<<"$diffs")"
-((removed > added)) && violations+=" removed assertions ($removed removed, $added added)."
-
-fixed=false
-[[ "$claimed" == true && -z "$violations" && -n "$changed" ]] && fixed=true
-[[ "$claimed" == true && -z "$changed" ]] && violations+=" claimed a fix but changed nothing."
-[[ -n "$violations" ]] && summary="GUARD:$violations $summary"
-record "$fixed" "$(files_json "$changed")" "$cost" "$summary" "$usage"
-rm -f "$before"
-# the workflow routes on this: 0 = repaired (the stage runs again), non-zero = the next rung
-[[ "$fixed" == true ]]
+  *) echo "yukta-heal.sh: unknown action '$action'" >&2; exit 2 ;;
+esac

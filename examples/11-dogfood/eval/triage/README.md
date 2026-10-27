@@ -54,3 +54,12 @@ looking at a case scores well on it for that reason; the test set is for the one
   more costs money (`over2`) or time (`under2`).
 - `policy-exact` is what heal would do, with the confidence floor (`minProbability`) sending a vague answer to the default level.
 - Labels and cases are few; a difference of one case is noise. Collect more (`collect.py --limit`) before drawing a conclusion.
+
+## Non-Java and harder cases (`tev1`, hand-labelled)
+
+`fixtures/synthetic-c.json` (10 Go, UI and repo failures) and `fixtures/synthetic-d.json` (25 boundary cases over every ecosystem) were written
+for the neutral question and the `ecosystem:` line of heal's brief (`variants/neutral.json`, `variants/neutral-eco.json`). On `tev1`
+(`OLLAMA_URL=http://<host>:11434 ./eval.py --model tev1 --cases fixtures/synthetic-d.json --variant ...`): the old Java question 16/25, neutral 16/25,
+neutral + ecosystem 17/25, 24/25 within one level; sets a, b and c are 14/14, 13/14 and 10/10 on all three. The misses on d are the failures that
+look simple but spread over many files (renames, type changes, lint in 7 files) and a native-image reflection error, all called easy. The labels are
+the author's reading, one case is noise, and there is no dev/test split in d yet.

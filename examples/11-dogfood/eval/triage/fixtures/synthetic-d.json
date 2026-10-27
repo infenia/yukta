@@ -1,0 +1,177 @@
+[
+ {
+  "id": "d-assert-rule",
+  "want": "moderate",
+  "stage": "tests",
+  "short": "stage: tests\ncommand: ./gradlew :core:test -q --console=plain\nerror: OrderServiceTest > appliesDiscountToBulkOrders() FAILED\n    org.opentest4j.AssertionFailedError: expected: <90.0> but was: <100.0>\nerror: 1 test failed\nfiles changed so far: 1",
+  "long": ""
+ },
+ {
+  "id": "d-npe-service",
+  "want": "average",
+  "stage": "tests",
+  "short": "stage: tests\ncommand: ./gradlew :core:test -q --console=plain\nerror: SessionRegistryTest > removesClosedSession() FAILED\n    java.lang.NullPointerException: Cannot invoke \"Session.id()\" because \"s\" is null\n        at SessionRegistry.remove(SessionRegistry.java:58)\nerror: 1 test failed\nfiles changed so far: 2",
+  "long": ""
+ },
+ {
+  "id": "d-shared-cause",
+  "want": "hard",
+  "stage": "tests",
+  "short": "stage: tests\ncommand: ./gradlew :core:test -q --console=plain\nerror: 31 tests failed in 9 classes\n    java.net.ConnectException: Connection refused: localhost/127.0.0.1:5432\n    at PostgresContainerSupport.start(PostgresContainerSupport.java:41)\nerror: Tests failed\nfiles changed so far: 3",
+  "long": ""
+ },
+ {
+  "id": "d-flaky-timing",
+  "want": "hard",
+  "stage": "tests",
+  "short": "stage: tests\ncommand: ./gradlew :core:test -q --console=plain\nerror: ReplayFluxTest > emitsInOrder() FAILED\n    java.lang.AssertionError: VerifySubscriber timed out on reactor.core.publisher.FluxReplay (expected within 500ms, took 612ms)\nerror: passes on rerun, failed twice in the last 5 runs\nfiles changed so far: 1",
+  "long": ""
+ },
+ {
+  "id": "d-timeout-deadlock",
+  "want": "veryhard",
+  "stage": "tests",
+  "short": "stage: tests\ncommand: ./gradlew :core:test -q --console=plain\nerror: ParallelRunnerTest > cancelsAllChildren() FAILED\n    org.junit.jupiter.api.extension.TestTimedOutException: timed out after 60 seconds\n    at jdk.internal.misc.Unsafe.park(Native Method)\n    at java.util.concurrent.locks.LockSupport.park(LockSupport.java:371)\nfiles changed so far: 2",
+  "long": ""
+ },
+ {
+  "id": "d-oom",
+  "want": "hard",
+  "stage": "tests",
+  "short": "stage: tests\ncommand: ./gradlew :core:test -q --console=plain\nerror: Execution failed for task ':core:test'.\n    Process 'Gradle Test Executor 3' finished with non-zero exit value 137\n    java.lang.OutOfMemoryError: Java heap space\n    at com.x.engine.StreamBuffer.grow(StreamBuffer.java:112)\nfiles changed so far: 1",
+  "long": ""
+ },
+ {
+  "id": "d-pmd-many",
+  "want": "moderate",
+  "stage": "style",
+  "short": "stage: style\ncommand: ./gradlew :core:pmdMain :core:pmdTest -q\nerror: PMD rule violations were found.\n    LawOfDemeter: 14 violations in 7 files (OrderMapper.java:31, ...)\n    PMD Failure: com.x.OrderMapper:31 Rule:LawOfDemeter Priority:3\nerror: 14 violations\nfiles changed so far: 7",
+  "long": ""
+ },
+ {
+  "id": "d-spotbugs-null",
+  "want": "simple",
+  "stage": "spotbugs",
+  "short": "stage: spotbugs\ncommand: ./gradlew :core:spotbugsMain -q\nerror: NP_NULL_ON_SOME_PATH in com.x.Cache.get(String): Possible null pointer dereference of value at line 88\nerror: 1 SpotBugs violation\nfiles changed so far: 1",
+  "long": ""
+ },
+ {
+  "id": "d-checkstyle-javadoc",
+  "want": "easy",
+  "stage": "style",
+  "short": "stage: style\ncommand: ./gradlew :core:checkstyleMain -q\nerror: [checkstyle] Registry.java:41: Missing a Javadoc comment. [MissingJavadocMethod]\n    (12 methods in Registry.java)\nerror: Checkstyle rule violations were found.\nfiles changed so far: 1",
+  "long": ""
+ },
+ {
+  "id": "d-jacoco-edge",
+  "want": "average",
+  "stage": "coverage",
+  "short": "stage: coverage\ncommand: ./gradlew :core:jacocoTestCoverageVerification -q\nerror: Rule violated for bundle core: branches covered ratio is 0.78, but expected minimum is 0.80\n    uncovered branches: RetryPolicy (4), BackoffCalculator (3)\nfiles changed so far: 2",
+  "long": ""
+ },
+ {
+  "id": "d-api-rename",
+  "want": "moderate",
+  "stage": "compile",
+  "short": "stage: compile\ncommand: ./gradlew :web:compileJava :web:compileTestJava -q\nerror: cannot find symbol: method findByOwner(String)\n    location: variable repo of type SessionRepository  (18 errors in 9 files)\nerror: compilation failed\nfiles changed so far: 9",
+  "long": ""
+ },
+ {
+  "id": "d-generics",
+  "want": "moderate",
+  "stage": "compile",
+  "short": "stage: compile\ncommand: ./gradlew :core:compileJava -q\nerror: incompatible types: inference variable T has incompatible bounds\n    equality constraints: List<Node>\n    lower bounds: ArrayList<String>\n    at WorkflowGraph.java:204\nfiles changed so far: 1",
+  "long": ""
+ },
+ {
+  "id": "d-native-reflection",
+  "want": "veryhard",
+  "stage": "native",
+  "short": "stage: native\ncommand: ./gradlew :boot:nativeCompile -q\nerror: Unsupported features in 3 methods\n    Detected a ReflectionAccess on com.x.plugin.PluginDescriptor without registration (use reflect-config)\n    Fatal error: native-image terminated, exit 1\nfiles changed so far: 2",
+  "long": ""
+ },
+ {
+  "id": "d-lockfile",
+  "want": "simple",
+  "stage": "compile",
+  "short": "stage: compile\ncommand: ./gradlew :core:compileJava -q\nerror: Dependency lock state for configuration ':core:compileClasspath' is out of date:\n    Resolved 'org.springframework:spring-core:7.0.3' which is not part of the dependency lock state\nfiles changed so far: 1",
+  "long": ""
+ },
+ {
+  "id": "d-license-header",
+  "want": "trivial",
+  "stage": "spotless",
+  "short": "stage: spotless\ncommand: ./gradlew :core:spotlessCheck -q\nerror: The following files had format violations:\n    core/src/main/java/com/x/Util.java\n        license header: missing\nfiles changed so far: 1",
+  "long": ""
+ },
+ {
+  "id": "d-go-race",
+  "want": "veryhard",
+  "stage": "cli_cover_check",
+  "short": "stage: cli_cover_check\ncommand: make cover-check\nerror: WARNING: DATA RACE\n    Write at 0x00c0001a4010 by goroutine 8: client.(*Pool).Put()\n    Previous read at 0x00c0001a4010 by goroutine 7: client.(*Pool).Get()\nerror: FAIL cli/internal/client 1.203s\nfiles changed so far: 1",
+  "long": ""
+ },
+ {
+  "id": "d-go-table",
+  "want": "moderate",
+  "stage": "cli_cover_check",
+  "short": "stage: cli_cover_check\ncommand: make cover-check\nerror: --- FAIL: TestParseDuration/negative (0.00s)\n    duration_test.go:44: got 0s, want -5s\nerror: FAIL cli/internal/cmd\nfiles changed so far: 2",
+  "long": ""
+ },
+ {
+  "id": "d-go-undefined",
+  "want": "moderate",
+  "stage": "cli_vet",
+  "short": "stage: cli_vet\ncommand: make vet\nerror: cli/cmd/start.go:31:14: undefined: NewClientWithOpts\n    cli/cmd/stop.go:22:14: undefined: NewClientWithOpts\n    (5 files)\nerror: vet failed\nfiles changed so far: 5",
+  "long": ""
+ },
+ {
+  "id": "d-ts-many",
+  "want": "moderate",
+  "stage": "ui_tsc",
+  "short": "stage: ui_tsc\ncommand: node_modules/.bin/tsc --noEmit\nerror TS2339: Property 'status' does not exist on type 'RunSummary'. (37 errors in 14 files)\n    src/api/types.ts changed: RunSummary.status removed\nfiles changed so far: 14",
+  "long": ""
+ },
+ {
+  "id": "d-vitest-snapshot",
+  "want": "simple",
+  "stage": "ui_vitest",
+  "short": "stage: ui_vitest\ncommand: node_modules/.bin/vitest run\nFAIL src/components/Badge.test.tsx > renders warning\nerror: Snapshot `renders warning 1` mismatched\n    - Expected: class=\"badge warn\"\n    + Received: class=\"badge warning\"\nfiles changed so far: 1",
+  "long": ""
+ },
+ {
+  "id": "d-vitest-act",
+  "want": "average",
+  "stage": "ui_vitest",
+  "short": "stage: ui_vitest\ncommand: node_modules/.bin/vitest run\nFAIL src/hooks/useRuns.test.tsx > refetches on focus\nerror: Warning: An update to TestComponent inside a test was not wrapped in act(...)\nerror: expected 2 calls, received 1\nfiles changed so far: 2",
+  "long": ""
+ },
+ {
+  "id": "d-eslint-fixable",
+  "want": "trivial",
+  "stage": "ui_eslint",
+  "short": "stage: ui_eslint\ncommand: node_modules/.bin/eslint .\nerror: 83 problems (0 errors, 83 warnings)\n    81 warnings potentially fixable with the `--fix` option\nfiles changed so far: 9",
+  "long": ""
+ },
+ {
+  "id": "d-reuse-png",
+  "want": "easy",
+  "stage": "reuse",
+  "short": "stage: reuse\ncommand: reuse lint\nerror: The following files have no copyright and licensing information:\n    ui/public/logo-dark.png\nerror: Unfortunately, your project is not compliant with version 3.3 of the REUSE Specification\nfiles changed so far: 1",
+  "long": ""
+ },
+ {
+  "id": "d-docs-moved",
+  "want": "simple",
+  "stage": "docs",
+  "short": "stage: docs\ncommand: cd docs && mint broken-links\nfound 9 broken links in 4 files\nconcepts/workflows.mdx\n  /concepts/nodes\n  /concepts/edges\nguides/plugins.mdx\n  /api/plugin-api\nfiles changed so far: 4",
+  "long": ""
+ },
+ {
+  "id": "d-actionlint-shell",
+  "want": "easy",
+  "stage": "actionlint",
+  "short": "stage: actionlint\ncommand: actionlint\nerror: .github/workflows/release.yml:63:9: shellcheck reported issue in this script: SC2086:info:1:6: Double quote to prevent globbing and word splitting\nfiles changed so far: 1",
+  "long": ""
+ }
+]

@@ -1,0 +1,513 @@
+#!/usr/bin/env bash
+# yk: develop Yukta with Yukta. The one entry point for builds, tests and checks of this repo; every
+# Gradle run goes through a Yukta workflow on the dev server (built from origin/main, port 9858).
+#
+#   yk up [--background] [--release [tag]]   start the dev server, or swap it for a newer main when idle
+#   yk down | status                         stop the server yk started | show it (exit 3 when down)
+#   yk check [-m mod]... [-p path] [--no-heal] [--models haiku,sonnet,opus] [--triage off] [--pause before-opus] [--detach]
+#                                            the self-healing quality gate (spotless .. cli) as one execution
+#   yk gradle <gradle args...>               any gradle args as one Yukta stage, e.g. :core:test --tests X
+#   yk watch <session> <exec> [--all]        follow a run: problems only, then RESULT
+#   yk run issue|epic <n> [--detach] [--no-pause before-implement,before-pr,between-issues]
+#                                            implement an assigned, Ready issue (or the sub-issues of an epic, two at a
+#                                            time) in its own worktree with a code-navigation index (IDE, codebase-memory-mcp or
+#                                            CodeGraph, see scripts/nav.sh), check and heal it, open a draft PR
+#   yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]
+#                                            what heal did: where the time and money went (report), what looks wrong (analyze), the
+#                                            raw events (show); from the monitoring log, see "Monitoring heal" below
+#   yk result <session> <exec>               the RESULT line of a run that ended
+#   yk tree <exec>                           the run and every run below it, one line each: workflow, status,
+#                                            current nodes, pending signal (an execution id may be its first 8 characters)
+#   yk pause|resume|stop <exec> [--tree]     the run, or with --tree every run it started too
+#   yk skip|unskip|retry <exec> <node>       steer one node
+#   yk break <exec> <node> --field F --equals V | --clear    hold a node on a payload value
+#   yk step <exec> <node> on|off|next        step mode of a node
+#   yk signals [exec] | approve|reject <exec> [signal] [--data text]   what waits for an answer; answer it
+#   yk finding --title ... (see report-finding.sh)   file a dogfood issue
+#   yk cli <args...>                         the yukta CLI against the dev server
+#
+# A run's last line is machine readable; exit 0 only on success:
+#   RESULT status=<S> failed_node=<node|-> healed=<stage:step,..|-> execution=<id> session=<id>
+# Server: $YUKTA_SERVER_URL when it points elsewhere, else the dev server (started on demand).
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$here/scripts/_lib.sh"
+use_dev_key
+
+usage() { sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; }
+
+cmd_up() {
+  local args=() bg=0
+  while (($#)); do
+    case "$1" in
+      --background) bg=1; shift ;;
+      --release) args+=(--release); shift; [[ $# -gt 0 && "$1" != --* ]] && { args+=("$1"); shift; } ;;
+      *) die "unknown option '$1' (yk up [--background] [--release [tag]])" ;;
+    esac
+  done
+  if ((bg)); then
+    mkdir -p "$DEV_HOME"
+    if ! flock -n "$DEV_HOME/up.lock" true 2>/dev/null; then echo "yk up: already in progress"; return 0; fi
+    setsid "${BASH_SOURCE[0]}" up "${args[@]}" >"$DEV_HOME/up.log" 2>&1 </dev/null &
+    echo "yk up: running in the background (log: $DEV_HOME/up.log)"
+    return 0
+  fi
+  server_up "${args[@]}"
+}
+
+cmd_down() {
+  if ours; then server_stop; echo "stopped the dev server"; else echo "no dev server started by yk"; fi
+}
+
+cmd_status() {
+  local main="" building=""
+  main="$(git -C "$DEV_HOME/main" rev-parse "${YUKTA_DEV_MAIN_REF:-origin/main}" 2>/dev/null || true)"
+  [[ ! -e "$DEV_HOME/up.lock" ]] || flock -n "$DEV_HOME/up.lock" true 2>/dev/null || building=" (yk up in progress, log: $DEV_HOME/up.log)"
+  if ! healthy; then
+    echo "down: $DEV_URL$building"
+    return 3
+  fi
+  if ! ours; then
+    echo "up: $DEV_URL, not started by yk"
+    return 0
+  fi
+  local sha state=current
+  sha="$(server_env YUKTA_DEV_SHA)"
+  if [[ "$(server_env YUKTA_DEV_KIND)" == main && -n "$main" && "$main" != "$sha" ]]; then
+    state="stale (origin/main is ${main:0:9}$([[ -s "$DEV_HOME/builds/$main/yukta.jar" ]] && echo ", built; swaps when idle"))"
+  fi
+  echo "up: $DEV_URL $(server_env YUKTA_DEV_LABEL) $state, running=$(busy)$building"
+  echo "log: $DEV_HOME/server.log"
+}
+
+# run_check MODE HEAL MODELS PROJECT MODULES [gradle args...]: applies this checkout's session and runs
+# the check (no gradle args) or one gradle-run stage.
+run_check() {
+  local mode="$1" heal="$2" models="$3" project="$4" modules="$5" pause="${6:-}"
+  shift 6
+  need jq
+  ensure_server
+  # tmp is global: the EXIT trap runs after this function's locals are gone.
+  local cli branch session workflow=gradle-check scope="${modules:-all}"
+  cli="$(find_cli)"
+  mkdir -p "$STATE_DIR"
+  exec 8>"$STATE_DIR/check.lock"
+  flock -n 8 || die "another check is running in this checkout; wait for it (yk watch) or stop it"
+  session="$(check_session "$project" "$#")"
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  if (($#)); then
+    workflow=gradle
+    scope="args:$(printf '%.60s' "$*")"
+  elif ((heal)); then
+    workflow=check
+  fi
+  local heal_dir="$STATE_DIR/heal/$session" healsh="$here/scripts/yukta-heal.sh"
+  rm -rf "$heal_dir"
+  # shellcheck disable=SC2086
+  {
+    render_session "$here/session.json" "$project" \
+      | jq --arg s "$session" '.sessionId=$s | .name=$s' \
+      | if [[ -n "$modules" ]]; then scope_to_modules $modules; else cat; fi \
+      | if [[ "$workflow" == check ]]; then
+        heal_workflow "$(cat "$here/heal.json")" "$modules" "$project" "$healsh" "$heal_dir" \
+          "$(heal_extras "$(cat "$here/heal.json")" "$modules")" \
+          | jq --argjson h "$(heal_subflows "$(policy_models "$(cat "$here/heal.json")" "$models")" "$healsh" "$pause")" \
+            '.workflows += $h.workflows'
+      else cat; fi
+  } >"$tmp/session.json"
+
+  echo ">> server $YUKTA_SERVER_URL, session $session, project $project" >&2
+  "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 \
+    || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
+  # a CLI built before 'session apply' existed prints the session help and exits 0
+  ! grep -q "Available Commands" "$tmp/apply.out" || die "stale CLI (session apply printed help); run yk up"
+  local exec_id
+  local payload=()
+  # the gradle workflow takes its project and tasks in the start payload (tasks space separated: ponytail, no spaces inside one argument)
+  if [[ "$workflow" == gradle ]]; then
+    payload=(--payload "$(jq -nc --arg p "$project" --arg t "$*" '{project: $p, tasks: $t, timeout: 3600, label: "gradle"}')")
+  fi
+  exec_id="$("$cli" -o json workflow start "$session" "$workflow" "${payload[@]}" | jq -r '.data.executionId // .executionId')"
+  [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start workflow"
+  echo "STARTED execution=$exec_id session=$session"
+  [[ "$mode" == detach ]] && return 0
+  YUKTA_PROJECT="$project" YUKTA_SCOPE="$scope" cmd_watch "$session" "$exec_id"
+}
+
+cmd_check() {
+  local project="" modules="" mode=watch heal=1 models="" pause=""
+  while (($#)); do
+    case "$1" in
+      -p) project="${2:?-p needs a path}"; shift 2 ;;
+      -m)
+        [[ "${2:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]*$ ]] || die "invalid module '${2:-}'"
+        modules="${modules:+$modules }$2"; shift 2 ;;
+      --detach) mode=detach; shift ;;
+      --watch) shift ;;
+      --no-heal) heal=0; shift ;;
+      --pause) pause="${2:?--pause needs a checkpoint, e.g. before-opus}"; shift 2 ;;
+      --models) models="${2:?--models needs models, e.g. sonnet,opus}"; shift 2 ;;
+      --triage) [[ "${2:-}" == off ]] || die "invalid --triage '${2:-}' (off)"; export YUKTA_TRIAGE=off; shift 2 ;;
+      *) die "unknown option '$1' (gradle args go to: yk gradle <args>)" ;;
+    esac
+  done
+  [[ -z "$models" || "$models" =~ ^(haiku|sonnet|opus)(,(haiku|sonnet|opus))*$ ]] || die "invalid --models '$models' (models from haiku, sonnet, opus)"
+  [[ -z "$pause" || "$pause" == before-opus ]] || die "invalid --pause '$pause' (before-opus)"
+  run_check "$mode" "$heal" "$models" "$(cd "${project:-$(git rev-parse --show-toplevel)}" && pwd)" "$modules" "$pause"
+}
+
+cmd_gradle() {
+  local mode=watch
+  [[ "${1:-}" == --detach ]] && { mode=detach; shift; }
+  (($#)) || die "usage: yk gradle [--detach] <gradle args...>"
+  run_check "$mode" 0 "" "$(git rev-parse --show-toplevel)" "" "" "$@"
+}
+
+# cmd_watch SESSION EXECUTION [--all]: follows a run until it ends, problems only (--all: every event),
+# then SLOW lines and the RESULT line.
+cmd_watch() {
+  local session="${1:?usage: yk watch <session> <execution> [--all]}" target="${2:?usage: yk watch <session> <execution> [--all]}"
+  local filter=(--quiet)
+  [[ "${3:-}" == --all ]] && filter=()
+  export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
+  # a checkpoint that waits for an answer is news too: say so, once, while the run is watched
+  announce_signals "$target" &
+  local announcer=$!
+  # A node that never ran (a rung nobody needed, or one behind the failure) is not news: the check has
+  # dozens of them. ponytail: filtered here; belongs in the CLI's --quiet if other callers want it.
+  "$(find_cli)" controlbus watch --execution "$target" --until-done "${filter[@]}" \
+    | { if ((${#filter[@]})); then grep -v -E '^NODE [^ ]+ (SKIPPED|UPSTREAM_FAILED|CANCELLED)$'; else cat; fi; } || true
+  kill "$announcer" 2>/dev/null || true
+  wait "$announcer" 2>/dev/null || true
+  record_durations "$session" "$target" "${YUKTA_SCOPE:--}"
+  print_result "$session" "$target"
+}
+
+# announce_signals EXEC: prints "APPROVAL <signal> waits at <node>: yk approve <e> <signal>" once for each node
+# of the tree of EXEC that starts waiting for a signal; runs until killed
+announce_signals() {
+  local seen="" line key
+  while sleep 3; do
+    while IFS= read -r line; do
+      [[ -n "$line" ]] || continue
+      key="${line%% since*}"
+      [[ "$seen" == *"|$key|"* ]] && continue
+      seen+="|$key|"
+      read -r e node name _ <<<"$line"
+      echo "APPROVAL $name waits at $node: yk approve $e $name (or yk reject $e $name)"
+    done < <( (cmd_signals "$1") 2>/dev/null || true)
+  done
+}
+
+cmd_cli() {
+  export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
+  exec "$(find_cli)" "$@"
+}
+
+# ---- steering: the tree of runs, control and approvals (T0: the interactive session) ----
+
+# api METHOD PATH: a call to the server with the key; prints the unwrapped data, or dies with the server's message
+api() {
+  local out code
+  out="$(curl -sS -m 30 -w '\n%{http_code}' -X "$1" ${YUKTA_TOKEN:+-H "X-API-Key: $YUKTA_TOKEN"} "${YUKTA_SERVER_URL:-$DEV_URL}$2")" \
+    || die "$1 $2: the server is not reachable (yk up)"
+  code="${out##*$'\n'}"
+  out="${out%$'\n'*}"
+  ((code < 400)) || die "$1 $2: HTTP $code $(jq -r '.message // empty' <<<"$out" 2>/dev/null)"
+  jq '(.data // .)' <<<"$out"
+}
+
+uri() { jq -rn --arg v "$1" '$v | @uri'; }
+
+# resolve_exec ID: a full execution id, or the unique prefix of one (the tree prints eight characters)
+resolve_exec() {
+  local id="${1:?an execution id is required}" found
+  ((${#id} >= 32)) && { echo "$id"; return; }
+  found="$(api GET '/api/executions?limit=1000' | jq -r --arg p "$id" '[.[] | select(.executionId | startswith($p)) | .executionId] | unique | if length == 1 then .[0] else empty end')"
+  [[ -n "$found" ]] || die "no single execution starts with '$id'"
+  echo "$found"
+}
+
+# session_of EXEC: the session an execution runs in
+session_of() { api GET '/api/executions?limit=1000' | jq -r --arg e "$1" '.[] | select(.executionId == $e) | .sessionId' | head -1; }
+
+# pending SESSION...: the nodes that wait for a signal in these sessions, as a JSON array
+pending() {
+  local s all="[]"
+  for s in "$@"; do all="$(jq -c --argjson a "$(api GET "/api/sessions/$s/approvals")" '. + $a' <<<"$all")"; done
+  echo "$all"
+}
+
+cmd_tree() {
+  local root runs all sessions cur="{}" id nodes
+  root="$(resolve_exec "${1:?usage: yk tree <execution>}")"
+  runs="$(api GET "/api/executions/$root/tree")"
+  all="$(api GET '/api/executions?limit=1000')"
+  mapfile -t sessions < <(jq -r --argjson r "$runs" '[.[] | select(.executionId as $i | $r | any(.executionId == $i)) | .sessionId] | unique[]' <<<"$all")
+  for id in $(jq -r '.[] | select(.status | test("RUNNING|QUEUED|PAUSED")) | .executionId' <<<"$runs"); do
+    # the status stays RUNNING while paused; the control state says PAUSED
+    nodes="$(api GET "/api/executions/$id" | jq -c '{nodes: ([.tasks[] | select(.status | test("RUNNING|QUEUED|PAUSED")) | .nodeId] | join(",")), paused: (.controlState == "PAUSED")}')"
+    cur="$(jq -c --arg i "$id" --argjson n "$nodes" '. + {($i): $n}' <<<"$cur")"
+  done
+  jq -r --argjson cur "$cur" --argjson appr "$(pending "${sessions[@]}")" '
+    (map({(.executionId): .}) | add) as $by
+    | def depth($r): if ($r.parentExecutionId // null) == null or $by[$r.parentExecutionId] == null then 0 else 1 + depth($by[$r.parentExecutionId]) end;
+    .[] | . as $r
+    | "\($r.executionId[:8]) \("  " * depth($r))\($r.workflowId) \($r.status)"
+      + (if $cur[$r.executionId].paused? then " paused" else "" end)
+      + (if ($cur[$r.executionId].nodes? // "") != "" then " [\($cur[$r.executionId].nodes)]" else "" end)
+      + ([$appr[] | select(.executionId == $r.executionId) | " awaiting \(.name)@\(.nodeId)"] | join(""))' <<<"$runs"
+}
+
+# yk pause|resume|stop EXEC [--tree]
+cmd_run_control() {
+  local verb="$1" exec tree=false
+  shift
+  exec="$(resolve_exec "${1:?usage: yk $verb <execution> [--tree]}")"
+  shift
+  while (($#)); do
+    case "$1" in
+      --tree) tree=true; shift ;;
+      *) die "unknown option '$1' (yk $verb <execution> [--tree])" ;;
+    esac
+  done
+  api POST "/api/executions/$exec/$verb?tree=$tree" >/dev/null
+  echo "$verb: $exec$([[ "$tree" == true ]] && echo ' and the runs below it')"
+}
+
+# yk skip|unskip|retry EXEC NODE
+cmd_node_control() {
+  local verb="$1" exec node
+  shift
+  exec="$(resolve_exec "${1:?usage: yk $verb <execution> <node>}")"
+  node="${2:?usage: yk $verb <execution> <node>}"
+  case "$verb" in
+    skip) api POST "/api/executions/$exec/nodes/$node/skip?skip=true" >/dev/null ;;
+    unskip) api POST "/api/executions/$exec/nodes/$node/skip?skip=false" >/dev/null ;;
+    retry) api POST "/api/executions/$exec/nodes/$node/retry" >/dev/null ;;
+  esac
+  echo "$verb: $exec $node"
+}
+
+# yk break EXEC NODE --field F --equals V | --clear
+cmd_break() {
+  local exec node field="" equals="" clear=0
+  exec="$(resolve_exec "${1:?usage: yk break <execution> <node> --field F --equals V | --clear}")"
+  node="${2:?usage: yk break <execution> <node> --field F --equals V | --clear}"
+  shift 2
+  while (($#)); do
+    case "$1" in
+      --field) field="${2:?--field needs a path}"; shift 2 ;;
+      --equals) equals="${2:?--equals needs a value}"; shift 2 ;;
+      --clear) clear=1; shift ;;
+      *) die "unknown option '$1'" ;;
+    esac
+  done
+  if ((clear)); then
+    api DELETE "/api/executions/$exec/nodes/$node/breakpoint" >/dev/null
+    echo "breakpoint cleared: $exec $node"
+  else
+    [[ -n "$field" && -n "$equals" ]] || die "yk break needs --field and --equals (or --clear)"
+    api POST "/api/executions/$exec/nodes/$node/breakpoint?field=$(uri "$field")&equals=$(uri "$equals")" >/dev/null
+    echo "breakpoint set: $exec $node when $field == $equals"
+  fi
+}
+
+# yk step EXEC NODE on|off|next
+cmd_step() {
+  local exec node mode="${3:?usage: yk step <execution> <node> on|off|next}" path
+  exec="$(resolve_exec "${1:?usage: yk step <execution> <node> on|off|next}")"
+  node="${2:?usage: yk step <execution> <node> on|off|next}"
+  case "$mode" in
+    on) path=step/enable ;;
+    off) path=step/disable ;;
+    next) path=step ;;
+    *) die "step takes on, off or next" ;;
+  esac
+  api POST "/api/executions/$exec/nodes/$node/$path" >/dev/null
+  echo "step $mode: $exec $node"
+}
+
+# yk signals [EXEC]: what waits for a signal, in the tree of EXEC or in every session with a running run
+cmd_signals() {
+  local sessions all root=""
+  [[ -z "${1:-}" ]] || root="$(resolve_exec "$1")"
+  all="$(api GET '/api/executions?limit=1000')"
+  if [[ -n "$root" ]]; then
+    mapfile -t sessions < <(jq -r --argjson t "$(api GET "/api/executions/$root/tree")" '[.[] | select(.executionId as $i | $t | any(.executionId == $i)) | .sessionId] | unique[]' <<<"$all")
+  else
+    mapfile -t sessions < <(jq -r '[.[] | select(.status | test("RUNNING|PAUSED|QUEUED")) | .sessionId] | unique[]' <<<"$all")
+  fi
+  ((${#sessions[@]})) || return 0
+  jq -r --arg root "$root" --argjson t "$([[ -n "$root" ]] && api GET "/api/executions/$root/tree" || echo '[]')" '
+    ($t | map(.executionId)) as $ids
+    | .[] | .executionId as $e | select($root == "" or ($ids | index($e) != null))
+    | "\(.executionId[:8]) \(.nodeId) \(.name) since \(.since)"' <<<"$(pending "${sessions[@]}")"
+}
+
+# yk approve|reject EXEC [SIGNAL] [--data TEXT]: answers a node that waits for a signal
+cmd_answer() {
+  local verb="$1" exec signal="" data="" session found node name decision=approve
+  shift
+  exec="$(resolve_exec "${1:?usage: yk $verb <execution> [signal] [--data text]}")"
+  shift
+  [[ "$verb" == reject ]] && decision=reject
+  while (($#)); do
+    case "$1" in
+      --data) data="${2:?--data needs text}"; shift 2 ;;
+      -*) die "unknown option '$1'" ;;
+      *) signal="$1"; shift ;;
+    esac
+  done
+  session="$(session_of "$exec")"
+  [[ -n "$session" ]] || die "execution $exec is not known to the server"
+  # the node may wait in a run below this one (a sub-workflow): look through the whole tree
+  found="$(pending "$session" | jq -c --argjson t "$(api GET "/api/executions/$exec/tree")" --arg s "$signal" '
+    ($t | map(.executionId)) as $ids
+    | [.[] | select(.executionId as $e | $ids | index($e)) | select($s == "" or .name == $s)]')"
+  [[ "$(jq length <<<"$found")" == 1 ]] \
+    || die "$(jq length <<<"$found") pending signals for $exec${signal:+ named $signal}; run: yk signals $exec"
+  node="$(jq -r '.[0].nodeId' <<<"$found")"
+  name="$(jq -r '.[0].name' <<<"$found")"
+  exec="$(jq -r '.[0].executionId' <<<"$found")"
+  api POST "/api/executions/$exec/nodes/$node/signal?name=$(uri "$name")&decision=$decision${data:+&data=$(uri "$data")}" >/dev/null
+  echo "$decision: $exec $node ($name)"
+}
+
+# refresh_activity: writes "N running · M awaiting" to $DEV_HOME/activity for the status line
+refresh_activity() {
+  local all running sessions waiting=0 s
+  all="$(api GET '/api/executions?limit=1000')" || return 0
+  running="$(jq '[.[] | select(.status | test("RUNNING|PAUSED|QUEUED"))] | length' <<<"$all")"
+  mapfile -t sessions < <(jq -r '[.[] | select(.status | test("RUNNING|PAUSED|QUEUED")) | .sessionId] | unique[]' <<<"$all")
+  for s in "${sessions[@]}"; do waiting=$((waiting + $(api GET "/api/sessions/$s/approvals" | jq length))); done
+  { ((running > 0)) && echo "$running running$( ((waiting > 0)) && echo " · $waiting awaiting")" || echo "idle"; } >"$DEV_HOME/activity.tmp"
+  mv "$DEV_HOME/activity.tmp" "$DEV_HOME/activity"
+}
+
+# yk statusline: one line for Claude Code's status line, from cached files only (no network)
+cmd_statusline() {
+  local label mark="✗" line status scope healed activity f
+  if [[ -s "$DEV_HOME/server.pid" ]] && kill -0 "$(cat "$DEV_HOME/server.pid")" 2>/dev/null; then mark="✓"; fi
+  label="$(server_env YUKTA_DEV_LABEL)"
+  line="yukta :$DEV_PORT ${label:-down} $mark"
+  f="$DEV_HOME/activity"
+  [[ -s "$f" ]] && line+=" | $(<"$f")"
+  if [[ ! -e "$f" || $(($(date +%s) - $(stat -c %Y "$f"))) -gt 10 ]]; then
+    [[ "$mark" == "✓" ]] && (refresh_activity >/dev/null 2>&1 </dev/null &)
+  fi
+  f="$STATE_DIR/last-result"
+  if [[ -s "$f" ]]; then
+    IFS=$'\t' read -r _ status scope healed _ <"$f"
+    line+=" | last: $scope $status$([[ "$healed" != - && -n "$healed" ]] && echo " (healed $healed)")"
+  fi
+  echo "$line"
+}
+
+# yk mcp-headers: the headers for Claude Code's MCP connection (.mcp.json headersHelper)
+cmd_mcp_headers() { jq -n --arg k "$(dev_key)" '{"X-API-Key": $k}'; }
+
+# ---- layered workflows: an issue from claim to draft PR ----
+
+# yk run issue N [--detach] [--no-pause before-implement,before-pr]
+# yk run epic N  [--detach] [--no-pause before-implement,before-pr,between-issues]
+# issue: implements one assigned, Ready issue in its own worktree (../yukta-issue-N): a headless Claude does the
+# work (after a code-navigation index of the worktree), the self-healing check runs on the worktree
+# (a triage picks the model and effort of fresh fixer sessions), and a draft PR opens once you approve. epic: the same for every open, assigned, Ready sub-issue of epic N, two at a time.
+# The checkpoints wait for you (yk signals / yk approve|reject <e> <signal>): before-implement (edit
+# .yukta-dev/issue-N/brief.md first, then approve), before-pr, and for an epic between-issues (each issue
+# starts when you approve it). Budgets: YUKTA_BUDGET_ISSUE and YUKTA_BUDGET_EPIC (USD) stop the spending.
+cmd_run() {
+  local what="${1:-}"
+  [[ "$what" == issue || "$what" == epic ]] || die "usage: yk run issue|epic <number> [--detach] [--no-pause <checkpoints>]"
+  shift
+  run_layered "$what" "$@"
+}
+
+# run_layered KIND N [--detach] [--no-pause a,b]
+run_layered() {
+  local kind="$1" n="${2:?usage: yk run $1 <number> [--detach] [--no-pause <checkpoints>]}" mode=watch nopause="" impl=1 pr=1 between=1 p
+  shift 2
+  [[ "$n" =~ ^[0-9]+$ ]] || die "the $kind is a number, not '$n'"
+  while (($#)); do
+    case "$1" in
+      --detach) mode=detach; shift ;;
+      --no-pause) nopause="${2:?--no-pause needs checkpoints}"; shift 2 ;;
+      *) die "unknown option '$1'" ;;
+    esac
+  done
+  for p in ${nopause//,/ }; do
+    case "$p" in
+      before-implement) impl=0 ;;
+      before-pr) pr=0 ;;
+      between-issues) [[ "$kind" == epic ]] || die "between-issues is a checkpoint of an epic"; between=0 ;;
+      *) die "unknown checkpoint '$p' (before-implement, before-pr$([[ "$kind" == epic ]] && echo ', between-issues'))" ;;
+    esac
+  done
+  need jq
+  ensure_server
+  # tmp is global: the EXIT trap runs after this function's locals are gone
+  local cli workflow payload exec_id
+  cli="$(find_cli)"
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  mkdir -p "$STATE_DIR"
+  if [[ "$kind" == issue ]]; then
+    workflow="run-issue$(issue_variant "$impl" "$pr")"  # a nav step indexes the worktree before implement
+    payload="$(jq -nc --arg i "$n" --arg r "$REPO_ROOT" --arg w "$(dirname "$REPO_ROOT")/yukta-issue-$n" '{issue: $i, repo: $r, worktree: $w}')"
+    rm -rf "$(dirname "$REPO_ROOT")/yukta-issue-$n/.yukta-dev/heal"
+  else
+    workflow="run-epic$(epic_variant "$impl" "$pr" "$between")"
+    payload="$(jq -nc --arg e "$n" --arg r "$REPO_ROOT" '{epic: $e, repo: $r}')"
+  fi
+  dev_session "$here/scripts/yukta-heal.sh" "$here/scripts/yukta-issue.sh" >"$tmp/session.json"
+  echo ">> server $YUKTA_SERVER_URL, session yukta-dev, $kind #$n" >&2
+  "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
+  exec_id="$("$cli" -o json workflow start yukta-dev "$workflow" --payload "$payload" | jq -r '.data.executionId // .executionId')"
+  [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start $workflow"
+  echo "STARTED execution=$exec_id session=yukta-dev"
+  # an issue run heals in its worktree: say where, for the RESULT of this run (a later yk watch or yk result too)
+  if [[ "$kind" == issue ]]; then
+    mkdir -p "$DEV_HOME/heal-records"
+    echo "$(dirname "$REPO_ROOT")/yukta-issue-$n/.yukta-dev/heal/check" >"$DEV_HOME/heal-records/$exec_id"
+  fi
+  ((impl)) && echo "checkpoint before-implement: edit $REPO_ROOT/.yukta-dev/issue-<n>/brief.md if you want, then: yk approve ${exec_id:0:8} before-implement" >&2
+  ((pr)) && echo "checkpoint before-pr: yk approve ${exec_id:0:8} before-pr (or yk reject ...)" >&2
+  [[ "$kind" == epic ]] && ((between)) && echo "checkpoint between-issues: yk approve ${exec_id:0:8} between-issues, once for each issue" >&2
+  [[ "$mode" == detach ]] && return 0
+  YUKTA_SCOPE="$kind-$n" cmd_watch yukta-dev "$exec_id"
+}
+
+cmd="${1:-help}"
+(($#)) && shift
+case "$cmd" in
+  up) cmd_up "$@" ;;
+  down) cmd_down ;;
+  status) cmd_status ;;
+  check) cmd_check "$@" ;;
+  gradle) cmd_gradle "$@" ;;
+  watch) cmd_watch "$@" ;;
+  tree) cmd_tree "$@" ;;
+  pause | resume | stop) cmd_run_control "$cmd" "$@" ;;
+  skip | unskip | retry) cmd_node_control "$cmd" "$@" ;;
+  break) cmd_break "$@" ;;
+  step) cmd_step "$@" ;;
+  signals) cmd_signals "$@" ;;
+  approve | reject) cmd_answer "$cmd" "$@" ;;
+  statusline) cmd_statusline ;;
+  mcp-headers) cmd_mcp_headers ;;
+  sum) changes_sum "$REPO_ROOT" ;;
+  run) cmd_run "$@" ;;
+  heal)
+    sub="${1:-report}"; (($#)) && shift
+    [[ "$sub" =~ ^(report|analyze|show)$ ]] || die "usage: yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]"
+    exec python3 -I "$here/scripts/heal-report.py" "$sub" --events "$(heal_events_file)" "$@" ;;
+  result)
+    export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
+    print_result "${1:?usage: yk result <session> <execution>}" "${2:?usage: yk result <session> <execution>}" ;;
+  finding) exec "$here/scripts/report-finding.sh" "$@" ;;
+  cli) cmd_cli "$@" ;;
+  help | -h | --help) usage ;;
+  *) usage >&2; die "unknown command '$cmd'" ;;
+esac

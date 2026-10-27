@@ -1,0 +1,72 @@
+[
+ {
+  "id": "c-gofmt",
+  "want": "trivial",
+  "stage": "cli_fmt_check",
+  "short": "stage: cli_fmt_check\ncommand: make fmt-check\nerror: cli/cmd/root.go is not formatted (gofmt -l)\nfiles changed so far: 1",
+  "long": "changed files: cli/cmd/root.go (+3 -1)"
+ },
+ {
+  "id": "c-govet",
+  "want": "easy",
+  "stage": "cli_vet",
+  "short": "stage: cli_vet\ncommand: make vet\nerror: cli/cmd/run.go:42:2: result of fmt.Sprintf call not used\nfiles changed so far: 1",
+  "long": "changed files: cli/cmd/run.go (+6)"
+ },
+ {
+  "id": "c-golint",
+  "want": "easy",
+  "stage": "cli_lint",
+  "short": "stage: cli_lint\ncommand: make lint\nerror: cli/internal/client/client.go:77:3: ineffectual assignment to err (ineffassign)\nfiles changed so far: 1",
+  "long": "changed files: cli/internal/client/client.go (+9 -2)"
+ },
+ {
+  "id": "c-tsc",
+  "want": "simple",
+  "stage": "ui_tsc",
+  "short": "stage: ui_tsc\ncommand: node_modules/.bin/tsc --noEmit\nerror TS2322: src/pages/Sessions.tsx(88,12): Type 'string | undefined' is not assignable to type 'string'.\nfiles changed so far: 1",
+  "long": "changed files: ui/src/pages/Sessions.tsx (+14 -3)"
+ },
+ {
+  "id": "c-eslint",
+  "want": "simple",
+  "stage": "ui_eslint",
+  "short": "stage: ui_eslint\ncommand: node_modules/.bin/eslint .\nerror: src/hooks/useRuns.ts:31:6 React Hook useEffect has a missing dependency: 'load' (react-hooks/exhaustive-deps)\nfiles changed so far: 1",
+  "long": "changed files: ui/src/hooks/useRuns.ts (+20)"
+ },
+ {
+  "id": "c-vitest-one",
+  "want": "moderate",
+  "stage": "ui_vitest",
+  "short": "stage: ui_vitest\ncommand: node_modules/.bin/vitest run\nFAIL src/components/RunList.test.tsx > renders one row per run\nAssertionError: expected 3 to be 4\nerror: 1 test failed\nfiles changed so far: 1",
+  "long": "changed files: ui/src/components/RunList.tsx (+25 -6)"
+ },
+ {
+  "id": "c-docs-link",
+  "want": "trivial",
+  "stage": "docs",
+  "short": "stage: docs\ncommand: cd docs && mint broken-links\nfound 1 broken links in 1 files\nindex.mdx\n  /concepts/workflowz\nfiles changed so far: 1",
+  "long": "changed files: docs/index.mdx (+2)"
+ },
+ {
+  "id": "c-actionlint",
+  "want": "easy",
+  "stage": "actionlint",
+  "short": "stage: actionlint\ncommand: actionlint\nerror: .github/workflows/ci.yml:41:9: property \"foo\" is not defined in object type {} [expression]\nfiles changed so far: 1",
+  "long": "changed files: .github/workflows/ci.yml (+8)"
+ },
+ {
+  "id": "c-cli-cover",
+  "want": "average",
+  "stage": "cli_cover_check",
+  "short": "stage: cli_cover_check\ncommand: make cover-check\nerror: coverage 71.2% is below the threshold 80.0% (cli/internal/client)\nfiles changed so far: 1",
+  "long": "changed files: cli/internal/client/client.go (+60)"
+ },
+ {
+  "id": "c-vitest-many",
+  "want": "hard",
+  "stage": "ui_vitest",
+  "short": "stage: ui_vitest\ncommand: node_modules/.bin/vitest run\nFAIL 14 test files\nerror: Failed to resolve import \"@/api/runs\" from \"src/hooks/useRuns.ts\"\nerror: 41 tests failed\nfiles changed so far: 1",
+  "long": "changed files: ui/src/api/index.ts (+40 -55), ui/vite.config.ts (+4 -9)"
+ }
+]

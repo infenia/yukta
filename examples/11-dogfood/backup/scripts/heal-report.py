@@ -1,4 +1,6 @@
 #!/usr/bin/env python3 -I
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
 """What heal did, from its event log: where the time and the money went, and what looks wrong.
 
   heal-report.py report  [--events FILE] [--since 7d|DATE] [--run ID] [--project NAME] [--json]

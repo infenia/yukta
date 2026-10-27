@@ -1,0 +1,80 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(yk *)",
+      "Bash(yk)",
+      "Bash(examples/11-dogfood/yk *)",
+      "Bash(examples/11-dogfood/yk)",
+      "mcp__yukta__get_execution_tree",
+      "mcp__yukta__get_execution_logs",
+      "mcp__yukta__get_execution_result",
+      "mcp__yukta__get_workflow_status",
+      "mcp__yukta__get_workflow_history",
+      "mcp__yukta__get_workflow_details",
+      "mcp__yukta__list_pending_approvals",
+      "mcp__yukta__get_control_bus_status",
+      "mcp__yukta__list_sessions",
+      "mcp__yukta__get_session_details",
+      "mcp__yukta__list_workflow_versions",
+      "mcp__yukta__diff_workflow_versions"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.sh session-start"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.sh pre-bash"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.sh stop"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.sh prompt"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.sh post-edit"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "\"$(git rev-parse --show-toplevel)\"/examples/11-dogfood/yk statusline"
+  }
+}

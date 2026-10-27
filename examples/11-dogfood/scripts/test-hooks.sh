@@ -16,7 +16,8 @@ cat >examples/11-dogfood/yk <<'SH'
 if [[ "${1:-}" == sum ]]; then (git diff HEAD; git status --porcelain) | sha1sum | cut -d' ' -f1; fi
 SH
 chmod +x examples/11-dogfood/yk
-touch core/build.gradle.kts plugins/p/build.gradle.kts core/src/A.java plugins/p/src/B.java docs/docs.json
+echo ".yukta-dev/" >.gitignore
+touch .gitignore core/build.gradle.kts plugins/p/build.gradle.kts core/src/A.java plugins/p/src/B.java docs/docs.json
 git add -A && git -c user.email=t@t -c user.name=t commit -qm init
 
 run() { echo "$2" | "$hook" "$1"; }   # event json-input
@@ -31,26 +32,24 @@ reason="$(run pre-bash "$(input s1 '' './gradlew :core:test --tests X')" | jq -r
 [[ "$reason" == *"yk gradle :core:test --tests X"* ]] || fail "gradle not redirected: $reason"
 [[ -z "$(run pre-bash "$(input s1 '' 'ls -la')")" ]] || fail "ls was denied"
 
-# post-edit: the module of every edited file is remembered, files outside any module and docs are not
-for f in core/src/A.java plugins/p/src/B.java docs/docs.json core/src/A.java "$repo/../outside.java"; do
-  run post-edit "$(input s1 "$repo/${f#"$repo"/}")" || true
-done
-[[ "$(sort .yukta-dev/touched-s1 | paste -sd,)" == "core,plugins:p" ]] || fail "touched: $(paste -sd, .yukta-dev/touched-s1)"
-
-# stop: scoped to the touched modules, once, and not when a check already passed on these changes
+# stop: asks once for yk check when the session changed code, and not when a check already passed on these changes
 echo "// edit" >>core/src/A.java
-echo "// other edit" >>plugins/p/src/B.java
-run stop "$(input s1)" | jq -r .reason | grep -q "yk check -m core -m plugins:p " || fail "stop is not scoped to the touched modules"
+reason="$(run stop "$(input s1)" | jq -r .reason)"
+[[ "$reason" == *"yk check"* && "$reason" != *" -m "* ]] || fail "stop does not ask for yk check: $reason"
 [[ -z "$(run stop "$(input s1)")" ]] || fail "the nudge repeated for the same changes"
+[[ -z "$(run stop "$(jq -c '.stop_hook_active = true' <<<"$(input s1)")")" ]] || fail "stop nudged inside a stop hook"
+echo "// more" >>core/src/A.java
+sum="$(examples/11-dogfood/yk sum)"
+mkdir -p .yukta-dev
+printf '%s\tSUCCESS\targs:x\t-\t1\n' "$sum" >.yukta-dev/last-result
+run stop "$(input s1)" | jq -r .reason | grep -q "yk check" || fail "a passing yk gradle silenced the nudge"
 echo "// again" >>core/src/A.java
 sum="$(examples/11-dogfood/yk sum)"
-printf '%s\tSUCCESS\tcore\t-\t1\n' "$sum" >.yukta-dev/last-result
+printf '%s\tSUCCESS\tcheck\t-\t1\n' "$sum" >.yukta-dev/last-result
 [[ -z "$(run stop "$(input s1)")" ]] || fail "asked for a check that already passed"
-[[ ! -s .yukta-dev/touched-s1 ]] || fail "touched modules were not cleared after the passing check"
+# the changes a session began with are someone else's
+echo "// third" >>core/src/A.java
+examples/11-dogfood/yk sum >.yukta-dev/baseline-s2
+[[ -z "$(run stop "$(input s2)")" ]] || fail "nudged for changes that were there at the start"
 
-# a build-logic edit means the whole check
-git checkout -q . && mkdir -p build-logic && touch build-logic/x.kts && git add -A && git -c user.email=t@t -c user.name=t commit -qm bl
-run post-edit "$(input s2 "$repo/build-logic/x.kts")"
-echo "// c" >>build-logic/x.kts
-run stop "$(input s2)" | jq -r .reason | grep -q "yk check (yukta" || fail "a build-logic change does not ask for the whole check"
 echo "ok   hooks"

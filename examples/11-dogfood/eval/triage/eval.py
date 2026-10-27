@@ -22,6 +22,16 @@ ORDER = ["low", "medium", "high"]
 COLLAPSE7 = {"trivial": "easy", "easy": "easy", "simple": "easy", "moderate": "average", "average": "average", "hard": "hard", "veryhard": "hard"}
 
 
+def ecosystem(stage):
+    """The line heal's brief adds (scripts/yukta-heal.sh ecosystem()): what the stage checks, from its name."""
+    stage = stage or ""
+    if stage.startswith("cli_"):
+        return "go (cli)"
+    if stage.startswith("ui_"):
+        return "typescript (ui)"
+    return "repo files" if stage in ("reuse", "actionlint", "docs") else "java (gradle)"
+
+
 def collapse_of(levels):
     """The 3 common classes of a variant's levels: the seven names as they are, else a variant with three levels is its own."""
     if all(k in COLLAPSE7 for k in levels):
@@ -36,7 +46,7 @@ def load_variant(path, heal):
     # a variant with other levels says how the seven labels map onto its own (from7) and onto the 3 common classes (collapse)
     return {"name": os.path.basename(path), "question": t.get("question", "How hard is it to fix this failed check of a Java build?"),
             "levels": levels, "state": d.get("state", "short"), "model": t.get("model", heal["model"]), "caps": d.get("caps"),
-            "from7": d.get("from7") or t.get("from7"), "collapse": d.get("collapse") or collapse_of(levels),
+            "ecosystem": bool(d.get("ecosystem")), "from7": d.get("from7") or t.get("from7"), "collapse": d.get("collapse") or collapse_of(levels),
             "floor": t.get("minProbability", heal["minProbability"]), "default": t.get("default", heal["default"])}
 
 
@@ -98,6 +108,8 @@ def main():
         res, secs = [], []
         for c, want in rows:
             state = c["short"][:(v["caps"] or CAPS)["short"]] if v["state"] == "short" else brief_state(c, v["caps"])
+            if v["ecosystem"]:
+                state = f"ecosystem: {ecosystem(c.get('stage'))}\n{state}"
             want7 = want
             want = (v["from7"] or {}).get(want7, want7)
             if want not in order:  # a variant with fewer levels and no mapping: the nearest of its levels

@@ -1,0 +1,262 @@
+<!doctype html>
+<!--
+  SPDX-License-Identifier: Apache-2.0
+  SPDX-FileCopyrightText: 2026 Infenia Private Limited
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yukta Dogfood Design</title>
+<script>try{const t=localStorage.getItem('yk-design-theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
+<style>
+/* Yukta brand tokens, from ui/src/index.css (logo blue #2F6BFF, slate #6A7A9B, orange #E85D0C).
+   The --c-* names are read by the scripts below; change values, not names. */
+:root{
+  --bg:oklch(0.99 0.003 262);--panel:oklch(1 0 0);--ink:oklch(0.2 0.02 262);--muted:oklch(0.48 0.03 262);
+  --line:oklch(0.91 0.01 262);--code:oklch(0.965 0.008 262);--surface-high:oklch(0.93 0.015 262);
+  --accent:oklch(0.58 0.21 264);--on-accent:oklch(0.99 0 0);--accent-soft:oklch(0.95 0.03 262);--accent-ink:oklch(0.3 0.1 264);
+  --attention:oklch(0.65 0.19 45);
+  --c-proc:oklch(0.58 0.21 264);--c-sub:oklch(0.45 0.16 285);--c-wait:oklch(0.55 0.12 85);--c-cls:oklch(0.58 0.11 190);
+  --c-flow:oklch(0.57 0.05 262);--c-term:oklch(0.527 0.154 150);--c-out:oklch(0.577 0.245 27.325);--c-entry:oklch(0.62 0.19 45);--c-wf:oklch(0.45 0.16 285);
+  --ok:oklch(0.527 0.154 150);--fail:oklch(0.577 0.245 27.325);--call:oklch(0.45 0.16 285);
+  --shadow-card:0 1px 2px rgb(17 22 31/.05),0 1px 3px rgb(17 22 31/.04);
+  --shadow-raised:0 2px 4px rgb(17 22 31/.04),0 12px 28px -12px rgb(17 22 31/.16);
+  --r:.625rem;--r-xl:.875rem;--ease:cubic-bezier(.22,1,.36,1);--hdr:60px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:oklch(0.16 0.015 262);--panel:oklch(0.2 0.02 262);--ink:oklch(0.97 0.005 262);--muted:oklch(0.72 0.03 262);
+  --line:oklch(0.32 0.02 262);--code:oklch(0.25 0.02 262);--surface-high:oklch(0.3 0.025 262);
+  --accent:oklch(0.72 0.15 262);--on-accent:oklch(0.15 0.03 262);--accent-soft:oklch(0.3 0.06 264);--accent-ink:oklch(0.92 0.04 262);
+  --attention:oklch(0.75 0.16 50);
+  --c-proc:oklch(0.72 0.15 262);--c-sub:oklch(0.78 0.11 295);--c-wait:oklch(0.82 0.16 85);--c-cls:oklch(0.75 0.12 190);
+  --c-flow:oklch(0.65 0.05 262);--c-term:oklch(0.75 0.17 150);--c-out:oklch(0.704 0.191 22.216);--c-entry:oklch(0.75 0.16 50);--c-wf:oklch(0.78 0.11 295);
+  --ok:oklch(0.75 0.17 150);--fail:oklch(0.704 0.191 22.216);--call:oklch(0.78 0.11 295);
+  --shadow-card:0 1px 2px rgb(0 0 0/.35);--shadow-raised:0 2px 4px rgb(0 0 0/.3),0 14px 32px -12px rgb(0 0 0/.55);
+  color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:oklch(0.16 0.015 262);--panel:oklch(0.2 0.02 262);--ink:oklch(0.97 0.005 262);--muted:oklch(0.72 0.03 262);
+  --line:oklch(0.32 0.02 262);--code:oklch(0.25 0.02 262);--surface-high:oklch(0.3 0.025 262);
+  --accent:oklch(0.72 0.15 262);--on-accent:oklch(0.15 0.03 262);--accent-soft:oklch(0.3 0.06 264);--accent-ink:oklch(0.92 0.04 262);
+  --attention:oklch(0.75 0.16 50);
+  --c-proc:oklch(0.72 0.15 262);--c-sub:oklch(0.78 0.11 295);--c-wait:oklch(0.82 0.16 85);--c-cls:oklch(0.75 0.12 190);
+  --c-flow:oklch(0.65 0.05 262);--c-term:oklch(0.75 0.17 150);--c-out:oklch(0.704 0.191 22.216);--c-entry:oklch(0.75 0.16 50);--c-wf:oklch(0.78 0.11 295);
+  --ok:oklch(0.75 0.17 150);--fail:oklch(0.704 0.191 22.216);--call:oklch(0.78 0.11 295);
+  --shadow-card:0 1px 2px rgb(0 0 0/.35);--shadow-raised:0 2px 4px rgb(0 0 0/.3),0 14px 32px -12px rgb(0 0 0/.55);
+  color-scheme:dark;}
+*{box-sizing:border-box}
+html{scroll-padding-top:16px}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+code,pre{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.84em;border:1px solid var(--line)}
+pre{background:var(--code);border:1px solid var(--line);padding:14px 16px;border-radius:var(--r);overflow:auto;font-size:13px}
+pre code{background:none;padding:0;border:0}
+a{color:var(--accent)}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 16px 80px}
+nav{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 0 18px;border-bottom:1px solid var(--line);margin-bottom:8px;font-size:14px}
+h1{font-size:28px;margin:18px 0 4px}h2{font-size:21px;margin:40px 0 8px;padding-top:8px;border-top:1px solid var(--line)}h3{font-size:16px;margin:24px 0 6px}
+.lead{color:var(--muted);margin:0 0 12px}
+.note{background:var(--accent-soft);color:var(--accent-ink);border-radius:var(--r);padding:10px 14px;margin:14px 0}
+.warn{background:color-mix(in srgb,var(--attention) 14%,var(--panel));border-left:3px solid var(--attention);border-radius:var(--r);padding:10px 14px;margin:14px 0}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0 16px}
+th,td{text-align:left;vertical-align:top;padding:7px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.tw{overflow-x:auto}
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin:12px 0}
+.flow>div{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:8px 12px;box-shadow:var(--shadow-card);flex:1 1 150px;font-size:14px}
+.flow>div b{display:block}.flow>.arrow{flex:0 0 auto;border:0;background:none;box-shadow:none;padding:8px 0;color:var(--muted);align-self:center}
+.ok{color:var(--ok)}.bad{color:var(--fail)}
+button#theme{float:right;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:var(--r);padding:4px 10px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+<button id="theme" type="button">Light / dark</button>
+<h1>Developing Yukta with Yukta</h1>
+<p class="lead">The dogfood loop: every build and check of this repo runs as a Yukta workflow on a local dev server, and a failed check is repaired by Claude models, cheapest first, before a developer has to step in.</p>
+<nav>
+  <a href="#state">What is built</a><a href="#flow">A run</a><a href="#workflows">Workflows</a><a href="#heal">Heal</a><a href="#guard">The guard</a>
+  <a href="#fixer">The fixer session</a><a href="#monitor">Monitor and control</a><a href="#config">Configuration</a><a href="#commands">Commands</a><a href="#evidence">Evidence</a><a href="#gaps">Engine gaps</a><a href="#open">Open items</a>
+</nav>
+
+<h2 id="state">What is built</h2>
+<p class="lead">This page describes the code as it is. The older, larger design (analyzers healed in parallel, <code>fix-from</code> with efforts climbing, issue and epic runs) is in git history before this commit.</p>
+<div class="tw"><table>
+<tr><th>Part</th><th>State</th><th>Where</th></tr>
+<tr><td><code>yk gradle</code>, <code>yk tool</code>, <code>yk plan</code>, <code>yk check</code></td><td class="ok">built</td><td><code>yk</code>, <code>scripts/plan.sh</code></td></tr>
+<tr><td>Workflows <code>tool</code>, <code>claude</code>, <code>attempt</code>, <code>heal</code>, <code>check</code></td><td class="ok">built</td><td><code>session.json</code>, generated by <code>scripts/gen-heal.py</code> and <code>scripts/gen-check.py</code></td></tr>
+<tr><td>Free fixes, System One triage, model ladders, guard, verify</td><td class="ok">built, run end to end on planted failures</td><td><code>heal.json</code>, <code>scripts/yukta-heal.sh</code></td></tr>
+<tr><td><code>yk run issue|epic</code>, <code>implement-issue</code>, <code>run-issue</code>, <code>run-epic</code></td><td class="bad">switched off until rebuilt on the new check</td><td><code>backup/</code>, <code>scripts/yukta-issue.sh</code></td></tr>
+<tr><td><code>yk heal report|analyze|show</code>, slash commands</td><td class="bad">hidden</td><td><code>backup/scripts/heal-report.py</code>, <code>backup/dot-claude/</code></td></tr>
+<tr><td>Steering: <code>yk tree|pause|resume|stop|skip|retry|break|step|signals|approve|reject</code></td><td>in <code>yk</code>, not advertised, untested since the rebuild</td><td><code>yk</code></td></tr>
+</table></div>
+
+<h2 id="flow">A run</h2>
+<div class="flow">
+  <div><b>yk check</b>reads the changes, runs <code>plan.sh</code>, applies <code>session.json</code>, starts <code>check</code></div><div class="arrow">→</div>
+  <div><b>check</b>one <code>tool</code> call per planned stage, in order, cheap first</div><div class="arrow">→</div>
+  <div><b>stage fails</b>its output goes to <code>heal</code></div><div class="arrow">→</div>
+  <div><b>heal</b>free fix, triage, model ladder</div><div class="arrow">→</div>
+  <div><b>verify</b>only if something was healed: the Gradle tasks of all stages once more</div>
+</div>
+<p>Everything ends in one line: <code>RESULT status=&lt;S&gt; failed_node=&lt;stage|-&gt; healed=&lt;stage:model/effort,..|-&gt; execution=&lt;id&gt; session=&lt;id&gt;</code>. Exit code 0 only on success. <code>yk</code> starts the dev server on demand; it is built from <code>origin/main</code>, so a run does not change under itself.</p>
+<p>The scope comes from <code>plan.sh</code>: the changed Gradle modules get every stage, their dependents compile and test only, <code>cli/</code> and <code>ui/</code> get their own tools, and the repo checks (<code>reuse</code>, <code>actionlint</code>, docs links) run when their files changed. Stages are ordered cheapest first: reuse, actionlint, docs, spotless, cli formatting, compile, vet, tsc, eslint, style, spotbugs, tests, coverage, vulnerability and licence checks, security, build. <code>licenses</code> and <code>security</code> are never healed.</p>
+
+<h2 id="workflows">Workflows</h2>
+<p class="lead">Five fixed workflows, applied to a session per checkout and per command (<code>check-&lt;branch&gt;-&lt;hash of the path&gt;</code>, with <code>-plan</code> for <code>yk check</code> and <code>-gradle</code> for <code>yk gradle</code> and <code>yk tool</code>, so a fixer's own <code>yk gradle</code> cannot replace the workflows of the check it heals). What changes per run travels in the start payload, never in the graph. Each layer is one level of SUB_WORKFLOW nesting: check (0) → heal (1) → attempt (2) → claude or tool (3), inside the engine's depth limit of 5.</p>
+<div class="tw"><table>
+<tr><th>Workflow</th><th>Job</th><th>Calls</th></tr>
+<tr><td><code>tool</code></td><td>Run one shell command in one project, once. A non-zero exit or a timeout ends at <code>OUTCOME_TERMINAL FAILED</code>; the caller decides what that means. Concurrency group <code>tool</code>.</td><td>-</td></tr>
+<tr><td><code>claude</code></td><td>One headless Claude Code session (<code>scripts/claude.sh</code>); returns Claude's JSON result and cost. Concurrency group <code>claude</code> (the dev server sets no limit for it; <code>tool</code> and <code>gradle</code> are limited to 2).</td><td>-</td></tr>
+<tr><td><code>attempt</code></td><td>One repair attempt at one model and effort: prepare, claude, claimed, format, judge (the guard), recheck, report.</td><td>claude, tool</td></tr>
+<tr><td><code>heal</code></td><td>Repair one failed stage: free fix, brief, triage, a ladder of attempts.</td><td>tool, attempt</td></tr>
+<tr><td><code>check</code></td><td>The scoped gate: a <code>tool</code> call per stage, <code>heal</code> on a failure, then verify.</td><td>tool, heal</td></tr>
+</table></div>
+<p>Failures are data: process nodes use <code>failureMode: CONTINUE</code> with <code>routeByExitCode</code>, sub-workflow calls use <code>routeByOutcome</code> and <code>engine.onError: ROUTE</code>, so a caller always gets a port to route on instead of a crash. The script steps of heal and attempt are the actions of <code>scripts/yukta-heal.sh</code> (<code>brief</code>, <code>triage-log</code>, <code>record-auto</code>, <code>healed</code>, <code>prepare</code>, <code>claimed</code>, <code>judge</code>, <code>report</code>); each appends one JSON line to the events log.</p>
+
+<h2 id="heal">Heal</h2>
+<div class="flow">
+  <div><b>1 · free fix</b>spotlessApply, <code>make fmt</code>, prettier, eslint --fix, <code>make mod-tidy</code>. No model, no cost. Recheck decides.</div><div class="arrow">→</div>
+  <div><b>2 · brief</b>the problem lines, at most 1000 characters for triage</div><div class="arrow">→</div>
+  <div><b>3 · triage</b>a CLASSIFY node asks the local System One model: easy, average or hard</div><div class="arrow">→</div>
+  <div><b>4 · ladder</b>rungs of <code>model/effort</code>, one attempt each</div>
+</div>
+<h3>Triage</h3>
+<p>The question is neutral ("a failed check of a software project"), and the brief names the ecosystem from the stage (<code>ecosystem: go (cli)</code>, <code>typescript (ui)</code>, <code>repo files</code> or <code>java (gradle)</code>) instead of a second model call. The label only picks the first rung. Below <code>minProbability</code> (0.3), or when the model is unreachable, heal starts at the <code>default</code> level (average). <code>--triage off</code> skips the call. The triage model and URL are in <code>heal.json</code> and overridden by <code>YUKTA_TRIAGE_MODEL</code> and <code>YUKTA_TRIAGE_URL</code>.</p>
+<h3>Ladders</h3>
+<div class="tw"><table>
+<tr><th>Level</th><th>Ladder</th><th>For</th></tr>
+<tr><td>easy</td><td><code>haiku/low</code> → <code>sonnet/low</code></td><td>mechanical or small obvious fixes: formatting, an import, a header, one analyzer finding</td></tr>
+<tr><td>average</td><td><code>haiku/high</code> → <code>sonnet/low</code></td><td>one failing test, a few classes together, tests to add for coverage</td></tr>
+<tr><td>hard</td><td><code>sonnet/low</code></td><td>many failures with one cause, concurrency, flaky or order-dependent, memory, build-wide changes</td></tr>
+</table></div>
+<p>Each effort has a budget and a time box in <code>heal.json</code>: low $0.50 and 10 min, high $2 and 30 min. Every attempt is a fresh session (no resume): measured, a conversation cache is lost anyway when the model changes, and a fresh session carries only the brief and the previous attempt's summary. Opus is not on any ladder.</p>
+<h3>When a rung fails</h3>
+<ul>
+<li>The next rung gets the new failure output and the previous attempt's summary plus the files it changed.</li>
+<li><b>An attempt that changed no file ends the ladder.</b> A stronger model asked the same question rarely answers it differently; this saves the 15 to 20 times higher cost of the next rung. A timeout or crash still escalates.</li>
+<li><b>A stage in <code>singleAttempt</code> (<code>reuse</code>, <code>docs</code>, <code>actionlint</code>) gets one attempt.</b> An edit to the code often cannot fix them (a licence header, a docs link), and in the events log 23 of 30 <code>reuse</code> attempts failed, $0.166 of $0.217.</li>
+<li>The end of the ladder gives up: heal ends FAILED and <code>check</code> ends with <code>failed_node</code> = the stage.</li>
+<li><code>--models</code> can stop a rung before it starts: a model left out has its attempts end at once.</li>
+</ul>
+<h3>Verify</h3>
+<p>When anything was healed, the Gradle tasks of every planned stage run once more, because a fix can break a stage that ran before it. A failed verify goes back to heal as the stage <code>verify</code> (its command is the verify command, the formatter is spotless) instead of ending the run.</p>
+
+<h2 id="guard">The guard</h2>
+<p class="lead">What Claude says is recorded but decides nothing. <code>judge</code> looks at what changed on disk, and only the recheck of the stage's own command makes an attempt a fix.</p>
+<div class="tw"><table>
+<tr><th>Rejected</th><th>How it is detected</th></tr>
+<tr><td>Touching <code>config/</code>, <code>build-logic/</code>, <code>gradle/</code>, <code>.github/</code>, <code>.claude/</code>, this folder, <code>REUSE.toml</code>, <code>*.gradle.kts</code></td><td>changed paths against a pattern</td></tr>
+<tr><td>An added suppression: <code>@SuppressWarnings("PMD"|"checkstyle")</code>, <code>@SuppressFBWarnings</code>, <code>NOPMD</code>, <code>CHECKSTYLE:OFF</code>, <code>@Disabled</code>, <code>spotless:off</code></td><td>added lines of the diff, and whole new files</td></tr>
+<tr><td>Removed assertions</td><td>more removed than added lines with <code>assert</code>, <code>@Test</code> or <code>verify(</code></td></tr>
+<tr><td>Test expectations changed with no code changed</td><td>only test files changed, and assertion lines were both removed and added (a test made to fit the code). A fix that edits a test and its code together passes.</td></tr>
+<tr><td>A claimed fix with no change</td><td>claimed fixed, nothing differs from the snapshot taken before the attempt</td></tr>
+</table></div>
+<p>Fixers also never run <code>git commit</code> or <code>git push</code> (disallowed tools), and <code>fixer-rules.md</code> is the one constant system prompt, so every attempt shares the cached prefix.</p>
+
+<h2 id="fixer">The fixer session</h2>
+<p class="lead">One launcher for every headless Claude (<code>scripts/_claude.sh</code>, called by <code>scripts/claude.sh</code>), deliberately slim.</p>
+<div class="tw"><table>
+<tr><th>Setting</th><th>Why</th></tr>
+<tr><td><code>--setting-sources project --strict-mcp-config --disable-slash-commands</code>, <code>CLAUDE_CODE_DISABLE_CLAUDE_MDS=1</code></td><td>none of the user's plugins, skills, MCP servers or CLAUDE.md files (a measured 15.9k to 9.7k tokens of prefix); the project's hooks still load, they keep the Gradle guard</td></tr>
+<tr><td><code>--tools Read,Edit,Write,Grep,Glob,Bash</code> and an allowlist of <code>Bash(./gradlew:*)</code>, <code>make</code>, <code>go test</code>, <code>go vet</code>, <code>node_modules/.bin</code>, <code>codegraph</code>, <code>reuse</code>, <code>actionlint</code>, <code>mint</code>, <code>cd</code></td><td>a fixed tool list; the allowlist is resolved before auto mode's classifier, so the usual commands cost no classifier call</td></tr>
+<tr><td><code>--permission-mode auto --permission-prompts none</code></td><td>a classifier reviews anything outside the allowlist; nothing can prompt in an unattended run, and Claude is told not to retry a denial. Needs Haiku 5.5 or Sonnet 4.6 and later, Claude Code 2.1.302 or later. The classifier defaults to Sonnet and adds a call per reviewed action.</td></tr>
+<tr><td><code>ANTHROPIC_DEFAULT_HAIKU_MODEL=claude-haiku-5-5</code>, <code>ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-5-5</code></td><td>aliases move when a model ships; cost and behaviour of a rung must not</td></tr>
+<tr><td><code>--max-budget-usd</code>, <code>--output-format json --json-schema {fixed, summary}</code>, <code>--no-session-persistence</code></td><td>a cost cap per attempt, a parseable answer and cost, and no transcript left behind</td></tr>
+<tr><td><code>--advisor $YK_ADVISOR</code> (off unless set)</td><td>experimental: a stronger model consulted at decision points, a possible replacement for the sonnet rung. Anthropic API only. Not yet settable per rung from <code>heal.json</code>.</td></tr>
+</table></div>
+<p>A failed run is visible in the summary: <code>claimed</code> adds the result's subtype when Claude returned no answer, for example <code>no answer from claude (error_max_budget_usd: …)</code>. The tool was checked against the headless documentation: the <code>Bash(cmd:*)</code> rule syntax is honoured, and <code>--bare</code> is not used because it needs an API key and skips the hooks.</p>
+
+<h2 id="monitor">Monitoring and control from Claude Code</h2>
+<p class="lead">The run lives on the server; <code>yk</code> is only a client of it. That gives Claude Code three ways to hold a run, and the control bus to steer it.</p>
+<div class="tw"><table>
+<tr><th>Need</th><th>How</th></tr>
+<tr><td>Block until done</td><td><code>yk check</code> in the foreground prints problems only, then <code>RESULT</code>. The Bash tool moves it to the background at its timeout (2 min by default) or Claude starts it with <code>run_in_background</code>; the task's exit is the notification.</td></tr>
+<tr><td>Follow while working</td><td><code>yk check --detach</code>, then <code>yk watch &lt;session&gt; &lt;execution&gt; --stages</code> under the Monitor tool: <code>STAGE &lt;name&gt; finished</code> per stage, <code>HEAL</code>, <code>ERROR</code> and <code>RESULT</code>. A watch has a deadline (5 min by default, 30 at most); Monitor's WebSocket source refuses private addresses (a loopback server is probably one) and the feed is not a WebSocket anyway, so a script is the way.</td></tr>
+<tr><td>Stop</td><td>A foreground <code>yk</code> that is interrupted or stopped (Ctrl-C, <code>TaskStop</code>, the unattended time limit) stops its execution and the runs below it. Before this a killed client left the run, and a fixer, going on unseen. <code>--detach</code> runs outlive the client; <code>yk stop &lt;e&gt; --tree</code> ends them.</td></tr>
+<tr><td>Pause, retry, step</td><td><code>yk pause|resume|skip|retry|break|step|signals|approve|reject</code>, or MCP <code>control_workflow</code>, <code>control_node</code>, <code>signal_node</code>. The check has no approval points now, so nothing waits for an answer.</td></tr>
+<tr><td>Structured look</td><td>MCP <code>get_workflow_status</code> and <code>get_execution_tree</code> fail output validation on a root run (#1300); use <code>yk tree</code>. <code>get_control_bus_status</code> and <code>list_pending_approvals</code> work.</td></tr>
+</table></div>
+<p>Stopping is a drain: in-flight work gets up to 30 s (<code>yukta.stop.drain-timeout</code>; measured 30.6 s). CANCEL and KILL exist only on the workflow-level stop endpoint (#1301). The dev server loads <code>rules.json</code> as a rule supervisor; it holds one deny rule, <code>no-kill</code>, which refuses a <code>StopWorkflow</code> with <code>mode == 'KILL'</code> (it matches nothing until #1301 gives the execution stop a mode). A reaction rule fits the check badly: the engine counts <code>count</code> per execution and every fixer attempt is its own execution.</p>
+
+<h2 id="config">Configuration</h2>
+<div class="tw"><table>
+<tr><th>File</th><th>What it holds</th></tr>
+<tr><td><code>heal.json</code></td><td>models, efforts (budget, time box), triage (model, URL, question, levels with ladders and descriptions, <code>minProbability</code>, <code>default</code>), the healable stages and their free fixes, the extra non-Gradle stages (ui, docs, reuse, actionlint)</td></tr>
+<tr><td><code>fixer-rules.md</code></td><td>the constant system prompt of every fixer</td></tr>
+<tr><td><code>session.json</code></td><td>the five workflows. Generated: edit <code>heal.json</code>, <code>gen-heal.py</code> or <code>gen-check.py</code>, run them, commit the result.</td></tr>
+</table></div>
+<div class="tw"><table>
+<tr><th>Variable</th><th>Effect</th></tr>
+<tr><td><code>YUKTA_TRIAGE_MODEL</code>, <code>YUKTA_TRIAGE_URL</code></td><td>override the triage model and the Ollama URL in <code>heal.json</code></td></tr>
+<tr><td><code>YUKTA_CLAUDE_BIN</code></td><td>a stand-in for <code>claude</code> (tests)</td></tr>
+<tr><td><code>YK_ADVISOR</code></td><td>advisor model for the fixers; unset = off</td></tr>
+<tr><td><code>YUKTA_DEV_PORT</code>, <code>YUKTA_DEV_HOME</code>, <code>YUKTA_DEV_STATE_DIR</code>, <code>YUKTA_DEV_MAIN_REF</code></td><td>dev server port (9858), its state folder, the per-checkout state folder, the ref the server is built from (<code>origin/main</code>)</td></tr>
+<tr><td><code>YUKTA_HEAL_EVENTS</code></td><td>the events log (all runs, all checkouts): <code>~/.local/state/yukta-dev/heal-events.jsonl</code></td></tr>
+</table></div>
+
+<h2 id="commands">Commands</h2>
+<div class="tw"><table>
+<tr><th>Command</th><th>Does</th><th>Spends</th></tr>
+<tr><td><code>yk gradle [--detach] &lt;args&gt;</code></td><td>one Gradle run as the <code>tool</code> workflow</td><td>nothing</td></tr>
+<tr><td><code>yk tool [--detach] [-C dir] &lt;cmd&gt;</code></td><td>any other command once (go, pnpm, node_modules/.bin)</td><td>nothing</td></tr>
+<tr><td><code>yk plan [--full] [--base REF]</code></td><td>dry run: the stages a scoped check would run</td><td>nothing</td></tr>
+<tr><td><code>yk watch &lt;session&gt; &lt;execution&gt; [--all|--stages]</code></td><td>follow a run; <code>--stages</code> adds a line per finished stage</td><td>nothing</td></tr>
+<tr><td><code>yk check [--full] [--base REF] [--no-heal] [--models m,..] [--triage off] [--detach]</code></td><td>the scoped, self-healing gate</td><td>Claude only when a stage fails and the free fix did not help; fixers edit the working tree, never commit</td></tr>
+</table></div>
+<p><code>yk watch</code> prints problems only: <code>NODE</code>, <code>ERROR|WARN</code>, <code>HEAL</code>, <code>SLOW</code>, then <code>RESULT</code>. Read that line and the <code>ERROR</code> lines before it, not the logs.</p>
+
+<h2 id="evidence">Evidence</h2>
+<p class="lead"><code>scripts/test-heal.sh</code> covers the pipeline without API cost: two stages healed in turn (and no two fixers at once), a no-change attempt ending the ladder, an escalation, a failed verify going back to heal, and a hard triage starting at <code>sonnet/low</code>.</p>
+<p class="lead">From planted-failure runs (format, style, compile, test, coverage, docs, a cli lint file). Small samples: they show the pipeline works and where it is weak, not rates.</p>
+<ul>
+<li>A planted compile error was fixed by <code>haiku/high</code> on the first attempt for $0.0024 in 22 s; the whole check, with a second stage healed, took 193 s. Wall time is dominated by Gradle and tool runs; a Claude call is about 15 s.</li>
+<li>Haiku attempts cost $0.002 to $0.006; a sonnet escalation costs $0.018 to $0.035. Escalation paid off in the deliberate escalation test and was wasted on the stages no code edit could fix.</li>
+<li>The guard bug that mattered: <code>grep -q</code> on a pipe ends early and, under <code>set -o pipefail</code>, the writer's SIGPIPE read as "no match", so added suppressions got through. The text is now captured in a variable first.</li>
+<li>A fixer treats an unexpected planted file as the developer's work and changes nothing; a fixer deleted an untracked run log that broke <code>reuse lint</code>.</li>
+<li>One verify run reported a PMD violation after both stages had been healed, a second run was clean: flaky, and the reason for sending verify back to heal.</li>
+</ul>
+
+<p>Triage on <code>tev1</code> (fake-free, 2.7 s a call): the three easy sets score 14/14, 13/14 and 10/10 on every prompt variant, so they cannot tell prompts apart. A harder set of 25 boundary cases (<code>eval/triage/fixtures/synthetic-d.json</code>, labelled by reading) scores 16 to 17 of 25 (24 within one level). The misses are one-sided: the model calls multi-file compile, type and lint failures <em>easy</em> because each message looks simple (an API rename in 9 files, a type change with 37 errors, 14 PMD violations in 7 files) and a native-image reflection failure <em>easy</em>. The neutral question and the ecosystem line change nothing measurable.</p>
+<h2 id="gaps">Engine gaps found while building</h2>
+<p class="lead">Things the workflow engine cannot do yet, and the workaround each one has here. G4 (nesting depth 5) does not bite the current five workflows; it will when issue and epic runs return.</p>
+<div class="tw"><table>
+<tr><th>#</th><th>Gap</th><th>Workaround</th></tr>
+<tr><td>G1</td><td><b>A command argument cannot be a list</b><br>PROCESS_EXECUTOR turns each <code>command</code> element into one string, so a task list in a start-payload key is one argument.</td><td><code>tool</code> runs <code>sh -c</code> with the command in an environment variable; <code>yk</code> shell-quotes every argument.</td></tr>
+<tr><td>G2</td><td><b>No declared inputs or defaults</b><br>A workflow is only id, description, nodes and edges. A missing start key resolves to nothing, and a PROCESS_EXECUTOR <code>timeout</code> then falls back to 300 s.</td><td>Every caller passes every key (<code>KEYS</code> in <code>gen-heal.py</code>, <code>PASS</code> in <code>gen-check.py</code>).</td></tr>
+<tr><td>G3</td><td><b>Only workflows of the same session can be called</b><br>SUB_WORKFLOW looks the child up in the parent's session.</td><td><code>yk</code> applies the whole library to every session it starts a run in.</td></tr>
+<tr><td>G5</td><td><b>Outcome FAILED does not fail the caller by itself</b><br>Without <code>routeByOutcome</code> a child that ended at <code>OUTCOME_TERMINAL FAILED</code> still has status SUCCESS.</td><td>Every call sets <code>routeByOutcome: true</code> and wires <code>failure</code>.</td></tr>
+<tr><td>G6</td><td><b><code>${…}</code> cannot index a list</b><br>The variable resolver walks maps only, so <code>results[0].stdout</code> cannot be written as a path.</td><td>MAPPER nodes (PROJECTION, SpEL) flatten <code>results[0]</code>; script steps read whole results as JSON on stdin.</td></tr>
+<tr><td>G7</td><td><b>A timeout drops the output</b><br>On a process timeout the gateway returns exit -1 with an empty stdout.</td><td>The brief says the stage timed out; the fixer reads the run log.</td></tr>
+<tr><td>G8</td><td><b>Some SUB_WORKFLOW errors are never routed</b><br>The node's own <code>timeoutSeconds</code>, an unknown workflow and too deep a nesting fail the node even with <code>routeByOutcome</code>.</td><td><code>engine.onError: ROUTE</code> and an <code>error</code> edge next to <code>failure</code>.</td></tr>
+<tr><td>G9</td><td><b>A sub-workflow cannot inherit the start payload</b><br>SUB_WORKFLOW's <code>payload</code> must be a map of resolved top-level values.</td><td>Every key is listed one by one; a key added to a contract is added to every caller.</td></tr>
+<tr><td>G10</td><td><b>BRANCH and MAPPER cannot read the start payload</b><br>SpEL sees only the message, so a start switch (<code>heal</code>, <code>triage</code>, <code>auto</code>) must first be copied into it.</td><td>The trigger copies it (CONSTANT_SOURCE), or a script step echoes it into its JSON output.</td></tr>
+<tr><td>G11</td><td><b>A <code>${payload}</code> in a sub-workflow payload arrives as text</b><br>The value becomes the Java text of the map, not the map.</td><td>A MAPPER per stage (<code>&lt;stage&gt;.fail</code>) projects the failed output to a string, <code>stdout</code>.</td></tr>
+<tr><td>G12</td><td><b>The CLASSIFY answer is not in the node's task metadata</b><br><code>workflow status</code> shows <code>metadata: {}</code> for the triage node.</td><td>A <code>triage-log.&lt;port&gt;</code> node on every triage port records the route as an event.</td></tr>
+<tr><td>G13</td><td><b>A script step with <code>outputFormat: JSON</code> must print nothing else</b><br>The engine merges stderr into stdout; one extra line and the output is not parsed.</td><td>Those steps print only JSON; <code>claimed</code> prints the live <code>HEAL</code> line; <code>report</code> always exits 0.</td></tr>
+<tr><td>G14</td><td><b>A failed branch does not cancel its siblings</b><br>With a fan-out, a branch that reaches <code>OUTCOME_TERMINAL FAILED</code> ends only itself; the other branches run to the end (measured: a 20 s sibling finished after the failing one at 1 s). There is no fail-fast across branches.</td><td>none; the check stays sequential</td></tr>
+<tr><td>G15</td><td><b>A node with two incoming edges fires once per message</b><br>Two predecessors make two runs of the node (measured). A join needs an <code>AGGREGATE</code> with <code>size</code>, which emits when its upstream ends.</td><td>an <code>AGGREGATE</code> join, as the earlier parallel analyzers did</td></tr>
+<tr><td>G16</td><td><b><code>concurrencyGroup</code> is for processors only, and the limit is server config</b><br><code>yukta.concurrency.groups.&lt;name&gt;</code> is read at start-up, and the validator rejects the setting on a SUB_WORKFLOW. A group cannot make two heals take turns without a server restart.</td><td>none needed while the check is sequential</td></tr>
+</table></div>
+
+<h2 id="open">Open items</h2>
+<ul>
+<li><b>Timeouts lose the cost.</b> A process timeout sends SIGTERM (exit 143) and records no result, so that attempt's spend is $0 in the records and the issue budget. <code>stream-json</code> would capture it.</li>
+<li><b>Silent code-index failures.</b> An issue run's <code>--mcp-config</code> entry that fails validation is skipped with a clean exit; the failure shows only in <code>system/init</code>, which plain <code>json</code> output lacks.</li>
+<li><b>Docs stage.</b> <code>mint broken-links</code> works locally (exit 1 on a bad link). A heal run once failed to clear it; the leading suspect was the spinner output hiding the report, which is now stripped. Unconfirmed.</li>
+<li><b>Advisor.</b> Compare <code>haiku</code> with <code>--advisor sonnet</code> against the haiku → sonnet ladder on the same failures before using it; it needs a per-rung field in <code>heal.json</code>.</li>
+<li><b>Parallel stages: measured, not built.</b> The non-Gradle stages of a full check take about 57 s when run one after the other and warm (cli 18 s, ui 29 s, repo 10 s); Gradle stages share one project and the <code>tool</code> group allows 2, so they gain nothing. A scoped check of Java changes has only about 2 s of non-Gradle work. Parallel chains would also lose fail-fast (G14) and need the heals to take turns (G16), because the guard snapshots the whole tree and a second fixer's edits would be blamed on the first. The safe shape is an optimistic pre-pass: the ecosystems run in parallel with no healing, a clean result ends the run, anything else falls back to the sequential flow. It pays only when a change spans Java and cli or ui; build it if that is common.</li>
+<li><b>Triage underestimates breadth.</b> Fix: make the number of files or errors count in the level descriptions or the brief, and measure on a set that is not the one it is tuned on (there is no dev/test split in <code>synthetic-d.json</code> yet).</li>
+<li><b>Guard.</b> A test expectation changed together with unrelated code still passes.</li>
+<li><b>Rebuild.</b> Issue and epic runs, <code>yk heal report|analyze</code>, steering commands and the slash commands are in <code>backup/</code>; <code>backup/README.md</code> says how to bring each back.</li>
+</ul>
+</div>
+<script>
+document.getElementById('theme').addEventListener('click',()=>{
+  const d=document.documentElement,dark=d.dataset.theme==='dark'||(!d.dataset.theme&&matchMedia('(prefers-color-scheme:dark)').matches);
+  d.dataset.theme=dark?'light':'dark';try{localStorage.setItem('yk-design-theme',d.dataset.theme)}catch(e){}
+});
+</script>
+</body>
+</html>

@@ -1,84 +1,79 @@
 ---
 name: yukta
-description: Use for ANY build, compile, test, gradle/./gradlew, check, lint, spotless, checkstyle, PMD, SpotBugs, coverage, "does it pass", "fix the build" or CI-failure work in the Yukta repo, at every scope from one test class to the full pre-commit gate. Runs it as a Yukta workflow on the local dev server (built from origin/main, port 9858) via `yk`, which prints one RESULT line; `yk check` also self-heals failing stages. Also for starting/stopping the dev server, watching, retrying or stopping a run, and filing dogfood findings. Direct ./gradlew build/test/check commands are blocked in this repo (running the app with bootRun is not).
-allowed-tools: Bash, Read
+description: Use for ANY build, compile, test, gradle/./gradlew, lint, spotless, checkstyle, PMD, SpotBugs, coverage, "does it pass" or pre-PR check work in the Yukta repo, from one test class to the whole gate. Runs Gradle (`yk gradle <args>`), the Go and UI tools (`yk tool -C <ui|cli> <command>`) and the self-healing gate for your changes (`yk check`) as Yukta workflows on the local dev server; each prints one RESULT line. Covers running a long check in the background, watching it and stopping it. Direct ./gradlew, go and pnpm/npm/npx commands are blocked in this repo (running the app with bootRun is not).
+allowed-tools: Bash, Read, Monitor
 ---
 
-# Build, test and check Yukta with Yukta
+# Build, test and check through Yukta
 
-Every Gradle run in this repo goes through a Yukta workflow (`examples/11-dogfood/session.json`) on the
-dev server: built from `origin/main`, on `http://127.0.0.1:9858`, shared by every checkout. `yk` is
-`examples/11-dogfood/yk` (on PATH after session start). A hook blocks direct `./gradlew`, `gradle` and
-`go test`; it names the `yk` command to use instead.
+Every Gradle, Go and pnpm/npx run in this repo goes through a Yukta workflow on the dev server (built from `origin/main`,
+`http://127.0.0.1:9858`, started on demand). `yk` is `examples/11-dogfood/yk` (on PATH after session start). A hook blocks
+direct `./gradlew`, `gradle`, `go test|vet|build|fmt` and `pnpm|npm|npx` and names the `yk` command to use instead.
 
-## Pick the smallest scope (CLAUDE.md test tiers)
+```bash
+yk gradle <gradle args...>             # :core:compileJava | :core:test --tests '<FQCN>' | spotlessApply
+yk tool [-C <dir>] <command> [args...] # dir relative to the repo root: -C cli go test ./... | -C ui node_modules/.bin/tsc --noEmit
+yk check                               # the gate for your changes (below)
+```
+Every argument is shell-quoted. Two runs go at once (a Gradle daemon uses about 4 GB); a third waits.
+
+## Pick the smallest scope
 | Need | Command |
 |---|---|
 | Compile feedback | `yk gradle :core:compileJava :core:compileTestJava` |
-| Tests of the classes you changed | `yk gradle :core:test --tests '<FQCN>'` (repeat `--tests`) |
-| A package / public contract | `yk gradle :core:test --tests 'com.infenia.yukta.<package>.*'` |
-| A module's full gate | `yk check -m core` (repeat `-m` for several modules) |
-| Final gate before commit/PR | `yk check` (once, at the end) |
-| Spotless format | `yk gradle spotlessApply` |
-| Go CLI | `yk gradle :cli:check` |
+| The tests you changed | `yk gradle :core:test --tests '<FQCN>'` (repeat `--tests`; a package: `'<package>.*'`) |
+| Static analysis of a module | `yk gradle :core:checkstyleMain :core:pmdMain :core:spotbugsMain` |
+| Format | `yk gradle spotlessApply` |
+| Go / UI | `yk tool -C cli go test ./internal/...` / `yk tool -C ui npx --no-install vitest run` (also `eslint .`, `tsc --noEmit`, `prettier --check .`) |
 
-The server starts on demand (the first build of a new main commit takes minutes; the SessionStart hook
-usually has it ready). Run long checks with `run_in_background` or `--detach` (below). Keep working in
-the meantime only on a `yk gradle` or `yk check --no-heal` run, or in another checkout: a healing
-`yk check` edits this checkout itself.
+## Check my changes
+`yk check [--full] [--base REF] [--no-heal] [--models haiku,sonnet] [--triage off] [--detach]` is the gate. `yk plan` (same
+flags, runs nothing) shows the stages: your changes, uncommitted and untracked files included, against the merge base with
+`origin/main`; changed Gradle modules get every stage, their dependants compile and test, `cli/` and `ui/` get their own tools.
+Stages run in turn, cheapest first (`--full`: everything unscoped, the gate before a PR).
+
+A failing stage is **healed**: a free fix where it has one (`spotlessApply`, `make fmt`, `prettier --write`, `eslint --fix`),
+then a local model rates the failure easy, average or hard, which picks where a ladder of fresh headless Claude sessions starts
+(easy `haiku/low` then `sonnet/low`, average `haiku/high` then `sonnet/low`, hard `sonnet/low`). The stage is checked again after
+every attempt. An attempt that changed no file ends the ladder, and `reuse`, `docs` and `actionlint` get one attempt. If anything
+was healed, the Gradle tasks of all stages run once more. `licenses` and `security` are never healed. `--no-heal` stops at the
+first failure (use it to see a failure as it is); `--triage off` starts every heal at the average level.
+
+A Stop hook asks once, before you finish with uncommitted code changes, to run `yk check`.
+
+**While a check runs, do not edit files or run Gradle in this checkout**: a fixer is editing it. When it ends, review everything
+under `healed=` with `git diff`; fixers never commit.
+
+## Long runs: background, watch, stop
+A check takes minutes. Start it as a background task (`run_in_background`; the Bash tool also moves a foreground command there at
+its timeout): its exit delivers the `RESULT` line. To follow it meanwhile, `yk check --detach` prints `STARTED execution=<e>
+session=<s>`; run `yk watch <s> <e> --stages` under the Monitor tool: one `STAGE <name> finished` line per stage, plus `HEAL`,
+`ERROR` and `RESULT` lines (a Monitor ends at its deadline, 5 minutes by default: start it again).
+
+A foreground `yk` ends its run with itself: Ctrl-C, or stopping the background task, stops the execution and the runs below it.
+A `--detach` run outlives its client and is not guarded against a second run: stop it with `yk stop <e> --tree` (a drain: a fixer
+in progress gets up to 30 s). The `mcp__yukta__*` tools give the same data, but `get_workflow_status` and
+`get_execution_tree` fail on a root run (#1300): use `yk tree` and `yk watch`.
+
+## Diagnose a failed check, take over a run
+- `failed_node` and the `OUTPUT <stage>:` lines say what failed. `yk tree <e>` shows which child run failed or is still going
+  (`[current nodes]`, `paused`).
+- A heal that gave up or was rejected: one line per attempt in the events log, newest last:
+  `jq -c 'select(.event=="fix") | {stage,model,effort,fixed,files,cost,guard,summary}' ~/.local/state/yukta-dev/heal-events.jsonl | tail -8`
+  (`guard` says why the guard rejected it). The same per attempt is in `.yukta-dev/heal/<session>/<stage>-<n>.json`, and the
+  previous check's in `<session>.prev/`. Reading them is fine.
+- Take over: `yk pause <e> --tree` lets the node that is running finish and holds the next one, so you can look at or fix the tree;
+  a fixer session already running still finishes its edits. Then `yk resume <e> --tree` to continue or `yk stop <e> --tree` to
+  give up. After fixing a failed stage by hand, rerun `yk check`: stages that pass again are quick.
 
 ## Read the result, not the log
-The last line is `RESULT status=<S> failed_node=<node> healed=<stage:step,..|-> execution=<e> session=<s>`;
-exit 0 only on success. Before it come only problem lines (`NODE <node> FAILURE`, `ERROR <node>: …`,
-`WARN …`, `HEAL …`, `SLOW …`). Fix only what the `ERROR <failed_node>:` lines report, then rerun the same
-command. If they are not enough, grep the report they name (`<failure` in
-`<module>/build/test-results/test/TEST-*.xml`, `<error` in checkstyle/PMD XML); never read a report or a
-log whole, and never `yk cli logs` (it streams everything).
-
-## Self-healing (`yk check`)
-A failing stage repairs itself before the run fails: deterministic fix first (`spotlessApply`), then up
-to a `heal` workflow (a System One triage rates the failure easy, average or hard and picks the starting model and effort; fresh headless Claude attempts climb effort `low → medium → high` and escalate haiku, sonnet, opus), then a verify pass. While it runs, don't edit files or run Gradle in
-that checkout; act only on the final RESULT or an `ESCALATE:`. Review everything listed in `healed=`
-with `git diff` before committing (the fixer never commits). `--no-heal` gives the plain fail-fast
-chain (to see a failure as it is). Details, guards and budget: [reference/heal.md](reference/heal.md). What heal did, where its time and money went: `yk heal report`; what looks wrong: `yk heal analyze`; one run: `yk heal show --run <id>`.
-
-## Long runs: detach and watch cheaply
-```bash
-yk check --detach [-m mod]          # STARTED execution=<e> session=<s>   (yk gradle --detach: the same)
-yk watch <s> <e>                    # blocks until the end: problems only, then RESULT
-```
-Hand the watching to the `yukta-run-watcher` subagent (Haiku, `run_in_background`) or the Monitor tool,
-so routine events never reach your context. Steer only runs you started: `yk tree <e>`, `yk pause|resume|stop <e>
-[--tree]`, `yk retry|skip <e> <node>`, `yk signals`, `yk approve|reject <e>`; when to use which:
-[reference/control.md](reference/control.md).
-
-## An issue, start to draft PR
-`yk run issue <n>` (the `pickup` skill, `/yk-pickup`): claim, worktree, headless implementer, a code index, the check on the worktree (a
-triage picks fresh fixers), a draft PR. It waits at `before-implement` and `before-pr`: `yk signals <e>`,
-`yk approve|reject <e> <signal>`. `RESULT status=ESCALATE` means it gave up and the issue is Ready again.
-[reference/control.md](reference/control.md), `examples/11-dogfood/README.md`.
-
-## An epic, two issues at a time
-`yk run epic <n>`: the epic's open, assigned, Ready sub-issues, each as above, two at a time. `between-issues` waits before each
-issue starts; two issues that give up (ESCALATE) pause the whole tree, `yk resume <e> --tree` or `yk stop <e> --tree`. Budgets:
-`YUKTA_BUDGET_ISSUE`, `YUKTA_BUDGET_EPIC` (USD). `yk heal report` shows where the heal time and money went. `yk watch` prints an `APPROVAL ...` line
-for every checkpoint that waits.
-
-## Dogfood: every anomaly is fixed or filed
-A run is also a test of Yukta. Fix what your change broke; retry a flaky/env failure once; file
-everything else (unexpected `CONTROL … applied=false`, Yukta stack traces, a watcher that never ends, a
-RESULT contradicting node statuses, `SLOW`, a misbehaving fixer, tooling gaps) with `yk finding`.
-If the CLI or `yk` falls short while you analyse, improve it as part of the work. Procedure, triage and
-the finding format: [reference/dogfood-loop.md](reference/dogfood-loop.md).
-
-## Server
-`yk status` (exit 3 when down), `yk up` (start, or swap an idle server for a newer main),
-`yk up --release [tag]` (run a published release instead), `yk down`. More, including state paths and
-troubleshooting: [reference/server.md](reference/server.md).
+The last line is `RESULT status=<S> failed_node=<node> healed=<stage:model/effort,..|-> execution=<e> session=<s>`; exit 0 only on
+success. A failure (`status=FAILED|FAILURE`) is preceded by `ERROR …` lines and, for a check, `OUTPUT <stage>: …` (the last 40
+lines of that stage). Fix only what they report, then rerun the same command. If they are not enough, grep the report they name
+(`<failure` in `<module>/build/test-results/test/TEST-*.xml`); never read a report or log whole.
 
 ## Don'ts
-- Don't run `./gradlew`/`gradle` builds, tests or checks or `go test` directly, or start the Yukta dev
-  server yourself (`java -jar`); `./gradlew bootRun` to try the app you are changing is fine.
-- Don't run two checks in one checkout, or edit/build in it while a healing run is going.
-- Don't commit healed changes unread; don't widen the fixer's guard to get a run through.
-- Don't touch `~/.local/state/yukta-dev/` or `.yukta-dev/` by hand, or stop servers yk didn't start.
+- Don't run `./gradlew`/`gradle`, `go` or `pnpm`/`npm`/`npx` directly, or start the Yukta dev server yourself (`./gradlew bootRun`
+  to try the app you are changing is fine).
+- A second foreground `yk` run in the same folder is refused while the first runs.
+- Don't edit anything under `~/.local/state/yukta-dev/` or `.yukta-dev/` by hand.
