@@ -77,7 +77,7 @@ button#theme{float:right;border:1px solid var(--line);background:var(--panel);co
 <p class="lead">The dogfood loop: every build and check of this repo runs as a Yukta workflow on a local dev server, and a failed check is repaired by Claude models, cheapest first, before a developer has to step in.</p>
 <nav>
   <a href="#state">What is built</a><a href="#flow">A run</a><a href="#workflows">Workflows</a><a href="#heal">Heal</a><a href="#guard">The guard</a>
-  <a href="#fixer">The fixer session</a><a href="#config">Configuration</a><a href="#commands">Commands</a><a href="#evidence">Evidence</a><a href="#gaps">Engine gaps</a><a href="#open">Open items</a>
+  <a href="#fixer">The fixer session</a><a href="#monitor">Monitor and control</a><a href="#config">Configuration</a><a href="#commands">Commands</a><a href="#evidence">Evidence</a><a href="#gaps">Engine gaps</a><a href="#open">Open items</a>
 </nav>
 
 <h2 id="state">What is built</h2>
@@ -168,6 +168,18 @@ button#theme{float:right;border:1px solid var(--line);background:var(--panel);co
 </table></div>
 <p>A failed run is visible in the summary: <code>claimed</code> adds the result's subtype when Claude returned no answer, for example <code>no answer from claude (error_max_budget_usd: …)</code>. The tool was checked against the headless documentation: the <code>Bash(cmd:*)</code> rule syntax is honoured, and <code>--bare</code> is not used because it needs an API key and skips the hooks.</p>
 
+<h2 id="monitor">Monitoring and control from Claude Code</h2>
+<p class="lead">The run lives on the server; <code>yk</code> is only a client of it. That gives Claude Code three ways to hold a run, and the control bus to steer it.</p>
+<div class="tw"><table>
+<tr><th>Need</th><th>How</th></tr>
+<tr><td>Block until done</td><td><code>yk check</code> in the foreground prints problems only, then <code>RESULT</code>. The Bash tool moves it to the background at its timeout (2 min by default) or Claude starts it with <code>run_in_background</code>; the task's exit is the notification.</td></tr>
+<tr><td>Follow while working</td><td><code>yk check --detach</code>, then <code>yk watch &lt;session&gt; &lt;execution&gt; --stages</code> under the Monitor tool: <code>STAGE &lt;name&gt; finished</code> per stage, <code>HEAL</code>, <code>ERROR</code> and <code>RESULT</code>. A watch has a deadline (5 min by default, 30 at most); Monitor's WebSocket source refuses private addresses (a loopback server is probably one) and the feed is not a WebSocket anyway, so a script is the way.</td></tr>
+<tr><td>Stop</td><td>A foreground <code>yk</code> that is interrupted or stopped (Ctrl-C, <code>TaskStop</code>, the unattended time limit) stops its execution and the runs below it. Before this a killed client left the run, and a fixer, going on unseen. <code>--detach</code> runs outlive the client; <code>yk stop &lt;e&gt; --tree</code> ends them.</td></tr>
+<tr><td>Pause, retry, step</td><td><code>yk pause|resume|skip|retry|break|step|signals|approve|reject</code>, or MCP <code>control_workflow</code>, <code>control_node</code>, <code>signal_node</code>. The check has no approval points now, so nothing waits for an answer.</td></tr>
+<tr><td>Structured look</td><td>MCP <code>get_workflow_status</code> and <code>get_execution_tree</code> fail output validation on a root run (#1300); use <code>yk tree</code>. <code>get_control_bus_status</code> and <code>list_pending_approvals</code> work.</td></tr>
+</table></div>
+<p>Stopping is a drain: in-flight work gets up to 30 s (<code>yukta.stop.drain-timeout</code>; measured 30.6 s). CANCEL and KILL exist only on the workflow-level stop endpoint (#1301). The dev server loads <code>rules.json</code> as a rule supervisor; it holds one deny rule, <code>no-kill</code>, which refuses a <code>StopWorkflow</code> with <code>mode == 'KILL'</code> (it matches nothing until #1301 gives the execution stop a mode). A reaction rule fits the check badly: the engine counts <code>count</code> per execution and every fixer attempt is its own execution.</p>
+
 <h2 id="config">Configuration</h2>
 <div class="tw"><table>
 <tr><th>File</th><th>What it holds</th></tr>
@@ -190,6 +202,7 @@ button#theme{float:right;border:1px solid var(--line);background:var(--panel);co
 <tr><td><code>yk gradle [--detach] &lt;args&gt;</code></td><td>one Gradle run as the <code>tool</code> workflow</td><td>nothing</td></tr>
 <tr><td><code>yk tool [--detach] [-C dir] &lt;cmd&gt;</code></td><td>any other command once (go, pnpm, node_modules/.bin)</td><td>nothing</td></tr>
 <tr><td><code>yk plan [--full] [--base REF]</code></td><td>dry run: the stages a scoped check would run</td><td>nothing</td></tr>
+<tr><td><code>yk watch &lt;session&gt; &lt;execution&gt; [--all|--stages]</code></td><td>follow a run; <code>--stages</code> adds a line per finished stage</td><td>nothing</td></tr>
 <tr><td><code>yk check [--full] [--base REF] [--no-heal] [--models m,..] [--triage off] [--detach]</code></td><td>the scoped, self-healing gate</td><td>Claude only when a stage fails and the free fix did not help; fixers edit the working tree, never commit</td></tr>
 </table></div>
 <p><code>yk watch</code> prints problems only: <code>NODE</code>, <code>ERROR|WARN</code>, <code>HEAL</code>, <code>SLOW</code>, then <code>RESULT</code>. Read that line and the <code>ERROR</code> lines before it, not the logs.</p>

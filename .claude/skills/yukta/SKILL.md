@@ -36,17 +36,29 @@ Every argument is shell-quoted, so arguments with spaces work. Gradle and tool r
 | UI lint / types / format / tests | `yk tool -C ui <command>` (`eslint .`, `tsc --noEmit`, `prettier --check .`, `vitest run`) |
 
 ## Check my changes
-`yk check [--full] [--base REF] [--no-heal] [--models haiku,sonnet,opus] [--triage off] [--detach]` is the gate: it
+`yk check [--full] [--base REF] [--no-heal] [--models haiku,sonnet] [--triage off] [--detach]` is the gate: it
 plans the stages of your changes (below) and runs them one after the other through `tool`, cheapest first.
-A failing stage is **healed**: its free fix first where it has one (`spotlessApply`, `make fmt`, `prettier --write`),
-then a small local model (System One) rates the failure easy, average or hard, which picks the model and effort to
-start with (haiku/medium, sonnet/medium, sonnet/high); fresh headless Claude sessions climb effort and model from
-there, and the stage is checked again after every attempt. While it runs, do not edit files or run Gradle in this
-checkout. `licenses` and `security` are never healed. Act only on the final line: `RESULT status=SUCCESS healed=<stage:step,..>`
+A failing stage is **healed**: its free fix first where it has one (`spotlessApply`, `make fmt`, `prettier --write`,
+`eslint --fix`), then a small local model (System One) rates the failure easy, average or hard, which picks where a
+ladder of fresh headless Claude sessions starts (easy `haiku/low` then `sonnet/low`, average `haiku/high` then
+`sonnet/low`, hard `sonnet/low`); the stage is checked again after every attempt. An attempt that changed no file ends the
+ladder, and `reuse`, `docs` and `actionlint` get one attempt. When anything was healed, the Gradle tasks of all stages run
+once more (verify). While it runs, do not edit files or run Gradle in this
+checkout. `licenses` and `security` are never healed. Act only on the final line: `RESULT status=SUCCESS healed=<stage:model/effort,..>`
 (review everything under `healed=` with `git diff`; the fixer never commits) or `status=FAILURE|FAILED failed_node=<stage>`,
 preceded by `OUTPUT <stage>: ...` (the last 40 lines of that stage). `--no-heal` stops at the first failure instead (use it
-to see a failure as it is, or to keep editing); `--triage off` starts every heal at sonnet/medium. `--full` runs everything
+to see a failure as it is, or to keep editing); `--triage off` starts every heal at the average level. `--full` runs everything
 unscoped (the gate before a PR).
+
+## Long runs: background, watch, stop
+A check can take minutes. Start it as a background task (`run_in_background`, or let the Bash tool move it there at its timeout): the
+run's last `RESULT` line arrives as the task's completion. To follow it meanwhile, use `yk check --detach` (prints
+`STARTED execution=<e> session=<s>`) and put `yk watch <s> <e> --stages` under the Monitor tool: one `STAGE <name> finished` line per
+stage, plus `HEAL`, `ERROR` and `RESULT` lines (the Monitor deadline is 5 minutes by default, 30 at most: start it again if it ends).
+A foreground `yk` ends its run with itself: Ctrl-C, or stopping the background task, stops the execution and the runs below it
+(`--detach` runs outlive the client). Stop a detached run with `yk stop <e> --tree` (a drain: a fixer in progress gets up to 30 s);
+`yk pause|resume <e> --tree`, `yk tree <e>` and `yk signals <e>` look at and steer a run. The `mcp__yukta__*` tools give the same data,
+but `get_workflow_status` and `get_execution_tree` currently fail on a root run (#1300): use `yk tree` and `yk watch`. A stop is always a drain until #1301 adds CANCEL and KILL.
 
 ## What would a check of my changes run?
 `yk plan [--full] [--base REF]` is a dry run: it maps your changes (against the merge base with `origin/main`,

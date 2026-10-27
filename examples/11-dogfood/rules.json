@@ -1,1 +1,12 @@
-{"rules":[]}
+{
+  "rules": [
+    {
+      "id": "no-kill",
+      "deny": {
+        "command": "StopWorkflow",
+        "if": "mode == 'KILL'",
+        "reason": "use DRAIN or CANCEL: KILL leaves a fixer's edits half done"
+      }
+    }
+  ]
+}

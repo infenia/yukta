@@ -94,7 +94,7 @@ run_tool() {
   [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start workflow"
   echo "STARTED execution=$exec_id session=$session"
   [[ "$mode" == detach ]] && return 0
-  YUKTA_PROJECT="$project" YUKTA_SCOPE="args:$(printf '%.60s' "$*")" cmd_watch "$session" "$exec_id"
+  YUKTA_PROJECT="$project" YUKTA_SCOPE="args:$(printf '%.60s' "$*")" watch_owned "$session" "$exec_id"
 }
 
 # yk check [--full] [--base REF] [--no-heal] [--models haiku,sonnet] [--triage off] [--detach]
@@ -171,7 +171,7 @@ cmd_check() {
   [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start the check"
   echo "STARTED execution=$exec_id session=$session"
   [[ "$mode" == detach ]] && return 0
-  YUKTA_FAILED_OUTPUT=1 YUKTA_PROJECT="$root" YUKTA_SCOPE=check cmd_watch "$session" "$exec_id"
+  YUKTA_FAILED_OUTPUT=1 YUKTA_PROJECT="$root" YUKTA_SCOPE=check watch_owned "$session" "$exec_id"
 }
 
 # yk gradle ARGS: ./gradlew ARGS in the checkout. yk tool [-C dir] CMD ARGS: any command in dir (relative to the
@@ -197,22 +197,41 @@ cmd_tool() {
   YK_TOOL=tool run_tool "$mode" "$dir" "$@"
 }
 
-# cmd_watch SESSION EXECUTION [--all]: follows a run until it ends, problems only (--all: every event),
-# then SLOW lines and the RESULT line.
+# watch_owned SESSION EXECUTION: cmd_watch for a run this client started. The run ends with the client: Ctrl-C, or Claude Code stopping
+# the background task (SIGTERM), stops the execution and the runs below it (a drain: work in progress gets up to 30 s). --detach is
+# the way to let a run outlive its client. The watch runs in the background because bash only runs a trap between foreground commands.
+watch_owned() {
+  local e="$2" w
+  cmd_watch "$@" &
+  w=$!
+  trap "trap - INT TERM; kill $w 2>/dev/null; echo 'interrupted: stopping $e and the runs below it' >&2; api POST '/api/executions/$e/stop?tree=true' >/dev/null 2>&1; exit 130" INT TERM
+  wait "$w"
+}
+
+# cmd_watch SESSION EXECUTION [--all|--stages]: follows a run until it ends, problems only (--all: every event; --stages: also one
+# "STAGE <name> finished" line per stage that ran, and "STAGE <name>.heal finished" per heal, so a Monitor sees progress on a clean run), then SLOW lines and the
+# RESULT line.
 cmd_watch() {
-  local session="${1:?usage: yk watch <session> <execution> [--all]}" target="${2:?usage: yk watch <session> <execution> [--all]}"
-  local filter=(--quiet)
+  local session="${1:?usage: yk watch <session> <execution> [--all|--stages]}" target="${2:?usage: yk watch <session> <execution> [--all|--stages]}"
+  local filter=(--quiet) progress=""
   [[ "${3:-}" == --all ]] && filter=()
   export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
   # a checkpoint that waits for an answer is news too: say so, once, while the run is watched
   announce_signals "$target" 8>&- &
   local announcer=$!
+  if [[ "${3:-}" == --stages ]]; then
+    ("$(find_cli)" controlbus watch --execution "$target" --until-done 2>/dev/null \
+      | grep --line-buffered -E '^NODE ([a-z_]+|verify)(\.heal)? SUCCESS$' | grep --line-buffered -v -E '^NODE (trigger|done) ' \
+      | sed -u 's/^NODE \(.*\) SUCCESS$/STAGE \1 finished/') 8>&- &
+    progress=$!
+  fi
   # A node that never ran (a rung nobody needed, or one behind the failure) is not news: the check has
   # dozens of them. ponytail: filtered here; belongs in the CLI's --quiet if other callers want it.
   "$(find_cli)" controlbus watch --execution "$target" --until-done "${filter[@]}" \
     | { if ((${#filter[@]})); then grep -v -E '^NODE [^ ]+ (SKIPPED|UPSTREAM_FAILED|CANCELLED)$|^(ERROR|WARN) (heal|attempt|claude|fix-from)/(trigger|heal\?|auto\?|brief|prepare|first|triage\?|report|fixed\?|carry\.[a-z]+):|^WARN [^ ]+: (\* Deprecated licenses: 0|Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true`.*)$'; else cat; fi; } || true
   kill "$announcer" 2>/dev/null || true
   wait "$announcer" 2>/dev/null || true
+  [[ -z "$progress" ]] || wait "$progress" 2>/dev/null || true
   record_durations "$session" "$target" "${YUKTA_SCOPE:--}"
   print_result "$session" "$target"
 }

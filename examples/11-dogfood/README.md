@@ -19,12 +19,15 @@ any checkout/branch ──yk──┘  session apply → workflow start → prob
 |---|---|
 | `yk gradle [--detach] <args>` | one Gradle run, e.g. `:core:test --tests X` |
 | `yk tool [--detach] [-C dir] <cmd>` | any other command once: `-C cli go test ./...`, `-C ui npx --no-install prettier --check .` |
+| `yk watch <session> <execution> [--all\|--stages]` | follow a run (problems only; `--stages` adds a `STAGE <name> finished` line per stage, for a Monitor) |
 | `yk plan [--full] [--base REF]` | dry run: the stages a scoped check of your changes would run (nothing executes) |
 | `yk check [--full] [--base REF] [--no-heal] [--models m,..] [--triage off] [--detach]` | the scoped, self-healing gate |
 
 Every run ends with `RESULT status=<S> failed_node=<stage|-> healed=<stage:model/effort,..|-> execution=<id> session=<id>`; exit 0
 only on success. `yk watch <session> <execution>` follows a detached run and prints problems only. Run the smallest scope
 that covers your change.
+
+Steering: `yk tree|pause|resume|stop|skip|retry|break|step|signals|approve|reject` (`stop` is a drain of up to 30 s; add `--tree` to reach the runs below). A foreground `yk` ends its run when it is interrupted or stopped (Ctrl-C, or Claude Code stopping a background task); `--detach` runs outlive their client.
 
 The other commands (`yk run issue|epic`, `yk heal report|analyze|show`, steering, the Stop hook, the slash commands) are
 switched off while the loop is rebuilt; their pieces are in `backup/`, and `backup/README.md` says how to bring each back.
@@ -91,6 +94,7 @@ a per-effort budget and time box. `YK_ADVISOR=sonnet` (experimental, off by defa
 | `scripts/_lib.sh` | server, session and watch helpers |
 | `scripts/test-heal.sh` | the end-to-end test of check and heal against a fake claude (`yk up` first; no API cost) |
 | `scripts/test-hooks.sh` | the Claude Code hooks |
+| `scripts/test-yk.sh` | interrupt, detach and `--stages` of `yk` against the dev server (no cost) |
 | `eval/triage/` | the triage model evaluation |
 | `backup/` | the previous implementation, kept while the loop is rebuilt |
 

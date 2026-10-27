@@ -64,6 +64,7 @@ For issue runs: `YUKTA_IMPL_MODEL` (opus), `YUKTA_IMPL_BUDGET` (5), `YUKTA_BUDGE
 
 ```bash
 scripts/test-hooks.sh eval/triage/selftest.sh   # offline: the Claude Code hooks, the triage evaluation
+scripts/test-yk.sh                              # on the dev server: a stopped foreground yk stops its run, --detach outlives, --stages
 scripts/test-heal.sh                            # on the dev server (yk up), against a fake claude and a fake Ollama: about a minute, no API cost
 ```
 `test-heal.sh` runs five scenarios through the real `check` workflow: two failing stages healed one after the other, a no-change attempt that
