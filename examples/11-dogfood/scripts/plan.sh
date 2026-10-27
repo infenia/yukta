@@ -93,6 +93,33 @@ dependents=(); for m in "${!dep[@]}"; do [[ -z "${mod[$m]:-}" ]] && dependents+=
 mapfile -t changed < <(printf '%s\n' "${changed[@]:-}" | sort | grep .) || true
 mapfile -t dependents < <(printf '%s\n' "${dependents[@]:-}" | sort | grep .) || true
 
+# narrow_tests: ":m:test --tests a.b.FooTest ..." when every changed file is Java under a module's src/main|src/test, no diff line touches a
+# public/protected member or a type declaration, and every changed main class has a <Class>Test; else nothing (the whole modules run).
+narrow_tests() {
+  local f m dir out="" t cls tf pkgpath diff
+  ((${#files[@]})) || return 0
+  for f in "${files[@]}"; do
+    [[ "$f" == *.md ]] && continue
+    [[ "$f" =~ ^(.+)/src/(main|test)/java/(.+)\.java$ ]] || return 0
+  done
+  diff="$( (git diff -U0 "$mb" -- "${files[@]}"; for f in $(git ls-files --others --exclude-standard); do echo "+++ $f"; sed 's/^/+/' "$f"; done) 2>/dev/null)"
+  grep -Eq '^[+-][[:space:]]*(public|protected|abstract|default)[[:space:]]|^[+-].*[[:space:]](interface|record|enum|@interface)[[:space:]]' <<<"$diff" && return 0
+  for m in "${changed[@]}"; do
+    dir="${m//://}"; t=""
+    for f in "${files[@]}"; do
+      [[ "$f" == *.md ]] && continue
+      [[ "$f" == "$dir"/src/* ]] || continue
+      pkgpath="${f#"$dir"/src/*/java/}"; pkgpath="${pkgpath%.java}"
+      if [[ "$f" == "$dir"/src/test/java/* ]]; then tf="$f"; cls="$pkgpath"; else tf="$dir/src/test/java/${pkgpath}Test.java"; cls="${pkgpath}Test"; fi
+      [[ -f "$tf" ]] || return 0
+      t+=" --tests ${cls//\//.}"
+    done
+    [[ -n "$t" ]] || return 0
+    out+=" :$m:test$t"
+  done
+  echo "${out# }"
+}
+
 # per-module task list: scoped "<task>" -> ":m:<task>" for each module
 scoped() { local t="$1"; shift; local out=() m x; for m in "$@"; do for x in $t; do out+=(":$m:$x"); done; done; echo "${out[*]}"; }
 if ((full_java)); then
@@ -102,13 +129,29 @@ if ((full_java)); then
   emit style . "$(gr checkstyleMain checkstyleTest pmdMain pmdTest)"; emit spotbugs . "$(gr spotbugsMain spotbugsTest)"
   emit licenses . "$(gr licensee)"; emit security . "$(gr opengrep trivy)"
 elif ((${#changed[@]})); then
-  echo "# gradle: changed ${changed[*]}; dependents (compile and tests only): ${dependents[*]:-none}"
+  # Tier 1: only Java files changed in the modules, none of the changed lines touches a public or protected member or a type declaration,
+  # and every changed class has its <Class>Test: dependants cannot be affected, only those test classes run (no coverage stage: it
+  # would judge a partial run). ponytail: a textual check of the diff, not an API diff; `yk check --full` is the safety net before a PR.
+  narrow=""
+  if ((! buildfile)); then
+    narrow="$(narrow_tests)"
+  fi
+  if [[ -n "$narrow" ]]; then
+    echo "# gradle: changed ${changed[*]}; only the tests of the changed classes (no public API touched): $narrow"
+    dependents=()
+  else
+    echo "# gradle: changed ${changed[*]}; dependents (compile and tests only): ${dependents[*]:-none}"
+  fi
   both=("${changed[@]}" "${dependents[@]}")
   echo "# modules: ${changed[*]}"
   emit spotless . "$(gr $(scoped spotlessCheck "${changed[@]}"))" "$(gr $(scoped spotlessApply "${changed[@]}"))"
   emit compile . "$(gr $(scoped 'compileJava compileTestJava' "${both[@]}"))"
-  emit tests . "$(gr $(scoped 'test jacocoTestReport' "${both[@]}"))"
-  emit coverage . "$(gr $(scoped 'jacocoTestCoverageVerification verifyCoverageData' "${changed[@]}"))"
+  if [[ -n "$narrow" ]]; then
+    emit tests . "$(gr $narrow)"
+  else
+    emit tests . "$(gr $(scoped 'test jacocoTestReport' "${both[@]}"))"
+    emit coverage . "$(gr $(scoped 'jacocoTestCoverageVerification verifyCoverageData' "${changed[@]}"))"
+  fi
   emit style . "$(gr $(scoped 'checkstyleMain checkstyleTest pmdMain pmdTest' "${changed[@]}"))"
   emit spotbugs . "$(gr $(scoped 'spotbugsMain spotbugsTest' "${changed[@]}"))"
   ((buildfile)) && emit licenses . "$(gr licensee)"
