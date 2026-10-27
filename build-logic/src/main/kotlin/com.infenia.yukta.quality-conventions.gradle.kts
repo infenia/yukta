@@ -142,6 +142,8 @@ tasks.register<Exec>("opengrep") {
     group = "verification"
     usesService(opengrepExecution)
 
+    // Production code only, on purpose: test source is covered by Checkstyle, PMD and SpotBugs, not by
+    // the OpenGrep security rules. Rules scoped to tests in the ruleset therefore do not run here.
     val sourceDir = project.file("src/main")
     val ruleFile = rootProject.file("config/opengrep/.semgrep.yml")
     val reportDir = project.layout.buildDirectory.dir("reports/opengrep").get()
@@ -157,9 +159,9 @@ tasks.register<Exec>("opengrep") {
         reportDir.asFile.mkdirs()
     }
 
-    // Use temp directory for opengrep settings to avoid read-only filesystem issues
-    val tempDir = System.getProperty("java.io.tmpdir")
-    environment("HOME", tempDir)
+    // A per-project settings dir (not the shared tmpdir) so concurrent builds do not share it, and it
+    // stays writable on a read-only home.
+    environment("HOME", project.layout.buildDirectory.dir("tmp/opengrep-home").get().asFile.also { it.mkdirs() })
 
     // --error: any finding exits non-zero, which fails the build.
     // Run from the repo root with relative paths so rule ids stay short (`nosem: <id>` matches).
