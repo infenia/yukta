@@ -22,6 +22,7 @@ any checkout/branch ──yk──┘  session apply → workflow start → prob
 | `yk watch <session> <execution> [--all\|--stages]` | follow a run (problems only; `--stages` adds a `STAGE <name> finished` line per stage, for a Monitor) |
 | `yk plan [--full] [--base REF]` | dry run: the stages a scoped check of your changes would run (nothing executes) |
 | `yk check [--full] [--base REF] [--stage a,b] [--skip a,b] [--no-heal] [--models m,..] [--triage off] [--detach]` | the scoped, self-healing gate |
+
 Any Gradle flag goes through `yk gradle` verbatim (`--info`, `-x test`, `-Dk=v`, `--stacktrace`); an environment variable or a folder goes through `yk tool` (`yk tool env K=V ./gradlew ...`, `yk tool -C sub cmd`). `YUKTA_DOGFOOD=off` in the environment skips the hooks for one session (raw Gradle, the user's call).
 
 Every run ends with `RESULT status=<S> failed_node=<stage|-> healed=<stage:model/effort,..|-> execution=<id> session=<id>`; exit 0
