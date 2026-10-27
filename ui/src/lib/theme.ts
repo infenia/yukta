@@ -11,9 +11,21 @@ const THEME_KEY = 'theme';
 // Subscribers to theme changes
 const subscribers: Set<() => void> = new Set();
 
+// Kept for the page's lifetime so a choice still holds when storage is blocked.
+let current: Theme | null = null;
+
+function isTheme(value: unknown): value is Theme {
+  return value === 'light' || value === 'dark' || value === 'system';
+}
+
 export function getTheme(): Theme {
-  const stored = localStorage.getItem(THEME_KEY);
-  return (stored as Theme) || 'system';
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    return isTheme(stored) ? stored : 'system';
+  } catch {
+    // Storage is blocked (private mode, sandboxed frame): use the in-memory choice.
+    return current ?? 'system';
+  }
 }
 
 function applyTheme(theme: Theme): void {
@@ -30,7 +42,12 @@ function applyTheme(theme: Theme): void {
 }
 
 export function setTheme(theme: Theme): void {
-  localStorage.setItem(THEME_KEY, theme);
+  current = theme;
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    // Not persisted; the choice still applies until the page is closed.
+  }
   applyTheme(theme);
 
   // Dispatch custom event for cross-tab and local updates

@@ -16,6 +16,24 @@ describe('theme', () => {
     document.documentElement.className = '';
   });
 
+  describe('with storage blocked', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it('reads "system" instead of throwing, and keeps a choice made in this page', () => {
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new DOMException('blocked', 'SecurityError');
+      });
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('blocked', 'SecurityError');
+      });
+
+      expect(getTheme()).toBe('system');
+      setTheme('dark');
+      expect(getTheme()).toBe('dark');
+      expect(document.documentElement.classList.contains('dark')).toBe(true);
+    });
+  });
+
   describe('getTheme', () => {
     it('should return "system" when no theme is stored', () => {
       const theme = getTheme();
@@ -34,10 +52,10 @@ describe('theme', () => {
       expect(theme).toBe('light');
     });
 
-    it('should return stored theme even if invalid', () => {
+    it('should fall back to "system" for a stored value that is not a theme', () => {
       localStorage.setItem('theme', 'invalid');
       const theme = getTheme();
-      expect(theme).toBe('invalid' as Theme);
+      expect(theme).toBe('system');
     });
   });
 
