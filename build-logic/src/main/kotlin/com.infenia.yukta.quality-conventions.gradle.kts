@@ -143,12 +143,14 @@ tasks.register<Exec>("opengrep") {
     usesService(opengrepExecution)
 
     val sourceDir = project.file("src/main")
+    // Tests too: the yukta-test-thread-sleep rule only has something to flag there.
+    val scanDirs = listOf("src/main", "src/test", "src/testFixtures").map { project.file(it) }.filter { it.exists() }
     val ruleFile = rootProject.file("config/opengrep/.semgrep.yml")
     val reportDir = project.layout.buildDirectory.dir("reports/opengrep").get()
     val reportFile = reportDir.file("opengrep-report.sarif").asFile
 
     inputs.file(ruleFile)
-    inputs.dir(sourceDir).optional()
+    scanDirs.forEach { inputs.dir(it) }
     // Declared output makes the scan UP-TO-DATE / cacheable when sources and rules are unchanged.
     outputs.file(reportFile)
     outputs.cacheIf { true }
@@ -169,7 +171,7 @@ tasks.register<Exec>("opengrep") {
         "--error",
         "--sarif-output=${reportFile.absolutePath}",
         "--quiet",
-        sourceDir.relativeTo(rootProject.projectDir).path
+        *scanDirs.map { it.relativeTo(rootProject.projectDir).path }.toTypedArray()
     )
 
     onlyIf {

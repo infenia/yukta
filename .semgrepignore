@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+# SPDX-License-Identifier: Apache-2.0
+#
+# Replaces the built-in defaults, which skip test/ directories (the yukta-test-thread-sleep rule needs them).
+build/
+node_modules/

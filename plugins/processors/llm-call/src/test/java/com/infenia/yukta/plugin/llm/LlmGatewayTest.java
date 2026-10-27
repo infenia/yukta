@@ -310,7 +310,8 @@ class LlmGatewayTest {
         "/slow/api/chat",
         exchange -> {
           try {
-            Thread.sleep(5_000);
+            // a hung server is the input of the timeout test
+            Thread.sleep(5_000); // nosem: yukta-test-thread-sleep
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
           }

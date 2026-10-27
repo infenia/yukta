@@ -57,7 +57,8 @@ class HttpRequestGatewayTest {
         "/slow",
         exchange -> {
           try {
-            Thread.sleep(1500);
+            // a slow server is the input of the timeout test
+            Thread.sleep(1500); // nosem: yukta-test-thread-sleep
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
           }
