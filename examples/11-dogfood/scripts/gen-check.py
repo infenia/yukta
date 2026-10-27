@@ -19,7 +19,7 @@ STAGES = [
 NO_HEAL = {"licenses", "security"}  # a model may not fix these
 
 PASS = ["project", "healDir", "modules", "events", "models", "timeout", "rules", "claudeBin",
-        "triage", "triageModel", "triageUrl", "heal"]
+        "triage", "triageModel", "triageUrl", "heal", "budgetCheck"]
 
 
 def tool(stage, node_id, command=None):

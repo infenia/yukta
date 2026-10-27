@@ -163,10 +163,10 @@ cmd_check() {
   "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
   exec_id="$("$cli" -o json workflow start "$session" check --payload "$(jq -nc --arg p "$root" --arg d "$healdir" --arg ev "${events:--}" --arg m "${modules:--}" \
       --arg models "${models:--}" --arg heal "$heal" --arg triage "$triage" --arg rules "$here/fixer-rules.md" \
-      --arg bin "${YUKTA_CLAUDE_BIN:--}" --arg tmodel "${YUKTA_TRIAGE_MODEL:-$(jq -r '.triage.model' "$here/heal.json")}" \
+      --arg budget "${YUKTA_BUDGET_CHECK:-$(jq -r '.checkBudget' "$here/heal.json")}" --arg bin "${YUKTA_CLAUDE_BIN:--}" --arg tmodel "${YUKTA_TRIAGE_MODEL:-$(jq -r '.triage.model' "$here/heal.json")}" \
       --arg turl "${YUKTA_TRIAGE_URL:-$(jq -r '.triage.url' "$here/heal.json")}" --argjson c "$cmds" '
       {project: $p, timeout: 3600, healDir: $d, events: $ev, modules: $m, models: $models, heal: $heal, triage: $triage,
-       rules: $rules, claudeBin: $bin, triageModel: $tmodel, triageUrl: $turl,
+       rules: $rules, claudeBin: $bin, budgetCheck: $budget, triageModel: $tmodel, triageUrl: $turl,
        verifyCommand: (if $c.verifyTasks == "" then "true" else "./gradlew --continue \($c.verifyTasks) -q --console=plain" end),
        cmd: $c.cmd, auto: $c.auto, fmt: $c.fmt}')" \
     | jq -r '.data.executionId // .executionId')"
