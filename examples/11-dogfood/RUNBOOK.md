@@ -1,6 +1,6 @@
 # Heal runbook
 
-> The loop is being rebuilt: `yk run issue|epic` and `yk heal report|analyze|show` are switched off (see `backup/README.md`), and
+> The loop is being rebuilt: `yk run issue|epic` is switched off (see `backup/README.md`), and
 > the design is [DESIGN.html](DESIGN.html). Sections below that use those commands apply once they are restored.
 
 How to run the dogfood check, watch heal work and improve it. The design is in [DESIGN.html](DESIGN.html) and the short guide in [README.md](README.md); this is the operator's manual.
@@ -11,7 +11,7 @@ How to run the dogfood check, watch heal work and improve it. The design is in [
 |---|---|---|
 | `yk check`, `yk gradle` | Claude only when a stage fails and heal runs a fixer ($ per attempt: `heal.json` `efforts` budgets) | your working tree (fixers edit it, never commit) |
 | `yk run issue|epic` | an implementer ($5 cap) and fixers | the issue and the project board, a worktree, a pushed branch, a draft PR |
-| `yk heal report|analyze|show` | nothing | nothing (reads `heal-events.jsonl`) |
+| `yk heal report|analyze|show` | nothing | nothing (reads `heal-events.jsonl`; events written without a run id take the run of the session's next result) |
 | `eval/triage/eval.py` | nothing (local Ollama) | nothing |
 | `eval/triage/collect.py` | nothing | `gh` reads of your CI |
 

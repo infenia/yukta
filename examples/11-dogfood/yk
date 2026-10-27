@@ -3,9 +3,11 @@
 # server (built from origin/main, port 9858, started on demand).
 #
 #   yk gradle [--detach] <gradle args...>    run Gradle once, e.g. :core:test --tests X
-#   yk check [--full] [--base REF] [--no-heal] [--detach]  the scoped, self-healing gate: yk plan's stages one after the other; a failure is
+#   yk check [--full] [--base REF] [--stage a,b] [--skip a,b] [--no-heal] [--detach]  the scoped, self-healing gate: yk plan's stages one after the other; a failure is
 #                                            fixed (free fix, then a System One triage picks model and effort) or stops the run (--no-heal: at once)
 #   yk plan [--full] [--base REF]            dry run: the stages a scoped check of your changes would run, nothing is executed
+#   yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]
+#                                            what heal did: where the time and money went, what looks wrong, the raw events
 #   yk tool [--detach] [-C dir] <cmd...>     run any other command once, e.g. -C ui pnpm lint | -C cli go test ./...
 #
 # A run's last line is machine readable; exit 0 only on success:
@@ -103,22 +105,29 @@ run_tool() {
 # System One triage rates the failure and picks the model and effort to start with, and fresh Claude sessions climb from there.
 # --no-heal sends heal = "off": heal ends at once, so the first failing stage ends the run.
 cmd_check() {
-  local mode=watch plan_args=() heal=on models="" triage=on root plan cmds
+  local mode=watch plan_args=() heal=on models="" triage=on root plan cmds only="" skip=""
   while (($#)); do
     case "$1" in
       --detach) mode=detach; shift ;;
       --full) plan_args+=(--full); shift ;;
       --base) plan_args+=(--base "${2:?--base needs a ref}"); shift 2 ;;
       --no-heal) heal=off; shift ;;
+      --stage) only="${2:?--stage needs stage names, e.g. tests,style}"; shift 2 ;;
+      --skip) skip="${2:?--skip needs stage names, e.g. security}"; shift 2 ;;
       --models) models="${2:?--models needs models, e.g. haiku,sonnet}"; shift 2 ;;
       --triage) [[ "${2:-}" == off ]] || die "invalid --triage '${2:-}' (off)"; triage=off; shift 2 ;;
-      *) die "unknown option '$1' (yk check [--full] [--base REF] [--no-heal] [--models ..] [--triage off] [--detach])" ;;
+      *) die "unknown option '$1' (yk check [--full] [--base REF] [--stage a,b] [--skip a,b] [--no-heal] [--models ..] [--triage off] [--detach])" ;;
     esac
   done
   [[ -z "$models" || "$models" =~ ^(haiku|sonnet)(,(haiku|sonnet))*$ ]] || die "invalid --models '$models' (models from haiku, sonnet)"
   need jq
   root="$(git rev-parse --show-toplevel)"
   plan="$("$here/scripts/plan.sh" "${plan_args[@]}")" || die "yk plan failed"
+  if [[ -n "$only$skip" ]]; then
+    # --stage keeps only the named stages of the plan, --skip drops them (a name matches with - or _ either way, as yk plan prints it)
+    plan="$(filter_plan "$only" "$skip" <<<"$plan")"
+    grep -qv '^#' <<<"$plan" || die "no stage of the plan is left after --stage/--skip (yk plan shows the stages)"
+  fi
   grep '^#' <<<"$plan" >&2 || true
   local session healdir events
   session="$(check_session "$root" 0)-plan"
@@ -161,10 +170,10 @@ cmd_check() {
   "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
   exec_id="$("$cli" -o json workflow start "$session" check --payload "$(jq -nc --arg p "$root" --arg d "$healdir" --arg ev "${events:--}" --arg m "${modules:--}" \
       --arg models "${models:--}" --arg heal "$heal" --arg triage "$triage" --arg rules "$here/fixer-rules.md" \
-      --arg bin "${YUKTA_CLAUDE_BIN:--}" --arg tmodel "${YUKTA_TRIAGE_MODEL:-$(jq -r '.triage.model' "$here/heal.json")}" \
+      --arg budget "${YUKTA_BUDGET_CHECK:-$(jq -r '.checkBudget' "$here/heal.json")}" --arg bin "${YUKTA_CLAUDE_BIN:--}" --arg tmodel "${YUKTA_TRIAGE_MODEL:-$(jq -r '.triage.model' "$here/heal.json")}" \
       --arg turl "${YUKTA_TRIAGE_URL:-$(jq -r '.triage.url' "$here/heal.json")}" --argjson c "$cmds" '
       {project: $p, timeout: 3600, healDir: $d, events: $ev, modules: $m, models: $models, heal: $heal, triage: $triage,
-       rules: $rules, claudeBin: $bin, triageModel: $tmodel, triageUrl: $turl,
+       rules: $rules, claudeBin: $bin, budgetCheck: $budget, triageModel: $tmodel, triageUrl: $turl,
        verifyCommand: (if $c.verifyTasks == "" then "true" else "./gradlew --continue \($c.verifyTasks) -q --console=plain" end),
        cmd: $c.cmd, auto: $c.auto, fmt: $c.fmt}')" \
     | jq -r '.data.executionId // .executionId')"
@@ -471,6 +480,7 @@ case "$cmd" in
   gradle) cmd_gradle "$@" ;;
   tool) cmd_tool "$@" ;;
   plan) exec "$here/scripts/plan.sh" "$@" ;;
+  heal) need python3; exec python3 -I "$here/scripts/heal-report.py" "$@" ;;
   watch) cmd_watch "$@" ;;
   tree) cmd_tree "$@" ;;
   pause | resume | stop) cmd_run_control "$cmd" "$@" ;;

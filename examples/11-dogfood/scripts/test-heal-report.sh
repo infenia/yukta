@@ -74,4 +74,9 @@ ev = [json.loads(l) for l in open(sys.argv[1])]
 open(sys.argv[2], "w").write(json.dumps([x for x in ev if x["run"] == "1aaaaaaaa" and x["event"] in ("stage", "recheck", "verify")][0]) + "\n")
 PY
 python3 -I "$here/heal-report.py" analyze --events "$dir/clean.jsonl" | grep -q 'no findings' || fail "clean log"
+# events written without a run id take the run of the session's next result
+printf '%s\n' \
+  '{"v":1,"ts":"2026-10-25T10:01:00Z","run":"-","session":"s9","project":"yukta","event":"fix","stage":"tests","attempt":1,"model":"haiku","fixed":true,"files":[],"cost":0.1,"secs":5}' \
+  '{"v":1,"ts":"2026-10-25T10:02:00Z","run":"9eeeeeeee","session":"s9","project":"yukta","event":"result","status":"SUCCESS","failed_node":"-","healed":"tests:haiku","secs":10}' >"$dir/stamp.jsonl"
+python3 -I "$here/heal-report.py" show --events "$dir/stamp.jsonl" | grep -c '"run": "9eeeeeeee"' | grep -qx 2 || fail "run stamping"
 echo "ok   heal report"

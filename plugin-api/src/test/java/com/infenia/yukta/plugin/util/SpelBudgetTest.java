@@ -147,7 +147,8 @@ class SpelBudgetTest {
 
   private static void sleep(final long millis) {
     try {
-      Thread.sleep(millis);
+      // the wall-clock budget under test
+      Thread.sleep(millis); // nosem: yukta-test-thread-sleep
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }

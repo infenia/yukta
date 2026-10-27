@@ -34,6 +34,7 @@ prompt="" model=""
 while (($#)); do case "$1" in -p) prompt="$2"; shift 2 ;; --model) model="$2"; shift 2 ;; *) shift ;; esac; done
 stage="$(grep -o 'Stage "[a-z_]*"' <<<"$prompt" | head -1 | cut -d'"' -f2)"
 action="$(awk -v s="$stage" -v m="$model" '$1 == s && $2 == m { print $3 }' "$here/plan")"
+printf '%s\n---\n' "$prompt" >>"$here/prompt.log"
 echo "start $(date +%s.%N) $stage $model ${action:-nochange}" >>"$here/claude.log"
 sleep 1
 fixed=false
@@ -62,11 +63,11 @@ scenario() {
   render_session "$here/session.json" "$proj" | jq --arg s "$session" '.sessionId=$s | .name=$s' >"$dir/session.json"
   "$cli" session apply "$dir/session.json" >"$dir/apply.out" 2>&1 || { cat "$dir/apply.out" >&2; fail "$name: session apply"; }
   exec_id="$("$cli" -o json workflow start "$session" check --payload "$(jq -nc --arg p "$proj" --arg d "$healdir" --arg bin "$dir/claude" \
-    --arg rules "$here/fixer-rules.md" --arg verify "${VERIFY:-true}" --arg triage "${TRIAGE_URL:+on}" --arg turl "${TRIAGE_URL:-http://127.0.0.1:1}" \
+    --arg rules "$here/fixer-rules.md" --arg verify "${VERIFY:-true}" --arg budget "${BUDGET_CHECK:--}" --arg triage "${TRIAGE_URL:+on}" --arg turl "${TRIAGE_URL:-http://127.0.0.1:1}" \
     --argjson c "$cmds" --argjson n "$names" '
     ($n | map({(.): "-"}) | add) as $dash
     | {project: $p, timeout: 120, healDir: $d, events: "-", modules: "-", models: "-", heal: "on", triage: (if $triage == "on" then "on" else "off" end),
-       rules: $rules, claudeBin: $bin, triageModel: "fake", triageUrl: $turl, verifyCommand: $verify, cmd: $c, auto: $dash, fmt: $dash}')" \
+       rules: $rules, claudeBin: $bin, budgetCheck: $budget, triageModel: "fake", triageUrl: $turl, verifyCommand: $verify, cmd: $c, auto: $dash, fmt: $dash}')" \
     | jq -r '.data.executionId // .executionId')"
   [[ -n "$exec_id" && "$exec_id" != null ]] || fail "$name: could not start"
   for ((i = 0; i < 240; i++)); do
@@ -101,6 +102,18 @@ name="single attempt"
 CMD_reuse='test -f reuse.ok' scenario "$name" "reuse haiku wrong" "reuse sonnet fix"
 expect "status=FAILED"; expect "failed_node=reuse"
 [[ "$(calls)" == 1 ]] || fail "$name: expected 1 claude call, got $(calls)"
+
+name="check budget"
+# the fake claude costs $0.001 a call: a cap of $0.0005 is spent after the first rung, so the second never starts
+BUDGET_CHECK=0.0005 CMD_compile='test -f compile.ok' scenario "$name" "compile haiku nochange" "compile sonnet fix"
+expect "status=FAILED"; expect "failed_node=compile"
+[[ "$(calls)" == 1 ]] || fail "$name: expected 1 claude call, got $(calls)"
+
+name="excerpts"
+mkdir -p "$proj/src" && seq 1 40 | sed 's/^/line /' >"$proj/src/A.java" && git -C "$proj" add src/A.java
+CMD_compile='echo "src/A.java:20: error: boom"; test -f compile.ok' scenario "$name" "compile haiku fix"
+expect "status=SUCCESS"
+grep -q 'line 20' "$dir/prompt.log" 2>/dev/null || fail "$name: no excerpt in the prompt"
 
 name="verify"
 CMD_compile='test -f compile.ok' VERIFY='test -f compile.ok && test -f verify.ok' scenario "$name" "compile haiku fix" "verify haiku fix"
