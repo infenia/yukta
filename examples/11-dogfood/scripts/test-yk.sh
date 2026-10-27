@@ -37,6 +37,17 @@ grep -q '^RESULT status=SUCCESS' <<<"$out2" || { echo "$out2" >&2; fail "concurr
 "$yk" stop "$e1" >/dev/null 2>&1 || true
 echo "ok   concurrent"
 
+# levels: a failing run drops the known noise, names the next level, and yk detail returns the full text
+out="$("$yk" tool sh -c 'echo "BUILD FAILED in 4s"; echo "Foo.java:3: error: boom"; echo "second line"; exit 1' 2>&1)" || true
+grep -q 'BUILD FAILED' <<<"$out" && fail "levels: noise line kept: $out"
+grep -q 'Foo.java:3: error: boom' <<<"$out" || fail "levels: the error line is missing: $out"
+more="$(sed -n 's/^MORE yk detail \([^ ]*\) \([^ ]*\) .*/\1 \2/p' <<<"$out")"
+[[ -n "$more" ]] || fail "levels: no MORE line: $out"
+[[ "$("$yk" detail $more --grep boom)" == *"error: boom"* ]] || fail "levels: detail --grep"
+[[ "$("$yk" detail $more --tail 1)" == "second line" ]] || fail "levels: detail --tail"
+[[ "$("$yk" tool true | tail -1)" == RESULT* ]] || fail "levels: the last line is not RESULT"
+echo "ok   levels"
+
 # stages: a progress line without --all
 out="$("$yk" tool --detach sleep 2 2>&1)"
 e="$(exec_of <(echo "$out"))"

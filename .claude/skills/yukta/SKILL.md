@@ -71,6 +71,7 @@ The last line is `RESULT status=<S> failed_node=<node> healed=<stage:model/effor
 success. A failure (`status=FAILED|FAILURE`) is preceded by `ERROR …` lines and, for a check, `OUTPUT <stage>: …` (the last 40
 lines of that stage). Fix only what they report, then rerun the same command. If they are not enough, grep the report they name
 (`<failure` in `<module>/build/test-results/test/TEST-*.xml`); never read a report or log whole.
+Levels of output: a green run is a few lines ending in `RESULT`; a red run adds the `ERROR` lines (known noise such as `BUILD FAILED in ..`, the exit-code line and JVM `WARNING:` lines is dropped, so a failing compile is a few hundred bytes), then a `MORE yk detail <session> <execution>` line just above `RESULT`. That is the next level: `yk detail <session> <execution> [--grep P] [--tail N] [--head N]` prints the full output of the stage that failed, filtered; use it before opening a report file.
 
 ## Don'ts
 - Don't run `./gradlew`/`gradle`, `go` or `pnpm`/`npm`/`npx` directly, or start the Yukta dev server yourself (`./gradlew bootRun`
