@@ -115,7 +115,7 @@ dependencies {
     constraints {
         add("checkstyle", "org.codehaus.plexus:plexus-utils:3.6.1")
         // Keep spotbugs-annotations on the version SpotBugs itself uses
-        add("implementation", "com.github.spotbugs:spotbugs-annotations:4.10.3")
+        add("implementation", "com.github.spotbugs:spotbugs-annotations:${libs.findVersion("spotbugsAnnotations").get().requiredVersion}")
     }
 }
 
