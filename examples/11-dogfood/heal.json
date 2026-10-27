@@ -9,12 +9,17 @@
       "budget": 2
     }
   },
+  "singleAttempt": [
+    "reuse",
+    "docs",
+    "actionlint"
+  ],
   "triage": {
     "model": "tev1",
     "url": "http://192.168.1.37:11434",
     "default": "average",
     "minProbability": 0.3,
-    "question": "How hard is it to fix this failed check of a Java build? Judge the work a fix needs, not how scary the message looks.",
+    "question": "How hard is it to fix this failed check of a software project? Judge the work a fix needs, not how scary the message looks.",
     "levels": {
       "easy": {
         "ladder": [

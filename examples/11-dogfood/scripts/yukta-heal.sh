@@ -67,6 +67,16 @@ files_json() { if [[ -n "$1" ]]; then printf '%s\n' "$1" | jq -R . | jq -sc .; e
 # plain: spinner and colour codes out (mint redraws one line many times), carriage returns as newlines
 plain() { sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/\r/\n/g'; }
 
+# ecosystem STAGE: what the stage checks, from its name (plan.sh names the stages), so the triage question can stay neutral
+ecosystem() {
+  case "$1" in
+    cli_*) echo "go (cli)" ;;
+    ui_*) echo "typescript (ui)" ;;
+    reuse | actionlint | docs) echo "repo files" ;;
+    *) echo "java (gradle)" ;;
+  esac
+}
+
 # problem_lines FILE [MAX]: the lines of a run that say what went wrong, as yukta's --quiet picks them.
 problem_lines() {
   plain <"$1" | awk '
@@ -112,6 +122,7 @@ case "$action" in
     brief="$(
       {
         echo "stage: $stage"
+        echo "ecosystem: $(ecosystem "$stage")"
         echo "files changed so far: $(git ls-files -m -o --exclude-standard | wc -l)"
         echo "command: ${YUKTA_COMMAND:-}"
         problem_lines "$out" 25

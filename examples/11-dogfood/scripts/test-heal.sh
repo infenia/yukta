@@ -6,6 +6,7 @@
 #   two stages        both are healed, one fixer after the other (no overlap)
 #   no change         an attempt that changed nothing ends the ladder (sonnet is not called)
 #   escalation        a change that does not fix it escalates to the next rung
+#   single attempt    a stage in heal.json singleAttempt (reuse) gets one attempt even when it changed something
 #   verify            a verify that fails goes back to heal
 #   triage            a "hard" failure starts at sonnet/low (fake Ollama)
 set -euo pipefail
@@ -47,7 +48,7 @@ SH
 chmod +x "$dir/claude"
 
 # scenario NAME PLAN-LINES... : sets $result to the RESULT line of a check of the project. The environment variables CMD_<stage>
-# (a stage command), VERIFY (the verify command) and TRIAGE_URL choose the run.
+# (a stage command; compile, tests, reuse), VERIFY (the verify command) and TRIAGE_URL choose the run.
 scenario() {
   local name="$1" session="test-heal-$$" names cmds exec_id status
   shift
@@ -56,8 +57,8 @@ scenario() {
   mkdir -p "$healdir"
   printf '%s\n' "$@" >"$dir/plan"
   names="$(jq -c '[.workflows.check.nodes[] | select(.type == "SUB_WORKFLOW" and .config.workflowId == "tool" and .nodeId != "verify") | .nodeId]' "$here/session.json")"
-  cmds="$(jq -nc --argjson n "$names" --arg c "${CMD_compile:-}" --arg t "${CMD_tests:-}" \
-    '($n | map({(.): ""}) | add) + {compile: $c, tests: $t}')"
+  cmds="$(jq -nc --argjson n "$names" --arg c "${CMD_compile:-}" --arg t "${CMD_tests:-}" --arg r "${CMD_reuse:-}" \
+    '($n | map({(.): ""}) | add) + {compile: $c, tests: $t, reuse: $r}')"
   render_session "$here/session.json" "$proj" | jq --arg s "$session" '.sessionId=$s | .name=$s' >"$dir/session.json"
   "$cli" session apply "$dir/session.json" >"$dir/apply.out" 2>&1 || { cat "$dir/apply.out" >&2; fail "$name: session apply"; }
   exec_id="$("$cli" -o json workflow start "$session" check --payload "$(jq -nc --arg p "$proj" --arg d "$healdir" --arg bin "$dir/claude" \
@@ -95,6 +96,11 @@ name="escalation"
 CMD_compile='test -f compile.ok' scenario "$name" "compile haiku wrong" "compile sonnet fix"
 expect "status=SUCCESS"; expect "compile:sonnet/low"
 [[ "$(calls)" == 2 ]] || fail "$name: expected 2 claude calls, got $(calls)"
+
+name="single attempt"
+CMD_reuse='test -f reuse.ok' scenario "$name" "reuse haiku wrong" "reuse sonnet fix"
+expect "status=FAILED"; expect "failed_node=reuse"
+[[ "$(calls)" == 1 ]] || fail "$name: expected 1 claude call, got $(calls)"
 
 name="verify"
 CMD_compile='test -f compile.ok' VERIFY='test -f compile.ok && test -f verify.ok' scenario "$name" "compile haiku fix" "verify haiku fix"

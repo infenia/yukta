@@ -2672,7 +2672,7 @@
             "model": "${start.triageModel}",
             "baseUrl": "${start.triageUrl}",
             "state": "payload['brief']",
-            "question": "How hard is it to fix this failed check of a Java build? Judge the work a fix needs, not how scary the message looks.",
+            "question": "How hard is it to fix this failed check of a software project? Judge the work a fix needs, not how scary the message looks.",
             "labels": {
               "easy": "A mechanical or small obvious fix: formatting, an import, a license header, a typo, a missing semicolon, a style or analyzer finding in one file, a type or signature change at a few call sites.",
               "average": "One failing test or runtime error whose cause is visible, or a few classes and tests to change together, or tests to add (a coverage threshold missed).",
@@ -2814,7 +2814,8 @@
             "mapping": {
               "problems": "payload['results'] == null ? payload['problems'] : (payload['results'].size() > 0 ? payload['results'][0]['output']['problems'] : 'The previous attempt did not finish: ' + payload['reason'])",
               "previous": "payload['results'] == null ? 'The previous attempt ran out of time.' : (payload['results'].size() > 0 ? payload['results'][0]['output']['summary'] : '')",
-              "changed": "payload['results'] == null ? true : (payload['results'].size() > 0 ? payload['results'][0]['output']['changed'] : true)"
+              "changed": "payload['results'] == null ? true : (payload['results'].size() > 0 ? payload['results'][0]['output']['changed'] : true)",
+              "stage": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['output']['stage'] : '')"
             }
           }
         },
@@ -2824,7 +2825,7 @@
           "config": {
             "mode": "EXPRESSION",
             "cases": {
-              "payload['changed'] == false": "stop"
+              "payload['changed'] == false or {'reuse','docs','actionlint'}.contains(payload['stage'])": "stop"
             },
             "defaultPort": "go"
           }

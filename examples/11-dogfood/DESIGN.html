@@ -123,7 +123,7 @@ button#theme{float:right;border:1px solid var(--line);background:var(--panel);co
   <div><b>4 · ladder</b>rungs of <code>model/effort</code>, one attempt each</div>
 </div>
 <h3>Triage</h3>
-<p>The label only picks the first rung. Below <code>minProbability</code> (0.3), or when the model is unreachable, heal starts at the <code>default</code> level (average). <code>--triage off</code> skips the call. The triage model and URL are in <code>heal.json</code> and overridden by <code>YUKTA_TRIAGE_MODEL</code> and <code>YUKTA_TRIAGE_URL</code>.</p>
+<p>The question is neutral ("a failed check of a software project"), and the brief names the ecosystem from the stage (<code>ecosystem: go (cli)</code>, <code>typescript (ui)</code>, <code>repo files</code> or <code>java (gradle)</code>) instead of a second model call. The label only picks the first rung. Below <code>minProbability</code> (0.3), or when the model is unreachable, heal starts at the <code>default</code> level (average). <code>--triage off</code> skips the call. The triage model and URL are in <code>heal.json</code> and overridden by <code>YUKTA_TRIAGE_MODEL</code> and <code>YUKTA_TRIAGE_URL</code>.</p>
 <h3>Ladders</h3>
 <div class="tw"><table>
 <tr><th>Level</th><th>Ladder</th><th>For</th></tr>
@@ -136,6 +136,7 @@ button#theme{float:right;border:1px solid var(--line);background:var(--panel);co
 <ul>
 <li>The next rung gets the new failure output and the previous attempt's summary plus the files it changed.</li>
 <li><b>An attempt that changed no file ends the ladder.</b> A stronger model asked the same question rarely answers it differently; this saves the 15 to 20 times higher cost of the next rung. A timeout or crash still escalates.</li>
+<li><b>A stage in <code>singleAttempt</code> (<code>reuse</code>, <code>docs</code>, <code>actionlint</code>) gets one attempt.</b> An edit to the code often cannot fix them (a licence header, a docs link), and in the events log 23 of 30 <code>reuse</code> attempts failed, $0.166 of $0.217.</li>
 <li>The end of the ladder gives up: heal ends FAILED and <code>check</code> ends with <code>failed_node</code> = the stage.</li>
 <li><code>--models</code> can stop a rung before it starts: a model left out has its attempts end at once.</li>
 </ul>
@@ -204,6 +205,7 @@ button#theme{float:right;border:1px solid var(--line);background:var(--panel);co
 <li>One verify run reported a PMD violation after both stages had been healed, a second run was clean: flaky, and the reason for sending verify back to heal.</li>
 </ul>
 
+<p>Triage on <code>tev1</code> (fake-free, 2.7 s a call): the three easy sets score 14/14, 13/14 and 10/10 on every prompt variant, so they cannot tell prompts apart. A harder set of 25 boundary cases (<code>eval/triage/fixtures/synthetic-d.json</code>, labelled by reading) scores 16 to 17 of 25 (24 within one level). The misses are one-sided: the model calls multi-file compile, type and lint failures <em>easy</em> because each message looks simple (an API rename in 9 files, a type change with 37 errors, 14 PMD violations in 7 files) and a native-image reflection failure <em>easy</em>. The neutral question and the ecosystem line change nothing measurable.</p>
 <h2 id="gaps">Engine gaps found while building</h2>
 <p class="lead">Things the workflow engine cannot do yet, and the workaround each one has here. G4 (nesting depth 5) does not bite the current five workflows; it will when issue and epic runs return.</p>
 <div class="tw"><table>
@@ -232,6 +234,7 @@ button#theme{float:right;border:1px solid var(--line);background:var(--panel);co
 <li><b>Docs stage.</b> <code>mint broken-links</code> works locally (exit 1 on a bad link). A heal run once failed to clear it; the leading suspect was the spinner output hiding the report, which is now stripped. Unconfirmed.</li>
 <li><b>Advisor.</b> Compare <code>haiku</code> with <code>--advisor sonnet</code> against the haiku → sonnet ladder on the same failures before using it; it needs a per-rung field in <code>heal.json</code>.</li>
 <li><b>Parallel stages: measured, not built.</b> The non-Gradle stages of a full check take about 57 s when run one after the other and warm (cli 18 s, ui 29 s, repo 10 s); Gradle stages share one project and the <code>tool</code> group allows 2, so they gain nothing. A scoped check of Java changes has only about 2 s of non-Gradle work. Parallel chains would also lose fail-fast (G14) and need the heals to take turns (G16), because the guard snapshots the whole tree and a second fixer's edits would be blamed on the first. The safe shape is an optimistic pre-pass: the ecosystems run in parallel with no healing, a clean result ends the run, anything else falls back to the sequential flow. It pays only when a change spans Java and cli or ui; build it if that is common.</li>
+<li><b>Triage underestimates breadth.</b> Fix: make the number of files or errors count in the level descriptions or the brief, and measure on a set that is not the one it is tuned on (there is no dev/test split in <code>synthetic-d.json</code> yet).</li>
 <li><b>Guard.</b> A test expectation changed together with unrelated code still passes.</li>
 <li><b>Rebuild.</b> Issue and epic runs, <code>yk heal report|analyze</code>, steering commands, the Stop hook and the slash commands are in <code>backup/</code>; <code>backup/README.md</code> says how to bring each back.</li>
 </ul>
