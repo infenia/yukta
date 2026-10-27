@@ -153,7 +153,7 @@ cmd_check() {
   mkdir -p "$STATE_DIR"
   exec 8>"$STATE_DIR/check.lock"
   flock -n 8 || die "another check is running in this checkout; wait for it (yk watch) or stop it"
-  rm -rf "$healdir"; mkdir -p "$healdir"
+  rm -rf "$healdir.prev"; [[ ! -d "$healdir" ]] || mv "$healdir" "$healdir.prev"; mkdir -p "$healdir"
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
   render_session "$here/session.json" "$root" | jq --arg s "$session" '.sessionId=$s | .name=$s' >"$tmp/session.json"
