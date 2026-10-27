@@ -63,10 +63,12 @@ scenario() {
   "$cli" session apply "$dir/session.json" >"$dir/apply.out" 2>&1 || { cat "$dir/apply.out" >&2; fail "$name: session apply"; }
   exec_id="$("$cli" -o json workflow start "$session" check --payload "$(jq -nc --arg p "$proj" --arg d "$healdir" --arg bin "$dir/claude" \
     --arg rules "$here/fixer-rules.md" --arg verify "${VERIFY:-true}" --arg triage "${TRIAGE_URL:+on}" --arg turl "${TRIAGE_URL:-http://127.0.0.1:1}" \
-    --argjson c "$cmds" --argjson n "$names" '
+    --arg fast "${FAST:-}" --arg mark "$healdir/fast.ok" --argjson c "$cmds" --argjson n "$names" '
     ($n | map({(.): "-"}) | add) as $dash
     | {project: $p, timeout: 120, healDir: $d, events: "-", modules: "-", models: "-", heal: "on", triage: (if $triage == "on" then "on" else "off" end),
-       rules: $rules, claudeBin: $bin, triageModel: "fake", triageUrl: $turl, verifyCommand: $verify, cmd: $c, auto: $dash, fmt: $dash}')" \
+       rules: $rules, claudeBin: $bin, triageModel: "fake", triageUrl: $turl, verifyCommand: $verify, cmd: $c, auto: $dash, fmt: $dash,
+       fast: (if $fast == "" then "" else "\($fast) && touch \($mark)" end),
+       chain: (if $fast == "" then $c else ($c | map_values(if . == "" then . else "test -f \($mark) || \(.)" end)) end)}')" \
     | jq -r '.data.executionId // .executionId')"
   [[ -n "$exec_id" && "$exec_id" != null ]] || fail "$name: could not start"
   for ((i = 0; i < 240; i++)); do
@@ -101,6 +103,17 @@ name="single attempt"
 CMD_reuse='test -f reuse.ok' scenario "$name" "reuse haiku wrong" "reuse sonnet fix"
 expect "status=FAILED"; expect "failed_node=reuse"
 [[ "$(calls)" == 1 ]] || fail "$name: expected 1 claude call, got $(calls)"
+
+name="fast path pass"
+# the fast command passes: the stage commands of the chain are no-ops, so a stage that would fail is never run
+FAST='true' CMD_compile='false' scenario "$name" "compile haiku fix"
+expect "status=SUCCESS"; expect "healed=-"
+[[ "$(calls)" == 0 ]] || fail "$name: expected no claude call, got $(calls)"
+
+name="fast path fail"
+# the fast command fails: the chain runs as ever, finds the failing stage and heals it
+FAST='false' CMD_compile='test -f compile.ok' scenario "$name" "compile haiku fix"
+expect "status=SUCCESS"; expect "compile:haiku/high"
 
 name="verify"
 CMD_compile='test -f compile.ok' VERIFY='test -f compile.ok && test -f verify.ok' scenario "$name" "compile haiku fix" "verify haiku fix"

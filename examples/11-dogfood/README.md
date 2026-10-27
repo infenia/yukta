@@ -21,7 +21,7 @@ any checkout/branch ──yk──┘  session apply → workflow start → prob
 | `yk tool [--detach] [-C dir] <cmd>` | any other command once: `-C cli go test ./...`, `-C ui npx --no-install prettier --check .` |
 | `yk watch <session> <execution> [--all\|--stages]` | follow a run (problems only; `--stages` adds a `STAGE <name> finished` line per stage, for a Monitor) |
 | `yk plan [--full] [--base REF]` | dry run: the stages a scoped check of your changes would run (nothing executes) |
-| `yk check [--full] [--base REF] [--no-heal] [--models m,..] [--triage off] [--detach]` | the scoped, self-healing gate |
+| `yk check [--full] [--base REF] [--no-heal] [--no-fast] [--models m,..] [--triage off] [--detach]` | the scoped, self-healing gate |
 
 Every run ends with `RESULT status=<S> failed_node=<stage|-> healed=<stage:model/effort,..|-> execution=<id> session=<id>`; exit 0
 only on success. `yk watch <session> <execution>` follows a detached run and prints problems only. Run the smallest scope
@@ -69,7 +69,7 @@ machine in `~/.local/state/yukta-dev/api-key` and sends it with every call.
    change, a claimed fix with no change. Fixers never commit.
 5. **Verify**: if anything was healed, the Gradle tasks of all stages run once more; a failure goes back to heal.
 
-`licenses` and `security` are never healed. `--no-heal` ends the run at the first failing stage. `--models haiku,sonnet`
+`licenses` and `security` are never healed. `--no-heal` ends the run at the first failing stage. With two or more Gradle stages planned, a `fast` step first runs all their tasks as one Gradle invocation (one start-up, one task graph); when it passes the Gradle stages are no-ops, when it fails the stages run one by one as before, so the failing stage, `failed_node` and the healing are unchanged. `--no-fast` skips it. `--models haiku,sonnet`
 leaves a model out (its rungs stop at once).
 
 Fixers run through `scripts/claude.sh` / `scripts/_claude.sh`: `--permission-mode auto --permission-prompts none` with a command

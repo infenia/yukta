@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Writes the `check` workflow into session.json: one SUB_WORKFLOW call of `tool` per stage, in this order (cheap first).
 `yk check` puts each stage's command in the start payload (cmd.<stage>, from scripts/plan.sh); a stage without a command passes
-at once.
+at once. Before the first Gradle stage a `fast` node runs all the Gradle tasks of the plan as one invocation (start.fast, empty = off,
+yk check --no-fast); when it passes, the Gradle stages run a no-op (start.chain.<stage>), when it fails they run as usual.
 
 A failed stage goes to the `heal` workflow (scripts/gen-heal.py): its free automatic fix, then the System One triage and the model
 ladder. A healed stage goes on with the next one; a failed heal ends the run with outcome FAILED, reason = the stage
@@ -16,6 +17,7 @@ STAGES = [
     "cli_sec", "tests", "ui_vitest", "coverage", "cli_cover_check", "cli_vuln", "licenses",
     "security", "ui_build",
 ]
+FAST_BEFORE = "spotless"  # the fast path runs in front of the first Gradle stage
 NO_HEAL = {"licenses", "security"}  # a model may not fix these
 
 PASS = ["project", "healDir", "modules", "events", "models", "timeout", "rules", "claudeBin",
@@ -25,7 +27,8 @@ PASS = ["project", "healDir", "modules", "events", "models", "timeout", "rules",
 def tool(stage, node_id, command=None):
     return {"nodeId": node_id, "type": "SUB_WORKFLOW", "config": {
         "workflowId": "tool", "timeoutSeconds": 3720, "routeByOutcome": True,
-        "payload": {"project": "${start.project}", "command": command or "${start.cmd.%s}" % stage,
+        # the chain runs start.chain.<stage>: the stage's command, or a no-op once the fast path has passed the Gradle stages
+        "payload": {"project": "${start.project}", "command": command or "${start.chain.%s}" % stage,
                     "timeout": "${start.timeout}", "label": stage}}}
 
 
@@ -43,6 +46,13 @@ def edge(src, dst, port=None):
 
 
 for s in STAGES:
+    if s == FAST_BEFORE:
+        # the fast path: every Gradle task of the plan in one invocation. A pass makes the Gradle stages below no-ops; a failure is not an
+        # outcome of the run, it only means the staged chain runs, so the failing stage is found, healed and reported as ever.
+        nodes.append(tool("fast", "fast", "${start.fast}"))
+        for src, port in exits:
+            edge(src, "fast", port)
+        exits = [("fast", "success"), ("fast", "failure")]
     nodes.append(tool(s, s))
     for src, port in exits:
         edge(src, s, port)

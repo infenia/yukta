@@ -103,16 +103,17 @@ run_tool() {
 # System One triage rates the failure and picks the model and effort to start with, and fresh Claude sessions climb from there.
 # --no-heal sends heal = "off": heal ends at once, so the first failing stage ends the run.
 cmd_check() {
-  local mode=watch plan_args=() heal=on models="" triage=on root plan cmds
+  local mode=watch plan_args=() heal=on fast=on models="" triage=on root plan cmds
   while (($#)); do
     case "$1" in
       --detach) mode=detach; shift ;;
       --full) plan_args+=(--full); shift ;;
       --base) plan_args+=(--base "${2:?--base needs a ref}"); shift 2 ;;
       --no-heal) heal=off; shift ;;
+      --no-fast) fast=off; shift ;;
       --models) models="${2:?--models needs models, e.g. haiku,sonnet}"; shift 2 ;;
       --triage) [[ "${2:-}" == off ]] || die "invalid --triage '${2:-}' (off)"; triage=off; shift 2 ;;
-      *) die "unknown option '$1' (yk check [--full] [--base REF] [--no-heal] [--models ..] [--triage off] [--detach])" ;;
+      *) die "unknown option '$1' (yk check [--full] [--base REF] [--no-heal] [--no-fast] [--models ..] [--triage off] [--detach])" ;;
     esac
   done
   [[ -z "$models" || "$models" =~ ^(haiku|sonnet)(,(haiku|sonnet))*$ ]] || die "invalid --models '$models' (models from haiku, sonnet)"
@@ -161,12 +162,15 @@ cmd_check() {
   "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
   exec_id="$("$cli" -o json workflow start "$session" check --payload "$(jq -nc --arg p "$root" --arg d "$healdir" --arg ev "${events:--}" --arg m "${modules:--}" \
       --arg models "${models:--}" --arg heal "$heal" --arg triage "$triage" --arg rules "$here/fixer-rules.md" \
-      --arg bin "${YUKTA_CLAUDE_BIN:--}" --arg tmodel "${YUKTA_TRIAGE_MODEL:-$(jq -r '.triage.model' "$here/heal.json")}" \
+      --arg fast "$fast" --arg bin "${YUKTA_CLAUDE_BIN:--}" --arg tmodel "${YUKTA_TRIAGE_MODEL:-$(jq -r '.triage.model' "$here/heal.json")}" \
       --arg turl "${YUKTA_TRIAGE_URL:-$(jq -r '.triage.url' "$here/heal.json")}" --argjson c "$cmds" '
       {project: $p, timeout: 3600, healDir: $d, events: $ev, modules: $m, models: $models, heal: $heal, triage: $triage,
        rules: $rules, claudeBin: $bin, triageModel: $tmodel, triageUrl: $turl,
        verifyCommand: (if $c.verifyTasks == "" then "true" else "./gradlew --continue \($c.verifyTasks) -q --console=plain" end),
-       cmd: $c.cmd, auto: $c.auto, fmt: $c.fmt}')" \
+       cmd: $c.cmd, auto: $c.auto, fmt: $c.fmt,
+       # fast path: all Gradle tasks in one invocation (two or more Gradle stages planned); its pass leaves a marker that turns the Gradle stages of the chain into no-ops
+       fast: (if $fast == "on" and ([$c.cmd[] | select(startswith("./gradlew "))] | length) > 1 then "./gradlew --continue \($c.verifyTasks) -q --console=plain && touch \(($d + "/fast.ok") | @sh)" else "" end),
+       chain: ($c.cmd | map_values(if startswith("./gradlew ") then "test -f \(($d + "/fast.ok") | @sh) || \(.)" else . end))}')" \
     | jq -r '.data.executionId // .executionId')"
   [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start the check"
   echo "STARTED execution=$exec_id session=$session"
