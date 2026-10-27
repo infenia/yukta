@@ -161,7 +161,8 @@ extra() { # NAME: the first installed variant of heal.json's extra NAME as a she
   local t
   for t in $(jq -r --arg n "$1" '.extra[$n].variants[].tool' "$here/heal.json"); do
     command -v "$t" >/dev/null 2>&1 || continue
-    emit "$1" . "$(jq -r --arg n "$1" --arg t "$t" '.extra[$n].variants[] | select(.tool == $t) | .command | @sh' "$here/heal.json")"
+    emit "$1" . "$(jq -r --arg n "$1" --arg t "$t" '.extra[$n].variants[] | select(.tool == $t) | .command | @sh' "$here/heal.json")" \
+      "$(jq -r --arg n "$1" '.extra[$n].auto // empty' "$here/heal.json" | sed "s#@HERE@#$here#")"
     return
   done
   echo "# $1 skipped: none of $(jq -r --arg n "$1" '[.extra[$n].variants[].tool] | join(", ")' "$here/heal.json") is installed"

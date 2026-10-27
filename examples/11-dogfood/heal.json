@@ -77,7 +77,8 @@
             "lint"
           ]
         }
-      ]
+      ],
+      "auto": "@HERE@/scripts/fix-reuse.sh"
     },
     "actionlint": {
       "variants": [
