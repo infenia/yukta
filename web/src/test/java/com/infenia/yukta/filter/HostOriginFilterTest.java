@@ -98,6 +98,19 @@ class HostOriginFilterTest {
   }
 
   @Test
+  void testStillOnWhenOnlyTheMcpKeyIsConfigured() {
+    final var status =
+        run(
+            new MockEnvironment().withProperty("yukta.mcp.api-key", "k"),
+            MockServerHttpRequest.post("/api/workflow/start")
+                .header("Host", "rebound.example")
+                .header("Origin", "https://evil.example"));
+
+    assertThat(status).isEqualTo(HttpStatus.FORBIDDEN);
+    assertThat(passed).isFalse();
+  }
+
+  @Test
   void testReadsAndIpv6HostsAndMissingHostPass() {
     run(new MockEnvironment(), MockServerHttpRequest.get("/api/x").header("Host", "[::1]:8080"));
     assertThat(passed).isTrue();
