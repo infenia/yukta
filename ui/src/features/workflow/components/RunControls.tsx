@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { buttonVariants } from '@/components/ui/button';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { newIdempotencyKey } from '@/lib/utils';
 import { textareaFieldClassName } from '@/components/ui/native-select';
 import { InlineError } from '@/components/common/InlineError';
 import { Modal } from '@/components/common/Modal';
@@ -115,6 +116,7 @@ export function RunControls({
 }) {
   const control = useExecutionControl(sessionId, workflowId);
   const [running, setRunning] = useState(false);
+  const runKey = useRef('');
   const [confirm, setConfirm] = useState<{
     label: string;
     mode: StopMode | null;
@@ -154,7 +156,14 @@ export function RunControls({
       className="flex flex-wrap items-center gap-2"
       data-testid="run-controls"
     >
-      <button type="button" className={BUTTON} onClick={() => setRunning(true)}>
+      <button
+        type="button"
+        className={BUTTON}
+        onClick={() => {
+          runKey.current = newIdempotencyKey();
+          setRunning(true);
+        }}
+      >
         <span className="material-symbols-outlined text-base">play_arrow</span>
         Run
       </button>
@@ -228,12 +237,15 @@ export function RunControls({
           }
           onClose={() => setRunning(false)}
           onSubmit={(payload) =>
-            control.start.mutate(payload, {
-              onSuccess: (result) => {
-                setRunning(false);
-                onStarted(result.executionId);
-              },
-            })
+            control.start.mutate(
+              { payload, idempotencyKey: runKey.current },
+              {
+                onSuccess: (result) => {
+                  setRunning(false);
+                  onStarted(result.executionId);
+                },
+              }
+            )
           }
         />
       )}

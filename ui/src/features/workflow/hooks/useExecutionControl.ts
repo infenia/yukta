@@ -30,20 +30,35 @@ export function useExecutionControl(sessionId: string, workflowId: string) {
   const queryClient = useQueryClient();
   const onSuccess = () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['workflow', sessionId, 'status'] }),
-      queryClient.invalidateQueries({ queryKey: ['sessions', sessionId, 'workflows'] }),
+      queryClient.invalidateQueries({
+        queryKey: ['workflow', sessionId, 'status'],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ['sessions', sessionId, 'workflows'],
+      }),
     ]);
 
   return {
     start: useMutation({
       onSuccess,
-      mutationFn: (payload: Record<string, unknown>) =>
-        startWorkflow(sessionId, workflowId, payload, crypto.randomUUID()),
+      // The caller keeps one key per Run dialog, so a retry or double click is not a second run.
+      mutationFn: ({
+        payload,
+        idempotencyKey,
+      }: {
+        payload: Record<string, unknown>;
+        idempotencyKey: string;
+      }) => startWorkflow(sessionId, workflowId, payload, idempotencyKey),
     }),
     runAction: useMutation({
       onSuccess,
-      mutationFn: ({ executionId, action }: { executionId: string; action: RunAction }) =>
-        runAction(executionId, action),
+      mutationFn: ({
+        executionId,
+        action,
+      }: {
+        executionId: string;
+        action: RunAction;
+      }) => runAction(executionId, action),
     }),
     stopAll: useMutation({
       onSuccess,
@@ -51,13 +66,21 @@ export function useExecutionControl(sessionId: string, workflowId: string) {
     }),
     restartFromNode: useMutation({
       onSuccess,
-      mutationFn: ({ executionId, nodeId }: { executionId: string; nodeId: string }) =>
-        restartFromNode(executionId, nodeId),
+      mutationFn: ({
+        executionId,
+        nodeId,
+      }: {
+        executionId: string;
+        nodeId: string;
+      }) => restartFromNode(executionId, nodeId),
     }),
     nodeAction: useMutation({
       onSuccess,
-      mutationFn: (vars: { executionId: string; nodeId: string; action: NodeAction }) =>
-        nodeAction(vars.executionId, vars.nodeId, vars.action),
+      mutationFn: (vars: {
+        executionId: string;
+        nodeId: string;
+        action: NodeAction;
+      }) => nodeAction(vars.executionId, vars.nodeId, vars.action),
     }),
   };
 }

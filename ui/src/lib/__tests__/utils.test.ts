@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect } from 'vitest';
-import { cn } from '../utils';
+import { cn, newIdempotencyKey } from '../utils';
 
 describe('cn', () => {
   it('should merge class names with clsx', () => {
@@ -137,5 +137,20 @@ describe('cn', () => {
 
   it('should merge the named elevation utilities', () => {
     expect(cn('shadow-card', 'shadow-raised')).toBe('shadow-raised');
+  });
+});
+
+describe('newIdempotencyKey', () => {
+  it('falls back to getRandomValues where randomUUID is missing (plain http)', () => {
+    const original = crypto.randomUUID;
+    // @ts-expect-error simulate an insecure context
+    crypto.randomUUID = undefined;
+    try {
+      const key = newIdempotencyKey();
+      expect(key).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      expect(newIdempotencyKey()).not.toBe(key);
+    } finally {
+      crypto.randomUUID = original;
+    }
   });
 });
