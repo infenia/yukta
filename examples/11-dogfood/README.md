@@ -31,7 +31,7 @@ The Stop hook (`.claude/hooks/yk-hook.sh`) asks Claude Code once, before it fini
 
 Steering: `yk tree|pause|resume|stop|skip|retry|break|step|signals|approve|reject` (`stop` is a drain of up to 30 s; add `--tree` to reach the runs below). A foreground `yk` ends its run when it is interrupted or stopped (Ctrl-C, or Claude Code stopping a background task); `--detach` runs outlive their client.
 
-The other commands (`yk run issue|epic`, `yk heal report|analyze|show`, steering, the slash commands) are
+The other commands (`yk run issue|epic`, steering, the slash commands) are
 switched off while the loop is rebuilt; their pieces are in `backup/`, and `backup/README.md` says how to bring each back.
 
 ## Prerequisites
