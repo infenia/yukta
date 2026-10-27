@@ -36,7 +36,21 @@ public class SinkEmit {
    *     subscriber that can take it
    */
   public <T> boolean offer(final Sinks.Many<T> sink, final T value) {
-    final long deadline = System.nanoTime() + MAX_RETRY_NANOS;
+    return offer(sink, value, MAX_RETRY_NANOS);
+  }
+
+  /**
+   * Emits one element like {@link #offer(Sinks.Many, Object)} with a retry deadline of the caller's
+   * choice (a test needs one that a loaded machine cannot overrun).
+   *
+   * @param sink the sink
+   * @param value the element
+   * @param retryNanos how long a concurrent emission is retried
+   * @param <T> the element type
+   * @return true if the sink accepted the element
+   */
+  /* default */ <T> boolean offer(final Sinks.Many<T> sink, final T value, final long retryNanos) {
+    final long deadline = System.nanoTime() + retryNanos;
     for (int attempt = 0; ; attempt++) {
       final Sinks.EmitResult result = sink.tryEmitNext(value);
       if (result == Sinks.EmitResult.OK) {
