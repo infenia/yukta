@@ -89,6 +89,8 @@ a per-effort budget and time box. `YK_ADVISOR=sonnet` (experimental, off by defa
 | `scripts/yukta-heal.sh` | the script steps of heal and attempt, and the guard |
 | `scripts/claude.sh`, `scripts/_claude.sh` | the slim headless Claude launcher |
 | `scripts/_lib.sh` | server, session and watch helpers |
+| `scripts/test-heal.sh` | the end-to-end test of check and heal against a fake claude (`yk up` first; no API cost) |
+| `scripts/test-hooks.sh` | the Claude Code hooks |
 | `eval/triage/` | the triage model evaluation |
 | `backup/` | the previous implementation, kept while the loop is rebuilt |
 

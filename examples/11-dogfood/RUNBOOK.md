@@ -63,10 +63,9 @@ For issue runs: `YUKTA_IMPL_MODEL` (opus), `YUKTA_IMPL_BUDGET` (5), `YUKTA_BUDGE
 ## Tests
 
 ```bash
-scripts/test-self-heal.sh            # offline: the graphs, the brief, the events
-scripts/test-heal-report.sh          # offline: the report and the rules
-scripts/test-nav.sh scripts/test-hooks.sh eval/triage/selftest.sh
-# on the dev server (yk up), against fakes: ~5 to 15 minutes each
-scripts/test-self-heal.sh --online   # every heal path, the triage against a stub of Ollama, the events, the report
-scripts/test-issue.sh; scripts/test-epic.sh; scripts/test-steer.sh
+scripts/test-hooks.sh eval/triage/selftest.sh   # offline: the Claude Code hooks, the triage evaluation
+scripts/test-heal.sh                            # on the dev server (yk up), against a fake claude and a fake Ollama: about a minute, no API cost
 ```
+`test-heal.sh` runs five scenarios through the real `check` workflow: two failing stages healed one after the other, a no-change attempt that
+ends the ladder, an escalation, a failed verify that goes back to heal, and a triage that starts at `sonnet/low`. The tests of the switched-off
+pieces (issue, epic, nav, steer, heal report) are in `backup/scripts/`.

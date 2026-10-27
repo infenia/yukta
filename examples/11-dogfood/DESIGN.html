@@ -194,6 +194,7 @@ button#theme{float:right;border:1px solid var(--line);background:var(--panel);co
 <p><code>yk watch</code> prints problems only: <code>NODE</code>, <code>ERROR|WARN</code>, <code>HEAL</code>, <code>SLOW</code>, then <code>RESULT</code>. Read that line and the <code>ERROR</code> lines before it, not the logs.</p>
 
 <h2 id="evidence">Evidence</h2>
+<p class="lead"><code>scripts/test-heal.sh</code> covers the pipeline without API cost: two stages healed in turn (and no two fixers at once), a no-change attempt ending the ladder, an escalation, a failed verify going back to heal, and a hard triage starting at <code>sonnet/low</code>.</p>
 <p class="lead">From planted-failure runs (format, style, compile, test, coverage, docs, a cli lint file). Small samples: they show the pipeline works and where it is weak, not rates.</p>
 <ul>
 <li>A planted compile error was fixed by <code>haiku/high</code> on the first attempt for $0.0024 in 22 s; the whole check, with a second stage healed, took 193 s. Wall time is dominated by Gradle and tool runs; a Claude call is about 15 s.</li>
