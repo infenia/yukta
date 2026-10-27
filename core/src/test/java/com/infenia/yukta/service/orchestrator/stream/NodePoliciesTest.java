@@ -456,7 +456,7 @@ class NodePoliciesTest {
         new FailureLedger(new NodePolicy.FailureBudget(1, Duration.ofMillis(50)));
 
     assertThat(ledger.record()).isFalse();
-    Thread.sleep(120);
+    Thread.sleep(120); // nosem: yukta-test-thread-sleep - lets the 50ms failure-budget window lapse
     assertThat(ledger.record()).isFalse();
     assertThat(ledger.record()).isTrue();
   }

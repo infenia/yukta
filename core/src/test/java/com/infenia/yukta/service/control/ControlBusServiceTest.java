@@ -529,9 +529,12 @@ class ControlBusServiceTest {
                       failing, "controlSink"));
 
       sink.tryEmitError(new IllegalStateException("upstream broke"));
-      Thread.sleep(350); // at least one resubscribe attempt
+      Thread.sleep(
+          350); // nosem: yukta-test-thread-sleep - retry backoff; at least one resubscribe attempt
       failing.shutdown();
-      Thread.sleep(500); // the next failure is no longer retried
+      Thread.sleep(
+          500); // nosem: yukta-test-thread-sleep - retry backoff; the next failure is no longer
+      // retried
 
       StepVerifier.create(failing.getControlStream())
           .expectErrorMatches(e -> e instanceof IllegalStateException)
@@ -1243,7 +1246,7 @@ class ControlBusServiceTest {
 
       sinkField.set(svc, errorSink);
 
-      Thread.sleep(200);
+      Thread.sleep(200); // nosem: yukta-test-thread-sleep - no observable signal after error
     }
   }
 

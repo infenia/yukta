@@ -35,3 +35,13 @@ rules:
     severity: ERROR
     message: Exposing every actuator endpoint (include "*") leaks internals. List endpoints explicitly.
     pattern-regex: 'include:\s*["'']\*["'']'
+
+  - id: yukta-test-thread-sleep
+    languages: [java]
+    severity: ERROR
+    message: >-
+      Thread.sleep in a test is flaky and slow. Use Awaitility, StepVerifier virtual time, or a
+      latch; for genuine timing suppress with `// nosem: yukta-test-thread-sleep - <reason>`.
+    paths:
+      include: ["**/src/test/**", "**/src/testFixtures/**"]
+    pattern: Thread.sleep(...)

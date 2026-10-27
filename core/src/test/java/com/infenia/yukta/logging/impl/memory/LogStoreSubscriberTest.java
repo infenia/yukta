@@ -253,13 +253,10 @@ class LogStoreSubscriberTest {
 
       subscriber.init();
 
-      try {
-        Thread.sleep(200);
-      } catch (final InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-
-      verify(store, times(2)).write(any(PluginLogEntry.class));
+      await()
+          .atMost(Duration.ofSeconds(5))
+          .untilAsserted(() -> verify(store, times(2)).write(any(PluginLogEntry.class)));
+      assertThat(subscriber).isNotNull();
       subscriber.dispose();
     }
 
@@ -301,14 +298,10 @@ class LogStoreSubscriberTest {
 
       subscriber.init();
 
-      try {
-        Thread.sleep(200);
-      } catch (final InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-
       // Verify the write was attempted
-      verify(store).write(entryCaptor.capture());
+      await()
+          .atMost(Duration.ofSeconds(5))
+          .untilAsserted(() -> verify(store).write(entryCaptor.capture()));
       final PluginLogEntry captured = entryCaptor.getValue();
       assertThat(captured.executionId()).isEqualTo("exec-specific");
       subscriber.dispose();
