@@ -30,6 +30,9 @@ public class NodeOutputPager {
   /** Longest pattern accepted, against runaway regular expressions. */
   private static final int MAX_PATTERN = 200;
 
+  /** Time one line may spend in the regex engine before the read is refused. */
+  private static final long MATCH_BUDGET_NANOS = 50_000_000L;
+
   /** Most context lines either side of a match. */
   private static final int MAX_CONTEXT = 20;
 
@@ -135,7 +138,7 @@ public class NodeOutputPager {
       final Pattern pattern = pattern(grep);
       final int around = Math.min(context, MAX_CONTEXT);
       for (int i = 0; i < all.size(); i++) {
-        if (pattern.matcher(cut(all.get(i))).find()) {
+        if (matches(pattern, all.get(i))) {
           selected.set(Math.max(0, i - around), Math.min(all.size(), i + around + 1));
         }
       }
@@ -143,15 +146,51 @@ public class NodeOutputPager {
     return selected;
   }
 
+  private static boolean matches(final Pattern pattern, final String line) {
+    return pattern.matcher(new Budgeted(cut(line), System.nanoTime() + MATCH_BUDGET_NANOS)).find();
+  }
+
   private static Pattern pattern(final String grep) {
     if (grep.length() > MAX_PATTERN) {
       throw new IllegalArgumentException("grep is longer than " + MAX_PATTERN + " characters");
     }
     try {
-      return Pattern.compile(grep);
+      // The pattern is the caller's on purpose (a grep): it is at most 200 characters and each line
+      // is matched within a time budget.
+      return Pattern.compile(grep); // lgtm[java/regex-injection]
     } catch (PatternSyntaxException e) {
       throw new IllegalArgumentException(
           "grep is not a valid regular expression: " + e.getDescription(), e);
+    }
+  }
+
+  /**
+   * Char sequence that aborts the regex engine once its deadline has passed (catastrophic
+   * backtracking).
+   */
+  private record Budgeted(String text, long deadline) implements CharSequence {
+    @Override
+    public char charAt(final int index) {
+      if (System.nanoTime() > deadline) {
+        throw new IllegalArgumentException(
+            "grep is too expensive to evaluate; simplify the pattern");
+      }
+      return text.charAt(index);
+    }
+
+    @Override
+    public int length() {
+      return text.length();
+    }
+
+    @Override
+    public CharSequence subSequence(final int start, final int end) {
+      return new Budgeted(text.substring(start, end), deadline);
+    }
+
+    @Override
+    public String toString() {
+      return text;
     }
   }
 }

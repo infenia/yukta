@@ -159,6 +159,23 @@ class NodeOutputPagerTest {
   }
 
   @Test
+  void expensiveGrep_isRefusedNotHung() {
+    final List<String> trap = List.of("a".repeat(40) + "!");
+
+    assertThatThrownBy(() -> slice(trap, null, null, null, null, "(a*)*\\1b", null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("too expensive");
+  }
+
+  @Test
+  void budgetedLine_behavesLikeItsText() {
+    assertThat(slice(List.of("hello world"), null, null, null, null, "o w", null).lines())
+        .hasSize(1);
+    assertThat(slice(List.of("hello world"), null, null, null, null, "^hello (wor)", null).lines())
+        .hasSize(1);
+  }
+
+  @Test
   void emptyGrep_meansNoFilter() {
     assertThat(slice(BIG, null, null, null, null, "", null).matchedLines()).isEqualTo(10_000);
   }
