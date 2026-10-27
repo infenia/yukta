@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.NoArgsConstructor;
@@ -30,7 +31,7 @@ class ReportFailuresTest {
 
   private Path write(final String name, final String text) throws IOException {
     final Path file = dir.resolve(name);
-    Files.createDirectories(file.getParent());
+    Files.createDirectories(Objects.requireNonNull(file.getParent()));
     return Files.writeString(file, text);
   }
 
