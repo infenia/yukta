@@ -130,7 +130,7 @@ button#theme{float:right;border:1px solid var(--line);background:var(--panel);co
 <tr><td>average</td><td><code>haiku/high</code> → <code>sonnet/low</code></td><td>one failing test, a few classes together, tests to add for coverage</td></tr>
 <tr><td>hard</td><td><code>sonnet/low</code></td><td>many failures with one cause, concurrency, flaky or order-dependent, memory, build-wide changes</td></tr>
 </table></div>
-<p>Each effort has a budget and a time box in <code>heal.json</code>: low $0.50 and 10 min, medium $1 and 20 min, high $2 and 30 min. Every attempt is a fresh session (no resume): measured, a conversation cache is lost anyway when the model changes, and a fresh session carries only the brief and the previous attempt's summary. Opus is not on any ladder.</p>
+<p>Each effort has a budget and a time box in <code>heal.json</code>: low $0.50 and 10 min, high $2 and 30 min. Every attempt is a fresh session (no resume): measured, a conversation cache is lost anyway when the model changes, and a fresh session carries only the brief and the previous attempt's summary. Opus is not on any ladder.</p>
 <h3>When a rung fails</h3>
 <ul>
 <li>The next rung gets the new failure output and the previous attempt's summary plus the files it changed.</li>

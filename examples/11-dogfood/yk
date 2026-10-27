@@ -97,7 +97,7 @@ run_tool() {
   YUKTA_PROJECT="$project" YUKTA_SCOPE="args:$(printf '%.60s' "$*")" cmd_watch "$session" "$exec_id"
 }
 
-# yk check [--full] [--base REF] [--no-heal] [--models haiku,sonnet,opus] [--triage off] [--detach]
+# yk check [--full] [--base REF] [--no-heal] [--models haiku,sonnet] [--triage off] [--detach]
 # The scoped, self-healing gate. scripts/plan.sh turns the changes into stage commands; the `check` workflow (scripts/gen-check.py)
 # runs them one after the other through `tool`. A failing stage goes to `heal` (scripts/gen-heal.py): its free fix, then the
 # System One triage rates the failure and picks the model and effort to start with, and fresh Claude sessions climb from there.
@@ -110,12 +110,12 @@ cmd_check() {
       --full) plan_args+=(--full); shift ;;
       --base) plan_args+=(--base "${2:?--base needs a ref}"); shift 2 ;;
       --no-heal) heal=off; shift ;;
-      --models) models="${2:?--models needs models, e.g. sonnet,opus}"; shift 2 ;;
+      --models) models="${2:?--models needs models, e.g. haiku,sonnet}"; shift 2 ;;
       --triage) [[ "${2:-}" == off ]] || die "invalid --triage '${2:-}' (off)"; triage=off; shift 2 ;;
       *) die "unknown option '$1' (yk check [--full] [--base REF] [--no-heal] [--models ..] [--triage off] [--detach])" ;;
     esac
   done
-  [[ -z "$models" || "$models" =~ ^(haiku|sonnet|opus)(,(haiku|sonnet|opus))*$ ]] || die "invalid --models '$models' (models from haiku, sonnet, opus)"
+  [[ -z "$models" || "$models" =~ ^(haiku|sonnet)(,(haiku|sonnet))*$ ]] || die "invalid --models '$models' (models from haiku, sonnet)"
   need jq
   root="$(git rev-parse --show-toplevel)"
   plan="$("$here/scripts/plan.sh" "${plan_args[@]}")" || die "yk plan failed"

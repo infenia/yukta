@@ -37,20 +37,8 @@ for f in core/src/A.java plugins/p/src/B.java docs/docs.json core/src/A.java "$r
 done
 [[ "$(sort .yukta-dev/touched-s1 | paste -sd,)" == "core,plugins:p" ]] || fail "touched: $(paste -sd, .yukta-dev/touched-s1)"
 
-# stop: scoped to the touched modules, once, and not when a check already passed on these changes
+# stop: silent while only yk gradle/tool/plan/check are exposed (the nudge for yk check is in backup/scripts/test-hooks.stop.sh)
 echo "// edit" >>core/src/A.java
-echo "// other edit" >>plugins/p/src/B.java
-run stop "$(input s1)" | jq -r .reason | grep -q "yk check -m core -m plugins:p " || fail "stop is not scoped to the touched modules"
-[[ -z "$(run stop "$(input s1)")" ]] || fail "the nudge repeated for the same changes"
-echo "// again" >>core/src/A.java
-sum="$(examples/11-dogfood/yk sum)"
-printf '%s\tSUCCESS\tcore\t-\t1\n' "$sum" >.yukta-dev/last-result
-[[ -z "$(run stop "$(input s1)")" ]] || fail "asked for a check that already passed"
-[[ ! -s .yukta-dev/touched-s1 ]] || fail "touched modules were not cleared after the passing check"
+[[ -z "$(run stop "$(input s1)")" ]] || fail "stop nudged"
 
-# a build-logic edit means the whole check
-git checkout -q . && mkdir -p build-logic && touch build-logic/x.kts && git add -A && git -c user.email=t@t -c user.name=t commit -qm bl
-run post-edit "$(input s2 "$repo/build-logic/x.kts")"
-echo "// c" >>build-logic/x.kts
-run stop "$(input s2)" | jq -r .reason | grep -q "yk check (yukta" || fail "a build-logic change does not ask for the whole check"
 echo "ok   hooks"
