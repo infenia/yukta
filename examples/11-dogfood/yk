@@ -452,7 +452,8 @@ cmd_statusline() {
   f="$STATE_DIR/last-result"
   if [[ -s "$f" ]]; then
     IFS=$'\t' read -r _ status scope healed _ <"$f"
-    line+=" | last: $scope $status$([[ "$healed" != - && -n "$healed" ]] && echo " (healed $healed)")"
+    line+=" | last: $scope $status"
+    [[ "$healed" != - && -n "$healed" ]] && line+=" (healed $healed)"
   fi
   echo "$line"
 }
