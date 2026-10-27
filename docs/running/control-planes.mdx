@@ -51,6 +51,8 @@ yukta.control-plane.model.min-probability=0.6
 | `yukta.control-plane.model.backend` | `SYSTEMONE` | `SYSTEMONE` uses a local Ollama constrained-answer endpoint with calibrated probabilities. `LLM` prompts any chat model (OpenAI-compatible, Anthropic or Ollama) to answer as JSON |
 | `yukta.control-plane.model.provider` | unset | Required for backend `LLM` |
 | `yukta.control-plane.model.base-url` | `http://localhost:11434` for `SYSTEMONE` | Model endpoint |
+| `yukta.control-plane.model.keep-alive` | unset | `SYSTEMONE` only. How long Ollama keeps the model loaded (`30m`, `-1`), so the first event after an idle spell does not pay the load |
+| `yukta.control-plane.model.num-ctx` | unset | `SYSTEMONE` only. Context size to load the model with; a few thousand tokens is enough |
 | `yukta.control-plane.model.api-key` | unset | Key for the provider |
 | `yukta.control-plane.model.timeout` | `2s` | Longest the model may take; slower counts as no opinion |
 | `yukta.control-plane.model.min-probability` | `0.6` | Below this the answer is ignored |

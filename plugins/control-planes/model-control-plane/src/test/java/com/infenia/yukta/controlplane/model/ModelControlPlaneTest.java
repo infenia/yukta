@@ -67,7 +67,18 @@ class ModelControlPlaneTest {
   private static ModelPlaneSettings settings(
       final Map<String, Option> options, final Set<String> events) {
     return new ModelPlaneSettings(
-        null, null, "nimble", null, null, Duration.ofSeconds(1), 0.6, null, options, events);
+        null,
+        null,
+        "nimble",
+        null,
+        null,
+        Duration.ofSeconds(1),
+        0.6,
+        null,
+        options,
+        events,
+        null,
+        null);
   }
 
   private static ModelPlaneSettings defaults() {
@@ -299,6 +310,8 @@ class ModelControlPlaneTest {
             Duration.ofSeconds(5),
             0.6,
             "Act?",
+            null,
+            null,
             null,
             null);
 

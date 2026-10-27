@@ -28,6 +28,8 @@ Every decision plugin takes these options in addition to its own.
 | `provider` | `openai`, `anthropic` or `ollama` | none | The chat provider. Required when `backend` is `LLM` |
 | `model` | string | none, required | The model name. Variables allowed |
 | `baseUrl` | string | `http://localhost:11434` for `SYSTEMONE` | Endpoint override. Variables allowed |
+| `keepAlive` | string | none | `SYSTEMONE` only. How long Ollama keeps the model loaded after a call, such as `30m` or `-1`, so an idle model is not reloaded on the next call. Unset leaves it to Ollama (5 minutes). Variables allowed |
+| `numCtx` | number | none | `SYSTEMONE` only. Context size to load the model with. Decision input is capped at 15,000 characters, so a few thousand tokens is enough; the model default can be far larger and slower. Unset leaves it to Ollama |
 | `apiKey` | string | none | API key. Use `decrypted:<key>`. Variables allowed |
 | `timeout` | number | `30` | Seconds to wait for the model |
 | `concurrency` | number | `16` | Model calls in flight at once for this node. Positive |

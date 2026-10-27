@@ -24,8 +24,16 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 /** Tests for SystemOneModel against a local JDK HTTP server posing as Ollama. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.LawOfDemeter",
+  "PMD.TooManyMethods",
+  "PMD.UseConcurrentHashMap"
+})
 class SystemOneModelTest {
+
+  /** A reply that answers the one yes/no question of {@link #yesNo()}. */
+  private static final String YES_REPLY = "{\"answers\":{\"yes\":{\"noul\":0.1}}}";
 
   /** Last request body. */
   private final AtomicReference<String> received = new AtomicReference<>();
@@ -71,6 +79,10 @@ class SystemOneModelTest {
         Duration.ofSeconds(5));
   }
 
+  private static Map<String, Question> yesNo() {
+    return Map.of("yes", new Question.YesNo("Really?"));
+  }
+
   private static Map<String, Question> questions() {
     final Map<String, Question> questions = new LinkedHashMap<>();
     questions.put("pick", new Question.Choice("Which?", Map.of("a", "first", "b", "second")));
@@ -99,6 +111,28 @@ class SystemOneModelTest {
         .contains("\"model\":\"nimble\"", "\"state\":\"some state\"")
         .contains("\"type\":\"choice\"", "\"type\":\"noul\"", "\"type\":\"score\"")
         .contains("\"criteria\":[\"low\",\"high\"]");
+  }
+
+  @Test
+  void answer_noTuning_bodyHasNeitherField() {
+    reply.set(YES_REPLY);
+
+    new SystemOneModel(WebClient.builder()).answer(spec(), "s", yesNo()).block();
+
+    assertThat(received.get()).doesNotContain("keep_alive", "num_ctx");
+  }
+
+  @Test
+  void answer_keepAliveAndNumCtx_sentInBody() {
+    reply.set(YES_REPLY);
+    final ModelSpec base = spec();
+    final ModelSpec tuned =
+        new ModelSpec(
+            base.backend(), null, base.model(), base.baseUrl(), null, base.timeout(), "30m", 4096);
+
+    new SystemOneModel(WebClient.builder()).answer(tuned, "s", yesNo()).block();
+
+    assertThat(received.get()).contains("\"keep_alive\":\"30m\"", "\"num_ctx\":4096");
   }
 
   @Test

@@ -39,7 +39,9 @@ class ModelPlaneSettingsTest {
         0.6,
         instructions,
         options,
-        events);
+        events,
+        null,
+        null);
   }
 
   @Test
