@@ -8,7 +8,7 @@
 #   record-auto     heal: the free fix made the stage pass: writes the record behind healed=<stage>:auto
 #   healed          check: exit 0 when anything was healed (so verify runs), else 1
 #   prepare         attempt: stdin {problems, previous}; numbers the attempt, snapshots the tree, prints {prompt, attempt};
-#                   exit 4 when the model is not in YUKTA_MODELS, 5 when the issue budget is spent
+#                   exit 4 when the model is not in YUKTA_MODELS
 #   claimed         attempt: stdin = the claude workflow's result; keeps its cost, usage and claim
 #   judge           attempt: the guard. Decides from what changed on disk, not from what Claude said; exit 0 = a clean change
 #   report          attempt: stdin = the last node's result; writes the attempt's record and prints
@@ -16,7 +16,7 @@
 #
 # Environment: YUKTA_HEAL_DIR (the records of the run, required), YUKTA_STAGE, YUKTA_MODEL, YUKTA_EFFORT, YUKTA_MODELS, YUKTA_MODULE,
 # YUKTA_COMMAND (the command that proves the stage), YUKTA_PROBLEMS, YUKTA_TRIAGE, YUKTA_HEAL_TIMEOUT, YUKTA_HEAL_EVENTS (a file;
-# every step appends one JSON line), YUKTA_BUDGET_ISSUE and YUKTA_IMPL_COSTFILE (an issue run keeps to its budget).
+# every step appends one JSON line).
 # A value of "-" means empty: a start variable of a workflow cannot be.
 # Nothing here commits or reverts.
 set -uo pipefail
@@ -24,7 +24,7 @@ set -uo pipefail
 action="${1:?usage: yukta-heal.sh brief|record-auto|healed|prepare|claimed|judge|report}"
 dir="${YUKTA_HEAL_DIR:?YUKTA_HEAL_DIR is required}"
 for v in YUKTA_STAGE YUKTA_MODEL YUKTA_EFFORT YUKTA_TRIAGE_ROUTE YUKTA_TRIAGE_START YUKTA_TRIAGE_MODEL YUKTA_MODELS YUKTA_MODULE YUKTA_COMMAND YUKTA_PROBLEMS YUKTA_TRIAGE YUKTA_HEAL_TIMEOUT \
-  YUKTA_HEAL_EVENTS YUKTA_BUDGET_ISSUE YUKTA_IMPL_COSTFILE; do
+  YUKTA_HEAL_EVENTS; do
   [[ "${!v:-}" == - ]] && unset "$v"
 done
 stage="${YUKTA_STAGE:-}"
@@ -163,14 +163,6 @@ case "$action" in
     if [[ -n "${YUKTA_MODELS:-}" && ",${YUKTA_MODELS}," != *",$model,"* ]]; then
       echo "model $model is not allowed in this run (--models $YUKTA_MODELS)" >&2
       exit 4
-    fi
-    # an issue run keeps to its budget: what the implementer and the earlier attempts spent
-    if [[ -n "${YUKTA_BUDGET_ISSUE:-}" ]]; then
-      spent="$(cat "${YUKTA_IMPL_COSTFILE:-/dev/null}" "$dir"/*-[0-9]*.json 2>/dev/null | jq -s '[.[] | .cost // 0] | add // 0')"
-      if awk -v b="$YUKTA_BUDGET_ISSUE" -v s="${spent:-0}" 'BEGIN { exit !(s + 0 >= b + 0) }'; then
-        echo "over the issue budget: spent \$$spent of \$$YUKTA_BUDGET_ISSUE (YUKTA_BUDGET_ISSUE)" >&2
-        exit 5
-      fi
     fi
     snapshot >"$dir/$stage-$n.before"
     # the working tree as it is now (the developer's own edits included), to diff this attempt against

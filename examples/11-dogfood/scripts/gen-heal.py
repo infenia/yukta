@@ -21,8 +21,8 @@ LEVELS = POLICY["triage"]["levels"]
 FIX_SCHEMA = '{"type":"object","properties":{"fixed":{"type":"boolean"},"summary":{"type":"string"}},"required":["fixed","summary"]}'
 
 # what every layer passes on to the next: heal -> attempt
-KEYS = ["project", "stage", "command", "format", "modules", "healDir", "issueState", "budgetIssue", "events", "models", "timeout",
-        "rules", "navFile", "claudeBin"]
+KEYS = ["project", "stage", "command", "format", "modules", "healDir", "events", "models", "timeout",
+        "rules", "claudeBin"]
 
 
 def S(k):
@@ -84,7 +84,7 @@ CLAUDE_WF = {"workflowId": "claude", "description": "One headless Claude Code se
     {"nodeId": "run", "type": "PROCESS_EXECUTOR", "config": {
         "command": [CLAUDE], "workingDir": S("project"), "inputMode": "STDIN", "outputFormat": "JSON",
         "env": {"YK_MODEL": S("model"), "YK_EFFORT": S("effort"), "YK_BUDGET": S("budget"), "YK_RULES": S("rules"), "YK_SCHEMA": S("schema"),
-                "YK_NAV": S("navFile"), "YK_SESSION": S("sessionId"), "YK_CLAUDE_BIN": S("claudeBin")},
+                "YK_SESSION": S("sessionId"), "YK_CLAUDE_BIN": S("claudeBin")},
         "timeout": "${start.timeout:int}", "failureMode": "CONTINUE", "routeByExitCode": True, "engine": {"concurrencyGroup": "claude"}}},
     {"nodeId": "ok", "type": "CONSOLE_TERMINAL", "config": {}},
     {"nodeId": "failed", "type": "OUTCOME_TERMINAL", "config": {"outcome": "FAILED", "reason": "the claude session failed, ran out of budget or ran out of time"}}],
@@ -93,14 +93,14 @@ CLAUDE_WF = {"workflowId": "claude", "description": "One headless Claude Code se
 # ---------------------------------------------------------------- attempt (L1)
 claude_call = {"workflowId": "claude", "timeoutSeconds": 7200, "routeByOutcome": True, "engine": {"onError": "ROUTE"},
   "payload": {"project": S("project"), "prompt": "${payload.output.prompt}", "model": S("model"), "effort": S("effort"), "budget": S("budget"),
-              "timeout": S("claudeTimeout"), "rules": S("rules"), "schema": FIX_SCHEMA, "navFile": S("navFile"), "sessionId": "-",
+              "timeout": S("claudeTimeout"), "rules": S("rules"), "schema": FIX_SCHEMA, "sessionId": "-",
               "claudeBin": S("claudeBin")}}
 a_env = {"YUKTA_MODEL": S("model"), "YUKTA_EFFORT": S("effort"), "YUKTA_COMMAND": S("command")}
 ATTEMPT_WF = {"workflowId": "attempt", "description": "One repair attempt: one Claude session at one model and effort, judged by re-running the failed stage.",
   "nodes": [
     {"nodeId": "trigger", "type": "CONSTANT_SOURCE", "config": {"variables": {"problems": S("problems"), "previous": S("previous")}}},
-    pe("prepare", "prepare", heal_env(**a_env, YUKTA_MODELS=S("models"), YUKTA_BUDGET_ISSUE=S("budgetIssue"),
-                                      YUKTA_IMPL_COSTFILE="${start.issueState}/implement.json", YUKTA_HEAL_TIMEOUT=S("claudeTimeout")),
+    pe("prepare", "prepare", heal_env(**a_env, YUKTA_MODELS=S("models"),
+                                      YUKTA_HEAL_TIMEOUT=S("claudeTimeout")),
        stdin=True, json_out=True, routed=True),
     {"nodeId": "claude", "type": "SUB_WORKFLOW", "config": claude_call},
     pe("claimed", "claimed", heal_env(**a_env), stdin=True, timeout=60),
