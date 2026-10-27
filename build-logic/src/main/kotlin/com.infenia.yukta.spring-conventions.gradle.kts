@@ -32,6 +32,7 @@ dependencyManagement {
 dependencies {
     testImplementation(libs.findLibrary("spring-boot-starter-test").get())
     testImplementation(libs.findLibrary("reactor-test").get())
+    testImplementation(libs.findLibrary("awaitility").get())
     // Fails or reports tests that hide an error (ErrorGuardExtension); every module but itself.
     if (path != ":test-support") {
         testImplementation(project(":test-support"))

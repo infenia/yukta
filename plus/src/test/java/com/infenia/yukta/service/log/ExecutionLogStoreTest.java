@@ -183,7 +183,8 @@ class ExecutionLogStoreTest {
     org.mockito.Mockito.when(slow.writeValueAsString(org.mockito.ArgumentMatchers.any()))
         .thenAnswer(
             _ -> {
-              Thread.sleep(500);
+              // simulated slow writer
+              Thread.sleep(500); // nosem: yukta-test-thread-sleep
               return "{}";
             });
     final JsonlExecutionLogStore store =
@@ -207,7 +208,8 @@ class ExecutionLogStoreTest {
     org.mockito.Mockito.when(slow.writeValueAsString(org.mockito.ArgumentMatchers.any()))
         .thenAnswer(
             _ -> {
-              Thread.sleep(300);
+              // simulated slow writer
+              Thread.sleep(300); // nosem: yukta-test-thread-sleep
               return "{}";
             });
     final JsonlExecutionLogStore store =
