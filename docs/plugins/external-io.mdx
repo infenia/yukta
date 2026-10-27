@@ -43,6 +43,7 @@ The server refuses every command until you allow some. Set `yukta.process.allowe
 | `maxOutputLines` | number | `10000` | Most lines kept per stream. `0` means unlimited |
 | `maxOutputBytes` | number | `10485760` | Most bytes kept per stream (10 MiB). `0` means unlimited |
 | `outputFormat` | `STRUCTURED`, `RAW`, `JSON` or `PASSTHROUGH` | `STRUCTURED` | The shape of the payload, see below |
+| `reports` | list | none | Structured reports to read into `failures` after the process ends: `[{"format": "junit", "glob": "build/test-results/**/TEST-*.xml"}]`. `format` is `junit`, `checkstyle` or `sarif`; `glob` is relative to `workingDir`; only files written during the run are read. A report that cannot be read is skipped |
 | `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | `ERROR` fails the node on a non-zero exit code or a timeout |
 | `routeByExitCode` | boolean | `false` | Emit on `success` (exit code 0) or `failure`. Needs `failureMode` `CONTINUE` |
 | `includeOutput` | boolean | `true` | Put the text of stdout and stderr in the payload (`STRUCTURED`, `JSON`) |
@@ -57,6 +58,8 @@ With `useShell` the `command` list is a shell script, one element per piece. Ele
 If `payload.query` is `x; rm -rf /`, `grep` gets that text as its one pattern argument. On Windows the value of a variable cannot contain a double quote, a percent sign or a line break, because `cmd.exe` cannot protect them; pass such values with `inputMode: ENV` or `STDIN` instead.
 
 Output ports: `default`, or `success` and `failure` when `routeByExitCode` is on.
+
+With `reports`, the `STRUCTURED` and `JSON` payloads also carry `failures` (at most 50 of `{kind, file, line, rule, message, test}`; `test` only for JUnit) and `totalFailures`. A green run has an empty list.
 
 | `outputFormat` | Payload |
 |---|---|

@@ -18,6 +18,9 @@ import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -355,6 +359,77 @@ class ProcessExecutorPluginTest {
               assertThat(payload).containsEntry("input", "original-data");
             })
         .verifyComplete();
+  }
+
+  @Test
+  void process_reports_addFailuresFromTheFilesWrittenDuringTheRun(@TempDir final Path dir)
+      throws IOException {
+    Files.writeString(
+        dir.resolve("TEST-a.xml"),
+        "<testsuite><testcase classname=\"p.T\" name=\"bad\"><failure"
+            + " message=\"nope\"/></testcase></testsuite>");
+    final Map<String, Object> config =
+        Map.of(
+            "command",
+            List.of("true"),
+            "workingDir",
+            dir.toString(),
+            "reports",
+            List.of(Map.of("format", "junit", "glob", "TEST-*.xml")));
+    gatewayReturns(successResult("out"));
+
+    StepVerifier.create(plugin.process(Flux.just(message("x")), config))
+        .assertNext(
+            msg -> {
+              final Map<String, Object> payload = (Map<String, Object>) msg.payload();
+              assertThat(payload).containsEntry("totalFailures", 1);
+              assertThat((List<?>) payload.get("failures")).hasSize(1);
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void process_reportsWithoutWorkingDir_lookInTheCurrentDirectory() {
+    final Map<String, Object> config =
+        Map.of(
+            "command",
+            List.of("true"),
+            "reports",
+            List.of(Map.of("format", "junit", "glob", "no-such-report-*.xml")));
+    gatewayReturns(successResult("out"));
+
+    StepVerifier.create(plugin.process(Flux.just(message("x")), config))
+        .assertNext(
+            msg ->
+                assertThat((Map<String, Object>) msg.payload()).containsEntry("totalFailures", 0))
+        .verifyComplete();
+  }
+
+  @Test
+  void process_withoutReports_hasNoFailuresKey() {
+    gatewayReturns(successResult("out"));
+
+    StepVerifier.create(plugin.process(Flux.just(message("x")), Map.of("command", List.of("true"))))
+        .assertNext(
+            msg -> assertThat((Map<String, Object>) msg.payload()).doesNotContainKey("failures"))
+        .verifyComplete();
+  }
+
+  @Test
+  void validateConfig_rejectsBadReports() {
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("command", List.of("true"), "reports", "junit")))
+        .expectErrorMessage("reports must be a list of {format, glob}")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(
+                Map.of(
+                    "command",
+                    List.of("true"),
+                    "reports",
+                    List.of(Map.of("format", "tap", "glob", "x")))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
   }
 
   @Test
