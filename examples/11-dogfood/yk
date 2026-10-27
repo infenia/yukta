@@ -10,6 +10,7 @@
 #   yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]
 #                                            what heal did: where the time and money went, what looks wrong, the raw events
 #   yk detail <session> <execution> [--grep P] [--tail N] [--head N]  the full output of the stage that failed a run (the MORE line says so)
+#   yk bench [--runs N] [--max-ratio R] [--check] [args]  the same Gradle work direct and through yk: wall times and ratio (exit 1 above R and +3 s)
 #   yk tool [--detach] [-C dir] <cmd...>     run any other command once, e.g. -C ui pnpm lint | -C cli go test ./...
 #
 # A run's last line is machine readable; exit 0 only on success:
@@ -497,6 +498,52 @@ cmd_detail() {
   printf '%s\n' "$text"
 }
 
+# yk bench [--runs N] [--max-ratio R] [--check] [gradle args...]: the same Gradle work run directly and through yk, wall times (median of N, after
+# one warm-up of each) and their ratio. Default task: :plugin-api:compileJava (up to date: start-up and loop overhead only). --check: all the
+# Gradle tasks of the plan in one direct invocation against `yk check --no-heal`. Exit 1 when yk is slower than R times direct (default 1.5)
+# and by more than 3 s, so a nightly job can fail on a regression of the loop itself.
+cmd_bench() {
+  local runs=3 max=1.5 check=0 args=() i d y t
+  while (($#)); do
+    case "$1" in
+      --runs) runs="${2:?--runs needs a number}"; shift 2 ;;
+      --max-ratio) max="${2:?--max-ratio needs a number}"; shift 2 ;;
+      --check) check=1; shift ;;
+      *) args+=("$1"); shift ;;
+    esac
+  done
+  [[ "$runs" =~ ^[1-9][0-9]*$ ]] || die "--runs must be a positive number"
+  local root; root="$(git rev-parse --show-toplevel)"
+  local direct=() via=()
+  if ((check)); then
+    local tasks
+    tasks="$("$here/scripts/plan.sh" | awk -F'\t' '$3 ~ /^\.\/gradlew / { print $3 }' | sed -E 's#^\./gradlew ##; s# -q --console=plain$##' | tr ' ' '\n' | grep -v '^-' | sort -u | paste -sd' ')"
+    [[ -n "$tasks" ]] || die "yk bench --check: the plan has no Gradle stage (change something under a module)"
+    direct=(bash -c "cd '$root' && ./gradlew --continue $tasks -q --console=plain")
+    via=("${BASH_SOURCE[0]}" check --no-heal)
+    echo "bench: yk check --no-heal against one direct Gradle run of: $tasks" >&2
+  else
+    ((${#args[@]})) || args=(:plugin-api:compileJava)
+    direct=(bash -c "cd '$root' && ./gradlew $(printf '%q ' "${args[@]}")-q --console=plain")
+    via=("${BASH_SOURCE[0]}" gradle "${args[@]}")
+    echo "bench: yk gradle ${args[*]} against ./gradlew ${args[*]}" >&2
+  fi
+  elapsed() { awk -v a="$1" -v b="$(date +%s.%N)" 'BEGIN { printf "%.3f", b - a }'; }
+  local dt=() yt=()
+  "${direct[@]}" >/dev/null 2>&1 || true
+  "${via[@]}" >/dev/null 2>&1 || true
+  for ((i = 0; i < runs; i++)); do
+    t="$(date +%s.%N)"; "${direct[@]}" >/dev/null 2>&1 || true; dt+=("$(elapsed "$t")")
+    t="$(date +%s.%N)"; "${via[@]}" >/dev/null 2>&1 || true; yt+=("$(elapsed "$t")")
+  done
+  d="$(printf '%s\n' "${dt[@]}" | sort -n | awk '{ a[NR] = $1 } END { print a[int((NR + 1) / 2)] }')"
+  y="$(printf '%s\n' "${yt[@]}" | sort -n | awk '{ a[NR] = $1 } END { print a[int((NR + 1) / 2)] }')"
+  awk -v d="$d" -v y="$y" -v max="$max" -v n="$runs" 'BEGIN {
+    r = (d > 0) ? y / d : 0
+    printf "BENCH direct=%.2fs yk=%.2fs ratio=%.2f overhead=%.2fs runs=%d\n", d, y, r, y - d, n
+    exit (r > max && y - d > 3) ? 1 : 0 }'
+}
+
 # yk statusline: one line for Claude Code's status line, from cached files only (no network)
 cmd_statusline() {
   local label mark="✗" line status scope healed activity f
@@ -542,6 +589,7 @@ case "$cmd" in
   stats) cmd_stats ;;
   detail) cmd_detail "$@" ;;
   statusline) cmd_statusline ;;
+  bench) cmd_bench "$@" ;;
   mcp-headers) cmd_mcp_headers ;;
   sum) changes_sum "$REPO_ROOT" ;;
   result)
