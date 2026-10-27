@@ -77,8 +77,7 @@ run_tool() {
   local cli session cmdline label exec_id
   cli="$(find_cli)"
   mkdir -p "$STATE_DIR"
-  exec 8>"$STATE_DIR/check.lock"
-  flock -n 8 || die "another run is going in this checkout; wait for it (yk watch) or stop it"
+  # no lock: yk gradle and yk tool do not edit the checkout, and the server's tool concurrency group queues them (QUEUED in yk tree)
   session="$(check_session "$project" 1)"
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
@@ -160,8 +159,11 @@ cmd_check() {
   cli="$(find_cli)"
   modules="$(sed -n 's/^# modules: //p' <<<"$plan" | head -1)"
   mkdir -p "$STATE_DIR"
-  exec 8>"$STATE_DIR/check.lock"
-  flock -n 8 || die "another check is running in this checkout; wait for it (yk watch) or stop it"
+  # only a healing check edits the checkout, so only it excludes another one (a --no-heal check and yk gradle queue on the server instead)
+  if [[ "$heal" == on ]]; then
+    exec 8>"$STATE_DIR/check.lock"
+    flock -n 8 || die "another healing check is running in this checkout (execution $(cat "$STATE_DIR/check.holder" 2>/dev/null || echo unknown)); wait for it (yk watch) or stop it, or use --no-heal"
+  fi
   rm -rf "$healdir.prev"; [[ ! -d "$healdir" ]] || mv "$healdir" "$healdir.prev"; mkdir -p "$healdir"
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
@@ -178,6 +180,7 @@ cmd_check() {
        cmd: $c.cmd, auto: $c.auto, fmt: $c.fmt}')" \
     | jq -r '.data.executionId // .executionId')"
   [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start the check"
+  [[ "$heal" != on ]] || echo "$exec_id" >"$STATE_DIR/check.holder"
   echo "STARTED execution=$exec_id session=$session"
   [[ "$mode" == detach ]] && return 0
   YUKTA_FAILED_OUTPUT=1 YUKTA_PROJECT="$root" YUKTA_SCOPE=check watch_owned "$session" "$exec_id"
