@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.function.Function;
 import lombok.experimental.UtilityClass;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ServerWebInputException;
 
 /**
  * Cursor pagination for list endpoints: {@code ?limit=&cursor=}, where the cursor is the ID of the
@@ -42,18 +43,24 @@ public class Pagination {
    * @param idOf extracts an item's ID
    * @param <T> item type
    * @return the page and, when more items remain, the cursor of the next page
+   * @throws ServerWebInputException (400) if the cursor is not in the list
    */
   public static <T> Slice<T> slice(
       final List<T> all, final Integer limit, final String cursor, final Function<T, String> idOf) {
     final int size = limit == null || limit < 1 ? DEFAULT_LIMIT : Math.min(limit, MAX_LIMIT);
     int from = 0;
     if (cursor != null) {
-      for (int i = 0; i < all.size(); i++) {
+      int seen = -1;
+      for (int i = 0; i < all.size() && seen < 0; i++) {
         if (idOf.apply(all.get(i)).equals(cursor)) {
-          from = i + 1;
-          break;
+          seen = i;
         }
       }
+      if (seen < 0) {
+        // Evicted, deleted or mistyped: restarting at page one would loop or repeat items.
+        throw new ServerWebInputException("Unknown cursor: " + cursor);
+      }
+      from = seen + 1;
     }
     final int end = Math.min(all.size(), from + size);
     final List<T> items = all.subList(from, end);
