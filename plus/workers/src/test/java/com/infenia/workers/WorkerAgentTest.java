@@ -69,7 +69,8 @@ class WorkerAgentTest {
     new Thread(
             () -> {
               try {
-                Thread.sleep(300);
+                // a delayed release of the last running job
+                Thread.sleep(300); // nosem: yukta-test-thread-sleep
               } catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
               }

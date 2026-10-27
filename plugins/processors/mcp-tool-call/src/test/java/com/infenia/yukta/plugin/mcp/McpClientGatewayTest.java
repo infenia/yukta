@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.plugin.util.EgressPolicy;
 import com.infenia.yukta.plugin.util.HostAllowList;
@@ -137,7 +138,8 @@ class McpClientGatewayTest {
     } else if ("tools/call".equals(method)) {
       if (body.contains("slow")) {
         try {
-          Thread.sleep(1500);
+          // a slow server is the input of the timeout tests
+          Thread.sleep(1500); // nosem: yukta-test-thread-sleep
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
         }
@@ -451,9 +453,7 @@ class McpClientGatewayTest {
   void call_cancelTellsServer() throws InterruptedException {
     gateway.call(spec("ping"), () -> {}).block();
     gateway.call(spec("slow"), () -> {}).subscribe().dispose();
-    for (int i = 0; i < 50 && !methods.contains("notifications/cancelled"); i++) {
-      Thread.sleep(50);
-    }
+    await().atMost(Duration.ofSeconds(5)).until(() -> methods.contains("notifications/cancelled"));
     assertThat(methods).contains("notifications/cancelled");
   }
 
@@ -462,7 +462,10 @@ class McpClientGatewayTest {
     final var subscription = gateway.call(spec("slow"), () -> {}).subscribe();
     gateway.reset();
     subscription.dispose();
-    Thread.sleep(100);
+    await()
+        .during(Duration.ofMillis(100))
+        .atMost(Duration.ofSeconds(5))
+        .until(() -> !methods.contains("notifications/cancelled"));
     assertThat(methods).doesNotContain("notifications/cancelled");
   }
 
@@ -494,10 +497,12 @@ class McpClientGatewayTest {
 
     assertThat(gateway.sessionCount()).isLessThanOrEqualTo(100L);
     // an evicted session is ended on the server (a DELETE request, which the fake records as "")
-    for (int i = 0; i < 50 && methods.stream().filter(String::isEmpty).count() < 30; i++) {
-      Thread.sleep(100);
-    }
-    assertThat(methods.stream().filter(String::isEmpty).count()).isGreaterThanOrEqualTo(30L);
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertThat(methods.stream().filter(String::isEmpty).count())
+                    .isGreaterThanOrEqualTo(30L));
   }
 
   @Test

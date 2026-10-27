@@ -89,7 +89,8 @@ class LlmCallPluginTest {
             invocation -> {
               peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
               try {
-                Thread.sleep(30);
+                // simulated call duration so calls overlap
+                Thread.sleep(30); // nosem: yukta-test-thread-sleep
               } finally {
                 inFlight.decrementAndGet();
               }
