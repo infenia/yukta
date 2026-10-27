@@ -114,6 +114,23 @@ class AppMcpToolsTest {
   }
 
   @Test
+  void testGetNodeOutput() {
+    var result =
+        new com.infenia.yukta.mcp.dto.NodeOutputResult(
+            "e1",
+            new com.infenia.yukta.logging.api.NodeOutputSlice(
+                "n1", "all", 0, 0, 0, false, null, List.of()),
+            "notice");
+    when(logProvider.getNodeOutput("s1", "e1", "n1", "stderr", 5, null, null, null, "x", 2))
+        .thenReturn(Mono.just(result));
+
+    StepVerifier.create(
+            mcpTools.getNodeOutput("s1", "e1", "n1", "stderr", 5, null, null, null, "x", 2))
+        .expectNext(result)
+        .verifyComplete();
+  }
+
+  @Test
   void testGetWorkflowDetails() {
     var def = mock(WorkflowDefinition.class);
     when(workflowExecutionProvider.getWorkflowDetails("s1", "w1")).thenReturn(Mono.just(def));

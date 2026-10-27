@@ -151,6 +151,7 @@ These commands stay connected until the run ends or you press Ctrl-C. A Ctrl-C e
 | Command | Prints |
 |---|---|
 | `yukta-cli logs <session-id> <execution-id>` | One log line per line, stored lines first, then live. `--entries` prints each entry as one JSON object |
+| `yukta-cli logs <session-id> <execution-id> --node <node>` | Part of what one node wrote instead of a stream, as `<line number>: <text>`: `--tail N`, `--head N`, `--offset N --limit N` (at most 500), `--grep REGEX` with `--context N`, `--stream stdout\|stderr\|all`. A note on stderr says when lines were left out and where the next page starts |
 | `yukta-cli result <session-id> <execution-id>` | One JSON event per line as results reach the terminal nodes, ending with `EXECUTION_END`. `--node <id>` follows one terminal node. Works after the run ended, while the server keeps the result |
 | `yukta-cli workflow status-stream <session-id> <execution-id>` | A JSON progress snapshot at every change. `--include-history` replays recent updates first |
 | `yukta-cli controlbus watch` | One line per event of all runs |

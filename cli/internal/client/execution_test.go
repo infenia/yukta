@@ -168,3 +168,62 @@ func TestExecutionCall_apiError(t *testing.T) {
 		t.Fatal("expected error for 409")
 	}
 }
+
+func TestGetNodeOutput(t *testing.T) {
+	var method, path, query string
+	server := callServer(t, `{"nodeId":"n","stream":"all","totalLines":3,"matchedLines":1,"truncated":false,"nextOffset":7,"lines":[{"number":2,"text":"boom"}]}`,
+		&method, &path, &query)
+	defer server.Close()
+
+	out, err := NewClient(server.URL).GetNodeOutput("e1", "n", NodeOutputQuery{Stream: "stderr", Tail: 5, Head: -1, Offset: -1, Limit: 10, Grep: "a b", Context: 0})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if method != "GET" || path != "/api/executions/e1/nodes/n/output" {
+		t.Errorf("request = %s %s", method, path)
+	}
+	for _, want := range []string{"stream=stderr", "tail=5", "limit=10", "context=0", "grep=a+b"} {
+		if !contains(query, want) {
+			t.Errorf("query %q lacks %q", query, want)
+		}
+	}
+	if contains(query, "head=") || contains(query, "offset=") {
+		t.Errorf("unset values were sent: %q", query)
+	}
+	if out.TotalLines != 3 || len(out.Lines) != 1 || out.Lines[0].Text != "boom" || out.NextOffset == nil || *out.NextOffset != 7 {
+		t.Errorf("output = %+v", out)
+	}
+}
+
+func TestGetNodeOutput_noQueryAndBadInput(t *testing.T) {
+	var method, path, query string
+	server := callServer(t, `{"lines":[]}`, &method, &path, &query)
+	defer server.Close()
+	c := NewClient(server.URL)
+
+	if _, err := c.GetNodeOutput("e1", "n", NodeOutputQuery{Tail: -1, Head: -1, Offset: -1, Limit: -1, Context: -1}); err != nil || query != "" {
+		t.Errorf("err=%v query=%q", err, query)
+	}
+	if _, err := c.GetNodeOutput("", "n", NodeOutputQuery{}); err == nil {
+		t.Error("expected an error for an empty execution id")
+	}
+	if _, err := c.GetNodeOutput("e1", "", NodeOutputQuery{}); err == nil {
+		t.Error("expected an error for an empty node id")
+	}
+}
+
+func TestGetNodeOutput_serverErrorAndBadJSON(t *testing.T) {
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("not json")) }))
+	defer bad.Close()
+	if _, err := NewClient(bad.URL).GetNodeOutput("e1", "n", NodeOutputQuery{}); err == nil {
+		t.Error("expected a decode error")
+	}
+	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { http.Error(w, "no", http.StatusNotFound) }))
+	defer down.Close()
+	if _, err := NewClient(down.URL).GetNodeOutput("e1", "n", NodeOutputQuery{}); err == nil {
+		t.Error("expected an API error")
+	}
+	if _, err := NewClient("http://127.0.0.1:1\x7f").GetNodeOutput("e1", "n", NodeOutputQuery{}); err == nil {
+		t.Error("expected a request error")
+	}
+}
