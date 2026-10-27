@@ -25,6 +25,8 @@ any checkout/branch ──yk──┘  session apply → workflow start → prob
 
 Any Gradle flag goes through `yk gradle` verbatim (`--info`, `-x test`, `-Dk=v`, `--stacktrace`); an environment variable or a folder goes through `yk tool` (`yk tool env K=V ./gradlew ...`, `yk tool -C sub cmd`). `YUKTA_DOGFOOD=off` in the environment skips the hooks for one session (raw Gradle, the user's call).
 
+`yk plan` narrows the tests to the changed classes (Tier 1) when only Java files changed, the diff touches no public/protected member or type declaration and every changed class has its `<Class>Test`: no dependants, no coverage stage, the scope printed on the `# gradle:` line. Anything else runs whole modules plus dependants; run `yk check --full` before a PR.
+
 Every run ends with `RESULT status=<S> failed_node=<stage|-> healed=<stage:model/effort,..|-> execution=<id> session=<id>`; exit 0
 only on success. `yk watch <session> <execution>` follows a detached run and prints problems only. Run the smallest scope
 that covers your change.
