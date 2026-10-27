@@ -24,6 +24,7 @@ import { Callout } from '@/components/common/Callout';
 import { NativeSelect } from '@/components/ui/native-select';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
+const PLUGIN_CATEGORIES = ['TRIGGER', 'PROCESSOR', 'TERMINAL'] as const;
 const NO_TASKS = {};
 
 // fetchApi only throws Error subclasses
@@ -96,6 +97,13 @@ function Editor({
     [workflow, categories, ports]
   );
   const node = workflow.nodes.find((n) => n.nodeId === selected);
+  // The select lists plugins by category; until the user picks one, what it shows is the first option.
+  const selectedType =
+    newType ||
+    PLUGIN_CATEGORIES.flatMap((c) =>
+      (plugins.data ?? []).filter((p) => p.category === c)
+    )[0]?.type ||
+    '';
 
   const update = (patch: Partial<DraftWorkflow>) => {
     setWorkflow((current) => ({ ...current, ...patch }));
@@ -103,7 +111,7 @@ function Editor({
   };
 
   const addNode = () => {
-    const type = newType || plugins.data?.[0]?.type;
+    const type = selectedType;
     if (!type) return;
     const nodeId = uniqueNodeId(type, workflow.nodes);
     update({ nodes: [...workflow.nodes, { nodeId, type, config: {} }] });
@@ -216,22 +224,20 @@ function Editor({
             <NativeSelect
               aria-label="Plugin type"
               className="min-w-0 flex-1"
-              value={newType}
+              value={selectedType}
               onChange={(event) => setNewType(event.target.value)}
             >
-              {(['TRIGGER', 'PROCESSOR', 'TERMINAL'] as const).map(
-                (category) => (
-                  <optgroup key={category} label={category}>
-                    {plugins.data
-                      ?.filter((p) => p.category === category)
-                      .map((p) => (
-                        <option key={p.type} value={p.type}>
-                          {p.type}
-                        </option>
-                      ))}
-                  </optgroup>
-                )
-              )}
+              {PLUGIN_CATEGORIES.map((category) => (
+                <optgroup key={category} label={category}>
+                  {plugins.data
+                    ?.filter((p) => p.category === category)
+                    .map((p) => (
+                      <option key={p.type} value={p.type}>
+                        {p.type}
+                      </option>
+                    ))}
+                </optgroup>
+              ))}
             </NativeSelect>
             <button type="button" className={BUTTON} onClick={addNode}>
               Add node

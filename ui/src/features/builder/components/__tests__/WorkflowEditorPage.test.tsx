@@ -195,6 +195,26 @@ describe('WorkflowEditorPage', () => {
     expect(await screen.findByRole('region', { name: 'Node branch-2' })).toBeInTheDocument();
   });
 
+  it('adds the plugin the select shows, even when the API lists another category first', async () => {
+    server.use(
+      http.get('/api/plugins', () =>
+        ok([
+          { type: 'CONSOLE_TERMINAL', category: 'TERMINAL' },
+          { type: 'BRANCH', category: 'PROCESSOR' },
+          { type: 'API_TRIGGER', category: 'TRIGGER' },
+        ])
+      )
+    );
+    const user = userEvent.setup();
+    renderEditor('other');
+    await screen.findByRole('option', { name: 'BRANCH' });
+
+    expect(screen.getByLabelText('Plugin type')).toHaveValue('API_TRIGGER');
+    await user.click(screen.getByRole('button', { name: 'Add node' }));
+
+    expect(within(screen.getByRole('list', { name: 'Nodes' })).getByText('api-trigger-1')).toBeInTheDocument();
+  });
+
   it('does nothing when asked to add a node before any plugin has loaded', async () => {
     server.use(http.get('/api/plugins', () => ok([])));
     const user = userEvent.setup();
