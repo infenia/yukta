@@ -106,4 +106,17 @@ tar -C "$work/stage" -czf "$rel/yukta-$version-linux-amd64.tar.gz" "yukta-$versi
 if sh "$script" --version "$version" --install-dir "$work/j" 2>"$work/err"; then fail "linked file was installed"; fi
 grep -q "regular file" "$work/err" || fail "no regular-file message"
 
+echo "9. redirected output is plain; --quiet is silent; a failure adds no control codes"
+rm -f "$work/stage/yukta-$version-linux-amd64/yukta"
+printf '#!/bin/sh\necho server\n' > "$work/stage/yukta-$version-linux-amd64/yukta"; chmod +x "$work/stage/yukta-$version-linux-amd64/yukta"
+tar -C "$work/stage" -czf "$rel/yukta-$version-linux-amd64.tar.gz" "yukta-$version-linux-amd64"
+(cd "$rel" && sha256sum -- $(ls | grep -v '^SHA256SUMS$') > SHA256SUMS)
+sh "$script" --version "$version" --install-dir "$work/k" >"$work/plain.out" 2>&1
+grep -q "Download server + client" "$work/plain.out" || fail "no step lines"
+! grep -q $'\033\|\r' "$work/plain.out" || fail "escape codes or carriage returns in redirected output"
+[[ -z "$(sh "$script" --version "$version" --install-dir "$work/k" --force --quiet 2>&1)" ]] || fail "--quiet printed something"
+echo tamper >> "$rel/yukta-$version-linux-amd64.tar.gz"
+sh "$script" --version "$version" --install-dir "$work/l" >"$work/plain.out" 2>&1 || true
+! grep -q $'\033\|\r' "$work/plain.out" || fail "control characters on the failure path"
+
 echo "install.sh: all checks passed"

@@ -53,6 +53,8 @@ It does not use `sudo` or administrator rights, does not edit shell profiles, an
 | Folder | `--install-dir <dir>` or `YUKTA_INSTALL_DIR` |
 | Only the client or the server | `--cli-only`, `--server-only` |
 | Remove | `--uninstall` |
+| Plain output (no colour, spinner or progress bar; automatic when output is redirected or `CI` is set) | `--no-animation` or `YUKTA_NO_ANIMATION` |
+| Print nothing but errors | `--quiet` |
 
 To install on a machine without internet access, or from a mirror, copy a release's files to a web server laid out as `<base>/vX.Y.Z/<file>` and set `YUKTA_DOWNLOAD_BASE=<base>`. To audit the script first, download it, read it and run it from the file.
 
