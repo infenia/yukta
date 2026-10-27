@@ -211,6 +211,27 @@ class ClassifyPluginTest {
   }
 
   @Test
+  void ask_systemOneTuning_passedToTheSpec() {
+    final FakeModel model = FakeModel.always(Map.of("label", choice("bug", 0.9)));
+
+    run(plugin(model), config("keepAlive", "30m", "numCtx", 4096), "x");
+
+    final ModelSpec spec = model.asked.getFirst().spec();
+    assertThat(spec.keepAlive()).isEqualTo("30m");
+    assertThat(spec.numCtx()).isEqualTo(4096);
+  }
+
+  @Test
+  void ask_noTuning_specHasNone() {
+    final FakeModel model = FakeModel.always(Map.of("label", choice("bug", 0.9)));
+
+    run(plugin(model), config(), "x");
+
+    assertThat(model.asked.getFirst().spec().keepAlive()).isNull();
+    assertThat(model.asked.getFirst().spec().numCtx()).isNull();
+  }
+
+  @Test
   void ask_llmBackendPassesProviderEndpointAndKey() {
     final FakeModel model = FakeModel.always(Map.of("label", choice("bug", 0.9)));
 
