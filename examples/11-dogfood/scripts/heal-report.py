@@ -7,7 +7,7 @@
   heal-report.py analyze [same options]      the findings only (rules over the events), exit 1 when there are any
   heal-report.py show    [same options]      the events as one line each, oldest first
 
-The log is examples/11-dogfood/README.md "Monitoring heal": one JSON object per line, written by yukta-heal.sh and yk.
+The log is examples/11-dogfood/README.md "Monitoring heal": one JSON object per line, written by yukta-heal.sh and yk (run is "-" in the first; the report stamps it from the session's next result).
 Every event has v, ts, run (the root execution id), session, project and event; the rest depends on the event:
   stage    stage, secs, exit, ok, cmd, and on a failure sig and head (a stable hash of the failure and its first lines)
   triage   stage, route (level | uncertain | error), label, p, start, model, secs (since the brief), chars, fallback, error
@@ -34,6 +34,19 @@ def load(path):
     except FileNotFoundError:
         pass
     return out
+
+
+def stamp(ev):
+    """yukta-heal.sh cannot know its run id (run "-"); the result event closes the run, so an unstamped event belongs to
+    the next result of its session."""
+    pending = collections.defaultdict(list)
+    for e in ev:
+        if e.get("run") in (None, "", "-"):
+            pending[e.get("session")].append(e)
+        if e["event"] == "result" and e.get("run") not in (None, "", "-"):
+            for u in pending.pop(e.get("session"), []):
+                u["run"] = e["run"]
+    return ev
 
 
 def since(spec):
@@ -245,7 +258,7 @@ def main():
     ap.add_argument("--events", default=os.environ.get("YUKTA_HEAL_EVENTS", DEFAULT))
     ap.add_argument("--since"); ap.add_argument("--run"); ap.add_argument("--project"); ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
-    ev = load(a.events)
+    ev = stamp(load(a.events))
     t0 = since(a.since)
     ev = [e for e in ev if (not t0 or e.get("ts", "") >= t0) and (not a.run or str(e.get("run", "")).startswith(a.run)) and (not a.project or e.get("project") == a.project)]
     if not ev:

@@ -21,6 +21,8 @@ abstract class CoverageExtension {
     abstract val noTests: Property<Boolean>
 
     fun exception(pattern: String, reason: String, thresholds: Map<String, Double>) {
+        val unknown = thresholds.keys - setOf("LINE", "BRANCH")
+        require(unknown.isEmpty()) { "coverage exception '$pattern': unknown counters $unknown (use LINE or BRANCH)" }
         exceptions.put(pattern, thresholds)
         reasons.put(pattern, reason)
     }
@@ -35,7 +37,8 @@ extension.noTests.convention(false)
  * Configure test tasks
  */
 tasks.withType<Test>().configureEach {
-    // Report only on request (-Pcoverage); `check` still builds it via jacocoTestCoverageVerification.
+    // Finalize with the reports only on request (-Pcoverage); `check` still builds them because
+    // jacocoTestCoverageVerification depends on them (CI uploads the XML to Codecov).
     if (providers.gradleProperty("coverage").isPresent) {
         finalizedBy(tasks.withType<JacocoReport>())
     }
@@ -80,67 +83,70 @@ val defaults = mapOf("LINE" to 1.00.toBigDecimal(), "BRANCH" to 1.00.toBigDecima
 fun globToRegex(glob: String) =
     Regex(glob.split("*").joinToString(".*") { part -> part.split("?").joinToString(".") { Regex.escape(it) } })
 
-tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+// Configured after the module's own coverageConfig block has run, so the exceptions are never read empty.
+afterEvaluate {
+    tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
 
-    dependsOn(tasks.withType<JacocoReport>())
+        dependsOn(tasks.withType<JacocoReport>())
 
-    onlyIf {
-        executionData.files.any { it.exists() }
-    }
-
-    val patterns = extension.exceptions.get()
-    val reasons = extension.reasons.get()
-    val projectPath = project.path
-
-    violationRules {
-        // 1. Global rule for everything not listed as an exception
-        rule {
-            element = "CLASS"
-            excludes = patterns.keys.toList()
-            defaults.forEach { (metric, ratio) ->
-                limit {
-                    counter = metric
-                    value = "COVEREDRATIO"
-                    minimum = ratio
-                }
-            }
+        onlyIf {
+            executionData.files.any { it.exists() }
         }
 
-        // 2. Exception rules
-        patterns.forEach { (filePattern, thresholds) ->
+        val patterns = extension.exceptions.get()
+        val reasons = extension.reasons.get()
+        val projectPath = project.path
+
+        violationRules {
+            // 1. Global rule for everything not listed as an exception
             rule {
                 element = "CLASS"
-                includes = listOf(filePattern)
-
-                defaults.forEach { (metric, default) ->
-                    val effective = thresholds[metric]?.toBigDecimal() ?: default
-                    if (effective < minFloor && reasons[filePattern].isNullOrBlank()) {
-                        throw GradleException(
-                            "$projectPath: coverage exception '$filePattern' sets $metric to $effective " +
-                                "(< $minFloor) without a reason; use coverageConfig.exception(pattern, reason, thresholds)"
-                        )
-                    }
+                excludes = patterns.keys.toList()
+                defaults.forEach { (metric, ratio) ->
                     limit {
                         counter = metric
                         value = "COVEREDRATIO"
-                        minimum = effective
+                        minimum = ratio
+                    }
+                }
+            }
+
+            // 2. Exception rules
+            patterns.forEach { (filePattern, thresholds) ->
+                rule {
+                    element = "CLASS"
+                    includes = listOf(filePattern)
+
+                    defaults.forEach { (metric, default) ->
+                        val effective = thresholds[metric]?.toBigDecimal() ?: default
+                        if (effective < minFloor && reasons[filePattern].isNullOrBlank()) {
+                            throw GradleException(
+                                "$projectPath: coverage exception '$filePattern' sets $metric to $effective " +
+                                    "(< $minFloor) without a reason; use coverageConfig.exception(pattern, reason, thresholds)"
+                            )
+                        }
+                        limit {
+                            counter = metric
+                            value = "COVEREDRATIO"
+                            minimum = effective
+                        }
                     }
                 }
             }
         }
-    }
 
-    // Stale-entry check: every exception pattern must match a compiled class.
-    doFirst {
-        val classNames = classDirectories.asFileTree.files
-            .filter { it.name.endsWith(".class") }
-            .map { f ->
-                classDirectories.files.first { f.startsWith(it) }
-                    .let { root -> f.relativeTo(root).path.removeSuffix(".class").replace(File.separatorChar, '.') }
+        // Stale-entry check: every exception pattern must match a compiled class.
+        doFirst {
+            val classNames = classDirectories.asFileTree.files
+                .filter { it.name.endsWith(".class") }
+                .map { f ->
+                    classDirectories.files.first { f.startsWith(it) }
+                        .let { root -> f.relativeTo(root).path.removeSuffix(".class").replace(File.separatorChar, '.') }
+                }
+            val stale = patterns.keys.filter { p -> val re = globToRegex(p); classNames.none { re.matches(it) } }
+            if (stale.isNotEmpty()) {
+                throw GradleException("$projectPath: coverage exceptions match no class (stale, delete them): $stale")
             }
-        val stale = patterns.keys.filter { p -> val re = globToRegex(p); classNames.none { re.matches(it) } }
-        if (stale.isNotEmpty()) {
-            throw GradleException("$projectPath: coverage exceptions match no class (stale, delete them): $stale")
         }
     }
 }
@@ -157,14 +163,16 @@ afterEvaluate {
 val verifyCoverageData = tasks.register("verifyCoverageData") {
     val projectPath = project.path
     val noTests = extension.noTests
-    val execFiles = tasks.withType<Test>().map { t -> t.extensions.getByType<JacocoTaskExtension>().destinationFile }
+    val execFiles = provider {
+        tasks.withType<Test>().map { t -> t.extensions.getByType<JacocoTaskExtension>().destinationFile }
+    }
     val hasClasses = provider {
         project.extensions.findByType<SourceSetContainer>()?.findByName("main")
             ?.output?.classesDirs?.asFileTree?.files?.any { it.name.endsWith(".class") } ?: false
     }
     mustRunAfter(tasks.withType<Test>())
     doLast {
-        if (hasClasses.get() && !noTests.get() && execFiles.none { it?.exists() == true }) {
+        if (hasClasses.get() && !noTests.get() && execFiles.get().none { it?.exists() == true }) {
             throw GradleException(
                 "$projectPath: no coverage data (tests deleted, filtered out or not run); " +
                     "set coverageConfig.noTests = true if this module legitimately has no tests"

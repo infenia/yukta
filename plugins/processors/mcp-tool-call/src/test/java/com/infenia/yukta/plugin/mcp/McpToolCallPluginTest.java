@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -148,15 +149,16 @@ class McpToolCallPluginTest {
 
   /** Sends the decision once the node is waiting for it. */
   private void answerWhenWaiting(final String decision) throws InterruptedException {
-    for (int i = 0; i < 200; i++) {
-      final Message<?> answer =
-          java.util.Objects.requireNonNull(plugin.onControlSignal(decision(decision)).block());
-      if (ACCEPTED.equals(String.valueOf(answer.payload()))) {
-        return;
-      }
-      Thread.sleep(10);
-    }
-    throw new AssertionError("the node never waited for an approval");
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(10))
+        .until(
+            () ->
+                ACCEPTED.equals(
+                    String.valueOf(
+                        java.util.Objects.requireNonNull(
+                                plugin.onControlSignal(decision(decision)).block())
+                            .payload())));
   }
 
   @Test

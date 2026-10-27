@@ -287,7 +287,8 @@ public final class PluginConformance {
 
   private static void pause(final long millis) {
     try {
-      Thread.sleep(millis);
+      // fixture has no test-dependency on Awaitility; polls and settles
+      Thread.sleep(millis); // nosem: yukta-test-thread-sleep
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new AssertionError("interrupted", e);

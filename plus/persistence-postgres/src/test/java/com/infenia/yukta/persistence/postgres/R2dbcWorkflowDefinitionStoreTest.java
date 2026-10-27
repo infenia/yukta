@@ -59,7 +59,8 @@ class R2dbcWorkflowDefinitionStoreTest extends PostgresTestSupport {
       throws InterruptedException {
     store.save("s", definition("w", "one")).block();
     store.save("s", definition("w", "one")).block();
-    Thread.sleep(2);
+    // distinct savedAt timestamps
+    Thread.sleep(2); // nosem: yukta-test-thread-sleep
     store.save("s", definition("w", "two")).block();
 
     final List<DefinitionRevision> revisions = store.revisions("s", "w").collectList().block();
@@ -77,7 +78,8 @@ class R2dbcWorkflowDefinitionStoreTest extends PostgresTestSupport {
   void onlyTheNewestVersionsAreKept() throws InterruptedException {
     for (int i = 0; i < R2dbcWorkflowDefinitionStore.MAX_REVISIONS + 3; i++) {
       store.save("s", definition("w", "v" + i)).block();
-      Thread.sleep(1);
+      // distinct savedAt timestamps
+      Thread.sleep(1); // nosem: yukta-test-thread-sleep
     }
 
     final List<DefinitionRevision> revisions = store.revisions("s", "w").collectList().block();

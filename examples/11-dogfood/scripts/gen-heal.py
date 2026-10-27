@@ -23,7 +23,7 @@ FIX_SCHEMA = '{"type":"object","properties":{"fixed":{"type":"boolean"},"summary
 
 # what every layer passes on to the next: heal -> attempt
 KEYS = ["project", "stage", "command", "format", "modules", "healDir", "events", "models", "timeout",
-        "rules", "claudeBin"]
+        "rules", "claudeBin", "budgetCheck"]
 
 
 def S(k):
@@ -101,7 +101,7 @@ a_env = {"YUKTA_MODEL": S("model"), "YUKTA_EFFORT": S("effort"), "YUKTA_COMMAND"
 ATTEMPT_WF = {"workflowId": "attempt", "description": "One repair attempt: one Claude session at one model and effort, judged by re-running the failed stage.",
   "nodes": [
     {"nodeId": "trigger", "type": "CONSTANT_SOURCE", "config": {"variables": {"problems": S("problems"), "previous": S("previous")}}},
-    pe("prepare", "prepare", heal_env(**a_env, YUKTA_MODELS=S("models"),
+    pe("prepare", "prepare", heal_env(**a_env, YUKTA_MODELS=S("models"), YUKTA_BUDGET_CHECK=S("budgetCheck"),
                                       YUKTA_HEAL_TIMEOUT=S("claudeTimeout")),
        stdin=True, json_out=True, routed=True),
     {"nodeId": "claude", "type": "SUB_WORKFLOW", "config": claude_call},

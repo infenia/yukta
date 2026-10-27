@@ -363,6 +363,16 @@ record_run() {
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$2" "$1" "$3" "$4" "$5" "$6" >>"$STATE_DIR/runs.tsv" 2>/dev/null || true
 }
 
+# filter_plan ONLY SKIP: the plan on stdin (yk plan's lines) without the stages not in ONLY (a comma list, "" = all) or in SKIP. A stage name
+# matches with - or _ either way; comment lines stay.
+filter_plan() {
+  awk -F'\t' -v only="$1" -v skip="$2" '
+    function norm(s) { gsub(/-/, "_", s); return s }
+    BEGIN { n = split(only, o, ","); m = split(skip, k, ","); for (i = 1; i <= n; i++) O[norm(o[i])] = 1; for (i = 1; i <= m; i++) K[norm(k[i])] = 1 }
+    /^#/ { print; next }
+    { s = norm($1); if ((n == 0 || s in O) && !(s in K)) print }'
+}
+
 # heal_records SESSION: the directory with the heal records of the last check run: YUKTA_HEAL_RECORDS when set, else the session's own.
 heal_records() {
   echo "${YUKTA_HEAL_RECORDS:-$STATE_DIR/heal/$1}"

@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.process;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,6 +12,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,7 +39,6 @@ import reactor.test.StepVerifier;
   "PMD.AvoidDuplicateLiterals", // Common test string constants
   "PMD.CommentRequired", // Constants are self-documenting in test context
   "PMD.TooManyMethods", // Comprehensive test coverage requires multiple methods
-  "PMD.CyclomaticComplexity", // one test class covers the whole gateway
   "PMD.LawOfDemeter", // fluent assertions and builders
 })
 class ProcessExecutorGatewayTest {
@@ -513,7 +514,8 @@ class ProcessExecutorGatewayTest {
       throws IOException, InterruptedException {
     final Process process = new ProcessBuilder("sh", "-c", "trap '' TERM; sleep 30").start();
     // Give the shell a moment to install the TERM trap before we try to destroy it
-    Thread.sleep(300);
+    // the trap install has no observable signal
+    Thread.sleep(300); // nosem: yukta-test-thread-sleep
     assertThat(process.isAlive()).isTrue();
 
     StepVerifier.create(gateway.cleanupProcess(process)).verifyComplete();
@@ -527,14 +529,11 @@ class ProcessExecutorGatewayTest {
   @DisabledOnOs(OS.WINDOWS)
   void cleanupProcess_alsoDestroysDescendants() throws Exception {
     final Process process = new ProcessBuilder("sh", "-c", "sleep 30 & wait").start();
-    ProcessHandle grandchild = null;
-    for (int i = 0; i < 50 && grandchild == null; i++) {
-      grandchild = process.descendants().findFirst().orElse(null);
-      if (grandchild == null) {
-        Thread.sleep(100);
-      }
-    }
-    assertThat(grandchild).as("the shell started a child").isNotNull();
+    final ProcessHandle grandchild =
+        await()
+            .atMost(Duration.ofSeconds(5))
+            .until(
+                () -> process.descendants().findFirst().orElse(null), java.util.Objects::nonNull);
     assertThat(grandchild.isAlive()).isTrue();
 
     StepVerifier.create(gateway.cleanupProcess(process)).verifyComplete();
