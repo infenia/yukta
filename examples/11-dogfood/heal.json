@@ -1,4 +1,5 @@
 {
+  "checkBudget": 5,
   "efforts": {
     "low": {
       "timeoutSeconds": 600,
