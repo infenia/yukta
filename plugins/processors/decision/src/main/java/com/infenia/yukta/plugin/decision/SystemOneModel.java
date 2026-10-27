@@ -45,7 +45,7 @@ public final class SystemOneModel implements DecisionModel {
         .post()
         .uri(spec.baseUrl() + PATH)
         .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(JSON.writeValueAsString(request(spec.model(), state, questions)))
+        .bodyValue(JSON.writeValueAsString(request(spec, state, questions)))
         .retrieve()
         .bodyToMono(String.class)
         .timeout(spec.timeout())
@@ -53,10 +53,20 @@ public final class SystemOneModel implements DecisionModel {
   }
 
   private static Map<String, Object> request(
-      final String model, final String state, final Map<String, Question> questions) {
+      final ModelSpec spec, final String state, final Map<String, Question> questions) {
     final Map<String, Object> asked = new LinkedHashMap<>();
     questions.forEach((name, question) -> asked.put(name, ask(question)));
-    return Map.of("model", model, "state", state, "questions", asked);
+    final Map<String, Object> body = new LinkedHashMap<>();
+    body.put("model", spec.model());
+    body.put("state", state);
+    body.put("questions", asked);
+    if (spec.keepAlive() != null) {
+      body.put("keep_alive", spec.keepAlive());
+    }
+    if (spec.numCtx() != null) {
+      body.put("options", Map.of("num_ctx", spec.numCtx()));
+    }
+    return body;
   }
 
   private static Map<String, Object> ask(final Question question) {

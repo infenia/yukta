@@ -143,6 +143,13 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
             "ollama"),
         ConfigField.required("model", ConfigField.Type.STRING, "Model name"),
         ConfigField.optional("baseUrl", ConfigField.Type.STRING, null, "Endpoint override"),
+        ConfigField.optional(
+            "keepAlive",
+            ConfigField.Type.STRING,
+            null,
+            "SYSTEMONE: how long Ollama keeps the model"),
+        ConfigField.optional(
+            "numCtx", ConfigField.Type.NUMBER, null, "SYSTEMONE: context size to load the model"),
         ConfigField.optional("apiKey", ConfigField.Type.SECRET, null, "API key (decrypted:<key>)"),
         ConfigField.optional(
             TIMEOUT, ConfigField.Type.NUMBER, DEFAULT_TIMEOUT_SECONDS, "Timeout in seconds"),
@@ -173,7 +180,8 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
     return Mono.zip(
             resolve(config.get("model"), message),
             resolve(config.get("baseUrl"), message),
-            resolve(config.get("apiKey"), message))
+            resolve(config.get("apiKey"), message),
+            resolve(config.get("keepAlive"), message))
         .flatMap(
             t ->
                 model.answer(
@@ -183,7 +191,9 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
                         t.getT1(),
                         baseUrl(config, t.getT2()),
                         blankToNull(t.getT3()),
-                        seconds(config)),
+                        seconds(config),
+                        blankToNull(t.getT4()),
+                        numCtx(config)),
                     state,
                     questions))
         .onErrorMap(
@@ -327,6 +337,12 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
   private static Duration seconds(final Map<String, Object> config) {
     return Duration.ofSeconds(
         MapUtils.convert(config.getOrDefault(TIMEOUT, DEFAULT_TIMEOUT_SECONDS), Long.class));
+  }
+
+  private static Integer numCtx(final Map<String, Object> config) {
+    return config.get("numCtx") == null
+        ? null
+        : MapUtils.convert(config.get("numCtx"), Integer.class);
   }
 
   private static String text(final Object value) {

@@ -102,6 +102,32 @@ class SystemOneModelTest {
   }
 
   @Test
+  void answer_noTuning_bodyHasNeitherField() {
+    reply.set("{\"answers\":{\"yes\":{\"noul\":0.1}}}");
+
+    new SystemOneModel(WebClient.builder())
+        .answer(spec(), "s", Map.of("yes", new Question.YesNo("Really?")))
+        .block();
+
+    assertThat(received.get()).doesNotContain("keep_alive", "num_ctx");
+  }
+
+  @Test
+  void answer_keepAliveAndNumCtx_sentInBody() {
+    reply.set("{\"answers\":{\"yes\":{\"noul\":0.1}}}");
+    final ModelSpec base = spec();
+    final ModelSpec tuned =
+        new ModelSpec(
+            base.backend(), null, base.model(), base.baseUrl(), null, base.timeout(), "30m", 4096);
+
+    new SystemOneModel(WebClient.builder())
+        .answer(tuned, "s", Map.of("yes", new Question.YesNo("Really?")))
+        .block();
+
+    assertThat(received.get()).contains("\"keep_alive\":\"30m\"", "\"num_ctx\":4096");
+  }
+
+  @Test
   void answer_missingAnswer_fails() {
     reply.set("{\"answers\":{}}");
 

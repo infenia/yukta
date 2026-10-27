@@ -39,6 +39,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param instructions the question put to the model
  * @param options the answers the model may give, by key, each with a description of when it applies
  *     and the command it triggers; at least two
+ * @param keepAlive for System One: how long Ollama keeps the model loaded, such as {@code 30m} or
+ *     {@code -1}; unset leaves it to Ollama
+ * @param numCtx for System One: the context size to load the model with; unset leaves it to Ollama
  * @param events the kinds of event to ask about: {@code NodeStatusChanged}, {@code
  *     WorkflowStatusChanged}, {@code ControlOutcome}, {@code LogLine}
  */
@@ -54,7 +57,9 @@ public record ModelPlaneSettings(
     @DefaultValue("0.6") double minProbability,
     String instructions,
     Map<String, Option> options,
-    Set<String> events) {
+    Set<String> events,
+    @Nullable String keepAlive,
+    @Nullable Integer numCtx) {
 
   /** A choice needs at least two options. */
   private static final int MIN_OPTIONS = 2;

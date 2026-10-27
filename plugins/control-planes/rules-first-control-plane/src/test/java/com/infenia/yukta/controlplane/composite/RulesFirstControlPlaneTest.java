@@ -200,6 +200,8 @@ class RulesFirstControlPlaneTest {
                     0.6,
                     null,
                     null,
+                    null,
+                    null,
                     null)));
 
     assertThat(plane.decide(EVENT).block().commands()).containsExactly(PAUSE);

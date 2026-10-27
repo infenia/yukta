@@ -128,6 +128,8 @@ class ClassifyPluginTest {
             "provider",
             "model",
             "baseUrl",
+            "keepAlive",
+            "numCtx",
             "apiKey",
             "timeout",
             "state",

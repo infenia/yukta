@@ -109,7 +109,9 @@ public final class ModelControlPlane implements ControlPlanePlugin {
             settings.name(),
             settings.baseUrl(),
             settings.apiKey(),
-            settings.timeout());
+            settings.timeout(),
+            settings.keepAlive(),
+            settings.numCtx());
     final Map<String, String> criteria = new LinkedHashMap<>();
     settings.options().forEach((key, option) -> criteria.put(key, option.description()));
     this.question = new Question.Choice(settings.instructions(), criteria);
