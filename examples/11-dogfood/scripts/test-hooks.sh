@@ -52,4 +52,13 @@ echo "// third" >>core/src/A.java
 examples/11-dogfood/yk sum >.yukta-dev/baseline-s2
 [[ -z "$(run stop "$(input s2)")" ]] || fail "nudged for changes that were there at the start"
 
+# yk check --stage/--skip: filter_plan keeps or drops stages by name, either spelling of - and _
+(
+  source "$here/_lib.sh"
+  plan="$(printf '# note\nstyle\t.\tc1\t\nui_tsc\tui\tc2\t\nreuse\t.\tc3\t\n')"
+  [[ "$(filter_plan "style,ui-tsc" "" <<<"$plan" | cut -f1 | paste -sd,)" == "# note,style,ui_tsc" ]] || fail "--stage"
+  [[ "$(filter_plan "" "style" <<<"$plan" | cut -f1 | paste -sd,)" == "# note,ui_tsc,reuse" ]] || fail "--skip"
+  [[ "$(filter_plan "" "" <<<"$plan" | wc -l)" == 4 ]] || fail "no filter"
+) || exit 1
+
 echo "ok   hooks"
