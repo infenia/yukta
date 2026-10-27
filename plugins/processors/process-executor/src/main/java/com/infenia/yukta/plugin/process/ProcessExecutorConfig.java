@@ -31,6 +31,7 @@ import java.util.Map;
  *   <li>captureStderr: whether stderr is captured separately instead of merged into stdout
  *   <li>maxOutputLines: maximum output lines retained per stream (0 = unlimited)
  *   <li>maxOutputBytes: maximum output bytes retained per stream (0 = unlimited)
+ *   <li>reports: structured reports (JUnit, Checkstyle, SARIF) read into {@code failures[]}
  * </ul>
  */
 /* package */ record ProcessExecutorConfig(
@@ -47,7 +48,8 @@ import java.util.Map;
     boolean includeInput,
     boolean captureStderr,
     int maxOutputLines,
-    long maxOutputBytes) {
+    long maxOutputBytes,
+    List<ReportFailures.Spec> reports) {
 
   private static List<String> copyCommand(final List<String> command) {
     return command == null ? List.of() : List.copyOf(command);
@@ -117,6 +119,20 @@ import java.util.Map;
 
     /** Maximum output bytes retained per stream. */
     private long maxOutputBytesValue;
+
+    /** The structured reports to read after the process ends. */
+    private List<ReportFailures.Spec> reportsValue = List.of();
+
+    /**
+     * Sets the structured reports to read.
+     *
+     * @param reports the reports
+     * @return this builder
+     */
+    /* package */ Builder reports(final List<ReportFailures.Spec> reports) {
+      this.reportsValue = reports;
+      return this;
+    }
 
     /**
      * Sets the command and its arguments.
@@ -292,7 +308,8 @@ import java.util.Map;
           includeInputValue,
           captureStderrValue,
           maxOutputLinesValue,
-          maxOutputBytesValue);
+          maxOutputBytesValue,
+          reportsValue);
     }
   }
 }

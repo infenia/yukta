@@ -17,7 +17,9 @@ import com.infenia.yukta.plugin.util.ConfigValidation;
 import com.infenia.yukta.plugin.util.MapUtils;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -178,6 +180,11 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
         ConfigField.choice(
             "failureMode", false, "ERROR", "What to do on a non-zero exit", "ERROR", "CONTINUE"),
         ConfigField.optional(
+            "reports",
+            ConfigField.Type.LIST,
+            null,
+            "Reports to read into failures[]: [{format: junit|checkstyle|sarif, glob}]"),
+        ConfigField.optional(
             "routeByExitCode",
             ConfigField.Type.BOOLEAN,
             false,
@@ -254,6 +261,11 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
       Stamps output messages with source port "success" (exit code 0) or "failure"
       (non-zero exit or timeout). Wire edges with sourcePort success/failure to route
       without a separate BRANCH node; edges without a sourcePort receive all messages.
+    - reports: List of {format: junit | checkstyle | sarif, glob} (default: none)
+      After the process ends, the report files matching glob (relative to workingDir) that were
+      written during the run are read, and STRUCTURED/JSON payloads get "failures" (at most 50 of
+      {kind, file, line, rule, message, test?}) and "totalFailures". A green run has none; a report
+      that cannot be read is skipped, the text output stays.
     - includeOutput: Boolean (default: true)
       Include stdout/stderr text in STRUCTURED/JSON payloads
     - includeInput: Boolean (default: false)
@@ -386,6 +398,16 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
     }
     if (config.includeInput()) {
       payload.put("input", message.payload());
+    }
+    if (!config.reports().isEmpty()) {
+      // the files written during the run: it ended durationMillis ago at the latest, plus a second
+      // of slack for the file system clock
+      final Instant since = Instant.now().minusMillis(result.durationMillis()).minusSeconds(2);
+      payload.putAll(
+          ReportFailures.read(
+              config.reports(),
+              Path.of(config.workingDir() == null ? "." : config.workingDir()),
+              since));
     }
     return payload;
   }
@@ -590,7 +612,19 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
         .maxOutputBytes(
             MapUtils.convert(
                 config.getOrDefault("maxOutputBytes", DEFAULT_MAX_OUTPUT_BYTES), Long.class))
+        .reports(reports(config))
         .build();
+  }
+
+  private static List<ReportFailures.Spec> reports(final Map<String, Object> config) {
+    final Object value = config.get("reports");
+    if (value == null) {
+      return List.of();
+    }
+    if (!(value instanceof final List<?> entries)) {
+      throw new IllegalArgumentException("reports must be a list of {format, glob}");
+    }
+    return entries.stream().map(ReportFailures::spec).toList();
   }
 
   private boolean booleanOption(
@@ -691,6 +725,7 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
       useShell(config);
       OutputFormat.from(config.get(OUTPUT_FORMAT));
       InputMode.from(config.get(INPUT_MODE));
+      reports(config);
       final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
       if (booleanOption(config, ROUTE_BY_EXIT_CODE, false) && failureMode != FailureMode.CONTINUE) {
         throw new IllegalArgumentException("routeByExitCode requires failureMode: CONTINUE");
