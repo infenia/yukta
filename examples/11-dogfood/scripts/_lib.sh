@@ -325,18 +325,42 @@ print_result() {
     [[ "$failed" == failed ]] && failed=tool
   fi
   # yk check: the failed stage's own output (the last 40 lines), which lives in the terminal's payload
+  local shown="" wall cost line
   if [[ -n "${YUKTA_FAILED_OUTPUT:-}" && "$outcome" == FAILED ]]; then
-    "$(find_cli)" -o json result "$1" "$2" 2>/dev/null \
+    shown="$("$(find_cli)" -o json result "$1" "$2" 2>/dev/null \
       | jq -rs '[.[] | select(.kind == "RESULT" and .payload.outcome == "FAILED")][0].payload.results[0].stdout // empty' \
-      | tail -n 40 | sed "s/^/OUTPUT $failed: /"
+      | tail -n 40 | sed "s/^/OUTPUT $failed: /")"
+    [[ -z "$shown" ]] || printf '%s\n' "$shown"
   fi
   emit_result "$1" "$2" "$status" "$failed" "${healed:--}" "$progress"
-  echo "RESULT status=$status failed_node=$failed healed=${healed:--} execution=$2 session=$1"
+  # what the run cost: wall seconds (first node start to last node end), heal dollars (the records of every fix attempt), and the bytes the
+  # orchestrator was shown (the watched lines, the failed output, this line)
+  wall="$(run_wall "$progress")"
+  cost="$(cat "$records"/*-[0-9]*.json 2>/dev/null | jq -s 'map(.cost // 0) | add // 0 | . * 100 | round / 100' 2>/dev/null || true)"
+  line="RESULT status=$status failed_node=$failed healed=${healed:--} execution=$2 session=$1 wall=${wall:-0} cost=\$${cost:-0}"
+  local bytes=$(( ${YUKTA_WATCHED_BYTES:-0} + ${#shown} + (${#shown} > 0 ? 1 : 0) + ${#line} + 8 ))
+  bytes=$(( bytes + ${#bytes} ))  # the digits of the count are part of the count
+  line+=" bytes=$bytes"
+  echo "$line"
+  record_run "$status" "${YUKTA_SCOPE:--}" "${wall:-0}" "${cost:-0}" "$bytes" "${healed:--}"
   # what the status line and the Stop hook read: the changes this result is for, and how it ended
   mkdir -p "$STATE_DIR"
   printf '%s\t%s\t%s\t%s\t%s\n' "$(changes_sum "${YUKTA_PROJECT:-$REPO_ROOT}")" "$status" "${YUKTA_SCOPE:--}" "${healed:--}" "$(date +%s)" \
     >"$STATE_DIR/last-result"
   [[ "$status" == COMPLETED || "$status" == SUCCESS ]]
+}
+
+# run_wall PROGRESS_JSON: whole seconds from the first node start to the last node end ("" when no node ran).
+run_wall() {
+  jq -r '[.tasks[] | select((.startTime // "0001")[:4] != "0001" and (.endTime // "0001")[:4] != "0001")
+          | {s: (.startTime | sub("\\.[0-9]+"; "") | strptime("%Y-%m-%dT%H:%M:%S") | mktime), e: (.endTime | sub("\\.[0-9]+"; "") | strptime("%Y-%m-%dT%H:%M:%S") | mktime)}]
+         | if length > 0 then (([.[].e] | max) - ([.[].s] | min)) else empty end' <<<"$1" 2>/dev/null || true
+}
+
+# record_run STATUS KIND WALL COST BYTES HEALED: one tab separated row per run in $STATE_DIR/runs.tsv (yk stats reads it).
+record_run() {
+  mkdir -p "$STATE_DIR"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$2" "$1" "$3" "$4" "$5" "$6" >>"$STATE_DIR/runs.tsv" 2>/dev/null || true
 }
 
 # filter_plan ONLY SKIP: the plan on stdin (yk plan's lines) without the stages not in ONLY (a comma list, "" = all) or in SKIP. A stage name

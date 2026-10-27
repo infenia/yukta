@@ -67,7 +67,7 @@ in progress gets up to 30 s). The `mcp__yukta__*` tools give the same data, but 
   give up. After fixing a failed stage by hand, rerun `yk check`: stages that pass again are quick.
 
 ## Read the result, not the log
-The last line is `RESULT status=<S> failed_node=<node> healed=<stage:model/effort,..|-> execution=<e> session=<s>`; exit 0 only on
+The last line is `RESULT status=<S> failed_node=<node> healed=<stage:model/effort,..|-> execution=<e> session=<s> wall=<s> cost=$<heal spend> bytes=<shown to you>` (`yk stats` sums the runs); exit 0 only on
 success. A failure (`status=FAILED|FAILURE`) is preceded by `ERROR …` lines and, for a check, `OUTPUT <stage>: …` (the last 40
 lines of that stage). Fix only what they report, then rerun the same command. If they are not enough, grep the report they name
 (`<failure` in `<module>/build/test-results/test/TEST-*.xml`); never read a report or log whole.
