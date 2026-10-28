@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { RequirePermission } from '@/components/common/RequirePermission';
 import { buttonVariants } from '@/components/ui/button';
 import { useRef, useState } from 'react';
 import { newIdempotencyKey } from '@/lib/utils';
@@ -73,7 +74,7 @@ function RunDialog({
   return (
     <Modal title="Run workflow" onClose={onClose}>
       <label
-        className="mb-1 block text-body-md text-on-surface"
+        className="text-body-md text-on-surface mb-1 block"
         htmlFor="run-payload"
       >
         Trigger payload (JSON, optional)
@@ -85,7 +86,7 @@ function RunDialog({
         rows={8}
         spellCheck={false}
         placeholder='{"key": "value"}'
-        className={`${textareaFieldClassName} mb-3 text-code-sm`}
+        className={`${textareaFieldClassName} text-code-sm mb-3`}
       />
       <InlineError message={parseError ?? error} />
       <div className="mt-4 flex justify-end gap-2">
@@ -256,45 +257,59 @@ export function RunControls({
       className="flex flex-wrap items-center gap-2"
       data-testid="run-controls"
     >
-      <button
-        type="button"
-        className={BUTTON}
-        onClick={() => {
-          runKey.current = newIdempotencyKey();
-          setRunning(true);
-        }}
-      >
-        <span className="material-symbols-outlined text-base">play_arrow</span>
-        Run
-      </button>
-      <button
-        type="button"
-        className={BUTTON}
-        disabled={category !== 'running'}
-        onClick={() => act('pause')}
-      >
-        <span className="material-symbols-outlined text-base">pause</span>Pause
-      </button>
-      <button
-        type="button"
-        className={BUTTON}
-        disabled={category !== 'paused'}
-        onClick={() => act('resume')}
-      >
-        <span className="material-symbols-outlined text-base">play_circle</span>
-        Resume
-      </button>
-      <DropdownMenu>
-        <DropdownMenuTrigger
+      <RequirePermission perm="startRuns">
+        <button
+          type="button"
           className={BUTTON}
-          disabled={!live}
-          aria-label="Stop options"
+          onClick={() => {
+            runKey.current = newIdempotencyKey();
+            setRunning(true);
+          }}
         >
-          <span className="material-symbols-outlined text-base">stop</span>Stop
           <span className="material-symbols-outlined text-base">
-            arrow_drop_down
+            play_arrow
           </span>
-        </DropdownMenuTrigger>
+          Run
+        </button>
+      </RequirePermission>
+      <RequirePermission perm="controlRuns">
+        <button
+          type="button"
+          className={BUTTON}
+          disabled={category !== 'running'}
+          onClick={() => act('pause')}
+        >
+          <span className="material-symbols-outlined text-base">pause</span>
+          Pause
+        </button>
+      </RequirePermission>
+      <RequirePermission perm="controlRuns">
+        <button
+          type="button"
+          className={BUTTON}
+          disabled={category !== 'paused'}
+          onClick={() => act('resume')}
+        >
+          <span className="material-symbols-outlined text-base">
+            play_circle
+          </span>
+          Resume
+        </button>
+      </RequirePermission>
+      <DropdownMenu>
+        <RequirePermission perm="controlRuns">
+          <DropdownMenuTrigger
+            className={BUTTON}
+            disabled={!live}
+            aria-label="Stop options"
+          >
+            <span className="material-symbols-outlined text-base">stop</span>
+            Stop
+            <span className="material-symbols-outlined text-base">
+              arrow_drop_down
+            </span>
+          </DropdownMenuTrigger>
+        </RequirePermission>
         <DropdownMenuContent align="end">
           <DropdownMenuItem
             onClick={() => setConfirm({ label: 'Stop this run', mode: null })}
@@ -316,27 +331,33 @@ export function RunControls({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      <button
-        type="button"
-        className={BUTTON}
-        disabled={!canRestart}
-        onClick={() => act('restart')}
-      >
-        <span className="material-symbols-outlined text-base">restart_alt</span>
-        Restart
-      </button>
-      {canPrioritize && (
-        <button
-          type="button"
-          className={BUTTON}
-          onClick={() => setPrioritizing(true)}
-        >
-          <span className="material-symbols-outlined text-base">
-            low_priority
-          </span>
-          Priority…
-        </button>
-      )}
+      <RequirePermission perm="controlRuns">
+        <>
+          <button
+            type="button"
+            className={BUTTON}
+            disabled={!canRestart}
+            onClick={() => act('restart')}
+          >
+            <span className="material-symbols-outlined text-base">
+              restart_alt
+            </span>
+            Restart
+          </button>
+          {canPrioritize && (
+            <button
+              type="button"
+              className={BUTTON}
+              onClick={() => setPrioritizing(true)}
+            >
+              <span className="material-symbols-outlined text-base">
+                low_priority
+              </span>
+              Priority…
+            </button>
+          )}
+        </>
+      </RequirePermission>
       <DropdownMenu>
         <DropdownMenuTrigger className={BUTTON} aria-label="Copy as">
           <span className="material-symbols-outlined text-base">
@@ -354,15 +375,17 @@ export function RunControls({
         </span>
       )}
       {canRecover && (
-        <button
-          type="button"
-          className={BUTTON}
-          disabled={control.recover.isPending}
-          onClick={() => setRecovering(true)}
-        >
-          <span className="material-symbols-outlined text-base">history</span>
-          Recover
-        </button>
+        <RequirePermission perm="controlRuns">
+          <button
+            type="button"
+            className={BUTTON}
+            disabled={control.recover.isPending}
+            onClick={() => setRecovering(true)}
+          >
+            <span className="material-symbols-outlined text-base">history</span>
+            Recover
+          </button>
+        </RequirePermission>
       )}
       <InlineError message={failure ? controlErrorMessage(failure) : null} />
 
@@ -403,7 +426,7 @@ export function RunControls({
       )}
       {recovering && (
         <Modal title="Recover this run?" onClose={() => setRecovering(false)}>
-          <p className="mb-4 text-body-md text-on-surface-variant">
+          <p className="text-body-md text-on-surface-variant mb-4">
             Continue this run as a new run? Finished nodes are replayed.
           </p>
           <div className="flex justify-end gap-2">
@@ -431,7 +454,7 @@ export function RunControls({
       )}
       {confirm && (
         <Modal title={`${confirm.label}?`} onClose={() => setConfirm(null)}>
-          <p className="mb-4 text-body-md text-on-surface-variant">
+          <p className="text-body-md text-on-surface-variant mb-4">
             This cannot be undone. A stopped run can only be restarted.
           </p>
           <div className="flex justify-end gap-2">
