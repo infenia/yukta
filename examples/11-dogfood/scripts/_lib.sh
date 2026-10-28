@@ -266,10 +266,14 @@ node_stage() { sed -E 's/\.(run[0-9]+|f[0-9]+|r[0-9]+|pause|heal)$//' <<<"$1"; }
 
 # emit_result SESSION EXECUTION STATUS FAILED HEALED PROGRESS: the `result` event of the monitoring log: how the run ended, its wall time,
 # and the seconds each node took (a node reports its own start, so a stage is the sum of its nodes: S.run1, S.f1, S.heal ...).
+# Every run ends in exactly one result with a terminal status: a run that is still going has no result yet, and a run that already has
+# one (yk result after yk watch) does not get a second.
 emit_result() {
   local events project
   events="$(heal_events_file)"
   [[ -n "$events" ]] || return 0
+  case "$3" in RUNNING | PENDING | QUEUED | PAUSED) return 0 ;; esac
+  if [[ -s "$events" ]] && grep -F "\"run\":\"$2\"" "$events" 2>/dev/null | grep -qF '"event":"result"'; then return 0; fi
   project="${YUKTA_PROJECT:-$REPO_ROOT}"
   mkdir -p "$(dirname "$events")" 2>/dev/null || return 0
   jq -nc --arg session "$1" --arg run "$2" --arg status "$3" --arg failed "$4" --arg healed "$5" --arg scope "${YUKTA_SCOPE:-all}" \

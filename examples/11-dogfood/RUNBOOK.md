@@ -21,7 +21,7 @@ How to run the dogfood check, watch heal work and improve it. The design is in [
 |---|---|
 | the events log (all runs, all checkouts) | `$DEV_HOME/heal-events.jsonl` (`~/.local/state/yukta-dev/`), `YUKTA_HEAL_EVENTS` |
 | the records of one run (attempts, outputs, exit codes) | `<checkout>/.yukta-dev/heal/<session>/` (wiped by the next `yk check`) |
-| the heal policy (models, efforts, triage prompt) | `heal.json` |
+| the heal policy (models, efforts, triage prompt, `giveUp`) | `heal.json` |
 | the triage evaluation: labels, data | `eval/triage/labels.json`, `eval/triage/data/` (not committed) |
 
 ## The improvement loop
@@ -42,6 +42,7 @@ How to run the dogfood check, watch heal work and improve it. The design is in [
 
 ## Knobs
 
+`heal.json` `giveUp` {`minAttempts`, `maxFixRate`, `days`}: a stage whose model attempts in the last `days` days were fixed at most `maxFixRate` of the time, after at least `minAttempts` of them, is not tried again (the check reports the failure; attempts that never started do not count; the free `auto` fix still runs); read from `YUKTA_HEAL_EVENTS`.
 `YUKTA_HEAL_EVENTS` (file, or `off`), `YUKTA_HEAL_BUDGET` (USD per attempt, set per effort by `heal.json`), `YUKTA_TRIAGE=off` (skip the
 System One call: heal starts at the default level), `YUKTA_TRIAGE_URL` (another Ollama, default `http://localhost:11434`), `YUKTA_TRIAGE_MODEL` (another System One model, default `heal.json` `triage.model`; see "Choosing the System One model" in the README), `YUKTA_BUDGET_ISSUE` (USD per issue run),
 `yk check --models sonnet,opus`, `yk check --triage off`, `yk check --pause before-opus`.
@@ -66,6 +67,7 @@ For issue runs: `YUKTA_IMPL_MODEL` (opus), `YUKTA_IMPL_BUDGET` (5), `YUKTA_BUDGE
 scripts/test-hooks.sh eval/triage/selftest.sh   # offline: the Claude Code hooks, the triage evaluation
 scripts/test-plan.sh                             # offline: plan.sh's class-level test selection
 ../../.github/scripts/plan-vs-ci.test.sh          # offline, also in CI: plan.sh and ci-tasks.sh pick the same modules
+scripts/test-events.sh                           # offline: one terminal result event per run
 scripts/test-stats.sh                            # offline: yk stats reads the heal events and its counts match them
 scripts/test-yk.sh                              # on the dev server: a stopped foreground yk stops its run, --detach outlives, --stages
 scripts/test-heal.sh                            # on the dev server (yk up), against a fake claude and a fake Ollama: about a minute, no API cost

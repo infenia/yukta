@@ -14,6 +14,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { StopMode } from '../api/executionControl';
+import { useCopyCommand } from '../hooks/useCopyCommand';
+import { CopyAsMenu, type CopyChoice } from './CopyAsMenu';
 import {
   controlErrorMessage,
   useExecutionControl,
@@ -116,6 +118,7 @@ export function RunControls({
   onStarted: (executionId: string) => void;
 }) {
   const control = useExecutionControl(sessionId, workflowId);
+  const { status: copied, copy } = useCopyCommand();
   const [running, setRunning] = useState(false);
   const runKey = useRef('');
   const [recovering, setRecovering] = useState(false);
@@ -137,6 +140,28 @@ export function RunControls({
   ]
     .map((mutation) => mutation.error)
     .find(Boolean);
+
+  // The actions the buttons above offer right now, as commands for the other clients.
+  const run = (verb: 'pause' | 'resume' | 'stop' | 'restart', label: string) =>
+    executionId
+      ? [
+          {
+            label,
+            action: { kind: 'run', verb, sessionId, executionId },
+          } as const,
+        ]
+      : [];
+  const choices: CopyChoice[] = [
+    { label: 'Run workflow', action: { kind: 'start', sessionId, workflowId } },
+    ...(category === 'running' ? run('pause', 'Pause run') : []),
+    ...(category === 'paused' ? run('resume', 'Resume run') : []),
+    ...(live ? run('stop', 'Stop this run') : []),
+    ...(canRestart ? run('restart', 'Restart run') : []),
+    ...(['DRAIN', 'CANCEL', 'KILL'] as const).map((mode) => ({
+      label: `Stop all runs (${mode})`,
+      action: { kind: 'stopAll', sessionId, workflowId, mode } as const,
+    })),
+  ];
 
   const act = (action: 'pause' | 'resume' | 'restart') =>
     executionId &&
@@ -233,6 +258,22 @@ export function RunControls({
         <span className="material-symbols-outlined text-base">restart_alt</span>
         Restart
       </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger className={BUTTON} aria-label="Copy as">
+          <span className="material-symbols-outlined text-base">
+            content_copy
+          </span>
+          Copy as…
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <CopyAsMenu choices={choices} onCopy={copy} />
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {copied && (
+        <span role="status" className="text-label-sm text-on-surface-variant">
+          {copied === 'copied' ? 'Copied' : 'Copy failed'}
+        </span>
+      )}
       {canRecover && (
         <button
           type="button"

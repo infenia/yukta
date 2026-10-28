@@ -1,5 +1,10 @@
 {
   "checkBudget": 5,
+  "giveUp": {
+    "minAttempts": 5,
+    "maxFixRate": 0.1,
+    "days": 7
+  },
   "efforts": {
     "low": {
       "timeoutSeconds": 600,

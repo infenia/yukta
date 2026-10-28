@@ -83,6 +83,8 @@ dependencies {
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.actuator)
+    // OTLP export of traces and metrics; off until management.otlp.*.endpoint/url is set (application.yaml)
+    implementation(libs.spring.boot.starter.opentelemetry)
 
     // Dev-only dependencies (automatically excluded from native image but made explicit for clarity)
     developmentOnly(libs.spring.boot.devtools)
@@ -113,6 +115,7 @@ tasks.withType<Test>().configureEach {
     providers.gradleProperty("dagSeed").orNull?.let { systemProperty("yukta.dag.seed", it) }
     providers.gradleProperty("yukta.plugins").orNull?.let { systemProperty("yukta.plugins", it) }
     providers.gradleProperty("yukta.bean-inventory.update").orNull?.let { systemProperty("yukta.bean-inventory.update", it) }
+    providers.gradleProperty("yukta.openapi.update").orNull?.let { systemProperty("yukta.openapi.update", it) }
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {

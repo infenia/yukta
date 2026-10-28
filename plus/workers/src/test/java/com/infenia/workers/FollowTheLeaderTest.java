@@ -25,9 +25,7 @@ import org.springframework.context.annotation.Import;
 /** A worker that knows several control planes ends up on the leader. */
 @NoArgsConstructor
 @SuppressWarnings("PMD.LawOfDemeter")
-@ExpectedErrorLog(
-    value = "dropped error: .*IllegalStateException",
-    sometimes = "dropped error: .*ClosedChannelException")
+@ExpectedErrorLog(sometimes = "dropped error: .*ClosedChannelException")
 class FollowTheLeaderTest {
 
   /** A control plane whose leadership the test decides. */

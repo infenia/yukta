@@ -35,14 +35,14 @@ function Chips({ values }: { values: string[] }) {
       {shown.map((value) => (
         <span
           key={value}
-          className="bg-surface-container text-code-sm rounded px-1.5 py-0.5"
+          className="rounded bg-surface-container px-1.5 py-0.5 text-code-sm"
         >
           {value}
         </span>
       ))}
       {hidden > 0 && (
         <span
-          className="text-on-surface-variant text-code-sm px-1"
+          className="px-1 text-code-sm text-on-surface-variant"
           title={values.slice(VISIBLE_TYPES).join(', ')}
         >
           +{hidden}
@@ -60,7 +60,7 @@ export function WorkersPanel() {
 
   return (
     <section aria-labelledby="workers-heading" className="flex flex-col gap-2">
-      <h2 id="workers-heading" className="text-on-surface text-headline-md">
+      <h2 id="workers-heading" className="text-headline-md text-on-surface">
         Workers
       </h2>
       {workers.error ? (
