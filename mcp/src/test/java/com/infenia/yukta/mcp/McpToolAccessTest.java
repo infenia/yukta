@@ -114,7 +114,7 @@ class McpToolAccessTest {
   }
 
   @Test
-  void deletingNeedsAdminAndAScopedKeyKeepsToItsOwnSessions() {
+  void deletingNeedsAdminAndScopedKeyKeepsToItsOwnSessions() {
     final var operator =
         new com.infenia.yukta.security.ApiKeys.Match(
             "o", com.infenia.yukta.security.ApiRole.OPERATOR, java.util.Set.of());
@@ -135,5 +135,21 @@ class McpToolAccessTest {
       org.assertj.core.api.Assertions.assertThat(McpToolAccess.permitted(scoped, tool, "other"))
           .isFalse();
     }
+  }
+
+  @Test
+  void heavyCallsCountStartsAndRegexLogReadsOnly() {
+    final byte[] batch =
+        ("[{\"method\":\"tools/call\",\"params\":{\"name\":\"start_workflow\"}},"
+                + "{\"method\":\"tools/call\",\"params\":{\"name\":\"get_execution_logs\","
+                + "\"arguments\":{\"filterPattern\":\"x\"}}},"
+                + "{\"method\":\"tools/call\",\"params\":{\"name\":\"get_execution_logs\","
+                + "\"arguments\":{}}}]")
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+    assertThat(McpToolAccess.heavyCalls(batch)).isEqualTo(2);
+    assertThat(
+            McpToolAccess.heavyCalls("not json".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+        .isZero();
   }
 }

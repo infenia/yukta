@@ -128,7 +128,7 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
             // The slot is taken now, before the new id is reported, so two restarts cannot both
             // use the last one. A running run gives up its slot when stopped, so it is not asked.
             admission =
-                scheduler.acquire(
+                scheduler.acquireRerun(
                     archived.sessionId(),
                     archived.workflowId(),
                     ExecutionScheduler.priorityOf(archived.payload()),
