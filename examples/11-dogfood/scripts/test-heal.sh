@@ -28,7 +28,7 @@ git -C "$proj" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
 
 cat >"$dir/claude" <<'SH'
 #!/usr/bin/env bash
-# fake claude: the plan file lists "<stage> <model> <fix|wrong|nochange>" lines; a call not in the plan is a nochange
+# fake claude: the plan file lists "<stage> <model> <fix|wrong|lie|nochange>" lines (lie: claims a fix, changes nothing); a call not in the plan is a nochange
 here="$(cd "$(dirname "$0")" && pwd)"
 prompt="" model=""
 while (($#)); do case "$1" in -p) prompt="$2"; shift 2 ;; --model) model="$2"; shift 2 ;; *) shift ;; esac; done
@@ -41,6 +41,7 @@ fixed=false
 case "${action:-nochange}" in
   fix) touch "$stage.ok"; fixed=true ;;
   wrong) echo wrong >>wrong.txt; fixed=true ;;
+  lie) fixed=true ;;
 esac
 echo "end $(date +%s.%N) $stage $model" >>"$here/claude.log"
 jq -nc --argjson f "$fixed" '{is_error: false, subtype: "success", total_cost_usd: 0.001,
@@ -99,6 +100,13 @@ name="escalation"
 CMD_compile='test -f compile.ok' scenario "$name" "compile haiku wrong" "compile sonnet fix"
 expect "status=SUCCESS"; expect "compile:sonnet/low"
 [[ "$(calls)" == 2 ]] || fail "$name: expected 2 claude calls, got $(calls)"
+# the model claimed a fix and the stage still failed: the record says so first, and keeps the model's words after it
+[[ "$(jq -r .summary "$healdir/compile-1.json")" == "NOT FIXED: the model claimed a fix but the stage still fails. The model said: fake" ]] || fail "$name: summary of the wrong fix: $(jq -r .summary "$healdir/compile-1.json")"
+
+name="claimed fix, nothing changed"
+CMD_compile='test -f compile.ok' scenario "$name" "compile haiku lie" "compile sonnet fix"
+expect "status=FAILED"; expect "failed_node=compile"
+[[ "$(jq -r .summary "$healdir/compile-1.json")" == "NOT FIXED, guard: claimed a fix but changed nothing. The model said: fake" ]] || fail "$name: summary: $(jq -r .summary "$healdir/compile-1.json")"
 
 name="single attempt"
 CMD_reuse='test -f reuse.ok' scenario "$name" "reuse haiku wrong" "reuse sonnet fix"
