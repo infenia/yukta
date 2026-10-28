@@ -68,13 +68,19 @@ export function NodeControlsMenu({
   // Every status has at least one applicable action, so the menu is never empty.
   const items = ITEMS.filter((item) => item.when(status));
   const choices: CopyChoice[] = scope
-    ? items.map((item) => ({
-        label: item.label,
-        action:
-          item.command === 'restart-from'
-            ? { kind: 'restartFromNode', ...scope, nodeId }
-            : { kind: 'node', verb: item.command, ...scope, nodeId },
-      }))
+    ? items.flatMap((item): CopyChoice[] => {
+        // unskip has no CLI, curl or MCP equivalent yet, so it is not offered to copy
+        if (item.command === 'unskip') return [];
+        return [
+          {
+            label: item.label,
+            action:
+              item.command === 'restart-from'
+                ? { kind: 'restartFromNode', ...scope, nodeId }
+                : { kind: 'node', verb: item.command, ...scope, nodeId },
+          },
+        ];
+      })
     : [];
 
   return (
@@ -85,23 +91,23 @@ export function NodeControlsMenu({
         </span>
       )}
       <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={`Actions for ${nodeId}`}
-        className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center"
-      >
-        <span className="material-symbols-outlined text-base">more_vert</span>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {items.map((item) => (
-          <DropdownMenuItem
-            key={item.command}
-            onClick={() => onCommand(nodeId, item.command)}
-          >
-            {item.label}
-          </DropdownMenuItem>
-        ))}
-        {scope && <CopyAsMenu choices={choices} onCopy={copy} />}
-      </DropdownMenuContent>
+        <DropdownMenuTrigger
+          aria-label={`Actions for ${nodeId}`}
+          className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center"
+        >
+          <span className="material-symbols-outlined text-base">more_vert</span>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {items.map((item) => (
+            <DropdownMenuItem
+              key={item.command}
+              onClick={() => onCommand(nodeId, item.command)}
+            >
+              {item.label}
+            </DropdownMenuItem>
+          ))}
+          {scope && <CopyAsMenu choices={choices} onCopy={copy} />}
+        </DropdownMenuContent>
       </DropdownMenu>
     </>
   );
