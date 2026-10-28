@@ -7,6 +7,7 @@ import com.infenia.yukta.mcp.dto.NodeControlAction;
 import com.infenia.yukta.mcp.dto.PendingApprovals;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
+import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
@@ -60,7 +61,8 @@ public class WorkflowControlProvider {
       final String workflowId,
       final String fromNodeId,
       final String reason) {
-    return controlWorkflow(sessionId, action, executionId, workflowId, fromNodeId, reason, false);
+    return controlWorkflow(
+        sessionId, action, executionId, workflowId, fromNodeId, reason, false, null);
   }
 
   /**
@@ -84,8 +86,35 @@ public class WorkflowControlProvider {
       final String fromNodeId,
       final String reason,
       final boolean tree) {
+    return controlWorkflow(
+        sessionId, action, executionId, workflowId, fromNodeId, reason, tree, null);
+  }
+
+  /**
+   * Execute a workflow-level control action with a stop mode.
+   *
+   * @param sessionId the session that owns the execution
+   * @param action the control action to execute
+   * @param executionId the target execution (required for all actions except {@code STOP_ALL})
+   * @param workflowId the target workflow (required for {@code STOP_ALL})
+   * @param fromNodeId the node to restart from (required for {@code RESTART_FROM_NODE})
+   * @param reason optional reason recorded with stop actions
+   * @param tree whether PAUSE, RESUME and STOP also reach the runs the execution started
+   * @param mode for STOP and STOP_ALL: DRAIN, CANCEL or KILL; null means DRAIN
+   * @return Mono containing the action result
+   */
+  public Mono<ControlActionResult> controlWorkflow(
+      final String sessionId,
+      final WorkflowControlAction action,
+      final String executionId,
+      final String workflowId,
+      final String fromNodeId,
+      final String reason,
+      final boolean tree,
+      final StopMode mode) {
+    final StopMode stopMode = mode == null ? StopMode.DRAIN : mode;
     if (action == WorkflowControlAction.STOP_ALL) {
-      return stopAllExecutions(sessionId, workflowId, reason);
+      return stopAllExecutions(sessionId, workflowId, reason, stopMode);
     }
     if (executionId == null || executionId.isBlank()) {
       return Mono.error(
@@ -97,7 +126,9 @@ public class WorkflowControlProvider {
           new IllegalArgumentException("fromNodeId is required for action RESTART_FROM_NODE."));
     }
     return ExecutionOwnership.require(controlBus, sessionId, executionId)
-        .flatMap(ignored -> executeWorkflowAction(action, executionId, fromNodeId, reason, tree));
+        .flatMap(
+            ignored ->
+                executeWorkflowAction(action, executionId, fromNodeId, reason, tree, stopMode));
   }
 
   /**
@@ -271,13 +302,13 @@ public class WorkflowControlProvider {
   }
 
   private Mono<ControlActionResult> stopAllExecutions(
-      final String sessionId, final String workflowId, final String reason) {
+      final String sessionId, final String workflowId, final String reason, final StopMode mode) {
     if (workflowId == null || workflowId.isBlank()) {
       return Mono.error(
           new IllegalArgumentException("workflowId is required for action STOP_ALL."));
     }
     return controlBus
-        .stopWorkflow(sessionId, workflowId, reasonOrDefault(reason))
+        .stopWorkflow(sessionId, workflowId, reasonOrDefault(reason), mode)
         .map(
             stopped ->
                 new ControlActionResult(
@@ -293,7 +324,8 @@ public class WorkflowControlProvider {
       final String executionId,
       final String fromNodeId,
       final String reason,
-      final boolean tree) {
+      final boolean tree,
+      final StopMode mode) {
     final String scope = tree ? " (with the runs below it)" : "";
     return switch (action) {
       case RESUME ->
@@ -303,7 +335,10 @@ public class WorkflowControlProvider {
                   result(action, executionId, List.of(), "Resume signal sent" + scope + "."));
       case STOP ->
           treeControl
-              .apply(executionId, tree, id -> controlBus.stopExecution(id, reasonOrDefault(reason)))
+              .apply(
+                  executionId,
+                  tree,
+                  id -> controlBus.stopExecution(id, reasonOrDefault(reason), mode))
               .thenReturn(
                   result(
                       action,

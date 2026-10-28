@@ -173,20 +173,20 @@ class AppMcpToolsTest {
   void testControlWorkflow() {
     var result = new ControlActionResult("PAUSE", "e1", null, List.of(), "ok");
     when(workflowControlProvider.controlWorkflow(
-            "s1", WorkflowControlAction.PAUSE, "e1", null, null, null, true))
+            "s1", WorkflowControlAction.PAUSE, "e1", null, null, null, true, null))
         .thenReturn(Mono.just(result));
     when(workflowControlProvider.controlWorkflow(
-            "s1", WorkflowControlAction.PAUSE, "e2", null, null, null, false))
+            "s1", WorkflowControlAction.PAUSE, "e2", null, null, null, false, null))
         .thenReturn(Mono.just(result));
 
     StepVerifier.create(
             mcpTools.controlWorkflow(
-                "s1", WorkflowControlAction.PAUSE, "e1", null, null, null, true))
+                "s1", WorkflowControlAction.PAUSE, "e1", null, null, null, true, null))
         .expectNext(result)
         .verifyComplete();
     StepVerifier.create(
             mcpTools.controlWorkflow(
-                "s1", WorkflowControlAction.PAUSE, "e2", null, null, null, null))
+                "s1", WorkflowControlAction.PAUSE, "e2", null, null, null, null, null))
         .expectNext(result)
         .verifyComplete();
   }

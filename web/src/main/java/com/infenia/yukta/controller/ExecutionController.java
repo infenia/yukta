@@ -6,6 +6,7 @@ import com.infenia.yukta.dto.response.WorkflowStartResponse;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
@@ -57,6 +58,7 @@ public class ExecutionController {
    *
    * @param executionId the execution
    * @param tree also stop every unfinished run it started as a sub-workflow
+   * @param mode how to stop: DRAIN, CANCEL or KILL
    * @return the stopped execution ID
    */
   @PostMapping({"/executions/{executionId}/stop", "/workflow/executions/{executionId}/stop"})
@@ -69,9 +71,15 @@ public class ExecutionController {
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = "Also the runs it started as sub-workflows, at any depth")
           @RequestParam(defaultValue = "false")
-          final boolean tree) {
+          final boolean tree,
+      @Parameter(
+              description =
+                  "DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at"
+                      + " once")
+          @RequestParam(defaultValue = "DRAIN")
+          final StopMode mode) {
     return treeControl
-        .apply(executionId, tree, id -> controlBus.stopExecution(id, "Stopped via REST API"))
+        .apply(executionId, tree, id -> controlBus.stopExecution(id, "Stopped via REST API", mode))
         .thenReturn(started("Execution stop signal accepted", executionId));
   }
 

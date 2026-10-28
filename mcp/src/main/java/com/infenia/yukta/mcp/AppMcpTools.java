@@ -33,6 +33,7 @@ import com.infenia.yukta.mcp.provider.WorkflowVersionProvider;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.workflow.store.WorkflowDiff;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.mcp.annotation.McpTool;
@@ -299,6 +300,7 @@ public class AppMcpTools {
    * @param fromNodeId the node to restart from (restart_from_node only)
    * @param reason optional reason recorded with stop actions
    * @param tree for pause, resume and stop: also the runs the execution started
+   * @param mode for stop and stop_all: DRAIN, CANCEL or KILL
    * @return Mono containing the action result
    */
   @McpTool(
@@ -347,9 +349,22 @@ public class AppMcpTools {
               description =
                   "For PAUSE, RESUME and STOP: true to also reach every unfinished run the"
                       + " execution started as a sub-workflow, at any depth")
-          final Boolean tree) {
+          final Boolean tree,
+      @McpToolParam(
+              required = false,
+              description =
+                  "For STOP and STOP_ALL: DRAIN lets in-flight work finish (default), CANCEL"
+                      + " cancels it, KILL stops at once")
+          final StopMode mode) {
     return workflowControlProvider.controlWorkflow(
-        sessionId, action, executionId, workflowId, fromNodeId, reason, Boolean.TRUE.equals(tree));
+        sessionId,
+        action,
+        executionId,
+        workflowId,
+        fromNodeId,
+        reason,
+        Boolean.TRUE.equals(tree),
+        mode);
   }
 
   /**
