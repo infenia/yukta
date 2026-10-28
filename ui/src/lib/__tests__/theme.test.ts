@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { getTheme, setTheme, useTheme, type Theme } from '../theme';
+import { getTheme, setTheme, useTheme } from '../theme';
 
 describe('theme', () => {
   beforeEach(() => {
