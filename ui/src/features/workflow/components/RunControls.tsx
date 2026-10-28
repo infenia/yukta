@@ -19,6 +19,7 @@ import {
   useExecutionControl,
 } from '../hooks/useExecutionControl';
 import {
+  isAbortedExecStatus,
   isTerminalExecStatus,
   toExecStatusCategory,
 } from '../lib/statusMapper';
@@ -117,6 +118,7 @@ export function RunControls({
   const control = useExecutionControl(sessionId, workflowId);
   const [running, setRunning] = useState(false);
   const runKey = useRef('');
+  const [recovering, setRecovering] = useState(false);
   const [confirm, setConfirm] = useState<{
     label: string;
     mode: StopMode | null;
@@ -126,7 +128,13 @@ export function RunControls({
   const live =
     category === 'running' || category === 'paused' || category === 'pending';
   const canRestart = executionId !== null && isTerminalExecStatus(status);
-  const failure = [control.runAction, control.stopAll, control.start]
+  const canRecover = executionId !== null && isAbortedExecStatus(status);
+  const failure = [
+    control.runAction,
+    control.stopAll,
+    control.start,
+    control.recover,
+  ]
     .map((mutation) => mutation.error)
     .find(Boolean);
 
@@ -225,6 +233,17 @@ export function RunControls({
         <span className="material-symbols-outlined text-base">restart_alt</span>
         Restart
       </button>
+      {canRecover && (
+        <button
+          type="button"
+          className={BUTTON}
+          disabled={control.recover.isPending}
+          onClick={() => setRecovering(true)}
+        >
+          <span className="material-symbols-outlined text-base">history</span>
+          Recover
+        </button>
+      )}
       <InlineError message={failure ? controlErrorMessage(failure) : null} />
 
       {running && (
@@ -248,6 +267,34 @@ export function RunControls({
             )
           }
         />
+      )}
+      {recovering && (
+        <Modal title="Recover this run?" onClose={() => setRecovering(false)}>
+          <p className="text-body-md text-on-surface-variant mb-4">
+            Continue this run as a new run? Finished nodes are replayed.
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              className={BUTTON}
+              onClick={() => setRecovering(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={BUTTON}
+              onClick={() => {
+                setRecovering(false);
+                control.recover.mutate(executionId as string, {
+                  onSuccess: (result) => onStarted(result.executionId),
+                });
+              }}
+            >
+              Recover
+            </button>
+          </div>
+        </Modal>
       )}
       {confirm && (
         <Modal title={`${confirm.label}?`} onClose={() => setConfirm(null)}>
