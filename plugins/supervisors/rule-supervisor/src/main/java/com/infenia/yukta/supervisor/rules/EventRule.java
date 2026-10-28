@@ -100,6 +100,7 @@ public final class EventRule {
         && same(when.status(), fields.get(Fields.STATUS))
         && same(when.module(), fields.get(Fields.MODULE))
         && same(when.nodeId(), fields.get(Fields.NODE_ID))
+        && (fields.get(Fields.NODE_ID) != null || !targetsNode())
         && same(when.workflowId(), fields.get(Fields.WORKFLOW_ID))
         && conditionHolds(fields);
   }
@@ -129,6 +130,12 @@ public final class EventRule {
    */
   public boolean restarts() {
     return then.command().toLowerCase(Locale.ROOT).startsWith("restart");
+  }
+
+  /** A node command has nothing to address when the event carries no node. */
+  private boolean targetsNode() {
+    final String name = then.command().toLowerCase(Locale.ROOT);
+    return name.endsWith("node") && !name.startsWith("restart");
   }
 
   private boolean conditionHolds(final Map<String, Object> fields) {
