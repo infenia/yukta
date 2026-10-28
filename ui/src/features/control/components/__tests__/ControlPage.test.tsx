@@ -25,6 +25,10 @@ let heartbeatFail = false;
 const server = setupServer(
   http.get('/api/supervisors', () => ok([])),
   http.get('/api/control/audit', () => ok([])),
+  http.get('/api/workers', () => ok([])),
+  http.get('/api/edition', () =>
+    ok({ edition: 'PLUS', license: 'x', features: [], source: null })
+  ),
   http.get('/api/control/nodes', () =>
     nodesFail ? HttpResponse.json({ message: 'x' }, { status: 500 }) : ok(nodes)
   ),

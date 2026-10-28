@@ -304,3 +304,31 @@ test.describe('Session List Page - Export', () => {
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual(config);
   });
 });
+
+test.describe('Session List Page - Tag and Initiator filters', () => {
+  test('filters by tag and initiator and keeps the choice in the URL', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await expect(page.getByText('Build Pipeline')).toBeVisible();
+
+    await page.getByRole('button', { name: /tag filter/i }).click();
+    await page.getByRole('menuitemcheckbox', { name: 'production' }).click();
+    await page.keyboard.press('Escape');
+
+    await expect(page).toHaveURL(/tag=production/);
+    await expect(page.getByText('Build Pipeline')).toBeVisible();
+    await expect(page.getByText('Code Review')).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: /tag filter/i })
+    ).toContainText('Tag · 1');
+
+    await page.reload();
+    await expect(page.getByText('Build Pipeline')).toBeVisible();
+    await expect(page.getByText('Code Review')).toBeHidden();
+
+    await page.getByLabel('Reset filters').click();
+    await expect(page.getByText('Code Review')).toBeVisible();
+    await expect(page).not.toHaveURL(/tag=/);
+  });
+});

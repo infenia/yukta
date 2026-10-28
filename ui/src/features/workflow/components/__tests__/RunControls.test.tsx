@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -11,6 +11,7 @@ import { parsePayload, RunControls } from '../RunControls';
 
 const calls: string[] = [];
 let startStatus = 200;
+let recoverStatus = 200;
 
 const ok = (data: unknown) =>
   HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data, path: '/' });
@@ -25,6 +26,12 @@ const server = setupServer(
     calls.push(`stop-all ${new URL(request.url).search}`);
     return ok({ executionIds: [] });
   }),
+  http.post('/api/executions/:id/recover', ({ params }) => {
+    calls.push(`recover ${params.id}`);
+    return recoverStatus === 200
+      ? ok({ executionId: 'recovered' })
+      : HttpResponse.json({ message: 'Already resumed' }, { status: recoverStatus });
+  }),
   http.post('/api/executions/:id/:action', ({ params }) => {
     calls.push(`${params.action} ${params.id}`);
     return ok({ executionId: 'restarted' });
@@ -35,6 +42,7 @@ beforeAll(() => server.listen());
 afterEach(() => {
   calls.length = 0;
   startStatus = 200;
+  recoverStatus = 200;
 });
 afterAll(() => server.close());
 
@@ -101,6 +109,38 @@ describe('RunControls', () => {
     await user.click(screen.getByRole('button', { name: /restart/i }));
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('restarted'));
     expect(calls).toEqual(['restart e1']);
+  });
+
+  it.each(['RUNNING', 'COMPLETED', 'FAILURE'])('hides Recover for a %s run', (status) => {
+    setup(status);
+    expect(screen.queryByRole('button', { name: /recover/i })).not.toBeInTheDocument();
+  });
+
+  it('recovers an aborted run after confirmation and selects the new one', async () => {
+    const user = userEvent.setup();
+    const onStarted = setup('ABORTED');
+    await user.click(screen.getByRole('button', { name: /recover/i }));
+    expect(screen.getByText(/Finished nodes are replayed/)).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /recover/i }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(calls).toEqual([]);
+
+    await user.click(screen.getByRole('button', { name: /recover/i }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Recover' }));
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('recovered'));
+    expect(calls).toEqual(['recover e1']);
+  });
+
+  it('shows the server message when the run cannot be recovered', async () => {
+    recoverStatus = 409;
+    const user = userEvent.setup();
+    const onStarted = setup('ABORTED');
+    await user.click(screen.getByRole('button', { name: /recover/i }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Recover' }));
+    expect(await screen.findByText('Already resumed')).toBeInTheDocument();
+    expect(onStarted).not.toHaveBeenCalled();
   });
 
   it('confirms before stopping this run, and can cancel', async () => {

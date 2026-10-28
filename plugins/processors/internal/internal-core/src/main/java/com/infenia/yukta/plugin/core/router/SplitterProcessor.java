@@ -12,14 +12,15 @@ import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -183,14 +184,19 @@ public final class SplitterProcessor implements ProcessorPlugin {
             return Flux.fromIterable(() -> iterator)
                 .buffer(2, 1)
                 .index()
-                .map(
+                .concatMap(
                     tuple -> {
                       final long idx = tuple.getT1() + 1;
                       final List<?> window = tuple.getT2();
                       final Object item = window.get(0);
                       final boolean isLast = window.size() < 2;
                       final int total = isLast ? (int) idx : totalSize;
-                      return createChild(parent, item, (int) idx, total, config, variables);
+                      try {
+                        return Flux.just(
+                            createChild(parent, item, (int) idx, total, config, variables));
+                      } catch (final WorkflowExecutionException e) {
+                        return handleError(parent, errorPort, strict, e);
+                      }
                     });
           } catch (final Exception e) {
             return handleError(parent, errorPort, strict, e);
@@ -217,7 +223,9 @@ public final class SplitterProcessor implements ProcessorPlugin {
       return (Iterator<?>) items;
     }
     if (items.getClass().isArray()) {
-      return Arrays.asList((Object[]) items).iterator();
+      return IntStream.range(0, Array.getLength(items))
+          .mapToObj(i -> Array.get(items, i))
+          .iterator();
     }
     return Collections.singletonList(items).iterator();
   }

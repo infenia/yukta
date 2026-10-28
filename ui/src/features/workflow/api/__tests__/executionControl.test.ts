@@ -6,6 +6,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import {
   nodeAction,
+  recoverExecution,
   restartFromNode,
   runAction,
   startWorkflow,
@@ -63,6 +64,11 @@ describe('executionControl api', () => {
     await runAction('e1', 'pause');
     expect(await restartFromNode('e1', 'n 1')).toEqual({ executionId: 'e2' });
     expect(calls).toEqual(['pause e1', 'restart-from e1 n 1']);
+  });
+
+  it('recovers an aborted run', async () => {
+    expect(await recoverExecution('e 1')).toEqual({ executionId: 'e1' });
+    expect(calls).toEqual(['recover e 1']);
   });
 
   it('calls node actions including the nested step paths', async () => {

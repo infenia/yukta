@@ -67,6 +67,12 @@ describe('HistoryPage', () => {
     expect(requested).toEqual(['s1?limit=50']);
   });
 
+  it('shows loading, not the empty state, while sessions load', async () => {
+    renderWithProviders(<HistoryPage />);
+    expect(screen.queryByText('No runs yet.')).not.toBeInTheDocument();
+    await screen.findByRole('link', { name: 'run-1' });
+  });
+
   it('switches session and shows the empty state; unnamed sessions show their id', async () => {
     const user = userEvent.setup();
     renderWithProviders(<HistoryPage />);
