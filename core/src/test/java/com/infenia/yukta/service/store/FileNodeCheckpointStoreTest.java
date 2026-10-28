@@ -185,6 +185,25 @@ class FileNodeCheckpointStoreTest {
   }
 
   @Test
+  void lateSaveAfterClear_bringsNothingBack() throws IOException {
+    final FileNodeCheckpointStore store = store();
+    store.save("e1", "n1", message("first")).block();
+    store.clear("e1");
+
+    store.save("e1", "n1", message("late")).block();
+    store.save("e1", "n2", message("late")).block();
+
+    try (var left = Files.list(dir)) {
+      assertThat(left.toList()).as("no directory for a cleared run").isEmpty();
+    }
+    assertThat(store.bytesHeld()).isZero();
+    assertThat(store.getAll("e1", "n1").collectList().block()).isEmpty();
+    // another run is not affected
+    store.save("e2", "n1", message("fine")).block();
+    assertThat(store.getAll("e2", "n1").collectList().block()).hasSize(1);
+  }
+
+  @Test
   void clearOfAnUnknownExecution_isHarmless() {
     store().clear("never-seen");
 
