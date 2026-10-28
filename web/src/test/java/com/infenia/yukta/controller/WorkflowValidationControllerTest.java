@@ -25,6 +25,9 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.LawOfDemeter", "PMD.UnitTestShouldIncludeAssert"})
 class WorkflowValidationControllerTest {
 
+  /** JSON path of the verdict. */
+  private static final String VALID = "$.data.valid";
+
   /** A draft with one known and one unknown plugin type. */
   private static final String DRAFT =
       """
@@ -88,7 +91,7 @@ class WorkflowValidationControllerTest {
         .expectStatus()
         .isOk()
         .expectBody()
-        .jsonPath("$.data.valid")
+        .jsonPath(VALID)
         .isEqualTo(true)
         .jsonPath("$.data.outputPorts.n1[1]")
         .isEqualTo("b")
@@ -105,7 +108,7 @@ class WorkflowValidationControllerTest {
         .expectStatus()
         .isOk()
         .expectBody()
-        .jsonPath("$.data.valid")
+        .jsonPath(VALID)
         .isEqualTo(false)
         .jsonPath("$.data.message")
         .isEqualTo("no trigger")
@@ -125,14 +128,14 @@ class WorkflowValidationControllerTest {
         .expectStatus()
         .isOk()
         .expectBody()
-        .jsonPath("$.data.valid")
+        .jsonPath(VALID)
         .isEqualTo(false)
         .jsonPath("$.data.message")
         .isEqualTo("Duplicate node id 'n1'");
   }
 
   @Test
-  void testPluginThatCannotListPortsForADraftConfigIsNotAServerError() {
+  void testPluginThatCannotListPortsForDraftConfigIsNotServerError() {
     final Plugin plugin = mock(Plugin.class);
     when(plugin.getOutputPorts(any())).thenThrow(new IllegalStateException("config incomplete"));
     when(pluginRegistry.get("BRANCH")).thenReturn(plugin);
@@ -142,7 +145,7 @@ class WorkflowValidationControllerTest {
         .expectStatus()
         .isOk()
         .expectBody()
-        .jsonPath("$.data.valid")
+        .jsonPath(VALID)
         .isEqualTo(true)
         .jsonPath("$.data.outputPorts.n1.length()")
         .isEqualTo(0);
@@ -156,7 +159,7 @@ class WorkflowValidationControllerTest {
         .expectStatus()
         .isOk()
         .expectBody()
-        .jsonPath("$.data.valid")
+        .jsonPath(VALID)
         .isEqualTo(false)
         .jsonPath("$.data.message")
         .isEqualTo("java.lang.IllegalStateException");

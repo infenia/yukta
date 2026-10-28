@@ -81,10 +81,12 @@ public class WorkflowValidationController {
   /** The node's output ports, or none when its draft configuration is too incomplete to say. */
   @SuppressWarnings("PMD.AvoidCatchingGenericException")
   private static List<String> portsOf(final Plugin plugin, final WorkflowDefinition.Node node) {
+    List<String> ports;
     try {
-      return plugin.getOutputPorts(Objects.requireNonNull(node.config()));
+      ports = plugin.getOutputPorts(Objects.requireNonNull(node.config()));
     } catch (RuntimeException e) {
-      return List.of();
+      ports = List.of();
     }
+    return ports;
   }
 }
