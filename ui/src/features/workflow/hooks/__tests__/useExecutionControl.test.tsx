@@ -33,8 +33,8 @@ describe('useExecutionControl', () => {
       wrapper: createTestWrapper(),
     });
 
-    await act(() => result.current.start.mutateAsync({ a: 1 }));
-    expect(api.startWorkflow).toHaveBeenCalledWith('s1', 'wf', { a: 1 }, expect.any(String));
+    await act(() => result.current.start.mutateAsync({ payload: { a: 1 }, idempotencyKey: 'k-1' }));
+    expect(api.startWorkflow).toHaveBeenCalledWith('s1', 'wf', { a: 1 }, 'k-1');
 
     await act(() => result.current.runAction.mutateAsync({ executionId: 'e1', action: 'pause' }));
     expect(api.runAction).toHaveBeenCalledWith('e1', 'pause');
