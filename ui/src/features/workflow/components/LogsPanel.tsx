@@ -4,6 +4,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { downloadText } from '../lib/downloadFile';
+import { useRawLogLines } from '../hooks/useRawLogLines';
 import { formatLogTimestamp } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
 import type { LogEntry } from '../types/workflow';
@@ -24,11 +32,17 @@ function levelClass(level: string | null): string {
   }
 }
 
+const lineText = (entry: LogEntry | string) =>
+  typeof entry === 'string' ? entry : formatLine(entry);
+
 function formatLine(entry: LogEntry): string {
   return `${formatLogTimestamp(entry.timestamp)} ${entry.level ?? 'INFO'} [${entry.pluginId}] ${entry.message}`;
 }
 
-function LogLine({ entry }: { entry: LogEntry }) {
+function LogLine({ entry }: { entry: LogEntry | string }) {
+  if (typeof entry === 'string') {
+    return <span className="text-terminal-fg">{entry}</span>;
+  }
   return (
     <>
       <span className="text-log-debug">
@@ -51,30 +65,42 @@ export function LogsPanel({
   entries,
   isStreaming,
   dropped = 0,
+  sessionId = '',
+  executionId = null,
 }: {
   entries: LogEntry[];
   isStreaming: boolean;
   /** Earlier lines no longer buffered. */
   dropped?: number;
+  /** With the execution id, names the downloads and enables the raw stream. */
+  sessionId?: string;
+  executionId?: string | null;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [filter, setFilter] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
   const [wrap, setWrap] = useState(false);
+  // null while structured; each switch to raw gets a new number so the replayed history starts clean
+  const [rawRun, setRawRun] = useState<number | null>(null);
+  const [rawRuns, setRawRuns] = useState(0);
+  const rawLines = useRawLogLines(sessionId, executionId, rawRun);
+  const raw = rawRun !== null;
   const [copyStatus, setCopyStatus] = useState<'copied' | 'failed' | null>(
     null
   );
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  const visibleEntries = useMemo(() => {
+  // Structured entries or, in raw mode, the server's own formatted lines.
+  const visibleEntries = useMemo<(LogEntry | string)[]>(() => {
+    const source: (LogEntry | string)[] = raw ? rawLines : entries;
     const needle = filter.trim().toLowerCase();
     if (!needle) {
-      return entries;
+      return source;
     }
-    return entries.filter((entry) =>
-      formatLine(entry).toLowerCase().includes(needle)
+    return source.filter((entry) =>
+      lineText(entry).toLowerCase().includes(needle)
     );
-  }, [entries, filter]);
+  }, [entries, rawLines, raw, filter]);
 
   const virtualizer = useVirtualizer({
     count: visibleEntries.length,
@@ -89,6 +115,20 @@ export function LogsPanel({
     virtualizer.measure();
   }, [wrap, virtualizer]);
 
+  const fileBase = `${sessionId || 'logs'}${executionId ? `-${executionId}` : ''}`;
+  const downloadVisible = () =>
+    downloadText(
+      `${fileBase}.log`,
+      visibleEntries.map(lineText).join('\n') + '\n',
+      'text/plain'
+    );
+  const downloadAll = () =>
+    downloadText(
+      `${fileBase}.jsonl`,
+      entries.map((entry) => JSON.stringify(entry)).join('\n') + '\n',
+      'application/x-ndjson'
+    );
+
   const copyLogs = () => {
     const done = (next: 'copied' | 'failed') => {
       setCopyStatus(next);
@@ -98,12 +138,10 @@ export function LogsPanel({
       done('failed');
       return;
     }
-    navigator.clipboard
-      .writeText(visibleEntries.map(formatLine).join('\n'))
-      .then(
-        () => done('copied'),
-        () => done('failed')
-      );
+    navigator.clipboard.writeText(visibleEntries.map(lineText).join('\n')).then(
+      () => done('copied'),
+      () => done('failed')
+    );
   };
 
   // turning auto-scroll on scrolls to the end (the effect below)
@@ -185,6 +223,57 @@ export function LogsPanel({
           >
             WRAP
           </button>
+          <div role="group" aria-label="Log view" className="flex">
+            {(['Structured', 'Raw'] as const).map((mode) => {
+              const selected = (mode === 'Raw') === raw;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={selected}
+                  disabled={mode === 'Raw' && !executionId}
+                  onClick={() => {
+                    if (mode === 'Raw' && !raw) {
+                      setRawRuns((count) => count + 1);
+                      setRawRun(rawRuns + 1);
+                    } else if (mode === 'Structured') {
+                      setRawRun(null);
+                    }
+                  }}
+                  className={cn(
+                    'text-label-sm border px-2 py-1 tracking-wider first:rounded-l-lg last:rounded-r-lg disabled:opacity-50',
+                    selected
+                      ? 'border-primary text-primary'
+                      : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+                  )}
+                >
+                  {mode.toUpperCase()}
+                </button>
+              );
+            })}
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Download logs"
+              className="text-label-sm transition-standard border-outline-variant text-on-surface-variant hover:bg-surface-container-high rounded-lg border px-2 py-1 tracking-wider"
+            >
+              DOWNLOAD
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={downloadVisible}>
+                Visible lines (.log)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={downloadAll}>
+                All entries (.jsonl)
+              </DropdownMenuItem>
+              {dropped > 0 && (
+                <div className="text-body-sm text-on-surface-variant max-w-56 px-3 py-2">
+                  Download includes only the {entries.length.toLocaleString()}{' '}
+                  lines kept in the browser.
+                </div>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <button
             type="button"
             onClick={copyLogs}
