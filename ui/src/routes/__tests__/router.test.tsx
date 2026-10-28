@@ -70,9 +70,9 @@ describe('router', () => {
   });
 
   describe('route paths', () => {
-    it('should have 9 child routes', () => {
+    it('should have 10 child routes', () => {
       const rootRoute = router.routes[0];
-      expect(rootRoute.children?.length).toBe(9);
+      expect(rootRoute.children?.length).toBe(10);
     });
 
     it('should have correct number of parameterized routes', () => {
@@ -80,7 +80,7 @@ describe('router', () => {
       const parameterizedRoutes = rootRoute.children?.filter((r) =>
         r.path?.includes(':')
       );
-      expect(parameterizedRoutes?.length).toBe(3);
+      expect(parameterizedRoutes?.length).toBe(4);
     });
 
     it('should have correct session ID parameter', () => {
@@ -127,6 +127,7 @@ describe('router', () => {
         'WorkflowEditorPage'
       );
       expect(await load('sessions/new')).toBe('SessionFormPage');
+      expect(await load('sessions/:sessionId/edit')).toBe('SessionFormPage');
       expect(await load('plugins')).toBe('PluginsPage');
       expect(await load('control')).toBe('ControlPage');
       expect(await load('history')).toBe('HistoryPage');
