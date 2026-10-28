@@ -8,6 +8,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { NodeAction } from '../api/executionControl';
+import { useCopyCommand } from '../hooks/useCopyCommand';
+import { CopyAsMenu, type CopyChoice } from './CopyAsMenu';
 import type { NodeUiStatus } from '../types/workflow';
 
 export type NodeCommand = NodeAction | 'restart-from';
@@ -29,16 +31,35 @@ export function NodeControlsMenu({
   nodeId,
   status,
   onCommand,
+  scope,
 }: {
   nodeId: string;
   status: NodeUiStatus;
   onCommand: (nodeId: string, command: NodeCommand) => void;
+  /** The session and run the node belongs to; with it the menu can copy the equivalent commands. */
+  scope?: { sessionId: string; executionId: string };
 }) {
+  const { status: copied, copy } = useCopyCommand();
   // Every status has at least one applicable action, so the menu is never empty.
   const items = ITEMS.filter((item) => item.when(status));
+  const choices: CopyChoice[] = scope
+    ? items.map((item) => ({
+        label: item.label,
+        action:
+          item.command === 'restart-from'
+            ? { kind: 'restartFromNode', ...scope, nodeId }
+            : { kind: 'node', verb: item.command, ...scope, nodeId },
+      }))
+    : [];
 
   return (
-    <DropdownMenu>
+    <>
+      {copied && (
+        <span role="status" className="text-label-sm text-on-surface-variant">
+          {copied === 'copied' ? 'Copied' : 'Copy failed'}
+        </span>
+      )}
+      <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`Actions for ${nodeId}`}
         className="flex size-6 items-center justify-center text-on-surface-variant hover:text-on-surface"
@@ -51,7 +72,9 @@ export function NodeControlsMenu({
             {item.label}
           </DropdownMenuItem>
         ))}
+        {scope && <CopyAsMenu choices={choices} onCopy={copy} />}
       </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenu>
+    </>
   );
 }
