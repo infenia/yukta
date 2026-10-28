@@ -80,7 +80,9 @@ mkdir -p build-logic
 echo "// touched" >build-logic/x.gradle.kts
 want=$(echo build-logic/x.gradle.kts | ci_modules)
 got=$(plan_modules)
-[ "$got" = "$(all_modules)" ] && [ "$want" = "$got" ] || fail "a build-logic change" "$(tr '\n' ' ' <<<"$got")" "$(tr '\n' ' ' <<<"$want")"
+if [ "$got" != "$(all_modules)" ] || [ "$want" != "$got" ]; then
+  fail "a build-logic change" "$(tr '\n' ' ' <<<"$got")" "$(tr '\n' ' ' <<<"$want")"
+fi
 rm -rf build-logic
 
 [ "$checked" -gt 0 ] || { echo "FAIL no modules found in settings.gradle.kts"; exit 1; }
