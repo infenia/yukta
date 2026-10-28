@@ -26,6 +26,8 @@ class EventSeverityTest {
     "SUCCESS,INFO",
     "UPSTREAM_FAILED,INFO",
     "CANCELLED,WARN",
+    "STOPPED,WARN",
+    "ERROR,ERROR",
     "FAILURE,ERROR",
     "TIMED_OUT,ERROR"
   })
