@@ -12,7 +12,7 @@ You watch one Yukta execution and hand off. You are given `<session>` and `<exec
 2. `status=SUCCESS`, and no SLOW/applied=false lines: reply with the RESULT line, any `HEAL …` lines
    verbatim (the run healed itself; the main agent must review those changes), then any `Noticed:` lines.
 3. Otherwise do L1 triage, read-only, within ~5 tool calls:
-   - `examples/11-dogfood/yk cli logs <session> <execution> > "$CLAUDE_JOB_DIR/tmp/run.log"` (or `/tmp` if unset), then grep it for the failed node's `What went wrong`, `FAILED`, `Caused by`, `Exception`, `exit value`, `Violation`.
+   - Start from the problem lines `yk watch` printed (`ERROR <node>:`, `NODE … FAILURE`); never run `yk cli logs` (it streams the whole log).
    - Look at the report for that stage (table in `examples/11-dogfood/README.md`): failing test class/method from `<module>/build/test-results/**/*.xml`, or `hs_err_pid*.log` for a JVM crash.
    - If `HEAL` lines are present the run tried to repair itself and the failed stage is exhausted
      (or a `summary=GUARD:` attempt was rejected): reply `ESCALATE:` with the RESULT and HEAL lines.
