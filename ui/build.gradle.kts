@@ -114,9 +114,24 @@ val pnpmTestE2e = tasks.register<PnpmTask>("pnpmTestE2e") {
     }
 }
 
+// The generated API types must match ui/openapi.json, which :boot:test (OpenApiSnapshotTest) keeps in step
+// with the controllers. After changing a controller: refresh the snapshot, then `pnpm run api:types -- openapi.json`.
+val apiTypesCheck = tasks.register<PnpmTask>("apiTypesCheck") {
+    description = "Fail when src/types/api.generated.ts is stale against openapi.json"
+    dependsOn("pnpmInstall")
+    workingDir.set(layout.projectDirectory)
+    pnpmCommand.set(listOf("run", "api:types", "--", "openapi.json", "--check"))
+    inputs.files(
+        layout.projectDirectory.file("openapi.json"),
+        layout.projectDirectory.file("src/types/api.generated.ts"),
+        layout.projectDirectory.file("scripts/generate-api-types.mjs"),
+    )
+    outputs.upToDateWhen { true }
+}
+
 // Wire header validation and tests into Gradle's check task
 tasks.named("check") {
-    dependsOn(validateHeaders, verifyPackageVersion, pnpmLint, pnpmTest)
+    dependsOn(validateHeaders, verifyPackageVersion, apiTypesCheck, pnpmLint, pnpmTest)
 }
 
 // Disable Spring Boot JAR/bootRun on this module
