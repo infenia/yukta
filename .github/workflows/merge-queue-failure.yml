@@ -30,4 +30,6 @@ jobs:
         run: |
           pr="$(sed -nE 's#^gh-readonly-queue/[^/]+/pr-([0-9]+)-.*#\1#p' <<<"$BRANCH")"
           [[ -n "$pr" ]] || { echo "no PR in branch $BRANCH"; exit 0; }
-          gh pr comment "$pr" --repo "$REPO" --body "Removed from the merge queue: the checks failed on the queued commit (the PR merged onto main), not on this PR's own commit. Failed run: $RUN_URL"
+          body="Removed from the merge queue: the checks failed on the queued commit (the PR merged onto main),"
+          body+=" not on this PR's own commit. Failed run: $RUN_URL"
+          gh pr comment "$pr" --repo "$REPO" --body "$body"
