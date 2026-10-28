@@ -33,6 +33,23 @@ class MetadataGuardResolverTest {
     }
   }
 
+  @Test
+  void unresolvableNameFailsBothLookups() throws Exception {
+    final NioEventLoopGroup loop = new NioEventLoopGroup(1);
+    try (AddressResolver<InetSocketAddress> resolver =
+        MetadataGuardResolver.INSTANCE.getResolver(loop.next())) {
+      final InetSocketAddress unknown =
+          InetSocketAddress.createUnresolved("no-such-host.invalid", 80);
+      final Future<InetSocketAddress> one = resolver.resolve(unknown);
+      final Future<List<InetSocketAddress>> all = resolver.resolveAll(unknown);
+
+      assertThat(one.awaitUninterruptibly().isSuccess()).isFalse();
+      assertThat(all.awaitUninterruptibly().isSuccess()).isFalse();
+    } finally {
+      loop.shutdownGracefully().syncUninterruptibly();
+    }
+  }
+
   private static <T> T await(final Future<T> future) {
     future.syncUninterruptibly();
     return future.getNow();
