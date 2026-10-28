@@ -6,7 +6,7 @@
 #   yk check [--full] [--base REF] [--stage a,b] [--skip a,b] [--no-heal] [--detach]  the scoped, self-healing gate: yk plan's stages one after the other; a failure is
 #                                            fixed (free fix, then a System One triage picks model and effort) or stops the run (--no-heal: at once)
 #   yk plan [--full] [--base REF]            dry run: the stages a scoped check of your changes would run, nothing is executed
-#   yk stats                                 runs, median bytes shown to you, median wall and heal dollars per kind of run
+#   yk stats                                 runs, failed, median wall and heal dollars per kind of run; fix rate and dollars per stage and rung (from the heal events)
 #   yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]
 #                                            what heal did: where the time and money went, what looks wrong, the raw events
 #   yk detail <session> <execution> [--grep P] [--tail N] [--head N]  the full output of the stage that failed a run (the MORE line says so)
