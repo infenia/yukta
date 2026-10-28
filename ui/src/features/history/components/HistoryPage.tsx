@@ -73,7 +73,7 @@ export function HistoryPage() {
             void (sessions.error ? sessions.refetch() : history.refetch())
           }
         />
-      ) : history.isPending && sessionId ? (
+      ) : sessions.isPending || (history.isPending && sessionId) ? (
         <StateMessage tone="loading" title="Loading…" />
       ) : !history.data?.length ? (
         <StateMessage title="No runs yet.">

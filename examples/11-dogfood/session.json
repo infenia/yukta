@@ -2851,7 +2851,7 @@
             },
             "timeout": 60,
             "timeoutSeconds": 60,
-            "inputMode": "STDIN",
+            "inputMode": "ENV",
             "failureMode": "CONTINUE"
           }
         },

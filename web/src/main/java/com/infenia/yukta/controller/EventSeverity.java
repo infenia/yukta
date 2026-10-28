@@ -21,7 +21,7 @@ public enum EventSeverity {
   ERROR;
 
   /** Final statuses that mean a node or run failed. */
-  private static final Set<String> FAILED = Set.of("FAILURE", "TIMED_OUT", "ABORTED");
+  private static final Set<String> FAILED = Set.of("FAILURE", "ERROR", "TIMED_OUT", "ABORTED");
 
   /**
    * Classifies an event. A node that ended {@code UPSTREAM_FAILED} is only the consequence of the
@@ -59,7 +59,7 @@ public enum EventSeverity {
     if (FAILED.contains(status)) {
       return ERROR;
     }
-    return "CANCELLED".equals(status) ? WARN : INFO;
+    return "CANCELLED".equals(status) || "STOPPED".equals(status) ? WARN : INFO;
   }
 
   private static EventSeverity ofLevel(final LogLevel level) {

@@ -4,6 +4,7 @@ package com.infenia.yukta.dto.request;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import java.util.List;
 import java.util.Map;
@@ -80,6 +81,18 @@ class ConfigRequestTest {
         description,
         List.of(new WorkflowDefinitionRequest.NodeRequest("n1", "t1", null)),
         List.of());
+  }
+
+  @Test
+  void validationShouldFailWhenWorkflowKeyDiffersFromWorkflowId() {
+    final var workflows = Map.of("a", createWorkflowDefinitionRequest("b", WORKFLOW_DESC));
+    final var request =
+        new ConfigRequest(
+            SESSION_ID, "test", WORKFLOW_DESC, INITIATOR, null, PROJECT_PATH, workflows);
+    assertThat(validator.validate(request))
+        .as("a key that differs from the workflowId is rejected")
+        .extracting(ConstraintViolation::getMessage)
+        .contains("Each workflows key must equal the workflowId of its definition");
   }
 
   @ParameterizedTest

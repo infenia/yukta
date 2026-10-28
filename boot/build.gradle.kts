@@ -13,6 +13,12 @@ springBoot {
     }
 }
 
+// MCP serverInfo.version follows the project version, not a literal in application.yaml.
+tasks.processResources {
+    val projectVersion = project.version.toString()
+    filesMatching("application.yaml") { filter { it.replace("@project.version@", projectVersion) } }
+}
+
 // Optional plugins are chosen with -Pyukta.plugins=default (all except script-js), all, none, or a comma-separated list
 // of: process-executor, http-request, file-io, sql-query, llm-call, session-memory, mcp-tool-call, decision, script-js.
 val optionalPlugins = mapOf(

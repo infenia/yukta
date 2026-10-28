@@ -4,6 +4,7 @@ package com.infenia.yukta.controller;
 
 import com.infenia.yukta.dto.request.NodeCommandRequest;
 import com.infenia.yukta.dto.response.NodeCommandResponse;
+import com.infenia.yukta.exception.ResourceNotFoundException;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.api.ApiResponse;
@@ -63,6 +64,8 @@ public class ControlBusController {
   public Mono<ApiResponse<Message<?>>> getLastHeartbeat(
       @PathVariable final String workflowId, @PathVariable final String nodeId) {
     return Mono.fromCallable(() -> controlBus.getLastHeartbeat(workflowId, nodeId))
+        .switchIfEmpty(
+            Mono.error(() -> new ResourceNotFoundException("Heartbeat", workflowId + "/" + nodeId)))
         .map(hb -> ApiResponse.success(200, "Node heartbeat retrieved", hb));
   }
 

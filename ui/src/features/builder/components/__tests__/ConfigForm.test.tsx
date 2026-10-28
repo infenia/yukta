@@ -19,7 +19,13 @@ const field = (over: Partial<ConfigField>): ConfigField => ({
 });
 
 /** Keeps the values in state like the inspector does and exposes them as JSON. */
-function Harness({ schema, initial = {} }: { schema: ConfigField[]; initial?: Record<string, unknown> }) {
+function Harness({
+  schema,
+  initial = {},
+}: {
+  schema: ConfigField[];
+  initial?: Record<string, unknown>;
+}) {
   const [values, setValues] = useState(initial);
   return (
     <>
@@ -32,10 +38,26 @@ function Harness({ schema, initial = {} }: { schema: ConfigField[]; initial?: Re
 const values = () => screen.getByTestId('values').textContent;
 
 describe('ConfigForm', () => {
+  it('gives same-named fields of two forms distinct ids', () => {
+    const schema = [field({ name: 'trigger' })];
+    render(
+      <>
+        <ConfigForm schema={schema} values={{}} onChange={() => {}} />
+        <ConfigForm schema={schema} values={{}} onChange={() => {}} />
+      </>
+    );
+    const [a, b] = screen.getAllByLabelText('trigger');
+    expect(a.id).not.toBe(b.id);
+  });
+
   it('edits and clears a text field, marking required ones and showing help', async () => {
     const user = userEvent.setup();
     render(
-      <Harness schema={[field({ name: 'url', required: true, description: 'the url' })]} />
+      <Harness
+        schema={[
+          field({ name: 'url', required: true, description: 'the url' }),
+        ]}
+      />
     );
     expect(screen.getByText('the url')).toBeInTheDocument();
     expect(screen.getByText('*')).toBeInTheDocument();
@@ -50,7 +72,10 @@ describe('ConfigForm', () => {
     const user = userEvent.setup();
     render(
       <Harness
-        schema={[field({ name: 'key', type: 'SECRET' }), field({ name: 'expr', type: 'EXPRESSION' })]}
+        schema={[
+          field({ name: 'key', type: 'SECRET' }),
+          field({ name: 'expr', type: 'EXPRESSION' }),
+        ]}
       />
     );
     expect(screen.getByPlaceholderText('decrypted:<key>')).toBeInTheDocument();
@@ -79,7 +104,11 @@ describe('ConfigForm', () => {
 
   it('toggles a boolean, starting from its default', async () => {
     const user = userEvent.setup();
-    render(<Harness schema={[field({ name: 'on', type: 'BOOLEAN', defaultValue: true })]} />);
+    render(
+      <Harness
+        schema={[field({ name: 'on', type: 'BOOLEAN', defaultValue: true })]}
+      />
+    );
     const box = screen.getByLabelText('on');
     expect(box).toBeChecked();
     await user.click(box);
@@ -98,12 +127,19 @@ describe('ConfigForm', () => {
     render(
       <Harness
         schema={[
-          field({ name: 'method', type: 'ENUM', defaultValue: 'GET', options: ['GET', 'POST'] }),
+          field({
+            name: 'method',
+            type: 'ENUM',
+            defaultValue: 'GET',
+            options: ['GET', 'POST'],
+          }),
           field({ name: 'bare', type: 'ENUM', options: ['x'] }),
         ]}
       />
     );
-    expect(screen.getByRole('option', { name: 'Default (GET)' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: 'Default (GET)' })
+    ).toBeInTheDocument();
     expect(screen.getByRole('option', { name: '—' })).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText('method'), 'POST');
     expect(values()).toBe('{"method":"POST"}');

@@ -25,6 +25,7 @@ final class EngineOwned {
     NodePolicies.ATTEMPT_HEADER,
     NodePolicies.FAILURE_ATTEMPTS_HEADER,
     NodePolicies.FAILURE_EXCEPTION_HEADER,
+    NodePolicies.FAILURE_MESSAGE_HEADER,
     NodePolicies.FAILURE_TIME_HEADER
   };
 
