@@ -102,6 +102,14 @@ type TaskProgress struct {
 	StartTime Timestamp              `json:"startTime"`
 	EndTime   Timestamp              `json:"endTime"`
 	Metadata  map[string]interface{} `json:"metadata"`
+	// Breakpoint is the active breakpoint on the node, nil when there is none.
+	Breakpoint *Breakpoint `json:"breakpoint,omitempty"`
+}
+
+// Breakpoint pauses a node when the value at Field equals Equals.
+type Breakpoint struct {
+	Field  string `json:"field"`
+	Equals string `json:"equals"`
 }
 
 // WorkflowProgress represents the current progress of a workflow execution.

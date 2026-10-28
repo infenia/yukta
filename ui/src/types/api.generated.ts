@@ -1227,6 +1227,11 @@ export interface components {
             /** @description The list of field validation errors */
             errors?: components["schemas"]["FieldError"][];
         };
+        /** @description A condition that pauses the node: when the value at field equals equals. */
+        Breakpoint: {
+            field?: string;
+            equals?: string;
+        };
         TaskProgress: {
             nodeId?: string;
             module?: string;
@@ -1238,6 +1243,7 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             };
+            breakpoint?: components["schemas"]["Breakpoint"];
         };
         WorkflowProgress: {
             executionId?: string;

@@ -2957,6 +2957,32 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void emitBreakpointEvent_showsTheBreakpointInTheSnapshotAndSurvivesStatusUpdates() {
+    StepVerifier.create(tracker.startWorkflow("bp-exec", "bp-sess", "bp-wf", List.of("n1")))
+        .verifyComplete();
+
+    tracker.emitBreakpointEvent(
+        "bp-exec", "n1", new TaskProgress.Breakpoint("payload.kind", "error"));
+    tracker.emitTaskStatusEvent("bp-exec", "n1", "m", TaskStatus.RUNNING, Map.of());
+    tracker.emitBreakpointEvent("nobody", "n1", null); // unknown run: ignored
+
+    org.awaitility.Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () -> {
+              final TaskProgress task =
+                  tracker.getProgressByExecutionId("bp-exec").tasks().getFirst();
+              assertThat(task.status()).isEqualTo("RUNNING");
+              assertThat(task.breakpoint())
+                  .isEqualTo(new TaskProgress.Breakpoint("payload.kind", "error"));
+            });
+
+    tracker.emitBreakpointEvent("bp-exec", "n1", null);
+    assertThat(tracker.getProgressByExecutionId("bp-exec").tasks().getFirst().breakpoint())
+        .isNull();
+  }
+
+  @Test
   void testControlStateForUnknownExecutionIsIgnored() {
     tracker.emitControlStateEvent("nobody", ControlState.PAUSED);
 

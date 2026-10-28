@@ -8,12 +8,14 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,8 +28,9 @@ import reactor.test.StepVerifier;
 class SetBreakpointCommandProcessorTest {
 
   private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
+  private final TaskTrackerService taskTracker = mock(TaskTrackerService.class);
   private final SetBreakpointCommandProcessor processor =
-      new SetBreakpointCommandProcessor(registry);
+      new SetBreakpointCommandProcessor(registry, taskTracker);
   private final ExecutionControl control = mock(ExecutionControl.class);
   private final ReactiveControlValve valve = new ReactiveControlValve();
 
@@ -101,5 +104,15 @@ class SetBreakpointCommandProcessorTest {
   @Test
   void priority_isTen() {
     assertThat(processor.getPriority()).isEqualTo(10);
+  }
+
+  @Test
+  void process_reportsTheBreakpointToTheTrackerAndNullWhenCleared() {
+    set("payload.kind", "error");
+    set(null, null);
+
+    org.mockito.Mockito.verify(taskTracker)
+        .emitBreakpointEvent("e1", "n1", new TaskProgress.Breakpoint("payload.kind", "error"));
+    org.mockito.Mockito.verify(taskTracker).emitBreakpointEvent("e1", "n1", null);
   }
 }
