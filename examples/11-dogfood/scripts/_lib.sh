@@ -338,9 +338,13 @@ print_result() {
   wall="$(run_wall "$progress")"
   cost="$(cat "$records"/*-[0-9]*.json 2>/dev/null | jq -s 'map(.cost // 0) | add // 0 | . * 100 | round / 100' 2>/dev/null || true)"
   line="RESULT status=$status failed_node=$failed healed=${healed:--} execution=$2 session=$1 wall=${wall:-0} cost=\$${cost:-0}"
-  local bytes=$(( ${YUKTA_WATCHED_BYTES:-0} + ${#shown} + (${#shown} > 0 ? 1 : 0) + ${#line} + 8 ))
+  # the next level: the full text of the failure is one command away
+  local more=""
+  [[ "$status" == SUCCESS || "$status" == COMPLETED ]] || more="MORE yk detail $1 $2 [--grep PATTERN] [--tail N] [--head N]"
+  local bytes=$(( ${YUKTA_WATCHED_BYTES:-0} + ${#shown} + ${#more} + (${#more} > 0 ? 1 : 0) + (${#shown} > 0 ? 1 : 0) + ${#line} + 8 ))
   bytes=$(( bytes + ${#bytes} ))  # the digits of the count are part of the count
   line+=" bytes=$bytes"
+  [[ -z "$more" ]] || echo "$more"
   echo "$line"
   record_run "$status" "${YUKTA_SCOPE:--}" "${wall:-0}" "${cost:-0}" "$bytes" "${healed:--}"
   # what the status line and the Stop hook read: the changes this result is for, and how it ended
@@ -371,6 +375,12 @@ filter_plan() {
     BEGIN { n = split(only, o, ","); m = split(skip, k, ","); for (i = 1; i <= n; i++) O[norm(o[i])] = 1; for (i = 1; i <= m; i++) K[norm(k[i])] = 1 }
     /^#/ { print; next }
     { s = norm($1); if ((n == 0 || s in O) && !(s in K)) print }'
+}
+
+# failed_output SESSION EXECUTION: the whole output of the failed stage (the stdout in the payload of the terminal that ended the run FAILED).
+failed_output() {
+  "$(find_cli)" -o json result "$1" "$2" 2>/dev/null \
+    | jq -rs '[.[] | select(.kind == "RESULT" and (.payload.outcome == "FAILED" or .payload.success == false))][0].payload | (.results[0].stdout // .stdout) // empty'
 }
 
 # heal_records SESSION: the directory with the heal records of the last check run: YUKTA_HEAL_RECORDS when set, else the session's own.

@@ -9,6 +9,7 @@
 #   yk stats                                 runs, median bytes shown to you, median wall and heal dollars per kind of run
 #   yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]
 #                                            what heal did: where the time and money went, what looks wrong, the raw events
+#   yk detail <session> <execution> [--grep P] [--tail N] [--head N]  the full output of the stage that failed a run (the MORE line says so)
 #   yk tool [--detach] [-C dir] <cmd...>     run any other command once, e.g. -C ui pnpm lint | -C cli go test ./...
 #
 # A run's last line is machine readable; exit 0 only on success:
@@ -246,7 +247,7 @@ cmd_watch() {
   # A node that never ran (a rung nobody needed, or one behind the failure) is not news: the check has
   # dozens of them. ponytail: filtered here; belongs in the CLI's --quiet if other callers want it.
   "$(find_cli)" controlbus watch --execution "$target" --until-done "${filter[@]}" \
-    | { if ((${#filter[@]})); then grep -v -E '^NODE [^ ]+ (SKIPPED|UPSTREAM_FAILED|CANCELLED)$|^(ERROR|WARN) (heal|attempt|claude|fix-from)/(trigger|heal\?|auto\?|brief|prepare|first|triage\?|report|fixed\?|carry\.[a-z]+):|^WARN [^ ]+: (\* Deprecated licenses: 0|Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true`.*)$'; else cat; fi; } | tee -a "$shown" || true
+    | { if ((${#filter[@]})); then grep -v -E '^NODE [^ ]+ (SKIPPED|UPSTREAM_FAILED|CANCELLED)$|^(ERROR|WARN) (heal|attempt|claude|fix-from)/(trigger|heal\?|auto\?|brief|prepare|first|triage\?|report|fixed\?|carry\.[a-z]+):|^(ERROR|WARN) [^ ]+: (BUILD FAILED in .*|Process failed with exit code [0-9]+|WARNING: .*(sun\.misc\.Unsafe|Unsafe).*)$|^WARN [^ ]+: (\* Deprecated licenses: 0|Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true`.*)$'; else cat; fi; } | tee -a "$shown" || true
   YUKTA_WATCHED_BYTES="$(stat -c %s "$shown")"
   export YUKTA_WATCHED_BYTES
   rm -f "$shown"
@@ -473,6 +474,29 @@ cmd_stats() {
     END { flush() }'
 }
 
+# yk detail SESSION EXECUTION [--grep P] [--tail N] [--head N]: the full output of the stage that failed the run (level 2), the line RESULT
+# and MORE of a failed run name it. Without a filter all of it.
+cmd_detail() {
+  local session="${1:?usage: yk detail <session> <execution> [--grep P] [--tail N] [--head N]}" target="${2:?usage: yk detail <session> <execution> [--grep P] [--tail N] [--head N]}"
+  shift 2
+  local grep_p="" tail_n="" head_n=""
+  while (($#)); do
+    case "$1" in
+      --grep) grep_p="${2:?--grep needs a pattern}"; shift 2 ;;
+      --tail) tail_n="${2:?--tail needs a number}"; shift 2 ;;
+      --head) head_n="${2:?--head needs a number}"; shift 2 ;;
+      *) die "unknown option '$1' (yk detail <session> <execution> [--grep P] [--tail N] [--head N])" ;;
+    esac
+  done
+  export YUKTA_SERVER_URL="${YUKTA_SERVER_URL:-$DEV_URL}"
+  local text; text="$(failed_output "$session" "$target")"
+  [[ -n "$text" ]] || { echo "no failed stage output for $target (it did not fail, or it is not a check or tool run)"; return 0; }
+  [[ -z "$grep_p" ]] || text="$(grep -E -- "$grep_p" <<<"$text" || true)"
+  [[ -z "$head_n" ]] || text="$(head -n "$head_n" <<<"$text")"
+  [[ -z "$tail_n" ]] || text="$(tail -n "$tail_n" <<<"$text")"
+  printf '%s\n' "$text"
+}
+
 # yk statusline: one line for Claude Code's status line, from cached files only (no network)
 cmd_statusline() {
   local label mark="✗" line status scope healed activity f
@@ -516,6 +540,7 @@ case "$cmd" in
   signals) cmd_signals "$@" ;;
   approve | reject) cmd_answer "$cmd" "$@" ;;
   stats) cmd_stats ;;
+  detail) cmd_detail "$@" ;;
   statusline) cmd_statusline ;;
   mcp-headers) cmd_mcp_headers ;;
   sum) changes_sum "$REPO_ROOT" ;;
