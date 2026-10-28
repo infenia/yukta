@@ -3,7 +3,11 @@
 package com.infenia.yukta.filter;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.security.ApiAuthenticator;
+import com.infenia.yukta.security.ApiAuthenticator.Scope;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -15,7 +19,7 @@ import reactor.core.publisher.Mono;
 
 /** Tests for the behaviour described by {@link HostOriginFilter}. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.LawOfDemeter", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class HostOriginFilterTest {
 
   /** Whether the request got through. */
@@ -23,9 +27,14 @@ class HostOriginFilterTest {
 
   private HttpStatus run(
       final MockEnvironment environment, final MockServerHttpRequest.BaseBuilder<?> request) {
+    return run(new HostOriginFilter(environment), request);
+  }
+
+  private HttpStatus run(
+      final HostOriginFilter filter, final MockServerHttpRequest.BaseBuilder<?> request) {
     passed.set(false);
     final var exchange = MockServerWebExchange.from(request);
-    new HostOriginFilter(environment)
+    filter
         .filter(
             exchange,
             _ -> {
@@ -108,6 +117,19 @@ class HostOriginFilterTest {
 
     assertThat(status).isEqualTo(HttpStatus.FORBIDDEN);
     assertThat(passed).isFalse();
+  }
+
+  @Test
+  void testStillOnWhenOnlyMcpIsOpen() {
+    final var authenticator = mock(ApiAuthenticator.class);
+    when(authenticator.isOpen(Scope.MCP)).thenReturn(true);
+
+    final var status =
+        run(
+            new HostOriginFilter(new MockEnvironment(), authenticator),
+            MockServerHttpRequest.post("/mcp").header("Host", "rebound.example"));
+
+    assertThat(status).isEqualTo(HttpStatus.FORBIDDEN);
   }
 
   @Test
