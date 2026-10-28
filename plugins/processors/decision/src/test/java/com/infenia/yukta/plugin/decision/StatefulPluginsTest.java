@@ -250,4 +250,97 @@ class StatefulPluginsTest {
         .expectErrorMessage("window must be 1 or more")
         .verify();
   }
+
+  // --- shared and persisted windows ---
+
+  private static List<Message<?>> runIn(
+      final DecisionPlugin plugin,
+      final Map<String, Object> config,
+      final String session,
+      final String execution,
+      final String node,
+      final String... items) {
+    return plugin
+        .process(Flux.fromArray(items).map(FakeModel::message), config)
+        .contextWrite(
+            context ->
+                context.put("sessionId", session).put("executionId", execution).put("nodeId", node))
+        .collectList()
+        .block();
+  }
+
+  @Test
+  void dedupe_nodesWithOneWindowKeyShareTheirWindowInTheExecution() {
+    final FakeModel model = FakeModel.always(Map.of("same", same("1", 0.9)));
+    final DedupePlugin plugin = new DedupePlugin(model, FakeModel.plainResolver());
+    final Map<String, Object> shared = config("persist", "execution", "windowKey", "attempts");
+
+    final List<Message<?>> first = runIn(plugin, shared, "s", "x-share", "attempt1", "boom");
+    final List<Message<?>> second = runIn(plugin, shared, "s", "x-share", "attempt2", "bang");
+    final List<Message<?>> other = runIn(plugin, shared, "s", "x-other", "attempt2", "bang");
+
+    assertThat(ports(first)).containsExactly("unique");
+    assertThat(ports(second)).containsExactly("duplicate");
+    assertThat(ports(other)).containsExactly("unique");
+  }
+
+  @Test
+  void dedupe_persistSession_laterExecutionFlagsEarlierRepeat() {
+    final FakeModel model = FakeModel.always(Map.of("same", same("1", 0.9)));
+    final DedupePlugin plugin = new DedupePlugin(model, FakeModel.plainResolver());
+    final Map<String, Object> persisted = config("persist", "session");
+
+    assertThat(ports(runIn(plugin, persisted, "s-keep", "run-1", "n", "boom")))
+        .containsExactly("unique");
+    assertThat(ports(runIn(plugin, persisted, "s-keep", "run-2", "n", "bang")))
+        .containsExactly("duplicate");
+    assertThat(ports(runIn(plugin, persisted, "s-elsewhere", "run-3", "n", "bang")))
+        .containsExactly("unique");
+  }
+
+  @Test
+  void dedupe_persistNone_neverSharesEvenWithOneWindowKey() {
+    final FakeModel model = FakeModel.always(Map.of("same", same("1", 0.9)));
+    final DedupePlugin plugin = new DedupePlugin(model, FakeModel.plainResolver());
+    final Map<String, Object> own = config("windowKey", "attempts");
+
+    assertThat(ports(runIn(plugin, own, "s-none", "x-none", "n1", "boom")))
+        .containsExactly("unique");
+    assertThat(ports(runIn(plugin, own, "s-none", "x-none", "n2", "bang")))
+        .containsExactly("unique");
+  }
+
+  @Test
+  void anomaly_persistSession_historySurvivesTheExecution() {
+    final FakeModel model = FakeModel.always(Map.of("anomaly", new Answer.YesNo(0.9)));
+    final AnomalyPlugin plugin = new AnomalyPlugin(model, FakeModel.plainResolver());
+    final Map<String, Object> persisted = config("persist", "session", "minHistory", 2);
+
+    assertThat(ports(runIn(plugin, persisted, "s-an", "run-1", "n", "a", "b")))
+        .containsExactly("normal", "normal");
+    assertThat(ports(runIn(plugin, persisted, "s-an", "run-2", "n", "c")))
+        .containsExactly("anomalous");
+  }
+
+  @Test
+  void windows_concurrentWritersLoseNoEntries() {
+    final DecisionWindow<Integer> window = new DecisionWindow<>();
+
+    java.util.stream.IntStream.range(0, 2000).parallel().forEach(i -> window.add(i, 5000));
+
+    assertThat(window.snapshot()).hasSize(2000).doesNotHaveDuplicates();
+    window.add(-1, 10);
+    assertThat(window.snapshot()).hasSize(10).endsWith(-1);
+  }
+
+  @Test
+  void windows_persistMustBeNoneExecutionOrSession() {
+    final DedupePlugin plugin =
+        new DedupePlugin(FakeModel.always(Map.of()), FakeModel.plainResolver());
+
+    StepVerifier.create(plugin.validateConfig(config("persist", "forever")))
+        .expectErrorMessage("persist must be none, execution or session")
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("persist", "session"))).verifyComplete();
+  }
 }
