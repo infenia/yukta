@@ -39,7 +39,7 @@ describe('AppHeader', () => {
     ['/sessions/s1', 'Sessions'],
     ['/sessions/s1/workflow/w1/edit', 'Sessions'],
     ['/plugins', 'Plugins'],
-    ['/history', 'History'],
+    ['/runs', 'Runs'],
     ['/control', 'Control'],
   ])('marks the section of %s as current', (path, label) => {
     render(
@@ -96,8 +96,8 @@ describe('AppHeader', () => {
     ]);
     expect(links).toEqual([
       ['Sessions', '/'],
+      ['Runs', '/runs'],
       ['Plugins', '/plugins'],
-      ['History', '/history'],
       ['Control', '/control'],
     ]);
   });
