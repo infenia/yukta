@@ -16,7 +16,11 @@ const envelope = (path: string, data: unknown) => ({
   }),
 });
 
-async function mockControlApi(page: Page, workers: unknown[]) {
+async function mockControlApi(
+  page: Page,
+  workers: unknown[],
+  nodes: string[] = []
+) {
   await page.route('**/api/supervisors', (route) =>
     route.fulfill(envelope('/supervisors', []))
   );
@@ -24,7 +28,7 @@ async function mockControlApi(page: Page, workers: unknown[]) {
     route.fulfill(envelope('/audit', []))
   );
   await page.route('**/api/control/nodes', (route) =>
-    route.fulfill(envelope('/nodes', []))
+    route.fulfill(envelope('/nodes', nodes))
   );
   await page.route('**/api/edition', (route) =>
     route.fulfill(
@@ -70,5 +74,28 @@ test.describe('Control page', () => {
     await page.goto('/control');
 
     await expect(page.getByText('No workers connected.')).toBeVisible();
+  });
+
+  test('sends a command to a node and shows the response', async ({ page }) => {
+    await mockControlApi(page, [], ['wf-1:ingest']);
+    await page.route('**/api/control/workflows/wf-1/nodes/ingest/heartbeat', (route) =>
+      route.fulfill(envelope('/heartbeat', { beat: 1 }))
+    );
+    let sent: unknown;
+    await page.route('**/api/control/workflows/wf-1/nodes/ingest/command', (route) => {
+      sent = route.request().postDataJSON();
+      return route.fulfill(envelope('/command', { payload: { flushed: true } }));
+    });
+    await page.goto('/control');
+
+    await page.getByLabel('Workflow', { exact: true }).selectOption('wf-1');
+    await page.getByLabel('Node', { exact: true }).selectOption('ingest');
+    await expect(page.getByText('"beat": 1')).toBeVisible();
+    await page.getByRole('button', { name: 'Send command…' }).click();
+    await page.getByLabel('Command (JSON object)').fill('{"action":"flush"}');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+
+    await expect(page.getByText('"flushed": true')).toBeVisible();
+    expect(sent).toEqual({ action: 'flush' });
   });
 });
