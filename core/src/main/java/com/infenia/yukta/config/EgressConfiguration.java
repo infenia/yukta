@@ -11,9 +11,12 @@ import lombok.NoArgsConstructor;
 import org.springframework.boot.context.properties.bind.BindResult;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.webclient.WebClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.core.ResolvableType;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 
 /**
@@ -47,6 +50,18 @@ public class EgressConfiguration {
         HostAllowList.from(binder.bind("yukta.egress.allowed-hosts", HOSTS).orElse(List.of())),
         lists(binder, "yukta.egress.by-workflow"),
         lists(binder, "yukta.egress.by-session"));
+  }
+
+  /**
+   * Makes every WebClient (HTTP_REQUEST, MCP_TOOL_CALL, NOTIFY_TERMINAL) refuse, at connect time, a
+   * name that resolves to a link-local or metadata address.
+   *
+   * @return the customizer
+   */
+  @Bean
+  @Order(Ordered.LOWEST_PRECEDENCE)
+  public WebClientCustomizer metadataGuardCustomizer() {
+    return new MetadataGuardCustomizer();
   }
 
   private static Map<String, HostAllowList> lists(final Binder binder, final String prefix) {
