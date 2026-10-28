@@ -21,7 +21,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods"})
 class InMemoryNodeCheckpointStoreSpillTest {
 
   @TempDir /* default */ Path dir;
@@ -54,6 +54,38 @@ class InMemoryNodeCheckpointStoreSpillTest {
     assertThat(store.isComplete("e1", "n1")).isTrue();
     assertThat(store.isFinished("e1", "n1")).isTrue();
     assertThat(store.bytesHeld()).isZero();
+  }
+
+  @Test
+  void saversThatDoNotWait_stillReplayInEmissionOrder() {
+    final InMemoryNodeCheckpointStore store = store(2, dir.toString());
+    final java.util.List<reactor.core.publisher.Mono<Void>> writes = new java.util.ArrayList<>();
+    for (int i = 0; i < 200; i++) {
+      final reactor.core.publisher.Mono<Void> write =
+          store.save("e1", "n1", message("m" + i)).cache();
+      write.subscribe();
+      writes.add(write);
+    }
+    reactor.core.publisher.Mono.when(writes).block();
+
+    StepVerifier.create(store.getAll("e1", "n1").map(m -> (String) m.payload()).collectList())
+        .assertNext(
+            payloads ->
+                assertThat(payloads)
+                    .containsExactlyElementsOf(
+                        java.util.stream.IntStream.range(0, 200).mapToObj(i -> "m" + i).toList()))
+        .verifyComplete();
+  }
+
+  @Test
+  void saveAfterClear_isDropped_andHoldsNoBytes() {
+    final InMemoryNodeCheckpointStore store = store(5, dir.toString());
+    store.save("e1", "n1", message("a")).block();
+    store.clear("e1");
+    store.save("e1", "n1", message("late")).block();
+
+    assertThat(store.bytesHeld()).isZero();
+    StepVerifier.create(store.getAll("e1", "n1")).verifyComplete();
   }
 
   @Test
