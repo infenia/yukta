@@ -294,6 +294,37 @@ class McpEndpointFilterTest {
   }
 
   @Test
+  void testCostlyCallsHaveALowerLimitAndRefusalsAreCounted() {
+    final var env =
+        new org.springframework.mock.env.MockEnvironment()
+            .withProperty("yukta.api-key", "k")
+            .withProperty("yukta.mcp.heavy-rate-limit-per-minute", "2");
+    final McpEndpointFilter filter = new McpEndpointFilter(env);
+    final var registry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    filter.bindTo(registry);
+    final String start =
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"start_workflow\"}}";
+    final String plainLogs =
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_execution_logs\",\"arguments\":{}}}";
+    final String regexLogs =
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_execution_logs\",\"arguments\":{\"filterPattern\":\"(a+)+\"}}}";
+
+    assertThat(heavyStatus(filter, start)).isNull();
+    assertThat(heavyStatus(filter, regexLogs)).isNull();
+    assertThat(heavyStatus(filter, plainLogs)).isNull(); // not costly: never counted
+    assertThat(heavyStatus(filter, start)).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    assertThat(registry.get("yukta.mcp.heavy.refused").functionCounter().count()).isEqualTo(1.0);
+  }
+
+  private HttpStatus heavyStatus(final McpEndpointFilter filter, final String body) {
+    final var exchange =
+        MockServerWebExchange.from(
+            MockServerHttpRequest.post("/mcp").header("X-API-Key", "k").body(body));
+    filter.filter(exchange, (ServerWebExchange e) -> Mono.empty()).block();
+    return (HttpStatus) exchange.getResponse().getStatusCode();
+  }
+
+  @Test
   void testOpenEndpointIsNotLimited() {
     final var env =
         new org.springframework.mock.env.MockEnvironment()

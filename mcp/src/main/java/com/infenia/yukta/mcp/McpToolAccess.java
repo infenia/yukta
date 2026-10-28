@@ -97,6 +97,35 @@ class McpToolAccess {
   }
 
   /**
+   * How many calls in these JSON-RPC messages are costly: {@code start_workflow}, and {@code
+   * get_execution_logs} with a {@code filterPattern}, whose regex is matched against every line.
+   *
+   * @param body the request body, one message or a batch
+   * @return the count; 0 if the body is not JSON
+   */
+  /* default */ int heavyCalls(final byte[] body) {
+    try {
+      final JsonNode root = JSON.readTree(body);
+      int heavy = 0;
+      for (final JsonNode message : root.isArray() ? root : List.of(root)) {
+        if (!"tools/call".equals(message.path("method").asString(""))) {
+          continue;
+        }
+        final JsonNode params = message.path("params");
+        final String tool = params.path("name").asString("");
+        if ("start_workflow".equals(tool)
+            || "get_execution_logs".equals(tool)
+                && !params.path("arguments").path("filterPattern").asString("").isBlank()) {
+          heavy++;
+        }
+      }
+      return heavy;
+    } catch (JacksonException e) {
+      return 0;
+    }
+  }
+
+  /**
    * Whether the key may call the tool.
    *
    * @param key the key that sent the request
