@@ -31,6 +31,7 @@ import java.util.Map;
  *   <li>captureStderr: whether stderr is captured separately instead of merged into stdout
  *   <li>maxOutputLines: maximum output lines retained per stream (0 = unlimited)
  *   <li>maxOutputBytes: maximum output bytes retained per stream (0 = unlimited)
+ *   <li>metadataFrom: node metadata key to dotted path into the JSON the process prints
  *   <li>reports: structured reports (JUnit, Checkstyle, SARIF) read into {@code failures[]}
  * </ul>
  */
@@ -49,7 +50,8 @@ import java.util.Map;
     boolean captureStderr,
     int maxOutputLines,
     long maxOutputBytes,
-    List<ReportFailures.Spec> reports) {
+    List<ReportFailures.Spec> reports,
+    Map<String, String> metadataFrom) {
 
   private static List<String> copyCommand(final List<String> command) {
     return command == null ? List.of() : List.copyOf(command);
@@ -63,6 +65,7 @@ import java.util.Map;
   @SuppressWarnings("PMD.PublicMemberInNonPublicType")
   public ProcessExecutorConfig {
     command = copyCommand(command);
+    metadataFrom = metadataFrom == null ? Map.of() : Map.copyOf(metadataFrom);
     env = copyEnv(env);
   }
 
@@ -122,6 +125,20 @@ import java.util.Map;
 
     /** The structured reports to read after the process ends. */
     private List<ReportFailures.Spec> reportsValue = List.of();
+
+    /** Node metadata keys and the paths in the JSON on stdout that fill them. */
+    private Map<String, String> metadataFromValue = Map.of();
+
+    /**
+     * Sets the values to lift from stdout into the node's metadata.
+     *
+     * @param metadataFrom metadata key to dotted path
+     * @return this builder
+     */
+    /* package */ Builder metadataFrom(final Map<String, String> metadataFrom) {
+      this.metadataFromValue = metadataFrom;
+      return this;
+    }
 
     /**
      * Sets the structured reports to read.
@@ -309,7 +326,8 @@ import java.util.Map;
           captureStderrValue,
           maxOutputLinesValue,
           maxOutputBytesValue,
-          reportsValue);
+          reportsValue,
+          metadataFromValue);
     }
   }
 }

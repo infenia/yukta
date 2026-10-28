@@ -134,6 +134,19 @@ class NodeStreamsTest {
   }
 
   @Test
+  void nodeMetadataOfAMessage_isMergedIntoTheSuccessEvent() {
+    final Message<?> msg =
+        DefaultMessage.create(UUID.randomUUID(), "x")
+            .withMetadata(Map.of(Message.NODE_METADATA_KEY, Map.of("cost", 0.5)));
+
+    StepVerifier.create(decorate(Flux.just(msg))).expectNext(msg).verifyComplete();
+
+    verify(tracker)
+        .emitTaskStatusEvent(
+            eq(EXEC), eq(NODE_ID), eq(TASK), eq(TaskStatus.SUCCESS), eq(Map.of("cost", 0.5)));
+  }
+
+  @Test
   void success_reportsRunningThenSuccess_andPassesMessagesThrough() {
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "x");
 

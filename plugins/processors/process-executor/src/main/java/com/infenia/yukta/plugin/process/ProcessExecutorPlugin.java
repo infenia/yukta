@@ -36,6 +36,7 @@ import reactor.core.publisher.Mono;
 import reactor.util.context.ContextView;
 import reactor.util.function.Tuple5;
 import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -185,6 +186,12 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
             null,
             "Reports to read into failures[]: [{format: junit|checkstyle|sarif, glob}]"),
         ConfigField.optional(
+            "metadataFrom",
+            ConfigField.Type.MAP,
+            null,
+            "Node metadata from the JSON on stdout: {metadataKey: dotted.path}; missing paths"
+                + " skipped"),
+        ConfigField.optional(
             "routeByExitCode",
             ConfigField.Type.BOOLEAN,
             false,
@@ -266,6 +273,9 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
       written during the run are read, and STRUCTURED/JSON payloads get "failures" (at most 50 of
       {kind, file, line, rule, message, test?}) and "totalFailures". A green run has none; a report
       that cannot be read is skipped, the text output stays.
+    - metadataFrom: Map of node metadata key to a dotted path into the JSON the process prints
+      (e.g. {cost: "total_cost_usd", tokens: "usage.output_tokens"}). The values appear in the
+      node's metadata (UI, CLI, MCP). A path that is missing, or stdout that is not JSON, is skipped.
     - includeOutput: Boolean (default: true)
       Include stdout/stderr text in STRUCTURED/JSON payloads
     - includeInput: Boolean (default: false)
@@ -504,6 +514,10 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
     final Map<String, Object> newMetadata = new HashMap<>(original.metadata());
     newMetadata.put(EXIT_CODE_KEY, result.exitCode());
     log.atDebug().log("Exit code stored in metadata: {}", result.exitCode());
+    final Map<String, Object> lifted = lift(config.metadataFrom(), result.stdout());
+    if (!lifted.isEmpty()) {
+      newMetadata.put(Message.NODE_METADATA_KEY, lifted);
+    }
     final Message<?> output = DefaultMessage.from(original, payload).withMetadata(newMetadata);
     if (config.routeByExitCode()) {
       final String port = result.isSuccess() ? PORT_SUCCESS : PORT_FAILURE;
@@ -511,6 +525,29 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
       return output.withSourcePort(port);
     }
     return output;
+  }
+
+  /** Reads the values at the dotted paths out of the JSON on stdout; what is missing is skipped. */
+  private Map<String, Object> lift(final Map<String, String> paths, final String stdout) {
+    if (paths.isEmpty() || stdout == null || stdout.isBlank()) {
+      return Map.of();
+    }
+    final JsonNode root;
+    try {
+      root = json.readTree(stdout);
+    } catch (JacksonException e) {
+      log.atDebug().log("metadataFrom skipped, stdout is not JSON: {}", e.getMessage());
+      return Map.of();
+    }
+    final Map<String, Object> lifted = new LinkedHashMap<>();
+    paths.forEach(
+        (key, path) -> {
+          final JsonNode found = root.at("/" + path.replace('.', '/'));
+          if (!found.isMissingNode() && !found.isNull()) {
+            lifted.put(key, json.convertValue(found, Object.class));
+          }
+        });
+    return lifted;
   }
 
   private WorkflowExecutionException executionFailure(
@@ -613,7 +650,21 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
             MapUtils.convert(
                 config.getOrDefault("maxOutputBytes", DEFAULT_MAX_OUTPUT_BYTES), Long.class))
         .reports(reports(config))
+        .metadataFrom(metadataFrom(config))
         .build();
+  }
+
+  private static Map<String, String> metadataFrom(final Map<String, Object> config) {
+    final Object value = config.get("metadataFrom");
+    if (value == null) {
+      return Map.of();
+    }
+    if (!(value instanceof final Map<?, ?> entries)) {
+      throw new IllegalArgumentException("metadataFrom must be a map of key to path");
+    }
+    final Map<String, String> out = new LinkedHashMap<>();
+    entries.forEach((key, path) -> out.put(String.valueOf(key), String.valueOf(path)));
+    return out;
   }
 
   private static List<ReportFailures.Spec> reports(final Map<String, Object> config) {
@@ -726,6 +777,7 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
       OutputFormat.from(config.get(OUTPUT_FORMAT));
       InputMode.from(config.get(INPUT_MODE));
       reports(config);
+      metadataFrom(config);
       final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
       if (booleanOption(config, ROUTE_BY_EXIT_CODE, false) && failureMode != FailureMode.CONTINUE) {
         throw new IllegalArgumentException("routeByExitCode requires failureMode: CONTINUE");
