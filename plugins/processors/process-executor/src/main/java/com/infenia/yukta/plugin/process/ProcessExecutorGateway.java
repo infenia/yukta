@@ -10,12 +10,16 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -41,6 +45,17 @@ public class ProcessExecutorGateway {
 
   /** What a workflow may set for an allowed executable (environment, working directory). */
   private final ProcessLimits limits = new ProcessLimits();
+
+  /**
+   * {@code setsid}, which starts each command as the leader of its own process group on Linux, so a
+   * timeout can signal the whole group and reach a child that detached itself (double fork, {@code
+   * nohup}). Null elsewhere, where only the descendants are found. A child that calls {@code
+   * setsid} itself still escapes.
+   */
+  private static final String SETSID = findSetsid();
+
+  /** Pids of the processes started under {@link #SETSID}: each is also its group id. */
+  private final Set<Long> groupLeaders = ConcurrentHashMap.newKeySet();
 
   /** Conversion factor from nanoseconds to milliseconds. */
   private static final long NANOS_PER_MILLI = 1_000_000L;
@@ -195,7 +210,14 @@ public class ProcessExecutorGateway {
     return Mono.fromCallable(
             () -> {
               log.atDebug().setMessage("Starting process: {}").addArgument(actualCommand).log();
-              final ProcessBuilder processBuilder = new ProcessBuilder(actualCommand);
+              // an unknown command is left unwrapped, so it still fails to start (IOException)
+              // instead of becoming setsid's exit code 127
+              final boolean grouped = SETSID != null && isExecutable(actualCommand.get(0));
+              final List<String> launch =
+                  grouped
+                      ? Stream.concat(Stream.of(SETSID), actualCommand.stream()).toList()
+                      : actualCommand;
+              final ProcessBuilder processBuilder = new ProcessBuilder(launch);
               final File directory =
                   limits.directory(spec.workingDir(), !allowedCommands.isEmpty());
               if (directory != null) {
@@ -213,7 +235,13 @@ public class ProcessExecutorGateway {
                     .log();
               }
               processBuilder.redirectErrorStream(!spec.captureStderr());
-              return processBuilder.start();
+              final Process started = processBuilder.start();
+              if (grouped) {
+                final long pid = started.pid();
+                groupLeaders.add(pid);
+                started.onExit().thenRun(() -> groupLeaders.remove(pid));
+              }
+              return started;
             })
         .subscribeOn(Schedulers.boundedElastic());
   }
@@ -514,6 +542,10 @@ public class ProcessExecutorGateway {
               }
               final List<ProcessHandle> tree =
                   Stream.concat(Stream.of(process.toHandle()), process.descendants()).toList();
+              final boolean grouped = groupLeaders.contains(process.pid());
+              if (grouped) {
+                signalGroup("TERM", process.pid());
+              }
               tree.forEach(ProcessHandle::destroy);
               return Mono.fromFuture(
                       CompletableFuture.allOf(
@@ -531,12 +563,54 @@ public class ProcessExecutorGateway {
                                     .setMessage(
                                         "Process ignored graceful termination; destroying forcibly")
                                     .log();
+                                if (grouped) {
+                                  signalGroup("KILL", process.pid());
+                                }
                                 tree.stream()
                                     .filter(ProcessHandle::isAlive)
                                     .forEach(ProcessHandle::destroyForcibly);
                               }));
             })
         .subscribeOn(Schedulers.boundedElastic());
+  }
+
+  /**
+   * Whether a command name or path resolves to an executable file (PATH search for a bare name).
+   */
+  private static boolean isExecutable(final String command) {
+    if (command.contains("/")) {
+      return Files.isExecutable(Path.of(command));
+    }
+    return Stream.of(System.getenv().getOrDefault("PATH", "").split(File.pathSeparator))
+        .anyMatch(dir -> !dir.isEmpty() && Files.isExecutable(Path.of(dir, command)));
+  }
+
+  private static String findSetsid() {
+    if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux")) {
+      return null;
+    }
+    return Stream.of("/usr/bin/setsid", "/bin/setsid")
+        .filter(path -> Files.isExecutable(Path.of(path)))
+        .findFirst()
+        .orElse(null);
+  }
+
+  /** Sends a signal to a whole process group, best effort. */
+  private static void signalGroup(final String signal, final long groupId) {
+    try {
+      new ProcessBuilder("sh", "-c", "kill -" + signal + " -" + groupId)
+          .redirectErrorStream(true)
+          .start()
+          .waitFor(1, TimeUnit.SECONDS);
+    } catch (IOException e) {
+      log.atDebug()
+          .setCause(e)
+          .setMessage("Could not signal process group {}")
+          .addArgument(groupId)
+          .log();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   /**

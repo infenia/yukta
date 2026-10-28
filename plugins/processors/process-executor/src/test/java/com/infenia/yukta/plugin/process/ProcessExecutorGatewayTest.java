@@ -23,6 +23,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -486,6 +487,27 @@ class ProcessExecutorGatewayTest {
                 List.of("sh", "-c", "echo $TEST_VAR"), null, DEFAULT_TIMEOUT_SECONDS, env, false))
         .assertNext(output -> assertThat(output).contains("test_value"))
         .verifyComplete();
+  }
+
+  @Test
+  @EnabledOnOs(OS.LINUX)
+  void timeout_alsoStopsAChildThatDetachedFromTheTree(@TempDir final Path dir) throws Exception {
+    final Path pidFile = dir.resolve("child.pid");
+    final ProcessExecutionSpec spec =
+        ProcessExecutionSpec.builder()
+            .command(List.of("sh", "-c", "(sleep 55 & echo $! > '" + pidFile + "'); sleep 55"))
+            .timeoutSeconds(SHORT_TIMEOUT_SECONDS)
+            .build();
+
+    StepVerifier.create(gateway.executeForResult(spec))
+        .assertNext(result -> assertThat(result.timedOut()).isTrue())
+        .verifyComplete();
+
+    final long childPid = Long.parseLong(Files.readString(pidFile).trim());
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () -> assertThat(ProcessHandle.of(childPid).filter(ProcessHandle::isAlive)).isEmpty());
   }
 
   @Test
