@@ -33,7 +33,10 @@ Every decision plugin takes these options in addition to its own.
 | `apiKey` | string | none | API key. Use `decrypted:<key>`. Variables allowed |
 | `timeout` | number | `30` | Seconds to wait for the model |
 | `concurrency` | number | `16` | Model calls in flight at once for this node. Positive |
-| `state` | expression | `payload` | What the model sees. A text result is used as is, any other value is turned into JSON. It is cut to 15,000 characters |
+| `state` | expression | `payload` | What the model sees. A text result is used as is, any other value is turned into JSON. It is cut to `maxStateChars` (15,000 by default) |
+| `maxStateChars` | number | `15000` | Most characters the model sees; 15,000 is also the highest value. A decision model should judge small input, so lower this to what the question needs |
+| `stateKeep` | `head`, `tail` or `headTail` | `head` | Which part of a state over the cap is kept. `tail` suits build and test output, where the cause is last; `headTail` keeps both ends and marks the cut with `... [N characters omitted] ...` |
+| `onOverflow` | `truncate` or `fail` | `truncate` | `fail` rejects a state over `maxStateChars` with an error instead of cutting it, so the node's `engine.onError` (for example `ROUTE`) takes over |
 | `into` | string | per plugin | The metadata key that receives the result |
 
 The two backends:
