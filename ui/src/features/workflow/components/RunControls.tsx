@@ -22,12 +22,17 @@ import {
   useExecutionControl,
 } from '../hooks/useExecutionControl';
 import {
+  isQueuedExecStatus,
   isAbortedExecStatus,
   isTerminalExecStatus,
   toExecStatusCategory,
 } from '../lib/statusMapper';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
+
+/** Priorities the scheduler accepts from the UI. */
+export const MIN_PRIORITY = -100;
+export const MAX_PRIORITY = 100;
 
 /** Parses the payload editor text; empty means no payload. */
 export function parsePayload(text: string): Record<string, unknown> {
@@ -69,7 +74,7 @@ function RunDialog({
   return (
     <Modal title="Run workflow" onClose={onClose}>
       <label
-        className="mb-1 block text-body-md text-on-surface"
+        className="text-body-md text-on-surface mb-1 block"
         htmlFor="run-payload"
       >
         Trigger payload (JSON, optional)
@@ -81,7 +86,7 @@ function RunDialog({
         rows={8}
         spellCheck={false}
         placeholder='{"key": "value"}'
-        className={`${textareaFieldClassName} mb-3 text-code-sm`}
+        className={`${textareaFieldClassName} text-code-sm mb-3`}
       />
       <InlineError message={parseError ?? error} />
       <div className="mt-4 flex justify-end gap-2">
@@ -95,6 +100,65 @@ function RunDialog({
           disabled={pending}
         >
           Run
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function PriorityDialog({
+  onSubmit,
+  onClose,
+  pending,
+}: {
+  onSubmit: (priority: number) => void;
+  onClose: () => void;
+  pending: boolean;
+}) {
+  const [text, setText] = useState('0');
+  const value = Number(text);
+  const valid =
+    text.trim() !== '' &&
+    Number.isInteger(value) &&
+    value >= MIN_PRIORITY &&
+    value <= MAX_PRIORITY;
+
+  return (
+    <Modal title="Change priority" onClose={onClose}>
+      <label
+        className="text-body-md text-on-surface mb-1 block"
+        htmlFor="run-priority"
+      >
+        Priority ({MIN_PRIORITY} to {MAX_PRIORITY}, higher runs first)
+      </label>
+      <input
+        id="run-priority"
+        type="number"
+        step={1}
+        min={MIN_PRIORITY}
+        max={MAX_PRIORITY}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        className="border-border bg-background text-body-md mb-3 w-full rounded-lg border px-3 py-2"
+      />
+      <InlineError
+        message={
+          valid
+            ? null
+            : `Enter a whole number from ${MIN_PRIORITY} to ${MAX_PRIORITY}`
+        }
+      />
+      <div className="mt-4 flex justify-end gap-2">
+        <button type="button" className={BUTTON} onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={BUTTON}
+          disabled={!valid || pending}
+          onClick={() => onSubmit(value)}
+        >
+          Apply
         </button>
       </div>
     </Modal>
@@ -122,6 +186,7 @@ export function RunControls({
   const { status: copied, copy } = useCopyCommand();
   const [running, setRunning] = useState(false);
   const runKey = useRef('');
+  const [prioritizing, setPrioritizing] = useState(false);
   const [recovering, setRecovering] = useState(false);
   const [confirm, setConfirm] = useState<{
     label: string;
@@ -132,8 +197,10 @@ export function RunControls({
   const live =
     category === 'running' || category === 'paused' || category === 'pending';
   const canRestart = executionId !== null && isTerminalExecStatus(status);
+  const canPrioritize = executionId !== null && isQueuedExecStatus(status);
   const canRecover = executionId !== null && isAbortedExecStatus(status);
   const failure = [
+    control.priority,
     control.runAction,
     control.stopAll,
     control.start,
@@ -265,17 +332,31 @@ export function RunControls({
         </DropdownMenuContent>
       </DropdownMenu>
       <RequirePermission perm="controlRuns">
-        <button
-          type="button"
-          className={BUTTON}
-          disabled={!canRestart}
-          onClick={() => act('restart')}
-        >
-          <span className="material-symbols-outlined text-base">
-            restart_alt
-          </span>
-          Restart
-        </button>
+        <>
+          <button
+            type="button"
+            className={BUTTON}
+            disabled={!canRestart}
+            onClick={() => act('restart')}
+          >
+            <span className="material-symbols-outlined text-base">
+              restart_alt
+            </span>
+            Restart
+          </button>
+          {canPrioritize && (
+            <button
+              type="button"
+              className={BUTTON}
+              onClick={() => setPrioritizing(true)}
+            >
+              <span className="material-symbols-outlined text-base">
+                low_priority
+              </span>
+              Priority…
+            </button>
+          )}
+        </>
       </RequirePermission>
       <DropdownMenu>
         <DropdownMenuTrigger className={BUTTON} aria-label="Copy as">
@@ -330,9 +411,22 @@ export function RunControls({
           }
         />
       )}
+      {prioritizing && (
+        <PriorityDialog
+          pending={control.priority.isPending}
+          onClose={() => setPrioritizing(false)}
+          onSubmit={(priority) => {
+            setPrioritizing(false);
+            control.priority.mutate({
+              executionId: executionId as string,
+              priority,
+            });
+          }}
+        />
+      )}
       {recovering && (
         <Modal title="Recover this run?" onClose={() => setRecovering(false)}>
-          <p className="mb-4 text-body-md text-on-surface-variant">
+          <p className="text-body-md text-on-surface-variant mb-4">
             Continue this run as a new run? Finished nodes are replayed.
           </p>
           <div className="flex justify-end gap-2">
@@ -360,7 +454,7 @@ export function RunControls({
       )}
       {confirm && (
         <Modal title={`${confirm.label}?`} onClose={() => setConfirm(null)}>
-          <p className="mb-4 text-body-md text-on-surface-variant">
+          <p className="text-body-md text-on-surface-variant mb-4">
             This cannot be undone. A stopped run can only be restarted.
           </p>
           <div className="flex justify-end gap-2">
