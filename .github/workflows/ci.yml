@@ -586,3 +586,27 @@ jobs:
         run: |
           echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
           echo "$NEEDS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' > /dev/null
+
+  # A PR that fails in the merge queue is removed silently: the checks run on a temporary
+  # gh-readonly-queue/main/pr-N-<sha> branch that the PR's Checks tab does not show. Say so on the PR.
+  queue-failure-comment:
+    name: Comment on a PR removed from the merge queue
+    if: failure() && github.event_name == 'merge_group'
+    needs: [ci-gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.merge_group.head_ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO: ${{ github.repository }}
+        run: |
+          pr="$(sed -nE 's#^refs/heads/gh-readonly-queue/[^/]+/pr-([0-9]+)-.*#\1#p' <<<"$BRANCH")"
+          [[ -n "$pr" ]] || { echo "no PR in $BRANCH"; exit 0; }
+          body="Removed from the merge queue: the checks failed on the queued commit (the PR merged onto main),"
+          body+=" not on this PR's own commit. Failed run: $RUN_URL"
+          gh pr comment "$pr" --repo "$REPO" --body "$body"
