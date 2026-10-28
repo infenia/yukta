@@ -10,7 +10,7 @@ import { CATALOG, selected, sessionBody, sessionId } from './workflows.js';
 export const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 const API_KEY = __ENV.API_KEY || '';
 // Never send the key in clear text to a remote host.
-if (API_KEY && BASE_URL.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])[:/]?/.test(BASE_URL)) {
+if (API_KEY && !/^https:\/\//i.test(BASE_URL) && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/i.test(BASE_URL)) {
   throw new Error('API_KEY requires an https BASE_URL (or localhost)');
 }
 const POLL_OK = http.expectedStatuses(200, 404); // 404 right after start is counted in poll_not_found
