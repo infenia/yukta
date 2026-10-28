@@ -27,6 +27,8 @@ Any Gradle flag goes through `yk gradle` verbatim (`--info`, `-x test`, `-Dk=v`,
 
 `yk plan` narrows the tests to the changed classes (Tier 1) when only Java files changed, the diff touches no public/protected member or type declaration and every changed class has its `<Class>Test`: no dependants, no coverage stage, the scope printed on the `# gradle:` line. Anything else runs whole modules plus dependants; run `yk check --full` before a PR.
 
+`yk bench [--runs N] [--max-ratio R] [--check] [gradle args]` runs the same Gradle work direct and through yk and prints `BENCH direct=.. yk=.. ratio=.. overhead=..` (median of N after a warm-up; exit 1 above R, default 1.5, and +3 s). Measured: `:plugin-api:compileJava` 1.68 s direct, 2.05 s through `yk gradle` (ratio 1.22). `--check` compares `yk check --no-heal` with one direct run of the plan's tasks: 7.9 s against 25.3 s (3.2x) for the staged chain, which the fast path (#1223) is for. `durations.tsv` keeps milliseconds.
+
 Every run ends with `RESULT status=<S> failed_node=<stage|-> healed=<stage:model/effort,..|-> execution=<id> session=<id>`; exit 0
 only on success. `yk watch <session> <execution>` follows a detached run and prints problems only. Run the smallest scope
 that covers your change.

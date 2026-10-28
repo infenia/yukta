@@ -405,7 +405,7 @@ healed_stages() {
 # scope (at least 3 earlier runs). SCOPE is the module, "all" or the gradle args of the run. A node
 # reports its own start (its first input), so the seconds of a stage are the sum of its nodes
 # (S.run1, S.f1, S.run2, ...); parallel analyzers are timed one by one.
-# ponytail: whole-second resolution, and a plain median (failed fast runs count); use a percentile if noisy.
+# Seconds carry milliseconds (the server prints the fraction). ponytail: a plain median (failed fast runs count); use a percentile if noisy.
 record_durations() {
   local session="$1" exec="$2" scope="$3" file="$STATE_DIR/durations.tsv"
   local wf stage secs key prior n median
@@ -413,22 +413,22 @@ record_durations() {
   touch "$file"
   while IFS=$'\t' read -r wf stage secs; do
     # a stage that was not planned takes about no time: recording it would drag the median to 0
-    ((secs >= 2)) || continue
+    awk -v s="$secs" 'BEGIN { exit !(s >= 2) }' || continue
     key="$wf:$scope"
     prior="$(awk -F'\t' -v k="$key" -v n="$stage" '$2 == k && $3 == n { print $4 }' "$file" | tail -10 | sort -n)"
     n="$(grep -c . <<<"$prior" || true)"
-    if ((n >= 3 && secs > 15)); then
+    if ((n >= 3)) && awk -v s="$secs" 'BEGIN { exit !(s > 15) }'; then
       median="$(awk '{ a[NR] = $1 } END { print a[int((NR + 1) / 2)] }' <<<"$prior")"
-      if ((secs * 2 > median * 3)); then
+      if awk -v s="$secs" -v m="$median" 'BEGIN { exit !(s * 2 > m * 3) }'; then
         echo "SLOW $stage ${secs}s (median ${median}s, $n runs)"
       fi
     fi
     printf '%s\t%s\t%s\t%s\t%s\n' "$(date -Is)" "$key" "$stage" "$secs" "$exec" >>"$file"
   done < <("$(find_cli)" -o json workflow status "$session" "$exec" | jq -r '
-    def secs: .[:19] | strptime("%Y-%m-%dT%H:%M:%S") | mktime;
+    def secs: ((.[:19] | strptime("%Y-%m-%dT%H:%M:%S") | mktime) + ((.[19:] | capture("^\\.(?<f>[0-9]+)") | "0." + .f | tonumber) // 0));
     def stage: sub("\\.(run[0-9]+|f[0-9]+|r[0-9]+|pause|heal)$"; "");
     (.data // .) as $p
     | [$p.tasks[] | select((.module | test("TERMINAL") | not) and (.startTime // "0001")[:4] != "0001" and (.endTime // "0001")[:4] != "0001")
        | {stage: (.nodeId | stage), secs: ((.endTime | secs) - (.startTime | secs))}]
-    | group_by(.stage)[] | "\($p.workflowId)\t\(.[0].stage)\t\(map(.secs) | add)"')
+    | group_by(.stage)[] | "\($p.workflowId)\t\(.[0].stage)\t\(map(.secs) | add * 1000 | round / 1000)"')
 }
