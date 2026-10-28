@@ -3,6 +3,7 @@
 package com.infenia.yukta.exception;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -214,6 +215,24 @@ class GlobalExceptionHandlerTest {
     assertThat(body).isNotNull();
     assertThat(body.message()).isEqualTo("invalid arg");
     assertThat(body.path()).isEqualTo("/arg");
+  }
+
+  @Test
+  void testHandleExpressionParse_isABadRequest() {
+    final var exception =
+        assertThrows(
+            org.springframework.expression.ParseException.class,
+            () ->
+                new org.springframework.expression.spel.standard.SpelExpressionParser()
+                    .parseExpression("pa?load.n"));
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    when(request.getPath()).thenReturn(RequestPath.parse("/api/sessions", "/"));
+
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleExpressionParse(exception, request);
+
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(resp.getBody().message()).startsWith("Invalid expression: ").contains("pa?load.n");
   }
 
   @Test
