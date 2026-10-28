@@ -133,6 +133,25 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void emit_rejectedBySupervisor_propagatesTheRefusal() {
+    final Message<String> signal = DefaultMessage.create(null, "test-payload");
+    when(controlBusService.emit(signal))
+        .thenReturn(
+            Mono.error(new com.infenia.yukta.service.supervisor.ControlRejectedException("no")));
+
+    StepVerifier.create(gateway.emit(signal))
+        .verifyError(com.infenia.yukta.service.supervisor.ControlRejectedException.class);
+  }
+
+  @Test
+  void emit_unexpectedFailure_propagatesTheError() {
+    final Message<String> signal = DefaultMessage.create(null, "test-payload");
+    when(controlBusService.emit(signal)).thenReturn(Mono.error(new IllegalArgumentException("x")));
+
+    StepVerifier.create(gateway.emit(signal)).verifyError(IllegalArgumentException.class);
+  }
+
+  @Test
   void registerPlugin_validInputs_delegatesToControlBusService() {
     // Given
     final String workflowId = "workflow-1";

@@ -165,12 +165,22 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                 log.atDebug()
                     .addKeyValue("sourceNodeId", signal.sourceNodeId())
                     .log("Message emitted successfully"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("sourceNodeId", signal.sourceNodeId())
-                    .log("Failed to emit message"));
+        .doOnError(err -> logEmitFailure(signal.sourceNodeId(), err));
+  }
+
+  /** A refusal by a supervisor is an intended outcome: INFO without a trace, not ERROR. */
+  private static void logEmitFailure(final String sourceNodeId, final Throwable err) {
+    if (err instanceof ControlRejectedException) {
+      log.atInfo()
+          .addKeyValue("sourceNodeId", sourceNodeId)
+          .addKeyValue("reason", err.getMessage())
+          .log("Control command refused");
+    } else {
+      log.atError()
+          .setCause(err)
+          .addKeyValue("sourceNodeId", sourceNodeId)
+          .log("Failed to emit message");
+    }
   }
 
   @Override
