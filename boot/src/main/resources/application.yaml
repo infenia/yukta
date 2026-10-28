@@ -24,7 +24,7 @@ spring:
     mcp:
       server:
         name: yukta
-        version: 0.0.1
+        version: "@project.version@"
         enabled: true
         stdio: false
         protocol: STATELESS
