@@ -44,6 +44,19 @@ class ExecutionLogStoreTest {
   }
 
   @Test
+  void jsonl_writerThreadIsADaemon_soItNeverKeepsTheJvmAlive() {
+    final JsonlExecutionLogStore store = jsonl();
+    store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
+    store.readAll();
+
+    assertThat(Thread.getAllStackTraces().keySet())
+        .filteredOn(thread -> "execution-log-writer".equals(thread.getName()) && thread.isAlive())
+        .isNotEmpty()
+        .allMatch(Thread::isDaemon);
+    store.close();
+  }
+
+  @Test
   void jsonl_roundTripsEventsInOrder() {
     final JsonlExecutionLogStore store = jsonl();
     final ExecutionLogEvent started = ExecutionLogEvent.started("e1", "s1", "w1", "v1");
