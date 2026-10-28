@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { DeleteSessionDialog } from './DeleteDialogs';
+import { RequirePermission } from '@/components/common/RequirePermission';
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -25,6 +27,7 @@ export function SessionDetailsPage() {
   } = useSessionWorkflows(sessionId || '');
   const [workflowFilter, setWorkflowFilter] = useState('');
   const navigate = useNavigate();
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setWorkflowFilter('');
@@ -74,6 +77,18 @@ export function SessionDetailsPage() {
                 </span>
                 Edit
               </Link>
+              <RequirePermission perm="deleteSessions">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => setDeleting(true)}
+                >
+                  <span className="material-symbols-outlined text-base">
+                    delete
+                  </span>
+                  Delete session…
+                </Button>
+              </RequirePermission>
               <form
                 className="flex items-center gap-2"
                 onSubmit={(event) => {
@@ -111,6 +126,12 @@ export function SessionDetailsPage() {
           onFilterChange={setWorkflowFilter}
         />
       </div>
+      {deleting && (
+        <DeleteSessionDialog
+          sessionId={session.sessionId}
+          onClose={() => setDeleting(false)}
+        />
+      )}
     </div>
   );
 }
