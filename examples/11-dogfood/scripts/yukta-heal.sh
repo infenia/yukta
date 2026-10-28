@@ -49,7 +49,8 @@ emit() {
     mkdir -p "$(dirname "$events")"
     jq -nc --arg ev "$1" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg session "${YUKTA_SESSION_ID:--}" \
       --arg project "$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")" --argjson f "${2:-{\}}" \
-      '{v: 1, ts: $ts, run: "-", session: $session, project: $project, event: $ev} + $f' \
+      '{v: 1, ts: $ts, run: "-", session: $session, project: $project, event: $ev} + $f
+       | if $ev == "fix" and ((.summary // "") == "") then .summary = "no summary recorded" else . end' \
       | { flock 9; cat >>"$events"; } 9>>"$events.lock"
   } 2>/dev/null || true
 }
