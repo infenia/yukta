@@ -70,11 +70,23 @@ public class WorkflowValidationController {
     return workflowValidator
         .validate(definition)
         .thenReturn(new WorkflowValidationResult(true, null, ports))
-        .onErrorResume(e -> Mono.just(new WorkflowValidationResult(false, e.getMessage(), ports)))
+        .onErrorResume(
+            e ->
+                Mono.just(
+                    new WorkflowValidationResult(
+                        false, e.getMessage() != null ? e.getMessage() : e.toString(), ports)))
         .map(result -> ApiResponse.success(200, "Workflow validated", result));
   }
 
+  /** The node's output ports, or none when its draft configuration is too incomplete to say. */
+  @SuppressWarnings("PMD.AvoidCatchingGenericException")
   private static List<String> portsOf(final Plugin plugin, final WorkflowDefinition.Node node) {
-    return plugin.getOutputPorts(Objects.requireNonNull(node.config()));
+    List<String> ports;
+    try {
+      ports = plugin.getOutputPorts(Objects.requireNonNull(node.config()));
+    } catch (RuntimeException e) {
+      ports = List.of();
+    }
+    return ports;
   }
 }
