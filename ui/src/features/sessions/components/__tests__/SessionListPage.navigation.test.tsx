@@ -25,7 +25,9 @@ describe('SessionListPage row navigation', () => {
       data: sessions,
       isLoading: false,
       error: null,
-    } as unknown as ReturnType<typeof useSessionSummariesModule.useSessionSummaries>);
+    } as unknown as ReturnType<
+      typeof useSessionSummariesModule.useSessionSummaries
+    >);
   });
 
   afterEach(() => {
@@ -40,6 +42,19 @@ describe('SessionListPage row navigation', () => {
     renderWithProviders(<SessionListPage />);
     await userEvent.click(firstRow());
     expect(navigate).toHaveBeenCalledWith(`/sessions/${sessions[0].sessionId}`);
+  });
+
+  it('encodes a session id that holds reserved characters', async () => {
+    vi.spyOn(useSessionSummariesModule, 'useSessionSummaries').mockReturnValue({
+      data: [{ ...sessions[0], sessionId: 'a/b?c#d' }],
+      isLoading: false,
+      error: null,
+    } as unknown as ReturnType<
+      typeof useSessionSummariesModule.useSessionSummaries
+    >);
+    renderWithProviders(<SessionListPage />);
+    await userEvent.click(firstRow());
+    expect(navigate).toHaveBeenCalledWith('/sessions/a%2Fb%3Fc%23d');
   });
 
   it('opens the session with Enter and Space but ignores other keys', async () => {
@@ -57,7 +72,9 @@ describe('SessionListPage row navigation', () => {
 
   it('does not open the session when the actions cell is clicked', () => {
     renderWithProviders(<SessionListPage />);
-    const actionsCell = firstRow().querySelector('td:last-child > div') as HTMLElement;
+    const actionsCell = firstRow().querySelector(
+      'td:last-child > div'
+    ) as HTMLElement;
 
     fireEvent.click(actionsCell);
 

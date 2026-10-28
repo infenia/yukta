@@ -4,7 +4,7 @@
 """What heal did, from its event log: where the time and the money went, and what looks wrong.
 
   heal-report.py report  [--events FILE] [--since 7d|DATE] [--run ID] [--project NAME] [--json]
-  heal-report.py analyze [same options]      the findings only (rules over the events), exit 1 when there are any
+  heal-report.py analyze [same options]      the findings only (rules over the events), exit 1 when there are any new ones
   heal-report.py show    [same options]      the events as one line each, oldest first
 
 The log is examples/11-dogfood/README.md "Monitoring heal": one JSON object per line, written by yukta-heal.sh and yk (run is "-" in the first; the report stamps it from the session's next result).
@@ -14,8 +14,12 @@ Every event has v, ts, run (the root execution id), session, project and event; 
   fix      stage, attempt, model, effort, fixed, claimed, files, cost, usage, secs, guard, summary
   recheck  stage, secs, ok          verify  secs, ok          giveup  stage
   result   workflow, status, failed_node, healed, secs, scope, durations (seconds per stage), sha, branch
+
+heal-ledger.json maps a finding's rule to the GitHub issue that tracks it. analyze then prints a finding whose issue is open as "tracked #N"
+(it does not count), stays quiet about one whose issue is closed unless the rule fires again on events after the close ("regression"),
+and reports every other finding as new. Without gh (or YUKTA_HEAL_ISSUES, a JSON file {"N": {"state", "closedAt"}}) a mapped finding counts as new.
 """
-import argparse, collections, datetime, json, os, statistics, sys
+import argparse, collections, datetime, json, os, statistics, subprocess, sys
 
 DEFAULT = os.path.join(os.environ.get("YUKTA_DEV_STATE_DIR", os.path.expanduser("~/.local/state/yukta-dev")), "heal-events.jsonl")
 MODELS = ["haiku", "sonnet", "opus"]
@@ -217,7 +221,48 @@ def findings(ev):
     rec = [(k, n) for k, n in sigs.items() if n >= 3]
     if rec:
         out.append(("repeated-failure", f"{len(rec)} failure(s) came back three times or more, the worst: {max(rec, key=lambda x: x[1])[0][1]} ({max(n for _, n in rec)} times)"))
+    stuck = [r for r, es in runs.items() if any(e["event"] == "result" and e.get("status") == "RUNNING" for e in es)
+             and not any(e["event"] == "result" and e.get("status") not in ("RUNNING", None) for e in es)]
+    if stuck:
+        out.append(("unfinished-results", f"{len(stuck)} run(s) logged status RUNNING and never a final result: " + ", ".join(r[:8] for r in stuck[:5])))
+    ru = [e for e in fx if e.get("stage") == "reuse"]
+    if len(ru) >= 5 and sum(1 for e in ru if e.get("fixed")) / len(ru) < 0.5:
+        out.append(("reuse-low-fix-rate", f"the reuse heal fixed {sum(1 for e in ru if e.get('fixed'))} of {len(ru)} attempt(s): a free fix (scripts/fix-reuse.sh) should come first"))
     return out
+
+
+LEDGER = os.environ.get("YUKTA_HEAL_LEDGER", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "heal-ledger.json"))
+
+
+def issue_state(n):
+    """{"state": OPEN|CLOSED, "closedAt": ISO} of issue n, or None when it cannot be read."""
+    f = os.environ.get("YUKTA_HEAL_ISSUES")
+    if f:
+        return json.load(open(f)).get(str(n))
+    try:
+        r = subprocess.run(["gh", "issue", "view", str(n), "--json", "state,closedAt"], capture_output=True, text=True, timeout=20)
+        return json.loads(r.stdout) if r.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return None
+
+
+def triage_findings(ev):
+    """Split findings(ev) into (new, tracked, regressions) by the ledger."""
+    try:
+        ledger = json.load(open(LEDGER))
+    except (OSError, ValueError):
+        ledger = {}
+    new, tracked, regress = [], [], []
+    for rule, x in findings(ev):
+        n = ledger.get(rule)
+        st = issue_state(n) if n else None
+        if not st:
+            new.append((rule, x))
+        elif st.get("state") == "OPEN":
+            tracked.append((rule, x, n))
+        elif any(r == rule for r, _ in findings([e for e in ev if e.get("ts", "") > (st.get("closedAt") or "")])):
+            regress.append((rule, x, n))
+    return new, tracked, regress
 
 
 def text(R):
@@ -269,15 +314,20 @@ def main():
             print(json.dumps(e, sort_keys=True))
         return 0
     if a.cmd == "analyze":
-        f = findings(ev)
+        new, tracked, regress = triage_findings(ev)
         if a.json:
-            print(json.dumps([{"rule": r, "evidence": x} for r, x in f], indent=1))
+            print(json.dumps({"new": [{"rule": r, "evidence": x} for r, x in new], "tracked": [{"rule": r, "evidence": x, "issue": n} for r, x, n in tracked],
+                              "regressions": [{"rule": r, "evidence": x, "issue": n} for r, x, n in regress]}, indent=1))
         else:
-            for r, x in f:
+            for r, x in new:
                 print(f"{r}: {x}")
-            if not f:
+            for r, x, n in regress:
+                print(f"{r}: REGRESSION, #{n} is closed but it fired again: {x}")
+            for r, x, n in tracked:
+                print(f"{r}: tracked in #{n}")
+            if not (new or tracked or regress):
                 print("no findings")
-        return 1 if f else 0
+        return 1 if new or regress else 0
     R = report(ev)
     print(json.dumps({**R, "findings": [{"rule": r, "evidence": x} for r, x in findings(ev)]}, indent=1, default=list) if a.json else text(R))
     if not a.json:

@@ -135,11 +135,16 @@ public final class ErrorGuardExtension
    * Waits until the running test has logged an ERROR (or dropped a signal) matching {@code regex}.
    * For a test that provokes an error on another thread: without it the error may be logged after
    * the test ended and land in the next one. Fails when nothing matches within {@code timeout}.
+   * Returns at once when the guard records nothing (mode {@code off}, or the extension is not
+   * registered, as in a PIT run): there is no late error to separate from the next test.
    *
    * @param regex searched in each recorded line
    * @param timeout how long to wait
    */
   public static void awaitLogged(final String regex, final Duration timeout) {
+    if (ACTIVE.get().isEmpty()) {
+      return;
+    }
     final Pattern pattern = Pattern.compile(regex);
     final long deadline = System.nanoTime() + timeout.toNanos();
     boolean found = matches(pattern);

@@ -187,6 +187,17 @@ class ErrorGuardExtensionTest {
   }
 
   @Test
+  void awaitLogged_returnsAtOnceWhenNoGuardIsRecording() throws Exception {
+    System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "strict");
+    final ExtensionContext context = context(GuardFixtures.Plain.class, "plain");
+    // a finished test leaves no probe behind, as in a run where the extension is not registered
+    extension.beforeEach(context);
+    extension.afterEach(context);
+    assertThatCode(() -> ErrorGuardExtension.awaitLogged("never logged", Duration.ofSeconds(30)))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
   void awaitLogged_failsWhenNothingMatchesInTime() throws Exception {
     System.setProperty(ErrorGuardExtension.MODE_PROPERTY, "strict");
     final ExtensionContext context = context(GuardFixtures.Plain.class, "plain");
