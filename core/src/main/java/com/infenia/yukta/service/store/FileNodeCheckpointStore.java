@@ -15,9 +15,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +54,12 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   /** Suffix of the marker that says the node ended normally and its output is durable. */
   private static final String DONE = ".done";
 
+  /** Log key of the run. */
+  private static final String EXECUTION_ID = "executionId";
+
+  /** How many cleared runs are remembered. */
+  private static final int REMEMBERED_CLEARED = 4096;
+
   /** Root directory. */
   private final Path root;
 
@@ -62,6 +71,17 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   /** Open output files by run and node, so a message costs one write and not an open. */
   private final Map<String, FileChannel> appenders = new ConcurrentHashMap<>();
+
+  /** The runs cleared lately: a late message for one of them is dropped, not written again. */
+  private final Set<String> cleared =
+      Collections.newSetFromMap(
+          Collections.synchronizedMap(
+              new LinkedHashMap<>() {
+                @Override
+                protected boolean removeEldestEntry(final Map.Entry<String, Boolean> eldest) {
+                  return size() > REMEMBERED_CLEARED;
+                }
+              }));
 
   /** Reads and writes messages. */
   private final ObjectMapper mapper;
@@ -133,7 +153,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
     } catch (final IOException | RuntimeException e) {
       failedMarkers.incrementAndGet();
       log.atError()
-          .addKeyValue("executionId", executionId)
+          .addKeyValue(EXECUTION_ID, executionId)
           .addKeyValue("nodeId", nodeId)
           .setCause(e)
           .log("Could not make the end of a node durable, a resume will run it again");
@@ -177,6 +197,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   @Override
   public void clear(final String executionId) {
+    cleared.add(executionId);
     appenders
         .keySet()
         .removeIf(
@@ -199,7 +220,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
         Files.deleteIfExists(path);
       }
     } catch (final IOException | UncheckedIOException e) {
-      log.atWarn().addKeyValue("executionId", executionId).setCause(e).log("Could not clear");
+      log.atWarn().addKeyValue(EXECUTION_ID, executionId).setCause(e).log("Could not clear");
     }
   }
 
@@ -208,11 +229,20 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
     return held.get();
   }
 
-  /** The open output file of a node, kept until the node completes or the run is cleared. */
+  /**
+   * The open output file of a node, kept until the node completes or the run is cleared; null when
+   * the run was cleared, because a message that arrives then is late and must not bring the files
+   * (or an open channel nobody closes) back. A completed node still reopens: a node that runs again
+   * appends.
+   */
   private FileChannel appender(final String executionId, final String nodeId) {
     return appenders.compute(
         executionId + "\0" + nodeId,
         (_, open) -> {
+          if (cleared.contains(executionId)) {
+            closeQuietly(open);
+            return null;
+          }
           if (open != null && open.isOpen()) {
             return open;
           }
@@ -251,6 +281,13 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
       // One write call per line on an O_APPEND channel: lines of concurrent writers stay whole.
       final ByteBuffer buffer = ByteBuffer.wrap(line);
       final FileChannel channel = appender(executionId, nodeId);
+      if (channel == null) {
+        log.atDebug()
+            .addKeyValue(EXECUTION_ID, executionId)
+            .addKeyValue("nodeId", nodeId)
+            .log("Dropped a late node output: the run was cleared");
+        return;
+      }
       while (buffer.hasRemaining()) {
         channel.write(buffer);
       }
@@ -258,7 +295,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
     } catch (final IOException | RuntimeException e) {
       closeAppender(executionId, nodeId);
       log.atWarn()
-          .addKeyValue("executionId", executionId)
+          .addKeyValue(EXECUTION_ID, executionId)
           .addKeyValue("nodeId", nodeId)
           .setCause(e)
           .log("Could not record node output, the node cannot be restarted from");

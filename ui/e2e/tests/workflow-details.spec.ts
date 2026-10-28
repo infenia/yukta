@@ -207,6 +207,41 @@ test.describe('Workflow Details Page', () => {
     expect(stops).toEqual(['?immediate=true&reason=too+slow']);
   });
 
+  test('copies a node action as a curl command without a key', async ({
+    page,
+  }) => {
+    // Browsers differ on clipboard permissions, so capture what the page writes instead.
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          writeText: (text: string) => {
+            (window as unknown as { copied: string }).copied = text;
+            return Promise.resolve();
+          },
+        },
+      });
+    });
+    await page.goto(WORKFLOW_URL);
+    await expect(page.getByTestId('workflow-details-page')).toBeVisible();
+
+    await page
+      .getByRole('button', { name: 'Actions for Vectorize_Batch' })
+      .click();
+    await page.getByRole('menuitem', { name: /^Copy as curl/ }).focus();
+    await page.keyboard.press('ArrowRight');
+    await page.getByRole('menuitem', { name: 'Pause node' }).last().click();
+
+    await expect(page.getByRole('status')).toHaveText('Copied');
+    const copied = await page.evaluate(
+      () => (window as unknown as { copied: string }).copied
+    );
+    expect(copied).toContain(
+      '/api/executions/exec-091-qp-55/nodes/Vectorize_Batch/pause'
+    );
+    expect(copied).toContain('-H "Authorization: Bearer $YUKTA_TOKEN"');
+  });
+
   test('downloads the visible log lines as <session>-<execution>.log', async ({
     page,
   }) => {

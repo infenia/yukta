@@ -24,7 +24,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -67,17 +66,10 @@ public final class RuleSupervisor implements ExecutionSupervisor {
   private final List<DenyRule> denyRules = new ArrayList<>();
 
   /** Recent matches of counting rules, by rule and execution. */
-  private final Map<String, Deque<Instant>> matches = new ConcurrentHashMap<>();
+  private final Map<String, Deque<Instant>> matches = boundedMap();
 
   /** Restarts that led to a run started by a rule, by execution id; the oldest are forgotten. */
-  private final Map<String, Integer> attempts =
-      Collections.synchronizedMap(
-          new LinkedHashMap<>() {
-            @Override
-            protected boolean removeEldestEntry(final Map.Entry<String, Integer> eldest) {
-              return size() > MAX_TRACKED_RUNS;
-            }
-          });
+  private final Map<String, Integer> attempts = boundedMap();
 
   /** Time source. */
   private final Clock clock;
@@ -168,6 +160,17 @@ public final class RuleSupervisor implements ExecutionSupervisor {
       }
     }
     return Mono.just(decision);
+  }
+
+  /** A map that forgets its oldest entries beyond {@link #MAX_TRACKED_RUNS}. */
+  private static <V> Map<String, V> boundedMap() {
+    return Collections.synchronizedMap(
+        new LinkedHashMap<>() {
+          @Override
+          protected boolean removeEldestEntry(final Map.Entry<String, V> eldest) {
+            return size() > MAX_TRACKED_RUNS;
+          }
+        });
   }
 
   private List<ExecutionControlCommand> react(final ExecutionEvent event) {
