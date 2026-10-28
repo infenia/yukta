@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState, useEffect } from 'react';
+import { InlineError } from '@/components/common/InlineError';
 import { useNavigate, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,7 @@ import { useSessionWorkflows } from '../hooks/useSessionWorkflows';
 import { SessionInfoPanel } from './SessionInfoPanel';
 import { WorkflowGrid } from './WorkflowGrid';
 import { StateMessage } from '@/components/common/StateMessage';
+import { EXPORT_HINT, exportSessionConfig } from '../lib/exportSession';
 
 export function SessionDetailsPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -24,6 +26,7 @@ export function SessionDetailsPage() {
     error: workflowsError,
   } = useSessionWorkflows(sessionId || '');
   const [workflowFilter, setWorkflowFilter] = useState('');
+  const [exportError, setExportError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -86,6 +89,26 @@ export function SessionDetailsPage() {
                 <span className="material-symbols-outlined text-base">add</span>
                 New workflow
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                title={EXPORT_HINT}
+                onClick={() => {
+                  setExportError(null);
+                  exportSessionConfig(session.sessionId).catch(
+                    (error: unknown) =>
+                      setExportError(
+                        error instanceof Error ? error.message : 'Export failed'
+                      )
+                  );
+                }}
+              >
+                <span className="material-symbols-outlined text-base">
+                  download
+                </span>
+                Export JSON
+              </Button>
+              <InlineError message={exportError} />
             </form>
           }
         />
