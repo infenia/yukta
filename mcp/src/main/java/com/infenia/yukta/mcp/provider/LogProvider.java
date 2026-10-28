@@ -2,8 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
+import com.infenia.yukta.logging.api.LogStream;
+import com.infenia.yukta.logging.api.NodeOutputPager;
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.mcp.dto.ExecutionLogs;
+import com.infenia.yukta.mcp.dto.NodeOutputResult;
 import com.infenia.yukta.mcp.util.LogSanitizer;
 import com.infenia.yukta.mcp.util.RegexPatternValidator;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
@@ -73,6 +76,74 @@ public class LogProvider {
    */
   public LogProvider(final PluginLogStore logStore, final ControlBusGateway controlBus) {
     this(logStore, controlBus, List.of(), 2_000, 0);
+  }
+
+  /**
+   * Read part of what one node wrote: the tail, the head, a page, or the lines matching a pattern
+   * with context, as numbered lines (the same slicing as the REST endpoint).
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the execution identifier
+   * @param nodeId the node
+   * @param stream {@code stdout}, {@code stderr} or {@code all} (null)
+   * @param tail the last N selected lines
+   * @param head the first N selected lines
+   * @param offset the first selected line of a page (0-based)
+   * @param limit the page size (default 50, at most 500)
+   * @param grep a regular expression the lines must match
+   * @param context lines of context either side of a match
+   * @return the slice; errors if the execution is unknown or an argument is invalid
+   */
+  @SuppressWarnings({"PMD.ExcessiveParameterList", "PMD.UseObjectForClearerAPI"})
+  public Mono<NodeOutputResult> getNodeOutput(
+      final String sessionId,
+      final String executionId,
+      final String nodeId,
+      @Nullable final String stream,
+      @Nullable final Integer tail,
+      @Nullable final Integer head,
+      @Nullable final Integer offset,
+      @Nullable final Integer limit,
+      @Nullable final String grep,
+      @Nullable final Integer context) {
+    return Mono.defer(
+        () -> {
+          final String which = stream == null ? "all" : stream.toLowerCase(java.util.Locale.ROOT);
+          if (!List.of("all", "stdout", "stderr").contains(which)) {
+            return Mono.error(new IllegalArgumentException("stream must be stdout, stderr or all"));
+          }
+          return ExecutionOwnership.require(controlBus, sessionId, executionId)
+              .then(
+                  Mono.defer(
+                      () ->
+                          logStore
+                              .readExecution(executionId)
+                              .filter(
+                                  entry ->
+                                      nodeId.equals(entry.pluginId())
+                                          && ("all".equals(which)
+                                              || entry.stream()
+                                                  == ("stderr".equals(which)
+                                                      ? LogStream.STDERR
+                                                      : LogStream.STDOUT)))
+                              .map(entry -> sanitizer.clean(entry.message()))
+                              .collectList()
+                              .map(
+                                  lines ->
+                                      new NodeOutputResult(
+                                          executionId,
+                                          NodeOutputPager.slice(
+                                              nodeId,
+                                              which,
+                                              lines,
+                                              tail,
+                                              head,
+                                              offset == null ? null : offset.longValue(),
+                                              limit,
+                                              grep,
+                                              context),
+                                          ExecutionLogs.UNTRUSTED_NOTICE))));
+        });
   }
 
   /**

@@ -34,6 +34,7 @@ class McpToolAccess {
           Map.entry("get_workflow_status", ApiRole.VIEWER),
           Map.entry("get_workflow_history", ApiRole.VIEWER),
           Map.entry("get_execution_tree", ApiRole.VIEWER),
+          Map.entry("get_node_output", ApiRole.VIEWER),
           Map.entry("list_plugins", ApiRole.VIEWER),
           Map.entry("get_plugin_details", ApiRole.VIEWER),
           Map.entry("get_control_bus_status", ApiRole.VIEWER),

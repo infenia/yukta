@@ -62,6 +62,80 @@ class LogProviderTest {
         Map.of());
   }
 
+  private PluginLogEntry nodeLine(final String node, final LogStream stream, final String message) {
+    return new PluginLogEntry(
+        EXECUTION,
+        SESSION,
+        node,
+        "Process",
+        stream,
+        message,
+        LogLevel.INFO,
+        Instant.parse("2026-01-01T00:00:00Z"),
+        null,
+        Map.of());
+  }
+
+  @Test
+  void getNodeOutput_readsMatchingLinesOfOneNodeAndStream() {
+    when(logStore.readExecution(EXECUTION))
+        .thenReturn(
+            Flux.just(
+                nodeLine("run", LogStream.STDOUT, "alpha"),
+                nodeLine("run", LogStream.STDERR, "ERROR beta"),
+                nodeLine("other", LogStream.STDOUT, "ERROR gamma"),
+                nodeLine("run", LogStream.STDOUT, "ERROR delta")));
+
+    StepVerifier.create(
+            provider.getNodeOutput(
+                SESSION, EXECUTION, "run", "stdout", null, null, null, null, "ERROR", null))
+        .assertNext(
+            result -> {
+              assertThat(result.executionId()).isEqualTo(EXECUTION);
+              assertThat(result.output().totalLines()).isEqualTo(2);
+              assertThat(result.output().lines()).hasSize(1);
+              assertThat(result.output().lines().getFirst().number()).isEqualTo(2);
+              assertThat(result.output().lines().getFirst().text()).isEqualTo("ERROR delta");
+              assertThat(result.notice()).isNotBlank();
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void getNodeOutput_allStreamsTailAndOffsetAreForwarded() {
+    when(logStore.readExecution(EXECUTION))
+        .thenReturn(
+            Flux.just(
+                nodeLine("run", LogStream.STDOUT, "1"),
+                nodeLine("run", LogStream.STDERR, "2"),
+                nodeLine("run", LogStream.STDOUT, "3")));
+
+    StepVerifier.create(
+            provider.getNodeOutput(
+                SESSION, EXECUTION, "run", null, 2, null, null, null, null, null))
+        .assertNext(r -> assertThat(r.output().lines()).hasSize(2))
+        .verifyComplete();
+    StepVerifier.create(
+            provider.getNodeOutput(
+                SESSION, EXECUTION, "run", "stderr", null, null, 0, 10, null, null))
+        .assertNext(r -> assertThat(r.output().lines()).hasSize(1))
+        .verifyComplete();
+  }
+
+  @Test
+  void getNodeOutput_badStreamOrUnknownExecution_errors() {
+    StepVerifier.create(
+            provider.getNodeOutput(
+                SESSION, EXECUTION, "run", "x", null, null, null, null, null, null))
+        .expectErrorMessage("stream must be stdout, stderr or all")
+        .verify();
+    StepVerifier.create(
+            provider.getNodeOutput(
+                SESSION, "nope", "run", null, null, null, null, null, null, null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
   @Test
   void testReturnsAllFormattedLines() {
     when(logStore.readExecution(EXECUTION))

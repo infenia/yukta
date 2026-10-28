@@ -54,6 +54,7 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
 
       # The Go CLI lives in cli/ (no root go.mod), so autobuild cannot
       # find it — build it explicitly instead.

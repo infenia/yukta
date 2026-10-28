@@ -85,3 +85,42 @@ func TestLogsCmd_withoutCobraContext(t *testing.T) {
 		t.Errorf("out=%q err=%v", out, err)
 	}
 }
+
+func TestLogsCmd_node_readsASliceOfTheNodeOutput(t *testing.T) {
+	var gotPath, gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotQuery = r.URL.Path, r.URL.RawQuery
+		_, _ = io.WriteString(w, `{"data":{"nodeId":"run","stream":"all","totalLines":10000,"totalBytes":99,"matchedLines":2,"truncated":true,"nextOffset":2,"lines":[{"number":5,"text":"boom"},{"number":9,"text":"bang"}]}}`)
+	}))
+	defer srv.Close()
+
+	out, err := testutil.Run(t, LogsCmd(client.NewClient(srv.URL)), "s", "e", "--node", "run", "--grep", "b", "--context", "1", "--tail", "2")
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	if out != "5: boom\n9: bang\n" {
+		t.Errorf("out=%q", out)
+	}
+	if gotPath != "/api/executions/e/nodes/run/output" {
+		t.Errorf("path %q", gotPath)
+	}
+	for _, want := range []string{"grep=b", "context=1", "tail=2"} {
+		if !strings.Contains(gotQuery, want) {
+			t.Errorf("query %q lacks %q", gotQuery, want)
+		}
+	}
+	if strings.Contains(gotQuery, "head=") || strings.Contains(gotQuery, "offset=") {
+		t.Errorf("unset flags were sent: %q", gotQuery)
+	}
+}
+
+func TestLogsCmd_node_serverErrorIsReported(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"message":"Node not found"}`, http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	if _, err := testutil.Run(t, LogsCmd(client.NewClient(srv.URL)), "s", "e", "--node", "nope"); err == nil {
+		t.Error("expected the 404 to be an error")
+	}
+}
