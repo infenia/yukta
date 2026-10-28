@@ -175,6 +175,43 @@ test.describe('Workflow Details Page', () => {
     );
   });
 
+  test('recovers an aborted run as a new run', async ({
+    page,
+    mockWorkflowApi,
+  }) => {
+    await mockWorkflowApi(page, {
+      progress: { ...defaultProgress, status: 'ABORTED' },
+    });
+    let recovered = 0;
+    await page.route('**/api/executions/*/recover', (route) => {
+      recovered += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          timestamp: '2026-07-26T14:23:23',
+          status: 200,
+          message: 'OK',
+          path: '/recover',
+          data: { executionId: 'exec-090-aa-12' },
+        }),
+      });
+    });
+    await page.goto(WORKFLOW_URL);
+
+    await page.getByRole('button', { name: /recover/i }).click();
+    await expect(page.getByRole('dialog')).toContainText(
+      'Finished nodes are replayed'
+    );
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Recover' })
+      .click();
+
+    await expect(page).toHaveURL(/exec=exec-090-aa-12/);
+    expect(recovered).toBe(1);
+  });
+
   test('copies a node action as a curl command without a key', async ({
     page,
   }) => {
