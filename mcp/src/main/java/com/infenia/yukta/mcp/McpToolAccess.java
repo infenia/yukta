@@ -97,6 +97,25 @@ class McpToolAccess {
   }
 
   /**
+   * Whether the key may call the tool.
+   *
+   * @param key the key that sent the request
+   * @param tool the tool name
+   * @param sessionId the {@code sessionId} argument, or null
+   * @return true if the role is high enough and, for a session key, the session is its own
+   */
+  /* default */ boolean permitted(
+      final ApiKeys.Match key, final String tool, @Nullable final String sessionId) {
+    if (key.role().compareTo(REQUIRED.getOrDefault(tool, ApiRole.ADMIN)) < 0) {
+      return false;
+    }
+    if (key.sessions().isEmpty() || SESSIONLESS.contains(tool)) {
+      return true;
+    }
+    return sessionId != null && key.reaches(sessionId);
+  }
+
+  /**
    * How many calls in these JSON-RPC messages are costly: {@code start_workflow}, and {@code
    * get_execution_logs} with a {@code filterPattern}, whose regex is matched against every line.
    *
@@ -114,8 +133,8 @@ class McpToolAccess {
         final JsonNode params = message.path("params");
         final String tool = params.path("name").asString("");
         if ("start_workflow".equals(tool)
-            || "get_execution_logs".equals(tool)
-                && !params.path("arguments").path("filterPattern").asString("").isBlank()) {
+            || ("get_execution_logs".equals(tool)
+                && !params.path("arguments").path("filterPattern").asString("").isBlank())) {
           heavy++;
         }
       }
@@ -123,25 +142,6 @@ class McpToolAccess {
     } catch (JacksonException e) {
       return 0;
     }
-  }
-
-  /**
-   * Whether the key may call the tool.
-   *
-   * @param key the key that sent the request
-   * @param tool the tool name
-   * @param sessionId the {@code sessionId} argument, or null
-   * @return true if the role is high enough and, for a session key, the session is its own
-   */
-  /* default */ boolean permitted(
-      final ApiKeys.Match key, final String tool, @Nullable final String sessionId) {
-    if (key.role().compareTo(REQUIRED.getOrDefault(tool, ApiRole.ADMIN)) < 0) {
-      return false;
-    }
-    if (key.sessions().isEmpty() || SESSIONLESS.contains(tool)) {
-      return true;
-    }
-    return sessionId != null && key.reaches(sessionId);
   }
 
   /**

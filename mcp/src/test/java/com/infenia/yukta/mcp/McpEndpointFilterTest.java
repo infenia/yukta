@@ -294,7 +294,7 @@ class McpEndpointFilterTest {
   }
 
   @Test
-  void testCostlyCallsHaveALowerLimitAndRefusalsAreCounted() {
+  void testCostlyCallsHaveLowerLimitAndRefusalsAreCounted() {
     final var env =
         new org.springframework.mock.env.MockEnvironment()
             .withProperty("yukta.api-key", "k")
@@ -305,9 +305,12 @@ class McpEndpointFilterTest {
     final String start =
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"start_workflow\"}}";
     final String plainLogs =
-        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_execution_logs\",\"arguments\":{}}}";
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\","
+            + "\"params\":{\"name\":\"get_execution_logs\",\"arguments\":{}}}";
     final String regexLogs =
-        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_execution_logs\",\"arguments\":{\"filterPattern\":\"(a+)+\"}}}";
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\","
+            + "\"params\":{\"name\":\"get_execution_logs\","
+            + "\"arguments\":{\"filterPattern\":\"(a+)+\"}}}";
 
     assertThat(heavyStatus(filter, start)).isNull();
     assertThat(heavyStatus(filter, regexLogs)).isNull();
