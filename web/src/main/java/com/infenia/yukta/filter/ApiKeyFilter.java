@@ -13,6 +13,7 @@ import com.infenia.yukta.security.CallRateLimiter;
 import com.infenia.yukta.security.RequestPaths;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -61,6 +62,11 @@ import reactor.core.publisher.Mono;
  *
  * <p>Each key may make {@code yukta.rate-limit-per-minute} {@code /api} requests per minute (system
  * property, default 1200; 0 turns it off); the next one gets 429 with {@code Retry-After}.
+ *
+ * <p>A wrong or missing key counts against the caller's remote address, {@code
+ * yukta.auth-failures-per-minute} times a minute (system property, default 20; 0 turns it off).
+ * Beyond that the address gets 429 with {@code Retry-After} without its key being looked at, so
+ * keys cannot be guessed at full speed. Behind a proxy all callers share the proxy's address.
  */
 @Component
 @NullMarked
@@ -85,6 +91,14 @@ public class ApiKeyFilter implements WebFilter {
   /** Caps the {@code /api} requests of one key. */
   private final CallRateLimiter limiter =
       new CallRateLimiter(Integer.getInteger("yukta.rate-limit-per-minute", DEFAULT_RATE_LIMIT));
+
+  /** Requests with a wrong or missing key per address and minute when the property is not set. */
+  private static final int DEFAULT_FAILURE_LIMIT = 20;
+
+  /** Caps the failed key attempts of one remote address. */
+  private final CallRateLimiter failures =
+      new CallRateLimiter(
+          Integer.getInteger("yukta.auth-failures-per-minute", DEFAULT_FAILURE_LIMIT));
 
   /** Identifies the caller; an open authenticator disables the check. */
   private final ApiAuthenticator authenticator;
@@ -153,9 +167,15 @@ public class ApiKeyFilter implements WebFilter {
     if (!guarded(path)) {
       return chain.filter(exchange);
     }
+    final String from = remote(exchange);
+    if (failures.exceeded(from)) {
+      exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, "60");
+      return reject(exchange, HttpStatus.TOO_MANY_REQUESTS, "Too many failed attempts");
+    }
     final ApiKeys.Match match =
         authenticator.authenticate(Scope.REST, exchange.getRequest().getHeaders());
     if (match == null) {
+      failures.tryAcquire(from);
       exchange.getResponse().getHeaders().set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
       return reject(
           exchange,
@@ -183,6 +203,12 @@ public class ApiKeyFilter implements WebFilter {
             .filter(exchange)
             .contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name()))
         : chain.filter(exchange);
+  }
+
+  /** Who is calling, by network address. */
+  private static String remote(final ServerWebExchange exchange) {
+    final InetSocketAddress address = exchange.getRequest().getRemoteAddress();
+    return address == null ? "unknown" : address.getAddress().getHostAddress();
   }
 
   /** The API, the actuator (except the health probe) and the API description. */

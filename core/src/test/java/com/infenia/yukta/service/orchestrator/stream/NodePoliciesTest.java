@@ -409,7 +409,9 @@ class NodePoliciesTest {
               assertThat(routed.metadata())
                   .containsEntry(NodePolicies.FAILURE_ATTEMPTS_HEADER, 3)
                   .containsEntry(
-                      NodePolicies.FAILURE_EXCEPTION_HEADER, "java.lang.IllegalStateException");
+                      NodePolicies.FAILURE_EXCEPTION_HEADER, "java.lang.IllegalStateException")
+                  .containsEntry(
+                      NodePolicies.FAILURE_MESSAGE_HEADER, "java.lang.IllegalStateException: x");
               assertThat(
                       java.time.Instant.parse(
                           (String) routed.metadata().get(NodePolicies.FAILURE_TIME_HEADER)))

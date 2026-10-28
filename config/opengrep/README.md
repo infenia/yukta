@@ -29,10 +29,18 @@ The `opengrep` task is automatically included in the `check` task and will scan 
 ## Rules
 
 Custom rules live in `.semgrep.yml`:
-- `yukta-spel-standard-evaluation-context` - `new StandardEvaluationContext(...)`
+- `yukta-spel-standard-evaluation-context` - `new StandardEvaluationContext(...)`, a subclass of it, and the `Expression.getValue` overloads that take no `EvaluationContext`
 - `yukta-graalvm-host-access-all` - `HostAccess.ALL`
-- `yukta-graalvm-allow-host-class-lookup` - `allowHostClassLookup(s -> true)`
-- `yukta-actuator-expose-all` - actuator `include: "*"` in YAML
+- `yukta-graalvm-allow-host-class-lookup` - `allowHostClassLookup` with an always-true predicate (`s -> true`, `s -> { return true; }`, `Predicates.alwaysTrue()`)
+- `yukta-graalvm-context-allow-all` - `allowAllAccess(true)`, `allowCreateProcess(true)`, `allowNativeAccess(true)`, `allowIO(IOAccess.ALL)`
+- `yukta-actuator-expose-all` - actuator exposure of `*` in YAML (`include: "*"`, `["*"]`), `.properties` (`exposure.include=*`) and environment form (`..._EXPOSURE_INCLUDE=*`)
+
+The rules are tested by the files next to `.semgrep.yml` that share its name (`.semgrep.java`, `.semgrep.test.yaml`, `.semgrep.properties`,
+`.semgrep.env`): a `ruleid:` comment marks a line that must be flagged, `ok:` one that must not. Run `opengrep test config/opengrep` after changing a rule
+(CI does too). The scan itself only reads `src/main`, so these files are never scanned.
+
+Known limits: a predicate hidden behind a variable or a helper method is not recognised, and a `getValue(root)` call is judged by the text of its argument
+(an argument whose text contains `context` or `ctx` counts as an evaluation context).
 
 Suppress a deliberate use with `// nosem: <rule-id> (reason)` on or directly above the flagged line.
 

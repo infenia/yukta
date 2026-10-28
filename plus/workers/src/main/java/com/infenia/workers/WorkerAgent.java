@@ -153,13 +153,15 @@ public class WorkerAgent {
         .flatMapMany(
             requester ->
                 requester.route("worker.session").data(out).retrieveFlux(WorkerFrame.class))
-        .doOnNext(this::check)
+        .concatMap(
+            answer ->
+                answer.type() == WorkerFrame.Type.REJECT
+                    ? Mono.<WorkerFrame>error(refused(answer))
+                    : Mono.<WorkerFrame>empty())
         .then(Mono.error(new IllegalStateException("The control plane closed the connection")));
   }
 
-  private void check(final WorkerFrame answer) {
-    if (answer.type() == WorkerFrame.Type.REJECT) {
-      throw new IllegalStateException("Refused by the control plane: " + answer.message());
-    }
+  private static IllegalStateException refused(final WorkerFrame answer) {
+    return new IllegalStateException("Refused by the control plane: " + answer.message());
   }
 }

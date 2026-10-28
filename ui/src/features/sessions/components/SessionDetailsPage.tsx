@@ -2,16 +2,16 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState, useEffect } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { InlineError } from '@/components/common/InlineError';
-import { useNavigate, useParams } from 'react-router';
-import { Button } from '@/components/ui/button';
+import { EXPORT_HINT, exportSessionConfig } from '../lib/exportSession';
 import { Input } from '@/components/ui/input';
 import { useSessionDetails } from '../hooks/useSessionDetails';
 import { useSessionWorkflows } from '../hooks/useSessionWorkflows';
 import { SessionInfoPanel } from './SessionInfoPanel';
 import { WorkflowGrid } from './WorkflowGrid';
 import { StateMessage } from '@/components/common/StateMessage';
-import { EXPORT_HINT, exportSessionConfig } from '../lib/exportSession';
 
 export function SessionDetailsPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -67,49 +67,66 @@ export function SessionDetailsPage() {
         <SessionInfoPanel
           session={session}
           actions={
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const id = new FormData(event.currentTarget).get('workflowId');
-                if (typeof id === 'string' && id.trim()) {
-                  navigate(
-                    `/sessions/${encodeURIComponent(session.sessionId)}/workflow/${encodeURIComponent(id.trim())}/edit`
-                  );
-                }
-              }}
-            >
-              <Input
-                name="workflowId"
-                aria-label="New workflow id"
-                placeholder="new-workflow-id"
-                className="w-48"
-              />
-              <Button type="submit" variant="outline">
-                <span className="material-symbols-outlined text-base">add</span>
-                New workflow
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                title={EXPORT_HINT}
-                onClick={() => {
-                  setExportError(null);
-                  exportSessionConfig(session.sessionId).catch(
-                    (error: unknown) =>
-                      setExportError(
-                        error instanceof Error ? error.message : 'Export failed'
-                      )
-                  );
-                }}
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                to={`/sessions/${encodeURIComponent(session.sessionId)}/edit`}
+                className={buttonVariants({ variant: 'outline' })}
               >
                 <span className="material-symbols-outlined text-base">
-                  download
+                  edit
                 </span>
-                Export JSON
-              </Button>
-              <InlineError message={exportError} />
-            </form>
+                Edit
+              </Link>
+              <form
+                className="flex items-center gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const id = new FormData(event.currentTarget).get(
+                    'workflowId'
+                  );
+                  if (typeof id === 'string' && id.trim()) {
+                    navigate(
+                      `/sessions/${encodeURIComponent(session.sessionId)}/workflow/${encodeURIComponent(id.trim())}/edit`
+                    );
+                  }
+                }}
+              >
+                <Input
+                  name="workflowId"
+                  aria-label="New workflow id"
+                  placeholder="new-workflow-id"
+                  className="w-48"
+                />
+                <Button type="submit" variant="outline">
+                  <span className="material-symbols-outlined text-base">
+                    add
+                  </span>
+                  New workflow
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  title={EXPORT_HINT}
+                  onClick={() => {
+                    setExportError(null);
+                    exportSessionConfig(session.sessionId).catch(
+                      (error: unknown) =>
+                        setExportError(
+                          error instanceof Error
+                            ? error.message
+                            : 'Export failed'
+                        )
+                    );
+                  }}
+                >
+                  <span className="material-symbols-outlined text-base">
+                    download
+                  </span>
+                  Export JSON
+                </Button>
+                <InlineError message={exportError} />
+              </form>
+            </div>
           }
         />
         <WorkflowGrid

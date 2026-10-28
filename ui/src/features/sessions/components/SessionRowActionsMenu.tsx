@@ -25,6 +25,10 @@ export function SessionRowActionsMenu({ session }: SessionRowActionsMenuProps) {
     navigate(`/sessions/${session.sessionId}`);
   };
 
+  const handleEdit = () => {
+    navigate(`/sessions/${encodeURIComponent(session.sessionId)}/edit`);
+  };
+
   return (
     <>
       {exportFailed && (
@@ -59,6 +63,14 @@ export function SessionRowActionsMenu({ session }: SessionRowActionsMenuProps) {
             }}
           >
             View Details
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit();
+            }}
+          >
+            Edit
           </DropdownMenuItem>
           <DropdownMenuItem
             title={EXPORT_HINT}

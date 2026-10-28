@@ -42,6 +42,50 @@ class CallRateLimiterTest {
   }
 
   @Test
+  void testExceededLooksWithoutCounting_andEndsWithTheWindow() {
+    final CallRateLimiter limiter = new CallRateLimiter(2, now::get);
+
+    assertThat(limiter.exceeded(BOT)).isFalse();
+    limiter.tryAcquire(BOT);
+    assertThat(limiter.exceeded(BOT)).isFalse();
+    limiter.tryAcquire(BOT);
+    assertThat(limiter.exceeded(BOT)).isTrue();
+    assertThat(limiter.exceeded(BOT)).isTrue();
+
+    now.addAndGet(Duration.ofMinutes(1).toNanos());
+
+    assertThat(limiter.exceeded(BOT)).isFalse();
+    assertThat(new CallRateLimiter(0).exceeded(BOT)).isFalse();
+  }
+
+  @Test
+  void testManyCallers_endedWindowsAreForgotten() {
+    final CallRateLimiter limiter = new CallRateLimiter(1, now::get);
+    for (int i = 0; i < 10_001; i++) {
+      limiter.tryAcquire("caller-" + i);
+    }
+    now.addAndGet(Duration.ofMinutes(1).toNanos());
+
+    assertThat(limiter.tryAcquire("caller-0")).isTrue();
+    assertThat(limiter.exceeded("caller-1")).isFalse();
+  }
+
+  @Test
+  void testManyCallers_theSweepKeepsWindowsThatHaveNotEnded() {
+    final CallRateLimiter limiter = new CallRateLimiter(1, now::get);
+    for (int i = 0; i < 5_000; i++) {
+      limiter.tryAcquire("old-" + i);
+    }
+    now.addAndGet(Duration.ofMinutes(1).toNanos());
+    for (int i = 0; i < 5_002; i++) {
+      limiter.tryAcquire("new-" + i);
+    }
+
+    assertThat(limiter.exceeded("new-0")).isTrue();
+    assertThat(limiter.exceeded("old-0")).isFalse();
+  }
+
+  @Test
   void testZeroMeansUnlimited() {
     final CallRateLimiter limiter = new CallRateLimiter(0);
 

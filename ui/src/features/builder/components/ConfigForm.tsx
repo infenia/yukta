@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useId, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useState } from 'react';
 import {
   NativeSelect,
   inputFieldClassName,
@@ -13,6 +13,11 @@ type Values = Record<string, unknown>;
 
 const INPUT = inputFieldClassName;
 const TEXTAREA = `${textareaFieldClassName} text-code-sm`;
+
+/** Where a JsonField reports whether its text is invalid, so the page can block Save and Validate. */
+export const JsonValidityContext = createContext<
+  (key: string, invalid: boolean) => void
+>(() => {});
 
 /** LIST and MAP values are edited as JSON; the draft text is kept until it parses. */
 export function JsonField({
@@ -28,6 +33,12 @@ export function JsonField({
     value === undefined ? '' : JSON.stringify(value, null, 2)
   );
   const [error, setError] = useState(false);
+  const report = useContext(JsonValidityContext);
+  const key = useId();
+  useEffect(() => {
+    report(key, error);
+  }, [report, key, error]);
+  useEffect(() => () => report(key, false), [report, key]);
 
   return (
     <>
