@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { RequirePermission } from '@/components/common/RequirePermission';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,12 +92,16 @@ export function NodeControlsMenu({
         </span>
       )}
       <DropdownMenu>
-        <DropdownMenuTrigger
-          aria-label={`Actions for ${nodeId}`}
-          className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center"
-        >
-          <span className="material-symbols-outlined text-base">more_vert</span>
-        </DropdownMenuTrigger>
+        <RequirePermission perm="controlRuns">
+          <DropdownMenuTrigger
+            aria-label={`Actions for ${nodeId}`}
+            className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center"
+          >
+            <span className="material-symbols-outlined text-base">
+              more_vert
+            </span>
+          </DropdownMenuTrigger>
+        </RequirePermission>
         <DropdownMenuContent align="end">
           {items.map((item) => (
             <DropdownMenuItem

@@ -132,7 +132,7 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
     // one. A running run gives up its slot when stopped, so it is not asked.
     final ExecutionScheduler.Admission admission =
         running.isEmpty()
-            ? scheduler.acquire(
+            ? scheduler.acquireRerun(
                 archived.sessionId(),
                 archived.workflowId(),
                 ExecutionScheduler.priorityOf(archived.payload()),

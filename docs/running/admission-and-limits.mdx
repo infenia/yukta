@@ -20,7 +20,7 @@ All limits are off by default.
 | `yukta.execution.max-concurrent` | `0` (off) | Total concurrent executions |
 | `yukta.execution.max-concurrent-per-workflow` | `0` (off) | Concurrent executions of one workflow |
 | `yukta.execution.max-concurrent-per-session` | `0` (off) | Concurrent executions of one session |
-| `yukta.execution.max-starts-per-minute` | `0` (off) | New starts of one workflow per minute, from any caller (REST, MCP, triggers). More are refused with `429`. Restarts and resumes are not counted |
+| `yukta.execution.max-starts-per-minute` | `0` (off) | New starts, restarts and resumes of one workflow per minute, from any caller (REST, MCP, triggers). More are refused with `429` |
 | `yukta.execution.on-limit` | `QUEUE` | `QUEUE` waits for a slot. `REJECT` refuses with `429` |
 | `yukta.execution.queue-capacity` | `100` | Waiting starts. Beyond it, `429` |
 | `yukta.execution.queue-capacity-per-workflow` | `0` (off) | Waiting starts of one workflow |

@@ -16,12 +16,12 @@ function SummaryRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-4 py-1">
-      <span className="text-on-surface-variant text-body-sm">{label}</span>
+      <span className="text-body-sm text-on-surface-variant">{label}</span>
       <span
         className={
           mono
-            ? 'text-on-surface text-code-sm truncate'
-            : 'text-on-surface text-label-sm font-semibold'
+            ? 'truncate text-code-sm text-on-surface'
+            : 'text-label-sm font-semibold text-on-surface'
         }
       >
         {value}
@@ -40,7 +40,7 @@ export function ExecutionSummaryBlock({
 }) {
   return (
     <Card className="p-4" data-testid="execution-summary">
-      <h3 className="text-overline mb-2">Execution summary</h3>
+      <h3 className="mb-2 text-overline">Execution summary</h3>
       <SummaryRow label="Execution ID" value={progress?.executionId ?? '—'} />
       <SummaryRow label="Session ID" value={progress?.sessionId ?? sessionId} />
       <SummaryRow
