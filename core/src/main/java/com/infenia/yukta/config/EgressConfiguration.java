@@ -18,8 +18,6 @@ import org.springframework.core.Ordered;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
-import reactor.netty.http.client.HttpClient;
 
 /**
  * Reads the outbound host lists: {@code yukta.egress.allowed-hosts} for the deployment, and {@code
@@ -63,12 +61,7 @@ public class EgressConfiguration {
   @Bean
   @Order(Ordered.LOWEST_PRECEDENCE)
   public WebClientCustomizer metadataGuardCustomizer() {
-    // ponytail: replaces the auto-configured connector (shared Reactor Netty resources, custom
-    // timeouts); copy those onto this HttpClient if a deployment sets them
-    return builder ->
-        builder.clientConnector(
-            new ReactorClientHttpConnector(
-                HttpClient.create().resolver(MetadataGuardResolver.INSTANCE)));
+    return new MetadataGuardCustomizer();
   }
 
   private static Map<String, HostAllowList> lists(final Binder binder, final String prefix) {
