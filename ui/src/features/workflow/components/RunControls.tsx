@@ -19,11 +19,16 @@ import {
   useExecutionControl,
 } from '../hooks/useExecutionControl';
 import {
+  isQueuedExecStatus,
   isTerminalExecStatus,
   toExecStatusCategory,
 } from '../lib/statusMapper';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
+
+/** Priorities the scheduler accepts from the UI. */
+export const MIN_PRIORITY = -100;
+export const MAX_PRIORITY = 100;
 
 /** Parses the payload editor text; empty means no payload. */
 export function parsePayload(text: string): Record<string, unknown> {
@@ -97,6 +102,65 @@ function RunDialog({
   );
 }
 
+function PriorityDialog({
+  onSubmit,
+  onClose,
+  pending,
+}: {
+  onSubmit: (priority: number) => void;
+  onClose: () => void;
+  pending: boolean;
+}) {
+  const [text, setText] = useState('0');
+  const value = Number(text);
+  const valid =
+    text.trim() !== '' &&
+    Number.isInteger(value) &&
+    value >= MIN_PRIORITY &&
+    value <= MAX_PRIORITY;
+
+  return (
+    <Modal title="Change priority" onClose={onClose}>
+      <label
+        className="text-body-md text-on-surface mb-1 block"
+        htmlFor="run-priority"
+      >
+        Priority ({MIN_PRIORITY} to {MAX_PRIORITY}, higher runs first)
+      </label>
+      <input
+        id="run-priority"
+        type="number"
+        step={1}
+        min={MIN_PRIORITY}
+        max={MAX_PRIORITY}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        className="border-border bg-background text-body-md mb-3 w-full rounded-lg border px-3 py-2"
+      />
+      <InlineError
+        message={
+          valid
+            ? null
+            : `Enter a whole number from ${MIN_PRIORITY} to ${MAX_PRIORITY}`
+        }
+      />
+      <div className="mt-4 flex justify-end gap-2">
+        <button type="button" className={BUTTON} onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={BUTTON}
+          disabled={!valid || pending}
+          onClick={() => onSubmit(value)}
+        >
+          Apply
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 /**
  * Run / pause / resume / stop / restart for the selected execution. Buttons enable according
  * to the execution status; destructive stops ask for confirmation first.
@@ -117,6 +181,7 @@ export function RunControls({
   const control = useExecutionControl(sessionId, workflowId);
   const [running, setRunning] = useState(false);
   const runKey = useRef('');
+  const [prioritizing, setPrioritizing] = useState(false);
   const [confirm, setConfirm] = useState<{
     label: string;
     mode: StopMode | null;
@@ -126,7 +191,13 @@ export function RunControls({
   const live =
     category === 'running' || category === 'paused' || category === 'pending';
   const canRestart = executionId !== null && isTerminalExecStatus(status);
-  const failure = [control.runAction, control.stopAll, control.start]
+  const canPrioritize = executionId !== null && isQueuedExecStatus(status);
+  const failure = [
+    control.priority,
+    control.runAction,
+    control.stopAll,
+    control.start,
+  ]
     .map((mutation) => mutation.error)
     .find(Boolean);
 
@@ -225,6 +296,18 @@ export function RunControls({
         <span className="material-symbols-outlined text-base">restart_alt</span>
         Restart
       </button>
+      {canPrioritize && (
+        <button
+          type="button"
+          className={BUTTON}
+          onClick={() => setPrioritizing(true)}
+        >
+          <span className="material-symbols-outlined text-base">
+            low_priority
+          </span>
+          Priority…
+        </button>
+      )}
       <InlineError message={failure ? controlErrorMessage(failure) : null} />
 
       {running && (
@@ -247,6 +330,19 @@ export function RunControls({
               }
             )
           }
+        />
+      )}
+      {prioritizing && (
+        <PriorityDialog
+          pending={control.priority.isPending}
+          onClose={() => setPrioritizing(false)}
+          onSubmit={(priority) => {
+            setPrioritizing(false);
+            control.priority.mutate({
+              executionId: executionId as string,
+              priority,
+            });
+          }}
         />
       )}
       {confirm && (

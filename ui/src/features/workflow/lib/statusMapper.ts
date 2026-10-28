@@ -75,7 +75,9 @@ export function toNodeUiStatus(raw: string | null | undefined): NodeUiStatus {
 }
 
 /** Map a raw backend execution status onto a coarse bucket; unknown values map to 'unknown'. */
-export function toExecStatusCategory(raw: string | null | undefined): ExecStatusCategory {
+export function toExecStatusCategory(
+  raw: string | null | undefined
+): ExecStatusCategory {
   if (!raw) {
     return 'unknown';
   }
@@ -87,14 +89,23 @@ export function isTerminalExecStatus(raw: string | null | undefined): boolean {
   return raw != null && TERMINAL_EXEC_STATUSES.has(raw);
 }
 
+/** Whether a raw execution status is QUEUED: the run waits for a free execution slot. */
+export function isQueuedExecStatus(raw: string | null | undefined): boolean {
+  return raw === 'QUEUED';
+}
+
 /** Status to display for an execution: a live pause or stop control state overrides a non-terminal status. */
 export function toDisplayExecStatus(
   status: string | null | undefined,
   controlState: string | null | undefined
 ): string | null {
   const shown =
-    controlState === 'PAUSED' || controlState === 'NODE_PAUSED' || controlState === 'STOPPING';
-  return shown && !isTerminalExecStatus(status) ? controlState : (status ?? null);
+    controlState === 'PAUSED' ||
+    controlState === 'NODE_PAUSED' ||
+    controlState === 'STOPPING';
+  return shown && !isTerminalExecStatus(status)
+    ? controlState
+    : (status ?? null);
 }
 
 /** Mockup-style node status label, e.g. "Done", "Active", "Waiting". */

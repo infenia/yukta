@@ -35,21 +35,49 @@ export function startWorkflow(
 }
 
 /** Stops every run of the workflow with the given mode (DRAIN lets in-flight work finish). */
-export function stopWorkflow(sessionId: string, workflowId: string, mode: StopMode) {
+export function stopWorkflow(
+  sessionId: string,
+  workflowId: string,
+  mode: StopMode
+) {
   return post<{ executionIds: string[] }>(
     `${api`/api/workflow/${sessionId}/${workflowId}/stop`}?mode=${mode}`
   );
 }
 
-export function runAction(executionId: string, action: RunAction): Promise<StartResponse> {
+export function runAction(
+  executionId: string,
+  action: RunAction
+): Promise<StartResponse> {
   return post<StartResponse>(api`/api/executions/${executionId}/${action}`);
 }
 
-export function restartFromNode(executionId: string, nodeId: string): Promise<StartResponse> {
-  return post<StartResponse>(api`/api/executions/${executionId}/restart/${nodeId}`);
+/** Changes the priority of a QUEUED run; higher runs first. */
+export function changePriority(
+  executionId: string,
+  priority: number
+): Promise<StartResponse> {
+  return post<StartResponse>(
+    `${api`/api/executions/${executionId}/priority`}?priority=${priority}`
+  );
 }
 
-export function nodeAction(executionId: string, nodeId: string, action: NodeAction) {
+export function restartFromNode(
+  executionId: string,
+  nodeId: string
+): Promise<StartResponse> {
+  return post<StartResponse>(
+    api`/api/executions/${executionId}/restart/${nodeId}`
+  );
+}
+
+export function nodeAction(
+  executionId: string,
+  nodeId: string,
+  action: NodeAction
+) {
   // action is a closed union (step/enable has a slash), so it is appended unencoded.
-  return post<StartResponse>(`${api`/api/executions/${executionId}/nodes/${nodeId}`}/${action}`);
+  return post<StartResponse>(
+    `${api`/api/executions/${executionId}/nodes/${nodeId}`}/${action}`
+  );
 }

@@ -6,6 +6,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import {
   nodeAction,
+  changePriority,
   restartFromNode,
   runAction,
   startWorkflow,
@@ -14,7 +15,13 @@ import {
 
 const calls: string[] = [];
 const ok = (data: unknown) =>
-  HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data, path: '/' });
+  HttpResponse.json({
+    timestamp: 't',
+    status: 200,
+    message: 'ok',
+    data,
+    path: '/',
+  });
 
 const server = setupServer(
   http.post('/api/workflow/start', async ({ request }) => {
@@ -51,7 +58,9 @@ describe('executionControl api', () => {
   it('starts a workflow with the payload and idempotency key', async () => {
     const result = await startWorkflow('s 1', 'wf', { a: 1 }, 'key-1');
     expect(result.executionId).toBe('e1');
-    expect(calls[0]).toBe('start key-1 {"sessionId":"s 1","workflowId":"wf","payload":{"a":1}}');
+    expect(calls[0]).toBe(
+      'start key-1 {"sessionId":"s 1","workflowId":"wf","payload":{"a":1}}'
+    );
   });
 
   it('stops a workflow with a mode', async () => {
@@ -63,6 +72,11 @@ describe('executionControl api', () => {
     await runAction('e1', 'pause');
     expect(await restartFromNode('e1', 'n 1')).toEqual({ executionId: 'e2' });
     expect(calls).toEqual(['pause e1', 'restart-from e1 n 1']);
+  });
+
+  it('changes the priority of a run', async () => {
+    await changePriority('e 1', -3);
+    expect(calls).toEqual(['priority e 1']);
   });
 
   it('calls node actions including the nested step paths', async () => {

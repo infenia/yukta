@@ -175,6 +175,38 @@ test.describe('Workflow Details Page', () => {
     );
   });
 
+  test('raises the priority of a queued run', async ({
+    page,
+    mockWorkflowApi,
+  }) => {
+    await mockWorkflowApi(page, {
+      progress: { ...defaultProgress, status: 'QUEUED' },
+    });
+    const calls: string[] = [];
+    await page.route('**/api/executions/*/priority*', (route) => {
+      calls.push(new URL(route.request().url()).search);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          timestamp: '2026-07-26T14:23:23',
+          status: 200,
+          message: 'OK',
+          path: '/priority',
+          data: { executionId: 'exec-091-qp-55' },
+        }),
+      });
+    });
+    await page.goto(WORKFLOW_URL);
+
+    await page.getByRole('button', { name: /priority/i }).click();
+    await page.getByLabel(/Priority \(/).fill('10');
+    await page.getByRole('button', { name: 'Apply' }).click();
+
+    await expect(page.getByRole('dialog')).toBeHidden();
+    expect(calls).toEqual(['?priority=10']);
+  });
+
   test('renders the never-run state', async ({ page, mockWorkflowApi }) => {
     await mockWorkflowApi(page, { executions: [] });
     await page.goto(WORKFLOW_URL);
