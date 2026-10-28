@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { setupServer } from 'msw/node';
@@ -162,6 +162,19 @@ describe('WorkflowEditorPage', () => {
     await queryClient.invalidateQueries({ queryKey: ['sessions', 's1', 'config'] });
 
     expect(screen.getByLabelText('Description')).toHaveValue('my edit');
+  });
+
+  it('starts a fresh draft when the route moves to another workflow', async () => {
+    renderEditor();
+    expect(await screen.findByLabelText('Description')).toHaveValue('first');
+
+    act(() => {
+      window.history.pushState({}, '', '/sessions/s1/workflow/other/edit');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Edit other' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Description')).toHaveValue('o'));
   });
 
   it('reports a session that cannot be loaded', async () => {

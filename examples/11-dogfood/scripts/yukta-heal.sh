@@ -286,7 +286,14 @@ ${YUKTA_HEAL_TIMEOUT:+You have about $((YUKTA_HEAL_TIMEOUT / 60)) minutes at ${e
     fi
     fixed=false
     [[ "$ran" == true && "$ok" == true ]] && fixed=true
-    [[ -n "$guard" ]] && summary="GUARD:$guard $summary"
+    # What the model says is not what happened. When the guard objected, or the model claimed a fix but the recheck still fails, the summary
+    # says NOT FIXED and why, and the model's words follow as a quote: nobody reads "the gate now passes" about a gate that is red.
+    claimed="$(jq -r '.claimed // false' "$claude" 2>/dev/null || echo false)"
+    if [[ -n "$guard" ]]; then
+      summary="NOT FIXED, guard:$guard The model said: $summary"
+    elif [[ "$claimed" == true && "$fixed" != true ]]; then
+      summary="NOT FIXED: the model claimed a fix but the stage still fails. The model said: $summary"
+    fi
     # a step with outputFormat JSON must print nothing but the JSON (the engine merges stderr into stdout): no HEAL line here, claimed prints it
     record "$fixed" "$files" "$cost" "$summary" "$usage" 2>/dev/null
     emit fix "$(jq -nc --arg stage "$stage" --argjson attempt "$n" --arg model "$model" --arg effort "$effort" --argjson fixed "$fixed" \
