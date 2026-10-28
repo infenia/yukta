@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { buttonVariants } from '@/components/ui/button';
 import {
   useLegacyTable,
@@ -24,7 +24,11 @@ import { StateMessage } from '@/components/common/StateMessage';
 import { useSessionSummaries } from '../hooks/useSessionSummaries';
 import { columns } from './columns';
 import { SessionsHeader } from './SessionsHeader';
-import { SessionsFilterBar } from './SessionsFilterBar';
+import {
+  filterSessions,
+  SessionsFilterBar,
+  type SessionFilters,
+} from './SessionsFilterBar';
 import { SessionsPaginationFooter } from './SessionsPaginationFooter';
 
 export function SessionListPage() {
@@ -36,12 +40,37 @@ export function SessionListPage() {
     refetch,
   } = useSessionSummaries();
   const [globalFilter, setGlobalFilter] = useState('');
+  // The Tag and Initiator filters live in the URL (?tag=env=prod&initiator=alice) so a link shares the view.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tags = searchParams.getAll('tag');
+  const initiators = searchParams.getAll('initiator');
+  const filters = useMemo<SessionFilters>(
+    () => ({ tags, initiators }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [searchParams]
+  );
+  const filtered = useMemo(
+    () => filterSessions(sessions, filters),
+    [sessions, filters]
+  );
+  const setFilters = (next: SessionFilters) =>
+    setSearchParams(
+      (current) => {
+        const params = new URLSearchParams(current);
+        params.delete('tag');
+        params.delete('initiator');
+        next.tags.forEach((tag) => params.append('tag', tag));
+        next.initiators.forEach((who) => params.append('initiator', who));
+        return params;
+      },
+      { replace: true }
+    );
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   // React Compiler skips memoizing useLegacyTable (headless API returns unstable functions); accepted
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useLegacyTable({
-    data: sessions,
+    data: filtered,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -92,6 +121,7 @@ export function SessionListPage() {
   const handleReset = () => {
     setGlobalFilter('');
     setColumnFilters([]);
+    setFilters({ tags: [], initiators: [] });
     table.setPageIndex(0);
   };
 
@@ -147,6 +177,8 @@ export function SessionListPage() {
           <>
             <SessionsFilterBar
               data={sessions}
+              filters={filters}
+              onFiltersChange={setFilters}
               globalFilter={globalFilter}
               onGlobalFilterChange={setGlobalFilter}
               onReset={handleReset}
