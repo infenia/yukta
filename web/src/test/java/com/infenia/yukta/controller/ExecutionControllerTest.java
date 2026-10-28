@@ -211,4 +211,29 @@ class ExecutionControllerTest {
     client.get().uri("/api/workflow/other/status/e1/stream").exchange().expectStatus().isNotFound();
     verify(controlBus, never()).watchExecution("e1", false);
   }
+
+  @Test
+  void testStatusStreamIgnoresLastEventId() {
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", "RUNNING"));
+    when(controlBus.watchExecution("e1", false))
+        .thenReturn(Flux.just(progress("s1", "RUNNING"), progress("s1", "SUCCESS")));
+
+    final String body =
+        String.join(
+            "\n",
+            client
+                .get()
+                .uri("/api/workflow/s1/status/e1/stream?includeHistory=false")
+                .header("Last-Event-ID", "41")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .returnResult(String.class)
+                .getResponseBody()
+                .collectList()
+                .blockOptional()
+                .orElseThrow());
+
+    assertThat(body).contains("RUNNING").contains("SUCCESS");
+  }
 }

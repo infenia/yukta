@@ -164,7 +164,9 @@ public class ExecutionController {
    * @param sessionId the owning session (legacy path only)
    * @param executionId the execution
    * @param includeHistory whether to replay recent status updates first
-   * @param lastEventId the {@code Last-Event-ID} of a reconnecting client
+   * @param lastEventId ignored: the replay window moves with time (or is off), so event IDs of an
+   *     earlier connection do not match this one, and skipping by them would drop live updates. A
+   *     reconnecting client gets the recent updates again, which are states and safe to repeat.
    * @return progress events with IDs and a keep-alive comment every 15 seconds
    */
   @GetMapping(
@@ -191,7 +193,7 @@ public class ExecutionController {
             _ ->
                 SseStreams.events(
                     controlBus.watchExecution(executionId, includeHistory),
-                    lastEventId,
+                    null,
                     SseStreams.HEARTBEAT));
   }
 
