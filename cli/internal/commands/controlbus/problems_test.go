@@ -149,6 +149,23 @@ func TestProblemFilter_capsALongLineAndANoisyNode(t *testing.T) {
 	}
 }
 
+func TestProblemFilter_warningsDoNotUseUpTheRoomOfTheErrorThatFailedTheNode(t *testing.T) {
+	f := newProblemFilter()
+
+	var warns []string
+	for i := 0; i < maxProblemLinesPerNode+5; i++ {
+		warns = append(warns, f.admit("n", "WARN", fmt.Sprintf("warning: number %d", i))...)
+	}
+	if len(warns) != maxWarnLinesPerNode+1 || !strings.Contains(warns[len(warns)-1], "suppressed") {
+		t.Errorf("got %d warn lines, last %q", len(warns), warns[len(warns)-1])
+	}
+
+	got := f.admit("n", "ERROR", "Foo.java:27: error: cannot be applied")
+	if want := []string{"ERROR n: Foo.java:27: error: cannot be applied"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("the error that failed the node: got %q, want %q", got, want)
+	}
+}
+
 func TestIsWarnOrError(t *testing.T) {
 	cases := map[string]struct {
 		event client.ExecutionEvent

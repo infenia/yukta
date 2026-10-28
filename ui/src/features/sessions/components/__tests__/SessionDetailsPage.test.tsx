@@ -75,6 +75,9 @@ describe('SessionDetailsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Associated Workflows (1)')).toBeDefined();
     });
+    expect(screen.getByRole('link', { name: /Edit/ }).getAttribute('href')).toBe(
+      '/sessions/sess-123/edit'
+    );
   });
 
   it('shows loading state initially', async () => {

@@ -22,6 +22,10 @@ export function SessionRowActionsMenu({ session }: SessionRowActionsMenuProps) {
     navigate(`/sessions/${session.sessionId}`);
   };
 
+  const handleEdit = () => {
+    navigate(`/sessions/${encodeURIComponent(session.sessionId)}/edit`);
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -42,6 +46,7 @@ export function SessionRowActionsMenu({ session }: SessionRowActionsMenuProps) {
       />
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleView(); }}>View Details</DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(); }}>Edit</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

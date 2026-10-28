@@ -96,7 +96,17 @@ The one to alert on is `yukta.tracker.queue.depth`: state events waiting to be a
 
 ## Tracing
 
-Tracing is optional. Each execution is one observation named `yukta.run`, the parent of one `yukta.node` observation per node (tags `module` and `status`). Observations become spans when a tracer is present on the server. Node spans are opened only for a status the execution accepted, so a late event for an ended node leaves no open span. There is no Yukta setting for tracing.
+Tracing is optional. Each execution is one observation named `yukta.run`, the parent of one `yukta.node` observation per node (tags `module` and `status`). Observations become spans when a tracer is present on the server. Node spans are opened only for a status the execution accepted, so a late event for an ended node leaves no open span. Traces and metrics can be exported over OTLP (Jaeger, Tempo, Honeycomb, an OpenTelemetry collector). Both exports are **off by default**; the server sends nothing until you turn them on.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `management.tracing.export.enabled` | `false` | Export spans over OTLP |
+| `management.opentelemetry.tracing.export.otlp.endpoint` | unset | Collector URL for traces, such as `http://collector:4318/v1/traces` |
+| `management.tracing.sampling.probability` | `0.1` | Share of runs sampled; `1.0` records every run |
+| `management.otlp.metrics.export.enabled` | `false` | Export meters over OTLP |
+| `management.otlp.metrics.export.url` | unset | Collector URL for metrics, such as `http://collector:4318/v1/metrics` |
+
+Every setting can also be an environment variable (`MANAGEMENT_TRACING_EXPORT_ENABLED=true`). When a tracer is present, the trace id is added to log lines, and outbound calls made through Yukta's HTTP clients carry a W3C `traceparent` header.
 
 ## Next steps
 

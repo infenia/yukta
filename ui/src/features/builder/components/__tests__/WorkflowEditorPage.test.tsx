@@ -1,18 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  afterAll,
+  afterEach,
+} from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { createTestQueryClient, must, renderWithProviders } from '@/test/utils/testUtils';
+import {
+  createTestQueryClient,
+  must,
+  renderWithProviders,
+} from '@/test/utils/testUtils';
 import type { SessionDraft, ValidationResult } from '../../types';
 import { toPreviewGraph, WorkflowEditorPage } from '../WorkflowEditorPage';
 
 vi.mock('@/features/workflow/components/WorkflowCanvas', () => ({
-  WorkflowCanvas: ({ graph }: { graph: { nodes: unknown[]; edges: unknown[] } }) => (
+  WorkflowCanvas: ({
+    graph,
+  }: {
+    graph: { nodes: unknown[]; edges: unknown[] };
+  }) => (
     <div data-testid="canvas">
       {graph.nodes.length} nodes {graph.edges.length} edges
     </div>
@@ -20,7 +36,13 @@ vi.mock('@/features/workflow/components/WorkflowCanvas', () => ({
 }));
 
 const ok = (data: unknown) =>
-  HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data, path: '/' });
+  HttpResponse.json({
+    timestamp: 't',
+    status: 200,
+    message: 'ok',
+    data,
+    path: '/',
+  });
 
 const session = (): SessionDraft => ({
   sessionId: 's1',
@@ -55,7 +77,9 @@ const saved: SessionDraft[] = [];
 
 const server = setupServer(
   http.get('/api/sessions/:sid/config', () =>
-    sessionFails ? HttpResponse.json({ message: 'x' }, { status: 500 }) : ok(session())
+    sessionFails
+      ? HttpResponse.json({ message: 'x' }, { status: 500 })
+      : ok(session())
   ),
   http.get('/api/plugins', () =>
     ok([
@@ -75,10 +99,13 @@ const server = setupServer(
     })
   ),
   http.post('/api/sessions/validate', () =>
-    validateFails ? HttpResponse.json({ message: 'boom' }, { status: 500 }) : ok(validation)
+    validateFails
+      ? HttpResponse.json({ message: 'boom' }, { status: 500 })
+      : ok(validation)
   ),
   http.post('/api/sessions', async ({ request }) => {
-    if (saveFails) return HttpResponse.json({ message: 'disk full' }, { status: 500 });
+    if (saveFails)
+      return HttpResponse.json({ message: 'disk full' }, { status: 500 });
     saved.push((await request.json()) as SessionDraft);
     return ok(null);
   })
@@ -90,17 +117,27 @@ afterEach(() => {
   sessionFails = false;
   validateFails = false;
   saveFails = false;
-  validation = { valid: true, message: null, outputPorts: { start: ['default'], out: [] } };
+  validation = {
+    valid: true,
+    message: null,
+    outputPorts: { start: ['default'], out: [] },
+  };
   saved.length = 0;
   window.history.pushState({}, '', '/');
 });
 afterAll(() => server.close());
 
-function renderEditor(workflowId = 'wf', queryClient = createTestQueryClient()) {
+function renderEditor(
+  workflowId = 'wf',
+  queryClient = createTestQueryClient()
+) {
   window.history.pushState({}, '', `/sessions/s1/workflow/${workflowId}/edit`);
   return renderWithProviders(
     <Routes>
-      <Route path="sessions/:sessionId/workflow/:workflowId/edit" element={<WorkflowEditorPage />} />
+      <Route
+        path="sessions/:sessionId/workflow/:workflowId/edit"
+        element={<WorkflowEditorPage />}
+      />
       <Route path="*" element={<p>elsewhere</p>} />
     </Routes>,
     { queryClient }
@@ -122,8 +159,14 @@ describe('toPreviewGraph', () => {
       { T: 'TRIGGER' },
       { a: ['x', 'y'] }
     );
-    expect(graph.nodes[0]).toMatchObject({ category: 'TRIGGER', outputPorts: ['x', 'y'] });
-    expect(graph.nodes[1]).toMatchObject({ category: null, outputPorts: ['default'] });
+    expect(graph.nodes[0]).toMatchObject({
+      category: 'TRIGGER',
+      outputPorts: ['x', 'y'],
+    });
+    expect(graph.nodes[1]).toMatchObject({
+      category: null,
+      outputPorts: ['default'],
+    });
     expect(graph.edges).toHaveLength(1);
   });
 });
@@ -132,17 +175,24 @@ describe('WorkflowEditorPage', () => {
   it('shows loading, then the workflow with its first node open and a preview', async () => {
     renderEditor();
     expect(screen.getByText('Loading…')).toBeInTheDocument();
-    expect(await screen.findByRole('heading', { name: 'Edit wf' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Edit wf' })
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('Description')).toHaveValue('first');
     expect(screen.getByTestId('canvas')).toHaveTextContent('2 nodes 1 edges');
-    expect(await screen.findByRole('region', { name: 'Node start' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('region', { name: 'Node start' })
+    ).toBeInTheDocument();
   });
 
   it('waits for the fresh session instead of seeding the draft from a stale cache', async () => {
     // e.g. after a rollback: the cache still holds the pre-rollback definition
     const queryClient = createTestQueryClient();
     const stale = session();
-    stale.workflows.wf = { ...must(stale.workflows.wf), description: 'before the rollback' };
+    stale.workflows.wf = {
+      ...must(stale.workflows.wf),
+      description: 'before the rollback',
+    };
     queryClient.setQueryData(['sessions', 's1', 'config'], stale);
 
     renderEditor('wf', queryClient);
@@ -159,7 +209,9 @@ describe('WorkflowEditorPage', () => {
     await userEvent.clear(description);
     await userEvent.type(description, 'my edit');
 
-    await queryClient.invalidateQueries({ queryKey: ['sessions', 's1', 'config'] });
+    await queryClient.invalidateQueries({
+      queryKey: ['sessions', 's1', 'config'],
+    });
 
     expect(screen.getByLabelText('Description')).toHaveValue('my edit');
   });
@@ -173,20 +225,30 @@ describe('WorkflowEditorPage', () => {
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
 
-    expect(await screen.findByRole('heading', { name: 'Edit other' })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText('Description')).toHaveValue('o'));
+    expect(
+      await screen.findByRole('heading', { name: 'Edit other' })
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText('Description')).toHaveValue('o')
+    );
   });
 
   it('reports a session that cannot be loaded', async () => {
     sessionFails = true;
     renderEditor();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load session');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Failed to load session'
+    );
   });
 
   it('starts an empty draft for a workflow the session does not have yet', async () => {
     renderEditor('brand-new');
-    expect(await screen.findByRole('heading', { name: 'Edit brand-new' })).toBeInTheDocument();
-    expect(screen.getByText('Select a node to configure it.')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Edit brand-new' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Select a node to configure it.')
+    ).toBeInTheDocument();
     expect(screen.getByTestId('canvas')).toHaveTextContent('0 nodes');
   });
 
@@ -205,7 +267,9 @@ describe('WorkflowEditorPage', () => {
     expect(nodes.getByText('api-trigger-1')).toBeInTheDocument();
     expect(nodes.getByText('branch-1')).toBeInTheDocument();
     expect(nodes.getByText('branch-2')).toBeInTheDocument();
-    expect(await screen.findByRole('region', { name: 'Node branch-2' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('region', { name: 'Node branch-2' })
+    ).toBeInTheDocument();
   });
 
   it('adds the plugin the select shows, even when the API lists another category first', async () => {
@@ -225,7 +289,11 @@ describe('WorkflowEditorPage', () => {
     expect(screen.getByLabelText('Plugin type')).toHaveValue('API_TRIGGER');
     await user.click(screen.getByRole('button', { name: 'Add node' }));
 
-    expect(within(screen.getByRole('list', { name: 'Nodes' })).getByText('api-trigger-1')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Nodes' })).getByText(
+        'api-trigger-1'
+      )
+    ).toBeInTheDocument();
   });
 
   it('does nothing when asked to add a node before any plugin has loaded', async () => {
@@ -243,10 +311,14 @@ describe('WorkflowEditorPage', () => {
     await screen.findByRole('region', { name: 'Node start' });
 
     await user.click(screen.getByRole('button', { name: /^out/ }));
-    expect(await screen.findByRole('region', { name: 'Node out' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('region', { name: 'Node out' })
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Remove node' }));
-    expect(screen.getByText('Select a node to configure it.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Select a node to configure it.')
+    ).toBeInTheDocument();
     expect(screen.getByTestId('canvas')).toHaveTextContent('1 nodes 0 edges');
   });
 
@@ -264,7 +336,9 @@ describe('WorkflowEditorPage', () => {
     const user = userEvent.setup();
     renderEditor();
     await screen.findByRole('region', { name: 'Node start' });
-    await user.click(screen.getByRole('button', { name: 'Remove edge start to out' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Remove edge start to out' })
+    );
     expect(screen.getByTestId('canvas')).toHaveTextContent('2 nodes 0 edges');
 
     await user.click(screen.getByRole('button', { name: 'Add edge' }));
@@ -288,6 +362,63 @@ describe('WorkflowEditorPage', () => {
     expect(screen.getByLabelText('Edge port')).toHaveValue('');
   });
 
+  it('blocks Validate and Save while a JSON field does not parse', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    const box = await screen.findByLabelText('Configuration (JSON)');
+    await user.click(box);
+    await user.paste('{"k"');
+
+    expect(screen.getByRole('button', { name: 'Validate' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByText(/Fix the JSON field/)).toBeInTheDocument();
+
+    await user.clear(box);
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    await user.paste('{"k":1}');
+    expect(screen.getByRole('button', { name: 'Validate' })).toBeEnabled();
+
+    await user.clear(box);
+    await user.paste('{');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: /^out/ }));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
+  it('rejects an edge that already exists and an edge from a node to itself', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByRole('region', { name: 'Node start' });
+
+    await user.selectOptions(screen.getByLabelText('Edge source'), 'start');
+    await user.selectOptions(screen.getByLabelText('Edge target'), 'out');
+    await user.click(screen.getByRole('button', { name: 'Add edge' }));
+    expect(screen.getByText('That edge already exists.')).toBeInTheDocument();
+    expect(screen.getByTestId('canvas')).toHaveTextContent('1 edges');
+
+    await user.selectOptions(screen.getByLabelText('Edge target'), 'start');
+    await user.click(screen.getByRole('button', { name: 'Add edge' }));
+    expect(
+      screen.getByText('An edge cannot connect a node to itself.')
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('canvas')).toHaveTextContent('1 edges');
+  });
+
+  it('forgets the ports and the edge draft of a removed node', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByRole('region', { name: 'Node start' });
+    await user.click(screen.getByRole('button', { name: 'Validate' }));
+    await screen.findByText('Workflow is valid.');
+    await user.selectOptions(screen.getByLabelText('Edge source'), 'start');
+    await user.selectOptions(screen.getByLabelText('Edge port'), 'default');
+
+    await user.click(screen.getByRole('button', { name: 'Remove node' }));
+
+    expect(screen.getByLabelText('Edge source')).toHaveValue('');
+    expect(screen.getByLabelText('Edge port')).toHaveValue('');
+  });
+
   it('shows what the validator rejects and clears it when the draft changes', async () => {
     validation = { valid: false, message: 'No trigger node', outputPorts: {} };
     const user = userEvent.setup();
@@ -295,7 +426,9 @@ describe('WorkflowEditorPage', () => {
     await screen.findByRole('region', { name: 'Node start' });
 
     await user.click(screen.getByRole('button', { name: 'Validate' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('No trigger node');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No trigger node'
+    );
 
     await user.type(screen.getByLabelText('Description'), '!');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
@@ -330,7 +463,9 @@ describe('WorkflowEditorPage', () => {
     expect(saved[0].tags).toEqual({ env: 'prod' });
     expect(Object.keys(saved[0].workflows)).toEqual(['wf', 'other']);
     expect(saved[0].workflows.wf.description).toBe('first edited');
-    await waitFor(() => expect(window.location.pathname).toBe('/sessions/s1/workflow/wf'));
+    await waitFor(() =>
+      expect(window.location.pathname).toBe('/sessions/s1/workflow/wf')
+    );
   });
 
   it('does not save a draft the validator rejects', async () => {
