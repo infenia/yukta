@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 // Test cases for yukta-spel-standard-evaluation-context: `ruleid` lines must be flagged, `ok` lines must not.
 class SpelCases {
   void cases(org.springframework.expression.Expression expression, org.springframework.expression.ExpressionParser parser, String text) {
