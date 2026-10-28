@@ -48,10 +48,12 @@ def tool_call(command, label, **extra):
     return c
 
 
-def pe(node_id, action, env=None, stdin=False, json_out=False, timeout=120, routed=False):
+def pe(node_id, action, env=None, stdin=False, json_out=False, timeout=120, routed=False, env_in=False):
     cfg = {"command": [HEAL, action], "workingDir": S("project"), "env": env or {}, "timeout": timeout, "timeoutSeconds": timeout}
     if stdin:
         cfg["inputMode"] = "STDIN"
+    if env_in:  # the dead letter's failure.message arrives as YUKTA_METADATA_FAILURE_MESSAGE, the brief as YUKTA_PAYLOAD
+        cfg["inputMode"] = "ENV"
     if json_out:
         cfg["outputFormat"] = "JSON"
     cfg.update({"failureMode": "CONTINUE", "routeByExitCode": True} if routed else {"failureMode": "CONTINUE"})
@@ -170,7 +172,7 @@ TRIAGE_PORTS = list(LEVELS) + ["uncertain", "error"]
 for port in TRIAGE_PORTS:
     start_rung = starts[port] if port in LEVELS else avg
     nodes.append(pe("triage-log." + port, "triage-log", heal_env(YUKTA_TRIAGE_ROUTE=port, YUKTA_TRIAGE_START=start_rung.replace("fix-", "", 1).replace("-", "/"),
-                                                                  YUKTA_TRIAGE_MODEL=S("triageModel")), stdin=True, timeout=60))
+                                                                  YUKTA_TRIAGE_MODEL=S("triageModel")), stdin=port != "error", env_in=port == "error", timeout=60))
     e += edges("triage", "triage-log." + port, port) + edges("triage-log." + port, "logged")
 e += edges("triage", starts["easy"], "easy") + edges("triage", avg, "average", "uncertain", "error") + edges("triage", starts["hard"], "hard")
 for st, after in nxt.items():
