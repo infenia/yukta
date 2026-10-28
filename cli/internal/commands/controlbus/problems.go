@@ -12,17 +12,22 @@ import (
 )
 
 const (
-	// maxProblemLinesPerNode bounds what one node can print, so a node that fails with a screenful
-	// of output costs a fixed number of lines.
+	// maxProblemLinesPerNode bounds the ERROR lines one node can print, so a node that fails with a
+	// screenful of output costs a fixed number of lines.
 	maxProblemLinesPerNode = 20
-	maxProblemLineLength   = 300
+	// maxWarnLinesPerNode is the node's separate, smaller budget for WARN lines: a compiler that
+	// prints dozens of warnings before the error that fails the node must not use up the room the
+	// error needs.
+	maxWarnLinesPerNode  = 10
+	maxProblemLineLength = 300
 )
 
 // problemFilter reduces events to the lines that say what went wrong:
 //
 //	ERROR <node>: <line>     WARN <node>: <line>
 //
-// A line is printed once per node and a node prints at most maxProblemLinesPerNode of them.
+// A line is printed once per node; a node prints at most maxProblemLinesPerNode ERROR lines and,
+// apart from those, at most maxWarnLinesPerNode WARN lines.
 type problemFilter struct {
 	seen  map[string]bool
 	count map[string]int
@@ -111,12 +116,16 @@ func (p *problemFilter) admit(node, level, line string) []string {
 		return nil
 	}
 	p.seen[key] = true
-	n := p.count[node]
-	if n > maxProblemLinesPerNode {
+	budget, counted := maxProblemLinesPerNode, node+"\x00ERROR"
+	if level == "WARN" {
+		budget, counted = maxWarnLinesPerNode, node+"\x00WARN"
+	}
+	n := p.count[counted]
+	if n > budget {
 		return nil
 	}
-	p.count[node]++
-	if n == maxProblemLinesPerNode {
+	p.count[counted]++
+	if n == budget {
 		return []string{fmt.Sprintf("%s %s: … more problem lines suppressed (see the report)", level, node)}
 	}
 	return []string{fmt.Sprintf("%s %s: %s", level, node, line)}

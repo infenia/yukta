@@ -50,7 +50,7 @@ SH
 chmod +x "$dir/claude"
 
 # scenario NAME PLAN-LINES... : sets $result to the RESULT line of a check of the project. The environment variables CMD_<stage>
-# (a stage command; compile, tests, reuse), VERIFY (the verify command) and TRIAGE_URL choose the run.
+# (a stage command; compile, tests, reuse), EVENTS (the monitoring log, off by default), AUTO_reuse (the free fix of reuse), VERIFY (the verify command) and TRIAGE_URL choose the run.
 scenario() {
   local name="$1" session="test-heal-$$" names cmds exec_id status
   shift
@@ -64,11 +64,11 @@ scenario() {
   render_session "$here/session.json" "$proj" | jq --arg s "$session" '.sessionId=$s | .name=$s' >"$dir/session.json"
   "$cli" session apply "$dir/session.json" >"$dir/apply.out" 2>&1 || { cat "$dir/apply.out" >&2; fail "$name: session apply"; }
   exec_id="$("$cli" -o json workflow start "$session" check --payload "$(jq -nc --arg p "$proj" --arg d "$healdir" --arg bin "$dir/claude" \
-    --arg rules "$here/fixer-rules.md" --arg verify "${VERIFY:-true}" --arg budget "${BUDGET_CHECK:--}" --arg fast "${FAST:-}" --arg mark "$healdir/fast.ok" --arg triage "${TRIAGE_URL:+on}" --arg turl "${TRIAGE_URL:-http://127.0.0.1:1}" \
+    --arg rules "$here/fixer-rules.md" --arg events "${EVENTS:--}" --arg autoreuse "${AUTO_reuse:-}" --arg verify "${VERIFY:-true}" --arg budget "${BUDGET_CHECK:--}" --arg fast "${FAST:-}" --arg mark "$healdir/fast.ok" --arg triage "${TRIAGE_URL:+on}" --arg turl "${TRIAGE_URL:-http://127.0.0.1:1}" \
     --argjson c "$cmds" --argjson n "$names" '
     ($n | map({(.): "-"}) | add) as $dash
-    | {project: $p, timeout: 120, healDir: $d, events: "-", modules: "-", models: "-", heal: "on", triage: (if $triage == "on" then "on" else "off" end),
-       rules: $rules, claudeBin: $bin, budgetCheck: $budget, triageModel: "fake", triageUrl: $turl, verifyCommand: $verify, cmd: $c, auto: $dash, fmt: $dash,
+    | {project: $p, timeout: 120, healDir: $d, events: $events, modules: "-", models: "-", heal: "on", triage: (if $triage == "on" then "on" else "off" end),
+       rules: $rules, claudeBin: $bin, budgetCheck: $budget, triageModel: "fake", triageUrl: $turl, verifyCommand: $verify, cmd: $c, auto: ($dash + (if $autoreuse == "" then {} else {reuse: $autoreuse} end)), fmt: $dash,
        fast: (if $fast == "" then "" else "\($fast) && touch \($mark)" end),
        chain: (if $fast == "" then $c else ($c | map_values(if . == "" then . else "test -f \($mark) || \(.)" end)) end)}')" \
     | jq -r '.data.executionId // .executionId')"
@@ -148,6 +148,34 @@ CMD_compile='echo error: compile failed difficulty: hard; test -f compile.ok' TR
   scenario "$name" "compile haiku fix" "compile sonnet fix"
 expect "status=SUCCESS"; expect "compile:sonnet/low"
 grep -q ' haiku ' "$dir/claude.log" && fail "$name: haiku was called for a hard failure"
+
+name="give up"
+# five attempts at compile in the last week, none fixed: the healer does not try again; the same five a month ago do not count
+now="$(date -u +%Y-%m-%dT%H:%M:%SZ)" old="$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)"
+for ts in "$now" "$old"; do
+  : >"$dir/events.jsonl"
+  for i in 1 2 3 4 5; do
+    jq -nc --arg ts "$ts" '{v: 1, ts: $ts, run: "x", event: "fix", stage: "compile", attempt: 1, model: "haiku", fixed: false, summary: "it did not work"}' >>"$dir/events.jsonl"
+  done
+  EVENTS="$dir/events.jsonl" CMD_compile='test -f compile.ok' scenario "$name ($ts)" "compile haiku fix"
+  if [[ "$ts" == "$now" ]]; then
+    expect "status=FAILED"; [[ "$(calls)" == 0 ]] || fail "$name: expected no claude call, got $(calls)"
+  else
+    expect "status=SUCCESS"; expect "compile:haiku/high"
+  fi
+done
+
+name="reuse free fix"
+# the free fix makes reuse pass: no model is asked, and the run says healed=reuse:auto
+AUTO_reuse='touch reuse.ok' CMD_reuse='test -f reuse.ok' scenario "$name" "reuse haiku fix" "reuse sonnet fix"
+expect "status=SUCCESS"; expect "healed=reuse:auto"
+[[ "$(calls)" == 0 ]] || fail "$name: expected no claude call, got $(calls)"
+
+name="reuse free fix cannot"
+# the free fix does not help: the model gets one attempt (reuse is a single-attempt stage), no more
+AUTO_reuse='true' CMD_reuse='test -f reuse.ok' scenario "$name" "reuse haiku nochange" "reuse sonnet fix"
+expect "status=FAILED"; expect "failed_node=reuse"
+[[ "$(calls)" == 1 ]] || fail "$name: expected 1 claude call, got $(calls)"
 
 name="reuse auto fix"
 if command -v reuse >/dev/null; then

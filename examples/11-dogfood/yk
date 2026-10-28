@@ -223,8 +223,17 @@ watch_owned() {
   local e="$2" w
   cmd_watch "$@" &
   w=$!
-  trap "trap - INT TERM; kill $w 2>/dev/null; echo 'interrupted: stopping $e and the runs below it' >&2; api POST '/api/executions/$e/stop?tree=true' >/dev/null 2>&1; exit 130" INT TERM
+  trap "trap - INT TERM; kill $w 2>/dev/null; echo 'interrupted: stopping $e and the runs below it' >&2; api POST '/api/executions/$e/stop?tree=true' >/dev/null 2>&1; record_stopped '$1' '$e'; exit 130" INT TERM
   wait "$w"
+}
+
+# record_stopped SESSION EXECUTION: the result event of a run its client stopped (the watch that would have written it is gone), so the
+# run does not vanish from the log. Best effort: the progress it can still read, else an empty one.
+record_stopped() {
+  local progress
+  progress="$("$(find_cli)" -o json workflow status "$1" "$2" 2>/dev/null | jq -c '(.data // .)' 2>/dev/null)" || progress=""
+  [[ -n "$progress" ]] || progress='{"tasks":[]}'
+  emit_result "$1" "$2" STOPPED - - "$progress" || true
 }
 
 # cmd_watch SESSION EXECUTION [--all|--stages]: follows a run until it ends, problems only (--all: every event; --stages: also one

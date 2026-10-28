@@ -304,6 +304,56 @@ class RuleSupervisorTest {
   }
 
   @Test
+  void supervise_nodeCommandOnEventWithoutNode_isIgnored() {
+    final var rules =
+        supervisor(
+            """
+            {"rules":[{"id":"p","when":{"event":"WorkflowStatusChanged"},
+              "then":{"command":"PauseNode"}}]}
+            """);
+
+    assertThat(
+            run(
+                rules,
+                new ExecutionEvent.WorkflowStatusChanged("e1", "wf", "FAILURE", Instant.now())))
+        .isEmpty();
+  }
+
+  @Test
+  void supervise_restartFromNodeOnEventWithoutNode_stillMatches() {
+    final var rules =
+        supervisor(
+            """
+            {"rules":[{"id":"r","when":{"event":"WorkflowStatusChanged"},
+              "then":{"command":"RestartFromNode","from":"START"}}]}
+            """);
+
+    assertThat(
+            run(
+                rules,
+                new ExecutionEvent.WorkflowStatusChanged("e1", "wf", "FAILURE", Instant.now())))
+        .hasSize(1);
+  }
+
+  @Test
+  void supervise_manyCountedExecutions_forgetsTheOldestMatches() {
+    final var rules =
+        supervisor(
+            """
+            {"rules":[{"id":"c","when":{"status":"FAILURE","count":2},
+              "then":{"command":"PauseWorkflow"}}]}
+            """);
+    final var events = new ExecutionEvent[1100];
+    for (int i = 0; i < events.length; i++) {
+      events[i] = node("e" + i, "FAILURE", Map.of());
+    }
+
+    // one match per run never reaches the count of 2, and the first run's match is forgotten
+    assertThat(run(rules, events)).isEmpty();
+    assertThat(run(rules, node("e0", "FAILURE", Map.of()))).isEmpty();
+  }
+
+  @Test
   void supervise_otherEventKinds_exposeTheirFields() {
     final var rules =
         supervisor(

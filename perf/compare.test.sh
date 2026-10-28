@@ -11,12 +11,12 @@ trap 'rm -rf "$work"' EXIT
 failures=0
 echo '{"mapper": {"p50": 57, "p99": 120}}' >"$work/baseline.json"
 
-# summary MEDIAN P99 [SUCCESS] [STUCK] [LOST]: a k6 summary for the workflow "mapper"
+# summary MEDIAN P99 [SUCCESS] [STUCK] [LOST] [TEARDOWN_ERRORS]: a k6 summary for the workflow "mapper"
 summary() {
-  jq -n --argjson med "$1" --argjson p99 "$2" --argjson ok "${3:-1}" --argjson stuck "${4:-0}" --argjson lost "${5:-0}" '{metrics: {
+  jq -n --argjson med "$1" --argjson p99 "$2" --argjson ok "${3:-1}" --argjson stuck "${4:-0}" --argjson lost "${5:-0}" --argjson blind "${6:-0}" '{metrics: {
     "workflow_e2e{wf:mapper}": {med: $med, "p(95)": 999, "p(99)": $p99},
     workflow_success: {rate: $ok}, "workflow_success{wf:mapper}": {rate: $ok},
-    stuck_runs: {count: $stuck}, tracker_events_lost: {count: $lost}}}'
+    stuck_runs: {count: $stuck}, teardown_errors: {count: $blind}, tracker_events_lost: {count: $lost}}}'
 }
 
 # run NAME WANT_EXIT WANT_TEXT: compare.py on $work/report, printing what it flagged
@@ -49,6 +49,8 @@ expect_critical=$(jq -r '.[0].severity' "$work/findings.json")
 [ "$expect_critical" = Critical ] || { echo "FAIL stuck runs are Critical, got $expect_critical"; failures=$((failures + 1)); }
 summary 57 118 1 0 2 >"$work/report/summary.json"
 run "lost tracker events fail" 1 "lost tracker events"
+summary 57 118 1 0 0 1 >"$work/report/summary.json"
+run "a stuck-run check that could not look fails" 1 "stuck-run checks that could not look"
 
 # The p95 is not checked: a wild p95 with a good median and p99 passes.
 summary 57 118 >"$work/report/summary.json"

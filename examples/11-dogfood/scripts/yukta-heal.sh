@@ -49,7 +49,8 @@ emit() {
     mkdir -p "$(dirname "$events")"
     jq -nc --arg ev "$1" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg session "${YUKTA_SESSION_ID:--}" \
       --arg project "$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")" --argjson f "${2:-{\}}" \
-      '{v: 1, ts: $ts, run: "-", session: $session, project: $project, event: $ev} + $f' \
+      '{v: 1, ts: $ts, run: "-", session: $session, project: $project, event: $ev} + $f
+       | if $ev == "fix" and ((.summary // "") == "") then .summary = "no summary recorded" else . end' \
       | { flock 9; cat >>"$events"; } 9>>"$events.lock"
   } 2>/dev/null || true
 }
@@ -157,14 +158,16 @@ case "$action" in
   triage-log)
     # stdin: the message the triage routed. The classification is in its metadata; where a step sees it is not documented, so look
     # in the places it can be and keep the raw text of the first 300 characters for the report when none has it.
-    msg="$(cat)"
+    msg="${YUKTA_PAYLOAD:-}"
+    [[ -n "$msg" ]] || msg="$(cat)"
     t0="$(cat "$dir/$stage.triage-t0" 2>/dev/null || echo "$t_start")"
     emit triage "$(jq -nc --arg stage "$stage" --arg route "${YUKTA_TRIAGE_ROUTE:-}" --arg start "${YUKTA_TRIAGE_START:-}" --arg model "${YUKTA_TRIAGE_MODEL:-}" \
-      --arg secs "$(secs_since "$t0")" --arg raw "${msg:0:300}" --argjson m "$(jq -c '.' <<<"$msg" 2>/dev/null || echo null)" '
+      --arg secs "$(secs_since "$t0")" --arg raw "${msg:0:300}" --arg why "${YUKTA_METADATA_FAILURE_MESSAGE:-}" --argjson m "$(jq -c '.' <<<"$msg" 2>/dev/null || echo null)" '
       ($m | (.metadata.classification // .classification // .results[0].metadata.classification // {})) as $c
       | {stage: $stage, route: (if $route == "error" or $route == "uncertain" then $route else "level" end), label: ($c.label // (if $route == "error" or $route == "uncertain" then null else $route end)),
          p: ($c.probability // null), start: $start, model: $model, secs: ($secs | tonumber), chars: (($m.brief // "") | length),
-         fallback: (if $route == "error" or $route == "uncertain" then $route else null end), classification_seen: ($c != {}), raw: (if $c == {} then $raw else null end)}')"
+         fallback: (if $route == "error" or $route == "uncertain" then $route else null end), classification_seen: ($c != {}), raw: (if $c == {} then $raw else null end),
+         why: (if $why == "" then null else $why[0:500] end)}')"
     ;;
 
   record-auto)
@@ -193,6 +196,22 @@ case "$action" in
       if awk -v s="$spent" -v c="$YUKTA_BUDGET_CHECK" 'BEGIN { exit !(s >= c) }'; then
         echo "the budget of this check is spent: \$$spent of \$$YUKTA_BUDGET_CHECK (YUKTA_BUDGET_CHECK)" >&2
         exit 4
+      fi
+    fi
+    # a stage the healer has not fixed lately is not tried again: heal.json giveUp {minAttempts, maxFixRate, days} against the fix events of the log
+    # (attempts that never started say nothing about the fixer and do not count; the window is why a stage is tried again once its failures age out)
+    if [[ -n "${YUKTA_HEAL_EVENTS:-}" && -s "$YUKTA_HEAL_EVENTS" ]]; then
+      policy="$(jq -c '.giveUp // empty' "$(dirname "${BASH_SOURCE[0]}")/../heal.json" 2>/dev/null || true)"
+      if [[ -n "$policy" ]]; then
+        poor="$(jq -rs --arg stage "$stage" --argjson p "$policy" --arg since "$(date -u -d "-$(jq -r '.days' <<<"$policy") days" +%Y-%m-%dT%H:%M:%SZ)" '
+          [.[] | select(.event == "fix" and .stage == $stage and (.model // "") != "auto" and (.ts // "") >= $since
+                        and ((.summary // "") | startswith("the attempt did not start") | not))] as $a
+          | ($a | length) as $n | ($a | map(select(.fixed == true)) | length) as $k
+          | if $n >= $p.minAttempts and ($k / $n) <= $p.maxFixRate then "\($k) of \($n)" else empty end' "$YUKTA_HEAL_EVENTS" 2>/dev/null || true)"
+        if [[ -n "$poor" ]]; then
+          echo "giving up on $stage: the healer fixed $poor attempts in the last $(jq -r '.days' <<<"$policy") days (heal.json giveUp)" >&2
+          exit 4
+        fi
       fi
     fi
     snapshot >"$dir/$stage-$n.before"

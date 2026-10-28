@@ -14,7 +14,7 @@ export interface paths {
         put?: never;
         /**
          * Stop a specific execution
-         * @description Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)
+         * @description With tree=true also every unfinished run it started as a sub-workflow. Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)
          */
         post: operations["stopExecution"];
         delete?: never;
@@ -34,7 +34,7 @@ export interface paths {
         put?: never;
         /**
          * Stop a specific execution
-         * @description Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)
+         * @description With tree=true also every unfinished run it started as a sub-workflow. Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)
          */
         post: operations["stopExecution_1"];
         delete?: never;
@@ -134,7 +134,7 @@ export interface paths {
         put?: never;
         /**
          * Resume a workflow execution
-         * @description Resumes a specific paused workflow execution. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)
+         * @description Resumes a specific paused workflow execution; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)
          */
         post: operations["resumeWorkflow"];
         delete?: never;
@@ -154,9 +154,49 @@ export interface paths {
         put?: never;
         /**
          * Resume a workflow execution
-         * @description Resumes a specific paused workflow execution. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)
+         * @description Resumes a specific paused workflow execution; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)
          */
         post: operations["resumeWorkflow_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/executions/{executionId}/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recover an aborted workflow execution
+         * @description Continues a run that a server restart aborted as a new run: nodes that finished are replayed from their recorded output, the rest run again. Needs the file execution log and checkpoint directories. Answers 409 if the run was not aborted, was already resumed or its workflow changed.
+         */
+        post: operations["recoverExecution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workflow/{sessionId}/{executionId}/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recover an aborted workflow execution
+         * @description Continues a run that a server restart aborted as a new run: nodes that finished are replayed from their recorded output, the rest run again. Needs the file execution log and checkpoint directories. Answers 409 if the run was not aborted, was already resumed or its workflow changed.
+         */
+        post: operations["recoverExecution_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -174,7 +214,7 @@ export interface paths {
         put?: never;
         /**
          * Pause a workflow execution
-         * @description Pauses a specific workflow execution via global backpressure. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)
+         * @description Pauses a specific workflow execution via global backpressure; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)
          */
         post: operations["pauseWorkflow"];
         delete?: never;
@@ -194,7 +234,7 @@ export interface paths {
         put?: never;
         /**
          * Pause a workflow execution
-         * @description Pauses a specific workflow execution via global backpressure. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)
+         * @description Pauses a specific workflow execution via global backpressure; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)
          */
         post: operations["pauseWorkflow_1"];
         delete?: never;
@@ -547,6 +587,158 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sessionId}/workflows/{workflowId}/versions/note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Write or clear the note on a saved version */
+        post: operations["note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/{sessionId}/workflows/{workflowId}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Roll a workflow back to a saved version */
+        post: operations["rollback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a workflow
+         * @description Checks a draft workflow with the same rules as execution, without saving it. A failing draft is a 200 with valid=false. Also returns each node's output ports for its configuration, so an editor can offer the right edge ports.
+         */
+        post: operations["validateWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scheduler/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change the execution limits */
+        post: operations["changeLimits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/executions/{executionId}/priority": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the priority of a queued execution
+         * @description Rejected unless the execution is waiting for a slot
+         */
+        post: operations["changePriority"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/executions/{executionId}/nodes/{nodeId}/signal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a signal to a waiting node
+         * @description Releases or rejects a node that waits for the named signal, for example a WAIT_FOR_SIGNAL approval step. Answers 409 if the node is not waiting for it.
+         */
+        post: operations["signalNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/executions/{executionId}/nodes/{nodeId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a failed node
+         * @description Restarts the execution from a node that failed. Returns the new execution.
+         */
+        post: operations["retryNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/executions/{executionId}/nodes/{nodeId}/breakpoint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a breakpoint on a node
+         * @description Pauses the node when the given payload field equals the given value, for example field=payload.status&equals=error
+         */
+        post: operations["addBreakpoint"];
+        /** Clear a breakpoint on a node */
+        delete: operations["clearBreakpoint"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/workflows/{workflowId}/nodes/{nodeId}/command": {
         parameters: {
             query?: never;
@@ -562,6 +754,31 @@ export interface paths {
          */
         post: operations["sendCommand"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/drain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Drain state
+         * @description idle is true once nothing runs or waits
+         */
+        get: operations["drainStatus"];
+        put?: never;
+        /**
+         * Drain the server
+         * @description Refuses new starts (HTTP 429) while running ones carry on. Poll GET until idle is true, then swap the server; DELETE admits starts again. Admin keys only.
+         */
+        post: operations["drain"];
+        /** Stop draining the server */
+        delete: operations["undrain"];
         options?: never;
         head?: never;
         patch?: never;
@@ -656,9 +873,49 @@ export interface paths {
         };
         /**
          * Get workflow history
-         * @description Lists the executions of a session, newest first. A further page is announced in the X-Next-Cursor header.
+         * @description Lists the executions of a session, newest first. A further page is announced in the X-Next-Cursor header. Narrow it with workflowId, status, text (text in the execution id) and since/until (start time range, ISO date-time).
          */
         get: operations["getWorkflowHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List workers
+         * @description Lists the workers that are connected and keep their lease, ordered by id, with the pools they serve, the plugin types they may run, their capacity and the slots in use at their last heartbeat
+         */
+        get: operations["list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/supervisors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List supervisors
+         * @description Lists the supervisors and control-plane plugins running on the control bus, in review order, with how many commands each applied, had refused, only recorded (dry-run) or dropped (rate limit) since startup
+         */
+        get: operations["list_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -727,6 +984,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sessionId}/workflows/{workflowId}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the saved versions of a workflow
+         * @description Newest first; the newest 20 saves are kept
+         */
+        get: operations["versions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/{sessionId}/workflows/{workflowId}/versions/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare two versions of a workflow
+         * @description Nodes added, removed or changed, and edges added or removed
+         */
+        get: operations["diff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sessionId}/workflows/{workflowId}/graph": {
         parameters: {
             query?: never;
@@ -767,6 +1064,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sessionId}/executions/{executionId}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the result of an execution
+         * @description Returns what the terminal nodes received so far; complete is true once the execution ended. Answers 404 for an unknown execution or one of another session.
+         */
+        get: operations["streamResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sessionId}/executions/{executionId}/logs/entries": {
         parameters: {
             query?: never;
@@ -799,6 +1116,46 @@ export interface paths {
          * @description Streams stored log lines first, then live ones. Stops when the execution reaches a terminal state. Answers 404 for an unknown execution or one of another session.
          */
         get: operations["streamExecutionLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/{sessionId}/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get session configuration
+         * @description The full configuration of a session including tag values and workflow definitions, so an editor can change it and send it back with POST /api/sessions
+         */
+        get: operations["getSessionConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/{sessionId}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List pending approvals
+         * @description Lists the nodes of the session that wait for a signal now (for example WAIT_FOR_SIGNAL approval steps), oldest first. Answer one with the signal endpoint of its execution.
+         */
+        get: operations["pendingApprovals"];
         put?: never;
         post?: never;
         delete?: never;
@@ -867,6 +1224,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search runs across sessions
+         * @description Lists the runs of all sessions (or of sessionId), newest first, narrowed by workflowId, status, text (in the execution id) and since/until (start time, ISO date-time). The history of each session is bounded by yukta.execution-log.retained-runs.
+         */
+        get: operations["search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/executions/{executionId}/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the tree of runs below an execution
+         * @description The execution and every run it started as a sub-workflow, at any depth, oldest first, each with its parentExecutionId and status
+         */
+        get: operations["getTree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/executions/{executionId}/nodes/{nodeId}/output": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read part of the output of a node
+         * @description Returns numbered lines of what the node wrote: the tail, the head, a page (offset and limit, at most 500 lines) or only the lines matching a regular expression with context. Reports the total lines and bytes and whether lines were left out. 400 for a bad argument, 404 for an unknown execution or node.
+         */
+        get: operations["getOutput"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream execution events
+         * @description Live node and workflow status changes, control command outcomes and log lines of all executions, each with a severity (INFO, WARN, ERROR)
+         */
+        get: operations["stream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/edition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Show the edition
+         * @description Returns the edition of this build (COMMUNITY, PLUS or ENTERPRISE), its licence, the optional features it has and, where the licence asks for it, where the source is
+         */
+        get: operations["show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/workflows/{workflowId}/nodes": {
         parameters: {
             query?: never;
@@ -919,6 +1376,26 @@ export interface paths {
          * @description Lists all nodes currently registered on the Control Bus across all workflows
          */
         get: operations["getAllActiveNodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/control/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List control commands
+         * @description Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them
+         */
+        get: operations["list_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1156,6 +1633,120 @@ export interface components {
             errors?: components["schemas"]["FieldError"][];
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseMapStringString: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: {
+                [key: string]: string;
+            };
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseWorkflowValidationResult: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["WorkflowValidationResult"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        /** @description Result of validating a draft workflow without saving it */
+        WorkflowValidationResult: {
+            /** @description True when the workflow would be accepted */
+            valid?: boolean;
+            /** @description The first problem found; null when valid */
+            message?: string;
+            /** @description Output ports per node id, for the node's configuration */
+            outputPorts?: {
+                [key: string]: string[];
+            };
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseMapStringInteger: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: {
+                [key: string]: number;
+            };
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseNodeCommandResponse: {
             /**
              * Format: date-time
@@ -1192,6 +1783,41 @@ export interface components {
         NodeCommandResponse: {
             /** @description The node's reply */
             payload?: unknown;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseMapStringObject: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: {
+                [key: string]: unknown;
+            };
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
         };
         ServerSentEventWorkflowProgress: unknown;
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
@@ -1256,6 +1882,19 @@ export interface components {
             /** Format: date-time */
             endTime?: string;
             controlState?: string;
+            definitionVersion?: string;
+            parentExecutionId?: string;
+            rootExecutionId?: string;
+            restartOf?: string;
+        };
+        HistoryFilter: {
+            workflowId?: string;
+            status?: string;
+            text?: string;
+            /** Format: date-time */
+            since?: string;
+            /** Format: date-time */
+            until?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListWorkflowExecutionSummary: {
@@ -1300,14 +1939,118 @@ export interface components {
             status?: string;
             /**
              * Format: date-time
-             * @description The start time of the execution
+             * @description The start time of the execution, with the server's UTC offset
              */
             startTime?: string;
             /**
              * Format: date-time
-             * @description The end time of the execution
+             * @description The end time of the execution, with the server's UTC offset
              */
             endTime?: string;
+            /** @description The run that started this one as a sub-workflow, if any */
+            parentExecutionId?: string;
+            /** @description The top of this run's tree of runs (itself when it has no parent) */
+            rootExecutionId?: string;
+            /** @description The run this one restarts, if any */
+            restartOf?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListWorkerInfo: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["WorkerInfo"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        WorkerInfo: {
+            workerId?: string;
+            pools?: string[];
+            pluginTypes?: string[];
+            /** Format: int32 */
+            capacity?: number;
+            /** Format: int32 */
+            usedSlots?: number;
+            draining?: boolean;
+            /** Format: date-time */
+            registeredAt?: string;
+            /** Format: date-time */
+            leaseUntil?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListSupervisorInfo: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["SupervisorInfo"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        SupervisorInfo: {
+            id?: string;
+            kind?: string;
+            type?: string;
+            /** Format: int32 */
+            order?: number;
+            dryRun?: boolean;
+            /** Format: int32 */
+            maxCommandsPerSecond?: number;
+            /** Format: int64 */
+            applied?: number;
+            /** Format: int64 */
+            rejected?: number;
+            /** Format: int64 */
+            recorded?: number;
+            /** Format: int64 */
+            rateLimited?: number;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListString: {
@@ -1541,6 +2284,86 @@ export interface components {
             edges: components["schemas"]["Edge"][];
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListDefinitionRevision: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["DefinitionRevision"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        DefinitionRevision: {
+            id?: string;
+            /** Format: date-time */
+            savedAt?: string;
+            note?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseWorkflowDiff: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["WorkflowDiff"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        WorkflowDiff: {
+            descriptionChanged?: boolean;
+            addedNodes?: string[];
+            removedNodes?: string[];
+            changedNodes?: string[];
+            addedEdges?: string[];
+            removedEdges?: string[];
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseWorkflowGraph: {
             /**
              * Format: date-time
@@ -1622,8 +2445,117 @@ export interface components {
             /** @description The config-aware output port names for this node */
             outputPorts?: string[];
         };
+        ServerSentEventResultEvent: unknown;
+        ExecutionResults: {
+            executionId?: string;
+            complete?: boolean;
+            status?: string;
+            truncated?: boolean;
+            /** Format: int64 */
+            nextCursor?: number;
+            events?: components["schemas"]["ResultEvent"][];
+        };
+        ResultEvent: {
+            /** @enum {string} */
+            kind?: "RESULT" | "NODE_END" | "EXECUTION_END";
+            nodeId?: string;
+            /** Format: int64 */
+            sequence?: number;
+            payload?: unknown;
+            status?: string;
+            truncated?: boolean;
+            /** Format: date-time */
+            timestamp?: string;
+        };
         ServerSentEventLogEntryResponse: unknown;
         ServerSentEventString: unknown;
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseSessionConfigResponse: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["SessionConfigResponse"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        SessionConfigResponse: {
+            sessionId?: string;
+            name?: string;
+            description?: string;
+            initiator?: string;
+            tags?: {
+                [key: string]: string;
+            };
+            projectPath?: string;
+            workflows?: {
+                [key: string]: components["schemas"]["WorkflowDefinition"];
+            };
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListPendingApproval: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["PendingApproval"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        PendingApproval: {
+            executionId?: string;
+            workflowId?: string;
+            nodeId?: string;
+            name?: string;
+            /** Format: date-time */
+            since?: string;
+        };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListSessionListItem: {
             /**
@@ -1700,6 +2632,142 @@ export interface components {
             workflowCount?: number;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListHit: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["Hit"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        Hit: {
+            sessionId?: string;
+            executionId?: string;
+            workflowId?: string;
+            status?: string;
+            /** Format: date-time */
+            startTime?: string;
+            /** Format: date-time */
+            endTime?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseNodeOutputSlice: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["NodeOutputSlice"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        Line: {
+            /** Format: int64 */
+            number?: number;
+            text?: string;
+        };
+        NodeOutputSlice: {
+            nodeId?: string;
+            stream?: string;
+            /** Format: int64 */
+            totalLines?: number;
+            /** Format: int64 */
+            totalBytes?: number;
+            /** Format: int64 */
+            matchedLines?: number;
+            truncated?: boolean;
+            /** Format: int64 */
+            nextOffset?: number;
+            lines?: components["schemas"]["Line"][];
+        };
+        ServerSentEventEnvelope: unknown;
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseEditionInfo: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["EditionInfo"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        EditionInfo: {
+            /** @enum {string} */
+            edition?: "COMMUNITY" | "PLUS" | "ENTERPRISE";
+            license?: string;
+            features?: string[];
+            source?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseMessageObject: {
             /**
              * Format: date-time
@@ -1733,6 +2801,48 @@ export interface components {
             errors?: components["schemas"]["FieldError"][];
         };
         MessageObject: unknown;
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListControlAuditEntry: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["ControlAuditEntry"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        ControlAuditEntry: {
+            /** Format: date-time */
+            time?: string;
+            executionId?: string;
+            command?: string;
+            actor?: string;
+            applied?: boolean;
+            reason?: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -1744,7 +2854,10 @@ export type $defs = Record<string, never>;
 export interface operations {
     stopExecution: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Also the runs it started as sub-workflows, at any depth */
+                tree?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Execution ID */
@@ -1767,7 +2880,10 @@ export interface operations {
     };
     stopExecution_1: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Also the runs it started as sub-workflows, at any depth */
+                tree?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Execution ID */
@@ -1886,7 +3002,10 @@ export interface operations {
     };
     resumeWorkflow: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Also every unfinished run the execution started as a sub-workflow, at any depth */
+                tree?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Execution ID */
@@ -1908,6 +3027,57 @@ export interface operations {
         };
     };
     resumeWorkflow_1: {
+        parameters: {
+            query?: {
+                /** @description Also every unfinished run the execution started as a sub-workflow, at any depth */
+                tree?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Session ID */
+                sessionId: string;
+                /** @description Execution ID */
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
+                };
+            };
+        };
+    };
+    recoverExecution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
+                };
+            };
+        };
+    };
+    recoverExecution_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -1934,7 +3104,10 @@ export interface operations {
     };
     pauseWorkflow: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Also every unfinished run the execution started as a sub-workflow, at any depth */
+                tree?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Execution ID */
@@ -1957,7 +3130,10 @@ export interface operations {
     };
     pauseWorkflow_1: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Also every unfinished run the execution started as a sub-workflow, at any depth */
+                tree?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Session ID */
@@ -2362,7 +3538,10 @@ export interface operations {
     };
     stopWorkflow: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once */
+                mode?: "DRAIN" | "CANCEL" | "KILL";
+            };
             header?: never;
             path: {
                 /** @description Session ID */
@@ -2458,6 +3637,251 @@ export interface operations {
             };
         };
     };
+    note: {
+        parameters: {
+            query: {
+                /** @description Version id from the list */
+                version: string;
+                /** @description The note; blank clears it */
+                note?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The unique identifier of the session */
+                sessionId: string;
+                /** @description The unique identifier of the workflow */
+                workflowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMapStringString"];
+                };
+            };
+        };
+    };
+    rollback: {
+        parameters: {
+            query: {
+                /** @description Version id from the list */
+                version: string;
+            };
+            header?: never;
+            path: {
+                /** @description The unique identifier of the session */
+                sessionId: string;
+                /** @description The unique identifier of the workflow */
+                workflowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMapStringString"];
+                };
+            };
+        };
+    };
+    validateWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowDefinitionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseWorkflowValidationResult"];
+                };
+            };
+        };
+    };
+    changeLimits: {
+        parameters: {
+            query: {
+                /** @description Most executions running at once */
+                maxConcurrent: number;
+                /** @description Most executions of one workflow running at once */
+                maxPerWorkflow: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMapStringInteger"];
+                };
+            };
+        };
+    };
+    changePriority: {
+        parameters: {
+            query: {
+                /** @description New priority; higher runs first */
+                priority: number;
+            };
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
+                };
+            };
+        };
+    };
+    signalNode: {
+        parameters: {
+            query: {
+                /** @description Name of the signal the node waits for */
+                name: string;
+                /** @description Decision, for example approve or reject */
+                decision: string;
+                /** @description Optional text that goes with the decision */
+                data?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+                /** @description Node ID */
+                nodeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
+                };
+            };
+        };
+    };
+    retryNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+                /** @description Node ID */
+                nodeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
+                };
+            };
+        };
+    };
+    addBreakpoint: {
+        parameters: {
+            query: {
+                /** @description Field to compare, for example payload.status */
+                field: string;
+                /** @description Value that triggers the breakpoint */
+                equals: string;
+            };
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+                /** @description Node ID */
+                nodeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
+                };
+            };
+        };
+    };
+    clearBreakpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+                /** @description Node ID */
+                nodeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
+                };
+            };
+        };
+    };
     sendCommand: {
         parameters: {
             query?: never;
@@ -2483,6 +3907,66 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseNodeCommandResponse"];
+                };
+            };
+        };
+    };
+    drainStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMapStringObject"];
+                };
+            };
+        };
+    };
+    drain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMapStringObject"];
+                };
+            };
+        };
+    };
+    undrain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMapStringObject"];
                 };
             };
         };
@@ -2595,9 +4079,10 @@ export interface operations {
     };
     getWorkflowHistory: {
         parameters: {
-            query?: {
+            query: {
                 limit?: number;
                 cursor?: string;
+                filter: components["schemas"]["HistoryFilter"];
             };
             header?: never;
             path: {
@@ -2615,6 +4100,46 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListWorkflowExecutionSummary"];
+                };
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListWorkerInfo"];
+                };
+            };
+        };
+    };
+    list_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListSupervisorInfo"];
                 };
             };
         };
@@ -2690,6 +4215,61 @@ export interface operations {
             };
         };
     };
+    versions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The unique identifier of the session */
+                sessionId: string;
+                /** @description The unique identifier of the workflow */
+                workflowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListDefinitionRevision"];
+                };
+            };
+        };
+    };
+    diff: {
+        parameters: {
+            query: {
+                /** @description Older version id from the list */
+                from: string;
+                /** @description Newer version id; the current definition if omitted */
+                to?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The unique identifier of the session */
+                sessionId: string;
+                /** @description The unique identifier of the workflow */
+                workflowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseWorkflowDiff"];
+                };
+            };
+        };
+    };
     getWorkflowGraph: {
         parameters: {
             query?: never;
@@ -2739,6 +4319,39 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListWorkflowExecutionSummary"];
+                };
+            };
+        };
+    };
+    streamResults: {
+        parameters: {
+            query?: {
+                /** @description Only this terminal node (the execution-end event always comes) */
+                nodeId?: string;
+                /** @description nextCursor of an earlier read */
+                afterCursor?: number;
+            };
+            header?: {
+                "Last-Event-ID"?: string;
+            };
+            path: {
+                /** @description Session identifier */
+                sessionId: string;
+                /** @description Execution identifier */
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["ServerSentEventResultEvent"][];
+                    "application/json": components["schemas"]["ExecutionResults"];
                 };
             };
         };
@@ -2793,6 +4406,52 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": components["schemas"]["ServerSentEventString"][];
+                };
+            };
+        };
+    };
+    getSessionConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The unique identifier of the session */
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSessionConfigResponse"];
+                };
+            };
+        };
+    };
+    pendingApprovals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Session ID */
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListPendingApproval"];
                 };
             };
         };
@@ -2890,6 +4549,142 @@ export interface operations {
             };
         };
     };
+    search: {
+        parameters: {
+            query: {
+                sessionId?: string;
+                limit?: number;
+                filter: components["schemas"]["HistoryFilter"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListHit"];
+                };
+            };
+        };
+    };
+    getTree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListWorkflowExecutionSummary"];
+                };
+            };
+        };
+    };
+    getOutput: {
+        parameters: {
+            query?: {
+                /** @description stdout, stderr or all */
+                stream?: string;
+                /** @description The last N lines */
+                tail?: number;
+                /** @description The first N lines */
+                head?: number;
+                /** @description First line of a page, 0-based */
+                offset?: number;
+                /** @description Page size, default 50, at most 500 */
+                limit?: number;
+                /** @description Regular expression the lines must match */
+                grep?: string;
+                /** @description Context lines either side of a match, at most 20 */
+                context?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+                /** @description Node ID */
+                nodeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseNodeOutputSlice"];
+                };
+            };
+        };
+    };
+    stream: {
+        parameters: {
+            query?: {
+                /** @description Only events of this execution */
+                executionId?: string;
+                /** @description With executionId, also the events of the sub-workflow runs it started, at any depth */
+                tree?: boolean;
+                /** @description Only events of this kind */
+                type?: string;
+                /** @description Only events of this severity or above: INFO, WARN or ERROR */
+                severity?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["ServerSentEventEnvelope"][];
+                };
+            };
+        };
+    };
+    show: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseEditionInfo"];
+                };
+            };
+        };
+    };
     getActiveNodes: {
         parameters: {
             query?: never;
@@ -2951,6 +4746,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListString"];
+                };
+            };
+        };
+    };
+    list_2: {
+        parameters: {
+            query?: {
+                limit?: number;
+                executionId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListControlAuditEntry"];
                 };
             };
         };

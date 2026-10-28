@@ -202,7 +202,8 @@ class RulesFirstControlPlaneTest {
                     null,
                     null,
                     null,
-                    null)));
+                    null,
+                    0)));
 
     assertThat(plane.decide(EVENT).block().commands()).containsExactly(PAUSE);
     assertThat(asked).hasValue(0);

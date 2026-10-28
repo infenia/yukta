@@ -12,6 +12,7 @@ import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
+import reactor.test.scheduler.VirtualTimeScheduler;
 
 /** Tests for the behaviour described by {@link SignalWaits}. */
 @NoArgsConstructor
@@ -100,17 +101,25 @@ class SignalWaitsTest {
 
   @Test
   void await_middleWaitTimesOut_othersStillGetTheirSignals() {
-    final SignalWaits waits = new SignalWaits();
-    final var first = waits.await("e", "n", "ok", Duration.ofSeconds(5)).toFuture();
-    final var middle = waits.await("e", "n", "ok", Duration.ofMillis(50)).toFuture();
-    final var third = waits.await("e", "n", "ok", Duration.ofSeconds(5)).toFuture();
+    // virtual time: the 50 ms timeout fires when the test says so, not when a busy CPU lets it
+    final VirtualTimeScheduler time = VirtualTimeScheduler.getOrSet();
+    try {
+      final SignalWaits waits = new SignalWaits();
+      final var first = waits.await("e", "n", "ok", Duration.ofSeconds(5)).toFuture();
+      final var middle = waits.await("e", "n", "ok", Duration.ofMillis(50)).toFuture();
+      final var third = waits.await("e", "n", "ok", Duration.ofSeconds(5)).toFuture();
 
-    assertThat(middle).failsWithin(Duration.ofSeconds(2));
-    assertThat(answer(waits, "one")).isEqualTo(SignalWaits.ACCEPTED);
-    assertThat(answer(waits, "two")).isEqualTo(SignalWaits.ACCEPTED);
-    assertThat(first).isCompleted();
-    assertThat(third).isCompleted();
-    assertThat(answer(waits, "three")).isEqualTo(SignalWaits.NOT_WAITING);
+      time.advanceTimeBy(Duration.ofMillis(60));
+
+      assertThat(middle).isCompletedExceptionally();
+      assertThat(answer(waits, "one")).isEqualTo(SignalWaits.ACCEPTED);
+      assertThat(answer(waits, "two")).isEqualTo(SignalWaits.ACCEPTED);
+      assertThat(first).isCompleted();
+      assertThat(third).isCompleted();
+      assertThat(answer(waits, "three")).isEqualTo(SignalWaits.NOT_WAITING);
+    } finally {
+      VirtualTimeScheduler.reset();
+    }
   }
 
   @Test

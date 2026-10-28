@@ -151,7 +151,8 @@ class SystemOneModelTest {
 
     assertThatThrownBy(
             () -> new SystemOneModel(WebClient.builder()).answer(spec(), "s", questions()).block())
-        .hasMessageContaining("404");
+        .hasMessageContaining("404")
+        .hasMessageContaining("model not found");
   }
 
   @Test

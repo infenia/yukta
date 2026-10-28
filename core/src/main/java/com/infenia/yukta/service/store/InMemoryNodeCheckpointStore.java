@@ -13,6 +13,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -59,6 +61,20 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
 
   /** How deep maps and collections are measured before the rest counts as unknown. */
   private static final int MAX_DEPTH = 4;
+
+  /** How many cleared runs are remembered. */
+  private static final int REMEMBERED_CLEARED = 4096;
+
+  /** The runs cleared lately: a late message for one of them is dropped, not recorded again. */
+  private final Set<String> cleared =
+      Collections.newSetFromMap(
+          Collections.synchronizedMap(
+              new LinkedHashMap<>() {
+                @Override
+                protected boolean removeEldestEntry(final Map.Entry<String, Boolean> eldest) {
+                  return size() > REMEMBERED_CLEARED;
+                }
+              }));
 
   /** Map of execution ID to node ID to recorded output. */
   private final Map<String, Map<String, Recorded>> store = new ConcurrentHashMap<>();
@@ -175,13 +191,20 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
   public Mono<Void> save(final String executionId, final String nodeId, final Message<?> message) {
     return Mono.defer(
         () -> {
+          if (cleared.contains(executionId)) {
+            return Mono.empty();
+          }
           final Recorded recorded =
               store
                   .computeIfAbsent(executionId, _ -> new ConcurrentHashMap<>())
                   .computeIfAbsent(nodeId, _ -> new Recorded());
           final long size = sizeOf(message);
           final List<Message<?>> toSpill = new ArrayList<>();
+          Mono<Void> write = Mono.empty();
           synchronized (recorded) {
+            if (recorded.cleared) {
+              return Mono.empty();
+            }
             if (recorded.spilled) {
               toSpill.add(message);
             } else if (recorded.messages.size() < messagesPerNode
@@ -200,10 +223,42 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
               recorded.messages.clear();
               recorded.bytes = 0;
             }
+            if (!toSpill.isEmpty()) {
+              write = queueSpill(recorded, executionId, nodeId, toSpill);
+            }
           }
-          return Flux.fromIterable(toSpill)
-              .concatMap(m -> spill.save(executionId, nodeId, m))
-              .then();
+          return write;
+        });
+  }
+
+  /**
+   * Queues a spill write behind the node's earlier ones, so the file keeps the order of emission
+   * even though each write runs on its own thread. Called with the node's lock held. The queue
+   * forgets a write once it is done, so it never grows with the output.
+   */
+  @SuppressWarnings("PMD.CompareObjectsWithEquals") // identity: is this write still the last one
+  private Mono<Void> queueSpill(
+      final Recorded recorded,
+      final String executionId,
+      final String nodeId,
+      final List<Message<?>> messages) {
+    final Mono<Void> mine =
+        recorded
+            .spillTail
+            .onErrorResume(_ -> Mono.empty())
+            .then(
+                Flux.fromIterable(messages)
+                    .concatMap(m -> spill.save(executionId, nodeId, m))
+                    .then())
+            .cache();
+    recorded.spillTail = mine;
+    return mine.doFinally(
+        _ -> {
+          synchronized (recorded) {
+            if (recorded.spillTail == mine) {
+              recorded.spillTail = Mono.empty();
+            }
+          }
         });
   }
 
@@ -265,9 +320,19 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
     if (spill != null) {
       spill.clear(executionId);
     }
+    cleared.add(executionId);
     final Map<String, Recorded> removed = store.remove(executionId);
     if (removed != null) {
-      removed.values().forEach(recorded -> held.addAndGet(-recorded.bytes));
+      removed
+          .values()
+          .forEach(
+              recorded -> {
+                synchronized (recorded) {
+                  recorded.cleared = true;
+                  held.addAndGet(-recorded.bytes);
+                  recorded.bytes = 0;
+                }
+              });
     }
   }
 
@@ -304,5 +369,11 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
 
     /** True once the output moved to the spill store. */
     private boolean spilled;
+
+    /** True once the run was cleared: a message that arrives now is late and is dropped. */
+    private boolean cleared;
+
+    /** The last queued spill write, so the next one starts after it. */
+    private Mono<Void> spillTail = Mono.empty();
   }
 }
