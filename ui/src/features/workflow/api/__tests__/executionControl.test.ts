@@ -6,6 +6,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import {
   nodeAction,
+  recoverExecution,
   restartFromNode,
   stopNode,
   unskipNode,
@@ -90,6 +91,11 @@ describe('executionControl api', () => {
   it('unskips a node', async () => {
     await unskipNode('e1', 'n1');
     expect(calls).toEqual(['/api/executions/e1/nodes/n1/skip?skip=false']);
+  });
+
+  it('recovers an aborted run', async () => {
+    expect(await recoverExecution('e 1')).toEqual({ executionId: 'e1' });
+    expect(calls).toEqual(['recover e 1']);
   });
 
   it('calls node actions including the nested step paths', async () => {

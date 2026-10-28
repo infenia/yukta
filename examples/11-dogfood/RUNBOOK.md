@@ -29,7 +29,7 @@ How to run the dogfood check, watch heal work and improve it. The design is in [
 1. **Run it.** `yk check` (or let the Stop hook do it). Nothing to configure: events are on by default.
 2. **Look.** `yk heal report --since 7d`. Read it top to bottom: *where the time goes*, the stage table (a slow stage is a slow
    check, not a heal problem), the heals (solved at which rung), the triage block, the cost per rung, the failures that came back.
-3. **Find what is wrong.** `yk heal analyze`. Each rule names a cause (README "Monitoring heal"). For one run: `yk heal show --run <id>`.
+3. **Find what is wrong.** `yk heal analyze`. Each rule names a cause (README "Monitoring heal"). `heal-ledger.json` maps a rule to its GitHub issue: an open one prints `tracked in #N` and does not fail the command, a closed one is quiet until the rule fires again on events after the close (`REGRESSION`). Map a new finding to its issue there. For one run: `yk heal show --run <id>`.
 4. **Fix it, and measure.**
    - triage falls back or is slow: `yk heal show | jq 'select(.event == "triage")'` (`error`, `raw`), `ollama ps`, `journalctl -u ollama`;
      shorten the brief (`yukta-heal.sh brief`, caps in `eval/triage/eval.py`);
@@ -64,6 +64,7 @@ For issue runs: `YUKTA_IMPL_MODEL` (opus), `YUKTA_IMPL_BUDGET` (5), `YUKTA_BUDGE
 
 ```bash
 scripts/test-hooks.sh eval/triage/selftest.sh   # offline: the Claude Code hooks, the triage evaluation
+scripts/test-stats.sh                            # offline: yk stats reads the heal events and its counts match them
 scripts/test-yk.sh                              # on the dev server: a stopped foreground yk stops its run, --detach outlives, --stages
 scripts/test-heal.sh                            # on the dev server (yk up), against a fake claude and a fake Ollama: about a minute, no API cost
 ```

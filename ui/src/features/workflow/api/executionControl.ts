@@ -52,6 +52,11 @@ export function runAction(
   return post<StartResponse>(api`/api/executions/${executionId}/${action}`);
 }
 
+/** Continues an ABORTED run as a new run; finished nodes are replayed from their recorded output. */
+export function recoverExecution(executionId: string): Promise<StartResponse> {
+  return post<StartResponse>(api`/api/executions/${executionId}/recover`);
+}
+
 export function restartFromNode(
   executionId: string,
   nodeId: string

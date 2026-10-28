@@ -9,6 +9,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
@@ -23,7 +24,7 @@ import reactor.core.publisher.Mono;
 
 /** Tests for ControlBusController. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyStaticImports"})
+@SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyStaticImports", "PMD.AvoidDuplicateLiterals"})
 class ControlBusControllerTest {
 
   /** First test node identifier. */
@@ -45,7 +46,10 @@ class ControlBusControllerTest {
   void setUp() {
     controlBusGateway = mock(ControlBusGateway.class);
     final ControlBusController controller = new ControlBusController(controlBusGateway);
-    webClient = WebTestClient.bindToController(controller).build();
+    webClient =
+        WebTestClient.bindToController(controller)
+            .controllerAdvice(new GlobalExceptionHandler())
+            .build();
   }
 
   @Test
@@ -84,6 +88,22 @@ class ControlBusControllerTest {
             .isEqualTo("ok")
             .returnResult();
     assertThat(result.getStatus().value()).isEqualTo(200);
+  }
+
+  @Test
+  void testGetLastHeartbeatWithNoHeartbeatIsNotFound() {
+    doReturn(null).when(controlBusGateway).getLastHeartbeat("wf1", "n1");
+
+    final var result =
+        webClient
+            .get()
+            .uri("/api/control/workflows/wf1/nodes/n1/heartbeat")
+            .exchange()
+            .expectStatus()
+            .isNotFound()
+            .expectBody()
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(404);
   }
 
   @Test

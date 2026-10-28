@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/lib/apiClient';
 import {
   nodeAction,
+  recoverExecution,
   restartFromNode,
   runAction,
   startWorkflow,
@@ -61,6 +62,22 @@ export function useExecutionControl(sessionId: string, workflowId: string) {
         executionId: string;
         action: RunAction;
       }) => runAction(executionId, action),
+    }),
+    recover: useMutation({
+      onSuccess: () =>
+        Promise.all([
+          onSuccess(),
+          queryClient.invalidateQueries({
+            queryKey: [
+              'sessions',
+              sessionId,
+              'workflows',
+              workflowId,
+              'executions',
+            ],
+          }),
+        ]),
+      mutationFn: (executionId: string) => recoverExecution(executionId),
     }),
     stopAll: useMutation({
       onSuccess,

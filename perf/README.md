@@ -86,7 +86,7 @@ the default set. Their runs may end `FAILURE` or `STOPPED`; `workflow_success` c
 
 | Check | Fails when |
 |---|---|
-| `stuck_runs`, `tracker_events_lost` | not 0 |
+| `stuck_runs`, `teardown_errors`, `tracker_events_lost` | not 0 (`teardown_errors`: the history call of the stuck-run check did not answer 200, so it could not look) |
 | success rate | below 99%, overall or per workflow |
 | median latency per workflow | above baseline x 1.25 + 25 ms |
 | p99 latency per workflow | above baseline x 1.30 + 25 ms |
