@@ -52,7 +52,7 @@ public class ProcessExecutorGateway {
    * nohup}). Null elsewhere, where only the descendants are found. A child that calls {@code
    * setsid} itself still escapes.
    */
-  private static final String SETSID = findSetsid();
+  private static final String SETSID = findSetsid(System.getProperty("os.name", ""));
 
   /** Pids of the processes started under {@link #SETSID}: each is also its group id. */
   private final Set<Long> groupLeaders = ConcurrentHashMap.newKeySet();
@@ -212,7 +212,8 @@ public class ProcessExecutorGateway {
               log.atDebug().setMessage("Starting process: {}").addArgument(actualCommand).log();
               // an unknown command is left unwrapped, so it still fails to start (IOException)
               // instead of becoming setsid's exit code 127
-              final boolean grouped = SETSID != null && isExecutable(actualCommand.get(0));
+              final boolean grouped =
+                  groupable(SETSID, actualCommand.get(0), System.getenv().getOrDefault("PATH", ""));
               final List<String> launch =
                   grouped
                       ? Stream.concat(Stream.of(SETSID), actualCommand.stream()).toList()
@@ -236,11 +237,7 @@ public class ProcessExecutorGateway {
               }
               processBuilder.redirectErrorStream(!spec.captureStderr());
               final Process started = processBuilder.start();
-              if (grouped) {
-                final long pid = started.pid();
-                groupLeaders.add(pid);
-                started.onExit().thenRun(() -> groupLeaders.remove(pid));
-              }
+              track(started, grouped);
               return started;
             })
         .subscribeOn(Schedulers.boundedElastic());
@@ -574,19 +571,34 @@ public class ProcessExecutorGateway {
         .subscribeOn(Schedulers.boundedElastic());
   }
 
+  /** Records a process started under setsid as a group leader until it exits. */
+  /* default */ void track(final Process started, final boolean grouped) {
+    if (grouped) {
+      final long pid = started.pid();
+      groupLeaders.add(pid);
+      started.onExit().thenRun(() -> groupLeaders.remove(pid));
+    }
+  }
+
+  /** Whether a command is started under setsid: setsid exists and the command is runnable. */
+  /* default */ static boolean groupable(
+      final String setsid, final String command, final String path) {
+    return setsid != null && isExecutable(command, path);
+  }
+
   /**
    * Whether a command name or path resolves to an executable file (PATH search for a bare name).
    */
-  private static boolean isExecutable(final String command) {
+  /* default */ static boolean isExecutable(final String command, final String path) {
     if (command.contains("/")) {
       return Files.isExecutable(Path.of(command));
     }
-    return Stream.of(System.getenv().getOrDefault("PATH", "").split(File.pathSeparator))
+    return Stream.of(path.split(File.pathSeparator))
         .anyMatch(dir -> !dir.isEmpty() && Files.isExecutable(Path.of(dir, command)));
   }
 
-  private static String findSetsid() {
-    if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux")) {
+  /* default */ static String findSetsid(final String osName) {
+    if (!osName.toLowerCase(Locale.ROOT).contains("linux")) {
       return null;
     }
     return Stream.of("/usr/bin/setsid", "/bin/setsid")
@@ -597,8 +609,13 @@ public class ProcessExecutorGateway {
 
   /** Sends a signal to a whole process group, best effort. */
   private static void signalGroup(final String signal, final long groupId) {
+    signalGroup(signal, groupId, "sh");
+  }
+
+  /* default */ static void signalGroup(
+      final String signal, final long groupId, final String shell) {
     try {
-      new ProcessBuilder("sh", "-c", "kill -" + signal + " -" + groupId)
+      new ProcessBuilder(shell, "-c", "kill -" + signal + " -" + groupId)
           .redirectErrorStream(true)
           .start()
           .waitFor(1, TimeUnit.SECONDS);
