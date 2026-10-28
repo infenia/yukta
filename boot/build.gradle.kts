@@ -83,6 +83,8 @@ dependencies {
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.actuator)
+    // OTLP export of traces and metrics; off until management.otlp.*.endpoint/url is set (application.yaml)
+    implementation(libs.spring.boot.starter.opentelemetry)
 
     // Dev-only dependencies (automatically excluded from native image but made explicit for clarity)
     developmentOnly(libs.spring.boot.devtools)
