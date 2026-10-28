@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.infenia.yukta.validation.ProjectPath;
 import com.infenia.yukta.validation.SessionId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
@@ -66,5 +68,18 @@ public record ConfigRequest(
   public ConfigRequest {
     tags = tags == null ? Map.of() : Map.copyOf(tags);
     workflows = workflows != null ? Map.copyOf(workflows) : Map.of();
+  }
+
+  /**
+   * Whether every workflow is keyed by its own workflow ID; the session stores them by that ID.
+   *
+   * @return false if a map key differs from the workflow ID inside its definition
+   */
+  @JsonIgnore
+  @Schema(hidden = true)
+  @AssertTrue(message = "Each workflows key must equal the workflowId of its definition")
+  public boolean isWorkflowsKeyedById() {
+    return workflows.entrySet().stream()
+        .allMatch(e -> e.getKey().equals(e.getValue().workflowId()));
   }
 }
