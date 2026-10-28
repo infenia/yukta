@@ -32,6 +32,9 @@ public class NodePolicies {
   /** Header of a routed message: class of the exception that ended the last attempt. */
   public static final String FAILURE_EXCEPTION_HEADER = "failure.exception";
 
+  /** Header of a routed message: the error text that ended the last attempt. */
+  public static final String FAILURE_MESSAGE_HEADER = "failure.message";
+
   /** Header of a routed message: when it failed (ISO-8601). */
   public static final String FAILURE_TIME_HEADER = "failure.time";
 
@@ -164,6 +167,7 @@ public class NodePolicies {
         .withFailure(nodeId, "PROCESSING_FAILED", String.valueOf(error))
         .withHeader(FAILURE_ATTEMPTS_HEADER, attempts)
         .withHeader(FAILURE_EXCEPTION_HEADER, error.getClass().getName())
+        .withHeader(FAILURE_MESSAGE_HEADER, String.valueOf(error))
         .withHeader(FAILURE_TIME_HEADER, Instant.now().toString())
         .withSourcePort(NodePolicy.ERROR_PORT);
   }
