@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Yukta CodeQL config
+
+# Temporary (#1345): NodeOutputPager takes a caller's grep pattern on purpose (capped at 200
+# characters, each line matched within a time budget), which CodeQL reports as java/regex-injection.
+# Remove this entry once the alerts are dismissed.
+paths-ignore:
+  - core/src/main/java/com/infenia/yukta/logging/api/NodeOutputPager.java
