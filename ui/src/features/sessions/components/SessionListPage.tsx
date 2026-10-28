@@ -189,12 +189,16 @@ export function SessionListPage() {
                           key={row.id}
                           tabIndex={0}
                           onClick={() =>
-                            navigate(`/sessions/${row.original.sessionId}`)
+                            navigate(
+                              `/sessions/${encodeURIComponent(row.original.sessionId)}`
+                            )
                           }
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
-                              navigate(`/sessions/${row.original.sessionId}`);
+                              navigate(
+                                `/sessions/${encodeURIComponent(row.original.sessionId)}`
+                              );
                             }
                           }}
                           className="cursor-pointer focus-visible:-outline-offset-2"
