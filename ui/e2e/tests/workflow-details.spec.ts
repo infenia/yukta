@@ -233,6 +233,46 @@ test.describe('Workflow Details Page', () => {
     expect(text).not.toContain('Initializing workflow engine');
   });
 
+  test('pages and downloads the results of a finished run', async ({
+    page,
+    mockWorkflowApi,
+  }) => {
+    await mockWorkflowApi(page, {
+      progress: { ...defaultProgress, status: 'SUCCESS' },
+    });
+    await page.route('**/api/sessions/*/executions/*/results*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          executionId: 'exec-091-qp-55',
+          complete: true,
+          status: 'SUCCESS',
+          truncated: false,
+          nextCursor: 2,
+          events: [0, 1].map((sequence) => ({
+            kind: 'RESULT',
+            nodeId: 'Persist_Results',
+            sequence,
+            payload: { rows: sequence },
+            status: null,
+            truncated: false,
+            timestamp: '2026-07-26T14:22:11Z',
+          })),
+        }),
+      })
+    );
+    await page.goto(WORKFLOW_URL);
+
+    await page.getByRole('tab', { name: 'results' }).click();
+    await expect(page.getByText('Persist_Results · #1')).toBeVisible();
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download JSON' }).click();
+    expect((await download).suggestedFilename()).toBe(
+      'results-exec-091-qp-55.json'
+    );
+  });
+
   test('renders the never-run state', async ({ page, mockWorkflowApi }) => {
     await mockWorkflowApi(page, { executions: [] });
     await page.goto(WORKFLOW_URL);
