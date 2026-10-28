@@ -26,7 +26,7 @@ export function SessionsPaginationFooter({
   const end = Math.min((pageIndex + 1) * pageSize, totalRows);
 
   return (
-    <div className="border-border bg-card text-on-surface-variant text-body-sm flex h-10 items-center justify-end gap-6 border-t px-4">
+    <div className="flex h-10 items-center justify-end gap-6 border-t border-border bg-card px-4 text-body-sm text-on-surface-variant">
       <div className="flex items-center gap-2">
         <span className="text-body-sm">Rows per page:</span>
         <DropdownMenu>
@@ -56,11 +56,11 @@ export function SessionsPaginationFooter({
         </DropdownMenu>
       </div>
 
-      <div className="border-outline-variant text-body-sm border-l pl-4">
+      <div className="border-l border-outline-variant pl-4 text-body-sm">
         {start}–{end} of {totalRows} items
       </div>
 
-      <div className="border-outline-variant flex gap-1 border-l pl-4">
+      <div className="flex gap-1 border-l border-outline-variant pl-4">
         <Button
           variant="ghost"
           size="sm"

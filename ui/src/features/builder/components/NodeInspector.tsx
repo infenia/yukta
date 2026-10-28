@@ -89,14 +89,14 @@ export function NodeInspector({
   return (
     <section className="flex flex-col gap-4" aria-label={`Node ${node.nodeId}`}>
       <header className="flex items-center gap-2">
-        <h2 className="text-on-surface text-headline-md">{node.nodeId}</h2>
-        <span className="text-on-surface-variant text-code-sm">
+        <h2 className="text-headline-md text-on-surface">{node.nodeId}</h2>
+        <span className="text-code-sm text-on-surface-variant">
           {node.type}
         </span>
         <button
           type="button"
           onClick={onRemove}
-          className="text-error text-label-sm ml-auto font-semibold"
+          className="ml-auto text-label-sm font-semibold text-error"
         >
           Remove node
         </button>
@@ -114,7 +114,7 @@ export function NodeInspector({
         <div className="flex flex-col gap-1">
           <label
             htmlFor="cfg-json"
-            className="text-on-surface text-label-sm font-semibold"
+            className="text-label-sm font-semibold text-on-surface"
           >
             Configuration (JSON)
           </label>
@@ -129,7 +129,7 @@ export function NodeInspector({
             }
           />
           {plugin.data?.usagePattern && (
-            <details className="text-on-surface-variant text-body-sm">
+            <details className="text-body-sm text-on-surface-variant">
               <summary className="cursor-pointer">Usage</summary>
               <div className="mt-1">
                 <CodeBlock code={plugin.data.usagePattern} label="usage" />
@@ -140,7 +140,7 @@ export function NodeInspector({
       )}
 
       <details>
-        <summary className="text-on-surface text-label-md cursor-pointer">
+        <summary className="cursor-pointer text-label-md text-on-surface">
           Error handling &amp; retries
         </summary>
         <div className="mt-3">

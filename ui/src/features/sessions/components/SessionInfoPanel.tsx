@@ -36,11 +36,11 @@ export function SessionInfoPanel({ session, actions }: SessionInfoPanelProps) {
   const label = 'text-label-sm text-on-surface-variant';
 
   return (
-    <header className="border-outline-variant bg-surface-container border-b px-4 py-6 sm:px-6">
+    <header className="border-b border-outline-variant bg-surface-container px-4 py-6 sm:px-6">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-headline-lg text-on-surface">{session.name}</h1>
-          <p className="text-code-sm text-on-surface-variant mt-1">
+          <p className="mt-1 text-code-sm text-on-surface-variant">
             Session ID: {session.sessionId}
           </p>
         </div>
@@ -50,7 +50,7 @@ export function SessionInfoPanel({ session, actions }: SessionInfoPanelProps) {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1.5fr]">
         <div className="space-y-1">
           <h3 className={label}>Description</h3>
-          <p className="text-body-md text-on-surface max-w-prose">
+          <p className="max-w-prose text-body-md text-on-surface">
             {session.description}
           </p>
         </div>
@@ -62,7 +62,7 @@ export function SessionInfoPanel({ session, actions }: SessionInfoPanelProps) {
               <Badge
                 key={tag}
                 variant="outline"
-                className="bg-secondary-container text-on-secondary-container text-label-sm"
+                className="bg-secondary-container text-label-sm text-on-secondary-container"
               >
                 {tag}
               </Badge>
@@ -73,10 +73,10 @@ export function SessionInfoPanel({ session, actions }: SessionInfoPanelProps) {
         <div className="space-y-1">
           <h3 className={label}>Initiator</h3>
           <div className="flex items-center gap-2">
-            <div className="bg-accent text-accent-foreground text-label-sm flex size-6 items-center justify-center rounded-full">
+            <div className="flex size-6 items-center justify-center rounded-full bg-accent text-label-sm text-accent-foreground">
               {initials}
             </div>
-            <p className="text-on-surface text-body-md">{session.initiator}</p>
+            <p className="text-body-md text-on-surface">{session.initiator}</p>
           </div>
         </div>
 
@@ -85,13 +85,13 @@ export function SessionInfoPanel({ session, actions }: SessionInfoPanelProps) {
           <button
             onClick={handleCopyPath}
             aria-label={copied ? 'Project path copied' : 'Copy project path'}
-            className="group border-border bg-card shadow-card hover:border-ring transition-standard flex w-full items-center justify-between rounded-lg border p-2"
+            className="group flex w-full items-center justify-between rounded-lg border border-border bg-card p-2 shadow-card transition-standard hover:border-ring"
           >
-            <code className="text-code-sm text-on-surface truncate pr-4">
+            <code className="truncate pr-4 text-code-sm text-on-surface">
               {session.projectPath}
             </code>
             <span
-              className="material-symbols-outlined group-hover:text-primary text-sm transition-colors"
+              className="material-symbols-outlined text-sm transition-colors group-hover:text-primary"
               aria-hidden="true"
               style={{ color: copied ? 'var(--color-primary)' : undefined }}
             >

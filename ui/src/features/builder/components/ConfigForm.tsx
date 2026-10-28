@@ -183,7 +183,7 @@ export function ConfigForm({
         <div key={field.name} className="flex flex-col gap-1">
           <label
             htmlFor={`${scope}-${field.name}`}
-            className="text-label-sm text-on-surface font-semibold"
+            className="text-label-sm font-semibold text-on-surface"
           >
             {field.name}
             {field.required && <span className="text-error"> *</span>}

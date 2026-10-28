@@ -27,6 +27,12 @@ const router = createBrowserRouter([
         }),
       },
       {
+        path: 'sessions/import',
+        lazy: async () => ({
+          Component: (await import('@/features/builder/components/SessionImportPage')).SessionImportPage,
+        }),
+      },
+      {
         path: 'sessions/:sessionId/edit',
         lazy: async () => ({
           Component: (await import('@/features/builder/components/SessionFormPage')).SessionFormPage,

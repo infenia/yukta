@@ -30,9 +30,9 @@ export function WorkflowGrid({
         <h2 className="text-headline-md text-on-surface">
           Associated Workflows ({workflows.length})
         </h2>
-        <div className="border-border bg-card shadow-card focus-within:border-ring transition-standard flex w-full items-center gap-2 rounded-lg border px-3 py-1.5 sm:w-auto">
+        <div className="flex w-full items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 shadow-card transition-standard focus-within:border-ring sm:w-auto">
           <span
-            className="material-symbols-outlined text-on-surface-variant text-sm"
+            className="material-symbols-outlined text-sm text-on-surface-variant"
             aria-hidden="true"
           >
             search
@@ -42,7 +42,7 @@ export function WorkflowGrid({
             placeholder="Filter workflows..."
             value={filter}
             onChange={(e) => onFilterChange(e.target.value)}
-            className="text-body-md min-w-0 flex-1 border-none bg-transparent p-0 outline-none focus:ring-0"
+            className="min-w-0 flex-1 border-none bg-transparent p-0 text-body-md outline-none focus:ring-0"
           />
         </div>
       </div>

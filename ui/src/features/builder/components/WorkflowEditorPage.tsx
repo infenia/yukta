@@ -211,8 +211,8 @@ function Editor({
 
   return (
     <div className="flex flex-1 flex-col" data-testid="workflow-editor">
-      <div className="border-border flex flex-wrap items-center gap-3 border-b px-4 py-3 sm:px-6">
-        <h1 className="text-on-surface text-headline-lg">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 sm:px-6">
+        <h1 className="text-headline-lg text-on-surface">
           Edit {workflow.workflowId}
         </h1>
         <Input
@@ -265,7 +265,7 @@ function Editor({
       <div className="flex min-h-100 flex-1 flex-col lg:flex-row">
         <aside
           aria-label="Nodes and edges"
-          className="border-border flex w-full shrink-0 flex-col gap-4 border-b p-4 lg:w-80 lg:overflow-y-auto lg:border-r lg:border-b-0"
+          className="flex w-full shrink-0 flex-col gap-4 border-b border-border p-4 lg:w-80 lg:overflow-y-auto lg:border-r lg:border-b-0"
         >
           <div className="flex gap-2">
             <NativeSelect
@@ -298,14 +298,14 @@ function Editor({
                   type="button"
                   aria-current={n.nodeId === selected}
                   onClick={() => setSelected(n.nodeId)}
-                  className={`text-body-md transition-standard flex w-full items-baseline gap-2 rounded-lg px-3 py-2 text-left ${
+                  className={`flex w-full items-baseline gap-2 rounded-lg px-3 py-2 text-left text-body-md transition-standard ${
                     n.nodeId === selected
-                      ? 'bg-accent text-accent-foreground font-semibold'
+                      ? 'bg-accent font-semibold text-accent-foreground'
                       : 'text-on-surface hover:bg-muted'
                   }`}
                 >
                   {n.nodeId}
-                  <span className="text-on-surface-variant text-code-sm">
+                  <span className="text-code-sm text-on-surface-variant">
                     {n.type}
                   </span>
                 </button>
@@ -315,7 +315,7 @@ function Editor({
 
           <div className="flex flex-col gap-2">
             <h2 className="text-overline">Edges</h2>
-            <ul aria-label="Edges" className="text-body-md flex flex-col gap-1">
+            <ul aria-label="Edges" className="flex flex-col gap-1 text-body-md">
               {workflow.edges.map((e, index) => (
                 <li
                   key={`${e.source}-${e.target}-${e.sourcePort}`}
@@ -328,7 +328,7 @@ function Editor({
                   <button
                     type="button"
                     aria-label={`Remove edge ${e.source} to ${e.target}`}
-                    className="text-error text-body-sm ml-auto"
+                    className="ml-auto text-body-sm text-error"
                     onClick={() =>
                       update({
                         edges: workflow.edges.filter((_, i) => i !== index),
@@ -385,7 +385,7 @@ function Editor({
                 Add edge
               </button>
             </div>
-            <p className="text-on-surface-variant text-body-sm">
+            <p className="text-body-sm text-on-surface-variant">
               Validate to list a node&apos;s ports for its configuration.
             </p>
           </div>
@@ -404,7 +404,7 @@ function Editor({
 
         <aside
           aria-label="Node inspector"
-          className="border-border w-full shrink-0 border-t p-4 lg:w-96 lg:overflow-y-auto lg:border-t-0 lg:border-l"
+          className="w-full shrink-0 border-t border-border p-4 lg:w-96 lg:overflow-y-auto lg:border-t-0 lg:border-l"
         >
           {node ? (
             <JsonValidityContext.Provider value={reportJson}>
