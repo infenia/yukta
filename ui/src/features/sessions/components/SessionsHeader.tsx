@@ -18,7 +18,7 @@ export function SessionsHeader({ sessionCount, actions }: SessionsHeaderProps) {
         description={
           <>
             Manage and monitor active data orchestration environments.{' '}
-            <span className="font-semibold text-primary">
+            <span className="text-primary font-semibold">
               {sessionCount} session{sessionCount !== 1 ? 's' : ''}
             </span>{' '}
             found.

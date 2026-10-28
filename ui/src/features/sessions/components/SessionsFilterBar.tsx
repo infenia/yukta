@@ -46,14 +46,14 @@ function MultiFilter({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`${label} filter`}
-        className="flex h-10 items-center gap-2 border-l border-outline-variant px-4 text-label-sm text-on-surface-variant hover:bg-surface-container-high"
+        className="border-outline-variant text-label-sm text-on-surface-variant hover:bg-surface-container-high flex h-10 items-center gap-2 border-l px-4"
       >
         {selected.length > 0 ? `${label} · ${selected.length}` : label}
         <span className="material-symbols-outlined text-lg">{icon}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {options.length === 0 ? (
-          <div className="px-3 py-2 text-body-sm text-on-surface-variant">
+          <div className="text-body-sm text-on-surface-variant px-3 py-2">
             None in these sessions
           </div>
         ) : (
@@ -97,9 +97,9 @@ export function SessionsFilterBar({
 }: SessionsFilterBarProps) {
   return (
     <div className="px-4 pb-4 sm:px-6">
-      <div className="flex flex-wrap items-center gap-px overflow-hidden rounded-xl border border-outline-variant bg-surface-container">
-        <div className="flex h-10 min-w-75 flex-1 items-center bg-surface-container px-4 ring-primary focus-within:ring-1 focus-within:ring-inset">
-          <span className="material-symbols-outlined mr-3 text-on-surface-variant">
+      <div className="border-outline-variant bg-surface-container flex flex-wrap items-center gap-px overflow-hidden rounded-xl border">
+        <div className="ring-primary bg-surface-container flex h-10 min-w-[300px] flex-1 items-center px-4 focus-within:ring-1 focus-within:ring-inset">
+          <span className="material-symbols-outlined text-on-surface-variant mr-3">
             search
           </span>
           <input
@@ -108,7 +108,7 @@ export function SessionsFilterBar({
             value={globalFilter}
             onChange={(e) => onGlobalFilterChange(e.target.value)}
             aria-label="Search sessions by name or session ID"
-            className="w-full border-none bg-transparent text-body-md text-on-surface placeholder:text-outline focus:ring-0 focus:outline-hidden"
+            className="text-body-md text-on-surface placeholder:text-outline w-full border-none bg-transparent focus:ring-0 focus:outline-hidden"
           />
         </div>
 
@@ -133,7 +133,7 @@ export function SessionsFilterBar({
             type="button"
             onClick={onReset}
             aria-label="Reset filters"
-            className="flex h-10 items-center border-l border-outline-variant px-4 text-on-surface-variant transition-colors hover:bg-error-container/20 hover:text-error"
+            className="border-outline-variant text-on-surface-variant hover:bg-error-container/20 hover:text-error flex h-10 items-center border-l px-4 transition-colors"
           >
             <span className="material-symbols-outlined text-lg">
               restart_alt

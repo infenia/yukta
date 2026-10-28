@@ -52,37 +52,37 @@ export function WorkflowCard({ sessionId, workflow }: WorkflowCardProps) {
       <div className="mb-4 flex items-center justify-between gap-3">
         {/* Icon tile, as on the docs cards */}
         <span
-          className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground"
+          className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg"
           aria-hidden="true"
         >
           <span className="material-symbols-outlined">account_tree</span>
         </span>
         <span
-          className={`ml-auto inline-flex items-center gap-2 text-label-sm ${badgeClass}`}
+          className={`text-label-sm ml-auto inline-flex items-center gap-2 ${badgeClass}`}
         >
           <span aria-hidden className="size-2 rounded-full bg-current" />
           {badgeLabel}
         </span>
         <span
-          className="material-symbols-outlined text-on-surface-variant transition-standard group-hover:translate-x-1 group-hover:text-primary"
+          className="material-symbols-outlined text-on-surface-variant transition-standard group-hover:text-primary group-hover:translate-x-1"
           aria-hidden="true"
         >
           arrow_forward
         </span>
       </div>
 
-      <h3 className="mb-2 text-label-md break-all transition-standard group-hover:text-primary">
+      <h3 className="text-label-md transition-standard group-hover:text-primary mb-2 break-all">
         {workflow.workflowId}
       </h3>
 
-      <p className="mb-5 line-clamp-2 text-body-sm text-on-surface-variant">
+      <p className="text-body-sm text-on-surface-variant mb-5 line-clamp-2">
         {workflow.description}
       </p>
 
-      <div className="flex gap-4 text-body-sm text-on-surface">
+      <div className="text-body-sm text-on-surface flex gap-4">
         <div className="flex items-center gap-1.5">
           <span
-            className="material-symbols-outlined text-sm text-on-surface-variant"
+            className="material-symbols-outlined text-on-surface-variant text-sm"
             aria-hidden="true"
           >
             account_tree
@@ -91,7 +91,7 @@ export function WorkflowCard({ sessionId, workflow }: WorkflowCardProps) {
         </div>
         <div className="flex items-center gap-1.5">
           <span
-            className="material-symbols-outlined text-sm text-on-surface-variant"
+            className="material-symbols-outlined text-on-surface-variant text-sm"
             aria-hidden="true"
           >
             rebase_edit

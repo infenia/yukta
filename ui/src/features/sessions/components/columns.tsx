@@ -17,7 +17,7 @@ export const columns: LegacyColumnDef<SessionListItem>[] = [
           {row.original.sessionId}
         </div>
         {row.original.description && (
-          <div className="mt-0.5 max-w-md truncate text-body-sm text-on-surface-variant">
+          <div className="text-body-sm text-on-surface-variant mt-0.5 max-w-md truncate">
             {row.original.description}
           </div>
         )}
@@ -38,7 +38,7 @@ export const columns: LegacyColumnDef<SessionListItem>[] = [
           {tags.map((tag, index) => (
             <Badge
               key={`${tag}-${index}`}
-              className="bg-secondary-container px-2 text-label-sm text-on-surface"
+              className="text-label-sm bg-secondary-container text-on-surface px-2"
             >
               {tag}
             </Badge>

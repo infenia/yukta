@@ -59,7 +59,7 @@ export function SessionDetailsPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-0 bg-background">
+    <div className="bg-background flex flex-1 flex-col gap-0">
       <div>
         <SessionInfoPanel
           session={session}
