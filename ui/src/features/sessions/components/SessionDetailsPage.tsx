@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router';
-import { Button } from '@/components/ui/button';
+import { Link, useNavigate, useParams } from 'react-router';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useSessionDetails } from '../hooks/useSessionDetails';
 import { useSessionWorkflows } from '../hooks/useSessionWorkflows';
@@ -64,29 +64,44 @@ export function SessionDetailsPage() {
         <SessionInfoPanel
           session={session}
           actions={
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const id = new FormData(event.currentTarget).get('workflowId');
-                if (typeof id === 'string' && id.trim()) {
-                  navigate(
-                    `/sessions/${encodeURIComponent(session.sessionId)}/workflow/${encodeURIComponent(id.trim())}/edit`
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                to={`/sessions/${encodeURIComponent(session.sessionId)}/edit`}
+                className={buttonVariants({ variant: 'outline' })}
+              >
+                <span className="material-symbols-outlined text-base">
+                  edit
+                </span>
+                Edit
+              </Link>
+              <form
+                className="flex items-center gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const id = new FormData(event.currentTarget).get(
+                    'workflowId'
                   );
-                }
-              }}
-            >
-              <Input
-                name="workflowId"
-                aria-label="New workflow id"
-                placeholder="new-workflow-id"
-                className="w-48"
-              />
-              <Button type="submit" variant="outline">
-                <span className="material-symbols-outlined text-base">add</span>
-                New workflow
-              </Button>
-            </form>
+                  if (typeof id === 'string' && id.trim()) {
+                    navigate(
+                      `/sessions/${encodeURIComponent(session.sessionId)}/workflow/${encodeURIComponent(id.trim())}/edit`
+                    );
+                  }
+                }}
+              >
+                <Input
+                  name="workflowId"
+                  aria-label="New workflow id"
+                  placeholder="new-workflow-id"
+                  className="w-48"
+                />
+                <Button type="submit" variant="outline">
+                  <span className="material-symbols-outlined text-base">
+                    add
+                  </span>
+                  New workflow
+                </Button>
+              </form>
+            </div>
           }
         />
         <WorkflowGrid
