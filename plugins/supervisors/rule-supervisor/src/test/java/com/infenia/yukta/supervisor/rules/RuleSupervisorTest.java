@@ -320,6 +320,22 @@ class RuleSupervisorTest {
   }
 
   @Test
+  void supervise_restartFromNodeOnEventWithoutNode_stillMatches() {
+    final var rules =
+        supervisor(
+            """
+            {"rules":[{"id":"r","when":{"event":"WorkflowStatusChanged"},
+              "then":{"command":"RestartFromNode","from":"START"}}]}
+            """);
+
+    assertThat(
+            run(
+                rules,
+                new ExecutionEvent.WorkflowStatusChanged("e1", "wf", "FAILURE", Instant.now())))
+        .hasSize(1);
+  }
+
+  @Test
   void supervise_manyCountedExecutions_forgetsTheOldestMatches() {
     final var rules =
         supervisor(
