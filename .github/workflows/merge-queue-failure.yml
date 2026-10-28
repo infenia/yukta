@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Merge queue failure
+
+# A PR that fails its checks in the merge queue is removed from it silently: the checks run on a
+# temporary gh-readonly-queue/main/pr-N-<sha> branch, which the PR's Checks tab does not show.
+# This comments on the PR with the failed run so the reason is visible where the author looks.
+on:
+  workflow_run:
+    workflows: ["Java CI with Gradle"]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  comment:
+    name: Comment on the PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event.workflow_run.event == 'merge_group' && github.event.workflow_run.conclusion == 'failure'
+    steps:
+      - name: Comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          REPO: ${{ github.repository }}
+        run: |
+          pr="$(sed -nE 's#^gh-readonly-queue/[^/]+/pr-([0-9]+)-.*#\1#p' <<<"$BRANCH")"
+          [[ -n "$pr" ]] || { echo "no PR in branch $BRANCH"; exit 0; }
+          gh pr comment "$pr" --repo "$REPO" --body "Removed from the merge queue: the checks failed on the queued commit (the PR merged onto main), not on this PR's own commit. Failed run: $RUN_URL"
