@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.decision;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -22,6 +23,9 @@ public final class SystemOneModel implements DecisionModel {
 
   /** The endpoint, below the base URL. */
   private static final String PATH = "/v1/systemone";
+
+  /** Longest part of an error response body kept in the exception. */
+  private static final int ERROR_BODY_MAX = 500;
 
   /** Shared JSON mapper. */
   private static final JsonMapper JSON = JsonMapper.builder().build();
@@ -47,6 +51,19 @@ public final class SystemOneModel implements DecisionModel {
         .contentType(MediaType.APPLICATION_JSON)
         .bodyValue(JSON.writeValueAsString(request(spec, state, questions)))
         .retrieve()
+        .onStatus(
+            HttpStatusCode::isError,
+            response ->
+                response
+                    .bodyToMono(String.class)
+                    .defaultIfEmpty("")
+                    .map(
+                        body ->
+                            new IllegalStateException(
+                                "System One answered "
+                                    + response.statusCode()
+                                    + ": "
+                                    + body.substring(0, Math.min(body.length(), ERROR_BODY_MAX)))))
         .bodyToMono(String.class)
         .timeout(spec.timeout())
         .map(body -> parse(JSON.readTree(body), questions));

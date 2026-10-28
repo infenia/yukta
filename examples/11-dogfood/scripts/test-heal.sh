@@ -28,7 +28,7 @@ git -C "$proj" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
 
 cat >"$dir/claude" <<'SH'
 #!/usr/bin/env bash
-# fake claude: the plan file lists "<stage> <model> <fix|wrong|nochange>" lines; a call not in the plan is a nochange
+# fake claude: the plan file lists "<stage> <model> <fix|wrong|lie|nochange>" lines (lie: claims a fix, changes nothing); a call not in the plan is a nochange
 here="$(cd "$(dirname "$0")" && pwd)"
 prompt="" model=""
 while (($#)); do case "$1" in -p) prompt="$2"; shift 2 ;; --model) model="$2"; shift 2 ;; *) shift ;; esac; done
@@ -41,6 +41,7 @@ fixed=false
 case "${action:-nochange}" in
   fix) touch "$stage.ok"; fixed=true ;;
   wrong) echo wrong >>wrong.txt; fixed=true ;;
+  lie) fixed=true ;;
 esac
 echo "end $(date +%s.%N) $stage $model" >>"$here/claude.log"
 jq -nc --argjson f "$fixed" '{is_error: false, subtype: "success", total_cost_usd: 0.001,
@@ -49,7 +50,7 @@ SH
 chmod +x "$dir/claude"
 
 # scenario NAME PLAN-LINES... : sets $result to the RESULT line of a check of the project. The environment variables CMD_<stage>
-# (a stage command; compile, tests, reuse), EVENTS (the monitoring log, off by default), VERIFY (the verify command) and TRIAGE_URL choose the run.
+# (a stage command; compile, tests, reuse), EVENTS (the monitoring log, off by default), AUTO_reuse (the free fix of reuse), VERIFY (the verify command) and TRIAGE_URL choose the run.
 scenario() {
   local name="$1" session="test-heal-$$" names cmds exec_id status
   shift
@@ -63,11 +64,11 @@ scenario() {
   render_session "$here/session.json" "$proj" | jq --arg s "$session" '.sessionId=$s | .name=$s' >"$dir/session.json"
   "$cli" session apply "$dir/session.json" >"$dir/apply.out" 2>&1 || { cat "$dir/apply.out" >&2; fail "$name: session apply"; }
   exec_id="$("$cli" -o json workflow start "$session" check --payload "$(jq -nc --arg p "$proj" --arg d "$healdir" --arg bin "$dir/claude" \
-    --arg rules "$here/fixer-rules.md" --arg events "${EVENTS:--}" --arg verify "${VERIFY:-true}" --arg budget "${BUDGET_CHECK:--}" --arg fast "${FAST:-}" --arg mark "$healdir/fast.ok" --arg triage "${TRIAGE_URL:+on}" --arg turl "${TRIAGE_URL:-http://127.0.0.1:1}" \
+    --arg rules "$here/fixer-rules.md" --arg events "${EVENTS:--}" --arg autoreuse "${AUTO_reuse:-}" --arg verify "${VERIFY:-true}" --arg budget "${BUDGET_CHECK:--}" --arg fast "${FAST:-}" --arg mark "$healdir/fast.ok" --arg triage "${TRIAGE_URL:+on}" --arg turl "${TRIAGE_URL:-http://127.0.0.1:1}" \
     --argjson c "$cmds" --argjson n "$names" '
     ($n | map({(.): "-"}) | add) as $dash
     | {project: $p, timeout: 120, healDir: $d, events: $events, modules: "-", models: "-", heal: "on", triage: (if $triage == "on" then "on" else "off" end),
-       rules: $rules, claudeBin: $bin, budgetCheck: $budget, triageModel: "fake", triageUrl: $turl, verifyCommand: $verify, cmd: $c, auto: $dash, fmt: $dash,
+       rules: $rules, claudeBin: $bin, budgetCheck: $budget, triageModel: "fake", triageUrl: $turl, verifyCommand: $verify, cmd: $c, auto: ($dash + (if $autoreuse == "" then {} else {reuse: $autoreuse} end)), fmt: $dash,
        fast: (if $fast == "" then "" else "\($fast) && touch \($mark)" end),
        chain: (if $fast == "" then $c else ($c | map_values(if . == "" then . else "test -f \($mark) || \(.)" end)) end)}')" \
     | jq -r '.data.executionId // .executionId')"
@@ -99,6 +100,13 @@ name="escalation"
 CMD_compile='test -f compile.ok' scenario "$name" "compile haiku wrong" "compile sonnet fix"
 expect "status=SUCCESS"; expect "compile:sonnet/low"
 [[ "$(calls)" == 2 ]] || fail "$name: expected 2 claude calls, got $(calls)"
+# the model claimed a fix and the stage still failed: the record says so first, and keeps the model's words after it
+[[ "$(jq -r .summary "$healdir/compile-1.json")" == "NOT FIXED: the model claimed a fix but the stage still fails. The model said: fake" ]] || fail "$name: summary of the wrong fix: $(jq -r .summary "$healdir/compile-1.json")"
+
+name="claimed fix, nothing changed"
+CMD_compile='test -f compile.ok' scenario "$name" "compile haiku lie" "compile sonnet fix"
+expect "status=FAILED"; expect "failed_node=compile"
+[[ "$(jq -r .summary "$healdir/compile-1.json")" == "NOT FIXED, guard: claimed a fix but changed nothing. The model said: fake" ]] || fail "$name: summary: $(jq -r .summary "$healdir/compile-1.json")"
 
 name="single attempt"
 CMD_reuse='test -f reuse.ok' scenario "$name" "reuse haiku wrong" "reuse sonnet fix"
@@ -156,6 +164,18 @@ for ts in "$now" "$old"; do
     expect "status=SUCCESS"; expect "compile:haiku/high"
   fi
 done
+
+name="reuse free fix"
+# the free fix makes reuse pass: no model is asked, and the run says healed=reuse:auto
+AUTO_reuse='touch reuse.ok' CMD_reuse='test -f reuse.ok' scenario "$name" "reuse haiku fix" "reuse sonnet fix"
+expect "status=SUCCESS"; expect "healed=reuse:auto"
+[[ "$(calls)" == 0 ]] || fail "$name: expected no claude call, got $(calls)"
+
+name="reuse free fix cannot"
+# the free fix does not help: the model gets one attempt (reuse is a single-attempt stage), no more
+AUTO_reuse='true' CMD_reuse='test -f reuse.ok' scenario "$name" "reuse haiku nochange" "reuse sonnet fix"
+expect "status=FAILED"; expect "failed_node=reuse"
+[[ "$(calls)" == 1 ]] || fail "$name: expected 1 claude call, got $(calls)"
 
 name="reuse auto fix"
 if command -v reuse >/dev/null; then

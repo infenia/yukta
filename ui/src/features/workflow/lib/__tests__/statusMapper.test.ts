@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  isAbortedExecStatus,
   isTerminalExecStatus,
   toExecStatusCategory,
   toNodeStatusLabel,
@@ -123,5 +124,13 @@ describe('toDisplayExecStatus', () => {
   it('ignores non-pause control states and falls back to null', () => {
     expect(toDisplayExecStatus('RUNNING', 'RESUMED')).toBe('RUNNING');
     expect(toDisplayExecStatus(undefined, null)).toBeNull();
+  });
+});
+
+describe('isAbortedExecStatus', () => {
+  it('is true only for ABORTED', () => {
+    expect(isAbortedExecStatus('ABORTED')).toBe(true);
+    expect(isAbortedExecStatus('FAILURE')).toBe(false);
+    expect(isAbortedExecStatus(null)).toBe(false);
   });
 });

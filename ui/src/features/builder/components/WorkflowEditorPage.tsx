@@ -421,5 +421,12 @@ export function WorkflowEditorPage() {
     nodes: [],
     edges: [],
   };
-  return <Editor session={session.data} initial={initial} />;
+  // Keyed by route so moving to another workflow starts a fresh draft instead of keeping the old one.
+  return (
+    <Editor
+      key={`${sessionId}/${workflowId}`}
+      session={session.data}
+      initial={initial}
+    />
+  );
 }

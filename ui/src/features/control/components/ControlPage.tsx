@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { StateMessage } from '@/components/common/StateMessage';
 import { SupervisorsPanel } from './SupervisorsPanel';
 import { ControlAuditPanel } from './ControlAuditPanel';
+import { WorkersPanel } from './WorkersPanel';
 
 const getNodes = (workflowId: string) =>
   fetchApi<string[]>(
@@ -73,6 +74,7 @@ export function ControlPage() {
         }
       />
       <SupervisorsPanel />
+      <WorkersPanel />
       <ControlAuditPanel />
 
       {nodes.error ? (
