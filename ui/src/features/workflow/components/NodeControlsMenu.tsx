@@ -8,6 +8,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { NodeAction } from '../api/executionControl';
+import { useCopyCommand } from '../hooks/useCopyCommand';
+import { CopyAsMenu, type CopyChoice } from './CopyAsMenu';
 import type { NodeUiStatus } from '../types/workflow';
 
 export type NodeCommand = NodeAction | 'restart-from' | 'breakpoint' | 'breakpoint/clear';
@@ -37,20 +39,45 @@ export function NodeControlsMenu({
   status,
   onCommand,
   hasBreakpoint = false,
+  scope,
 }: {
   nodeId: string;
   status: NodeUiStatus;
   onCommand: (nodeId: string, command: NodeCommand) => void;
   /** Whether this tab set a breakpoint on the node, which adds Clear breakpoint. */
   hasBreakpoint?: boolean;
+  /** The session and run the node belongs to; with it the menu can copy the equivalent commands. */
+  scope?: { sessionId: string; executionId: string };
 }) {
+  const { status: copied, copy } = useCopyCommand();
   // Every status has at least one applicable action, so the menu is never empty.
   const items = ITEMS.filter((item) => item.when(status)).flatMap((item) =>
     item.command === 'breakpoint' && hasBreakpoint ? [item, CLEAR_BREAKPOINT] : [item]
   );
+  const choices: CopyChoice[] = scope
+    ? items.flatMap((item): CopyChoice[] => {
+        // breakpoints are local to this tab and have no CLI, curl or MCP form
+        if (item.command === 'breakpoint' || item.command === 'breakpoint/clear') return [];
+        return [
+          {
+            label: item.label,
+            action:
+              item.command === 'restart-from'
+                ? { kind: 'restartFromNode', ...scope, nodeId }
+                : { kind: 'node', verb: item.command, ...scope, nodeId },
+          },
+        ];
+      })
+    : [];
 
   return (
-    <DropdownMenu>
+    <>
+      {copied && (
+        <span role="status" className="text-label-sm text-on-surface-variant">
+          {copied === 'copied' ? 'Copied' : 'Copy failed'}
+        </span>
+      )}
+      <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`Actions for ${nodeId}`}
         className="flex size-6 items-center justify-center text-on-surface-variant hover:text-on-surface"
@@ -63,7 +90,9 @@ export function NodeControlsMenu({
             {item.label}
           </DropdownMenuItem>
         ))}
+        {scope && <CopyAsMenu choices={choices} onCopy={copy} />}
       </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenu>
+    </>
   );
 }

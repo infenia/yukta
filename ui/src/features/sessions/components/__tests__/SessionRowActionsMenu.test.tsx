@@ -222,6 +222,23 @@ describe('User Interactions', () => {
       );
     });
 
+    it('should navigate to the edit page when Edit is clicked', async () => {
+      const user = userEvent.setup();
+      const mockNavigate = vi.fn();
+      vi.mocked(useNavigate).mockReturnValue(mockNavigate);
+
+      render(
+        <BrowserRouter>
+          <SessionRowActionsMenu session={mockSession} />
+        </BrowserRouter>
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Session actions' }));
+      await user.click(await screen.findByText('Edit'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/sessions/nav-test-session/edit');
+    });
+
     it('should render menu and handle interaction', async () => {
       const user = userEvent.setup();
 

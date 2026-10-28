@@ -5,8 +5,13 @@ package com.infenia.yukta.filter;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.plugin.control.ControlActor;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.NoArgsConstructor;
@@ -189,6 +194,41 @@ class ApiKeyFilterTest {
       assertThat(seen).containsExactly(null, null, HttpStatus.TOO_MANY_REQUESTS);
     } finally {
       System.clearProperty("yukta.rate-limit-per-minute");
+    }
+  }
+
+  private static InetSocketAddress from(final int host) throws UnknownHostException {
+    return new InetSocketAddress(
+        InetAddress.getByAddress(new byte[] {10, 0, 0, (byte) host}), 5000);
+  }
+
+  @Test
+  void testFailedKeysFromOneAddress_get429_evenForGoodKeyThen() throws Exception {
+    System.setProperty("yukta.auth-failures-per-minute", "2");
+    try {
+      final ApiKeyFilter filter = new ApiKeyFilter("secret");
+      final InetSocketAddress guesser = from(1);
+      final InetSocketAddress other = from(2);
+      final List<HttpStatus> seen = new ArrayList<>();
+      for (final var attempt :
+          List.of(
+              Map.entry(guesser, "bad1"),
+              Map.entry(guesser, "bad2"),
+              Map.entry(guesser, "secret"),
+              Map.entry(other, "secret"))) {
+        final MockServerWebExchange exchange =
+            MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/x")
+                    .remoteAddress(attempt.getKey())
+                    .header("X-API-Key", attempt.getValue()));
+        filter.filter(exchange, _ -> Mono.empty()).block();
+        seen.add((HttpStatus) exchange.getResponse().getStatusCode());
+      }
+      assertThat(seen)
+          .containsExactly(
+              HttpStatus.UNAUTHORIZED, HttpStatus.UNAUTHORIZED, HttpStatus.TOO_MANY_REQUESTS, null);
+    } finally {
+      System.clearProperty("yukta.auth-failures-per-minute");
     }
   }
 

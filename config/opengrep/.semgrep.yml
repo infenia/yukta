@@ -8,9 +8,23 @@ rules:
     languages: [java]
     severity: ERROR
     message: >-
-      StandardEvaluationContext allows arbitrary type/method access from SpEL. Use
-      SimpleEvaluationContext, or suppress with a justification if the expression source is trusted.
-    pattern: new StandardEvaluationContext(...)
+      StandardEvaluationContext allows arbitrary type/method access from SpEL, and so does every
+      Expression.getValue overload that takes no EvaluationContext. Use SimpleEvaluationContext, or
+      suppress with a justification if the expression source is trusted.
+    pattern-either:
+      - pattern: new StandardEvaluationContext(...)
+      - pattern: |
+          class $C extends StandardEvaluationContext { ... }
+      # The overloads without an EvaluationContext evaluate with full standard access.
+      - pattern: (org.springframework.expression.Expression $E).getValue()
+      - pattern: (org.springframework.expression.Expression $E).getValue($T.class)
+      # getValue(root): the argument is the root object unless it is an evaluation context (judged by its text,
+      # as the types of an expression built elsewhere are not known here).
+      - patterns:
+          - pattern: (org.springframework.expression.Expression $E).getValue($ROOT)
+          - metavariable-regex:
+              metavariable: $ROOT
+              regex: '^(?![\s\S]*(?i:context|ctx))[\s\S]*$'
 
   - id: yukta-graalvm-host-access-all
     languages: [java]
@@ -26,15 +40,38 @@ rules:
     message: >-
       allowHostClassLookup with an always-true predicate lets scripts load any host class. Restrict
       the predicate to an allow-list.
-    pattern: $B.allowHostClassLookup($S -> true)
+    pattern-either:
+      - pattern: $B.allowHostClassLookup($S -> true)
+      - pattern: $B.allowHostClassLookup($S -> { return true; })
+      - pattern: $B.allowHostClassLookup(Predicates.alwaysTrue())
+      - pattern: $B.allowHostClassLookup(com.google.common.base.Predicates.alwaysTrue())
+
+  - id: yukta-graalvm-context-allow-all
+    languages: [java]
+    severity: ERROR
+    message: >-
+      This opens the guest script to the whole host (all access, process creation, native code or
+      the file system). Grant only what the script needs.
+    pattern-either:
+      - pattern: $B.allowAllAccess(true)
+      - pattern: $B.allowCreateProcess(true)
+      - pattern: $B.allowNativeAccess(true)
+      - pattern: $B.allowIO(IOAccess.ALL)
+      - pattern: $B.allowIO(true)
 
   - id: yukta-actuator-expose-all
     languages: [generic]
     paths:
-      include: ["*.yaml", "*.yml"]
+      include: ["*.yaml", "*.yml", "*.properties", "*.env", "*.conf", "*.sh", "*.json", "Dockerfile*", "docker-compose*"]
     severity: ERROR
     message: Exposing every actuator endpoint (include "*") leaks internals. List endpoints explicitly.
-    pattern-regex: 'include:\s*["'']\*["'']'
+    pattern-either:
+      # YAML: include: "*", include: '*', include: ["*"], include: [*]
+      - pattern-regex: 'include:\s*(["'']\*["'']|\[\s*["'']?\*["'']?\s*\])'
+      # .properties and system properties: management.endpoints.web.exposure.include=*
+      - pattern-regex: 'exposure\.include\s*[=:]\s*["'']?\*'
+      # environment form (compose, Dockerfile, shell): MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=*
+      - pattern-regex: 'EXPOSURE_INCLUDE["'']?\s*[=:]\s*["'']?\*'
 
   - id: yukta-test-thread-sleep
     languages: [java]

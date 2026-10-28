@@ -10,7 +10,7 @@ import { CATALOG, selected, sessionBody, sessionId } from './workflows.js';
 export const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 const API_KEY = __ENV.API_KEY || '';
 // Never send the key in clear text to a remote host.
-if (API_KEY && BASE_URL.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])[:/]?/.test(BASE_URL)) {
+if (API_KEY && !/^https:\/\//i.test(BASE_URL) && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/i.test(BASE_URL)) {
   throw new Error('API_KEY requires an https BASE_URL (or localhost)');
 }
 const POLL_OK = http.expectedStatuses(200, 404); // 404 right after start is counted in poll_not_found
@@ -29,6 +29,7 @@ export const rejected = new Rate('workflow_rejected'); // share of starts refuse
 export const lenientDone = new Counter('workflow_lenient_done');
 export const pollNotFound = new Counter('poll_not_found'); // run not queryable yet after its 202
 export const stuckRuns = new Counter('stuck_runs'); // runs still not final after GRACE
+export const teardownErrors = new Counter('teardown_errors'); // history lookups of teardown that did not answer 200
 export const trackerLost = new Counter('tracker_events_lost'); // state events the server dropped
 
 export const headers = { 'Content-Type': 'application/json' };
@@ -61,7 +62,12 @@ export function teardown(ctx) {
       let cursor = '';
       do {
         const r = http.get(`${BASE_URL}/api/workflow/${sessionId(name)}/history?status=RUNNING&limit=1000${cursor}`, { headers });
-        if (r.status !== 200) break;
+        if (r.status !== 200) {
+          // not knowing is not the same as nothing being stuck: count it, or stuck_runs passes without looking
+          teardownErrors.add(1);
+          console.error(`TEARDOWN ${name}: history answered ${r.status}`);
+          break;
+        }
         (stuck[name] = stuck[name] || []).push(...r.json('data').map((x) => x.executionId));
         const next = r.headers['X-Next-Cursor'];
         cursor = next ? `&cursor=${next}` : '';
@@ -124,6 +130,7 @@ export const thresholds = {
   workflow_success: ['rate>0.99'],
   workflow_rejected: [`rate<${__ENV.MAX_REJECTED || 0.01}`],
   stuck_runs: ['count==0'], // a run that never reached a final status
+  teardown_errors: ['count==0'], // stuck_runs could not look: the history endpoint did not answer 200
   tracker_events_lost: ['count==0'], // server dropped a status event
   dropped_iterations: ['count==0'], // generator ran out of VUs: results understate the load
 };

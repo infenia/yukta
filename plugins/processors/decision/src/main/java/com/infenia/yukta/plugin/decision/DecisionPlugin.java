@@ -30,6 +30,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @SuppressWarnings({
   "PMD.AvoidFieldNameMatchingMethodName",
+  "PMD.GodClass",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap"
 })
@@ -43,6 +44,21 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
 
   /** Config key: expression for what the model is asked about. */
   private static final String STATE = "state";
+
+  /** Value of {@code stateKeep} that keeps the start. */
+  private static final String HEAD = "head";
+
+  /** Value of {@code onOverflow} that cuts the state. */
+  private static final String TRUNCATE = "truncate";
+
+  /** Config key: most characters of the state the model sees. */
+  private static final String MAX_STATE_CHARS = "maxStateChars";
+
+  /** Config key: which part of a state over the cap is kept. */
+  private static final String STATE_KEEP = "stateKeep";
+
+  /** Config key: what to do with a state over the cap. */
+  private static final String ON_OVERFLOW = "onOverflow";
 
   /** Config key: the timeout in seconds. */
   private static final String TIMEOUT = "timeout";
@@ -106,11 +122,24 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
         () -> {
           require(config, "model");
           ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY);
+          validateStateLimits(config);
           if (backend(config) == ModelSpec.Backend.LLM) {
             require(config, "provider");
           }
           check(config);
         });
+  }
+
+  private static void validateStateLimits(final Map<String, Object> config) {
+    if (config.get(MAX_STATE_CHARS) != null
+        && MapUtils.convert(config.get(MAX_STATE_CHARS), Integer.class) < 1) {
+      throw new IllegalArgumentException(MAX_STATE_CHARS + " must be at least 1");
+    }
+    StateText.Keep.parse(string(config, STATE_KEEP, HEAD));
+    final String overflow = string(config, ON_OVERFLOW, TRUNCATE);
+    if (!TRUNCATE.equals(overflow) && !"fail".equals(overflow)) {
+      throw new IllegalArgumentException(ON_OVERFLOW + " must be truncate or fail");
+    }
   }
 
   @Override
@@ -155,6 +184,26 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
             TIMEOUT, ConfigField.Type.NUMBER, DEFAULT_TIMEOUT_SECONDS, "Timeout in seconds"),
         ConfigField.optional(
             STATE, ConfigField.Type.EXPRESSION, "payload", "Expression for what the model sees"),
+        ConfigField.optional(
+            MAX_STATE_CHARS,
+            ConfigField.Type.NUMBER,
+            StateText.MAX,
+            "Most characters the model sees (at most " + StateText.MAX + ")"),
+        ConfigField.choice(
+            STATE_KEEP,
+            false,
+            HEAD,
+            "Which part of a state over the cap is kept",
+            HEAD,
+            "tail",
+            "headTail"),
+        ConfigField.choice(
+            ON_OVERFLOW,
+            false,
+            TRUNCATE,
+            "truncate: cut a state over the cap; fail: reject the message",
+            TRUNCATE,
+            "fail"),
         ConfigField.optional(INTO, ConfigField.Type.STRING, into, "Metadata key for the result"),
         ConfigField.optional(
             ConfigValidation.CONCURRENCY_KEY,
@@ -220,7 +269,23 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
             : SpelUtils.evaluateSync(expression.toString(), message);
     final String text =
         value instanceof final String string ? string : JSON.writeValueAsString(value);
-    return StateText.truncate(text);
+    final int max = maxStateChars(config);
+    if (text.length() > max && "fail".equals(string(config, ON_OVERFLOW, TRUNCATE))) {
+      throw new WorkflowExecutionException(
+          "The state is "
+              + text.length()
+              + " characters, over maxStateChars "
+              + max
+              + " (onOverflow is fail)");
+    }
+    return StateText.truncate(text, max, StateText.Keep.parse(string(config, STATE_KEEP, HEAD)));
+  }
+
+  private static int maxStateChars(final Map<String, Object> config) {
+    final Object value = config.get(MAX_STATE_CHARS);
+    return value == null
+        ? StateText.MAX
+        : Math.min(StateText.MAX, MapUtils.convert(value, Integer.class));
   }
 
   /**
