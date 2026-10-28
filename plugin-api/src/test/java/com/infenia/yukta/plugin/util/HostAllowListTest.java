@@ -4,6 +4,8 @@ package com.infenia.yukta.plugin.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -133,10 +135,16 @@ class HostAllowListTest {
   }
 
   @Test
-  void metadataAddressMayBeAllowedByNameOnPurpose() {
+  void metadataAddressMayBeAllowedByNameOnPurpose() throws UnknownHostException {
     final HostAllowList listed = HostAllowList.from(List.of("169.254.169.254"));
 
     assertThat(listed.refusalFor("http://169.254.169.254/latest", "p")).isNull();
     assertThat(listed.refusalFor("http://169.254.169.253/", "p")).contains("link-local");
+
+    assertThat(HostAllowList.isMetadataAddress(InetAddress.getByName("169.254.169.254"))).isTrue();
+    assertThat(HostAllowList.isMetadataAddress(InetAddress.getByName("fe80::1"))).isTrue();
+    assertThat(HostAllowList.isMetadataAddress(InetAddress.getByName("fd00:ec2::254"))).isTrue();
+    assertThat(HostAllowList.isMetadataAddress(InetAddress.getByName("::ffff:a9fe:a9fe"))).isTrue();
+    assertThat(HostAllowList.isMetadataAddress(InetAddress.getByName("93.184.216.34"))).isFalse();
   }
 }
