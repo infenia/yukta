@@ -41,7 +41,7 @@ public class HostOriginFilter implements WebFilter {
   @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
   private static final Set<String> LOOPBACK = Set.of("localhost", "127.0.0.1", "[::1]");
 
-  /** Whether the check is on: it is, unless an API key is configured. */
+  /** Whether the check is on: it is while the REST API or MCP has no API key. */
   private final boolean enforced;
 
   /** Extra host names, lower case ({@code yukta.allowed-hosts}). */
@@ -68,7 +68,7 @@ public class HostOriginFilter implements WebFilter {
    */
   @Autowired
   public HostOriginFilter(final Environment environment, final ApiAuthenticator authenticator) {
-    this.enforced = authenticator.isOpen(Scope.MCP);
+    this.enforced = authenticator.isOpen(Scope.REST) || authenticator.isOpen(Scope.MCP);
     this.hosts = lowerCase(list(environment, "yukta.allowed-hosts"));
     this.origins = lowerCase(list(environment, "yukta.allowed-origins"));
   }
