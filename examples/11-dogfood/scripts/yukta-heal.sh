@@ -195,6 +195,22 @@ case "$action" in
         exit 4
       fi
     fi
+    # a stage the healer has not fixed lately is not tried again: heal.json giveUp {minAttempts, maxFixRate, days} against the fix events of the log
+    # (attempts that never started say nothing about the fixer and do not count; the window is why a stage is tried again once its failures age out)
+    if [[ -n "${YUKTA_HEAL_EVENTS:-}" && -s "$YUKTA_HEAL_EVENTS" ]]; then
+      policy="$(jq -c '.giveUp // empty' "$(dirname "${BASH_SOURCE[0]}")/../heal.json" 2>/dev/null || true)"
+      if [[ -n "$policy" ]]; then
+        poor="$(jq -rs --arg stage "$stage" --argjson p "$policy" --arg since "$(date -u -d "-$(jq -r '.days' <<<"$policy") days" +%Y-%m-%dT%H:%M:%SZ)" '
+          [.[] | select(.event == "fix" and .stage == $stage and (.model // "") != "auto" and (.ts // "") >= $since
+                        and ((.summary // "") | startswith("the attempt did not start") | not))] as $a
+          | ($a | length) as $n | ($a | map(select(.fixed == true)) | length) as $k
+          | if $n >= $p.minAttempts and ($k / $n) <= $p.maxFixRate then "\($k) of \($n)" else empty end' "$YUKTA_HEAL_EVENTS" 2>/dev/null || true)"
+        if [[ -n "$poor" ]]; then
+          echo "giving up on $stage: the healer fixed $poor attempts in the last $(jq -r '.days' <<<"$policy") days (heal.json giveUp)" >&2
+          exit 4
+        fi
+      fi
+    fi
     snapshot >"$dir/$stage-$n.before"
     # the working tree as it is now (the developer's own edits included), to diff this attempt against
     base="$(git stash create 2>/dev/null)"
