@@ -12,6 +12,8 @@ import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * End-to-end smoke test of the MCP endpoint: exercises the stateless streamable-HTTP transport with
@@ -77,6 +79,42 @@ class McpEndpointIntegrationTest {
         .doesNotContain("stream_session_logs")
         .doesNotContain("get_workflow_execution_logs");
     assertThat(response).contains("outputSchema").contains("readOnlyHint");
+  }
+
+  @Test
+  void testOutputSchemasAllowTheFieldsAnEmptyRunLacks() {
+    final JsonNode tools =
+        JsonMapper.builder()
+            .build()
+            .readTree(
+                callMcp("{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/list\",\"params\":{}}"))
+            .at("/result/tools");
+
+    for (final JsonNode tool : tools) {
+      final String name = tool.path("name").asString();
+      if ("get_workflow_status".equals(name) || "get_execution_tree".equals(name)) {
+        for (final String field : new String[] {"parentExecutionId", "restartOf", "endTime"}) {
+          assertThat(requiredNonNull(tool.path("outputSchema"), field))
+              .as("%s.%s must accept null", name, field)
+              .isFalse();
+        }
+      }
+    }
+  }
+
+  /** Whether some object in the schema lists {@code field} as required and does not allow null. */
+  private static boolean requiredNonNull(final JsonNode schema, final String field) {
+    boolean found = false;
+    final JsonNode property = schema.path("properties").path(field);
+    if (!property.isMissingNode()) {
+      final boolean required =
+          schema.path("required").valueStream().anyMatch(r -> field.equals(r.asString()));
+      found = required && !property.toString().contains("null");
+    }
+    for (final JsonNode child : schema) {
+      found = found || ((child.isObject() || child.isArray()) && requiredNonNull(child, field));
+    }
+    return found;
   }
 
   @Test

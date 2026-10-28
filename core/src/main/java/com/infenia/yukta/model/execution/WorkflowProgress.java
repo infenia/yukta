@@ -4,6 +4,7 @@ package com.infenia.yukta.model.execution;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.annotation.JsonSerialize;
 
 /** Represents the progress of a workflow. */
@@ -14,12 +15,12 @@ public record WorkflowProgress(
     String status,
     List<TaskProgress> tasks,
     @JsonSerialize(using = OffsetTimestampSerializer.class) LocalDateTime startTime,
-    @JsonSerialize(using = OffsetTimestampSerializer.class) LocalDateTime endTime,
-    String controlState,
-    String definitionVersion,
-    String parentExecutionId,
-    String rootExecutionId,
-    String restartOf) {
+    @JsonSerialize(using = OffsetTimestampSerializer.class) @Nullable LocalDateTime endTime,
+    @Nullable String controlState,
+    @Nullable String definitionVersion,
+    @Nullable String parentExecutionId,
+    @Nullable String rootExecutionId,
+    @Nullable String restartOf) {
 
   /**
    * Compact constructor to ensure immutability.

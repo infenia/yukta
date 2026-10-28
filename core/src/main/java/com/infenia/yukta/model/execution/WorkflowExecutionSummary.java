@@ -4,6 +4,7 @@ package com.infenia.yukta.model.execution;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
+import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.annotation.JsonSerialize;
 
 /**
@@ -26,14 +27,23 @@ public record WorkflowExecutionSummary(
     @Schema(description = "The start time of the execution, with the server's UTC offset")
         @JsonSerialize(using = OffsetTimestampSerializer.class)
         LocalDateTime startTime,
-    @Schema(description = "The end time of the execution, with the server's UTC offset")
+    @Schema(
+            description = "The end time of the execution, with the server's UTC offset",
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED)
         @JsonSerialize(using = OffsetTimestampSerializer.class)
-        LocalDateTime endTime,
-    @Schema(description = "The run that started this one as a sub-workflow, if any")
-        String parentExecutionId,
-    @Schema(description = "The top of this run's tree of runs (itself when it has no parent)")
-        String rootExecutionId,
-    @Schema(description = "The run this one restarts, if any") String restartOf) {
+        @Nullable LocalDateTime endTime,
+    @Schema(
+            description = "The run that started this one as a sub-workflow, if any",
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+        @Nullable String parentExecutionId,
+    @Schema(
+            description = "The top of this run's tree of runs (itself when it has no parent)",
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+        @Nullable String rootExecutionId,
+    @Schema(
+            description = "The run this one restarts, if any",
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+        @Nullable String restartOf) {
 
   /**
    * A summary of a run with no recorded place in a tree of runs.
