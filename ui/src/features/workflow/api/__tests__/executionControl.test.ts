@@ -7,6 +7,8 @@ import { http, HttpResponse } from 'msw';
 import {
   nodeAction,
   restartFromNode,
+  setBreakpoint,
+  clearBreakpoint,
   runAction,
   startWorkflow,
   stopWorkflow,
@@ -30,6 +32,15 @@ const server = setupServer(
   http.post('/api/executions/:id/restart/:node', ({ params }) => {
     calls.push(`restart-from ${params.id} ${params.node}`);
     return ok({ executionId: 'e2' });
+  }),
+  http.post('/api/executions/:id/nodes/:node/breakpoint', ({ request }) => {
+    const url = new URL(request.url);
+    calls.push(`POST ${url.pathname}${url.search}`);
+    return ok({ executionId: 'e1' });
+  }),
+  http.delete('/api/executions/:id/nodes/:node/breakpoint', ({ request }) => {
+    calls.push(`DELETE ${new URL(request.url).pathname}`);
+    return ok({ executionId: 'e1' });
   }),
   http.post('/api/executions/:id/nodes/*', ({ request }) => {
     calls.push(new URL(request.url).pathname);
@@ -63,6 +74,15 @@ describe('executionControl api', () => {
     await runAction('e1', 'pause');
     expect(await restartFromNode('e1', 'n 1')).toEqual({ executionId: 'e2' });
     expect(calls).toEqual(['pause e1', 'restart-from e1 n 1']);
+  });
+
+  it('sets a breakpoint with its field and value encoded, and clears it', async () => {
+    await setBreakpoint('e1', 'n 1', 'payload.status', 'a&b');
+    await clearBreakpoint('e1', 'n 1');
+    expect(calls).toEqual([
+      'POST /api/executions/e1/nodes/n%201/breakpoint?field=payload.status&equals=a%26b',
+      'DELETE /api/executions/e1/nodes/n%201/breakpoint',
+    ]);
   });
 
   it('calls node actions including the nested step paths', async () => {

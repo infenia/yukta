@@ -10,7 +10,7 @@ import {
 import type { NodeAction } from '../api/executionControl';
 import type { NodeUiStatus } from '../types/workflow';
 
-export type NodeCommand = NodeAction | 'restart-from';
+export type NodeCommand = NodeAction | 'restart-from' | 'breakpoint' | 'breakpoint/clear';
 
 const ITEMS: { command: NodeCommand; label: string; when: (s: NodeUiStatus) => boolean }[] = [
   { command: 'pause', label: 'Pause node', when: (s) => s === 'running' },
@@ -21,21 +21,33 @@ const ITEMS: { command: NodeCommand; label: string; when: (s: NodeUiStatus) => b
   { command: 'step/enable', label: 'Enable step mode', when: (s) => s === 'running' },
   { command: 'step', label: 'Step once', when: (s) => s === 'paused' },
   { command: 'step/disable', label: 'Disable step mode', when: (s) => s === 'paused' },
+  {
+    command: 'breakpoint',
+    label: 'Set breakpoint…',
+    when: (s) => s === 'pending' || s === 'running' || s === 'paused',
+  },
   { command: 'restart-from', label: 'Restart from here', when: (s) => s !== 'pending' },
 ];
+
+const CLEAR_BREAKPOINT = { command: 'breakpoint/clear', label: 'Clear breakpoint' } as const;
 
 /** Per-node actions, listing only those that make sense for the node's current status. */
 export function NodeControlsMenu({
   nodeId,
   status,
   onCommand,
+  hasBreakpoint = false,
 }: {
   nodeId: string;
   status: NodeUiStatus;
   onCommand: (nodeId: string, command: NodeCommand) => void;
+  /** Whether this tab set a breakpoint on the node, which adds Clear breakpoint. */
+  hasBreakpoint?: boolean;
 }) {
   // Every status has at least one applicable action, so the menu is never empty.
-  const items = ITEMS.filter((item) => item.when(status));
+  const items = ITEMS.filter((item) => item.when(status)).flatMap((item) =>
+    item.command === 'breakpoint' && hasBreakpoint ? [item, CLEAR_BREAKPOINT] : [item]
+  );
 
   return (
     <DropdownMenu>

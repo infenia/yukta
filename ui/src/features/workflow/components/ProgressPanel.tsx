@@ -54,6 +54,7 @@ export function ProgressPanel({
           graph={graph}
           tasksByNode={tasksByNode}
           onNodeCommand={onNodeCommand}
+          executionId={progress?.executionId ?? null}
         />
       </div>
     </aside>

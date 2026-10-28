@@ -49,6 +49,24 @@ export function restartFromNode(executionId: string, nodeId: string): Promise<St
   return post<StartResponse>(api`/api/executions/${executionId}/restart/${nodeId}`);
 }
 
+/** Pauses a node when `field` of its message equals `equals`, for example payload.status = error. */
+export function setBreakpoint(
+  executionId: string,
+  nodeId: string,
+  field: string,
+  equals: string
+): Promise<StartResponse> {
+  return post<StartResponse>(
+    `${api`/api/executions/${executionId}/nodes/${nodeId}/breakpoint`}?field=${encodeURIComponent(field)}&equals=${encodeURIComponent(equals)}`
+  );
+}
+
+export function clearBreakpoint(executionId: string, nodeId: string): Promise<StartResponse> {
+  return fetchApi<StartResponse>(api`/api/executions/${executionId}/nodes/${nodeId}/breakpoint`, {
+    method: 'DELETE',
+  });
+}
+
 export function nodeAction(executionId: string, nodeId: string, action: NodeAction) {
   // action is a closed union (step/enable has a slash), so it is appended unencoded.
   return post<StartResponse>(`${api`/api/executions/${executionId}/nodes/${nodeId}`}/${action}`);

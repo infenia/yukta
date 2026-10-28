@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { toNodeUiStatus, toTaskSequenceLabel } from '../lib/statusMapper';
 import { formatClockTime, formatDuration } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
+import { useBreakpoint } from '../context/BreakpointContext';
 import { NodeControlsMenu, type NodeCommand } from './NodeControlsMenu';
 import type {
   NodeUiStatus,
@@ -62,11 +63,14 @@ function TimingLine({
 function TaskSequenceItem({
   task,
   onNodeCommand,
+  executionId,
 }: {
   task: TaskProgress;
   onNodeCommand?: (nodeId: string, command: NodeCommand) => void;
+  executionId: string | null;
 }) {
   const status = toNodeUiStatus(task.status);
+  const breakpoint = useBreakpoint(executionId, task.nodeId);
   const dimmed = status === 'pending' || status === 'skipped';
   return (
     <li
@@ -88,6 +92,16 @@ function TaskSequenceItem({
           {STATUS_ICONS[status]}
         </span>
         <span className="text-on-surface text-label-md">{task.nodeId}</span>
+        {breakpoint && (
+          <span
+            className="material-symbols-outlined text-error text-base"
+            title={`${breakpoint.field} = ${breakpoint.equals}`}
+            aria-label={`Breakpoint: ${breakpoint.field} = ${breakpoint.equals}`}
+            role="img"
+          >
+            radio_button_checked
+          </span>
+        )}
         <span
           className={cn(
             'text-label-sm ml-auto font-semibold tracking-wider',
@@ -101,6 +115,7 @@ function TaskSequenceItem({
             nodeId={task.nodeId}
             status={status}
             onCommand={onNodeCommand}
+            hasBreakpoint={breakpoint !== undefined}
           />
         )}
       </div>
@@ -122,10 +137,13 @@ export function TaskSequenceList({
   graph,
   tasksByNode,
   onNodeCommand,
+  executionId = null,
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
   onNodeCommand?: (nodeId: string, command: NodeCommand) => void;
+  /** The run the tasks belong to; breakpoints are kept per run. */
+  executionId?: string | null;
 }) {
   const order =
     graph.topologicalOrder.length > 0
@@ -170,6 +188,7 @@ export function TaskSequenceList({
             key={task.nodeId}
             task={task}
             onNodeCommand={onNodeCommand}
+            executionId={executionId}
           />
         ))}
       </ul>
