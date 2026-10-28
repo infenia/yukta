@@ -1,15 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import {
-  describe,
-  it,
-  expect,
-  vi,
-  beforeAll,
-  afterAll,
-  afterEach,
-} from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
 import { useState } from 'react';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -20,13 +12,7 @@ import type { DraftNode } from '../../types';
 import { NodeInspector } from '../NodeInspector';
 
 const ok = (data: unknown) =>
-  HttpResponse.json({
-    timestamp: 't',
-    status: 200,
-    message: 'ok',
-    data,
-    path: '/',
-  });
+  HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data, path: '/' });
 
 const details = (type: string, extra: object = {}) => ({
   type,
@@ -44,23 +30,12 @@ const server = setupServer(
       return ok(
         details('WITH_SCHEMA', {
           configSchema: [
-            {
-              name: 'url',
-              type: 'STRING',
-              required: true,
-              defaultValue: null,
-              options: [],
-              description: '',
-            },
+            { name: 'url', type: 'STRING', required: true, defaultValue: null, options: [], description: '' },
           ],
         })
       );
     }
-    return ok(
-      details(String(params.type), {
-        usagePattern: 'Configuration Parameters: x',
-      })
-    );
+    return ok(details(String(params.type), { usagePattern: 'Configuration Parameters: x' }));
   })
 );
 
@@ -68,13 +43,7 @@ beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-function Harness({
-  initial,
-  onRemove = vi.fn(),
-}: {
-  initial: DraftNode;
-  onRemove?: () => void;
-}) {
+function Harness({ initial, onRemove = vi.fn() }: { initial: DraftNode; onRemove?: () => void }) {
   const [node, setNode] = useState(initial);
   return (
     <>
@@ -94,9 +63,7 @@ describe('NodeInspector', () => {
   it('renders the plugin form when the plugin declares a schema', async () => {
     const user = userEvent.setup();
     renderWithProviders(
-      <Harness
-        initial={{ nodeId: 'n1', type: 'WITH_SCHEMA', config: { url: 'a' } }}
-      />
+      <Harness initial={{ nodeId: 'n1', type: 'WITH_SCHEMA', config: { url: 'a' } }} />
     );
     const url = await screen.findByLabelText(/url/);
     await user.type(url, 'b');
@@ -105,9 +72,7 @@ describe('NodeInspector', () => {
 
   it('falls back to a JSON editor with the usage pattern when there is no schema', async () => {
     const user = userEvent.setup();
-    renderWithProviders(
-      <Harness initial={{ nodeId: 'n1', type: 'PLAIN', config: {} }} />
-    );
+    renderWithProviders(<Harness initial={{ nodeId: 'n1', type: 'PLAIN', config: {} }} />);
     const box = await screen.findByLabelText('Configuration (JSON)');
     expect(screen.getByText('Configuration Parameters: x')).toBeInTheDocument();
 
@@ -121,9 +86,7 @@ describe('NodeInspector', () => {
 
   it('omits the usage help when the plugin has none', async () => {
     server.use(http.get('/api/plugins/:type', () => ok(details('BARE'))));
-    renderWithProviders(
-      <Harness initial={{ nodeId: 'n1', type: 'BARE', config: {} }} />
-    );
+    renderWithProviders(<Harness initial={{ nodeId: 'n1', type: 'BARE', config: {} }} />);
     await screen.findByLabelText('Configuration (JSON)');
     expect(screen.queryByText('Usage')).not.toBeInTheDocument();
   });
@@ -143,18 +106,10 @@ describe('NodeInspector', () => {
     await user.click(screen.getByText(/Error handling/));
 
     await user.selectOptions(screen.getByLabelText('trigger'), 'ALL_DONE');
-    expect(config()).toBe(
-      '{"url":"a","engine":{"onError":"ROUTE","trigger":"ALL_DONE"}}'
-    );
+    expect(config()).toBe('{"url":"a","engine":{"onError":"ROUTE","trigger":"ALL_DONE"}}');
 
-    await user.selectOptions(
-      screen.getByLabelText('onError'),
-      'Default (FAIL)'
-    );
-    await user.selectOptions(
-      screen.getByLabelText('trigger'),
-      'Default (ALL_SUCCESS)'
-    );
+    await user.selectOptions(screen.getByLabelText('onError'), 'Default (FAIL)');
+    await user.selectOptions(screen.getByLabelText('trigger'), 'Default (ALL_SUCCESS)');
     expect(config()).toBe('{"url":"a"}');
   });
 
@@ -162,11 +117,7 @@ describe('NodeInspector', () => {
     const user = userEvent.setup();
     renderWithProviders(
       <Harness
-        initial={{
-          nodeId: 'n1',
-          type: 'PLAIN',
-          config: { engine: { trigger: 'ALL_DONE' } },
-        }}
+        initial={{ nodeId: 'n1', type: 'PLAIN', config: { engine: { trigger: 'ALL_DONE' } } }}
       />
     );
     const box = await screen.findByLabelText('Configuration (JSON)');
@@ -179,21 +130,14 @@ describe('NodeInspector', () => {
     const user = userEvent.setup();
     const onRemove = vi.fn();
     renderWithProviders(
-      <Harness
-        initial={{ nodeId: 'n1', type: 'PLAIN', config: {} }}
-        onRemove={onRemove}
-      />
+      <Harness initial={{ nodeId: 'n1', type: 'PLAIN', config: {} }} onRemove={onRemove} />
     );
-    await user.click(
-      await screen.findByRole('button', { name: 'Remove node' })
-    );
+    await user.click(await screen.findByRole('button', { name: 'Remove node' }));
     expect(onRemove).toHaveBeenCalled();
   });
 
   it('shows a loading state while the plugin loads', () => {
-    renderWithProviders(
-      <Harness initial={{ nodeId: 'n1', type: 'PLAIN', config: {} }} />
-    );
+    renderWithProviders(<Harness initial={{ nodeId: 'n1', type: 'PLAIN', config: {} }} />);
     expect(screen.getByText('Loading…')).toBeInTheDocument();
   });
 });
