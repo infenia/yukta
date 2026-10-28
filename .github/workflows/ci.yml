@@ -234,6 +234,9 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/opengrep" --version
 
+      - name: Test the OpenGrep rules (the cases next to config/opengrep/.semgrep.yml)
+        run: opengrep test config/opengrep
+
       - name: Spotless, Checkstyle, PMD, OpenGrep
         env:
           LINT_TASKS: ${{ needs.changes.outputs.lint }}
