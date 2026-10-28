@@ -15,6 +15,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Resolves names like the default resolver, but fails a name that resolves to a link-local or cloud
@@ -24,16 +25,21 @@ import java.util.List;
  */
 final class MetadataGuardResolver extends AddressResolverGroup<InetSocketAddress> {
 
-  /** The one instance; the group keeps no state. */
-  /* default */ static final MetadataGuardResolver INSTANCE = new MetadataGuardResolver();
+  /** The one instance, resolving with the system resolver; the group keeps no state. */
+  /* default */ static final MetadataGuardResolver INSTANCE =
+      new MetadataGuardResolver(DefaultNameResolver::new);
 
-  private MetadataGuardResolver() {
+  /** The name lookup is a parameter so tests can answer a name with a metadata address. */
+  private final Function<EventExecutor, InetNameResolver> lookup;
+
+  /* default */ MetadataGuardResolver(final Function<EventExecutor, InetNameResolver> lookup) {
     super();
+    this.lookup = lookup;
   }
 
   @Override
   protected AddressResolver<InetSocketAddress> newResolver(final EventExecutor executor) {
-    final DefaultNameResolver inner = new DefaultNameResolver(executor);
+    final InetNameResolver inner = lookup.apply(executor);
     return new InetSocketAddressResolver(
         executor,
         new InetNameResolver(executor) {
