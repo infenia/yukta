@@ -27,7 +27,7 @@ export class KeyedEventSource {
         headers: { Accept: 'text/event-stream', ...authHeaders() },
         signal: this.abort.signal,
       });
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 401) {
         requireApiKey();
       }
       if (!response.ok || !response.body) {
