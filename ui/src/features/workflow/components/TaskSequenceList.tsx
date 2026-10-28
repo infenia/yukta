@@ -45,14 +45,14 @@ function TimingLine({
   }
   if (status === 'running') {
     return (
-      <p className="text-on-surface-variant text-code-sm">
+      <p className="text-code-sm text-on-surface-variant">
         Start: {formatClockTime(task.startTime)}
         {'  '}Dur: {formatDuration(task.startTime, new Date().toISOString())}
       </p>
     );
   }
   return (
-    <p className="text-on-surface-variant text-code-sm">
+    <p className="text-code-sm text-on-surface-variant">
       Start: {formatClockTime(task.startTime)}
       {'  '}End: {formatClockTime(task.endTime)}
     </p>
@@ -82,17 +82,17 @@ function TaskSequenceItem({
         <span
           className={cn(
             'material-symbols-outlined text-base',
-            status === 'running' && 'text-primary animate-spin',
+            status === 'running' && 'animate-spin text-primary',
             status === 'completed' && 'text-success',
             status === 'failed' && 'text-error'
           )}
         >
           {STATUS_ICONS[status]}
         </span>
-        <span className="text-on-surface text-label-md">{task.nodeId}</span>
+        <span className="text-label-md text-on-surface">{task.nodeId}</span>
         <span
           className={cn(
-            'text-label-sm ml-auto font-semibold tracking-wider',
+            'ml-auto text-label-sm font-semibold tracking-wider',
             LABEL_CLASSES[status]
           )}
         >
@@ -107,7 +107,7 @@ function TaskSequenceItem({
           />
         )}
       </div>
-      <p className="text-on-surface-variant text-body-sm pl-6">
+      <p className="pl-6 text-body-sm text-on-surface-variant">
         module: {task.module}
       </p>
       <div className="pl-6">
@@ -169,7 +169,7 @@ export function TaskSequenceList({
 
   return (
     <div data-testid="task-sequence">
-      <h3 className="text-overline mb-2">Task sequence</h3>
+      <h3 className="mb-2 text-overline">Task sequence</h3>
       <ul className="flex flex-col">
         {tasks.map((task) => (
           <TaskSequenceItem
