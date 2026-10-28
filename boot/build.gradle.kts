@@ -107,6 +107,7 @@ tasks.withType<Test>().configureEach {
     providers.gradleProperty("dagSeed").orNull?.let { systemProperty("yukta.dag.seed", it) }
     providers.gradleProperty("yukta.plugins").orNull?.let { systemProperty("yukta.plugins", it) }
     providers.gradleProperty("yukta.bean-inventory.update").orNull?.let { systemProperty("yukta.bean-inventory.update", it) }
+    providers.gradleProperty("yukta.openapi.update").orNull?.let { systemProperty("yukta.openapi.update", it) }
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
