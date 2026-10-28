@@ -326,8 +326,8 @@ Checks that the tests would notice a change to the code, which coverage cannot s
 
 Pins Node and pnpm for the ui module and makes its tasks use them.
 
-- The versions come from the catalog: Node 24.13.1 and pnpm 10.30.1. The node-gradle plugin (7.1.0) downloads them into the project so every developer builds the UI with the same tools.
-- When the environment variable `CI` is set, downloading is turned off and the system Node is used. Reason: GitHub Actions already installs Node and pnpm through its own setup steps, and downloading again wastes time. Side effect: CI only asks for Node 24 (any minor) and pnpm 10.30.1 in the build job, but the E2E job asks for pnpm 10.
+- The versions come from the catalog: Node 24.13.1 and pnpm 12.16.1. The node-gradle plugin (7.1.0) downloads them into the project so every developer builds the UI with the same tools.
+- When the environment variable `CI` is set, downloading is turned off and the system Node is used. Reason: GitHub Actions already installs Node and pnpm through its own setup steps, and downloading again wastes time. Side effect: CI only asks for Node 24 (any minor) and pnpm 12.16.1 in the build job, but the E2E job asks for pnpm 12.
 - npm and yarn Gradle tasks are disabled, because the UI uses only pnpm. The ui module itself defines pnpmBuild, header validation and a package.json version check; its unit tests (pnpmTest) are defined but not wired into check (commented out in ui/build.gradle.kts).
 
 - **Guarantees.** Locally, the UI build always uses the pinned Node and pnpm. In CI, the pnpm version is pinned but the Node minor version is not.
@@ -345,7 +345,7 @@ Runs the conventions' gates on every pull request and push, plus scans that are 
 
 - On a pull request, .github/scripts/ci-tasks.sh plans the run from the changed files. If any of build-logic/\*\*, config/\*\*, gradle/\*\*, build.gradle.kts, settings.gradle.kts, gradlew, lombok.config or the workflows changed, or the PR has the `ci:full` label, the whole build runs. Otherwise each changed module builds together with every module that depends on it, transitively (edges are read from the quoted module paths in each build.gradle.kts). On pushes to main and the nightly schedule everything builds; a failing nightly run opens or updates a `ci-nightly` issue (nightly-report.yml).
 - Modules and their shards come from settings.gradle.kts (plugins/\*\* → plugins, plus/\*\* → infra, cli, ui, the rest → platform), so a new module needs only its include line. The lint job runs `ci-tasks.sh --check`, which fails on a project() dependency that names no included module.
-- CI installs the same toolchain locally needed: JDK 25, Go, Node 24, pnpm 10.30.1, OpenGrep v1.25.0 (checksum verified) and Trivy v0.72.0. The wrapper jar is validated and Actions are pinned by commit hash.
+- CI installs the same toolchain locally needed: JDK 25, Go, Node 24, pnpm 12.16.1, OpenGrep v1.25.0 (checksum verified) and Trivy v0.72.0. The wrapper jar is validated and Actions are pinned by commit hash.
 - Separate workflows run Trivy (security.yml: secret scan blocks every run; vulnerability scan blocks only on main, schedule and manual runs, and reports without failing on pull requests), the licence checks, CodeQL and OpenSSF Scorecard. A dependency-review job fails PRs that add HIGH-severity vulnerable dependencies.
 - There is no lock-file check (dependency locking was dropped, #502). The Dependency Review job fails a pull request that adds a dependency with a known HIGH or CRITICAL advisory, using the Gradle graph that the dependency-submission job submits. The final job, CI Gate, is the single required check: it passes if every job succeeded or was skipped.
 
@@ -537,7 +537,7 @@ Every capability below is something a module gets by applying a convention plugi
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| Pinned Node and pnpm | The UI builds with Node 24.13.1 and pnpm 10.30.1. | node-gradle plugin with versions from the catalog; npm and yarn tasks disabled. | Reproducible UI builds locally. | CI uses system Node (24.x) when CI is set. |
+| Pinned Node and pnpm | The UI builds with Node 24.13.1 and pnpm 12.16.1. | node-gradle plugin with versions from the catalog; npm and yarn tasks disabled. | Reproducible UI builds locally. | CI uses system Node (24.x) when CI is set. |
 
 ### CI
 
@@ -576,7 +576,7 @@ A pull request builds only changed modules and what depends on them, unless a ro
 | Checkstyle max warnings | 0 | quality-conventions |
 | Format limits | 100 columns, 2-space indent (google-java-format) | Spotless; Checkstyle LineLength 100 |
 | Tool versions | Checkstyle 13.2.0, PMD 7.21.0, SpotBugs plugin 6.5.12, Error Prone 2.50.0, Spotless 8.10.3, JaCoCo 0.8.14, licensee 1.14.1 | gradle/libs.versions.toml |
-| Frontend tools | Node 24.13.1, pnpm 10.30.1 | gradle/libs.versions.toml |
+| Frontend tools | Node 24.13.1, pnpm 12.16.1 | gradle/libs.versions.toml |
 | Test parallelism | max(1, CPUs / 2) forks | java-conventions |
 | Gradle | Wrapper 9.8.0; build cache on; parallel on, 8 workers; configuration cache off; 4 GB heap | gradle-wrapper.properties, gradle.properties |
 

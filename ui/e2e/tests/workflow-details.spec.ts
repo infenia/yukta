@@ -207,6 +207,43 @@ test.describe('Workflow Details Page', () => {
     expect(calls).toEqual(['?priority=10']);
   });
 
+  test('recovers an aborted run as a new run', async ({
+    page,
+    mockWorkflowApi,
+  }) => {
+    await mockWorkflowApi(page, {
+      progress: { ...defaultProgress, status: 'ABORTED' },
+    });
+    let recovered = 0;
+    await page.route('**/api/executions/*/recover', (route) => {
+      recovered += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          timestamp: '2026-07-26T14:23:23',
+          status: 200,
+          message: 'OK',
+          path: '/recover',
+          data: { executionId: 'exec-090-aa-12' },
+        }),
+      });
+    });
+    await page.goto(WORKFLOW_URL);
+
+    await page.getByRole('button', { name: /recover/i }).click();
+    await expect(page.getByRole('dialog')).toContainText(
+      'Finished nodes are replayed'
+    );
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Recover' })
+      .click();
+
+    await expect(page).toHaveURL(/exec=exec-090-aa-12/);
+    expect(recovered).toBe(1);
+  });
+
   test('copies a node action as a curl command without a key', async ({
     page,
   }) => {
@@ -263,6 +300,46 @@ test.describe('Workflow Details Page', () => {
     const text = readFileSync(await file.path(), 'utf8');
     expect(text).toContain('High memory pressure detected on worker-node-04');
     expect(text).not.toContain('Initializing workflow engine');
+  });
+
+  test('pages and downloads the results of a finished run', async ({
+    page,
+    mockWorkflowApi,
+  }) => {
+    await mockWorkflowApi(page, {
+      progress: { ...defaultProgress, status: 'SUCCESS' },
+    });
+    await page.route('**/api/sessions/*/executions/*/results*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          executionId: 'exec-091-qp-55',
+          complete: true,
+          status: 'SUCCESS',
+          truncated: false,
+          nextCursor: 2,
+          events: [0, 1].map((sequence) => ({
+            kind: 'RESULT',
+            nodeId: 'Persist_Results',
+            sequence,
+            payload: { rows: sequence },
+            status: null,
+            truncated: false,
+            timestamp: '2026-07-26T14:22:11Z',
+          })),
+        }),
+      })
+    );
+    await page.goto(WORKFLOW_URL);
+
+    await page.getByRole('tab', { name: 'results' }).click();
+    await expect(page.getByText('Persist_Results · #1')).toBeVisible();
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download JSON' }).click();
+    expect((await download).suggestedFilename()).toBe(
+      'results-exec-091-qp-55.json'
+    );
   });
 
   test('renders the never-run state', async ({ page, mockWorkflowApi }) => {

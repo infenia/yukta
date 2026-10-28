@@ -46,7 +46,7 @@ export function PendingApprovals({ sessionId, workflowId }: Props) {
   return (
     <section
       aria-label="Pending approvals"
-      className="border-outline-variant bg-surface-container-low flex flex-col gap-2 border-b px-6 py-3"
+      className="flex flex-col gap-2 border-b border-outline-variant bg-surface-container-low px-6 py-3"
     >
       {decide.error && (
         <InlineError message={controlErrorMessage(decide.error)} />
@@ -56,7 +56,7 @@ export function PendingApprovals({ sessionId, workflowId }: Props) {
           key={`${approval.executionId}-${approval.nodeId}-${approval.name}`}
           className="flex items-center gap-3"
         >
-          <span className="text-on-surface text-body-md">
+          <span className="text-body-md text-on-surface">
             <span className="font-mono">{approval.nodeId}</span> waits for “
             {approval.name}” (run{' '}
             <span className="font-mono">

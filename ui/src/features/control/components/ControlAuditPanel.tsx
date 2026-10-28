@@ -37,7 +37,7 @@ export function ControlAuditPanel() {
 
   return (
     <section aria-labelledby="audit-heading" className="flex flex-col gap-2">
-      <h2 id="audit-heading" className="text-on-surface text-headline-md">
+      <h2 id="audit-heading" className="text-headline-md text-on-surface">
         Who did what
       </h2>
       {audit.error ? (
