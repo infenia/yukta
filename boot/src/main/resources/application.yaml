@@ -65,6 +65,16 @@ yukta:
         # If configured value exceeds max, max will take effect
 
 management:
+  # OTLP export is off until an operator turns it on, so the server sends nothing by default:
+  #   MANAGEMENT_TRACING_EXPORT_ENABLED=true  MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://collector:4318/v1/traces
+  #   MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED=true  MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://collector:4318/v1/metrics
+  tracing:
+    export:
+      enabled: false
+  otlp:
+    metrics:
+      export:
+        enabled: false
   endpoints:
     web:
       exposure:

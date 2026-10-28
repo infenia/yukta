@@ -62,9 +62,11 @@ function TimingLine({
 function TaskSequenceItem({
   task,
   onNodeCommand,
+  scope,
 }: {
   task: TaskProgress;
   onNodeCommand?: (nodeId: string, command: NodeCommand) => void;
+  scope?: { sessionId: string; executionId: string };
 }) {
   const status = toNodeUiStatus(task.status);
   const dimmed = status === 'pending' || status === 'skipped';
@@ -101,6 +103,7 @@ function TaskSequenceItem({
             nodeId={task.nodeId}
             status={status}
             onCommand={onNodeCommand}
+            scope={scope}
           />
         )}
       </div>
@@ -122,10 +125,13 @@ export function TaskSequenceList({
   graph,
   tasksByNode,
   onNodeCommand,
+  scope,
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
   onNodeCommand?: (nodeId: string, command: NodeCommand) => void;
+  /** Session and run of the tasks, for the "Copy as" commands. */
+  scope?: { sessionId: string; executionId: string };
 }) {
   const order =
     graph.topologicalOrder.length > 0
@@ -170,6 +176,7 @@ export function TaskSequenceList({
             key={task.nodeId}
             task={task}
             onNodeCommand={onNodeCommand}
+            scope={scope}
           />
         ))}
       </ul>
