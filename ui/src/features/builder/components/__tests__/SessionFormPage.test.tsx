@@ -17,7 +17,13 @@ const server = setupServer(
     posted.push(await request.json());
     return (
       failure ??
-      HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data: null, path: '/' })
+      HttpResponse.json({
+        timestamp: 't',
+        status: 200,
+        message: 'ok',
+        data: null,
+        path: '/',
+      })
     );
   })
 );
@@ -71,7 +77,9 @@ describe('SessionFormPage', () => {
       workflows: { main: { workflowId: 'main' } },
     });
     await waitFor(() =>
-      expect(window.location.pathname).toBe('/sessions/my-session/workflow/main/edit')
+      expect(window.location.pathname).toBe(
+        '/sessions/my-session/workflow/main/edit'
+      )
     );
   });
 
@@ -84,12 +92,17 @@ describe('SessionFormPage', () => {
       { status: 400 }
     ) as unknown as Response;
     await fillAndSubmit();
-    expect(await screen.findByRole('alert')).toHaveTextContent('projectPath: must be absolute');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'projectPath: must be absolute'
+    );
     expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled();
   });
 
   it('shows the message of any other failure', async () => {
-    failure = HttpResponse.json({ message: 'Storage down' }, { status: 500 }) as unknown as Response;
+    failure = HttpResponse.json(
+      { message: 'Storage down' },
+      { status: 500 }
+    ) as unknown as Response;
     await fillAndSubmit();
     expect(await screen.findByRole('alert')).toHaveTextContent('Storage down');
   });
