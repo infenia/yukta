@@ -11,11 +11,19 @@ import com.infenia.yukta.message.Message;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.AbstractList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentMatchers;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.test.util.ReflectionTestUtils;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -59,14 +67,13 @@ class InMemoryNodeCheckpointStoreSpillTest {
   @Test
   void saversThatDoNotWait_stillReplayInEmissionOrder() {
     final InMemoryNodeCheckpointStore store = store(2, dir.toString());
-    final java.util.List<reactor.core.publisher.Mono<Void>> writes = new java.util.ArrayList<>();
+    final List<Mono<Void>> writes = new java.util.ArrayList<>();
     for (int i = 0; i < 200; i++) {
-      final reactor.core.publisher.Mono<Void> write =
-          store.save("e1", "n1", message("m" + i)).cache();
+      final Mono<Void> write = store.save("e1", "n1", message("m" + i)).cache();
       write.subscribe();
       writes.add(write);
     }
-    reactor.core.publisher.Mono.when(writes).block();
+    Mono.when(writes).block();
 
     StepVerifier.create(store.getAll("e1", "n1").map(m -> (String) m.payload()).collectList())
         .assertNext(
@@ -169,5 +176,71 @@ class InMemoryNodeCheckpointStoreSpillTest {
     } finally {
       assertThat(folder.setReadable(true)).isTrue();
     }
+  }
+
+  @Test
+  void clearedRunsBeyondTheCap_areForgotten_soTheOldestRecordsAgain() {
+    final InMemoryNodeCheckpointStore store = store(5, dir.toString());
+    for (int i = 0; i <= 4096; i++) {
+      store.clear("old-" + i);
+    }
+
+    store.save("old-0", "n1", message("again")).block();
+    store.save("old-4096", "n1", message("late")).block();
+
+    StepVerifier.create(store.getAll("old-0", "n1")).expectNextCount(1).verifyComplete();
+    StepVerifier.create(store.getAll("old-4096", "n1")).verifyComplete();
+  }
+
+  @Test
+  void saveThatIsClearedWhileItIsMeasured_isDropped() {
+    final InMemoryNodeCheckpointStore store = store(5, dir.toString());
+    final List<String> payload =
+        new AbstractList<>() {
+          @Override
+          public String get(final int index) {
+            throw new IndexOutOfBoundsException();
+          }
+
+          @Override
+          public int size() {
+            return 0;
+          }
+
+          @Override
+          public Stream<String> stream() {
+            // the run is cleared after the save found its node and before it takes the node's lock
+            store.clear("e1");
+            return Stream.empty();
+          }
+        };
+
+    store.save("e1", "n1", DefaultMessage.create(UUID.randomUUID(), payload)).block();
+
+    assertThat(store.bytesHeld()).isZero();
+    StepVerifier.create(store.getAll("e1", "n1")).verifyComplete();
+  }
+
+  @Test
+  void failedSpillWrite_doesNotBlockTheNextOne() {
+    final FileNodeCheckpointStore spill = mock(FileNodeCheckpointStore.class);
+    final AtomicInteger saves = new AtomicInteger();
+    when(spill.save(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any()))
+        .thenAnswer(
+            _ ->
+                saves.getAndIncrement() == 0
+                    ? Mono.<Void>error(new IllegalStateException("disk full"))
+                        .delaySubscription(Duration.ofMillis(200))
+                    : Mono.<Void>empty());
+    final InMemoryNodeCheckpointStore store = store(1, dir.toString());
+    ReflectionTestUtils.setField(store, "spill", spill);
+    store.save("e1", "n1", message("m0")).block();
+
+    final Mono<Void> failing = store.save("e1", "n1", message("m1")).cache();
+    failing.subscribe(_ -> {}, _ -> {});
+    store.save("e1", "n1", message("m2")).block();
+
+    StepVerifier.create(failing).expectErrorMessage("disk full").verify();
+    assertThat(saves).hasValue(2);
   }
 }
