@@ -508,6 +508,7 @@ public class AppMcpTools {
               destructiveHint = false,
               idempotentHint = true,
               openWorldHint = false))
+  @SuppressWarnings("PMD.LinguisticNaming") // the MCP tool name
   public Mono<SchedulerLimitsResult> setSchedulerLimits(
       @McpToolParam(required = true, description = "Most executions running at once; 0 for none")
           final int maxConcurrent,

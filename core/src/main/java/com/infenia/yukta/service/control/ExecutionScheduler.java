@@ -41,7 +41,12 @@ import reactor.core.publisher.Sinks;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.AvoidSynchronizedStatement", "PMD.TooManyMethods", "PMD.OnlyOneReturn"})
+@SuppressWarnings({
+  "PMD.AvoidSynchronizedStatement",
+  "PMD.TooManyMethods",
+  "PMD.OnlyOneReturn",
+  "PMD.CyclomaticComplexity"
+})
 public class ExecutionScheduler implements SmartLifecycle {
 
   /** Start payload key that sets the priority of a start. */

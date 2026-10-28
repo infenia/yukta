@@ -126,6 +126,7 @@ public class WorkflowControlProvider {
    * @param maxPerWorkflow most executions of one workflow running at once, 0 for unlimited
    * @return Mono containing the limits after the change
    */
+  @SuppressWarnings("PMD.LinguisticNaming") // the MCP tool name
   public Mono<SchedulerLimitsResult> setSchedulerLimits(
       final int maxConcurrent, final int maxPerWorkflow) {
     return controlBus.changeLimits(maxConcurrent, maxPerWorkflow).then(getSchedulerLimits());
