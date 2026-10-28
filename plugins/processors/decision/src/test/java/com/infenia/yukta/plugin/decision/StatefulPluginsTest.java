@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.decision;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import reactor.util.context.Context;
 
 /** Tests for AnomalyPlugin and DedupePlugin. */
 @NoArgsConstructor
@@ -342,5 +344,41 @@ class StatefulPluginsTest {
         .expectErrorMessage("persist must be none, execution or session")
         .verify();
     StepVerifier.create(plugin.validateConfig(config("persist", "session"))).verifyComplete();
+  }
+
+  @Test
+  void windows_blankSettingsFallBackToTheDefaults() {
+    final Context context = Context.of("executionId", "x-blank", "nodeId", "n");
+
+    assertThatCode(
+            () -> {
+              DecisionWindow.check(config("persist", "none"));
+              DecisionWindow.check(config("persist", "execution"));
+              DecisionWindow.check(config("persist", " "));
+            })
+        .doesNotThrowAnyException();
+    assertThat(DecisionWindow.open("DEDUPE", config("persist", " "), context))
+        .isNotSameAs(DecisionWindow.open("DEDUPE", config("persist", " "), context));
+    assertThat(
+            DecisionWindow.open(
+                "DEDUPE", config("persist", "execution", "windowKey", " "), context))
+        .isSameAs(DecisionWindow.open("DEDUPE", config("persist", "execution"), context));
+  }
+
+  @Test
+  void windows_leastRecentlyUsedSharedWindowIsForgottenBeyondTheCap() {
+    final Map<String, Object> shared = config("persist", "session");
+    final DecisionWindow<String> first =
+        DecisionWindow.open("DEDUPE", shared, Context.of("sessionId", "s-cap", "nodeId", "k0"));
+    first.add("remembered", 10);
+
+    for (int i = 1; i <= 1000; i++) {
+      DecisionWindow.open("DEDUPE", shared, Context.of("sessionId", "s-cap", "nodeId", "k" + i));
+    }
+
+    final DecisionWindow<String> again =
+        DecisionWindow.open("DEDUPE", shared, Context.of("sessionId", "s-cap", "nodeId", "k0"));
+    assertThat(again).isNotSameAs(first);
+    assertThat(again.snapshot()).isEmpty();
   }
 }
