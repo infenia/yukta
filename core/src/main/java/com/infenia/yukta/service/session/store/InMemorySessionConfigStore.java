@@ -319,6 +319,11 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
   }
 
   @Override
+  public Mono<Void> removeSession(@SessionId final String sessionId) {
+    return Mono.fromRunnable(() -> sessions.remove(sessionId));
+  }
+
+  @Override
   public Flux<String> getSessionIds() {
     log.atDebug()
         .addKeyValue("sessionCount", sessions.size())

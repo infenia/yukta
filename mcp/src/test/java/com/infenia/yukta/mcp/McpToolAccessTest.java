@@ -112,4 +112,28 @@ class McpToolAccessTest {
 
     assertThat(McpToolAccess.permitted(key("VIEWER", "a"), batch)).isFalse();
   }
+
+  @Test
+  void deletingNeedsAdminAndAScopedKeyKeepsToItsOwnSessions() {
+    final var operator =
+        new com.infenia.yukta.security.ApiKeys.Match(
+            "o", com.infenia.yukta.security.ApiRole.OPERATOR, java.util.Set.of());
+    final var admin =
+        new com.infenia.yukta.security.ApiKeys.Match(
+            "a", com.infenia.yukta.security.ApiRole.ADMIN, java.util.Set.of());
+    final var scoped =
+        new com.infenia.yukta.security.ApiKeys.Match(
+            "s", com.infenia.yukta.security.ApiRole.ADMIN, java.util.Set.of("mine"));
+
+    for (final String tool : new String[] {"delete_session", "delete_workflow"}) {
+      org.assertj.core.api.Assertions.assertThat(McpToolAccess.permitted(operator, tool, "mine"))
+          .isFalse();
+      org.assertj.core.api.Assertions.assertThat(McpToolAccess.permitted(admin, tool, "any"))
+          .isTrue();
+      org.assertj.core.api.Assertions.assertThat(McpToolAccess.permitted(scoped, tool, "mine"))
+          .isTrue();
+      org.assertj.core.api.Assertions.assertThat(McpToolAccess.permitted(scoped, tool, "other"))
+          .isFalse();
+    }
+  }
 }

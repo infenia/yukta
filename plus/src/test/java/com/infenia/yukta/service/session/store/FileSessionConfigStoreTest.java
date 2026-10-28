@@ -619,4 +619,21 @@ class FileSessionConfigStoreTest {
 
     assertThat(result).isEmpty();
   }
+
+  @Test
+  void removeSession_deletesTheFileAndTheCachedCopy_andIsQuietForAnUnknownSession() {
+    final SessionConfigData data =
+        new SessionConfigData("gone", "n", "d", "i", Map.of(), "/p", Map.of());
+    StepVerifier.create(configStore.applySessionConfig(data)).verifyComplete();
+    org.assertj.core.api.Assertions.assertThat(tempDir.resolve("sessions/gone.json")).exists();
+
+    StepVerifier.create(configStore.removeSession("gone")).verifyComplete();
+    StepVerifier.create(configStore.removeSession("never-was")).verifyComplete();
+
+    org.assertj.core.api.Assertions.assertThat(tempDir.resolve("sessions/gone.json"))
+        .doesNotExist();
+    org.assertj.core.api.Assertions.assertThat(configStore.getSessionIds().collectList().block())
+        .doesNotContain("gone");
+    StepVerifier.create(configStore.getDescription("gone")).expectNext("").verifyComplete();
+  }
 }

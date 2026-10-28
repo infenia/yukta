@@ -152,4 +152,12 @@ public interface SessionConfigStore {
    * @return Flux of session IDs
    */
   Flux<String> getSessionIds();
+
+  /**
+   * Forgets a session's own settings (its workflows are removed through the workflow store).
+   *
+   * @param sessionId the session
+   * @return a Mono that completes once the session is gone; completes too if it was unknown
+   */
+  Mono<Void> removeSession(@SessionId String sessionId);
 }

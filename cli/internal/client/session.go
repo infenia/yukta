@@ -135,3 +135,26 @@ func (c *Client) GetWorkflowExecutions(sessionID, workflowID string) (any, error
 	}
 	return getAll[any](c, apiPath("/api/sessions/%s/workflows/%s/executions", sessionID, workflowID))
 }
+
+// DeleteSession deletes a session with its workflows and versions. Active runs refuse it (409)
+// unless force cancels them first; run history stays.
+func (c *Client) DeleteSession(sessionID string, force bool) error {
+	return c.delete(apiPath("/api/sessions/%s", sessionID), force)
+}
+
+// DeleteWorkflow deletes one workflow of a session, with its versions.
+func (c *Client) DeleteWorkflow(sessionID, workflowID string, force bool) error {
+	return c.delete(apiPath("/api/sessions/%s/workflows/%s", sessionID, workflowID), force)
+}
+
+func (c *Client) delete(path string, force bool) error {
+	if force {
+		path += "?force=true"
+	}
+	req, err := c.newRequest("DELETE", path)
+	if err != nil {
+		return err
+	}
+	_, err = c.doRequest(req)
+	return err
+}

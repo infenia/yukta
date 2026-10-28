@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
+import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.PluginReference;
 import com.infenia.yukta.mcp.dto.SessionCreationGuide;
 import com.infenia.yukta.mcp.dto.SessionCreationResult;
@@ -48,6 +49,42 @@ public class SessionInfoProvider {
                         "Session not found: "
                             + sessionId
                             + ". Use list_sessions to see available sessions.")));
+  }
+
+  /**
+   * Delete a session with its workflows; their run history stays.
+   *
+   * @param sessionId the session
+   * @param force cancel active runs first instead of refusing
+   * @return the result; errors if the session is unknown or has active runs and force is false
+   */
+  public Mono<ControlActionResult> deleteSession(final String sessionId, final boolean force) {
+    return sessionService
+        .deleteSession(sessionId, force)
+        .thenReturn(
+            new ControlActionResult(
+                "DELETE_SESSION", null, null, List.of(), "Deleted session " + sessionId));
+  }
+
+  /**
+   * Delete a workflow of a session; its run history stays.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param force cancel active runs first instead of refusing
+   * @return the result; errors if the workflow is unknown or has active runs and force is false
+   */
+  public Mono<ControlActionResult> deleteWorkflow(
+      final String sessionId, final String workflowId, final boolean force) {
+    return sessionService
+        .deleteWorkflow(sessionId, workflowId, force)
+        .thenReturn(
+            new ControlActionResult(
+                "DELETE_WORKFLOW",
+                null,
+                null,
+                List.of(),
+                "Deleted workflow " + workflowId + " of session " + sessionId));
   }
 
   /**

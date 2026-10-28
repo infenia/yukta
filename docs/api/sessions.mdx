@@ -11,12 +11,14 @@ keywords: ["sessions API", "apply session", "validate session", "session configu
 
 A session groups workflows, executions and configuration. These endpoints create or replace a session, check a draft workflow, and read sessions back. The calls that read or change one workflow inside a session are on the [Workflows](/api/workflows) page.
 
-Every response uses the [envelope](/api/overview#response-envelope). There is no endpoint that deletes a session.
+Every response uses the [envelope](/api/overview#response-envelope).
 
 | Method and path | Purpose | Role |
 |---|---|---|
 | `POST /api/sessions` | Create or replace a session and its workflows | `ADMIN` |
 | `POST /api/sessions/validate` | Check a draft workflow without saving it | `ADMIN` |
+| `DELETE /api/sessions/{sessionId}` | Delete a session and its workflows | `ADMIN` |
+| `DELETE /api/sessions/{sessionId}/workflows/{workflowId}` | Delete one workflow | `ADMIN` |
 | `GET /api/sessions` | List session ids | `VIEWER` |
 | `GET /api/sessions/summaries` | List sessions as table rows | `VIEWER` |
 | `GET /api/sessions/{sessionId}` | Read session details | `VIEWER` |
@@ -286,6 +288,20 @@ Returns one summary per workflow with its size and the status of its latest run.
   ]
 }
 ```
+
+## Delete a session or a workflow
+
+`DELETE /api/sessions/{sessionId}` and `DELETE /api/sessions/{sessionId}/workflows/{workflowId}`
+
+Removes the session (or the workflow) with its definition, its saved versions and the compiled copy. **The run history and the logs stay**: they are not purged and age out with the log retention, so a deleted workflow's runs can still be read. Pending approvals and triggers belong to running work and end with it.
+
+| Query parameter | Meaning |
+|---|---|
+| `force` | `true` cancels the active runs first and waits up to 30 seconds for them to end. Default `false` |
+
+A run is active while it is running, queued, paused or waiting for a signal. Without `force`, active runs make the call answer `409` and name their ids; so does a forced delete whose runs do not end in time. An unknown session or workflow answers `404`. Success answers `204` with no body.
+
+Only `ADMIN` keys may delete; a key limited to sessions may delete only its own. Every delete is recorded in the [control audit](/api/control) with the actor, the target and the `force` flag.
 
 ## Next steps
 

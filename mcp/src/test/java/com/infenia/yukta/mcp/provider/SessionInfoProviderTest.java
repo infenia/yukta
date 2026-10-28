@@ -216,4 +216,23 @@ class SessionInfoProviderTest {
     assertEquals("trigger", workflow.edges().get(0).source());
     assertEquals("map", workflow.edges().get(0).target());
   }
+
+  @Test
+  void deleteSessionAndWorkflow_delegateToTheServiceAndDescribeTheResult() {
+    when(sessionService.deleteSession("s", true)).thenReturn(Mono.empty());
+    when(sessionService.deleteWorkflow("s", "w", false)).thenReturn(Mono.empty());
+
+    StepVerifier.create(provider.deleteSession("s", true))
+        .assertNext(
+            r -> {
+              org.assertj.core.api.Assertions.assertThat(r.action()).isEqualTo("DELETE_SESSION");
+              org.assertj.core.api.Assertions.assertThat(r.message()).contains("s");
+            })
+        .verifyComplete();
+    StepVerifier.create(provider.deleteWorkflow("s", "w", false))
+        .assertNext(
+            r ->
+                org.assertj.core.api.Assertions.assertThat(r.action()).isEqualTo("DELETE_WORKFLOW"))
+        .verifyComplete();
+  }
 }

@@ -65,6 +65,8 @@ Some commands print JSON in both formats because their data is nested: `session 
 | `yukta-cli session get <session-id>` | Show a session's id and workflow ids |
 | `yukta-cli session summaries` | List sessions with their workflow counts, as JSON |
 | `yukta-cli session apply <json-or-file>` | Create or replace a session from a JSON file, or from inline JSON if no such file exists |
+| `yukta-cli session delete <session-id> [--force] [--yes]` | Delete a session with its workflows and versions; run history stays. Asks first unless `--yes`. `--force` cancels active runs. Needs the `ADMIN` role |
+| `yukta-cli session workflow delete <session-id> <workflow-id> [--force] [--yes]` | Delete one workflow, the same way |
 | `yukta-cli session workflow get <session-id> <workflow-id>` | Print a workflow definition as JSON |
 | `yukta-cli session workflow graph <session-id> <workflow-id>` | Print the nodes and edges with plugin metadata |
 | `yukta-cli session workflow executions <session-id> <workflow-id>` | List the runs of one workflow, newest first |

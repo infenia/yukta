@@ -471,6 +471,23 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
+  public Mono<Void> recordAdminAction(
+      final String command,
+      final String target,
+      final boolean applied,
+      @Nullable final String reason) {
+    return Mono.deferContextual(
+        context -> {
+          final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
+          ControlAudit.record(
+              executionLog,
+              auditSink,
+              new AuditRecord(applied, target, command, actor, reason, Instant.now()));
+          return Mono.empty();
+        });
+  }
+
+  @Override
   public Mono<Void> changeLimits(final int maxConcurrent, final int maxPerWorkflow) {
     final String name = "SetLimits(" + maxConcurrent + ", " + maxPerWorkflow + ")";
     return reviewedAndLogged(

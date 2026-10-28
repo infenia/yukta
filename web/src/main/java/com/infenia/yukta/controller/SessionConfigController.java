@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -61,6 +62,55 @@ public class SessionConfigController {
 
   /** Hides literal secrets in the definitions this controller hands out. */
   private final ConfigRedactor configRedactor;
+
+  /**
+   * Delete a session.
+   *
+   * @param sessionId the session
+   * @param force cancel its active runs first
+   * @return 204 once it is gone
+   */
+  @DeleteMapping("/{sessionId}")
+  @Operation(
+      summary = "Delete a session",
+      description =
+          "Removes the session, its workflows and their versions. Run history and logs stay and"
+              + " age out with the log retention. Answers 409 with the run ids while runs are"
+              + " active, unless force=true, which cancels them first. ADMIN keys only; a key"
+              + " limited to sessions may delete only its own. Recorded in the control audit.")
+  public Mono<ResponseEntity<Void>> deleteSession(
+      @Parameter(description = SESSION_ID) @PathVariable final String sessionId,
+      @Parameter(description = "Cancel active runs first") @RequestParam(defaultValue = "false")
+          final boolean force) {
+    return sessionService
+        .deleteSession(sessionId, force)
+        .then(Mono.fromSupplier(() -> ResponseEntity.noContent().build()));
+  }
+
+  /**
+   * Delete a workflow of a session.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param force cancel its active runs first
+   * @return 204 once it is gone
+   */
+  @DeleteMapping("/{sessionId}/workflows/{workflowId}")
+  @Operation(
+      summary = "Delete a workflow",
+      description =
+          "Removes the workflow and its versions. Its runs stay readable. Answers 409 with the"
+              + " run ids while its runs are active, unless force=true. ADMIN keys only."
+              + " Recorded in the control audit.")
+  public Mono<ResponseEntity<Void>> deleteWorkflow(
+      @Parameter(description = SESSION_ID) @PathVariable final String sessionId,
+      @Parameter(description = WORKFLOW_ID) @PathVariable final String workflowId,
+      @Parameter(description = "Cancel active runs first") @RequestParam(defaultValue = "false")
+          final boolean force) {
+    return sessionService
+        .deleteWorkflow(sessionId, workflowId, force)
+        .then(Mono.fromSupplier(() -> ResponseEntity.noContent().build()));
+  }
 
   /**
    * Get one session.

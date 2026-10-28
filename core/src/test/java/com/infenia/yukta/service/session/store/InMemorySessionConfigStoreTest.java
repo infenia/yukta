@@ -470,4 +470,19 @@ class InMemorySessionConfigStoreTest {
     }
     return result;
   }
+
+  @Test
+  void removeSession_forgetsTheSessionAndIsQuietForAnUnknownOne() {
+    final SessionConfigData data =
+        new SessionConfigData("gone", "n", "d", "i", Map.of(), "/p", Map.of());
+    StepVerifier.create(configService.applySessionConfig(data)).verifyComplete();
+    org.assertj.core.api.Assertions.assertThat(configService.getSessionIds().collectList().block())
+        .contains("gone");
+
+    StepVerifier.create(configService.removeSession("gone")).verifyComplete();
+    StepVerifier.create(configService.removeSession("never-was")).verifyComplete();
+
+    org.assertj.core.api.Assertions.assertThat(configService.getSessionIds().collectList().block())
+        .doesNotContain("gone");
+  }
 }

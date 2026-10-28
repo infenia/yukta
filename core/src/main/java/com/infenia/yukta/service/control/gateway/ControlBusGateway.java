@@ -350,6 +350,22 @@ public interface ControlBusGateway {
   Mono<Void> changeLimits(int maxConcurrent, int maxPerWorkflow);
 
   /**
+   * Records an administrative action that is not a command to a run (such as deleting a session) in
+   * the control audit, with the actor of the request.
+   *
+   * @param command what was done, for example {@code DeleteSession(s1, force=false)}
+   * @param target what it was done to, shown where an execution id would be
+   * @param applied whether it succeeded
+   * @param reason why it failed, or null
+   * @return a Mono that completes once recorded
+   */
+  Mono<Void> recordAdminAction(
+      String command,
+      String target,
+      boolean applied,
+      @org.jspecify.annotations.Nullable String reason);
+
+  /**
    * Change the priority of an execution that is waiting for a slot. It is recorded in the execution
    * log like any control command.
    *
