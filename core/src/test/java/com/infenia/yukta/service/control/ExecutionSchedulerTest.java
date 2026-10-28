@@ -5,6 +5,7 @@ package com.infenia.yukta.service.control;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.service.control.ExecutionScheduler.Admission;
 import com.infenia.yukta.service.control.ExecutionScheduler.OnLimit;
 import com.infenia.yukta.service.control.ExecutionScheduler.Permit;
@@ -111,6 +112,19 @@ class ExecutionSchedulerTest {
     scheduler.assertCanAccept("s", "w");
     granted(scheduler.acquire("s", "w"));
     scheduler.assertCanAccept("s", "w");
+  }
+
+  @Test
+  void limits_reportsTheLimitsInForceAndTheSlotsInUse() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+    final Permit running = granted(scheduler.acquire("s", "w"));
+    scheduler.acquire("s", "w");
+
+    assertThat(scheduler.limits()).isEqualTo(new SchedulerLimits(1, 0, 1, 1, 10));
+
+    scheduler.setLimits(5, 2);
+    assertThat(scheduler.limits()).isEqualTo(new SchedulerLimits(5, 2, 2, 0, 10));
+    running.release();
   }
 
   @Test

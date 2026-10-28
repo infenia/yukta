@@ -5,6 +5,7 @@ package com.infenia.yukta.controller;
 import com.infenia.yukta.dto.response.WorkflowStartResponse;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.control.PendingApproval;
+import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
@@ -387,6 +388,19 @@ public class ExecutionControlController {
         executionId,
         "Priority change accepted",
         () -> controlBus.changePriority(executionId, priority));
+  }
+
+  /** The execution limits in force and the slots in use. */
+  @GetMapping("/scheduler/limits")
+  @Operation(
+      summary = "Read the execution limits",
+      description =
+          "The limits set at startup or by the last POST (0 means unlimited), with how many"
+              + " executions run and wait now")
+  public Mono<ApiResponse<SchedulerLimits>> getLimits() {
+    return controlBus
+        .limits()
+        .map(limits -> ApiResponse.success(200, "Execution limits retrieved", limits));
   }
 
   /** Change how many executions may run at once. */
