@@ -204,6 +204,20 @@ class FileNodeCheckpointStoreTest {
   }
 
   @Test
+  void clearedRunsBeyondTheCap_areForgotten_soTheOldestSavesAgain() {
+    final FileNodeCheckpointStore store = store();
+    for (int i = 0; i <= 4096; i++) {
+      store.clear("old-" + i);
+    }
+
+    store.save("old-0", "n1", message("again")).block();
+    store.save("old-4096", "n1", message("late")).block();
+
+    assertThat(store.getAll("old-0", "n1").collectList().block()).hasSize(1);
+    assertThat(store.getAll("old-4096", "n1").collectList().block()).isEmpty();
+  }
+
+  @Test
   void clearOfAnUnknownExecution_isHarmless() {
     store().clear("never-seen");
 
