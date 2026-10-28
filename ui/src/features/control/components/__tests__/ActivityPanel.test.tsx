@@ -29,6 +29,9 @@ const server = setupServer(
     return ok([]);
   }),
   http.get('/api/workers', () => ok([])),
+  http.get('/api/scheduler/limits', () =>
+    ok({ maxConcurrent: 0, maxPerWorkflow: 0, running: 0, queued: 0, queueCapacity: 100 })
+  ),
   http.get('/api/edition', () => ok({ edition: 'PLUS', license: 'x', features: [], source: null })),
   http.get('/api/control/nodes', () => ok([]))
 );

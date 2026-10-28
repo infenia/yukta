@@ -55,6 +55,15 @@ export function ControlEventsProvider({ children }: { children: ReactNode }) {
   const onEvent = useCallback(
     (event: ActivityEvent) => {
       pending.current.push({ ...event, seq: seq.current++ });
+      if (
+        event.type === 'ControlOutcome' ||
+        event.type === 'WorkflowStatusChanged'
+      ) {
+        // slots are taken and freed as runs start and end; limits change by a control command
+        void queryClient.invalidateQueries({
+          queryKey: ['control', 'scheduler'],
+        });
+      }
       if (event.type === 'ControlOutcome') {
         void queryClient.invalidateQueries({ queryKey: ['control', 'audit'] });
         void queryClient.invalidateQueries({

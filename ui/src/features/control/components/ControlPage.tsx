@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { SupervisorsPanel } from './SupervisorsPanel';
 import { ControlAuditPanel } from './ControlAuditPanel';
 import { ControlBusPanel } from './ControlBusPanel';
+import { SchedulerPanel } from './SchedulerPanel';
 import { WorkersPanel } from './WorkersPanel';
 import { ActivityPanel } from './ActivityPanel';
 import { ControlEventsProvider } from '../context/ControlEvents';
@@ -50,6 +51,7 @@ export function ControlPage() {
         ) : (
           <>
             <ControlBusPanel />
+            <SchedulerPanel />
             <SupervisorsPanel />
             <WorkersPanel />
             <ControlAuditPanel />
