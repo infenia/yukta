@@ -18,6 +18,9 @@ import com.infenia.yukta.plugin.decision.StateText;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -35,7 +38,8 @@ import reactor.core.publisher.Mono;
  *
  * <p>It only acts when it is sure: an answer less probable than {@code min-probability}, an unknown
  * answer, a failing or slow model and an unreadable reply all count as no opinion, so the model can
- * never hold up the bus. By default it can only pause; a stop has to be configured.
+ * never hold up the bus. {@code max-calls-per-minute} caps the model calls: events beyond it get no
+ * opinion at once. By default it can only pause; a stop has to be configured.
  */
 @Slf4j
 @Component
@@ -52,6 +56,15 @@ public final class ModelControlPlane implements ControlPlanePlugin {
 
   /** Name of the one question asked. */
   private static final String QUESTION = "action";
+
+  /** Length of the window {@code max-calls-per-minute} counts in. */
+  private static final long WINDOW_NANOS = TimeUnit.MINUTES.toNanos(1);
+
+  /** When the current window began. */
+  private final AtomicLong windowStart = new AtomicLong(System.nanoTime());
+
+  /** Model calls made in the current window. */
+  private final AtomicInteger callsInWindow = new AtomicInteger();
 
   /** Asks the model. */
   private final DecisionModel model;
@@ -123,9 +136,27 @@ public final class ModelControlPlane implements ControlPlanePlugin {
     return PLUGIN_ID;
   }
 
+  /** True if another model call fits in the window; the over-limit events are skipped. */
+  private boolean withinLimit() {
+    final int max = settings.maxCallsPerMinute();
+    boolean allowed = true;
+    if (max > 0) {
+      final long now = System.nanoTime();
+      final long start = windowStart.get();
+      if (now - start >= WINDOW_NANOS && windowStart.compareAndSet(start, now)) {
+        callsInWindow.set(0);
+      }
+      allowed = callsInWindow.incrementAndGet() <= max;
+      if (!allowed) {
+        metrics.increment(PLUGIN_ID, METRIC, "skipped");
+      }
+    }
+    return allowed;
+  }
+
   @Override
   public Mono<ControlDecision> decide(final ExecutionEvent event) {
-    return settings.events().contains(event.getClass().getSimpleName())
+    return settings.events().contains(event.getClass().getSimpleName()) && withinLimit()
         ? model
             .answer(spec, describe(event), Map.of(QUESTION, question))
             .map(answers -> toDecision(event, answers.get(QUESTION)))

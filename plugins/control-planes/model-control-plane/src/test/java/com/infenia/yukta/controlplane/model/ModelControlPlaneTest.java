@@ -33,6 +33,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
   "PMD.CommentRequired",
+  "PMD.CouplingBetweenObjects",
   "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap"
@@ -78,7 +79,8 @@ class ModelControlPlaneTest {
         options,
         events,
         null,
-        null);
+        null,
+        0);
   }
 
   private static ModelPlaneSettings defaults() {
@@ -313,7 +315,8 @@ class ModelControlPlaneTest {
             null,
             null,
             null,
-            null);
+            null,
+            0);
 
     new ModelControlPlane(spy, settings).decide(failure()).block();
 
@@ -363,5 +366,43 @@ class ModelControlPlaneTest {
     new ModelControlPlane(stub, defaults()).decide(event).block();
 
     assertThat(stub.asked.get().state()).hasSize(14_999).doesNotContain(emoji, "zzzz");
+  }
+
+  @Test
+  void decide_beyondMaxCallsPerMinute_skipsTheModel_andCountsIt() {
+    final java.util.concurrent.atomic.AtomicInteger calls =
+        new java.util.concurrent.atomic.AtomicInteger();
+    final DecisionModel counting =
+        (spec, state, questions) -> {
+          calls.incrementAndGet();
+          return Mono.just(Map.of("action", new Answer.Choice("pause", Map.of("pause", 1.0))));
+        };
+    final List<String> counted = new java.util.concurrent.CopyOnWriteArrayList<>();
+    final ModelPlaneSettings limited =
+        new ModelPlaneSettings(
+            null,
+            null,
+            "nimble",
+            null,
+            null,
+            Duration.ofSeconds(1),
+            0.6,
+            null,
+            null,
+            null,
+            null,
+            null,
+            2);
+    final ModelControlPlane plane =
+        new ModelControlPlane(counting, limited, (node, metric, outcome) -> counted.add(outcome));
+
+    final List<ControlDecision> decisions =
+        java.util.stream.IntStream.range(0, 5)
+            .mapToObj(_ -> plane.decide(failure()).block())
+            .toList();
+
+    assertThat(calls).hasValue(2);
+    assertThat(decisions.stream().filter(d -> !d.commands().isEmpty())).hasSize(2);
+    assertThat(counted).containsExactly("decided", "decided", "skipped", "skipped", "skipped");
   }
 }
