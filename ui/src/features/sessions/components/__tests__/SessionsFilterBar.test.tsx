@@ -6,11 +6,15 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SessionsFilterBar } from '../SessionsFilterBar';
 
+const NO_FILTERS = { tags: [], initiators: [] };
+
 describe('SessionsFilterBar', () => {
   it('should render search input', () => {
     render(
       <SessionsFilterBar
         data={[]}
+        filters={NO_FILTERS}
+        onFiltersChange={() => {}}
         globalFilter=""
         onGlobalFilterChange={() => {}}
         onReset={() => {}}
@@ -23,6 +27,8 @@ describe('SessionsFilterBar', () => {
     render(
       <SessionsFilterBar
         data={[]}
+        filters={NO_FILTERS}
+        onFiltersChange={() => {}}
         globalFilter=""
         onGlobalFilterChange={() => {}}
         onReset={() => {}}
@@ -38,6 +44,8 @@ describe('SessionsFilterBar', () => {
     render(
       <SessionsFilterBar
         data={[]}
+        filters={NO_FILTERS}
+        onFiltersChange={() => {}}
         globalFilter=""
         onGlobalFilterChange={handleChange}
         onReset={() => {}}
@@ -57,6 +65,8 @@ describe('SessionsFilterBar', () => {
     render(
       <SessionsFilterBar
         data={[]}
+        filters={NO_FILTERS}
+        onFiltersChange={() => {}}
         globalFilter=""
         onGlobalFilterChange={() => {}}
         onReset={handleReset}
@@ -73,6 +83,8 @@ describe('SessionsFilterBar', () => {
     render(
       <SessionsFilterBar
         data={[]}
+        filters={NO_FILTERS}
+        onFiltersChange={() => {}}
         globalFilter="test"
         onGlobalFilterChange={() => {}}
         onReset={() => {}}

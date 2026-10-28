@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+# Test cases for yukta-actuator-expose-all (YAML forms)
+management:
+  endpoints:
+    web:
+      exposure:
+        # ruleid: yukta-actuator-expose-all
+        include: "*"
+---
+management:
+  endpoints:
+    web:
+      exposure:
+        # ruleid: yukta-actuator-expose-all
+        include: '*'
+---
+management:
+  endpoints:
+    web:
+      exposure:
+        # ruleid: yukta-actuator-expose-all
+        include: ["*"]
+---
+management:
+  endpoints:
+    web:
+      exposure:
+        # ok: yukta-actuator-expose-all
+        include: health,info,metrics
+---
+management:
+  endpoints:
+    web:
+      exposure:
+        # ok: yukta-actuator-expose-all
+        include: ["health", "info"]
