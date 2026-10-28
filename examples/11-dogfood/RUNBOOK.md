@@ -64,6 +64,8 @@ For issue runs: `YUKTA_IMPL_MODEL` (opus), `YUKTA_IMPL_BUDGET` (5), `YUKTA_BUDGE
 
 ```bash
 scripts/test-hooks.sh eval/triage/selftest.sh   # offline: the Claude Code hooks, the triage evaluation
+scripts/test-plan.sh                             # offline: plan.sh's class-level test selection
+../../.github/scripts/plan-vs-ci.test.sh          # offline, also in CI: plan.sh and ci-tasks.sh pick the same modules
 scripts/test-yk.sh                              # on the dev server: a stopped foreground yk stops its run, --detach outlives, --stages
 scripts/test-heal.sh                            # on the dev server (yk up), against a fake claude and a fake Ollama: about a minute, no API cost
 ```

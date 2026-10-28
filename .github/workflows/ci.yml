@@ -68,6 +68,9 @@ jobs:
       - name: Test the shard planner
         run: .github/scripts/ci-tasks.test.sh
 
+      - name: Check yk check plans the same modules as CI
+        run: .github/scripts/plan-vs-ci.test.sh
+
       - name: Test the project helpers and issue triage
         run: .github/scripts/project-lib.test.sh
 
