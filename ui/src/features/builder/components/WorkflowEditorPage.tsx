@@ -133,7 +133,11 @@ function Editor({
   };
 
   const removeNode = (nodeId: string) => {
-    setPorts(({ [nodeId]: _gone, ...rest }) => rest);
+    setPorts((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([id]) => id !== nodeId)
+      )
+    );
     setEdge((draft) =>
       draft.source === nodeId || draft.target === nodeId
         ? { source: '', target: '', sourcePort: null }
