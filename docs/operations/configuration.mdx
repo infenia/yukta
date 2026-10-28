@@ -190,6 +190,7 @@ See [Security](/operations/security).
 | `yukta.streams.max-concurrent` | `500` | Most event and log streams (SSE) open at once. The next one is answered with `429`; `0` turns the cap off. System property only |
 | `yukta.streams.max-per-key` | `50` | Most streams one named key has open at once; the next gets `429`. `0` turns it off. System property only |
 | `yukta.rate-limit-per-minute` | `1200` | `/api` requests per key and minute; the next gets `429` with `Retry-After`. `0` turns it off. Not applied when no key is configured (loopback only). System property only |
+| `yukta.auth-failures-per-minute` | `20` | Requests per remote address and minute that may carry a wrong or missing key; beyond that the address gets `429` with `Retry-After` and its key is not looked at, so keys cannot be guessed at full speed. Behind a proxy all callers share the proxy's address. `0` turns it off. System property only |
 | `yukta.streams.max-lifetime` | `1h` | A stream is closed after this long; a browser reconnects and the stream replays. `0` turns it off. System property only |
 | `yukta.mcp-client.allowed-tools` | empty (any) | Tools `MCP_TOOL_CALL` may call |
 | `yukta.mcp-client.allowed-hosts` | empty (any) | Hosts `MCP_TOOL_CALL` and `MCP_LIST_TOOLS` may call: names, IP addresses or `*.domain` |
