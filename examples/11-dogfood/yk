@@ -461,10 +461,17 @@ refresh_activity() {
   mv "$DEV_HOME/activity.tmp" "$DEV_HOME/activity"
 }
 
-# yk stats: runs, median bytes shown to the agent, median wall seconds and heal dollars per kind of run, from runs.tsv
+# yk stats: from the heal events (the monitoring log every run appends to, see heal_events_file), one line per kind of run: runs, failed, median
+# wall seconds and heal dollars; then, per stage and rung (the model that tried to fix it), attempts, fixes, fix rate and dollars. A run counts once per
+# `result` event, so the numbers equal `jq 'select(.event=="result")' <events file>`. Without an events file it falls back to runs.tsv.
 cmd_stats() {
+  local ev; ev="$(heal_events_file)"
+  if [[ -n "$ev" && -s "$ev" ]]; then
+    stats_from_events "$ev"
+    return 0
+  fi
   local f="$STATE_DIR/runs.tsv"
-  [[ -s "$f" ]] || { echo "no runs recorded yet ($f)"; return 0; }
+  [[ -s "$f" ]] || { echo "no runs recorded yet ($ev, $f)"; return 0; }
   printf '%-14s %5s %8s %12s %10s %8s\n' kind runs failed median_bytes median_wall cost
   sort -t$'\t' -k2,2 "$f" | awk -F'\t' '
     function med(a, n,   i, j, t) { for (i = 2; i <= n; i++) { t = a[i]; for (j = i - 1; j >= 1 && a[j] + 0 > t + 0; j--) a[j + 1] = a[j]; a[j + 1] = t } return (n % 2) ? a[(n + 1) / 2] : (a[n / 2] + a[n / 2 + 1]) / 2 }
@@ -473,6 +480,23 @@ cmd_stats() {
     $2 != k { flush(); k = $2; n = 0; bad = 0; cost = 0 }
     { n++; B[n] = $6; W[n] = $4; cost += $5; if ($3 != "SUCCESS") bad++ }
     END { flush() }'
+}
+
+stats_from_events() {
+  printf '%-14s %5s %8s %11s %8s\n' kind runs failed median_wall cost
+  jq -rs '
+    def med: sort | if length == 0 then 0 elif length % 2 == 1 then .[(length - 1) / 2] else (.[length / 2 - 1] + .[length / 2]) / 2 end;
+    ([.[] | select(.event == "fix")] | group_by(.run) | map({key: .[0].run, value: (map(.cost // 0) | add)}) | from_entries) as $cost
+    | [.[] | select(.event == "result")] | group_by(.workflow) | sort_by(.[0].workflow)[]
+    | [.[0].workflow, length, (map(select(.status != "SUCCESS")) | length), (map(.secs // 0) | med),
+       (unique_by(.run) | map($cost[.run] // 0) | add)] | @tsv' "$1" |
+    awk -F'\t' '{ printf "%-14s %5d %8d %11.1f %8.2f\n", $1, $2, $3, $4, $5 }'
+  echo
+  printf '%-14s %-8s %9s %6s %9s %8s\n' stage rung attempts fixed fix_rate cost
+  jq -rs '
+    [.[] | select(.event == "fix")] | group_by([.stage, (.model // "-")]) | sort_by(.[0].stage, .[0].model)[]
+    | [.[0].stage, (.[0].model // "-"), length, (map(select(.fixed == true)) | length), (map(.cost // 0) | add)] | @tsv' "$1" |
+    awk -F'\t' '{ printf "%-14s %-8s %9d %6d %8.0f%% %8.2f\n", $1, $2, $3, $4, ($3 ? 100 * $4 / $3 : 0), $5 }'
 }
 
 # yk detail SESSION EXECUTION [--grep P] [--tail N] [--head N]: the full output of the stage that failed the run (level 2), the line RESULT
