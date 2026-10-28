@@ -45,7 +45,7 @@ export function StatusChip({ status }: { status: string | null }) {
     <span
       data-testid="status-chip"
       className={cn(
-        'text-label-sm inline-flex items-center gap-2 rounded-full border px-3 py-1 tracking-wider',
+        'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-label-sm tracking-wider',
         chip
       )}
     >

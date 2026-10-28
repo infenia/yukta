@@ -1,0 +1,4 @@
+# pnpm 12 fails the install on dependency build scripts nobody approved.
+# msw only runs in Node here (msw/node), so its postinstall (copies the browser worker) is not needed.
+allowBuilds:
+  msw: false

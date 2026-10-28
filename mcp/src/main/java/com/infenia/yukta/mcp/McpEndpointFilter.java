@@ -11,6 +11,10 @@ import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.CallRateLimiter;
 import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.security.RequestPaths;
+import io.micrometer.core.instrument.FunctionCounter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.binder.MeterBinder;
+import java.util.concurrent.atomic.LongAdder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -38,14 +42,17 @@ import reactor.core.publisher.Mono;
  * and, for a session-limited key, a {@code sessionId} of its own (403 otherwise). The path is
  * matched after decoding, and a path with parameters, encoded separators or dot segments is refused
  * with 400. Each caller (key) may make {@code yukta.mcp.rate-limit-per-minute} requests per minute
- * (default 600, 0 = unlimited); more get 429 with {@code Retry-After}. An endpoint with no key
- * (loopback only) is not limited. Also keeps the former {@value #LEGACY_ENDPOINT} path working by
- * rewriting it to the endpoint.
+ * (default 600, 0 = unlimited); more get 429 with {@code Retry-After}. {@code start_workflow} and
+ * {@code get_execution_logs} with a {@code filterPattern} (a regex run over every line) also count
+ * against {@code yukta.mcp.heavy-rate-limit-per-minute} (default 60, 0 = unlimited), refused calls
+ * are counted in {@code yukta.mcp.heavy.refused}. An endpoint with no key (loopback only) is not
+ * limited. Also keeps the former {@value #LEGACY_ENDPOINT} path working by rewriting it to the
+ * endpoint.
  */
 @Component
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
+@SuppressWarnings({"PMD.LawOfDemeter", "PMD.OnlyOneReturn", "PMD.TooManyMethods"})
 @Order(Ordered.HIGHEST_PRECEDENCE)
-public class McpEndpointFilter implements WebFilter {
+public class McpEndpointFilter implements WebFilter, MeterBinder {
 
   /** Path of the streamable-HTTP MCP endpoint. */
   private static final String ENDPOINT = "/mcp";
@@ -59,11 +66,22 @@ public class McpEndpointFilter implements WebFilter {
   /** Requests per caller and minute when {@code yukta.mcp.rate-limit-per-minute} is not set. */
   private static final int DEFAULT_RATE_LIMIT = 600;
 
+  /**
+   * Costly calls per caller and minute when {@code yukta.mcp.heavy-rate-limit-per-minute} is unset.
+   */
+  private static final int DEFAULT_HEAVY_RATE_LIMIT = 60;
+
   /** Identifies the caller; an open authenticator disables the check. */
   private final ApiAuthenticator authenticator;
 
   /** Caps the requests of one caller. */
   private final CallRateLimiter limiter;
+
+  /** Caps the costly tool calls (start_workflow, regex log reads) of one caller. */
+  private final CallRateLimiter heavyLimiter;
+
+  /** Costly calls refused so far. */
+  private final LongAdder heavyRefused = new LongAdder();
 
   /**
    * Create the filter from the configuration.
@@ -86,7 +104,10 @@ public class McpEndpointFilter implements WebFilter {
         authenticator,
         new CallRateLimiter(
             environment.getProperty(
-                "yukta.mcp.rate-limit-per-minute", Integer.class, DEFAULT_RATE_LIMIT)));
+                "yukta.mcp.rate-limit-per-minute", Integer.class, DEFAULT_RATE_LIMIT)),
+        new CallRateLimiter(
+            environment.getProperty(
+                "yukta.mcp.heavy-rate-limit-per-minute", Integer.class, DEFAULT_HEAVY_RATE_LIMIT)));
   }
 
   /**
@@ -105,8 +126,23 @@ public class McpEndpointFilter implements WebFilter {
    * @param limiter caps the requests of one caller
    */
   public McpEndpointFilter(final ApiAuthenticator authenticator, final CallRateLimiter limiter) {
+    this(authenticator, limiter, new CallRateLimiter(DEFAULT_HEAVY_RATE_LIMIT));
+  }
+
+  /**
+   * Create the filter.
+   *
+   * @param authenticator identifies the caller (API keys by default)
+   * @param limiter caps the requests of one caller
+   * @param heavyLimiter caps the costly tool calls of one caller
+   */
+  public McpEndpointFilter(
+      final ApiAuthenticator authenticator,
+      final CallRateLimiter limiter,
+      final CallRateLimiter heavyLimiter) {
     this.authenticator = authenticator;
     this.limiter = limiter;
+    this.heavyLimiter = heavyLimiter;
   }
 
   /**
@@ -117,6 +153,15 @@ public class McpEndpointFilter implements WebFilter {
   public McpEndpointFilter(final String apiKey) {
     this.authenticator = ApiKeyAuthenticator.single(apiKey);
     this.limiter = new CallRateLimiter(DEFAULT_RATE_LIMIT);
+    this.heavyLimiter = new CallRateLimiter(DEFAULT_HEAVY_RATE_LIMIT);
+  }
+
+  @Override
+  public void bindTo(final MeterRegistry registry) {
+    FunctionCounter.builder("yukta.mcp.heavy.refused", heavyRefused, LongAdder::doubleValue)
+        .description(
+            "MCP tool calls refused by the lower limit for start_workflow and regex log reads")
+        .register(registry);
   }
 
   @Override
@@ -146,21 +191,20 @@ public class McpEndpointFilter implements WebFilter {
       final WebFilterChain chain,
       final ApiKeys.Match match,
       final boolean legacy) {
-    final Mono<Void> chained =
-        match.role() == ApiRole.ADMIN && match.sessions().isEmpty()
-            ? chain.filter(rewritten(exchange, legacy))
-            : checked(exchange, chain, match, legacy);
-    final Mono<Void> next = chained.contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match));
+    final Mono<Void> next =
+        checked(exchange, chain, match, legacy)
+            .contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match));
     return authenticator.named()
         ? next.contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name()))
         : next;
   }
 
   /**
-   * Reads the JSON-RPC body of a limited key, refuses a tool call the key may not make with 403 and
-   * hands the same body on.
+   * Reads the JSON-RPC body, refuses a tool call the key may not make with 403 (an unrestricted
+   * ADMIN may make any) and a caller over the lower limit for costly calls with 429, and hands the
+   * same body on.
    */
-  private static Mono<Void> checked(
+  private Mono<Void> checked(
       final ServerWebExchange exchange,
       final WebFilterChain chain,
       final ApiKeys.Match match,
@@ -178,12 +222,31 @@ public class McpEndpointFilter implements WebFilter {
             })
         .defaultIfEmpty(new byte[0])
         .flatMap(
-            bytes ->
-                bytes.length > 0 && !McpToolAccess.permitted(match, bytes)
-                    ? reject(exchange, HttpStatus.FORBIDDEN)
-                    : chain.filter(rewritten(withBody(exchange, bytes), legacy)))
+            bytes -> {
+              final boolean unrestricted =
+                  match.role() == ApiRole.ADMIN && match.sessions().isEmpty();
+              if (bytes.length > 0 && !unrestricted && !McpToolAccess.permitted(match, bytes)) {
+                return reject(exchange, HttpStatus.FORBIDDEN);
+              }
+              if (heavyOverLimit(match.name(), bytes)) {
+                return tooMany(exchange);
+              }
+              return chain.filter(rewritten(withBody(exchange, bytes), legacy));
+            })
         .onErrorResume(
             DataBufferLimitException.class, _ -> reject(exchange, HttpStatus.CONTENT_TOO_LARGE));
+  }
+
+  /** Whether the costly calls in the body put this caller over its lower limit (counts them). */
+  private boolean heavyOverLimit(final String caller, final byte[] body) {
+    final int heavy = body.length == 0 ? 0 : McpToolAccess.heavyCalls(body);
+    for (int i = 0; i < heavy; i++) {
+      if (!heavyLimiter.tryAcquire(caller)) {
+        heavyRefused.increment();
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Whether this caller is over its request limit (counts the request). */
