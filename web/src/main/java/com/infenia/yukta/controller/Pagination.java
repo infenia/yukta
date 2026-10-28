@@ -48,23 +48,21 @@ public class Pagination {
   public static <T> Slice<T> slice(
       final List<T> all, final Integer limit, final String cursor, final Function<T, String> idOf) {
     final int size = limit == null || limit < 1 ? DEFAULT_LIMIT : Math.min(limit, MAX_LIMIT);
-    int from = 0;
-    if (cursor != null) {
-      int seen = -1;
-      for (int i = 0; i < all.size() && seen < 0; i++) {
-        if (idOf.apply(all.get(i)).equals(cursor)) {
-          seen = i;
-        }
-      }
-      if (seen < 0) {
-        // Evicted, deleted or mistyped: restarting at page one would loop or repeat items.
-        throw new ServerWebInputException("Unknown cursor: " + cursor);
-      }
-      from = seen + 1;
-    }
+    final int from = cursor == null ? 0 : indexAfter(all, cursor, idOf);
     final int end = Math.min(all.size(), from + size);
     final List<T> items = all.subList(from, end);
     return new Slice<>(items, end < all.size() ? idOf.apply(all.get(end - 1)) : null);
+  }
+
+  private static <T> int indexAfter(
+      final List<T> all, final String cursor, final Function<T, String> idOf) {
+    for (int i = 0; i < all.size(); i++) {
+      if (idOf.apply(all.get(i)).equals(cursor)) {
+        return i + 1;
+      }
+    }
+    // Evicted, deleted or mistyped: restarting at page one would loop or repeat items.
+    throw new ServerWebInputException("Unknown cursor: " + cursor);
   }
 
   /**
