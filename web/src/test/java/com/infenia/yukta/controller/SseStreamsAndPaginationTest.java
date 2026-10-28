@@ -3,6 +3,7 @@
 package com.infenia.yukta.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.model.api.ApiResponse;
 import java.time.Duration;
@@ -11,6 +12,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
@@ -81,8 +83,9 @@ class SseStreamsAndPaginationTest {
   }
 
   @Test
-  void testUnknownCursorStartsFromTheBeginning() {
-    assertThat(Pagination.page(List.of("a", "b"), 5, "zzz", id -> id, "m").getBody().data())
-        .containsExactly("a", "b");
+  void testUnknownCursorIsRefused() {
+    assertThatThrownBy(() -> Pagination.page(List.of("a", "b"), 5, "zzz", id -> id, "m"))
+        .isInstanceOf(ServerWebInputException.class)
+        .hasMessageContaining("Unknown cursor: zzz");
   }
 }
