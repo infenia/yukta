@@ -18,6 +18,7 @@ import com.infenia.yukta.mcp.dto.SessionCreationResult;
 import com.infenia.yukta.mcp.dto.SessionDetails;
 import com.infenia.yukta.mcp.dto.SessionList;
 import com.infenia.yukta.mcp.dto.SessionSummary;
+import com.infenia.yukta.mcp.dto.WhoamiResult;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowHistory;
 import com.infenia.yukta.mcp.dto.WorkflowStartResult;
@@ -330,5 +331,15 @@ class AppMcpToolsTest {
     StepVerifier.create(mcpTools.noteWorkflowVersion("s1", "w1", "0001-a", "why"))
         .expectNext(note)
         .verifyComplete();
+  }
+
+  @Test
+  void whoami_delegatesToTheHealthProvider() {
+    final WhoamiResult who =
+        new WhoamiResult(
+            true, "alice", "OPERATOR", null, true, java.util.Map.of("startRuns", true));
+    when(systemHealthProvider.whoami()).thenReturn(Mono.just(who));
+
+    StepVerifier.create(mcpTools.whoami()).expectNext(who).verifyComplete();
   }
 }

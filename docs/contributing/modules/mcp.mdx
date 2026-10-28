@@ -9,7 +9,7 @@ The mcp module is Yukta's door for AI agents. An agent (a program driven by a la
 
 | Property | What it means |
 |---|---|
-| 23 tools, thin by design | Every tool is a few lines that call a provider, which calls core. The module repeats what the web layer does (ownership checks, control actions) without depending on it. |
+| 24 tools, thin by design | Every tool is a few lines that call a provider, which calls core. The module repeats what the web layer does (ownership checks, control actions) without depending on it. |
 | Stateless HTTP | Each request stands alone at /mcp. There is no connection to keep and nothing is pushed to the agent: it polls status and logs. |
 | Made for a model reader | Errors say what to call next, lists are wrapped in records so none is cut short, and tool hints tell the client which calls only read and which can destroy. |
 | Open unless you set a key | The endpoint accepts the same named keys as REST (roles VIEWER, OPERATOR, ADMIN, optional session limits) plus yukta.mcp.api-key, and each tools/call is checked against the key's role. No key is set in the shipped config, so on loopback it is still open; boot refuses to listen on another address without a key. |
@@ -129,7 +129,7 @@ An agent is told 'run e-42 in session ci failed, find out why and fix it'. Click
 an agent posts a JSON-RPC message to /mcp. If a key is configured it must be in the headers.
 </Step>
 <Step title="Discover">
-the agent asks for the tool list and sees 23 tools with descriptions, typed arguments, result schemas and read-only or destructive hints.
+the agent asks for the tool list and sees 24 tools with descriptions, typed arguments, result schemas and read-only or destructive hints.
 </Step>
 <Step title="Author">
 it asks for the session format, drafts a session and sends it with create_session.
@@ -191,9 +191,9 @@ The Spring AI MCP server inside boot. It speaks the protocol, finds the tool, bi
 
 ### Tool facade
 
-*23 tools, hints, schemas*
+*24 tools, hints, schemas*
 
-The class that declares the 23 tools: names, descriptions, argument descriptions, risk hints. Each method hands over to one provider.
+The class that declares the 24 tools: names, descriptions, argument descriptions, risk hints. Each method hands over to one provider.
 
 - Each tool is one annotated method. The description is written for the model: it says what the tool returns and which tool to call next (start_workflow says 'use the execution id with get_workflow_status and get_execution_logs'). A model picks tools mostly from these sentences.
 - Hints tell the client how risky a call is. Read-only tools (11 of 16) are marked readOnly and closed-world. start_workflow and set_node_breakpoint are writes but not destructive. control_workflow, control_node and create_session are destructive, and create_session is also open-world because the workflows it installs can run commands and reach other systems. Its description asks the agent to confirm with the user first.
@@ -484,7 +484,7 @@ Eighteen things an agent can do or rely on, grouped by what they are for.
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| Tool list with schemas | 23 tools with descriptions, typed arguments and result schemas. | Spring AI generates them from annotations; the output schema comes from the Java record. | Clients can read fields by name. | Text quality depends on hand-written descriptions. |
+| Tool list with schemas | 24 tools with descriptions, typed arguments and result schemas. | Spring AI generates them from annotations; the output schema comes from the Java record. | Clients can read fields by name. | Text quality depends on hand-written descriptions. |
 | Risk hints | Each tool is marked read-only, destructive or open-world. | readOnlyHint, destructiveHint and openWorldHint on the tool. | Clients can ask a human before risky calls. | Advice only; not enforced by the server. |
 | Prompts | debug-workflow and create-session-config. | Templates that tell an agent which tools to use and in what order. | Same routine for every agent. | Static text; can lag behind tools. |
 | Resources | Overview, architecture and an execution-log resource. | Fixed text plus one URI template that reads logs through the log reader. | Background reading without a tool call. | Hand-written; log resource has no filter. |
@@ -776,7 +776,7 @@ Behaviours of the framework the code is shaped around.
 |---|---|---|
 | MCP (Model Context Protocol) | An open standard that lets an AI client discover and call tools, prompts and resources on a server using JSON messages over HTTP. | It is the whole reason this module exists: it fixes how agents talk to Yukta. |
 | Agent | A program driven by a language model that decides which tools to call to reach a goal. | It is the caller. Its behaviour is not fully predictable, so inputs from it are treated as untrusted. |
-| Tool | A named operation with typed arguments and a typed result that an MCP client can call. | The 23 tools are the module's public API. |
+| Tool | A named operation with typed arguments and a typed result that an MCP client can call. | The 24 tools are the module's public API. |
 | Prompt (MCP) | A named text template the server offers, which a client fetches with arguments. | Carries the 'how to approach this task' know-how. |
 | Resource (MCP) | A readable document or data item at a URI, such as yukta://overview. | Background reading that needs no tool call. |
 | JSON-RPC | A small protocol of JSON requests and replies with an id, a method and params. MCP is built on it. | Every tool call is one JSON-RPC message. |

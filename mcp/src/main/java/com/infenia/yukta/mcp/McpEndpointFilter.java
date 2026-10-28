@@ -9,6 +9,7 @@ import com.infenia.yukta.security.ApiKeyAuthenticator;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.CallRateLimiter;
+import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.security.RequestPaths;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
@@ -145,10 +146,11 @@ public class McpEndpointFilter implements WebFilter {
       final WebFilterChain chain,
       final ApiKeys.Match match,
       final boolean legacy) {
-    final Mono<Void> next =
+    final Mono<Void> chained =
         match.role() == ApiRole.ADMIN && match.sessions().isEmpty()
             ? chain.filter(rewritten(exchange, legacy))
             : checked(exchange, chain, match, legacy);
+    final Mono<Void> next = chained.contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match));
     return authenticator.named()
         ? next.contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name()))
         : next;

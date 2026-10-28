@@ -7,9 +7,11 @@ import com.infenia.yukta.mcp.dto.ExecutionRecord;
 import com.infenia.yukta.mcp.dto.PluginRegistryEntry;
 import com.infenia.yukta.mcp.dto.SessionExecutionInfo;
 import com.infenia.yukta.mcp.dto.SystemHealthMetrics;
+import com.infenia.yukta.mcp.dto.WhoamiResult;
 import com.infenia.yukta.mcp.util.UptimeFormatter;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
+import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
@@ -17,6 +19,7 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +54,33 @@ public class SystemHealthProvider {
 
   /** Gateway providing per-session execution history. */
   private final ControlBusGateway controlBus;
+
+  /**
+   * Who is calling and what they may do, from the key the endpoint filter resolved.
+   *
+   * @return Mono containing the identity
+   */
+  public Mono<WhoamiResult> whoami() {
+    return Mono.deferContextual(
+        ctx -> {
+          final CallerIdentity.Whoami who = CallerIdentity.whoami(ctx);
+          final CallerIdentity.Permissions p = who.permissions();
+          return Mono.just(
+              new WhoamiResult(
+                  who.authenticated(),
+                  who.keyName(),
+                  who.role().name(),
+                  who.sessions(),
+                  who.authEnabled(),
+                  Map.of(
+                      "startRuns", p.startRuns(),
+                      "controlRuns", p.controlRuns(),
+                      "editSessions", p.editSessions(),
+                      "deleteSessions", p.deleteSessions(),
+                      "changeLimits", p.changeLimits(),
+                      "sendCommands", p.sendCommands())));
+        });
+  }
 
   /**
    * Get control bus status with comprehensive monitoring information.
