@@ -6,9 +6,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.util.VariableResolver;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -19,7 +17,8 @@ import reactor.core.publisher.Mono;
 /**
  * {@code ANOMALY}: compares each message with the last few and asks whether it is unusual. Messages
  * leave on {@code normal} or {@code anomalous}. The first {@code minHistory} messages are normal.
- * The window lives for one run of the node.
+ * The window lives for one run of the node, or with {@code persist} for the execution or session,
+ * shared by the nodes that use one {@code windowKey}.
  */
 @Component
 @SuppressWarnings("PMD.InsufficientStringBufferDeclaration")
@@ -57,7 +56,8 @@ public final class AnomalyPlugin extends DecisionPlugin {
             + " the threshold, otherwise on 'normal'; the first 'minHistory' messages are normal."
             + " The probability goes to the metadata key 'into' (default 'anomaly'). The window is"
             + " per node and run.",
-        "window (default 20), minHistory (default 5), threshold (default 0.5), question.",
+        "window (default 20), minHistory (default 5), threshold (default 0.5), question, persist"
+            + " (none|execution|session), windowKey.",
         Optional.empty());
   }
 
@@ -80,6 +80,7 @@ public final class AnomalyPlugin extends DecisionPlugin {
             ConfigField.Type.STRING,
             "Is the current item unusual compared with the recent items?",
             "What is asked"));
+    fields.addAll(DecisionWindow.fields());
     fields.addAll(commonFields(ANOMALY));
     return fields;
   }
@@ -94,33 +95,37 @@ public final class AnomalyPlugin extends DecisionPlugin {
     if (number(config, "window", 20) < 1 || number(config, "minHistory", 5) < 0) {
       throw new IllegalArgumentException("window must be 1 or more and minHistory 0 or more");
     }
+    DecisionWindow.check(config);
   }
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
-    return Flux.defer(
-        () -> {
-          final Deque<String> recent = new ArrayDeque<>();
+    return Flux.deferContextual(
+        context -> {
+          final DecisionWindow<String> recent = DecisionWindow.open(TYPE, config, context);
           return input.concatMap(message -> judge(message, config, recent));
         });
   }
 
   @Override
   protected Mono<Message<?>> decide(final Message<?> message, final Map<String, Object> config) {
-    return judge(message, config, new ArrayDeque<>());
+    return judge(message, config, new DecisionWindow<>());
   }
 
   private Mono<Message<?>> judge(
-      final Message<?> message, final Map<String, Object> config, final Deque<String> recent) {
+      final Message<?> message,
+      final Map<String, Object> config,
+      final DecisionWindow<String> recent) {
     final String item = state(message, config);
     final Mono<Message<?>> judged;
-    if (recent.size() < number(config, "minHistory", 5)) {
+    final List<String> history = recent.snapshot();
+    if (history.size() < number(config, "minHistory", 5)) {
       judged =
           Mono.just(
               emit(message, config, ANOMALY, Map.of("probability", 0.0, "warmup", true), "normal"));
     } else {
       final StringBuilder state = new StringBuilder("Recent items, oldest first:\n");
-      recent.forEach(seen -> state.append("- ").append(seen).append('\n'));
+      history.forEach(seen -> state.append("- ").append(seen).append('\n'));
       state.append("\nCurrent item:\n").append(item);
       judged =
           ask(
@@ -148,10 +153,9 @@ public final class AnomalyPlugin extends DecisionPlugin {
     }
     return judged.doOnNext(
         _ -> {
-          recent.addLast(item.length() > REMEMBERED ? item.substring(0, REMEMBERED) : item);
-          while (recent.size() > number(config, "window", 20)) {
-            recent.removeFirst();
-          }
+          recent.add(
+              item.length() > REMEMBERED ? item.substring(0, REMEMBERED) : item,
+              (int) number(config, "window", 20));
         });
   }
 }

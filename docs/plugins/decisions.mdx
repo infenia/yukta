@@ -198,7 +198,16 @@ Judges whether a message means the same as a recent one.
 
 `into` defaults to `dedupe`. The result is `{"duplicate": false}` for a unique message, and `{"duplicate": true, "duplicateOf": "<message id>", "probability": ...}` for a repeat. Output ports: `unique` and `duplicate`. Only unique messages enter the window. The first message is always unique.
 
-For both `ANOMALY` and `DEDUPE`, the window belongs to one node in one execution and holds each message as text cut to 500 characters. It is kept in memory and starts empty in every execution. A workflow that is started again for every event therefore never builds history, and every message looks normal or unique. Use them in a long-running execution, for example one started by `SCHEDULE_TRIGGER`.
+For both `ANOMALY` and `DEDUPE`, the window holds each message as text cut to 500 characters. By default (`persist: none`) it belongs to one node in one execution, is kept in memory and starts empty in every execution, so a workflow that is started again for every event never builds history and every message looks normal or unique.
+
+To keep history, set `persist`:
+
+| Setting | Meaning |
+|---|---|
+| `persist` | `none` (default): one window per run of the node. `execution`: the window is shared by the nodes of the execution that have the same `windowKey`. `session`: the window is shared across the executions of the session, so a second execution flags a repeat of an item from the first |
+| `windowKey` | With `persist` `execution` or `session`: nodes with the same key share one window. Default the node id. `DEDUPE` and `ANOMALY` never share a window |
+
+Shared windows are kept in memory, at most 1,000 at a time (the least recently used is dropped first), and are lost on restart. Nodes that write to one window at the same time lose no entries; each decision sees the entries recorded before it began. Use one `windowKey` for the attempts of a retry ladder, where each attempt is its own node.
 
 ## Limits and defaults
 
