@@ -67,7 +67,8 @@ def check(report, baseline):
     """[(key, severity, title, detail)] for every failed check."""
     summary = json.loads((report / "summary.json").read_text())
     found = []
-    for name, label in (("stuck_runs", "runs that never finished"), ("tracker_events_lost", "lost tracker events")):
+    for name, label in (("stuck_runs", "runs that never finished"), ("teardown_errors", "stuck-run checks that could not look"),
+                        ("tracker_events_lost", "lost tracker events")):
         count = metric(summary, name, "count", "value")
         if count:
             found.append((f"perf:{name}", "Critical", f"Perf: {label}",

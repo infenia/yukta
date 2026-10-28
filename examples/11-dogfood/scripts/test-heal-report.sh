@@ -5,6 +5,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fail() { echo "FAIL $*" >&2; exit 1; }
 dir="$(mktemp -d)"
 trap 'rm -rf "$dir"' EXIT
+export YUKTA_HEAL_LEDGER="$dir/none.json"
 rep() { python3 -I "$here/heal-report.py" "$@" --events "$dir/events.jsonl"; }
 
 # no log yet
@@ -79,4 +80,20 @@ printf '%s\n' \
   '{"v":1,"ts":"2026-10-25T10:01:00Z","run":"-","session":"s9","project":"yukta","event":"fix","stage":"tests","attempt":1,"model":"haiku","fixed":true,"files":[],"cost":0.1,"secs":5}' \
   '{"v":1,"ts":"2026-10-25T10:02:00Z","run":"9eeeeeeee","session":"s9","project":"yukta","event":"result","status":"SUCCESS","failed_node":"-","healed":"tests:haiku","secs":10}' >"$dir/stamp.jsonl"
 python3 -I "$here/heal-report.py" show --events "$dir/stamp.jsonl" | grep -c '"run": "9eeeeeeee"' | grep -qx 2 || fail "run stamping"
+
+# the ledger: an open issue silences its finding, a closed one only until the rule fires again after the close
+cat >"$dir/ledger.json" <<'J'
+{"giveups": 7, "noop-fixers": 8, "triage-fallbacks": 9, "guard-hits": 10}
+J
+cat >"$dir/issues.json" <<'J'
+{"7": {"state": "OPEN"}, "8": {"state": "CLOSED", "closedAt": "2026-10-01T00:00:00Z"}, "9": {"state": "CLOSED", "closedAt": "2026-12-01T00:00:00Z"}}
+J
+led() { YUKTA_HEAL_LEDGER="$dir/ledger.json" YUKTA_HEAL_ISSUES="$dir/issues.json" python3 -I "$here/heal-report.py" analyze "$@" --events "$dir/events.jsonl"; }
+out="$(led || true)"
+grep -q '^giveups: tracked in #7' <<<"$out" || fail "open issue is tracked: $out"
+grep -q '^noop-fixers: REGRESSION, #8 is closed' <<<"$out" || fail "closed before the events is a regression: $out"
+grep -q '^triage-fallbacks' <<<"$out" && fail "closed after the events stays quiet: $out"
+grep -q '^guard-hits: ' <<<"$out" || fail "no issue found for #10 counts as new: $out"
+led >/dev/null && fail "ledger: new findings must exit 1"
+{ led --json || true; } | python3 -I -c "import json,sys; d=json.load(sys.stdin); assert [t['issue'] for t in d['tracked']]==[7] and d['regressions'][0]['issue']==8, d" || fail "ledger --json"
 echo "ok   heal report"

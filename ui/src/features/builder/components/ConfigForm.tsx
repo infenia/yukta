@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import {
   NativeSelect,
   inputFieldClassName,
@@ -59,15 +59,16 @@ export function JsonField({
 }
 
 function FieldInput({
+  id,
   field,
   value,
   onChange,
 }: {
+  id: string;
   field: ConfigField;
   value: unknown;
   onChange: (value: unknown) => void;
 }) {
-  const id = `cfg-${field.name}`;
   switch (field.type) {
     case 'BOOLEAN':
       return (
@@ -152,6 +153,8 @@ export function ConfigForm({
   values: Values;
   onChange: (values: Values) => void;
 }) {
+  // Scoped per form: NodeInspector renders two, and field names can repeat across them.
+  const scope = useId();
   const set = (name: string, value: unknown) => {
     // An unset field is dropped so the plugin default applies.
     onChange(
@@ -168,13 +171,14 @@ export function ConfigForm({
       {schema.map((field) => (
         <div key={field.name} className="flex flex-col gap-1">
           <label
-            htmlFor={`cfg-${field.name}`}
+            htmlFor={`${scope}-${field.name}`}
             className="text-label-sm text-on-surface font-semibold"
           >
             {field.name}
             {field.required && <span className="text-error"> *</span>}
           </label>
           <FieldInput
+            id={`${scope}-${field.name}`}
             field={field}
             value={values[field.name]}
             onChange={(value) => set(field.name, value)}

@@ -200,6 +200,8 @@ export function WorkflowDetailsPage() {
       </div>
 
       <LogsPanel
+        sessionId={sessionId}
+        executionId={selectedExecutionId}
         entries={logs.entries}
         dropped={logs.dropped}
         isStreaming={isStreaming || logs.isStreaming}

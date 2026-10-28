@@ -35,4 +35,5 @@ starts at 250 starts/s. The tests retry and count it as `poll_not_found`.
 
 Native binary only (`BINARY=`). `GET /api/workflow/{id}/history?status=RUNNING&limit=1000`, which the `stuck_runs` check
 calls, fails with `Record components not available for record class ...HistoryFilter`: the record is missing from
-the native reflection config. It works on the jar.
+the native reflection config. It works on the jar. The failure is counted as `teardown_errors`, so a native run fails
+instead of reporting `stuck_runs` 0 without having looked.

@@ -157,14 +157,16 @@ case "$action" in
   triage-log)
     # stdin: the message the triage routed. The classification is in its metadata; where a step sees it is not documented, so look
     # in the places it can be and keep the raw text of the first 300 characters for the report when none has it.
-    msg="$(cat)"
+    msg="${YUKTA_PAYLOAD:-}"
+    [[ -n "$msg" ]] || msg="$(cat)"
     t0="$(cat "$dir/$stage.triage-t0" 2>/dev/null || echo "$t_start")"
     emit triage "$(jq -nc --arg stage "$stage" --arg route "${YUKTA_TRIAGE_ROUTE:-}" --arg start "${YUKTA_TRIAGE_START:-}" --arg model "${YUKTA_TRIAGE_MODEL:-}" \
-      --arg secs "$(secs_since "$t0")" --arg raw "${msg:0:300}" --argjson m "$(jq -c '.' <<<"$msg" 2>/dev/null || echo null)" '
+      --arg secs "$(secs_since "$t0")" --arg raw "${msg:0:300}" --arg why "${YUKTA_METADATA_FAILURE_MESSAGE:-}" --argjson m "$(jq -c '.' <<<"$msg" 2>/dev/null || echo null)" '
       ($m | (.metadata.classification // .classification // .results[0].metadata.classification // {})) as $c
       | {stage: $stage, route: (if $route == "error" or $route == "uncertain" then $route else "level" end), label: ($c.label // (if $route == "error" or $route == "uncertain" then null else $route end)),
          p: ($c.probability // null), start: $start, model: $model, secs: ($secs | tonumber), chars: (($m.brief // "") | length),
-         fallback: (if $route == "error" or $route == "uncertain" then $route else null end), classification_seen: ($c != {}), raw: (if $c == {} then $raw else null end)}')"
+         fallback: (if $route == "error" or $route == "uncertain" then $route else null end), classification_seen: ($c != {}), raw: (if $c == {} then $raw else null end),
+         why: (if $why == "" then null else $why[0:500] end)}')"
     ;;
 
   record-auto)
@@ -286,7 +288,14 @@ ${YUKTA_HEAL_TIMEOUT:+You have about $((YUKTA_HEAL_TIMEOUT / 60)) minutes at ${e
     fi
     fixed=false
     [[ "$ran" == true && "$ok" == true ]] && fixed=true
-    [[ -n "$guard" ]] && summary="GUARD:$guard $summary"
+    # What the model says is not what happened. When the guard objected, or the model claimed a fix but the recheck still fails, the summary
+    # says NOT FIXED and why, and the model's words follow as a quote: nobody reads "the gate now passes" about a gate that is red.
+    claimed="$(jq -r '.claimed // false' "$claude" 2>/dev/null || echo false)"
+    if [[ -n "$guard" ]]; then
+      summary="NOT FIXED, guard:$guard The model said: $summary"
+    elif [[ "$claimed" == true && "$fixed" != true ]]; then
+      summary="NOT FIXED: the model claimed a fix but the stage still fails. The model said: $summary"
+    fi
     # a step with outputFormat JSON must print nothing but the JSON (the engine merges stderr into stdout): no HEAL line here, claimed prints it
     record "$fixed" "$files" "$cost" "$summary" "$usage" 2>/dev/null
     emit fix "$(jq -nc --arg stage "$stage" --argjson attempt "$n" --arg model "$model" --arg effort "$effort" --argjson fixed "$fixed" \

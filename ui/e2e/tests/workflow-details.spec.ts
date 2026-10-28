@@ -207,6 +207,29 @@ test.describe('Workflow Details Page', () => {
     expect(calls).toEqual(['?priority=10']);
   });
 
+  test('downloads the visible log lines as <session>-<execution>.log', async ({
+    page,
+  }) => {
+    await page.goto(WORKFLOW_URL);
+    await expect(page.getByTestId('logs-body')).toContainText(
+      'Initializing workflow engine...'
+    );
+
+    await page.getByLabel('Filter logs').fill('memory pressure');
+    await page.getByRole('button', { name: 'Download logs' }).click();
+    const download = page.waitForEvent('download');
+    await page.getByRole('menuitem', { name: 'Visible lines (.log)' }).click();
+
+    const file = await download;
+    expect(file.suggestedFilename()).toBe(
+      'SESSION_A92_XP_2024-exec-091-qp-55.log'
+    );
+    const { readFileSync } = await import('node:fs');
+    const text = readFileSync(await file.path(), 'utf8');
+    expect(text).toContain('High memory pressure detected on worker-node-04');
+    expect(text).not.toContain('Initializing workflow engine');
+  });
+
   test('renders the never-run state', async ({ page, mockWorkflowApi }) => {
     await mockWorkflowApi(page, { executions: [] });
     await page.goto(WORKFLOW_URL);

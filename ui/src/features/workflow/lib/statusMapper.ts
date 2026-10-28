@@ -94,6 +94,11 @@ export function isQueuedExecStatus(raw: string | null | undefined): boolean {
   return raw === 'QUEUED';
 }
 
+/** Whether a raw execution status is ABORTED: a server crash or restart interrupted the run. */
+export function isAbortedExecStatus(raw: string | null | undefined): boolean {
+  return raw === 'ABORTED';
+}
+
 /** Status to display for an execution: a live pause or stop control state overrides a non-terminal status. */
 export function toDisplayExecStatus(
   status: string | null | undefined,

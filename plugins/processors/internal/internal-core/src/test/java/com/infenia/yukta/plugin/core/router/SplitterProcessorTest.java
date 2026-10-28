@@ -271,6 +271,30 @@ class SplitterProcessorTest {
   }
 
   @Test
+  void testPrimitiveArraySplit() {
+    final Message<?> parent =
+        DefaultMessage.create(UUID.randomUUID(), Map.of("arr", new int[] {1, 2}));
+    final Map<String, Object> config = Map.of(ITEMSPATH, "payload.arr");
+
+    StepVerifier.create(processor.process(Flux.just(parent), config))
+        .expectNextMatches(m -> Integer.valueOf(1).equals(m.payload()))
+        .expectNextMatches(m -> Integer.valueOf(2).equals(m.payload()))
+        .verifyComplete();
+  }
+
+  @Test
+  void testMappingErrorRoutedToErrorPort() {
+    final Message<?> parent =
+        DefaultMessage.create(UUID.randomUUID(), Map.of(ITEMS, Collections.singletonList(1)));
+    final Map<String, Object> config =
+        Map.of(ITEMSPATH, PAYLOAD_ITEMS, HEADERMAPPING, Map.of(ERR, "1/0"), "errorPort", "bad");
+
+    StepVerifier.create(processor.process(Flux.just(parent), config))
+        .expectNextMatches(m -> "bad".equals(m.sourcePort()) && m.failureReason() != null)
+        .verifyComplete();
+  }
+
+  @Test
   void testSingleObjectSplit() {
     final String item = "only-one";
     final Message<?> parent = DefaultMessage.create(UUID.randomUUID(), Map.of("item", item));

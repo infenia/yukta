@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isQueuedExecStatus,
+  isAbortedExecStatus,
   isTerminalExecStatus,
   toExecStatusCategory,
   toNodeStatusLabel,
@@ -137,5 +138,13 @@ describe('isQueuedExecStatus', () => {
     expect(isQueuedExecStatus('QUEUED')).toBe(true);
     expect(isQueuedExecStatus('PENDING')).toBe(false);
     expect(isQueuedExecStatus(null)).toBe(false);
+  });
+});
+
+describe('isAbortedExecStatus', () => {
+  it('is true only for ABORTED', () => {
+    expect(isAbortedExecStatus('ABORTED')).toBe(true);
+    expect(isAbortedExecStatus('FAILURE')).toBe(false);
+    expect(isAbortedExecStatus(null)).toBe(false);
   });
 });

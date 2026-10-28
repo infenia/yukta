@@ -6,6 +6,7 @@ import { ApiError } from '@/lib/apiClient';
 import {
   changePriority,
   nodeAction,
+  recoverExecution,
   restartFromNode,
   runAction,
   startWorkflow,
@@ -65,6 +66,22 @@ export function useExecutionControl(sessionId: string, workflowId: string) {
       onSuccess,
       mutationFn: (vars: { executionId: string; priority: number }) =>
         changePriority(vars.executionId, vars.priority),
+    }),
+    recover: useMutation({
+      onSuccess: () =>
+        Promise.all([
+          onSuccess(),
+          queryClient.invalidateQueries({
+            queryKey: [
+              'sessions',
+              sessionId,
+              'workflows',
+              workflowId,
+              'executions',
+            ],
+          }),
+        ]),
+      mutationFn: (executionId: string) => recoverExecution(executionId),
     }),
     stopAll: useMutation({
       onSuccess,

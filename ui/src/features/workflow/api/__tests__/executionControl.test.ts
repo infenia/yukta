@@ -7,6 +7,7 @@ import { http, HttpResponse } from 'msw';
 import {
   nodeAction,
   changePriority,
+  recoverExecution,
   restartFromNode,
   runAction,
   startWorkflow,
@@ -77,6 +78,11 @@ describe('executionControl api', () => {
   it('changes the priority of a run', async () => {
     await changePriority('e 1', -3);
     expect(calls).toEqual(['priority e 1']);
+  });
+
+  it('recovers an aborted run', async () => {
+    expect(await recoverExecution('e 1')).toEqual({ executionId: 'e1' });
+    expect(calls).toEqual(['recover e 1']);
   });
 
   it('calls node actions including the nested step paths', async () => {
