@@ -18,8 +18,8 @@ const (
 	// maxWarnLinesPerNode is the node's separate, smaller budget for WARN lines: a compiler that
 	// prints dozens of warnings before the error that fails the node must not use up the room the
 	// error needs.
-	maxWarnLinesPerNode = 10
-	maxProblemLineLength   = 300
+	maxWarnLinesPerNode  = 10
+	maxProblemLineLength = 300
 )
 
 // problemFilter reduces events to the lines that say what went wrong:
