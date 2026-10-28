@@ -3,8 +3,8 @@
 Yukta develops Yukta, so every run is also a test of Yukta.
 
 ## Watch
-Start detached and let the cheap `yukta-run-watcher` subagent (Haiku) block on it, spawned with
-`run_in_background` and the ids; it returns one `RESULT` line, or a ≤12-line L1 triage (failed node,
+Start detached and block on a plain background `yk watch <s> <e>` (no model on a green run). If it is red
+and the cause is unclear, spawn the cheap `yukta-run-watcher` subagent (Haiku) with the ids; it returns one `RESULT` line, or a ≤12-line L1 triage (failed node,
 classification, key lines, next step) or an `ESCALATE:` with the evidence. Stay silent on routine progress.
 ```bash
 yk check --detach [-m <module>]       # STARTED execution=<e> session=<s>
