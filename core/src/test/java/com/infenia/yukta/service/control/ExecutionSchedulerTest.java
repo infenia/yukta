@@ -129,6 +129,21 @@ class ExecutionSchedulerTest {
   }
 
   @Test
+  void startRate_countsRestartsAndResumesWithNewStarts() {
+    final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
+    scheduler.setMaxStartsPerMinute(2);
+
+    scheduler.assertCanAccept("s", "w");
+    assertThat(scheduler.acquireRerun("s", "w", 0, "e1").refused()).isFalse();
+    final Admission third = scheduler.acquireRerun("s", "w", 0, "e2");
+
+    assertThat(third.refused()).isTrue();
+    StepVerifier.create(third.permit()).expectError(ExecutionRejectedException.class).verify();
+    assertThat(scheduler.rejected(ExecutionScheduler.RejectReason.RATE_LIMIT)).isEqualTo(1);
+    assertThat(scheduler.acquireRerun("s", "other", 0, "e3").refused()).isFalse();
+  }
+
+  @Test
   void queuedStart_givesUpAfterTheQueueTimeout_andFreesItsPlace() {
     final ExecutionScheduler scheduler =
         new ExecutionScheduler(

@@ -72,7 +72,7 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
   return (
     <section
       aria-label="Workflow versions"
-      className="border-outline-variant bg-surface-container-low flex flex-col gap-2 border-b px-6 py-3"
+      className="flex flex-col gap-2 border-b border-outline-variant bg-surface-container-low px-6 py-3"
     >
       {(versions.error || goBack.error || writeNote.error) && (
         <InlineError
@@ -87,8 +87,8 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
       {versions.data?.map((version) => (
         <div key={version.id} className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
-            <span className="text-on-surface text-code-sm">{version.id}</span>
-            <span className="text-on-surface-variant text-body-md">
+            <span className="text-code-sm text-on-surface">{version.id}</span>
+            <span className="text-body-md text-on-surface-variant">
               {new Date(version.savedAt).toLocaleString()}
             </span>
             <Button
@@ -148,7 +148,7 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
           {compared === version.id && diff.isLoading && (
             <p
               role="status"
-              className="text-on-surface-variant text-body-sm ml-4"
+              className="ml-4 text-body-sm text-on-surface-variant"
             >
               Loading changes…
             </p>
@@ -159,7 +159,7 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
           {compared === version.id && diff.data && (
             <ul
               aria-live="polite"
-              className="text-on-surface-variant text-code-sm ml-4"
+              className="ml-4 text-code-sm text-on-surface-variant"
             >
               {changes(diff.data).length === 0 ? (
                 <li>Same as the current definition</li>

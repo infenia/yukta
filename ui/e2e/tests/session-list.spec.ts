@@ -270,6 +270,41 @@ test.describe('Session List Page - Mocked API', () => {
   });
 });
 
+test.describe('Session List Page - Export', () => {
+  test('downloads the session config as <sessionId>.json', async ({ page }) => {
+    const config = {
+      sessionId: 'session-1',
+      name: 'Build Pipeline',
+      workflows: {},
+    };
+    await page.route('**/api/sessions/session-1/config', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          timestamp: '2026-07-26T14:23:23',
+          status: 200,
+          message: 'OK',
+          path: '/config',
+          data: config,
+        }),
+      })
+    );
+    await page.goto('/');
+    await expect(page.getByText('Build Pipeline')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Session actions' }).first().click();
+    const download = page.waitForEvent('download');
+    await page.getByRole('menuitem', { name: 'Export JSON' }).click();
+
+    const file = await download;
+    expect(file.suggestedFilename()).toBe('session-1.json');
+    const path = await file.path();
+    const { readFileSync } = await import('node:fs');
+    expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual(config);
+  });
+});
+
 test.describe('Session List Page - Tag and Initiator filters', () => {
   test('filters by tag and initiator and keeps the choice in the URL', async ({
     page,

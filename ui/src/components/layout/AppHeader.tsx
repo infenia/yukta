@@ -11,8 +11,8 @@ import ThemeToggle from './ThemeToggle';
    session, workflow and editor page under /sessions. */
 const NAV = [
   { to: '/', section: '/sessions', label: 'Sessions', icon: 'folder' },
+  { to: '/runs', section: '/runs', label: 'Runs', icon: 'history' },
   { to: '/plugins', section: '/plugins', label: 'Plugins', icon: 'extension' },
-  { to: '/history', section: '/history', label: 'History', icon: 'history' },
   { to: '/control', section: '/control', label: 'Control', icon: 'hub' },
 ];
 

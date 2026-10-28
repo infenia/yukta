@@ -160,7 +160,7 @@ public class ExecutionResumer {
               // The slot is taken before the log says the run was resumed, so a refused resume
               // can be tried again.
               final ExecutionScheduler.Admission admission =
-                  scheduler.acquire(
+                  scheduler.acquireRerun(
                       started.sessionId(),
                       started.workflowId(),
                       ExecutionScheduler.priorityOf(payload),

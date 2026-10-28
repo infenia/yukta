@@ -6,6 +6,8 @@ import { RequirePermission } from '@/components/common/RequirePermission';
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { InlineError } from '@/components/common/InlineError';
+import { EXPORT_HINT, exportSessionConfig } from '../lib/exportSession';
 import { Input } from '@/components/ui/input';
 import { useSessionDetails } from '../hooks/useSessionDetails';
 import { useSessionWorkflows } from '../hooks/useSessionWorkflows';
@@ -26,6 +28,7 @@ export function SessionDetailsPage() {
     error: workflowsError,
   } = useSessionWorkflows(sessionId || '');
   const [workflowFilter, setWorkflowFilter] = useState('');
+  const [exportError, setExportError] = useState<string | null>(null);
   const navigate = useNavigate();
   const [deleting, setDeleting] = useState(false);
 
@@ -115,6 +118,28 @@ export function SessionDetailsPage() {
                   </span>
                   New workflow
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  title={EXPORT_HINT}
+                  onClick={() => {
+                    setExportError(null);
+                    exportSessionConfig(session.sessionId).catch(
+                      (error: unknown) =>
+                        setExportError(
+                          error instanceof Error
+                            ? error.message
+                            : 'Export failed'
+                        )
+                    );
+                  }}
+                >
+                  <span className="material-symbols-outlined text-base">
+                    download
+                  </span>
+                  Export JSON
+                </Button>
+                <InlineError message={exportError} />
               </form>
             </div>
           }

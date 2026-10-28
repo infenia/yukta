@@ -69,7 +69,7 @@ function RunDialog({
   return (
     <Modal title="Run workflow" onClose={onClose}>
       <label
-        className="text-body-md text-on-surface mb-1 block"
+        className="mb-1 block text-body-md text-on-surface"
         htmlFor="run-payload"
       >
         Trigger payload (JSON, optional)
@@ -81,7 +81,7 @@ function RunDialog({
         rows={8}
         spellCheck={false}
         placeholder='{"key": "value"}'
-        className={`${textareaFieldClassName} text-code-sm mb-3`}
+        className={`${textareaFieldClassName} mb-3 text-code-sm`}
       />
       <InlineError message={parseError ?? error} />
       <div className="mt-4 flex justify-end gap-2">
@@ -332,7 +332,7 @@ export function RunControls({
       )}
       {recovering && (
         <Modal title="Recover this run?" onClose={() => setRecovering(false)}>
-          <p className="text-body-md text-on-surface-variant mb-4">
+          <p className="mb-4 text-body-md text-on-surface-variant">
             Continue this run as a new run? Finished nodes are replayed.
           </p>
           <div className="flex justify-end gap-2">
@@ -360,7 +360,7 @@ export function RunControls({
       )}
       {confirm && (
         <Modal title={`${confirm.label}?`} onClose={() => setConfirm(null)}>
-          <p className="text-body-md text-on-surface-variant mb-4">
+          <p className="mb-4 text-body-md text-on-surface-variant">
             This cannot be undone. A stopped run can only be restarted.
           </p>
           <div className="flex justify-end gap-2">
