@@ -369,7 +369,9 @@ class ModelControlPlaneTest {
   }
 
   @Test
-  void decide_beyondMaxCallsPerMinute_skipsTheModel_andCountsIt() {
+  @SuppressWarnings("PMD.AvoidAccessibilityAlteration") // rewinds the window instead of waiting
+  void decide_beyondMaxCallsPerMinute_skipsTheModel_andCountsIt_untilTheNextMinute()
+      throws ReflectiveOperationException {
     final java.util.concurrent.atomic.AtomicInteger calls =
         new java.util.concurrent.atomic.AtomicInteger();
     final DecisionModel counting =
@@ -404,5 +406,14 @@ class ModelControlPlaneTest {
     assertThat(calls).hasValue(2);
     assertThat(decisions.stream().filter(d -> !d.commands().isEmpty())).hasSize(2);
     assertThat(counted).containsExactly("decided", "decided", "skipped", "skipped", "skipped");
+
+    final java.lang.reflect.Field windowStart =
+        ModelControlPlane.class.getDeclaredField("windowStart");
+    windowStart.setAccessible(true);
+    ((java.util.concurrent.atomic.AtomicLong) windowStart.get(plane))
+        .addAndGet(-java.util.concurrent.TimeUnit.MINUTES.toNanos(2));
+
+    assertThat(plane.decide(failure()).block().commands()).isNotEmpty();
+    assertThat(calls).hasValue(3);
   }
 }

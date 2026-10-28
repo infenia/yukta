@@ -29,6 +29,18 @@ class ModelPlaneSettingsTest {
       final String instructions,
       final Map<String, Option> options,
       final Set<String> events) {
+    return settings(backend, provider, name, baseUrl, instructions, options, events, 0);
+  }
+
+  private static ModelPlaneSettings settings(
+      final ModelSpec.Backend backend,
+      final String provider,
+      final String name,
+      final String baseUrl,
+      final String instructions,
+      final Map<String, Option> options,
+      final Set<String> events,
+      final int maxCallsPerMinute) {
     return new ModelPlaneSettings(
         backend,
         provider,
@@ -42,7 +54,7 @@ class ModelPlaneSettingsTest {
         events,
         null,
         null,
-        0);
+        maxCallsPerMinute);
   }
 
   @Test
@@ -159,5 +171,7 @@ class ModelPlaneSettingsTest {
                     Map.of("only", new Option("one", Command.NONE)),
                     null))
         .hasMessage("At least two options are needed");
+    assertThatThrownBy(() -> settings(null, null, "m", null, null, null, null, -1))
+        .hasMessage("max-calls-per-minute cannot be negative");
   }
 }

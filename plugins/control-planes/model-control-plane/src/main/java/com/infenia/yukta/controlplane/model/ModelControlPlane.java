@@ -142,8 +142,9 @@ public final class ModelControlPlane implements ControlPlanePlugin {
     boolean allowed = true;
     if (max > 0) {
       final long now = System.nanoTime();
-      final long start = windowStart.get();
-      if (now - start >= WINDOW_NANOS && windowStart.compareAndSet(start, now)) {
+      // ponytail: two threads at the boundary may both reset, so a window can admit one call more
+      if (now - windowStart.get() >= WINDOW_NANOS) {
+        windowStart.set(now);
         callsInWindow.set(0);
       }
       allowed = callsInWindow.incrementAndGet() <= max;
