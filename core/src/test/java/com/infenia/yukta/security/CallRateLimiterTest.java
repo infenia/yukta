@@ -71,6 +71,21 @@ class CallRateLimiterTest {
   }
 
   @Test
+  void testManyCallers_theSweepKeepsWindowsThatHaveNotEnded() {
+    final CallRateLimiter limiter = new CallRateLimiter(1, now::get);
+    for (int i = 0; i < 5_000; i++) {
+      limiter.tryAcquire("old-" + i);
+    }
+    now.addAndGet(Duration.ofMinutes(1).toNanos());
+    for (int i = 0; i < 5_002; i++) {
+      limiter.tryAcquire("new-" + i);
+    }
+
+    assertThat(limiter.exceeded("new-0")).isTrue();
+    assertThat(limiter.exceeded("old-0")).isFalse();
+  }
+
+  @Test
   void testZeroMeansUnlimited() {
     final CallRateLimiter limiter = new CallRateLimiter(0);
 
