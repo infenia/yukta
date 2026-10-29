@@ -218,7 +218,7 @@ class GlobalExceptionHandlerTest {
   }
 
   @Test
-  void testHandleExpressionParse_isABadRequest() {
+  void testHandleExpressionParse_isBadRequest() {
     final var exception =
         assertThrows(
             org.springframework.expression.ParseException.class,
