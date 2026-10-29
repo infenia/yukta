@@ -134,6 +134,15 @@ describe('WorkflowDetailsPage controls', () => {
     expect(screen.getByTestId('run-controls')).toBeInTheDocument();
   });
 
+  it('opens the typed confirmation to delete the workflow', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /Delete workflow…/ }));
+    expect(screen.getByRole('dialog', { name: 'Delete workflow wf-982-xk-11' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('sends a node action for the selected execution', async () => {
     const user = userEvent.setup();
     renderPage();

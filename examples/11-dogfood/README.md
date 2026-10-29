@@ -86,7 +86,7 @@ latency}` goes to `.yukta-dev/decisions.tsv`, but the caller's static path still
 3. **Triage**: a local model (System One, `tev1` via Ollama) rates the failure easy, average or hard. The label only picks the
    first rung; unreachable or unsure (< 0.3) means average. `--triage off` skips it.
 4. **Ladder** (`heal.json`): easy `haiku/low → sonnet/low`, average `haiku/high → sonnet/low`, hard `sonnet/low`. One fresh
-   Claude session per rung. An attempt that changed no file ends the ladder, and so does the first failed attempt on `reuse`, `docs` or `actionlint` (`heal.json` `singleAttempt`); the end of the ladder fails the stage.
+   Claude session per rung. An attempt that changed no file ends the ladder, and so does the first failed attempt on `reuse`, `docs` or `actionlint` (`heal.json` `singleAttempt`); the end of the ladder fails the stage. An attempt after which the stage fails exactly as it did after the attempt before (same problem lines, numbers aside) ends the ladder too: a stronger model would start from the same problems.
 5. **Guard**: what changed on disk decides, not what Claude says. After the rules, the `guard` decision (decisions.json, shadow by default) asks the decision model once about per-file facts, never the diff; once it is `on` it can only reject (`GUARD: model:`), at probability >= `minProbability`. Rejected: edits to `config/`, `build-logic/`, `gradle/`,
    `.github/`, `.claude/` or this folder, added suppressions, removed assertions, test expectations changed with no code
    change, a claimed fix with no change. Fixers never commit.

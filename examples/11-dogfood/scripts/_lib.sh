@@ -61,10 +61,13 @@ find_cli() {
   die "yukta-cli not found; run 'yk up' (builds it from main) or set YUKTA_BIN"
 }
 
-# render_session TEMPLATE PROJECT_PATH: prints the session JSON with __PROJECT_PATH__ (the checkout) and __DOGFOOD__ (this folder) replaced.
-# Done on parsed JSON so any characters in the path are escaped correctly.
+# render_session OUT: writes the one `dogfood` session to OUT, always from the main checkout the dev server runs ($DEV_HOME/main), never
+# from the worktree yk was called in: __PROJECT_PATH__ (the project) and __DOGFOOD__ (the scripts) are that checkout's, so applying it
+# from any worktree gives the same session.
 render_session() {
-  jq --arg p "$2" --arg d "$here" 'walk(if type == "string" then split("__PROJECT_PATH__") | join($p) | split("__DOGFOOD__") | join($d) else . end)' "$1"
+  local d="$DEV_HOME/main/examples/11-dogfood"
+  [[ -f "$d/session.json" ]] || d="$here"
+  jq --arg p "${d%/examples/11-dogfood}" --arg d "$d" 'walk(if type == "string" then split("__PROJECT_PATH__") | join($p) | split("__DOGFOOD__") | join($d) else . end) | .sessionId="dogfood" | .name="dogfood"' "$d/session.json" >"$1"
 }
 
 # changes_sum ROOT: a hash of the uncommitted code changes of a checkout (the Stop hook skips a check
@@ -244,7 +247,15 @@ ensure_server() {
   fi
   ours && [[ "$(server_env YUKTA_DEV_KIND)" == main ]] || return 0
   local sha
+  # a main that moved: fetch it at most once a minute, then build it in the background (yk up swaps once the server is idle)
+  if [[ -z "$(find "$DEV_HOME/fetched" -mmin -1 2>/dev/null)" ]]; then
+    touch "$DEV_HOME/fetched"
+    git -C "$DEV_HOME/main" fetch -q origin main 2>/dev/null || true
+  fi
   sha="$(git -C "$DEV_HOME/main" rev-parse "${YUKTA_DEV_MAIN_REF:-origin/main}" 2>/dev/null)" || return 0
+  if [[ "$sha" != "$(server_env YUKTA_DEV_SHA)" && ! -s "$DEV_HOME/builds/$sha/yukta.jar" ]]; then
+    "$here/yk" up --background >/dev/null 2>&1 || true
+  fi
   if [[ ("$sha" != "$(server_env YUKTA_DEV_SHA)" || "$(server_env YUKTA_DEV_KEYED)" != 2) \
     && -s "$DEV_HOME/builds/$sha/yukta.jar" && "$(busy)" == 0 ]]; then
     (server_up) >&2 || true
@@ -292,15 +303,9 @@ emit_result() {
     | { flock 9; cat >>"$events"; } 9>>"$events.lock" 2>/dev/null || true
 }
 
-# check_session PROJECT NARGS: the session a check of PROJECT runs in on the shared server. The path hash keeps
-# checkouts apart (two clones) and keeps one session per checkout across branch switches. A run with gradle args (yk gradle) gets a session of its own:
-# applying a session replaces its workflows and a run clears its heal records, so a yk gradle of a fixer in the
-# checkout (the pre-bash hook sends it there) must not share the session of the check it is healing.
-check_session() {
-  local suffix=""
-  (( ${2:-0} > 0 )) && suffix="-gradle"
-  echo "check-$(printf '%s' "$1" | sha1sum | cut -c1-8)$suffix"
-}
+# check_session: the one session every run of this checkout's tools shares on the dev server (yk gradle, yk tool, yk check). What changes
+# per run travels in the start payload; the heal records live per checkout in $STATE_DIR/heal/<session>.
+check_session() { echo dogfood; }
 
 # print_result SESSION EXECUTION: prints the machine readable RESULT line; returns 0 only when the
 # execution ended SUCCESS.

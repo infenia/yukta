@@ -68,7 +68,7 @@ cmd_status() {
   local sha state=current
   sha="$(server_env YUKTA_DEV_SHA)"
   if [[ "$(server_env YUKTA_DEV_KIND)" == main && -n "$main" && "$main" != "$sha" ]]; then
-    state="stale (origin/main is ${main:0:9}$([[ -s "$DEV_HOME/builds/$main/yukta.jar" ]] && echo ", built; swaps when idle"))"
+    state="stale (origin/main is ${main:0:9}$([[ -s "$DEV_HOME/builds/$main/yukta.jar" ]] && echo ", built; swaps when idle" || true))"
   fi
   echo "up: $DEV_URL $(server_env YUKTA_DEV_LABEL) $state, running=$(busy)$building"
   echo "log: $DEV_HOME/server.log"
@@ -86,12 +86,12 @@ run_tool() {
   cli="$(find_cli)"
   mkdir -p "$STATE_DIR"
   # no lock: yk gradle and yk tool do not edit the checkout, and the server's tool concurrency group queues them (QUEUED in yk tree)
-  session="$(check_session "$project" 1)"
+  session="$(check_session)"
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
   if [[ "${YK_TOOL:-gradle}" == gradle ]]; then cmdline="./gradlew $(printf '%q ' "$@")-q --console=plain" label=gradle
   else cmdline="$(printf '%q ' "$@")" label="$1"; fi
-  render_session "$here/session.json" "$project" | jq --arg s "$session" '.sessionId=$s | .name=$s' >"$tmp/session.json"
+  render_session "$tmp/session.json"
   echo ">> server $YUKTA_SERVER_URL, session $session, project $project" >&2
   "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 \
     || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
@@ -138,7 +138,7 @@ cmd_check() {
   fi
   grep '^#' <<<"$plan" >&2 || true
   local session healdir events
-  session="$(check_session "$root" 0)-plan"
+  session="$(check_session)"
   healdir="$STATE_DIR/heal/$session"
   events="$(heal_events_file)"
   # Per stage of the check workflow (fixed in session.json), "" unless planned: cmd (its command), auto (its free fix, "-" for none) and
@@ -176,7 +176,7 @@ cmd_check() {
   rm -rf "$healdir.prev"; [[ ! -d "$healdir" ]] || mv "$healdir" "$healdir.prev"; mkdir -p "$healdir"
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
-  render_session "$here/session.json" "$root" | jq --arg s "$session" '.sessionId=$s | .name=$s' >"$tmp/session.json"
+  render_session "$tmp/session.json"
   echo ">> server $YUKTA_SERVER_URL, session $session, project $root" >&2
   "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
   exec_id="$("$cli" -o json workflow start "$session" check --payload "$(jq -nc --arg p "$root" --arg d "$healdir" --arg ev "${events:--}" --arg m "${modules:--}" \

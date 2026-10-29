@@ -62,7 +62,7 @@ scenario() {
   names="$(jq -c '[.workflows.check.nodes[] | select(.type == "SUB_WORKFLOW" and .config.workflowId == "tool" and .nodeId != "verify") | .nodeId]' "$here/session.json")"
   cmds="$(jq -nc --argjson n "$names" --arg c "${CMD_compile:-}" --arg t "${CMD_tests:-}" --arg r "${CMD_reuse:-}" \
     '($n | map({(.): ""}) | add) + {compile: $c, tests: $t, reuse: $r}')"
-  render_session "$here/session.json" "$proj" | jq --arg s "$session" '.sessionId=$s | .name=$s' >"$dir/session.json"
+  jq --arg p "$proj" --arg d "$here" --arg s "$session" 'walk(if type == "string" then split("__PROJECT_PATH__") | join($p) | split("__DOGFOOD__") | join($d) else . end) | .sessionId=$s | .name=$s' "$here/session.json" >"$dir/session.json"
   "$cli" session apply "$dir/session.json" >"$dir/apply.out" 2>&1 || { cat "$dir/apply.out" >&2; fail "$name: session apply"; }
   exec_id="$("$cli" -o json workflow start "$session" check --payload "$(jq -nc --arg p "$proj" --arg d "$healdir" --arg bin "$dir/claude" \
     --arg rules "$here/fixer-rules.md" --arg events "${EVENTS:--}" --arg autoreuse "${AUTO_reuse:-}" --arg verify "${VERIFY:-true}" --arg budget "${BUDGET_CHECK:--}" --arg fast "${FAST:-}" --arg mark "$healdir/fast.ok" --arg triage "${TRIAGE_URL:+on}" --arg turl "${TRIAGE_URL:-http://127.0.0.1:1}" \

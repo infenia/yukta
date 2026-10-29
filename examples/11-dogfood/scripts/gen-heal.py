@@ -78,6 +78,7 @@ def carry(path):
         "problems": from_result(path + "['problems']", "payload['problems']", "'The previous attempt did not finish: ' + payload['reason']"),
         "previous": from_result(path + "['summary']", "'The previous attempt ran out of time.'", "''"),
         "changed": from_result(path + "['changed']", "true", "true"),
+        "same": from_result(path + "['same']", "false", "false"),
         "stage": from_result(path + "['stage']", "''", "''")}}
 
 
@@ -188,7 +189,8 @@ for st, after in nxt.items():
             nodes.append({"nodeId": c, "type": "MAPPER", "config": carry("['output']")})
             # an attempt that changed nothing gains nothing from a stronger model asking the same question: give up. So does a second
             # attempt on a stage in heal.json singleAttempt, which an edit to the code often cannot fix (a licence header, a docs link)
-            stop = "payload['changed'] == false" + (" or {%s}.contains(payload['stage'])" % ",".join("'%s'" % x for x in SINGLE) if SINGLE else "")
+            # nor does one that failed exactly as the attempt before it did (no progress, `same` of the report step)
+            stop = "payload['changed'] == false or payload['same'] == true" + (" or {%s}.contains(payload['stage'])" % ",".join("'%s'" % x for x in SINGLE) if SINGLE else "")
             nodes.append({"nodeId": c + "?", "type": "BRANCH", "config": {"mode": "EXPRESSION", "cases": {stop: "stop"}, "defaultPort": "go"}})
             e += edges(c, c + "?") + edges(c + "?", rid(*after), "go") + edges(c + "?", "giveup", "stop")
         e += edges(rid(*st), c, "failure", "error")

@@ -10,6 +10,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { DeleteSessionDialog } from './DeleteDialogs';
+import { RequirePermission } from '@/components/common/RequirePermission';
 import { EXPORT_HINT, exportSessionConfig } from '../lib/exportSession';
 import type { SessionListItem } from '../types/session';
 
@@ -19,6 +21,7 @@ interface SessionRowActionsMenuProps {
 
 export function SessionRowActionsMenu({ session }: SessionRowActionsMenuProps) {
   const navigate = useNavigate();
+  const [deleting, setDeleting] = useState(false);
   const [exportFailed, setExportFailed] = useState(false);
 
   const handleView = () => {
@@ -84,7 +87,23 @@ export function SessionRowActionsMenu({ session }: SessionRowActionsMenuProps) {
           >
             Export JSON
           </DropdownMenuItem>
+          <RequirePermission perm="deleteSessions">
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleting(true);
+              }}
+            >
+              Delete session…
+            </DropdownMenuItem>
+          </RequirePermission>
         </DropdownMenuContent>
+        {deleting && (
+          <DeleteSessionDialog
+            sessionId={session.sessionId}
+            onClose={() => setDeleting(false)}
+          />
+        )}
       </DropdownMenu>
     </>
   );
