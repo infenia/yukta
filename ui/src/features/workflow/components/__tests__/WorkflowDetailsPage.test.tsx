@@ -138,6 +138,35 @@ describe('WorkflowDetailsPage', () => {
     expect(screen.queryByTestId('stage-lint')).not.toBeInTheDocument();
   });
 
+  it('opens a sub-workflow from its node, and links a sub-workflow run back to its parent', async () => {
+    server.use(
+      http.get('/api/sessions/:sessionId/workflows/:workflowId/graph', () =>
+        HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data: createStagedGraph(), path: '/graph' })
+      ),
+      http.get('/api/executions/:executionId/tree', () =>
+        HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', path: '/', data: [] })
+      ),
+      http.get('/api/executions/:executionId', ({ params }) =>
+        HttpResponse.json({
+          timestamp: 't', status: 200, message: 'ok', path: '/status',
+          data:
+            params.executionId === 'parent-run'
+              ? createMockProgress({ executionId: 'parent-run', workflowId: 'outer' })
+              : createMockProgress({ parentExecutionId: 'parent-run' }),
+        })
+      )
+    );
+    renderPage('/sessions/SESSION_A92_XP_2024/workflow/gate?stages=all');
+    expect(await screen.findByRole('link', { name: 'Open sub-workflow fix' })).toHaveAttribute(
+      'href',
+      '/sessions/SESSION_A92_XP_2024/workflow/fix'
+    );
+    expect(await screen.findByRole('link', { name: 'Parent run' })).toHaveAttribute(
+      'href',
+      '/sessions/SESSION_A92_XP_2024/workflow/outer?exec=parent-run'
+    );
+  });
+
   it('shows a loading state before data arrives', () => {
     renderPage();
     expect(screen.getByText('Loading workflow...')).toBeInTheDocument();

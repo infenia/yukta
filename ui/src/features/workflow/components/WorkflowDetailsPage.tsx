@@ -35,6 +35,12 @@ import { useExecutionSelection } from '../hooks/useExecutionSelection';
 import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { useWorkflowGraph } from '../hooks/useWorkflowGraph';
 import { useStageView } from '../hooks/useStageView';
+import {
+  SubWorkflowLinks,
+  useSubWorkflowLinks,
+} from '../hooks/useSubWorkflowLinks';
+import { useQuery } from '@tanstack/react-query';
+import { getWorkflowProgress } from '../api/getWorkflowProgress';
 import type { TaskProgress } from '../types/workflow';
 import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -111,6 +117,20 @@ export function WorkflowDetailsPage() {
     return byNode;
   }, [progress]);
   const stages = useStageView(graph, tasksByNode);
+  const live = !isTerminalExecStatus(progress?.status);
+  const subWorkflowLinks = useSubWorkflowLinks(
+    sessionId,
+    graph,
+    selectedExecutionId,
+    live
+  );
+  // A sub-workflow run links back to the run that started it, which may be another workflow
+  const parentId = progress?.parentExecutionId ?? null;
+  const parent = useQuery({
+    queryKey: ['workflow', sessionId, 'status', parentId],
+    queryFn: () => getWorkflowProgress(parentId as string),
+    enabled: parentId !== null,
+  });
 
   if (graphQuery.isLoading || executionsQuery.isLoading) {
     return (
@@ -147,6 +167,20 @@ export function WorkflowDetailsPage() {
         status={executionStatus}
         actions={
           <>
+            {parent.data && (
+              <Link
+                to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(parent.data.workflowId)}?exec=${encodeURIComponent(parent.data.executionId)}`}
+                className={buttonVariants({ variant: 'ghost' })}
+              >
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
+                >
+                  chevron_left
+                </span>
+                Parent run
+              </Link>
+            )}
             <RunHistoryDropdown
               executions={executions}
               selectedExecutionId={selectedExecutionId}
@@ -275,11 +309,13 @@ export function WorkflowDetailsPage() {
           100-node run no longer stretches the page */}
       <div className="flex h-[clamp(28rem,calc(100dvh-14rem),56rem)]">
         <div className="relative min-w-0 flex-1">
-          <WorkflowCanvas
-            graph={graph}
-            tasksByNode={tasksByNode}
-            stageView={stages.stageView}
-          />
+          <SubWorkflowLinks value={subWorkflowLinks}>
+            <WorkflowCanvas
+              graph={graph}
+              tasksByNode={tasksByNode}
+              stageView={stages.stageView}
+            />
+          </SubWorkflowLinks>
           {stages.hasStages && (
             <div
               role="radiogroup"

@@ -67,6 +67,8 @@ export interface WorkflowProgress {
   endTime: string | null;
   /** Latest operator control state (e.g. PAUSED), separate from the lifecycle status. */
   controlState?: string | null;
+  /** The run that started this one as a sub-workflow, if any. */
+  parentExecutionId?: string | null;
 }
 
 export interface LogEntry {
