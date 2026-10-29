@@ -3,7 +3,6 @@
 package com.infenia.yukta.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.infenia.yukta.validation.ProjectPath;
 import com.infenia.yukta.validation.SessionId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -42,22 +41,26 @@ public record ConfigRequest(
         @Size(max = 256, message = "Session name must be at most 256 characters")
         String name,
     @Schema(
-            description = "A human-readable description of the session",
+            description =
+                "A human-readable description of the session (optional; defaults to the name)",
             example = "Daily build and quality check")
-        @NotBlank(message = "Session description is mandatory")
         @Size(max = 256, message = "Session description must be at most 256 characters")
         String description,
-    @Schema(description = "The name of the initiator (user or system)", example = "AI Agent")
-        @NotBlank(message = "Initiator is mandatory")
+    @Schema(
+            description =
+                "The name of the initiator (user or system); optional, defaults to anonymous",
+            example = "AI Agent")
         String initiator,
     @Schema(
             description = "Metadata tags for categorization and filtering",
             example = "{\"environment\": \"prod\", \"client\": \"mobile-app\"}")
         Map<String, String> tags,
     @Schema(
-            description = "The absolute root path of the project on the server's filesystem",
+            description =
+                "The absolute root path of the project on the server's filesystem; optional,"
+                    + " defaults to the current directory",
             example = "/home/user/workspace/project-alpha")
-        @ProjectPath
+        @Size(max = 1024, message = "Project path must be at most 1024 characters")
         String projectPath,
     @Schema(description = "A map of workflow definition requests keyed by workflow ID")
         @NotEmpty(message = "At least one workflow definition is required")
@@ -66,8 +69,16 @@ public record ConfigRequest(
 
   /** Compact constructor to ensure immutability. */
   public ConfigRequest {
+    name = blank(name) ? sessionId : name;
+    description = blank(description) ? name : description;
+    initiator = blank(initiator) ? "anonymous" : initiator;
+    projectPath = blank(projectPath) ? "." : projectPath;
     tags = tags == null ? Map.of() : Map.copyOf(tags);
     workflows = workflows != null ? Map.copyOf(workflows) : Map.of();
+  }
+
+  private static boolean blank(final String value) {
+    return value == null || value.isBlank();
   }
 
   /**

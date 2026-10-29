@@ -148,14 +148,28 @@ class ConfigRequestTest {
   @NullSource
   @EmptySource
   @ValueSource(strings = {" ", "\t", "\n"})
-  void validationShouldFailWithInvalidName(final String name) {
+  void blankOptionalFieldsGetDefaults(final String blank) {
+    final var workflows =
+        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
+    final var request = new ConfigRequest(SESSION_ID, blank, blank, blank, null, blank, workflows);
+
+    assertThat(request.name()).isEqualTo(SESSION_ID);
+    assertThat(request.description()).isEqualTo(SESSION_ID);
+    assertThat(request.initiator()).isEqualTo("anonymous");
+    assertThat(request.projectPath()).isEqualTo(".");
+    assertThat(validator.validate(request)).isEmpty();
+  }
+
+  @Test
+  void givenOptionalFieldsAreKept() {
     final var workflows =
         Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
     final var request =
-        new ConfigRequest(
-            SESSION_ID, name, WORKFLOW_DESC, INITIATOR, null, PROJECT_PATH, workflows);
-    final var result = validator.validateProperty(request, "name");
-    assertThat(result).isNotEmpty();
+        new ConfigRequest(SESSION_ID, "n", "d", "me", null, PROJECT_PATH, workflows);
+
+    assertThat(request.description()).isEqualTo("d");
+    assertThat(request.initiator()).isEqualTo("me");
+    assertThat(request.projectPath()).isEqualTo(PROJECT_PATH);
   }
 
   @Test
@@ -180,20 +194,6 @@ class ConfigRequestTest {
             SESSION_ID, "test", description, INITIATOR, null, PROJECT_PATH, workflows);
     final var result = validator.validateProperty(request, DESCRIPTION_FIELD);
     assertThat(result).isEmpty();
-  }
-
-  @ParameterizedTest
-  @NullSource
-  @EmptySource
-  @ValueSource(strings = {" ", "\t", "\n"})
-  void validationShouldFailWithInvalidDescription(final String description) {
-    final var workflows =
-        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
-    final var request =
-        new ConfigRequest(
-            SESSION_ID, "test", description, INITIATOR, null, PROJECT_PATH, workflows);
-    final var result = validator.validateProperty(request, DESCRIPTION_FIELD);
-    assertThat(result).isNotEmpty();
   }
 
   @Test
@@ -221,20 +221,6 @@ class ConfigRequestTest {
   }
 
   @ParameterizedTest
-  @NullSource
-  @EmptySource
-  @ValueSource(strings = {" ", "\t", "\n"})
-  void validationShouldFailWithInvalidInitiator(final String initiator) {
-    final var workflows =
-        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
-    final var request =
-        new ConfigRequest(
-            SESSION_ID, "test", WORKFLOW_DESC, initiator, null, PROJECT_PATH, workflows);
-    final var result = validator.validateProperty(request, INITIATOR);
-    assertThat(result).isNotEmpty();
-  }
-
-  @ParameterizedTest
   @ValueSource(strings = {"/path/to/project", "/home/user/workspace", "/projects/my-app"})
   void validationShouldNotFailWithValidProjectPath(final String projectPath) {
     final var workflows =
@@ -244,20 +230,6 @@ class ConfigRequestTest {
             SESSION_ID, "test", WORKFLOW_DESC, INITIATOR, null, projectPath, workflows);
     final var result = validator.validateProperty(request, "projectPath");
     assertThat(result).isEmpty();
-  }
-
-  @ParameterizedTest
-  @NullSource
-  @EmptySource
-  @ValueSource(strings = {" ", "\t", "\n"})
-  void validationShouldFailWithInvalidProjectPath(final String projectPath) {
-    final var workflows =
-        Map.of(WORKFLOW_ID, createWorkflowDefinitionRequest(WORKFLOW_ID, WORKFLOW_DESC));
-    final var request =
-        new ConfigRequest(
-            SESSION_ID, "test", WORKFLOW_DESC, INITIATOR, null, projectPath, workflows);
-    final var result = validator.validateProperty(request, "projectPath");
-    assertThat(result).isNotEmpty();
   }
 
   @Test
