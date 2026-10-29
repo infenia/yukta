@@ -147,23 +147,6 @@ class BoundaryFuzzAcceptanceTest {
     return List.of(name, body);
   }
 
-  /**
-   * The open issue behind a 500 we know about, or null. Each case is narrow on purpose: any other
-   * 5xx still fails the test. Each case has a probe test (probe<issue>_...) that fails the day the
-   * bug is fixed; delete the probe and the case then.
-   */
-  private static String knownIssue(final String path, final int status, final String mutation) {
-    String issue = null;
-    if (status == 500 && "/mcp".equals(path)) {
-      // The MCP SDK answers anything it cannot handle with 500: remove this with #1103 to #1110.
-      issue =
-          "op7".equals(mutation)
-              ? "#1104 oversized body is 500, docs promise 413"
-              : "#1110 invalid JSON-RPC is 500";
-    }
-    return issue;
-  }
-
   private void check(final String target, final String path, final String base, final long seed)
       throws Exception {
     final Random random = new Random(seed);
@@ -189,19 +172,15 @@ class BoundaryFuzzAcceptanceTest {
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                 .build(),
             HttpResponse.BodyHandlers.ofString());
-    if (knownIssue(path, response.statusCode(), mutation.get(0)) == null) {
-      assertThat(response.statusCode())
-          .as(
-              "status for %s, answered %s",
-              what, response.body().substring(0, Math.min(300, response.body().length())))
-          .isLessThan(500);
-    }
+    assertThat(response.statusCode())
+        .as(
+            "status for %s, answered %s",
+            what, response.body().substring(0, Math.min(300, response.body().length())))
+        .isLessThan(500);
     assertThat(Duration.ofNanos(System.nanoTime() - started))
         .as("time for %s", what)
         .isLessThan(LIMIT);
-    // Known leak of the MCP SDK for a malformed message, tracked in #1103; any other trace fails.
-    final boolean knownMcpLeak = response.body().contains("\"jsonRpcError\":{\"code\":-32600");
-    for (final String marker : knownMcpLeak ? List.<String>of() : MARKERS) {
+    for (final String marker : MARKERS) {
       assertThat(response.body())
           .as("a stack trace in the answer to %s", what)
           .doesNotContain(marker);
@@ -288,36 +267,31 @@ class BoundaryFuzzAcceptanceTest {
         HttpResponse.BodyHandlers.ofString());
   }
 
-  // The probes below pin each bug that knownIssue() and check() tolerate. They pass while the bug
-  // exists and fail the day it is fixed, so the tolerance cannot outlive the bug: when one fails,
-  // delete that probe and the matching case in knownIssue() (or the stack-trace allowance in
-  // check()).
-
   @Test
-  void probe1103_mcpStillLeaksStackTraceForMalformedMessage() throws Exception {
+  void mcpMalformedMessage_is400WithoutStackTrace() throws Exception {
     final String broken = MCP_START.substring(0, 40) + MCP_START.substring(60);
-    assertThat(send("/mcp", broken).body())
-        .as("#1103 seems fixed: delete this probe and the stack-trace allowance in check()")
-        .contains("\"stackTrace\"");
+    final HttpResponse<String> response = send("/mcp", broken);
+
+    assertThat(response.statusCode()).isEqualTo(400);
+    assertThat(response.body()).contains("\"code\":-32600").doesNotContain("stackTrace");
   }
 
   @Test
-  void probe1104_mcpStillAnswersPaddedOversizedBodyWith500() throws Exception {
+  void mcpOversizedBody_is413() throws Exception {
     final String padded =
         MCP_START.substring(0, MCP_START.length() - 1)
             + ",\"pad\":\""
             + "x".repeat(2_200_000)
             + "\"}";
-    assertThat(send("/mcp", padded).statusCode())
-        .as("#1104 seems fixed: delete this probe and the op7 case in knownIssue()")
-        .isEqualTo(500);
+
+    assertThat(send("/mcp", padded).statusCode()).isEqualTo(413);
   }
 
   @Test
-  void probe1110_mcpStillAnswersNullBodyWith500() throws Exception {
-    assertThat(send("/mcp", "null").statusCode())
-        .as("#1110 seems fixed: delete this probe and the #1110 case in knownIssue()")
-        .isEqualTo(500);
+  void mcpNullBodyAndUnknownMethod_are400() throws Exception {
+    assertThat(send("/mcp", "null").statusCode()).isEqualTo(400);
+    assertThat(send("/mcp", MCP_START.replace("tools/call", "tools/eall")).statusCode())
+        .isEqualTo(400);
   }
 
   @Test

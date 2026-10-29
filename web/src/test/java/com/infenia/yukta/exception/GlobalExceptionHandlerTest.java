@@ -218,6 +218,19 @@ class GlobalExceptionHandlerTest {
   }
 
   @Test
+  void testHandleBodyTooLarge_is413() {
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    when(request.getPath()).thenReturn(RequestPath.parse("/api/sessions", "/"));
+
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleBodyTooLarge(
+            new org.springframework.core.io.buffer.DataBufferLimitException("over"), request);
+
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
+    assertThat(resp.getBody().message()).isEqualTo("Request body too large");
+  }
+
+  @Test
   void testHandleExpressionParse_isBadRequest() {
     final var exception =
         assertThrows(

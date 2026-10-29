@@ -326,6 +326,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
+   * Handles a body over the in-memory limit as 413, whichever endpoint read it.
+   *
+   * @param exception the limit failure
+   * @param request the current request
+   * @return structured 413 response
+   */
+  @ExceptionHandler(org.springframework.core.io.buffer.DataBufferLimitException.class)
+  public ResponseEntity<ApiResponse<Object>> handleBodyTooLarge(
+      final org.springframework.core.io.buffer.DataBufferLimitException exception,
+      final ServerHttpRequest request) {
+    return buildErrorResponse(HttpStatus.CONTENT_TOO_LARGE, "Request body too large", request);
+  }
+
+  /**
    * Handle illegal state exceptions.
    *
    * @param exception the exception
