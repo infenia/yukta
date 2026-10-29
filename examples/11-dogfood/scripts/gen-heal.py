@@ -92,7 +92,7 @@ CLAUDE_WF = {"workflowId": "claude", "description": "One headless Claude Code se
     {"nodeId": "run", "type": "PROCESS_EXECUTOR", "config": {
         "command": [CLAUDE], "workingDir": S("project"), "inputMode": "STDIN", "outputFormat": "JSON",
         "env": {"YK_MODEL": S("model"), "YK_EFFORT": S("effort"), "YK_BUDGET": S("budget"), "YK_RULES": S("rules"), "YK_SCHEMA": S("schema"),
-                "YK_SESSION": S("sessionId"), "YK_CLAUDE_BIN": S("claudeBin")},
+                "YK_SESSION": S("sessionId"), "YK_CLAUDE_BIN": S("claudeBin"), "YK_STAGE": S("stage")},
         "timeout": "${start.timeout:int}", "failureMode": "CONTINUE", "routeByExitCode": True, "engine": {"concurrencyGroup": "claude"}}},
     {"nodeId": "ok", "type": "CONSOLE_TERMINAL", "config": {}},
     {"nodeId": "failed", "type": "OUTCOME_TERMINAL", "config": {"outcome": "FAILED", "reason": "the claude session failed, ran out of budget or ran out of time"}}],
@@ -102,7 +102,7 @@ CLAUDE_WF = {"workflowId": "claude", "description": "One headless Claude Code se
 claude_call = {"workflowId": "claude", "timeoutSeconds": 7200, "routeByOutcome": True, "engine": {"onError": "ROUTE"},
   "payload": {"project": S("project"), "prompt": "${payload.output.prompt}", "model": S("model"), "effort": S("effort"), "budget": S("budget"),
               "timeout": S("claudeTimeout"), "rules": S("rules"), "schema": FIX_SCHEMA, "sessionId": "-",
-              "claudeBin": S("claudeBin")}}
+              "claudeBin": S("claudeBin"), "stage": S("stage")}}
 a_env = {"YUKTA_MODEL": S("model"), "YUKTA_EFFORT": S("effort"), "YUKTA_COMMAND": S("command")}
 ATTEMPT_WF = {"workflowId": "attempt", "description": "One repair attempt: one Claude session at one model and effort, judged by re-running the failed stage.",
   "nodes": [
