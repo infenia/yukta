@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.control.processor;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
@@ -11,6 +12,7 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
 import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,9 @@ public class SetBreakpointCommandProcessor implements ControlSignalProcessor {
 
   /** The execution control registry, to find the run and its valves. */
   private final ExecutionControlRegistry registry;
+
+  /** Reports the breakpoint in the run's progress. */
+  private final TaskTrackerService taskTracker;
 
   @Override
   public boolean canProcess(final ExecutionControlCommand command) {
@@ -59,6 +64,12 @@ public class SetBreakpointCommandProcessor implements ControlSignalProcessor {
               breakpoint.field() == null
                   ? null
                   : matcher(breakpoint.field(), breakpoint.equalsValue()));
+          taskTracker.emitBreakpointEvent(
+              breakpoint.executionId(),
+              breakpoint.nodeId(),
+              breakpoint.field() == null
+                  ? null
+                  : new TaskProgress.Breakpoint(breakpoint.field(), breakpoint.equalsValue()));
           log.atDebug()
               .addKeyValue("executionId", breakpoint.executionId())
               .addKeyValue("nodeId", breakpoint.nodeId())

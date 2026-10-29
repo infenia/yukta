@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { toNodeUiStatus, toTaskSequenceLabel } from '../lib/statusMapper';
 import { formatClockTime, formatDuration } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
-import { useBreakpoint } from '../context/BreakpointContext';
 import { NodeControlsMenu, type NodeCommand } from './NodeControlsMenu';
 import type {
   NodeUiStatus,
@@ -63,16 +62,14 @@ function TimingLine({
 function TaskSequenceItem({
   task,
   onNodeCommand,
-  executionId,
   scope,
 }: {
   task: TaskProgress;
   onNodeCommand?: (nodeId: string, command: NodeCommand) => void;
-  executionId: string | null;
   scope?: { sessionId: string; executionId: string };
 }) {
   const status = toNodeUiStatus(task.status);
-  const breakpoint = useBreakpoint(executionId, task.nodeId);
+  const breakpoint = task.breakpoint ?? undefined;
   const dimmed = status === 'pending' || status === 'skipped';
   return (
     <li
@@ -140,14 +137,11 @@ export function TaskSequenceList({
   graph,
   tasksByNode,
   onNodeCommand,
-  executionId = null,
   scope,
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
   onNodeCommand?: (nodeId: string, command: NodeCommand) => void;
-  /** The run the tasks belong to; breakpoints are kept per run. */
-  executionId?: string | null;
   /** Session and run of the tasks, for the "Copy as" commands. */
   scope?: { sessionId: string; executionId: string };
 }) {
@@ -194,7 +188,6 @@ export function TaskSequenceList({
             key={task.nodeId}
             task={task}
             onNodeCommand={onNodeCommand}
-            executionId={executionId}
             scope={scope}
           />
         ))}
