@@ -59,6 +59,9 @@
     "name" : "Control audit API",
     "description" : "Control commands and who sent them"
   }, {
+    "name" : "Templates API",
+    "description" : "Example sessions to start from"
+  }, {
     "name" : "Plugin API",
     "description" : "Endpoints for discovering workflow plugins"
   } ],
@@ -2059,12 +2062,61 @@
         }
       }
     },
+    "/api/templates" : {
+      "get" : {
+        "tags" : [ "Templates API" ],
+        "summary" : "List the session templates",
+        "description" : "The bundled examples: id, title, a one-line summary and the plugin types used",
+        "operationId" : "list_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListTemplateSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/templates/{id}" : {
+      "get" : {
+        "tags" : [ "Templates API" ],
+        "summary" : "Get a session template",
+        "description" : "The README (markdown) and the session definition to apply. 404 if unknown",
+        "operationId" : "get",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "description" : "Template id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTemplateDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/supervisors" : {
       "get" : {
         "tags" : [ "Supervisors API" ],
         "summary" : "List supervisors",
         "description" : "Lists the supervisors and control-plane plugins running on the control bus, in review order, with how many commands each applied, had refused, only recorded (dry-run) or dropped (rate limit) since startup",
-        "operationId" : "list_1",
+        "operationId" : "list_2",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -3034,7 +3086,7 @@
         "tags" : [ "Control audit API" ],
         "summary" : "List control commands",
         "description" : "Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them",
-        "operationId" : "list_2",
+        "operationId" : "list_3",
         "parameters" : [ {
           "name" : "limit",
           "in" : "query",
@@ -3966,6 +4018,220 @@
           "leaseUntil" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "ApiResponseListTemplateSummary" : {
+        "type" : "object",
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The time the response was generated"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The HTTP status code",
+            "example" : 200
+          },
+          "message" : {
+            "type" : "string",
+            "description" : "A human-readable message",
+            "example" : "Operation successful"
+          },
+          "data" : {
+            "type" : "array",
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/TemplateSummary"
+            }
+          },
+          "error" : {
+            "type" : "string",
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request"
+          },
+          "path" : {
+            "type" : "string",
+            "description" : "The request path",
+            "example" : "/api/files"
+          },
+          "errors" : {
+            "type" : "array",
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            }
+          }
+        }
+      },
+      "TemplateSummary" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "pluginTypes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "ApiResponseTemplateDetail" : {
+        "type" : "object",
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The time the response was generated"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The HTTP status code",
+            "example" : 200
+          },
+          "message" : {
+            "type" : "string",
+            "description" : "A human-readable message",
+            "example" : "Operation successful"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/TemplateDetail",
+            "description" : "The response data"
+          },
+          "error" : {
+            "type" : "string",
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request"
+          },
+          "path" : {
+            "type" : "string",
+            "description" : "The request path",
+            "example" : "/api/files"
+          },
+          "errors" : {
+            "type" : "array",
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            }
+          }
+        }
+      },
+      "JsonNode" : {
+        "type" : "object",
+        "properties" : {
+          "empty" : {
+            "type" : "boolean"
+          },
+          "array" : {
+            "type" : "boolean"
+          },
+          "null" : {
+            "type" : "boolean"
+          },
+          "object" : {
+            "type" : "boolean"
+          },
+          "float" : {
+            "type" : "boolean"
+          },
+          "pojo" : {
+            "type" : "boolean"
+          },
+          "floatingPointNumber" : {
+            "type" : "boolean"
+          },
+          "short" : {
+            "type" : "boolean"
+          },
+          "int" : {
+            "type" : "boolean"
+          },
+          "long" : {
+            "type" : "boolean"
+          },
+          "double" : {
+            "type" : "boolean"
+          },
+          "bigDecimal" : {
+            "type" : "boolean"
+          },
+          "bigInteger" : {
+            "type" : "boolean"
+          },
+          "textual" : {
+            "type" : "boolean",
+            "deprecated" : true
+          },
+          "boolean" : {
+            "type" : "boolean"
+          },
+          "binary" : {
+            "type" : "boolean"
+          },
+          "valueNode" : {
+            "type" : "boolean"
+          },
+          "missingNode" : {
+            "type" : "boolean"
+          },
+          "nodeType" : {
+            "type" : "string",
+            "enum" : [ "ARRAY", "BINARY", "BOOLEAN", "MISSING", "NULL", "NUMBER", "OBJECT", "POJO", "STRING" ]
+          },
+          "string" : {
+            "type" : "boolean"
+          },
+          "integralNumber" : {
+            "type" : "boolean"
+          },
+          "container" : {
+            "type" : "boolean"
+          },
+          "number" : {
+            "type" : "boolean"
+          },
+          "embeddedValue" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "TemplateDetail" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "pluginTypes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "readme" : {
+            "type" : "string"
+          },
+          "session" : {
+            "$ref" : "#/components/schemas/JsonNode"
           }
         }
       },
