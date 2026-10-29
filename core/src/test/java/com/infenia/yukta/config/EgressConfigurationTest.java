@@ -39,4 +39,10 @@ class EgressConfigurationTest {
 
     assertThat(policy.refusalFor("https://anywhere.org/", Context.empty())).isNull();
   }
+
+  @Test
+  void metadataGuardCustomizerIsRegisteredAsBean() {
+    assertThat(new EgressConfiguration().metadataGuardCustomizer())
+        .isInstanceOf(MetadataGuardCustomizer.class);
+  }
 }
