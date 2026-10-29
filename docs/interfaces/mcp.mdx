@@ -9,7 +9,7 @@ keywords: ["MCP", "Model Context Protocol", "Claude", "AI agent tools"]
   **In plain terms:** MCP is a standard way for AI assistants to use outside tools. Turn it on and an assistant such as Claude can create, start, watch and control your workflows by itself, for example "run the release checks and tell me what failed". It is the way to let an assistant drive your automations.
 </Info>
 
-Yukta includes a Model Context Protocol (MCP) server. An MCP client such as Claude Code can use it to create a session, start a workflow, read its status, logs and result, and control the run, all as tool calls. The server offers 25 tools, 2 prompts and 3 resources.
+Yukta includes a Model Context Protocol (MCP) server. An MCP client such as Claude Code can use it to create a session, start a workflow, read its status, logs and result, and control the run, all as tool calls. The server offers 27 tools, 2 prompts and 3 resources.
 
 Yukta works with AI agents in both directions: workflows can call out to agents and tools (see [AI and agents](/building/ai-and-agents)), and agents can drive Yukta through this MCP server. Use MCP when an agent drives Yukta. A person or a script is better served by the [REST API](/api/overview) or the [command-line client](/interfaces/cli), which cover the same operations plus a few more.
 
