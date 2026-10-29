@@ -167,6 +167,6 @@ test.describe('Control page', () => {
 
     await expect(page.getByRole('dialog')).toHaveCount(0);
     expect(posted).toBe('?maxConcurrent=8&maxPerWorkflow=2');
-    await expect(page.getByText('8', { exact: true })).toBeVisible();
+    await expect(page.getByText('of 8', { exact: true })).toBeVisible();
   });
 });
