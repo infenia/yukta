@@ -13,6 +13,7 @@ import com.infenia.yukta.security.CallRateLimiter;
 import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.security.RequestPaths;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.log.ExecutionLogStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -34,6 +35,7 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Requires an API key on every {@code /api/**} request, on the OpenAPI document and Swagger UI and
@@ -107,6 +109,9 @@ public class ApiKeyFilter implements WebFilter {
   /** Finds the session of an execution, or null if unknown. */
   @Nullable private final ControlBusGateway controlBus;
 
+  /** Finds the session of a run that left the tracker, or null. */
+  @Nullable private final ExecutionLogStore executionLog;
+
   /**
    * Create the filter from the configuration.
    *
@@ -117,28 +122,34 @@ public class ApiKeyFilter implements WebFilter {
   }
 
   /**
-   * Create the filter from the configuration, with the API keys as authenticator.
-   *
-   * @param environment holds {@code yukta.api-key} and {@code yukta.api-keys}
-   * @param controlBus finds the session of an execution, or null
-   */
-  public ApiKeyFilter(final Environment environment, @Nullable final ControlBusGateway controlBus) {
-    this(ApiKeyAuthenticator.read(environment), controlBus);
-  }
-
-  /**
    * Create the filter from the configuration, able to tell which session an execution belongs to.
    *
    * @param authenticator identifies the caller (API keys by default)
    * @param controlBus finds the session of an execution; without it a session-limited key cannot
    *     reach {@code /api/executions/{id}/**}
+   * @param executionLog finds the session of a run that left the tracker, or null
    */
   @Autowired
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // both are shared Spring beans
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // all are shared Spring beans
   public ApiKeyFilter(
-      final ApiAuthenticator authenticator, @Nullable final ControlBusGateway controlBus) {
+      final ApiAuthenticator authenticator,
+      @Nullable final ControlBusGateway controlBus,
+      @Nullable final ExecutionLogStore executionLog) {
     this.authenticator = authenticator;
     this.controlBus = controlBus;
+    this.executionLog = executionLog;
+  }
+
+  /**
+   * Create the filter without an execution log, so only runs in the tracker can be reached by a
+   * session-limited key.
+   *
+   * @param authenticator identifies the caller
+   * @param controlBus finds the session of an execution, or null
+   */
+  public ApiKeyFilter(
+      final ApiAuthenticator authenticator, @Nullable final ControlBusGateway controlBus) {
+    this(authenticator, controlBus, null);
   }
 
   /**
@@ -149,6 +160,7 @@ public class ApiKeyFilter implements WebFilter {
   public ApiKeyFilter(final String apiKey) {
     this.authenticator = ApiKeyAuthenticator.single(apiKey);
     this.controlBus = null;
+    this.executionLog = null;
   }
 
   @Override
@@ -183,10 +195,12 @@ public class ApiKeyFilter implements WebFilter {
           HttpStatus.UNAUTHORIZED,
           "Missing or invalid API key. Send X-API-Key or Authorization: Bearer <key>");
     }
-    if (!permitted(match, exchange, path)) {
-      return reject(exchange, HttpStatus.FORBIDDEN, "This API key may not do that");
-    }
-    return proceed(exchange, chain, match, path);
+    return permitted(match, exchange, path)
+        .flatMap(
+            allowed ->
+                allowed
+                    ? proceed(exchange, chain, match, path)
+                    : reject(exchange, HttpStatus.FORBIDDEN, "This API key may not do that"));
   }
 
   /** Counts the request against the key's rate limit, then hands it on naming the actor. */
@@ -230,33 +244,50 @@ public class ApiKeyFilter implements WebFilter {
     return prefix.equals(path) || path.startsWith(prefix + "/");
   }
 
-  private boolean permitted(
+  private Mono<Boolean> permitted(
       final ApiKeys.Match match, final ServerWebExchange exchange, final String path) {
     if (isDocs(path)) {
-      return HttpMethod.GET.equals(exchange.getRequest().getMethod());
+      return Mono.just(HttpMethod.GET.equals(exchange.getRequest().getMethod()));
     }
     if (isUnder(path, "/actuator")) {
-      return match.role() == ApiRole.ADMIN && match.sessions().isEmpty();
+      return Mono.just(match.role() == ApiRole.ADMIN && match.sessions().isEmpty());
     }
     if (!match.role().allows(exchange.getRequest().getMethod(), path)) {
-      return false;
+      return Mono.just(false);
     }
     if (match.sessions().isEmpty() || "/api/me".equals(path)) {
-      return true;
+      return Mono.just(true);
     }
     final Matcher session = SESSION_PATH.matcher(path);
     if (session.matches()) {
-      return match.reaches(session.group(1));
+      return Mono.just(match.reaches(session.group(1)));
     }
     final Matcher execution = EXECUTION_PATH.matcher(path);
-    return execution.matches() && ownsExecution(match, execution.group(1));
+    return execution.matches() ? ownsExecution(match, execution.group(1)) : Mono.just(false);
   }
 
-  /** A session-limited key may control only the executions of its sessions. */
-  private boolean ownsExecution(final ApiKeys.Match match, final String executionId) {
+  /**
+   * A session-limited key may control only the executions of its sessions. The live tracker knows
+   * the runs in flight; a run that left it (restart, eviction) is looked up in the execution log,
+   * off the event loop because the file log blocks.
+   */
+  private Mono<Boolean> ownsExecution(final ApiKeys.Match match, final String executionId) {
     final WorkflowProgress progress =
         controlBus == null ? null : controlBus.getCurrentProgress(executionId);
-    return progress != null && match.reaches(progress.sessionId());
+    if (progress != null) {
+      return Mono.just(match.reaches(progress.sessionId()));
+    }
+    if (executionLog == null) {
+      return Mono.just(false);
+    }
+    return Mono.fromCallable(
+            () ->
+                executionLog.readAll().stream()
+                    .filter(event -> executionId.equals(event.executionId()))
+                    .findFirst()
+                    .map(event -> match.reaches(event.sessionId()))
+                    .orElse(false))
+        .subscribeOn(Schedulers.boundedElastic());
   }
 
   /** Ends the exchange with the same JSON shape as the other errors: status and message. */
