@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { DeleteWorkflowDialog } from '@/features/sessions/components/DeleteDialogs';
+import { RequirePermission } from '@/components/common/RequirePermission';
 import { buttonVariants } from '@/components/ui/button';
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -50,6 +52,7 @@ function WorkflowDetails() {
     workflowId: string;
   }>();
   const [panelOpen, setPanelOpen] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [stopping, setStopping] = useState<string | null>(null);
 
@@ -193,6 +196,18 @@ function WorkflowDetails() {
               <span className="material-symbols-outlined text-base">edit</span>
               Edit
             </Link>
+            <RequirePermission perm="deleteSessions">
+              <button
+                type="button"
+                onClick={() => setDeleting(true)}
+                className={buttonVariants({ variant: 'destructive' })}
+              >
+                <span className="material-symbols-outlined text-base">
+                  delete
+                </span>
+                Delete workflow…
+              </button>
+            </RequirePermission>
             <RunControls
               sessionId={sessionId}
               workflowId={workflowId}
@@ -203,6 +218,14 @@ function WorkflowDetails() {
           </>
         }
       />
+
+      {deleting && (
+        <DeleteWorkflowDialog
+          sessionId={sessionId}
+          workflowId={workflowId}
+          onClose={() => setDeleting(false)}
+        />
+      )}
 
       {versionsOpen && (
         <WorkflowVersionsPanel sessionId={sessionId} workflowId={workflowId} />
