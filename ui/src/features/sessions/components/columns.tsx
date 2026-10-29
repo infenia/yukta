@@ -3,14 +3,20 @@
 
 import type { LegacyColumnDef } from '@tanstack/react-table/legacy';
 import { Badge } from '@/components/ui/badge';
+import { StatusPill } from '@/features/workflow/components/StatusPill';
+import { formatClockTime } from '@/features/workflow/lib/timeFormat';
+import type { RunHit } from '@/features/runs/api/searchExecutions';
 import type { SessionListItem } from '../types/session';
 import { SessionRowActionsMenu } from './SessionRowActionsMenu';
 
-export const columns: LegacyColumnDef<SessionListItem>[] = [
+/** A session row, with its newest run when the list found one. */
+export type SessionRow = SessionListItem & { lastRun?: RunHit };
+
+export const columns: LegacyColumnDef<SessionRow>[] = [
   {
     accessorKey: 'name',
     header: 'Name',
-    cell: ({ row }: any) => (
+    cell: ({ row }) => (
       <div className="min-w-56">
         <div className="text-label-md text-primary">{row.getValue('name')}</div>
         <div className="text-code-sm text-on-surface-variant">
@@ -21,6 +27,33 @@ export const columns: LegacyColumnDef<SessionListItem>[] = [
             {row.original.description}
           </div>
         )}
+      </div>
+    ),
+  },
+  {
+    id: 'lastRun',
+    header: 'Last run',
+    cell: ({ row }) => {
+      const run: RunHit | undefined = row.original.lastRun;
+      // "—" rather than "Not run": an older run may exist beyond the runs the list looked at
+      return run ? (
+        <div className="flex items-center gap-2 whitespace-nowrap">
+          <StatusPill status={run.status} />
+          <span className="text-body-sm text-muted-foreground">
+            {run.workflowId} · {formatClockTime(run.startTime)}
+          </span>
+        </div>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      );
+    },
+  },
+  {
+    accessorKey: 'workflowCount',
+    header: 'Workflows',
+    cell: ({ row }) => (
+      <div className="tabular-nums">
+        {row.getValue('workflowCount')}
       </div>
     ),
   },
@@ -38,7 +71,7 @@ export const columns: LegacyColumnDef<SessionListItem>[] = [
           {tags.map((tag, index) => (
             <Badge
               key={`${tag}-${index}`}
-              className="text-label-sm bg-secondary-container text-on-surface px-2"
+              className="bg-secondary-container text-label-sm text-on-surface px-2"
             >
               {tag}
             </Badge>
@@ -49,21 +82,31 @@ export const columns: LegacyColumnDef<SessionListItem>[] = [
   },
   {
     accessorKey: 'projectPath',
-    header: 'Project Path',
-    cell: ({ row }: any) => (
-      <div className="text-code-sm">{row.getValue('projectPath')}</div>
-    ),
-  },
-  {
-    accessorKey: 'workflowCount',
-    header: 'Workflows',
-    cell: ({ row }: any) => (
-      <div className="text-center">{row.getValue('workflowCount')}</div>
+    header: 'Project path',
+    cell: ({ row }) => (
+      <button
+        type="button"
+        title="Copy project path"
+        aria-label={`Copy project path ${row.original.projectPath}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          void navigator.clipboard?.writeText(row.original.projectPath);
+        }}
+        className="text-code-sm text-on-surface hover:bg-muted inline-flex max-w-full items-center gap-1 rounded-md px-1 py-0.5 text-left"
+      >
+        <span className="truncate">{row.getValue('projectPath')}</span>
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined text-muted-foreground text-sm"
+        >
+          content_copy
+        </span>
+      </button>
     ),
   },
   {
     id: 'actions',
-    cell: ({ row }: any) => (
+    cell: ({ row }) => (
       <div onClick={(e) => e.stopPropagation()}>
         <SessionRowActionsMenu session={row.original} />
       </div>

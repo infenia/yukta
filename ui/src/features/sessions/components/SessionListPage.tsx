@@ -3,6 +3,7 @@
 
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { buttonVariants } from '@/components/ui/button';
 import {
@@ -23,7 +24,16 @@ import {
 } from '@/components/ui/table';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useSessionSummaries } from '../hooks/useSessionSummaries';
-import { columns } from './columns';
+import { columns, type SessionRow } from './columns';
+import {
+  searchExecutions,
+  type RunHit,
+} from '@/features/runs/api/searchExecutions';
+import { parseFilters } from '@/features/runs/lib/filters';
+
+// ponytail: the newest runs across all sessions; a session whose last run is older shows "—". A
+// per-session "last run" from the server lifts this ceiling.
+const LAST_RUN_SCAN = 200;
 import { SessionsHeader } from './SessionsHeader';
 import {
   filterSessions,
@@ -50,10 +60,22 @@ export function SessionListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [searchParams]
   );
-  const filtered = useMemo(
-    () => filterSessions(sessions, filters),
-    [sessions, filters]
-  );
+  const { data: recentRuns = [] } = useQuery({
+    queryKey: ['runs', 'latest', LAST_RUN_SCAN],
+    queryFn: () =>
+      searchExecutions(parseFilters(new URLSearchParams()), LAST_RUN_SCAN),
+  });
+  const filtered = useMemo<SessionRow[]>(() => {
+    // runs come newest first, so the first one seen per session is its last run
+    const lastRun = new Map<string, RunHit>();
+    for (const run of recentRuns) {
+      if (!lastRun.has(run.sessionId)) lastRun.set(run.sessionId, run);
+    }
+    return filterSessions(sessions, filters).map((session) => ({
+      ...session,
+      lastRun: lastRun.get(session.sessionId),
+    }));
+  }, [sessions, filters, recentRuns]);
   const setFilters = (next: SessionFilters) =>
     setSearchParams(
       (current) => {
@@ -69,7 +91,7 @@ export function SessionListPage() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   // React Compiler skips memoizing useLegacyTable (headless API returns unstable functions); accepted
-   
+
   const table = useLegacyTable({
     data: filtered,
     columns,
@@ -143,13 +165,13 @@ export function SessionListPage() {
   );
 
   return (
-    <div className="flex flex-1 flex-col gap-0 bg-background">
+    <div className="bg-background flex flex-1 flex-col gap-0">
       <div className="relative isolate">
         {/* The docs hero backdrop, behind the header and filter bar only */}
         <div
           aria-hidden="true"
           data-testid="hero-backdrop"
-          className={`pointer-events-none absolute inset-x-0 top-0 -z-10 hero-backdrop ${isEmpty ? 'h-128' : 'h-56'}`}
+          className={`hero-backdrop pointer-events-none absolute inset-x-0 top-0 -z-10 ${isEmpty ? 'h-128' : 'h-56'}`}
         />
         <SessionsHeader
           sessionCount={sessions.length}
@@ -158,9 +180,14 @@ export function SessionListPage() {
               <div className="flex gap-2">
                 <Link
                   to="/sessions/import"
-                  className={buttonVariants({ variant: 'outline', size: 'default' })}
+                  className={buttonVariants({
+                    variant: 'outline',
+                    size: 'default',
+                  })}
                 >
-                  <span className="material-symbols-outlined text-base">upload</span>
+                  <span className="material-symbols-outlined text-base">
+                    upload
+                  </span>
                   Import
                 </Link>
                 {newSession}
@@ -176,14 +203,14 @@ export function SessionListPage() {
           >
             <span
               aria-hidden="true"
-              className="flex size-12 items-center justify-center rounded-xl bg-accent text-accent-foreground shadow-card"
+              className="bg-accent text-accent-foreground shadow-card flex size-12 items-center justify-center rounded-xl"
             >
               <span className="material-symbols-outlined">folder</span>
             </span>
-            <h2 className="text-headline-lg text-balance text-on-surface sm:text-display-01">
+            <h2 className="text-headline-lg text-on-surface sm:text-display-01 text-balance">
               No sessions yet
             </h2>
-            <p className="max-w-prose text-body-md text-on-surface-variant">
+            <p className="text-body-md text-on-surface-variant max-w-prose">
               A session groups the workflows of one project. Create one, then
               add workflows from the editor, the CLI or an AI agent over MCP.
             </p>
@@ -202,8 +229,9 @@ export function SessionListPage() {
 
             <div className="px-4 pb-8 sm:px-6">
               <TableFrame>
-                <Table>
-                  <TableHeader>
+                {/* Phones: each row stacks into a card of labelled values instead of a clipped table */}
+                <Table className="max-sm:block [&_tbody]:max-sm:block">
+                  <TableHeader className="max-sm:hidden">
                     {table.getHeaderGroups().map((headerGroup: any) => (
                       <TableRow key={headerGroup.id}>
                         {headerGroup.headers.map((header: any) => (
@@ -249,10 +277,18 @@ export function SessionListPage() {
                               );
                             }
                           }}
-                          className="cursor-pointer focus-visible:-outline-offset-2"
+                          className="cursor-pointer focus-visible:-outline-offset-2 max-sm:relative max-sm:flex max-sm:flex-col max-sm:gap-1 max-sm:py-3"
                         >
                           {row.getVisibleCells().map((cell: any) => (
-                            <TableCell key={cell.id} className="px-4">
+                            <TableCell
+                              key={cell.id}
+                              data-label={
+                                typeof cell.column.columnDef.header === 'string'
+                                  ? cell.column.columnDef.header
+                                  : undefined
+                              }
+                              className="max-sm:before:text-body-sm max-sm:before:text-muted-foreground px-4 max-sm:flex max-sm:items-center max-sm:gap-3 max-sm:py-0 max-sm:whitespace-normal max-sm:before:w-24 max-sm:before:shrink-0 max-sm:before:content-[attr(data-label)] max-sm:first:before:hidden max-sm:last:absolute max-sm:last:top-2 max-sm:last:right-1 max-sm:last:before:hidden"
+                            >
                               {flexRender(
                                 cell.column.columnDef.cell,
                                 cell.getContext()
