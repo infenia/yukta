@@ -18,6 +18,10 @@ export interface WorkflowGraphNode {
   description: string | null;
   uiDesign: UiDesign | null;
   outputPorts: string[];
+  /** The stage the node declares; without one, it groups by node-ID prefix. */
+  group?: string | null;
+  /** For a SUB_WORKFLOW node, the workflow it runs. */
+  subWorkflowId?: string | null;
 }
 
 export interface WorkflowGraphEdge {

@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Link, useParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
 import {
@@ -33,6 +34,7 @@ import { useExecutionProgress } from '../hooks/useExecutionProgress';
 import { useExecutionSelection } from '../hooks/useExecutionSelection';
 import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { useWorkflowGraph } from '../hooks/useWorkflowGraph';
+import { useStageView } from '../hooks/useStageView';
 import type { TaskProgress } from '../types/workflow';
 import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -108,6 +110,7 @@ export function WorkflowDetailsPage() {
     });
     return byNode;
   }, [progress]);
+  const stages = useStageView(graph, tasksByNode);
 
   if (graphQuery.isLoading || executionsQuery.isLoading) {
     return (
@@ -271,8 +274,42 @@ export function WorkflowDetailsPage() {
       {/* A fixed-height workspace: the canvas fills it and the panel scrolls inside it, so a
           100-node run no longer stretches the page */}
       <div className="flex h-[clamp(28rem,calc(100dvh-14rem),56rem)]">
-        <div className="min-w-0 flex-1">
-          <WorkflowCanvas graph={graph} tasksByNode={tasksByNode} />
+        <div className="relative min-w-0 flex-1">
+          <WorkflowCanvas
+            graph={graph}
+            tasksByNode={tasksByNode}
+            stageView={stages.stageView}
+          />
+          {stages.hasStages && (
+            <div
+              role="radiogroup"
+              aria-label="Canvas grouping"
+              className="bg-surface border-border shadow-card absolute top-3 left-3 z-10 flex gap-0.5 rounded-lg border p-0.5"
+            >
+              {(
+                [
+                  [true, 'Group by stage'],
+                  [false, 'All nodes'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={label}
+                  type="button"
+                  role="radio"
+                  aria-checked={stages.grouped === value}
+                  onClick={() => stages.setGrouped(value)}
+                  className={cn(
+                    'text-label-sm rounded-md px-2.5 py-1',
+                    stages.grouped === value
+                      ? 'bg-muted text-on-surface'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         {panelOpen && (
           <ProgressPanel

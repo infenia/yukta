@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  afterEach,
+  beforeEach,
+} from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -15,6 +23,7 @@ import {
   createMockExecution,
   createMockGraph,
   createMockProgress,
+  createStagedGraph,
 } from '@/test/factories/workflowFactory';
 import {
   installMockEventSource,
@@ -69,6 +78,7 @@ const server = setupServer(
 );
 
 beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 function renderPage(
@@ -101,6 +111,31 @@ describe('WorkflowDetailsPage', () => {
         endTime: '2026-07-25T10:00:00',
       }),
     ];
+  });
+
+  it('groups the canvas by stage, and shows every node on request', async () => {
+    server.use(
+      http.get('/api/sessions/:sessionId/workflows/:workflowId/graph', () =>
+        HttpResponse.json({
+          timestamp: 't',
+          status: 200,
+          message: 'ok',
+          data: createStagedGraph(),
+          path: '/graph',
+        })
+      )
+    );
+    const user = userEvent.setup();
+    renderPage('/sessions/SESSION_A92_XP_2024/workflow/gate?open=test');
+    expect(await screen.findByTestId('stage-lint')).toBeInTheDocument();
+    expect(screen.getByTestId('stage-frame-test')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Group by stage' })).toBeChecked();
+
+    await user.click(screen.getByRole('radio', { name: 'All nodes' }));
+    expect(
+      await screen.findByTestId('workflow-node-lint.fix')
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('stage-lint')).not.toBeInTheDocument();
   });
 
   it('shows a loading state before data arrives', () => {
