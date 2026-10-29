@@ -284,7 +284,7 @@ Decides at build time which optional plugins are linked into the app.
 
 Compiles the app into a standalone executable with fast start and low memory.
 
-- nativeCompile builds a binary named yukta from the main class, with --no-fallback (fail rather than build a JVM-needing fallback). The build JVM gets -J-Xmx16g. The size flags are -H:+RemoveUnusedSymbols, -H:+StripDebugInfo and -H:-AddAllCharsets.
+- nativeCompile builds a binary named yukta from the main class, with --no-fallback (fail rather than build a JVM-needing fallback). The build JVM gets -J-Xmx16g (override with -Pnative.heap=<size>); a full -O3/PGO build on Linux x86-64 peaked at 13.1 GiB resident (measured 2026-10-29 from the builder JVM's VmHWM), so plan for a runner with at least 16 GB. The size flags are -H:+RemoveUnusedSymbols, -H:+StripDebugInfo and -H:-AddAllCharsets.
 - Optimization: the build uses Oracle GraalVM at -O3 with a PGO profile. release/build-server.sh records a fresh profile for every full build (release/pgo-profile.sh: an instrumented build, with the examples as training load) into boot/pgo/yukta.iprof, which is git-ignored, and keeps a copy next to the binary (dist/<platform>/yukta.iprof). With NATIVE_PGO=0 Oracle GraalVM infers a profile itself (GraalNN); if recording fails the build does the same with a warning, unless NATIVE_PGO_REQUIRED=1, which the release workflow sets, makes it fail. -Pnative.quick builds with -Ob instead. release.sh attaches each platform's profile to the release as pgo-profile-<platform>.iprof.gz; NATIVE_PGO_PROFILE=<that file> builds with it instead of recording a new one, which rebuilds a release the same way (same builder image digest, same profile). Only linux-amd64 is built today.
 - Build arguments -Dspring.profiles.active=prod and -Dspring.aot.enabled=true are also set. Spring AOT precomputes the bean wiring at build time, which is what makes native start-up fast.
 - Whether the -D profile argument reaches the running binary was not verified: it is passed to the native-image builder. The launcher's own prod rule in main() is the part that is covered by a test.
@@ -294,7 +294,7 @@ Compiles the app into a standalone executable with fast start and low memory.
 
 - **Guarantees.** A native image either builds with all reflection and resources known, or the build fails (no fallback).
 - **State.** None. The binary is immutable; data directories must be mounted if you use file stores.
-- **Ceiling.** The 16 GB build heap is not measured; a small CI machine may run out. Native builds are slow, so most developers use the JVM.
+- **Ceiling.** Peak build memory is about 13.1 GiB at the default 16 GB heap, so a runner with less than 16 GB may run out. Native builds are slow, so most developers use the JVM.
 - **On failure.** Reflection or resource gaps appear only at run time in the native binary, since tests run on the JVM.
 
 **Settings:** `./gradlew :boot:nativeCompile`, `buildArgs: --no-fallback, -J-Xmx16g, -H:+RemoveUnusedSymbols, -H:+StripDebugInfo, -H:-AddAllCharsets`, `-Dspring.aot.enabled=true`
