@@ -5,6 +5,7 @@ package com.infenia.yukta.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
@@ -261,6 +262,17 @@ class ExecutionControlControllerTest {
     client.delete().uri("/api/executions/e1/nodes/n1/breakpoint").exchange().expectStatus().isOk();
     verify(controlBus).addBreakpoint("e1", "n1", "payload.status", "error");
     verify(controlBus).clearBreakpoint("e1", "n1");
+  }
+
+  @Test
+  void changeLimitsRejectsNegativeValues() {
+    client
+        .post()
+        .uri("/api/scheduler/limits?maxConcurrent=-1&maxPerWorkflow=2")
+        .exchange()
+        .expectStatus()
+        .isBadRequest();
+    verifyNoInteractions(controlBus);
   }
 
   @Test
