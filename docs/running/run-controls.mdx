@@ -69,7 +69,7 @@ Three strengths of stopping an execution:
 
 ```http
 POST /api/workflow/{sessionId}/{workflowId}/stop?mode=DRAIN
-POST /api/executions/{executionId}/stop
+POST /api/executions/{executionId}/stop?mode=KILL
 ```
 
 A single node can also be stopped, draining or immediately.

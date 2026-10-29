@@ -102,6 +102,14 @@ type TaskProgress struct {
 	StartTime Timestamp              `json:"startTime"`
 	EndTime   Timestamp              `json:"endTime"`
 	Metadata  map[string]interface{} `json:"metadata"`
+	// Breakpoint is the active breakpoint on the node, nil when there is none.
+	Breakpoint *Breakpoint `json:"breakpoint,omitempty"`
+}
+
+// Breakpoint pauses a node when the value at Field equals Equals.
+type Breakpoint struct {
+	Field  string `json:"field"`
+	Equals string `json:"equals"`
 }
 
 // WorkflowProgress represents the current progress of a workflow execution.
@@ -225,13 +233,26 @@ func (c *Client) StopExecution(executionID string) (WorkflowStartResponse, error
 // StopExecutionTree stops a workflow execution and, with tree, every unfinished run it started as a
 // sub-workflow, at any depth.
 func (c *Client) StopExecutionTree(executionID string, tree bool) (WorkflowStartResponse, error) {
+	return c.StopExecutionMode(executionID, tree, "")
+}
+
+// StopExecutionMode stops a workflow execution the given way: DRAIN lets work in flight finish,
+// CANCEL cancels it, KILL ends the run at once. An empty mode leaves the choice to the server (DRAIN).
+func (c *Client) StopExecutionMode(executionID string, tree bool, mode string) (WorkflowStartResponse, error) {
 	if executionID == "" {
 		return WorkflowStartResponse{}, fmt.Errorf("executionID cannot be empty")
 	}
 
 	path := apiPath("/api/executions/%s/stop", executionID)
+	params := url.Values{}
 	if tree {
-		path += "?tree=true"
+		params.Set("tree", "true")
+	}
+	if mode != "" {
+		params.Set("mode", mode)
+	}
+	if len(params) > 0 {
+		path += "?" + params.Encode()
 	}
 	httpReq, err := c.newRequest("POST", path)
 	if err != nil {

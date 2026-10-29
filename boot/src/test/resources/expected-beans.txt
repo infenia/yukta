@@ -22,6 +22,7 @@ com.infenia.yukta.controller.NodeOutputController
 com.infenia.yukta.controller.PluginController
 com.infenia.yukta.controller.SessionConfigController
 com.infenia.yukta.controller.SupervisorsController
+com.infenia.yukta.controller.TemplateController
 com.infenia.yukta.controller.WorkersController
 com.infenia.yukta.controller.WorkflowController
 com.infenia.yukta.controller.WorkflowDetailsController

@@ -108,7 +108,8 @@ final class WorkflowState {
               finalStatus.name(),
               task.startTime(),
               now,
-              task.metadata());
+              task.metadata(),
+              task.breakpoint());
         });
   }
 
@@ -158,7 +159,13 @@ final class WorkflowState {
     final Map<String, Object> newMetadata = mergeMetadata(current.metadata(), metadata);
 
     return new TaskProgress(
-        current.nodeId(), module, status, taskStartTime, taskEndTime, Map.copyOf(newMetadata));
+        current.nodeId(),
+        module,
+        status,
+        taskStartTime,
+        taskEndTime,
+        Map.copyOf(newMetadata),
+        current.breakpoint());
   }
 
   private LocalDateTime determineStartTime(final LocalDateTime current, final String status) {
@@ -180,6 +187,20 @@ final class WorkflowState {
       merged.putAll(additional);
     }
     return merged;
+  }
+
+  /* default */ void setBreakpoint(final String nodeId, final TaskProgress.Breakpoint breakpoint) {
+    taskMap.computeIfPresent(
+        nodeId,
+        (_, t) ->
+            new TaskProgress(
+                t.nodeId(),
+                t.module(),
+                t.status(),
+                t.startTime(),
+                t.endTime(),
+                t.metadata(),
+                breakpoint));
   }
 
   /* default */ void setStatus(final String status) {

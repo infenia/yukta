@@ -116,6 +116,46 @@ class WorkflowControlProviderTest {
   }
 
   @Test
+  void testStopWithModeKillsTheExecution() {
+    when(controlBus.stopExecution(EXECUTION, "Requested via MCP", StopMode.KILL))
+        .thenReturn(Mono.just(EXECUTION));
+
+    StepVerifier.create(
+            provider.controlWorkflow(
+                SESSION,
+                WorkflowControlAction.STOP,
+                EXECUTION,
+                null,
+                null,
+                null,
+                false,
+                StopMode.KILL))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    verify(controlBus).stopExecution(EXECUTION, "Requested via MCP", StopMode.KILL);
+  }
+
+  @Test
+  void testStopAllWithModeCancelsTheWorkflow() {
+    when(controlBus.stopWorkflow(SESSION, "wf-1", "Requested via MCP", StopMode.CANCEL))
+        .thenReturn(Mono.just(List.of("e1")));
+
+    StepVerifier.create(
+            provider.controlWorkflow(
+                SESSION,
+                WorkflowControlAction.STOP_ALL,
+                null,
+                "wf-1",
+                null,
+                null,
+                false,
+                StopMode.CANCEL))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
   void testStopAllStopsWorkflow() {
     when(controlBus.stopWorkflow(SESSION, "wf-1", "Requested via MCP", StopMode.DRAIN))
         .thenReturn(Mono.just(List.of("e1", "e2")));
