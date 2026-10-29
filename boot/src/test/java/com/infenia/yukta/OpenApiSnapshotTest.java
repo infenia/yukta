@@ -11,6 +11,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
@@ -19,7 +20,6 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.aot.DisabledInAotMode;
 import tools.jackson.databind.SerializationFeature;
 import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.node.ObjectNode;
 
 /**
  * The REST API description the UI types are generated from ({@code ui/openapi.json}). A controller
@@ -57,9 +57,9 @@ class OpenApiSnapshotTest {
             .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
             .build();
     // The server URL is the random port of this run.
-    final ObjectNode spec = (ObjectNode) mapper.readTree(response.body());
+    final Map<String, Object> spec = mapper.readValue(response.body(), Map.class);
     spec.remove("servers");
-    final String actual = mapper.writeValueAsString(spec) + "\n";
+    final String actual = sortedKeys(mapper, spec);
 
     if (Boolean.getBoolean("yukta.openapi.update")) {
       Files.writeString(SNAPSHOT, actual, StandardCharsets.UTF_8);
@@ -67,6 +67,17 @@ class OpenApiSnapshotTest {
 
     assertThat(actual)
         .as("ui/openapi.json is stale; see the Javadoc of OpenApiSnapshotTest to refresh it")
-        .isEqualTo(Files.readString(SNAPSHOT, StandardCharsets.UTF_8));
+        .isEqualTo(
+            sortedKeys(
+                mapper,
+                mapper.readValue(Files.readString(SNAPSHOT, StandardCharsets.UTF_8), Map.class)));
+  }
+
+  /**
+   * Writes the spec with every object's keys sorted. Springdoc lists a Jackson type's properties in
+   * reflection order, which differs between runs, so the comparison must not depend on it.
+   */
+  private static String sortedKeys(final JsonMapper mapper, final Map<String, Object> spec) {
+    return mapper.writeValueAsString(mapper.convertValue(spec, Map.class)) + "\n";
   }
 }
