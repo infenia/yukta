@@ -16,13 +16,19 @@ import { EXPORT_HINT, exportSessionConfig } from '../lib/exportSession';
 import type { SessionListItem } from '../types/session';
 
 interface SessionRowActionsMenuProps {
-  session: SessionListItem;
+  session: Pick<SessionListItem, 'sessionId'>;
+  /** Off on the session's own page, where "View details" would go nowhere. */
+  showView?: boolean;
 }
 
-export function SessionRowActionsMenu({ session }: SessionRowActionsMenuProps) {
+export function SessionRowActionsMenu({
+  session,
+  showView = true,
+}: SessionRowActionsMenuProps) {
   const navigate = useNavigate();
   const [deleting, setDeleting] = useState(false);
-  const [exportFailed, setExportFailed] = useState(false);
+  // why the last export failed, or null
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const handleView = () => {
     navigate(`/sessions/${session.sessionId}`);
@@ -34,9 +40,9 @@ export function SessionRowActionsMenu({ session }: SessionRowActionsMenuProps) {
 
   return (
     <>
-      {exportFailed && (
+      {exportError !== null && (
         <span role="alert" className="text-error text-body-sm mr-2">
-          Export failed
+          {exportError}
         </span>
       )}
       <DropdownMenu>
@@ -59,14 +65,16 @@ export function SessionRowActionsMenu({ session }: SessionRowActionsMenuProps) {
           )}
         />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onClick={(e) => {
-              e.stopPropagation();
-              handleView();
-            }}
-          >
-            View Details
-          </DropdownMenuItem>
+          {showView && (
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                handleView();
+              }}
+            >
+              View Details
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();
@@ -79,9 +87,13 @@ export function SessionRowActionsMenu({ session }: SessionRowActionsMenuProps) {
             title={EXPORT_HINT}
             onClick={(e) => {
               e.stopPropagation();
-              setExportFailed(false);
-              exportSessionConfig(session.sessionId).catch(() =>
-                setExportFailed(true)
+              setExportError(null);
+              exportSessionConfig(session.sessionId).catch((error: unknown) =>
+                setExportError(
+                  error instanceof Error
+                    ? `Export failed: ${error.message}`
+                    : 'Export failed'
+                )
               );
             }}
           >
