@@ -3664,11 +3664,11 @@
             "type" : "string"
           },
           "startTime" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "format" : "date-time"
           },
           "endTime" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "format" : "date-time"
           },
           "metadata" : {
@@ -3703,23 +3703,23 @@
             "format" : "date-time"
           },
           "endTime" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "format" : "date-time"
           },
           "controlState" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "definitionVersion" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "parentExecutionId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "rootExecutionId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "restartOf" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           }
         }
       },
@@ -3813,20 +3813,20 @@
             "description" : "The start time of the execution, with the server's UTC offset"
           },
           "endTime" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "format" : "date-time",
             "description" : "The end time of the execution, with the server's UTC offset"
           },
           "parentExecutionId" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "The run that started this one as a sub-workflow, if any"
           },
           "rootExecutionId" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "The top of this run's tree of runs (itself when it has no parent)"
           },
           "restartOf" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "The run this one restarts, if any"
           }
         }
