@@ -3,25 +3,7 @@
 
 package session
 
-import (
-	"com.infenia.yukta/go-cli/internal/output"
-	"github.com/spf13/cobra"
-)
+import "com.infenia.yukta/go-cli/internal/commands"
 
-// dataCmd builds a read-only command that fetches nested data and prints it as JSON
-// (nested structures don't fit a table, so -o has no effect).
-func dataCmd(use, short string, nargs int, fetch func(args []string) (any, error)) *cobra.Command {
-	return &cobra.Command{
-		Use:   use,
-		Short: short,
-		Args:  cobra.ExactArgs(nargs),
-		RunE: func(_ *cobra.Command, args []string) error {
-			data, err := fetch(args)
-			if err != nil {
-				return err
-			}
-			output.PrintJSON(data)
-			return nil
-		},
-	}
-}
+// dataCmd is commands.DataCmd: a read-only command that prints nested data as JSON.
+var dataCmd = commands.DataCmd
