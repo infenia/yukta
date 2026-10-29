@@ -71,9 +71,9 @@ describe('router', () => {
   });
 
   describe('route paths', () => {
-    it('should have 11 child routes', () => {
+    it('should have 12 child routes', () => {
       const rootRoute = router.routes[0];
-      expect(rootRoute.children?.length).toBe(11);
+      expect(rootRoute.children?.length).toBe(12);
     });
 
     it('should have correct number of parameterized routes', () => {
