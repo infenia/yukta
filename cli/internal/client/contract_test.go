@@ -5,77 +5,97 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"os"
-	"path/filepath"
-	"regexp"
+	"sort"
 	"strings"
+	"sync"
 	"testing"
 )
 
-var apiLiteral = regexp.MustCompile(`"(/api/[^"?]*)"`)
+// The package's tests drive every client function against fake servers (100% coverage is
+// enforced), so recording what they send covers every endpoint the CLI calls. After the run each
+// method and path is checked against the server's OpenAPI snapshot (ui/openapi.json, kept equal
+// to the real /v3/api-docs by OpenApiSnapshotTest): a renamed, removed or re-methoded endpoint
+// fails the CLI build instead of a user's script.
+// ponytail: method and path only, not response fields; add a real-server CI job if field drift shows.
 
-// TestEveryClientPathIsInTheServerContract fails when the client calls a path the server's
-// committed OpenAPI document (ui/openapi.json, kept current by OpenApiSnapshotTest) does not
-// have, so a renamed or removed endpoint breaks the CLI build instead of a user's script.
-// ponytail: paths only, not methods or response fields; add a method check when drift shows there.
-func TestEveryClientPathIsInTheServerContract(t *testing.T) {
-	raw, err := os.ReadFile("../../../ui/openapi.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var doc struct {
-		Paths map[string]json.RawMessage `json:"paths"`
-	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatal(err)
-	}
-	var served [][]string
-	for p := range doc.Paths {
-		served = append(served, strings.Split(p, "/"))
-	}
+// genericHelperPaths are made-up paths that tests of the HTTP plumbing use.
+var genericHelperPaths = map[string]bool{"/api/test": true, "/api/test/stream": true, "/api/x": true}
 
-	files, _ := filepath.Glob("*.go")
-	checked := 0
-	for _, f := range files {
-		if strings.HasSuffix(f, "_test.go") {
-			continue
-		}
-		src, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, m := range apiLiteral.FindAllStringSubmatch(string(src), -1) {
-			// A trailing slash is a prefix that executionSignal completes with its verb.
-			paths := []string{m[1]}
-			if strings.HasSuffix(m[1], "/") {
-				paths = []string{m[1] + "pause", m[1] + "resume"}
-			}
-			for _, p := range paths {
-				checked++
-				if !servedPath(served, strings.Split(p, "/")) {
-					t.Errorf("%s: %s is not in ui/openapi.json", f, p)
-				}
-			}
-		}
-	}
-	if checked < 30 {
-		t.Fatalf("found only %d client paths; the scan is broken", checked)
-	}
+// recorder is a transport that notes each "METHOD /escaped/path" under /api and forwards it.
+type recorder struct {
+	mu   sync.Mutex
+	seen map[string]bool
+	next http.RoundTripper
 }
 
-// servedPath tells whether some OpenAPI path has the same segments, where {x} matches the client's %s.
-func servedPath(served [][]string, want []string) bool {
+func (r *recorder) RoundTrip(req *http.Request) (*http.Response, error) {
+	if p := req.URL.EscapedPath(); strings.HasPrefix(p, "/api/") && !genericHelperPaths[p] {
+		r.mu.Lock()
+		r.seen[req.Method+" "+p] = true
+		r.mu.Unlock()
+	}
+	return r.next.RoundTrip(req)
+}
+
+func TestMain(m *testing.M) {
+	rec := &recorder{seen: map[string]bool{}, next: http.DefaultTransport}
+	http.DefaultTransport = rec
+	code := m.Run()
+	if code == 0 {
+		if bad := rec.contractViolations(); len(bad) > 0 {
+			fmt.Fprintf(os.Stderr, "CONTRACT: the client sends requests ui/openapi.json does not have:\n  %s\n", strings.Join(bad, "\n  "))
+			code = 1
+		}
+	}
+	os.Exit(code)
+}
+
+func (r *recorder) contractViolations() []string {
+	raw, err := os.ReadFile("../../../ui/openapi.json")
+	if err != nil {
+		return []string{err.Error()}
+	}
+	var doc struct {
+		Paths map[string]map[string]json.RawMessage `json:"paths"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return []string{err.Error()}
+	}
+	var bad []string
+	for call := range r.seen {
+		method, path, _ := strings.Cut(call, " ")
+		if !served(doc.Paths, strings.ToLower(method), path) {
+			bad = append(bad, call)
+		}
+	}
+	if len(r.seen) < 30 {
+		bad = append(bad, fmt.Sprintf("only %d distinct calls recorded; the recorder is broken", len(r.seen)))
+	}
+	sort.Strings(bad)
+	return bad
+}
+
+// served tells whether the document has an operation with this method on a path of the same
+// segments, where a {x} segment matches any one segment of the request.
+func served(paths map[string]map[string]json.RawMessage, method, path string) bool {
+	want := strings.Split(path, "/")
 next:
-	for _, segs := range served {
+	for p, ops := range paths {
+		segs := strings.Split(p, "/")
 		if len(segs) != len(want) {
 			continue
 		}
 		for i, s := range segs {
-			if s != want[i] && (!strings.HasPrefix(s, "{") || want[i] != "%s") {
+			if s != want[i] && !strings.HasPrefix(s, "{") {
 				continue next
 			}
 		}
-		return true
+		if _, ok := ops[method]; ok {
+			return true
+		}
 	}
 	return false
 }
