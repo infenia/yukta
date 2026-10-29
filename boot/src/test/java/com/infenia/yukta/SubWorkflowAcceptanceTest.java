@@ -39,8 +39,7 @@ import org.springframework.boot.test.context.SpringBootTest;
   "ERROR com.infenia.yukta.service.orchestrator.stream.NodeStreams - ",
   "ERROR com.infenia.yukta.service.orchestrator.strategy.StreamAssemblyHelper - ",
   "ERROR com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator - ",
-  "ERROR com.infenia.yukta.service.orchestrator.WorkflowOrchestrator - ",
-  "ERROR com.infenia.yukta.service.control.gateway.WorkflowStarter - "
+  "ERROR com.infenia.yukta.service.orchestrator.WorkflowOrchestrator - "
 })
 class SubWorkflowAcceptanceTest {
 
