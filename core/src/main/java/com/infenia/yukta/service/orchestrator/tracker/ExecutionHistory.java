@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.tracker;
 
+import com.infenia.yukta.model.execution.TaskProgress;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -11,6 +13,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
@@ -19,6 +22,10 @@ final class ExecutionHistory {
 
   /** Finished executions kept per session for history; older ones are dropped on cleanup. */
   /* default */ static final int MAX_FINISHED_PER_SESSION = 100;
+
+  /** Statuses that mean a node failed, for the first failed node of a run. */
+  private static final Set<String> FAILED =
+      Set.of(TaskStatus.FAILURE.name(), TaskStatus.ERROR.name(), TaskStatus.TIMED_OUT.name());
 
   /** Per session, execution IDs that were cleaned up, oldest first. */
   private final Map<String, Deque<String>> finishedBySession = new ConcurrentHashMap<>();
@@ -113,6 +120,24 @@ final class ExecutionHistory {
         state.endTime,
         state.parentExecutionId,
         state.rootExecutionId,
-        state.restartOf);
+        state.restartOf,
+        nodes(state));
+  }
+
+  /** How far a run got: its nodes in a final state, of all, and the first that failed. */
+  @SuppressWarnings("PMD.AvoidSynchronizedStatement")
+  private static WorkflowExecutionSummary.Nodes nodes(final WorkflowState state) {
+    final List<TaskProgress> tasks;
+    synchronized (state.taskMap) {
+      tasks = List.copyOf(state.taskMap.values());
+    }
+    return new WorkflowExecutionSummary.Nodes(
+        (int) tasks.stream().filter(t -> TaskStatus.isTerminalName(t.status())).count(),
+        tasks.size(),
+        tasks.stream()
+            .filter(t -> FAILED.contains(t.status()))
+            .map(TaskProgress::nodeId)
+            .findFirst()
+            .orElse(null));
   }
 }
