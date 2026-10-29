@@ -44,7 +44,7 @@ class ExecutionLogStoreTest {
   }
 
   @Test
-  void jsonl_writerThreadIsADaemon_soItNeverKeepsTheJvmAlive() {
+  void jsonl_writerThreadIsDaemon_soItNeverKeepsTheJvmAlive() {
     final JsonlExecutionLogStore store = jsonl();
     store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
     store.readAll();
