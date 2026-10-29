@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import type { ReactNode } from 'react';
-import { StatusChip } from './StatusChip';
+import { StatusPill } from './StatusPill';
 
 /** Title row: workflow display name, monospace workflow ID, optional actions and the status chip. */
 export function WorkflowTitleBar({
@@ -24,7 +24,7 @@ export function WorkflowTitleBar({
       </span>
       <div className="ml-auto flex items-center gap-4">
         {actions}
-        <StatusChip status={status} />
+        <StatusPill status={status} />
       </div>
     </div>
   );

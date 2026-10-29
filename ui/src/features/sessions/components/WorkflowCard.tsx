@@ -7,43 +7,16 @@ import { RequirePermission } from '@/components/common/RequirePermission';
 import { Link } from 'react-router';
 import { cardVariants } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import type {
-  WorkflowSummary,
-  WorkflowExecutionStatus,
-} from '../types/session';
+import { StatusPill } from '@/features/workflow/components/StatusPill';
+import type { WorkflowSummary } from '../types/session';
 
 interface WorkflowCardProps {
   sessionId: string;
   workflow: WorkflowSummary;
 }
 
-const STATUS_BADGE_STYLES: Record<WorkflowExecutionStatus | 'NOT_RUN', string> =
-  {
-    SUCCESS: 'text-success',
-    FAILURE: 'text-error',
-    ERROR: 'text-error',
-    STOPPED: 'text-on-surface-variant',
-    RUNNING: 'text-primary',
-    PENDING: 'text-on-surface-variant',
-    NOT_RUN: 'text-on-surface-variant',
-  };
-
-const STATUS_LABELS: Record<WorkflowExecutionStatus | 'NOT_RUN', string> = {
-  SUCCESS: 'Completed',
-  FAILURE: 'Failed',
-  ERROR: 'Failed',
-  STOPPED: 'Stopped',
-  RUNNING: 'Running',
-  PENDING: 'Pending',
-  NOT_RUN: 'Not Run',
-};
-
 export function WorkflowCard({ sessionId, workflow }: WorkflowCardProps) {
   const [deleting, setDeleting] = useState(false);
-  const statusKey: WorkflowExecutionStatus | 'NOT_RUN' =
-    workflow.status || 'NOT_RUN';
-  const badgeClass = STATUS_BADGE_STYLES[statusKey];
-  const badgeLabel = STATUS_LABELS[statusKey];
 
   return (
     <div className="relative">
@@ -62,12 +35,7 @@ export function WorkflowCard({ sessionId, workflow }: WorkflowCardProps) {
           >
             <span className="material-symbols-outlined">account_tree</span>
           </span>
-          <span
-            className={`text-label-sm ml-auto inline-flex items-center gap-2 ${badgeClass}`}
-          >
-            <span aria-hidden className="size-2 rounded-full bg-current" />
-            {badgeLabel}
-          </span>
+          <StatusPill status={workflow.status} className="ml-auto" />
           <span
             className="material-symbols-outlined text-on-surface-variant transition-standard group-hover:text-primary group-hover:translate-x-1"
             aria-hidden="true"

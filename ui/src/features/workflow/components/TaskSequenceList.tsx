@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useEffect, useState } from 'react';
-import { toNodeUiStatus, toTaskSequenceLabel } from '../lib/statusMapper';
+import { toNodeUiStatus } from '../lib/statusMapper';
+import { StatusPill } from './StatusPill';
 import { formatClockTime, formatDuration } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
 import { NodeControlsMenu, type NodeCommand } from './NodeControlsMenu';
@@ -14,24 +15,6 @@ import type {
 
 /** How often the running-duration display refreshes between SSE updates. */
 const DURATION_REFRESH_MS = 1000;
-
-const STATUS_ICONS: Record<NodeUiStatus, string> = {
-  completed: 'check_circle',
-  running: 'sync',
-  pending: 'schedule',
-  failed: 'error',
-  paused: 'pause_circle',
-  skipped: 'skip_next',
-};
-
-const LABEL_CLASSES: Record<NodeUiStatus, string> = {
-  completed: 'text-success',
-  running: 'text-primary',
-  pending: 'text-on-surface-variant',
-  failed: 'text-error',
-  paused: 'text-on-surface-variant',
-  skipped: 'text-on-surface-variant',
-};
 
 function TimingLine({
   task,
@@ -80,16 +63,6 @@ function TaskSequenceItem({
       data-testid={`task-item-${task.nodeId}`}
     >
       <div className="flex items-center gap-2">
-        <span
-          className={cn(
-            'material-symbols-outlined text-base',
-            status === 'running' && 'text-primary animate-spin',
-            status === 'completed' && 'text-success',
-            status === 'failed' && 'text-error'
-          )}
-        >
-          {STATUS_ICONS[status]}
-        </span>
         <span className="text-label-md text-on-surface">{task.nodeId}</span>
         {breakpoint && (
           <span
@@ -101,14 +74,12 @@ function TaskSequenceItem({
             radio_button_checked
           </span>
         )}
-        <span
-          className={cn(
-            'text-label-sm ml-auto font-semibold tracking-wider',
-            LABEL_CLASSES[status]
-          )}
-        >
-          {toTaskSequenceLabel(status)}
-        </span>
+        <StatusPill
+          status={task.status}
+          scope="node"
+          testId="task-status"
+          className="ml-auto"
+        />
         {onNodeCommand && (
           <NodeControlsMenu
             nodeId={task.nodeId}
@@ -119,12 +90,10 @@ function TaskSequenceItem({
           />
         )}
       </div>
-      <p className="text-body-sm text-on-surface-variant pl-6">
+      <p className="text-body-sm text-on-surface-variant">
         module: {task.module}
       </p>
-      <div className="pl-6">
-        <TimingLine task={task} status={status} />
-      </div>
+      <TimingLine task={task} status={status} />
     </li>
   );
 }

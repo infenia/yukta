@@ -3,7 +3,7 @@
 
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import { toNodeStatusLabel } from '../../lib/statusMapper';
+import { toNodeStatusLabel, toStatusDisplay } from '../../lib/statusMapper';
 import { cn } from '@/lib/utils';
 import { categoryAccent, categoryTint } from '../../lib/categoryAccent';
 import { pluginIcon, pluginLabel } from '../../lib/pluginIcons';
@@ -88,6 +88,10 @@ export function WorkflowNodeCard({
   // The default node id is "<type>-N"; only show the plugin name when the id doesn't already say it.
   const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
   const showType = !norm(node.nodeId).startsWith(norm(node.type));
+  // The raw task status tells e.g. "Timed out" from "Failed"; without one, the bucket's label.
+  const statusLabel = task?.status
+    ? toStatusDisplay(task.status, 'node').label
+    : toNodeStatusLabel(status);
   const detail = progressDetail(status, task);
   const percent = progressPercent(status, task);
   const accent = categoryAccent(node.category);
@@ -101,7 +105,7 @@ export function WorkflowNodeCard({
     <div
       role="group"
       tabIndex={0}
-      aria-label={`${node.nodeId}: ${toNodeStatusLabel(status)}`}
+      aria-label={`${node.nodeId}: ${statusLabel}`}
       data-testid={`workflow-node-${node.nodeId}`}
       data-status={status}
       data-selected={selected ? 'true' : undefined}
@@ -189,7 +193,7 @@ export function WorkflowNodeCard({
             aria-hidden="true"
             className={cn('size-2 rounded-full', STATUS_DOT_CLASSES[status])}
           />
-          {toNodeStatusLabel(status)}
+          {statusLabel}
         </span>
         {detail && (
           <span className="text-body-sm text-on-surface-variant">{detail}</span>

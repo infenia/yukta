@@ -20,7 +20,8 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useSessionSummaries } from '@/features/sessions/hooks/useSessionSummaries';
 import { useSessionWorkflows } from '@/features/sessions/hooks/useSessionWorkflows';
-import { StatusChip } from '@/features/workflow/components/StatusChip';
+import { StatusPill } from '@/features/workflow/components/StatusPill';
+import { toStatusDisplay } from '@/features/workflow/lib/statusMapper';
 import {
   formatClockTime,
   formatDuration,
@@ -105,7 +106,12 @@ export function RunsPage() {
         >
           <option value="">Any status</option>
           {RUN_STATUSES.map((status) => (
-            <option key={status}>{status}</option>
+            <option key={status} value={status}>
+              {/* FAILURE and ERROR both read "Failed"; the filter still tells them apart */}
+              {status === 'ERROR'
+                ? 'Failed (error)'
+                : toStatusDisplay(status).label}
+            </option>
           ))}
         </NativeSelect>
         <Input
@@ -178,9 +184,9 @@ export function RunsPage() {
                 {runs.data.map((run) => (
                   <TableRow key={run.executionId}>
                     <TableCell className="px-4">
-                      <StatusChip status={run.status} />
+                      <StatusPill status={run.status} />
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-code-sm">
+                    <TableCell className="text-code-sm px-4 py-3">
                       <Link
                         className="text-primary"
                         title={run.executionId}
@@ -194,20 +200,20 @@ export function RunsPage() {
                         onClick={() =>
                           void navigator.clipboard.writeText(run.executionId)
                         }
-                        className="material-symbols-outlined ml-1 align-middle text-sm text-on-surface-variant"
+                        className="material-symbols-outlined text-on-surface-variant ml-1 align-middle text-sm"
                       >
                         content_copy
                       </button>
                     </TableCell>
                     <TableCell className="px-4">{run.sessionId}</TableCell>
                     <TableCell className="px-4">{run.workflowId}</TableCell>
-                    <TableCell className="px-4 text-code-sm">
+                    <TableCell className="text-code-sm px-4">
                       {formatClockTime(run.startTime)}
                     </TableCell>
-                    <TableCell className="px-4 text-code-sm">
+                    <TableCell className="text-code-sm px-4">
                       {formatDuration(run.startTime, run.endTime)}
                     </TableCell>
-                    <TableCell className="px-4 text-code-sm">
+                    <TableCell className="text-code-sm px-4">
                       {formatClockTime(run.endTime)}
                     </TableCell>
                   </TableRow>
