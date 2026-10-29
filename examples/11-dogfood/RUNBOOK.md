@@ -65,6 +65,8 @@ For issue runs: `YUKTA_IMPL_MODEL` (opus), `YUKTA_IMPL_BUDGET` (5), `YUKTA_BUDGE
 
 ```bash
 scripts/test-hooks.sh eval/triage/selftest.sh   # offline: the Claude Code hooks, the triage evaluation
+scripts/test-plan.sh                             # offline: plan.sh's class-level test selection
+../../.github/scripts/plan-vs-ci.test.sh          # offline, also in CI: plan.sh and ci-tasks.sh pick the same modules
 scripts/test-events.sh                           # offline: one terminal result event per run
 scripts/test-stats.sh                            # offline: yk stats reads the heal events and its counts match them
 scripts/test-yk.sh                              # on the dev server: a stopped foreground yk stops its run, --detach outlives, --stages
