@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,6 +36,9 @@ import reactor.core.publisher.Mono;
 public class WorkflowDetailsController {
 
   /** Session ID parameter description. */
+  /** The plugin that runs another workflow of the session. */
+  private static final String SUB_WORKFLOW = "SUB_WORKFLOW";
+
   private static final String SESSION_ID = "The unique identifier of the session";
 
   /** Workflow ID parameter description. */
@@ -119,6 +123,13 @@ public class WorkflowDetailsController {
                             + "'")));
   }
 
+  /** The workflow a SUB_WORKFLOW node runs, so the UI can open it; null for any other node. */
+  private static @Nullable String subWorkflowId(final WorkflowDefinition.Node node) {
+    return SUB_WORKFLOW.equals(node.type()) && node.config().get("workflowId") instanceof String id
+        ? id
+        : null;
+  }
+
   private WorkflowGraph buildGraph(final WorkflowDefinition definition) {
     final List<WorkflowGraphNode> nodes =
         definition.nodes().stream()
@@ -131,7 +142,9 @@ public class WorkflowDetailsController {
                       enriched.category(),
                       enriched.description(),
                       enriched.uiDesign(),
-                      enriched.outputPorts());
+                      enriched.outputPorts(),
+                      node.group(),
+                      subWorkflowId(node));
                 })
             .toList();
     return new WorkflowGraph(

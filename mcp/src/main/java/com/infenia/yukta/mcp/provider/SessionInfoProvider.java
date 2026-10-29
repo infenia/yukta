@@ -171,7 +171,8 @@ public class SessionInfoProvider {
         """
         A workflow definition has a 'workflowId', a 'description', 'nodes' and 'edges'. It is a \
         Directed Acyclic Graph: a node has a unique 'nodeId', a 'type' (the type of a registered \
-        plugin, see list_plugins) and a 'config' object for that plugin. An edge has a 'source' \
+        plugin, see list_plugins), a 'config' object for that plugin and, optionally, a 'group' \
+        naming the stage it belongs to (display only). An edge has a 'source' \
         and a 'target' node id and, optionally, a 'sourcePort' (for example 'success', 'failure' \
         or 'error'; without one it uses the default port). Cycles are not allowed. Execution \
         flows from trigger nodes through processors to terminal nodes.\

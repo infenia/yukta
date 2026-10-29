@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Tests for {@link WorkflowDefinition}. */
 @SuppressWarnings({
@@ -73,6 +74,24 @@ class WorkflowDefinitionTest {
         new WorkflowDefinition("wf-2", "d", null, List.of(edge));
     assertThat(defNullNodes.nodes()).isNotNull().isEmpty();
     assertThat(defNullNodes.edges()).hasSize(1);
+  }
+
+  @Test
+  void nodeGroupIsOptionalAndSurvivesJson() {
+    final JsonMapper json = JsonMapper.builder().build();
+    final WorkflowDefinition.Node grouped =
+        json.readValue(
+            "{\"nodeId\":\"lint.fail\",\"type\":\"BRANCH\",\"group\":\"lint\"}",
+            WorkflowDefinition.Node.class);
+    assertThat(grouped.group()).isEqualTo("lint");
+    assertThat(grouped.config()).isEmpty();
+    assertThat(json.readValue(json.writeValueAsString(grouped), WorkflowDefinition.Node.class))
+        .isEqualTo(grouped);
+    assertThat(
+            json.readValue("{\"nodeId\":\"a\",\"type\":\"B\"}", WorkflowDefinition.Node.class)
+                .group())
+        .isNull();
+    assertThat(new WorkflowDefinition.Node("a", "B", Map.of()).group()).isNull();
   }
 
   @Test
