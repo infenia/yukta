@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { createBrowserRouter, Navigate } from 'react-router';
+import { createBrowserRouter, Navigate, useLocation } from 'react-router';
 import App from '@/App';
 import { SessionListPage } from '@/features/sessions/components/SessionListPage';
+
+/** /history became /runs; the query (?session=x) is kept. */
+export function HistoryRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: '/runs', search }} replace />;
+}
 
 const router = createBrowserRouter([
   {
@@ -73,10 +79,15 @@ const router = createBrowserRouter([
         }),
       },
       {
-        path: 'history',
+        path: 'runs',
         lazy: async () => ({
-          Component: (await import('@/features/history/components/HistoryPage')).HistoryPage,
+          Component: (await import('@/features/runs/components/RunsPage')).RunsPage,
         }),
+      },
+      {
+        // the former History page: old links keep working, with their query
+        path: 'history',
+        element: <HistoryRedirect />,
       },
     ],
   },

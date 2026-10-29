@@ -1,117 +1,61 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { Input } from '@/components/ui/input';
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { api, fetchApi } from '@/lib/apiClient';
-import { CodeBlock } from '@/components/common/CodeBlock';
+import { useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { StateMessage } from '@/components/common/StateMessage';
 import { SupervisorsPanel } from './SupervisorsPanel';
 import { ControlAuditPanel } from './ControlAuditPanel';
+import { ControlBusPanel } from './ControlBusPanel';
 import { WorkersPanel } from './WorkersPanel';
+import { ActivityPanel } from './ActivityPanel';
+import { ControlEventsProvider } from '../context/ControlEvents';
 
-const getNodes = (workflowId: string) =>
-  fetchApi<string[]>(
-    workflowId
-      ? api`/api/control/workflows/${workflowId}/nodes`
-      : '/api/control/nodes'
-  );
-
-const getHeartbeat = (workflowId: string, nodeId: string) =>
-  fetchApi<unknown>(
-    api`/api/control/workflows/${workflowId}/nodes/${nodeId}/heartbeat`
-  );
-
-function Heartbeat({
-  workflowId,
-  nodeId,
-}: {
-  workflowId: string;
-  nodeId: string;
-}) {
-  const beat = useQuery({
-    queryKey: ['control', workflowId, nodeId, 'heartbeat'],
-    queryFn: () => getHeartbeat(workflowId, nodeId),
-  });
-  if (beat.isPending)
-    return <span className="text-on-surface-variant">Loading…</span>;
-  if (beat.error) return <span className="text-error">No heartbeat</span>;
-  return (
-    <div className="mt-2">
-      <CodeBlock code={JSON.stringify(beat.data, null, 2)} label="heartbeat" />
-    </div>
-  );
-}
-
-/** Nodes registered on the control bus; filter by workflow id to inspect a node's heartbeat. */
+/** The control bus: its nodes (heartbeat, commands), supervisors, workers and the audit log. */
 export function ControlPage() {
-  const [workflowId, setWorkflowId] = useState('');
-  const [opened, setOpened] = useState<string | null>(null);
-  const nodes = useQuery({
-    queryKey: ['control', 'nodes', workflowId],
-    queryFn: () => getNodes(workflowId),
-    refetchInterval: 5000,
-  });
-
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') === 'activity' ? 'activity' : 'overview';
+  const show = (next: string) => {
+    const updated = new URLSearchParams(params);
+    if (next === 'overview') updated.delete('tab');
+    else updated.set('tab', next);
+    setParams(updated, { replace: true });
+  };
   return (
-    <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
-      <PageHeader
-        title="Control Bus"
-        description="Nodes registered on the control bus. Filter by workflow id to inspect heartbeats."
-        actions={
-          <Input
-            aria-label="Workflow id"
-            placeholder="Filter by workflow id (enables heartbeats)"
-            value={workflowId}
-            onChange={(event) => {
-              setWorkflowId(event.target.value.trim());
-              setOpened(null);
-            }}
-            className="w-80 max-w-full"
-          />
-        }
-      />
-      <SupervisorsPanel />
-      <WorkersPanel />
-      <ControlAuditPanel />
-
-      {nodes.error ? (
-        <StateMessage
-          tone="error"
-          title="Failed to load nodes"
-          onRetry={() => void nodes.refetch()}
+    <ControlEventsProvider>
+      <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
+        <PageHeader
+          title="Control Bus"
+          description="Nodes registered on the control bus, supervisors, workers, who sent which command, and the live activity feed."
         />
-      ) : nodes.isPending ? (
-        <StateMessage tone="loading" title="Loading…" compact />
-      ) : nodes.data.length === 0 ? (
-        <StateMessage title="No active nodes.">
-          Nodes appear here once a workflow is running.
-        </StateMessage>
-      ) : (
-        <ul className="divide-border border-border bg-card shadow-card flex flex-col divide-y overflow-hidden rounded-xl border">
-          {nodes.data.map((node) => (
-            <li key={node} className="p-3">
-              <div className="flex items-center gap-3">
-                <span className="text-code-sm text-on-surface">{node}</span>
-                {workflowId && (
-                  <button
-                    type="button"
-                    onClick={() => setOpened(opened === node ? null : node)}
-                    className="text-label-sm text-primary ml-auto hover:underline"
-                  >
-                    {opened === node ? 'Hide heartbeat' : 'Heartbeat'}
-                  </button>
-                )}
-              </div>
-              {workflowId && opened === node && (
-                <Heartbeat workflowId={workflowId} nodeId={node} />
-              )}
-            </li>
+        <div role="tablist" className="flex gap-1">
+          {(['overview', 'activity'] as const).map((name) => (
+            <button
+              key={name}
+              type="button"
+              role="tab"
+              aria-selected={tab === name}
+              onClick={() => show(name)}
+              className={`rounded-lg px-3 py-1 text-label-md capitalize ${
+                tab === name
+                  ? 'bg-muted text-on-surface'
+                  : 'text-on-surface-variant hover:bg-muted'
+              }`}
+            >
+              {name}
+            </button>
           ))}
-        </ul>
-      )}
-    </div>
+        </div>
+        {tab === 'activity' ? (
+          <ActivityPanel />
+        ) : (
+          <>
+            <ControlBusPanel />
+            <SupervisorsPanel />
+            <WorkersPanel />
+            <ControlAuditPanel />
+          </>
+        )}
+      </div>
+    </ControlEventsProvider>
   );
 }

@@ -61,11 +61,12 @@ describe('router', () => {
       expect(controlRoute?.lazy).toBeDefined();
     });
 
-    it('should have history route', () => {
+    it('should have runs route, and history redirects to it', () => {
       const rootRoute = router.routes[0];
+      const runsRoute = rootRoute.children?.find((r) => r.path === 'runs');
+      expect(runsRoute?.lazy).toBeDefined();
       const historyRoute = rootRoute.children?.find((r) => r.path === 'history');
-      expect(historyRoute).toBeDefined();
-      expect(historyRoute?.lazy).toBeDefined();
+      expect(historyRoute?.element).toBeDefined();
     });
   });
 
@@ -131,7 +132,7 @@ describe('router', () => {
       expect(await load('sessions/:sessionId/edit')).toBe('SessionFormPage');
       expect(await load('plugins')).toBe('PluginsPage');
       expect(await load('control')).toBe('ControlPage');
-      expect(await load('history')).toBe('HistoryPage');
+      expect(await load('runs')).toBe('RunsPage');
     });
   });
 
