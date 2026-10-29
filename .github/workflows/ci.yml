@@ -225,7 +225,7 @@ jobs:
           gradle-version: wrapper
           dependency-graph: disabled
           cache-provider: enhanced
-          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Install OpenGrep
         run: |
@@ -331,7 +331,7 @@ jobs:
           # which always resolves the FULL graph.
           dependency-graph: disabled
           cache-provider: enhanced
-          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -449,7 +449,7 @@ jobs:
         with:
           gradle-version: wrapper
           dependency-graph-continue-on-failure: true   # Don't fail CI if submission fails
-          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
   # ─────────────────────────────────────────────
   # Job 4: Fail PRs that introduce known-vulnerable dependencies.
