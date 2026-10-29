@@ -6,9 +6,15 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { useExecutionProgress } from '../useExecutionProgress';
-import { createTestQueryClient, createTestWrapper } from '@/test/utils/testUtils';
+import {
+  createTestQueryClient,
+  createTestWrapper,
+} from '@/test/utils/testUtils';
 import { createMockProgress } from '@/test/factories/workflowFactory';
-import { installMockEventSource, MockEventSource } from '@/test/mocks/MockEventSource';
+import {
+  installMockEventSource,
+  MockEventSource,
+} from '@/test/mocks/MockEventSource';
 
 const server = setupServer(
   http.get('/api/executions/:executionId', ({ params }) =>
@@ -18,7 +24,11 @@ const server = setupServer(
       message: 'Workflow status retrieved',
       data: createMockProgress(
         params.executionId === 'exec-done'
-          ? { executionId: 'exec-done', status: 'COMPLETED', endTime: '2026-07-26T14:25:00' }
+          ? {
+              executionId: 'exec-done',
+              status: 'COMPLETED',
+              endTime: '2026-07-26T14:25:00',
+            }
           : {}
       ),
       path: '/api/executions/x',
@@ -45,9 +55,12 @@ describe('useExecutionProgress', () => {
   });
 
   it('fetches the snapshot and opens the SSE stream while running', async () => {
-    const { result } = renderHook(() => useExecutionProgress('s1', 'exec-091-qp-55'), {
-      wrapper: createTestWrapper(),
-    });
+    const { result } = renderHook(
+      () => useExecutionProgress('s1', 'exec-091-qp-55'),
+      {
+        wrapper: createTestWrapper(),
+      }
+    );
 
     await waitFor(() => expect(result.current.progress).not.toBeNull());
     expect(result.current.progress?.status).toBe('RUNNING');
@@ -60,9 +73,12 @@ describe('useExecutionProgress', () => {
   });
 
   it('does not stream when the execution is already terminal', async () => {
-    const { result } = renderHook(() => useExecutionProgress('s1', 'exec-done'), {
-      wrapper: createTestWrapper(),
-    });
+    const { result } = renderHook(
+      () => useExecutionProgress('s1', 'exec-done'),
+      {
+        wrapper: createTestWrapper(),
+      }
+    );
 
     await waitFor(() => expect(result.current.progress).not.toBeNull());
     expect(result.current.progress?.status).toBe('COMPLETED');
@@ -72,24 +88,35 @@ describe('useExecutionProgress', () => {
 
   it('merges live updates and closes the stream on a terminal update', async () => {
     const queryClient = createTestQueryClient();
-    const { result } = renderHook(() => useExecutionProgress('s1', 'exec-091-qp-55'), {
-      wrapper: createTestWrapper(queryClient),
-    });
+    const { result } = renderHook(
+      () => useExecutionProgress('s1', 'exec-091-qp-55'),
+      {
+        wrapper: createTestWrapper(queryClient),
+      }
+    );
 
     await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
 
     act(() =>
       MockEventSource.latest().emit(
         createMockProgress({
-          tasks: createMockProgress().tasks.map((task) => ({ ...task, status: 'SUCCESS' })),
+          tasks: createMockProgress().tasks.map((task) => ({
+            ...task,
+            status: 'SUCCESS',
+          })),
         })
       )
     );
-    expect(result.current.progress?.tasks.every((task) => task.status === 'SUCCESS')).toBe(true);
+    expect(
+      result.current.progress?.tasks.every((task) => task.status === 'SUCCESS')
+    ).toBe(true);
 
     act(() =>
       MockEventSource.latest().emit(
-        createMockProgress({ status: 'COMPLETED', endTime: '2026-07-26T14:25:00' })
+        createMockProgress({
+          status: 'COMPLETED',
+          endTime: '2026-07-26T14:25:00',
+        })
       )
     );
 
@@ -99,9 +126,12 @@ describe('useExecutionProgress', () => {
   });
 
   it('ignores stream updates for other executions', async () => {
-    const { result } = renderHook(() => useExecutionProgress('s1', 'exec-091-qp-55'), {
-      wrapper: createTestWrapper(),
-    });
+    const { result } = renderHook(
+      () => useExecutionProgress('s1', 'exec-091-qp-55'),
+      {
+        wrapper: createTestWrapper(),
+      }
+    );
 
     await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
 
@@ -124,11 +154,15 @@ describe('useExecutionProgress', () => {
     );
 
     await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
-    act(() => MockEventSource.latest().emit(createMockProgress({ status: 'PAUSED' })));
+    act(() =>
+      MockEventSource.latest().emit(createMockProgress({ status: 'PAUSED' }))
+    );
     expect(result.current.progress?.status).toBe('PAUSED');
 
     rerender({ executionId: 'exec-done' });
-    await waitFor(() => expect(result.current.progress?.executionId).toBe('exec-done'));
+    await waitFor(() =>
+      expect(result.current.progress?.executionId).toBe('exec-done')
+    );
     expect(result.current.progress?.status).toBe('COMPLETED');
   });
 });

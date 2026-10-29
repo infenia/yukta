@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
+import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.NotFoundException;
@@ -279,6 +280,29 @@ class ExecutionControlControllerTest {
         .jsonPath("$.data.maxConcurrent")
         .isEqualTo(4);
     verify(controlBus).changePriority("e1", 7);
+  }
+
+  @Test
+  void testGetLimitsReturnsTheSnapshot() {
+    when(controlBus.limits()).thenReturn(Mono.just(new SchedulerLimits(4, 2, 3, 1, 100)));
+
+    client
+        .get()
+        .uri("/api/scheduler/limits")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.maxConcurrent")
+        .isEqualTo(4)
+        .jsonPath("$.data.maxPerWorkflow")
+        .isEqualTo(2)
+        .jsonPath("$.data.running")
+        .isEqualTo(3)
+        .jsonPath("$.data.queued")
+        .isEqualTo(1)
+        .jsonPath("$.data.queueCapacity")
+        .isEqualTo(100);
   }
 
   @Test

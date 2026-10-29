@@ -27,6 +27,7 @@ import { useExecutionSelection } from '../hooks/useExecutionSelection';
 import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { useWorkflowGraph } from '../hooks/useWorkflowGraph';
 import type { TaskProgress } from '../types/workflow';
+import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
 import { BreakpointDialog } from './BreakpointDialog';
 
@@ -39,6 +40,7 @@ export function WorkflowDetailsPage() {
   }>();
   const [panelOpen, setPanelOpen] = useState(true);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [stopping, setStopping] = useState<string | null>(null);
 
   const graphQuery = useWorkflowGraph(sessionId, workflowId);
   const executionsQuery = useWorkflowExecutions(sessionId, workflowId);
@@ -76,6 +78,10 @@ export function WorkflowDetailsPage() {
       setBreakpointNode(nodeId);
     } else if (command === 'breakpoint/clear') {
       nodeControl.clearBreakpoint.mutate({ executionId, nodeId });
+    } else if (command === 'stop') {
+      setStopping(nodeId);
+    } else if (command === 'unskip') {
+      nodeControl.unskipNode.mutate({ executionId, nodeId });
     } else {
       nodeControl.nodeAction.mutate({ executionId, nodeId, action: command });
     }
@@ -83,7 +89,9 @@ export function WorkflowDetailsPage() {
   const nodeError =
     nodeControl.nodeAction.error ??
     nodeControl.restartFromNode.error ??
-    nodeControl.clearBreakpoint.error;
+    nodeControl.clearBreakpoint.error ??
+    nodeControl.stopNode.error ??
+    nodeControl.unskipNode.error;
 
   const tasksByNode = useMemo(() => {
     const byNode: Record<string, TaskProgress | undefined> = {};
@@ -119,7 +127,7 @@ export function WorkflowDetailsPage() {
 
   return (
     <div
-      className="flex flex-1 flex-col bg-background"
+      className="bg-background flex flex-1 flex-col"
       data-testid="workflow-details-page"
     >
       <HeaderPortal targetId="header-actions">
@@ -210,6 +218,24 @@ export function WorkflowDetailsPage() {
               { onSuccess: () => setBreakpointNode(null) }
             );
           }}
+        />
+      )}
+
+      {stopping && (
+        <NodeStopDialog
+          nodeId={stopping}
+          pending={nodeControl.stopNode.isPending}
+          onClose={() => setStopping(null)}
+          onSubmit={(options) =>
+            nodeControl.stopNode.mutate(
+              {
+                executionId: selectedExecutionId as string,
+                nodeId: stopping,
+                ...options,
+              },
+              { onSettled: () => setStopping(null) }
+            )
+          }
         />
       )}
 

@@ -155,7 +155,7 @@ export function LogsPanel({
 
   return (
     <section
-      className="border-t border-outline-variant bg-surface"
+      className="border-outline-variant bg-surface border-t"
       data-testid="logs-panel"
       aria-label="Execution logs"
     >
@@ -167,31 +167,31 @@ export function LogsPanel({
             collapsed ? 'Expand execution logs' : 'Collapse execution logs'
           }
           aria-expanded={!collapsed}
-          className="flex size-6 items-center justify-center text-on-surface-variant transition-colors hover:text-on-surface"
+          className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center transition-colors"
         >
           <span className="material-symbols-outlined text-lg">
             {collapsed ? 'expand_less' : 'expand_more'}
           </span>
         </button>
-        <span className="material-symbols-outlined text-base text-on-surface-variant">
+        <span className="material-symbols-outlined text-on-surface-variant text-base">
           terminal
         </span>
         <h2 className="text-label-md text-on-surface">Execution logs</h2>
         {isStreaming && (
           <span
-            className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-label-sm tracking-wider text-primary"
+            className="border-primary/40 bg-primary/10 text-label-sm text-primary inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 tracking-wider"
             data-testid="streaming-pill"
           >
             <span
               aria-hidden
-              className="live-dot size-1.5 rounded-full bg-attention"
+              className="live-dot bg-attention size-1.5 rounded-full"
             />
             STREAMING
           </span>
         )}
         {dropped > 0 && (
           <span
-            className="rounded-full border border-log-warn/40 bg-log-warn/10 px-2.5 py-0.5 text-label-sm tracking-wider text-log-warn"
+            className="border-log-warn/40 bg-log-warn/10 text-label-sm text-log-warn rounded-full border px-2.5 py-0.5 tracking-wider"
             data-testid="dropped-pill"
           >
             {dropped.toLocaleString()} EARLIER LINES HIDDEN
@@ -199,7 +199,7 @@ export function LogsPanel({
         )}
         <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center sm:gap-4">
           <div className="relative w-full sm:w-56">
-            <span className="material-symbols-outlined pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-sm text-on-surface-variant">
+            <span className="material-symbols-outlined text-on-surface-variant pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-sm">
               search
             </span>
             <Input
@@ -207,7 +207,7 @@ export function LogsPanel({
               onChange={(event) => setFilter(event.target.value)}
               placeholder="Filter logs..."
               aria-label="Filter logs"
-              className="h-7 w-full pl-8 text-body-sm"
+              className="text-body-sm h-7 w-full pl-8"
             />
           </div>
           <button
@@ -215,7 +215,7 @@ export function LogsPanel({
             onClick={() => setWrap((value) => !value)}
             aria-pressed={wrap}
             className={cn(
-              'rounded-lg border px-2 py-1 text-label-sm tracking-wider transition-standard',
+              'text-label-sm transition-standard rounded-lg border px-2 py-1 tracking-wider',
               wrap
                 ? 'border-primary text-primary'
                 : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
@@ -241,7 +241,7 @@ export function LogsPanel({
                     }
                   }}
                   className={cn(
-                    'border px-2 py-1 text-label-sm tracking-wider first:rounded-l-lg last:rounded-r-lg disabled:opacity-50',
+                    'text-label-sm border px-2 py-1 tracking-wider first:rounded-l-lg last:rounded-r-lg disabled:opacity-50',
                     selected
                       ? 'border-primary text-primary'
                       : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
@@ -255,7 +255,7 @@ export function LogsPanel({
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Download logs"
-              className="rounded-lg border border-outline-variant px-2 py-1 text-label-sm tracking-wider text-on-surface-variant transition-standard hover:bg-surface-container-high"
+              className="border-outline-variant text-label-sm text-on-surface-variant transition-standard hover:bg-surface-container-high rounded-lg border px-2 py-1 tracking-wider"
             >
               DOWNLOAD
             </DropdownMenuTrigger>
@@ -267,7 +267,7 @@ export function LogsPanel({
                 All entries (.jsonl)
               </DropdownMenuItem>
               {dropped > 0 && (
-                <div className="max-w-56 px-3 py-2 text-body-sm text-on-surface-variant">
+                <div className="text-body-sm text-on-surface-variant max-w-56 px-3 py-2">
                   Download includes only the {entries.length.toLocaleString()}{' '}
                   lines kept in the browser.
                 </div>
@@ -277,7 +277,7 @@ export function LogsPanel({
           <button
             type="button"
             onClick={copyLogs}
-            className="rounded-lg border border-outline-variant px-2 py-1 text-label-sm tracking-wider text-on-surface-variant transition-standard hover:bg-surface-container-high"
+            className="border-outline-variant text-label-sm text-on-surface-variant transition-standard hover:bg-surface-container-high rounded-lg border px-2 py-1 tracking-wider"
           >
             {copyStatus === 'copied'
               ? 'COPIED'
@@ -285,7 +285,7 @@ export function LogsPanel({
                 ? 'FAILED'
                 : 'COPY'}
           </button>
-          <label className="flex cursor-pointer items-center gap-2 text-label-sm tracking-wider text-on-surface-variant">
+          <label className="text-label-sm text-on-surface-variant flex cursor-pointer items-center gap-2 tracking-wider">
             AUTO-SCROLL
             <button
               type="button"
@@ -302,7 +302,7 @@ export function LogsPanel({
             >
               <span
                 className={cn(
-                  'block size-3 bg-surface transition-transform',
+                  'bg-surface block size-3 transition-transform',
                   autoScroll ? 'translate-x-4' : 'translate-x-0.5'
                 )}
               />
@@ -314,7 +314,7 @@ export function LogsPanel({
         <div className="relative">
           <div
             ref={bodyRef}
-            className="h-56 overflow-y-auto bg-terminal px-4 py-2 text-code-sm leading-5"
+            className="bg-terminal text-code-sm h-56 overflow-y-auto px-4 py-2 leading-5"
             data-testid="logs-body"
           >
             {visibleEntries.length === 0 ? (
@@ -330,7 +330,7 @@ export function LogsPanel({
                     ref={virtualizer.measureElement}
                     data-index={row.index}
                     className={cn(
-                      'absolute left-0 w-full text-terminal-fg',
+                      'text-terminal-fg absolute left-0 w-full',
                       wrap ? 'break-all whitespace-pre-wrap' : 'whitespace-pre'
                     )}
                     style={{ top: row.start, minHeight: ROW_HEIGHT }}
@@ -345,7 +345,7 @@ export function LogsPanel({
             <button
               type="button"
               onClick={jumpToLatest}
-              className="absolute right-4 bottom-3 rounded-lg bg-primary px-3 py-1 text-label-sm text-on-primary"
+              className="bg-primary text-label-sm text-on-primary absolute right-4 bottom-3 rounded-lg px-3 py-1"
             >
               Jump to latest
             </button>

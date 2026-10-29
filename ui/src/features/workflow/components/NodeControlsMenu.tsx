@@ -13,7 +13,8 @@ import { useCopyCommand } from '../hooks/useCopyCommand';
 import { CopyAsMenu, type CopyChoice } from './CopyAsMenu';
 import type { NodeUiStatus } from '../types/workflow';
 
-export type NodeCommand = NodeAction | 'restart-from' | 'breakpoint' | 'breakpoint/clear';
+export type NodeCommand =
+  NodeAction | 'restart-from' | 'unskip' | 'breakpoint' | 'breakpoint/clear';
 
 const ITEMS: {
   command: NodeCommand;
@@ -24,7 +25,7 @@ const ITEMS: {
   { command: 'resume', label: 'Resume node', when: (s) => s === 'paused' },
   {
     command: 'stop',
-    label: 'Stop node',
+    label: 'Stop node…',
     when: (s) => s === 'running' || s === 'paused',
   },
   {
@@ -32,6 +33,7 @@ const ITEMS: {
     label: 'Skip node',
     when: (s) => s === 'pending' || s === 'running',
   },
+  { command: 'unskip', label: 'Unskip node', when: (s) => s === 'skipped' },
   { command: 'retry', label: 'Retry node', when: (s) => s === 'failed' },
   {
     command: 'step/enable',
@@ -39,16 +41,27 @@ const ITEMS: {
     when: (s) => s === 'running',
   },
   { command: 'step', label: 'Step once', when: (s) => s === 'paused' },
-  { command: 'step/disable', label: 'Disable step mode', when: (s) => s === 'paused' },
+  {
+    command: 'step/disable',
+    label: 'Disable step mode',
+    when: (s) => s === 'paused',
+  },
   {
     command: 'breakpoint',
     label: 'Set breakpoint…',
     when: (s) => s === 'pending' || s === 'running' || s === 'paused',
   },
-  { command: 'restart-from', label: 'Restart from here', when: (s) => s !== 'pending' },
+  {
+    command: 'restart-from',
+    label: 'Restart from here',
+    when: (s) => s !== 'pending',
+  },
 ];
 
-const CLEAR_BREAKPOINT = { command: 'breakpoint/clear', label: 'Clear breakpoint' } as const;
+const CLEAR_BREAKPOINT = {
+  command: 'breakpoint/clear',
+  label: 'Clear breakpoint',
+} as const;
 
 /** Per-node actions, listing only those that make sense for the node's current status. */
 export function NodeControlsMenu({
@@ -69,12 +82,19 @@ export function NodeControlsMenu({
   const { status: copied, copy } = useCopyCommand();
   // Every status has at least one applicable action, so the menu is never empty.
   const items = ITEMS.filter((item) => item.when(status)).flatMap((item) =>
-    item.command === 'breakpoint' && hasBreakpoint ? [item, CLEAR_BREAKPOINT] : [item]
+    item.command === 'breakpoint' && hasBreakpoint
+      ? [item, CLEAR_BREAKPOINT]
+      : [item]
   );
   const choices: CopyChoice[] = scope
     ? items.flatMap((item): CopyChoice[] => {
         // breakpoints are local to this tab and have no CLI, curl or MCP form
-        if (item.command === 'breakpoint' || item.command === 'breakpoint/clear') return [];
+        if (
+          item.command === 'breakpoint' ||
+          item.command === 'breakpoint/clear'
+        )
+          return [];
+        if (item.command === 'unskip') return []; // no copy-as equivalent yet
         return [
           {
             label: item.label,
