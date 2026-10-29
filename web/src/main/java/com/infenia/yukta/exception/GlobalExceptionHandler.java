@@ -36,7 +36,7 @@ import reactor.core.publisher.Mono;
 @RestControllerAdvice
 @NullMarked
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   @Override
