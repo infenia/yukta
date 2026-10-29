@@ -164,7 +164,7 @@ Runs on every request before any controller: checks the API key, gives the reque
 
 - **Guarantees.** A request that passes the key check has a request id that is echoed in X-Request-ID. The key comparison is constant-time. Client-supplied ids can only contain letters, digits and hyphens.
 - **State.** Only the key bytes, read once when the server starts. Nothing is stored per request. Changing the key needs a restart.
-- **Ceiling.** Keys are configuration: no expiry, and a change needs a restart. Roles are matched by path prefix. No rate limiting. Rejections (400, 401, 403) leave no log line.
+- **Ceiling.** Keys are configuration: an optional `expires` per key, but no runtime revoke, and a change needs a restart. Roles are matched by path prefix. No rate limiting. Rejections (400, 401, 403) leave no log line.
 - **On failure.** Missing or wrong key: 401 with an empty body. If the key is empty the filter lets everything through.
 
 **Settings:** `yukta.api-key (empty = API open)`, `Authorization: Bearer <key> or X-API-Key`, `X-Request-ID, X-Correlation-ID`
