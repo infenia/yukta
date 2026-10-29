@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { RequirePermission } from '@/components/common/RequirePermission';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -169,9 +170,11 @@ function SessionForm({ loaded }: { loaded?: SessionDraft }) {
       <TagEditor rows={rows} onChange={setRows} />
       <InlineError message={error} />
       <div>
-        <Button type="submit" variant="outline" disabled={busy}>
-          {loaded ? 'Save' : 'Create'}
-        </Button>
+        <RequirePermission perm="editSessions">
+          <Button type="submit" variant="outline" disabled={busy}>
+            {loaded ? 'Save' : 'Create'}
+          </Button>
+        </RequirePermission>
       </div>
     </form>
   );
