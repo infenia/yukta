@@ -10,9 +10,13 @@ import type { NodeUiStatus } from '../../types/workflow';
 async function itemsFor(status: NodeUiStatus) {
   const user = userEvent.setup();
   const onCommand = vi.fn();
-  const { unmount } = render(<NodeControlsMenu nodeId="n1" status={status} onCommand={onCommand} />);
+  const { unmount } = render(
+    <NodeControlsMenu nodeId="n1" status={status} onCommand={onCommand} />
+  );
   await user.click(screen.getByRole('button', { name: 'Actions for n1' }));
-  const labels = (await screen.findAllByRole('menuitem')).map((item) => item.textContent);
+  const labels = (await screen.findAllByRole('menuitem')).map(
+    (item) => item.textContent
+  );
   return { user, onCommand, labels, unmount };
 }
 
@@ -21,7 +25,7 @@ describe('NodeControlsMenu', () => {
     const { labels } = await itemsFor('running');
     expect(labels).toEqual([
       'Pause node',
-      'Stop node',
+      'Stop node…',
       'Skip node',
       'Enable step mode',
       'Restart from here',
@@ -32,7 +36,7 @@ describe('NodeControlsMenu', () => {
     const { labels } = await itemsFor('paused');
     expect(labels).toEqual([
       'Resume node',
-      'Stop node',
+      'Stop node…',
       'Step once',
       'Disable step mode',
       'Restart from here',
@@ -44,6 +48,13 @@ describe('NodeControlsMenu', () => {
     expect(failed.labels).toEqual(['Retry node', 'Restart from here']);
     failed.unmount();
     expect((await itemsFor('pending')).labels).toEqual(['Skip node']);
+  });
+
+  it('offers unskip on a skipped node', async () => {
+    expect((await itemsFor('skipped')).labels).toEqual([
+      'Unskip node',
+      'Restart from here',
+    ]);
   });
 
   it('offers restart-from on a finished node', async () => {

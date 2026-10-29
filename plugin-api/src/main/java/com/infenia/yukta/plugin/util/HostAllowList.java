@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.util;
 
+import java.net.InetAddress;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
@@ -21,8 +22,8 @@ import org.jspecify.annotations.Nullable;
  * <p>An entry is a host name or IP address, compared without regard to case, or {@code
  * *.example.com}, which matches any subdomain but not {@code example.com} itself. The host is the
  * one the URL really addresses, so {@code https://good.com@evil.com/} is checked as {@code
- * evil.com}. The check works on the name in the URL: it does not stop a listed name that resolves
- * to an address you did not intend.
+ * evil.com}. The check works on the name in the URL; the HTTP client re-checks the address the name
+ * resolves to at connect time against the link-local block ({@link #isMetadataAddress}).
  *
  * <p>Whatever the list says, a link-local or cloud metadata address (169.254.169.254, {@code
  * fe80::/10}, {@code metadata.google.internal}) is refused unless it is listed by name, so a URL
@@ -46,6 +47,9 @@ public final class HostAllowList {
   /** The IPv6 address of the AWS instance metadata service. */
   @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
   private static final String AWS_IPV6_METADATA = "fd00:ec2::254";
+
+  /** {@link #AWS_IPV6_METADATA} as an address. */
+  private static final InetAddress AWS_METADATA = InetAddress.ofLiteral(AWS_IPV6_METADATA);
 
   /** Start of an IPv4-mapped IPv6 address. */
   private static final String MAPPED_PREFIX = "::ffff:";
@@ -125,6 +129,17 @@ public final class HostAllowList {
     }
     final boolean allowed = hosts.contains(host) || suffixes.stream().anyMatch(host::endsWith);
     return allowed ? null : "Host '" + host + "' is not in " + property;
+  }
+
+  /**
+   * Whether a resolved address is link-local (169.254.0.0/16, fe80::/10) or the AWS IPv6 metadata
+   * address. An IPv4-mapped IPv6 address is read as its IPv4 form by {@link InetAddress}.
+   *
+   * @param address an address a name resolved to
+   * @return true if it must not be connected to unless listed by its literal
+   */
+  public static boolean isMetadataAddress(final InetAddress address) {
+    return address.isLinkLocalAddress() || AWS_METADATA.equals(address);
   }
 
   /**
