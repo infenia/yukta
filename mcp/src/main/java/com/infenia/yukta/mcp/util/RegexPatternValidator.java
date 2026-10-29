@@ -8,7 +8,7 @@ import lombok.experimental.UtilityClass;
 
 /** Compiles and applies agent-supplied regex filters with bounds on pattern size and match time. */
 @UtilityClass
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.CommentDefaultAccessModifier"})
+@SuppressWarnings("PMD.CommentDefaultAccessModifier")
 public class RegexPatternValidator {
 
   /** Longest accepted pattern; longer ones are rejected. */

@@ -29,13 +29,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
-@SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.CommentRequired",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.LawOfDemeter",
-  "unchecked"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "unchecked"})
 @NoArgsConstructor
 class HttpRequestPluginTest {
 

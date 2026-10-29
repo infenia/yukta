@@ -24,15 +24,11 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @SuppressWarnings({
-  "PMD.AtLeastOneConstructor",
   "PMD.AvoidDuplicateLiterals",
   "PMD.ClassWithOnlyPrivateConstructorsShouldBeFinal",
-  "PMD.CommentRequired",
   "PMD.EmptyCatchBlock",
-  "PMD.LawOfDemeter",
   "PMD.LocalVariableCouldBeFinal",
   "PMD.MethodArgumentCouldBeFinal",
-  "PMD.ShortVariable",
   "PMD.UnitTestAssertionsShouldIncludeMessage",
   "PMD.UnnecessaryFullyQualifiedName",
   "PMD.UseConcurrentHashMap",

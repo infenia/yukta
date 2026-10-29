@@ -21,7 +21,6 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 
 /** Tests for PluginController. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.LawOfDemeter")
 class PluginControllerTest {
 
   /** Test plugin identifier. */

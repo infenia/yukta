@@ -24,7 +24,6 @@ public class RequestLoggingFilter implements WebFilter {
   @Override
   public Mono<Void> filter(final ServerWebExchange exchange, final WebFilterChain chain) {
     final long startTime = System.currentTimeMillis();
-    @SuppressWarnings("PMD.LawOfDemeter")
     final var request = exchange.getRequest();
     final String method = request.getMethod().toString();
     final String path = request.getPath().value();
@@ -34,7 +33,6 @@ public class RequestLoggingFilter implements WebFilter {
         .doFinally(
             signalType -> {
               final long duration = System.currentTimeMillis() - startTime;
-              @SuppressWarnings("PMD.LawOfDemeter")
               final var response = exchange.getResponse();
               final var statusCodeObj = response.getStatusCode();
               final int statusCode = statusCodeObj != null ? statusCodeObj.value() : 0;

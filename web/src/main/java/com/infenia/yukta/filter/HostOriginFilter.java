@@ -34,7 +34,6 @@ import reactor.core.publisher.Mono;
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
 public class HostOriginFilter implements WebFilter {
 
   /** Host names that always reach a loopback server. */

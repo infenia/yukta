@@ -10,7 +10,6 @@ import org.springframework.web.util.UriUtils;
 
 /** Reads request paths the way routing does, so a key check cannot be passed by spelling. */
 @UtilityClass
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
 public class RequestPaths {
 
   /**

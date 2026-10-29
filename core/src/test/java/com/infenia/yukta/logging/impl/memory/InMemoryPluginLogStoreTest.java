@@ -25,7 +25,7 @@ import reactor.test.StepVerifier;
  * entries with retention policies.
  */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyMethods", "PMD.LinguisticNaming"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.LinguisticNaming"})
 class InMemoryPluginLogStoreTest {
 
   /** Test session identifier. */

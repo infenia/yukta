@@ -46,7 +46,6 @@ import reactor.util.retry.Retry;
 @SuppressWarnings({
   "PMD.TooManyMethods",
   "PMD.AvoidCatchingGenericException",
-  "PMD.OnlyOneReturn",
   "PMD.ExcessiveImports"
 })
 public class ControlBusService {

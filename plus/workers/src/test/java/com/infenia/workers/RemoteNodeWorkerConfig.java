@@ -12,7 +12,6 @@ import org.springframework.context.annotation.Configuration;
 /** A worker that runs the fake plugins. */
 @Configuration
 @EnableAutoConfiguration
-@SuppressWarnings("PMD.AtLeastOneConstructor")
 class RemoteNodeWorkerConfig {
 
   /** Counts attempts that were cancelled on the worker. */

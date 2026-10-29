@@ -31,12 +31,10 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @SuppressWarnings({
-  "PMD.OnlyOneReturn",
   "PMD.AvoidThrowingRawExceptionTypes",
   "PMD.TooManyMethods",
   "PMD.AvoidCatchingGenericException",
   "PMD.GodClass",
-  "PMD.LawOfDemeter",
   "PMD.CollapsibleIfStatements",
   "PMD.GuardLogStatement"
 })

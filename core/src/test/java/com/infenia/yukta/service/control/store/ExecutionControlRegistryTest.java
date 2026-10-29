@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Sinks;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class ExecutionControlRegistryTest {
 
   /** Registry instance under test. */

@@ -24,10 +24,7 @@ import reactor.core.publisher.Mono;
 
 /** Tests for the behaviour described by {@link WorkflowDetailsController}. */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.LawOfDemeter",
-  "PMD.UnitTestShouldIncludeAssert",
-})
+@SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
 class WorkflowDetailsControllerTest {
 
   /** The session service. */

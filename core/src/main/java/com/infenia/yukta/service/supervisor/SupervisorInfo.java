@@ -16,7 +16,6 @@ package com.infenia.yukta.service.supervisor;
  * @param recorded commands only recorded because of dry-run
  * @param rateLimited commands dropped by the rate limit
  */
-@SuppressWarnings("PMD.ShortVariable")
 public record SupervisorInfo(
     String id,
     String kind,

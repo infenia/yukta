@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link SessionSummary}. */
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ShortVariable", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
 @NoArgsConstructor
 class SessionSummaryTest {
 

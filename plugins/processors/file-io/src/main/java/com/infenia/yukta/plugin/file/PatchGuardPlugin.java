@@ -34,13 +34,11 @@ import reactor.core.publisher.Mono;
   "PMD.GodClass",
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.OnlyOneReturn",
   "PMD.CognitiveComplexity",
   "PMD.CyclomaticComplexity",
   "PMD.UseConcurrentHashMap",
   "PMD.NullAssignment",
   "PMD.AvoidInstantiatingObjectsInLoops",
-  "PMD.LawOfDemeter",
   "PMD.CompareObjectsWithEquals"
 })
 public final class PatchGuardPlugin extends AbstractFilePlugin {

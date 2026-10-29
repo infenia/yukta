@@ -38,7 +38,6 @@ import reactor.core.publisher.Mono;
 @Validated
 @RequiredArgsConstructor
 @SuppressWarnings({
-  "PMD.OnlyOneReturn",
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidInstantiatingObjectsInLoops",
   "PMD.TooManyMethods",
@@ -342,7 +341,6 @@ public class WorkflowValidator {
    * A terminal must declare the category and be a {@link TerminalPlugin}, because the assembler
    * only builds a terminal from the type; a plugin that has only one of them is not accepted.
    */
-  @SuppressWarnings("PMD.LawOfDemeter")
   private static boolean isTerminal(final Plugin plugin) {
     return plugin != null
         && plugin.getCategory() == PluginCategory.TERMINAL

@@ -38,12 +38,10 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 @ExtendWith(OutputCaptureExtension.class)
 @SuppressWarnings({
-  "PMD.AvoidDuplicateLiterals", // Common test string constants
-  "PMD.CommentRequired", // Constants are self-documenting in test context
-  "PMD.TooManyMethods", // Comprehensive test coverage requires multiple methods
-  "PMD.LawOfDemeter", // fluent assertions and builders
-  "PMD.CyclomaticComplexity", // one small case per branch of the launch and signal helpers
-  "PMD.ExcessiveImports", // one import per assertion helper and stream type used
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods",
+  "PMD.CyclomaticComplexity",
+  "PMD.ExcessiveImports"
 })
 class ProcessExecutorGatewayTest {
 
@@ -1253,7 +1251,6 @@ class ProcessExecutorGatewayTest {
     try (OutputStream throwingStream =
         new OutputStream() {
           @Override
-          @SuppressWarnings("PMD.ShortVariable") // Parameter name required by interface
           public void write(final int b) throws IOException {
             throw new IOException("Simulated broken pipe");
           }

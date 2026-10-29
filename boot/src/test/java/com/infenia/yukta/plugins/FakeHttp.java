@@ -12,12 +12,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 /** A loopback HTTP server with one canned reply that remembers what it was sent. */
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.CommentDefaultAccessModifier",
   "PMD.AvoidFieldNameMatchingMethodName",
   "PMD.AvoidUsingVolatile",
-  "PMD.FieldDeclarationsShouldBeAtStartOfClass",
-  "PMD.LawOfDemeter"
+  "PMD.FieldDeclarationsShouldBeAtStartOfClass"
 })
 final class FakeHttp implements AutoCloseable {
 

@@ -9,5 +9,4 @@ package com.infenia.yukta.plugin.llm;
  * @param name the tool to call
  * @param arguments the arguments as JSON text
  */
-@SuppressWarnings("PMD.ShortVariable")
 public record ToolCallRequest(String id, String name, String arguments) {}

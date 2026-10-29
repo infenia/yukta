@@ -19,12 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.LawOfDemeter",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.TooManyMethods"
-})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 @NoArgsConstructor
 class LlmGatewayTest {
 

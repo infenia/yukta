@@ -22,7 +22,6 @@ import org.junit.jupiter.api.io.TempDir;
 import reactor.core.publisher.Flux;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class RuleControlPlaneTest {
 
   private static final String RULES =

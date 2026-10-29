@@ -29,7 +29,6 @@ import reactor.util.context.Context;
 
 /** A worker that stops finishes what it runs and is given no new attempts meanwhile. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.LawOfDemeter")
 class DrainTest {
 
   /** The control plane. */

@@ -35,7 +35,6 @@ import reactor.test.StepVerifier;
 
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.LinguisticNaming",
   "PMD.TooManyMethods",
   "PMD.TooManyStaticImports",

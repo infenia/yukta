@@ -15,7 +15,6 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** Which API key may call which MCP tool: the role it needs and, for session keys, the session. */
 @UtilityClass
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
 class McpToolAccess {
 
   /** Role a tool needs; a tool not listed here needs ADMIN. */

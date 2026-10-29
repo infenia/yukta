@@ -14,7 +14,7 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class OutcomeTerminalTest {
 
   private final OutcomeTerminal terminal = new OutcomeTerminal();

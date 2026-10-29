@@ -54,10 +54,8 @@ import reactor.test.StepVerifier;
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects",
-  "PMD.LawOfDemeter",
   "PMD.TooManyStaticImports",
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",

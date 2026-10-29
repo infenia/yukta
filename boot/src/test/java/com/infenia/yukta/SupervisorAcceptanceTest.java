@@ -38,7 +38,6 @@ import org.springframework.test.context.DynamicPropertySource;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
-@SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.gateway.DefaultControlBusGateway - ")
 class SupervisorAcceptanceTest {

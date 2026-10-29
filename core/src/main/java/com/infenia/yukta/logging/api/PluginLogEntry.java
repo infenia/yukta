@@ -47,7 +47,7 @@ public record PluginLogEntry(
     return Collections.unmodifiableMap(frozen);
   }
 
-  @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.UseConcurrentHashMap"})
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
   private static Object freezeValue(final Object value) {
     if (value instanceof List) {
       final List<?> list = (List<?>) value;

@@ -32,9 +32,7 @@ import reactor.core.publisher.Mono;
 @NoArgsConstructor
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
-  "PMD.CommentRequired",
   "PMD.CouplingBetweenObjects",
-  "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap"
 })

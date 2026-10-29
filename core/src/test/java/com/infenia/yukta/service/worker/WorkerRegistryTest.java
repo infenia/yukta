@@ -16,7 +16,6 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.LawOfDemeter"})
 class WorkerRegistryTest {
 
   private final AtomicReference<Instant> now =

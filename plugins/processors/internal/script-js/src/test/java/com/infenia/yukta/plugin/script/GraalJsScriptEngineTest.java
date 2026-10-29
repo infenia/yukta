@@ -18,12 +18,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.CommentRequired",
-  "PMD.TooManyMethods",
-  "PMD.UseConcurrentHashMap"
-})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
 class GraalJsScriptEngineTest {
 
   private final GraalJsScriptEngine engine = new GraalJsScriptEngine();

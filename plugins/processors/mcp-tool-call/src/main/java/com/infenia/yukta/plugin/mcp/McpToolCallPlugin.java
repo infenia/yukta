@@ -45,12 +45,9 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.ExcessiveImports",
-  "PMD.OnlyOneReturn",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap",
-  "PMD.LawOfDemeter",
   "PMD.GodClass",
   "PMD.CouplingBetweenObjects",
   "PMD.CyclomaticComplexity"

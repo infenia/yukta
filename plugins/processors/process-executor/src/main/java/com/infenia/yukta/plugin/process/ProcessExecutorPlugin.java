@@ -52,8 +52,6 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.CyclomaticComplexity",
   "PMD.GodClass",
   "PMD.TooManyMethods",
-  "PMD.CommentRequired",
-  "PMD.OnlyOneReturn",
   "PMD.UseConcurrentHashMap",
   "PMD.InsufficientStringBufferDeclaration",
   "PMD.ExceptionAsFlowControl",

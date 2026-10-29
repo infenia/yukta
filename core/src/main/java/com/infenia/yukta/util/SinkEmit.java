@@ -13,7 +13,6 @@ import reactor.core.publisher.Sinks;
  * the caller decides what to do with the element.
  */
 @UtilityClass
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
 public class SinkEmit {
 
   /** Busy retries before the thread starts to yield; keeps the common, brief clash cheap. */

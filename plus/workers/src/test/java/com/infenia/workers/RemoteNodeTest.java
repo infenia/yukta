@@ -36,12 +36,7 @@ import reactor.util.context.Context;
 
 /** Runs node attempts on a worker over a real RSocket connection. */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.ExcessiveImports",
-  "PMD.LawOfDemeter",
-  "PMD.TooManyMethods"
-})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
 class RemoteNodeTest {
 
   /** Counts heartbeats the control plane received. */

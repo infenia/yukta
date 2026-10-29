@@ -21,7 +21,7 @@ import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.TooManyMethods")
 class NodePoliciesTest {
 
   private static final NodePolicy.Retry RETRY3 =

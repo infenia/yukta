@@ -22,7 +22,7 @@ import reactor.core.publisher.Mono;
 
 /** Tests for the behaviour described by {@link WorkflowValidationController}. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.UnitTestShouldIncludeAssert"})
+@SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
 class WorkflowValidationControllerTest {
 
   /** JSON path of the verdict. */

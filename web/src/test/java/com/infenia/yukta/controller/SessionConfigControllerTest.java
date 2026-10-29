@@ -32,11 +32,9 @@ import reactor.core.publisher.Mono;
 /** Tests for the behaviour described by {@link SessionConfigController}. */
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert",
-  "PMD.TooManyStaticImports",
-  "PMD.ShortVariable"
+  "PMD.TooManyStaticImports"
 })
 class SessionConfigControllerTest {
 

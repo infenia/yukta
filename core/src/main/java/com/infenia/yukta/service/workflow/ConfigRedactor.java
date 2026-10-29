@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings("PMD.UseConcurrentHashMap")
 public class ConfigRedactor {
 
   /** What replaces a secret in a definition that is handed out. */

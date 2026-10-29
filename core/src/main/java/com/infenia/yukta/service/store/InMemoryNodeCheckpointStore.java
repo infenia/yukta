@@ -42,12 +42,7 @@ import tools.jackson.databind.ObjectMapper;
  * Spill files are removed with the execution, and leftovers of an earlier process on startup.
  */
 @Slf4j
-@SuppressWarnings({
-  "PMD.AvoidSynchronizedStatement",
-  "PMD.LawOfDemeter",
-  "PMD.OnlyOneReturn",
-  "PMD.TooManyMethods"
-})
+@SuppressWarnings({"PMD.AvoidSynchronizedStatement", "PMD.TooManyMethods"})
 public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCounted {
 
   /** Default number of messages kept per node and execution. */

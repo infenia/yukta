@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for PreparedWorkflowCache. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.TooManyMethods")
 class PreparedWorkflowCacheTest {
   /** Session 1 ID. */
   private static final String SESSION_1 = "s1";
@@ -79,7 +79,6 @@ class PreparedWorkflowCacheTest {
   }
 
   @Test
-  @SuppressWarnings("PMD.LawOfDemeter")
   void entryExpiredAfterTtl() throws InterruptedException {
     final PreparedWorkflow prepared = mockPrepared();
     cache.put(SESSION_1, WORKFLOW_1, prepared);
@@ -177,7 +176,6 @@ class PreparedWorkflowCacheTest {
       future.join();
     }
 
-    @SuppressWarnings("PMD.LawOfDemeter")
     final var stats = cache.getStats();
     assertThat(stats.hitCount()).isGreaterThan(0);
   }
@@ -191,7 +189,6 @@ class PreparedWorkflowCacheTest {
     cache.get(SESSION_1, "missing1");
     cache.get(SESSION_1, "missing2");
 
-    @SuppressWarnings("PMD.LawOfDemeter")
     final var stats = cache.getStats();
     assertThat(stats.hitCount()).isEqualTo(2L);
     assertThat(stats.missCount()).isEqualTo(3L); // put() also counts as a miss via getIfPresent()
@@ -207,7 +204,6 @@ class PreparedWorkflowCacheTest {
 
     cache.shutdown();
 
-    @SuppressWarnings("PMD.LawOfDemeter")
     final var stats = cache.getStats();
     assertThat(stats.hitCount()).isGreaterThan(0);
     assertThat(stats.missCount()).isGreaterThan(0);

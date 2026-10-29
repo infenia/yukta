@@ -22,13 +22,7 @@ import org.springframework.web.reactive.config.ResourceHandlerRegistry;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.AtLeastOneConstructor",
-  "PMD.TooManyMethods",
-  "PMD.UnitTestShouldIncludeAssert",
-  "PMD.LawOfDemeter"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.UnitTestShouldIncludeAssert"})
 @ExtendWith(MockitoExtension.class)
 class SpaWebFluxConfigTest {
 

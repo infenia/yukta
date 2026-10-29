@@ -17,7 +17,6 @@ import reactor.util.context.Context;
 
 /** Tests for the behaviour described by {@link RequestTracingFilter}. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.ShortVariable"})
 class RequestTracingFilterTest {
 
   /** The x r e q u e s t i d. */

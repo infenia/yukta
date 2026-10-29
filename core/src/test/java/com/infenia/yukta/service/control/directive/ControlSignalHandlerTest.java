@@ -13,12 +13,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings({
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.CommentRequired",
-  "PMD.ShortVariable",
-  "PMD.UncommentedEmptyMethodBody"
-})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.UncommentedEmptyMethodBody"})
 @NoArgsConstructor
 class ControlSignalHandlerTest {
 

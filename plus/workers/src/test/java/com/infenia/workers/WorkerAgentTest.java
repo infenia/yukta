@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.messaging.rsocket.RSocketRequester;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class WorkerAgentTest {
 
   @Test

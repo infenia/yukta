@@ -29,7 +29,6 @@ import reactor.core.scheduler.Schedulers;
 /** Stream operators every node's output goes through: timeout and task status tracking. */
 @Slf4j
 @UtilityClass
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
 public class NodeStreams {
 
   /** Metadata key of a failed node's status event holding the reason. */

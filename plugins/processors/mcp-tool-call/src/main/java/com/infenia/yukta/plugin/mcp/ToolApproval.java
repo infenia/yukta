@@ -16,7 +16,6 @@ import reactor.core.publisher.Mono;
  * decision or no answer within {@code approvalTimeoutSeconds} refuses the call.
  */
 @UtilityClass
-@SuppressWarnings("PMD.AtLeastOneConstructor")
 class ToolApproval {
 
   /** Config key: tools that need an approval. */

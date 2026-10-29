@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class SubWorkflowGatewayTest {
 
   @Test

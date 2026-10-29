@@ -89,7 +89,6 @@ public class SystemHealthProvider {
    * @param filterType optional filter ("sessions", "plugins", "health", "executions")
    * @return Mono containing control bus status with monitoring data
    */
-  @SuppressWarnings("PMD.OnlyOneReturn")
   public Mono<ControlBusStatus> getControlBusStatus(final String filterType) {
     final boolean all = filterType == null || filterType.isBlank();
     if (!all && !VALID_FILTERS.contains(filterType.toLowerCase(Locale.ROOT))) {

@@ -28,12 +28,7 @@ import org.junit.jupiter.api.Test;
  * complete branch coverage.
  */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.CommentRequired",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.LinguisticNaming"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "PMD.LinguisticNaming"})
 class InMemoryPluginLogReaderTest {
 
   private InMemoryPluginLogReader reader;

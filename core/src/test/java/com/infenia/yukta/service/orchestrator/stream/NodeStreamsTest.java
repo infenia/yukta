@@ -36,12 +36,7 @@ import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.TooManyStaticImports",
-  "PMD.TooManyMethods",
-  "PMD.ExcessiveImports"
-})
+@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.TooManyMethods", "PMD.ExcessiveImports"})
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.stream.NodeStreams - ")
 class NodeStreamsTest {
 

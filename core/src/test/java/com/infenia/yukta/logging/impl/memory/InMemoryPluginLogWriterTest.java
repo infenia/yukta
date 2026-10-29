@@ -24,11 +24,7 @@ import org.junit.jupiter.api.Test;
  */
 @NoArgsConstructor
 @DisplayName("InMemoryPluginLogWriter")
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.CommentDefaultAccessModifier",
-  "PMD.AvoidDuplicateLiterals"
-})
+@SuppressWarnings({"PMD.CommentDefaultAccessModifier", "PMD.AvoidDuplicateLiterals"})
 class InMemoryPluginLogWriterTest {
 
   /** Test execution ID. */

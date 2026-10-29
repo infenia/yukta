@@ -32,7 +32,6 @@ import tools.jackson.databind.json.JsonMapper;
  * session templates, for a client that wants to start from a working definition.
  */
 @RestController
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.ShortVariable", "PMD.LawOfDemeter"})
 @RequestMapping("/api/templates")
 @Tag(name = "Templates API", description = "Example sessions to start from")
 public class TemplateController {

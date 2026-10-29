@@ -43,7 +43,7 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.ConfusingTernary", "PMD.OnlyOneReturn"})
+@SuppressWarnings("PMD.ConfusingTernary")
 public class DirectiveDispatcher {
 
   /** The list of control signal processors ordered by priority. */

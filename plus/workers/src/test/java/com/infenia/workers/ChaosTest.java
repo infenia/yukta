@@ -32,7 +32,6 @@ import reactor.util.context.Context;
 
 /** A worker in its own JVM is killed with SIGKILL while it runs an attempt. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.LawOfDemeter")
 class ChaosTest {
 
   /** The control plane. */

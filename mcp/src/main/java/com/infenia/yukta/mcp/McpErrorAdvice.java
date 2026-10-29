@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * are sent, never the exception.
  */
 @RestControllerAdvice
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.LawOfDemeter"})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class McpErrorAdvice {
 

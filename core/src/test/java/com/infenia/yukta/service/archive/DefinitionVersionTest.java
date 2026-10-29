@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings("PMD.UseConcurrentHashMap")
 class DefinitionVersionTest {
 
   private static final WorkflowEdge EDGE = new WorkflowEdge("a", "b", null);

@@ -23,7 +23,7 @@ import reactor.test.StepVerifier;
 import tools.jackson.databind.json.JsonMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.store.FileNodeCheckpointStore - ")
 class FileNodeCheckpointStoreTest {
 
@@ -38,7 +38,7 @@ class FileNodeCheckpointStoreTest {
   }
 
   /** Not serialisable: reading a property throws. */
-  @SuppressWarnings({"PMD.CommentRequired", "PMD.PublicMemberInNonPublicType"})
+  @SuppressWarnings("PMD.PublicMemberInNonPublicType")
   public static final class Broken {
     public String getValue() {
       throw new IllegalStateException("boom");

@@ -19,12 +19,7 @@ import reactor.test.StepVerifier;
 
 /** Tests for ClassifyPlugin, and through it for the behaviour all decision plugins share. */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.LawOfDemeter",
-  "PMD.TooManyMethods",
-  "PMD.UseConcurrentHashMap"
-})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
 class ClassifyPluginTest {
 
   private static Map<String, Object> config(final Object... extra) {

@@ -23,12 +23,7 @@ import lombok.RequiredArgsConstructor;
  * are what reaches the terminal nodes.
  */
 @RequiredArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.CommentDefaultAccessModifier",
-  "PMD.ShortVariable",
-  "PMD.UseArraysAsList"
-})
+@SuppressWarnings({"PMD.CommentDefaultAccessModifier", "PMD.UseArraysAsList"})
 final class PluginWorkflows {
 
   static final Duration WAIT = Duration.ofSeconds(30);

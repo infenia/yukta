@@ -100,7 +100,6 @@ public class StopWorkflowCommandProcessor implements ControlSignalProcessor {
    *
    * @return false if the triggers cannot be identified, in which case the caller cancels instead
    */
-  @SuppressWarnings("PMD.OnlyOneReturn")
   private boolean drain(final ExecutionControl control) {
     final PreparedWorkflow prepared = control.prepared();
     if (prepared == null) {
