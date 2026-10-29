@@ -185,7 +185,7 @@ describe('ResultsExplorer', () => {
     expect(await screen.findByText('sink-storage · #0')).toBeInTheDocument();
   });
 
-  it('appears as a tab in the progress panel once the run has finished', async () => {
+  it('opens from the Result tab once the run has finished', async () => {
     events = [event(0, 'sink-storage')];
     const user = userEvent.setup();
     const panel = (status: string) => (
@@ -198,17 +198,16 @@ describe('ResultsExplorer', () => {
       />
     );
     const running = renderWithProviders(panel('RUNNING'));
-    expect(
-      screen.queryByRole('tab', { name: 'results' })
-    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Result' }));
+    expect(screen.getByText(/explored once the run ends/)).toBeInTheDocument();
     running.unmount();
 
     renderWithProviders(panel('SUCCESS'));
-    await user.click(screen.getByRole('tab', { name: 'results' }));
+    await user.click(screen.getByRole('tab', { name: 'Result' }));
     expect(await screen.findByText('sink-storage · #0')).toBeInTheDocument();
     expect(screen.queryByTestId('task-sequence')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: 'progress' }));
+    await user.click(screen.getByRole('tab', { name: 'Progress' }));
     expect(screen.getByTestId('task-sequence')).toBeInTheDocument();
   });
 });

@@ -287,6 +287,7 @@ describe('WorkflowDetailsPage', () => {
 
     await user.click(screen.getByRole('button', { name: /run history/i }));
     await user.click(await screen.findByText('exec-old-1'));
+    await user.click(screen.getByRole('tab', { name: 'Details' }));
 
     await waitFor(() =>
       expect(screen.getByTestId('execution-summary')).toHaveTextContent(
@@ -303,6 +304,7 @@ describe('WorkflowDetailsPage', () => {
       '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11?exec=exec-old-1'
     );
     await screen.findByTestId('workflow-details-page');
+    await userEvent.click(screen.getByRole('tab', { name: 'Details' }));
 
     await waitFor(() =>
       expect(screen.getByTestId('execution-summary')).toHaveTextContent(
@@ -318,6 +320,7 @@ describe('WorkflowDetailsPage', () => {
 
     expect(screen.getByTestId('status-chip')).toHaveTextContent('Not run');
     expect(screen.getByTestId('run-history-empty')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: 'Details' }));
     expect(screen.getByTestId('execution-summary')).toHaveTextContent(
       'Not run'
     );

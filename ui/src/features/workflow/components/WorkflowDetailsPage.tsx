@@ -309,34 +309,35 @@ export function WorkflowDetailsPage() {
 
       {/* A fixed-height workspace: the canvas fills it and the panel scrolls inside it, so a
           100-node run no longer stretches the page */}
-      <div className="flex h-[clamp(28rem,calc(100dvh-14rem),56rem)]">
-        <div className="relative min-w-0 flex-1">
-          <SubWorkflowLinks value={subWorkflowLinks}>
+      {/* The canvas nodes and the failure callout both open sub-workflow runs */}
+      <SubWorkflowLinks value={subWorkflowLinks}>
+        <div className="flex h-[clamp(28rem,calc(100dvh-14rem),56rem)]">
+          <div className="relative min-w-0 flex-1">
             <WorkflowCanvas
               graph={graph}
               tasksByNode={tasksByNode}
               stageView={stages.stageView}
               onNodeClick={setLogNode}
             />
-          </SubWorkflowLinks>
-          {stages.hasStages && (
-            <GroupingSwitch
-              grouped={stages.grouped}
-              onChange={stages.setGrouped}
+            {stages.hasStages && (
+              <GroupingSwitch
+                grouped={stages.grouped}
+                onChange={stages.setGrouped}
+              />
+            )}
+          </div>
+          {panelOpen && (
+            <ProgressPanel
+              graph={graph}
+              progress={progress}
+              tasksByNode={tasksByNode}
+              sessionId={sessionId}
+              onClose={() => setPanelOpen(false)}
+              onNodeCommand={selectedExecutionId ? onNodeCommand : undefined}
             />
           )}
         </div>
-        {panelOpen && (
-          <ProgressPanel
-            graph={graph}
-            progress={progress}
-            tasksByNode={tasksByNode}
-            sessionId={sessionId}
-            onClose={() => setPanelOpen(false)}
-            onNodeCommand={selectedExecutionId ? onNodeCommand : undefined}
-          />
-        )}
-      </div>
+      </SubWorkflowLinks>
 
       <LogsPanel
         sessionId={sessionId}
