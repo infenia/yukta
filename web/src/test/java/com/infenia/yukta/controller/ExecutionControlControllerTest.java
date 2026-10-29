@@ -5,7 +5,6 @@ package com.infenia.yukta.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
@@ -24,6 +23,8 @@ import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
@@ -264,15 +265,11 @@ class ExecutionControlControllerTest {
     verify(controlBus).clearBreakpoint("e1", "n1");
   }
 
-  @Test
-  void changeLimitsRejectsNegativeValues() {
-    client
-        .post()
-        .uri("/api/scheduler/limits?maxConcurrent=-1&maxPerWorkflow=2")
-        .exchange()
-        .expectStatus()
-        .isBadRequest();
-    verifyNoInteractions(controlBus);
+  @ParameterizedTest
+  @ValueSource(strings = {"maxConcurrent=-1&maxPerWorkflow=2", "maxConcurrent=2&maxPerWorkflow=-1"})
+  void changeLimitsRejectsNegativeValues(final String query) {
+    client.post().uri("/api/scheduler/limits?" + query).exchange().expectStatus().isBadRequest();
+    org.mockito.Mockito.verifyNoInteractions(controlBus);
   }
 
   @Test
