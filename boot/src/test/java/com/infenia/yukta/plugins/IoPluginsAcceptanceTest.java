@@ -23,7 +23,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
-@SuppressWarnings({"PMD.CommentRequired", "PMD.ShortVariable", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({
+  "PMD.CommentRequired",
+  "PMD.ShortVariable",
+  "PMD.UseConcurrentHashMap",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.SignatureDeclareThrowsException"
+})
 @NoArgsConstructor
 class IoPluginsAcceptanceTest {
 
@@ -80,7 +86,7 @@ class IoPluginsAcceptanceTest {
   }
 
   @Test
-  void patchGuard_rejectsAChangeToAProtectedPath(@TempDir final Path dir) throws Exception {
+  void patchGuard_rejectsChangeToProtectedPath(@TempDir final Path dir) throws Exception {
     wf.requirePlugin("PATCH_GUARD");
     git(dir, "init", "-q");
     java.nio.file.Files.writeString(dir.resolve("a.txt"), "one\n");

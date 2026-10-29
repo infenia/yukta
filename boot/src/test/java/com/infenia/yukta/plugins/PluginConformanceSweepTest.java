@@ -41,6 +41,7 @@ import org.springframework.boot.test.context.SpringBootTest;
     properties = "yukta.process.allow-any=true")
 @SuppressWarnings({
   "PMD.CommentRequired",
+  "PMD.AvoidInstantiatingObjectsInLoops",
   "PMD.AtLeastOneConstructor",
   "PMD.MutableStaticState",
   "PMD.CommentDefaultAccessModifier",
@@ -52,7 +53,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 @ExpectedErrorLog(
     sometimes = {
       "ERROR com.infenia.yukta.plugin.core.router.BranchProcessor - ",
-      "ERROR com.infenia.yukta.plugin.core.router.SplitterProcessor - "
+      "ERROR com.infenia.yukta.plugin.core.router.SplitterProcessor - ",
+      // a cancelled run interrupts PATCH_GUARD's git call in flight
+      "dropped error: java.io.IOException: interrupted"
     })
 class PluginConformanceSweepTest {
 

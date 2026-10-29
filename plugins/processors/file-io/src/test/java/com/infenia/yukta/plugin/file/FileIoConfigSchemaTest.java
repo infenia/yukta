@@ -33,7 +33,7 @@ class FileIoConfigSchemaTest {
   }
 
   @Test
-  void patchGuardNeedsADirectory() {
+  void patchGuardNeedsDirectory() {
     final var schema = new PatchGuardPlugin().getConfigSchema();
     assertThat(names(schema))
         .containsExactly(
