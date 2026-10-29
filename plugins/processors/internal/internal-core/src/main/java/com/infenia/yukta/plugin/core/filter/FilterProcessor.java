@@ -98,14 +98,15 @@ public final class FilterProcessor implements ProcessorPlugin {
   public List<ConfigField> getConfigSchema() {
     return List.of(
         ConfigField.required("condition", ConfigField.Type.EXPRESSION, "Keep messages where true"),
-        ConfigField.choice("engine", false, "SpEL", "Expression engine", "SpEL", "SIMPLE"),
+        ConfigField.choice(
+            "engine", false, ENGINE_SPEL, "Expression engine", ENGINE_SPEL, ENGINE_SIMPLE),
         ConfigField.choice(
             "language",
             false,
             null,
             "Expression engine, for a node that also sets the engine policy object",
-            "SpEL",
-            "SIMPLE"),
+            ENGINE_SPEL,
+            ENGINE_SIMPLE),
         ConfigField.optional("strictMode", ConfigField.Type.BOOLEAN, true, "Fail on eval errors"),
         ConfigField.optional(
             "discardPort", ConfigField.Type.STRING, null, "Port for rejected messages"));
