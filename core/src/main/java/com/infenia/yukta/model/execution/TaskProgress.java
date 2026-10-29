@@ -3,6 +3,7 @@
 package com.infenia.yukta.model.execution;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -13,8 +14,10 @@ public record TaskProgress(
     String nodeId,
     String module,
     String status,
-    @JsonSerialize(using = OffsetTimestampSerializer.class) @Nullable LocalDateTime startTime,
-    @JsonSerialize(using = OffsetTimestampSerializer.class) @Nullable LocalDateTime endTime,
+    @JsonSerialize(using = OffsetTimestampSerializer.class) @Schema(nullable = true)
+        @Nullable LocalDateTime startTime,
+    @JsonSerialize(using = OffsetTimestampSerializer.class) @Schema(nullable = true)
+        @Nullable LocalDateTime endTime,
     Map<String, Object> metadata,
     @JsonInclude(JsonInclude.Include.NON_NULL) @Nullable Breakpoint breakpoint) {
 

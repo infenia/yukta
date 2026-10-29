@@ -15,6 +15,7 @@ import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
@@ -90,7 +91,8 @@ class WorkflowControlProviderTest {
 
   @Test
   void testStopExecutionUsesDefaultReason() {
-    when(controlBus.stopExecution(EXECUTION, "Requested via MCP")).thenReturn(Mono.just(EXECUTION));
+    when(controlBus.stopExecution(EXECUTION, "Requested via MCP", StopMode.DRAIN))
+        .thenReturn(Mono.just(EXECUTION));
 
     StepVerifier.create(
             provider.controlWorkflow(
@@ -98,7 +100,7 @@ class WorkflowControlProviderTest {
         .expectNextCount(1)
         .verifyComplete();
 
-    verify(controlBus).stopExecution(EXECUTION, "Requested via MCP");
+    verify(controlBus).stopExecution(EXECUTION, "Requested via MCP", StopMode.DRAIN);
   }
 
   @Test
@@ -115,7 +117,7 @@ class WorkflowControlProviderTest {
 
   @Test
   void testStopAllStopsWorkflow() {
-    when(controlBus.stopWorkflow(SESSION, "wf-1", "Requested via MCP"))
+    when(controlBus.stopWorkflow(SESSION, "wf-1", "Requested via MCP", StopMode.DRAIN))
         .thenReturn(Mono.just(List.of("e1", "e2")));
 
     StepVerifier.create(
@@ -271,7 +273,8 @@ class WorkflowControlProviderTest {
 
   @Test
   void testStopExecutionBlankReasonFallsBackToDefault() {
-    when(controlBus.stopExecution(EXECUTION, "Requested via MCP")).thenReturn(Mono.just(EXECUTION));
+    when(controlBus.stopExecution(EXECUTION, "Requested via MCP", StopMode.DRAIN))
+        .thenReturn(Mono.just(EXECUTION));
 
     StepVerifier.create(
             provider.controlWorkflow(
@@ -279,12 +282,13 @@ class WorkflowControlProviderTest {
         .expectNextCount(1)
         .verifyComplete();
 
-    verify(controlBus).stopExecution(EXECUTION, "Requested via MCP");
+    verify(controlBus).stopExecution(EXECUTION, "Requested via MCP", StopMode.DRAIN);
   }
 
   @Test
   void testStopExecutionUsesCustomReason() {
-    when(controlBus.stopExecution(EXECUTION, "maintenance")).thenReturn(Mono.just(EXECUTION));
+    when(controlBus.stopExecution(EXECUTION, "maintenance", StopMode.DRAIN))
+        .thenReturn(Mono.just(EXECUTION));
 
     StepVerifier.create(
             provider.controlWorkflow(
@@ -292,7 +296,7 @@ class WorkflowControlProviderTest {
         .expectNextCount(1)
         .verifyComplete();
 
-    verify(controlBus).stopExecution(EXECUTION, "maintenance");
+    verify(controlBus).stopExecution(EXECUTION, "maintenance", StopMode.DRAIN);
   }
 
   @Test
@@ -577,7 +581,9 @@ class WorkflowControlProviderTest {
     when(controlBus.resumeWorkflow(org.mockito.ArgumentMatchers.anyString()))
         .thenReturn(Mono.empty());
     when(controlBus.stopExecution(
-            org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString()))
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.any(StopMode.class)))
         .thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     for (final WorkflowControlAction action :
@@ -595,7 +601,9 @@ class WorkflowControlProviderTest {
     org.mockito.Mockito.verify(controlBus).resumeWorkflow("child");
     org.mockito.Mockito.verify(controlBus)
         .stopExecution(
-            org.mockito.ArgumentMatchers.eq("child"), org.mockito.ArgumentMatchers.anyString());
+            org.mockito.ArgumentMatchers.eq("child"),
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.eq(StopMode.DRAIN));
   }
 
   @Test
@@ -608,6 +616,25 @@ class WorkflowControlProviderTest {
                 assertThat(tree)
                     .extracting(WorkflowExecutionSummary::executionId)
                     .containsExactly(EXECUTION))
+        .verifyComplete();
+  }
+
+  @Test
+  void controlWorkflow_stopWithKill_passesTheModeOn() {
+    when(controlBus.stopExecution(EXECUTION, "Requested via MCP", StopMode.KILL))
+        .thenReturn(Mono.just(EXECUTION));
+
+    StepVerifier.create(
+            provider.controlWorkflow(
+                SESSION,
+                WorkflowControlAction.STOP,
+                EXECUTION,
+                null,
+                null,
+                null,
+                false,
+                StopMode.KILL))
+        .assertNext(result -> assertThat(result.resultExecutionIds()).containsExactly(EXECUTION))
         .verifyComplete();
   }
 

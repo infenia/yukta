@@ -55,11 +55,15 @@ A missing or unknown key is answered with `401` and a `WWW-Authenticate: Bearer`
 | `OPERATOR` | Everything `VIEWER` can, plus every non-`GET` request under `/api/executions/` and `/api/workflow/`: start and stop workflows, pause, resume, restart, recover, change priority, per-node controls, breakpoints and signals |
 | `ADMIN` | Everything, including applying sessions (`POST /api/sessions`), validating drafts, rolling back versions, writing version notes, changing scheduler limits and sending control-bus node commands |
 
+### Who am I
+
+`GET /api/me` (any key, including a session-limited one) answers with the caller: `authenticated`, `keyName` (`default` for `yukta.api-key`), `role`, `sessions` (`null` for all), `authEnabled`, and `permissions`: `startRuns`, `controlRuns`, `editSessions`, `deleteSessions`, `changeLimits` and `sendCommands`, each `true` or `false`. With no key configured it answers `authEnabled: false` and the `ADMIN` role. It never returns the key or its hash. The CLI's `yukta-cli whoami` and the MCP `whoami` tool return the same.
+
 Each endpoint page names the role it needs. When keys are configured, a request path that uses `..` segments, encoded separators or path parameters is refused with `400`, so no spelling of a path bypasses the check.
 
 ### Keys limited to sessions
 
-A key can be limited to a list of sessions. It then reaches only `/api/sessions/{sessionId}/...` and `/api/workflow/{sessionId}/...` for its own sessions, and `/api/executions/{executionId}/...` for runs of its sessions. Every other path answers `403`: the session listings, the plugin catalogue, the event stream and the control-bus views. `POST /api/workflow/start` names its session in the body rather than the path, so a session-limited key cannot call it. The MCP `start_workflow` tool accepts such a key.
+A key can be limited to a list of sessions. It then reaches only `/api/sessions/{sessionId}/...` and `/api/workflow/{sessionId}/...` for its own sessions, and `/api/executions/{executionId}/...` for runs of its sessions. Every other path answers `403`, except `GET /api/me`: the session listings, the plugin catalogue, the event stream and the control-bus views. `POST /api/workflow/start` names its session in the body rather than the path, so a session-limited key cannot call it. The MCP `start_workflow` tool accepts such a key.
 
 With named keys, the control commands a request sends are recorded under the actor `key:<name>` in the [control audit](/api/control).
 

@@ -152,8 +152,7 @@ class BoundaryFuzzAcceptanceTest {
    * 5xx still fails the test. Each case has a probe test (probe<issue>_...) that fails the day the
    * bug is fixed; delete the probe and the case then.
    */
-  private static String knownIssue(
-      final String path, final int status, final String mutation, final String body) {
+  private static String knownIssue(final String path, final int status, final String mutation) {
     String issue = null;
     if (status == 500 && "/mcp".equals(path)) {
       // The MCP SDK answers anything it cannot handle with 500: remove this with #1103 to #1110.
@@ -161,8 +160,6 @@ class BoundaryFuzzAcceptanceTest {
           "op7".equals(mutation)
               ? "#1104 oversized body is 500, docs promise 413"
               : "#1110 invalid JSON-RPC is 500";
-    } else if (status == 500 && !"/mcp".equals(path) && !body.contains("payload.n")) {
-      issue = "#1109 an expression that does not parse is 500";
     }
     return issue;
   }
@@ -192,7 +189,7 @@ class BoundaryFuzzAcceptanceTest {
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                 .build(),
             HttpResponse.BodyHandlers.ofString());
-    if (knownIssue(path, response.statusCode(), mutation.get(0), body) == null) {
+    if (knownIssue(path, response.statusCode(), mutation.get(0)) == null) {
       assertThat(response.statusCode())
           .as(
               "status for %s, answered %s",
@@ -313,14 +310,6 @@ class BoundaryFuzzAcceptanceTest {
             + "\"}";
     assertThat(send("/mcp", padded).statusCode())
         .as("#1104 seems fixed: delete this probe and the op7 case in knownIssue()")
-        .isEqualTo(500);
-  }
-
-  @Test
-  void probe1109_sessionWithAnExpressionThatDoesNotParseIsStill500() throws Exception {
-    final String badExpression = SESSION.replace("payload.n", "pa?load.n");
-    assertThat(send("/api/sessions", badExpression).statusCode())
-        .as("#1109 seems fixed: delete this probe and the #1109 case in knownIssue()")
         .isEqualTo(500);
   }
 

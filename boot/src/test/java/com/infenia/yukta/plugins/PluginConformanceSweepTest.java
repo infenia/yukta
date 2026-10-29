@@ -41,6 +41,7 @@ import org.springframework.boot.test.context.SpringBootTest;
     properties = "yukta.process.allow-any=true")
 @SuppressWarnings({
   "PMD.CommentRequired",
+  "PMD.AvoidInstantiatingObjectsInLoops",
   "PMD.AtLeastOneConstructor",
   "PMD.MutableStaticState",
   "PMD.CommentDefaultAccessModifier",
@@ -52,7 +53,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 @ExpectedErrorLog(
     sometimes = {
       "ERROR com.infenia.yukta.plugin.core.router.BranchProcessor - ",
-      "ERROR com.infenia.yukta.plugin.core.router.SplitterProcessor - "
+      "ERROR com.infenia.yukta.plugin.core.router.SplitterProcessor - ",
+      // a cancelled run interrupts PATCH_GUARD's git call in flight
+      "dropped error: java.io.IOException: interrupted"
     })
 class PluginConformanceSweepTest {
 
@@ -77,6 +80,30 @@ class PluginConformanceSweepTest {
   static void startHttp() throws IOException {
     http = new FakeHttp();
     Files.writeString(dir.resolve("a.txt"), "body");
+    // PATCH_GUARD judges a git checkout
+    for (final List<String> git :
+        List.of(
+            List.of("init", "-q"),
+            List.of("add", "a.txt"),
+            List.of(
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-q",
+                "-m",
+                "init"))) {
+      final List<String> command = new java.util.ArrayList<>(List.of("git", "-C", dir.toString()));
+      command.addAll(git);
+      try {
+        new ProcessBuilder(command).inheritIO().start().waitFor();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
   }
 
   @AfterAll
@@ -192,6 +219,7 @@ class PluginConformanceSweepTest {
     fixtures.put("PROCESS_EXECUTOR", () -> Map.of("command", List.of("echo", "hi")));
     fixtures.put("FILE_WRITE", () -> Map.of("baseDir", dir.toString(), "path", "out/a.txt"));
     fixtures.put("FILE_READ", () -> Map.of("baseDir", dir.toString(), "path", "a.txt"));
+    fixtures.put("PATCH_GUARD", () -> Map.of("dir", dir.toString()));
     fixtures.put(
         "SQL_QUERY",
         () -> Map.of("url", H2_URL, "username", "sa", "password", "", "sql", "select 1"));

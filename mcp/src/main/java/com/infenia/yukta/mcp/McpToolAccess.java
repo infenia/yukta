@@ -34,6 +34,7 @@ class McpToolAccess {
           Map.entry("get_workflow_status", ApiRole.VIEWER),
           Map.entry("get_workflow_history", ApiRole.VIEWER),
           Map.entry("get_execution_tree", ApiRole.VIEWER),
+          Map.entry("whoami", ApiRole.VIEWER),
           Map.entry("get_scheduler_limits", ApiRole.VIEWER),
           Map.entry("get_node_output", ApiRole.VIEWER),
           Map.entry("list_plugins", ApiRole.VIEWER),
@@ -53,7 +54,8 @@ class McpToolAccess {
           "list_plugins",
           "get_plugin_details",
           "get_session_creation_instructions",
-          "get_plugin_creation_guide");
+          "get_plugin_creation_guide",
+          "whoami");
 
   /** Resources that name no session, so a session key may read them. */
   private static final Set<String> SESSIONLESS_RESOURCES =

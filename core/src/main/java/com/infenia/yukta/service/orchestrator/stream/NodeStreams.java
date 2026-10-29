@@ -10,10 +10,13 @@ import com.infenia.yukta.service.orchestrator.tracker.LogLineClassifier;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
@@ -70,6 +73,7 @@ public class NodeStreams {
     // RUNNING at the node's first activity, not at wiring, so its times are its own; a node that
     // ends without any activity still passes through RUNNING, then ends SKIPPED.
     final AtomicBoolean running = new AtomicBoolean();
+    final AtomicReference<Map<String, Object>> reported = new AtomicReference<>(Map.of());
     final Runnable markRunning =
         () -> {
           if (running.compareAndSet(false, true)) {
@@ -79,7 +83,11 @@ public class NodeStreams {
     activity.onFirstTouch(markRunning);
     final Flux<Message<?>> guarded =
         activity.guard(
-            source.doOnNext(_ -> activity.touch()),
+            source.doOnNext(
+                message -> {
+                  activity.touch();
+                  nodeMetadata(message).ifPresent(reported::set);
+                }),
             timeout,
             deadline,
             Schedulers.parallel(),
@@ -109,7 +117,7 @@ public class NodeStreams {
               // a node that never saw an input did not run: report SKIPPED, not SUCCESS
               final TaskStatus done = running.get() ? TaskStatus.SUCCESS : TaskStatus.SKIPPED;
               markRunning.run();
-              emit(tracker, executionId, node, done);
+              emit(tracker, executionId, node, done, reported.get());
             })
         .doOnCancel(
             () -> {
@@ -136,6 +144,18 @@ public class NodeStreams {
                       ? Collections.emptyMap()
                       : failureMetadata(describe(error)));
             });
+  }
+
+  /** The values a message hands to its node's task record, if it carries any. */
+  @SuppressWarnings("PMD.UseConcurrentHashMap") // built and read on one thread
+  private static Optional<Map<String, Object>> nodeMetadata(final Message<?> message) {
+    final Map<String, Object> metadata = message.metadata();
+    if (metadata.get(Message.NODE_METADATA_KEY) instanceof Map<?, ?> values) {
+      final Map<String, Object> copy = new LinkedHashMap<>();
+      values.forEach((key, value) -> copy.put(String.valueOf(key), value));
+      return Optional.of(copy);
+    }
+    return Optional.empty();
   }
 
   /** Logs the stall warning that rules and {@code watch --quiet} pick up. */

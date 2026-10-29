@@ -8,6 +8,7 @@
 #   escalation        a change that does not fix it escalates to the next rung
 #   single attempt    a stage in heal.json singleAttempt (reuse) gets one attempt even when it changed something
 #   verify            a verify that fails goes back to heal
+#   baseline          a stage that fails the same way on origin/main gets no fixer; one that fails differently does
 #   triage            a "hard" failure starts at sonnet/low (fake Ollama)
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -139,6 +140,19 @@ expect "status=SUCCESS"; expect "compile:haiku/high"
 name="verify"
 CMD_compile='test -f compile.ok' VERIFY='test -f compile.ok && test -f verify.ok' scenario "$name" "compile haiku fix" "verify haiku fix"
 expect "status=SUCCESS"; expect "verify:haiku/high"
+
+name="known baseline failure"
+# origin/main is the commit of the project: the stage fails there with the same problem line, so it is not the change's fault
+git -C "$proj" update-ref refs/remotes/origin/main HEAD
+CMD_compile='echo "error: boom at A.java:20"; test -f compile.ok' scenario "$name" "compile haiku fix"
+expect "status=FAILED"; expect "failed_node=compile"
+[[ "$(calls)" == 0 ]] || fail "$name: expected no claude call, got $(calls)"
+
+name="baseline failure differs"
+# the directory name is part of the problem line, and differs between the project and the clean checkout of origin/main
+CMD_compile='echo "error: in $(basename "$PWD")"; test -f compile.ok' scenario "$name" "compile haiku fix"
+expect "status=SUCCESS"; expect "compile:haiku/high"
+git -C "$proj" update-ref -d refs/remotes/origin/main
 
 name="triage"
 python3 -I "$here/scripts/fake-ollama.py" "$dir/port" &

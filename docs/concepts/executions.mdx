@@ -49,14 +49,14 @@ Run and node status only move forward:
 | `STOPPED`, `CANCELLED` | Ended by a stop command, or because the caller cancelled |
 | `TIMED_OUT` | A time limit expired; see [Time limits](/concepts/time-limits) |
 | `SKIPPED` | The node never ran: no input reached it (for example behind a routed edge that was not taken), or the run ended before it started. An operator skip is not this status; it shows as `controlState: NODE_SKIPPED`. |
-| `UPSTREAM_FAILED` | A node that never ran because an upstream node failed |
+| `UPSTREAM_FAILED` | A node that never ran because the run failed: it sits behind the failed node, or it had not started when the run ended (even on a healthy branch) |
 | `ABORTED` | The server stopped while the execution was running; assigned on the next boot |
 
 A status that would step back is ignored, so a late or out-of-order event can never reopen a finished node. The full list is in [Status values](/reference/status-values).
 
 ### How a failure ends the run
 
-- Nodes behind a failed node end as `UPSTREAM_FAILED`, so only the node that failed shows `FAILURE`.
+- Nodes behind a failed node end as `UPSTREAM_FAILED`, so only the node that failed shows `FAILURE`. A node on a healthy branch that had not started when the run failed, or that sits behind a `CANCELLED` node, also ends `UPSTREAM_FAILED`. A terminal with one failed and one healthy parent ends `UPSTREAM_FAILED`; a processor with the same parents may already have run on the healthy input, so its end status depends on timing.
 - The first terminal that fails ends the run at once and cancels the other branches (`CANCELLED`).
 - A caller that cancels ends the run `CANCELLED`. A second end of a run is ignored.
 
