@@ -71,7 +71,7 @@ import reactor.core.publisher.Mono;
  */
 @Component
 @NullMarked
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(Ordered.HIGHEST_PRECEDENCE + 4)
 @SuppressWarnings("PMD.ExcessiveImports")
 public class ApiKeyFilter implements WebFilter {
 

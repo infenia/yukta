@@ -69,7 +69,7 @@ A client starts a workflow and web answers. Click a step to see what happens, wh
 
 **Why it works this way.** It runs first, so a caller without the key costs almost nothing and never reaches validation or core. Constant-time comparison means response time does not reveal how many leading characters were right.
 
-**Can go wrong.** If no key is configured the check is off and the API is open. A rejected request gets no request id and no access-log line, because the later filters never run.
+**Can go wrong.** If no key is configured the check is off and the API is open. A rejected request still gets a request id and an access-log line (a warning with the source address).
 
 </Step>
 <Step title="Request id">
@@ -156,7 +156,7 @@ for long jobs the client opens a stream and receives events with ids and a heart
 
 Runs on every request before any controller: checks the API key, gives the request an id and writes one access-log line when it ends.
 
-- Order matters. The key filter runs first, the request-id filter second, the access-log filter last (it has no explicit order, so it runs after the others). The reason for key-first is that an unauthenticated caller should cost as little as possible. The consequence is that a rejected 401 has no request id and no log line.
+- Order matters. The request-id filter runs first, then the access-log filter, then the host and key filters. The key filter still rejects an unauthenticated caller before any controller work, but the 400, 401, 403 and 429 it answers carry a request id and are logged at WARN with the source address. They are not counted in a metric.
 - The key check applies when yukta.api-key or yukta.api-keys is set, to /api and to the actuator except /actuator/health. The path is decoded first; encoded separators, ';' and dot segments are refused with 400. The key comes from 'Authorization: Bearer &lt;key&gt;' or X-API-Key and is compared as a SHA-256 digest with MessageDigest.isEqual. A named key has a role (VIEWER reads; OPERATOR also POST/DELETE under /api/executions/ and /api/workflow/; ADMIN everything, including the actuator) and optionally a list of sessions; a miss gives 401 and an empty body, a role or session that does not allow the request gives 403. Without any key, HostOriginFilter answers 403 to a Host that is not loopback (or in yukta.allowed-hosts) and to a non-GET whose Origin is not the Host.
 - The request id: a client's X-Request-ID is kept only if it matches [A-Za-z0-9-]\{1,64\}; otherwise a UUID is generated. X-Correlation-ID follows the same rule and falls back to the request id. Both are returned on the response. The id goes into the Reactor context and the logging MDC, so every log line of that request shows [requestId] even when work hops threads. The strict pattern exists because the value is written to logs and headers: a newline in it could forge a log line.
 - The access log writes 'POST /api/workflow/start -&gt; 202 in 14ms' at INFO when the exchange ends. For a stream that is when the connection closes. The line has method, path, status and duration, with no query string and no caller identity (the actor of a control command goes to the execution log instead).
@@ -449,7 +449,7 @@ What an API key does and does not protect once the server is reachable from the 
 An operator sets YUKTA_SERVER_ADDRESS=0.0.0.0 and a key. Loopback is the default so that exposure is a decision, not an accident, and boot now refuses to start on another address without a key. Caution: the guard also counts yukta.mcp.api-key as a key, so a server with only the MCP key set starts and leaves /api open (boot guide, guardMcpKeyOnly).
 </Step>
 <Step title="A call without the key">
-The filter answers 401 with 'WWW-Authenticate: Bearer' and an empty body. The request-id and access-log filters never run, so the rejected call is not in the access log (nor is a 400 or 403 from the same filter).
+The filter answers 401 with 'WWW-Authenticate: Bearer' and an empty body. The request-id and access-log filters run before it, so the rejected call has a request id and a WARN access-log line with the source address (as does a 400, 403 or 429 from the same filter).
 </Step>
 <Step title="A call with the key">
 The key is compared in constant time and the call proceeds. Nothing in the request says who the caller is; the key is the same for everyone.
@@ -494,7 +494,7 @@ Capabilities grouped by what a client wants to do. Each card says what it does, 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
 | API key guard | Optional shared secret for /api/\*\*. | Filter compares the presented key (Bearer or X-API-Key) with the configured one in constant time. | Wrong or missing key is always a 401 with WWW-Authenticate. | One key for all callers; off when yukta.api-key is empty. |
-| Request tracing | A request id on every accepted request. | Accepts a safe X-Request-ID or generates a UUID; puts it in headers, Reactor context and the logging MDC. | Client ids are limited to 1 to 64 letters, digits and hyphens. | Not set for requests rejected by the key filter. |
+| Request tracing | A request id on every accepted request. | Accepts a safe X-Request-ID or generates a UUID; puts it in headers, Reactor context and the logging MDC. | Client ids are limited to 1 to 64 letters, digits and hyphens. | |
 | Access log | One line per request. | Logs method, path, status and duration when the exchange ends. | Written even if the stream is cancelled (it runs on completion of any kind). | No query string, no caller identity, no line for 401s. |
 | Strict JSON | Typos in field names are errors. | Jackson is configured to fail on unknown properties. | A misspelled field never silently disappears. | Applies to JSON bodies only; query parameters are not checked this way. |
 
@@ -563,7 +563,7 @@ The key filter checks paths under /api and /actuator (except /actuator/health) w
 | Reply shape | Every reply is an ApiResponse. Success has data; failure has error, path and a possibly empty list of field errors. |
 | Start | 202 means admitted, not finished. The same Idempotency-Key (same session and workflow, inside core's window) returns the first execution id. |
 | Control commands | Reply is sent after core acknowledges; the effect is visible through status. Core applies commands per run in order. |
-| Request id | Echoed in X-Request-ID on every request that passes the key check; it is the only detail a 500 gives. |
+| Request id | Echoed in X-Request-ID on every request, including ones the key filter rejects; it is the only detail a 500 gives. |
 | Error text | 5xx never contains exception text. 4xx contains core's message, so core must keep messages client-safe. |
 | Paging | Newest first for runs, alphabetical for sessions. Cursor is the id of the last item. An unknown cursor starts again from the first item. |
 | Streams | Event ids count from 0 per connection; heartbeat every 15 s; reconnect with Last-Event-ID. Live parts are best effort. |
