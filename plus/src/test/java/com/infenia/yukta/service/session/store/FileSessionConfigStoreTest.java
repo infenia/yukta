@@ -635,4 +635,16 @@ class FileSessionConfigStoreTest {
     assertThat(configStore.getSessionIds().collectList().block()).doesNotContain("gone");
     StepVerifier.create(configStore.getDescription("gone")).expectNext("").verifyComplete();
   }
+
+  @Test
+  void removeSession_failingToDeleteTheFile_isReportedNotSwallowed() throws IOException {
+    final Path blocker = tempDir.resolve("sessions/stuck.json");
+    Files.createDirectories(blocker);
+    Files.writeString(blocker.resolve("child"), "x");
+
+    StepVerifier.create(configStore.removeSession("stuck"))
+        .expectError(java.io.UncheckedIOException.class)
+        .verify();
+  }
+
 }

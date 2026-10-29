@@ -50,7 +50,7 @@ func deleteCommand(
 		Args:  cobra.ExactArgs(args),
 		RunE: func(cmd *cobra.Command, a []string) error {
 			if !yes {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Delete %s? This cannot be undone. [y/N] ", what(a))
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Delete %s? This cannot be undone. [y/N] ", what(a))
 				answer, _ := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
 				if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(answer)), "y") {
 					return fmt.Errorf("not deleted")
@@ -59,7 +59,7 @@ func deleteCommand(
 			if err := do(a, force); err != nil {
 				return fmt.Errorf("failed to delete: %w", err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Deleted %s\n", what(a))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Deleted %s\n", what(a))
 			return nil
 		},
 	}

@@ -19,6 +19,7 @@ import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -956,4 +957,28 @@ class SessionServiceTest {
         .verify();
     verify(configService, never()).removeSession(any());
   }
+
+  @Test
+  void deleteWorkflow_withForceGivesUpWhenTheRunsDoNotEnd() {
+    when(workflowDefinitionStore.find(any(), any()))
+        .thenReturn(Mono.just(new WorkflowDefinition("w", DESC, List.of(), List.of())));
+    when(controlBus.getHistory("s")).thenReturn(Mono.just(List.of(run("e1", "w", RUNNING))));
+    when(controlBus.stopWorkflow("s", "w", "Deleted", StopMode.CANCEL))
+        .thenReturn(Mono.just(List.of("e1")));
+    when(controlBus.recordAdminAction(any(), any(), eq(false), any())).thenReturn(Mono.empty());
+
+    StepVerifier.withVirtualTime(() -> sessionService.deleteWorkflow("s", "w", true))
+        .thenAwait(Duration.ofSeconds(30))
+        .expectErrorSatisfies(
+            error ->
+                assertThat(error)
+                    .isInstanceOf(ActiveRunsException.class)
+                    .satisfies(
+                        e ->
+                            assertThat(((ActiveRunsException) e).getMessage())
+                                .contains("did not end in time")))
+        .verify();
+    verify(workflowDefinitionStore, never()).remove(any(), any());
+  }
+
 }
