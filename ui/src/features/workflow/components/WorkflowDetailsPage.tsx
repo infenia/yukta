@@ -27,6 +27,7 @@ import { useExecutionSelection } from '../hooks/useExecutionSelection';
 import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { useWorkflowGraph } from '../hooks/useWorkflowGraph';
 import type { TaskProgress } from '../types/workflow';
+import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
 import {
   BreakpointProvider,
@@ -50,6 +51,7 @@ function WorkflowDetails() {
   }>();
   const [panelOpen, setPanelOpen] = useState(true);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [stopping, setStopping] = useState<string | null>(null);
 
   const graphQuery = useWorkflowGraph(sessionId, workflowId);
   const executionsQuery = useWorkflowExecutions(sessionId, workflowId);
@@ -91,6 +93,10 @@ function WorkflowDetails() {
         { executionId, nodeId },
         { onSuccess: () => breakpoints.clear(executionId, nodeId) }
       );
+    } else if (command === 'stop') {
+      setStopping(nodeId);
+    } else if (command === 'unskip') {
+      nodeControl.unskipNode.mutate({ executionId, nodeId });
     } else {
       nodeControl.nodeAction.mutate({ executionId, nodeId, action: command });
     }
@@ -98,7 +104,9 @@ function WorkflowDetails() {
   const nodeError =
     nodeControl.nodeAction.error ??
     nodeControl.restartFromNode.error ??
-    nodeControl.clearBreakpoint.error;
+    nodeControl.clearBreakpoint.error ??
+    nodeControl.stopNode.error ??
+    nodeControl.unskipNode.error;
 
   const tasksByNode = useMemo(() => {
     const byNode: Record<string, TaskProgress | undefined> = {};
@@ -233,6 +241,24 @@ function WorkflowDetails() {
               }
             );
           }}
+        />
+      )}
+
+      {stopping && (
+        <NodeStopDialog
+          nodeId={stopping}
+          pending={nodeControl.stopNode.isPending}
+          onClose={() => setStopping(null)}
+          onSubmit={(options) =>
+            nodeControl.stopNode.mutate(
+              {
+                executionId: selectedExecutionId as string,
+                nodeId: stopping,
+                ...options,
+              },
+              { onSettled: () => setStopping(null) }
+            )
+          }
         />
       )}
 

@@ -35,14 +35,14 @@ function Chips({ values }: { values: string[] }) {
       {shown.map((value) => (
         <span
           key={value}
-          className="rounded bg-surface-container px-1.5 py-0.5 text-code-sm"
+          className="bg-surface-container text-code-sm rounded px-1.5 py-0.5"
         >
           {value}
         </span>
       ))}
       {hidden > 0 && (
         <span
-          className="px-1 text-code-sm text-on-surface-variant"
+          className="text-code-sm text-on-surface-variant px-1"
           title={values.slice(VISIBLE_TYPES).join(', ')}
         >
           +{hidden}

@@ -14,7 +14,7 @@ import { CopyAsMenu, type CopyChoice } from './CopyAsMenu';
 import type { NodeUiStatus } from '../types/workflow';
 
 export type NodeCommand =
-  NodeAction | 'restart-from' | 'breakpoint' | 'breakpoint/clear';
+  NodeAction | 'restart-from' | 'unskip' | 'breakpoint' | 'breakpoint/clear';
 
 const ITEMS: {
   command: NodeCommand;
@@ -25,7 +25,7 @@ const ITEMS: {
   { command: 'resume', label: 'Resume node', when: (s) => s === 'paused' },
   {
     command: 'stop',
-    label: 'Stop node',
+    label: 'Stop node…',
     when: (s) => s === 'running' || s === 'paused',
   },
   {
@@ -33,6 +33,7 @@ const ITEMS: {
     label: 'Skip node',
     when: (s) => s === 'pending' || s === 'running',
   },
+  { command: 'unskip', label: 'Unskip node', when: (s) => s === 'skipped' },
   { command: 'retry', label: 'Retry node', when: (s) => s === 'failed' },
   {
     command: 'step/enable',
@@ -93,6 +94,7 @@ export function NodeControlsMenu({
           item.command === 'breakpoint/clear'
         )
           return [];
+        if (item.command === 'unskip') return []; // no copy-as equivalent yet
         return [
           {
             label: item.label,

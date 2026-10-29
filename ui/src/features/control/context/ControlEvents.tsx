@@ -13,11 +13,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useEventSourceJson } from '@/hooks/useEventSourceJson';
-import {
-  appendBounded,
-  type ActivityEvent,
-  type Entry,
-} from '../lib/activity';
+import { appendBounded, type ActivityEvent, type Entry } from '../lib/activity';
 
 /** How often events that arrived since the last tick are added to the list. */
 export const FLUSH_MS = 250;
@@ -55,6 +51,15 @@ export function ControlEventsProvider({ children }: { children: ReactNode }) {
   const onEvent = useCallback(
     (event: ActivityEvent) => {
       pending.current.push({ ...event, seq: seq.current++ });
+      if (
+        event.type === 'ControlOutcome' ||
+        event.type === 'WorkflowStatusChanged'
+      ) {
+        // slots are taken and freed as runs start and end; limits change by a control command
+        void queryClient.invalidateQueries({
+          queryKey: ['control', 'scheduler'],
+        });
+      }
       if (event.type === 'ControlOutcome') {
         void queryClient.invalidateQueries({ queryKey: ['control', 'audit'] });
         void queryClient.invalidateQueries({

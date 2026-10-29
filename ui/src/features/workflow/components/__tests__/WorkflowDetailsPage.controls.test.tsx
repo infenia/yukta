@@ -23,6 +23,7 @@ import {
   createMockExecution,
   createMockGraph,
   createMockProgress,
+  createMockTask,
 } from '@/test/factories/workflowFactory';
 import { installMockEventSource } from '@/test/mocks/MockEventSource';
 
@@ -37,6 +38,7 @@ const ok = (data: unknown) =>
 
 const calls: string[] = [];
 let nodeFails = false;
+let skipped = false;
 
 const server = setupServer(
   http.get('/api/sessions/:sid/workflows/:wid/graph', () =>
@@ -49,33 +51,40 @@ const server = setupServer(
     ])
   ),
   http.get('/api/executions/:eid', ({ params }) =>
-    ok(createMockProgress({ executionId: String(params.eid) }))
+    ok(
+      createMockProgress({
+        executionId: String(params.eid),
+        ...(skipped && {
+          tasks: [
+            createMockTask({
+              nodeId: 'anomaly-detection',
+              status: 'NODE_SKIPPED',
+            }),
+          ],
+        }),
+      })
+    )
   ),
   http.post('/api/executions/:id/restart/:node', ({ params }) => {
     calls.push(`restart-from ${params.node}`);
     return ok({ executionId: 'restarted' });
   }),
-  http.post(
-    '/api/executions/:id/nodes/:node/breakpoint',
-    ({ params, request }) => {
-      calls.push(`breakpoint ${params.node}${new URL(request.url).search}`);
-      return nodeFails
-        ? HttpResponse.json({ message: 'Core rejected it' }, { status: 409 })
-        : ok({ executionId: 'exec-091-qp-55' });
-    }
-  ),
   http.delete('/api/executions/:id/nodes/:node/breakpoint', ({ params }) => {
     calls.push(`clear-breakpoint ${params.node}`);
     return nodeFails
       ? HttpResponse.json({ message: 'Core rejected it' }, { status: 409 })
       : ok({ executionId: 'exec-091-qp-55' });
   }),
-  http.post('/api/executions/:id/nodes/:node/:action', ({ params }) => {
-    calls.push(`${params.action} ${params.node}`);
-    return nodeFails
-      ? HttpResponse.json({ message: 'Core rejected it' }, { status: 409 })
-      : ok({ executionId: 'exec-091-qp-55' });
-  })
+  http.post(
+    '/api/executions/:id/nodes/:node/:action',
+    ({ params, request }) => {
+      const url = new URL(request.url);
+      calls.push(`${params.action} ${params.node}${url.search}`);
+      return nodeFails
+        ? HttpResponse.json({ message: 'Core rejected it' }, { status: 409 })
+        : ok({ executionId: 'exec-091-qp-55' });
+    }
+  )
 );
 
 beforeAll(() => server.listen());
@@ -83,6 +92,7 @@ beforeEach(() => installMockEventSource());
 afterEach(() => {
   calls.length = 0;
   nodeFails = false;
+  skipped = false;
 });
 afterAll(() => server.close());
 
@@ -149,6 +159,74 @@ describe('WorkflowDetailsPage controls', () => {
       expect(screen.getByTestId('where')).toHaveTextContent('?exec=restarted')
     );
     expect(calls).toEqual(['restart-from data-ingress']);
+  });
+
+  it('stops a node with the chosen options after asking', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      await screen.findByRole('button', { name: 'Actions for vectorize-batch' })
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Stop node…' })
+    );
+    const dialog = screen.getByRole('dialog', {
+      name: 'Stop vectorize-batch?',
+    });
+    expect(dialog).toHaveTextContent('recorded in the control audit');
+    await user.click(screen.getByLabelText('Stop immediately (do not drain)'));
+    await user.type(screen.getByLabelText('Reason (optional)'), ' too slow ');
+    await user.click(within(dialog).getByRole('button', { name: 'Stop' }));
+    await waitFor(() =>
+      expect(calls).toEqual([
+        'stop vectorize-batch?immediate=true&reason=too+slow',
+      ])
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    );
+  });
+
+  it('stops a node without options and can cancel the dialog', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      await screen.findByRole('button', { name: 'Actions for vectorize-batch' })
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Stop node…' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(calls).toEqual([]);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Actions for vectorize-batch' })
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Stop node…' })
+    );
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Stop' })
+    );
+    await waitFor(() => expect(calls).toEqual(['stop vectorize-batch']));
+  });
+
+  it('unskips a skipped node', async () => {
+    skipped = true;
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Actions for anomaly-detection',
+      })
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Unskip node' })
+    );
+    await waitFor(() =>
+      expect(calls).toEqual(['skip anomaly-detection?skip=false'])
+    );
   });
 
   it('sets a breakpoint, shows its marker, and clears it', async () => {

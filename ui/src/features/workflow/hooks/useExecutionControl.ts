@@ -12,7 +12,9 @@ import {
   runAction,
   setBreakpoint,
   startWorkflow,
+  stopNode,
   stopWorkflow,
+  unskipNode,
   type NodeAction,
   type RunAction,
   type StopMode,
@@ -113,6 +115,24 @@ export function useExecutionControl(sessionId: string, workflowId: string) {
       onSuccess,
       mutationFn: (vars: { executionId: string; nodeId: string }) =>
         clearBreakpoint(vars.executionId, vars.nodeId),
+    }),
+    stopNode: useMutation({
+      onSuccess,
+      mutationFn: (vars: {
+        executionId: string;
+        nodeId: string;
+        immediate: boolean;
+        reason: string;
+      }) =>
+        stopNode(vars.executionId, vars.nodeId, {
+          immediate: vars.immediate,
+          reason: vars.reason.trim(),
+        }),
+    }),
+    unskipNode: useMutation({
+      onSuccess,
+      mutationFn: (vars: { executionId: string; nodeId: string }) =>
+        unskipNode(vars.executionId, vars.nodeId),
     }),
     nodeAction: useMutation({
       onSuccess,

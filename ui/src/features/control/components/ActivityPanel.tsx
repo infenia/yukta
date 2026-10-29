@@ -48,9 +48,11 @@ function Toggle({
             type="button"
             aria-pressed={on}
             onClick={() =>
-              onChange(on ? chosen.filter((c) => c !== value) : [...chosen, value])
+              onChange(
+                on ? chosen.filter((c) => c !== value) : [...chosen, value]
+              )
             }
-            className={`rounded-lg border px-2 py-1 text-label-sm ${
+            className={`text-label-sm rounded-lg border px-2 py-1 ${
               on
                 ? 'border-primary bg-primary/10 text-primary'
                 : 'border-border text-on-surface-variant'
@@ -116,7 +118,9 @@ export function ActivityPanel() {
           type="button"
           variant="outline"
           onClick={() =>
-            setFrozenAt(paused ? null : (events[events.length - 1]?.seq ?? -1) + 1)
+            setFrozenAt(
+              paused ? null : (events[events.length - 1]?.seq ?? -1) + 1
+            )
           }
         >
           {paused ? 'Resume' : 'Pause'}
@@ -124,7 +128,8 @@ export function ActivityPanel() {
         <span className="text-body-sm text-on-surface-variant">
           {connected ? 'Live' : 'Reconnecting…'}
           {paused && ` · ${waiting} new while paused`}
-          {dropped > 0 && ` · ${dropped} oldest dropped (keeping ${MAX_EVENTS})`}
+          {dropped > 0 &&
+            ` · ${dropped} oldest dropped (keeping ${MAX_EVENTS})`}
         </span>
       </div>
       {rows.length === 0 ? (
@@ -133,11 +138,14 @@ export function ActivityPanel() {
         </StateMessage>
       ) : (
         <ul
-          className="max-h-128 divide-y divide-border overflow-y-auto rounded-xl border border-border bg-card"
+          className="divide-border border-border bg-card max-h-128 divide-y overflow-y-auto rounded-xl border"
           data-testid="activity-list"
         >
           {rows.slice(0, VISIBLE_ROWS).map((e) => (
-            <li key={e.seq} className="flex flex-wrap gap-x-3 px-3 py-1.5 text-code-sm">
+            <li
+              key={e.seq}
+              className="text-code-sm flex flex-wrap gap-x-3 px-3 py-1.5"
+            >
               <span className="text-on-surface-variant">
                 {formatLogTimestamp(e.event.timestamp)}
               </span>
@@ -152,7 +160,7 @@ export function ActivityPanel() {
                   {e.event.executionId.slice(0, 8)}
                 </Link>
               )}
-              <span className="min-w-0 wrap-break-word text-on-surface">
+              <span className="text-on-surface min-w-0 wrap-break-word">
                 {describe(e)}
               </span>
             </li>

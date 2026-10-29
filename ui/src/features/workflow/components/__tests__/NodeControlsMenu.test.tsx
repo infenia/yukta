@@ -30,7 +30,7 @@ describe('NodeControlsMenu', () => {
     const { labels } = await itemsFor('running');
     expect(labels).toEqual([
       'Pause node',
-      'Stop node',
+      'Stop node…',
       'Skip node',
       'Enable step mode',
       'Set breakpoint…',
@@ -42,7 +42,7 @@ describe('NodeControlsMenu', () => {
     const { labels } = await itemsFor('paused');
     expect(labels).toEqual([
       'Resume node',
-      'Stop node',
+      'Stop node…',
       'Step once',
       'Disable step mode',
       'Set breakpoint…',
@@ -84,6 +84,13 @@ describe('NodeControlsMenu', () => {
     const { user, onCommand } = await itemsFor('running', true);
     await user.click(screen.getByRole('menuitem', { name: 'Set breakpoint…' }));
     expect(onCommand).toHaveBeenCalledWith('n1', 'breakpoint');
+  });
+
+  it('offers unskip on a skipped node', async () => {
+    expect((await itemsFor('skipped')).labels).toEqual([
+      'Unskip node',
+      'Restart from here',
+    ]);
   });
 
   it('offers restart-from on a finished node', async () => {
