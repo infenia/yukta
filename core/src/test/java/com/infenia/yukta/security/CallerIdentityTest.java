@@ -4,6 +4,7 @@ package com.infenia.yukta.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.lang.reflect.RecordComponent;
 import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -13,7 +14,7 @@ import reactor.util.context.Context;
 @NoArgsConstructor
 class CallerIdentityTest {
 
-  private static CallerIdentity.Whoami as(final ApiRole role, final String... sessions) {
+  private static CallerIdentity.Whoami whoAs(final ApiRole role, final String... sessions) {
     return CallerIdentity.whoami(
         Context.of(CallerIdentity.CONTEXT_KEY, new ApiKeys.Match("alice", role, Set.of(sessions))));
   }
@@ -33,7 +34,7 @@ class CallerIdentityTest {
 
   @Test
   void viewer_mayChangeNothing() {
-    final var who = as(ApiRole.VIEWER);
+    final var who = whoAs(ApiRole.VIEWER);
 
     assertThat(who.authEnabled()).isTrue();
     assertThat(who.authenticated()).isTrue();
@@ -44,19 +45,19 @@ class CallerIdentityTest {
 
   @Test
   void operator_mayStartAndControlRunsOnly() {
-    assertThat(as(ApiRole.OPERATOR).permissions())
+    assertThat(whoAs(ApiRole.OPERATOR).permissions())
         .isEqualTo(new CallerIdentity.Permissions(true, true, false, false, false, false));
   }
 
   @Test
   void admin_mayDoEverything() {
-    assertThat(as(ApiRole.ADMIN).permissions())
+    assertThat(whoAs(ApiRole.ADMIN).permissions())
         .isEqualTo(new CallerIdentity.Permissions(true, true, true, true, true, true));
   }
 
   @Test
-  void aKeyLimitedToSessions_listsThemSortedAndCannotReachSessionlessPaths() {
-    final var who = as(ApiRole.ADMIN, "team-b", "team-a");
+  void sessionLimitedKeyListsThemSortedAndCannotReachSessionlessPaths() {
+    final var who = whoAs(ApiRole.ADMIN, "team-b", "team-a");
 
     assertThat(who.sessions()).containsExactly("team-a", "team-b");
     assertThat(who.permissions())
@@ -64,9 +65,9 @@ class CallerIdentityTest {
   }
 
   @Test
-  void theIdentityHasNoPlaceForAKeyOrItsHash() {
+  void theIdentityHasNoPlaceForKeyOrHash() {
     assertThat(CallerIdentity.Whoami.class.getRecordComponents())
-        .extracting(c -> c.getName())
+        .extracting(RecordComponent::getName)
         .containsExactly(
             "authenticated", "keyName", "role", "sessions", "authEnabled", "permissions");
   }

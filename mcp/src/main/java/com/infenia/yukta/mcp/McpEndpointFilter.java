@@ -50,7 +50,12 @@ import reactor.core.publisher.Mono;
  * endpoint.
  */
 @Component
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.OnlyOneReturn", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.LawOfDemeter",
+  "PMD.OnlyOneReturn",
+  "PMD.TooManyMethods",
+  "PMD.ExcessiveImports"
+})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class McpEndpointFilter implements WebFilter, MeterBinder {
 

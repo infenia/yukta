@@ -30,6 +30,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@SuppressWarnings({"PMD.CouplingBetweenObjects", "PMD.TooManyMethods"})
 public class SystemHealthProvider {
 
   /** Legacy status names that also mean an execution no longer runs. */
@@ -64,7 +65,7 @@ public class SystemHealthProvider {
     return Mono.deferContextual(
         ctx -> {
           final CallerIdentity.Whoami who = CallerIdentity.whoami(ctx);
-          final CallerIdentity.Permissions p = who.permissions();
+          final CallerIdentity.Permissions perms = who.permissions();
           return Mono.just(
               new WhoamiResult(
                   who.authenticated(),
@@ -73,12 +74,12 @@ public class SystemHealthProvider {
                   who.sessions(),
                   who.authEnabled(),
                   Map.of(
-                      "startRuns", p.startRuns(),
-                      "controlRuns", p.controlRuns(),
-                      "editSessions", p.editSessions(),
-                      "deleteSessions", p.deleteSessions(),
-                      "changeLimits", p.changeLimits(),
-                      "sendCommands", p.sendCommands())));
+                      "startRuns", perms.startRuns(),
+                      "controlRuns", perms.controlRuns(),
+                      "editSessions", perms.editSessions(),
+                      "deleteSessions", perms.deleteSessions(),
+                      "changeLimits", perms.changeLimits(),
+                      "sendCommands", perms.sendCommands())));
         });
   }
 

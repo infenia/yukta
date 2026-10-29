@@ -32,6 +32,7 @@ public class MeController {
               + " (start and control runs, edit and delete sessions, change limits, send"
               + " commands). With no key configured the role is ADMIN and authEnabled is false."
               + " Never returns the key or its hash.")
+  @SuppressWarnings("PMD.ShortMethodName")
   public Mono<ApiResponse<CallerIdentity.Whoami>> me() {
     return Mono.deferContextual(
         ctx -> Mono.just(ApiResponse.success(200, "Caller described", CallerIdentity.whoami(ctx))));

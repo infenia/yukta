@@ -26,6 +26,9 @@
     "name" : "Control Bus & Observability API",
     "description" : "Endpoints for control bus operations, node management, and execution observability"
   }, {
+    "name" : "Session API",
+    "description" : "Who is calling and what the key may do"
+  }, {
     "name" : "Node Output API",
     "description" : "Read part of the output of a node"
   }, {
@@ -2629,6 +2632,26 @@
         }
       }
     },
+    "/api/me" : {
+      "get" : {
+        "tags" : [ "Session API" ],
+        "summary" : "Who am I",
+        "description" : "The name, role and sessions of the API key of this request, and what it may do (start and control runs, edit and delete sessions, change limits, send commands). With no key configured the role is ADMIN and authEnabled is false. Never returns the key or its hash.",
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWhoami"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/executions" : {
       "get" : {
         "tags" : [ "Execution Search API" ],
@@ -4902,6 +4925,99 @@
             "format" : "int32",
             "description" : "Number of workflows",
             "example" : 24
+          }
+        }
+      },
+      "ApiResponseWhoami" : {
+        "type" : "object",
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The time the response was generated"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The HTTP status code",
+            "example" : 200
+          },
+          "message" : {
+            "type" : "string",
+            "description" : "A human-readable message",
+            "example" : "Operation successful"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/Whoami",
+            "description" : "The response data"
+          },
+          "error" : {
+            "type" : "string",
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request"
+          },
+          "path" : {
+            "type" : "string",
+            "description" : "The request path",
+            "example" : "/api/files"
+          },
+          "errors" : {
+            "type" : "array",
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            }
+          }
+        }
+      },
+      "Permissions" : {
+        "type" : "object",
+        "properties" : {
+          "startRuns" : {
+            "type" : "boolean"
+          },
+          "controlRuns" : {
+            "type" : "boolean"
+          },
+          "editSessions" : {
+            "type" : "boolean"
+          },
+          "deleteSessions" : {
+            "type" : "boolean"
+          },
+          "changeLimits" : {
+            "type" : "boolean"
+          },
+          "sendCommands" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Whoami" : {
+        "type" : "object",
+        "properties" : {
+          "authenticated" : {
+            "type" : "boolean"
+          },
+          "keyName" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "VIEWER", "OPERATOR", "ADMIN" ]
+          },
+          "sessions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "authEnabled" : {
+            "type" : "boolean"
+          },
+          "permissions" : {
+            "$ref" : "#/components/schemas/Permissions"
           }
         }
       },

@@ -456,7 +456,7 @@ class ApiKeyFilterTest {
   }
 
   @Test
-  void testResolvedKeyReachesTheRequestAndASessionLimitedKeyMayAskWhoItIs() {
+  void testResolvedKeyReachesTheRequestAndSessionLimitedKeyMayAskWhoItIs() {
     final MockEnvironment env =
         new MockEnvironment()
             .withProperty("yukta.api-keys[0].name", "scoped")

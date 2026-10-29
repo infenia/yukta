@@ -14,6 +14,7 @@ import reactor.util.context.ContextView;
  * {@link #CONTEXT_KEY}; no key in the context means no key is configured.
  */
 @UtilityClass
+@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn", "PMD.NullAssignment"})
 public class CallerIdentity {
 
   /** Reactor context key of the {@link ApiKeys.Match} the filter resolved. */
@@ -54,7 +55,11 @@ public class CallerIdentity {
       ApiRole role,
       @Nullable List<String> sessions,
       boolean authEnabled,
-      Permissions permissions) {}
+      Permissions permissions) {
+    public Whoami {
+      sessions = sessions == null ? null : List.copyOf(sessions);
+    }
+  }
 
   /**
    * Describes the caller of the current request.

@@ -17,6 +17,7 @@ import org.jspecify.annotations.Nullable;
  * @param permissions what the caller may do: startRuns, controlRuns, editSessions, deleteSessions,
  *     changeLimits, sendCommands
  */
+@SuppressWarnings("PMD.NullAssignment")
 public record WhoamiResult(
     boolean authenticated,
     @Nullable String keyName,

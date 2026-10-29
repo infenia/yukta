@@ -1224,6 +1224,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who am I
+         * @description The name, role and sessions of the API key of this request, and what it may do (start and control runs, edit and delete sessions, change limits, send commands). With no key configured the role is ADMIN and authEnabled is false. Never returns the key or its hash.
+         */
+        get: operations["me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/executions": {
         parameters: {
             query?: never;
@@ -2624,6 +2644,56 @@ export interface components {
              * @example 24
              */
             workflowCount?: number;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseWhoami: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["Whoami"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        Permissions: {
+            startRuns?: boolean;
+            controlRuns?: boolean;
+            editSessions?: boolean;
+            deleteSessions?: boolean;
+            changeLimits?: boolean;
+            sendCommands?: boolean;
+        };
+        Whoami: {
+            authenticated?: boolean;
+            keyName?: string;
+            /** @enum {string} */
+            role?: "VIEWER" | "OPERATOR" | "ADMIN";
+            sessions?: string[];
+            authEnabled?: boolean;
+            permissions?: components["schemas"]["Permissions"];
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListHit: {
@@ -4539,6 +4609,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseWhoami"];
                 };
             };
         };
