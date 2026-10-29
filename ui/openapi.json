@@ -2334,7 +2334,7 @@
       "get" : {
         "tags" : [ "Execution Results API" ],
         "summary" : "Read the result of an execution",
-        "description" : "Returns what the terminal nodes received so far; complete is true once the execution ended. Answers 404 for an unknown execution or one of another session.",
+        "description" : "Returns what the terminal nodes received so far; complete is true once the execution ended. The stdout and stderr fields of the payloads are left out unless named in include (stdout, stderr or stdout,stderr); fetch again to drill down. Answers 404 for an unknown execution or one of another session.",
         "operationId" : "streamResults",
         "parameters" : [ {
           "name" : "sessionId",
@@ -2376,6 +2376,14 @@
             "type" : "integer",
             "format" : "int64",
             "default" : 0
+          }
+        }, {
+          "name" : "include",
+          "in" : "query",
+          "description" : "Output fields to keep in the payloads: stdout, stderr or both",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "responses" : {
