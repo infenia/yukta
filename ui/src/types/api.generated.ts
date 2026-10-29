@@ -2900,6 +2900,8 @@ export interface operations {
             query?: {
                 /** @description Also the runs it started as sub-workflows, at any depth */
                 tree?: boolean;
+                /** @description DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once */
+                mode?: "DRAIN" | "CANCEL" | "KILL";
             };
             header?: never;
             path: {
@@ -2926,6 +2928,8 @@ export interface operations {
             query?: {
                 /** @description Also the runs it started as sub-workflows, at any depth */
                 tree?: boolean;
+                /** @description DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once */
+                mode?: "DRAIN" | "CANCEL" | "KILL";
             };
             header?: never;
             path: {
