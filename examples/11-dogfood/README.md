@@ -74,6 +74,7 @@ latency}` goes to `.yukta-dev/decisions.tsv`, but the caller's static path still
 `YUKTA_DECISION_<NAME>` or `decisions.<name>.mode` of one. `decision_outcome NAME STATE LABEL` records what really happened; `yk stats
 --decisions` joins the two and prints agreement, a calibration table and whether the `bar` of the decision in `decisions.json` is met
 (a decision below it stays in shadow); `scripts/test-decision.sh` tests it against `fake-ollama.py`.
+`yk advise` (`scripts/advise.sh`, tested by `scripts/test-advise.sh`) recommends a test tier (CLAUDE.md "Test Execution Policy") for the current changes: a deterministic floor from the paths, then one `decide` over a per-file digest (path, lines added/removed, kind; no diff) that can only widen it (`public-contract` to tier 2, `build-or-config` to 3, unsure to one more). No model, an error or an oversized digest leaves the floor. It is advice only; nothing is skipped because of it.
 
 ## Self-healing check
 
