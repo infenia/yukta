@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * are sent, never the exception.
  */
 @RestControllerAdvice
+@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.LawOfDemeter"})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class McpErrorAdvice {
 
@@ -37,11 +38,7 @@ public class McpErrorAdvice {
             "id",
             "",
             "error",
-            Map.of(
-                "code",
-                rpc == null ? -32600 : rpc.code(),
-                "message",
-                rpc == null ? "Invalid request" : rpc.message()));
+            Map.of("code", rpc.code(), "message", rpc.message()));
     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
         .contentType(MediaType.APPLICATION_JSON)
         .body(body);

@@ -45,6 +45,8 @@ com.infenia.yukta.mcp.AppMcpResources
 com.infenia.yukta.mcp.AppMcpTools
 com.infenia.yukta.mcp.McpDtoReflectionHints
 com.infenia.yukta.mcp.McpEndpointFilter
+com.infenia.yukta.mcp.McpErrorAdvice
+com.infenia.yukta.mcp.McpErrorFilter
 com.infenia.yukta.mcp.provider.LogProvider
 com.infenia.yukta.mcp.provider.PluginInfoProvider
 com.infenia.yukta.mcp.provider.ResultProvider
