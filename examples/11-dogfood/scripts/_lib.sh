@@ -26,8 +26,13 @@ os_arch() {
 
 # dev_key: the dev server's API key (generated once, readable only by this user). Without a key the
 # server's REST API is open to every local account, and it runs any process (YUKTA_PROCESS_ALLOW_ANY).
-dev_key() {
-  local file="$DEV_HOME/api-key"
+dev_key() { _dev_secret api-key; }
+
+# fixer_key: a second, named VIEWER key of the dev server for the headless fixers (they may read a run over MCP, never change it).
+fixer_key() { _dev_secret fixer-key; }
+
+_dev_secret() {
+  local file="$DEV_HOME/$1"
   if [[ ! -s "$file" ]]; then
     mkdir -p "$DEV_HOME"
     (umask 077 && head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' >"$file")
@@ -144,7 +149,7 @@ server_launch() {
       YUKTA_SUPERVISOR_RULES_FILE="$rules"
     # The key goes in a file, not the environment: the server's children (the gradle stages and their
     # test JVMs) inherit its environment, and a Spring Boot test that saw YUKTA_API_KEY would demand it.
-    (umask 077 && printf 'yukta.api-key=%s\n' "$(dev_key)" >"$DEV_HOME/server.properties")
+    (umask 077 && printf 'yukta.api-key=%s\nyukta.api-keys[0].name=fixer\nyukta.api-keys[0].key=%s\nyukta.api-keys[0].role=VIEWER\n' "$(dev_key)" "$(fixer_key)" >"$DEV_HOME/server.properties")
     setsid bash -c 'echo $$ >"$1"; shift; exec "$@"' _ "$DEV_HOME/server.pid" "$@" \
       "--spring.config.additional-location=file:$DEV_HOME/server.properties" \
       >"$DEV_HOME/server.log" 2>&1 </dev/null 9>&- &

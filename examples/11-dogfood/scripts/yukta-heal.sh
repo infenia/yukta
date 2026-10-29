@@ -261,7 +261,8 @@ case "$action" in
     # everything that varies per run is in the user prompt; the system prompt is one constant file, so every attempt shares the cached prefix
     excerpts="$(excerpts "$problems")"
     prompt="Stage \"$stage\" of the Yukta quality gate failed. Fix the root cause in the source so it passes.
-Problems (from the run):
+${YUKTA_SESSION_ID:+Yukta session: $YUKTA_SESSION_ID
+}Problems (from the run):
 $problems
 ${excerpts:+The code around the failures (file:line, a few lines either side):
 $excerpts
