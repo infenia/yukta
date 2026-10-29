@@ -273,7 +273,19 @@ public interface ControlBusGateway {
    * @param reason human-readable explanation for logging
    * @return a Mono containing the stopped execution ID, or an error if execution not found
    */
-  Mono<String> stopExecution(String executionId, String reason);
+  default Mono<String> stopExecution(final String executionId, final String reason) {
+    return stopExecution(executionId, reason, StopMode.DRAIN);
+  }
+
+  /**
+   * Stops a specific workflow execution by execution ID in the given way.
+   *
+   * @param executionId the execution to stop
+   * @param reason human-readable explanation for logging
+   * @param mode how to stop
+   * @return a Mono containing the stopped execution ID, or an error if execution not found
+   */
+  Mono<String> stopExecution(String executionId, String reason, StopMode mode);
 
   /**
    * Start a new workflow execution for a session with an empty trigger payload.

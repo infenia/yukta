@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
@@ -73,7 +74,8 @@ class ExecutionControllerTest {
             new WorkflowExecutionSummary(
                 "c1", "child", "PAUSED", LocalDateTime.now(), null, "e1", "e1", null));
     when(tracker.getTree("e1")).thenReturn(tree);
-    when(controlBus.stopExecution(any(), any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+    when(controlBus.stopExecution(any(), any(), any()))
+        .thenAnswer(call -> Mono.just(call.getArgument(0)));
     when(controlBus.getCurrentProgress("e1")).thenReturn(progress("s1", "RUNNING"));
 
     client.post().uri("/api/executions/e1/stop?tree=true").exchange().expectStatus().isOk();
@@ -89,13 +91,13 @@ class ExecutionControllerTest {
         .jsonPath("$.data[1].parentExecutionId")
         .isEqualTo("e1");
 
-    verify(controlBus).stopExecution("e1", "Stopped via REST API");
-    verify(controlBus).stopExecution("c1", "Stopped via REST API");
+    verify(controlBus).stopExecution("e1", "Stopped via REST API", StopMode.DRAIN);
+    verify(controlBus).stopExecution("c1", "Stopped via REST API", StopMode.DRAIN);
   }
 
   @Test
   void testStopAtNewAndLegacyPaths() {
-    when(controlBus.stopExecution(any(), any())).thenReturn(Mono.just("e1"));
+    when(controlBus.stopExecution(any(), any(), any())).thenReturn(Mono.just("e1"));
 
     for (final String uri :
         List.of("/api/executions/e1/stop", "/api/workflow/executions/e1/stop")) {
@@ -112,8 +114,17 @@ class ExecutionControllerTest {
   }
 
   @Test
+  void testStopWithModePassesItOn() {
+    when(controlBus.stopExecution(any(), any(), any())).thenReturn(Mono.just("e1"));
+
+    client.post().uri("/api/executions/e1/stop?mode=KILL").exchange().expectStatus().isOk();
+
+    verify(controlBus).stopExecution("e1", "Stopped via REST API", StopMode.KILL);
+  }
+
+  @Test
   void testStopOfUnknownExecutionIs404NotMaskedErrors() {
-    when(controlBus.stopExecution(any(), any()))
+    when(controlBus.stopExecution(any(), any(), any()))
         .thenReturn(Mono.error(new NotFoundException("Execution not found: e1")));
 
     client.post().uri("/api/executions/e1/stop").exchange().expectStatus().isNotFound();

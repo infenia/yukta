@@ -20,20 +20,23 @@ func ExecutionsCmd(c *client.Client) *cobra.Command {
 	}
 
 	var tree bool
+	var mode string
 	stop := commands.Action(commands.ActionSpec[client.WorkflowStartResponse]{
 		Use:   "stop <execution-id>",
 		Short: "Stop a workflow execution",
 		Long: `Stop a specific workflow execution by its execution ID. With --tree also every
-unfinished run it started as a sub-workflow, at any depth.
+unfinished run it started as a sub-workflow, at any depth. --mode picks how the run ends: DRAIN
+(default) lets work in flight finish, CANCEL cancels it, KILL ends the run at once.
 
 Returns the execution ID of the stopped execution.`,
 		Args: cobra.ExactArgs(1),
-		Run:  func(a []string) (client.WorkflowStartResponse, error) { return c.StopExecutionTree(a[0], tree) },
+		Run:  func(a []string) (client.WorkflowStartResponse, error) { return c.StopExecutionMode(a[0], tree, mode) },
 		Msg: func(r client.WorkflowStartResponse, _ []string) string {
 			return fmt.Sprintf("Execution stopped: %s", r.ExecutionID)
 		},
 	})
 	stop.Flags().BoolVar(&tree, "tree", false, "Also stop the runs it started as sub-workflows")
+	stop.Flags().StringVar(&mode, "mode", "", "How to stop: DRAIN (default), CANCEL or KILL")
 	cmd.AddCommand(stop)
 
 	cmd.AddCommand(commands.Action(commands.ActionSpec[client.WorkflowStartResponse]{

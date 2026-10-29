@@ -104,7 +104,7 @@ Tools return structured JSON, except where noted. Every tool that takes an `exec
 
 | Tool | Role | Arguments | Result |
 |---|---|---|---|
-| `control_workflow` | `OPERATOR` | `sessionId`, `action`; `executionId` for all actions except `STOP_ALL`; `workflowId` for `STOP_ALL`; `fromNodeId` for `RESTART_FROM_NODE`; optional `reason`; optional `tree` (`PAUSE`, `RESUME`, `STOP`: also the runs the execution started as sub-workflows) | `action`, `executionId`, `nodeId`, `resultExecutionIds` and `message` |
+| `control_workflow` | `OPERATOR` | `sessionId`, `action`; `executionId` for all actions except `STOP_ALL`; `workflowId` for `STOP_ALL`; `fromNodeId` for `RESTART_FROM_NODE`; optional `reason`; optional `tree` (`PAUSE`, `RESUME`, `STOP`: also the runs the execution started as sub-workflows); optional `mode` (`STOP`, `STOP_ALL`: `DRAIN` default, `CANCEL` or `KILL`) | `action`, `executionId`, `nodeId`, `resultExecutionIds` and `message` |
 | `control_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `action`; optional `immediate` and `reason` for `STOP` | The same result object |
 | `set_node_breakpoint` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `field`, `equalsValue` | The same result object |
 | `signal_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `signalName`, `decision`; optional `data` | The same result object |

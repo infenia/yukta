@@ -105,6 +105,21 @@
               "type": "boolean",
               "default": false
             }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "description": "DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "DRAIN",
+              "enum": [
+                "DRAIN",
+                "CANCEL",
+                "KILL"
+              ]
+            }
           }
         ],
         "responses": {
@@ -148,6 +163,21 @@
             "schema": {
               "type": "boolean",
               "default": false
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "description": "DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "DRAIN",
+              "enum": [
+                "DRAIN",
+                "CANCEL",
+                "KILL"
+              ]
             }
           }
         ],

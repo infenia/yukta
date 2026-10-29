@@ -408,7 +408,8 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
-  public Mono<String> stopExecution(final String executionId, final String reason) {
+  public Mono<String> stopExecution(
+      final String executionId, final String reason, final StopMode mode) {
     return Mono.defer(
             () ->
                 executionControlRegistry
@@ -417,7 +418,8 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                         control ->
                             executeCommand(
                                     ControlDispatch.buildCommand(
-                                        new StopWorkflowCommand(control.executionId(), reason),
+                                        new StopWorkflowCommand(
+                                            control.executionId(), reason, mode),
                                         ControlDispatch.CONTROL_COMMAND_PRIORITY + 20))
                                 .thenReturn(control.executionId()))
                     .orElseGet(() -> queries.finishOrphan(executionId)))
@@ -426,6 +428,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                 log.atInfo()
                     .addKeyValue("executionId", executionId)
                     .addKeyValue("reason", reason)
+                    .addKeyValue("mode", mode)
                     .log("Stopping specific execution"))
         .doOnSuccess(
             stoppedId ->
