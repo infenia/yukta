@@ -3,8 +3,9 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
-import { WorkflowGrid } from '../WorkflowGrid';
+import { MemoryRouter, useLocation } from 'react-router';
+import userEvent from '@testing-library/user-event';
+import { WorkflowTable } from '../WorkflowTable';
 import type { WorkflowSummary } from '../../types/session';
 
 const mockWorkflows: WorkflowSummary[] = [
@@ -24,11 +25,11 @@ const mockWorkflows: WorkflowSummary[] = [
   },
 ];
 
-describe('WorkflowGrid', () => {
+describe('WorkflowTable', () => {
   it('renders workflow count in header', () => {
     render(
       <MemoryRouter>
-        <WorkflowGrid
+        <WorkflowTable
           sessionId="sess-123"
           workflows={mockWorkflows}
           filter=""
@@ -37,13 +38,16 @@ describe('WorkflowGrid', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Associated Workflows (2)')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Workflows' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
   });
 
   it('renders all workflows', () => {
     render(
       <MemoryRouter>
-        <WorkflowGrid
+        <WorkflowTable
           sessionId="sess-123"
           workflows={mockWorkflows}
           filter=""
@@ -59,7 +63,7 @@ describe('WorkflowGrid', () => {
   it('filters workflows by name', () => {
     render(
       <MemoryRouter>
-        <WorkflowGrid
+        <WorkflowTable
           sessionId="sess-123"
           workflows={mockWorkflows}
           filter="wf1"
@@ -75,7 +79,7 @@ describe('WorkflowGrid', () => {
   it('filters workflows by description', () => {
     render(
       <MemoryRouter>
-        <WorkflowGrid
+        <WorkflowTable
           sessionId="sess-123"
           workflows={mockWorkflows}
           filter="Second"
@@ -91,7 +95,12 @@ describe('WorkflowGrid', () => {
   it('shows empty state when no workflows', () => {
     render(
       <MemoryRouter>
-        <WorkflowGrid sessionId="sess-123" workflows={[]} filter="" onFilterChange={() => {}} />
+        <WorkflowTable
+          sessionId="sess-123"
+          workflows={[]}
+          filter=""
+          onFilterChange={() => {}}
+        />
       </MemoryRouter>
     );
 
@@ -101,7 +110,7 @@ describe('WorkflowGrid', () => {
   it('shows no match message when filter returns empty', () => {
     render(
       <MemoryRouter>
-        <WorkflowGrid
+        <WorkflowTable
           sessionId="sess-123"
           workflows={mockWorkflows}
           filter="nonexistent"
@@ -110,14 +119,16 @@ describe('WorkflowGrid', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("No workflows match your filter")).toBeInTheDocument();
+    expect(
+      screen.getByText('No workflows match your filter')
+    ).toBeInTheDocument();
   });
 
   it('calls onFilterChange when input changes', () => {
     const onFilterChange = vi.fn();
     render(
       <MemoryRouter>
-        <WorkflowGrid
+        <WorkflowTable
           sessionId="sess-123"
           workflows={mockWorkflows}
           filter=""
@@ -126,9 +137,71 @@ describe('WorkflowGrid', () => {
       </MemoryRouter>
     );
 
-    const input = screen.getByPlaceholderText('Filter workflows...');
+    const input = screen.getByLabelText('Filter workflows');
     fireEvent.change(input, { target: { value: 'test' } });
 
     expect(onFilterChange).toHaveBeenCalledWith('test');
+  });
+
+  it('shows each workflow as a row: link, size and last run', () => {
+    render(
+      <MemoryRouter>
+        <WorkflowTable
+          sessionId="sess 1"
+          workflows={mockWorkflows}
+          filter=""
+          onFilterChange={() => {}}
+        />
+      </MemoryRouter>
+    );
+    const row = screen.getByTestId('workflow-row-wf1');
+    expect(screen.getByRole('link', { name: 'wf1' })).toHaveAttribute(
+      'href',
+      '/sessions/sess%201/workflow/wf1'
+    );
+    expect(row).toHaveTextContent('5 nodes · 4 edges');
+    expect(row).toHaveTextContent('Succeeded');
+    expect(screen.getByTestId('workflow-row-wf2')).toHaveTextContent('Running');
+  });
+
+  it('leaves out an empty description', () => {
+    render(
+      <MemoryRouter>
+        <WorkflowTable
+          sessionId="s"
+          workflows={[{ ...mockWorkflows[0], description: '' }]}
+          filter=""
+          onFilterChange={() => {}}
+        />
+      </MemoryRouter>
+    );
+    expect(
+      screen.getByTestId('workflow-row-wf1').querySelector('p')
+    ).toBeNull();
+  });
+
+  it('opens the editor from the row menu', async () => {
+    const user = userEvent.setup();
+    function Where() {
+      return <output data-testid="where">{useLocation().pathname}</output>;
+    }
+    render(
+      <MemoryRouter>
+        <Where />
+        <WorkflowTable
+          sessionId="s1"
+          workflows={mockWorkflows}
+          filter=""
+          onFilterChange={() => {}}
+        />
+      </MemoryRouter>
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Actions for workflow wf2' })
+    );
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    expect(screen.getByTestId('where')).toHaveTextContent(
+      '/sessions/s1/workflow/wf2/edit'
+    );
   });
 });
