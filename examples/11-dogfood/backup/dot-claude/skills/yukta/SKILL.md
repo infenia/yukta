@@ -47,8 +47,8 @@ chain (to see a failure as it is). Details, guards and budget: [reference/heal.m
 yk check --detach [-m mod]          # STARTED execution=<e> session=<s>   (yk gradle --detach: the same)
 yk watch <s> <e>                    # blocks until the end: problems only, then RESULT
 ```
-Hand the watching to the `yukta-run-watcher` subagent (Haiku, `run_in_background`) or the Monitor tool,
-so routine events never reach your context. Steer only runs you started: `yk tree <e>`, `yk pause|resume|stop <e>
+Watch with a plain background `yk watch <s> <e>` (Monitor tool or `run_in_background`): a green run then costs
+no model tokens. Start the `yukta-run-watcher` subagent (Haiku) only after a red run whose cause is unclear. Steer only runs you started: `yk tree <e>`, `yk pause|resume|stop <e>
 [--tree]`, `yk retry|skip <e> <node>`, `yk signals`, `yk approve|reject <e>`; when to use which:
 [reference/control.md](reference/control.md).
 
