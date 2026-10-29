@@ -1917,6 +1917,10 @@ export interface components {
             /** @description The list of field validation errors */
             errors?: components["schemas"]["FieldError"][];
         };
+        Breakpoint: {
+            field?: string;
+            equals?: string;
+        };
         TaskProgress: {
             nodeId?: string;
             module?: string;
@@ -1928,6 +1932,7 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             };
+            breakpoint?: components["schemas"]["Breakpoint"];
         };
         WorkflowProgress: {
             executionId?: string;

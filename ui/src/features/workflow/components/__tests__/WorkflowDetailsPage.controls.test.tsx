@@ -38,6 +38,8 @@ const ok = (data: unknown) =>
 
 const calls: string[] = [];
 let nodeFails = false;
+/** The breakpoint the mock server holds on vectorize-batch, as the status snapshot reports it. */
+let breakpoint: { field: string; equals: string } | null = null;
 let skipped = false;
 
 const server = setupServer(
@@ -50,30 +52,55 @@ const server = setupServer(
       createMockExecution({ executionId: 'restarted' }),
     ])
   ),
-  http.get('/api/executions/:eid', ({ params }) =>
-    ok(
-      createMockProgress({
-        executionId: String(params.eid),
-        ...(skipped && {
-          tasks: [
-            createMockTask({
-              nodeId: 'anomaly-detection',
-              status: 'NODE_SKIPPED',
-            }),
-          ],
-        }),
-      })
-    )
-  ),
+  http.get('/api/executions/:eid', ({ params }) => {
+    const progress = createMockProgress({
+      executionId: String(params.eid),
+      ...(skipped && {
+        tasks: [
+          createMockTask({
+            nodeId: 'anomaly-detection',
+            status: 'NODE_SKIPPED',
+          }),
+        ],
+      }),
+    });
+    return ok({
+      ...progress,
+      tasks: progress.tasks.map((t) =>
+        t.nodeId === 'vectorize-batch' ? { ...t, breakpoint } : t
+      ),
+    });
+  }),
   http.post('/api/executions/:id/restart/:node', ({ params }) => {
     calls.push(`restart-from ${params.node}`);
     return ok({ executionId: 'restarted' });
   }),
+  http.post(
+    '/api/executions/:id/nodes/:node/breakpoint',
+    ({ params, request }) => {
+      const url = new URL(request.url);
+      calls.push(`breakpoint ${params.node}${url.search}`);
+      if (nodeFails)
+        return HttpResponse.json(
+          { message: 'Core rejected it' },
+          { status: 409 }
+        );
+      breakpoint = {
+        field: url.searchParams.get('field') ?? '',
+        equals: url.searchParams.get('equals') ?? '',
+      };
+      return ok({ executionId: 'exec-091-qp-55' });
+    }
+  ),
   http.delete('/api/executions/:id/nodes/:node/breakpoint', ({ params }) => {
     calls.push(`clear-breakpoint ${params.node}`);
-    return nodeFails
-      ? HttpResponse.json({ message: 'Core rejected it' }, { status: 409 })
-      : ok({ executionId: 'exec-091-qp-55' });
+    if (nodeFails)
+      return HttpResponse.json(
+        { message: 'Core rejected it' },
+        { status: 409 }
+      );
+    breakpoint = null;
+    return ok({ executionId: 'exec-091-qp-55' });
   }),
   http.post(
     '/api/executions/:id/nodes/:node/:action',
@@ -92,6 +119,7 @@ beforeEach(() => installMockEventSource());
 afterEach(() => {
   calls.length = 0;
   nodeFails = false;
+  breakpoint = null;
   skipped = false;
 });
 afterAll(() => server.close());
@@ -238,7 +266,7 @@ describe('WorkflowDetailsPage controls', () => {
     );
   });
 
-  it('sets a breakpoint, shows its marker, and clears it', async () => {
+  it('sets a breakpoint, shows the marker from the snapshot, and clears it', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(

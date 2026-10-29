@@ -12,12 +12,15 @@ other command, so the failed stage's command, its formatter and its free fix are
 import json, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PATH = os.path.join(HERE, "..", "session.json")
-POLICY = json.load(open(os.path.join(HERE, "..", "heal.json")))
+# HEAL_SESSION and HEAL_POLICY point the generator at another session file and policy (the tests do)
+PATH = os.environ.get("HEAL_SESSION") or os.path.join(HERE, "..", "session.json")
+POLICY = json.load(open(os.environ.get("HEAL_POLICY") or os.path.join(HERE, "..", "heal.json")))
 HEAL = "__DOGFOOD__/scripts/yukta-heal.sh"
 CLAUDE = "__DOGFOOD__/scripts/claude.sh"
 EFFORTS = {e: {"budget": c["budget"], "timeout": c["timeoutSeconds"]} for e, c in POLICY["efforts"].items()}
 LEVELS = POLICY["triage"]["levels"]
+# optional labels that end the heal with no fixer (e.g. a failure caused by the machine, not the change): name -> {describe, reason}
+STOPS = POLICY["triage"].get("stop", {})
 SINGLE = POLICY.get("singleAttempt", [])
 FIX_SCHEMA = '{"type":"object","properties":{"fixed":{"type":"boolean"},"summary":{"type":"string"}},"required":["fixed","summary"]}'
 
@@ -110,7 +113,7 @@ ATTEMPT_WF = {"workflowId": "attempt", "description": "One repair attempt: one C
     {"nodeId": "claude", "type": "SUB_WORKFLOW", "config": claude_call},
     pe("claimed", "claimed", heal_env(**a_env), stdin=True, timeout=60),
     {"nodeId": "format", "type": "SUB_WORKFLOW", "config": {**tool_call(S("format"), "format"), **ROUTE}},
-    pe("judge", "judge", heal_env(**a_env), routed=True),
+    pe("judge", "judge", heal_env(**a_env, YUKTA_PROBLEMS=S("problems")), routed=True),
     {"nodeId": "recheck", "type": "SUB_WORKFLOW", "config": {**tool_call(S("command"), S("stage")), **ROUTE}},
     pe("report", "report", heal_env(**a_env, YUKTA_PROBLEMS="${start.problems}"), stdin=True, json_out=True),
     {"nodeId": "fixed?", "type": "BRANCH", "config": {"mode": "SELECT_KEY", "selector": "payload['output']['fixed']", "cases": {"true": "fixed"}, "defaultPort": "notfixed"}},
@@ -162,7 +165,7 @@ nodes = [
     {"nodeId": "triage", "type": "CLASSIFY", "config": {
         "model": S("triageModel"), "baseUrl": S("triageUrl"), "state": "payload['brief']",
         "question": POLICY["triage"].get("question", "How hard is it to fix this failed check?"),
-        "labels": {k: v["describe"] for k, v in LEVELS.items()},
+        "labels": {k: v["describe"] for k, v in {**LEVELS, **STOPS}.items()},
         "minProbability": POLICY["triage"]["minProbability"], "routeByLabel": True, "timeout": POLICY["triage"].get("timeoutSeconds") or 55,
         "engine": {"onError": "ROUTE"}}},
 ]
@@ -174,12 +177,15 @@ e += edges("auto-check", "brief", "failure", "error") + edges("auto-record", "do
 e += edges("brief", "first") + edges("first", "known?") + edges("known?", "baseline-known", "known") + edges("known?", "triage?", "unknown")
 e += edges("triage?", "triage", "on") + edges("triage?", avg, "off")
 # every port of the triage also feeds a log node (a dead end): its event is what heal-report.py reads to judge the triage
-TRIAGE_PORTS = list(LEVELS) + ["uncertain", "error"]
+TRIAGE_PORTS = list(LEVELS) + list(STOPS) + ["uncertain", "error"]
 for port in TRIAGE_PORTS:
     start_rung = starts[port] if port in LEVELS else avg
-    nodes.append(pe("triage-log." + port, "triage-log", heal_env(YUKTA_TRIAGE_ROUTE=port, YUKTA_TRIAGE_START=start_rung.replace("fix-", "", 1).replace("-", "/"),
+    nodes.append(pe("triage-log." + port, "triage-log", heal_env(YUKTA_TRIAGE_ROUTE=port, YUKTA_TRIAGE_START="-" if port in STOPS else start_rung.replace("fix-", "", 1).replace("-", "/"),
                                                                   YUKTA_TRIAGE_MODEL=S("triageModel")), stdin=port != "error", env_in=port == "error", timeout=60))
     e += edges("triage", "triage-log." + port, port) + edges("triage-log." + port, "logged")
+for port, c in STOPS.items():
+    nodes.append({"nodeId": "stop." + port, "type": "OUTCOME_TERMINAL", "config": {"outcome": "FAILED", "reason": "ESCALATE (%s): %s" % (port, c["reason"])}})
+    e += edges("triage", "stop." + port, port)
 e += edges("triage", starts["easy"], "easy") + edges("triage", avg, "average", "uncertain", "error") + edges("triage", starts["hard"], "hard")
 for st, after in nxt.items():
     e += edges(rid(*st), "done", "success")

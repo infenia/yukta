@@ -9,7 +9,7 @@ trap '[[ -z "${pid:-}" ]] || kill "$pid" 2>/dev/null || true; rm -rf "$repo"' EX
 python3 -I "$here/scripts/fake-ollama.py" "$repo/port" &
 pid=$!
 for ((i = 0; i < 20; i++)); do [[ -s "$repo/port" ]] && break; sleep 0.25; done
-export DEV_HOME="$repo/home" YUKTA_DECISION_MODEL=fake YUKTA_DECISION_URL="http://127.0.0.1:$(cat "$repo/port")"
+export DEV_HOME="$repo/home" YUKTA_DECISION=on YUKTA_DECISION_MODEL=fake YUKTA_DECISION_URL="http://127.0.0.1:$(cat "$repo/port")"
 mkdir -p "$repo/w/d/scripts" && cd "$repo/w"
 git init -q
 cp "$here/scripts/advise.sh" "$here/scripts/_lib.sh" d/scripts/; cp "$here/decisions.json" d/

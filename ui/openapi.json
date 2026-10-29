@@ -3754,6 +3754,17 @@
           }
         }
       },
+      "Breakpoint" : {
+        "type" : "object",
+        "properties" : {
+          "field" : {
+            "type" : "string"
+          },
+          "equals" : {
+            "type" : "string"
+          }
+        }
+      },
       "TaskProgress" : {
         "type" : "object",
         "properties" : {
@@ -3777,6 +3788,9 @@
           "metadata" : {
             "type" : "object",
             "additionalProperties" : { }
+          },
+          "breakpoint" : {
+            "$ref" : "#/components/schemas/Breakpoint"
           }
         }
       },

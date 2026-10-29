@@ -209,9 +209,33 @@ test.describe('Workflow Details Page', () => {
 
   test('sets and clears a breakpoint on a node', async ({ page }) => {
     const calls: string[] = [];
+    // The marker comes from the status snapshot the server sends, so the mock serves the breakpoint it stored.
+    let breakpoint: { field: string; equals: string } | null = null;
+    await page.route('**/api/executions/*/status/stream*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body: sseBody([
+          {
+            ...defaultProgress,
+            tasks: defaultProgress.tasks.map((task) =>
+              task.nodeId === 'Vectorize_Batch' ? { ...task, breakpoint } : task
+            ),
+          },
+        ]),
+      })
+    );
     await page.route('**/api/executions/*/nodes/*/breakpoint*', (route) => {
       const request = route.request();
-      calls.push(`${request.method()} ${new URL(request.url()).search}`);
+      const url = new URL(request.url());
+      calls.push(`${request.method()} ${url.search}`);
+      breakpoint =
+        request.method() === 'POST'
+          ? {
+              field: url.searchParams.get('field') ?? '',
+              equals: url.searchParams.get('equals') ?? '',
+            }
+          : null;
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -233,7 +257,12 @@ test.describe('Workflow Details Page', () => {
     await page.getByLabel('Field').fill('payload.status');
     await page.getByLabel('Equals').fill('error');
     await page.getByRole('button', { name: 'Set', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Set', exact: true })
+    ).toBeHidden();
 
+    // The server pushes a new snapshot after the change; a reload stands in for it here.
+    await page.reload();
     await expect(
       page.getByRole('img', { name: 'Breakpoint: payload.status = error' })
     ).toBeVisible();
@@ -242,6 +271,7 @@ test.describe('Workflow Details Page', () => {
       .getByRole('button', { name: 'Actions for Vectorize_Batch' })
       .click();
     await page.getByRole('menuitem', { name: 'Clear breakpoint' }).click();
+    await page.reload();
     await expect(page.getByRole('img', { name: /Breakpoint/ })).toBeHidden();
     expect(calls).toEqual([
       'POST ?field=payload.status&equals=error',

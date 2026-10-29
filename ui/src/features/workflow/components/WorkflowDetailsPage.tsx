@@ -31,22 +31,11 @@ import { useWorkflowGraph } from '../hooks/useWorkflowGraph';
 import type { TaskProgress } from '../types/workflow';
 import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
-import {
-  BreakpointProvider,
-  useBreakpoints,
-} from '../context/BreakpointContext';
 import { BreakpointDialog } from './BreakpointDialog';
 
 /** The workflow page: the run, its tasks and logs, and the controls. */
-export function WorkflowDetailsPage() {
-  return (
-    <BreakpointProvider>
-      <WorkflowDetails />
-    </BreakpointProvider>
-  );
-}
 
-function WorkflowDetails() {
+export function WorkflowDetailsPage() {
   const { sessionId = '', workflowId = '' } = useParams<{
     sessionId: string;
     workflowId: string;
@@ -79,7 +68,6 @@ function WorkflowDetails() {
   useBreadcrumbOverride(workflowId, displayName);
 
   const nodeControl = useExecutionControl(sessionId, workflowId);
-  const breakpoints = useBreakpoints();
   const [breakpointNode, setBreakpointNode] = useState<string | null>(null);
   // Only handed to the progress panel while an execution is selected.
   const onNodeCommand = (nodeId: string, command: NodeCommand) => {
@@ -92,10 +80,7 @@ function WorkflowDetails() {
     } else if (command === 'breakpoint') {
       setBreakpointNode(nodeId);
     } else if (command === 'breakpoint/clear') {
-      nodeControl.clearBreakpoint.mutate(
-        { executionId, nodeId },
-        { onSuccess: () => breakpoints.clear(executionId, nodeId) }
-      );
+      nodeControl.clearBreakpoint.mutate({ executionId, nodeId });
     } else if (command === 'stop') {
       setStopping(nodeId);
     } else if (command === 'unskip') {
@@ -253,15 +238,7 @@ function WorkflowDetails() {
             const executionId = selectedExecutionId as string;
             nodeControl.setBreakpoint.mutate(
               { executionId, nodeId: breakpointNode, field, equals },
-              {
-                onSuccess: () => {
-                  breakpoints.set(executionId, breakpointNode, {
-                    field,
-                    equals,
-                  });
-                  setBreakpointNode(null);
-                },
-              }
+              { onSuccess: () => setBreakpointNode(null) }
             );
           }}
         />

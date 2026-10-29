@@ -47,7 +47,7 @@ floor=$tier why="paths"
 # ---- the model can only widen ----
 if ((model)); then
   crit='{"docs-or-comment-only":"Only documentation or comments changed; no behaviour.","test-only":"Only tests changed.","internal-change":"Code changed behind existing signatures: private or package-private members, a local rename, an implementation.","public-contract":"A public type, method signature, REST or MCP schema, configuration key or serialized format changed, so dependants can break.","build-or-config":"The build, dependencies, CI or configuration changed."}'
-  if ans="$(decide "$(head -c 900 <<<"${#files[@]} changed files"$'\n'"$digest")" "What kind of change is this?" "$crit")"; then
+  if ans="$(decide advise "$(head -c 900 <<<"${#files[@]} changed files"$'\n'"$digest")" "What kind of change is this?" "$crit")"; then
     read -r label p <<<"$ans"
     why="model: $label ($p)"
     if awk -v p="$p" -v m="$min" 'BEGIN { exit !(p < m) }'; then
