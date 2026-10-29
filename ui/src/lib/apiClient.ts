@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { knownRole } from '@/lib/identity';
 import { authHeaders, requireApiKey } from './apiKey';
+
+const forbiddenMessage = () => {
+  const role = knownRole();
+  return `Your key${role ? ` (role ${role})` : ''} can't do this`;
+};
 
 export interface FieldError {
   field: string;
@@ -22,7 +28,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     public error?: string,
-    public fieldErrors?: FieldError[]
+    public fieldErrors?: FieldError[],
+    public kind?: 'forbidden'
   ) {
     super(error || `API error: ${status}`);
     this.name = 'ApiError';
@@ -61,14 +68,18 @@ export async function fetchApi<T>(
     .json()
     .catch(() => null)) as ApiResponse<T> | null;
 
-  if (response.status === 401 || response.status === 403) {
+  // Only a missing or wrong key (401) asks for a key; a valid key that may not do this (403) is an error
+  if (response.status === 401) {
     requireApiKey();
   }
   if (!response.ok) {
     throw new ApiError(
       response.status,
-      json?.message || response.statusText,
-      json?.errors
+      response.status === 403
+        ? forbiddenMessage()
+        : json?.message || response.statusText,
+      json?.errors,
+      response.status === 403 ? 'forbidden' : undefined
     );
   }
   if (json === null && response.status !== 204) {

@@ -78,14 +78,20 @@ test.describe('Control page', () => {
 
   test('sends a command to a node and shows the response', async ({ page }) => {
     await mockControlApi(page, [], ['wf-1:ingest']);
-    await page.route('**/api/control/workflows/wf-1/nodes/ingest/heartbeat', (route) =>
-      route.fulfill(envelope('/heartbeat', { beat: 1 }))
+    await page.route(
+      '**/api/control/workflows/wf-1/nodes/ingest/heartbeat',
+      (route) => route.fulfill(envelope('/heartbeat', { beat: 1 }))
     );
     let sent: unknown;
-    await page.route('**/api/control/workflows/wf-1/nodes/ingest/command', (route) => {
-      sent = route.request().postDataJSON();
-      return route.fulfill(envelope('/command', { payload: { flushed: true } }));
-    });
+    await page.route(
+      '**/api/control/workflows/wf-1/nodes/ingest/command',
+      (route) => {
+        sent = route.request().postDataJSON();
+        return route.fulfill(
+          envelope('/command', { payload: { flushed: true } })
+        );
+      }
+    );
     await page.goto('/control');
 
     await page.getByLabel('Workflow', { exact: true }).selectOption('wf-1');
@@ -97,5 +103,70 @@ test.describe('Control page', () => {
 
     await expect(page.getByText('"flushed": true')).toBeVisible();
     expect(sent).toEqual({ action: 'flush' });
+  });
+
+  test('shows the live activity feed and filters it', async ({ page }) => {
+    await mockControlApi(page, []);
+    const frame = (type: string, severity: string, event: object) =>
+      `data: ${JSON.stringify({ type, severity, rootExecutionId: 'r', depth: 0, event })}\n\n`;
+    await page.route('**/api/events/stream*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body:
+          frame('NodeStatusChanged', 'INFO', {
+            executionId: 'exec-1111-aaaa',
+            timestamp: '2026-07-26T14:22:01',
+            nodeId: 'ingest',
+            status: 'RUNNING',
+          }) +
+          frame('NodeStatusChanged', 'ERROR', {
+            executionId: 'exec-2222-bbbb',
+            timestamp: '2026-07-26T14:22:02',
+            nodeId: 'load',
+            status: 'FAILURE',
+          }),
+      })
+    );
+    await page.goto('/control?tab=activity');
+
+    await expect(page.getByText('ingest → RUNNING')).toBeVisible();
+    await expect(page.getByText('load → FAILURE')).toBeVisible();
+    await page.getByRole('button', { name: 'ERROR' }).click();
+    await expect(page.getByText('ingest → RUNNING')).toHaveCount(0);
+    await expect(page.getByText('load → FAILURE')).toBeVisible();
+    await expect(page).toHaveURL(/severity=ERROR/);
+  });
+
+  test('shows the execution limits and changes them', async ({ page }) => {
+    await mockControlApi(page, []);
+    let limits = {
+      maxConcurrent: 4,
+      maxPerWorkflow: 0,
+      running: 3,
+      queued: 1,
+      queueCapacity: 100,
+    };
+    let posted = '';
+    await page.route('**/api/scheduler/limits*', (route) => {
+      if (route.request().method() === 'POST') {
+        posted = new URL(route.request().url()).search;
+        limits = { ...limits, maxConcurrent: 8, maxPerWorkflow: 2 };
+        return route.fulfill(envelope('/limits', {}));
+      }
+      return route.fulfill(envelope('/limits', limits));
+    });
+    await page.goto('/control');
+
+    await expect(page.getByText('Unlimited')).toBeVisible();
+    await page.getByRole('button', { name: 'Edit limits' }).click();
+    await page.getByLabel(/Max concurrent/).fill('8');
+    await page.getByLabel(/Max per workflow/).fill('2');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('button', { name: 'Confirm and save' }).click();
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(posted).toBe('?maxConcurrent=8&maxPerWorkflow=2');
+    await expect(page.getByText('8', { exact: true })).toBeVisible();
   });
 });

@@ -50,7 +50,7 @@ export function SendCommandDialog({
         <Callout kind="warning" compact>
           Commands go straight to the node; this is recorded in the audit log.
         </Callout>
-        <label className="flex flex-col gap-1 text-label-md text-on-surface">
+        <label className="text-label-md text-on-surface flex flex-col gap-1">
           Command (JSON object)
           <textarea
             value={text}
