@@ -6,6 +6,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import {
   nodeAction,
+  changePriority,
   recoverExecution,
   restartFromNode,
   setBreakpoint,
@@ -92,6 +93,11 @@ describe('executionControl api', () => {
       'POST /api/executions/e1/nodes/n%201/breakpoint?field=payload.status&equals=a%26b',
       'DELETE /api/executions/e1/nodes/n%201/breakpoint',
     ]);
+  });
+
+  it('changes the priority of a run', async () => {
+    await changePriority('e 1', -3);
+    expect(calls).toEqual(['priority e 1']);
   });
 
   it('recovers an aborted run', async () => {

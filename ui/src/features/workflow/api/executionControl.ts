@@ -52,6 +52,16 @@ export function runAction(
   return post<StartResponse>(api`/api/executions/${executionId}/${action}`);
 }
 
+/** Changes the priority of a QUEUED run; higher runs first. */
+export function changePriority(
+  executionId: string,
+  priority: number
+): Promise<StartResponse> {
+  return post<StartResponse>(
+    `${api`/api/executions/${executionId}/priority`}?priority=${priority}`
+  );
+}
+
 /** Continues an ABORTED run as a new run; finished nodes are replayed from their recorded output. */
 export function recoverExecution(executionId: string): Promise<StartResponse> {
   return post<StartResponse>(api`/api/executions/${executionId}/recover`);

@@ -11,10 +11,17 @@ async function itemsFor(status: NodeUiStatus, hasBreakpoint = false) {
   const user = userEvent.setup();
   const onCommand = vi.fn();
   const { unmount } = render(
-    <NodeControlsMenu nodeId="n1" status={status} onCommand={onCommand} hasBreakpoint={hasBreakpoint} />
+    <NodeControlsMenu
+      nodeId="n1"
+      status={status}
+      onCommand={onCommand}
+      hasBreakpoint={hasBreakpoint}
+    />
   );
   await user.click(screen.getByRole('button', { name: 'Actions for n1' }));
-  const labels = (await screen.findAllByRole('menuitem')).map((item) => item.textContent);
+  const labels = (await screen.findAllByRole('menuitem')).map(
+    (item) => item.textContent
+  );
   return { user, onCommand, labels, unmount };
 }
 
@@ -47,14 +54,19 @@ describe('NodeControlsMenu', () => {
     const failed = await itemsFor('failed');
     expect(failed.labels).toEqual(['Retry node', 'Restart from here']);
     failed.unmount();
-    expect((await itemsFor('pending')).labels).toEqual(['Skip node', 'Set breakpoint…']);
+    expect((await itemsFor('pending')).labels).toEqual([
+      'Skip node',
+      'Set breakpoint…',
+    ]);
   });
 
   it('offers a breakpoint on a node that has not finished, and Clear once one is set', async () => {
     for (const status of ['pending', 'running', 'paused'] as const) {
       const { labels, unmount } = await itemsFor(status, true);
       expect(labels).toContain('Set breakpoint…');
-      expect(labels[labels.indexOf('Set breakpoint…') + 1]).toBe('Clear breakpoint');
+      expect(labels[labels.indexOf('Set breakpoint…') + 1]).toBe(
+        'Clear breakpoint'
+      );
       unmount();
     }
     for (const status of ['completed', 'failed', 'skipped'] as const) {
@@ -63,7 +75,9 @@ describe('NodeControlsMenu', () => {
       expect(labels).not.toContain('Clear breakpoint');
       unmount();
     }
-    expect((await itemsFor('running')).labels).not.toContain('Clear breakpoint');
+    expect((await itemsFor('running')).labels).not.toContain(
+      'Clear breakpoint'
+    );
   });
 
   it('reports the breakpoint commands', async () => {

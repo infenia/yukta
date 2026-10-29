@@ -31,7 +31,7 @@ export function ExecutionResultBlock({
 
   return (
     <Card className="p-4" data-testid="execution-result">
-      <h3 className="mb-2 flex items-center gap-2 text-overline">
+      <h3 className="text-overline mb-2 flex items-center gap-2">
         Result
         {isStreaming && (
           <span

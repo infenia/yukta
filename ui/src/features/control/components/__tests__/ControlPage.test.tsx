@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
+import { installMockEventSource } from '@/test/mocks/MockEventSource';
 import { ControlPage } from '../ControlPage';
 
 const ok = (data: unknown) =>
@@ -52,6 +53,7 @@ const server = setupServer(
 );
 
 beforeAll(() => server.listen());
+beforeEach(() => installMockEventSource());
 afterEach(() => {
   nodes = [];
   nodesFail = false;

@@ -3,6 +3,24 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { api, fetchApi, ApiError, type ApiResponse } from '../apiClient';
+import { API_KEY_REQUIRED_EVENT } from '../apiKey';
+import { setMe, type Me } from '../identity';
+
+const ME: Me = {
+  authenticated: true,
+  keyName: 'v',
+  role: 'ADMIN',
+  sessions: null,
+  authEnabled: true,
+  permissions: {
+    startRuns: true,
+    controlRuns: true,
+    editSessions: true,
+    deleteSessions: true,
+    changeLimits: true,
+    sendCommands: true,
+  },
+};
 
 describe('ApiError', () => {
   it('uses the message, falling back to the status', () => {
@@ -116,5 +134,26 @@ describe('fetchApi', () => {
   it('propagates network errors', async () => {
     global.fetch = vi.fn().mockRejectedValueOnce(new Error('Network failed'));
     await expect(fetchApi('/api/test')).rejects.toThrow('Network failed');
+  });
+
+  it('asks for a key on 401 only; a 403 is an error that never opens the prompt', async () => {
+    const required = vi.fn();
+    window.addEventListener(API_KEY_REQUIRED_EVENT, required);
+
+    mockFetch({ ok: false, status: 401, body: { message: 'bad key' } });
+    await expect(fetchApi('/api/x')).rejects.toMatchObject({ status: 401 });
+    expect(required).toHaveBeenCalledTimes(1);
+
+    setMe({ ...ME, role: 'VIEWER' });
+    mockFetch({ ok: false, status: 403, body: { message: 'This API key may not do that' } });
+    const refused = await fetchApi('/api/x').catch((e: ApiError) => e);
+    expect(refused).toMatchObject({ status: 403, kind: 'forbidden' });
+    expect((refused as ApiError).message).toBe("Your key (role VIEWER) can't do this");
+    expect(required).toHaveBeenCalledTimes(1);
+
+    setMe(null);
+    mockFetch({ ok: false, status: 403, body: {} });
+    await expect(fetchApi('/api/x')).rejects.toThrow("Your key can't do this");
+    window.removeEventListener(API_KEY_REQUIRED_EVENT, required);
   });
 });

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { RequirePermission } from '@/components/common/RequirePermission';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { InlineError } from '@/components/common/InlineError';
@@ -46,7 +47,7 @@ export function PendingApprovals({ sessionId, workflowId }: Props) {
   return (
     <section
       aria-label="Pending approvals"
-      className="flex flex-col gap-2 border-b border-outline-variant bg-surface-container-low px-6 py-3"
+      className="border-outline-variant bg-surface-container-low flex flex-col gap-2 border-b px-6 py-3"
     >
       {decide.error && (
         <InlineError message={controlErrorMessage(decide.error)} />
@@ -64,21 +65,25 @@ export function PendingApprovals({ sessionId, workflowId }: Props) {
             </span>
             )
           </span>
-          <Button
-            size="sm"
-            disabled={decide.isPending}
-            onClick={() => decide.mutate({ approval, decision: 'approve' })}
-          >
-            Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={decide.isPending}
-            onClick={() => decide.mutate({ approval, decision: 'reject' })}
-          >
-            Reject
-          </Button>
+          <RequirePermission perm="controlRuns">
+            <Button
+              size="sm"
+              disabled={decide.isPending}
+              onClick={() => decide.mutate({ approval, decision: 'approve' })}
+            >
+              Approve
+            </Button>
+          </RequirePermission>
+          <RequirePermission perm="controlRuns">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={decide.isPending}
+              onClick={() => decide.mutate({ approval, decision: 'reject' })}
+            >
+              Reject
+            </Button>
+          </RequirePermission>
         </div>
       ))}
     </section>

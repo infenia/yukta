@@ -28,7 +28,11 @@ export const LOG_FLUSH_MS = 100;
  * so replayed entries are dropped by (timestamp, plugin, stream, message). Lines are buffered
  * and flushed every LOG_FLUSH_MS so a burst costs one re-render, not one per line.
  */
-export function useExecutionLogs(sessionId: string, executionId: string | null, live = true) {
+export function useExecutionLogs(
+  sessionId: string,
+  executionId: string | null,
+  live = true
+) {
   const seen = useRef(new Set<string>());
   const pending = useRef<LogEntry[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);

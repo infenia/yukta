@@ -28,7 +28,10 @@ import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { useWorkflowGraph } from '../hooks/useWorkflowGraph';
 import type { TaskProgress } from '../types/workflow';
 import { StateMessage } from '@/components/common/StateMessage';
-import { BreakpointProvider, useBreakpoints } from '../context/BreakpointContext';
+import {
+  BreakpointProvider,
+  useBreakpoints,
+} from '../context/BreakpointContext';
 import { BreakpointDialog } from './BreakpointDialog';
 
 /** The workflow page: the run, its tasks and logs, and the controls. */
@@ -131,7 +134,7 @@ function WorkflowDetails() {
 
   return (
     <div
-      className="flex flex-1 flex-col bg-background"
+      className="bg-background flex flex-1 flex-col"
       data-testid="workflow-details-page"
     >
       <HeaderPortal targetId="header-actions">
@@ -221,7 +224,10 @@ function WorkflowDetails() {
               { executionId, nodeId: breakpointNode, field, equals },
               {
                 onSuccess: () => {
-                  breakpoints.set(executionId, breakpointNode, { field, equals });
+                  breakpoints.set(executionId, breakpointNode, {
+                    field,
+                    equals,
+                  });
                   setBreakpointNode(null);
                 },
               }

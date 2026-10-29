@@ -86,7 +86,7 @@ function TaskSequenceItem({
         <span
           className={cn(
             'material-symbols-outlined text-base',
-            status === 'running' && 'animate-spin text-primary',
+            status === 'running' && 'text-primary animate-spin',
             status === 'completed' && 'text-success',
             status === 'failed' && 'text-error'
           )}
@@ -106,7 +106,7 @@ function TaskSequenceItem({
         )}
         <span
           className={cn(
-            'ml-auto text-label-sm font-semibold tracking-wider',
+            'text-label-sm ml-auto font-semibold tracking-wider',
             LABEL_CLASSES[status]
           )}
         >
@@ -122,7 +122,7 @@ function TaskSequenceItem({
           />
         )}
       </div>
-      <p className="pl-6 text-body-sm text-on-surface-variant">
+      <p className="text-body-sm text-on-surface-variant pl-6">
         module: {task.module}
       </p>
       <div className="pl-6">
@@ -187,7 +187,7 @@ export function TaskSequenceList({
 
   return (
     <div data-testid="task-sequence">
-      <h3 className="mb-2 text-overline">Task sequence</h3>
+      <h3 className="text-overline mb-2">Task sequence</h3>
       <ul className="flex flex-col">
         {tasks.map((task) => (
           <TaskSequenceItem

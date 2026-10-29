@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/lib/apiClient';
 import {
   clearBreakpoint,
+  changePriority,
   nodeAction,
   recoverExecution,
   restartFromNode,
@@ -63,6 +64,11 @@ export function useExecutionControl(sessionId: string, workflowId: string) {
         action: RunAction;
       }) => runAction(executionId, action),
     }),
+    priority: useMutation({
+      onSuccess,
+      mutationFn: (vars: { executionId: string; priority: number }) =>
+        changePriority(vars.executionId, vars.priority),
+    }),
     recover: useMutation({
       onSuccess: () =>
         Promise.all([
@@ -95,7 +101,12 @@ export function useExecutionControl(sessionId: string, workflowId: string) {
     }),
     setBreakpoint: useMutation({
       onSuccess,
-      mutationFn: (vars: { executionId: string; nodeId: string; field: string; equals: string }) =>
+      mutationFn: (vars: {
+        executionId: string;
+        nodeId: string;
+        field: string;
+        equals: string;
+      }) =>
         setBreakpoint(vars.executionId, vars.nodeId, vars.field, vars.equals),
     }),
     clearBreakpoint: useMutation({

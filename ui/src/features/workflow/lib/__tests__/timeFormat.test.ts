@@ -31,15 +31,21 @@ describe('formatClockTime', () => {
 
 describe('formatDuration', () => {
   it('formats seconds-only durations', () => {
-    expect(formatDuration('2026-07-26T14:22:01', '2026-07-26T14:22:43')).toBe('42s');
+    expect(formatDuration('2026-07-26T14:22:01', '2026-07-26T14:22:43')).toBe(
+      '42s'
+    );
   });
 
   it('formats minute durations like the mockup', () => {
-    expect(formatDuration('2026-07-26T14:22:11', '2026-07-26T14:23:23')).toBe('1m 12s');
+    expect(formatDuration('2026-07-26T14:22:11', '2026-07-26T14:23:23')).toBe(
+      '1m 12s'
+    );
   });
 
   it('formats hour durations', () => {
-    expect(formatDuration('2026-07-26T14:00:00', '2026-07-26T15:01:05')).toBe('1h 1m 5s');
+    expect(formatDuration('2026-07-26T14:00:00', '2026-07-26T15:01:05')).toBe(
+      '1h 1m 5s'
+    );
   });
 
   it('returns -- when either endpoint is missing', () => {
@@ -51,7 +57,9 @@ describe('formatDuration', () => {
   it('returns -- for unparsable or reversed ranges', () => {
     expect(formatDuration('nope', '2026-07-26T14:22:01')).toBe('--');
     expect(formatDuration('2026-07-26T14:22:01', 'nope')).toBe('--');
-    expect(formatDuration('2026-07-26T15:00:00', '2026-07-26T14:00:00')).toBe('--');
+    expect(formatDuration('2026-07-26T15:00:00', '2026-07-26T14:00:00')).toBe(
+      '--'
+    );
   });
 });
 
