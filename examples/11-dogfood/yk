@@ -6,6 +6,7 @@
 #   yk check [--full] [--base REF] [--stage a,b] [--skip a,b] [--no-heal] [--detach]  the scoped, self-healing gate: yk plan's stages one after the other; a failure is
 #                                            fixed (free fix, then a System One triage picks model and effort) or stops the run (--no-heal: at once)
 #   yk plan [--full] [--base REF]            dry run: the stages a scoped check of your changes would run, nothing is executed
+#   yk advise [--base REF] [--no-model]      recommends a test tier for your changes: a floor from the paths, which the decision model can only widen
 #   yk stats                                 runs, failed, median wall and heal dollars per kind of run; fix rate and dollars per stage and rung (from the heal events)
 #   yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]
 #                                            what heal did: where the time and money went, what looks wrong, the raw events
@@ -616,6 +617,7 @@ case "$cmd" in
   gradle) cmd_gradle "$@" ;;
   tool) cmd_tool "$@" ;;
   plan) exec "$here/scripts/plan.sh" "$@" ;;
+  advise) exec "$here/scripts/advise.sh" "$@" ;;
   heal) need python3; exec python3 -I "$here/scripts/heal-report.py" "$@" ;;
   watch) cmd_watch "$@" ;;
   tree) cmd_tree "$@" ;;

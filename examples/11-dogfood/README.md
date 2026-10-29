@@ -70,6 +70,7 @@ model, a stale one, a slow answer or a digest over the cap, the step takes the p
 No model is assumed: set `YUKTA_DECISION_MODEL`. `yk decision` (and `yk status`, from a 10 minute cache) probes Ollama: reachable,
 version, model present and not in an old format, and the time of a small and a 1 KB digest. Scripts call `decide STATE QUESTION
 CRITERIA-JSON` from `scripts/_lib.sh`; `scripts/test-decision.sh` tests it against `fake-ollama.py`.
+`yk advise` (`scripts/advise.sh`, tested by `scripts/test-advise.sh`) recommends a test tier (CLAUDE.md "Test Execution Policy") for the current changes: a deterministic floor from the paths, then one `decide` over a per-file digest (path, lines added/removed, kind; no diff) that can only widen it (`public-contract` to tier 2, `build-or-config` to 3, unsure to one more). No model, an error or an oversized digest leaves the floor. It is advice only; nothing is skipped because of it.
 
 ## Self-healing check
 
