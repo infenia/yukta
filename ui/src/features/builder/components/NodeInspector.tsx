@@ -4,6 +4,7 @@
 import { CodeBlock } from '@/components/common/CodeBlock';
 import type { ConfigField } from '@/features/plugins/types';
 import { usePlugin } from '@/features/plugins/hooks/usePlugins';
+import { Input } from '@/components/ui/input';
 import type { DraftNode } from '../types';
 import { ConfigForm, JsonField } from './ConfigForm';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -69,10 +70,13 @@ type Config = Record<string, unknown>;
 export function NodeInspector({
   node,
   onChange,
+  onGroupChange,
   onRemove,
 }: {
   node: DraftNode;
   onChange: (config: Config) => void;
+  /** A blank stage removes the declared group. */
+  onGroupChange: (group: string | null) => void;
   onRemove: () => void;
 }) {
   const plugin = usePlugin(node.type);
@@ -101,6 +105,28 @@ export function NodeInspector({
           Remove node
         </button>
       </header>
+
+      <div className="flex flex-col gap-1">
+        <label
+          htmlFor="node-group"
+          className="text-on-surface text-label-sm font-semibold"
+        >
+          Stage
+        </label>
+        <Input
+          id="node-group"
+          value={node.group ?? ''}
+          placeholder={node.nodeId.split('.')[0]}
+          aria-describedby="node-group-hint"
+          onChange={(event) => onGroupChange(event.target.value || null)}
+        />
+        <span
+          id="node-group-hint"
+          className="text-body-sm text-on-surface-variant"
+        >
+          Groups nodes on the canvas. Blank uses the node-ID prefix.
+        </span>
+      </div>
 
       {plugin.isPending ? (
         <StateMessage tone="loading" title="Loading…" compact />

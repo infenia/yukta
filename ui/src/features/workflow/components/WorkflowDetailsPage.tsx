@@ -11,7 +11,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
-import { cn } from '@/lib/utils';
 import { Link, useParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
 import {
@@ -26,6 +25,7 @@ import { PendingApprovals } from './PendingApprovals';
 import { ProgressPanel } from './ProgressPanel';
 import { RunHistoryDropdown } from './RunHistoryDropdown';
 import { WorkflowCanvas } from './WorkflowCanvas';
+import { GroupingSwitch } from './nodes/StageNodes';
 import { WorkflowTitleBar } from './WorkflowTitleBar';
 import { WorkflowVersionsPanel } from './WorkflowVersionsPanel';
 import { isTerminalExecStatus, toDisplayExecStatus } from '../lib/statusMapper';
@@ -317,34 +317,10 @@ export function WorkflowDetailsPage() {
             />
           </SubWorkflowLinks>
           {stages.hasStages && (
-            <div
-              role="radiogroup"
-              aria-label="Canvas grouping"
-              className="bg-surface border-border shadow-card absolute top-3 left-3 z-10 flex gap-0.5 rounded-lg border p-0.5"
-            >
-              {(
-                [
-                  [true, 'Group by stage'],
-                  [false, 'All nodes'],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={label}
-                  type="button"
-                  role="radio"
-                  aria-checked={stages.grouped === value}
-                  onClick={() => stages.setGrouped(value)}
-                  className={cn(
-                    'text-label-sm rounded-md px-2.5 py-1',
-                    stages.grouped === value
-                      ? 'bg-muted text-on-surface'
-                      : 'text-on-surface-variant hover:text-on-surface'
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <GroupingSwitch
+              grouped={stages.grouped}
+              onChange={stages.setGrouped}
+            />
           )}
         </div>
         {panelOpen && (
