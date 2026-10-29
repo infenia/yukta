@@ -16,6 +16,15 @@ source "$here/_claude.sh"
 export CLAUDE_CODE_DISABLE_CLAUDE_MDS=1
 # The aliases move when a new model ships; a fixer's cost and behaviour must not.
 export ANTHROPIC_DEFAULT_HAIKU_MODEL=claude-haiku-5-5 ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-5-5
+# Read-only MCP access to the server that runs this workflow (YUKTA_FIXER_MCP=off to disable): the fixer reads more of the failed run on
+# demand instead of being handed all of it. The dev server has a VIEWER key for it (_lib.sh fixer_key); another server needs
+# YUKTA_FIXER_MCP_KEY (a VIEWER key) and YUKTA_SERVER_URL, else the fixer has no MCP, as before.
+if [[ "${YUKTA_FIXER_MCP:-on}" != off ]]; then
+  source "$here/_lib.sh"
+  url="${YUKTA_SERVER_URL:-$DEV_URL}" key="${YUKTA_FIXER_MCP_KEY:-}"
+  [[ -n "$key" || "$url" != "$DEV_URL" || ! -s "$DEV_HOME/fixer-key" ]] || key="$(cat "$DEV_HOME/fixer-key")"
+  [[ -z "$key" ]] || export YK_MCP_URL="${url%/}/mcp" YK_MCP_KEY="$key"
+fi
 [[ -z "${YK_CLAUDE_BIN:-}" ]] || export YUKTA_CLAUDE_BIN="$YK_CLAUDE_BIN"
 err="$(mktemp)"
 trap 'rm -f "$err"' EXIT
