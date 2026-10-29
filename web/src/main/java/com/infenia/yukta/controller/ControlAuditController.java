@@ -9,7 +9,6 @@ import com.infenia.yukta.service.log.ExecutionLogStore;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -57,14 +56,17 @@ public class ControlAuditController {
         .subscribeOn(Schedulers.boundedElastic())
         .map(
             events -> {
-              final List<ExecutionLogEvent> newestFirst = new ArrayList<>(events);
-              Collections.reverse(newestFirst);
-              return newestFirst.stream()
-                  .filter(event -> CONTROL.contains(event.type()))
-                  .filter(event -> executionId == null || executionId.equals(event.executionId()))
-                  .limit(Math.clamp(limit, 1, MAX_LIMIT))
-                  .map(ControlAuditEntry::from)
-                  .toList();
+              // newest first, without copying and reversing the whole list; stops at the limit
+              final int max = Math.clamp(limit, 1, MAX_LIMIT);
+              final List<ControlAuditEntry> entries = new ArrayList<>();
+              for (int i = events.size() - 1; i >= 0 && entries.size() < max; i--) {
+                final ExecutionLogEvent event = events.get(i);
+                if (CONTROL.contains(event.type())
+                    && (executionId == null || executionId.equals(event.executionId()))) {
+                  entries.add(ControlAuditEntry.from(event));
+                }
+              }
+              return entries;
             })
         .map(entries -> ApiResponse.success(200, "Control commands retrieved", entries));
   }
