@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
 class ExecutionResultsTest {
 
   @Test
@@ -83,5 +83,25 @@ class ExecutionResultsTest {
         .containsKeys("stdout", "stderr");
     assertThat(payloadOf(source.withOutput(""))).doesNotContainKeys("stdout", "stderr");
     assertThat(payloadOf(source)).containsKeys("stdout", "stderr");
+  }
+
+  @Test
+  void nestingBeyondTheSearchDepthIsLeftAsIs() {
+    Object deep = Map.of("stdout", "buried");
+    for (int level = 0; level < 10; level++) {
+      deep = Map.of("next", deep);
+    }
+    final ExecutionResults results =
+        new ExecutionResults(
+            "e1",
+            true,
+            "SUCCESS",
+            false,
+            1,
+            List.of(
+                new ResultEvent(
+                    ResultEvent.Kind.RESULT, "t", 0, deep, null, false, java.time.Instant.now())));
+
+    assertThat(results.withOutput(null).events().getFirst().payload()).isEqualTo(deep);
   }
 }

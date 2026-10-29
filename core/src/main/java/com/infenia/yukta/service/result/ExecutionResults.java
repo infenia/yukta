@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.result;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * What an execution's terminal nodes have received so far.
@@ -26,16 +28,16 @@ public record ExecutionResults(
     long nextCursor,
     List<ResultEvent> events) {
 
-  /** Compact constructor to ensure immutability. */
-  public ExecutionResults {
-    events = events == null ? List.of() : List.copyOf(events);
-  }
-
   /** Payload fields that hold a process's output and are left out unless asked for. */
   private static final Set<String> OUTPUT_FIELDS = Set.of("stdout", "stderr");
 
   /** Deepest payload nesting searched for output fields. */
   private static final int MAX_DEPTH = 8;
+
+  /** Compact constructor to ensure immutability. */
+  public ExecutionResults {
+    events = events == null ? List.of() : List.copyOf(events);
+  }
 
   /**
    * Leave the {@code stdout} and {@code stderr} fields out of every payload except the ones named.
@@ -48,7 +50,9 @@ public record ExecutionResults(
     final Set<String> keep =
         include == null
             ? Set.of()
-            : Set.copyOf(List.of(include.toLowerCase(Locale.ROOT).split("\\s*,\\s*")));
+            : Arrays.stream(include.toLowerCase(Locale.ROOT).split(","))
+                .map(String::trim)
+                .collect(Collectors.toUnmodifiableSet());
     final List<ResultEvent> kept =
         events.stream()
             .map(
@@ -65,6 +69,7 @@ public record ExecutionResults(
     return new ExecutionResults(executionId, complete, status, truncated, nextCursor, kept);
   }
 
+  @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.UseConcurrentHashMap"}) // order is kept
   private static Object strip(final Object value, final Set<String> keep, final int depth) {
     if (depth > MAX_DEPTH) {
       return value;

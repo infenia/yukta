@@ -1073,7 +1073,7 @@ export interface paths {
         };
         /**
          * Read the result of an execution
-         * @description Returns what the terminal nodes received so far; complete is true once the execution ended. Answers 404 for an unknown execution or one of another session.
+         * @description Returns what the terminal nodes received so far; complete is true once the execution ended. The stdout and stderr fields of the payloads are left out unless named in include (stdout, stderr or stdout,stderr); fetch again to drill down. Answers 404 for an unknown execution or one of another session.
          */
         get: operations["streamResults"];
         put?: never;
@@ -4324,6 +4324,8 @@ export interface operations {
                 nodeId?: string;
                 /** @description nextCursor of an earlier read */
                 afterCursor?: number;
+                /** @description Output fields to keep in the payloads: stdout, stderr or both */
+                include?: string;
             };
             header?: {
                 "Last-Event-ID"?: string;
