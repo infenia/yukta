@@ -23,13 +23,10 @@ spotless {
     java {
         licenseHeaderFile(licenseHeader)
         importOrder()
-//        removeUnusedImports()
-//        cleanthat()
         googleJavaFormat().reflowLongStrings()
-        leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         endWithNewline()
-        targetExclude("bin/**", "build/**", "out/**", "**/.gradle/**", "**/node_modules/**", "**/dist/**", "**/coverage/**", "**/.gradle/**")
+        targetExclude("bin/**", "build/**", "out/**", "**/.gradle/**", "**/node_modules/**", "**/dist/**", "**/coverage/**")
     }
 
     kotlinGradle {

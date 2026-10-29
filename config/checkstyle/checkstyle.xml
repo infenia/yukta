@@ -415,13 +415,13 @@
             <property name="accessModifiers" value="public"/>
             <property name="allowMissingParamTags" value="true"/>
             <property name="allowMissingReturnTag" value="true"/>
-            <property name="allowedAnnotations" value="Override, Test"/>
+            <property name="allowedAnnotations" value="Override, Test, ParameterizedTest, RepeatedTest, TestFactory, TestTemplate, BeforeEach, AfterEach, BeforeAll, AfterAll"/>
             <property name="tokens" value="METHOD_DEF, CTOR_DEF, ANNOTATION_FIELD_DEF, COMPACT_CTOR_DEF"/>
         </module>
         <module name="MissingJavadocMethod">
             <property name="scope" value="protected"/>
             <property name="allowMissingPropertyJavadoc" value="true"/>
-            <property name="allowedAnnotations" value="Override, Test"/>
+            <property name="allowedAnnotations" value="Override, Test, ParameterizedTest, RepeatedTest, TestFactory, TestTemplate, BeforeEach, AfterEach, BeforeAll, AfterAll"/>
             <property name="tokens" value="METHOD_DEF, CTOR_DEF, ANNOTATION_FIELD_DEF,
                                    COMPACT_CTOR_DEF"/>
         </module>
@@ -455,7 +455,7 @@
         </module>
         <module name="SingleLineJavadoc"/>
         <module name="TodoComment">
-            <property name="format" value="^[ \t]*(?!TODO:)(?i:TODO)\b:?"/>
+            <property name="format" value="\b(?!TODO:)(?i:TODO)\b"/>
             <message key="todo.match"
                      value="''TODO:'' must be written in all caps and followed by a colon."/>
         </module>
