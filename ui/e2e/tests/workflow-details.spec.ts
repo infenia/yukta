@@ -28,15 +28,15 @@ test.describe('Workflow Details Page', () => {
       page.getByRole('heading', { name: 'Supply_Chain_Optimizer_V2' })
     ).toBeVisible();
     await expect(page.getByText('ID: wf-982-xk-11')).toBeVisible();
-    await expect(page.getByTestId('status-chip')).toHaveText('RUNNING');
+    await expect(page.getByTestId('status-chip')).toHaveText('Running');
 
     await expect(page.getByTestId('workflow-node-Data_Ingress')).toBeVisible();
     await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText(
-      'Done'
+      'Succeeded'
     );
     await expect(
       page.getByTestId('workflow-node-Vectorize_Batch')
-    ).toContainText('Active');
+    ).toContainText('Running');
     await expect(page.getByTestId('workflow-node-Sink_Storage')).toContainText(
       'Waiting'
     );
@@ -50,7 +50,7 @@ test.describe('Workflow Details Page', () => {
     await expect(page.getByTestId('execution-summary')).toContainText(
       '--:--:--'
     );
-    await expect(page.getByTestId('task-sequence')).toContainText('COMPLETED');
+    await expect(page.getByTestId('task-sequence')).toContainText('Succeeded');
     await expect(page.getByTestId('task-sequence')).toContainText(
       'module: vector-engine-v2'
     );
@@ -121,14 +121,14 @@ test.describe('Workflow Details Page', () => {
 
     await page.goto(WORKFLOW_URL);
     const node = page.getByTestId('workflow-node-Vectorize_Batch');
-    await expect(node).toContainText('Active');
+    await expect(node).toContainText('Running');
     await page.evaluate(() => {
       (window as unknown as { notReloaded: boolean }).notReloaded = true;
     });
 
     release();
 
-    await expect(node).toContainText('Done');
+    await expect(node).toContainText('Succeeded');
     expect(
       await page.evaluate(
         () => (window as unknown as { notReloaded?: boolean }).notReloaded
@@ -451,7 +451,9 @@ test.describe('Workflow Details Page', () => {
     await page.goto(WORKFLOW_URL);
 
     await expect(page.getByTestId('workflow-details-page')).toBeVisible();
-    await expect(page.getByTestId('status-chip')).toHaveText('NOT RUN');
+    const status = page.getByTestId('status-chip');
+    await expect(status).toContainText('Not run');
+    await expect(status).toHaveAttribute('data-status', 'NOT_RUN');
     await expect(page.getByTestId('run-history-empty')).toBeVisible();
     await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText(
       'Waiting'

@@ -19,13 +19,13 @@ describe('WorkflowTitleBar', () => {
       screen.getByRole('heading', { name: 'Supply_Chain_Optimizer_V2' })
     ).toBeInTheDocument();
     expect(screen.getByText('ID: wf-982-xk-11')).toBeInTheDocument();
-    expect(screen.getByTestId('status-chip')).toHaveTextContent('RUNNING');
+    expect(screen.getByTestId('status-chip')).toHaveTextContent('Running');
   });
 
   it('shows NOT RUN when there is no execution', () => {
     render(
       <WorkflowTitleBar displayName="wf1" workflowId="wf1" status={null} />
     );
-    expect(screen.getByTestId('status-chip')).toHaveTextContent('NOT RUN');
+    expect(screen.getByTestId('status-chip')).toHaveTextContent('Not run');
   });
 });

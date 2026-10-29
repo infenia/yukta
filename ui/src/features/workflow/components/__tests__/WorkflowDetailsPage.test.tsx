@@ -125,10 +125,10 @@ describe('WorkflowDetailsPage', () => {
     expect(screen.getByTestId('logs-panel')).toBeInTheDocument();
 
     await waitFor(() =>
-      expect(screen.getByTestId('status-chip')).toHaveTextContent('RUNNING')
+      expect(screen.getByTestId('status-chip')).toHaveTextContent('Running')
     );
     expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent(
-      'Done'
+      'Succeeded'
     );
   });
 
@@ -196,7 +196,7 @@ describe('WorkflowDetailsPage', () => {
       )
     );
     await waitFor(() =>
-      expect(screen.getByTestId('status-chip')).toHaveTextContent('COMPLETED')
+      expect(screen.getByTestId('status-chip')).toHaveTextContent('Succeeded')
     );
   });
 
@@ -218,10 +218,10 @@ describe('WorkflowDetailsPage', () => {
     renderPage();
     await screen.findByTestId('workflow-details-page');
 
-    expect(screen.getByTestId('status-chip')).toHaveTextContent('NOT RUN');
+    expect(screen.getByTestId('status-chip')).toHaveTextContent('Not run');
     expect(screen.getByTestId('run-history-empty')).toBeInTheDocument();
     expect(screen.getByTestId('execution-summary')).toHaveTextContent(
-      'NOT RUN'
+      'Not run'
     );
     expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent(
       'Waiting'

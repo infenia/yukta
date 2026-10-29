@@ -38,7 +38,7 @@ describe('WorkflowCard', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Completed')).toBeInTheDocument();
+    expect(screen.getByText('Succeeded')).toBeInTheDocument();
   });
 
   it('displays "Running" for RUNNING status', () => {
@@ -71,7 +71,7 @@ describe('WorkflowCard', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Not Run')).toBeInTheDocument();
+    expect(screen.getByText('Not run')).toBeInTheDocument();
   });
 
   it('renders link with correct href', () => {
@@ -93,7 +93,7 @@ describe('WorkflowCard', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Pending')).toBeInTheDocument();
+    expect(screen.getByText('Waiting')).toBeInTheDocument();
   });
 
   it('displays "Failed" for ERROR status', () => {
