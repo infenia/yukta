@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.orchestrator.tracker;
 
 import com.infenia.yukta.model.execution.ControlState;
+import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
@@ -219,6 +220,18 @@ public interface TaskTrackerService {
    * @param state the new control state
    */
   void emitControlStateEvent(@NotBlank String executionId, @NotNull ControlState state);
+
+  /**
+   * Records the breakpoint set on (or cleared from) a node and notifies status subscribers.
+   *
+   * @param executionId the execution identifier
+   * @param nodeId the node
+   * @param breakpoint the breakpoint, or null once cleared
+   */
+  void emitBreakpointEvent(
+      @NotBlank String executionId,
+      @NotBlank String nodeId,
+      TaskProgress.@Nullable Breakpoint breakpoint);
 
   /**
    * Record which version (content hash) of the workflow graph an execution runs, so it is reported

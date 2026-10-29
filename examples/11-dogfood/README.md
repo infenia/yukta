@@ -68,8 +68,12 @@ model, a stale one, a slow answer or a digest over the cap, the step takes the p
 `WARN decision model unavailable: <why and the fix>`. Settings are in `decisions.json`; `YUKTA_DECISION_MODEL`,
 `YUKTA_DECISION_URL`, `YUKTA_DECISION_MAX_INPUT` (characters, question included) override them and `YUKTA_DECISION=off` disables it.
 No model is assumed: set `YUKTA_DECISION_MODEL`. `yk decision` (and `yk status`, from a 10 minute cache) probes Ollama: reachable,
-version, model present and not in an old format, and the time of a small and a 1 KB digest. Scripts call `decide STATE QUESTION
-CRITERIA-JSON` from `scripts/_lib.sh`; `scripts/test-decision.sh` tests it against `fake-ollama.py`.
+version, model present and not in an old format, and the time of a small and a 1 KB digest. Scripts call `decide NAME STATE QUESTION
+CRITERIA-JSON` from `scripts/_lib.sh`. A decision runs in **shadow** by default: the model is asked and `{label, probability, input hash,
+latency}` goes to `.yukta-dev/decisions.tsv`, but the caller's static path still decides. `YUKTA_DECISION=shadow|on|off` sets the mode of all,
+`YUKTA_DECISION_<NAME>` or `decisions.<name>.mode` of one. `decision_outcome NAME STATE LABEL` records what really happened; `yk stats
+--decisions` joins the two and prints agreement, a calibration table and whether the `bar` of the decision in `decisions.json` is met
+(a decision below it stays in shadow); `scripts/test-decision.sh` tests it against `fake-ollama.py`.
 
 ## Self-healing check
 
@@ -80,12 +84,13 @@ CRITERIA-JSON` from `scripts/_lib.sh`; `scripts/test-decision.sh` tests it again
    there with the same problem lines, the stage is a known baseline failure: the heal ends with no fixer. No `origin/main`, a
    timeout or any other error means "not known" and the heal goes on.
 3. **Triage**: a local model (System One, `tev1` via Ollama) rates the failure easy, average or hard. The label only picks the
-   first rung; unreachable or unsure (< 0.3) means average. `--triage off` skips it.
+   first rung; unreachable or unsure (< 0.3) means average. `--triage off` skips it. Optional `triage.stop` in `heal.json` (off by default) adds labels such as `environment` that end the heal with no fixer (`FAILED`, reason `ESCALATE (<label>): …`); enable one only after shadow-mode calibration (#1246) shows the router agrees with what fixed the failure.
 4. **Ladder** (`heal.json`): easy `haiku/low → sonnet/low`, average `haiku/high → sonnet/low`, hard `sonnet/low`. One fresh
-   Claude session per rung. An attempt that changed no file ends the ladder, and so does the first failed attempt on `reuse`, `docs` or `actionlint` (`heal.json` `singleAttempt`); the end of the ladder fails the stage.
-5. **Guard**: what changed on disk decides, not what Claude says. Rejected: edits to `config/`, `build-logic/`, `gradle/`,
+   Claude session per rung. An attempt that changed no file ends the ladder, and so does the first failed attempt on `reuse`, `docs` or `actionlint` (`heal.json` `singleAttempt`); the end of the ladder fails the stage. An attempt after which the stage fails exactly as it did after the attempt before (same problem lines, numbers aside) ends the ladder too: a stronger model would start from the same problems.
+5. **Guard**: what changed on disk decides, not what Claude says. After the rules, the `guard` decision (decisions.json, shadow by default) asks the decision model once about per-file facts, never the diff; once it is `on` it can only reject (`GUARD: model:`), at probability >= `minProbability`. Rejected: edits to `config/`, `build-logic/`, `gradle/`,
    `.github/`, `.claude/` or this folder, added suppressions, removed assertions, test expectations changed with no code
    change, a claimed fix with no change. Fixers never commit.
+   **MCP for fixers**: a fixer reads more of the failed run on demand instead of being handed all of it. `claude.sh` gives it the server's `/mcp` with the read tools only (`get_node_output`, `get_execution_tree`, `get_execution_logs`, `get_execution_result`, `get_workflow_status`, `get_workflow_history`, `get_workflow_details`); the mutating tools are denied in `_claude.sh` and the key is a named `VIEWER` key (`fixer-key` in the dev state dir, added to `server.properties` when `yk up` starts the server, so a server started before this change needs a restart), which the server enforces. `YUKTA_FIXER_MCP=off` turns it off; another server needs `YUKTA_SERVER_URL` and a `VIEWER` key in `YUKTA_FIXER_MCP_KEY`. Without a key a fixer has no MCP, as before. `scripts/test-claude-mcp.sh` tests the arguments.
 6. **Verify**: if anything was healed, the Gradle tasks of all stages run once more; a failure goes back to heal.
 
 `licenses` and `security` are never healed. `--no-heal` ends the run at the first failing stage. With two or more Gradle stages planned, a `fast` step first runs all their tasks as one Gradle invocation (one start-up, one task graph); when it passes the Gradle stages are no-ops, when it fails the stages run one by one as before, so the failing stage, `failed_node` and the healing are unchanged. `--no-fast` skips it. `--models haiku,sonnet`

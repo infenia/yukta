@@ -6,6 +6,7 @@
 #   yk check [--full] [--base REF] [--stage a,b] [--skip a,b] [--no-heal] [--detach]  the scoped, self-healing gate: yk plan's stages one after the other; a failure is
 #                                            fixed (free fix, then a System One triage picks model and effort) or stops the run (--no-heal: at once)
 #   yk plan [--full] [--base REF]            dry run: the stages a scoped check of your changes would run, nothing is executed
+#   yk stats [--decisions]                   (--decisions: the decision model in shadow mode, agreement and calibration per decision)
 #   yk stats                                 runs, failed, median wall and heal dollars per kind of run; fix rate and dollars per stage and rung (from the heal events)
 #   yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]
 #                                            what heal did: where the time and money went, what looks wrong, the raw events
@@ -67,7 +68,7 @@ cmd_status() {
   local sha state=current
   sha="$(server_env YUKTA_DEV_SHA)"
   if [[ "$(server_env YUKTA_DEV_KIND)" == main && -n "$main" && "$main" != "$sha" ]]; then
-    state="stale (origin/main is ${main:0:9}$([[ -s "$DEV_HOME/builds/$main/yukta.jar" ]] && echo ", built; swaps when idle"))"
+    state="stale (origin/main is ${main:0:9}$([[ -s "$DEV_HOME/builds/$main/yukta.jar" ]] && echo ", built; swaps when idle" || true))"
   fi
   echo "up: $DEV_URL $(server_env YUKTA_DEV_LABEL) $state, running=$(busy)$building"
   echo "log: $DEV_HOME/server.log"
@@ -85,12 +86,12 @@ run_tool() {
   cli="$(find_cli)"
   mkdir -p "$STATE_DIR"
   # no lock: yk gradle and yk tool do not edit the checkout, and the server's tool concurrency group queues them (QUEUED in yk tree)
-  session="$(check_session "$project" 1)"
+  session="$(check_session)"
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
   if [[ "${YK_TOOL:-gradle}" == gradle ]]; then cmdline="./gradlew $(printf '%q ' "$@")-q --console=plain" label=gradle
   else cmdline="$(printf '%q ' "$@")" label="$1"; fi
-  render_session "$here/session.json" "$project" | jq --arg s "$session" '.sessionId=$s | .name=$s' >"$tmp/session.json"
+  render_session "$tmp/session.json"
   echo ">> server $YUKTA_SERVER_URL, session $session, project $project" >&2
   "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 \
     || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
@@ -137,7 +138,7 @@ cmd_check() {
   fi
   grep '^#' <<<"$plan" >&2 || true
   local session healdir events
-  session="$(check_session "$root" 0)-plan"
+  session="$(check_session)"
   healdir="$STATE_DIR/heal/$session"
   events="$(heal_events_file)"
   # Per stage of the check workflow (fixed in session.json), "" unless planned: cmd (its command), auto (its free fix, "-" for none) and
@@ -175,7 +176,7 @@ cmd_check() {
   rm -rf "$healdir.prev"; [[ ! -d "$healdir" ]] || mv "$healdir" "$healdir.prev"; mkdir -p "$healdir"
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
-  render_session "$here/session.json" "$root" | jq --arg s "$session" '.sessionId=$s | .name=$s' >"$tmp/session.json"
+  render_session "$tmp/session.json"
   echo ">> server $YUKTA_SERVER_URL, session $session, project $root" >&2
   "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
   exec_id="$("$cli" -o json workflow start "$session" check --payload "$(jq -nc --arg p "$root" --arg d "$healdir" --arg ev "${events:--}" --arg m "${modules:--}" \
@@ -348,19 +349,20 @@ cmd_tree() {
       + ([$appr[] | select(.executionId == $r.executionId) | " awaiting \(.name)@\(.nodeId)"] | join(""))' <<<"$runs"
 }
 
-# yk pause|resume|stop EXEC [--tree]
+# yk pause|resume|stop EXEC [--tree] [--now]   (--now: stop ends the run at once, mode KILL; without it the stop drains, up to 30 s)
 cmd_run_control() {
-  local verb="$1" exec tree=false
+  local verb="$1" exec tree=false mode=
   shift
   exec="$(resolve_exec "${1:?usage: yk $verb <execution> [--tree]}")"
   shift
   while (($#)); do
     case "$1" in
       --tree) tree=true; shift ;;
-      *) die "unknown option '$1' (yk $verb <execution> [--tree])" ;;
+      --now) [[ "$verb" == stop ]] || die "--now is for yk stop"; mode=KILL; shift ;;
+      *) die "unknown option '$1' (yk $verb <execution> [--tree]$([[ "$verb" == stop ]] && echo ' [--now]'))" ;;
     esac
   done
-  api POST "/api/executions/$exec/$verb?tree=$tree" >/dev/null
+  api POST "/api/executions/$exec/$verb?tree=$tree${mode:+&mode=$mode}" >/dev/null
   echo "$verb: $exec$([[ "$tree" == true ]] && echo ' and the runs below it')"
 }
 
@@ -478,6 +480,11 @@ refresh_activity() {
 # wall seconds and heal dollars; then, per stage and rung (the model that tried to fix it), attempts, fixes, fix rate and dollars. A run counts once per
 # `result` event, so the numbers equal `jq 'select(.event=="result")' <events file>`. Without an events file it falls back to runs.tsv.
 cmd_stats() {
+  if [[ "${1:-}" == --decisions ]]; then
+    need python3
+    python3 -I "$here/scripts/decisions-report.py" "$STATE_DIR/decisions.tsv" "$here/decisions.json"
+    return
+  fi
   local ev; ev="$(heal_events_file)"
   if [[ -n "$ev" && -s "$ev" ]]; then
     stats_from_events "$ev"
@@ -624,7 +631,7 @@ case "$cmd" in
   step) cmd_step "$@" ;;
   signals) cmd_signals "$@" ;;
   approve | reject) cmd_answer "$cmd" "$@" ;;
-  stats) cmd_stats ;;
+  stats) cmd_stats "$@" ;;
   detail) cmd_detail "$@" ;;
   statusline) cmd_statusline ;;
   bench) cmd_bench "$@" ;;

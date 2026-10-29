@@ -198,4 +198,18 @@ class TaskProgressTest {
     assertThatThrownBy(() -> progress.metadata().put("newKey", "newValue"))
         .isInstanceOf(UnsupportedOperationException.class);
   }
+
+  @Test
+  void json_omitsTheBreakpointWhenNull_andShowsItWhenSet() {
+    final tools.jackson.databind.json.JsonMapper mapper =
+        tools.jackson.databind.json.JsonMapper.builder().build();
+    final TaskProgress none = new TaskProgress("n", "m", "RUNNING", null, null, Map.of());
+    final TaskProgress set =
+        new TaskProgress(
+            "n", "m", "RUNNING", null, null, Map.of(), new TaskProgress.Breakpoint("payload", "x"));
+
+    assertThat(mapper.writeValueAsString(none)).doesNotContain("breakpoint");
+    assertThat(mapper.writeValueAsString(set))
+        .contains("\"breakpoint\":{\"field\":\"payload\",\"equals\":\"x\"}");
+  }
 }

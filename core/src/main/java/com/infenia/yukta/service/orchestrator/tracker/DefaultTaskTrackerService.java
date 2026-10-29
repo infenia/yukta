@@ -8,6 +8,7 @@ import com.infenia.yukta.event.WorkflowLogEvent;
 import com.infenia.yukta.event.WorkflowStatusEvent;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.model.execution.ControlState;
+import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
@@ -507,6 +508,19 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     }
     workflowState.setControlState(state.name());
     streams.notifyStatusChange(workflowState);
+  }
+
+  @Override
+  public void emitBreakpointEvent(
+      @NotBlank final String executionId,
+      @NotBlank final String nodeId,
+      final TaskProgress.@Nullable Breakpoint breakpoint) {
+    Optional.ofNullable(findState(executionId))
+        .ifPresent(
+            workflowState -> {
+              workflowState.setBreakpoint(nodeId, breakpoint);
+              streams.notifyStatusChange(workflowState);
+            });
   }
 
   @Override

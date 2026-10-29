@@ -73,6 +73,11 @@ lines of that stage). Fix only what they report, then rerun the same command. If
 (`<failure` in `<module>/build/test-results/test/TEST-*.xml`); never read a report or log whole.
 Levels of output: a green run is a few lines ending in `RESULT`; a red run adds the `ERROR` lines (known noise such as `BUILD FAILED in ..`, the exit-code line and JVM `WARNING:` lines is dropped, so a failing compile is a few hundred bytes), then a `MORE yk detail <session> <execution>` line just above `RESULT`. That is the next level: `yk detail <session> <execution> [--grep P] [--tail N] [--head N]` prints the full output of the stage that failed, filtered; use it before opening a report file.
 
+## Headless fixers read more over MCP
+A fixer's prompt carries the failure in short (the L1 digest) and its session id. With the dev server's read-only `fixer` key it can call
+`mcp__yukta__get_workflow_history` / `get_node_output` (tail, grep, page) for more, so it asks for detail instead of receiving it. It cannot
+start, control or change anything (a `VIEWER` key, plus a deny list in `examples/11-dogfood/scripts/_claude.sh`). `YUKTA_FIXER_MCP=off` disables it.
+
 ## Don'ts
 - Don't run `./gradlew`/`gradle`, `go` or `pnpm`/`npm`/`npx` directly, or start the Yukta dev server yourself (`./gradlew bootRun`
   to try the app you are changing is fine).

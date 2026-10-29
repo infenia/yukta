@@ -49,6 +49,8 @@ export interface TaskProgress {
   startTime: string | null;
   endTime: string | null;
   metadata?: Record<string, unknown>;
+  /** The active breakpoint: the node pauses when `field` equals `equals`. */
+  breakpoint?: { field: string; equals: string } | null;
 }
 
 export interface WorkflowProgress {

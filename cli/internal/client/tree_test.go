@@ -41,6 +41,8 @@ func TestTreeControl_asksForTheTree_onlyWhenAsked(t *testing.T) {
 		func() (WorkflowStartResponse, error) { return c.ResumeWorkflowTree("s1", "e1", true) },
 		func() (WorkflowStartResponse, error) { return c.StopExecutionTree("e1", true) },
 		func() (WorkflowStartResponse, error) { return c.PauseWorkflow("s1", "e1") },
+		func() (WorkflowStartResponse, error) { return c.StopExecutionMode("e1", false, "KILL") },
+		func() (WorkflowStartResponse, error) { return c.StopExecutionMode("e1", true, "CANCEL") },
 	}
 	for _, call := range calls {
 		if resp, err := call(); err != nil || resp.ExecutionID != "e1" {
@@ -52,6 +54,8 @@ func TestTreeControl_asksForTheTree_onlyWhenAsked(t *testing.T) {
 		"POST /api/executions/e1/resume?tree=true",
 		"POST /api/executions/e1/stop?tree=true",
 		"POST /api/executions/e1/pause?",
+		"POST /api/executions/e1/stop?mode=KILL",
+		"POST /api/executions/e1/stop?mode=CANCEL&tree=true",
 	}
 	if strings.Join(seen, "\n") != strings.Join(want, "\n") {
 		t.Errorf("requests:\n%s\nwant:\n%s", strings.Join(seen, "\n"), strings.Join(want, "\n"))

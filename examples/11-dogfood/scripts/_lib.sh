@@ -26,8 +26,13 @@ os_arch() {
 
 # dev_key: the dev server's API key (generated once, readable only by this user). Without a key the
 # server's REST API is open to every local account, and it runs any process (YUKTA_PROCESS_ALLOW_ANY).
-dev_key() {
-  local file="$DEV_HOME/api-key"
+dev_key() { _dev_secret api-key; }
+
+# fixer_key: a second, named VIEWER key of the dev server for the headless fixers (they may read a run over MCP, never change it).
+fixer_key() { _dev_secret fixer-key; }
+
+_dev_secret() {
+  local file="$DEV_HOME/$1"
   if [[ ! -s "$file" ]]; then
     mkdir -p "$DEV_HOME"
     (umask 077 && head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' >"$file")
@@ -61,10 +66,13 @@ find_cli() {
   die "yukta-cli not found; run 'yk up' (builds it from main) or set YUKTA_BIN"
 }
 
-# render_session TEMPLATE PROJECT_PATH: prints the session JSON with __PROJECT_PATH__ (the checkout) and __DOGFOOD__ (this folder) replaced.
-# Done on parsed JSON so any characters in the path are escaped correctly.
+# render_session OUT: writes the one `dogfood` session to OUT, always from the main checkout the dev server runs ($DEV_HOME/main), never
+# from the worktree yk was called in: __PROJECT_PATH__ (the project) and __DOGFOOD__ (the scripts) are that checkout's, so applying it
+# from any worktree gives the same session.
 render_session() {
-  jq --arg p "$2" --arg d "$here" 'walk(if type == "string" then split("__PROJECT_PATH__") | join($p) | split("__DOGFOOD__") | join($d) else . end)' "$1"
+  local d="$DEV_HOME/main/examples/11-dogfood"
+  [[ -f "$d/session.json" ]] || d="$here"
+  jq --arg p "${d%/examples/11-dogfood}" --arg d "$d" 'walk(if type == "string" then split("__PROJECT_PATH__") | join($p) | split("__DOGFOOD__") | join($d) else . end) | .sessionId="dogfood" | .name="dogfood"' "$d/session.json" >"$1"
 }
 
 # changes_sum ROOT: a hash of the uncommitted code changes of a checkout (the Stop hook skips a check
@@ -141,7 +149,7 @@ server_launch() {
       YUKTA_SUPERVISOR_RULES_FILE="$rules"
     # The key goes in a file, not the environment: the server's children (the gradle stages and their
     # test JVMs) inherit its environment, and a Spring Boot test that saw YUKTA_API_KEY would demand it.
-    (umask 077 && printf 'yukta.api-key=%s\n' "$(dev_key)" >"$DEV_HOME/server.properties")
+    (umask 077 && printf 'yukta.api-key=%s\nyukta.api-keys[0].name=fixer\nyukta.api-keys[0].key=%s\nyukta.api-keys[0].role=VIEWER\n' "$(dev_key)" "$(fixer_key)" >"$DEV_HOME/server.properties")
     setsid bash -c 'echo $$ >"$1"; shift; exec "$@"' _ "$DEV_HOME/server.pid" "$@" \
       "--spring.config.additional-location=file:$DEV_HOME/server.properties" \
       >"$DEV_HOME/server.log" 2>&1 </dev/null 9>&- &
@@ -244,7 +252,15 @@ ensure_server() {
   fi
   ours && [[ "$(server_env YUKTA_DEV_KIND)" == main ]] || return 0
   local sha
+  # a main that moved: fetch it at most once a minute, then build it in the background (yk up swaps once the server is idle)
+  if [[ -z "$(find "$DEV_HOME/fetched" -mmin -1 2>/dev/null)" ]]; then
+    touch "$DEV_HOME/fetched"
+    git -C "$DEV_HOME/main" fetch -q origin main 2>/dev/null || true
+  fi
   sha="$(git -C "$DEV_HOME/main" rev-parse "${YUKTA_DEV_MAIN_REF:-origin/main}" 2>/dev/null)" || return 0
+  if [[ "$sha" != "$(server_env YUKTA_DEV_SHA)" && ! -s "$DEV_HOME/builds/$sha/yukta.jar" ]]; then
+    "$here/yk" up --background >/dev/null 2>&1 || true
+  fi
   if [[ ("$sha" != "$(server_env YUKTA_DEV_SHA)" || "$(server_env YUKTA_DEV_KEYED)" != 2) \
     && -s "$DEV_HOME/builds/$sha/yukta.jar" && "$(busy)" == 0 ]]; then
     (server_up) >&2 || true
@@ -292,15 +308,9 @@ emit_result() {
     | { flock 9; cat >>"$events"; } 9>>"$events.lock" 2>/dev/null || true
 }
 
-# check_session PROJECT NARGS: the session a check of PROJECT runs in on the shared server. The path hash keeps
-# checkouts apart (two clones) and keeps one session per checkout across branch switches. A run with gradle args (yk gradle) gets a session of its own:
-# applying a session replaces its workflows and a run clears its heal records, so a yk gradle of a fixer in the
-# checkout (the pre-bash hook sends it there) must not share the session of the check it is healing.
-check_session() {
-  local suffix=""
-  (( ${2:-0} > 0 )) && suffix="-gradle"
-  echo "check-$(printf '%s' "$1" | sha1sum | cut -c1-8)$suffix"
-}
+# check_session: the one session every run of this checkout's tools shares on the dev server (yk gradle, yk tool, yk check). What changes
+# per run travels in the start payload; the heal records live per checkout in $STATE_DIR/heal/<session>.
+check_session() { echo dogfood; }
 
 # print_result SESSION EXECUTION: prints the machine readable RESULT line; returns 0 only when the
 # execution ended SUCCESS.
@@ -439,7 +449,7 @@ record_durations() {
 
 # ---- the optional decision model (System One via Ollama), see decisions.json. Everything here fails open: with no model, a stale model,
 # a slow answer or too big a digest the caller takes the path it took before, and gets one WARN line.
-# YUKTA_DECISION=off disables it; YUKTA_DECISION_MODEL, YUKTA_DECISION_URL, YUKTA_DECISION_MAX_INPUT override decisions.json.
+# YUKTA_DECISION=shadow|on|off (default shadow) sets the mode of every decision, YUKTA_DECISION_<NAME> of one; YUKTA_DECISION_MODEL, YUKTA_DECISION_URL, YUKTA_DECISION_MAX_INPUT override decisions.json.
 _dec() { jq -r --arg k "$1" '.[$k] // empty' "$(dirname "${BASH_SOURCE[0]}")/../decisions.json"; }
 decision_model() { echo "${YUKTA_DECISION_MODEL:-$(_dec model)}"; }
 decision_url() { echo "${YUKTA_DECISION_URL:-$(_dec url)}"; }
@@ -460,11 +470,33 @@ _decision_body() {
     '{model: $m, state: $s, questions: {q: {type: "choice", instructions: $q, criteria: $c}}, keep_alive: "10m"}'
 }
 
-# decide STATE QUESTION CRITERIA-JSON: prints "<label> <probability>" for the model's choice. Returns 1, with a WARN on stderr, when there is
-# no answer (off, no model, digest over the cap, error): the caller keeps its static path.
+# decision_mode NAME: shadow (default: ask, record, and let the caller's static path decide), on (use the answer) or off (do not ask).
+# YUKTA_DECISION_<NAME> beats the "mode" of the decision in decisions.json, which beats YUKTA_DECISION.
+decision_mode() {
+  local v m
+  v="YUKTA_DECISION_$(tr '[:lower:]-' '[:upper:]_' <<<"$1")"
+  m="${!v:-$(jq -r --arg n "$1" '.decisions[$n].mode // empty' "$(dirname "${BASH_SOURCE[0]}")/../decisions.json")}"
+  echo "${m:-${YUKTA_DECISION:-shadow}}"
+}
+
+# decision_log KIND NAME HASH MODE LABEL PROB MS: one line of $STATE_DIR/decisions.tsv (kind decision, or outcome with the real label)
+decision_log() {
+  mkdir -p "$STATE_DIR" 2>/dev/null || return 0
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$@" >>"$STATE_DIR/decisions.tsv" 2>/dev/null || true
+}
+decision_hash() { printf '%s' "$1" | sha1sum | cut -c1-12; }
+
+# decision_outcome NAME STATE LABEL: what really happened for a decision made on STATE (the rung that fixed the stage, the module the issue
+# ended in): the report joins it to the decision by the hash of STATE
+decision_outcome() { decision_log outcome "$1" "$(decision_hash "$2")" - "$3" - -; }
+
+# decide NAME STATE QUESTION CRITERIA-JSON: prints "<label> <probability>" for the model's choice and returns 0 only in mode on and when the
+# model answered. In shadow mode it asks, records the answer in decisions.tsv and returns 1 (the caller's static path decides). Returns 1,
+# with a WARN on stderr, when there is no answer (no model, digest over the cap, error): the caller keeps its static path.
 decide() {
-  local state="$1" question="$2" criteria="$3" model url max reply head code
-  [[ "${YUKTA_DECISION:-on}" != off ]] || return 1
+  local name="$1" state="$2" question="$3" criteria="$4" mode model url max reply head code ms out
+  mode="$(decision_mode "$name")"
+  [[ "$mode" != off ]] || return 1
   model="$(decision_model)" url="$(decision_url)" max="${YUKTA_DECISION_MAX_INPUT:-$(_dec maxInput)}"
   if [[ -z "$model" ]]; then echo "WARN decision model unavailable: none configured (YUKTA_DECISION_MODEL)" >&2; return 1; fi
   if ((${#state} + ${#question} > ${max:-1024})); then
@@ -472,13 +504,16 @@ decide() {
     return 1
   fi
   reply="$(_decision_call "$url" "$(_decision_body "$model" "$state" "$question" "$criteria")")"
-  head="$(head -n 1 <<<"$reply")" code="${head%% *}"
+  head="$(sed -n 1p <<<"$reply")" code="${head%% *}" ms="${head##* }"
   if [[ "$code" != 200 ]]; then
     echo "WARN decision model unavailable: $(_decision_reason "$code" "$(tail -n +2 <<<"$reply")" "$model")" >&2
     return 1
   fi
-  tail -n +2 <<<"$reply" | jq -r '.answers.q | "\(.choice) \(.probabilities[.choice])"' 2>/dev/null \
+  out="$(tail -n +2 <<<"$reply" | jq -r '.answers.q | "\(.choice) \(.probabilities[.choice])"' 2>/dev/null)" \
     || { echo "WARN decision model unavailable: unreadable answer" >&2; return 1; }
+  decision_log decision "$name" "$(decision_hash "$state")" "$mode" "${out% *}" "${out#* }" "$ms"
+  [[ "$mode" == on ]] || return 1
+  echo "$out"
 }
 
 # _decision_reason CODE BODY MODEL: what a failed call means, with the command that fixes it
@@ -494,7 +529,7 @@ _decision_reason() {
 # $DEV_HOME/decision.cache so `yk status` does not ask every time.
 decision_probe() {
   local model url cache="$DEV_HOME/decision.cache" ttl ver reply head code ms ms_small ms_big crit="{\"ok\":\"the probe\",\"no\":\"never\"}" line
-  if [[ "${YUKTA_DECISION:-on}" == off ]]; then echo "decision: off (YUKTA_DECISION=off)"; return 1; fi
+  if [[ "${YUKTA_DECISION:-shadow}" == off ]]; then echo "decision: off (YUKTA_DECISION=off)"; return 1; fi
   model="$(decision_model)" url="$(decision_url)" ttl="$(_dec probeCacheSeconds)"
   if [[ -s "$cache" && "$(head -n 1 "$cache")" == "$model $url" && $(($(date +%s) - $(stat -c %Y "$cache"))) -lt ${ttl:-600} && -z "${YK_DECISION_FRESH:-}" ]]; then
     tail -n +2 "$cache"; tail -n +2 "$cache" | grep -q '^decision: ok'; return

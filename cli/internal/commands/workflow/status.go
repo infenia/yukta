@@ -43,7 +43,23 @@ Shows the execution ID, workflow ID, overall status, and progress of individual 
 			fmt.Printf("  Started:  %s\n", resp.StartTime)
 			fmt.Printf("  Ended:    %s\n", resp.EndTime)
 			fmt.Printf("  Tasks:    %d\n", len(resp.Tasks))
+			if len(resp.Tasks) > 0 {
+				output.PrintTable([]string{"Node", "Module", "Status", "BP"}, taskRows(resp.Tasks))
+			}
 			return nil
 		},
 	}
+}
+
+// taskRows is one row per node: its status and, in the BP column, the breakpoint as field=value.
+func taskRows(tasks []client.TaskProgress) [][]string {
+	rows := make([][]string, 0, len(tasks))
+	for _, t := range tasks {
+		bp := ""
+		if t.Breakpoint != nil {
+			bp = t.Breakpoint.Field + "=" + t.Breakpoint.Equals
+		}
+		rows = append(rows, []string{t.NodeID, t.Module, t.Status, bp})
+	}
+	return rows
 }

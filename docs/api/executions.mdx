@@ -236,7 +236,7 @@ Returns numbered lines of what one node wrote, so a client does not have to stre
 
 `POST /api/executions/{executionId}/stop`
 
-Stops one run; with `?tree=true` also every unfinished run it started as a [sub-workflow](/concepts/sub-workflows), at any depth. To stop every active run of a workflow, use [`POST /api/workflow/{sessionId}/{workflowId}/stop`](/api/workflows#stop-all-runs-of-a-workflow).
+Stops one run; with `?tree=true` also every unfinished run it started as a [sub-workflow](/concepts/sub-workflows), at any depth. `?mode=DRAIN` (default), `CANCEL` or `KILL` picks how it ends, as for [stopping a workflow](/running/run-controls). To stop every active run of a workflow, use [`POST /api/workflow/{sessionId}/{workflowId}/stop`](/api/workflows#stop-all-runs-of-a-workflow).
 
 **Response `data`**: `executionId` of the stopped run.
 
