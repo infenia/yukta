@@ -529,7 +529,7 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
 
   /** Reads the values at the dotted paths out of the JSON on stdout; what is missing is skipped. */
   private Map<String, Object> lift(final Map<String, String> paths, final String stdout) {
-    if (paths.isEmpty() || stdout == null || stdout.isBlank()) {
+    if (paths.isEmpty() || stdout.isBlank()) {
       return Map.of();
     }
     final JsonNode root;

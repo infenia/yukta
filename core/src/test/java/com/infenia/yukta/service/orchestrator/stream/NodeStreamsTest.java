@@ -134,7 +134,7 @@ class NodeStreamsTest {
   }
 
   @Test
-  void nodeMetadataOfAMessage_isMergedIntoTheSuccessEvent() {
+  void nodeMetadataOfMessage_isMergedIntoTheSuccessEvent() {
     final Message<?> msg =
         DefaultMessage.create(UUID.randomUUID(), "x")
             .withMetadata(Map.of(Message.NODE_METADATA_KEY, Map.of("cost", 0.5)));

@@ -147,9 +147,10 @@ public class NodeStreams {
   }
 
   /** The values a message hands to its node's task record, if it carries any. */
+  @SuppressWarnings("PMD.UseConcurrentHashMap") // built and read on one thread
   private static Optional<Map<String, Object>> nodeMetadata(final Message<?> message) {
     final Map<String, Object> metadata = message.metadata();
-    if (metadata != null && metadata.get(Message.NODE_METADATA_KEY) instanceof Map<?, ?> values) {
+    if (metadata.get(Message.NODE_METADATA_KEY) instanceof Map<?, ?> values) {
       final Map<String, Object> copy = new LinkedHashMap<>();
       values.forEach((key, value) -> copy.put(String.valueOf(key), value));
       return Optional.of(copy);

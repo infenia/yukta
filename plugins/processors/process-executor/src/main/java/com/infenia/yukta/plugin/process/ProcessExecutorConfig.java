@@ -79,7 +79,7 @@ import java.util.Map;
   }
 
   /** Builder for {@link ProcessExecutorConfig}. */
-  @SuppressWarnings("PMD.TooManyMethods")
+  @SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyFields"})
   /* package */ static final class Builder {
     /** The resolved command and arguments. */
     private List<String> commandValue = List.of();
