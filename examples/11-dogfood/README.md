@@ -61,6 +61,16 @@ running**; `yk check` and `yk gradle` complete a pending swap when idle. `yk up 
 instead; `yk down` stops the server yk started. The server needs an API key (it runs any process): `yk` creates one per
 machine in `~/.local/state/yukta-dev/api-key` and sends it with every call.
 
+## Decision model (optional)
+
+Some steps can ask a small System One model for a decision (a label with a probability). It is optional and fails open: with no
+model, a stale one, a slow answer or a digest over the cap, the step takes the path it took before and prints one
+`WARN decision model unavailable: <why and the fix>`. Settings are in `decisions.json`; `YUKTA_DECISION_MODEL`,
+`YUKTA_DECISION_URL`, `YUKTA_DECISION_MAX_INPUT` (characters, question included) override them and `YUKTA_DECISION=off` disables it.
+No model is assumed: set `YUKTA_DECISION_MODEL`. `yk decision` (and `yk status`, from a 10 minute cache) probes Ollama: reachable,
+version, model present and not in an old format, and the time of a small and a 1 KB digest. Scripts call `decide STATE QUESTION
+CRITERIA-JSON` from `scripts/_lib.sh`; `scripts/test-decision.sh` tests it against `fake-ollama.py`.
+
 ## Self-healing check
 
 `yk check` runs the stages of `yk plan` one after the other (cheap first). A failing stage goes to `heal`:

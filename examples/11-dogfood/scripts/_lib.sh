@@ -436,3 +436,89 @@ record_durations() {
        | {stage: (.nodeId | stage), secs: ((.endTime | secs) - (.startTime | secs))}]
     | group_by(.stage)[] | "\($p.workflowId)\t\(.[0].stage)\t\(map(.secs) | add * 1000 | round / 1000)"')
 }
+
+# ---- the optional decision model (System One via Ollama), see decisions.json. Everything here fails open: with no model, a stale model,
+# a slow answer or too big a digest the caller takes the path it took before, and gets one WARN line.
+# YUKTA_DECISION=off disables it; YUKTA_DECISION_MODEL, YUKTA_DECISION_URL, YUKTA_DECISION_MAX_INPUT override decisions.json.
+_dec() { jq -r --arg k "$1" '.[$k] // empty' "$(dirname "${BASH_SOURCE[0]}")/../decisions.json"; }
+decision_model() { echo "${YUKTA_DECISION_MODEL:-$(_dec model)}"; }
+decision_url() { echo "${YUKTA_DECISION_URL:-$(_dec url)}"; }
+
+# _decision_call URL BODY: prints "<http-code> <ms>" then the body of the answer (curl, 60 s at most)
+_decision_call() {
+  local t0 out code
+  t0="$(date +%s%N)"
+  out="$(curl -sS -m 60 -o - -w '\n%{http_code}' -H 'Content-Type: application/json' -d "$2" "$1/v1/systemone" 2>&1)" || { echo "000 0"; echo "$out"; return; }
+  code="${out##*$'\n'}"
+  echo "$code $(((($(date +%s%N) - t0)) / 1000000))"
+  echo "${out%$'\n'*}"
+}
+
+# _decision_body MODEL STATE QUESTION CRITERIA-JSON: the System One request with one choice question named "q"
+_decision_body() {
+  jq -nc --arg m "$1" --arg s "$2" --arg q "$3" --argjson c "$4" \
+    '{model: $m, state: $s, questions: {q: {type: "choice", instructions: $q, criteria: $c}}, keep_alive: "10m"}'
+}
+
+# decide STATE QUESTION CRITERIA-JSON: prints "<label> <probability>" for the model's choice. Returns 1, with a WARN on stderr, when there is
+# no answer (off, no model, digest over the cap, error): the caller keeps its static path.
+decide() {
+  local state="$1" question="$2" criteria="$3" model url max reply head code
+  [[ "${YUKTA_DECISION:-on}" != off ]] || return 1
+  model="$(decision_model)" url="$(decision_url)" max="${YUKTA_DECISION_MAX_INPUT:-$(_dec maxInput)}"
+  if [[ -z "$model" ]]; then echo "WARN decision model unavailable: none configured (YUKTA_DECISION_MODEL)" >&2; return 1; fi
+  if ((${#state} + ${#question} > ${max:-1024})); then
+    echo "WARN decision model unavailable: the digest is $((${#state} + ${#question})) characters, over the cap of ${max:-1024}" >&2
+    return 1
+  fi
+  reply="$(_decision_call "$url" "$(_decision_body "$model" "$state" "$question" "$criteria")")"
+  head="$(head -n 1 <<<"$reply")" code="${head%% *}"
+  if [[ "$code" != 200 ]]; then
+    echo "WARN decision model unavailable: $(_decision_reason "$code" "$(tail -n +2 <<<"$reply")" "$model")" >&2
+    return 1
+  fi
+  tail -n +2 <<<"$reply" | jq -r '.answers.q | "\(.choice) \(.probabilities[.choice])"' 2>/dev/null \
+    || { echo "WARN decision model unavailable: unreadable answer" >&2; return 1; }
+}
+
+# _decision_reason CODE BODY MODEL: what a failed call means, with the command that fixes it
+_decision_reason() {
+  case "$2" in
+    *"no longer supported"*) echo "'$3' was downloaded in a format that is no longer supported; run: ollama pull $3" ;;
+    *"not found"*) echo "model '$3' is not pulled; run: ollama pull $3" ;;
+    *) if [[ "$1" == 000 ]]; then echo "Ollama is not reachable at $(decision_url) (${2:0:120}); run: ollama serve"; else echo "HTTP $1: ${2:0:160}"; fi ;;
+  esac
+}
+
+# decision_probe: one line "decision: ..." saying whether the decision model works, and 0 when it does. Kept for probeCacheSeconds in
+# $DEV_HOME/decision.cache so `yk status` does not ask every time.
+decision_probe() {
+  local model url cache="$DEV_HOME/decision.cache" ttl ver reply head code ms ms_small ms_big crit="{\"ok\":\"the probe\",\"no\":\"never\"}" line
+  if [[ "${YUKTA_DECISION:-on}" == off ]]; then echo "decision: off (YUKTA_DECISION=off)"; return 1; fi
+  model="$(decision_model)" url="$(decision_url)" ttl="$(_dec probeCacheSeconds)"
+  if [[ -s "$cache" && "$(head -n 1 "$cache")" == "$model $url" && $(($(date +%s) - $(stat -c %Y "$cache"))) -lt ${ttl:-600} && -z "${YK_DECISION_FRESH:-}" ]]; then
+    tail -n +2 "$cache"; tail -n +2 "$cache" | grep -q '^decision: ok'; return
+  fi
+  if [[ -z "$model" ]]; then
+    line="decision: not configured; set YUKTA_DECISION_MODEL (installed: $(curl -sS -m 3 "$url/api/tags" 2>/dev/null | jq -r '[.models[].name] | join(", ")' 2>/dev/null || echo "Ollama not reachable at $url"))"
+  elif ! ver="$(curl -sS -m 3 "$url/api/version" 2>/dev/null | jq -er .version)"; then
+    line="decision: unavailable, Ollama is not reachable at $url; run: ollama serve"
+  elif [[ "$(printf '%s\n%s\n' "$(_dec minOllama)" "$ver" | sort -V | head -n 1)" != "$(_dec minOllama)" ]]; then
+    line="decision: unavailable, Ollama $ver is older than $(_dec minOllama); update Ollama"
+  else
+    reply="$(_decision_call "$url" "$(_decision_body "$model" "Is this a probe? Yes." "Is this a probe?" "$crit")")"
+    head="$(head -n 1 <<<"$reply")" code="${head%% *}" ms="${head##* }"
+    if [[ "$code" != 200 ]]; then
+      line="decision: unavailable, $(_decision_reason "$code" "$(tail -n +2 <<<"$reply")" "$model")"
+    else
+      ms_small="$ms"
+      ms_big="$(_decision_call "$url" "$(_decision_body "$model" "$(head -c 1000 /dev/zero | tr '\0' x)" "Is this a probe?" "$crit")" | sed -n 1p)"
+      ms_big="${ms_big##* }"
+      line="decision: ok $model at $url (Ollama $ver), ${ms_small} ms for a small digest, $((ms_big > ms_small ? ms_big - ms_small : 0)) ms per KB"
+      ((ms_small > $(_dec slowMs))) && line="$line; WARN slower than $(_dec slowMs) ms, keep it off the green path"
+    fi
+  fi
+  mkdir -p "$DEV_HOME" 2>/dev/null && printf '%s %s\n%s\n' "$model" "$url" "$line" >"$cache" 2>/dev/null || true
+  echo "$line"
+  [[ "$line" == "decision: ok"* ]]
+}
