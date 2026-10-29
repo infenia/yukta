@@ -217,7 +217,11 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final NodePolicy policy = NodePolicy.from(node.config());
       final Flux<Message<?>> buffered =
           NodePolicies.edgeBuffered(
-              NodePolicy.edgeBuffer(node.config()), timedInput, tracker, node.type());
+              NodePolicy.edgeBuffer(node.config()),
+              timedInput,
+              tracker,
+              node.type(),
+              node.nodeId());
       // With a per-message policy the channel runs inside it, once per message, so a channel
       // failure is retried or dead-lettered like a plugin failure instead of stopping the node.
       final NodeMessageChannel passthrough = new DirectNodeMessageChannel();

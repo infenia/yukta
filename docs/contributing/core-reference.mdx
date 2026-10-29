@@ -1084,7 +1084,7 @@ All meters are Micrometer. Tags in braces.
 | `yukta.tracker.queue.depth` | gauge | [OBS-01](#obs-01-tracker-and-live-progress) | State events waiting; alert on growth |
 | `yukta.tracker.dropped` `{type, kind}` | counter | [OBS-02](#obs-02-live-logs), [CTL-07](#ctl-07-supervisors) | Dropped log lines, lost state events, supervisor overflow |
 | `yukta.tracker.log.append.failed` `{type}` | counter | [OBS-02](#obs-02-live-logs) | Failed execution-log writes (node or run) |
-| `yukta.edge.dropped` `{type}` | counter | [ENG-01](#eng-01-streaming-dag-and-back-pressure) | Messages dropped by an `edgeBuffer` |
+| `yukta.edge.dropped` `{type, node}` | counter | [ENG-01](#eng-01-streaming-dag-and-back-pressure) | Messages dropped by an `edgeBuffer` |
 | `yukta.checkpoint.bytes` | gauge | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Node output held by the checkpoint store |
 | `yukta.checkpoint.errors` | counter | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | End markers that failed to write |
 | `yukta.plugin.events` `{plugin, outcome}` | counter | [EXT-01](#ext-01-plugin-contract-and-registry) | Counters a plugin reports through the metrics reporter |
