@@ -84,7 +84,7 @@ trivy secret .
 **To suppress false positives**: Add to `.trivyignore` with reason
 
 ### 2. **Dependency Vulnerability Scanning** 📦
-Scans the repository for known vulnerabilities in dependencies. Trivy reads Go (`cli/go.mod`), npm (`ui/pnpm-lock.yaml`) and the Dockerfiles. It does **not** scan Gradle: no lock file is committed, so it cannot resolve the Java dependencies. Java is covered by GitHub's dependency graph instead: `dependency-submission.yml` (push to `main`) and the `dependency-submission` job in `ci.yml` submit the resolved Gradle graph, the **Dependency Review** job fails a pull request that adds a dependency with a HIGH or CRITICAL advisory, and Dependabot alerts report the ones already in the tree.
+Scans the repository for known vulnerabilities in dependencies. Trivy reads Go (`cli/go.mod`), npm (`ui/pnpm-lock.yaml`) and the Dockerfiles. It does **not** scan Gradle: no lock file is committed, so it cannot resolve the Java dependencies. Java is covered by GitHub's dependency graph instead: the `dependency-submission` job in `ci.yml` (push to `main` and pull requests) submits the resolved Gradle graph, the **Dependency Review** job fails a pull request that adds a dependency with a HIGH or CRITICAL advisory, and Dependabot alerts report the ones already in the tree.
 
 ```bash
 trivy fs --scanners vuln --severity HIGH,CRITICAL .

@@ -12,6 +12,9 @@ import com.infenia.yukta.mcp.dto.ExecutionRecord;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.security.ApiKeys;
+import com.infenia.yukta.security.ApiRole;
+import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
@@ -304,5 +307,25 @@ class SystemHealthProviderTest {
                   .contains("unknown", "running");
             })
         .verifyComplete();
+  }
+
+  @Test
+  void whoami_describesTheKeyInTheContext() {
+    final var who =
+        provider
+            .whoami()
+            .contextWrite(
+                reactor.util.context.Context.of(
+                    CallerIdentity.CONTEXT_KEY,
+                    new ApiKeys.Match("alice", ApiRole.OPERATOR, java.util.Set.of("s1"))))
+            .block();
+
+    org.assertj.core.api.Assertions.assertThat(who.keyName()).isEqualTo("alice");
+    org.assertj.core.api.Assertions.assertThat(who.role()).isEqualTo("OPERATOR");
+    org.assertj.core.api.Assertions.assertThat(who.sessions()).containsExactly("s1");
+    org.assertj.core.api.Assertions.assertThat(who.permissions())
+        .containsEntry("startRuns", true)
+        .containsEntry("changeLimits", false);
+    org.assertj.core.api.Assertions.assertThat(provider.whoami().block().authEnabled()).isFalse();
   }
 }

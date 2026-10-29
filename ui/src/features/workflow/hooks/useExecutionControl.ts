@@ -4,11 +4,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/lib/apiClient';
 import {
+  clearBreakpoint,
   changePriority,
   nodeAction,
   recoverExecution,
   restartFromNode,
   runAction,
+  setBreakpoint,
   startWorkflow,
   stopNode,
   stopWorkflow,
@@ -98,6 +100,21 @@ export function useExecutionControl(sessionId: string, workflowId: string) {
         executionId: string;
         nodeId: string;
       }) => restartFromNode(executionId, nodeId),
+    }),
+    setBreakpoint: useMutation({
+      onSuccess,
+      mutationFn: (vars: {
+        executionId: string;
+        nodeId: string;
+        field: string;
+        equals: string;
+      }) =>
+        setBreakpoint(vars.executionId, vars.nodeId, vars.field, vars.equals),
+    }),
+    clearBreakpoint: useMutation({
+      onSuccess,
+      mutationFn: (vars: { executionId: string; nodeId: string }) =>
+        clearBreakpoint(vars.executionId, vars.nodeId),
     }),
     stopNode: useMutation({
       onSuccess,

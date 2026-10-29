@@ -1,7 +1,7 @@
 ---
 title: "External I/O plugins: HTTP, SQL, files and commands"
 sidebarTitle: "External I/O"
-description: "PROCESS_EXECUTOR, HTTP_REQUEST, SQL_QUERY, FILE_READ, FILE_WRITE and KV_STORE: plugins that run commands, call services, query databases and handle files."
+description: "PROCESS_EXECUTOR, HTTP_REQUEST, SQL_QUERY, FILE_READ, FILE_WRITE, PATCH_GUARD and KV_STORE: plugins that run commands, call services, query databases and handle files."
 keywords: ["HTTP_REQUEST", "SQL_QUERY", "PROCESS_EXECUTOR", "file IO"]
 ---
 
@@ -44,6 +44,7 @@ The server refuses every command until you allow some. Set `yukta.process.allowe
 | `maxOutputBytes` | number | `10485760` | Most bytes kept per stream (10 MiB). `0` means unlimited |
 | `outputFormat` | `STRUCTURED`, `RAW`, `JSON` or `PASSTHROUGH` | `STRUCTURED` | The shape of the payload, see below |
 | `reports` | list | none | Structured reports to read into `failures` after the process ends: `[{"format": "junit", "glob": "build/test-results/**/TEST-*.xml"}]`. `format` is `junit`, `checkstyle` or `sarif`; `glob` is relative to `workingDir`; only files written during the run are read. A report that cannot be read is skipped |
+| `metadataFrom` | map | none | Node metadata read from the JSON the process prints: `{"cost": "total_cost_usd", "tokens": "usage.output_tokens"}` maps a metadata key to a dotted path. The values show in the node's metadata in the UI, CLI and MCP. A missing path, or output that is not JSON, is skipped |
 | `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | `ERROR` fails the node on a non-zero exit code or a timeout |
 | `routeByExitCode` | boolean | `false` | Emit on `success` (exit code 0) or `failure`. Needs `failureMode` `CONTINUE` |
 | `includeOutput` | boolean | `true` | Put the text of stdout and stderr in the payload (`STRUCTURED`, `JSON`) |
@@ -206,6 +207,22 @@ For both file plugins, a path is normalised and anything that escapes `baseDir`,
   "config": { "baseDir": "/var/lib/yukta/reports", "path": "daily.log", "append": true }
 }
 ```
+
+## PATCH_GUARD
+
+Judges the working-tree change of a git checkout against rules and routes it to `pass` or `reject`. Requires the `file-io` module and `git` on the server.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `dir` | string | none, required | The git checkout. It must lie inside the operator's allowed root, if one is set |
+| `base` | git ref | `HEAD` | What the change is compared with. Staged, unstaged and new (untracked) files all count |
+| `protectedPaths` | list of globs | none | Files the change must not touch, such as `secret/**` |
+| `forbidPatterns` | list of regexes | none | No added line may match (for example `@SuppressWarnings\|@Disabled`) |
+| `noTestRemoval` | boolean | `false` | Refuses a deleted test file, or a test file that declares fewer tests than before |
+| `requireChange` | boolean | `false` | Refuses an empty change |
+| `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | `CONTINUE` sends the original message to the `error` port, for example when `git` fails |
+
+Output ports: `pass` and `reject`, plus `error` when `failureMode` is `CONTINUE`. The payload becomes `{"files": [...], "violations": [{"rule", "file", "message"}]}`; `pass` means `violations` is empty.
 
 ## KV_STORE
 

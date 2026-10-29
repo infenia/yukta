@@ -47,7 +47,7 @@ export function PendingApprovals({ sessionId, workflowId }: Props) {
   return (
     <section
       aria-label="Pending approvals"
-      className="flex flex-col gap-2 border-b border-outline-variant bg-surface-container-low px-6 py-3"
+      className="border-outline-variant bg-surface-container-low flex flex-col gap-2 border-b px-6 py-3"
     >
       {decide.error && (
         <InlineError message={controlErrorMessage(decide.error)} />

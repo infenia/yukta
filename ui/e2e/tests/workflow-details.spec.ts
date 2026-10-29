@@ -207,6 +207,48 @@ test.describe('Workflow Details Page', () => {
     expect(stops).toEqual(['?immediate=true&reason=too+slow']);
   });
 
+  test('sets and clears a breakpoint on a node', async ({ page }) => {
+    const calls: string[] = [];
+    await page.route('**/api/executions/*/nodes/*/breakpoint*', (route) => {
+      const request = route.request();
+      calls.push(`${request.method()} ${new URL(request.url()).search}`);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          timestamp: '2026-07-26T14:23:23',
+          status: 200,
+          message: 'OK',
+          path: '/breakpoint',
+          data: { executionId: 'exec-091-qp-55' },
+        }),
+      });
+    });
+    await page.goto(WORKFLOW_URL);
+
+    await page
+      .getByRole('button', { name: 'Actions for Vectorize_Batch' })
+      .click();
+    await page.getByRole('menuitem', { name: 'Set breakpoint…' }).click();
+    await page.getByLabel('Field').fill('payload.status');
+    await page.getByLabel('Equals').fill('error');
+    await page.getByRole('button', { name: 'Set', exact: true }).click();
+
+    await expect(
+      page.getByRole('img', { name: 'Breakpoint: payload.status = error' })
+    ).toBeVisible();
+
+    await page
+      .getByRole('button', { name: 'Actions for Vectorize_Batch' })
+      .click();
+    await page.getByRole('menuitem', { name: 'Clear breakpoint' }).click();
+    await expect(page.getByRole('img', { name: /Breakpoint/ })).toBeHidden();
+    expect(calls).toEqual([
+      'POST ?field=payload.status&equals=error',
+      'DELETE ',
+    ]);
+  });
+
   test('raises the priority of a queued run', async ({
     page,
     mockWorkflowApi,

@@ -11,6 +11,7 @@
 #                                            what heal did: where the time and money went, what looks wrong, the raw events
 #   yk detail <session> <execution> [--grep P] [--tail N] [--head N]  the full output of the stage that failed a run (the MORE line says so)
 #   yk bench [--runs N] [--max-ratio R] [--check] [args]  the same Gradle work direct and through yk: wall times and ratio (exit 1 above R and +3 s)
+#   yk decision                              probe the optional decision model (decisions.json, YUKTA_DECISION_MODEL/_URL/off); yk status shows the same line
 #   yk tool [--detach] [-C dir] <cmd...>     run any other command once, e.g. -C ui pnpm lint | -C cli go test ./...
 #
 # A run's last line is machine readable; exit 0 only on success:
@@ -47,6 +48,9 @@ cmd_up() {
 cmd_down() {
   if ours; then server_stop; echo "stopped the dev server"; else echo "no dev server started by yk"; fi
 }
+
+# yk decision: probe the optional decision model (see decisions.json); 0 when it works
+cmd_decision() { YK_DECISION_FRESH=1 decision_probe; }
 
 cmd_status() {
   local main="" building=""
@@ -605,7 +609,8 @@ cmd="${1:-help}"
 case "$cmd" in
   up) cmd_up "$@" ;;
   down) cmd_down ;;
-  status) cmd_status ;;
+  status) rc=0; cmd_status || rc=$?; decision_probe || true; exit "$rc" ;;
+  decision) cmd_decision ;;
   check) cmd_check "$@" ;;
   gradle) cmd_gradle "$@" ;;
   tool) cmd_tool "$@" ;;

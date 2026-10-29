@@ -26,9 +26,12 @@ afterAll(() => server.close());
 
 describe('useWorkflowExecutions', () => {
   it('fetches and unwraps the executions collection', async () => {
-    const { result } = renderHook(() => useWorkflowExecutions('s1', 'wf-982-xk-11'), {
-      wrapper: createTestWrapper(),
-    });
+    const { result } = renderHook(
+      () => useWorkflowExecutions('s1', 'wf-982-xk-11'),
+      {
+        wrapper: createTestWrapper(),
+      }
+    );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toHaveLength(1);
