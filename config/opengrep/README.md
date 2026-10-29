@@ -42,7 +42,7 @@ The rules are tested by the files next to `.semgrep.yml` that share its name (`.
 Known limits: a predicate hidden behind a variable or a helper method is not recognised, and a `getValue(root)` call is judged by the text of its argument
 (an argument whose text contains `context` or `ctx` counts as an evaluation context).
 
-Suppress a deliberate use with `// nosem: <rule-id> (reason)` on or directly above the flagged line.
+Suppress a deliberate use with `// nosem: <rule-id> - <reason>` on the flagged line.
 
 ## Behavior
 

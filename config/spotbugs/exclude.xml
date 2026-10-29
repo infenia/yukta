@@ -3,7 +3,16 @@
   <!-- AssemblyContext intentionally exposes mutable collections for modification during assembly -->
   <Match>
     <Class name="com.infenia.yukta.service.orchestrator.assembly.AssemblyContext"/>
-    <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    <Or>
+      <And>
+        <Method name="~streams|terminals|disposables|connectors"/>
+        <Bug pattern="EI_EXPOSE_REP"/>
+      </And>
+      <And>
+        <Method name="&lt;init&gt;"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+      </And>
+    </Or>
   </Match>
 
   <!-- PluginLogEntry.metadata() returns an unmodifiable map view of frozen values -->
@@ -33,11 +42,6 @@
       <Method name="env"/>
     </Or>
     <Bug pattern="EI_EXPOSE_REP"/>
-  </Match>
-
-  <!-- YuktaApplicationTest uses reflection to test private methods and manages app context lifecycle -->
-  <Match>
-    <Class name="com.infenia.yukta.YuktaApplicationTest"/>
   </Match>
 
   <!-- FileSystemPluginLogReader: sessionDir.getFileName() and logFile.getFileName() are never null
