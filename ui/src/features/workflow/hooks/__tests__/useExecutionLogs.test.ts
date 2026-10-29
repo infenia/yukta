@@ -3,9 +3,16 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { LOG_FLUSH_MS, MAX_LOG_ENTRIES, useExecutionLogs } from '../useExecutionLogs';
+import {
+  LOG_FLUSH_MS,
+  MAX_LOG_ENTRIES,
+  useExecutionLogs,
+} from '../useExecutionLogs';
 import { createMockLogEntry } from '@/test/factories/workflowFactory';
-import { installMockEventSource, MockEventSource } from '@/test/mocks/MockEventSource';
+import {
+  installMockEventSource,
+  MockEventSource,
+} from '@/test/mocks/MockEventSource';
 
 describe('useExecutionLogs', () => {
   beforeEach(() => {
@@ -28,7 +35,9 @@ describe('useExecutionLogs', () => {
   });
 
   it('subscribes to the structured log stream and accumulates entries', () => {
-    const { result } = renderHook(() => useExecutionLogs('s1', 'exec-091-qp-55'));
+    const { result } = renderHook(() =>
+      useExecutionLogs('s1', 'exec-091-qp-55')
+    );
 
     expect(MockEventSource.latest().url).toBe(
       '/api/sessions/s1/executions/exec-091-qp-55/logs/entries'
@@ -37,17 +46,24 @@ describe('useExecutionLogs', () => {
     act(() => {
       MockEventSource.latest().open();
       MockEventSource.latest().emit(createMockLogEntry({ message: 'first' }));
-      MockEventSource.latest().emit(createMockLogEntry({ message: 'second', level: 'WARN' }));
+      MockEventSource.latest().emit(
+        createMockLogEntry({ message: 'second', level: 'WARN' })
+      );
     });
 
     expect(result.current.entries).toEqual([]); // batched until the flush interval
     flush();
     expect(result.current.isStreaming).toBe(true);
-    expect(result.current.entries.map((entry) => entry.message)).toEqual(['first', 'second']);
+    expect(result.current.entries.map((entry) => entry.message)).toEqual([
+      'first',
+      'second',
+    ]);
   });
 
   it('caps the buffer at MAX_LOG_ENTRIES', () => {
-    const { result } = renderHook(() => useExecutionLogs('s1', 'exec-091-qp-55'));
+    const { result } = renderHook(() =>
+      useExecutionLogs('s1', 'exec-091-qp-55')
+    );
 
     act(() => {
       const source = MockEventSource.latest();
@@ -68,18 +84,24 @@ describe('useExecutionLogs', () => {
       { initialProps: { executionId: 'exec-1' as string | null } }
     );
 
-    act(() => MockEventSource.latest().emit(createMockLogEntry({ message: 'old' })));
+    act(() =>
+      MockEventSource.latest().emit(createMockLogEntry({ message: 'old' }))
+    );
     flush();
     expect(result.current.entries).toHaveLength(1);
 
     rerender({ executionId: 'exec-2' });
     expect(result.current.entries).toEqual([]);
     expect(MockEventSource.latest().url).toContain('exec-2');
-    expect(MockEventSource.instances[0].readyState).toBe(MockEventSource.CLOSED);
+    expect(MockEventSource.instances[0].readyState).toBe(
+      MockEventSource.CLOSED
+    );
   });
 
   it('stops streaming when the server ends the stream of a finished execution', () => {
-    const { result } = renderHook(() => useExecutionLogs('s1', 'exec-091-qp-55', false));
+    const { result } = renderHook(() =>
+      useExecutionLogs('s1', 'exec-091-qp-55', false)
+    );
 
     act(() => {
       MockEventSource.latest().emit(createMockLogEntry({ message: 'kept' }));
@@ -92,7 +114,9 @@ describe('useExecutionLogs', () => {
   });
 
   it('reconnects while live and drops the history replayed by the server', () => {
-    const { result } = renderHook(() => useExecutionLogs('s1', 'exec-091-qp-55'));
+    const { result } = renderHook(() =>
+      useExecutionLogs('s1', 'exec-091-qp-55')
+    );
 
     act(() => {
       MockEventSource.latest().emit(createMockLogEntry({ message: 'a' }));
@@ -109,11 +133,17 @@ describe('useExecutionLogs', () => {
       MockEventSource.latest().emit(createMockLogEntry({ message: 'c' }));
     });
     flush();
-    expect(result.current.entries.map((entry) => entry.message)).toEqual(['a', 'b', 'c']);
+    expect(result.current.entries.map((entry) => entry.message)).toEqual([
+      'a',
+      'b',
+      'c',
+    ]);
   });
 
   it('clears entries on demand', () => {
-    const { result } = renderHook(() => useExecutionLogs('s1', 'exec-091-qp-55'));
+    const { result } = renderHook(() =>
+      useExecutionLogs('s1', 'exec-091-qp-55')
+    );
 
     act(() => MockEventSource.latest().emit(createMockLogEntry()));
     flush();

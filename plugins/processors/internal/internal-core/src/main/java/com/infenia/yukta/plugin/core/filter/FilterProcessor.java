@@ -54,6 +54,9 @@ public final class FilterProcessor implements ProcessorPlugin {
   /** Config engine. */
   private static final String CONFIG_ENGINE = "engine";
 
+  /** Config key naming the expression engine without clashing with the node policy. */
+  private static final String CONFIG_LANGUAGE = "language";
+
   /** Config strict. */
   private static final String CONFIG_STRICT = "strictMode";
 
@@ -95,7 +98,15 @@ public final class FilterProcessor implements ProcessorPlugin {
   public List<ConfigField> getConfigSchema() {
     return List.of(
         ConfigField.required("condition", ConfigField.Type.EXPRESSION, "Keep messages where true"),
-        ConfigField.choice("engine", false, "SpEL", "Expression engine", "SpEL", "SIMPLE"),
+        ConfigField.choice(
+            "engine", false, ENGINE_SPEL, "Expression engine", ENGINE_SPEL, ENGINE_SIMPLE),
+        ConfigField.choice(
+            "language",
+            false,
+            null,
+            "Expression engine, for a node that also sets the engine policy object",
+            ENGINE_SPEL,
+            ENGINE_SIMPLE),
         ConfigField.optional("strictMode", ConfigField.Type.BOOLEAN, true, "Fail on eval errors"),
         ConfigField.optional(
             "discardPort", ConfigField.Type.STRING, null, "Port for rejected messages"));
@@ -120,7 +131,7 @@ public final class FilterProcessor implements ProcessorPlugin {
   @Override
   public Mono<Void> initialize(final Map<String, Object> config) {
     final String condition = (String) config.get(CONFIG_CONDITION);
-    final String engine = (String) config.getOrDefault(CONFIG_ENGINE, ENGINE_SPEL);
+    final String engine = expressionEngine(config);
 
     if (condition == null || condition.isBlank()) {
       return Mono.error(new IllegalArgumentException("condition is mandatory for Filter plugin"));
@@ -138,7 +149,7 @@ public final class FilterProcessor implements ProcessorPlugin {
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     final String condition = (String) config.get(CONFIG_CONDITION);
-    final String engine = (String) config.getOrDefault(CONFIG_ENGINE, ENGINE_SPEL);
+    final String engine = expressionEngine(config);
     final boolean strictMode = (Boolean) config.getOrDefault(CONFIG_STRICT, true);
     final String discardPort = (String) config.get(DISCARD_PORT);
 
@@ -208,13 +219,26 @@ public final class FilterProcessor implements ProcessorPlugin {
     throw new IllegalArgumentException("Unsupported engine: " + engine);
   }
 
+  /**
+   * The expression engine: {@code language}, else {@code engine} when it is text. An {@code engine}
+   * object is the node's failure policy, not this option.
+   */
+  private static String expressionEngine(final Map<String, Object> config) {
+    for (final String key : new String[] {CONFIG_LANGUAGE, CONFIG_ENGINE}) {
+      if (config.get(key) instanceof final String text) {
+        return text;
+      }
+    }
+    return ENGINE_SPEL;
+  }
+
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
     final String condition = (String) config.get(CONFIG_CONDITION);
     if (condition == null || condition.isBlank()) {
       return Mono.error(new IllegalArgumentException("condition is mandatory"));
     }
-    final String engine = (String) config.getOrDefault(CONFIG_ENGINE, ENGINE_SPEL);
+    final String engine = expressionEngine(config);
     if (!ENGINE_SPEL.equalsIgnoreCase(engine)
         && !ENGINE_SIMPLE.equalsIgnoreCase(engine)
         && !ENGINE_REGO.equalsIgnoreCase(engine)) {

@@ -72,7 +72,7 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
   return (
     <section
       aria-label="Workflow versions"
-      className="flex flex-col gap-2 border-b border-outline-variant bg-surface-container-low px-6 py-3"
+      className="border-outline-variant bg-surface-container-low flex flex-col gap-2 border-b px-6 py-3"
     >
       {(versions.error || goBack.error || writeNote.error) && (
         <InlineError
@@ -148,7 +148,7 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
           {compared === version.id && diff.isLoading && (
             <p
               role="status"
-              className="ml-4 text-body-sm text-on-surface-variant"
+              className="text-body-sm text-on-surface-variant ml-4"
             >
               Loading changes…
             </p>
@@ -159,7 +159,7 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
           {compared === version.id && diff.data && (
             <ul
               aria-live="polite"
-              className="ml-4 text-code-sm text-on-surface-variant"
+              className="text-code-sm text-on-surface-variant ml-4"
             >
               {changes(diff.data).length === 0 ? (
                 <li>Same as the current definition</li>

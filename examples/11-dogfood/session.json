@@ -2683,8 +2683,8 @@
               "YUKTA_COMMAND": "${start.command}",
               "YUKTA_TRIAGE": "${start.triage}"
             },
-            "timeout": 120,
-            "timeoutSeconds": 120,
+            "timeout": 3720,
+            "timeoutSeconds": 3720,
             "inputMode": "STDIN",
             "outputFormat": "JSON",
             "failureMode": "CONTINUE"
@@ -2699,8 +2699,29 @@
               "brief": "payload['output']['brief']",
               "problems": "payload['output']['problems']",
               "previous": "''",
-              "triage": "payload['output']['triage']"
+              "triage": "payload['output']['triage']",
+              "known": "payload['output']['known']"
             }
+          }
+        },
+        {
+          "nodeId": "known?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "payload['known']",
+            "cases": {
+              "true": "known"
+            },
+            "defaultPort": "unknown"
+          }
+        },
+        {
+          "nodeId": "baseline-known",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the stage already fails the same way on origin/main: a known baseline failure, no fixer was started"
           }
         },
         {
@@ -3060,7 +3081,17 @@
         },
         {
           "source": "first",
-          "target": "triage?"
+          "target": "known?"
+        },
+        {
+          "source": "known?",
+          "target": "baseline-known",
+          "sourcePort": "known"
+        },
+        {
+          "source": "known?",
+          "target": "triage?",
+          "sourcePort": "unknown"
         },
         {
           "source": "triage?",

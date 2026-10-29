@@ -85,7 +85,8 @@ export interface ResultEvent {
 }
 
 /** Node rendering status derived from a raw backend task status. */
-export type NodeUiStatus = 'completed' | 'running' | 'pending' | 'failed' | 'paused' | 'skipped';
+export type NodeUiStatus =
+  'completed' | 'running' | 'pending' | 'failed' | 'paused' | 'skipped';
 
 /** Coarse execution status bucket derived from a raw backend execution status. */
 export type ExecStatusCategory =

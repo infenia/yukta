@@ -2,3 +2,9 @@
 # msw only runs in Node here (msw/node), so its postinstall (copies the browser worker) is not needed.
 allowBuilds:
   msw: false
+
+# jsdom and another dev dependency pin undici exactly, below the patched releases (Dependabot alerts).
+# Drop these once their parents ship the fixed range.
+overrides:
+  "undici@>=7 <8": 7.30.1
+  "undici@>=8": 8.12.2

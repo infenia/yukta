@@ -17,6 +17,7 @@ com.infenia.yukta.controller.ExecutionController
 com.infenia.yukta.controller.ExecutionResultController
 com.infenia.yukta.controller.ExecutionSearchController
 com.infenia.yukta.controller.LogManagementController
+com.infenia.yukta.controller.MeController
 com.infenia.yukta.controller.NodeOutputController
 com.infenia.yukta.controller.PluginController
 com.infenia.yukta.controller.SessionConfigController
@@ -80,6 +81,7 @@ com.infenia.yukta.plugin.decision.ScorePlugin
 com.infenia.yukta.plugin.decision.SystemOneModel
 com.infenia.yukta.plugin.file.FileReadPlugin
 com.infenia.yukta.plugin.file.FileWritePlugin
+com.infenia.yukta.plugin.file.PatchGuardPlugin
 com.infenia.yukta.plugin.http.HttpRequestGateway
 com.infenia.yukta.plugin.http.HttpRequestPlugin
 com.infenia.yukta.plugin.llm.LlmCallPlugin

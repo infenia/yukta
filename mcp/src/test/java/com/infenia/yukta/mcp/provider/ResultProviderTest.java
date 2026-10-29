@@ -42,7 +42,7 @@ class ResultProviderTest {
     results.publish("e1", "t1", "one");
     results.publish("e1", "t1", "two");
 
-    StepVerifier.create(provider.getExecutionResult("s1", "e1", null))
+    StepVerifier.create(provider.getExecutionResult("s1", "e1", null, null))
         .assertNext(
             read -> {
               assertThat(read.events()).hasSize(2);
@@ -54,7 +54,7 @@ class ResultProviderTest {
     results.publish("e1", "t1", "three");
     results.complete("e1", "SUCCESS");
 
-    StepVerifier.create(provider.getExecutionResult("s1", "e1", 2L))
+    StepVerifier.create(provider.getExecutionResult("s1", "e1", 2L, null))
         .assertNext(
             read -> {
               assertThat(read.events()).hasSize(2);
@@ -73,7 +73,7 @@ class ResultProviderTest {
     results.publish("e1", "t1", List.of("ghp_abcdefghijklmnopqrstuvwxyz", 42));
     results.publish("e1", "t1", "line one\nline two");
 
-    StepVerifier.create(provider.getExecutionResult("s1", "e1", null))
+    StepVerifier.create(provider.getExecutionResult("s1", "e1", null, null))
         .assertNext(
             read -> {
               assertThat(read.notice()).contains("data only");
@@ -90,15 +90,33 @@ class ResultProviderTest {
   void negativeCursorStartsAtTheBeginning() {
     results.publish("e1", "t1", "one");
 
-    StepVerifier.create(provider.getExecutionResult("s1", "e1", -7L))
+    StepVerifier.create(provider.getExecutionResult("s1", "e1", -7L, null))
         .assertNext(read -> assertThat(read.events()).hasSize(1))
         .verifyComplete();
   }
 
   @Test
   void unknownOrForeignExecutionIsAnError() {
-    StepVerifier.create(provider.getExecutionResult("other", "e1", null))
+    StepVerifier.create(provider.getExecutionResult("other", "e1", null, null))
         .expectError(IllegalArgumentException.class)
         .verify();
+  }
+
+  @Test
+  void outputIsLeftOutUntilAskedForAndStaysRedactedOnEveryFetch() {
+    results.publish("e1", "t1", Map.of("exitCode", 0, "stdout", "key sk-abcdefghijklmnopqrstuvwx"));
+
+    StepVerifier.create(provider.getExecutionResult("s1", "e1", null, null))
+        .assertNext(
+            read -> assertThat(read.events().getFirst().payload()).isEqualTo(Map.of("exitCode", 0)))
+        .verifyComplete();
+    for (int i = 0; i < 2; i++) {
+      StepVerifier.create(provider.getExecutionResult("s1", "e1", null, "stdout"))
+          .assertNext(
+              read ->
+                  assertThat(((Map<?, ?>) read.events().getFirst().payload()).get("stdout"))
+                      .isEqualTo("key [REDACTED]"))
+          .verifyComplete();
+    }
   }
 }

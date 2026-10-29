@@ -36,7 +36,7 @@ import reactor.core.publisher.Mono;
 @RestControllerAdvice
 @NullMarked
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   @Override
@@ -268,6 +268,22 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(
       final IllegalArgumentException exception, final ServerHttpRequest request) {
     return buildErrorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+  }
+
+  /**
+   * Handles an expression that does not parse (a node's SpEL) as a bad request: the definition is
+   * wrong, not the server.
+   *
+   * @param exception the parse failure
+   * @param request the request
+   * @return the 400 response with the parser's message
+   */
+  @ExceptionHandler(org.springframework.expression.ParseException.class)
+  public ResponseEntity<ApiResponse<Object>> handleExpressionParse(
+      final org.springframework.expression.ParseException exception,
+      final ServerHttpRequest request) {
+    return buildErrorResponse(
+        HttpStatus.BAD_REQUEST, "Invalid expression: " + exception.getMessage(), request);
   }
 
   /**

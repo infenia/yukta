@@ -1077,7 +1077,7 @@ export interface paths {
         };
         /**
          * Read the result of an execution
-         * @description Returns what the terminal nodes received so far; complete is true once the execution ended. Answers 404 for an unknown execution or one of another session.
+         * @description Returns what the terminal nodes received so far; complete is true once the execution ended. The stdout and stderr fields of the payloads are left out unless named in include (stdout, stderr or stdout,stderr); fetch again to drill down. Answers 404 for an unknown execution or one of another session.
          */
         get: operations["streamResults"];
         put?: never;
@@ -1220,6 +1220,26 @@ export interface paths {
          * @description Retrieves details of a specific plugin. Response is non-blocking and returned asynchronously via Mono.
          */
         get: operations["getPluginDetails"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who am I
+         * @description The name, role and sessions of the API key of this request, and what it may do (start and control runs, edit and delete sessions, change limits, send commands). With no key configured the role is ADMIN and authEnabled is false. Never returns the key or its hash.
+         */
+        get: operations["me"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1862,9 +1882,9 @@ export interface components {
             module?: string;
             status?: string;
             /** Format: date-time */
-            startTime?: string;
+            startTime?: string | null;
             /** Format: date-time */
-            endTime?: string;
+            endTime?: string | null;
             metadata?: {
                 [key: string]: unknown;
             };
@@ -1878,12 +1898,12 @@ export interface components {
             /** Format: date-time */
             startTime?: string;
             /** Format: date-time */
-            endTime?: string;
-            controlState?: string;
-            definitionVersion?: string;
-            parentExecutionId?: string;
-            rootExecutionId?: string;
-            restartOf?: string;
+            endTime?: string | null;
+            controlState?: string | null;
+            definitionVersion?: string | null;
+            parentExecutionId?: string | null;
+            rootExecutionId?: string | null;
+            restartOf?: string | null;
         };
         HistoryFilter: {
             workflowId?: string;
@@ -1944,13 +1964,13 @@ export interface components {
              * Format: date-time
              * @description The end time of the execution, with the server's UTC offset
              */
-            endTime?: string;
+            endTime?: string | null;
             /** @description The run that started this one as a sub-workflow, if any */
-            parentExecutionId?: string;
+            parentExecutionId?: string | null;
             /** @description The top of this run's tree of runs (itself when it has no parent) */
-            rootExecutionId?: string;
+            rootExecutionId?: string | null;
             /** @description The run this one restarts, if any */
-            restartOf?: string;
+            restartOf?: string | null;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListWorkerInfo: {
@@ -2675,6 +2695,56 @@ export interface components {
             queueCapacity?: number;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseWhoami: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["Whoami"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        Permissions: {
+            startRuns?: boolean;
+            controlRuns?: boolean;
+            editSessions?: boolean;
+            deleteSessions?: boolean;
+            changeLimits?: boolean;
+            sendCommands?: boolean;
+        };
+        Whoami: {
+            authenticated?: boolean;
+            keyName?: string;
+            /** @enum {string} */
+            role?: "VIEWER" | "OPERATOR" | "ADMIN";
+            sessions?: string[];
+            authEnabled?: boolean;
+            permissions?: components["schemas"]["Permissions"];
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListHit: {
             /**
              * Format: date-time
@@ -2900,6 +2970,8 @@ export interface operations {
             query?: {
                 /** @description Also the runs it started as sub-workflows, at any depth */
                 tree?: boolean;
+                /** @description DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once */
+                mode?: "DRAIN" | "CANCEL" | "KILL";
             };
             header?: never;
             path: {
@@ -2926,6 +2998,8 @@ export interface operations {
             query?: {
                 /** @description Also the runs it started as sub-workflows, at any depth */
                 tree?: boolean;
+                /** @description DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once */
+                mode?: "DRAIN" | "CANCEL" | "KILL";
             };
             header?: never;
             path: {
@@ -4393,6 +4467,8 @@ export interface operations {
                 nodeId?: string;
                 /** @description nextCursor of an earlier read */
                 afterCursor?: number;
+                /** @description Output fields to keep in the payloads: stdout, stderr or both */
+                include?: string;
             };
             header?: {
                 "Last-Event-ID"?: string;
@@ -4608,6 +4684,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseWhoami"];
                 };
             };
         };

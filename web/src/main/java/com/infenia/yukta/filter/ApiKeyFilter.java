@@ -10,6 +10,7 @@ import com.infenia.yukta.security.ApiKeyAuthenticator;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.CallRateLimiter;
+import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.security.RequestPaths;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -198,11 +199,13 @@ public class ApiKeyFilter implements WebFilter {
       exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, "60");
       return reject(exchange, HttpStatus.TOO_MANY_REQUESTS, "Too many requests, slow down");
     }
+    // the resolved key goes into the context once, for /api/me and anything that asks who is
+    // calling
+    final Mono<Void> next =
+        chain.filter(exchange).contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match));
     return authenticator.named()
-        ? chain
-            .filter(exchange)
-            .contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name()))
-        : chain.filter(exchange);
+        ? next.contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name()))
+        : next;
   }
 
   /** Who is calling, by network address. */
@@ -238,7 +241,7 @@ public class ApiKeyFilter implements WebFilter {
     if (!match.role().allows(exchange.getRequest().getMethod(), path)) {
       return false;
     }
-    if (match.sessions().isEmpty()) {
+    if (match.sessions().isEmpty() || "/api/me".equals(path)) {
       return true;
     }
     final Matcher session = SESSION_PATH.matcher(path);
