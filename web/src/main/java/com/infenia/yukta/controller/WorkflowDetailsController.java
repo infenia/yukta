@@ -35,10 +35,10 @@ import reactor.core.publisher.Mono;
     description = "Workflow DAG graph with plugin metadata and per-workflow execution history")
 public class WorkflowDetailsController {
 
-  /** Session ID parameter description. */
   /** The plugin that runs another workflow of the session. */
   private static final String SUB_WORKFLOW = "SUB_WORKFLOW";
 
+  /** Session ID parameter description. */
   private static final String SESSION_ID = "The unique identifier of the session";
 
   /** Workflow ID parameter description. */

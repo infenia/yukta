@@ -143,7 +143,7 @@ class WorkflowDetailsControllerTest {
   }
 
   @Test
-  void testGraphCarriesDeclaredGroupsAndTheWorkflowASubWorkflowRuns() {
+  void testGraphCarriesDeclaredGroupsAndTheWorkflowRunBySubWorkflowNode() {
     final WorkflowDefinition staged =
         new WorkflowDefinition(
             "wf3",
