@@ -27,3 +27,4 @@ logging:
     org.springframework: ERROR           # Suppress Spring framework logs
     org.springframework.web: WARN        # Keep web request logging minimal
     com.infenia.yukta: INFO             # App-level logging
+    io.micrometer.core.instrument.binder.jvm.JvmGcMetrics: ERROR  # warns on every native start: no GC MXBeans, harmless
