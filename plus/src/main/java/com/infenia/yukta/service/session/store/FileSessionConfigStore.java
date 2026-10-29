@@ -11,6 +11,7 @@ import com.infenia.yukta.validation.SessionId;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -474,6 +475,25 @@ public class FileSessionConfigStore implements SessionConfigStore {
     }
     final String filename = fileName.toString();
     return filename.substring(0, filename.length() - 5); // Remove .json extension
+  }
+
+  @Override
+  public Mono<Void> removeSession(@SessionId final String sessionId) {
+    return Mono.fromRunnable(
+            () -> {
+              final ReentrantLock lock = locks.computeIfAbsent(sessionId, _ -> new ReentrantLock());
+              lock.lock();
+              try {
+                sessionCache.remove(sessionId);
+                Files.deleteIfExists(getSessionConfigPath(sessionId));
+              } catch (IOException e) {
+                throw new UncheckedIOException(e);
+              } finally {
+                lock.unlock();
+              }
+            })
+        .subscribeOn(Schedulers.boundedElastic())
+        .then();
   }
 
   @Override

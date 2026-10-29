@@ -59,7 +59,8 @@ import reactor.core.publisher.Mono;
   "PMD.CouplingBetweenObjects",
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.GodClass"
+  "PMD.GodClass",
+  "PMD.ExcessivePublicCount"
 })
 public class DefaultControlBusGateway implements ControlBusGateway, RestartCompletionSink {
 
@@ -471,6 +472,23 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                         + ")"));
           }
           return restartFromNode(executionId, nodeId);
+        });
+  }
+
+  @Override
+  public Mono<Void> recordAdminAction(
+      final String command,
+      final String target,
+      final boolean applied,
+      @Nullable final String reason) {
+    return Mono.deferContextual(
+        context -> {
+          final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
+          ControlAudit.record(
+              executionLog,
+              auditSink,
+              new AuditRecord(applied, target, command, actor, reason, Instant.now()));
+          return Mono.empty();
         });
   }
 

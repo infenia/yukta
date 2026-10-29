@@ -13,7 +13,9 @@ import com.infenia.yukta.mapper.SessionMapper;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.service.session.ActiveRunsException;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.ConfigRedactor;
 import java.time.LocalDateTime;
@@ -37,6 +39,9 @@ import reactor.core.publisher.Mono;
   "PMD.ShortVariable"
 })
 class SessionConfigControllerTest {
+
+  /** A session id nothing is stored under. */
+  private static final String NOPE = "nope";
 
   /** The session service. */
   private SessionService sessionService;
@@ -112,7 +117,7 @@ class SessionConfigControllerTest {
   @Test
   void testSessionDetailsAndNotFound() {
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config("s1")));
-    when(sessionService.getSessionConfig("nope")).thenReturn(Mono.empty());
+    when(sessionService.getSessionConfig(NOPE)).thenReturn(Mono.empty());
 
     client
         .get()
@@ -211,7 +216,7 @@ class SessionConfigControllerTest {
                     "wf",
                     new WorkflowExecutionSummary(
                         "e1", "wf", "SUCCESS", LocalDateTime.now(), null))));
-    when(sessionService.getSessionConfig("nope")).thenReturn(Mono.empty());
+    when(sessionService.getSessionConfig(NOPE)).thenReturn(Mono.empty());
 
     client
         .get()
@@ -288,7 +293,7 @@ class SessionConfigControllerTest {
   @Test
   void testSessionConfigKeepsTagValuesAndWorkflows() {
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config("s1")));
-    when(sessionService.getSessionConfig("nope")).thenReturn(Mono.empty());
+    when(sessionService.getSessionConfig(NOPE)).thenReturn(Mono.empty());
 
     client
         .get()
@@ -302,5 +307,42 @@ class SessionConfigControllerTest {
         .jsonPath("$.data.workflows.wf.workflowId")
         .isEqualTo("wf");
     client.get().uri("/api/sessions/nope/config").exchange().expectStatus().isNotFound();
+  }
+
+  @Test
+  void testDeleteSessionAndWorkflowAnswer204AndPassForce() {
+    when(sessionService.deleteSession("s1", false)).thenReturn(Mono.empty());
+    when(sessionService.deleteWorkflow("s1", "wf", true)).thenReturn(Mono.empty());
+
+    client.delete().uri("/api/sessions/s1").exchange().expectStatus().isNoContent();
+    client
+        .delete()
+        .uri("/api/sessions/s1/workflows/wf?force=true")
+        .exchange()
+        .expectStatus()
+        .isNoContent();
+    verify(sessionService).deleteSession("s1", false);
+    verify(sessionService).deleteWorkflow("s1", "wf", true);
+  }
+
+  @Test
+  void testDeleteUnknownIs404AndActiveRunsAre409WithTheirIds() {
+    when(sessionService.deleteSession(NOPE, false))
+        .thenReturn(Mono.error(new NotFoundException("Session not found: nope")));
+    when(sessionService.deleteSession("busy", false))
+        .thenReturn(Mono.error(new ActiveRunsException(List.of("e1", "e2"), false)));
+
+    client.delete().uri("/api/sessions/nope").exchange().expectStatus().isNotFound();
+    client
+        .delete()
+        .uri("/api/sessions/busy")
+        .exchange()
+        .expectStatus()
+        .isEqualTo(409)
+        .expectBody()
+        .jsonPath("$.message")
+        .value(
+            message ->
+                org.assertj.core.api.Assertions.assertThat((String) message).contains("e1, e2"));
   }
 }

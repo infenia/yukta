@@ -212,6 +212,16 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
   }
 
   @Override
+  public Mono<Void> removeSession(final String sessionId) {
+    return client
+        .sql("DELETE FROM session_config WHERE session_id = :s")
+        .bind("s", sessionId)
+        .fetch()
+        .rowsUpdated()
+        .then();
+  }
+
+  @Override
   public Flux<String> getSessionIds() {
     return client
         .sql("SELECT session_id FROM session_config")

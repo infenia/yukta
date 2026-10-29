@@ -150,4 +150,17 @@ class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
     assertThat(store.getSessionIds().collectList().block()).containsExactly("new");
     assertThat(store.getExecutionTimeout("new").block()).isEqualTo(3600L);
   }
+
+  @Test
+  void removeSession_forgetsTheSessionAndIsQuietWhenItIsUnknown() {
+    store
+        .applySessionConfig(
+            new SessionConfigData("gone", "n", "d", "alice", Map.of(), "/p", Map.of()))
+        .block();
+
+    store.removeSession("gone").block();
+    store.removeSession("never-was").block();
+
+    assertThat(store.getSessionIds().collectList().block()).doesNotContain("gone");
+  }
 }

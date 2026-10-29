@@ -5,11 +5,15 @@ package com.infenia.yukta.service.session;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.plugin.control.StopMode;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
@@ -150,7 +154,7 @@ class SessionServiceTest {
 
     // Then: only the dropped workflow is removed; the kept one is left alone.
     verify(workflowDefinitionStore).remove(sessionId, "w2");
-    verify(workflowDefinitionStore, org.mockito.Mockito.never()).remove(sessionId, "w1");
+    verify(workflowDefinitionStore, never()).remove(sessionId, "w1");
   }
 
   @Test
@@ -767,14 +771,11 @@ class SessionServiceTest {
   void testGetLatestExecutionStatusByWorkflow_groupsAndTakesFirst() {
     // Given: history with multiple entries, most recent first
     final String sessionId = "sess-status";
-    final com.infenia.yukta.model.execution.WorkflowExecutionSummary status1 =
-        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
-            EXEC1, WF1, RUNNING, null, null);
-    final com.infenia.yukta.model.execution.WorkflowExecutionSummary status2 =
-        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
-            EXEC2, WF1, SUCCESS, null, null);
-    final List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
-        List.of(status1, status2);
+    final WorkflowExecutionSummary status1 =
+        new WorkflowExecutionSummary(EXEC1, WF1, RUNNING, null, null);
+    final WorkflowExecutionSummary status2 =
+        new WorkflowExecutionSummary(EXEC2, WF1, SUCCESS, null, null);
+    final List<WorkflowExecutionSummary> history = List.of(status1, status2);
 
     when(controlBus.getHistory(sessionId)).thenReturn(Mono.just(history));
 
@@ -823,14 +824,11 @@ class SessionServiceTest {
   void testGetLatestExecutionStatusByWorkflow_multipleWorkflows() {
     // Given: history with different workflows
     final String sessionId = "sess-multi-wf";
-    final com.infenia.yukta.model.execution.WorkflowExecutionSummary wf1Status =
-        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
-            EXEC1, WF1, SUCCESS, null, null);
-    final com.infenia.yukta.model.execution.WorkflowExecutionSummary wf2Status =
-        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
-            EXEC2, WF2, FAILURE, null, null);
-    final List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
-        List.of(wf1Status, wf2Status);
+    final WorkflowExecutionSummary wf1Status =
+        new WorkflowExecutionSummary(EXEC1, WF1, SUCCESS, null, null);
+    final WorkflowExecutionSummary wf2Status =
+        new WorkflowExecutionSummary(EXEC2, WF2, FAILURE, null, null);
+    final List<WorkflowExecutionSummary> history = List.of(wf1Status, wf2Status);
 
     when(controlBus.getHistory(sessionId)).thenReturn(Mono.just(history));
 
@@ -844,5 +842,141 @@ class SessionServiceTest {
         .verifyComplete();
 
     verify(controlBus).getHistory(sessionId);
+  }
+
+  private static WorkflowExecutionSummary run(
+      final String runId, final String workflow, final String status) {
+    return new WorkflowExecutionSummary(runId, workflow, status, null, null);
+  }
+
+  @Test
+  void deleteWorkflow_removesItsDefinitionAndCompiledCopyAndRecordsIt() {
+    when(workflowDefinitionStore.find("s", "w"))
+        .thenReturn(Mono.just(new WorkflowDefinition("w", DESC, List.of(), List.of())));
+    when(controlBus.getHistory("s")).thenReturn(Mono.just(List.of(run("e1", "w", SUCCESS))));
+    when(workflowDefinitionStore.remove("s", "w")).thenReturn(Mono.empty());
+    when(controlBus.recordAdminAction(any(), any(), eq(true), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(sessionService.deleteWorkflow("s", "w", false)).verifyComplete();
+
+    verify(workflowDefinitionStore).remove("s", "w");
+    verify(preparedWorkflowCache).invalidate("s", "w");
+    verify(controlBus).recordAdminAction("DeleteWorkflow(s, w, force=false)", "s/w", true, null);
+  }
+
+  @Test
+  void deleteWorkflow_ofAnUnknownWorkflowIsNotFound() {
+    when(workflowDefinitionStore.find("s", "nope")).thenReturn(Mono.empty());
+    when(controlBus.recordAdminAction(any(), any(), eq(false), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(sessionService.deleteWorkflow("s", "nope", false))
+        .expectError(NotFoundException.class)
+        .verify();
+    verify(workflowDefinitionStore, never()).remove(any(), any());
+  }
+
+  @Test
+  void deleteWorkflow_isRefusedWhileItsRunsAreActive_butOtherWorkflowsRunsDoNotCount() {
+    when(workflowDefinitionStore.find(any(), any()))
+        .thenReturn(Mono.just(new WorkflowDefinition("w", DESC, List.of(), List.of())));
+    when(controlBus.recordAdminAction(any(), any(), eq(false), any())).thenReturn(Mono.empty());
+    when(controlBus.getHistory("s"))
+        .thenReturn(
+            Mono.just(
+                List.of(
+                    run("e1", "w", RUNNING),
+                    run("e2", "w", "PAUSED"),
+                    run("e3", "w", "QUEUED"),
+                    run("e4", "other", RUNNING),
+                    run("e5", "w", SUCCESS))));
+
+    StepVerifier.create(sessionService.deleteWorkflow("s", "w", false))
+        .expectErrorSatisfies(
+            error ->
+                assertThat(error)
+                    .isInstanceOf(ActiveRunsException.class)
+                    .satisfies(
+                        e ->
+                            assertThat(((ActiveRunsException) e).runIds())
+                                .containsExactly("e1", "e2", "e3")))
+        .verify();
+    verify(workflowDefinitionStore, never()).remove(any(), any());
+    verify(controlBus)
+        .recordAdminAction(eq("DeleteWorkflow(s, w, force=false)"), eq("s/w"), eq(false), any());
+  }
+
+  @Test
+  void deleteWorkflow_withForceCancelsTheRunsWaitsForThemAndThenDeletes() {
+    when(workflowDefinitionStore.find(any(), any()))
+        .thenReturn(Mono.just(new WorkflowDefinition("w", DESC, List.of(), List.of())));
+    when(controlBus.getHistory("s"))
+        .thenReturn(Mono.just(List.of(run("e1", "w", RUNNING))))
+        .thenReturn(Mono.just(List.of(run("e1", "w", RUNNING))))
+        .thenReturn(Mono.just(List.of(run("e1", "w", "CANCELLED"))));
+    when(controlBus.stopWorkflow("s", "w", "Deleted", StopMode.CANCEL))
+        .thenReturn(Mono.just(List.of("e1")));
+    when(workflowDefinitionStore.remove("s", "w")).thenReturn(Mono.empty());
+    when(controlBus.recordAdminAction(any(), any(), eq(true), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(sessionService.deleteWorkflow("s", "w", true)).verifyComplete();
+
+    verify(controlBus).stopWorkflow("s", "w", "Deleted", StopMode.CANCEL);
+    verify(workflowDefinitionStore).remove("s", "w");
+    verify(controlBus).recordAdminAction("DeleteWorkflow(s, w, force=true)", "s/w", true, null);
+  }
+
+  @Test
+  void deleteSession_removesWorkflowsSettingsAndCompiledCopies() {
+    when(configService.getSessionIds()).thenReturn(Flux.just("s", "t"));
+    when(controlBus.getHistory("s")).thenReturn(Mono.just(List.of()));
+    when(workflowDefinitionStore.removeAll("s")).thenReturn(Mono.empty());
+    when(configService.removeSession("s")).thenReturn(Mono.empty());
+    when(controlBus.recordAdminAction(any(), any(), eq(true), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(sessionService.deleteSession("s", false)).verifyComplete();
+
+    verify(workflowDefinitionStore).removeAll("s");
+    verify(configService).removeSession("s");
+    verify(preparedWorkflowCache).invalidateAll("s");
+    verify(controlBus).recordAdminAction("DeleteSession(s, force=false)", "s", true, null);
+  }
+
+  @Test
+  void deleteSession_ofAnUnknownSessionIsNotFound_andActiveRunsBlockIt() {
+    when(controlBus.recordAdminAction(any(), any(), eq(false), any())).thenReturn(Mono.empty());
+    when(configService.getSessionIds()).thenReturn(Flux.just("t"));
+    StepVerifier.create(sessionService.deleteSession("s", false))
+        .expectError(NotFoundException.class)
+        .verify();
+
+    when(configService.getSessionIds()).thenReturn(Flux.just("s"));
+    when(controlBus.getHistory("s")).thenReturn(Mono.just(List.of(run("e1", "w", RUNNING))));
+    StepVerifier.create(sessionService.deleteSession("s", false))
+        .expectError(ActiveRunsException.class)
+        .verify();
+    verify(configService, never()).removeSession(any());
+  }
+
+  @Test
+  void deleteWorkflow_withForceGivesUpWhenTheRunsDoNotEnd() {
+    when(workflowDefinitionStore.find(any(), any()))
+        .thenReturn(Mono.just(new WorkflowDefinition("w", DESC, List.of(), List.of())));
+    when(controlBus.getHistory("s")).thenReturn(Mono.just(List.of(run("e1", "w", RUNNING))));
+    when(controlBus.stopWorkflow("s", "w", "Deleted", StopMode.CANCEL))
+        .thenReturn(Mono.just(List.of("e1")));
+    when(controlBus.recordAdminAction(any(), any(), eq(false), any())).thenReturn(Mono.empty());
+
+    StepVerifier.withVirtualTime(() -> sessionService.deleteWorkflow("s", "w", true))
+        .thenAwait(java.time.Duration.ofSeconds(30))
+        .expectErrorSatisfies(
+            error ->
+                assertThat(error)
+                    .isInstanceOf(ActiveRunsException.class)
+                    .satisfies(
+                        e ->
+                            assertThat(((ActiveRunsException) e).getMessage())
+                                .contains("did not end in time")))
+        .verify();
+    verify(workflowDefinitionStore, never()).remove(any(), any());
   }
 }

@@ -619,4 +619,31 @@ class FileSessionConfigStoreTest {
 
     assertThat(result).isEmpty();
   }
+
+  @Test
+  @SuppressWarnings("PMD.LawOfDemeter")
+  void removeSession_deletesTheFileAndTheCachedCopy_andIsQuietForAnUnknownSession() {
+    final SessionConfigData data =
+        new SessionConfigData("gone", "n", "d", "i", Map.of(), "/p", Map.of());
+    StepVerifier.create(configStore.applySessionConfig(data)).verifyComplete();
+    assertThat(tempDir.resolve("sessions/gone.json")).exists();
+
+    StepVerifier.create(configStore.removeSession("gone")).verifyComplete();
+    StepVerifier.create(configStore.removeSession("never-was")).verifyComplete();
+
+    assertThat(tempDir.resolve("sessions/gone.json")).doesNotExist();
+    assertThat(configStore.getSessionIds().collectList().block()).doesNotContain("gone");
+    StepVerifier.create(configStore.getDescription("gone")).expectNext("").verifyComplete();
+  }
+
+  @Test
+  void removeSession_failingToDeleteTheFile_isReportedNotSwallowed() throws IOException {
+    final Path blocker = tempDir.resolve("sessions/stuck.json");
+    Files.createDirectories(blocker);
+    Files.writeString(blocker.resolve("child"), "x");
+
+    StepVerifier.create(configStore.removeSession("stuck"))
+        .expectError(java.io.UncheckedIOException.class)
+        .verify();
+  }
 }

@@ -3047,4 +3047,37 @@ class DefaultControlBusGatewayTest {
                 com.infenia.yukta.service.log.ExecutionLogEvent.Type.CONTROL_REJECTED,
                 "SetPriority(5): Execution running is not waiting for a slot"));
   }
+
+  @Test
+  void recordAdminAction_isAuditedWithTheActor() {
+    final com.infenia.yukta.service.log.InMemoryExecutionLogStore auditLog =
+        new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
+    final DefaultControlBusGateway audited =
+        new DefaultControlBusGateway(
+            controlBusService,
+            taskTracker,
+            executionControlRegistry,
+            archive,
+            orchestrator,
+            workflowDefinitionStore,
+            preparedWorkflowCache,
+            new ExecutionScheduler(
+                1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1)),
+            new StartIdempotency(java.time.Duration.ofMinutes(1)),
+            auditLog);
+
+    StepVerifier.create(
+            audited
+                .recordAdminAction("DeleteSession(s, force=false)", "s", true, null)
+                .contextWrite(
+                    ctx ->
+                        ctx.put(
+                            com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, "key:bob")))
+        .verifyComplete();
+
+    assertThat(auditLog.readAll())
+        .singleElement()
+        .satisfies(
+            e -> assertThat(e.status()).isEqualTo("DeleteSession(s, force=false) [by key:bob]"));
+  }
 }

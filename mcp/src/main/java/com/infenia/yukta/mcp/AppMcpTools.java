@@ -544,6 +544,65 @@ public class AppMcpTools {
   }
 
   /**
+   * Delete a session.
+   *
+   * @param sessionId the session to delete
+   * @param force cancel its active runs first
+   * @return the result
+   */
+  @McpTool(
+      name = "delete_session",
+      title = "Delete Session",
+      description =
+          "Delete a session with all its workflows and their versions. Run history and logs "
+              + "stay. Refused while runs are active unless force is true, which cancels them "
+              + "first. Needs an admin key.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = false,
+              destructiveHint = true,
+              idempotentHint = false,
+              openWorldHint = false))
+  public Mono<ControlActionResult> deleteSession(
+      @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
+      @McpToolParam(required = false, description = "Cancel active runs first instead of refusing")
+          final Boolean force) {
+    return sessionInfoProvider.deleteSession(sessionId, Boolean.TRUE.equals(force));
+  }
+
+  /**
+   * Delete a workflow of a session.
+   *
+   * @param sessionId the session that owns the workflow
+   * @param workflowId the workflow to delete
+   * @param force cancel its active runs first
+   * @return the result
+   */
+  @McpTool(
+      name = "delete_workflow",
+      title = "Delete Workflow",
+      description =
+          "Delete one workflow of a session with its versions. Its run history stays. Refused "
+              + "while its runs are active unless force is true, which cancels them first. "
+              + "Needs an admin key.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = false,
+              destructiveHint = true,
+              idempotentHint = false,
+              openWorldHint = false))
+  public Mono<ControlActionResult> deleteWorkflow(
+      @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
+      @McpToolParam(required = true, description = "The unique identifier of the workflow")
+          final String workflowId,
+      @McpToolParam(required = false, description = "Cancel active runs first instead of refusing")
+          final Boolean force) {
+    return sessionInfoProvider.deleteWorkflow(sessionId, workflowId, Boolean.TRUE.equals(force));
+  }
+
+  /**
    * Set a breakpoint on a node.
    *
    * @param sessionId the session that owns the execution

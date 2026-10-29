@@ -36,4 +36,13 @@ class ApiRoleTest {
   void admin_doesEverything() {
     assertThat(ApiRole.ADMIN.allows(HttpMethod.DELETE, "/api/sessions/s")).isTrue();
   }
+
+  @Test
+  void deletingSessionsAndWorkflowsNeedsAdmin() {
+    for (final String path : new String[] {"/api/sessions/s1", "/api/sessions/s1/workflows/w1"}) {
+      assertThat(ApiRole.VIEWER.allows(HttpMethod.DELETE, path)).isFalse();
+      assertThat(ApiRole.OPERATOR.allows(HttpMethod.DELETE, path)).isFalse();
+      assertThat(ApiRole.ADMIN.allows(HttpMethod.DELETE, path)).isTrue();
+    }
+  }
 }

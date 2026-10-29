@@ -2,10 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.session;
 
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.plugin.control.StopMode;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
@@ -13,11 +16,14 @@ import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
 import jakarta.validation.Valid;
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Flux;
@@ -29,6 +35,12 @@ import reactor.core.publisher.Mono;
 @Validated
 @RequiredArgsConstructor
 public class SessionService {
+
+  /** How long a forced delete waits for cancelled runs to end. */
+  private static final Duration FORCE_WAIT = Duration.ofSeconds(30);
+
+  /** How often a forced delete looks whether the cancelled runs have ended. */
+  private static final Duration FORCE_POLL = Duration.ofMillis(250);
 
   /** The session configuration store for persisting session settings. */
   private final SessionConfigStore configService;
@@ -140,6 +152,129 @@ public class SessionService {
                     .addArgument(data.sessionId())
                     .setCause(err)
                     .log("Failed to apply configuration for session: {}"));
+  }
+
+  /**
+   * Delete a workflow: its definition and versions, and the compiled copy. Its run history and logs
+   * stay and age out with the log retention.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param force cancel its active runs first instead of refusing
+   * @return a Mono that completes when it is gone; errors with {@link NotFoundException} or {@link
+   *     ActiveRunsException}
+   */
+  public Mono<Void> deleteWorkflow(
+      @SessionId final String sessionId, final String workflowId, final boolean force) {
+    final String command =
+        "DeleteWorkflow(" + sessionId + ", " + workflowId + ", force=" + force + ")";
+    return workflowDefinitionStore
+        .find(sessionId, workflowId)
+        .switchIfEmpty(
+            Mono.error(
+                new NotFoundException(
+                    "Workflow not found: " + workflowId + " in session " + sessionId)))
+        .then(Mono.defer(() -> clearActiveRuns(sessionId, workflowId, force)))
+        .then(Mono.defer(() -> workflowDefinitionStore.remove(sessionId, workflowId)))
+        .doOnSuccess(_ -> preparedWorkflowCache.invalidate(sessionId, workflowId))
+        .then(Mono.defer(() -> audited(command, sessionId + "/" + workflowId)))
+        .onErrorResume(error -> auditedFailure(error, command, sessionId + "/" + workflowId));
+  }
+
+  /**
+   * Delete a session: its settings, all its workflows with their versions, and the compiled copies.
+   * Run history and logs stay and age out with the log retention.
+   *
+   * @param sessionId the session
+   * @param force cancel its active runs first instead of refusing
+   * @return a Mono that completes when it is gone; errors with {@link NotFoundException} or {@link
+   *     ActiveRunsException}
+   */
+  public Mono<Void> deleteSession(@SessionId final String sessionId, final boolean force) {
+    final String command = "DeleteSession(" + sessionId + ", force=" + force + ")";
+    return configService
+        .getSessionIds()
+        .filter(sessionId::equals)
+        .hasElements()
+        .flatMap(
+            known ->
+                known
+                    ? Mono.<Void>empty()
+                    : Mono.error(new NotFoundException("Session not found: " + sessionId)))
+        .then(Mono.defer(() -> clearActiveRuns(sessionId, null, force)))
+        .then(Mono.defer(() -> workflowDefinitionStore.removeAll(sessionId)))
+        .then(Mono.defer(() -> configService.removeSession(sessionId)))
+        .doOnSuccess(_ -> preparedWorkflowCache.invalidateAll(sessionId))
+        .then(Mono.defer(() -> audited(command, sessionId)))
+        .onErrorResume(error -> auditedFailure(error, command, sessionId));
+  }
+
+  /** Records that the delete happened. */
+  private Mono<Void> audited(final String command, final String target) {
+    return controlBus.recordAdminAction(command, target, true, null);
+  }
+
+  /** Records a delete that was refused or failed, then lets the error through. */
+  private Mono<Void> auditedFailure(
+      final Throwable error, final String command, final String target) {
+    return controlBus
+        .recordAdminAction(command, target, false, error.getMessage())
+        .then(Mono.error(error));
+  }
+
+  /**
+   * Makes sure no run of the session (or of one workflow) is going: refuses, or with {@code force}
+   * cancels them and waits a while for them to end.
+   */
+  private Mono<Void> clearActiveRuns(
+      final String sessionId, @Nullable final String workflowId, final boolean force) {
+    return active(sessionId, workflowId)
+        .flatMap(
+            runs -> {
+              if (runs.isEmpty()) {
+                return Mono.<Void>empty();
+              }
+              if (!force) {
+                return Mono.error(new ActiveRunsException(ids(runs), false));
+              }
+              return Flux.fromIterable(
+                      runs.stream().map(WorkflowExecutionSummary::workflowId).distinct().toList())
+                  .concatMap(
+                      id -> controlBus.stopWorkflow(sessionId, id, "Deleted", StopMode.CANCEL))
+                  .then(awaitEnded(sessionId, workflowId));
+            });
+  }
+
+  private Mono<Void> awaitEnded(final String sessionId, @Nullable final String workflowId) {
+    return Flux.interval(FORCE_POLL)
+        .concatMap(_ -> active(sessionId, workflowId))
+        .filter(List::isEmpty)
+        .next()
+        .timeout(
+            FORCE_WAIT,
+            active(sessionId, workflowId)
+                .flatMap(
+                    left ->
+                        Mono.<List<WorkflowExecutionSummary>>error(
+                            new ActiveRunsException(ids(left), true))))
+        .then();
+  }
+
+  private static List<String> ids(final List<WorkflowExecutionSummary> runs) {
+    return runs.stream().map(WorkflowExecutionSummary::executionId).toList();
+  }
+
+  /** The runs of the session (or one workflow) that have not ended. */
+  private Mono<List<WorkflowExecutionSummary>> active(
+      final String sessionId, @Nullable final String workflowId) {
+    return controlBus
+        .getHistory(sessionId)
+        .map(
+            history ->
+                history.stream()
+                    .filter(run -> !TaskStatus.isTerminalName(run.status()))
+                    .filter(run -> workflowId == null || workflowId.equals(run.workflowId()))
+                    .toList());
   }
 
   /**

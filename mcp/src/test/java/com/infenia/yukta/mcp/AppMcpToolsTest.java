@@ -335,6 +335,17 @@ class AppMcpToolsTest {
   }
 
   @Test
+  void deleteTools_passForceThroughAndDefaultItToFalse() {
+    final ControlActionResult done =
+        new ControlActionResult("DELETE_SESSION", null, null, List.of(), "ok");
+    when(sessionInfoProvider.deleteSession("s", false)).thenReturn(Mono.just(done));
+    when(sessionInfoProvider.deleteWorkflow("s", "w", true)).thenReturn(Mono.just(done));
+
+    StepVerifier.create(mcpTools.deleteSession("s", null)).expectNext(done).verifyComplete();
+    StepVerifier.create(mcpTools.deleteWorkflow("s", "w", true)).expectNext(done).verifyComplete();
+  }
+
+  @Test
   void whoami_delegatesToTheHealthProvider() {
     final WhoamiResult who =
         new WhoamiResult(
