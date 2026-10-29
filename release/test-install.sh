@@ -71,8 +71,8 @@ if YUKTA_OS=Darwin YUKTA_ARCH=arm64 sh "$script" --version "$version" --install-
   fail "--server-only should fail without a native server"
 fi
 
-echo "5. piped from curl with options"
-curl -fsS "file://$script" 2>/dev/null | sh -s -- --version "$version" --install-dir "$work/g" --cli-only >/dev/null || fail "piped run"
+echo "5. piped to sh with options"
+cat "$script" | sh -s -- --version "$version" --install-dir "$work/g" --cli-only >/dev/null || fail "piped run"
 [[ -x "$work/g/yukta-cli" ]] || fail "piped install"
 
 echo "6. uninstall"
