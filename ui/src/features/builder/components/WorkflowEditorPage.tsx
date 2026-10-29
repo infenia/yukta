@@ -96,6 +96,8 @@ function Editor({
     });
   }, []);
   const [newType, setNewType] = useState('');
+  const [listTab, setListTab] = useState<'nodes' | 'edges'>('nodes');
+  const [nodeQuery, setNodeQuery] = useState('');
   const [edge, setEdge] = useState<DraftEdge>({
     source: '',
     target: '',
@@ -236,7 +238,7 @@ function Editor({
           <RequirePermission perm="editSessions">
             <button
               type="button"
-              className={BUTTON}
+              className={buttonVariants()}
               disabled={busy || invalidJson.size > 0}
               onClick={save}
             >
@@ -265,143 +267,210 @@ function Editor({
 
       {/* Three columns from lg up; on phones and tablets the panels stack (list, canvas,
           inspector) so each one gets the full width */}
-      <div className="flex min-h-100 flex-1 flex-col lg:flex-row">
+      {/* From lg up the three panels share a fixed-height workspace and each scrolls on its own,
+          so a 100-node workflow no longer stretches the page */}
+      <div className="flex flex-col lg:h-[clamp(28rem,calc(100dvh-14rem),56rem)] lg:flex-row">
         <aside
           aria-label="Nodes and edges"
           className="border-border flex w-full shrink-0 flex-col gap-4 border-b p-4 lg:w-80 lg:overflow-y-auto lg:border-r lg:border-b-0"
         >
-          <div className="flex gap-2">
-            <NativeSelect
-              aria-label="Plugin type"
-              className="min-w-0 flex-1"
-              value={selectedType}
-              onChange={(event) => setNewType(event.target.value)}
-            >
-              {PLUGIN_CATEGORIES.map((category) => (
-                <optgroup key={category} label={category}>
-                  {plugins.data
-                    ?.filter((p) => p.category === category)
-                    .map((p) => (
-                      <option key={p.type} value={p.type}>
-                        {p.type}
-                      </option>
-                    ))}
-                </optgroup>
-              ))}
-            </NativeSelect>
-            <button type="button" className={BUTTON} onClick={addNode}>
-              Add node
-            </button>
-          </div>
-
-          <ul className="flex flex-col gap-0.5" aria-label="Nodes">
-            {workflow.nodes.map((n) => (
-              <li key={n.nodeId}>
-                <button
-                  type="button"
-                  aria-current={n.nodeId === selected}
-                  onClick={() => setSelected(n.nodeId)}
-                  className={`text-body-md transition-standard flex w-full items-baseline gap-2 rounded-lg px-3 py-2 text-left ${
-                    n.nodeId === selected
-                      ? 'bg-accent text-accent-foreground font-semibold'
-                      : 'text-on-surface hover:bg-muted'
-                  }`}
-                >
-                  {n.nodeId}
-                  <span className="text-on-surface-variant text-code-sm">
-                    {n.type}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          <div className="flex flex-col gap-2">
-            <h2 className="text-overline">Edges</h2>
-            <ul aria-label="Edges" className="text-body-md flex flex-col gap-1">
-              {workflow.edges.map((e, index) => (
-                <li
-                  key={`${e.source}-${e.target}-${e.sourcePort}`}
-                  className="flex items-center"
-                >
-                  <span className="text-code-sm">
-                    {e.source}
-                    {e.sourcePort ? `:${e.sourcePort}` : ''} → {e.target}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={`Remove edge ${e.source} to ${e.target}`}
-                    className="text-error text-body-sm ml-auto"
-                    onClick={() =>
-                      update({
-                        edges: workflow.edges.filter((_, i) => i !== index),
-                      })
-                    }
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div className="flex flex-wrap gap-1">
-              <NativeSelect
-                aria-label="Edge source"
-                value={edge.source}
-                onChange={(event) =>
-                  setEdge({
-                    ...edge,
-                    source: event.target.value,
-                    sourcePort: null,
-                  })
-                }
+          <div role="tablist" aria-label="Outline" className="flex gap-1">
+            {(
+              [
+                ['nodes', 'Nodes', workflow.nodes.length],
+                ['edges', 'Edges', workflow.edges.length],
+              ] as const
+            ).map(([id, label, count]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={listTab === id}
+                onClick={() => setListTab(id)}
+                className={`text-label-md flex items-center gap-1.5 rounded-lg px-3 py-1 ${
+                  listTab === id
+                    ? 'bg-muted text-on-surface'
+                    : 'text-on-surface-variant hover:bg-muted'
+                }`}
               >
-                <option value="">from…</option>
-                {workflow.nodes.map((n) => (
-                  <option key={n.nodeId}>{n.nodeId}</option>
-                ))}
-              </NativeSelect>
-              <NativeSelect
-                aria-label="Edge port"
-                value={edge.sourcePort ?? ''}
-                onChange={(event) =>
-                  setEdge({ ...edge, sourcePort: event.target.value || null })
-                }
-              >
-                <option value="">all ports</option>
-                {(ports[edge.source] ?? []).map((port) => (
-                  <option key={port}>{port}</option>
-                ))}
-              </NativeSelect>
-              <NativeSelect
-                aria-label="Edge target"
-                value={edge.target}
-                onChange={(event) =>
-                  setEdge({ ...edge, target: event.target.value })
-                }
-              >
-                <option value="">to…</option>
-                {workflow.nodes.map((n) => (
-                  <option key={n.nodeId}>{n.nodeId}</option>
-                ))}
-              </NativeSelect>
-              <button type="button" className={BUTTON} onClick={addEdge}>
-                Add edge
+                {label}
+                <span className="text-body-sm text-muted-foreground tabular-nums">
+                  {count}
+                </span>
               </button>
-            </div>
-            <p className="text-on-surface-variant text-body-sm">
-              Validate to list a node&apos;s ports for its configuration.
-            </p>
+            ))}
           </div>
+
+          {listTab === 'nodes' && (
+            <>
+              <div className="flex gap-2">
+                <NativeSelect
+                  aria-label="Plugin type"
+                  className="min-w-0 flex-1"
+                  value={selectedType}
+                  onChange={(event) => setNewType(event.target.value)}
+                >
+                  {PLUGIN_CATEGORIES.map((category) => (
+                    <optgroup key={category} label={category}>
+                      {plugins.data
+                        ?.filter((p) => p.category === category)
+                        .map((p) => (
+                          <option key={p.type} value={p.type}>
+                            {p.type}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ))}
+                </NativeSelect>
+                <button type="button" className={BUTTON} onClick={addNode}>
+                  Add node
+                </button>
+              </div>
+
+              <input
+                type="search"
+                aria-label="Find node"
+                placeholder="Find node or plugin"
+                value={nodeQuery}
+                onChange={(event) => setNodeQuery(event.target.value)}
+                className="bg-muted text-body-md placeholder:text-muted-foreground focus-visible:ring-ring/40 h-8 rounded-full px-3 outline-none focus-visible:ring-2"
+              />
+
+              <ul className="flex flex-col gap-0.5" aria-label="Nodes">
+                {workflow.nodes
+                  .filter((n) =>
+                    `${n.nodeId} ${n.type}`
+                      .toLowerCase()
+                      .includes(nodeQuery.trim().toLowerCase())
+                  )
+                  .map((n) => (
+                    <li key={n.nodeId}>
+                      <button
+                        type="button"
+                        aria-current={n.nodeId === selected}
+                        onClick={() => setSelected(n.nodeId)}
+                        className={`text-body-md transition-standard flex w-full items-baseline gap-2 rounded-lg px-3 py-2 text-left ${
+                          n.nodeId === selected
+                            ? 'bg-accent text-accent-foreground font-semibold'
+                            : 'text-on-surface hover:bg-muted'
+                        }`}
+                      >
+                        {n.nodeId}
+                        <span className="text-on-surface-variant text-code-sm">
+                          {n.type}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </>
+          )}
+
+          {listTab === 'edges' && (
+            <div className="flex flex-col gap-2">
+              <h2 className="sr-only">Edges</h2>
+              <ul
+                aria-label="Edges"
+                className="text-body-md flex flex-col gap-1"
+              >
+                {workflow.edges.map((e, index) => (
+                  <li
+                    key={`${e.source}-${e.target}-${e.sourcePort}`}
+                    className="flex items-center"
+                  >
+                    <span className="text-code-sm">
+                      {e.source}
+                      {e.sourcePort ? `:${e.sourcePort}` : ''} → {e.target}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Remove edge ${e.source} to ${e.target}`}
+                      className="text-error text-body-sm ml-auto"
+                      onClick={() =>
+                        update({
+                          edges: workflow.edges.filter((_, i) => i !== index),
+                        })
+                      }
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex flex-wrap gap-1">
+                <NativeSelect
+                  aria-label="Edge source"
+                  value={edge.source}
+                  onChange={(event) =>
+                    setEdge({
+                      ...edge,
+                      source: event.target.value,
+                      sourcePort: null,
+                    })
+                  }
+                >
+                  <option value="">from…</option>
+                  {workflow.nodes.map((n) => (
+                    <option key={n.nodeId}>{n.nodeId}</option>
+                  ))}
+                </NativeSelect>
+                <NativeSelect
+                  aria-label="Edge port"
+                  value={edge.sourcePort ?? ''}
+                  onChange={(event) =>
+                    setEdge({ ...edge, sourcePort: event.target.value || null })
+                  }
+                >
+                  <option value="">all ports</option>
+                  {(ports[edge.source] ?? []).map((port) => (
+                    <option key={port}>{port}</option>
+                  ))}
+                </NativeSelect>
+                <NativeSelect
+                  aria-label="Edge target"
+                  value={edge.target}
+                  onChange={(event) =>
+                    setEdge({ ...edge, target: event.target.value })
+                  }
+                >
+                  <option value="">to…</option>
+                  {workflow.nodes.map((n) => (
+                    <option key={n.nodeId}>{n.nodeId}</option>
+                  ))}
+                </NativeSelect>
+                <button type="button" className={BUTTON} onClick={addEdge}>
+                  Add edge
+                </button>
+              </div>
+              <p className="text-on-surface-variant text-body-sm">
+                Validate to list a node&apos;s ports for its configuration.
+              </p>
+            </div>
+          )}
         </aside>
 
         <div
           data-testid="editor-canvas"
           className="h-80 min-w-0 shrink-0 lg:h-auto lg:flex-1"
         >
+          {/* Re-keyed on selection so the view opens on the selected node and its neighbours */}
           <WorkflowCanvas
-            key={workflow.nodes.length}
+            key={`${workflow.nodes.length}/${selected ?? ''}`}
             graph={graph}
             tasksByNode={NO_TASKS}
+            focusOn={
+              selected
+                ? [
+                    selected,
+                    ...workflow.edges
+                      .filter((e) => e.source === selected)
+                      .map((e) => e.target),
+                    ...workflow.edges
+                      .filter((e) => e.target === selected)
+                      .map((e) => e.source),
+                  ]
+                : undefined
+            }
           />
         </div>
 

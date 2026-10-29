@@ -65,4 +65,15 @@ describe('WorkflowCanvas opening view', () => {
     render(<WorkflowCanvas graph={graphOf(40)} tasksByNode={tasks} />);
     expect(ids()).toEqual(['n20']);
   });
+
+  it('opens on the nodes it is told to, whatever the graph size', () => {
+    render(
+      <WorkflowCanvas
+        graph={graphOf(3)}
+        tasksByNode={{}}
+        focusOn={['n1', 'n2']}
+      />
+    );
+    expect(ids()).toEqual(['n1', 'n2']);
+  });
 });
