@@ -359,18 +359,6 @@ class DefaultMessageTest {
   }
 
   @Test
-  void testHistoryIsCapped() {
-    Message<String> msg = DefaultMessage.create(null, "p");
-    for (int i = 0; i < DefaultMessage.MAX_HISTORY + 10; i++) {
-      msg = msg.withAddedHistory("n" + i);
-    }
-    assertThat(msg.messageHistory()).hasSize(DefaultMessage.MAX_HISTORY);
-    assertThat(msg.messageHistory().get(DefaultMessage.MAX_HISTORY - 1))
-        .isEqualTo("n" + (DefaultMessage.MAX_HISTORY + 9));
-    assertThat(msg.messageHistory().get(0)).isEqualTo("n10");
-  }
-
-  @Test
   void testFromKeepsTimestampPrecision() {
     final Instant precise = Instant.parse("2026-01-01T00:00:00.123456789Z");
     final Message<String> original = DefaultMessage.create(null, "p").withTimestamp(precise);
@@ -394,7 +382,7 @@ class DefaultMessageTest {
     }
     final Message<String> msg = DefaultMessage.create(null, "p").withMessageHistory(big);
     assertThat(msg.messageHistory()).hasSize(DefaultMessage.MAX_HISTORY);
-    assertThat(msg.messageHistory().get(0)).isEqualTo("n5");
+    assertThat(msg.messageHistory().subList(0, 3)).containsExactly("n0", "…(+6)", "n7");
   }
 
   /**
@@ -491,5 +479,41 @@ class DefaultMessageTest {
   private static Object sample(final String name, final Class<?> type) {
     final Object value = type == String.class ? "v-" + name : SAMPLES.get(type);
     return Objects.requireNonNull(value, "Give the new component type a sample value: " + type);
+  }
+
+  @Test
+  void historyOverTheCapKeepsFirstAndCountsDropped() {
+    Message<String> msg = DefaultMessage.create(UUID.randomUUID(), "p");
+    for (int i = 0; i < DefaultMessage.MAX_HISTORY + 10; i++) {
+      msg = msg.withAddedHistory("n" + i);
+    }
+
+    assertThat(msg.messageHistory()).hasSize(DefaultMessage.MAX_HISTORY);
+    assertThat(msg.messageHistory().get(0)).isEqualTo("n0");
+    assertThat(msg.messageHistory().get(1)).isEqualTo("…(+11)");
+    assertThat(msg.messageHistory().getLast()).isEqualTo("n73");
+  }
+
+  @Test
+  void historyWithinTheCapIsUntouched() {
+    Message<String> msg = DefaultMessage.create(UUID.randomUUID(), "p");
+    for (int i = 0; i < DefaultMessage.MAX_HISTORY; i++) {
+      msg = msg.withAddedHistory("n" + i);
+    }
+
+    assertThat(msg.messageHistory()).hasSize(DefaultMessage.MAX_HISTORY).doesNotContain("…(+1)");
+    assertThat(msg.messageHistory().get(1)).isEqualTo("n1");
+  }
+
+  @Test
+  void withHeadersSetsAllAndNullRemoves() {
+    final Message<String> msg =
+        DefaultMessage.create(UUID.randomUUID(), "p").withHeader("gone", "x").withHeader("b", 1);
+    final Map<String, Object> change = new HashMap<>();
+    change.put("a", "1");
+    change.put("gone", null);
+
+    assertThat(msg.withHeaders(change).metadata())
+        .containsOnly(Map.entry("a", "1"), Map.entry("b", 1));
   }
 }

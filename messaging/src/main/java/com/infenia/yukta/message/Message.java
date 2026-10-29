@@ -11,6 +11,15 @@ import java.util.Map;
  * <p>A message consists of two parts: a Header for meta-information used by the messaging system,
  * and a Body (Payload) for the actual data being transmitted.
  *
+ * <p>{@link DefaultMessage} is the only implementation. The interface is kept for a possible lazy
+ * or claim-check implementation; a new field must be added here, to the record and to {@code
+ * DefaultMessage.from}, and the copy-path test in {@code DefaultMessageTest} fails if one is
+ * missed.
+ *
+ * <p>Headers (the {@link #metadata()} values) should be JSON values (string, number, boolean, list
+ * or map): a message sent to a remote worker is rebuilt from JSON, so other types arrive as plain
+ * JSON values.
+ *
  * @param <T> the type of the payload
  */
 @SuppressWarnings("PMD.TooManyMethods")
@@ -25,9 +34,9 @@ public interface Message<T> {
   // --- Header / Metadata Accessors ---
 
   /**
-   * Logical identifier of this message. It is kept across {@link #withPayload} and the other {@code
-   * with*} copies, so it is not unique per node output. A store must key entries by (executionId,
-   * nodeId, messageId).
+   * Logical identifier of this message (not a unique per-output id). It is kept across {@link
+   * #withPayload} and the other {@code with*} copies, so it is not unique per node output. A store
+   * must key entries by (executionId, nodeId, messageId).
    *
    * @return the message ID
    */
@@ -346,4 +355,13 @@ public interface Message<T> {
    * @return a new message instance
    */
   Message<T> withHeader(String key, Object value);
+
+  /**
+   * Create a copy of this message with several headers set in one copy of the metadata. A null
+   * value removes the header, as in {@link #withHeader}.
+   *
+   * @param headers the headers to add or update
+   * @return a new message instance
+   */
+  Message<T> withHeaders(Map<String, ?> headers);
 }
