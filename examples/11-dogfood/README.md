@@ -84,7 +84,7 @@ latency}` goes to `.yukta-dev/decisions.tsv`, but the caller's static path still
    there with the same problem lines, the stage is a known baseline failure: the heal ends with no fixer. No `origin/main`, a
    timeout or any other error means "not known" and the heal goes on.
 3. **Triage**: a local model (System One, `tev1` via Ollama) rates the failure easy, average or hard. The label only picks the
-   first rung; unreachable or unsure (< 0.3) means average. `--triage off` skips it.
+   first rung; unreachable or unsure (< 0.3) means average. `--triage off` skips it. Optional `triage.stop` in `heal.json` (off by default) adds labels such as `environment` that end the heal with no fixer (`FAILED`, reason `ESCALATE (<label>): …`); enable one only after shadow-mode calibration (#1246) shows the router agrees with what fixed the failure.
 4. **Ladder** (`heal.json`): easy `haiku/low → sonnet/low`, average `haiku/high → sonnet/low`, hard `sonnet/low`. One fresh
    Claude session per rung. An attempt that changed no file ends the ladder, and so does the first failed attempt on `reuse`, `docs` or `actionlint` (`heal.json` `singleAttempt`); the end of the ladder fails the stage. An attempt after which the stage fails exactly as it did after the attempt before (same problem lines, numbers aside) ends the ladder too: a stronger model would start from the same problems.
 5. **Guard**: what changed on disk decides, not what Claude says. After the rules, the `guard` decision (decisions.json, shadow by default) asks the decision model once about per-file facts, never the diff; once it is `on` it can only reject (`GUARD: model:`), at probability >= `minProbability`. Rejected: edits to `config/`, `build-logic/`, `gradle/`,

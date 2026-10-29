@@ -10,6 +10,7 @@
 #   verify            a verify that fails goes back to heal
 #   baseline          a stage that fails the same way on origin/main gets no fixer; one that fails differently does
 #   triage            a "hard" failure starts at sonnet/low (fake Ollama)
+#   triage stop       a label in heal.json triage.stop ends the heal with no fixer (a generated session; off in the shipped one)
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$here/scripts/_lib.sh"
@@ -59,10 +60,10 @@ scenario() {
   rm -rf "$healdir" "$dir/claude.log"
   mkdir -p "$healdir"
   printf '%s\n' "$@" >"$dir/plan"
-  names="$(jq -c '[.workflows.check.nodes[] | select(.type == "SUB_WORKFLOW" and .config.workflowId == "tool" and .nodeId != "verify") | .nodeId]' "$here/session.json")"
+  names="$(jq -c '[.workflows.check.nodes[] | select(.type == "SUB_WORKFLOW" and .config.workflowId == "tool" and .nodeId != "verify") | .nodeId]' "${SESSION_FILE:-$here/session.json}")"
   cmds="$(jq -nc --argjson n "$names" --arg c "${CMD_compile:-}" --arg t "${CMD_tests:-}" --arg r "${CMD_reuse:-}" \
     '($n | map({(.): ""}) | add) + {compile: $c, tests: $t, reuse: $r}')"
-  jq --arg p "$proj" --arg d "$here" --arg s "$session" 'walk(if type == "string" then split("__PROJECT_PATH__") | join($p) | split("__DOGFOOD__") | join($d) else . end) | .sessionId=$s | .name=$s' "$here/session.json" >"$dir/session.json"
+  jq --arg p "$proj" --arg d "$here" --arg s "$session" 'walk(if type == "string" then split("__PROJECT_PATH__") | join($p) | split("__DOGFOOD__") | join($d) else . end) | .sessionId=$s | .name=$s' "${SESSION_FILE:-$here/session.json}" >"$dir/session.json"
   "$cli" session apply "$dir/session.json" >"$dir/apply.out" 2>&1 || { cat "$dir/apply.out" >&2; fail "$name: session apply"; }
   exec_id="$("$cli" -o json workflow start "$session" check --payload "$(jq -nc --arg p "$proj" --arg d "$healdir" --arg bin "$dir/claude" \
     --arg rules "$here/fixer-rules.md" --arg events "${EVENTS:--}" --arg autoreuse "${AUTO_reuse:-}" --arg verify "${VERIFY:-true}" --arg budget "${BUDGET_CHECK:--}" --arg fast "${FAST:-}" --arg mark "$healdir/fast.ok" --arg triage "${TRIAGE_URL:+on}" --arg turl "${TRIAGE_URL:-http://127.0.0.1:1}" \
@@ -162,6 +163,15 @@ CMD_compile='echo error: compile failed difficulty: hard; test -f compile.ok' TR
   scenario "$name" "compile haiku fix" "compile sonnet fix"
 expect "status=SUCCESS"; expect "compile:sonnet/low"
 grep -q ' haiku ' "$dir/claude.log" && fail "$name: haiku was called for a hard failure"
+
+name="triage stop"
+jq '.triage.stop = {environment: {describe: "Caused by the machine or its setup, not by the change: a refused connection, a missing tool or credential.", reason: "not caused by the change, no fixer started"}}' "$here/heal.json" >"$dir/heal-stop.json"
+cp "$here/session.json" "$dir/session-stop.json"
+HEAL_POLICY="$dir/heal-stop.json" HEAL_SESSION="$dir/session-stop.json" python3 -I "$here/scripts/gen-heal.py" >/dev/null
+SESSION_FILE="$dir/session-stop.json" CMD_compile='echo error: connection refused difficulty: environment; test -f compile.ok' TRIAGE_URL="http://127.0.0.1:$(cat "$dir/port")" \
+  scenario "$name" "compile haiku fix"
+expect "status=FAILED"; expect "failed_node=compile"
+[[ "$(calls)" == 0 ]] || fail "$name: expected no claude call, got $(calls)"
 
 name="give up"
 # five attempts at compile in the last week, none fixed: the healer does not try again; the same five a month ago do not count
