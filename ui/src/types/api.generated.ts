@@ -908,6 +908,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the session templates
+         * @description The bundled examples: id, title, a one-line summary and the plugin types used
+         */
+        get: operations["list_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a session template
+         * @description The README (markdown) and the session definition to apply. 404 if unknown
+         */
+        get: operations["get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/supervisors": {
         parameters: {
             query?: never;
@@ -919,7 +959,7 @@ export interface paths {
          * List supervisors
          * @description Lists the supervisors and control-plane plugins running on the control bus, in review order, with how many commands each applied, had refused, only recorded (dry-run) or dropped (rate limit) since startup
          */
-        get: operations["list_1"];
+        get: operations["list_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1399,7 +1439,7 @@ export interface paths {
          * List control commands
          * @description Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them
          */
-        get: operations["list_2"];
+        get: operations["list_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1998,6 +2038,114 @@ export interface components {
             registeredAt?: string;
             /** Format: date-time */
             leaseUntil?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListTemplateSummary: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["TemplateSummary"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        TemplateSummary: {
+            id?: string;
+            title?: string;
+            summary?: string;
+            pluginTypes?: string[];
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseTemplateDetail: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["TemplateDetail"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        JsonNode: {
+            empty?: boolean;
+            array?: boolean;
+            null?: boolean;
+            object?: boolean;
+            float?: boolean;
+            pojo?: boolean;
+            floatingPointNumber?: boolean;
+            short?: boolean;
+            int?: boolean;
+            long?: boolean;
+            double?: boolean;
+            bigDecimal?: boolean;
+            bigInteger?: boolean;
+            /** @deprecated */
+            textual?: boolean;
+            boolean?: boolean;
+            binary?: boolean;
+            valueNode?: boolean;
+            missingNode?: boolean;
+            /** @enum {string} */
+            nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
+            string?: boolean;
+            integralNumber?: boolean;
+            container?: boolean;
+            number?: boolean;
+            embeddedValue?: boolean;
+        };
+        TemplateDetail: {
+            id?: string;
+            title?: string;
+            summary?: string;
+            pluginTypes?: string[];
+            readme?: string;
+            session?: components["schemas"]["JsonNode"];
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListSupervisorInfo: {
@@ -4202,6 +4350,49 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "*/*": components["schemas"]["ApiResponseListTemplateSummary"];
+                };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Template id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTemplateDetail"];
+                };
+            };
+        };
+    };
+    list_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "*/*": components["schemas"]["ApiResponseListSupervisorInfo"];
                 };
             };
@@ -4813,7 +5004,7 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    list_3: {
         parameters: {
             query?: {
                 limit?: number;

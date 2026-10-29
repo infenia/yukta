@@ -11,7 +11,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 
 /** The templates are the examples bundled by the build. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
+@SuppressWarnings({"PMD.CommentRequired", "PMD.LawOfDemeter", "PMD.UnitTestShouldIncludeAssert"})
 class TemplateControllerTest {
 
   private final WebTestClient client =
@@ -39,7 +39,7 @@ class TemplateControllerTest {
   }
 
   @Test
-  void getReturnsTheReadmeAndTheSession() {
+  void readmeAndSessionAreReturned() {
     client
         .get()
         .uri("/api/templates/01-hello-world")
@@ -59,5 +59,23 @@ class TemplateControllerTest {
   void unknownOrOddIdsAre404() {
     client.get().uri("/api/templates/nope").exchange().expectStatus().isNotFound();
     client.get().uri("/api/templates/..").exchange().expectStatus().is4xxClientError();
+  }
+
+  @Test
+  void headingTakesTitleAndUseCaseOfReadme() {
+    final var heading =
+        TemplateController.heading(
+            "# 01 — Hello world\n\n## Part\n**Use case:** Say hi.\nlater", "t", "s");
+
+    assertThat(heading.title()).isEqualTo("Hello world");
+    assertThat(heading.summary()).isEqualTo("Say hi.");
+  }
+
+  @Test
+  void headingKeepsFallbacksForReadmeWithoutThem() {
+    final var heading = TemplateController.heading("## only a subheading\ntext", "t", "s");
+
+    assertThat(heading.title()).isEqualTo("t");
+    assertThat(heading.summary()).isEqualTo("s");
   }
 }

@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,6 +32,7 @@ import tools.jackson.databind.json.JsonMapper;
  * session templates, for a client that wants to start from a working definition.
  */
 @RestController
+@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.ShortVariable", "PMD.LawOfDemeter"})
 @RequestMapping("/api/templates")
 @Tag(name = "Templates API", description = "Example sessions to start from")
 public class TemplateController {
@@ -44,15 +46,17 @@ public class TemplateController {
   /** The use-case line of a README. */
   private static final Pattern USE_CASE = Pattern.compile("^\\*\\*Use case:\\*\\*\\s*(.+)$");
 
-  /** A template id: a folder name of the examples. */
-  private static final Pattern ID = Pattern.compile("[\\w.-]+");
-
   /** Reads the sessions. */
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
   /** One template in the list. */
-  public record TemplateSummary(
-      String id, String title, String summary, List<String> pluginTypes) {}
+  public record TemplateSummary(String id, String title, String summary, List<String> pluginTypes) {
+
+    /** Copies the list so the record cannot be changed through it. */
+    public TemplateSummary {
+      pluginTypes = List.copyOf(pluginTypes);
+    }
+  }
 
   /** One template with its README and its session definition. */
   public record TemplateDetail(
@@ -61,7 +65,13 @@ public class TemplateController {
       String summary,
       List<String> pluginTypes,
       String readme,
-      JsonNode session) {}
+      JsonNode session) {
+
+    /** Copies the list so the record cannot be changed through it. */
+    public TemplateDetail {
+      pluginTypes = List.copyOf(pluginTypes);
+    }
+  }
 
   /**
    * List the templates.
@@ -75,18 +85,8 @@ public class TemplateController {
   public Mono<ApiResponse<List<TemplateSummary>>> list() {
     return Mono.fromCallable(
             () -> {
-              final var resolver = new PathMatchingResourcePatternResolver();
-              final var ids = new TreeSet<String>();
-              final Pattern folder = Pattern.compile("/" + ROOT + "([^/]+)/session\\.json$");
-              for (final Resource resource :
-                  resolver.getResources("classpath*:" + ROOT + "*/session.json")) {
-                final Matcher match = folder.matcher(resource.getURL().getPath());
-                if (match.find()) {
-                  ids.add(match.group(1));
-                }
-              }
               final List<TemplateSummary> out = new ArrayList<>();
-              for (final String id : ids) {
+              for (final String id : knownIds()) {
                 out.add(summary(detail(id)));
               }
               out.sort(Comparator.comparing(TemplateSummary::id));
@@ -114,23 +114,54 @@ public class TemplateController {
     return new TemplateSummary(detail.id(), detail.title(), detail.summary(), detail.pluginTypes());
   }
 
-  private static TemplateDetail detail(final String id) throws IOException {
-    if (!ID.matcher(id).matches() || id.startsWith(".")) {
-      throw new NotFoundException("Template not found: " + id);
+  /** The ids of the bundled templates: the folder names that hold a {@code session.json}. */
+  private static Set<String> knownIds() throws IOException {
+    final var ids = new TreeSet<String>();
+    final Pattern folder = Pattern.compile("/" + ROOT + "([^/]+)/session\\.json$");
+    for (final Resource resource :
+        new PathMatchingResourcePatternResolver()
+            .getResources("classpath*:" + ROOT + "*/session.json")) {
+      folder.matcher(resource.getURL().getPath()).results().forEach(m -> ids.add(m.group(1)));
     }
+    return ids;
+  }
+
+  private static TemplateDetail detail(final String requested) throws IOException {
+    // the id is looked up among the bundled folders, never put into a path as sent
+    final String id =
+        knownIds().stream()
+            .filter(requested::equals)
+            .findFirst()
+            .orElseThrow(() -> new NotFoundException("Template not found: " + requested));
     final var resolver = new PathMatchingResourcePatternResolver();
     final Resource session = resolver.getResource("classpath:" + ROOT + id + "/session.json");
-    if (!session.exists()) {
-      throw new NotFoundException("Template not found: " + id);
-    }
     final JsonNode config = JSON.readTree(session.getContentAsByteArray());
     final Resource readmeFile = resolver.getResource("classpath:" + ROOT + id + "/README.md");
-    final String readme =
-        readmeFile.exists()
-            ? new String(readmeFile.getContentAsByteArray(), StandardCharsets.UTF_8)
-            : "";
-    String title = config.path("name").asString(id);
-    String summary = config.path("description").asString("");
+    final String readme = new String(readmeFile.getContentAsByteArray(), StandardCharsets.UTF_8);
+    final Heading heading =
+        heading(readme, config.path("name").asString(id), config.path("description").asString(""));
+    final var types = new TreeSet<String>();
+    config
+        .path("workflows")
+        .forEach(
+            workflow ->
+                workflow.path("nodes").forEach(node -> types.add(node.path("type").asString(""))));
+    types.remove("");
+    return new TemplateDetail(
+        id, heading.title(), heading.summary(), List.copyOf(types), readme, config);
+  }
+
+  /** The title and the one-line summary of a template. */
+  /* package */ record Heading(String title, String summary) {}
+
+  /**
+   * Reads the title (the first {@code # } heading) and the summary (the use-case line) out of a
+   * README; what it does not have stays as given.
+   */
+  /* package */ static Heading heading(
+      final String readme, final String fallbackTitle, final String fallbackSummary) {
+    String title = fallbackTitle;
+    String summary = fallbackSummary;
     for (final String line : readme.lines().toList()) {
       final Matcher heading = TITLE.matcher(line);
       final Matcher useCase = USE_CASE.matcher(line);
@@ -141,13 +172,6 @@ public class TemplateController {
         break;
       }
     }
-    final var types = new TreeSet<String>();
-    config
-        .path("workflows")
-        .forEach(
-            workflow ->
-                workflow.path("nodes").forEach(node -> types.add(node.path("type").asString(""))));
-    types.remove("");
-    return new TemplateDetail(id, title, summary, List.copyOf(types), readme, config);
+    return new Heading(title, summary);
   }
 }
