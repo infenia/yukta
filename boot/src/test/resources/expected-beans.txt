@@ -4,6 +4,7 @@ com.infenia.yukta.config.DefaultsAutoConfiguration
 com.infenia.yukta.config.EgressConfiguration
 com.infenia.yukta.config.ExposureGuard
 com.infenia.yukta.config.MessageReflectionHints
+com.infenia.yukta.config.MetadataGuardCustomizer
 com.infenia.yukta.config.SessionConfigProperties
 com.infenia.yukta.config.SpaWebFluxConfig
 com.infenia.yukta.controller.ControlAuditController
