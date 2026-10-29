@@ -334,6 +334,23 @@ class FilterProcessorTest {
   }
 
   @Test
+  void testEnginePolicyObjectIsNotTheExpressionEngine() {
+    final Map<String, Object> policy = Map.of("onError", "CONTINUE");
+
+    StepVerifier.create(processor.validateConfig(Map.of("condition", "x", "engine", policy)))
+        .verifyComplete();
+    StepVerifier.create(
+            processor.validateConfig(
+                Map.of("condition", "x", "engine", policy, "language", "SIMPLE")))
+        .verifyComplete();
+    StepVerifier.create(
+            processor.validateConfig(
+                Map.of("condition", "x", "engine", policy, "language", "NOPE")))
+        .expectError()
+        .verify();
+  }
+
+  @Test
   void testValidateConfigBranches() {
     StepVerifier.create(processor.validateConfig(Map.of("condition", " "))).expectError().verify();
     StepVerifier.create(processor.validateConfig(Map.of("condition", "x", "engine", "SIMPLE")))
