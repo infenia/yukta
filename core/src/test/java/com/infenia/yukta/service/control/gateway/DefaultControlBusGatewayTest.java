@@ -3060,6 +3060,7 @@ class DefaultControlBusGatewayTest {
 
     assertThat(auditLog.readAll())
         .singleElement()
-        .satisfies(e -> assertThat(e.status()).isEqualTo("DeleteSession(s, force=false) [by key:bob]"));
+        .satisfies(
+            e -> assertThat(e.status()).isEqualTo("DeleteSession(s, force=false) [by key:bob]"));
   }
 }
