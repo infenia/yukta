@@ -5,6 +5,7 @@ package com.infenia.yukta.mcp.provider;
 import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.NodeControlAction;
 import com.infenia.yukta.mcp.dto.PendingApprovals;
+import com.infenia.yukta.mcp.dto.SchedulerLimitsResult;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.plugin.control.StopMode;
@@ -129,6 +130,37 @@ public class WorkflowControlProvider {
         .flatMap(
             ignored ->
                 executeWorkflowAction(action, executionId, fromNodeId, reason, tree, stopMode));
+  }
+
+  /**
+   * The execution limits in force and the slots in use.
+   *
+   * @return Mono containing the snapshot
+   */
+  public Mono<SchedulerLimitsResult> getSchedulerLimits() {
+    return controlBus
+        .limits()
+        .map(
+            limits ->
+                new SchedulerLimitsResult(
+                    limits.maxConcurrent(),
+                    limits.maxPerWorkflow(),
+                    limits.running(),
+                    limits.queued(),
+                    limits.queueCapacity()));
+  }
+
+  /**
+   * Change the execution limits; raising one admits waiting starts at once.
+   *
+   * @param maxConcurrent most executions running at once, 0 for unlimited
+   * @param maxPerWorkflow most executions of one workflow running at once, 0 for unlimited
+   * @return Mono containing the limits after the change
+   */
+  @SuppressWarnings("PMD.LinguisticNaming") // the MCP tool name
+  public Mono<SchedulerLimitsResult> setSchedulerLimits(
+      final int maxConcurrent, final int maxPerWorkflow) {
+    return controlBus.changeLimits(maxConcurrent, maxPerWorkflow).then(getSchedulerLimits());
   }
 
   /**

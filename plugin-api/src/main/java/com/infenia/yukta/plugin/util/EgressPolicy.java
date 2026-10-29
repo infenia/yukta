@@ -18,8 +18,9 @@ import reactor.util.context.ContextView;
  * for every node. Outside a run only the deployment list applies. HTTP_REQUEST, MCP_TOOL_CALL and
  * NOTIFY_TERMINAL check it before they connect, on top of their own host lists.
  *
- * <p>The check works on the name in the URL, as {@link HostAllowList} does; it does not re-check
- * the address a name resolves to.
+ * <p>The check works on the name in the URL, as {@link HostAllowList} does. The address a name
+ * resolves to is checked at connect time by the HTTP client's resolver, against the link-local and
+ * metadata block only.
  */
 public final class EgressPolicy {
 
