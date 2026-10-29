@@ -68,7 +68,8 @@ export function teardown(ctx) {
           console.error(`TEARDOWN ${name}: history answered ${r.status}`);
           break;
         }
-        (stuck[name] = stuck[name] || []).push(...r.json('data').map((x) => x.executionId));
+        const ids = r.json('data').map((x) => x.executionId);
+        if (ids.length) (stuck[name] = stuck[name] || []).push(...ids);
         const next = r.headers['X-Next-Cursor'];
         cursor = next ? `&cursor=${next}` : '';
       } while (cursor);
@@ -85,7 +86,7 @@ export function teardown(ctx) {
 // Returns 'ok' | 'failed' | null (still running)
 function outcome(data) {
   if (FINAL.includes(data.status)) return data.status === 'SUCCESS' ? 'ok' : 'failed';
-  if (!LENIENT || !data.tasks.length) return null;
+  if (!LENIENT || !data.tasks?.length) return null;
   const nodes = data.tasks.filter((t) => t.module !== 'CONSOLE_TERMINAL');
   if (!nodes.every((t) => FINAL.includes(t.status))) return null;
   lenientDone.add(1);
