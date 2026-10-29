@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
  * What every {@link SessionConfigStore} must do. Extend it in the test of an implementation and
  * return a store that starts empty from {@link #create()}.
  */
-@SuppressWarnings("PMD.LawOfDemeter")
 public abstract class SessionConfigStoreContract {
 
   /** Creates the contract. */
