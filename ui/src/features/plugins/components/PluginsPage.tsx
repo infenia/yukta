@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router';
 import { cn } from '@/lib/utils';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -20,7 +21,9 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { categoryAccent } from '@/features/workflow/lib/categoryAccent';
 import { pluginLabel } from '@/features/workflow/lib/pluginIcons';
 import type { PluginCategory } from '@/features/workflow/types/workflow';
+import { useCopyCommand } from '@/features/workflow/hooks/useCopyCommand';
 import { usePlugin, usePlugins } from '../hooks/usePlugins';
+import { nodeExample } from '../lib/nodeExample';
 import { PluginCanvasPreview } from './PluginCanvasPreview';
 
 const CATEGORIES: { key: PluginCategory; label: string }[] = [
@@ -29,8 +32,20 @@ const CATEGORIES: { key: PluginCategory; label: string }[] = [
   { key: 'TERMINAL', label: 'Terminals' },
 ];
 
+type Tab = 'config' | 'ports' | 'example';
+
+/** A default as the config table shows it. */
+const defaultText = (value: unknown) =>
+  value == null
+    ? '—'
+    : typeof value === 'object'
+      ? JSON.stringify(value)
+      : String(value);
+
 function PluginDetail({ type }: { type: string }) {
   const { data: plugin, isPending, error } = usePlugin(type);
+  const [chosen, setChosen] = useState<Tab | null>(null);
+  const { status: copied, copy } = useCopyCommand();
   if (isPending) return <StateMessage tone="loading" title="Loading…" />;
   if (error || !plugin) {
     return <StateMessage tone="error" title={`Failed to load ${type}.`} />;
@@ -42,6 +57,22 @@ function PluginDetail({ type }: { type: string }) {
       : plugin.category === 'TERMINAL'
         ? 'None (terminal)'
         : 'default';
+  const schema = plugin.configSchema ?? [];
+  const example = JSON.stringify(nodeExample(plugin), null, 2);
+  const tabs: { key: Tab; label: string; count?: number }[] = [
+    ...(schema.length > 0
+      ? [
+          {
+            key: 'config' as const,
+            label: 'Configuration',
+            count: schema.length,
+          },
+        ]
+      : []),
+    { key: 'ports', label: 'Ports', count: plugin.outputPorts.length },
+    { key: 'example', label: 'Example' },
+  ];
+  const tab = chosen ?? tabs[0].key;
 
   return (
     <article className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
@@ -68,51 +99,100 @@ function PluginDetail({ type }: { type: string }) {
             {plugin.description}
           </p>
         )}
-        <section>
-          <h3 className="text-on-surface text-label-md mb-1.5">Output ports</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => copy(example)}
+          >
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-base"
+            >
+              data_object
+            </span>
+            Copy node JSON
+          </Button>
+          {copied && (
+            <span
+              role="status"
+              className="text-label-sm text-on-surface-variant"
+            >
+              {copied === 'copied' ? 'Copied' : 'Copy failed'}
+            </span>
+          )}
+        </div>
+        <div role="tablist" className="border-border flex gap-5 border-b">
+          {tabs.map(({ key, label, count }) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setChosen(key)}
+              className={cn(
+                'text-label-md -mb-px border-b-2 py-2',
+                tab === key
+                  ? 'border-primary text-on-surface'
+                  : 'text-on-surface-variant hover:text-on-surface border-transparent'
+              )}
+            >
+              {label}
+              {count !== undefined && (
+                <span className="text-body-sm text-muted-foreground ml-1.5 tabular-nums">
+                  {count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        {tab === 'ports' && (
           <p className="text-on-surface-variant text-body-md">{ports}</p>
-        </section>
-        {plugin.configSchema && plugin.configSchema.length > 0 && (
-          <section>
-            <h3 className="text-on-surface text-label-md mb-1.5">
-              Configuration
-            </h3>
-            <TableFrame>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Field</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Description</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {plugin.configSchema.map((field) => (
-                    <TableRow key={field.name} className="align-top">
-                      <TableCell className="text-code-sm">
-                        {field.name}
-                        {field.required && (
-                          <span className="text-error"> *</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-body-sm text-on-surface-variant">
-                        {field.type}
-                      </TableCell>
-                      <TableCell className="text-body-sm text-on-surface-variant whitespace-normal">
-                        {field.description}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableFrame>
-          </section>
         )}
-        {plugin.usagePattern && (
-          <section>
-            <h3 className="text-on-surface text-label-md mb-1.5">Usage</h3>
-            <CodeBlock code={plugin.usagePattern} label="usage" />
-          </section>
+        {tab === 'config' && (
+          <TableFrame>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Field</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Default</TableHead>
+                  <TableHead>What it does</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {schema.map((field) => (
+                  <TableRow key={field.name} className="align-top">
+                    <TableCell className="text-code-sm">
+                      {field.name}
+                      {field.required && <span className="text-error"> *</span>}
+                    </TableCell>
+                    <TableCell className="text-body-sm text-on-surface-variant">
+                      {field.type}
+                    </TableCell>
+                    <TableCell className="text-code-sm text-on-surface-variant">
+                      {defaultText(field.defaultValue)}
+                    </TableCell>
+                    <TableCell className="text-body-sm text-on-surface-variant whitespace-normal">
+                      {field.description}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableFrame>
+        )}
+        {tab === 'example' && (
+          <>
+            <CodeBlock code={example} label="example" />
+            {plugin.usagePattern && (
+              <section>
+                <h3 className="text-on-surface text-label-md mb-1.5">Usage</h3>
+                <CodeBlock code={plugin.usagePattern} label="usage" />
+              </section>
+            )}
+          </>
         )}
       </div>
       <section className="min-w-0 xl:sticky xl:top-28 xl:self-start">
@@ -213,7 +293,7 @@ export function PluginsPage() {
         </nav>
         <div className="min-w-0 flex-1">
           {selected ? (
-            <PluginDetail type={selected} />
+            <PluginDetail key={selected} type={selected} />
           ) : (
             <StateMessage title="No plugins available." icon="extension" />
           )}
