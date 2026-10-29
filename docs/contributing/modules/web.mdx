@@ -239,7 +239,7 @@ Defines the one JSON shape for every reply and the one place that turns exceptio
 - A 500 never carries exception text. The message is 'An unexpected error occurred. Reference: &lt;request id&gt;' and the cause is logged with the same id. The reason: exception messages can name classes, paths or SQL; a client should get a ticket number, not internals.
 - 4xx replies do carry the exception message, because 'Session not found: team-x' is what the caller needs. This relies on core writing client-safe messages.
 - Framework errors (unsupported method, wrong content type, unknown route) pass through the same handler, so even those get the envelope.
-- Two places bypass the handler: the validate endpoint (returns e.getMessage() inside a 200) and the plugin list (a 500 whose message includes 'Failed to retrieve plugins: ' plus the exception text).
+- One place still bypasses the handler: the session summaries endpoint logs and skips a session it cannot read. The validate endpoint catches only the validator's IllegalArgumentException (the draft's problem, in a 200); anything else goes to the handler.
 
 - **Guarantees.** Every error reply has the envelope with status, error, message and path. A 500 reveals no exception text.
 - **State.** None.
@@ -411,7 +411,7 @@ Core's limit is reached and it refuses the start with ExecutionRejectedException
 Two restarts of the same run arrive together. Core throws IllegalStateException ('Restart already in progress'). The handler maps it to 500 with only 'Reference: &lt;request id&gt;' (a ConflictException would give 409, but this path does not use it); the cause is in the log.
 </Step>
 <Step title="The exception to the rule">
-POST /api/sessions/validate catches every error itself and puts e.getMessage() in the reply. That is useful for an editor but it is the one path that can show exception text for an unexpected failure.
+GET /api/sessions summaries skips a session it cannot read (logged, still a 200), so a corrupt session simply vanishes from the table.
 </Step>
 </Steps>
 

@@ -63,18 +63,7 @@ public class PluginController {
             summaries ->
                 ResponseEntity.ok(
                     ApiResponse.success(
-                        HttpStatus.OK.value(), "Plugins retrieved successfully", summaries)))
-        .onErrorResume(
-            e ->
-                Mono.just(
-                    ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(
-                            ApiResponse.error(
-                                500,
-                                "Internal Server Error",
-                                "Failed to retrieve plugins: " + e.getMessage(),
-                                "/api/plugins",
-                                List.of()))));
+                        HttpStatus.OK.value(), "Plugins retrieved successfully", summaries)));
   }
 
   /**
