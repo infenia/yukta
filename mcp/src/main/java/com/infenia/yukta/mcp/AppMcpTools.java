@@ -17,6 +17,7 @@ import com.infenia.yukta.mcp.dto.SessionCreationGuide;
 import com.infenia.yukta.mcp.dto.SessionCreationResult;
 import com.infenia.yukta.mcp.dto.SessionDetails;
 import com.infenia.yukta.mcp.dto.SessionList;
+import com.infenia.yukta.mcp.dto.WhoamiResult;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowHistory;
 import com.infenia.yukta.mcp.dto.WorkflowRollback;
@@ -806,6 +807,24 @@ public class AppMcpTools {
               description = "Optional filter: sessions, plugins, health, or executions")
           final String filterType) {
     return systemHealthProvider.getControlBusStatus(filterType);
+  }
+
+  /**
+   * Who is calling and what they may do.
+   *
+   * @return the key's name, role, sessions and permissions
+   */
+  @McpTool(
+      name = "whoami",
+      title = "Who Am I",
+      description =
+          "Get the name, role and sessions of the API key of this call and what it may do (start"
+              + " and control runs, edit and delete sessions, change limits, send commands). With"
+              + " no key configured the role is ADMIN and authEnabled is false.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<WhoamiResult> whoami() {
+    return systemHealthProvider.whoami();
   }
 
   /**

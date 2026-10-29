@@ -5,6 +5,8 @@ package com.infenia.yukta.filter;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.plugin.control.ControlActor;
+import com.infenia.yukta.security.ApiKeys;
+import com.infenia.yukta.security.CallerIdentity;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -451,5 +453,41 @@ class ApiKeyFilterTest {
         org.mockito.Mockito.mock(com.infenia.yukta.model.execution.WorkflowProgress.class);
     org.mockito.Mockito.when(progress.sessionId()).thenReturn(session);
     return progress;
+  }
+
+  @Test
+  void testResolvedKeyReachesTheRequestAndSessionLimitedKeyMayAskWhoItIs() {
+    final MockEnvironment env =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "scoped")
+            .withProperty("yukta.api-keys[0].key", "s-key")
+            .withProperty("yukta.api-keys[0].role", "ADMIN")
+            .withProperty("yukta.api-keys[0].sessions", "team-a");
+    final AtomicReference<Object> principal = new AtomicReference<>();
+    final MockServerWebExchange me =
+        MockServerWebExchange.from(
+            MockServerHttpRequest.get("/api/me").header("X-API-Key", "s-key"));
+    new ApiKeyFilter(env)
+        .filter(
+            me,
+            _ ->
+                Mono.deferContextual(
+                    ctx -> {
+                      principal.set(ctx.getOrDefault(CallerIdentity.CONTEXT_KEY, null));
+                      return Mono.empty();
+                    }))
+        .block();
+
+    assertThat(principal.get()).isInstanceOf(ApiKeys.Match.class);
+    assertThat(((ApiKeys.Match) principal.get()).name()).isEqualTo("scoped");
+    assertThat(
+            statusOf2(env, MockServerHttpRequest.get("/api/plugins").header("X-API-Key", "s-key")))
+        .isEqualTo(HttpStatus.FORBIDDEN);
+  }
+
+  private HttpStatus statusOf2(
+      final MockEnvironment env, final MockServerHttpRequest.BaseBuilder<?> rq) {
+    final MockServerWebExchange exchange = runWith(env, rq);
+    return passed.get() ? HttpStatus.OK : (HttpStatus) exchange.getResponse().getStatusCode();
   }
 }

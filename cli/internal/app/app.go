@@ -12,6 +12,7 @@ import (
 	"com.infenia.yukta/go-cli/internal/commands/result"
 	"com.infenia.yukta/go-cli/internal/commands/scheduler"
 	"com.infenia.yukta/go-cli/internal/commands/session"
+	"com.infenia.yukta/go-cli/internal/commands/whoami"
 	"com.infenia.yukta/go-cli/internal/commands/workflow"
 )
 
@@ -30,6 +31,7 @@ func Run() error {
 
 	// Add the controlbus command group with all its subcommands
 	rootCmd.AddCommand(controlbus.ControlBusCmd(c))
+	rootCmd.AddCommand(whoami.WhoamiCmd(c))
 	rootCmd.AddCommand(scheduler.SchedulerCmd(c))
 
 	// Add the logs command for streaming execution logs
