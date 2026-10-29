@@ -6,6 +6,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 )
 
 // GetSessions retrieves all available session identifiers from the API.
@@ -96,20 +97,25 @@ func (c *Client) ApplyConfig(configJSON []byte) error {
 	return err
 }
 
-// getData GETs path and returns the decoded ApiResponse "data" field as-is.
+// getData GETs path and returns the "data" of the answer.
 func (c *Client) getData(path string) (any, error) {
-	req, err := c.newRequest("GET", path)
+	return c.dataCall("GET", path, nil)
+}
+
+// dataCall sends one request and returns the "data" of the answer.
+func (c *Client) dataCall(method, path string, body []byte) (any, error) {
+	req, err := c.newRequestWithBody(method, path, body)
 	if err != nil {
 		return nil, err
 	}
-	body, err := c.doRequest(req)
+	resp, err := c.doRequest(req)
 	if err != nil {
 		return nil, err
 	}
 	var response struct {
 		Data any `json:"data"`
 	}
-	if err := json.Unmarshal(body, &response); err != nil {
+	if err := json.Unmarshal(resp, &response); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 	return response.Data, nil
@@ -157,4 +163,44 @@ func (c *Client) delete(path string, force bool) error {
 	}
 	_, err = c.doRequest(req)
 	return err
+}
+
+// ValidateWorkflow checks a workflow definition (POST /api/sessions/validate) without saving it.
+func (c *Client) ValidateWorkflow(definitionJSON []byte) (any, error) {
+	return c.dataCall("POST", "/api/sessions/validate", definitionJSON)
+}
+
+// GetPendingApprovals lists the approvals a session's runs wait for.
+func (c *Client) GetPendingApprovals(sessionID string) (any, error) {
+	return c.getData(apiPath("/api/sessions/%s/approvals", sessionID))
+}
+
+// GetWorkflowVersions lists the saved versions of a workflow.
+func (c *Client) GetWorkflowVersions(sessionID, workflowID string) (any, error) {
+	return c.getData(apiPath("/api/sessions/%s/workflows/%s/versions", sessionID, workflowID))
+}
+
+// DiffWorkflowVersions compares version from with version to (the current one when to is empty).
+func (c *Client) DiffWorkflowVersions(sessionID, workflowID, from, to string) (any, error) {
+	q := url.Values{"from": {from}}
+	if to != "" {
+		q.Set("to", to)
+	}
+	return c.getData(apiPath("/api/sessions/%s/workflows/%s/versions/diff", sessionID, workflowID) + "?" + q.Encode())
+}
+
+// RollbackWorkflow restores a saved version of a workflow.
+func (c *Client) RollbackWorkflow(sessionID, workflowID, version string) (any, error) {
+	path := apiPath("/api/sessions/%s/workflows/%s/rollback", sessionID, workflowID)
+	return c.dataCall("POST", path+"?"+url.Values{"version": {version}}.Encode(), nil)
+}
+
+// NoteWorkflowVersion writes the note of a saved version; an empty note clears it.
+func (c *Client) NoteWorkflowVersion(sessionID, workflowID, version, note string) (any, error) {
+	q := url.Values{"version": {version}}
+	if note != "" {
+		q.Set("note", note)
+	}
+	path := apiPath("/api/sessions/%s/workflows/%s/versions/note", sessionID, workflowID)
+	return c.dataCall("POST", path+"?"+q.Encode(), nil)
 }
