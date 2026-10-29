@@ -515,11 +515,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       @NotBlank final String executionId,
       @NotBlank final String nodeId,
       final TaskProgress.@Nullable Breakpoint breakpoint) {
-    final WorkflowState workflowState = findState(executionId);
-    if (workflowState != null) {
-      workflowState.setBreakpoint(nodeId, breakpoint);
-      streams.notifyStatusChange(workflowState);
-    }
+    Optional.ofNullable(findState(executionId))
+        .ifPresent(
+            workflowState -> {
+              workflowState.setBreakpoint(nodeId, breakpoint);
+              streams.notifyStatusChange(workflowState);
+            });
   }
 
   @Override

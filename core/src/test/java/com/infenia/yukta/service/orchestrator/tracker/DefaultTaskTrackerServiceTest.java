@@ -2966,7 +2966,7 @@ class DefaultTaskTrackerServiceTest {
     tracker.emitTaskStatusEvent("bp-exec", "n1", "m", TaskStatus.RUNNING, Map.of());
     tracker.emitBreakpointEvent("nobody", "n1", null); // unknown run: ignored
 
-    org.awaitility.Awaitility.await()
+    await()
         .atMost(Duration.ofSeconds(5))
         .untilAsserted(
             () -> {
