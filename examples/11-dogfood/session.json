@@ -2395,7 +2395,8 @@
               "YUKTA_HEAL_EVENTS": "${start.events}",
               "YUKTA_MODEL": "${start.model}",
               "YUKTA_EFFORT": "${start.effort}",
-              "YUKTA_COMMAND": "${start.command}"
+              "YUKTA_COMMAND": "${start.command}",
+              "YUKTA_PROBLEMS": "${start.problems}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
