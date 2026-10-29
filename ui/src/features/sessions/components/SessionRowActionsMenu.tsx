@@ -41,7 +41,7 @@ export function SessionRowActionsMenu({
   return (
     <>
       {exportError !== null && (
-        <span role="alert" className="text-error text-body-sm mr-2">
+        <span role="alert" className="text-body-sm text-error mr-2">
           {exportError}
         </span>
       )}

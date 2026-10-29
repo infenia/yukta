@@ -103,10 +103,10 @@ export function WorkflowTable({
     <section className="flex flex-col gap-3 px-4 py-6 sm:px-6">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-headline-md text-on-surface">Workflows</h2>
-        <span className="bg-muted text-muted-foreground text-label-sm rounded-full px-2 tabular-nums">
+        <span className="bg-muted text-label-sm text-muted-foreground rounded-full px-2 tabular-nums">
           {workflows.length}
         </span>
-        <label className="bg-muted focus-within:border-ring transition-standard ml-auto flex w-full items-center gap-2 rounded-full border border-transparent px-3 py-1.5 sm:w-64">
+        <label className="bg-muted transition-standard focus-within:border-ring ml-auto flex w-full items-center gap-2 rounded-full border border-transparent px-3 py-1.5 sm:w-64">
           <span
             className="material-symbols-outlined text-muted-foreground text-base"
             aria-hidden="true"
