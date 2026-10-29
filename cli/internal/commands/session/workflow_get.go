@@ -32,6 +32,23 @@ Use "yukta-cli session workflow <subcommand>" to perform workflow-related operat
 	cmd.AddCommand(dataCmd("executions <session-id> <workflow-id>", "List executions of a workflow, most recent first", 2,
 		func(a []string) (any, error) { return c.GetWorkflowExecutions(a[0], a[1]) }))
 
+	cmd.AddCommand(dataCmd("versions <session-id> <workflow-id>", "List the saved versions of a workflow", 2,
+		func(a []string) (any, error) { return c.GetWorkflowVersions(a[0], a[1]) }))
+	var from, to string
+	diff := dataCmd("diff <session-id> <workflow-id>", "Compare two saved versions of a workflow", 2,
+		func(a []string) (any, error) { return c.DiffWorkflowVersions(a[0], a[1], from, to) })
+	diff.Flags().StringVar(&from, "from", "", "Version to compare from (required)")
+	diff.Flags().StringVar(&to, "to", "", "Version to compare to (default: the current one)")
+	_ = diff.MarkFlagRequired("from")
+	cmd.AddCommand(diff)
+	cmd.AddCommand(dataCmd("rollback <session-id> <workflow-id> <version>", "Restore a saved version of a workflow", 3,
+		func(a []string) (any, error) { return c.RollbackWorkflow(a[0], a[1], a[2]) }))
+	var note string
+	noteCmd := dataCmd("note <session-id> <workflow-id> <version>", "Set (or with no --text, clear) the note of a saved version", 3,
+		func(a []string) (any, error) { return c.NoteWorkflowVersion(a[0], a[1], a[2], note) })
+	noteCmd.Flags().StringVar(&note, "text", "", "The note")
+	cmd.AddCommand(noteCmd)
+
 	return cmd
 }
 
