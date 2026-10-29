@@ -342,6 +342,14 @@ ${YUKTA_HEAL_TIMEOUT:+You have about $((YUKTA_HEAL_TIMEOUT / 60)) minutes at ${e
     fi
     fixed=false
     [[ "$ran" == true && "$ok" == true ]] && fixed=true
+    # no progress: the stage fails the way the previous attempt left it (same problem lines, numbers aside), so a stronger model
+    # would start from the same problems and the same wrong idea; the ladder stops (gen-heal.py reads `same`)
+    same=false
+    if [[ "$ran" == true && "$ok" != true ]]; then
+      digest="$(problem_lines <(stdout_of <<<"$msg") 60 | sed -E 's/[0-9]+/N/g' | sha1sum | cut -c1-16)"
+      [[ -f "$dir/$stage.digest" && "$(cat "$dir/$stage.digest")" == "$digest" ]] && same=true
+      echo "$digest" >"$dir/$stage.digest"
+    fi
     # What the model says is not what happened. When the guard objected, or the model claimed a fix but the recheck still fails, the summary
     # says NOT FIXED and why, and the model's words follow as a quote: nobody reads "the gate now passes" about a gate that is red.
     claimed="$(jq -r '.claimed // false' "$claude" 2>/dev/null || echo false)"
@@ -362,8 +370,8 @@ ${YUKTA_HEAL_TIMEOUT:+You have about $((YUKTA_HEAL_TIMEOUT / 60)) minutes at ${e
     handoff="${summary:0:300}"
     [[ "$files" == '[]' ]] || handoff+=" Files it changed (still in the working tree): $(jq -r 'join(", ")' <<<"$files" | cut -c1-300)."
     jq -nc --arg stage "$stage" --arg model "$model" --arg effort "$effort" --argjson attempt "$n" --argjson fixed "$fixed" --arg cost "$cost" \
-      --arg summary "$handoff" --arg problems "$problems" --arg files "$files" \
-      '{stage: $stage, model: $model, effort: $effort, attempt: $attempt, fixed: $fixed, changed: ($files != "[]"), cost: ($cost | tonumber), summary: $summary,
+      --arg summary "$handoff" --arg problems "$problems" --arg files "$files" --argjson same "$same" \
+      '{stage: $stage, model: $model, effort: $effort, attempt: $attempt, fixed: $fixed, changed: ($files != "[]"), same: $same, cost: ($cost | tonumber), summary: $summary,
         problems: (if $fixed then "" else $problems end)}'
     # always 0: a step that exits non-zero has no parsed `output`, and the carry of the next attempt reads it. The workflow branches on fixed.
     exit 0
