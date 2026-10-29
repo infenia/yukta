@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/table';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { categoryAccent } from '@/features/workflow/lib/categoryAccent';
+import { pluginLabel } from '@/features/workflow/lib/pluginIcons';
 import type { PluginCategory } from '@/features/workflow/types/workflow';
 import { usePlugin, usePlugins } from '../hooks/usePlugins';
 import { PluginCanvasPreview } from './PluginCanvasPreview';
@@ -46,15 +47,21 @@ function PluginDetail({ type }: { type: string }) {
     <article className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
       <div className="flex min-w-0 flex-col gap-5">
         <header>
-          <h2 className="text-headline-lg text-on-surface">{plugin.type}</h2>
-          <span className="text-on-surface-variant text-body-md mt-1 inline-flex items-center gap-2">
-            <span
-              aria-hidden="true"
-              className="size-2 rounded-full"
-              style={{ background: categoryAccent(plugin.category) }}
-            />
-            {plugin.category}
-          </span>
+          <h2 className="text-headline-lg text-on-surface">
+            {pluginLabel(plugin.type)}
+          </h2>
+          <div className="text-on-surface-variant text-body-md mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="inline-flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="size-2 rounded-full"
+                style={{ background: categoryAccent(plugin.category) }}
+              />
+              {pluginLabel(plugin.category)}
+            </span>
+            {/* the ID is what a workflow's JSON, the CLI and MCP calls use */}
+            <code className="text-code-sm select-all">{plugin.type}</code>
+          </div>
         </header>
         {plugin.description && (
           <p className="text-on-surface text-body-md max-w-prose">
@@ -158,7 +165,11 @@ export function PluginsPage() {
           />
           {CATEGORIES.map(({ key, label }) => {
             const items = plugins.filter(
-              (p) => p.category === key && p.type.toLowerCase().includes(needle)
+              (p) =>
+                p.category === key &&
+                `${p.type} ${pluginLabel(p.type)}`
+                  .toLowerCase()
+                  .includes(needle)
             );
             if (items.length === 0) return null;
             return (
@@ -170,6 +181,9 @@ export function PluginsPage() {
                     style={{ background: categoryAccent(key) }}
                   />
                   {label}
+                  <span className="text-body-sm text-muted-foreground tabular-nums">
+                    {items.length}
+                  </span>
                 </h2>
                 <ul className="flex flex-col gap-0.5">
                   {items.map((p) => (
@@ -185,7 +199,10 @@ export function PluginsPage() {
                             : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
                         )}
                       >
-                        {p.type}
+                        <span className="block">{pluginLabel(p.type)}</span>
+                        <span className="text-code-sm block text-[11px] opacity-75">
+                          {p.type}
+                        </span>
                       </button>
                     </li>
                   ))}

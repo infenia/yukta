@@ -4,6 +4,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -47,6 +48,10 @@ const RANGE_LABELS: [Range, string][] = [
 ];
 
 /** Runs of every session, newest first, narrowed by filters that live in the URL. */
+/** Phones: each run stacks into a card of labelled values (the label comes from data-label). */
+const STACKED_CELL =
+  'px-4 max-sm:flex max-sm:items-center max-sm:gap-3 max-sm:py-0.5 max-sm:whitespace-normal max-sm:before:w-20 max-sm:before:shrink-0 max-sm:before:text-body-sm max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]';
+
 export function RunsPage() {
   const [params, setParams] = useSearchParams();
   const filters = parseFilters(params);
@@ -168,8 +173,8 @@ export function RunsPage() {
       ) : (
         <>
           <TableFrame>
-            <Table>
-              <TableHeader>
+            <Table className="max-sm:block [&_tbody]:max-sm:block">
+              <TableHeader className="max-sm:hidden">
                 <TableRow>
                   <TableHead className="px-4">Status</TableHead>
                   <TableHead className="px-4">Run</TableHead>
@@ -182,11 +187,17 @@ export function RunsPage() {
               </TableHeader>
               <TableBody>
                 {runs.data.map((run) => (
-                  <TableRow key={run.executionId}>
-                    <TableCell className="px-4">
+                  <TableRow
+                    key={run.executionId}
+                    className="max-sm:flex max-sm:flex-col max-sm:gap-1 max-sm:py-3"
+                  >
+                    <TableCell data-label="Status" className={STACKED_CELL}>
                       <StatusPill status={run.status} />
                     </TableCell>
-                    <TableCell className="text-code-sm px-4 py-3">
+                    <TableCell
+                      data-label="Run"
+                      className={cn(STACKED_CELL, 'text-code-sm py-3')}
+                    >
                       <Link
                         className="text-primary"
                         title={run.executionId}
@@ -205,15 +216,28 @@ export function RunsPage() {
                         content_copy
                       </button>
                     </TableCell>
-                    <TableCell className="px-4">{run.sessionId}</TableCell>
-                    <TableCell className="px-4">{run.workflowId}</TableCell>
-                    <TableCell className="text-code-sm px-4">
+                    <TableCell data-label="Session" className={STACKED_CELL}>
+                      {run.sessionId}
+                    </TableCell>
+                    <TableCell data-label="Workflow" className={STACKED_CELL}>
+                      {run.workflowId}
+                    </TableCell>
+                    <TableCell
+                      data-label="Started"
+                      className={cn(STACKED_CELL, 'text-code-sm')}
+                    >
                       {formatClockTime(run.startTime)}
                     </TableCell>
-                    <TableCell className="text-code-sm px-4">
+                    <TableCell
+                      data-label="Duration"
+                      className={cn(STACKED_CELL, 'text-code-sm')}
+                    >
                       {formatDuration(run.startTime, run.endTime)}
                     </TableCell>
-                    <TableCell className="text-code-sm px-4">
+                    <TableCell
+                      data-label="Ended"
+                      className={cn(STACKED_CELL, 'text-code-sm')}
+                    >
                       {formatClockTime(run.endTime)}
                     </TableCell>
                   </TableRow>

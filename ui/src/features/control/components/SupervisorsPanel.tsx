@@ -72,7 +72,7 @@ export function SupervisorsPanel() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Id</TableHead>
+                <TableHead>ID</TableHead>
                 <TableHead>Kind</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Order</TableHead>
