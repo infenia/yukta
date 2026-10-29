@@ -6,7 +6,6 @@ package controlbus
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"sort"
 
 	"com.infenia.yukta/go-cli/internal/client"
@@ -36,7 +35,7 @@ The command will automatically detect whether the input is a file or JSON string
 			input := args[2]
 
 			// Read command payload from file or inline JSON
-			commandPayload, err := readCommandInput(input)
+			commandPayload, err := commands.ReadJSONArg(input)
 			if err != nil {
 				return fmt.Errorf("failed to read command: %w", err)
 			}
@@ -87,19 +86,4 @@ func buildTableRows(response map[string]interface{}) [][]string {
 		rows = append(rows, []string{key, fmt.Sprintf("%v", response[key])})
 	}
 	return rows
-}
-
-// readCommandInput reads command payload from either a file or an inline JSON string.
-// It first attempts to check if the input is a file path using os.Stat.
-// If the file exists, it reads and returns the file contents.
-// If the file doesn't exist, it treats the input as an inline JSON string.
-func readCommandInput(input string) ([]byte, error) {
-	// Check if the input is a file
-	if fileInfo, err := os.Stat(input); err == nil && !fileInfo.IsDir() {
-		// File exists and is not a directory, so read it
-		return os.ReadFile(input) // #nosec G304 -- the user names this file on purpose
-	}
-
-	// File doesn't exist or is a directory, treat as inline JSON
-	return []byte(input), nil
 }

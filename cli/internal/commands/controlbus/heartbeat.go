@@ -36,11 +36,7 @@ func HeartbeatCmd(c *client.Client) *cobra.Command {
 				output.PrintJSON(heartbeat)
 			} else {
 				// Table format: key-value pairs
-				rows := make([][]string, 0)
-				for key, value := range heartbeat {
-					rows = append(rows, []string{key, fmt.Sprintf("%v", value)})
-				}
-				output.PrintTable([]string{"Field", "Value"}, rows)
+				output.PrintTable([]string{"Field", "Value"}, buildTableRows(heartbeat))
 			}
 
 			return nil
