@@ -40,5 +40,7 @@ dependencies {
         implementation("tools.jackson.core:jackson-core:3.2.3")
         implementation("tools.jackson.core:jackson-databind:3.2.3")
         implementation("org.codehaus.plexus:plexus-utils:3.6.1")
+        // GHSA-xxph-c9ww-hj94: Guava <= 33.7.1 deserialization allocates without bound
+        implementation("com.google.guava:guava:33.7.2-jre")
     }
 }
