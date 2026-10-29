@@ -11,7 +11,7 @@ public class ActiveRunsException extends ConflictException {
   private static final long serialVersionUID = 1L;
 
   /** The runs that are still going. */
-  private final List<String> runIds;
+  private final List<String> activeRunIds;
 
   /**
    * Creates the exception.
@@ -27,7 +27,7 @@ public class ActiveRunsException extends ConflictException {
             + (stillAfterForce
                 ? ". They did not end in time after being cancelled."
                 : ". Stop them first, or delete with force=true to cancel them."));
-    this.runIds = List.copyOf(runIds);
+    this.activeRunIds = List.copyOf(runIds);
   }
 
   /**
@@ -36,6 +36,6 @@ public class ActiveRunsException extends ConflictException {
    * @return the run ids
    */
   public List<String> runIds() {
-    return runIds;
+    return activeRunIds;
   }
 }

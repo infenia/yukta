@@ -40,6 +40,9 @@ import reactor.core.publisher.Mono;
 })
 class SessionConfigControllerTest {
 
+  /** A session id nothing is stored under. */
+  private static final String NOPE = "nope";
+
   /** The session service. */
   private SessionService sessionService;
 
@@ -114,7 +117,7 @@ class SessionConfigControllerTest {
   @Test
   void testSessionDetailsAndNotFound() {
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config("s1")));
-    when(sessionService.getSessionConfig("nope")).thenReturn(Mono.empty());
+    when(sessionService.getSessionConfig(NOPE)).thenReturn(Mono.empty());
 
     client
         .get()
@@ -213,7 +216,7 @@ class SessionConfigControllerTest {
                     "wf",
                     new WorkflowExecutionSummary(
                         "e1", "wf", "SUCCESS", LocalDateTime.now(), null))));
-    when(sessionService.getSessionConfig("nope")).thenReturn(Mono.empty());
+    when(sessionService.getSessionConfig(NOPE)).thenReturn(Mono.empty());
 
     client
         .get()
@@ -290,7 +293,7 @@ class SessionConfigControllerTest {
   @Test
   void testSessionConfigKeepsTagValuesAndWorkflows() {
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config("s1")));
-    when(sessionService.getSessionConfig("nope")).thenReturn(Mono.empty());
+    when(sessionService.getSessionConfig(NOPE)).thenReturn(Mono.empty());
 
     client
         .get()
@@ -324,7 +327,7 @@ class SessionConfigControllerTest {
 
   @Test
   void testDeleteUnknownIs404AndActiveRunsAre409WithTheirIds() {
-    when(sessionService.deleteSession("nope", false))
+    when(sessionService.deleteSession(NOPE, false))
         .thenReturn(Mono.error(new NotFoundException("Session not found: nope")));
     when(sessionService.deleteSession("busy", false))
         .thenReturn(Mono.error(new ActiveRunsException(List.of("e1", "e2"), false)));

@@ -938,7 +938,11 @@ export interface paths {
         get: operations["getSessionDetails"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a session
+         * @description Removes the session, its workflows and their versions. Run history and logs stay and age out with the log retention. Answers 409 with the run ids while runs are active, unless force=true, which cancels them first. ADMIN keys only; a key limited to sessions may delete only its own. Recorded in the control audit.
+         */
+        delete: operations["deleteSession"];
         options?: never;
         head?: never;
         patch?: never;
@@ -978,7 +982,11 @@ export interface paths {
         get: operations["getWorkflow"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a workflow
+         * @description Removes the workflow and its versions. Its runs stay readable. Answers 409 with the run ids while its runs are active, unless force=true. ADMIN keys only. Recorded in the control audit.
+         */
+        delete: operations["deleteWorkflow"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4161,6 +4169,30 @@ export interface operations {
             };
         };
     };
+    deleteSession: {
+        parameters: {
+            query?: {
+                /** @description Cancel active runs first */
+                force?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description The unique identifier of the session */
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getSessionWorkflows: {
         parameters: {
             query?: never;
@@ -4206,6 +4238,32 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["ApiResponseWorkflowDefinition"];
                 };
+            };
+        };
+    };
+    deleteWorkflow: {
+        parameters: {
+            query?: {
+                /** @description Cancel active runs first */
+                force?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description The unique identifier of the session */
+                sessionId: string;
+                /** @description The unique identifier of the workflow */
+                workflowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

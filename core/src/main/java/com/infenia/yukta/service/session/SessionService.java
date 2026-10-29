@@ -36,6 +36,12 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class SessionService {
 
+  /** How long a forced delete waits for cancelled runs to end. */
+  private static final Duration FORCE_WAIT = Duration.ofSeconds(30);
+
+  /** How often a forced delete looks whether the cancelled runs have ended. */
+  private static final Duration FORCE_POLL = Duration.ofMillis(250);
+
   /** The session configuration store for persisting session settings. */
   private final SessionConfigStore configService;
 
@@ -148,12 +154,6 @@ public class SessionService {
                     .log("Failed to apply configuration for session: {}"));
   }
 
-  /** How long a forced delete waits for cancelled runs to end. */
-  private static final Duration FORCE_WAIT = Duration.ofSeconds(30);
-
-  /** How often a forced delete looks whether the cancelled runs have ended. */
-  private static final Duration FORCE_POLL = Duration.ofMillis(250);
-
   /**
    * Delete a workflow: its definition and versions, and the compiled copy. Its run history and logs
    * stay and age out with the log retention.
@@ -237,7 +237,8 @@ public class SessionService {
               if (!force) {
                 return Mono.error(new ActiveRunsException(ids(runs), false));
               }
-              return Flux.fromIterable(runs.stream().map(r -> r.workflowId()).distinct().toList())
+              return Flux.fromIterable(
+                      runs.stream().map(WorkflowExecutionSummary::workflowId).distinct().toList())
                   .concatMap(
                       id -> controlBus.stopWorkflow(sessionId, id, "Deleted", StopMode.CANCEL))
                   .then(awaitEnded(sessionId, workflowId));

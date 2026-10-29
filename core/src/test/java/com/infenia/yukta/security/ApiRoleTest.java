@@ -40,12 +40,9 @@ class ApiRoleTest {
   @Test
   void deletingSessionsAndWorkflowsNeedsAdmin() {
     for (final String path : new String[] {"/api/sessions/s1", "/api/sessions/s1/workflows/w1"}) {
-      org.assertj.core.api.Assertions.assertThat(ApiRole.VIEWER.allows(HttpMethod.DELETE, path))
-          .isFalse();
-      org.assertj.core.api.Assertions.assertThat(ApiRole.OPERATOR.allows(HttpMethod.DELETE, path))
-          .isFalse();
-      org.assertj.core.api.Assertions.assertThat(ApiRole.ADMIN.allows(HttpMethod.DELETE, path))
-          .isTrue();
+      assertThat(ApiRole.VIEWER.allows(HttpMethod.DELETE, path)).isFalse();
+      assertThat(ApiRole.OPERATOR.allows(HttpMethod.DELETE, path)).isFalse();
+      assertThat(ApiRole.ADMIN.allows(HttpMethod.DELETE, path)).isTrue();
     }
   }
 }

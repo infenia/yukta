@@ -39,6 +39,7 @@ import reactor.core.publisher.Mono;
  * status. List endpoints are paged with {@code ?limit=&cursor=}.
  */
 @Validated
+@SuppressWarnings("PMD.ExcessiveImports")
 @RestController
 @RequestMapping("/api/sessions")
 @RequiredArgsConstructor

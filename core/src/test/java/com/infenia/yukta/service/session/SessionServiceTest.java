@@ -154,7 +154,7 @@ class SessionServiceTest {
 
     // Then: only the dropped workflow is removed; the kept one is left alone.
     verify(workflowDefinitionStore).remove(sessionId, "w2");
-    verify(workflowDefinitionStore, org.mockito.Mockito.never()).remove(sessionId, "w1");
+    verify(workflowDefinitionStore, never()).remove(sessionId, "w1");
   }
 
   @Test
@@ -771,14 +771,11 @@ class SessionServiceTest {
   void testGetLatestExecutionStatusByWorkflow_groupsAndTakesFirst() {
     // Given: history with multiple entries, most recent first
     final String sessionId = "sess-status";
-    final com.infenia.yukta.model.execution.WorkflowExecutionSummary status1 =
-        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
-            EXEC1, WF1, RUNNING, null, null);
-    final com.infenia.yukta.model.execution.WorkflowExecutionSummary status2 =
-        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
-            EXEC2, WF1, SUCCESS, null, null);
-    final List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
-        List.of(status1, status2);
+    final WorkflowExecutionSummary status1 =
+        new WorkflowExecutionSummary(EXEC1, WF1, RUNNING, null, null);
+    final WorkflowExecutionSummary status2 =
+        new WorkflowExecutionSummary(EXEC2, WF1, SUCCESS, null, null);
+    final List<WorkflowExecutionSummary> history = List.of(status1, status2);
 
     when(controlBus.getHistory(sessionId)).thenReturn(Mono.just(history));
 
@@ -827,14 +824,11 @@ class SessionServiceTest {
   void testGetLatestExecutionStatusByWorkflow_multipleWorkflows() {
     // Given: history with different workflows
     final String sessionId = "sess-multi-wf";
-    final com.infenia.yukta.model.execution.WorkflowExecutionSummary wf1Status =
-        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
-            EXEC1, WF1, SUCCESS, null, null);
-    final com.infenia.yukta.model.execution.WorkflowExecutionSummary wf2Status =
-        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
-            EXEC2, WF2, FAILURE, null, null);
-    final List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> history =
-        List.of(wf1Status, wf2Status);
+    final WorkflowExecutionSummary wf1Status =
+        new WorkflowExecutionSummary(EXEC1, WF1, SUCCESS, null, null);
+    final WorkflowExecutionSummary wf2Status =
+        new WorkflowExecutionSummary(EXEC2, WF2, FAILURE, null, null);
+    final List<WorkflowExecutionSummary> history = List.of(wf1Status, wf2Status);
 
     when(controlBus.getHistory(sessionId)).thenReturn(Mono.just(history));
 
@@ -851,8 +845,8 @@ class SessionServiceTest {
   }
 
   private static WorkflowExecutionSummary run(
-      final String id, final String wf, final String status) {
-    return new WorkflowExecutionSummary(id, wf, status, null, null);
+      final String runId, final String workflow, final String status) {
+    return new WorkflowExecutionSummary(runId, workflow, status, null, null);
   }
 
   @Test

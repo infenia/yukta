@@ -2065,6 +2065,35 @@
             }
           }
         }
+      },
+      "delete" : {
+        "tags" : [ "Session API" ],
+        "summary" : "Delete a session",
+        "description" : "Removes the session, its workflows and their versions. Run history and logs stay and age out with the log retention. Answers 409 with the run ids while runs are active, unless force=true, which cancels them first. ADMIN keys only; a key limited to sessions may delete only its own. Recorded in the control audit.",
+        "operationId" : "deleteSession",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "description" : "The unique identifier of the session",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "force",
+          "in" : "query",
+          "description" : "Cancel active runs first",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
       }
     },
     "/api/sessions/{sessionId}/workflows" : {
@@ -2129,6 +2158,43 @@
                 }
               }
             }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "Session API" ],
+        "summary" : "Delete a workflow",
+        "description" : "Removes the workflow and its versions. Its runs stay readable. Answers 409 with the run ids while its runs are active, unless force=true. ADMIN keys only. Recorded in the control audit.",
+        "operationId" : "deleteWorkflow",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "description" : "The unique identifier of the session",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "workflowId",
+          "in" : "path",
+          "description" : "The unique identifier of the workflow",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "force",
+          "in" : "query",
+          "description" : "Cancel active runs first",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
           }
         }
       }
