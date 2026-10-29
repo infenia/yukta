@@ -19,6 +19,8 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   task?: TaskProgress;
   /** Hide the description line (the plugin page already shows it next to the preview). */
   hideDescription?: boolean;
+  /** Hide the status line (a catalog preview has no run, so no status). */
+  hideStatus?: boolean;
 }
 
 export type WorkflowFlowNode = Node<WorkflowNodeData, 'workflowNode'>;

@@ -27,8 +27,9 @@ export function PluginCanvasPreview({ plugin }: { plugin: PluginDetails }) {
     width: DEFAULT_NODE_WIDTH,
     height: DEFAULT_NODE_HEIGHT,
     data: {
-      status: 'completed',
+      status: 'pending',
       hideDescription: true,
+      hideStatus: true,
       node: { ...plugin, nodeId: plugin.type },
     },
   };
