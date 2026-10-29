@@ -22,13 +22,24 @@ class DirectNodeMessageChannelTest {
   private final DirectNodeMessageChannel channel = new DirectNodeMessageChannel();
 
   @Test
-  void inbound_returnsUpstreamFluxUnchanged() {
+  void inbound_passesMessagesThrough() {
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "payload");
-    final Flux<Message<?>> upstream = Flux.just(msg);
 
-    final Flux<Message<?>> result = channel.inbound("node-1", "exec-1", upstream);
+    StepVerifier.create(channel.inbound("node-1", "exec-1", Flux.just(msg)))
+        .expectNext(msg)
+        .verifyComplete();
+  }
 
-    assertThat(result).isSameAs(upstream);
+  @Test
+  void inbound_dropsExpiredButKeepsLiveAndUnexpiring() {
+    final Message<?> expired = DefaultMessage.create(null, "a").withExpiration(1L);
+    final Message<?> live =
+        DefaultMessage.create(null, "b").withExpiration(System.currentTimeMillis() + 60_000);
+    final Message<?> none = DefaultMessage.create(null, "c");
+
+    StepVerifier.create(channel.inbound("n", "e", Flux.just(expired, live, none)))
+        .expectNext(live, none)
+        .verifyComplete();
   }
 
   @Test
@@ -107,12 +118,8 @@ class DirectNodeMessageChannelTest {
   }
 
   @Test
-  void inbound_nullNodeId_returnsFluxUnchanged() {
-    final Flux<Message<?>> upstream = Flux.empty();
-
-    final Flux<Message<?>> result = channel.inbound(null, "exec-1", upstream);
-
-    assertThat(result).isSameAs(upstream);
+  void inbound_nullNodeId_stillCompletes() {
+    StepVerifier.create(channel.inbound(null, "exec-1", Flux.empty())).verifyComplete();
   }
 
   @Test

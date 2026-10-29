@@ -41,6 +41,13 @@ class PayloadSizeTest {
   }
 
   @Test
+  void recordComponentsAreCounted() {
+    record Body(String text, byte[] data, List<String> parts) {}
+
+    assertThat(PayloadSize.bytesIn(new Body("abc", new byte[4], List.of("xy")))).isEqualTo(9);
+  }
+
+  @Test
   void pathIsNotWalked() {
     assertThat(PayloadSize.bytesIn(Path.of("a", "b", "c"))).isZero();
     assertThat(PayloadSize.bytesIn(List.of(Path.of("a", "b"), "xy"))).isEqualTo(2);

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.message.channel;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.RecordComponent;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
@@ -29,10 +31,10 @@ final class PayloadSize {
    * Returns the bytes held by strings, byte arrays and buffers, also inside maps, collections,
    * object arrays and optionals. A container met twice (a cycle, or one shared value) counts once.
    *
-   * <p>ponytail: other objects count 0, so a plugin POJO holding a large body is not caught; count
-   * the JSON size if that happens. A lazy {@code Iterable} that is not a {@code Collection} (a
-   * {@code Path}, a one-shot stream view) is not walked: doing so could recurse forever or consume
-   * it before the plugin sees it.
+   * <p>Records are walked through their components. ponytail: other objects (a plain POJO) count 0,
+   * so one holding a large body is not caught; count the JSON size if that happens. A lazy {@code
+   * Iterable} that is not a {@code Collection} (a {@code Path}, a one-shot stream view) is not
+   * walked: doing so could recurse forever or consume it before the plugin sees it.
    */
   /* default */ static long bytesIn(final Object value) {
     return bytesIn(value, Collections.newSetFromMap(new IdentityHashMap<>()));
@@ -47,6 +49,7 @@ final class PayloadSize {
       case Map<?, ?> map when seen.add(map) -> mapBytes(map, seen);
       case Object[] items when seen.add(items) -> sumOf(Arrays.asList(items), seen);
       case Collection<?> items when seen.add(items) -> sumOf(items, seen);
+      case Record record when seen.add(record) -> recordBytes(record, seen);
       case null, default -> 0;
     };
   }
@@ -55,6 +58,20 @@ final class PayloadSize {
     long sum = 0;
     for (final Map.Entry<?, ?> entry : map.entrySet()) {
       sum += bytesIn(entry.getKey(), seen) + bytesIn(entry.getValue(), seen);
+    }
+    return sum;
+  }
+
+  private static long recordBytes(final Record record, final Set<Object> seen) {
+    long sum = 0;
+    for (final RecordComponent component : record.getClass().getRecordComponents()) {
+      try {
+        final Method accessor = component.getAccessor();
+        accessor.setAccessible(true);
+        sum += bytesIn(accessor.invoke(record), seen);
+      } catch (ReflectiveOperationException | RuntimeException e) {
+        // a component that cannot be read counts 0, like any other unknown object
+      }
     }
     return sum;
   }

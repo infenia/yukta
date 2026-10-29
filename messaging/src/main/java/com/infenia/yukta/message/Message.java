@@ -63,7 +63,8 @@ public interface Message<T> {
   java.time.Instant timestamp();
 
   /**
-   * The "use-by" timestamp after which the message is discarded (epoch milliseconds).
+   * The "use-by" timestamp (epoch milliseconds). The node inbound hook of {@code
+   * DirectNodeMessageChannel} drops a message once it has passed.
    *
    * @return the expiration timestamp, or 0 if none
    */
@@ -71,6 +72,8 @@ public interface Message<T> {
 
   /**
    * Indicates the data format or schema version.
+   *
+   * <p>Reserved: carried and copied, but nothing in the engine acts on it yet.
    *
    * @return the format indicator
    */
@@ -148,6 +151,8 @@ public interface Message<T> {
   /**
    * Indicates if this is a management/control message.
    *
+   * <p>Reserved: carried and copied, but nothing in the engine acts on it yet.
+   *
    * @return true if control message
    */
   boolean controlMessage();
@@ -177,6 +182,8 @@ public interface Message<T> {
 
   /**
    * Number of times this message has been retried.
+   *
+   * <p>Reserved: carried and copied, but nothing in the engine acts on it yet.
    *
    * @return the retry count
    */
