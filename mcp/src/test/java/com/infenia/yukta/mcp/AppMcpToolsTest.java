@@ -13,6 +13,7 @@ import com.infenia.yukta.mcp.dto.PluginCreationGuide;
 import com.infenia.yukta.mcp.dto.PluginDetails;
 import com.infenia.yukta.mcp.dto.PluginList;
 import com.infenia.yukta.mcp.dto.PluginSummary;
+import com.infenia.yukta.mcp.dto.SchedulerLimitsResult;
 import com.infenia.yukta.mcp.dto.SessionCreationGuide;
 import com.infenia.yukta.mcp.dto.SessionCreationResult;
 import com.infenia.yukta.mcp.dto.SessionDetails;
@@ -341,5 +342,15 @@ class AppMcpToolsTest {
     when(systemHealthProvider.whoami()).thenReturn(Mono.just(who));
 
     StepVerifier.create(mcpTools.whoami()).expectNext(who).verifyComplete();
+  }
+
+  @Test
+  void schedulerLimitsTools_delegateToTheControlProvider() {
+    final SchedulerLimitsResult limits = new SchedulerLimitsResult(4, 2, 1, 0, 100);
+    when(workflowControlProvider.getSchedulerLimits()).thenReturn(Mono.just(limits));
+    when(workflowControlProvider.setSchedulerLimits(4, 2)).thenReturn(Mono.just(limits));
+
+    StepVerifier.create(mcpTools.getSchedulerLimits()).expectNext(limits).verifyComplete();
+    StepVerifier.create(mcpTools.setSchedulerLimits(4, 2)).expectNext(limits).verifyComplete();
   }
 }

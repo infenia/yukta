@@ -13,7 +13,7 @@ import { useCopyCommand } from '../hooks/useCopyCommand';
 import { CopyAsMenu, type CopyChoice } from './CopyAsMenu';
 import type { NodeUiStatus } from '../types/workflow';
 
-export type NodeCommand = NodeAction | 'restart-from';
+export type NodeCommand = NodeAction | 'restart-from' | 'unskip';
 
 const ITEMS: {
   command: NodeCommand;
@@ -24,7 +24,7 @@ const ITEMS: {
   { command: 'resume', label: 'Resume node', when: (s) => s === 'paused' },
   {
     command: 'stop',
-    label: 'Stop node',
+    label: 'Stop node…',
     when: (s) => s === 'running' || s === 'paused',
   },
   {
@@ -32,6 +32,7 @@ const ITEMS: {
     label: 'Skip node',
     when: (s) => s === 'pending' || s === 'running',
   },
+  { command: 'unskip', label: 'Unskip node', when: (s) => s === 'skipped' },
   { command: 'retry', label: 'Retry node', when: (s) => s === 'failed' },
   {
     command: 'step/enable',
@@ -68,13 +69,18 @@ export function NodeControlsMenu({
   // Every status has at least one applicable action, so the menu is never empty.
   const items = ITEMS.filter((item) => item.when(status));
   const choices: CopyChoice[] = scope
-    ? items.map((item) => ({
-        label: item.label,
-        action:
-          item.command === 'restart-from'
-            ? { kind: 'restartFromNode', ...scope, nodeId }
-            : { kind: 'node', verb: item.command, ...scope, nodeId },
-      }))
+    ? items.flatMap((item): CopyChoice[] => {
+        if (item.command === 'unskip') return []; // no copy-as equivalent yet
+        return [
+          {
+            label: item.label,
+            action:
+              item.command === 'restart-from'
+                ? { kind: 'restartFromNode', ...scope, nodeId }
+                : { kind: 'node', verb: item.command, ...scope, nodeId },
+          },
+        ];
+      })
     : [];
 
   return (

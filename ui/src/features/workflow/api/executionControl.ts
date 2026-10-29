@@ -76,6 +76,31 @@ export function restartFromNode(
   );
 }
 
+/** Stops one node; `immediate` skips draining and `reason` lands in the control audit. */
+export function stopNode(
+  executionId: string,
+  nodeId: string,
+  options: { immediate?: boolean; reason?: string } = {}
+): Promise<StartResponse> {
+  const query = new URLSearchParams();
+  if (options.immediate) query.set('immediate', 'true');
+  if (options.reason) query.set('reason', options.reason);
+  const suffix = query.size ? `?${query}` : '';
+  return post<StartResponse>(
+    `${api`/api/executions/${executionId}/nodes/${nodeId}`}/stop${suffix}`
+  );
+}
+
+/** Takes a node back out of the skipped state before it runs. */
+export function unskipNode(
+  executionId: string,
+  nodeId: string
+): Promise<StartResponse> {
+  return post<StartResponse>(
+    `${api`/api/executions/${executionId}/nodes/${nodeId}`}/skip?skip=false`
+  );
+}
+
 export function nodeAction(
   executionId: string,
   nodeId: string,

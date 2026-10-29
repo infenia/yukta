@@ -648,7 +648,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Read the execution limits
+         * @description The limits set at startup or by the last POST (0 means unlimited), with how many executions run and wait now
+         */
+        get: operations["getLimits"];
         put?: never;
         /** Change the execution limits */
         post: operations["changeLimits"];
@@ -2646,6 +2650,51 @@ export interface components {
             workflowCount?: number;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseSchedulerLimits: {
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /** @description The response data */
+            data?: components["schemas"]["SchedulerLimits"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+        };
+        SchedulerLimits: {
+            /** Format: int32 */
+            maxConcurrent?: number;
+            /** Format: int32 */
+            maxPerWorkflow?: number;
+            /** Format: int32 */
+            running?: number;
+            /** Format: int32 */
+            queued?: number;
+            /** Format: int32 */
+            queueCapacity?: number;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseWhoami: {
             /**
              * Format: date-time
@@ -3779,6 +3828,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseWorkflowValidationResult"];
+                };
+            };
+        };
+    };
+    getLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSchedulerLimits"];
                 };
             };
         };

@@ -27,6 +27,7 @@ import { useExecutionSelection } from '../hooks/useExecutionSelection';
 import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { useWorkflowGraph } from '../hooks/useWorkflowGraph';
 import type { TaskProgress } from '../types/workflow';
+import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
 
 export function WorkflowDetailsPage() {
@@ -36,6 +37,7 @@ export function WorkflowDetailsPage() {
   }>();
   const [panelOpen, setPanelOpen] = useState(true);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [stopping, setStopping] = useState<string | null>(null);
 
   const graphQuery = useWorkflowGraph(sessionId, workflowId);
   const executionsQuery = useWorkflowExecutions(sessionId, workflowId);
@@ -68,12 +70,19 @@ export function WorkflowDetailsPage() {
         { executionId, nodeId },
         { onSuccess: (result) => selectExecution(result.executionId) }
       );
+    } else if (command === 'stop') {
+      setStopping(nodeId);
+    } else if (command === 'unskip') {
+      nodeControl.unskipNode.mutate({ executionId, nodeId });
     } else {
       nodeControl.nodeAction.mutate({ executionId, nodeId, action: command });
     }
   };
   const nodeError =
-    nodeControl.nodeAction.error ?? nodeControl.restartFromNode.error;
+    nodeControl.nodeAction.error ??
+    nodeControl.restartFromNode.error ??
+    nodeControl.stopNode.error ??
+    nodeControl.unskipNode.error;
 
   const tasksByNode = useMemo(() => {
     const byNode: Record<string, TaskProgress | undefined> = {};
@@ -181,6 +190,24 @@ export function WorkflowDetailsPage() {
         <div className="px-6 py-2">
           <InlineError message={controlErrorMessage(nodeError)} />
         </div>
+      )}
+
+      {stopping && (
+        <NodeStopDialog
+          nodeId={stopping}
+          pending={nodeControl.stopNode.isPending}
+          onClose={() => setStopping(null)}
+          onSubmit={(options) =>
+            nodeControl.stopNode.mutate(
+              {
+                executionId: selectedExecutionId as string,
+                nodeId: stopping,
+                ...options,
+              },
+              { onSettled: () => setStopping(null) }
+            )
+          }
+        />
       )}
 
       <div className="flex min-h-100 flex-1">

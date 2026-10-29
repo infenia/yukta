@@ -12,6 +12,7 @@ import com.infenia.yukta.mcp.dto.PendingApprovals;
 import com.infenia.yukta.mcp.dto.PluginCreationGuide;
 import com.infenia.yukta.mcp.dto.PluginDetails;
 import com.infenia.yukta.mcp.dto.PluginList;
+import com.infenia.yukta.mcp.dto.SchedulerLimitsResult;
 import com.infenia.yukta.mcp.dto.SessionCreationGuide;
 import com.infenia.yukta.mcp.dto.SessionCreationResult;
 import com.infenia.yukta.mcp.dto.SessionDetails;
@@ -470,6 +471,53 @@ public class AppMcpTools {
           final String reason) {
     return workflowControlProvider.controlNode(
         sessionId, executionId, nodeId, action, immediate, reason);
+  }
+
+  /**
+   * Read the execution limits.
+   *
+   * @return the limits in force and the slots in use
+   */
+  @McpTool(
+      name = "get_scheduler_limits",
+      title = "Get Scheduler Limits",
+      description =
+          "Get the execution limits (0 means unlimited) with how many executions run and wait now",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SchedulerLimitsResult> getSchedulerLimits() {
+    return workflowControlProvider.getSchedulerLimits();
+  }
+
+  /**
+   * Change the execution limits.
+   *
+   * @param maxConcurrent most executions running at once, 0 for unlimited
+   * @param maxPerWorkflow most executions of one workflow running at once, 0 for unlimited
+   * @return the limits after the change
+   */
+  @McpTool(
+      name = "set_scheduler_limits",
+      title = "Set Scheduler Limits",
+      description =
+          "Change how many executions may run at once, in total and per workflow (0 means "
+              + "unlimited). Raising a limit admits waiting starts at once. Needs an admin key.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = false,
+              destructiveHint = false,
+              idempotentHint = true,
+              openWorldHint = false))
+  @SuppressWarnings("PMD.LinguisticNaming") // the MCP tool name
+  public Mono<SchedulerLimitsResult> setSchedulerLimits(
+      @McpToolParam(required = true, description = "Most executions running at once; 0 for none")
+          final int maxConcurrent,
+      @McpToolParam(
+              required = true,
+              description = "Most executions of one workflow running at once; 0 for none")
+          final int maxPerWorkflow) {
+    return workflowControlProvider.setSchedulerLimits(maxConcurrent, maxPerWorkflow);
   }
 
   /**
