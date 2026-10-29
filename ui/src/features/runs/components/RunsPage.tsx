@@ -3,7 +3,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,8 +21,12 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useSessionSummaries } from '@/features/sessions/hooks/useSessionSummaries';
 import { useSessionWorkflows } from '@/features/sessions/hooks/useSessionWorkflows';
+import { RecoverButton } from '@/features/workflow/components/RecoverButton';
 import { StatusPill } from '@/features/workflow/components/StatusPill';
-import { toStatusDisplay } from '@/features/workflow/lib/statusMapper';
+import {
+  isAbortedExecStatus,
+  toStatusDisplay,
+} from '@/features/workflow/lib/statusMapper';
 import {
   formatClockTime,
   formatDuration,
@@ -52,7 +56,12 @@ const RANGE_LABELS: [Range, string][] = [
 const STACKED_CELL =
   'px-4 max-sm:flex max-sm:items-center max-sm:gap-3 max-sm:py-0.5 max-sm:whitespace-normal max-sm:before:w-20 max-sm:before:shrink-0 max-sm:before:text-body-sm max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]';
 
+/** The run view of one execution. */
+const runPath = (sessionId: string, workflowId: string, executionId: string) =>
+  `/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}?exec=${encodeURIComponent(executionId)}`;
+
 export function RunsPage() {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const filters = parseFilters(params);
   const [limit, setLimit] = useState(PAGE);
@@ -183,6 +192,9 @@ export function RunsPage() {
                   <TableHead className="px-4">Started</TableHead>
                   <TableHead className="px-4">Duration</TableHead>
                   <TableHead className="px-4">Ended</TableHead>
+                  <TableHead className="px-4">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -201,7 +213,11 @@ export function RunsPage() {
                       <Link
                         className="text-primary"
                         title={run.executionId}
-                        to={`/sessions/${encodeURIComponent(run.sessionId)}/workflow/${encodeURIComponent(run.workflowId)}?exec=${encodeURIComponent(run.executionId)}`}
+                        to={runPath(
+                          run.sessionId,
+                          run.workflowId,
+                          run.executionId
+                        )}
                       >
                         {run.executionId.slice(0, 8)}
                       </Link>
@@ -239,6 +255,25 @@ export function RunsPage() {
                       className={cn(STACKED_CELL, 'text-code-sm')}
                     >
                       {formatClockTime(run.endTime)}
+                    </TableCell>
+                    <TableCell className="px-4 max-sm:empty:hidden">
+                      {isAbortedExecStatus(run.status) && (
+                        <RecoverButton
+                          size="sm"
+                          sessionId={run.sessionId}
+                          workflowId={run.workflowId}
+                          executionId={run.executionId}
+                          onRecovered={(executionId) =>
+                            void navigate(
+                              runPath(
+                                run.sessionId,
+                                run.workflowId,
+                                executionId
+                              )
+                            )
+                          }
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
