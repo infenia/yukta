@@ -71,10 +71,15 @@ for f in "${files[@]}"; do
 done
 
 # ---- gradle: changed modules, then the modules that depend on them ----
-# edges "module dependency", from project(":x") in each module's build file; library-/spring-conventions add test-support
+# edges "module dependency". Same rule as .github/scripts/ci-tasks.sh (plan-vs-ci.test.sh keeps them equal): any quoted
+# module path in a module's build file that settings.gradle.kts includes, not only project(":x") (boot picks its optional
+# plugins from a map of path strings). library-/spring-conventions add test-support, which they add as a test dependency.
+mapfile -t included < <(sed -n 's/^include("\(.*\)")/\1/p' settings.gradle.kts)
 mapfile -t edges < <(git ls-files '*build.gradle.kts' | grep -vE '^(build-logic/|build.gradle.kts$|ui/|cli/)' | while read -r b; do
   m="$(dirname "$b")"; m="${m//\//:}"
-  { grep -o 'project(":[^"]*")' "$b" || true; } | sed -E 's/project\(":(.*)"\)/\1/' | sed "s/^/$m /"
+  { grep -oE '":[A-Za-z0-9_:-]+"' "$b" || true; } | tr -d '"' | sed 's/^://' | sort -u | while read -r d; do
+    [[ "$d" != "$m" ]] && printf '%s\n' "${included[@]}" | grep -qxF "$d" && echo "$m $d"
+  done
   # library-conventions applies spring-conventions, which adds testImplementation(project(":test-support"))
   if [[ "$m" != test-support ]] && grep -qE 'yukta\.(library|spring)-conventions' "$b"; then echo "$m test-support"; fi
 done | sort -u)

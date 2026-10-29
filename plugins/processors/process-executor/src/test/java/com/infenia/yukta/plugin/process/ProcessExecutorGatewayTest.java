@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.process;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
@@ -23,6 +24,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -40,6 +42,8 @@ import reactor.test.StepVerifier;
   "PMD.CommentRequired", // Constants are self-documenting in test context
   "PMD.TooManyMethods", // Comprehensive test coverage requires multiple methods
   "PMD.LawOfDemeter", // fluent assertions and builders
+  "PMD.CyclomaticComplexity", // one small case per branch of the launch and signal helpers
+  "PMD.ExcessiveImports", // one import per assertion helper and stream type used
 })
 class ProcessExecutorGatewayTest {
 
@@ -489,6 +493,27 @@ class ProcessExecutorGatewayTest {
   }
 
   @Test
+  @EnabledOnOs(OS.LINUX)
+  void timeout_alsoStopsChildThatDetachedFromTheTree(@TempDir final Path dir) throws Exception {
+    final Path pidFile = dir.resolve("child.pid");
+    final ProcessExecutionSpec spec =
+        ProcessExecutionSpec.builder()
+            .command(List.of("sh", "-c", "(sleep 55 & echo $! > '" + pidFile + "'); sleep 55"))
+            .timeoutSeconds(SHORT_TIMEOUT_SECONDS)
+            .build();
+
+    StepVerifier.create(gateway.executeForResult(spec))
+        .assertNext(result -> assertThat(result.timedOut()).isTrue())
+        .verifyComplete();
+
+    final long childPid = Long.parseLong(Files.readString(pidFile).trim());
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () -> assertThat(ProcessHandle.of(childPid).filter(ProcessHandle::isAlive)).isEmpty());
+  }
+
+  @Test
   void cleanupProcess_aliveProcess_destroysItGracefully() throws IOException {
     final Process process = new ProcessBuilder("sleep", "10").start();
     assertThat(process.isAlive()).isTrue();
@@ -540,6 +565,103 @@ class ProcessExecutorGatewayTest {
 
     grandchild.onExit().get(5, TimeUnit.SECONDS);
     assertThat(grandchild.isAlive()).as("the grandchild must not outlive its parent").isFalse();
+  }
+
+  @Test
+  @EnabledOnOs(OS.LINUX)
+  void timeout_gracefulTermIgnored_killsTheWholeGroup() {
+    final ProcessExecutionSpec spec =
+        ProcessExecutionSpec.builder()
+            .command(List.of("sh", "-c", "trap '' TERM; (trap '' TERM; sleep 55) & wait"))
+            .timeoutSeconds(SHORT_TIMEOUT_SECONDS)
+            .build();
+
+    StepVerifier.create(gateway.executeForResult(spec))
+        .assertNext(result -> assertThat(result.timedOut()).isTrue())
+        .verifyComplete();
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void isExecutable_bareNameSearchesThePathSkippingEmptyEntries(@TempDir final Path dir)
+      throws IOException {
+    final Path tool = Files.createFile(dir.resolve("tool"));
+    assertThat(tool.toFile().setExecutable(true)).isTrue();
+
+    assertThat(ProcessExecutorGateway.isExecutable("tool", "::" + dir + ":/nonexistent")).isTrue();
+    assertThat(ProcessExecutorGateway.isExecutable("tool", "::/nonexistent")).isFalse();
+    assertThat(ProcessExecutorGateway.isExecutable(tool.toString(), "")).isTrue();
+    assertThat(ProcessExecutorGateway.isExecutable("missing/tool", "")).isFalse();
+  }
+
+  @Test
+  void findSetsid_isOnlyLookedForOnLinux() {
+    assertThat(ProcessExecutorGateway.findSetsid("Windows 11")).isNull();
+    assertThat(ProcessExecutorGateway.findSetsid("Mac OS X")).isNull();
+  }
+
+  @Test
+  void groupable_withoutSetsid_isFalse() {
+    assertThat(ProcessExecutorGateway.groupable(null, "sh", "/bin:/usr/bin")).isFalse();
+  }
+
+  @Test
+  @EnabledOnOs(OS.LINUX)
+  void groupable_withSetsidAndRunnableCommand_isTrue() {
+    assertThat(ProcessExecutorGateway.groupable("/usr/bin/setsid", "sh", "/bin:/usr/bin")).isTrue();
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void cleanupProcess_groupedAndTermIgnored_escalatesToKillAndExits()
+      throws IOException, InterruptedException {
+    final Process process = new ProcessBuilder("sh", "-c", "trap '' TERM; sleep 30").start();
+    // Give the shell a moment to install the TERM trap, or it dies before the escalation
+    Thread.sleep(300); // nosem: yukta-test-thread-sleep
+    gateway.track(process, true);
+
+    StepVerifier.create(gateway.cleanupProcess(process)).verifyComplete();
+
+    process.waitFor(5, TimeUnit.SECONDS);
+    assertThat(process.isAlive()).isFalse();
+  }
+
+  @Test
+  void track_groupedOrNot_leavesTheProcessRunning() throws IOException {
+    final Process process = new ProcessBuilder("sleep", "10").start();
+    try {
+      gateway.track(process, false);
+      gateway.track(process, true);
+
+      assertThat(process.isAlive()).isTrue();
+    } finally {
+      process.destroyForcibly();
+    }
+  }
+
+  @Test
+  void signalGroup_missingShell_isLoggedNotThrown() {
+    // 999_999_999 is no group: never signal -1, which would signal every process
+    assertThatCode(
+            () -> ProcessExecutorGateway.signalGroup("KILL", 999_999_999L, "/nonexistent/sh"))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void signalGroup_interrupted_restoresTheInterruptFlag(@TempDir final Path dir)
+      throws IOException {
+    // a shell that outlives the wait, so waitFor is interrupted instead of returning at once
+    final Path slowShell = Files.writeString(dir.resolve("slow-sh"), "#!/bin/sh\nsleep 5\n");
+    assertThat(slowShell.toFile().setExecutable(true)).isTrue();
+    Thread.currentThread().interrupt();
+    try {
+      ProcessExecutorGateway.signalGroup("KILL", 999_999_999L, slowShell.toString());
+
+      assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    } finally {
+      Thread.interrupted();
+    }
   }
 
   @Test
@@ -1136,8 +1258,7 @@ class ProcessExecutorGatewayTest {
             throw new IOException("Simulated broken pipe");
           }
         }) {
-      org.assertj.core.api.Assertions.assertThatCode(() -> gateway.writeStdin(throwingStream, "x"))
-          .doesNotThrowAnyException();
+      assertThatCode(() -> gateway.writeStdin(throwingStream, "x")).doesNotThrowAnyException();
     }
   }
 

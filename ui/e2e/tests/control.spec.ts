@@ -98,4 +98,37 @@ test.describe('Control page', () => {
     await expect(page.getByText('"flushed": true')).toBeVisible();
     expect(sent).toEqual({ action: 'flush' });
   });
+
+  test('shows the live activity feed and filters it', async ({ page }) => {
+    await mockControlApi(page, []);
+    const frame = (type: string, severity: string, event: object) =>
+      `data: ${JSON.stringify({ type, severity, rootExecutionId: 'r', depth: 0, event })}\n\n`;
+    await page.route('**/api/events/stream*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body:
+          frame('NodeStatusChanged', 'INFO', {
+            executionId: 'exec-1111-aaaa',
+            timestamp: '2026-07-26T14:22:01',
+            nodeId: 'ingest',
+            status: 'RUNNING',
+          }) +
+          frame('NodeStatusChanged', 'ERROR', {
+            executionId: 'exec-2222-bbbb',
+            timestamp: '2026-07-26T14:22:02',
+            nodeId: 'load',
+            status: 'FAILURE',
+          }),
+      })
+    );
+    await page.goto('/control?tab=activity');
+
+    await expect(page.getByText('ingest → RUNNING')).toBeVisible();
+    await expect(page.getByText('load → FAILURE')).toBeVisible();
+    await page.getByRole('button', { name: 'ERROR' }).click();
+    await expect(page.getByText('ingest → RUNNING')).toHaveCount(0);
+    await expect(page.getByText('load → FAILURE')).toBeVisible();
+    await expect(page).toHaveURL(/severity=ERROR/);
+  });
 });
