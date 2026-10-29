@@ -27,9 +27,12 @@ const OPENING_NODES = 12;
 export function WorkflowCanvas({
   graph,
   tasksByNode,
+  focusOn,
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
+  /** Node IDs to open on, instead of the automatic choice (the editor's selection). */
+  focusOn?: string[];
 }) {
   const { nodes, edges } = useMemo(
     () => layoutGraph(graph, tasksByNode),
@@ -38,8 +41,9 @@ export function WorkflowCanvas({
 
   // A large graph opens on its running nodes (else its first few); the minimap shows the rest
   const running = nodes.filter((node) => node.data.status === 'running');
-  const focus =
-    nodes.length <= LARGE_GRAPH
+  const focus = focusOn
+    ? focusOn.map((id) => ({ id }))
+    : nodes.length <= LARGE_GRAPH
       ? undefined
       : (running.length > 0 ? running : nodes.slice(0, OPENING_NODES)).map(
           (node) => ({ id: node.id })
