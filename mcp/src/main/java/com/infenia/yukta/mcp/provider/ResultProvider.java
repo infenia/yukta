@@ -68,13 +68,18 @@ public class ResultProvider {
    * @param executionId the execution identifier
    * @param afterCursor the {@code nextCursor} of the previous call, or null (or negative) for
    *     everything kept
+   * @param include output fields to keep in the payloads: stdout, stderr or both (comma-separated);
+   *     null leaves them out
    * @return Mono containing the results; errors if the execution is unknown
    */
   public Mono<ExecutionResultView> getExecutionResult(
-      final String sessionId, final String executionId, final Long afterCursor) {
+      final String sessionId,
+      final String executionId,
+      final Long afterCursor,
+      final String include) {
     final long from = afterCursor == null ? 0 : Math.max(0, afterCursor);
     return ExecutionOwnership.require(controlBus, sessionId, executionId)
-        .map(_ -> fence(results.read(executionId, from)));
+        .map(_ -> fence(results.read(executionId, from).withOutput(include)));
   }
 
   private ExecutionResultView fence(final ExecutionResults read) {

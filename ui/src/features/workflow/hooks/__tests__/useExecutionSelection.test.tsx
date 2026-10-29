@@ -10,7 +10,9 @@ import { createMockExecution } from '@/test/factories/workflowFactory';
 
 function createRouterWrapper(initialEntry: string) {
   return function RouterWrapper({ children }: { children: ReactNode }) {
-    return <MemoryRouter initialEntries={[initialEntry]}>{children}</MemoryRouter>;
+    return (
+      <MemoryRouter initialEntries={[initialEntry]}>{children}</MemoryRouter>
+    );
   };
 }
 

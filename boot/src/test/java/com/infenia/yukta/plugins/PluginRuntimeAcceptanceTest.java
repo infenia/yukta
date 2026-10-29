@@ -90,6 +90,7 @@ class PluginRuntimeAcceptanceTest {
           Map.entry(
               "FILE_READ", "needs a directory and a file; covered by IoPluginsAcceptanceTest"),
           Map.entry("FILE_WRITE", "needs a directory; covered by IoPluginsAcceptanceTest"),
+          Map.entry("PATCH_GUARD", "needs a git checkout; covered by IoPluginsAcceptanceTest"),
           Map.entry("BRANCH", "needs routing cases; covered by CorePluginsAcceptanceTest"),
           Map.entry("RECIPIENT_LIST", "needs the outgoing edges of a workflow"),
           Map.entry("VALIDATE", "needs a schema or rules in its input"));

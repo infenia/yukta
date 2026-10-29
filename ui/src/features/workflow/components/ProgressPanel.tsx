@@ -35,7 +35,7 @@ export function ProgressPanel({
     progress && isTerminalExecStatus(progress.status) ? progress : null;
   return (
     <aside
-      className="flex w-95 shrink-0 flex-col overflow-y-auto border-l border-border bg-background"
+      className="border-border bg-background flex w-95 shrink-0 flex-col overflow-y-auto border-l"
       data-testid="progress-panel"
       aria-label="Workflow progress"
     >
@@ -45,7 +45,7 @@ export function ProgressPanel({
           type="button"
           onClick={onClose}
           aria-label="Close workflow progress panel"
-          className="flex size-7 items-center justify-center rounded-lg text-on-surface-variant transition-standard hover:bg-muted hover:text-on-surface"
+          className="text-on-surface-variant transition-standard hover:bg-muted hover:text-on-surface flex size-7 items-center justify-center rounded-lg"
         >
           <span className="material-symbols-outlined text-lg">close</span>
         </button>
@@ -59,7 +59,7 @@ export function ProgressPanel({
               role="tab"
               aria-selected={tab === name}
               onClick={() => setTab(name)}
-              className={`rounded-lg px-3 py-1 text-label-md capitalize ${
+              className={`text-label-md rounded-lg px-3 py-1 capitalize ${
                 tab === name
                   ? 'bg-muted text-on-surface'
                   : 'text-on-surface-variant hover:bg-muted'
@@ -89,6 +89,7 @@ export function ProgressPanel({
             graph={graph}
             tasksByNode={tasksByNode}
             onNodeCommand={onNodeCommand}
+            executionId={progress?.executionId ?? null}
             scope={
               progress
                 ? { sessionId, executionId: progress.executionId }
