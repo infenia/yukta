@@ -80,6 +80,7 @@ com.infenia.yukta.plugin.decision.ScorePlugin
 com.infenia.yukta.plugin.decision.SystemOneModel
 com.infenia.yukta.plugin.file.FileReadPlugin
 com.infenia.yukta.plugin.file.FileWritePlugin
+com.infenia.yukta.plugin.file.PatchGuardPlugin
 com.infenia.yukta.plugin.http.HttpRequestGateway
 com.infenia.yukta.plugin.http.HttpRequestPlugin
 com.infenia.yukta.plugin.llm.LlmCallPlugin

@@ -1,7 +1,7 @@
 ---
 title: "External I/O plugins: HTTP, SQL, files and commands"
 sidebarTitle: "External I/O"
-description: "PROCESS_EXECUTOR, HTTP_REQUEST, SQL_QUERY, FILE_READ, FILE_WRITE and KV_STORE: plugins that run commands, call services, query databases and handle files."
+description: "PROCESS_EXECUTOR, HTTP_REQUEST, SQL_QUERY, FILE_READ, FILE_WRITE, PATCH_GUARD and KV_STORE: plugins that run commands, call services, query databases and handle files."
 keywords: ["HTTP_REQUEST", "SQL_QUERY", "PROCESS_EXECUTOR", "file IO"]
 ---
 
@@ -207,6 +207,22 @@ For both file plugins, a path is normalised and anything that escapes `baseDir`,
   "config": { "baseDir": "/var/lib/yukta/reports", "path": "daily.log", "append": true }
 }
 ```
+
+## PATCH_GUARD
+
+Judges the working-tree change of a git checkout against rules and routes it to `pass` or `reject`. Requires the `file-io` module and `git` on the server.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `dir` | string | none, required | The git checkout. It must lie inside the operator's allowed root, if one is set |
+| `base` | git ref | `HEAD` | What the change is compared with. Staged, unstaged and new (untracked) files all count |
+| `protectedPaths` | list of globs | none | Files the change must not touch, such as `secret/**` |
+| `forbidPatterns` | list of regexes | none | No added line may match (for example `@SuppressWarnings\|@Disabled`) |
+| `noTestRemoval` | boolean | `false` | Refuses a deleted test file, or a test file that declares fewer tests than before |
+| `requireChange` | boolean | `false` | Refuses an empty change |
+| `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | `CONTINUE` sends the original message to the `error` port, for example when `git` fails |
+
+Output ports: `pass` and `reject`, plus `error` when `failureMode` is `CONTINUE`. The payload becomes `{"files": [...], "violations": [{"rule", "file", "message"}]}`; `pass` means `violations` is empty.
 
 ## KV_STORE
 
