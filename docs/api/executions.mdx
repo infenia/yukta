@@ -24,6 +24,7 @@ An execution is one run of a workflow, identified by the `executionId` that the 
 | `POST /api/executions/{executionId}/restart/{fromNodeId}` | Restart from one node | `OPERATOR` |
 | `POST /api/executions/{executionId}/recover` | Continue a run that a server restart aborted | `OPERATOR` |
 | `POST /api/executions/{executionId}/priority` | Change the priority of a queued run | `OPERATOR` |
+| `GET /api/scheduler/limits` | Read the execution limits and how many runs execute and wait | `VIEWER` |
 | `POST /api/scheduler/limits` | Change the execution limits | `ADMIN` |
 
 Responses use the [envelope](/api/overview#response-envelope), except the results read, which returns its object directly. For an unknown execution, or one that belongs to another session, every call answers `404`. The older `/api/workflow/...` paths for these calls are listed under [deprecated aliases](/api/overview#deprecated-aliases).
@@ -295,6 +296,12 @@ Changes the priority of a run that waits for an execution slot. Higher values ar
 **Response `data`**: `executionId`.
 
 **Errors**: `400` unless the run is waiting for a slot.
+
+## Read the execution limits
+
+`GET /api/scheduler/limits`
+
+**Response `data`**: `maxConcurrent` and `maxPerWorkflow` as in force (`0` means no limit, whether set at startup or by the last `POST`), `running` (runs holding a slot now), `queued` (starts waiting for a slot now) and `queueCapacity` (how many starts may wait).
 
 ## Change the execution limits
 

@@ -36,6 +36,8 @@ if [[ -z ${JAR:-} && -z ${BINARY:-} ]]; then
   done
   [[ -n ${JAR:-} ]] || { echo "no boot jar in boot/build/libs" >&2; exit 2; }
 fi
+# absolute: compose reads a relative path without a leading ./ as the name of a volume, not a file
+[[ -z ${JAR:-} ]] || JAR=$(realpath "$JAR")
 export JAR
 if [[ -n ${BINARY:-} ]]; then
   JAR=$(realpath "$BINARY"); export RUN_CMD="/app/yukta.jar -Dyukta.rate-limit-per-minute=0" IMAGE=${IMAGE:-debian:12-slim}   # mounted at the jar's path

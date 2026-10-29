@@ -4,12 +4,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/lib/apiClient';
 import {
+  changePriority,
   nodeAction,
   recoverExecution,
   restartFromNode,
   runAction,
   startWorkflow,
+  stopNode,
   stopWorkflow,
+  unskipNode,
   type NodeAction,
   type RunAction,
   type StopMode,
@@ -61,6 +64,11 @@ export function useExecutionControl(sessionId: string, workflowId: string) {
         action: RunAction;
       }) => runAction(executionId, action),
     }),
+    priority: useMutation({
+      onSuccess,
+      mutationFn: (vars: { executionId: string; priority: number }) =>
+        changePriority(vars.executionId, vars.priority),
+    }),
     recover: useMutation({
       onSuccess: () =>
         Promise.all([
@@ -90,6 +98,24 @@ export function useExecutionControl(sessionId: string, workflowId: string) {
         executionId: string;
         nodeId: string;
       }) => restartFromNode(executionId, nodeId),
+    }),
+    stopNode: useMutation({
+      onSuccess,
+      mutationFn: (vars: {
+        executionId: string;
+        nodeId: string;
+        immediate: boolean;
+        reason: string;
+      }) =>
+        stopNode(vars.executionId, vars.nodeId, {
+          immediate: vars.immediate,
+          reason: vars.reason.trim(),
+        }),
+    }),
+    unskipNode: useMutation({
+      onSuccess,
+      mutationFn: (vars: { executionId: string; nodeId: string }) =>
+        unskipNode(vars.executionId, vars.nodeId),
     }),
     nodeAction: useMutation({
       onSuccess,

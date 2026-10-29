@@ -52,6 +52,16 @@ export function runAction(
   return post<StartResponse>(api`/api/executions/${executionId}/${action}`);
 }
 
+/** Changes the priority of a QUEUED run; higher runs first. */
+export function changePriority(
+  executionId: string,
+  priority: number
+): Promise<StartResponse> {
+  return post<StartResponse>(
+    `${api`/api/executions/${executionId}/priority`}?priority=${priority}`
+  );
+}
+
 /** Continues an ABORTED run as a new run; finished nodes are replayed from their recorded output. */
 export function recoverExecution(executionId: string): Promise<StartResponse> {
   return post<StartResponse>(api`/api/executions/${executionId}/recover`);
@@ -63,6 +73,31 @@ export function restartFromNode(
 ): Promise<StartResponse> {
   return post<StartResponse>(
     api`/api/executions/${executionId}/restart/${nodeId}`
+  );
+}
+
+/** Stops one node; `immediate` skips draining and `reason` lands in the control audit. */
+export function stopNode(
+  executionId: string,
+  nodeId: string,
+  options: { immediate?: boolean; reason?: string } = {}
+): Promise<StartResponse> {
+  const query = new URLSearchParams();
+  if (options.immediate) query.set('immediate', 'true');
+  if (options.reason) query.set('reason', options.reason);
+  const suffix = query.size ? `?${query}` : '';
+  return post<StartResponse>(
+    `${api`/api/executions/${executionId}/nodes/${nodeId}`}/stop${suffix}`
+  );
+}
+
+/** Takes a node back out of the skipped state before it runs. */
+export function unskipNode(
+  executionId: string,
+  nodeId: string
+): Promise<StartResponse> {
+  return post<StartResponse>(
+    `${api`/api/executions/${executionId}/nodes/${nodeId}`}/skip?skip=false`
   );
 }
 

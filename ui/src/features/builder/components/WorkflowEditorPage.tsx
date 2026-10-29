@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { RequirePermission } from '@/components/common/RequirePermission';
 import { buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -232,14 +233,16 @@ function Editor({
           >
             Validate
           </button>
-          <button
-            type="button"
-            className={BUTTON}
-            disabled={busy || invalidJson.size > 0}
-            onClick={save}
-          >
-            Save
-          </button>
+          <RequirePermission perm="editSessions">
+            <button
+              type="button"
+              className={BUTTON}
+              disabled={busy || invalidJson.size > 0}
+              onClick={save}
+            >
+              Save
+            </button>
+          </RequirePermission>
         </div>
       </div>
       <div className="px-4 py-2 sm:px-6">
