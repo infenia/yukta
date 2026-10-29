@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.StopMode;
@@ -278,11 +279,12 @@ public interface ControlBusGateway {
   }
 
   /**
-   * Stops a specific workflow execution by execution ID in the given way.
+   * Stop a specific workflow execution in the given way.
    *
    * @param executionId the execution to stop
    * @param reason human-readable explanation for logging
-   * @param mode how to stop
+   * @param mode how to stop: DRAIN lets in-flight work finish, CANCEL cancels it, KILL stops at
+   *     once
    * @return a Mono containing the stopped execution ID, or an error if execution not found
    */
   Mono<String> stopExecution(String executionId, String reason, StopMode mode);
@@ -360,6 +362,13 @@ public interface ControlBusGateway {
    * @return a Mono that completes when the limits are changed
    */
   Mono<Void> changeLimits(int maxConcurrent, int maxPerWorkflow);
+
+  /**
+   * The execution limits in force and how many slots are in use.
+   *
+   * @return a Mono emitting the snapshot
+   */
+  Mono<SchedulerLimits> limits();
 
   /**
    * Change the priority of an execution that is waiting for a slot. It is recorded in the execution

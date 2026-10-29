@@ -23,7 +23,9 @@ describe('WorkflowTitleBar', () => {
   });
 
   it('shows NOT RUN when there is no execution', () => {
-    render(<WorkflowTitleBar displayName="wf1" workflowId="wf1" status={null} />);
+    render(
+      <WorkflowTitleBar displayName="wf1" workflowId="wf1" status={null} />
+    );
     expect(screen.getByTestId('status-chip')).toHaveTextContent('NOT RUN');
   });
 });

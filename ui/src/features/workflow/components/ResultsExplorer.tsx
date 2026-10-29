@@ -112,7 +112,7 @@ export function ResultsExplorer({
           {page.map((result) => (
             <li key={result.sequence}>
               <details>
-                <summary className="cursor-pointer text-body-sm text-on-surface-variant">
+                <summary className="text-body-sm text-on-surface-variant cursor-pointer">
                   {result.nodeId} · #{result.sequence}
                 </summary>
                 <CodeBlock

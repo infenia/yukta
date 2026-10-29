@@ -9,7 +9,7 @@ keywords: ["MCP", "Model Context Protocol", "Claude", "AI agent tools"]
   **In plain terms:** MCP is a standard way for AI assistants to use outside tools. Turn it on and an assistant such as Claude can create, start, watch and control your workflows by itself, for example "run the release checks and tell me what failed". It is the way to let an assistant drive your automations.
 </Info>
 
-Yukta includes a Model Context Protocol (MCP) server. An MCP client such as Claude Code can use it to create a session, start a workflow, read its status, logs and result, and control the run, all as tool calls. The server offers 23 tools, 2 prompts and 3 resources.
+Yukta includes a Model Context Protocol (MCP) server. An MCP client such as Claude Code can use it to create a session, start a workflow, read its status, logs and result, and control the run, all as tool calls. The server offers 26 tools, 2 prompts and 3 resources.
 
 Yukta works with AI agents in both directions: workflows can call out to agents and tools (see [AI and agents](/building/ai-and-agents)), and agents can drive Yukta through this MCP server. Use MCP when an agent drives Yukta. A person or a script is better served by the [REST API](/api/overview) or the [command-line client](/interfaces/cli), which cover the same operations plus a few more.
 
@@ -54,11 +54,11 @@ Other clients take the same two values, a URL and optional headers. A typical co
 
 `/mcp` is protected by the same keys as the REST API, plus an optional `yukta.mcp.api-key` that grants the `ADMIN` role to MCP only. Send the key as `Authorization: Bearer <key>` or `X-API-Key: <key>`. Setting only the REST key therefore closes MCP too. With no key configured, the server accepts requests from loopback only, as for REST. Loopback means **any process on the machine**: such a process can call `create_session`, which installs workflows that run code, so set a key whenever the machine is shared. See [Security](/operations/security).
 
-A key that is not an unrestricted `ADMIN` key has each tool call checked against the role the tool needs. A call that is not allowed is refused with HTTP `403`. A request body above 1 MB is refused with `413`. A key limited to sessions can call a tool only with a `sessionId` argument that names one of its sessions. The four tools that name no session (`list_plugins`, `get_plugin_details`, `get_session_creation_instructions` and `get_plugin_creation_guide`) are open to such a key. `list_sessions` and `get_control_bus_status` are not.
+A key that is not an unrestricted `ADMIN` key has each tool call checked against the role the tool needs. A call that is not allowed is refused with HTTP `403`. A request body above 1 MB is refused with `413`. A key limited to sessions can call a tool only with a `sessionId` argument that names one of its sessions. The five tools that name no session (`list_plugins`, `get_plugin_details`, `get_session_creation_instructions`, `get_plugin_creation_guide` and `whoami`) are open to such a key. `list_sessions`, `get_control_bus_status` and `get_scheduler_limits` are not.
 
 | Role | Tools it may call |
 |---|---|
-| `VIEWER` | `list_sessions`, `get_session_details`, `get_workflow_details`, `get_workflow_status`, `get_workflow_history`, `get_execution_tree`, `get_execution_logs`, `get_node_output`, `get_execution_result`, `list_pending_approvals`, `list_workflow_versions`, `diff_workflow_versions`, `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`, `get_session_creation_instructions`, `get_control_bus_status` |
+| `VIEWER` | `list_sessions`, `get_session_details`, `get_workflow_details`, `get_workflow_status`, `get_workflow_history`, `get_execution_tree`, `get_execution_logs`, `get_node_output`, `get_execution_result`, `list_pending_approvals`, `list_workflow_versions`, `diff_workflow_versions`, `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`, `get_session_creation_instructions`, `get_control_bus_status`, `get_scheduler_limits`, `whoami` |
 | `OPERATOR` | Everything `VIEWER` can, plus `start_workflow`, `control_workflow`, `control_node`, `set_node_breakpoint`, `signal_node`, `rollback_workflow`, `note_workflow_version` |
 | `ADMIN` | Everything, including `create_session` |
 
@@ -107,6 +107,8 @@ Tools return structured JSON, except where noted. Every tool that takes an `exec
 | `control_workflow` | `OPERATOR` | `sessionId`, `action`; `executionId` for all actions except `STOP_ALL`; `workflowId` for `STOP_ALL`; `fromNodeId` for `RESTART_FROM_NODE`; optional `reason`; optional `tree` (`PAUSE`, `RESUME`, `STOP`: also the runs the execution started as sub-workflows); optional `mode` (`STOP`, `STOP_ALL`: `DRAIN` default, `CANCEL` or `KILL`) | `action`, `executionId`, `nodeId`, `resultExecutionIds` and `message` |
 | `control_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `action`; optional `immediate` and `reason` for `STOP` | The same result object |
 | `set_node_breakpoint` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `field`, `equalsValue` | The same result object |
+| `get_scheduler_limits` | `VIEWER` | none | `maxConcurrent`, `maxPerWorkflow` (`0` is no limit), `running`, `queued` and `queueCapacity` |
+| `set_scheduler_limits` | `ADMIN` | `maxConcurrent`, `maxPerWorkflow` (`0` for no limit) | The limits as now in force, in the same shape |
 | `signal_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `signalName`, `decision`; optional `data` | The same result object |
 | `list_pending_approvals` | `VIEWER` | `sessionId` | `sessionId` and `approvals`: each with `executionId`, `workflowId`, `nodeId`, `name`, `since` |
 
@@ -155,6 +157,7 @@ A rollback saves the restored definition as a new version, and runs that already
 | `list_plugins` | `VIEWER` | none | `plugins`: each with `type` and `category` |
 | `get_plugin_details` | `VIEWER` | `type` | `type`, `category`, `description`, `usagePattern`, `uiDesign` and `outputPorts` |
 | `get_plugin_creation_guide` | `VIEWER` | optional `templateType`: `trigger`, `processor`, `terminal` or `all` | Guidance and templates for writing a plugin |
+| `whoami` | `VIEWER` | none | `authenticated`, `keyName`, `role`, `sessions` (`null` for all), `authEnabled` and `permissions` (`startRuns`, `controlRuns`, `editSessions`, `deleteSessions`, `changeLimits`, `sendCommands`) |
 | `get_control_bus_status` | `VIEWER` | optional `filterType`: `sessions`, `plugins`, `health` or `executions` | `activeSessions` (with active run counts), `pluginRegistry`, `systemHealth` (memory and uptime) and `recentExecutions` (the 20 newest) |
 
 For the options of a plugin, the [REST plugin endpoint](/api/catalogue#get-a-plugin) also returns the declared configuration schema.

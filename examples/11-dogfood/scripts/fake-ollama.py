@@ -1,5 +1,5 @@
 #!/usr/bin/env python3 -I
-"""A stand-in for Ollama's System One endpoint, for the online tests of heal (test-self-heal.sh --online).
+"""A stand-in for Ollama's System One endpoint (and /api/version, /api/tags; the model "stale" and "missing" answer as Ollama does), for the online tests of heal (test-self-heal.sh --online).
 
   fake-ollama.py PORT_FILE
 
@@ -17,6 +17,10 @@ class H(http.server.BaseHTTPRequestHandler):
         name, question = next(iter(body["questions"].items()))
         crit = list(question["criteria"])
         want = "average"
+        if body["model"] == "stale":  # what Ollama says of a model in the old format
+            self.send_response(500); self.end_headers(); self.wfile.write(b"'stale' was downloaded in a format that is no longer supported. To re-download, run 'ollama pull stale'"); return
+        if body["model"] == "missing":
+            self.send_response(404); self.end_headers(); self.wfile.write(b"model 'missing' not found"); return
         if "difficulty:" in state:
             want = state.split("difficulty:")[1].split()[0].strip(".,;")
         if want == "boom":
@@ -27,8 +31,15 @@ class H(http.server.BaseHTTPRequestHandler):
             want = crit[0]
         elif want in probs:
             probs[want] = 0.7
+        else:  # a question without that label: the first one
+            want = crit[0]
+            probs[want] = 0.7
         out = json.dumps({"model": body["model"], "answers": {name: {"type": "choice", "choice": want, "probabilities": probs}},
                           "usage": {"input_tokens": len(state) // 4, "output_tokens": 0}}).encode()
+        self.send_response(200); self.send_header("Content-Length", str(len(out))); self.end_headers(); self.wfile.write(out)
+
+    def do_GET(self):
+        out = json.dumps({"version": "0.40.1"} if self.path == "/api/version" else {"models": [{"name": "fake"}]}).encode()
         self.send_response(200); self.send_header("Content-Length", str(len(out))); self.end_headers(); self.wfile.write(out)
 
     def log_message(self, *a):

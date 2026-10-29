@@ -23,7 +23,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
-@SuppressWarnings({"PMD.CommentRequired", "PMD.ShortVariable", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({
+  "PMD.CommentRequired",
+  "PMD.ShortVariable",
+  "PMD.UseConcurrentHashMap",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.SignatureDeclareThrowsException"
+})
 @NoArgsConstructor
 class IoPluginsAcceptanceTest {
 
@@ -77,6 +83,44 @@ class IoPluginsAcceptanceTest {
 
     assertThat(out).containsEntry("content", "file-body");
     assertThat(dir.resolve("out/a.txt")).hasContent("file-body");
+  }
+
+  @Test
+  void patchGuard_rejectsChangeToProtectedPath(@TempDir final Path dir) throws Exception {
+    wf.requirePlugin("PATCH_GUARD");
+    git(dir, "init", "-q");
+    java.nio.file.Files.writeString(dir.resolve("a.txt"), "one\n");
+    git(dir, "add", "a.txt");
+    git(
+        dir,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@t",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-q",
+        "-m",
+        "init");
+    java.nio.file.Files.writeString(dir.resolve("a.txt"), "two\n");
+    final var key =
+        wf.chain(
+            node(
+                "g",
+                "PATCH_GUARD",
+                Map.of("dir", dir.toString(), "protectedPaths", List.of("a.txt"))));
+
+    final Map<String, Object> out = wf.runOne(key, Map.of());
+
+    assertThat(out).containsEntry("files", List.of("a.txt"));
+    assertThat(out.get("violations").toString()).contains("protectedPaths");
+  }
+
+  private static void git(final Path dir, final String... args) throws Exception {
+    final var command = new java.util.ArrayList<>(List.of("git", "-C", dir.toString()));
+    command.addAll(List.of(args));
+    assertThat(new ProcessBuilder(command).inheritIO().start().waitFor()).isZero();
   }
 
   @Test

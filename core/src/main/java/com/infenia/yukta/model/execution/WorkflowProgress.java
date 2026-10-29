@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.model.execution;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -15,12 +16,13 @@ public record WorkflowProgress(
     String status,
     List<TaskProgress> tasks,
     @JsonSerialize(using = OffsetTimestampSerializer.class) LocalDateTime startTime,
-    @JsonSerialize(using = OffsetTimestampSerializer.class) @Nullable LocalDateTime endTime,
-    @Nullable String controlState,
-    @Nullable String definitionVersion,
-    @Nullable String parentExecutionId,
-    @Nullable String rootExecutionId,
-    @Nullable String restartOf) {
+    @JsonSerialize(using = OffsetTimestampSerializer.class) @Schema(nullable = true)
+        @Nullable LocalDateTime endTime,
+    @Schema(nullable = true) @Nullable String controlState,
+    @Schema(nullable = true) @Nullable String definitionVersion,
+    @Schema(nullable = true) @Nullable String parentExecutionId,
+    @Schema(nullable = true) @Nullable String rootExecutionId,
+    @Schema(nullable = true) @Nullable String restartOf) {
 
   /**
    * Compact constructor to ensure immutability.

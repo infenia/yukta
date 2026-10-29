@@ -10,7 +10,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.mcp.dto.NodeControlAction;
+import com.infenia.yukta.mcp.dto.SchedulerLimitsResult;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
+import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.StopMode;
@@ -621,7 +623,7 @@ class WorkflowControlProviderTest {
     when(controlBus.stopExecution(
             org.mockito.ArgumentMatchers.anyString(),
             org.mockito.ArgumentMatchers.anyString(),
-            org.mockito.ArgumentMatchers.any()))
+            org.mockito.ArgumentMatchers.any(StopMode.class)))
         .thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     for (final WorkflowControlAction action :
@@ -654,6 +656,40 @@ class WorkflowControlProviderTest {
                 assertThat(tree)
                     .extracting(WorkflowExecutionSummary::executionId)
                     .containsExactly(EXECUTION))
+        .verifyComplete();
+  }
+
+  @Test
+  void controlWorkflow_stopWithKill_passesTheModeOn() {
+    when(controlBus.stopExecution(EXECUTION, "Requested via MCP", StopMode.KILL))
+        .thenReturn(Mono.just(EXECUTION));
+
+    StepVerifier.create(
+            provider.controlWorkflow(
+                SESSION,
+                WorkflowControlAction.STOP,
+                EXECUTION,
+                null,
+                null,
+                null,
+                false,
+                StopMode.KILL))
+        .assertNext(result -> assertThat(result.resultExecutionIds()).containsExactly(EXECUTION))
+        .verifyComplete();
+  }
+
+  @Test
+  void schedulerLimits_readAndSetThroughTheGateway() {
+    when(controlBus.limits())
+        .thenReturn(Mono.just(new SchedulerLimits(4, 2, 3, 1, 100)))
+        .thenReturn(Mono.just(new SchedulerLimits(8, 0, 3, 0, 100)));
+    when(controlBus.changeLimits(8, 0)).thenReturn(Mono.empty());
+
+    StepVerifier.create(provider.getSchedulerLimits())
+        .expectNext(new SchedulerLimitsResult(4, 2, 3, 1, 100))
+        .verifyComplete();
+    StepVerifier.create(provider.setSchedulerLimits(8, 0))
+        .expectNext(new SchedulerLimitsResult(8, 0, 3, 0, 100))
         .verifyComplete();
   }
 }

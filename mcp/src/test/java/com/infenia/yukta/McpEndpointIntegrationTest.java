@@ -8,6 +8,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.List;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -92,7 +93,8 @@ class McpEndpointIntegrationTest {
 
     for (final JsonNode tool : tools) {
       final String name = tool.path("name").asString();
-      if ("get_workflow_status".equals(name) || "get_execution_tree".equals(name)) {
+      if (List.of("get_workflow_status", "get_execution_tree", "get_workflow_history")
+          .contains(name)) {
         for (final String field : new String[] {"parentExecutionId", "restartOf", "endTime"}) {
           assertThat(requiredNonNull(tool.path("outputSchema"), field))
               .as("%s.%s must accept null", name, field)
@@ -102,15 +104,13 @@ class McpEndpointIntegrationTest {
     }
   }
 
-  /** Whether some object in the schema lists {@code field} as required and does not allow null. */
+  /**
+   * Whether some object in the schema has a property {@code field} that does not allow null: a run
+   * that lacks the field is reported with an explicit null, which the output check would reject.
+   */
   private static boolean requiredNonNull(final JsonNode schema, final String field) {
-    boolean found = false;
     final JsonNode property = schema.path("properties").path(field);
-    if (!property.isMissingNode()) {
-      final boolean required =
-          schema.path("required").valueStream().anyMatch(r -> field.equals(r.asString()));
-      found = required && !property.toString().contains("null");
-    }
+    boolean found = !property.isMissingNode() && !property.toString().contains("null");
     for (final JsonNode child : schema) {
       found = found || ((child.isObject() || child.isArray()) && requiredNonNull(child, field));
     }

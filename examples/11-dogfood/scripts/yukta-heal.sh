@@ -3,7 +3,8 @@
 # by a PROCESS_EXECUTOR node; they are usable by hand too.
 #
 #   brief           heal: stdin {stdout, ...} (the failed stage's output) or a tool result {results: [{stdout}]}; prints
-#                   {brief, problems, triage}: the short text the triage model reads and the problem lines the fixer reads
+#                   {brief, problems, triage, known}: the short text the triage model reads, the problem lines the fixer reads, and whether
+#                   the stage fails the same way on a clean origin/main (run once per base commit; the heal then stops, with no fixer)
 #   triage-log      heal: a side branch of every port of the triage: writes the triage event (route, label, probability, seconds)
 #   record-auto     heal: the free fix made the stage pass: writes the record behind healed=<stage>:auto
 #   healed          check: exit 0 when anything was healed (so verify runs), else 1
@@ -106,6 +107,36 @@ failing_tests() {
     | xargs -0 -r grep -lE '<(failure|error) ' | sed -E 's#.*/TEST-(.*)\.xml#\1#' | sort -u | head -15
 }
 
+# norm: problem lines compared across two checkouts: the path of the checkout and every number (line numbers, timings) out
+norm() { sed -E "s#$1/##g; s#[0-9]+#N#g"; }
+
+# baseline_known OUT: 0 when the failed stage (its output is in OUT) fails the same way on a clean origin/main, so no fixer can be blamed for
+# it. One run of the stage per base commit, kept in .yukta-dev/baseline/<sha>/<stage>: "pass" or "fail", then the problem lines it printed.
+# Every error (no origin/main, no worktree, a timeout) answers "not known": the fixers start as they did before.
+baseline_known() {
+  local root base cache wt out status=0
+  [[ -n "${YUKTA_COMMAND:-}" ]] || return 1
+  root="$(git rev-parse --show-toplevel)" || return 1
+  base="$(git rev-parse --verify -q origin/main)" || return 1
+  cache="${YUKTA_DEV_STATE_DIR:-$root/.yukta-dev}/baseline/$base"
+  if [[ ! -f "$cache/$stage" ]]; then
+    wt="$(mktemp -d)" out="$(mktemp)"
+    git worktree add -q --detach "$wt" "$base" 2>/dev/null || { rm -rf "$wt" "$out"; return 1; }
+    (cd "$wt" && timeout "${YUKTA_BASELINE_TIMEOUT:-3600}" sh -c "${YUKTA_COMMAND:?}") >"$out" 2>&1 || status=$?
+    if ((status != 124)); then
+      mkdir -p "$cache"
+      { if ((status == 0)); then echo pass; else echo fail; problem_lines "$out" 60 | norm "$wt"; fi; } >"$cache/$stage.$$"
+      mv "$cache/$stage.$$" "$cache/$stage"
+    fi
+    git worktree remove -f "$wt" 2>/dev/null || rm -rf "$wt"
+    rm -f "$out"
+  fi
+  [[ "$(head -n 1 "$cache/$stage" 2>/dev/null)" == fail ]] || return 1
+  local mine
+  mine="$(problem_lines "$1" 60 | norm "$root")"
+  [[ -n "$mine" ]] && ! grep -qvxFf <(tail -n +2 "$cache/$stage") <<<"$mine"
+}
+
 # the stdout of a failed stage out of a message: a tool result {results: [{stdout}]}
 stdout_of() { jq -r '(.results[0].stdout // .stdout // "")'; }
 
@@ -149,10 +180,16 @@ case "$action" in
       plain <"$out" | tail -n 40 | cut -c1-300
       [[ "$stage" == tests ]] && echo "failing test classes: $(failing_tests | paste -sd' ')"
     )"
+    known=false
+    if baseline_known "$out"; then
+      known=true
+      echo "stage $stage already fails the same way on origin/main: a known baseline failure, no fixer started" >&2
+      emit baseline "$(jq -nc --arg stage "$stage" '{stage: $stage, known: true}')"
+    fi
     rm -f "$out"
     echo "$t_start" >"$dir/$stage.triage-t0"
     emit brief "$(jq -nc --arg stage "$stage" --argjson chars "${#brief}" --arg secs "$(secs_since "$t_start")" '{stage: $stage, chars: $chars, secs: ($secs | tonumber)}')"
-    jq -nc --arg brief "$brief" --arg problems "$problems" --arg triage "${YUKTA_TRIAGE:-on}" '{brief: $brief, problems: $problems, triage: $triage}'
+    jq -nc --arg brief "$brief" --arg problems "$problems" --arg triage "${YUKTA_TRIAGE:-on}" --argjson known "$known" '{brief: $brief, problems: $problems, triage: $triage, known: $known}'
     ;;
 
   triage-log)

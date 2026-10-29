@@ -58,6 +58,7 @@ public class ExecutionController {
    *
    * @param executionId the execution
    * @param tree also stop every unfinished run it started as a sub-workflow
+   * @param mode how to stop: DRAIN, CANCEL or KILL
    * @return the stopped execution ID
    */
   @PostMapping({"/executions/{executionId}/stop", "/workflow/executions/{executionId}/stop"})

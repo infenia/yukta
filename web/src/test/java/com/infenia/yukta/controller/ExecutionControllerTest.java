@@ -114,7 +114,7 @@ class ExecutionControllerTest {
   }
 
   @Test
-  void testStopWithModePassesItOn() {
+  void testStopPassesTheModeOn() {
     when(controlBus.stopExecution(any(), any(), any())).thenReturn(Mono.just("e1"));
 
     client.post().uri("/api/executions/e1/stop?mode=KILL").exchange().expectStatus().isOk();

@@ -13,11 +13,13 @@ import com.infenia.yukta.mcp.dto.PluginCreationGuide;
 import com.infenia.yukta.mcp.dto.PluginDetails;
 import com.infenia.yukta.mcp.dto.PluginList;
 import com.infenia.yukta.mcp.dto.PluginSummary;
+import com.infenia.yukta.mcp.dto.SchedulerLimitsResult;
 import com.infenia.yukta.mcp.dto.SessionCreationGuide;
 import com.infenia.yukta.mcp.dto.SessionCreationResult;
 import com.infenia.yukta.mcp.dto.SessionDetails;
 import com.infenia.yukta.mcp.dto.SessionList;
 import com.infenia.yukta.mcp.dto.SessionSummary;
+import com.infenia.yukta.mcp.dto.WhoamiResult;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowHistory;
 import com.infenia.yukta.mcp.dto.WorkflowStartResult;
@@ -76,9 +78,9 @@ class AppMcpToolsTest {
   void testGetExecutionResultDelegatesToTheProvider() {
     var results =
         new com.infenia.yukta.mcp.dto.ExecutionResultView("e1", false, null, false, 0, null, null);
-    when(resultProvider.getExecutionResult("s1", "e1", 3L)).thenReturn(Mono.just(results));
+    when(resultProvider.getExecutionResult("s1", "e1", 3L, null)).thenReturn(Mono.just(results));
 
-    StepVerifier.create(mcpTools.getExecutionResult("s1", "e1", 3L))
+    StepVerifier.create(mcpTools.getExecutionResult("s1", "e1", 3L, null))
         .expectNext(results)
         .verifyComplete();
   }
@@ -330,5 +332,25 @@ class AppMcpToolsTest {
     StepVerifier.create(mcpTools.noteWorkflowVersion("s1", "w1", "0001-a", "why"))
         .expectNext(note)
         .verifyComplete();
+  }
+
+  @Test
+  void whoami_delegatesToTheHealthProvider() {
+    final WhoamiResult who =
+        new WhoamiResult(
+            true, "alice", "OPERATOR", null, true, java.util.Map.of("startRuns", true));
+    when(systemHealthProvider.whoami()).thenReturn(Mono.just(who));
+
+    StepVerifier.create(mcpTools.whoami()).expectNext(who).verifyComplete();
+  }
+
+  @Test
+  void schedulerLimitsTools_delegateToTheControlProvider() {
+    final SchedulerLimitsResult limits = new SchedulerLimitsResult(4, 2, 1, 0, 100);
+    when(workflowControlProvider.getSchedulerLimits()).thenReturn(Mono.just(limits));
+    when(workflowControlProvider.setSchedulerLimits(4, 2)).thenReturn(Mono.just(limits));
+
+    StepVerifier.create(mcpTools.getSchedulerLimits()).expectNext(limits).verifyComplete();
+    StepVerifier.create(mcpTools.setSchedulerLimits(4, 2)).expectNext(limits).verifyComplete();
   }
 }

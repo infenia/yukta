@@ -78,14 +78,20 @@ test.describe('Control page', () => {
 
   test('sends a command to a node and shows the response', async ({ page }) => {
     await mockControlApi(page, [], ['wf-1:ingest']);
-    await page.route('**/api/control/workflows/wf-1/nodes/ingest/heartbeat', (route) =>
-      route.fulfill(envelope('/heartbeat', { beat: 1 }))
+    await page.route(
+      '**/api/control/workflows/wf-1/nodes/ingest/heartbeat',
+      (route) => route.fulfill(envelope('/heartbeat', { beat: 1 }))
     );
     let sent: unknown;
-    await page.route('**/api/control/workflows/wf-1/nodes/ingest/command', (route) => {
-      sent = route.request().postDataJSON();
-      return route.fulfill(envelope('/command', { payload: { flushed: true } }));
-    });
+    await page.route(
+      '**/api/control/workflows/wf-1/nodes/ingest/command',
+      (route) => {
+        sent = route.request().postDataJSON();
+        return route.fulfill(
+          envelope('/command', { payload: { flushed: true } })
+        );
+      }
+    );
     await page.goto('/control');
 
     await page.getByLabel('Workflow', { exact: true }).selectOption('wf-1');
@@ -130,5 +136,37 @@ test.describe('Control page', () => {
     await expect(page.getByText('ingest → RUNNING')).toHaveCount(0);
     await expect(page.getByText('load → FAILURE')).toBeVisible();
     await expect(page).toHaveURL(/severity=ERROR/);
+  });
+
+  test('shows the execution limits and changes them', async ({ page }) => {
+    await mockControlApi(page, []);
+    let limits = {
+      maxConcurrent: 4,
+      maxPerWorkflow: 0,
+      running: 3,
+      queued: 1,
+      queueCapacity: 100,
+    };
+    let posted = '';
+    await page.route('**/api/scheduler/limits*', (route) => {
+      if (route.request().method() === 'POST') {
+        posted = new URL(route.request().url()).search;
+        limits = { ...limits, maxConcurrent: 8, maxPerWorkflow: 2 };
+        return route.fulfill(envelope('/limits', {}));
+      }
+      return route.fulfill(envelope('/limits', limits));
+    });
+    await page.goto('/control');
+
+    await expect(page.getByText('Unlimited')).toBeVisible();
+    await page.getByRole('button', { name: 'Edit limits' }).click();
+    await page.getByLabel(/Max concurrent/).fill('8');
+    await page.getByLabel(/Max per workflow/).fill('2');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('button', { name: 'Confirm and save' }).click();
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(posted).toBe('?maxConcurrent=8&maxPerWorkflow=2');
+    await expect(page.getByText('8', { exact: true })).toBeVisible();
   });
 });

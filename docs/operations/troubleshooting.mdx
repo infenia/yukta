@@ -78,7 +78,7 @@ Pausing freezes every clock, so a pause never causes a timeout. See [Time limits
 
 ## UPSTREAM_FAILED is not the failure
 
-Only the node that failed ends `FAILURE`. Every node behind it ends `UPSTREAM_FAILED`, and the first terminal that fails ends the run and cancels the other branches. Look for the node with `FAILURE` or `TIMED_OUT`, read its logs and fix that one.
+Only the node that failed ends `FAILURE`. Every node behind it ends `UPSTREAM_FAILED`, and so does any node that had not started when the run failed, even on a branch with no failing ancestor: `UPSTREAM_FAILED` means "not reached because the run failed". The first terminal that fails ends the run and cancels the other branches. Look for the node with `FAILURE` or `TIMED_OUT`, read its logs and fix that one.
 
 A node with several parents fails when one parent fails by default. Set `engine.trigger` to `ALL_DONE` or `ONE_SUCCESS` if it should carry on. See [Failure handling](/concepts/failure-handling).
 

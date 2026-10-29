@@ -4,31 +4,52 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { WorkflowCanvas } from '../WorkflowCanvas';
-import { createMockGraph, createMockProgress } from '@/test/factories/workflowFactory';
+import {
+  createMockGraph,
+  createMockProgress,
+} from '@/test/factories/workflowFactory';
 import type { TaskProgress } from '../../types/workflow';
 
 function tasksByNode(): Record<string, TaskProgress> {
-  return Object.fromEntries(createMockProgress().tasks.map((task) => [task.nodeId, task]));
+  return Object.fromEntries(
+    createMockProgress().tasks.map((task) => [task.nodeId, task])
+  );
 }
 
 describe('WorkflowCanvas', () => {
   it('renders every workflow node placeholder', () => {
-    render(<WorkflowCanvas graph={createMockGraph()} tasksByNode={tasksByNode()} />);
+    render(
+      <WorkflowCanvas graph={createMockGraph()} tasksByNode={tasksByNode()} />
+    );
 
     expect(screen.getByTestId('workflow-canvas')).toBeInTheDocument();
-    expect(screen.getByTestId('workflow-node-data-ingress')).toBeInTheDocument();
-    expect(screen.getByTestId('workflow-node-vectorize-batch')).toBeInTheDocument();
-    expect(screen.getByTestId('workflow-node-anomaly-detection')).toBeInTheDocument();
-    expect(screen.getByTestId('workflow-node-sink-storage')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('workflow-node-data-ingress')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('workflow-node-vectorize-batch')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('workflow-node-anomaly-detection')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('workflow-node-sink-storage')
+    ).toBeInTheDocument();
   });
 
   it('reflects task statuses on the node placeholders', () => {
-    render(<WorkflowCanvas graph={createMockGraph()} tasksByNode={tasksByNode()} />);
-
-    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent('Done');
-    expect(screen.getByTestId('workflow-node-vectorize-batch')).toHaveTextContent(
-      'Active'
+    render(
+      <WorkflowCanvas graph={createMockGraph()} tasksByNode={tasksByNode()} />
     );
-    expect(screen.getByTestId('workflow-node-sink-storage')).toHaveTextContent('Waiting');
+
+    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent(
+      'Done'
+    );
+    expect(
+      screen.getByTestId('workflow-node-vectorize-batch')
+    ).toHaveTextContent('Active');
+    expect(screen.getByTestId('workflow-node-sink-storage')).toHaveTextContent(
+      'Waiting'
+    );
   });
 });

@@ -2,7 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useMemo } from 'react';
-import { Background, BackgroundVariant, Controls, MiniMap, ReactFlow } from '@xyflow/react';
+import {
+  Background,
+  BackgroundVariant,
+  Controls,
+  MiniMap,
+  ReactFlow,
+} from '@xyflow/react';
 import { categoryAccent } from '../lib/categoryAccent';
 import type { WorkflowFlowNode } from '../lib/layout';
 import '@xyflow/react/dist/style.css';
@@ -20,7 +26,10 @@ export function WorkflowCanvas({
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
 }) {
-  const { nodes, edges } = useMemo(() => layoutGraph(graph, tasksByNode), [graph, tasksByNode]);
+  const { nodes, edges } = useMemo(
+    () => layoutGraph(graph, tasksByNode),
+    [graph, tasksByNode]
+  );
 
   return (
     <div className="size-full" data-testid="workflow-canvas">
@@ -45,7 +54,9 @@ export function WorkflowCanvas({
           pannable
           zoomable
           nodeStrokeWidth={0}
-          nodeColor={(node) => categoryAccent((node as WorkflowFlowNode).data.node.category)}
+          nodeColor={(node) =>
+            categoryAccent((node as WorkflowFlowNode).data.node.category)
+          }
         />
       </ReactFlow>
     </div>

@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
@@ -298,7 +299,57 @@ class ProcessExecutorPluginTest {
         .contains("includeInput")
         .contains("maxOutputLines")
         .contains("maxOutputBytes")
-        .contains("routeByExitCode");
+        .contains("routeByExitCode")
+        .contains("metadataFrom");
+  }
+
+  private Map<String, Object> liftedFrom(final String stdout, final Object metadataFrom) {
+    gatewayReturns(successResult(stdout));
+    final Message<?> out =
+        Objects.requireNonNull(
+            plugin
+                .process(
+                    Flux.just(message("x")),
+                    Map.of("command", List.of("true"), "metadataFrom", metadataFrom))
+                .blockLast());
+    return (Map<String, Object>) out.metadata().get(Message.NODE_METADATA_KEY);
+  }
+
+  @Test
+  void metadataFrom_liftsPresentPathsAndSkipsMissingOnes() {
+    assertThat(
+            liftedFrom(
+                "{\"total_cost_usd\": 0.25, \"usage\": {\"output_tokens\": 7}}",
+                Map.of("cost", "total_cost_usd", "tokens", "usage.output_tokens", "x", "a.b")))
+        .containsOnly(Map.entry("cost", 0.25), Map.entry("tokens", 7));
+  }
+
+  @Test
+  void metadataFrom_withNonJsonStdout_addsNothing() {
+    assertThat(liftedFrom("not json", Map.of("cost", "total_cost_usd"))).isNull();
+  }
+
+  @Test
+  void metadataFrom_withBlankOrNullValues_addsNothing() {
+    assertThat(liftedFrom("  ", Map.of("cost", "total_cost_usd"))).isNull();
+    gatewayReturns(ProcessExecutionResult.of(0, null, null, 5L, false, false));
+    final Message<?> noOutput =
+        Objects.requireNonNull(
+            plugin
+                .process(
+                    Flux.just(message("x")),
+                    Map.of("command", List.of("true"), "metadataFrom", Map.of("cost", "c")))
+                .blockLast());
+    assertThat(noOutput.metadata()).doesNotContainKey(Message.NODE_METADATA_KEY);
+    assertThat(liftedFrom("{\"total_cost_usd\": null}", Map.of("cost", "total_cost_usd"))).isNull();
+  }
+
+  @Test
+  void validateConfig_rejectsMetadataFromThatIsNotMap() {
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("command", List.of("true"), "metadataFrom", "cost")))
+        .expectErrorMessage("metadataFrom must be a map of key to path")
+        .verify();
   }
 
   @Test

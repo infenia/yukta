@@ -15,9 +15,15 @@ const executions = [
 describe('RunHistoryDropdown', () => {
   it('shows the empty state when there are no runs', () => {
     render(
-      <RunHistoryDropdown executions={[]} selectedExecutionId={null} onSelect={vi.fn()} />
+      <RunHistoryDropdown
+        executions={[]}
+        selectedExecutionId={null}
+        onSelect={vi.fn()}
+      />
     );
-    expect(screen.getByTestId('run-history-empty')).toHaveTextContent('No runs yet');
+    expect(screen.getByTestId('run-history-empty')).toHaveTextContent(
+      'No runs yet'
+    );
   });
 
   it('renders the selected execution id in the trigger', () => {
@@ -28,16 +34,22 @@ describe('RunHistoryDropdown', () => {
         onSelect={vi.fn()}
       />
     );
-    expect(screen.getByRole('button', { name: /run history/i })).toHaveTextContent(
-      'exec-091-qp-55'
-    );
+    expect(
+      screen.getByRole('button', { name: /run history/i })
+    ).toHaveTextContent('exec-091-qp-55');
   });
 
   it('renders a dash before a selection exists', () => {
     render(
-      <RunHistoryDropdown executions={executions} selectedExecutionId={null} onSelect={vi.fn()} />
+      <RunHistoryDropdown
+        executions={executions}
+        selectedExecutionId={null}
+        onSelect={vi.fn()}
+      />
     );
-    expect(screen.getByRole('button', { name: /run history/i })).toHaveTextContent('—');
+    expect(
+      screen.getByRole('button', { name: /run history/i })
+    ).toHaveTextContent('—');
   });
 
   it('lists executions and notifies selection', async () => {
