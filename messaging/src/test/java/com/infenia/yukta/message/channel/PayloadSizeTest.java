@@ -48,6 +48,18 @@ class PayloadSizeTest {
   }
 
   @Test
+  void unreadableRecordComponentCountsZero() {
+    record Broken(int n) {
+      @Override
+      public int n() {
+        throw new IllegalStateException();
+      }
+    }
+
+    assertThat(PayloadSize.bytesIn(new Broken(7))).isZero();
+  }
+
+  @Test
   void pathIsNotWalked() {
     assertThat(PayloadSize.bytesIn(Path.of("a", "b", "c"))).isZero();
     assertThat(PayloadSize.bytesIn(List.of(Path.of("a", "b"), "xy"))).isEqualTo(2);
@@ -56,7 +68,7 @@ class PayloadSizeTest {
   @Test
   void selfContainingContainerCountsOnce() {
     final List<Object> cyclic = new ArrayList<>();
-    cyclic.add("abc");
+    cyclic.add("xyz");
     append(cyclic, cyclic);
     final Map<String, Object> map = new ConcurrentHashMap<>();
     map.put("k", map);
