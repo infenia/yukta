@@ -163,5 +163,4 @@ class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
 
     assertThat(store.getSessionIds().collectList().block()).doesNotContain("gone");
   }
-
 }

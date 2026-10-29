@@ -646,5 +646,4 @@ class FileSessionConfigStoreTest {
         .expectError(java.io.UncheckedIOException.class)
         .verify();
   }
-
 }

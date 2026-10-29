@@ -3065,5 +3065,4 @@ class DefaultControlBusGatewayTest {
                 assertThat(e.status())
                     .isEqualTo("DeleteSession(s, force=false) [by key:bob]"));
   }
-
 }

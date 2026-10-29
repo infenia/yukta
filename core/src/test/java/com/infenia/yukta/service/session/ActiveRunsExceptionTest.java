@@ -7,8 +7,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
 import java.util.List;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests the message and the run ids of a refused session or workflow delete. */
+@NoArgsConstructor
 class ActiveRunsExceptionTest {
 
   @Test
@@ -26,7 +29,7 @@ class ActiveRunsExceptionTest {
   }
 
   @Test
-  void runIds_areACopyThatCannotBeChanged() {
+  void runIds_isCopiedAndReadOnly() {
     final List<String> ids = new ArrayList<>(List.of("e1"));
     final ActiveRunsException error = new ActiveRunsException(ids, false);
     ids.add("e2");

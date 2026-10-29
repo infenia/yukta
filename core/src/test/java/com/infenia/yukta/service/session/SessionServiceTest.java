@@ -19,7 +19,6 @@ import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -968,7 +967,7 @@ class SessionServiceTest {
     when(controlBus.recordAdminAction(any(), any(), eq(false), any())).thenReturn(Mono.empty());
 
     StepVerifier.withVirtualTime(() -> sessionService.deleteWorkflow("s", "w", true))
-        .thenAwait(Duration.ofSeconds(30))
+        .thenAwait(java.time.Duration.ofSeconds(30))
         .expectErrorSatisfies(
             error ->
                 assertThat(error)
@@ -980,5 +979,4 @@ class SessionServiceTest {
         .verify();
     verify(workflowDefinitionStore, never()).remove(any(), any());
   }
-
 }
