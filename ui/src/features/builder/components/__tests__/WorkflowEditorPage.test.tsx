@@ -26,10 +26,12 @@ import { toPreviewGraph, WorkflowEditorPage } from '../WorkflowEditorPage';
 vi.mock('@/features/workflow/components/WorkflowCanvas', () => ({
   WorkflowCanvas: ({
     graph,
+    focusOn,
   }: {
     graph: { nodes: unknown[]; edges: unknown[] };
+    focusOn?: string[];
   }) => (
-    <div data-testid="canvas">
+    <div data-testid="canvas" data-focus={focusOn?.join(',') ?? ''}>
       {graph.nodes.length} nodes {graph.edges.length} edges
     </div>
   ),
@@ -336,6 +338,7 @@ describe('WorkflowEditorPage', () => {
     const user = userEvent.setup();
     renderEditor();
     await screen.findByRole('region', { name: 'Node start' });
+    await user.click(screen.getByRole('tab', { name: /Edges/ }));
     await user.click(
       screen.getByRole('button', { name: 'Remove edge start to out' })
     );
@@ -389,6 +392,7 @@ describe('WorkflowEditorPage', () => {
     const user = userEvent.setup();
     renderEditor();
     await screen.findByRole('region', { name: 'Node start' });
+    await user.click(screen.getByRole('tab', { name: /Edges/ }));
 
     await user.selectOptions(screen.getByLabelText('Edge source'), 'start');
     await user.selectOptions(screen.getByLabelText('Edge target'), 'out');
@@ -410,6 +414,7 @@ describe('WorkflowEditorPage', () => {
     await screen.findByRole('region', { name: 'Node start' });
     await user.click(screen.getByRole('button', { name: 'Validate' }));
     await screen.findByText('Workflow is valid.');
+    await user.click(screen.getByRole('tab', { name: /Edges/ }));
     await user.selectOptions(screen.getByLabelText('Edge source'), 'start');
     await user.selectOptions(screen.getByLabelText('Edge port'), 'default');
 
@@ -495,5 +500,50 @@ describe('WorkflowEditorPage', () => {
     await screen.findByRole('region', { name: 'Node start' });
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('disk full');
+  });
+
+  it('splits the outline into Nodes and Edges tabs with counts, and finds nodes', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByRole('region', { name: 'Node start' });
+
+    const nodesTab = screen.getByRole('tab', { name: /Nodes/ });
+    expect(nodesTab).toHaveAttribute('aria-selected', 'true');
+    expect(nodesTab).toHaveTextContent('2');
+    expect(screen.getByRole('tab', { name: /Edges/ })).toHaveTextContent('1');
+    expect(screen.queryByLabelText('Edge source')).not.toBeInTheDocument();
+
+    const nodes = screen.getByRole('list', { name: 'Nodes' });
+    await user.type(screen.getByRole('searchbox', { name: 'Find node' }), 'OU');
+    expect(within(nodes).getAllByRole('button')).toHaveLength(1);
+    expect(
+      within(nodes).getByRole('button', { name: /^out/ })
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /Edges/ }));
+    expect(screen.getByLabelText('Edge source')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('list', { name: 'Nodes' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens the canvas on the selected node and its neighbours', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByRole('region', { name: 'Node start' });
+    expect(screen.getByTestId('canvas')).toHaveAttribute(
+      'data-focus',
+      'start,out'
+    );
+
+    await user.click(screen.getByRole('button', { name: /^out/ }));
+    expect(screen.getByTestId('canvas')).toHaveAttribute(
+      'data-focus',
+      'out,start'
+    );
+
+    // removing the selected node clears the selection: the canvas fits as usual
+    await user.click(screen.getByRole('button', { name: 'Remove node' }));
+    expect(screen.getByTestId('canvas')).toHaveAttribute('data-focus', '');
   });
 });

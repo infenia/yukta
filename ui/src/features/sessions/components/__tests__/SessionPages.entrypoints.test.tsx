@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -14,7 +14,13 @@ import { SessionDetailsPage } from '../SessionDetailsPage';
 import { SessionListPage } from '../SessionListPage';
 
 const ok = (data: unknown) =>
-  HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data, path: '/' });
+  HttpResponse.json({
+    timestamp: 't',
+    status: 200,
+    message: 'ok',
+    data,
+    path: '/',
+  });
 
 const server = setupServer(
   http.get('/api/sessions/summaries', () => ok([createMockSession()])),
@@ -43,7 +49,6 @@ function renderAt(path: string) {
   return render(
     <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter initialEntries={[path]}>
-        <div id="header-actions" />
         <Where />
         <Routes>
           <Route index element={<SessionListPage />} />
@@ -65,13 +70,34 @@ describe('session page entry points to the builder', () => {
   it('opens the editor for a new workflow id typed on the session page', async () => {
     const user = userEvent.setup();
     renderAt('/sessions/s1');
-    const input = await screen.findByLabelText('New workflow id');
+    await user.click(
+      await screen.findByRole('button', { name: /new workflow/i })
+    );
+    const dialog = screen.getByRole('dialog', { name: 'New workflow' });
+    const input = screen.getByLabelText(/Workflow ID/);
+    expect(input).toHaveFocus();
 
-    await user.click(screen.getByRole('button', { name: /new workflow/i }));
-    expect(screen.getByTestId('where')).toHaveTextContent('/sessions/s1');
+    // blank IDs are ignored; whitespace around a real one is trimmed
+    await user.type(input, '   ');
+    fireEvent.submit(input.closest('form') as HTMLFormElement);
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/sessions\/s1$/);
 
+    await user.clear(input);
     await user.type(input, ' my flow ');
-    await user.click(screen.getByRole('button', { name: /new workflow/i }));
-    expect(screen.getByTestId('where')).toHaveTextContent('/sessions/s1/workflow/my%20flow/edit');
+    await user.click(screen.getByRole('button', { name: 'Create and edit' }));
+    expect(screen.getByTestId('where')).toHaveTextContent(
+      '/sessions/s1/workflow/my%20flow/edit'
+    );
+    expect(dialog).not.toBeInTheDocument();
+  });
+
+  it('closes the new workflow dialog on Cancel', async () => {
+    const user = userEvent.setup();
+    renderAt('/sessions/s1');
+    await user.click(
+      await screen.findByRole('button', { name: /new workflow/i })
+    );
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

@@ -18,18 +18,36 @@ import type { TaskProgress, WorkflowGraph } from '../types/workflow';
 
 const NODE_TYPES = { workflowNode: WorkflowNodeCard };
 
+/** Above this many nodes the whole graph fits only as an unreadable strip. */
+const LARGE_GRAPH = 30;
+/** What a large graph opens on when nothing is running: its start. */
+const OPENING_NODES = 12;
+
 /** The workflow DAG canvas: pan/zoom viewport of backend-driven node placeholders. */
 export function WorkflowCanvas({
   graph,
   tasksByNode,
+  focusOn,
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
+  /** Node IDs to open on, instead of the automatic choice (the editor's selection). */
+  focusOn?: string[];
 }) {
   const { nodes, edges } = useMemo(
     () => layoutGraph(graph, tasksByNode),
     [graph, tasksByNode]
   );
+
+  // A large graph opens on its running nodes (else its first few); the minimap shows the rest
+  const running = nodes.filter((node) => node.data.status === 'running');
+  const focus = focusOn
+    ? focusOn.map((id) => ({ id }))
+    : nodes.length <= LARGE_GRAPH
+      ? undefined
+      : (running.length > 0 ? running : nodes.slice(0, OPENING_NODES)).map(
+          (node) => ({ id: node.id })
+        );
 
   return (
     <div className="size-full" data-testid="workflow-canvas">
@@ -38,6 +56,7 @@ export function WorkflowCanvas({
         edges={edges}
         nodeTypes={NODE_TYPES}
         fitView
+        fitViewOptions={{ nodes: focus, padding: 0.15 }}
         // fitView stops at minZoom; xyflow's default (0.5) leaves a wide graph cut off on a
         // phone-width canvas, so let it zoom out further
         minZoom={0.2}

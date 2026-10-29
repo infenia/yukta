@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, afterAll, vi, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  vi,
+  afterEach,
+} from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -73,17 +82,21 @@ describe('SessionDetailsPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Associated Workflows (1)')).toBeDefined();
+      expect(screen.getByRole('heading', { name: 'Workflows' })).toBeDefined();
     });
-    expect(screen.getByRole('link', { name: /Edit/ }).getAttribute('href')).toBe(
-      '/sessions/sess-123/edit'
+    expect(screen.getByRole('button', { name: /New workflow/ })).toBeDefined();
+    // Edit, export and delete live in the session menu, without its own View Details
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Session actions' })
     );
+    expect(await screen.findByRole('menuitem', { name: 'Edit' })).toBeDefined();
+    expect(screen.queryByRole('menuitem', { name: 'View Details' })).toBeNull();
   });
 
   it('shows loading state initially', async () => {
     server.use(
       http.get('/api/sessions/sess-123', async () => {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
         return HttpResponse.json({
           status: 200,
           data: {
@@ -110,15 +123,21 @@ describe('SessionDetailsPage', () => {
 
     expect(screen.getByText('Loading session details...')).toBeDefined();
 
-    await waitFor(() => {
-      expect(screen.getByText('Test Session')).toBeDefined();
-    }, { timeout: 2000 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Test Session')).toBeDefined();
+      },
+      { timeout: 2000 }
+    );
   });
 
   it('shows error state when session fetch fails', async () => {
     server.use(
       http.get('/api/sessions/sess-123', () => {
-        return HttpResponse.json({ status: 500, message: 'Internal Server Error' }, { status: 500 });
+        return HttpResponse.json(
+          { status: 500, message: 'Internal Server Error' },
+          { status: 500 }
+        );
       })
     );
 
@@ -139,7 +158,10 @@ describe('SessionDetailsPage', () => {
   it('shows error state when workflows fetch fails', async () => {
     server.use(
       http.get('/api/sessions/sess-123/workflows', () => {
-        return HttpResponse.json({ status: 500, message: 'Internal Server Error' }, { status: 500 });
+        return HttpResponse.json(
+          { status: 500, message: 'Internal Server Error' },
+          { status: 500 }
+        );
       })
     );
 

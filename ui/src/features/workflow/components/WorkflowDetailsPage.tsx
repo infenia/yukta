@@ -3,11 +3,16 @@
 
 import { DeleteWorkflowDialog } from '@/features/sessions/components/DeleteDialogs';
 import { RequirePermission } from '@/components/common/RequirePermission';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
-import HeaderPortal from '@/components/layout/HeaderPortal';
 import {
   controlErrorMessage,
   useExecutionControl,
@@ -64,8 +69,8 @@ export function WorkflowDetailsPage() {
   );
 
   const graph = graphQuery.data;
-  const displayName = graph?.description || workflowId;
-  useBreadcrumbOverride(workflowId, displayName);
+  // the crumb shows the ID as typed, not title-cased like other path segments
+  useBreadcrumbOverride(workflowId, workflowId);
 
   const nodeControl = useExecutionControl(sessionId, workflowId);
   const [breakpointNode, setBreakpointNode] = useState<string | null>(null);
@@ -133,66 +138,17 @@ export function WorkflowDetailsPage() {
       className="bg-background flex flex-1 flex-col"
       data-testid="workflow-details-page"
     >
-      <HeaderPortal targetId="header-actions">
-        <button
-          type="button"
-          onClick={() => setPanelOpen((value) => !value)}
-          aria-pressed={panelOpen}
-          className={buttonVariants({ variant: 'outline' })}
-        >
-          <span className="material-symbols-outlined text-base">
-            right_panel_open
-          </span>
-          Workflow progress
-        </button>
-      </HeaderPortal>
-      <HeaderPortal targetId="breadcrumb-actions">
-        <RunHistoryDropdown
-          executions={executions}
-          selectedExecutionId={selectedExecutionId}
-          onSelect={selectExecution}
-        />
-      </HeaderPortal>
-
       <WorkflowTitleBar
-        displayName={displayName}
         workflowId={workflowId}
+        description={graph.description}
         status={executionStatus}
         actions={
           <>
-            <button
-              type="button"
-              onClick={() => setVersionsOpen((value) => !value)}
-              aria-expanded={versionsOpen}
-              className={buttonVariants({ variant: 'outline' })}
-            >
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined text-base"
-              >
-                history
-              </span>
-              Versions
-            </button>
-            <Link
-              to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
-              className={buttonVariants({ variant: 'outline' })}
-            >
-              <span className="material-symbols-outlined text-base">edit</span>
-              Edit
-            </Link>
-            <RequirePermission perm="deleteSessions">
-              <button
-                type="button"
-                onClick={() => setDeleting(true)}
-                className={buttonVariants({ variant: 'destructive' })}
-              >
-                <span className="material-symbols-outlined text-base">
-                  delete
-                </span>
-                Delete workflow…
-              </button>
-            </RequirePermission>
+            <RunHistoryDropdown
+              executions={executions}
+              selectedExecutionId={selectedExecutionId}
+              onSelect={selectExecution}
+            />
             <RunControls
               sessionId={sessionId}
               workflowId={workflowId}
@@ -200,6 +156,56 @@ export function WorkflowDetailsPage() {
               status={executionStatus}
               onStarted={selectExecution}
             />
+            <Link
+              to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
+              className={buttonVariants({ variant: 'outline' })}
+            >
+              <span className="material-symbols-outlined text-base">edit</span>
+              Edit
+            </Link>
+            <button
+              type="button"
+              onClick={() => setPanelOpen((value) => !value)}
+              aria-pressed={panelOpen}
+              aria-label="Workflow progress"
+              title="Show or hide the progress panel"
+              className={buttonVariants({ variant: 'outline', size: 'icon' })}
+            >
+              <span className="material-symbols-outlined text-base">
+                right_panel_open
+              </span>
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={(state) => (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Workflow actions"
+                    {...state}
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      aria-hidden="true"
+                    >
+                      more_vert
+                    </span>
+                  </Button>
+                )}
+              />
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => setVersionsOpen((value) => !value)}
+                >
+                  {versionsOpen ? 'Hide versions' : 'Versions'}
+                </DropdownMenuItem>
+                <RequirePermission perm="deleteSessions">
+                  <DropdownMenuItem onClick={() => setDeleting(true)}>
+                    Delete workflow…
+                  </DropdownMenuItem>
+                </RequirePermission>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         }
       />
@@ -262,7 +268,9 @@ export function WorkflowDetailsPage() {
         />
       )}
 
-      <div className="flex min-h-100 flex-1">
+      {/* A fixed-height workspace: the canvas fills it and the panel scrolls inside it, so a
+          100-node run no longer stretches the page */}
+      <div className="flex h-[clamp(28rem,calc(100dvh-14rem),56rem)]">
         <div className="min-w-0 flex-1">
           <WorkflowCanvas graph={graph} tasksByNode={tasksByNode} />
         </div>

@@ -81,7 +81,7 @@ export function WorkflowNodeCard({
   data,
   selected,
 }: NodeProps<WorkflowFlowNode>) {
-  const { node, status, task, hideDescription } = data;
+  const { node, status, task, hideDescription, hideStatus } = data;
   const isTrigger = node.category === 'TRIGGER';
   const isTerminal = node.category === 'TERMINAL';
   const icon = STATUS_ICONS[status] ?? pluginIcon(node.type, node.category);
@@ -183,18 +183,20 @@ export function WorkflowNodeCard({
       )}
 
       <div className="mt-auto flex items-center justify-between px-3 pt-1 pb-2">
-        <span
-          className={cn(
-            'text-body-sm text-on-surface-variant inline-flex items-center gap-1.5',
-            status === 'failed' && 'text-error'
-          )}
-        >
+        {!hideStatus && (
           <span
-            aria-hidden="true"
-            className={cn('size-2 rounded-full', STATUS_DOT_CLASSES[status])}
-          />
-          {statusLabel}
-        </span>
+            className={cn(
+              'text-body-sm text-on-surface-variant inline-flex items-center gap-1.5',
+              status === 'failed' && 'text-error'
+            )}
+          >
+            <span
+              aria-hidden="true"
+              className={cn('size-2 rounded-full', STATUS_DOT_CLASSES[status])}
+            />
+            {statusLabel}
+          </span>
+        )}
         {detail && (
           <span className="text-body-sm text-on-surface-variant">{detail}</span>
         )}
