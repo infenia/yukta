@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter, MemoryRouter } from 'react-router';
-import AppHeader from '../AppHeader';
+import userEvent from '@testing-library/user-event';
+import AppHeader, { MobileNav } from '../AppHeader';
 
 const renderWithRouter = (component: React.ReactElement) =>
   render(<BrowserRouter>{component}</BrowserRouter>);
@@ -142,5 +143,56 @@ describe('AppHeader', () => {
     const toggleButton = screen.getByLabelText('Toggle theme');
     expect(yukta).toBeInTheDocument();
     expect(toggleButton).toBeInTheDocument();
+  });
+
+  it('opens the command palette from the search button', async () => {
+    const opened = vi.fn();
+    window.addEventListener('yukta:open-command-palette', opened);
+    renderWithRouter(<AppHeader />);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Search and jump to (⌘K)' })
+    );
+    expect(opened).toHaveBeenCalledOnce();
+    window.removeEventListener('yukta:open-command-palette', opened);
+  });
+
+  it('shows every nav label, not only icons', () => {
+    renderWithRouter(<AppHeader />);
+    for (const label of ['Sessions', 'Runs', 'Plugins', 'Control']) {
+      expect(
+        screen.getByRole('link', { name: new RegExp(label) })
+      ).toHaveTextContent(label);
+    }
+  });
+});
+
+describe('MobileNav', () => {
+  it.each([
+    ['/', 'Sessions'],
+    ['/runs', 'Runs'],
+    ['/plugins/x', 'Plugins'],
+  ])('marks the tab of %s as current', (path, label) => {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <MobileNav />
+      </MemoryRouter>
+    );
+    const current = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('aria-current') === 'page');
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveTextContent(label);
+    expect(current[0]).toHaveClass('text-primary');
+  });
+
+  it('is a labelled bottom bar hidden from wider screens', () => {
+    render(
+      <MemoryRouter>
+        <MobileNav />
+      </MemoryRouter>
+    );
+    const nav = screen.getByRole('navigation', { name: 'Primary' });
+    expect(nav).toHaveClass('fixed', 'bottom-0', 'sm:hidden');
+    expect(screen.getAllByRole('link')).toHaveLength(4);
   });
 });

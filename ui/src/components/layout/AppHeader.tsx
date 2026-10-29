@@ -6,6 +6,7 @@ import HeaderLogo from './HeaderLogo';
 import BreadcrumbNav from './BreadcrumbNav';
 import IdentityChip from './IdentityChip';
 import ThemeToggle from './ThemeToggle';
+import { openCommandPalette } from './CommandPalette';
 
 /* `section` is the path prefix the item owns: Sessions is current on the list and on every
    session, workflow and editor page under /sessions. */
@@ -18,6 +19,34 @@ const NAV = [
 
 const isCurrent = (pathname: string, to: string, section: string) =>
   pathname === to || pathname === section || pathname.startsWith(`${section}/`);
+
+/** Phones: the primary nav as a bottom tab bar, labels under the icons. */
+export function MobileNav() {
+  const { pathname } = useLocation();
+  return (
+    <nav
+      aria-label="Primary"
+      className="border-border bg-card fixed inset-x-0 bottom-0 z-50 grid h-16 grid-cols-4 border-t pb-[env(safe-area-inset-bottom)] sm:hidden"
+    >
+      {NAV.map(({ to, section, label, icon }) => {
+        const active = isCurrent(pathname, to, section);
+        return (
+          <Link
+            key={to}
+            to={to}
+            aria-current={active ? 'page' : undefined}
+            className={`flex flex-col items-center justify-center gap-0.5 text-[11px] no-underline ${active ? 'text-primary font-semibold' : 'text-muted-foreground font-medium'}`}
+          >
+            <span aria-hidden="true" className="material-symbols-outlined">
+              {icon}
+            </span>
+            {label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
 
 export default function AppHeader() {
   const { pathname } = useLocation();
@@ -37,7 +66,28 @@ export default function AppHeader() {
             id="header-actions"
             className="mr-2 flex items-center gap-2 empty:mr-0"
           />
-          <nav aria-label="Primary" className="mr-1 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            aria-keyshortcuts="Meta+K Control+K"
+            aria-label="Search and jump to (⌘K)"
+            className="bg-muted text-muted-foreground hover:text-foreground transition-standard text-body-md mr-2 flex h-8 items-center gap-2 rounded-full px-2.5 lg:w-64 lg:pr-2"
+          >
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-lg"
+            >
+              search
+            </span>
+            <span className="hidden flex-1 text-left lg:inline">Jump to…</span>
+            <kbd className="border-border bg-card hidden rounded border px-1.5 font-mono text-[11px] lg:inline">
+              ⌘K
+            </kbd>
+          </button>
+          <nav
+            aria-label="Primary"
+            className="mr-1 hidden items-center gap-1 sm:flex"
+          >
             {NAV.map(({ to, section, label, icon }) => {
               const active = isCurrent(pathname, to, section);
               return (
@@ -53,8 +103,7 @@ export default function AppHeader() {
                   >
                     {icon}
                   </span>
-                  {/* Icons only on phones, so the header fits; the label stays the link's name */}
-                  <span className="sr-only sm:not-sr-only">{label}</span>
+                  {label}
                 </Link>
               );
             })}
