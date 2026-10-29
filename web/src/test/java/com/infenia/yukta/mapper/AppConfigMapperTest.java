@@ -131,6 +131,15 @@ class AppConfigMapperTest {
   }
 
   @Test
+  void testToEdgeDefaultsMissingSourcePortLikeSessionMapper() {
+    final EdgeRequest edgeRequest = new EdgeRequest(NODE_1, NODE_2, null);
+
+    assertThat(mapper.toEdge(edgeRequest))
+        .isEqualTo(Mappers.getMapper(SessionMapper.class).edgeRequestToEdge(edgeRequest));
+    assertThat(mapper.toEdge(edgeRequest).sourcePort()).isEqualTo("default");
+  }
+
+  @Test
   void testToEdgeMapsEdgeRequest() {
     final EdgeRequest edgeRequest = new EdgeRequest(NODE_1, NODE_2, "output");
 
