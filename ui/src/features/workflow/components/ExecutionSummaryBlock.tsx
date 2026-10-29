@@ -3,6 +3,7 @@
 
 import { Card } from '@/components/ui/card';
 import { formatClockTime, TIME_PLACEHOLDER } from '../lib/timeFormat';
+import { toStatusDisplay } from '../lib/statusMapper';
 import type { WorkflowProgress } from '../types/workflow';
 
 function SummaryRow({
@@ -45,7 +46,7 @@ export function ExecutionSummaryBlock({
       <SummaryRow label="Session ID" value={progress?.sessionId ?? sessionId} />
       <SummaryRow
         label="Status"
-        value={progress?.status ?? 'NOT RUN'}
+        value={toStatusDisplay(progress?.status).label}
         mono={false}
       />
       <SummaryRow

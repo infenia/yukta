@@ -34,13 +34,13 @@ describe('TaskSequenceList', () => {
     );
 
     const completed = screen.getByTestId('task-item-data-ingress');
-    expect(completed).toHaveTextContent('COMPLETED');
+    expect(completed).toHaveTextContent('Succeeded');
     expect(completed).toHaveTextContent('module: ingress-v1');
     expect(completed).toHaveTextContent('Start: 14:22:01');
     expect(completed).toHaveTextContent('End: 14:22:10');
 
     const running = screen.getByTestId('task-item-vectorize-batch');
-    expect(running).toHaveTextContent('RUNNING');
+    expect(running).toHaveTextContent('Running');
     expect(running).toHaveTextContent('Dur:');
   });
 
@@ -50,7 +50,7 @@ describe('TaskSequenceList', () => {
     );
 
     const pending = screen.getByTestId('task-item-sink-storage');
-    expect(pending).toHaveTextContent('PENDING');
+    expect(pending).toHaveTextContent('Waiting');
     expect(pending.className).toContain('opacity-60');
     expect(pending).not.toHaveTextContent('Start:');
   });
@@ -60,7 +60,7 @@ describe('TaskSequenceList', () => {
 
     const items = screen.getAllByTestId(/task-item-/);
     expect(items).toHaveLength(4);
-    items.forEach((item) => expect(item).toHaveTextContent('PENDING'));
+    items.forEach((item) => expect(item).toHaveTextContent('Waiting'));
     expect(screen.getByTestId('task-item-data-ingress')).toHaveTextContent(
       'module: ingress-v1'
     );
@@ -114,7 +114,7 @@ describe('TaskSequenceList', () => {
     }
   });
 
-  it('marks failed tasks with the FAILED label and error styling', () => {
+  it('marks failed tasks with the Failed label and destructive styling', () => {
     const tasks = tasksByNode();
     tasks['vectorize-batch'] = {
       ...tasks['vectorize-batch'],
@@ -123,7 +123,7 @@ describe('TaskSequenceList', () => {
     render(<TaskSequenceList graph={createMockGraph()} tasksByNode={tasks} />);
 
     const failed = screen.getByTestId('task-item-vectorize-batch');
-    expect(failed).toHaveTextContent('FAILED');
-    expect(failed.querySelector('.text-error')).not.toBeNull();
+    expect(failed).toHaveTextContent('Failed');
+    expect(failed.querySelector('.text-destructive')).not.toBeNull();
   });
 });
