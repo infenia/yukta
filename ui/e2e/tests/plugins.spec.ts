@@ -88,6 +88,7 @@ test.describe('Plugins page', () => {
     await expect(page).toHaveURL(/\?type=ShellProcessor$/);
     await expect(page.getByText('Runs a shell command')).toBeVisible();
     await expect(page.getByText('success, failure')).toBeVisible();
+    await page.getByRole('tab', { name: 'Example' }).click();
     await expect(page.getByText('command: echo hi')).toBeVisible();
     await expect(page.getByTestId('workflow-node-ShellProcessor')).toBeVisible();
   });
