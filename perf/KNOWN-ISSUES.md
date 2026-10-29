@@ -3,7 +3,7 @@
 Logged, not fixed. Found 2026-10-11 on `main` at `6070249e`; updated 2026-10-21.
 
 This file is history. Open perf problems are GitHub issues labelled
-[`perf`](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Aperf) (here: 3 and 5);
+[`perf`](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Aperf) (here: 5 and 6);
 file new ones there with `examples/11-dogfood/yk finding` or the dogfood issue form.
 
 ## 1. Runs never finish: `CONSOLE_TERMINAL` stays `RUNNING` (fixed)
@@ -13,7 +13,7 @@ Cause was a broadcast subscriber count that was only known once a subscriber arr
 
 ## 2. Fan-out: one of two children of the same trigger never finishes (fixed)
 
-Same cause as #1. `fanout` is part of the 250 starts/s check above and finished every run.
+Same cause as #1. `fanout` is in the default set and finished every run.
 
 ## 3. `bootRun` needs the UI build
 

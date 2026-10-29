@@ -66,7 +66,7 @@ export const DEFAULT = ['trigger-terminal', 'mapper', 'filter', 'chain10', 'fano
   'chaos-fail', 'chaos-retry', 'chaos-cancel'];
 
 export function selected() {
-  const names = (__ENV.WORKFLOWS ? __ENV.WORKFLOWS.split(',') : DEFAULT).map((s) => s.trim());
+  const names = [...new Set((__ENV.WORKFLOWS ? __ENV.WORKFLOWS.split(',') : DEFAULT).map((s) => s.trim()))];
   for (const n of names) if (!CATALOG[n]) throw new Error(`unknown workflow '${n}'`);
   return names;
 }
