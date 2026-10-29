@@ -56,6 +56,7 @@ public class CallerIdentity {
       @Nullable List<String> sessions,
       boolean authEnabled,
       Permissions permissions) {
+    /** Copies the sessions so the record cannot be changed through the list. */
     public Whoami {
       sessions = sessions == null ? null : List.copyOf(sessions);
     }
