@@ -4,5 +4,6 @@
   "maxInput": 1024,
   "slowMs": 3000,
   "minOllama": "0.35.0",
-  "probeCacheSeconds": 600
+  "probeCacheSeconds": 600,
+  "decisions": {}
 }

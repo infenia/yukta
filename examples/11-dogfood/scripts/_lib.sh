@@ -439,7 +439,7 @@ record_durations() {
 
 # ---- the optional decision model (System One via Ollama), see decisions.json. Everything here fails open: with no model, a stale model,
 # a slow answer or too big a digest the caller takes the path it took before, and gets one WARN line.
-# YUKTA_DECISION=off disables it; YUKTA_DECISION_MODEL, YUKTA_DECISION_URL, YUKTA_DECISION_MAX_INPUT override decisions.json.
+# YUKTA_DECISION=shadow|on|off (default shadow) sets the mode of every decision, YUKTA_DECISION_<NAME> of one; YUKTA_DECISION_MODEL, YUKTA_DECISION_URL, YUKTA_DECISION_MAX_INPUT override decisions.json.
 _dec() { jq -r --arg k "$1" '.[$k] // empty' "$(dirname "${BASH_SOURCE[0]}")/../decisions.json"; }
 decision_model() { echo "${YUKTA_DECISION_MODEL:-$(_dec model)}"; }
 decision_url() { echo "${YUKTA_DECISION_URL:-$(_dec url)}"; }
@@ -460,11 +460,33 @@ _decision_body() {
     '{model: $m, state: $s, questions: {q: {type: "choice", instructions: $q, criteria: $c}}, keep_alive: "10m"}'
 }
 
-# decide STATE QUESTION CRITERIA-JSON: prints "<label> <probability>" for the model's choice. Returns 1, with a WARN on stderr, when there is
-# no answer (off, no model, digest over the cap, error): the caller keeps its static path.
+# decision_mode NAME: shadow (default: ask, record, and let the caller's static path decide), on (use the answer) or off (do not ask).
+# YUKTA_DECISION_<NAME> beats the "mode" of the decision in decisions.json, which beats YUKTA_DECISION.
+decision_mode() {
+  local v m
+  v="YUKTA_DECISION_$(tr '[:lower:]-' '[:upper:]_' <<<"$1")"
+  m="${!v:-$(jq -r --arg n "$1" '.decisions[$n].mode // empty' "$(dirname "${BASH_SOURCE[0]}")/../decisions.json")}"
+  echo "${m:-${YUKTA_DECISION:-shadow}}"
+}
+
+# decision_log KIND NAME HASH MODE LABEL PROB MS: one line of $STATE_DIR/decisions.tsv (kind decision, or outcome with the real label)
+decision_log() {
+  mkdir -p "$STATE_DIR" 2>/dev/null || return 0
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$@" >>"$STATE_DIR/decisions.tsv" 2>/dev/null || true
+}
+decision_hash() { printf '%s' "$1" | sha1sum | cut -c1-12; }
+
+# decision_outcome NAME STATE LABEL: what really happened for a decision made on STATE (the rung that fixed the stage, the module the issue
+# ended in): the report joins it to the decision by the hash of STATE
+decision_outcome() { decision_log outcome "$1" "$(decision_hash "$2")" - "$3" - -; }
+
+# decide NAME STATE QUESTION CRITERIA-JSON: prints "<label> <probability>" for the model's choice and returns 0 only in mode on and when the
+# model answered. In shadow mode it asks, records the answer in decisions.tsv and returns 1 (the caller's static path decides). Returns 1,
+# with a WARN on stderr, when there is no answer (no model, digest over the cap, error): the caller keeps its static path.
 decide() {
-  local state="$1" question="$2" criteria="$3" model url max reply head code
-  [[ "${YUKTA_DECISION:-on}" != off ]] || return 1
+  local name="$1" state="$2" question="$3" criteria="$4" mode model url max reply head code ms out
+  mode="$(decision_mode "$name")"
+  [[ "$mode" != off ]] || return 1
   model="$(decision_model)" url="$(decision_url)" max="${YUKTA_DECISION_MAX_INPUT:-$(_dec maxInput)}"
   if [[ -z "$model" ]]; then echo "WARN decision model unavailable: none configured (YUKTA_DECISION_MODEL)" >&2; return 1; fi
   if ((${#state} + ${#question} > ${max:-1024})); then
@@ -472,13 +494,16 @@ decide() {
     return 1
   fi
   reply="$(_decision_call "$url" "$(_decision_body "$model" "$state" "$question" "$criteria")")"
-  head="$(head -n 1 <<<"$reply")" code="${head%% *}"
+  head="$(sed -n 1p <<<"$reply")" code="${head%% *}" ms="${head##* }"
   if [[ "$code" != 200 ]]; then
     echo "WARN decision model unavailable: $(_decision_reason "$code" "$(tail -n +2 <<<"$reply")" "$model")" >&2
     return 1
   fi
-  tail -n +2 <<<"$reply" | jq -r '.answers.q | "\(.choice) \(.probabilities[.choice])"' 2>/dev/null \
+  out="$(tail -n +2 <<<"$reply" | jq -r '.answers.q | "\(.choice) \(.probabilities[.choice])"' 2>/dev/null)" \
     || { echo "WARN decision model unavailable: unreadable answer" >&2; return 1; }
+  decision_log decision "$name" "$(decision_hash "$state")" "$mode" "${out% *}" "${out#* }" "$ms"
+  [[ "$mode" == on ]] || return 1
+  echo "$out"
 }
 
 # _decision_reason CODE BODY MODEL: what a failed call means, with the command that fixes it
@@ -494,7 +519,7 @@ _decision_reason() {
 # $DEV_HOME/decision.cache so `yk status` does not ask every time.
 decision_probe() {
   local model url cache="$DEV_HOME/decision.cache" ttl ver reply head code ms ms_small ms_big crit="{\"ok\":\"the probe\",\"no\":\"never\"}" line
-  if [[ "${YUKTA_DECISION:-on}" == off ]]; then echo "decision: off (YUKTA_DECISION=off)"; return 1; fi
+  if [[ "${YUKTA_DECISION:-shadow}" == off ]]; then echo "decision: off (YUKTA_DECISION=off)"; return 1; fi
   model="$(decision_model)" url="$(decision_url)" ttl="$(_dec probeCacheSeconds)"
   if [[ -s "$cache" && "$(head -n 1 "$cache")" == "$model $url" && $(($(date +%s) - $(stat -c %Y "$cache"))) -lt ${ttl:-600} && -z "${YK_DECISION_FRESH:-}" ]]; then
     tail -n +2 "$cache"; tail -n +2 "$cache" | grep -q '^decision: ok'; return

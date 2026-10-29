@@ -68,8 +68,12 @@ model, a stale one, a slow answer or a digest over the cap, the step takes the p
 `WARN decision model unavailable: <why and the fix>`. Settings are in `decisions.json`; `YUKTA_DECISION_MODEL`,
 `YUKTA_DECISION_URL`, `YUKTA_DECISION_MAX_INPUT` (characters, question included) override them and `YUKTA_DECISION=off` disables it.
 No model is assumed: set `YUKTA_DECISION_MODEL`. `yk decision` (and `yk status`, from a 10 minute cache) probes Ollama: reachable,
-version, model present and not in an old format, and the time of a small and a 1 KB digest. Scripts call `decide STATE QUESTION
-CRITERIA-JSON` from `scripts/_lib.sh`; `scripts/test-decision.sh` tests it against `fake-ollama.py`.
+version, model present and not in an old format, and the time of a small and a 1 KB digest. Scripts call `decide NAME STATE QUESTION
+CRITERIA-JSON` from `scripts/_lib.sh`. A decision runs in **shadow** by default: the model is asked and `{label, probability, input hash,
+latency}` goes to `.yukta-dev/decisions.tsv`, but the caller's static path still decides. `YUKTA_DECISION=shadow|on|off` sets the mode of all,
+`YUKTA_DECISION_<NAME>` or `decisions.<name>.mode` of one. `decision_outcome NAME STATE LABEL` records what really happened; `yk stats
+--decisions` joins the two and prints agreement, a calibration table and whether the `bar` of the decision in `decisions.json` is met
+(a decision below it stays in shadow); `scripts/test-decision.sh` tests it against `fake-ollama.py`.
 
 ## Self-healing check
 
