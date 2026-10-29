@@ -1862,9 +1862,9 @@ export interface components {
             module?: string;
             status?: string;
             /** Format: date-time */
-            startTime?: string;
+            startTime?: string | null;
             /** Format: date-time */
-            endTime?: string;
+            endTime?: string | null;
             metadata?: {
                 [key: string]: unknown;
             };
@@ -1878,12 +1878,12 @@ export interface components {
             /** Format: date-time */
             startTime?: string;
             /** Format: date-time */
-            endTime?: string;
-            controlState?: string;
-            definitionVersion?: string;
-            parentExecutionId?: string;
-            rootExecutionId?: string;
-            restartOf?: string;
+            endTime?: string | null;
+            controlState?: string | null;
+            definitionVersion?: string | null;
+            parentExecutionId?: string | null;
+            rootExecutionId?: string | null;
+            restartOf?: string | null;
         };
         HistoryFilter: {
             workflowId?: string;
@@ -1944,13 +1944,13 @@ export interface components {
              * Format: date-time
              * @description The end time of the execution, with the server's UTC offset
              */
-            endTime?: string;
+            endTime?: string | null;
             /** @description The run that started this one as a sub-workflow, if any */
-            parentExecutionId?: string;
+            parentExecutionId?: string | null;
             /** @description The top of this run's tree of runs (itself when it has no parent) */
-            rootExecutionId?: string;
+            rootExecutionId?: string | null;
             /** @description The run this one restarts, if any */
-            restartOf?: string;
+            restartOf?: string | null;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListWorkerInfo: {
