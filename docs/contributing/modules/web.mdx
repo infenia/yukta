@@ -224,7 +224,7 @@ Starts a workflow, stops one run or every run of a workflow, restarts a run whol
 - **Guarantees.** A 202 means core admitted the start. The same Idempotency-Key never starts a second run inside core's window. Stop returns only the ids actually signalled.
 - **State.** None in web. Run state and history live in core.
 - **Ceiling.** History is loaded in full from core and then cut into a page by web. Admission limits, queues and the idempotency window are core's.
-- **On failure.** 404 unknown session, workflow, execution or node. 429 when core refuses a start. 500 if core throws something unmapped, such as a restart already in progress (see risks).
+- **On failure.** 404 unknown session, workflow, execution or node. 429 when core refuses a start. 409 when a restart of the same run is already in progress. 500 if core throws something unmapped.
 
 **Settings:** `POST /api/workflow/start (Idempotency-Key)`, `POST /api/workflow/{sid}/{wid}/stop?mode=DRAIN|CANCEL|KILL`, `POST /api/executions/{eid}/stop|restart|restart/{node}`, `GET /api/executions/{eid}`, `GET /api/workflow/{sid}/history`
 
@@ -407,8 +407,8 @@ The body is fine but the workflow does not exist. Core throws NotFoundException,
 <Step title="Too many runs">
 Core's limit is reached and it refuses the start with ExecutionRejectedException. The handler answers 429. The client should retry later.
 </Step>
-<Step title="An unmapped failure">
-Two restarts of the same run arrive together. Core throws IllegalStateException ('Restart already in progress'). The handler maps it to 500 with only 'Reference: &lt;request id&gt;' (a ConflictException would give 409, but this path does not use it); the cause is in the log.
+<Step title="A state conflict">
+Two restarts of the same run arrive together. Core throws ConflictException ('Restart already in progress') and the handler answers 409 with that message. Any other IllegalStateException is still a 500 with only 'Reference: &lt;request id&gt;'; the cause is in the log.
 </Step>
 <Step title="The exception to the rule">
 POST /api/sessions/validate catches every error itself and puts e.getMessage() in the reply. That is useful for an editor but it is the one path that can show exception text for an unexpected failure.
@@ -641,7 +641,7 @@ Canonical routes are /api/executions/...; the /api/workflow/... forms are deprec
 | POST | /api/workflow/\{sid\}/\{wid\}/stop?mode= | Stop every active run of a workflow | DRAIN (default), CANCEL or KILL. Returns signalled ids | 404 |
 | GET | /api/workflow/\{sid\}/history?limit&cursor | A session's runs, newest first | Paged; whole history loaded then cut | 404 unknown session |
 | POST | /api/executions/\{eid\}/stop (alias /api/workflow/executions/\{eid\}/stop) | Stop one run | Returns the same id. No ownership check | 404 |
-| POST | /api/executions/\{eid\}/restart (alias /api/workflow/executions/\{eid\}/restart) | Stop and start again with the original payload | New execution id. No ownership check | 404; 500 if a restart is already in progress |
+| POST | /api/executions/\{eid\}/restart (alias /api/workflow/executions/\{eid\}/restart) | Stop and start again with the original payload | New execution id. No ownership check | 404; 409 if a restart is already in progress |
 | POST | /api/executions/\{eid\}/restart/\{node\} (alias /api/workflow/executions/\{eid\}/restart/\{node\}) | Restart from a node using its parents' checkpoints | New execution id | 404 |
 | POST | /api/executions/\{eid\}/nodes/\{nid\}/retry | Restart from a failed node | Canonical only. Existence checked | 404 |
 | GET | /api/executions/\{eid\} (alias /api/workflow/\{sid\}/status/\{eid\}) | Progress snapshot | Alias carries a session and checks ownership | 404 |
