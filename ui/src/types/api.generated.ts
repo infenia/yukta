@@ -2809,6 +2809,8 @@ export interface components {
              * @example 24
              */
             workflowCount?: number;
+            /** @description The session's newest run, null when it has none */
+            lastRun?: components["schemas"]["WorkflowExecutionSummary"];
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseSchedulerLimits: {

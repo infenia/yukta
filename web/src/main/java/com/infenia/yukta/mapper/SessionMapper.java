@@ -54,6 +54,7 @@ public interface SessionMapper {
    */
   @Mapping(target = "tags", expression = "java(java.util.List.copyOf(response.tags().keySet()))")
   @Mapping(target = "workflowCount", expression = "java(response.workflows().size())")
+  @Mapping(target = "lastRun", ignore = true)
   SessionListItem sessionConfigResponseToSessionListItem(SessionConfigResponse response);
 
   /**
