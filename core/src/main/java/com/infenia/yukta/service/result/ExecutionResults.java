@@ -69,7 +69,7 @@ public record ExecutionResults(
     return new ExecutionResults(executionId, complete, status, truncated, nextCursor, kept);
   }
 
-  @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.UseConcurrentHashMap"}) // order is kept
+  @SuppressWarnings("PMD.UseConcurrentHashMap") // order is kept
   private static Object strip(final Object value, final Set<String> keep, final int depth) {
     if (depth > MAX_DEPTH) {
       return value;

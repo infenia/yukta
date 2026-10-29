@@ -29,7 +29,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyStaticImports", "unchecked"})
+@SuppressWarnings({"PMD.TooManyStaticImports", "unchecked"})
 class RemoteNodesTest {
 
   private static final Map<String, Object> PLACED =

@@ -17,7 +17,6 @@ import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.json.JsonMapper;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.store.FileNodeCheckpointStore - ")
 class CheckpointMetricsTest {
 

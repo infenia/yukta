@@ -10,7 +10,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** High-speed, non-reflective evaluator for simple expressions. Supports: ==, exists, matches. */
-@SuppressWarnings({"PMD.OnlyOneReturn"})
 public final class SimpleExpressionEvaluator {
   /** Payload prefix. */
   private static final String PAYLOAD_PREFIX = "payload.";

@@ -26,7 +26,7 @@ import reactor.test.StepVerifier;
 /** Test suite for InMemorySessionConfigStore. */
 @MockitoSettings
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.LawOfDemeter", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class InMemorySessionConfigStoreTest {
 
   /** Placeholder string value used in test cases. */

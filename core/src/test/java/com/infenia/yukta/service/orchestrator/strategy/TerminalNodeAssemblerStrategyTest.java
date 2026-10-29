@@ -64,11 +64,9 @@ import reactor.util.context.Context;
   "PMD.CouplingBetweenObjects",
   "PMD.ExcessiveImports",
   "PMD.TooManyStaticImports",
-  "PMD.CommentRequired",
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
   "PMD.UseShortArrayInitializer",
-  "PMD.ShortVariable",
   "PMD.UseVarargs"
 })
 class TerminalNodeAssemblerStrategyTest {

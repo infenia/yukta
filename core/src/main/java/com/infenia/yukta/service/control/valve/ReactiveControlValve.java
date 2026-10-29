@@ -27,7 +27,6 @@ import reactor.core.publisher.Sinks;
  * pause stops the node from pulling more work instead of merely hiding its output.
  */
 @NoArgsConstructor
-@SuppressWarnings("PMD.OnlyOneReturn")
 public final class ReactiveControlValve {
 
   /** Flow mode of the valve. */

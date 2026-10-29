@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
 /** GraalJS-backed {@link ScriptEngine}. */
 @Component
 @Slf4j
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings("PMD.UseConcurrentHashMap")
 public class GraalJsScriptEngine implements ScriptEngine {
 
   /** Polyglot language id. */

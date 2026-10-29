@@ -9,7 +9,6 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** Tests for the {@link ConfigField} factories and its defensive copy. */
-@SuppressWarnings("PMD.AtLeastOneConstructor")
 class ConfigFieldTest {
 
   @Test

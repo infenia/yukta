@@ -33,7 +33,7 @@ import reactor.core.publisher.Sinks;
  * signal that follows an accepted one on the same key within {@link #DUPLICATE_WINDOW} is taken for
  * a double submit and answered {@link #NOT_WAITING}, so it cannot be kept for a later wait.
  */
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.TooManyMethods")
 @SuppressFBWarnings(
     value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR",
     justification = "shared() is a convenience; tests and plugins may still own an instance")

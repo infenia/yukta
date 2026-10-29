@@ -11,12 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings({
-  "PMD.AtLeastOneConstructor",
-  "PMD.CommentRequired",
-  "PMD.ShortVariable",
-  "PMD.TooManyMethods"
-})
+@SuppressWarnings("PMD.TooManyMethods")
 class SimpleExpressionEvaluatorTest {
 
   private static Message<?> msg(final Object payload) {

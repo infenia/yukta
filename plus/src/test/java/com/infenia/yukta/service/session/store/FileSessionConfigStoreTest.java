@@ -150,7 +150,6 @@ class FileSessionConfigStoreTest {
   }
 
   @Test
-  @SuppressWarnings("PMD.LawOfDemeter")
   void testGetSessionIds() {
     configStore.setProjectPath("s1", "/p1").block();
     configStore.setProjectPath("s2", "/p2").block();
@@ -161,7 +160,6 @@ class FileSessionConfigStoreTest {
   }
 
   @Test
-  @SuppressWarnings("PMD.LawOfDemeter")
   void testGetSessionIdsEmpty() {
     StepVerifier.create(configStore.getSessionIds().collectList())
         .expectNext(List.of())
@@ -195,7 +193,6 @@ class FileSessionConfigStoreTest {
   }
 
   @Test
-  @SuppressWarnings("PMD.LawOfDemeter")
   void testGetSessionIdsWithNonJsonFiles() throws IOException {
     final Path sessionsDir = tempDir.resolve(SESSIONS_DIR);
     Files.createDirectories(sessionsDir);
@@ -621,7 +618,6 @@ class FileSessionConfigStoreTest {
   }
 
   @Test
-  @SuppressWarnings("PMD.LawOfDemeter")
   void removeSession_deletesTheFileAndTheCachedCopy_andIsQuietForAnUnknownSession() {
     final SessionConfigData data =
         new SessionConfigData("gone", "n", "d", "i", Map.of(), "/p", Map.of());

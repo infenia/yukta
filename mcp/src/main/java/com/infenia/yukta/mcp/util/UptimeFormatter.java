@@ -9,7 +9,6 @@ import lombok.experimental.UtilityClass;
  * dependencies.
  */
 @UtilityClass
-@SuppressWarnings("PMD.OnlyOneReturn")
 public class UptimeFormatter {
 
   /**

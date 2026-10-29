@@ -29,10 +29,7 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 @SuppressWarnings({
-  "PMD.AtLeastOneConstructor",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.CommentRequired",
-  "PMD.ShortVariable",
   "PMD.TooManyMethods",
   "PMD.TooManyStaticImports",
   "PMD.UnitTestAssertionsShouldIncludeMessage",

@@ -17,11 +17,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  * stopped by Testcontainers' Ryuk at exit). Tests are skipped when Docker is not available.
  */
 @Testcontainers(disabledWithoutDocker = true)
-@SuppressWarnings({
-  "PMD.AbstractClassWithoutAbstractMethod",
-  "PMD.ShortVariable",
-  "PMD.MutableStaticState"
-})
+@SuppressWarnings({"PMD.AbstractClassWithoutAbstractMethod", "PMD.MutableStaticState"})
 abstract class PostgresTestSupport {
 
   /** The database. */

@@ -16,7 +16,6 @@ import org.junit.jupiter.api.parallel.Isolated;
   "PMD.AvoidThrowingRawExceptionTypes",
   "PMD.AvoidCatchingGenericException",
   "PMD.AvoidAccessibilityAlteration",
-  "PMD.CommentRequired",
   "PMD.TooManyMethods",
   "SpotBugs.UwF_UNWRITTEN_FIELD"
 })

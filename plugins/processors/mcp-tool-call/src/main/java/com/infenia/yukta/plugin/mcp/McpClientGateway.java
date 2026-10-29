@@ -43,11 +43,9 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 @RequiredArgsConstructor
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.GodClass",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap",
-  "PMD.OnlyOneReturn",
   "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects"
 })

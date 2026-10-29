@@ -11,7 +11,6 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 
 /** Tests for SecurityHeadersFilter. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.CommentRequired"})
 class SecurityHeadersFilterTest {
 
   private final SecurityHeadersFilter filter = new SecurityHeadersFilter();

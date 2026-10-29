@@ -32,9 +32,7 @@ import reactor.util.context.Context;
 
 @SuppressWarnings({
   "PMD.TooManyMethods",
-  "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.LawOfDemeter",
   "PMD.TooManyStaticImports",
   "unchecked"
 })

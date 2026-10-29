@@ -26,7 +26,6 @@ import org.springframework.test.context.aot.DisabledInAotMode;
     })
 @DisabledInAotMode
 @EnabledIfSystemProperty(named = "yukta.workers", matches = "true")
-@SuppressWarnings({"PMD.CommentRequired", "PMD.LawOfDemeter"})
 @NoArgsConstructor
 class WorkersControlPlaneAcceptanceTest {
 

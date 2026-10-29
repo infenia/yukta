@@ -14,7 +14,6 @@ import org.slf4j.ILoggerFactory;
 import org.slf4j.LoggerFactory;
 
 /** Records the ERROR events of every Logback logger. */
-@SuppressWarnings({"PMD.CommentRequired", "PMD.LawOfDemeter"})
 @NoArgsConstructor
 final class LogbackProbe implements Probe {
 

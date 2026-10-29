@@ -19,7 +19,7 @@ import reactor.core.publisher.Mono;
 
 /** Tests for the behaviour described by {@link HostOriginFilter}. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class HostOriginFilterTest {
 
   /** Whether the request got through. */

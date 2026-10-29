@@ -29,7 +29,6 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-@SuppressWarnings("PMD.OnlyOneReturn")
 @RequiredArgsConstructor
 public class SetBreakpointCommandProcessor implements ControlSignalProcessor {
 

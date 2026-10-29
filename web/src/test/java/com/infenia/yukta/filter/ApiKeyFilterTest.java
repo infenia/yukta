@@ -27,12 +27,7 @@ import reactor.core.publisher.Mono;
 
 /** Tests for the behaviour described by {@link ApiKeyFilter}. */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.LawOfDemeter",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.ShortVariable",
-  "PMD.TooManyMethods"
-})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class ApiKeyFilterTest {
 
   /** The passed. */

@@ -67,7 +67,7 @@ import java.util.Set;
  * @param concurrencyGroup the group whose server-wide limit the node counts against, or null
  * @param failureBudget how many failures the node tolerates, or null for no limit
  */
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidDuplicateLiterals", "PMD.CommentSize"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentSize"})
 public record NodePolicy(
     @Nullable Retry retry,
     OnError onError,

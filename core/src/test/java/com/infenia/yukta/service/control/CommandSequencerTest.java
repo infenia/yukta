@@ -13,7 +13,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class CommandSequencerTest {
 
   private final CommandSequencer sequencer = new CommandSequencer();

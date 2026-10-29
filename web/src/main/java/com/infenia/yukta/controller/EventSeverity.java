@@ -11,7 +11,7 @@ import java.util.Set;
  * How much attention an execution event deserves, from least to most. Lets a watcher ask for {@code
  * WARN} and up instead of reading every status change and log line.
  */
-@SuppressWarnings({"PMD.ShortMethodName", "PMD.OnlyOneReturn"})
+@SuppressWarnings("PMD.ShortMethodName")
 public enum EventSeverity {
   /** Normal progress. */
   INFO,

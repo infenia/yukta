@@ -22,7 +22,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.LawOfDemeter", "PMD.UnitTestShouldIncludeAssert"})
+@SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
 class WorkflowVersionControllerTest {
 
   private static final String VERSION_B = "0002-b";

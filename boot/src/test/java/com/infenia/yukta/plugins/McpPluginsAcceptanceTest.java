@@ -20,7 +20,6 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = "yukta.process.allow-any=true")
-@SuppressWarnings({"PMD.CommentRequired", "PMD.ShortVariable"})
 @NoArgsConstructor
 class McpPluginsAcceptanceTest {
 

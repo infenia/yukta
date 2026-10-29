@@ -24,12 +24,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 /** Tests for SystemOneModel against a local JDK HTTP server posing as Ollama. */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.LawOfDemeter",
-  "PMD.TooManyMethods",
-  "PMD.UseConcurrentHashMap"
-})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
 class SystemOneModelTest {
 
   /** A reply that answers the one yes/no question of {@link #yesNo()}. */

@@ -29,7 +29,6 @@ import reactor.util.context.Context;
 
 /** What happens to an attempt when its worker goes away, and where the retry lands. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.LawOfDemeter")
 class LostWorkerTest {
 
   /** The control plane. */

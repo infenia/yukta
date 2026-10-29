@@ -21,7 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ActivePluginRegistry")
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentRequired"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class ActivePluginRegistryTest {
 
   private static final String WORKFLOW_ID = "workflow-1";

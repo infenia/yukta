@@ -16,7 +16,6 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class NodeBroadcastTest {
 
   private static Flux<Message<?>> messages(final int count) {

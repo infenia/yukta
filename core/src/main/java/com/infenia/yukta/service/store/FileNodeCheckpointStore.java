@@ -42,7 +42,7 @@ import tools.jackson.databind.ObjectMapper;
  * object.
  */
 @Slf4j
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
 public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted {
 
   /** Suffix of the file holding a node's messages. */

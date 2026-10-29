@@ -19,12 +19,7 @@ import org.mockito.ArgumentCaptor;
 import reactor.core.publisher.Mono;
 
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.TooManyStaticImports",
-  "PMD.LawOfDemeter",
-  "unchecked"
-})
+@SuppressWarnings({"PMD.TooManyStaticImports", "unchecked"})
 class LeaderElectionTest {
 
   private final LeaderElection election = mock(LeaderElection.class);

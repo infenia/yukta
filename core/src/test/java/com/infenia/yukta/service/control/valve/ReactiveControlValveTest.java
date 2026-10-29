@@ -15,12 +15,7 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.TooManyMethods",
-  "PMD.LambdaCanBeMethodReference",
-  "PMD.LawOfDemeter"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.LambdaCanBeMethodReference"})
 class ReactiveControlValveTest {
 
   private ReactiveControlValve valve;

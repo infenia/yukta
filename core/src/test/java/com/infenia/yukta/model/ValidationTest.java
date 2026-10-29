@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for model validation. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class ValidationTest {
 
   /** The validator instance. */

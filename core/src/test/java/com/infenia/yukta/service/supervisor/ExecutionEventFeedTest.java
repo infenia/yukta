@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({"PMD.CommentRequired", "PMD.ShortVariable", "PMD.UnitTestShouldIncludeAssert"})
+@SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
 @NoArgsConstructor
 class ExecutionEventFeedTest {
 

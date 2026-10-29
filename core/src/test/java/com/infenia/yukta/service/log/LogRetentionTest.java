@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class LogRetentionTest {
 
   private static ExecutionLogEvent change(final String status) {

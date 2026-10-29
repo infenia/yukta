@@ -13,10 +13,6 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for ProcessExecutionSpec ensuring proper defaults and command validation. */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired", // Constants are self-documenting in test context
-  "PMD.ShortVariable" // Single-letter constants intentional for test data
-})
 class ProcessExecutionSpecTest {
 
   private static final String ECHO = "echo";

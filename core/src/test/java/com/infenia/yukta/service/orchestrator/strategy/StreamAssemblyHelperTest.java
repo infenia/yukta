@@ -48,7 +48,6 @@ import reactor.test.StepVerifier;
 @MockitoSettings(strictness = Strictness.LENIENT)
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
   "PMD.ExcessiveImports",

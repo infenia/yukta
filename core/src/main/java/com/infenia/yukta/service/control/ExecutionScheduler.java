@@ -44,7 +44,6 @@ import reactor.core.publisher.Sinks;
 @SuppressWarnings({
   "PMD.AvoidSynchronizedStatement",
   "PMD.TooManyMethods",
-  "PMD.OnlyOneReturn",
   "PMD.CyclomaticComplexity"
 })
 public class ExecutionScheduler implements SmartLifecycle {

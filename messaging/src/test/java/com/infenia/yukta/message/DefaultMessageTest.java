@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for {@link DefaultMessage}. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "PMD.ShortVariable"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class DefaultMessageTest {
 
   /** A distinct non-default value for each component type except String. */
@@ -294,7 +294,6 @@ class DefaultMessageTest {
   }
 
   @Test
-  @SuppressWarnings("PMD.LawOfDemeter")
   void testCreateFactory() {
     final UUID traceId = UUID.randomUUID();
     final String payload = "testPayload";

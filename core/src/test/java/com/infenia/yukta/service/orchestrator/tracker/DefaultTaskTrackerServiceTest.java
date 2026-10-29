@@ -41,12 +41,10 @@ import reactor.test.StepVerifier;
   "PMD.UnitTestShouldIncludeAssert",
   "PMD.ExcessiveImports",
   "PMD.AvoidInstantiatingObjectsInLoops",
-  "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
   "PMD.CyclomaticComplexity",
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidAccessibilityAlteration",
-  "PMD.ShortVariable",
   "PMD.CouplingBetweenObjects"
 })
 @ExpectedErrorLog({

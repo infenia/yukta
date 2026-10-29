@@ -25,11 +25,7 @@ import reactor.core.publisher.Flux;
 
 /** Tests for the REST shape of {@link NodeOutputController}. */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.LawOfDemeter",
-  "PMD.UnitTestShouldIncludeAssert",
-  "PMD.AvoidDuplicateLiterals"
-})
+@SuppressWarnings({"PMD.UnitTestShouldIncludeAssert", "PMD.AvoidDuplicateLiterals"})
 class NodeOutputControllerTest {
 
   /** The client. */

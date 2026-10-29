@@ -32,17 +32,13 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.AvoidInstantiatingObjectsInLoops",
   "PMD.UseConcurrentHashMap",
   "PMD.NcssCount",
-  "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidUsingVolatile",
   "PMD.CyclomaticComplexity",
   "PMD.AvoidLiteralsInIfCondition",
-  "PMD.ShortVariable",
   "PMD.TooManyMethods",
   "PMD.CognitiveComplexity",
-  "PMD.NPathComplexity",
-  "PMD.OnlyOneReturn",
-  "PMD.LawOfDemeter"
+  "PMD.NPathComplexity"
 })
 @NoArgsConstructor
 class McpClientGatewayTest {

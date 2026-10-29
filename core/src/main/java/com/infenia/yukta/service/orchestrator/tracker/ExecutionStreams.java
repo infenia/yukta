@@ -23,7 +23,7 @@ import reactor.core.publisher.Sinks;
 
 /** The live log and status streams of the executions a tracker follows. */
 @Slf4j
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.OnlyOneReturn", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 final class ExecutionStreams {
 
   /** Completes a sink, retrying only while another thread is emitting at the same moment. */

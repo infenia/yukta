@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
 class ProviderRateLimitsTest {
 
   private final ProviderRateLimits limits = new ProviderRateLimits();

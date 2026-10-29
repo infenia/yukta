@@ -7,7 +7,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
 /** Tests for WorkflowSummary. */
-@SuppressWarnings("PMD.AtLeastOneConstructor")
 class WorkflowSummaryTest {
 
   /** Workflow ID constant. */

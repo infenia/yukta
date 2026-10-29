@@ -19,7 +19,7 @@ import reactor.core.publisher.SynchronousSink;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.GuardLogStatement", "unchecked"})
+@SuppressWarnings({"PMD.GuardLogStatement", "unchecked"})
 class WorkerNodeExecutorTest {
 
   private final WorkerNodeExecutor executor =

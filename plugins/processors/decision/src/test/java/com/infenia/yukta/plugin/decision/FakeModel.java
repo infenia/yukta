@@ -15,7 +15,6 @@ import org.mockito.Mockito;
 import reactor.core.publisher.Mono;
 
 /** A decision model for plugin tests: answers from a function and records what it was asked. */
-@SuppressWarnings("PMD.CommentRequired")
 final class FakeModel implements DecisionModel {
 
   /** What the model was asked. */

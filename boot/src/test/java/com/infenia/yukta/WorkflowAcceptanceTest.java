@@ -37,7 +37,7 @@ import org.springframework.test.context.TestPropertySource;
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
 @TestPropertySource(properties = "yukta.stop.drain-timeout=2s")
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 @NoArgsConstructor
 @ExpectedErrorLog({
   "ERROR com.infenia.yukta.plugin.process.ProcessExecutorPlugin - ",

@@ -332,7 +332,6 @@ class SessionConfigDataTest {
   }
 
   @Test
-  @SuppressWarnings("PMD.ShortVariable")
   void workflowsMapShouldBeImmutable() {
     final var wf =
         new WorkflowDefinition(

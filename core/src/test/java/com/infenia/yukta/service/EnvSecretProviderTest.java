@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.LinguisticNaming"})
+@SuppressWarnings("PMD.LinguisticNaming")
 class EnvSecretProviderTest {
 
   private static final String DB_PASSWORD = "db.password";

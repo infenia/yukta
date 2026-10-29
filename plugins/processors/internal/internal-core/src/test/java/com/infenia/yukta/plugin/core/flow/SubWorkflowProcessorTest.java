@@ -33,7 +33,6 @@ import reactor.util.context.Context;
 @NoArgsConstructor
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
-  "PMD.CommentRequired",
   "PMD.TooManyMethods",
   "PMD.TooManyStaticImports",
   "unchecked"

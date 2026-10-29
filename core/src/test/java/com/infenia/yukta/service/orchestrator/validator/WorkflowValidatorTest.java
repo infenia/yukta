@@ -342,7 +342,6 @@ class WorkflowValidatorTest {
     // Fails at validateEntryPoints (no incoming → entry point but not canBeTrigger)
     // Only needs getCategory
 
-    @SuppressWarnings("PMD.CommentRequired")
     /*  Interface for testing plugins that implement multiple categories.   */
     interface Hybrid extends TriggerPlugin, ProcessorPlugin {
       @Override

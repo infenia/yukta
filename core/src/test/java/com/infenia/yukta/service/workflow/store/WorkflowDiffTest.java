@@ -13,7 +13,6 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class WorkflowDiffTest {
 
   private static WorkflowDefinition definition(

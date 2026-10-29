@@ -42,7 +42,7 @@ class DirectNodeMessageChannelConfigurationTest {
   }
 
   @Test
-  @SuppressWarnings({NO_ASSERT, "PMD.LawOfDemeter"})
+  @SuppressWarnings(NO_ASSERT)
   void maxPayloadBytes_negativeValueIsRefusedAtStartup() {
     contextRunner
         .withPropertyValues("yukta.messaging.max-payload-bytes=-1")

@@ -163,11 +163,7 @@ public class WorkersAutoConfiguration {
    * @return the agent, started and stopped with the application
    */
   @Bean(initMethod = "start", destroyMethod = "stop")
-  @SuppressWarnings({
-    "PMD.UseObjectForClearerAPI",
-    "PMD.ExcessiveParameterList",
-    "PMD.LawOfDemeter"
-  })
+  @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.ExcessiveParameterList"})
   @ConditionalOnExpression("!'${yukta.workers.control-plane:}'.isEmpty()")
   public WorkerAgent workerAgent(
       final RSocketRequester.Builder builder,

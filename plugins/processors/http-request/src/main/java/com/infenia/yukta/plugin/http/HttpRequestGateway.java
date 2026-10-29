@@ -16,7 +16,6 @@ import reactor.core.publisher.Mono;
 /** Gateway executing HTTP requests with WebClient. */
 @Service
 @RequiredArgsConstructor
-@SuppressWarnings("PMD.OnlyOneReturn")
 public class HttpRequestGateway {
 
   /** Builder used to create the WebClient for each request. */

@@ -6,7 +6,6 @@ import java.util.Arrays;
 import java.util.Locale;
 
 /** Shape of the output message payload produced by the process executor plugin. */
-@SuppressWarnings("PMD.OnlyOneReturn")
 public enum OutputFormat {
   /**
    * Payload is a map describing the execution: exitCode, success, timedOut, durationMillis,

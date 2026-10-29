@@ -8,7 +8,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 class MicrometerPluginMetricsReporterTest {
 

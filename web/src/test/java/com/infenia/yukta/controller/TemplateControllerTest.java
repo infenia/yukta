@@ -11,7 +11,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 
 /** The templates are the examples bundled by the build. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.LawOfDemeter", "PMD.UnitTestShouldIncludeAssert"})
+@SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
 class TemplateControllerTest {
 
   private final WebTestClient client =

@@ -49,12 +49,7 @@ import tools.jackson.databind.ObjectMapper;
  * <p>A {@link ChatModel} owns an HTTP client, so one is built per distinct connection/sampling
  * configuration and reused. Calls are blocking; callers must schedule them accordingly.
  */
-@SuppressWarnings({
-  "PMD.LawOfDemeter",
-  "PMD.ExcessiveImports",
-  "PMD.TooManyMethods",
-  "PMD.CouplingBetweenObjects"
-})
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 @Service
 @RequiredArgsConstructor
 public class LlmGateway {

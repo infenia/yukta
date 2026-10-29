@@ -15,7 +15,6 @@ import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Sinks;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class SinkEmitTest {
 
   @Test

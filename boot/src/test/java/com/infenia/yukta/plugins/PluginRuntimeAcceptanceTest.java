@@ -39,7 +39,6 @@ import reactor.core.publisher.Sinks;
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidCatchingGenericException",
   "PMD.AvoidInstantiatingObjectsInLoops"

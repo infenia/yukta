@@ -42,13 +42,7 @@ import org.opentest4j.AssertionFailedError;
  */
 @Slf4j
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.TooManyMethods",
-  "PMD.LawOfDemeter",
-  "PMD.AvoidCatchingGenericException",
-  "PMD.GodClass"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidCatchingGenericException", "PMD.GodClass"})
 public final class ErrorGuardExtension
     implements BeforeEachCallback, AfterEachCallback, AfterAllCallback {
 

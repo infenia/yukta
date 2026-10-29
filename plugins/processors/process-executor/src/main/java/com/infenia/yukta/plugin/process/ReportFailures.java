@@ -38,7 +38,6 @@ import tools.jackson.databind.json.JsonMapper;
 @SuppressWarnings({
   "PMD.AvoidCatchingGenericException",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.OnlyOneReturn",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap"
 })

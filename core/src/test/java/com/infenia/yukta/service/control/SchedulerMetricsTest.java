@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class SchedulerMetricsTest {
 
   @Test

@@ -20,9 +20,7 @@ import reactor.test.scheduler.VirtualTimeScheduler;
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidInstantiatingObjectsInLoops",
   "PMD.CommentDefaultAccessModifier",
-  "PMD.CommentRequired",
   "PMD.ShortClassName",
-  "PMD.ShortVariable",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap",
   "PMD.AvoidAccessibilityAlteration"

@@ -12,7 +12,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.mock.env.MockEnvironment;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class FeatureGateEnvironmentPostProcessorTest {
 
   @ParameterizedTest

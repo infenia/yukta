@@ -14,7 +14,7 @@ import reactor.util.context.ContextView;
  * {@link #CONTEXT_KEY}; no key in the context means no key is configured.
  */
 @UtilityClass
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn", "PMD.NullAssignment"})
+@SuppressWarnings("PMD.NullAssignment")
 public class CallerIdentity {
 
   /** Reactor context key of the {@link ApiKeys.Match} the filter resolved. */

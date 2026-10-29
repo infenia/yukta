@@ -246,7 +246,6 @@ public class WorkflowOrchestrator {
    *
    * @param admission the slot taken in advance, or null to ask for one when the run starts
    */
-  @SuppressWarnings("PMD.OnlyOneReturn")
   public Mono<Void> restartFromNode(
       final String sessionId,
       final String workflowId,
@@ -289,11 +288,7 @@ public class WorkflowOrchestrator {
    * @param admission the slot taken in advance (given back if the run cannot begin), or null to ask
    *     for one when the run starts
    */
-  @SuppressWarnings({
-    "PMD.ExcessiveParameterList",
-    "PMD.AvoidCatchingGenericException",
-    "PMD.OnlyOneReturn"
-  })
+  @SuppressWarnings({"PMD.ExcessiveParameterList", "PMD.AvoidCatchingGenericException"})
   public Mono<Void> rerun(
       final String sessionId,
       final String workflowId,

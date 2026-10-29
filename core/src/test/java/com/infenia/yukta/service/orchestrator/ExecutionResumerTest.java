@@ -40,12 +40,10 @@ import reactor.test.StepVerifier;
 
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports",
-  "PMD.TooManyStaticImports",
-  "PMD.LawOfDemeter"
+  "PMD.TooManyStaticImports"
 })
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.ExecutionResumer - ")
 class ExecutionResumerTest {

@@ -16,7 +16,7 @@ import reactor.test.StepVerifier;
 
 /** Tests for GatePlugin and ScorePlugin. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
 class GateAndScorePluginTest {
 
   private static Map<String, Object> config(final Object... extra) {

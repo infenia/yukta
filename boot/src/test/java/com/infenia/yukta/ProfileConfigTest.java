@@ -10,7 +10,7 @@ import org.springframework.boot.test.context.ConfigDataApplicationContextInitial
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 /** Guards the profile-specific config: nothing sensitive may leak into the default or prod. */
-@SuppressWarnings({"PMD.UnitTestShouldIncludeAssert", "PMD.CommentRequired"})
+@SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
 @NoArgsConstructor
 class ProfileConfigTest {
 

@@ -36,12 +36,7 @@ import reactor.test.StepVerifier;
 @MockitoSettings
 @NoArgsConstructor
 @DisplayName("LogStoreSubscriber")
-@SuppressWarnings({
-  "PMD.TooManyStaticImports",
-  "PMD.CommentRequired",
-  "PMD.CommentDefaultAccessModifier",
-  "PMD.LawOfDemeter"
-})
+@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.CommentDefaultAccessModifier"})
 class LogStoreSubscriberTest {
 
   /** Test execution ID. */

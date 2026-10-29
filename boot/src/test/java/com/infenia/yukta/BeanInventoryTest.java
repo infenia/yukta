@@ -34,7 +34,6 @@ import org.springframework.util.ClassUtils;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.supervisor.rules.file=false")
-@SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 class BeanInventoryTest {
 

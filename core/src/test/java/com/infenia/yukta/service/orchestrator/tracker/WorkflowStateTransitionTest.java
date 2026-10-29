@@ -16,11 +16,7 @@ import org.junit.jupiter.api.Test;
 
 /** Random event orders must never produce an illegal node transition. */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.AvoidInstantiatingObjectsInLoops"
-})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.AvoidInstantiatingObjectsInLoops"})
 class WorkflowStateTransitionTest {
 
   private static final int SEQUENCES = 2_000;

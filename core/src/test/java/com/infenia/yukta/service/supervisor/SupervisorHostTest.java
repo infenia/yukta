@@ -36,14 +36,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
   "PMD.ExcessiveImports",
   "PMD.TooManyMethods",
   "PMD.TooManyStaticImports",
-  "PMD.ShortVariable",
   "PMD.ShortMethodName",
-  "PMD.LawOfDemeter",
   "PMD.UnitTestShouldIncludeAssert"
 })
 @NoArgsConstructor

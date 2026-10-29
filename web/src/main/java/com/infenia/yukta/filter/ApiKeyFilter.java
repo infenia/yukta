@@ -72,7 +72,7 @@ import reactor.core.publisher.Mono;
 @Component
 @NullMarked
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.OnlyOneReturn", "PMD.ExcessiveImports"})
+@SuppressWarnings("PMD.ExcessiveImports")
 public class ApiKeyFilter implements WebFilter {
 
   /** The one actuator endpoint that needs no key (liveness probes). */

@@ -36,7 +36,6 @@ import tools.jackson.databind.json.JsonMapper;
  * through.
  */
 @Component
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class McpErrorFilter implements WebFilter {
 

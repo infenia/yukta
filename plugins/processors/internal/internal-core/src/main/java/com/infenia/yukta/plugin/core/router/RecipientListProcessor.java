@@ -31,7 +31,6 @@ import reactor.core.publisher.Mono;
 @Component
 @SuppressWarnings({
   "PMD.AvoidCatchingGenericException",
-  "PMD.OnlyOneReturn",
   "PMD.TooManyMethods",
   "PMD.GuardLogStatement"
 })

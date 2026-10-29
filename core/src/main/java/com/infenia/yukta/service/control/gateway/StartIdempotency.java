@@ -26,7 +26,6 @@ import reactor.core.publisher.Mono;
  * so retrying it runs again.
  */
 @Component
-@SuppressWarnings("PMD.OnlyOneReturn")
 public class StartIdempotency implements SmartInitializingSingleton {
 
   /** Execution id by scope and key; entries expire a fixed time after they were written. */

@@ -17,11 +17,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.UnitTestShouldIncludeAssert",
-  "PMD.AvoidDuplicateLiterals"
-})
+@SuppressWarnings({"PMD.UnitTestShouldIncludeAssert", "PMD.AvoidDuplicateLiterals"})
 class ExecutionSearchControllerTest {
 
   private static final LocalDateTime NOON = LocalDateTime.of(2026, 1, 2, 12, 0);

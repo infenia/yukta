@@ -128,7 +128,6 @@ public class PluginController {
                   final List<ApiResponse.FieldError> errors =
                       List.of(
                           new ApiResponse.FieldError("type", "Plugin not found: '" + type + "'"));
-                  @SuppressWarnings("PMD.LawOfDemeter")
                   final var request = exchange.getRequest();
                   final String path = request.getPath().value();
                   return ResponseEntity.status(HttpStatus.NOT_FOUND)
