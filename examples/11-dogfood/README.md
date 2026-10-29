@@ -104,7 +104,7 @@ a per-effort budget and time box. `YK_ADVISOR=sonnet` (experimental, off by defa
 ### Configuration
 - `heal.json`: ladders per level, efforts (budget, time box), triage model and URL, the healable stages with their free fixes,
   the extra tools (ui, docs, reuse, actionlint). `YUKTA_TRIAGE_MODEL` and `YUKTA_TRIAGE_URL` override the triage model and URL.
-- `fixer-rules.md`: the one constant system prompt of every fixer.
+- `fixer-rules.md`: the common system prompt of every fixer. `fixer-rules/<kind>.md` is appended for the failed stage (`style` → `pmd`, `spotbugs`, `tests` → `junit`, `coverage`, `compile`, `ui_vitest` → `vitest`, other `ui_*` → `ui`, `cli_*` → `go`); any other stage gets the common prompt alone. One constant file per kind, so the prompt cache holds. To add a role, add the file and a line in the `case` of `scripts/claude.sh`.
 - `session.json` is **generated**: after editing `heal.json`, run `python3 scripts/gen-heal.py` and `python3 scripts/gen-check.py`,
   then commit it.
 - Events of every heal step: `~/.local/state/yukta-dev/heal-events.jsonl`; records of one run: `<checkout>/.yukta-dev/heal/`.
@@ -118,6 +118,7 @@ a per-effort budget and time box. `YK_ADVISOR=sonnet` (experimental, off by defa
 | `scripts/gen-heal.py`, `scripts/gen-check.py` | generate the workflows into `session.json` |
 | `scripts/yukta-heal.sh` | the script steps of heal and attempt, and the guard |
 | `scripts/claude.sh`, `scripts/_claude.sh` | the slim headless Claude launcher |
+| `scripts/test-fixer-role.sh` | offline test that a stage gets its fixer role |
 | `scripts/_lib.sh` | server, session and watch helpers |
 | `scripts/test-heal.sh` | the end-to-end test of check and heal against a fake claude (`yk up` first; no API cost) |
 | `scripts/test-hooks.sh` | the Claude Code hooks |

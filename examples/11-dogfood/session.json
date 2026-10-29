@@ -2229,7 +2229,8 @@
               "YK_RULES": "${start.rules}",
               "YK_SCHEMA": "${start.schema}",
               "YK_SESSION": "${start.sessionId}",
-              "YK_CLAUDE_BIN": "${start.claudeBin}"
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "YK_STAGE": "${start.stage}"
             },
             "timeout": "${start.timeout:int}",
             "failureMode": "CONTINUE",
@@ -2333,7 +2334,8 @@
               "rules": "${start.rules}",
               "schema": "{\"type\":\"object\",\"properties\":{\"fixed\":{\"type\":\"boolean\"},\"summary\":{\"type\":\"string\"}},\"required\":[\"fixed\",\"summary\"]}",
               "sessionId": "-",
-              "claudeBin": "${start.claudeBin}"
+              "claudeBin": "${start.claudeBin}",
+              "stage": "${start.stage}"
             }
           }
         },

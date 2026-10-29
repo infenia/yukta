@@ -4,10 +4,11 @@
 #
 # Environment (a value of "-" is unset; the workflow cannot pass an empty one):
 #   YK_MODEL haiku|sonnet|opus   YK_EFFORT low|medium|high   YK_BUDGET USD   YK_RULES system prompt file   YK_SCHEMA JSON schema of the answer
+#   YK_STAGE the failed stage: picks the role file fixer-rules/<kind>.md appended to YK_RULES (none for a stage without one)
 #   YK_SESSION session id   YK_ADVISOR advisor model (experimental, off when unset)   YK_CLAUDE_BIN a stand-in for `claude` (tests)
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-for v in YK_MODEL YK_EFFORT YK_BUDGET YK_RULES YK_SCHEMA YK_SESSION YK_CLAUDE_BIN YK_ADVISOR; do [[ "${!v:-}" == - ]] && unset "$v"; done
+for v in YK_MODEL YK_EFFORT YK_BUDGET YK_RULES YK_SCHEMA YK_SESSION YK_CLAUDE_BIN YK_ADVISOR YK_STAGE; do [[ "${!v:-}" == - ]] && unset "$v"; done
 prompt="$(jq -r '.prompt // empty')"
 [[ -n "$prompt" ]] || { echo "claude.sh: no prompt on stdin" >&2; exit 2; }
 # shellcheck source=_claude.sh
@@ -27,7 +28,23 @@ if [[ "${YUKTA_FIXER_MCP:-on}" != off ]]; then
 fi
 [[ -z "${YK_CLAUDE_BIN:-}" ]] || export YUKTA_CLAUDE_BIN="$YK_CLAUDE_BIN"
 err="$(mktemp)"
-trap 'rm -f "$err"' EXIT
-yk_claude "${YK_MODEL:?YK_MODEL}" "$prompt" "${YK_RULES:?YK_RULES}" "${YK_BUDGET:-1}" "$err" "${YK_SESSION:-}"
+tmp=""
+trap 'rm -f "$err" "$tmp"' EXIT
+# The role of the fixer by stage: one constant file per kind, so the cached prefix stays byte-identical for that kind.
+case "${YK_STAGE:-}" in
+  style) kind=pmd ;;
+  spotbugs | compile | coverage) kind="$YK_STAGE" ;;
+  tests) kind=junit ;;
+  ui_vitest) kind=vitest ;;
+  ui_*) kind=ui ;;
+  cli_*) kind=go ;;
+  *) kind="" ;;
+esac
+rules="${YK_RULES:?YK_RULES}"
+if [[ -f "$here/../fixer-rules/$kind.md" ]]; then
+  tmp="$(mktemp)"; rules="$tmp"
+  cat "$YK_RULES" "$here/../fixer-rules/$kind.md" >"$tmp"
+fi
+yk_claude "${YK_MODEL:?YK_MODEL}" "$prompt" "$rules" "${YK_BUDGET:-1}" "$err" "${YK_SESSION:-}"
 rc=$?
 ((rc == 0)) || { tail -5 "$err" >&2; exit "$rc"; }
