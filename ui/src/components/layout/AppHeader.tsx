@@ -62,10 +62,6 @@ export default function AppHeader() {
       <div className="px-spacing-md flex h-12 w-full items-center justify-between pr-2 sm:px-6">
         <HeaderLogo />
         <div className="flex items-center">
-          <div
-            id="header-actions"
-            className="mr-2 flex items-center gap-2 empty:mr-0"
-          />
           <button
             type="button"
             onClick={openCommandPalette}

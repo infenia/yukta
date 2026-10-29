@@ -49,7 +49,6 @@ function renderAt(path: string) {
   return render(
     <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter initialEntries={[path]}>
-        <div id="header-actions" />
         <Where />
         <Routes>
           <Route index element={<SessionListPage />} />

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -78,8 +78,6 @@ function renderPage(
     <QueryClientProvider client={createTestQueryClient()}>
       <BreadcrumbOverridesProvider>
         <MemoryRouter initialEntries={[initialEntry]}>
-          <div id="header-actions" />
-          <div id="breadcrumb-actions" />
           <Routes>
             <Route
               path="/sessions/:sessionId/workflow/:workflowId"
@@ -116,10 +114,11 @@ describe('WorkflowDetailsPage', () => {
     expect(
       await screen.findByTestId('workflow-details-page')
     ).toBeInTheDocument();
+    // the ID is the title; the description sits under it
     expect(
-      screen.getByRole('heading', { name: 'Supply_Chain_Optimizer_V2' })
+      screen.getByRole('heading', { name: 'wf-982-xk-11' })
     ).toBeInTheDocument();
-    expect(screen.getByText('ID: wf-982-xk-11')).toBeInTheDocument();
+    expect(screen.getByText('Supply_Chain_Optimizer_V2')).toBeInTheDocument();
     expect(screen.getByTestId('workflow-canvas')).toBeInTheDocument();
     expect(screen.getByTestId('progress-panel')).toBeInTheDocument();
     expect(screen.getByTestId('logs-panel')).toBeInTheDocument();
@@ -132,16 +131,18 @@ describe('WorkflowDetailsPage', () => {
     );
   });
 
-  it('portals the progress toggle into the header and the run history into the breadcrumb bar', async () => {
+  it('keeps the run picker and the progress toggle in its own toolbar', async () => {
     renderPage();
     await screen.findByTestId('workflow-details-page');
 
-    const headerSlot = must(document.getElementById('header-actions'));
-    expect(headerSlot.textContent).toContain('Workflow progress');
-
-    const breadcrumbSlot = must(document.getElementById('breadcrumb-actions'));
-    expect(breadcrumbSlot.textContent).toContain('Run History:');
-    expect(breadcrumbSlot.textContent).toContain('exec-091-qp-55');
+    const toolbar = must(
+      screen.getByRole('heading', { name: 'wf-982-xk-11' }).parentElement
+    );
+    expect(toolbar.textContent).toContain('Run History:');
+    expect(toolbar.textContent).toContain('exec-091-qp-55');
+    expect(
+      within(toolbar).getByRole('button', { name: 'Workflow progress' })
+    ).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('opens and closes the versions panel', async () => {
@@ -157,12 +158,20 @@ describe('WorkflowDetailsPage', () => {
       )
     );
     renderPage();
-    const toggle = await screen.findByRole('button', { name: /versions/i });
+    const menu = await screen.findByRole('button', {
+      name: 'Workflow actions',
+    });
 
-    await userEvent.click(toggle);
+    await userEvent.click(menu);
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Versions' })
+    );
     expect(await screen.findByText('0001-a')).toBeInTheDocument();
 
-    await userEvent.click(toggle);
+    await userEvent.click(menu);
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Hide versions' })
+    );
     expect(screen.queryByText('0001-a')).not.toBeInTheDocument();
   });
 

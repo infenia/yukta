@@ -136,8 +136,6 @@ function renderPage() {
     <QueryClientProvider client={createTestQueryClient()}>
       <BreadcrumbOverridesProvider>
         <MemoryRouter initialEntries={['/sessions/S 1/workflow/wf-982-xk-11']}>
-          <div id="header-actions" />
-          <div id="breadcrumb-actions" />
           <Where />
           <Routes>
             <Route
@@ -165,8 +163,15 @@ describe('WorkflowDetailsPage controls', () => {
   it('opens the typed confirmation to delete the workflow', async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.click(await screen.findByRole('button', { name: /Delete workflow…/ }));
-    expect(screen.getByRole('dialog', { name: 'Delete workflow wf-982-xk-11' })).toBeInTheDocument();
+    await user.click(
+      await screen.findByRole('button', { name: 'Workflow actions' })
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Delete workflow…' })
+    );
+    expect(
+      screen.getByRole('dialog', { name: 'Delete workflow wf-982-xk-11' })
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
