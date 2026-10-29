@@ -348,19 +348,20 @@ cmd_tree() {
       + ([$appr[] | select(.executionId == $r.executionId) | " awaiting \(.name)@\(.nodeId)"] | join(""))' <<<"$runs"
 }
 
-# yk pause|resume|stop EXEC [--tree]
+# yk pause|resume|stop EXEC [--tree] [--now]   (--now: stop ends the run at once, mode KILL; without it the stop drains, up to 30 s)
 cmd_run_control() {
-  local verb="$1" exec tree=false
+  local verb="$1" exec tree=false mode=
   shift
   exec="$(resolve_exec "${1:?usage: yk $verb <execution> [--tree]}")"
   shift
   while (($#)); do
     case "$1" in
       --tree) tree=true; shift ;;
-      *) die "unknown option '$1' (yk $verb <execution> [--tree])" ;;
+      --now) [[ "$verb" == stop ]] || die "--now is for yk stop"; mode=KILL; shift ;;
+      *) die "unknown option '$1' (yk $verb <execution> [--tree]$([[ "$verb" == stop ]] && echo ' [--now]'))" ;;
     esac
   done
-  api POST "/api/executions/$exec/$verb?tree=$tree" >/dev/null
+  api POST "/api/executions/$exec/$verb?tree=$tree${mode:+&mode=$mode}" >/dev/null
   echo "$verb: $exec$([[ "$tree" == true ]] && echo ' and the runs below it')"
 }
 

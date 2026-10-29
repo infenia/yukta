@@ -35,6 +35,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
+import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
@@ -708,6 +709,22 @@ class DefaultControlBusGatewayTest {
         .verify();
 
     verify(taskTracker, never()).finishWorkflow(any(), any());
+  }
+
+  @Test
+  void stopExecution_withMode_putsTheModeOnTheStopCommand() {
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(control.executionId()).thenReturn("exec-kill");
+    when(executionControlRegistry.findByExecutionId("exec-kill")).thenReturn(Optional.of(control));
+    when(controlBusService.emit(any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(gateway.stopExecution("exec-kill", "runaway", StopMode.KILL))
+        .expectNext("exec-kill")
+        .verifyComplete();
+
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    verify(controlBusService).emit(captor.capture());
+    assertThat(((StopWorkflowCommand) captor.getValue().payload()).mode()).isEqualTo(StopMode.KILL);
   }
 
   @Test
