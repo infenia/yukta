@@ -2864,6 +2864,7 @@
               "problems": "payload['results'] == null ? payload['problems'] : (payload['results'].size() > 0 ? payload['results'][0]['output']['problems'] : 'The previous attempt did not finish: ' + payload['reason'])",
               "previous": "payload['results'] == null ? 'The previous attempt ran out of time.' : (payload['results'].size() > 0 ? payload['results'][0]['output']['summary'] : '')",
               "changed": "payload['results'] == null ? true : (payload['results'].size() > 0 ? payload['results'][0]['output']['changed'] : true)",
+              "same": "payload['results'] == null ? false : (payload['results'].size() > 0 ? payload['results'][0]['output']['same'] : false)",
               "stage": "payload['results'] == null ? '' : (payload['results'].size() > 0 ? payload['results'][0]['output']['stage'] : '')"
             }
           }
@@ -2874,7 +2875,7 @@
           "config": {
             "mode": "EXPRESSION",
             "cases": {
-              "payload['changed'] == false or {'reuse','docs','actionlint'}.contains(payload['stage'])": "stop"
+              "payload['changed'] == false or payload['same'] == true or {'reuse','docs','actionlint'}.contains(payload['stage'])": "stop"
             },
             "defaultPort": "go"
           }
