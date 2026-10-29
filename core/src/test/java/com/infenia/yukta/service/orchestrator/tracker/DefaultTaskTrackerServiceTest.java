@@ -3243,9 +3243,15 @@ class DefaultTaskTrackerServiceTest {
         new DefaultTaskTrackerService(
             Duration.ofSeconds(30), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
 
-    counting.recordEdgeDropped("HTTP_REQUEST");
+    counting.recordEdgeDropped("HTTP_REQUEST", "n1");
 
-    assertThat(meters.get("yukta.edge.dropped").tag("type", "HTTP_REQUEST").counter().count())
+    assertThat(
+            meters
+                .get("yukta.edge.dropped")
+                .tag("type", "HTTP_REQUEST")
+                .tag("node", "n1")
+                .counter()
+                .count())
         .isEqualTo(1);
   }
 

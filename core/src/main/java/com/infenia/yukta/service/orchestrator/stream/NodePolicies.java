@@ -181,18 +181,20 @@ public class NodePolicies {
    * @param input the node's input
    * @param tracker counts every dropped message
    * @param module the node type, for the counter
+   * @param nodeId the node, for the counter
    * @return the input, bounded when the node asked for it
    */
   public static Flux<Message<?>> edgeBuffered(
       final NodePolicy.@Nullable EdgeBuffer buffer,
       final Flux<Message<?>> input,
       final TaskTrackerService tracker,
-      final String module) {
+      final String module,
+      final String nodeId) {
     return buffer == null
         ? input
         : input.onBackpressureBuffer(
             buffer.size(),
-            _ -> tracker.recordEdgeDropped(module),
+            _ -> tracker.recordEdgeDropped(module, nodeId),
             buffer.overflow() == NodePolicy.Overflow.DROP_OLDEST
                 ? BufferOverflowStrategy.DROP_OLDEST
                 : BufferOverflowStrategy.DROP_LATEST);
