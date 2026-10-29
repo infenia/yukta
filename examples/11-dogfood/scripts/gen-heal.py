@@ -109,7 +109,7 @@ ATTEMPT_WF = {"workflowId": "attempt", "description": "One repair attempt: one C
     {"nodeId": "claude", "type": "SUB_WORKFLOW", "config": claude_call},
     pe("claimed", "claimed", heal_env(**a_env), stdin=True, timeout=60),
     {"nodeId": "format", "type": "SUB_WORKFLOW", "config": {**tool_call(S("format"), "format"), **ROUTE}},
-    pe("judge", "judge", heal_env(**a_env), routed=True),
+    pe("judge", "judge", heal_env(**a_env, YUKTA_PROBLEMS=S("problems")), routed=True),
     {"nodeId": "recheck", "type": "SUB_WORKFLOW", "config": {**tool_call(S("command"), S("stage")), **ROUTE}},
     pe("report", "report", heal_env(**a_env, YUKTA_PROBLEMS="${start.problems}"), stdin=True, json_out=True),
     {"nodeId": "fixed?", "type": "BRANCH", "config": {"mode": "SELECT_KEY", "selector": "payload['output']['fixed']", "cases": {"true": "fixed"}, "defaultPort": "notfixed"}},

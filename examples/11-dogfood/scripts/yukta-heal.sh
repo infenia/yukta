@@ -278,7 +278,32 @@ ${YUKTA_HEAL_TIMEOUT:+You have about $((YUKTA_HEAL_TIMEOUT / 60)) minutes at ${e
       violations+=" changed test expectations without changing any code."
     fi
     [[ "$claimed" == true && -z "$changed" ]] && violations+=" claimed a fix but changed nothing."
-    jq -nc --argjson files "$(files_json "$changed")" --arg violations "$violations" '{files: $files, violations: $violations}' >"$dir/$stage-$n.verdict"
+    # the decision model's view of a change the rules let through: one call over per-file facts (never the diff). It can only turn a clean
+    # change into a rejection (a rule hit stays a rule hit), and only in mode on and with probability >= decisions.guard.minProbability.
+    outside=""
+    if [[ -z "$violations" && "$claimed" == true && -n "$changed" ]]; then
+      # ponytail: a module is a top-level directory of its name; nested gradle paths (plugins/...) count as outside until it matters
+      [[ -z "$module" ]] || outside="$(grep -Ev "^($(sed 's/ \+/|/g' <<<"$module"))/" <<<"$changed" || true)"
+      facts="$(while IFS= read -r f; do
+        [[ -n "$f" ]] || continue
+        printf '%s +%s -%s%s%s\n' "$f" "$(git diff --numstat "$base" -- "$f" 2>/dev/null | awk '{ print $1 + 0 }')" "$(git diff --numstat "$base" -- "$f" 2>/dev/null | awk '{ print $2 + 0 }')" \
+          "$(grep -Eq "$tests_re" <<<"$f" && echo ' test')" "$(grep -qxF "$f" <<<"$outside" && echo ' outside-module')"
+      done <<<"$changed" | head -8)"
+      digest="$(printf 'failure: %s\nfiles changed:\n%s' "$(grep -m1 . <<<"${YUKTA_PROBLEMS:-}" | cut -c1-200)" "$facts" | head -c 700)"
+      if answer="$(
+        # shellcheck source=_lib.sh
+        source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+        decide guard "$digest" "Does this change fix the failure?" "$(jq -c '.decisions.guard.criteria' "$(dirname "${BASH_SOURCE[0]}")/../decisions.json")" 2>&2
+      )"; then
+        label="${answer% *}" prob="${answer#* }"
+        min="$(jq -r '.decisions.guard.minProbability // 0.6' "$(dirname "${BASH_SOURCE[0]}")/../decisions.json")"
+        if [[ "$label" != fine ]] && awk -v p="$prob" -v m="$min" 'BEGIN { exit !(p >= m) }'; then
+          violations+=" model: the change looks $label (p=$prob)."
+        fi
+      fi
+    fi
+    jq -nc --argjson files "$(files_json "$changed")" --arg violations "$violations" --argjson outside "$(files_json "$outside")" \
+      '{files: $files, violations: $violations, outside: $outside}' >"$dir/$stage-$n.verdict"
     # 0 = a clean change that Claude says fixes it: the stage runs again
     [[ "$claimed" == true && -z "$violations" && -n "$changed" ]]
     ;;
