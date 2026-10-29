@@ -109,7 +109,7 @@ export function WorkflowDetailsPage() {
 
   return (
     <div
-      className="bg-background flex flex-1 flex-col"
+      className="flex flex-1 flex-col bg-background"
       data-testid="workflow-details-page"
     >
       <HeaderPortal targetId="header-actions">

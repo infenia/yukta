@@ -40,7 +40,12 @@ import reactor.core.publisher.Sinks;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.AvoidSynchronizedStatement", "PMD.TooManyMethods", "PMD.OnlyOneReturn"})
+@SuppressWarnings({
+  "PMD.AvoidSynchronizedStatement",
+  "PMD.TooManyMethods",
+  "PMD.OnlyOneReturn",
+  "PMD.CyclomaticComplexity"
+})
 public class ExecutionScheduler implements SmartLifecycle {
 
   /** Start payload key that sets the priority of a start. */
@@ -284,6 +289,30 @@ public class ExecutionScheduler implements SmartLifecycle {
                       })
               : grant);
     }
+  }
+
+  /**
+   * Asks for a slot for a restart or resume, which counts against {@code
+   * yukta.execution.max-starts-per-minute} like a new start; a refused one is returned as a refused
+   * admission, like any other refusal.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param priority higher is admitted first when starts have to wait
+   * @param executionId the execution asking
+   * @return the slot at once if there is room, otherwise a Mono that waits for one
+   */
+  public Admission acquireRerun(
+      final String sessionId,
+      final String workflowId,
+      final int priority,
+      final String executionId) {
+    assertLeader();
+    if (!startRate.tryAcquire(workflowId)) {
+      return refused(
+          refusal(RejectReason.RATE_LIMIT, "Too many starts of this workflow per minute"));
+    }
+    return acquire(sessionId, workflowId, priority, executionId);
   }
 
   /**

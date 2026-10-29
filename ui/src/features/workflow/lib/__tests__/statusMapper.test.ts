@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  isQueuedExecStatus,
   isAbortedExecStatus,
   isTerminalExecStatus,
   toExecStatusCategory,
@@ -73,12 +74,17 @@ describe('toExecStatusCategory', () => {
 });
 
 describe('isTerminalExecStatus', () => {
-  it.each(['COMPLETED', 'FAILED', 'CANCELLED', 'WORKFLOW_STOPPED', 'SUCCESS', 'FAILURE', 'ERROR'])(
-    'treats %s as terminal',
-    (raw) => {
-      expect(isTerminalExecStatus(raw)).toBe(true);
-    }
-  );
+  it.each([
+    'COMPLETED',
+    'FAILED',
+    'CANCELLED',
+    'WORKFLOW_STOPPED',
+    'SUCCESS',
+    'FAILURE',
+    'ERROR',
+  ])('treats %s as terminal', (raw) => {
+    expect(isTerminalExecStatus(raw)).toBe(true);
+  });
 
   it('treats non-terminal and missing statuses as not terminal', () => {
     expect(isTerminalExecStatus('RUNNING')).toBe(false);
@@ -124,6 +130,14 @@ describe('toDisplayExecStatus', () => {
   it('ignores non-pause control states and falls back to null', () => {
     expect(toDisplayExecStatus('RUNNING', 'RESUMED')).toBe('RUNNING');
     expect(toDisplayExecStatus(undefined, null)).toBeNull();
+  });
+});
+
+describe('isQueuedExecStatus', () => {
+  it('is true only for QUEUED', () => {
+    expect(isQueuedExecStatus('QUEUED')).toBe(true);
+    expect(isQueuedExecStatus('PENDING')).toBe(false);
+    expect(isQueuedExecStatus(null)).toBe(false);
   });
 });
 

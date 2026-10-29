@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterAll,
+  afterEach,
+} from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
@@ -31,7 +39,13 @@ const server = setupServer(
   http.get('/api/control/audit', () => ok([])),
   http.get('/api/workers', () => ok([])),
   http.get('/api/scheduler/limits', () =>
-    ok({ maxConcurrent: 0, maxPerWorkflow: 0, running: 0, queued: 0, queueCapacity: 100 })
+    ok({
+      maxConcurrent: 0,
+      maxPerWorkflow: 0,
+      running: 0,
+      queued: 0,
+      queueCapacity: 100,
+    })
   ),
   http.get('/api/edition', () =>
     ok({ edition: 'PLUS', license: 'x', features: [], source: null })
@@ -100,9 +114,7 @@ describe('ControlPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<ControlPage />);
     await user.selectOptions(await screen.findByLabelText('Workflow'), 'a');
-    expect(screen.getByLabelText('Node')).toHaveDisplayValue(
-      'Choose a node…'
-    );
+    expect(screen.getByLabelText('Node')).toHaveDisplayValue('Choose a node…');
     await user.selectOptions(screen.getByLabelText('Node'), 'n:1');
 
     expect(await screen.findByText(/"nodeId": "n:1"/)).toBeInTheDocument();
@@ -124,7 +136,9 @@ describe('ControlPage', () => {
     renderWithProviders(<ControlPage />);
     await pick(user);
     await user.click(screen.getByRole('button', { name: 'Send command…' }));
-    expect(screen.getByRole('dialog')).toHaveTextContent('recorded in the audit log');
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      'recorded in the audit log'
+    );
 
     const editor = screen.getByLabelText('Command (JSON object)');
     await user.clear(editor);
@@ -167,13 +181,19 @@ describe('ControlPage', () => {
     };
 
     await submit('{nope');
-    expect(await screen.findByRole('alert')).toHaveTextContent('not valid JSON');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'not valid JSON'
+    );
     await submit('[1]');
-    expect(screen.getByRole('alert')).toHaveTextContent('must be a JSON object');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'must be a JSON object'
+    );
     await submit('{}');
     expect(screen.getByRole('alert')).toHaveTextContent('must not be empty');
     await submit(
-      JSON.stringify(Object.fromEntries(Array.from({ length: 101 }, (_, i) => [`k${i}`, 1])))
+      JSON.stringify(
+        Object.fromEntries(Array.from({ length: 101 }, (_, i) => [`k${i}`, 1]))
+      )
     );
     expect(screen.getByRole('alert')).toHaveTextContent('101 keys');
     expect(commandBody).toBeUndefined();

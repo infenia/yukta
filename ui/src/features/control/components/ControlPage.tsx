@@ -36,7 +36,7 @@ export function ControlPage() {
               role="tab"
               aria-selected={tab === name}
               onClick={() => show(name)}
-              className={`rounded-lg px-3 py-1 text-label-md capitalize ${
+              className={`text-label-md rounded-lg px-3 py-1 capitalize ${
                 tab === name
                   ? 'bg-muted text-on-surface'
                   : 'text-on-surface-variant hover:bg-muted'

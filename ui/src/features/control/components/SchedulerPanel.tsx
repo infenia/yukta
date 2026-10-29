@@ -41,7 +41,9 @@ function EditDialog({
   const save = useMutation({
     mutationFn: (values: [number, number]) => setLimits(...values),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['control', 'scheduler'] });
+      await queryClient.invalidateQueries({
+        queryKey: ['control', 'scheduler'],
+      });
       onClose();
     },
   });
@@ -56,7 +58,7 @@ function EditDialog({
   return (
     <Modal title="Edit execution limits" onClose={onClose}>
       <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-label-md text-on-surface">
+        <label className="text-label-md text-on-surface flex flex-col gap-1">
           Max concurrent (0 is unlimited)
           <Input
             inputMode="numeric"
@@ -68,7 +70,7 @@ function EditDialog({
             }}
           />
         </label>
-        <label className="flex flex-col gap-1 text-label-md text-on-surface">
+        <label className="text-label-md text-on-surface flex flex-col gap-1">
           Max per workflow (0 is unlimited)
           <Input
             inputMode="numeric"
@@ -138,7 +140,10 @@ export function SchedulerPanel() {
   });
 
   return (
-    <section aria-labelledby="scheduler-heading" className="flex flex-col gap-2">
+    <section
+      aria-labelledby="scheduler-heading"
+      className="flex flex-col gap-2"
+    >
       <div className="flex items-center gap-3">
         <h2 id="scheduler-heading" className="text-headline-md text-on-surface">
           Execution limits
@@ -167,11 +172,20 @@ export function SchedulerPanel() {
       ) : (
         <>
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-            <Stat label="Max concurrent" value={limitText(limits.data.maxConcurrent)} />
-            <Stat label="Max per workflow" value={limitText(limits.data.maxPerWorkflow)} />
+            <Stat
+              label="Max concurrent"
+              value={limitText(limits.data.maxConcurrent)}
+            />
+            <Stat
+              label="Max per workflow"
+              value={limitText(limits.data.maxPerWorkflow)}
+            />
             <Stat label="Running" value={String(limits.data.running)} />
             <Stat label="Queued" value={String(limits.data.queued)} />
-            <Stat label="Queue capacity" value={String(limits.data.queueCapacity)} />
+            <Stat
+              label="Queue capacity"
+              value={String(limits.data.queueCapacity)}
+            />
           </dl>
           {limits.data.maxConcurrent > 0 && (
             <progress
@@ -182,7 +196,10 @@ export function SchedulerPanel() {
             />
           )}
           {editing && (
-            <EditDialog limits={limits.data} onClose={() => setEditing(false)} />
+            <EditDialog
+              limits={limits.data}
+              onClose={() => setEditing(false)}
+            />
           )}
         </>
       )}

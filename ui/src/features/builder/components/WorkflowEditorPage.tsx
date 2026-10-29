@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { RequirePermission } from '@/components/common/RequirePermission';
 import { buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
 import { usePlugins } from '@/features/plugins/hooks/usePlugins';
@@ -18,6 +19,7 @@ import type {
   SessionDraft,
   ValidationResult,
 } from '../types';
+import { JsonValidityContext } from './ConfigForm';
 import { NodeInspector } from './NodeInspector';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Callout } from '@/components/common/Callout';
@@ -80,6 +82,19 @@ function Editor({
   const [ports, setPorts] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // JSON fields whose text does not parse: what they show is not what would be saved.
+  const [invalidJson, setInvalidJson] = useState<ReadonlySet<string>>(
+    new Set()
+  );
+  const reportJson = useCallback((key: string, invalid: boolean) => {
+    setInvalidJson((current) => {
+      if (current.has(key) === invalid) return current;
+      const next = new Set(current);
+      if (invalid) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
   const [newType, setNewType] = useState('');
   const [edge, setEdge] = useState<DraftEdge>({
     source: '',
@@ -119,6 +134,16 @@ function Editor({
   };
 
   const removeNode = (nodeId: string) => {
+    setPorts((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([id]) => id !== nodeId)
+      )
+    );
+    setEdge((draft) =>
+      draft.source === nodeId || draft.target === nodeId
+        ? { source: '', target: '', sourcePort: null }
+        : draft
+    );
     update({
       nodes: workflow.nodes.filter((n) => n.nodeId !== nodeId),
       edges: workflow.edges.filter(
@@ -130,6 +155,22 @@ function Editor({
 
   const addEdge = () => {
     if (!edge.source || !edge.target) return;
+    if (edge.source === edge.target) {
+      setError('An edge cannot connect a node to itself.');
+      return;
+    }
+    if (
+      workflow.edges.some(
+        (e) =>
+          e.source === edge.source &&
+          e.target === edge.target &&
+          (e.sourcePort ?? null) === edge.sourcePort
+      )
+    ) {
+      setError('That edge already exists.');
+      return;
+    }
+    setError(null);
     update({ edges: [...workflow.edges, edge] });
     setEdge({ source: '', target: '', sourcePort: null });
   };
@@ -187,24 +228,33 @@ function Editor({
           <button
             type="button"
             className={BUTTON}
-            disabled={busy}
+            disabled={busy || invalidJson.size > 0}
             onClick={check}
           >
             Validate
           </button>
-          <button
-            type="button"
-            className={BUTTON}
-            disabled={busy}
-            onClick={save}
-          >
-            Save
-          </button>
+          <RequirePermission perm="editSessions">
+            <button
+              type="button"
+              className={BUTTON}
+              disabled={busy || invalidJson.size > 0}
+              onClick={save}
+            >
+              Save
+            </button>
+          </RequirePermission>
         </div>
       </div>
       <div className="px-4 py-2 sm:px-6">
         <InlineError
-          message={error ?? (result && !result.valid ? result.message : null)}
+          message={
+            error ??
+            (invalidJson.size > 0
+              ? 'Fix the JSON field that does not parse before validating or saving.'
+              : result && !result.valid
+                ? result.message
+                : null)
+          }
         />
         {result?.valid && (
           <Callout kind="success" compact>
@@ -360,18 +410,20 @@ function Editor({
           className="border-border w-full shrink-0 border-t p-4 lg:w-96 lg:overflow-y-auto lg:border-t-0 lg:border-l"
         >
           {node ? (
-            <NodeInspector
-              key={node.nodeId}
-              node={node}
-              onRemove={() => removeNode(node.nodeId)}
-              onChange={(config) =>
-                update({
-                  nodes: workflow.nodes.map((n) =>
-                    n.nodeId === node.nodeId ? { ...n, config } : n
-                  ),
-                })
-              }
-            />
+            <JsonValidityContext.Provider value={reportJson}>
+              <NodeInspector
+                key={node.nodeId}
+                node={node}
+                onRemove={() => removeNode(node.nodeId)}
+                onChange={(config) =>
+                  update({
+                    nodes: workflow.nodes.map((n) =>
+                      n.nodeId === node.nodeId ? { ...n, config } : n
+                    ),
+                  })
+                }
+              />
+            </JsonValidityContext.Provider>
           ) : (
             <p className="text-on-surface-variant">
               Select a node to configure it.

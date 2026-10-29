@@ -13,11 +13,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useEventSourceJson } from '@/hooks/useEventSourceJson';
-import {
-  appendBounded,
-  type ActivityEvent,
-  type Entry,
-} from '../lib/activity';
+import { appendBounded, type ActivityEvent, type Entry } from '../lib/activity';
 
 /** How often events that arrived since the last tick are added to the list. */
 export const FLUSH_MS = 250;
