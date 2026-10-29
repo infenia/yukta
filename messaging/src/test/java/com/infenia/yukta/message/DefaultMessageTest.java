@@ -506,6 +506,7 @@ class DefaultMessageTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
   void withHeadersSetsAllAndNullRemoves() {
     final Message<String> msg =
         DefaultMessage.create(UUID.randomUUID(), "p").withHeader("gone", "x").withHeader("b", 1);
