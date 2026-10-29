@@ -51,6 +51,7 @@ class PluginCoverageAcceptanceTest {
           "MCP_TOOL_CALL",
           "NOTIFY_TERMINAL",
           "OUTCOME_TERMINAL",
+          "PATCH_GUARD",
           "PROCESS_EXECUTOR",
           "RECIPIENT_LIST",
           "SCHEDULE_TRIGGER",

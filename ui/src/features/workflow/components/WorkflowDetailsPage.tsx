@@ -27,15 +27,31 @@ import { useExecutionSelection } from '../hooks/useExecutionSelection';
 import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { useWorkflowGraph } from '../hooks/useWorkflowGraph';
 import type { TaskProgress } from '../types/workflow';
+import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
+import {
+  BreakpointProvider,
+  useBreakpoints,
+} from '../context/BreakpointContext';
+import { BreakpointDialog } from './BreakpointDialog';
 
+/** The workflow page: the run, its tasks and logs, and the controls. */
 export function WorkflowDetailsPage() {
+  return (
+    <BreakpointProvider>
+      <WorkflowDetails />
+    </BreakpointProvider>
+  );
+}
+
+function WorkflowDetails() {
   const { sessionId = '', workflowId = '' } = useParams<{
     sessionId: string;
     workflowId: string;
   }>();
   const [panelOpen, setPanelOpen] = useState(true);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [stopping, setStopping] = useState<string | null>(null);
 
   const graphQuery = useWorkflowGraph(sessionId, workflowId);
   const executionsQuery = useWorkflowExecutions(sessionId, workflowId);
@@ -60,6 +76,8 @@ export function WorkflowDetailsPage() {
   useBreadcrumbOverride(workflowId, displayName);
 
   const nodeControl = useExecutionControl(sessionId, workflowId);
+  const breakpoints = useBreakpoints();
+  const [breakpointNode, setBreakpointNode] = useState<string | null>(null);
   // Only handed to the progress panel while an execution is selected.
   const onNodeCommand = (nodeId: string, command: NodeCommand) => {
     const executionId = selectedExecutionId as string;
@@ -68,12 +86,27 @@ export function WorkflowDetailsPage() {
         { executionId, nodeId },
         { onSuccess: (result) => selectExecution(result.executionId) }
       );
+    } else if (command === 'breakpoint') {
+      setBreakpointNode(nodeId);
+    } else if (command === 'breakpoint/clear') {
+      nodeControl.clearBreakpoint.mutate(
+        { executionId, nodeId },
+        { onSuccess: () => breakpoints.clear(executionId, nodeId) }
+      );
+    } else if (command === 'stop') {
+      setStopping(nodeId);
+    } else if (command === 'unskip') {
+      nodeControl.unskipNode.mutate({ executionId, nodeId });
     } else {
       nodeControl.nodeAction.mutate({ executionId, nodeId, action: command });
     }
   };
   const nodeError =
-    nodeControl.nodeAction.error ?? nodeControl.restartFromNode.error;
+    nodeControl.nodeAction.error ??
+    nodeControl.restartFromNode.error ??
+    nodeControl.clearBreakpoint.error ??
+    nodeControl.stopNode.error ??
+    nodeControl.unskipNode.error;
 
   const tasksByNode = useMemo(() => {
     const byNode: Record<string, TaskProgress | undefined> = {};
@@ -109,7 +142,7 @@ export function WorkflowDetailsPage() {
 
   return (
     <div
-      className="flex flex-1 flex-col bg-background"
+      className="bg-background flex flex-1 flex-col"
       data-testid="workflow-details-page"
     >
       <HeaderPortal targetId="header-actions">
@@ -181,6 +214,52 @@ export function WorkflowDetailsPage() {
         <div className="px-6 py-2">
           <InlineError message={controlErrorMessage(nodeError)} />
         </div>
+      )}
+
+      {breakpointNode && (
+        <BreakpointDialog
+          nodeId={breakpointNode}
+          pending={nodeControl.setBreakpoint.isPending}
+          error={
+            nodeControl.setBreakpoint.error
+              ? controlErrorMessage(nodeControl.setBreakpoint.error)
+              : null
+          }
+          onClose={() => setBreakpointNode(null)}
+          onSubmit={(field, equals) => {
+            const executionId = selectedExecutionId as string;
+            nodeControl.setBreakpoint.mutate(
+              { executionId, nodeId: breakpointNode, field, equals },
+              {
+                onSuccess: () => {
+                  breakpoints.set(executionId, breakpointNode, {
+                    field,
+                    equals,
+                  });
+                  setBreakpointNode(null);
+                },
+              }
+            );
+          }}
+        />
+      )}
+
+      {stopping && (
+        <NodeStopDialog
+          nodeId={stopping}
+          pending={nodeControl.stopNode.isPending}
+          onClose={() => setStopping(null)}
+          onSubmit={(options) =>
+            nodeControl.stopNode.mutate(
+              {
+                executionId: selectedExecutionId as string,
+                nodeId: stopping,
+                ...options,
+              },
+              { onSettled: () => setStopping(null) }
+            )
+          }
+        />
       )}
 
       <div className="flex min-h-100 flex-1">

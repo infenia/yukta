@@ -151,9 +151,13 @@ nodes = [
     {"nodeId": "auto-fix", "type": "SUB_WORKFLOW", "config": {**tool_call(S("auto"), "auto-fix"), **ROUTE}},
     {"nodeId": "auto-check", "type": "SUB_WORKFLOW", "config": {**tool_call(S("command"), S("stage")), **ROUTE}},
     pe("auto-record", "record-auto", heal_env(), timeout=60),
-    pe("brief", "brief", heal_env(YUKTA_COMMAND=S("command"), YUKTA_TRIAGE=S("triage")), stdin=True, json_out=True),
+    # the brief also runs the stage once on a clean origin/main (cached by sha), so it can take as long as a stage
+    pe("brief", "brief", heal_env(YUKTA_COMMAND=S("command"), YUKTA_TRIAGE=S("triage")), stdin=True, json_out=True, timeout=3720),
     {"nodeId": "first", "type": "MAPPER", "config": {"mode": "PROJECTION", "mapping": {
-        "brief": "payload['output']['brief']", "problems": "payload['output']['problems']", "previous": "''", "triage": "payload['output']['triage']"}}},
+        "brief": "payload['output']['brief']", "problems": "payload['output']['problems']", "previous": "''", "triage": "payload['output']['triage']",
+        "known": "payload['output']['known']"}}},
+    {"nodeId": "known?", "type": "BRANCH", "config": {"mode": "SELECT_KEY", "selector": "payload['known']", "cases": {"true": "known"}, "defaultPort": "unknown"}},
+    {"nodeId": "baseline-known", "type": "OUTCOME_TERMINAL", "config": {"outcome": "FAILED", "reason": "the stage already fails the same way on origin/main: a known baseline failure, no fixer was started"}},
     {"nodeId": "triage?", "type": "BRANCH", "config": {"mode": "SELECT_KEY", "selector": "payload['triage']", "cases": {"off": "off"}, "defaultPort": "on"}},
     {"nodeId": "triage", "type": "CLASSIFY", "config": {
         "model": S("triageModel"), "baseUrl": S("triageUrl"), "state": "payload['brief']",
@@ -167,7 +171,8 @@ e += edges("trigger", "heal?") + edges("heal?", "disabled", "off") + edges("heal
 e += edges("auto?", "auto-fix", "auto") + edges("auto?", "brief", "model")
 e += edges("auto-fix", "auto-check", "success", "failure", "error") + edges("auto-check", "auto-record", "success")
 e += edges("auto-check", "brief", "failure", "error") + edges("auto-record", "done")
-e += edges("brief", "first") + edges("first", "triage?") + edges("triage?", "triage", "on") + edges("triage?", avg, "off")
+e += edges("brief", "first") + edges("first", "known?") + edges("known?", "baseline-known", "known") + edges("known?", "triage?", "unknown")
+e += edges("triage?", "triage", "on") + edges("triage?", avg, "off")
 # every port of the triage also feeds a log node (a dead end): its event is what heal-report.py reads to judge the triage
 TRIAGE_PORTS = list(LEVELS) + ["uncertain", "error"]
 for port in TRIAGE_PORTS:

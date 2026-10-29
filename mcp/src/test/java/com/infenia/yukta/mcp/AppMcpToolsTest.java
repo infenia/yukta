@@ -19,6 +19,7 @@ import com.infenia.yukta.mcp.dto.SessionCreationResult;
 import com.infenia.yukta.mcp.dto.SessionDetails;
 import com.infenia.yukta.mcp.dto.SessionList;
 import com.infenia.yukta.mcp.dto.SessionSummary;
+import com.infenia.yukta.mcp.dto.WhoamiResult;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowHistory;
 import com.infenia.yukta.mcp.dto.WorkflowStartResult;
@@ -77,9 +78,9 @@ class AppMcpToolsTest {
   void testGetExecutionResultDelegatesToTheProvider() {
     var results =
         new com.infenia.yukta.mcp.dto.ExecutionResultView("e1", false, null, false, 0, null, null);
-    when(resultProvider.getExecutionResult("s1", "e1", 3L)).thenReturn(Mono.just(results));
+    when(resultProvider.getExecutionResult("s1", "e1", 3L, null)).thenReturn(Mono.just(results));
 
-    StepVerifier.create(mcpTools.getExecutionResult("s1", "e1", 3L))
+    StepVerifier.create(mcpTools.getExecutionResult("s1", "e1", 3L, null))
         .expectNext(results)
         .verifyComplete();
   }
@@ -174,20 +175,20 @@ class AppMcpToolsTest {
   void testControlWorkflow() {
     var result = new ControlActionResult("PAUSE", "e1", null, List.of(), "ok");
     when(workflowControlProvider.controlWorkflow(
-            "s1", WorkflowControlAction.PAUSE, "e1", null, null, null, true))
+            "s1", WorkflowControlAction.PAUSE, "e1", null, null, null, true, null))
         .thenReturn(Mono.just(result));
     when(workflowControlProvider.controlWorkflow(
-            "s1", WorkflowControlAction.PAUSE, "e2", null, null, null, false))
+            "s1", WorkflowControlAction.PAUSE, "e2", null, null, null, false, null))
         .thenReturn(Mono.just(result));
 
     StepVerifier.create(
             mcpTools.controlWorkflow(
-                "s1", WorkflowControlAction.PAUSE, "e1", null, null, null, true))
+                "s1", WorkflowControlAction.PAUSE, "e1", null, null, null, true, null))
         .expectNext(result)
         .verifyComplete();
     StepVerifier.create(
             mcpTools.controlWorkflow(
-                "s1", WorkflowControlAction.PAUSE, "e2", null, null, null, null))
+                "s1", WorkflowControlAction.PAUSE, "e2", null, null, null, null, null))
         .expectNext(result)
         .verifyComplete();
   }
@@ -331,6 +332,16 @@ class AppMcpToolsTest {
     StepVerifier.create(mcpTools.noteWorkflowVersion("s1", "w1", "0001-a", "why"))
         .expectNext(note)
         .verifyComplete();
+  }
+
+  @Test
+  void whoami_delegatesToTheHealthProvider() {
+    final WhoamiResult who =
+        new WhoamiResult(
+            true, "alice", "OPERATOR", null, true, java.util.Map.of("startRuns", true));
+    when(systemHealthProvider.whoami()).thenReturn(Mono.just(who));
+
+    StepVerifier.create(mcpTools.whoami()).expectNext(who).verifyComplete();
   }
 
   @Test

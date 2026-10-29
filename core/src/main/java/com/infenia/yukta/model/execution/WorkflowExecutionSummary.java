@@ -29,20 +29,24 @@ public record WorkflowExecutionSummary(
         LocalDateTime startTime,
     @Schema(
             description = "The end time of the execution, with the server's UTC offset",
-            requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+            nullable = true)
         @JsonSerialize(using = OffsetTimestampSerializer.class)
         @Nullable LocalDateTime endTime,
     @Schema(
             description = "The run that started this one as a sub-workflow, if any",
-            requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+            nullable = true)
         @Nullable String parentExecutionId,
     @Schema(
             description = "The top of this run's tree of runs (itself when it has no parent)",
-            requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+            nullable = true)
         @Nullable String rootExecutionId,
     @Schema(
             description = "The run this one restarts, if any",
-            requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+            nullable = true)
         @Nullable String restartOf) {
 
   /**

@@ -61,19 +61,32 @@ running**; `yk check` and `yk gradle` complete a pending swap when idle. `yk up 
 instead; `yk down` stops the server yk started. The server needs an API key (it runs any process): `yk` creates one per
 machine in `~/.local/state/yukta-dev/api-key` and sends it with every call.
 
+## Decision model (optional)
+
+Some steps can ask a small System One model for a decision (a label with a probability). It is optional and fails open: with no
+model, a stale one, a slow answer or a digest over the cap, the step takes the path it took before and prints one
+`WARN decision model unavailable: <why and the fix>`. Settings are in `decisions.json`; `YUKTA_DECISION_MODEL`,
+`YUKTA_DECISION_URL`, `YUKTA_DECISION_MAX_INPUT` (characters, question included) override them and `YUKTA_DECISION=off` disables it.
+No model is assumed: set `YUKTA_DECISION_MODEL`. `yk decision` (and `yk status`, from a 10 minute cache) probes Ollama: reachable,
+version, model present and not in an old format, and the time of a small and a 1 KB digest. Scripts call `decide STATE QUESTION
+CRITERIA-JSON` from `scripts/_lib.sh`; `scripts/test-decision.sh` tests it against `fake-ollama.py`.
+
 ## Self-healing check
 
 `yk check` runs the stages of `yk plan` one after the other (cheap first). A failing stage goes to `heal`:
 
 1. **Free fix**: `spotlessApply`, `make fmt`, `prettier --write`, `eslint --fix`, `make mod-tidy`. No model; the stage runs again.
-2. **Triage**: a local model (System One, `tev1` via Ollama) rates the failure easy, average or hard. The label only picks the
+2. **Baseline**: the failing stage runs once on a clean checkout of `origin/main` (kept in `.yukta-dev/baseline/<sha>`). When it fails
+   there with the same problem lines, the stage is a known baseline failure: the heal ends with no fixer. No `origin/main`, a
+   timeout or any other error means "not known" and the heal goes on.
+3. **Triage**: a local model (System One, `tev1` via Ollama) rates the failure easy, average or hard. The label only picks the
    first rung; unreachable or unsure (< 0.3) means average. `--triage off` skips it.
-3. **Ladder** (`heal.json`): easy `haiku/low → sonnet/low`, average `haiku/high → sonnet/low`, hard `sonnet/low`. One fresh
+4. **Ladder** (`heal.json`): easy `haiku/low → sonnet/low`, average `haiku/high → sonnet/low`, hard `sonnet/low`. One fresh
    Claude session per rung. An attempt that changed no file ends the ladder, and so does the first failed attempt on `reuse`, `docs` or `actionlint` (`heal.json` `singleAttempt`); the end of the ladder fails the stage. An attempt after which the stage fails exactly as it did after the attempt before (same problem lines, numbers aside) ends the ladder too: a stronger model would start from the same problems.
-4. **Guard**: what changed on disk decides, not what Claude says. Rejected: edits to `config/`, `build-logic/`, `gradle/`,
+5. **Guard**: what changed on disk decides, not what Claude says. Rejected: edits to `config/`, `build-logic/`, `gradle/`,
    `.github/`, `.claude/` or this folder, added suppressions, removed assertions, test expectations changed with no code
    change, a claimed fix with no change. Fixers never commit.
-5. **Verify**: if anything was healed, the Gradle tasks of all stages run once more; a failure goes back to heal.
+6. **Verify**: if anything was healed, the Gradle tasks of all stages run once more; a failure goes back to heal.
 
 `licenses` and `security` are never healed. `--no-heal` ends the run at the first failing stage. With two or more Gradle stages planned, a `fast` step first runs all their tasks as one Gradle invocation (one start-up, one task graph); when it passes the Gradle stages are no-ops, when it fails the stages run one by one as before, so the failing stage, `failed_node` and the healing are unchanged. `--no-fast` skips it. `--models haiku,sonnet`
 leaves a model out (its rungs stop at once).

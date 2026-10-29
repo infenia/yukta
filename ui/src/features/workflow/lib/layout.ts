@@ -28,7 +28,6 @@ export const DEFAULT_NODE_WIDTH = 240;
 export const DEFAULT_NODE_HEIGHT = 96;
 const NODE_SIZE = { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
 
-
 function resolveSourceHandle(
   sourceNode: WorkflowGraphNode,
   sourcePort: string | null
@@ -60,7 +59,7 @@ export function layoutGraph(
   const nodeById = new Map(graph.nodes.map((node) => [node.nodeId, node]));
 
   graph.nodes.forEach((node) => {
-    dagreGraph.setNode(node.nodeId, { ...NODE_SIZE }) // dagre writes x/y into the label;
+    dagreGraph.setNode(node.nodeId, { ...NODE_SIZE }); // dagre writes x/y into the label;
   });
   graph.edges.forEach((edge) => {
     if (nodeById.has(edge.source) && nodeById.has(edge.target)) {

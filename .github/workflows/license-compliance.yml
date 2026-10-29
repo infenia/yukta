@@ -71,7 +71,7 @@ jobs:
         with:
           gradle-version: wrapper
           cache-provider: enhanced
-          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew

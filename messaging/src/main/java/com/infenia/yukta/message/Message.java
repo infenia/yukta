@@ -16,6 +16,12 @@ import java.util.Map;
 @SuppressWarnings("PMD.TooManyMethods")
 public interface Message<T> {
 
+  /**
+   * Metadata key under which a node hands values (a {@code Map}) to its own task record: they are
+   * merged into the metadata of the node's final status, so clients show them next to the status.
+   */
+  String NODE_METADATA_KEY = "yukta.node-metadata";
+
   // --- Header / Metadata Accessors ---
 
   /**

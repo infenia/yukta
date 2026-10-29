@@ -13,7 +13,7 @@ const PLUGIN_ICONS: Record<string, string> = {
   AGGREGATE: 'merge',
   RECIPIENT_LIST: 'groups',
   FILTER: 'filter_alt',
-  'CONTENT_FILTER': 'filter_alt',
+  CONTENT_FILTER: 'filter_alt',
   VALIDATE: 'verified',
   MAPPER: 'swap_horiz',
   DELAY: 'timer',
@@ -39,8 +39,13 @@ const CATEGORY_ICONS: Record<PluginCategory, string> = {
 };
 
 /** Icon for a plugin type, falling back to its category, then a generic plugin glyph. */
-export function pluginIcon(type: string, category: PluginCategory | null): string {
-  return PLUGIN_ICONS[type] ?? (category ? CATEGORY_ICONS[category] : 'extension');
+export function pluginIcon(
+  type: string,
+  category: PluginCategory | null
+): string {
+  return (
+    PLUGIN_ICONS[type] ?? (category ? CATEGORY_ICONS[category] : 'extension')
+  );
 }
 
 /** "CONSTANT_SOURCE" -> "Constant Source". */

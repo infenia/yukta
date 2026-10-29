@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { toNodeUiStatus, toTaskSequenceLabel } from '../lib/statusMapper';
 import { formatClockTime, formatDuration } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
+import { useBreakpoint } from '../context/BreakpointContext';
 import { NodeControlsMenu, type NodeCommand } from './NodeControlsMenu';
 import type {
   NodeUiStatus,
@@ -62,13 +63,16 @@ function TimingLine({
 function TaskSequenceItem({
   task,
   onNodeCommand,
+  executionId,
   scope,
 }: {
   task: TaskProgress;
   onNodeCommand?: (nodeId: string, command: NodeCommand) => void;
+  executionId: string | null;
   scope?: { sessionId: string; executionId: string };
 }) {
   const status = toNodeUiStatus(task.status);
+  const breakpoint = useBreakpoint(executionId, task.nodeId);
   const dimmed = status === 'pending' || status === 'skipped';
   return (
     <li
@@ -82,7 +86,7 @@ function TaskSequenceItem({
         <span
           className={cn(
             'material-symbols-outlined text-base',
-            status === 'running' && 'animate-spin text-primary',
+            status === 'running' && 'text-primary animate-spin',
             status === 'completed' && 'text-success',
             status === 'failed' && 'text-error'
           )}
@@ -90,9 +94,19 @@ function TaskSequenceItem({
           {STATUS_ICONS[status]}
         </span>
         <span className="text-label-md text-on-surface">{task.nodeId}</span>
+        {breakpoint && (
+          <span
+            className="material-symbols-outlined text-error text-base"
+            title={`${breakpoint.field} = ${breakpoint.equals}`}
+            aria-label={`Breakpoint: ${breakpoint.field} = ${breakpoint.equals}`}
+            role="img"
+          >
+            radio_button_checked
+          </span>
+        )}
         <span
           className={cn(
-            'ml-auto text-label-sm font-semibold tracking-wider',
+            'text-label-sm ml-auto font-semibold tracking-wider',
             LABEL_CLASSES[status]
           )}
         >
@@ -103,11 +117,12 @@ function TaskSequenceItem({
             nodeId={task.nodeId}
             status={status}
             onCommand={onNodeCommand}
+            hasBreakpoint={breakpoint !== undefined}
             scope={scope}
           />
         )}
       </div>
-      <p className="pl-6 text-body-sm text-on-surface-variant">
+      <p className="text-body-sm text-on-surface-variant pl-6">
         module: {task.module}
       </p>
       <div className="pl-6">
@@ -125,11 +140,14 @@ export function TaskSequenceList({
   graph,
   tasksByNode,
   onNodeCommand,
+  executionId = null,
   scope,
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
   onNodeCommand?: (nodeId: string, command: NodeCommand) => void;
+  /** The run the tasks belong to; breakpoints are kept per run. */
+  executionId?: string | null;
   /** Session and run of the tasks, for the "Copy as" commands. */
   scope?: { sessionId: string; executionId: string };
 }) {
@@ -169,13 +187,14 @@ export function TaskSequenceList({
 
   return (
     <div data-testid="task-sequence">
-      <h3 className="mb-2 text-overline">Task sequence</h3>
+      <h3 className="text-overline mb-2">Task sequence</h3>
       <ul className="flex flex-col">
         {tasks.map((task) => (
           <TaskSequenceItem
             key={task.nodeId}
             task={task}
             onNodeCommand={onNodeCommand}
+            executionId={executionId}
             scope={scope}
           />
         ))}

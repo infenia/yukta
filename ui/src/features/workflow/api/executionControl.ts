@@ -67,12 +67,61 @@ export function recoverExecution(executionId: string): Promise<StartResponse> {
   return post<StartResponse>(api`/api/executions/${executionId}/recover`);
 }
 
+/** Pauses a node when `field` of its message equals `equals`, for example payload.status = error. */
+export function setBreakpoint(
+  executionId: string,
+  nodeId: string,
+  field: string,
+  equals: string
+): Promise<StartResponse> {
+  return post<StartResponse>(
+    `${api`/api/executions/${executionId}/nodes/${nodeId}/breakpoint`}?field=${encodeURIComponent(field)}&equals=${encodeURIComponent(equals)}`
+  );
+}
+
+export function clearBreakpoint(
+  executionId: string,
+  nodeId: string
+): Promise<StartResponse> {
+  return fetchApi<StartResponse>(
+    api`/api/executions/${executionId}/nodes/${nodeId}/breakpoint`,
+    {
+      method: 'DELETE',
+    }
+  );
+}
+
 export function restartFromNode(
   executionId: string,
   nodeId: string
 ): Promise<StartResponse> {
   return post<StartResponse>(
     api`/api/executions/${executionId}/restart/${nodeId}`
+  );
+}
+
+/** Stops one node; `immediate` skips draining and `reason` lands in the control audit. */
+export function stopNode(
+  executionId: string,
+  nodeId: string,
+  options: { immediate?: boolean; reason?: string } = {}
+): Promise<StartResponse> {
+  const query = new URLSearchParams();
+  if (options.immediate) query.set('immediate', 'true');
+  if (options.reason) query.set('reason', options.reason);
+  const suffix = query.size ? `?${query}` : '';
+  return post<StartResponse>(
+    `${api`/api/executions/${executionId}/nodes/${nodeId}`}/stop${suffix}`
+  );
+}
+
+/** Takes a node back out of the skipped state before it runs. */
+export function unskipNode(
+  executionId: string,
+  nodeId: string
+): Promise<StartResponse> {
+  return post<StartResponse>(
+    `${api`/api/executions/${executionId}/nodes/${nodeId}`}/skip?skip=false`
   );
 }
 

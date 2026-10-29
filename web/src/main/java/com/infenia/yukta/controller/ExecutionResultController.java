@@ -95,12 +95,19 @@ public class ExecutionResultController {
       summary = "Read the result of an execution",
       description =
           "Returns what the terminal nodes received so far; complete is true once the execution"
-              + " ended. Answers 404 for an unknown execution or one of another session.")
+              + " ended. The stdout and stderr fields of the payloads are left out unless named in"
+              + " include (stdout, stderr or stdout,stderr); fetch again to drill down."
+              + " Answers 404 for an unknown execution or one of another session.")
   public Mono<ExecutionResults> getResults(
       @Parameter(description = "Session identifier") @PathVariable final String sessionId,
       @Parameter(description = "Execution identifier") @PathVariable final String executionId,
       @Parameter(description = "nextCursor of an earlier read") @RequestParam(defaultValue = "0")
-          final long afterCursor) {
-    return access.require(sessionId, executionId).map(_ -> results.read(executionId, afterCursor));
+          final long afterCursor,
+      @Parameter(description = "Output fields to keep in the payloads: stdout, stderr or both")
+          @RequestParam(required = false)
+          final String include) {
+    return access
+        .require(sessionId, executionId)
+        .map(_ -> results.read(executionId, afterCursor).withOutput(include));
   }
 }

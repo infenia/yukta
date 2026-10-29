@@ -219,7 +219,7 @@ Pins the versions of third-party libraries through three imported BOMs, and adds
 - Every standard module also gets spring-boot-starter-test and reactor-test as test dependencies. Reactor-test is what makes StepVerifier available for the project's reactive code.
 
 - **Guarantees.** All modules resolve a library to the same version, because they all import the same three BOMs in the same order.
-- **State.** None. Resolution happens per Gradle run; no lock file is stored. The resolved graph is submitted to GitHub on every push to main (dependency-submission.yml) and for pull requests (ci.yml), which feeds Dependabot alerts and the PR Dependency Review job.
+- **State.** None. Resolution happens per Gradle run; no lock file is stored. The resolved graph is submitted to GitHub by the `dependency-submission` job in ci.yml, on every push to main and for pull requests, which feeds Dependabot alerts and the PR Dependency Review job.
 - **Ceiling.** BOM imports are fine at this size. The ceiling is human: two places to set one version, and nothing checks that they agree.
 - **On failure.** A BOM that moves a library to an incompatible major version breaks compile or run time in several modules at once. A wrong Netty version stays invisible because tests do not assert it.
 

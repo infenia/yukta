@@ -9,6 +9,7 @@ import com.infenia.yukta.security.ApiKeyAuthenticator;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.CallRateLimiter;
+import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.security.RequestPaths;
 import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -49,7 +50,12 @@ import reactor.core.publisher.Mono;
  * endpoint.
  */
 @Component
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.OnlyOneReturn", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.LawOfDemeter",
+  "PMD.OnlyOneReturn",
+  "PMD.TooManyMethods",
+  "PMD.ExcessiveImports"
+})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class McpEndpointFilter implements WebFilter, MeterBinder {
 
@@ -190,7 +196,9 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
       final WebFilterChain chain,
       final ApiKeys.Match match,
       final boolean legacy) {
-    final Mono<Void> next = checked(exchange, chain, match, legacy);
+    final Mono<Void> next =
+        checked(exchange, chain, match, legacy)
+            .contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match));
     return authenticator.named()
         ? next.contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name()))
         : next;

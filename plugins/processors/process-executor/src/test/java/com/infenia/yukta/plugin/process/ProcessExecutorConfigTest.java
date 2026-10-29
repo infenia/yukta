@@ -13,7 +13,7 @@ import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings({"PMD.CommentRequired", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({"PMD.CommentRequired", "PMD.UseConcurrentHashMap", "PMD.AvoidDuplicateLiterals"})
 @NoArgsConstructor
 class ProcessExecutorConfigTest {
 
@@ -101,5 +101,13 @@ class ProcessExecutorConfigTest {
 
     assertThat(config.command()).isEmpty();
     assertThat(config.env()).isEmpty();
+  }
+
+  @Test
+  void compactConstructor_nullMetadataFromBecomesEmpty() {
+    final ProcessExecutorConfig config =
+        ProcessExecutorConfig.builder().command(List.of("echo")).metadataFrom(null).build();
+
+    assertThat(config.metadataFrom()).isEmpty();
   }
 }
