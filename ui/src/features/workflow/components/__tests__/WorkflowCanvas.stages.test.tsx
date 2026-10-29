@@ -2,8 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { WorkflowCanvas } from '../WorkflowCanvas';
 import {
   createMockTask,
@@ -11,8 +10,8 @@ import {
 } from '@/test/factories/workflowFactory';
 
 describe('WorkflowCanvas stages', () => {
-  it('shows a closed stage as a box, an open one framed, and toggles either', async () => {
-    const user = userEvent.setup();
+  // fireEvent, not userEvent: its pointer events on the xyflow pane fire after jsdom is torn down
+  it('shows a closed stage as a box, an open one framed, and toggles either', () => {
     const onToggle = vi.fn();
     render(
       <WorkflowCanvas
@@ -38,8 +37,8 @@ describe('WorkflowCanvas stages', () => {
     );
     expect(screen.getByTestId('workflow-node-lint.fail')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Expand stage test' }));
-    await user.click(
+    fireEvent.click(screen.getByRole('button', { name: 'Expand stage test' }));
+    fireEvent.click(
       screen.getByRole('button', { name: 'Collapse stage lint' })
     );
     expect(onToggle.mock.calls).toEqual([['test'], ['lint']]);
