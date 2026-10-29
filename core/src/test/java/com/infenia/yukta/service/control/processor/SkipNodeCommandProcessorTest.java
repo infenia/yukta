@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class SkipNodeCommandProcessorTest {
 
   private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);

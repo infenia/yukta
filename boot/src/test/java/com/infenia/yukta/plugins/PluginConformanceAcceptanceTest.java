@@ -29,7 +29,7 @@ import reactor.core.publisher.Mono;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
-@SuppressWarnings({"PMD.CommentRequired", "PMD.LawOfDemeter", "PMD.AvoidCatchingGenericException"})
+@SuppressWarnings("PMD.AvoidCatchingGenericException")
 @NoArgsConstructor
 class PluginConformanceAcceptanceTest {
 

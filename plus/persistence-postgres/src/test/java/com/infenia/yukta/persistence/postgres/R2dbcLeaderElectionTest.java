@@ -14,7 +14,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @ExpectedErrorLog("ERROR com.infenia.yukta.persistence.postgres.R2dbcLeaderElection - ")
 class R2dbcLeaderElectionTest extends PostgresTestSupport {
 

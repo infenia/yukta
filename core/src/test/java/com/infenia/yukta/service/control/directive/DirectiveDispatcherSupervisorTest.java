@@ -38,12 +38,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.ExcessiveImports",
-  "PMD.TooManyStaticImports",
-  "PMD.LawOfDemeter"
-})
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.TooManyStaticImports"})
 @NoArgsConstructor
 class DirectiveDispatcherSupervisorTest {
 

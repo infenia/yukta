@@ -30,7 +30,6 @@ import reactor.test.StepVerifier;
 /** One test per rule of {@link PatchGuardPlugin}, on a real git checkout. */
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.TooManyMethods",
   "PMD.SignatureDeclareThrowsException",
   "PMD.AvoidDuplicateLiterals"

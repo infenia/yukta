@@ -40,7 +40,7 @@ import lombok.With;
  */
 @Builder(toBuilder = true)
 public record DefaultMessage<T>(
-    @SuppressWarnings("PMD.ShortVariable") @With String id,
+    @With String id,
     @With String traceId,
     @With String correlationId,
     @With String replyTo,

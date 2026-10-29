@@ -25,7 +25,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.UnitTestShouldIncludeAssert"})
+@SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
 class PlusConfigurationTest {
 
   private static final String FILE_STORES = "file-stores";

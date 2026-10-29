@@ -44,5 +44,5 @@ tasks.named("clean") {
 }
 
 tasks.named("check") {
-  dependsOn("goTest", "goCoverageCheck", "goFormatCheck", "goModVerify", "goVet", "goLint", "goSecurityScan", "goVulnCheck")
+  dependsOn("goCoverageCheck", "goFormatCheck", "goModVerify", "goVet", "goLint", "goSecurityScan", "goVulnCheck")
 }

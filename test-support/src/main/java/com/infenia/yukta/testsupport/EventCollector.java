@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 
 /** Keeps logging events in a queue that another thread can read while logging goes on. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 final class EventCollector extends AppenderBase<ILoggingEvent> {
 
   /* default */ final Queue<ILoggingEvent> events = new ConcurrentLinkedQueue<>();

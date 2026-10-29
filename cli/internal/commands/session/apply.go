@@ -6,9 +6,9 @@ package session
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"com.infenia.yukta/go-cli/internal/client"
+	"com.infenia.yukta/go-cli/internal/commands"
 	"com.infenia.yukta/go-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -18,8 +18,6 @@ import (
 // The command accepts exactly one argument: either a file path or a JSON string.
 // It supports output formatting via the -o/--output flag (table or json).
 func ApplyCmd(c *client.Client) *cobra.Command {
-	var outputFormat string
-
 	cmd := &cobra.Command{
 		Use:   "apply <json-or-file>",
 		Short: "Apply a session configuration",
@@ -35,7 +33,7 @@ The command will automatically detect whether the input is a file or JSON string
 			input := args[0]
 
 			// Attempt to read as a file first
-			configJSON, err := readConfigInput(input)
+			configJSON, err := commands.ReadJSONArg(input)
 			if err != nil {
 				return fmt.Errorf("failed to read configuration: %w", err)
 			}
@@ -52,7 +50,7 @@ The command will automatically detect whether the input is a file or JSON string
 			}
 
 			// Format and print the output
-			if outputFormat == "json" {
+			if commands.GetOutputFormat() == "json" {
 				output.PrintJSON(map[string]string{
 					"status":  "success",
 					"message": "Configuration applied successfully",
@@ -65,23 +63,5 @@ The command will automatically detect whether the input is a file or JSON string
 		},
 	}
 
-	// Add output format flag
-	cmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table or json)")
-
 	return cmd
-}
-
-// readConfigInput reads configuration from either a file or an inline JSON string.
-// It first attempts to check if the input is a file path using os.Stat.
-// If the file exists, it reads and returns the file contents.
-// If the file doesn't exist, it treats the input as an inline JSON string.
-func readConfigInput(input string) ([]byte, error) {
-	// Check if the input is a file
-	if fileInfo, err := os.Stat(input); err == nil && !fileInfo.IsDir() {
-		// File exists and is not a directory, so read it
-		return os.ReadFile(input) // #nosec G304 -- the user names this file on purpose
-	}
-
-	// File doesn't exist or is a directory, treat as inline JSON
-	return []byte(input), nil
 }

@@ -18,7 +18,6 @@ import reactor.core.publisher.Mono;
 /** Saved versions of workflow definitions for the MCP tools. */
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings("PMD.OnlyOneReturn")
 public class WorkflowVersionProvider {
 
   /** Keeps the saved versions. */

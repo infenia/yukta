@@ -14,7 +14,6 @@ import org.springframework.core.env.StandardEnvironment;
 import reactor.core.Disposable;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.LawOfDemeter"})
 class ConcurrencyGroupsTest {
 
   private static final String GRADLE = "gradle";

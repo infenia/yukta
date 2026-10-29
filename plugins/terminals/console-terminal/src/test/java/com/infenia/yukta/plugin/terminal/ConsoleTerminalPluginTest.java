@@ -20,7 +20,6 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Console terminal plugin test. */
-@SuppressWarnings("PMD.LawOfDemeter")
 @NoArgsConstructor
 class ConsoleTerminalPluginTest {
 

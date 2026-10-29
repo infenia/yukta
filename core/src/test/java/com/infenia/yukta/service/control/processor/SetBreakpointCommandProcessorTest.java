@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class SetBreakpointCommandProcessorTest {
 
   private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);

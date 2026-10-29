@@ -38,7 +38,6 @@ import reactor.core.publisher.Mono;
  * recorded.
  */
 @Component
-@SuppressWarnings("PMD.OnlyOneReturn")
 public final class WaitForSignalProcessor implements ProcessorPlugin {
 
   /** Action that fails the message. */

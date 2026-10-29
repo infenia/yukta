@@ -29,10 +29,9 @@ import reactor.core.publisher.Mono;
 /** Tests for the behaviour described by {@link ExecutionControlController}. */
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert",
-  "PMD.AvoidDuplicateLiterals",
+  "PMD.AvoidDuplicateLiterals"
 })
 class ExecutionControlControllerTest {
 

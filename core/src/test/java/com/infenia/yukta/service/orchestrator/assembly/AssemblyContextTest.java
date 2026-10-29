@@ -24,7 +24,6 @@ import reactor.test.StepVerifier;
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyMethods",
   "PMD.LiteralsFirstInComparisons",

@@ -23,7 +23,6 @@ import reactor.util.context.Context;
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidInstantiatingObjectsInLoops",
-  "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap"
 })

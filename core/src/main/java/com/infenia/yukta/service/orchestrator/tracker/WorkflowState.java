@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Tracks the state of a workflow execution; written by the event thread, read by requests. */
-@SuppressWarnings({"PMD.AvoidUsingVolatile", "PMD.OnlyOneReturn"})
+@SuppressWarnings("PMD.AvoidUsingVolatile")
 final class WorkflowState {
   /** The execution identifier. */
   /* default */ final String executionId;

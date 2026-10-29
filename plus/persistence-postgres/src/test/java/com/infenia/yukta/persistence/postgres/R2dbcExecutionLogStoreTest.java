@@ -16,7 +16,6 @@ import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.UseConcurrentHashMap",
   "PMD.TooManyMethods",
   "PMD.AvoidAccessibilityAlteration",

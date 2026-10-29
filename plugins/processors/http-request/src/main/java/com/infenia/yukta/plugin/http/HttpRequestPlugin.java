@@ -38,12 +38,7 @@ import tools.jackson.databind.ObjectMapper;
  * Config values (url, method, headers, body) support variable expressions and {@code decrypted:}
  * secrets.
  */
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.OnlyOneReturn",
-  "PMD.TooManyMethods",
-  "PMD.UseConcurrentHashMap"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
 @Slf4j
 @Component
 @SuppressFBWarnings(

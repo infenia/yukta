@@ -54,7 +54,6 @@ class NotifyTerminalTest {
   private int status = 200;
 
   @BeforeEach
-  @SuppressWarnings("PMD.LawOfDemeter")
   void startServer() throws IOException {
     server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
     server.createContext(

@@ -32,7 +32,7 @@ import reactor.util.context.ContextView;
  * goes out on a port named after how the child ended, so the parent can branch on it.
  */
 @Component
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings("PMD.UseConcurrentHashMap")
 public final class SubWorkflowProcessor implements ProcessorPlugin {
 
   /** Config key: the workflow to run. */

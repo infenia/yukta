@@ -19,7 +19,6 @@ import reactor.test.StepVerifier;
 
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
-  "PMD.CommentRequired",
   "PMD.CommentDefaultAccessModifier",
   "PMD.TooManyMethods"
 })

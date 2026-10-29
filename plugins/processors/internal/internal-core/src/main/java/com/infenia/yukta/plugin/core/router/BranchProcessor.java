@@ -33,7 +33,6 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @SuppressWarnings({
-  "PMD.OnlyOneReturn",
   "PMD.CognitiveComplexity",
   "PMD.AvoidDeeplyNestedIfStmts",
   "PMD.ExceptionAsFlowControl",

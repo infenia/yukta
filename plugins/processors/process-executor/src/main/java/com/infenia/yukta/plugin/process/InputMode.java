@@ -6,7 +6,6 @@ import java.util.Arrays;
 import java.util.Locale;
 
 /** How the input message is handed to the executed process. */
-@SuppressWarnings("PMD.OnlyOneReturn")
 public enum InputMode {
   /** The input message is not passed to the process (default). */
   NONE,

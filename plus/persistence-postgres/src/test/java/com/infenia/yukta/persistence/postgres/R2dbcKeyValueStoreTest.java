@@ -14,7 +14,7 @@ import reactor.core.publisher.Flux;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class R2dbcKeyValueStoreTest extends PostgresTestSupport {
 
   private R2dbcKeyValueStore store;

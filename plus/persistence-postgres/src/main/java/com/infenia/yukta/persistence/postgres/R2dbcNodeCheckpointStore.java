@@ -31,7 +31,6 @@ import tools.jackson.databind.ObjectMapper;
  * finished", so a resume runs the node again.
  */
 @Slf4j
-@SuppressWarnings("PMD.OnlyOneReturn")
 public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounted {
 
   /** Longest a blocking question may wait for the database. */

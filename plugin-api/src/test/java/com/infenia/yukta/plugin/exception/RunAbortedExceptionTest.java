@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidInstantiatingObjectsInLoops", "PMD.CommentRequired"})
+@SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
 class RunAbortedExceptionTest {
 
   @Test

@@ -4,6 +4,9 @@
 package app
 
 import (
+	"fmt"
+	"os"
+
 	"com.infenia.yukta/go-cli/internal/client"
 	"com.infenia.yukta/go-cli/internal/commands"
 	"com.infenia.yukta/go-cli/internal/commands/controlbus"
@@ -20,6 +23,20 @@ import (
 // It creates the HTTP client, wires up all commands, and executes them.
 // This function is testable and returns an error instead of calling os.Exit().
 func Run() error {
+	_, err := run()
+	return err
+}
+
+// Main runs the CLI and returns the process exit code, printing a failure once on stderr.
+func Main() int {
+	code, err := run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+	}
+	return code
+}
+
+func run() (int, error) {
 	// The root command binds --url, --token and --timeout directly to this client's fields.
 	c := client.NewClient("")
 
@@ -33,6 +50,10 @@ func Run() error {
 	rootCmd.AddCommand(controlbus.ControlBusCmd(c))
 	rootCmd.AddCommand(whoami.WhoamiCmd(c))
 	rootCmd.AddCommand(scheduler.SchedulerCmd(c))
+	rootCmd.AddCommand(commands.DataCmd("supervisors", "List supervisors", 0,
+		func([]string) (any, error) { return c.GetSupervisors() }))
+	rootCmd.AddCommand(commands.DataCmd("workers", "List workers", 0,
+		func([]string) (any, error) { return c.GetWorkers() }))
 
 	// Add the logs command for streaming execution logs
 	rootCmd.AddCommand(logs.LogsCmd(c))
@@ -45,5 +66,6 @@ func Run() error {
 	rootCmd.AddCommand(session.SessionCmd(c))
 
 	// Execute the command and return any error
-	return rootCmd.Execute()
+	err := rootCmd.Execute()
+	return commands.ExitCode(err, !rootCmd.SilenceUsage), err
 }

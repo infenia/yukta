@@ -16,6 +16,10 @@
     <!-- Code Style Category -->
     <rule ref="category/java/codestyle.xml">
         <exclude name="UseExplicitTypes"/>
+        <!-- Conflict with Lombok/records, Google style and fluent Reactor chains -->
+        <exclude name="OnlyOneReturn"/>
+        <exclude name="AtLeastOneConstructor"/>
+        <exclude name="ShortVariable"/>
     </rule>
 
     <!-- Custom limit for LongVariable (Default is 17) -->
@@ -36,9 +40,11 @@
     </rule>
 
     <rule ref="category/java/design.xml">
+        <exclude name="LawOfDemeter"/>
     </rule>
     <!-- Documentation -->
     <rule ref="category/java/documentation.xml">
+        <exclude name="CommentRequired"/>
     </rule>
     <rule ref="category/java/documentation.xml/CommentSize">
         <properties>

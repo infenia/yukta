@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentRequired"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class RunBudgetsTest {
 
   private final RunBudgets budgets = new RunBudgets();

@@ -26,7 +26,6 @@ import reactor.util.context.Context;
 @Component
 @NullMarked
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
-@SuppressWarnings("PMD.LawOfDemeter")
 public class RequestTracingFilter implements WebFilter {
 
   /** Header name for request ID. */

@@ -27,7 +27,6 @@ import reactor.core.publisher.Mono;
 /** The extension itself: what it does in each mode, driven by a stubbed JUnit context. */
 @ExpectedErrorLog({"ERROR guard\\.[a-z]+ - ", "dropped error: .*IllegalStateException"})
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyStaticImports",
   "PMD.UseConcurrentHashMap",

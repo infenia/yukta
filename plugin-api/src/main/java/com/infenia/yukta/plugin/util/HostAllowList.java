@@ -29,7 +29,6 @@ import org.jspecify.annotations.Nullable;
  * fe80::/10}, {@code metadata.google.internal}) is refused unless it is listed by name, so a URL
  * built from a message cannot reach the metadata service of the cloud the server runs in.
  */
-@SuppressWarnings("PMD.OnlyOneReturn")
 public final class HostAllowList {
 
   /** A host written only with the characters of an IP address: digits, dots, colons, hex. */

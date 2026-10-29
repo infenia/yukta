@@ -24,7 +24,7 @@ import reactor.core.publisher.Mono;
 
 /** Tests for ControlBusController. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyStaticImports", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.AvoidDuplicateLiterals"})
 class ControlBusControllerTest {
 
   /** First test node identifier. */

@@ -124,7 +124,6 @@ public record ExecutionControl(
    * @param flux the stream to gate
    * @return the gated stream, or {@code flux} itself when the node has no valves
    */
-  @SuppressWarnings("PMD.OnlyOneReturn")
   public Flux<Message<?>> applyPassageGate(final String nodeId, final Flux<Message<?>> flux) {
     final ReactiveControlValve nodeValve = nodePauseValves.get(nodeId);
     if (globalPauseValve == null && nodeValve == null) {

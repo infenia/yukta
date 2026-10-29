@@ -10,11 +10,9 @@ import lombok.experimental.UtilityClass;
  */
 @UtilityClass
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.CommentDefaultAccessModifier",
   "PMD.UncommentedEmptyMethodBody",
-  "PMD.MissingStaticMethodInNonInstantiatableClass",
-  "PMD.AtLeastOneConstructor"
+  "PMD.MissingStaticMethodInNonInstantiatableClass"
 })
 class GuardFixtures {
 

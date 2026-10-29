@@ -33,7 +33,7 @@ import reactor.core.scheduler.Schedulers;
 /** Gateway for executing external processes with reactive streaming output. */
 @Slf4j
 @Service
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.TooManyMethods", "PMD.GodClass"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.GodClass"})
 @NoArgsConstructor
 public class ProcessExecutorGateway {
 

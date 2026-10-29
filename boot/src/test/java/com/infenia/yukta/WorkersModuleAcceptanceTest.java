@@ -20,7 +20,6 @@ import org.springframework.test.context.aot.DisabledInAotMode;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @DisabledInAotMode
 @EnabledIfSystemProperty(named = "yukta.workers", matches = "true")
-@SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 class WorkersModuleAcceptanceTest {
 

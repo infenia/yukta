@@ -25,7 +25,7 @@ import org.springframework.context.annotation.Import;
 
 /** Mutual TLS between a control plane and a worker, with certificates made by keytool. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class WorkersTlsTest {
 
   /** Password of every key and trust store. */

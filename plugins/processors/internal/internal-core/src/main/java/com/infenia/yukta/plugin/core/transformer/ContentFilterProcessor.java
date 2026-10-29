@@ -31,7 +31,6 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @SuppressWarnings({
-  "PMD.OnlyOneReturn",
   "PMD.AvoidCatchingGenericException",
   "PMD.TooManyMethods",
   "PMD.CyclomaticComplexity",

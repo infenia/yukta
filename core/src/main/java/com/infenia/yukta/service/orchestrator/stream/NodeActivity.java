@@ -25,7 +25,7 @@ import reactor.core.scheduler.Schedulers;
  * One periodic check per node (not one timer per message) compares the last activity with the time
  * it has already counted.
  */
-@SuppressWarnings({"PMD.AvoidUsingVolatile", "PMD.OnlyOneReturn", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.AvoidUsingVolatile", "PMD.TooManyMethods"})
 public final class NodeActivity {
 
   /** How many checks make up a timeout. */

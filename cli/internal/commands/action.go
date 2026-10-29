@@ -41,3 +41,21 @@ func Action[R any](spec ActionSpec[R]) *cobra.Command {
 		},
 	}
 }
+
+// DataCmd builds a read-only command that fetches nested data and prints it as JSON
+// (nested structures don't fit a table, so -o has no effect).
+func DataCmd(use, short string, nargs int, fetch func(args []string) (any, error)) *cobra.Command {
+	return &cobra.Command{
+		Use:   use,
+		Short: short,
+		Args:  cobra.ExactArgs(nargs),
+		RunE: func(_ *cobra.Command, args []string) error {
+			data, err := fetch(args)
+			if err != nil {
+				return err
+			}
+			output.PrintJSON(data)
+			return nil
+		},
+	}
+}

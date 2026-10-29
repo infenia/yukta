@@ -28,7 +28,7 @@ import org.springframework.boot.context.properties.source.MapConfigurationProper
 import reactor.core.publisher.Mono;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.TooManyMethods")
 class RulesFirstControlPlaneTest {
 
   private static final ExecutionControlCommand PAUSE =

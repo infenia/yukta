@@ -26,11 +26,7 @@ import reactor.test.StepVerifier;
 /** Backpressure and throughput checks for the node broadcast pipeline. */
 @Slf4j
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.AvoidInstantiatingObjectsInLoops",
-  "PMD.GuardLogStatement"
-})
+@SuppressWarnings({"PMD.AvoidInstantiatingObjectsInLoops", "PMD.GuardLogStatement"})
 class StreamTopologyDecoratorBackpressureTest {
 
   private static final int MESSAGES = 10_000;

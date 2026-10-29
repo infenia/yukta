@@ -8,7 +8,6 @@ import lombok.experimental.UtilityClass;
 
 /** Builds the ids of definition versions. */
 @UtilityClass
-@SuppressWarnings("PMD.AtLeastOneConstructor")
 public class DefinitionRevisions {
 
   /**

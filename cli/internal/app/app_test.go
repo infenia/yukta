@@ -106,3 +106,16 @@ func TestRun_wiresUpCommands(t *testing.T) {
 
 	_ = Run()
 }
+
+func TestMain_printsErrorOnceAndReturnsCode(t *testing.T) {
+	old := os.Args
+	defer func() { os.Args = old }()
+	os.Args = []string{"yukta-cli", "no-such-command"}
+	if code := Main(); code != 2 {
+		t.Errorf("exit code %d, want 2", code)
+	}
+	os.Args = []string{"yukta-cli", "version"}
+	if code := Main(); code != 0 {
+		t.Errorf("exit code %d, want 0", code)
+	}
+}

@@ -29,7 +29,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.TooManyMethods")
 class InMemoryNodeCheckpointStoreSpillTest {
 
   @TempDir /* default */ Path dir;

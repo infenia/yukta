@@ -25,7 +25,6 @@ import org.springframework.test.context.DynamicPropertySource;
  */
 @EnabledIfSystemProperty(named = "yukta.edition", matches = FileStoreAcceptanceTest.PLUS)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
-@SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 class FileStoreAcceptanceTest {
 

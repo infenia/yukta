@@ -18,11 +18,7 @@ import org.springframework.r2dbc.core.DatabaseClient;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.UnitTestShouldIncludeAssert",
-  "PMD.AvoidDuplicateLiterals"
-})
+@SuppressWarnings({"PMD.UnitTestShouldIncludeAssert", "PMD.AvoidDuplicateLiterals"})
 class PostgresPersistenceAutoConfigurationTest {
 
   private final ApplicationContextRunner runner =

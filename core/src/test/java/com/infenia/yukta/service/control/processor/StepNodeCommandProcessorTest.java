@@ -26,7 +26,7 @@ import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.LinguisticNaming", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.LinguisticNaming", "PMD.AvoidDuplicateLiterals"})
 class StepNodeCommandProcessorTest {
 
   /** Registry for execution control. */

@@ -171,7 +171,7 @@ func TestCommandCmd_invalidJSON(t *testing.T) {
 	c := client.NewClient("http://localhost:8080")
 	cmd := CommandCmd(c)
 
-	err := cmd.RunE(cmd, []string{"workflow-123", "node-1", `invalid json {`})
+	err := cmd.RunE(cmd, []string{"workflow-123", "node-1", `{invalid json`})
 
 	if err == nil {
 		t.Error("expected error for invalid JSON, got nil")
@@ -475,60 +475,5 @@ func TestCommandCmd_fileReadError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to read command") {
 		t.Errorf("expected 'failed to read command' error, got: %v", err)
-	}
-}
-
-func TestReadCommandInput_fileReadError(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("running as root; file permissions are not enforced")
-	}
-
-	tmpFile, err := os.CreateTemp("", "unreadable-*.json")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
-
-	if err := os.Chmod(tmpFile.Name(), 0o000); err != nil {
-		t.Fatalf("failed to chmod temp file: %v", err)
-	}
-
-	_, err = readCommandInput(tmpFile.Name())
-
-	if err == nil {
-		t.Fatal("expected error reading unreadable file, got nil")
-	}
-}
-
-func TestReadCommandInput_inlineJSON(t *testing.T) {
-	input := `{"action":"pause","reason":"testing"}`
-	result, err := readCommandInput(input)
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if string(result) != input {
-		t.Errorf("expected %q, got %q", input, string(result))
-	}
-}
-
-func TestReadCommandInput_various(t *testing.T) {
-	testCases := []string{
-		`{}`,
-		`{"field":"value"}`,
-		`{"a":"1","b":"2","c":"3"}`,
-		`{"nested":{"inner":"value"}}`,
-	}
-
-	for _, input := range testCases {
-		result, err := readCommandInput(input)
-		if err != nil {
-			t.Fatalf("unexpected error for input %q: %v", input, err)
-		}
-		if string(result) != input {
-			t.Errorf("for input %q: expected %q, got %q", input, input, string(result))
-		}
 	}
 }

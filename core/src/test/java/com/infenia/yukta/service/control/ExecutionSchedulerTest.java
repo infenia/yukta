@@ -19,7 +19,7 @@ import reactor.core.publisher.BaseSubscriber;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.TooManyMethods")
 @ExpectedErrorLog("dropped error: .*ErrorCallbackNotImplemented")
 class ExecutionSchedulerTest {
 

@@ -18,7 +18,6 @@ import org.springframework.expression.spel.support.DataBindingMethodResolver;
  * or a method of a payload object, is not found, so one expression cannot allocate without bound or
  * reach the JVM.
  */
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.OnlyOneReturn"})
 final class SafeMethodResolver implements MethodResolver {
 
   /** Methods allowed on any receiver. */

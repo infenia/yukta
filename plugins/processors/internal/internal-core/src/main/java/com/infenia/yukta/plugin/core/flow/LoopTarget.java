@@ -15,7 +15,6 @@ import reactor.core.publisher.Mono;
  * validateConfig}, {@code initialize}, {@code prepare}) on to it with the target's own settings.
  */
 @UtilityClass
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
 class LoopTarget {
 
   /** Config key: the id of the processor to run. */

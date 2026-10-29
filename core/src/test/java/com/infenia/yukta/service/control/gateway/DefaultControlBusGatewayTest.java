@@ -69,11 +69,9 @@ import reactor.test.StepVerifier;
 
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
-  "PMD.CommentRequired",
   "PMD.CouplingBetweenObjects",
   "PMD.CyclomaticComplexity",
   "PMD.ExcessiveImports",
-  "PMD.LawOfDemeter",
   "PMD.LinguisticNaming",
   "PMD.TooManyMethods",
   "PMD.TooManyStaticImports"

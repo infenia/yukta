@@ -8,11 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings({
-  "PMD.AtLeastOneConstructor",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.CommentRequired"
-})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class ConfigValidationTest {
 
   @Test

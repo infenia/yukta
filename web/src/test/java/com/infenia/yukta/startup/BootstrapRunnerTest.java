@@ -27,7 +27,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** Tests for {@link BootstrapRunner}. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyStaticImports"})
+@SuppressWarnings("PMD.TooManyStaticImports")
 class BootstrapRunnerTest {
 
   private static final String VALID =

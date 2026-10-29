@@ -35,7 +35,6 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {"yukta.supervisor.rules.file=false", "springdoc.api-docs.enabled=true"})
-@SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 class OpenApiSnapshotTest {
 

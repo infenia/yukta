@@ -23,7 +23,7 @@ import reactor.test.StepVerifier;
  * A node's output must reach its child even when the connectors run before the child subscribes.
  */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.UseShortArrayInitializer"})
+@SuppressWarnings("PMD.UseShortArrayInitializer")
 class StreamTopologyDecoratorConnectOrderTest {
 
   private final NodeCheckpointStore store = Mockito.mock(NodeCheckpointStore.class);

@@ -19,7 +19,6 @@ import reactor.core.publisher.Mono;
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
-@SuppressWarnings("PMD.LawOfDemeter")
 public class SecurityHeadersFilter implements WebFilter {
 
   /** One year, the usual HSTS lifetime. */

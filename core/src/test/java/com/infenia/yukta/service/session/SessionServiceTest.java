@@ -34,7 +34,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** Unit tests for SessionService. */
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyMethods", "PMD.TooManyStaticImports"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports"})
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.session.SessionService - ")
