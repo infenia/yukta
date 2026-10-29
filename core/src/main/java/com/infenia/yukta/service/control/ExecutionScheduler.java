@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control;
 
+import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.security.CallRateLimiter;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.NotLeaderException;
@@ -399,6 +400,18 @@ public class ExecutionScheduler implements SmartLifecycle {
       admitted = admitWaiting();
     }
     grant(admitted);
+  }
+
+  /**
+   * The limits in force and the slots in use, read together under the lock.
+   *
+   * @return a consistent snapshot
+   */
+  public SchedulerLimits limits() {
+    synchronized (lock) {
+      return new SchedulerLimits(
+          maxConcurrent, maxPerWorkflow, runningTotal, queue.size(), queueCapacity);
+    }
   }
 
   /**

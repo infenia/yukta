@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.StopMode;
@@ -364,6 +365,13 @@ public interface ControlBusGateway {
       String target,
       boolean applied,
       @org.jspecify.annotations.Nullable String reason);
+
+  /**
+   * The execution limits in force and how many slots are in use.
+   *
+   * @return a Mono emitting the snapshot
+   */
+  Mono<SchedulerLimits> limits();
 
   /**
    * Change the priority of an execution that is waiting for a slot. It is recorded in the execution

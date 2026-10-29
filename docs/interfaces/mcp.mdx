@@ -54,11 +54,11 @@ Other clients take the same two values, a URL and optional headers. A typical co
 
 `/mcp` is protected by the same keys as the REST API, plus an optional `yukta.mcp.api-key` that grants the `ADMIN` role to MCP only. Send the key as `Authorization: Bearer <key>` or `X-API-Key: <key>`. Setting only the REST key therefore closes MCP too. With no key configured, the server accepts requests from loopback only, as for REST. Loopback means **any process on the machine**: such a process can call `create_session`, which installs workflows that run code, so set a key whenever the machine is shared. See [Security](/operations/security).
 
-A key that is not an unrestricted `ADMIN` key has each tool call checked against the role the tool needs. A call that is not allowed is refused with HTTP `403`. A request body above 1 MB is refused with `413`. A key limited to sessions can call a tool only with a `sessionId` argument that names one of its sessions. The four tools that name no session (`list_plugins`, `get_plugin_details`, `get_session_creation_instructions` and `get_plugin_creation_guide`) are open to such a key. `list_sessions` and `get_control_bus_status` are not.
+A key that is not an unrestricted `ADMIN` key has each tool call checked against the role the tool needs. A call that is not allowed is refused with HTTP `403`. A request body above 1 MB is refused with `413`. A key limited to sessions can call a tool only with a `sessionId` argument that names one of its sessions. The four tools that name no session (`list_plugins`, `get_plugin_details`, `get_session_creation_instructions` and `get_plugin_creation_guide`) are open to such a key. `list_sessions`, `get_control_bus_status` and `get_scheduler_limits` are not.
 
 | Role | Tools it may call |
 |---|---|
-| `VIEWER` | `list_sessions`, `get_session_details`, `get_workflow_details`, `get_workflow_status`, `get_workflow_history`, `get_execution_tree`, `get_execution_logs`, `get_node_output`, `get_execution_result`, `list_pending_approvals`, `list_workflow_versions`, `diff_workflow_versions`, `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`, `get_session_creation_instructions`, `get_control_bus_status` |
+| `VIEWER` | `list_sessions`, `get_session_details`, `get_workflow_details`, `get_workflow_status`, `get_workflow_history`, `get_execution_tree`, `get_execution_logs`, `get_node_output`, `get_execution_result`, `list_pending_approvals`, `list_workflow_versions`, `diff_workflow_versions`, `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`, `get_session_creation_instructions`, `get_control_bus_status`, `get_scheduler_limits` |
 | `OPERATOR` | Everything `VIEWER` can, plus `start_workflow`, `control_workflow`, `control_node`, `set_node_breakpoint`, `signal_node`, `rollback_workflow`, `note_workflow_version` |
 | `ADMIN` | Everything, including `create_session`, `delete_session` and `delete_workflow` |
 
@@ -109,6 +109,8 @@ Tools return structured JSON, except where noted. Every tool that takes an `exec
 | `control_workflow` | `OPERATOR` | `sessionId`, `action`; `executionId` for all actions except `STOP_ALL`; `workflowId` for `STOP_ALL`; `fromNodeId` for `RESTART_FROM_NODE`; optional `reason`; optional `tree` (`PAUSE`, `RESUME`, `STOP`: also the runs the execution started as sub-workflows) | `action`, `executionId`, `nodeId`, `resultExecutionIds` and `message` |
 | `control_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `action`; optional `immediate` and `reason` for `STOP` | The same result object |
 | `set_node_breakpoint` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `field`, `equalsValue` | The same result object |
+| `get_scheduler_limits` | `VIEWER` | none | `maxConcurrent`, `maxPerWorkflow` (`0` is no limit), `running`, `queued` and `queueCapacity` |
+| `set_scheduler_limits` | `ADMIN` | `maxConcurrent`, `maxPerWorkflow` (`0` for no limit) | The limits as now in force, in the same shape |
 | `signal_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `signalName`, `decision`; optional `data` | The same result object |
 | `list_pending_approvals` | `VIEWER` | `sessionId` | `sessionId` and `approvals`: each with `executionId`, `workflowId`, `nodeId`, `name`, `since` |
 

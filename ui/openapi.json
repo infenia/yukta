@@ -1407,6 +1407,24 @@
       }
     },
     "/api/scheduler/limits" : {
+      "get" : {
+        "tags" : [ "Execution Control API" ],
+        "summary" : "Read the execution limits",
+        "description" : "The limits set at startup or by the last POST (0 means unlimited), with how many executions run and wait now",
+        "operationId" : "getLimits",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSchedulerLimits"
+                }
+              }
+            }
+          }
+        }
+      },
       "post" : {
         "tags" : [ "Execution Control API" ],
         "summary" : "Change the execution limits",
@@ -4968,6 +4986,74 @@
             "format" : "int32",
             "description" : "Number of workflows",
             "example" : 24
+          }
+        }
+      },
+      "ApiResponseSchedulerLimits" : {
+        "type" : "object",
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The time the response was generated"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The HTTP status code",
+            "example" : 200
+          },
+          "message" : {
+            "type" : "string",
+            "description" : "A human-readable message",
+            "example" : "Operation successful"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/SchedulerLimits",
+            "description" : "The response data"
+          },
+          "error" : {
+            "type" : "string",
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request"
+          },
+          "path" : {
+            "type" : "string",
+            "description" : "The request path",
+            "example" : "/api/files"
+          },
+          "errors" : {
+            "type" : "array",
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            }
+          }
+        }
+      },
+      "SchedulerLimits" : {
+        "type" : "object",
+        "properties" : {
+          "maxConcurrent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxPerWorkflow" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "running" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "queued" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "queueCapacity" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
