@@ -16,7 +16,11 @@ const envelope = (path: string, data: unknown) => ({
   }),
 });
 
-async function mockControlApi(page: Page, workers: unknown[]) {
+async function mockControlApi(
+  page: Page,
+  workers: unknown[],
+  nodes: string[] = []
+) {
   await page.route('**/api/supervisors', (route) =>
     route.fulfill(envelope('/supervisors', []))
   );
@@ -24,7 +28,7 @@ async function mockControlApi(page: Page, workers: unknown[]) {
     route.fulfill(envelope('/audit', []))
   );
   await page.route('**/api/control/nodes', (route) =>
-    route.fulfill(envelope('/nodes', []))
+    route.fulfill(envelope('/nodes', nodes))
   );
   await page.route('**/api/edition', (route) =>
     route.fulfill(
@@ -70,5 +74,61 @@ test.describe('Control page', () => {
     await page.goto('/control');
 
     await expect(page.getByText('No workers connected.')).toBeVisible();
+  });
+
+  test('sends a command to a node and shows the response', async ({ page }) => {
+    await mockControlApi(page, [], ['wf-1:ingest']);
+    await page.route('**/api/control/workflows/wf-1/nodes/ingest/heartbeat', (route) =>
+      route.fulfill(envelope('/heartbeat', { beat: 1 }))
+    );
+    let sent: unknown;
+    await page.route('**/api/control/workflows/wf-1/nodes/ingest/command', (route) => {
+      sent = route.request().postDataJSON();
+      return route.fulfill(envelope('/command', { payload: { flushed: true } }));
+    });
+    await page.goto('/control');
+
+    await page.getByLabel('Workflow', { exact: true }).selectOption('wf-1');
+    await page.getByLabel('Node', { exact: true }).selectOption('ingest');
+    await expect(page.getByText('"beat": 1')).toBeVisible();
+    await page.getByRole('button', { name: 'Send command…' }).click();
+    await page.getByLabel('Command (JSON object)').fill('{"action":"flush"}');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+
+    await expect(page.getByText('"flushed": true')).toBeVisible();
+    expect(sent).toEqual({ action: 'flush' });
+  });
+
+  test('shows the live activity feed and filters it', async ({ page }) => {
+    await mockControlApi(page, []);
+    const frame = (type: string, severity: string, event: object) =>
+      `data: ${JSON.stringify({ type, severity, rootExecutionId: 'r', depth: 0, event })}\n\n`;
+    await page.route('**/api/events/stream*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body:
+          frame('NodeStatusChanged', 'INFO', {
+            executionId: 'exec-1111-aaaa',
+            timestamp: '2026-07-26T14:22:01',
+            nodeId: 'ingest',
+            status: 'RUNNING',
+          }) +
+          frame('NodeStatusChanged', 'ERROR', {
+            executionId: 'exec-2222-bbbb',
+            timestamp: '2026-07-26T14:22:02',
+            nodeId: 'load',
+            status: 'FAILURE',
+          }),
+      })
+    );
+    await page.goto('/control?tab=activity');
+
+    await expect(page.getByText('ingest → RUNNING')).toBeVisible();
+    await expect(page.getByText('load → FAILURE')).toBeVisible();
+    await page.getByRole('button', { name: 'ERROR' }).click();
+    await expect(page.getByText('ingest → RUNNING')).toHaveCount(0);
+    await expect(page.getByText('load → FAILURE')).toBeVisible();
+    await expect(page).toHaveURL(/severity=ERROR/);
   });
 });

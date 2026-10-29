@@ -71,6 +71,54 @@ class ClassifyPluginTest {
   }
 
   @Test
+  void process_maxStateChars_cutsWhatTheModelSees_keepingTheChosenPart() {
+    final FakeModel model = FakeModel.always(Map.of("label", choice("bug", 0.9)));
+    final String log = "head-" + "x".repeat(500) + "-the cause";
+
+    run(plugin(model), config("maxStateChars", 40, "stateKeep", "tail"), log);
+
+    assertThat(model.asked.getFirst().state()).hasSize(40).endsWith("-the cause");
+  }
+
+  @Test
+  void process_onOverflowFail_rejectsStateOverTheCap_acceptsOneWithin() {
+    final FakeModel model = FakeModel.always(Map.of("label", choice("bug", 0.9)));
+    final Map<String, Object> capped = config("maxStateChars", 2000, "onOverflow", "fail");
+
+    StepVerifier.create(
+            plugin(model).process(Flux.just(FakeModel.message("x".repeat(5000))), capped))
+        .expectErrorSatisfies(
+            e ->
+                assertThat(e)
+                    .isInstanceOf(WorkflowExecutionException.class)
+                    .hasMessageContaining("5000 characters")
+                    .hasMessageContaining("maxStateChars 2000"))
+        .verify();
+    assertThat(model.asked).isEmpty();
+
+    assertThat(run(plugin(model), capped, "x".repeat(2000)).payload()).isEqualTo("x".repeat(2000));
+  }
+
+  @Test
+  void validateConfig_rejectsBadStateLimits() {
+    final ClassifyPlugin plugin = plugin(FakeModel.always(Map.of()));
+
+    for (final Map<String, Object> bad :
+        List.of(
+            config("maxStateChars", 0),
+            config("stateKeep", "middle"),
+            config("onOverflow", "ignore"))) {
+      StepVerifier.create(plugin.validateConfig(bad))
+          .expectError(IllegalArgumentException.class)
+          .verify();
+    }
+    StepVerifier.create(
+            plugin.validateConfig(
+                config("maxStateChars", 100, "stateKeep", "headTail", "onOverflow", "fail")))
+        .verifyComplete();
+  }
+
+  @Test
   void process_lowProbability_isUncertain() {
     final Message<?> out =
         run(
@@ -133,6 +181,9 @@ class ClassifyPluginTest {
             "apiKey",
             "timeout",
             "state",
+            "maxStateChars",
+            "stateKeep",
+            "onOverflow",
             "into",
             "concurrency");
     assertThat(schema.stream().filter(ConfigField::required).map(ConfigField::name))

@@ -112,4 +112,20 @@ class McpToolAccessTest {
 
     assertThat(McpToolAccess.permitted(key("VIEWER", "a"), batch)).isFalse();
   }
+
+  @Test
+  void heavyCallsCountStartsAndRegexLogReadsOnly() {
+    final byte[] batch =
+        ("[{\"method\":\"tools/call\",\"params\":{\"name\":\"start_workflow\"}},"
+                + "{\"method\":\"tools/call\",\"params\":{\"name\":\"get_execution_logs\","
+                + "\"arguments\":{\"filterPattern\":\"x\"}}},"
+                + "{\"method\":\"tools/call\",\"params\":{\"name\":\"get_execution_logs\","
+                + "\"arguments\":{}}}]")
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+    assertThat(McpToolAccess.heavyCalls(batch)).isEqualTo(2);
+    assertThat(
+            McpToolAccess.heavyCalls("not json".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+        .isZero();
+  }
 }

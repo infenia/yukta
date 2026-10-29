@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useQuery } from '@tanstack/react-query';
+import { useFallbackPoll } from '../context/ControlEvents';
 import { fetchApi } from '@/lib/apiClient';
 import { StateMessage } from '@/components/common/StateMessage';
 import {
@@ -37,10 +38,11 @@ const KIND_LABEL: Record<Supervisor['kind'], string> = {
 
 /** Supervisors and control planes with how many commands each sent since startup. */
 export function SupervisorsPanel() {
+  const poll = useFallbackPoll();
   const supervisors = useQuery({
     queryKey: ['control', 'supervisors'],
     queryFn: getSupervisors,
-    refetchInterval: 5000,
+    refetchInterval: poll,
   });
 
   return (
@@ -48,7 +50,7 @@ export function SupervisorsPanel() {
       aria-labelledby="supervisors-heading"
       className="flex flex-col gap-2"
     >
-      <h2 id="supervisors-heading" className="text-on-surface text-headline-md">
+      <h2 id="supervisors-heading" className="text-headline-md text-on-surface">
         Supervisors and control planes
       </h2>
       {supervisors.error ? (

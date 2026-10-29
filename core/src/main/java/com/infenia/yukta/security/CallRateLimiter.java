@@ -16,6 +16,9 @@ public final class CallRateLimiter {
   /** Length of one window, in nanoseconds. */
   private static final long WINDOW_NANOS = Duration.ofMinutes(1).toNanos();
 
+  /** Callers remembered before the ended windows are dropped. */
+  private static final int MAX_CALLERS = 10_000;
+
   /** Requests allowed per caller and window; 0 means unlimited. */
   private final int perMinute;
 
@@ -58,9 +61,27 @@ public final class CallRateLimiter {
     return perMinute <= 0 || count(caller) <= perMinute;
   }
 
+  /**
+   * Whether the caller has used up its window, without counting anything.
+   *
+   * @param caller who is asking
+   * @return true if the caller is at or over the limit in the current window
+   */
+  public boolean exceeded(final String caller) {
+    final Window window = windows.get(caller);
+    return perMinute > 0
+        && window != null
+        && nanos.getAsLong() - window.start < WINDOW_NANOS
+        && window.count >= perMinute;
+  }
+
   /** Counts the request in the caller's window; compute() makes the update atomic per caller. */
   private int count(final String caller) {
     final long now = nanos.getAsLong();
+    if (windows.size() > MAX_CALLERS) {
+      // callers are keys or addresses: forget the ones whose window has ended
+      windows.values().removeIf(window -> now - window.start >= WINDOW_NANOS);
+    }
     return windows.compute(
             caller,
             (_, old) -> {

@@ -164,3 +164,7 @@ yk gradle :ui:check
 ## Imports
 @.claude/rules/coding-standards.md
 @.claude/rules/git-workflow.md
+
+## API types
+
+After changing a controller, refresh `openapi.json` (`yk gradle :boot:test --tests "*OpenApiSnapshotTest" -Pyukta.openapi.update=true`), then run `pnpm run api:types -- openapi.json`. `apiTypesCheck` fails the `ui` check when `src/types/api.generated.ts` is stale.

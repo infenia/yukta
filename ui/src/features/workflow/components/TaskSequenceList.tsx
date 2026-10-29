@@ -45,14 +45,14 @@ function TimingLine({
   }
   if (status === 'running') {
     return (
-      <p className="text-on-surface-variant text-code-sm">
+      <p className="text-code-sm text-on-surface-variant">
         Start: {formatClockTime(task.startTime)}
         {'  '}Dur: {formatDuration(task.startTime, new Date().toISOString())}
       </p>
     );
   }
   return (
-    <p className="text-on-surface-variant text-code-sm">
+    <p className="text-code-sm text-on-surface-variant">
       Start: {formatClockTime(task.startTime)}
       {'  '}End: {formatClockTime(task.endTime)}
     </p>
@@ -62,9 +62,11 @@ function TimingLine({
 function TaskSequenceItem({
   task,
   onNodeCommand,
+  scope,
 }: {
   task: TaskProgress;
   onNodeCommand?: (nodeId: string, command: NodeCommand) => void;
+  scope?: { sessionId: string; executionId: string };
 }) {
   const status = toNodeUiStatus(task.status);
   const dimmed = status === 'pending' || status === 'skipped';
@@ -80,17 +82,17 @@ function TaskSequenceItem({
         <span
           className={cn(
             'material-symbols-outlined text-base',
-            status === 'running' && 'text-primary animate-spin',
+            status === 'running' && 'animate-spin text-primary',
             status === 'completed' && 'text-success',
             status === 'failed' && 'text-error'
           )}
         >
           {STATUS_ICONS[status]}
         </span>
-        <span className="text-on-surface text-label-md">{task.nodeId}</span>
+        <span className="text-label-md text-on-surface">{task.nodeId}</span>
         <span
           className={cn(
-            'text-label-sm ml-auto font-semibold tracking-wider',
+            'ml-auto text-label-sm font-semibold tracking-wider',
             LABEL_CLASSES[status]
           )}
         >
@@ -101,10 +103,11 @@ function TaskSequenceItem({
             nodeId={task.nodeId}
             status={status}
             onCommand={onNodeCommand}
+            scope={scope}
           />
         )}
       </div>
-      <p className="text-on-surface-variant text-body-sm pl-6">
+      <p className="pl-6 text-body-sm text-on-surface-variant">
         module: {task.module}
       </p>
       <div className="pl-6">
@@ -122,10 +125,13 @@ export function TaskSequenceList({
   graph,
   tasksByNode,
   onNodeCommand,
+  scope,
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
   onNodeCommand?: (nodeId: string, command: NodeCommand) => void;
+  /** Session and run of the tasks, for the "Copy as" commands. */
+  scope?: { sessionId: string; executionId: string };
 }) {
   const order =
     graph.topologicalOrder.length > 0
@@ -163,13 +169,14 @@ export function TaskSequenceList({
 
   return (
     <div data-testid="task-sequence">
-      <h3 className="text-overline mb-2">Task sequence</h3>
+      <h3 className="mb-2 text-overline">Task sequence</h3>
       <ul className="flex flex-col">
         {tasks.map((task) => (
           <TaskSequenceItem
             key={task.nodeId}
             task={task}
             onNodeCommand={onNodeCommand}
+            scope={scope}
           />
         ))}
       </ul>

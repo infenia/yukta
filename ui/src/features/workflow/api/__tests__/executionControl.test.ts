@@ -6,6 +6,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import {
   nodeAction,
+  changePriority,
   recoverExecution,
   restartFromNode,
   stopNode,
@@ -91,6 +92,11 @@ describe('executionControl api', () => {
   it('unskips a node', async () => {
     await unskipNode('e1', 'n1');
     expect(calls).toEqual(['/api/executions/e1/nodes/n1/skip?skip=false']);
+  });
+
+  it('changes the priority of a run', async () => {
+    await changePriority('e 1', -3);
+    expect(calls).toEqual(['priority e 1']);
   });
 
   it('recovers an aborted run', async () => {

@@ -207,6 +207,110 @@ test.describe('Workflow Details Page', () => {
     expect(stops).toEqual(['?immediate=true&reason=too+slow']);
   });
 
+  test('raises the priority of a queued run', async ({
+    page,
+    mockWorkflowApi,
+  }) => {
+    await mockWorkflowApi(page, {
+      progress: { ...defaultProgress, status: 'QUEUED' },
+    });
+    const calls: string[] = [];
+    await page.route('**/api/executions/*/priority*', (route) => {
+      calls.push(new URL(route.request().url()).search);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          timestamp: '2026-07-26T14:23:23',
+          status: 200,
+          message: 'OK',
+          path: '/priority',
+          data: { executionId: 'exec-091-qp-55' },
+        }),
+      });
+    });
+    await page.goto(WORKFLOW_URL);
+
+    await page.getByRole('button', { name: /priority/i }).click();
+    await page.getByLabel(/Priority \(/).fill('10');
+    await page.getByRole('button', { name: 'Apply' }).click();
+
+    await expect(page.getByRole('dialog')).toBeHidden();
+    expect(calls).toEqual(['?priority=10']);
+  });
+
+  test('recovers an aborted run as a new run', async ({
+    page,
+    mockWorkflowApi,
+  }) => {
+    await mockWorkflowApi(page, {
+      progress: { ...defaultProgress, status: 'ABORTED' },
+    });
+    let recovered = 0;
+    await page.route('**/api/executions/*/recover', (route) => {
+      recovered += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          timestamp: '2026-07-26T14:23:23',
+          status: 200,
+          message: 'OK',
+          path: '/recover',
+          data: { executionId: 'exec-090-aa-12' },
+        }),
+      });
+    });
+    await page.goto(WORKFLOW_URL);
+
+    await page.getByRole('button', { name: /recover/i }).click();
+    await expect(page.getByRole('dialog')).toContainText(
+      'Finished nodes are replayed'
+    );
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Recover' })
+      .click();
+
+    await expect(page).toHaveURL(/exec=exec-090-aa-12/);
+    expect(recovered).toBe(1);
+  });
+
+  test('copies a node action as a curl command without a key', async ({
+    page,
+  }) => {
+    // Browsers differ on clipboard permissions, so capture what the page writes instead.
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          writeText: (text: string) => {
+            (window as unknown as { copied: string }).copied = text;
+            return Promise.resolve();
+          },
+        },
+      });
+    });
+    await page.goto(WORKFLOW_URL);
+    await expect(page.getByTestId('workflow-details-page')).toBeVisible();
+
+    await page
+      .getByRole('button', { name: 'Actions for Vectorize_Batch' })
+      .click();
+    await page.getByRole('menuitem', { name: /^Copy as curl/ }).focus();
+    await page.keyboard.press('ArrowRight');
+    await page.getByRole('menuitem', { name: 'Pause node' }).last().click();
+
+    await expect(page.getByRole('status')).toHaveText('Copied');
+    const copied = await page.evaluate(
+      () => (window as unknown as { copied: string }).copied
+    );
+    expect(copied).toContain(
+      '/api/executions/exec-091-qp-55/nodes/Vectorize_Batch/pause'
+    );
+    expect(copied).toContain('-H "Authorization: Bearer $YUKTA_TOKEN"');
+  });
+
   test('downloads the visible log lines as <session>-<execution>.log', async ({
     page,
   }) => {
@@ -228,6 +332,46 @@ test.describe('Workflow Details Page', () => {
     const text = readFileSync(await file.path(), 'utf8');
     expect(text).toContain('High memory pressure detected on worker-node-04');
     expect(text).not.toContain('Initializing workflow engine');
+  });
+
+  test('pages and downloads the results of a finished run', async ({
+    page,
+    mockWorkflowApi,
+  }) => {
+    await mockWorkflowApi(page, {
+      progress: { ...defaultProgress, status: 'SUCCESS' },
+    });
+    await page.route('**/api/sessions/*/executions/*/results*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          executionId: 'exec-091-qp-55',
+          complete: true,
+          status: 'SUCCESS',
+          truncated: false,
+          nextCursor: 2,
+          events: [0, 1].map((sequence) => ({
+            kind: 'RESULT',
+            nodeId: 'Persist_Results',
+            sequence,
+            payload: { rows: sequence },
+            status: null,
+            truncated: false,
+            timestamp: '2026-07-26T14:22:11Z',
+          })),
+        }),
+      })
+    );
+    await page.goto(WORKFLOW_URL);
+
+    await page.getByRole('tab', { name: 'results' }).click();
+    await expect(page.getByText('Persist_Results · #1')).toBeVisible();
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download JSON' }).click();
+    expect((await download).suggestedFilename()).toBe(
+      'results-exec-091-qp-55.json'
+    );
   });
 
   test('renders the never-run state', async ({ page, mockWorkflowApi }) => {

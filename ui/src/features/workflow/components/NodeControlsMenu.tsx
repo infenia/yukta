@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { RequirePermission } from '@/components/common/RequirePermission';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,6 +9,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { NodeAction } from '../api/executionControl';
+import { useCopyCommand } from '../hooks/useCopyCommand';
+import { CopyAsMenu, type CopyChoice } from './CopyAsMenu';
 import type { NodeUiStatus } from '../types/workflow';
 
 export type NodeCommand = NodeAction | 'restart-from' | 'unskip';
@@ -54,32 +57,62 @@ export function NodeControlsMenu({
   nodeId,
   status,
   onCommand,
+  scope,
 }: {
   nodeId: string;
   status: NodeUiStatus;
   onCommand: (nodeId: string, command: NodeCommand) => void;
+  /** The session and run the node belongs to; with it the menu can copy the equivalent commands. */
+  scope?: { sessionId: string; executionId: string };
 }) {
+  const { status: copied, copy } = useCopyCommand();
   // Every status has at least one applicable action, so the menu is never empty.
   const items = ITEMS.filter((item) => item.when(status));
+  const choices: CopyChoice[] = scope
+    ? items.flatMap((item): CopyChoice[] => {
+        if (item.command === 'unskip') return []; // no copy-as equivalent yet
+        return [
+          {
+            label: item.label,
+            action:
+              item.command === 'restart-from'
+                ? { kind: 'restartFromNode', ...scope, nodeId }
+                : { kind: 'node', verb: item.command, ...scope, nodeId },
+          },
+        ];
+      })
+    : [];
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={`Actions for ${nodeId}`}
-        className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center"
-      >
-        <span className="material-symbols-outlined text-base">more_vert</span>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {items.map((item) => (
-          <DropdownMenuItem
-            key={item.command}
-            onClick={() => onCommand(nodeId, item.command)}
+    <>
+      {copied && (
+        <span role="status" className="text-label-sm text-on-surface-variant">
+          {copied === 'copied' ? 'Copied' : 'Copy failed'}
+        </span>
+      )}
+      <DropdownMenu>
+        <RequirePermission perm="controlRuns">
+          <DropdownMenuTrigger
+            aria-label={`Actions for ${nodeId}`}
+            className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center"
           >
-            {item.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+            <span className="material-symbols-outlined text-base">
+              more_vert
+            </span>
+          </DropdownMenuTrigger>
+        </RequirePermission>
+        <DropdownMenuContent align="end">
+          {items.map((item) => (
+            <DropdownMenuItem
+              key={item.command}
+              onClick={() => onCommand(nodeId, item.command)}
+            >
+              {item.label}
+            </DropdownMenuItem>
+          ))}
+          {scope && <CopyAsMenu choices={choices} onCopy={copy} />}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }

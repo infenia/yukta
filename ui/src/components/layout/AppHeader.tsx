@@ -4,14 +4,15 @@
 import { Link, useLocation } from 'react-router';
 import HeaderLogo from './HeaderLogo';
 import BreadcrumbNav from './BreadcrumbNav';
+import IdentityChip from './IdentityChip';
 import ThemeToggle from './ThemeToggle';
 
 /* `section` is the path prefix the item owns: Sessions is current on the list and on every
    session, workflow and editor page under /sessions. */
 const NAV = [
   { to: '/', section: '/sessions', label: 'Sessions', icon: 'folder' },
+  { to: '/runs', section: '/runs', label: 'Runs', icon: 'history' },
   { to: '/plugins', section: '/plugins', label: 'Plugins', icon: 'extension' },
-  { to: '/history', section: '/history', label: 'History', icon: 'history' },
   { to: '/control', section: '/control', label: 'Control', icon: 'hub' },
 ];
 
@@ -58,6 +59,7 @@ export default function AppHeader() {
               );
             })}
           </nav>
+          <IdentityChip />
           <ThemeToggle />
         </div>
       </div>

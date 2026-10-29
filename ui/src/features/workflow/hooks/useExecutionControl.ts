@@ -4,6 +4,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/lib/apiClient';
 import {
+  changePriority,
   nodeAction,
   recoverExecution,
   restartFromNode,
@@ -62,6 +63,11 @@ export function useExecutionControl(sessionId: string, workflowId: string) {
         executionId: string;
         action: RunAction;
       }) => runAction(executionId, action),
+    }),
+    priority: useMutation({
+      onSuccess,
+      mutationFn: (vars: { executionId: string; priority: number }) =>
+        changePriority(vars.executionId, vars.priority),
     }),
     recover: useMutation({
       onSuccess: () =>
