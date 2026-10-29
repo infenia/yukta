@@ -175,6 +175,70 @@ test.describe('Workflow Details Page', () => {
     );
   });
 
+  test('stops a node immediately with a reason', async ({ page }) => {
+    const stops: string[] = [];
+    await page.route('**/api/executions/*/nodes/*/stop*', (route) => {
+      stops.push(new URL(route.request().url()).search);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          timestamp: '2026-07-26T14:23:23',
+          status: 200,
+          message: 'OK',
+          path: '/stop',
+          data: { executionId: 'exec-091-qp-55' },
+        }),
+      });
+    });
+    await page.goto(WORKFLOW_URL);
+
+    await page
+      .getByRole('button', { name: 'Actions for Vectorize_Batch' })
+      .click();
+    await page.getByRole('menuitem', { name: 'Stop node…' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('recorded in the control audit');
+    await dialog.getByLabel('Stop immediately (do not drain)').check();
+    await dialog.getByLabel('Reason (optional)').fill('too slow');
+    await dialog.getByRole('button', { name: 'Stop', exact: true }).click();
+
+    await expect(dialog).toBeHidden();
+    expect(stops).toEqual(['?immediate=true&reason=too+slow']);
+  });
+
+  test('raises the priority of a queued run', async ({
+    page,
+    mockWorkflowApi,
+  }) => {
+    await mockWorkflowApi(page, {
+      progress: { ...defaultProgress, status: 'QUEUED' },
+    });
+    const calls: string[] = [];
+    await page.route('**/api/executions/*/priority*', (route) => {
+      calls.push(new URL(route.request().url()).search);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          timestamp: '2026-07-26T14:23:23',
+          status: 200,
+          message: 'OK',
+          path: '/priority',
+          data: { executionId: 'exec-091-qp-55' },
+        }),
+      });
+    });
+    await page.goto(WORKFLOW_URL);
+
+    await page.getByRole('button', { name: /priority/i }).click();
+    await page.getByLabel(/Priority \(/).fill('10');
+    await page.getByRole('button', { name: 'Apply' }).click();
+
+    await expect(page.getByRole('dialog')).toBeHidden();
+    expect(calls).toEqual(['?priority=10']);
+  });
+
   test('recovers an aborted run as a new run', async ({
     page,
     mockWorkflowApi,

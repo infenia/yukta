@@ -6,8 +6,11 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import {
   nodeAction,
+  changePriority,
   recoverExecution,
   restartFromNode,
+  stopNode,
+  unskipNode,
   runAction,
   startWorkflow,
   stopWorkflow,
@@ -15,7 +18,13 @@ import {
 
 const calls: string[] = [];
 const ok = (data: unknown) =>
-  HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data, path: '/' });
+  HttpResponse.json({
+    timestamp: 't',
+    status: 200,
+    message: 'ok',
+    data,
+    path: '/',
+  });
 
 const server = setupServer(
   http.post('/api/workflow/start', async ({ request }) => {
@@ -33,7 +42,8 @@ const server = setupServer(
     return ok({ executionId: 'e2' });
   }),
   http.post('/api/executions/:id/nodes/*', ({ request }) => {
-    calls.push(new URL(request.url).pathname);
+    const url = new URL(request.url);
+    calls.push(url.pathname + url.search);
     return ok({ executionId: 'e1' });
   }),
   http.post('/api/executions/:id/:action', ({ params }) => {
@@ -52,7 +62,9 @@ describe('executionControl api', () => {
   it('starts a workflow with the payload and idempotency key', async () => {
     const result = await startWorkflow('s 1', 'wf', { a: 1 }, 'key-1');
     expect(result.executionId).toBe('e1');
-    expect(calls[0]).toBe('start key-1 {"sessionId":"s 1","workflowId":"wf","payload":{"a":1}}');
+    expect(calls[0]).toBe(
+      'start key-1 {"sessionId":"s 1","workflowId":"wf","payload":{"a":1}}'
+    );
   });
 
   it('stops a workflow with a mode', async () => {
@@ -64,6 +76,27 @@ describe('executionControl api', () => {
     await runAction('e1', 'pause');
     expect(await restartFromNode('e1', 'n 1')).toEqual({ executionId: 'e2' });
     expect(calls).toEqual(['pause e1', 'restart-from e1 n 1']);
+  });
+
+  it('stops a node with and without options', async () => {
+    await stopNode('e1', 'n 1');
+    await stopNode('e1', 'n1', { immediate: true, reason: 'too slow' });
+    await stopNode('e1', 'n1', { immediate: false, reason: '' });
+    expect(calls).toEqual([
+      '/api/executions/e1/nodes/n%201/stop',
+      '/api/executions/e1/nodes/n1/stop?immediate=true&reason=too+slow',
+      '/api/executions/e1/nodes/n1/stop',
+    ]);
+  });
+
+  it('unskips a node', async () => {
+    await unskipNode('e1', 'n1');
+    expect(calls).toEqual(['/api/executions/e1/nodes/n1/skip?skip=false']);
+  });
+
+  it('changes the priority of a run', async () => {
+    await changePriority('e 1', -3);
+    expect(calls).toEqual(['priority e 1']);
   });
 
   it('recovers an aborted run', async () => {

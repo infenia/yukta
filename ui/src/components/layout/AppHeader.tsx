@@ -4,6 +4,7 @@
 import { Link, useLocation } from 'react-router';
 import HeaderLogo from './HeaderLogo';
 import BreadcrumbNav from './BreadcrumbNav';
+import IdentityChip from './IdentityChip';
 import ThemeToggle from './ThemeToggle';
 
 /* `section` is the path prefix the item owns: Sessions is current on the list and on every
@@ -58,6 +59,7 @@ export default function AppHeader() {
               );
             })}
           </nav>
+          <IdentityChip />
           <ThemeToggle />
         </div>
       </div>

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { RequirePermission } from '@/components/common/RequirePermission';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -99,22 +100,24 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
             >
               {compared === version.id ? 'Hide changes' : 'Changes since'}
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={goBack.isPending}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    `Roll back to ${version.id}? This replaces the current definition.`
-                  )
-                ) {
-                  goBack.mutate(version.id);
-                }
-              }}
-            >
-              Roll back
-            </Button>
+            <RequirePermission perm="editSessions">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={goBack.isPending}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Roll back to ${version.id}? This replaces the current definition.`
+                    )
+                  ) {
+                    goBack.mutate(version.id);
+                  }
+                }}
+              >
+                Roll back
+              </Button>
+            </RequirePermission>
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -126,19 +129,21 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
                 setNotes({ ...notes, [version.id]: event.target.value })
               }
             />
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={writeNote.isPending}
-              onClick={() =>
-                writeNote.mutate({
-                  version: version.id,
-                  note: notes[version.id] ?? version.note ?? '',
-                })
-              }
-            >
-              Save note
-            </Button>
+            <RequirePermission perm="editSessions">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={writeNote.isPending}
+                onClick={() =>
+                  writeNote.mutate({
+                    version: version.id,
+                    note: notes[version.id] ?? version.note ?? '',
+                  })
+                }
+              >
+                Save note
+              </Button>
+            </RequirePermission>
           </div>
           {compared === version.id && diff.isLoading && (
             <p

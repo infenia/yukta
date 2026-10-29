@@ -2844,6 +2844,35 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void limits_reportsTheCurrentSchedulerLimits() {
+    final ExecutionScheduler real =
+        new ExecutionScheduler(
+            3, 1, 7, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+    final DefaultControlBusGateway limited =
+        new DefaultControlBusGateway(
+            controlBusService,
+            taskTracker,
+            executionControlRegistry,
+            archive,
+            orchestrator,
+            workflowDefinitionStore,
+            preparedWorkflowCache,
+            real,
+            new StartIdempotency(java.time.Duration.ofMinutes(1)),
+            new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
+
+    StepVerifier.create(limited.limits())
+        .assertNext(
+            limits -> {
+              assertThat(limits.maxConcurrent()).isEqualTo(3);
+              assertThat(limits.maxPerWorkflow()).isEqualTo(1);
+              assertThat(limits.queueCapacity()).isEqualTo(7);
+              assertThat(limits.running()).isZero();
+            })
+        .verifyComplete();
+  }
+
+  @Test
   void setLimits_changesTheSchedulerLimits_andIsAudited() {
     final com.infenia.yukta.service.log.InMemoryExecutionLogStore auditLog =
         new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
