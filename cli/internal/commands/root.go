@@ -4,8 +4,10 @@
 package commands
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -43,7 +45,9 @@ func RootCmd(c *client.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "yukta-cli",
 		Version: Version,
-		Short:   "Yukta CLI - run and steer workflows on a Yukta server",
+		// main prints the error once; Cobra would print it a second time.
+		SilenceErrors: true,
+		Short:         "Yukta CLI - run and steer workflows on a Yukta server",
 		Long: `Yukta is a reactive workflow orchestration server. This CLI manages
 sessions, starts and controls workflow runs, watches their progress and reads their
 logs and results.`,
@@ -100,6 +104,9 @@ logs and results.`,
 	cmd.PersistentPreRunE = func(run *cobra.Command, _ []string) error {
 		// Arguments and flags are parsed by now, so later errors come from the server, not from usage.
 		cmd.SilenceUsage = true
+		if outputFormat != "table" && outputFormat != "json" {
+			return fmt.Errorf("invalid --output %q: use table or json", outputFormat)
+		}
 		if tokenFile != "" && run.Flags().Changed("token") {
 			return errors.New("--token and --token-file are mutually exclusive")
 		}
@@ -161,4 +168,33 @@ func GetOutputFormat() string {
 // This allows tests to override the global outputFormat variable for test isolation.
 func SetTestOutputFormat(format string) {
 	outputFormat = format
+}
+
+// Exit codes, a contract for scripts: 0 ok, 1 other failure, 2 usage, 3 not found, 4 server
+// (5xx), 5 timeout.
+const (
+	ExitFailure  = 1
+	ExitUsage    = 2
+	ExitNotFound = 3
+	ExitServer   = 4
+	ExitTimeout  = 5
+)
+
+// ExitCode maps an error from Execute to the process exit code. usage tells that the command line
+// itself was wrong (the root's SilenceUsage is set once arguments and flags are parsed).
+func ExitCode(err error, usage bool) int {
+	status, isAPI := client.APIStatus(err)
+	switch {
+	case err == nil:
+		return 0
+	case usage:
+		return ExitUsage
+	case errors.Is(err, context.DeadlineExceeded) || status == http.StatusGatewayTimeout:
+		return ExitTimeout
+	case status == http.StatusNotFound:
+		return ExitNotFound
+	case isAPI && status >= 500:
+		return ExitServer
+	}
+	return ExitFailure
 }

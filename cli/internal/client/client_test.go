@@ -4,6 +4,8 @@
 package client
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -441,5 +443,20 @@ func TestNewRequestTrimsTrailingSlashes(t *testing.T) {
 	req, err := c.newRequest("GET", "/api/sessions")
 	if err != nil || req.URL.String() != "http://example.com/api/sessions" {
 		t.Fatalf("got %v, %v", req.URL, err)
+	}
+}
+
+func TestAPIError_messageAndStatus(t *testing.T) {
+	for body, want := range map[string]string{`{"message":"boom","path":"/x"}`: "boom", `{"error":"x"}`: `{"error":"x"}`, "plain": "plain"} {
+		err := &apiError{status: 404, body: body}
+		if !strings.Contains(err.Error(), "status 404: "+want) {
+			t.Errorf("body %q: %v", body, err)
+		}
+	}
+	if s, ok := APIStatus(fmt.Errorf("wrapped: %w", &apiError{status: 503})); !ok || s != 503 {
+		t.Errorf("got %d %v", s, ok)
+	}
+	if _, ok := APIStatus(errors.New("x")); ok {
+		t.Error("plain error has no status")
 	}
 }

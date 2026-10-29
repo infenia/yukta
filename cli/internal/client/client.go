@@ -6,6 +6,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -150,7 +151,27 @@ func (e *apiError) Error() string {
 	if e.status == http.StatusUnauthorized {
 		hint = " (the server needs an API key: set YUKTA_TOKEN, or use --token-file)"
 	}
-	return fmt.Sprintf("API error: status %d: %s%s", e.status, e.body, hint)
+	return fmt.Sprintf("API error: status %d: %s%s", e.status, e.message(), hint)
+}
+
+// message is the "message" of the server's JSON error body, or the body as it came.
+func (e *apiError) message() string {
+	var env struct {
+		Message string `json:"message"`
+	}
+	if json.Unmarshal([]byte(e.body), &env) == nil && env.Message != "" {
+		return env.Message
+	}
+	return e.body
+}
+
+// APIStatus returns the HTTP status of a non-2xx answer inside err.
+func APIStatus(err error) (int, bool) {
+	var ae *apiError
+	if errors.As(err, &ae) {
+		return ae.status, true
+	}
+	return 0, false
 }
 
 // maxRetryWait caps one pause, whatever Retry-After asks for.
