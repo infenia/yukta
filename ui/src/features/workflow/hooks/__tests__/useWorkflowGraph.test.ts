@@ -26,9 +26,12 @@ afterAll(() => server.close());
 
 describe('useWorkflowGraph', () => {
   it('fetches the graph for a session workflow', async () => {
-    const { result } = renderHook(() => useWorkflowGraph('s1', 'wf-982-xk-11'), {
-      wrapper: createTestWrapper(),
-    });
+    const { result } = renderHook(
+      () => useWorkflowGraph('s1', 'wf-982-xk-11'),
+      {
+        wrapper: createTestWrapper(),
+      }
+    );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.workflowId).toBe('wf-982-xk-11');

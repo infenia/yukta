@@ -69,6 +69,12 @@ const server = setupServer(
     calls.push(`restart-from ${params.node}`);
     return ok({ executionId: 'restarted' });
   }),
+  http.delete('/api/executions/:id/nodes/:node/breakpoint', ({ params }) => {
+    calls.push(`clear-breakpoint ${params.node}`);
+    return nodeFails
+      ? HttpResponse.json({ message: 'Core rejected it' }, { status: 409 })
+      : ok({ executionId: 'exec-091-qp-55' });
+  }),
   http.post(
     '/api/executions/:id/nodes/:node/:action',
     ({ params, request }) => {
@@ -221,6 +227,94 @@ describe('WorkflowDetailsPage controls', () => {
     await waitFor(() =>
       expect(calls).toEqual(['skip anomaly-detection?skip=false'])
     );
+  });
+
+  it('sets a breakpoint, shows its marker, and clears it', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      await screen.findByRole('button', { name: 'Actions for vectorize-batch' })
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Set breakpoint…' })
+    );
+    await user.type(screen.getByLabelText('Field'), 'payload.status');
+    await user.type(screen.getByLabelText('Equals'), 'error');
+    await user.click(screen.getByRole('button', { name: 'Set' }));
+
+    expect(
+      await screen.findByRole('img', {
+        name: 'Breakpoint: payload.status = error',
+      })
+    ).toBeInTheDocument();
+    expect(calls).toEqual([
+      'breakpoint vectorize-batch?field=payload.status&equals=error',
+    ]);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Actions for vectorize-batch' })
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Clear breakpoint' })
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('img', { name: /Breakpoint/ })
+      ).not.toBeInTheDocument()
+    );
+    expect(calls).toContain('clear-breakpoint vectorize-batch');
+  });
+
+  it('keeps the dialog and shows the reason when the breakpoint is refused', async () => {
+    nodeFails = true;
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      await screen.findByRole('button', { name: 'Actions for vectorize-batch' })
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Set breakpoint…' })
+    );
+    await user.type(screen.getByLabelText('Field'), 'payload.status');
+    await user.type(screen.getByLabelText('Equals'), 'error');
+    await user.click(screen.getByRole('button', { name: 'Set' }));
+
+    expect(
+      await within(screen.getByRole('dialog')).findByRole('alert')
+    ).toHaveTextContent('Core rejected it');
+    expect(
+      screen.queryByRole('img', { name: /Breakpoint/ })
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('keeps the marker and shows the reason when clearing is refused', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      await screen.findByRole('button', { name: 'Actions for vectorize-batch' })
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Set breakpoint…' })
+    );
+    await user.type(screen.getByLabelText('Field'), 'a');
+    await user.type(screen.getByLabelText('Equals'), 'b');
+    await user.click(screen.getByRole('button', { name: 'Set' }));
+    await screen.findByRole('img', { name: /Breakpoint/ });
+
+    nodeFails = true;
+    await user.click(
+      screen.getByRole('button', { name: 'Actions for vectorize-batch' })
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Clear breakpoint' })
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Core rejected it'
+    );
+    expect(screen.getByRole('img', { name: /Breakpoint/ })).toBeInTheDocument();
   });
 
   it('shows why a node action failed', async () => {

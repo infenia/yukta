@@ -34,7 +34,7 @@ export function RunHistoryDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex items-center gap-1 text-body-sm text-on-surface transition-colors hover:text-primary"
+        className="text-body-sm text-on-surface hover:text-primary flex items-center gap-1 transition-colors"
         aria-label="Run history"
       >
         <span className="material-symbols-outlined text-sm">history</span>
@@ -57,7 +57,7 @@ export function RunHistoryDropdown({
                   : 'schedule'}
               </span>
               <span className="text-code-sm">{execution.executionId}</span>
-              <span className="ml-auto text-body-sm text-on-surface-variant">
+              <span className="text-body-sm text-on-surface-variant ml-auto">
                 {formatClockTime(execution.startTime)} · {execution.status}
               </span>
             </span>

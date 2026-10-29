@@ -16,7 +16,10 @@ export function useExecutionSelection(executions: ExecutionSummary[]) {
   const requested = searchParams.get('exec');
 
   const selectedExecutionId = useMemo(() => {
-    if (requested && executions.some((execution) => execution.executionId === requested)) {
+    if (
+      requested &&
+      executions.some((execution) => execution.executionId === requested)
+    ) {
       return requested;
     }
     return executions[0]?.executionId ?? null;
