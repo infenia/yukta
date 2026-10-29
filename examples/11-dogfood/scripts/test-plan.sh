@@ -9,6 +9,7 @@ cd "$repo"
 git init -q
 mkdir -p d/scripts core/src/main/java/p core/src/test/java/p web/src/main/java/w
 cp "$here/scripts/plan.sh" d/scripts/; cp "$here/heal.json" d/
+printf 'include("core")\ninclude("web")\n' >settings.gradle.kts
 echo 'plugins { id("x") }' >core/build.gradle.kts
 echo 'dependencies { implementation(project(":core")) }' >web/build.gradle.kts
 printf 'package p;\nclass Foo {\n  int f() { return 1; }\n}\n' >core/src/main/java/p/Foo.java

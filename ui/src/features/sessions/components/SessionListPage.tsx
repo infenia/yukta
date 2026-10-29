@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { RequirePermission } from '@/components/common/RequirePermission';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { buttonVariants } from '@/components/ui/button';
@@ -127,16 +128,18 @@ export function SessionListPage() {
 
   const isEmpty = sessions.length === 0;
   const newSession = (
-    <Link
-      to="/sessions/new"
-      className={buttonVariants({
-        variant: isEmpty ? 'default' : 'outline',
-        size: 'default',
-      })}
-    >
-      <span className="material-symbols-outlined text-base">add</span>
-      New session
-    </Link>
+    <RequirePermission perm="editSessions">
+      <Link
+        to="/sessions/new"
+        className={buttonVariants({
+          variant: isEmpty ? 'default' : 'outline',
+          size: 'default',
+        })}
+      >
+        <span className="material-symbols-outlined text-base">add</span>
+        New session
+      </Link>
+    </RequirePermission>
   );
 
   return (
