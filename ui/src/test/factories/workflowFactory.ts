@@ -62,6 +62,38 @@ export function createMockGraph(overrides: Partial<WorkflowGraph> = {}): Workflo
   };
 }
 
+/**
+ * A gate in stages: `start` → `lint` (lint, lint.fail, lint.fix by prefix) → `test` (declared group:
+ * unit, e2e) → `end`. `lint.fail` routes its `failure` port to `lint.fix`.
+ */
+export function createStagedGraph(): WorkflowGraph {
+  const node = (nodeId: string, extra: Partial<WorkflowGraphNode> = {}) =>
+    createMockGraphNode({ nodeId, category: 'PROCESSOR', outputPorts: [], ...extra });
+  return {
+    workflowId: 'gate',
+    description: 'A staged gate',
+    nodes: [
+      node('start', { category: 'TRIGGER' }),
+      node('lint'),
+      node('lint.fail', { type: 'BRANCH', outputPorts: ['success', 'failure'] }),
+      node('lint.fix', { type: 'SUB_WORKFLOW', subWorkflowId: 'fix' }),
+      node('unit', { group: 'test' }),
+      node('e2e', { group: 'test' }),
+      node('end', { category: 'TERMINAL' }),
+    ],
+    edges: [
+      { source: 'start', target: 'lint', sourcePort: null },
+      { source: 'lint', target: 'lint.fail', sourcePort: null },
+      { source: 'lint.fail', target: 'lint.fix', sourcePort: 'failure' },
+      { source: 'lint.fail', target: 'unit', sourcePort: 'success' },
+      { source: 'lint.fix', target: 'unit', sourcePort: null },
+      { source: 'unit', target: 'e2e', sourcePort: null },
+      { source: 'e2e', target: 'end', sourcePort: null },
+    ],
+    topologicalOrder: ['start', 'lint', 'lint.fail', 'lint.fix', 'unit', 'e2e', 'end'],
+  };
+}
+
 export function createMockExecution(overrides: Partial<ExecutionSummary> = {}): ExecutionSummary {
   return {
     executionId: 'exec-091-qp-55',

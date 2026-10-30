@@ -57,6 +57,23 @@ function LogLine({ entry }: { entry: LogEntry | string }) {
   );
 }
 
+type MinLevel = 'all' | 'info' | 'warn' | 'error';
+
+/** How severe a line is; a line without a level counts as INFO. */
+const RANK: Record<string, number> = {
+  TRACE: 0,
+  DEBUG: 0,
+  INFO: 1,
+  WARN: 2,
+  ERROR: 3,
+};
+const MIN_RANK: Record<MinLevel, number> = {
+  all: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+};
+
 /**
  * The collapsible EXECUTION LOGS terminal: streamed log lines with level colouring,
  * client-side filtering and toggleable auto-scroll.
@@ -67,6 +84,8 @@ export function LogsPanel({
   dropped = 0,
   sessionId = '',
   executionId = null,
+  node = null,
+  onClearNode,
 }: {
   entries: LogEntry[];
   isStreaming: boolean;
@@ -75,9 +94,13 @@ export function LogsPanel({
   /** With the execution id, names the downloads and enables the raw stream. */
   sessionId?: string;
   executionId?: string | null;
+  /** Show only this node's lines (set by clicking it on the canvas). */
+  node?: string | null;
+  onClearNode?: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [filter, setFilter] = useState('');
+  const [minLevel, setMinLevel] = useState<MinLevel>('all');
   const [autoScroll, setAutoScroll] = useState(true);
   const [wrap, setWrap] = useState(false);
   // null while structured; each switch to raw gets a new number so the replayed history starts clean
@@ -92,7 +115,14 @@ export function LogsPanel({
 
   // Structured entries or, in raw mode, the server's own formatted lines.
   const visibleEntries = useMemo<(LogEntry | string)[]>(() => {
-    const source: (LogEntry | string)[] = raw ? rawLines : entries;
+    // the raw stream is the server's own text, so only the text filter applies to it
+    const source: (LogEntry | string)[] = raw
+      ? rawLines
+      : entries.filter(
+          (entry) =>
+            (RANK[entry.level ?? 'INFO'] ?? 1) >= MIN_RANK[minLevel] &&
+            (!node || entry.pluginId === node)
+        );
     const needle = filter.trim().toLowerCase();
     if (!needle) {
       return source;
@@ -100,7 +130,7 @@ export function LogsPanel({
     return source.filter((entry) =>
       lineText(entry).toLowerCase().includes(needle)
     );
-  }, [entries, rawLines, raw, filter]);
+  }, [entries, rawLines, raw, filter, minLevel, node]);
 
   const virtualizer = useVirtualizer({
     count: visibleEntries.length,
@@ -198,6 +228,38 @@ export function LogsPanel({
           </span>
         )}
         <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center sm:gap-4">
+          {node && !raw && (
+            <span className="border-primary text-primary text-label-sm inline-flex items-center gap-1 rounded-lg border px-2 py-0.5">
+              Node: {node}
+              <button
+                type="button"
+                aria-label={`Show every node's lines, not only ${node}'s`}
+                onClick={onClearNode}
+                className="material-symbols-outlined text-sm"
+              >
+                close
+              </button>
+            </span>
+          )}
+          <div role="group" aria-label="Log level" className="flex">
+            {(['all', 'info', 'warn', 'error'] as const).map((level) => (
+              <button
+                key={level}
+                type="button"
+                aria-pressed={minLevel === level}
+                disabled={raw}
+                onClick={() => setMinLevel(level)}
+                className={cn(
+                  'text-label-sm border px-2 py-1 tracking-wider uppercase first:rounded-l-lg last:rounded-r-lg disabled:opacity-50',
+                  minLevel === level
+                    ? 'border-primary text-primary'
+                    : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+                )}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
           <div className="relative w-full sm:w-56">
             <span className="material-symbols-outlined text-on-surface-variant pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-sm">
               search

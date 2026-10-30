@@ -6,6 +6,7 @@ import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.UiDesign;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A workflow DAG node enriched with plugin metadata for UI rendering.
@@ -16,6 +17,8 @@ import java.util.List;
  * @param description the plugin description, or null if the plugin type is unknown
  * @param uiDesign the UI design metadata, or null when the plugin provides none
  * @param outputPorts the config-aware output port names for this node
+ * @param group the stage the node declares it belongs to, or null
+ * @param subWorkflowId the workflow a SUB_WORKFLOW node runs, or null
  */
 @Schema(description = "A workflow DAG node enriched with plugin metadata for UI rendering")
 public record WorkflowGraphNode(
@@ -34,7 +37,16 @@ public record WorkflowGraphNode(
             nullable = true)
         UiDesign uiDesign,
     @Schema(description = "The config-aware output port names for this node")
-        List<String> outputPorts) {
+        List<String> outputPorts,
+    @Schema(
+            description = "The stage the node declares it belongs to, null when it declares none",
+            nullable = true)
+        @Nullable String group,
+    @Schema(
+            description =
+                "For a SUB_WORKFLOW node, the workflow it runs (its workflowId config), else null",
+            nullable = true)
+        @Nullable String subWorkflowId) {
 
   /** Compact constructor to ensure immutability. */
   public WorkflowGraphNode {

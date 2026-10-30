@@ -1,8 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  afterEach,
+  beforeEach,
+} from 'vitest';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -15,6 +29,7 @@ import {
   createMockExecution,
   createMockGraph,
   createMockProgress,
+  createStagedGraph,
 } from '@/test/factories/workflowFactory';
 import {
   installMockEventSource,
@@ -69,6 +84,7 @@ const server = setupServer(
 );
 
 beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 function renderPage(
@@ -101,6 +117,79 @@ describe('WorkflowDetailsPage', () => {
         endTime: '2026-07-25T10:00:00',
       }),
     ];
+  });
+
+  it('groups the canvas by stage, and shows every node on request', async () => {
+    server.use(
+      http.get('/api/sessions/:sessionId/workflows/:workflowId/graph', () =>
+        HttpResponse.json({
+          timestamp: 't',
+          status: 200,
+          message: 'ok',
+          data: createStagedGraph(),
+          path: '/graph',
+        })
+      )
+    );
+    const user = userEvent.setup();
+    renderPage('/sessions/SESSION_A92_XP_2024/workflow/gate?open=test');
+    expect(await screen.findByTestId('stage-lint')).toBeInTheDocument();
+    expect(screen.getByTestId('stage-frame-test')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Group by stage' })).toBeChecked();
+    // a stage box is not a node the logs can narrow to
+    fireEvent.click(screen.getByTestId('stage-lint'));
+    expect(screen.queryByText(/^Node: /)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: 'All nodes' }));
+    expect(
+      await screen.findByTestId('workflow-node-lint.fix')
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('stage-lint')).not.toBeInTheDocument();
+  });
+
+  it('opens a sub-workflow from its node, and links a sub-workflow run back to its parent', async () => {
+    server.use(
+      http.get('/api/sessions/:sessionId/workflows/:workflowId/graph', () =>
+        HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data: createStagedGraph(), path: '/graph' })
+      ),
+      http.get('/api/executions/:executionId/tree', () =>
+        HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', path: '/', data: [] })
+      ),
+      http.get('/api/executions/:executionId', ({ params }) =>
+        HttpResponse.json({
+          timestamp: 't', status: 200, message: 'ok', path: '/status',
+          data:
+            params.executionId === 'parent-run'
+              ? createMockProgress({ executionId: 'parent-run', workflowId: 'outer' })
+              : createMockProgress({ parentExecutionId: 'parent-run' }),
+        })
+      )
+    );
+    renderPage('/sessions/SESSION_A92_XP_2024/workflow/gate?stages=all');
+    expect(await screen.findByRole('link', { name: 'Open sub-workflow fix' })).toHaveAttribute(
+      'href',
+      '/sessions/SESSION_A92_XP_2024/workflow/fix'
+    );
+    expect(await screen.findByRole('link', { name: 'Parent run' })).toHaveAttribute(
+      'href',
+      '/sessions/SESSION_A92_XP_2024/workflow/outer?exec=parent-run'
+    );
+  });
+
+  it('narrows the logs to a node clicked on the canvas', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    // fireEvent: user-event's pointer events on the xyflow pane outlive the test
+    fireEvent.click(await screen.findByTestId('workflow-node-vectorize-batch'));
+    expect(
+      await screen.findByText('Node: vectorize-batch')
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', {
+        name: "Show every node's lines, not only vectorize-batch's",
+      })
+    );
+    expect(screen.queryByText('Node: vectorize-batch')).not.toBeInTheDocument();
   });
 
   it('shows a loading state before data arrives', () => {

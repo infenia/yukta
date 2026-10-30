@@ -1476,6 +1476,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/executions/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count runs that need attention
+         * @description Across all sessions: runs RUNNING and QUEUED now, and runs with status FAILURE that started in the last `hours` (default 24). The history of each session is bounded by yukta.execution-log.retained-runs.
+         */
+        get: operations["counts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2024,6 +2044,8 @@ export interface components {
             rootExecutionId?: string | null;
             /** @description The run this one restarts, if any */
             restartOf?: string | null;
+            /** @description How far the run got through its nodes */
+            nodes?: components["schemas"]["Nodes"];
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListWorkerInfo: {
@@ -2447,6 +2469,8 @@ export interface components {
             config?: {
                 [key: string]: unknown;
             };
+            /** @description The stage the node belongs to, for display only: the UI groups nodes of one stage. Without it, nodes group by node-ID prefix (before the first dot) */
+            group?: string | null;
         };
         /** @description Definition of a reactive workflow DAG */
         WorkflowDefinition: {
@@ -2623,6 +2647,10 @@ export interface components {
             uiDesign?: components["schemas"]["UiDesign"];
             /** @description The config-aware output port names for this node */
             outputPorts?: string[];
+            /** @description The stage the node declares it belongs to, null when it declares none */
+            group?: string | null;
+            /** @description For a SUB_WORKFLOW node, the workflow it runs (its workflowId config), else null */
+            subWorkflowId?: string | null;
         };
         ServerSentEventResultEvent: unknown;
         ExecutionResults: {
@@ -2949,6 +2977,7 @@ export interface components {
             startTime?: string;
             /** Format: date-time */
             endTime?: string;
+            nodes?: components["schemas"]["Nodes"];
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseNodeOutputSlice: {
@@ -3118,6 +3147,62 @@ export interface components {
             actor?: string;
             applied?: boolean;
             reason?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseCounts: {
+            /** @description The response data */
+            data?: components["schemas"]["Counts"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        Counts: {
+            /** Format: int32 */
+            failed?: number;
+            /** Format: int32 */
+            queued?: number;
+            /** Format: int32 */
+            running?: number;
+        };
+        /** @description How far a run got through its nodes */
+        Nodes: {
+            /**
+             * Format: int32
+             * @description Nodes in a final state
+             */
+            done?: number;
+            /** @description The first node that failed, if any */
+            failed?: string | null;
+            /**
+             * Format: int32
+             * @description Nodes in the run
+             */
+            total?: number;
         };
     };
     responses: never;
@@ -5184,6 +5269,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListControlAuditEntry"];
+                };
+            };
+        };
+    };
+    counts: {
+        parameters: {
+            query?: {
+                hours?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCounts"];
                 };
             };
         };
