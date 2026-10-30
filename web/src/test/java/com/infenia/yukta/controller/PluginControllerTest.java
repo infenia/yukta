@@ -5,20 +5,27 @@ package com.infenia.yukta.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.session.SessionConfigResponse;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Flux;
 
 /** Tests for PluginController. */
 @NoArgsConstructor
@@ -33,10 +40,14 @@ class PluginControllerTest {
   /** Mock registry for plugin operations. */
   private PluginRegistry registry;
 
+  /** Mock sessions, whose workflows use the plugins. */
+  private SessionService sessions;
+
   @BeforeEach
   void setUp() {
     registry = Mockito.mock(PluginRegistry.class);
-    final PluginController controller = new PluginController(registry);
+    sessions = Mockito.mock(SessionService.class);
+    final PluginController controller = new PluginController(registry, sessions);
     webTestClient = WebTestClient.bindToController(controller).build();
   }
 
@@ -149,5 +160,51 @@ class PluginControllerTest {
             .is5xxServerError()
             .returnResult();
     assertThat(result.getStatus().value()).isEqualTo(500);
+  }
+
+  private static WorkflowDefinition workflow(final String id, final String... types) {
+    final List<WorkflowDefinition.Node> nodes = new ArrayList<>();
+    for (int i = 0; i < types.length; i++) {
+      nodes.add(new WorkflowDefinition.Node("n" + i, types[i], Map.of()));
+    }
+    return new WorkflowDefinition(id, "d", nodes, List.of());
+  }
+
+  private static SessionConfigResponse session(final String id, final WorkflowDefinition... wfs) {
+    final Map<String, WorkflowDefinition> byId = new HashMap<>();
+    for (final WorkflowDefinition wf : wfs) {
+      byId.put(wf.workflowId(), wf);
+    }
+    return new SessionConfigResponse(id, "n", "d", "i", Map.of(), "/p", byId);
+  }
+
+  @Test
+  void testUsageListsTheWorkflowsWithNodesOfTheType_sorted() {
+    when(sessions.getAllSessionConfigs())
+        .thenReturn(
+            Flux.just(
+                session("zeta", workflow("tool", "PROCESS_EXECUTOR")),
+                session(
+                    "dogfood",
+                    workflow("check", "PROCESS_EXECUTOR", "BRANCH", "PROCESS_EXECUTOR"),
+                    workflow("notify", "HTTP_REQUEST"))));
+
+    webTestClient
+        .get()
+        .uri("/api/plugins/PROCESS_EXECUTOR/usage")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.length()")
+        .isEqualTo(2)
+        .jsonPath("$.data[0].sessionId")
+        .isEqualTo("dogfood")
+        .jsonPath("$.data[0].workflowId")
+        .isEqualTo("check")
+        .jsonPath("$.data[0].nodes")
+        .isEqualTo(2)
+        .jsonPath("$.data[1].sessionId")
+        .isEqualTo("zeta");
   }
 }

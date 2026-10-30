@@ -6,10 +6,12 @@ import com.infenia.yukta.dto.response.PluginDetails;
 import com.infenia.yukta.dto.response.PluginSummary;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.service.session.SessionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -34,6 +36,18 @@ public class PluginController {
 
   /** The plugin registry for accessing plugin information. */
   private final PluginRegistry registry;
+
+  /** The sessions, whose workflows use the plugins. */
+  private final SessionService sessionService;
+
+  /**
+   * One workflow that uses a plugin.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param nodes how many of its nodes are of the plugin's type
+   */
+  public record Usage(String sessionId, String workflowId, int nodes) {}
 
   /**
    * List all available plugins.
@@ -128,5 +142,41 @@ public class PluginController {
                               path,
                               errors));
                 }));
+  }
+
+  /**
+   * List the workflows that use a plugin.
+   *
+   * @param type the plugin type
+   * @return each workflow with nodes of that type, by session and workflow ID
+   */
+  @GetMapping("/{type}/usage")
+  @Operation(
+      summary = "List the workflows that use a plugin",
+      description =
+          "Every workflow of every session with at least one node of the type, and how many,"
+              + " sorted by session and workflow ID. An unknown type is used nowhere.")
+  public Mono<ApiResponse<List<Usage>>> getPluginUsage(
+      @Parameter(description = "The unique identifier of the plugin type") @PathVariable
+          final String type) {
+    return sessionService
+        .getAllSessionConfigs()
+        .flatMapIterable(
+            session ->
+                session.workflows().values().stream()
+                    .map(
+                        workflow ->
+                            new Usage(
+                                session.sessionId(),
+                                workflow.workflowId(),
+                                (int)
+                                    workflow.nodes().stream()
+                                        .filter(node -> type.equals(node.type()))
+                                        .count()))
+                    .filter(usage -> usage.nodes() > 0)
+                    .toList())
+        .sort(Comparator.comparing(Usage::sessionId).thenComparing(Usage::workflowId))
+        .collectList()
+        .map(usages -> ApiResponse.success(HttpStatus.OK.value(), "Plugin usage", usages));
   }
 }

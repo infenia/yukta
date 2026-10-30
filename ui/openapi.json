@@ -3183,6 +3183,35 @@
           }
         }
       }
+    },
+    "/api/plugins/{type}/usage" : {
+      "get" : {
+        "description" : "Every workflow of every session with at least one node of the type, and how many, sorted by session and workflow ID. An unknown type is used nowhere.",
+        "operationId" : "getPluginUsage",
+        "parameters" : [ {
+          "description" : "The unique identifier of the plugin type",
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListUsage"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List the workflows that use a plugin",
+        "tags" : [ "Plugin API" ]
+      }
     }
   },
   "components" : {
@@ -5821,6 +5850,67 @@
             "type" : "string"
           }
         }
+      },
+      "ApiResponseListUsage" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/Usage"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Usage" : {
+        "properties" : {
+          "nodes" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "sessionId" : {
+            "type" : "string"
+          },
+          "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
       }
     }
   }
