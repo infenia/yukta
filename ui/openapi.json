@@ -5329,6 +5329,11 @@
             "format" : "int32",
             "description" : "Number of workflows",
             "example" : 24
+          },
+          "lastRun" : {
+            "$ref" : "#/components/schemas/WorkflowExecutionSummary",
+            "description" : "The session's newest run, null when it has none",
+            "type" : "null"
           }
         }
       },
