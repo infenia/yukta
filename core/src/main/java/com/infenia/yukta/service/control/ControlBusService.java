@@ -299,6 +299,24 @@ public class ControlBusService {
   }
 
   /**
+   * Get the last heartbeat for a node of one run.
+   *
+   * @param workflowId the workflow identifier
+   * @param executionId the run
+   * @param nodeId the node identifier
+   * @return the last heartbeat message, or null
+   */
+  @Nullable
+  public Message<?> getLastHeartbeat(
+      @NotBlank final String workflowId,
+      @Nullable final String executionId,
+      @NotBlank final String nodeId) {
+    return read(
+        ControlKey.forNode(workflowId, executionId, nodeId),
+        ControlSignalHandler::getLastHeartbeat);
+  }
+
+  /**
    * The last heartbeat of every node of every run, in one read, so a list of live nodes needs no
    * request per node.
    *
@@ -318,24 +336,6 @@ public class ControlBusService {
                                 ControlKey.nodeId(key),
                                 beat.timestamp())))
         .toList();
-  }
-
-  /**
-   * Get the last heartbeat for a node of one run.
-   *
-   * @param workflowId the workflow identifier
-   * @param executionId the run
-   * @param nodeId the node identifier
-   * @return the last heartbeat message, or null
-   */
-  @Nullable
-  public Message<?> getLastHeartbeat(
-      @NotBlank final String workflowId,
-      @Nullable final String executionId,
-      @NotBlank final String nodeId) {
-    return read(
-        ControlKey.forNode(workflowId, executionId, nodeId),
-        ControlSignalHandler::getLastHeartbeat);
   }
 
   /**

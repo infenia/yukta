@@ -129,7 +129,7 @@ class ControlBusServiceRunScopeTest {
   }
 
   @Test
-  void heartbeatsListEveryRunOfANodeAndSkipNodesWithOnlyStatistics() {
+  void heartbeatsListEveryRunOfNodeAndSkipNodesWithOnlyStatistics() {
     final Message<?> first = heartbeat("run-1");
     emitAndWaitFor(first, "run-1");
     emitAndWaitFor(heartbeat("run-2"), "run-2");

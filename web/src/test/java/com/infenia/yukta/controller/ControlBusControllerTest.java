@@ -74,23 +74,27 @@ class ControlBusControllerTest {
   }
 
   @Test
-  void getHeartbeatsListsEveryNodeOfEveryRun() {
+  void heartbeatsListsEveryNodeOfEveryRun() {
     when(controlBusGateway.getHeartbeats())
         .thenReturn(
-            List.of(new NodeHeartbeat("wf1", "run-1", NODE1, Instant.parse("2026-10-30T10:00:00Z"))));
-    webClient
-        .get()
-        .uri("/api/control/heartbeats")
-        .exchange()
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.data[0].executionId")
-        .isEqualTo("run-1")
-        .jsonPath("$.data[0].nodeId")
-        .isEqualTo(NODE1)
-        .jsonPath(MESSAGE_PATH)
-        .isEqualTo("Heartbeats retrieved");
+            List.of(
+                new NodeHeartbeat("wf1", "run-1", NODE1, Instant.parse("2026-10-30T10:00:00Z"))));
+    final var result =
+        webClient
+            .get()
+            .uri("/api/control/heartbeats")
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath("$.data[0].executionId")
+            .isEqualTo("run-1")
+            .jsonPath("$.data[0].nodeId")
+            .isEqualTo(NODE1)
+            .jsonPath(MESSAGE_PATH)
+            .isEqualTo("Heartbeats retrieved")
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
   }
 
   @Test
