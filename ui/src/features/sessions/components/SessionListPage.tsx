@@ -45,8 +45,9 @@ export function SessionListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tags = searchParams.getAll('tag');
   const initiators = searchParams.getAll('initiator');
+  const lastRuns = searchParams.getAll('lastrun');
   const filters = useMemo<SessionFilters>(
-    () => ({ tags, initiators }),
+    () => ({ tags, initiators, lastRuns }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [searchParams]
   );
@@ -60,8 +61,10 @@ export function SessionListPage() {
         const params = new URLSearchParams(current);
         params.delete('tag');
         params.delete('initiator');
+        params.delete('lastrun');
         next.tags.forEach((tag) => params.append('tag', tag));
         next.initiators.forEach((who) => params.append('initiator', who));
+        next.lastRuns.forEach((kind) => params.append('lastrun', kind));
         return params;
       },
       { replace: true }
@@ -122,7 +125,7 @@ export function SessionListPage() {
   const handleReset = () => {
     setGlobalFilter('');
     setColumnFilters([]);
-    setFilters({ tags: [], initiators: [] });
+    setFilters({ tags: [], initiators: [], lastRuns: [] });
     table.setPageIndex(0);
   };
 

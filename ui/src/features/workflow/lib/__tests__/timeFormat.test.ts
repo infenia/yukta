@@ -7,6 +7,7 @@ import {
   formatClockTime,
   formatDuration,
   formatLogTimestamp,
+  formatRelative,
 } from '../timeFormat';
 
 describe('formatClockTime', () => {
@@ -70,5 +71,24 @@ describe('formatLogTimestamp', () => {
 
   it('wraps the placeholder when missing', () => {
     expect(formatLogTimestamp(null)).toBe(`[${TIME_PLACEHOLDER}]`);
+  });
+});
+
+describe('formatRelative', () => {
+  const now = Date.parse('2026-10-30T12:00:00Z');
+  it.each([
+    ['2026-10-30T11:59:30Z', 'just now'],
+    ['2026-10-30T11:56:00Z', '4 min. ago'],
+    ['2026-10-30T09:00:00Z', '3 hr. ago'],
+    ['2026-10-29T12:00:00Z', 'yesterday'],
+    ['2026-10-16T12:00:00Z', '2 wk. ago'],
+    ['2026-10-30T12:05:00Z', 'in 5 min.'],
+  ])('%s is %s', (iso, expected) => {
+    expect(formatRelative(iso, now)).toBe(expected);
+  });
+
+  it('has a placeholder for a missing or broken time', () => {
+    expect(formatRelative(null)).toBe('--');
+    expect(formatRelative('not a date')).toBe('--');
   });
 });
