@@ -19,7 +19,7 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = ["gradle/wrapper/**", "**.ico", "**.svg", "**.webmanifest", "ui/public/*.png"]
+path = ["gradle/wrapper/**", "**.ico", "**.svg", "**.webmanifest", "ui/public/*.png", "docs/images/*.png"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
