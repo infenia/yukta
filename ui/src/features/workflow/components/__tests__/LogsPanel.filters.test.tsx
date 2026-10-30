@@ -90,7 +90,12 @@ describe('LogsPanel level and node filters', () => {
         executionId="e1"
       />
     );
-    await user.click(screen.getByRole('button', { name: 'RAW' }));
+    await user.click(screen.getByRole('button', { name: 'More log options' }));
+    await user.click(
+      await screen.findByRole('menuitemcheckbox', {
+        name: "The server's raw lines",
+      })
+    );
     expect(await screen.findByText('raw line')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'warn' })).toBeDisabled();
     expect(screen.queryByText('Node: lint')).not.toBeInTheDocument();

@@ -218,10 +218,10 @@ describe('LogsPanel', () => {
       withClipboard(writeText);
       render(<LogsPanel entries={entries} isStreaming={false} />);
 
-      await user.click(screen.getByRole('button', { name: 'COPY' }));
+      await user.click(screen.getByRole('button', { name: 'Copy logs' }));
 
       expect(writeText).toHaveBeenCalledOnce();
-      expect(await screen.findByText('COPIED')).toBeInTheDocument();
+      expect(await screen.findByText('Copied')).toBeInTheDocument();
     });
 
     it('resets the copy label after a moment', async () => {
@@ -230,14 +230,13 @@ describe('LogsPanel', () => {
         withClipboard(vi.fn().mockResolvedValue(undefined));
         render(<LogsPanel entries={entries} isStreaming={false} />);
 
-        fireEvent.click(screen.getByRole('button', { name: 'COPY' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Copy logs' }));
         await act(async () => {
           await vi.advanceTimersByTimeAsync(1600);
         });
 
-        expect(
-          screen.getByRole('button', { name: 'COPY' })
-        ).toBeInTheDocument();
+        // the status goes after a moment
+        expect(screen.queryByRole('status')).not.toBeInTheDocument();
       } finally {
         vi.useRealTimers();
       }
@@ -248,9 +247,9 @@ describe('LogsPanel', () => {
       withClipboard(vi.fn().mockRejectedValue(new Error('denied')));
       render(<LogsPanel entries={entries} isStreaming={false} />);
 
-      await user.click(screen.getByRole('button', { name: 'COPY' }));
+      await user.click(screen.getByRole('button', { name: 'Copy logs' }));
 
-      expect(await screen.findByText('FAILED')).toBeInTheDocument();
+      expect(await screen.findByText('Copy failed')).toBeInTheDocument();
     });
 
     it('reports a failed copy when there is no clipboard', async () => {
@@ -261,20 +260,24 @@ describe('LogsPanel', () => {
       });
       render(<LogsPanel entries={entries} isStreaming={false} />);
 
-      await user.click(screen.getByRole('button', { name: 'COPY' }));
+      await user.click(screen.getByRole('button', { name: 'Copy logs' }));
 
-      expect(await screen.findByText('FAILED')).toBeInTheDocument();
+      expect(await screen.findByText('Copy failed')).toBeInTheDocument();
     });
 
     it('toggles wrapping', async () => {
       const user = userEvent.setup({ delay: null });
       render(<LogsPanel entries={entries} isStreaming={false} />);
-      const wrap = screen.getByRole('button', { name: 'WRAP' });
-      expect(wrap).toHaveAttribute('aria-pressed', 'false');
+      await user.click(
+        screen.getByRole('button', { name: 'More log options' })
+      );
+      const wrap = await screen.findByRole('menuitemcheckbox', {
+        name: 'Wrap long lines',
+      });
+      expect(wrap).toHaveAttribute('aria-checked', 'false');
 
       await user.click(wrap);
 
-      expect(wrap).toHaveAttribute('aria-pressed', 'true');
       expect(
         screen.getByText(/Connection lost/).closest('p')?.className
       ).toContain('whitespace-pre-wrap');
