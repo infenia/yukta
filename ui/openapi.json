@@ -3689,6 +3689,13 @@
               }
             },
             "description" : "Output ports per node id, for the node's configuration"
+          },
+          "warnings" : {
+            "description" : "Problems that do not stop the workflow, for the editor to show",
+            "items" : {
+              "$ref" : "#/components/schemas/Warning"
+            },
+            "type" : "array"
           }
         }
       },
@@ -5963,6 +5970,24 @@
             "type" : "string"
           },
           "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Warning" : {
+        "description" : "A problem that does not stop the workflow",
+        "properties" : {
+          "field" : {
+            "description" : "The config field or output port it is about",
+            "type" : "string"
+          },
+          "message" : {
+            "description" : "What is wrong",
+            "type" : "string"
+          },
+          "nodeId" : {
+            "description" : "The node it is about",
             "type" : "string"
           }
         },
