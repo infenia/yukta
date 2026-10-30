@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -153,7 +154,7 @@ class WorkflowValidationControllerTest {
 
   @Test
   void testFailureWithoutMessageStillSaysWhatFailed() {
-    when(workflowValidator.validate(any())).thenReturn(Mono.error(new IllegalStateException()));
+    when(workflowValidator.validate(any())).thenReturn(Mono.error(new IllegalArgumentException()));
 
     post()
         .expectStatus()
@@ -162,6 +163,18 @@ class WorkflowValidationControllerTest {
         .jsonPath(VALID)
         .isEqualTo(false)
         .jsonPath("$.data.message")
-        .isEqualTo("java.lang.IllegalStateException");
+        .isEqualTo("java.lang.IllegalArgumentException");
+  }
+
+  @Test
+  void testUnexpectedFailureReachesTheCentralHandlerWithoutItsText() {
+    when(workflowValidator.validate(any()))
+        .thenReturn(Mono.error(new IllegalStateException("secret detail")));
+
+    post()
+        .expectStatus()
+        .is5xxServerError()
+        .expectBody(String.class)
+        .value(body -> assertThat(body).doesNotContain("secret detail"));
   }
 }

@@ -110,4 +110,25 @@ class ApiKeysTest {
     assertThat(ApiKeys.presented(header)).isEqualTo("xyz");
     assertThat(ApiKeys.presented(basic)).isEmpty();
   }
+
+  @Test
+  void anExpiredKeyNoLongerMatches() {
+    final var keys =
+        ApiKeys.read(
+            new MockEnvironment()
+                .withProperty("yukta.api-keys[0].name", "old")
+                .withProperty("yukta.api-keys[0].key", "old-key")
+                .withProperty("yukta.api-keys[0].expires", "2020-01-01T00:00:00Z")
+                .withProperty("yukta.api-keys[1].name", "new")
+                .withProperty("yukta.api-keys[1].key", "new-key")
+                .withProperty("yukta.api-keys[1].expires", "2999-01-01T00:00:00Z")
+                .withProperty("yukta.api-keys[2].name", "forever")
+                .withProperty("yukta.api-keys[2].key", "forever-key"),
+            null);
+
+    assertThat(keys.find("old-key")).isNull();
+    assertThat(keys.find("new-key")).isNotNull();
+    assertThat(keys.find("forever-key")).isNotNull();
+    assertThat(keys.find("other")).isNull();
+  }
 }

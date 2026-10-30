@@ -5,7 +5,7 @@ import { RequirePermission } from '@/components/common/RequirePermission';
 import { buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
 import { usePlugins } from '@/features/plugins/hooks/usePlugins';
@@ -74,9 +74,8 @@ function Editor({
   const queryClient = useQueryClient();
   const plugins = usePlugins();
   const [workflow, setWorkflow] = useState(initial);
-  const [selected, setSelected] = useState<string | null>(
-    initial.nodes[0]?.nodeId ?? null
-  );
+  const firstNode = initial.nodes[0]?.nodeId ?? null;
+  const [selected, setSelected] = useState<string | null>(firstNode);
   const [result, setResult] = useState<ValidationResult | null>(null);
   // Ports depend on node config and survive edits until the next validation refreshes them.
   const [ports, setPorts] = useState<Record<string, string[]>>({});
@@ -121,6 +120,25 @@ function Editor({
       (plugins.data ?? []).filter((p) => p.category === c)
     )[0]?.type ||
     '';
+
+  // Unsaved: the draft differs from what was loaded (saving leaves the page)
+  const dirty = JSON.stringify(workflow) !== JSON.stringify(initial);
+  // Bumped by Discard, so the inspector's fields drop the text they hold
+  const [revision, setRevision] = useState(0);
+  const discard = () => {
+    setWorkflow(initial);
+    setSelected(firstNode);
+    setResult(null);
+    setError(null);
+    setInvalidJson(new Set());
+    setRevision((n) => n + 1);
+  };
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
 
   const update = (patch: Partial<DraftWorkflow>) => {
     setWorkflow((current) => ({ ...current, ...patch }));
@@ -227,6 +245,28 @@ function Editor({
           className="w-full sm:w-72"
         />
         <div className="ml-auto flex items-center gap-2">
+          {dirty && (
+            <>
+              <span
+                role="status"
+                className="text-label-sm text-on-surface-variant inline-flex items-center gap-1.5"
+              >
+                <span
+                  aria-hidden="true"
+                  className="bg-warning size-2 rounded-full"
+                />
+                Unsaved changes
+              </span>
+              <button
+                type="button"
+                className={buttonVariants({ variant: 'ghost' })}
+                disabled={busy}
+                onClick={discard}
+              >
+                Discard
+              </button>
+            </>
+          )}
           <button
             type="button"
             className={BUTTON}
@@ -481,7 +521,7 @@ function Editor({
           {node ? (
             <JsonValidityContext.Provider value={reportJson}>
               <NodeInspector
-                key={node.nodeId}
+                key={`${node.nodeId}/${revision}`}
                 node={node}
                 onRemove={() => removeNode(node.nodeId)}
                 onChange={(config) =>
