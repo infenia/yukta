@@ -438,7 +438,7 @@ public interface ControlBusGateway {
   /**
    * The nodes of a session that wait for a signal (an approval or decision) now, oldest first.
    *
-   * @param sessionId the session
+   * @param sessionId the session, or null for the waits of every session
    * @return one entry per open wait
    */
   reactor.core.publisher.Flux<com.infenia.yukta.model.control.PendingApproval> pendingApprovals(

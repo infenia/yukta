@@ -7,6 +7,7 @@ import java.time.Instant;
 /**
  * A node that waits for a signal (an approval or decision) now.
  *
+ * @param sessionId the session of that run
  * @param executionId the run that waits
  * @param workflowId the workflow of that run
  * @param nodeId the node that waits
@@ -14,4 +15,9 @@ import java.time.Instant;
  * @param since when the wait began
  */
 public record PendingApproval(
-    String executionId, String workflowId, String nodeId, String name, Instant since) {}
+    String sessionId,
+    String executionId,
+    String workflowId,
+    String nodeId,
+    String name,
+    Instant since) {}

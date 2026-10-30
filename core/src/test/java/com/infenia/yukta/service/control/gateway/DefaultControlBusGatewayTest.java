@@ -1268,11 +1268,16 @@ class DefaultControlBusGatewayTest {
     StepVerifier.create(gateway.pendingApprovals("session-pa"))
         .assertNext(
             approval -> {
+              assertThat(approval.sessionId()).isEqualTo("session-pa");
               assertThat(approval.executionId()).isEqualTo("exec-pa-1");
               assertThat(approval.workflowId()).isEqualTo("wf-pa");
               assertThat(approval.nodeId()).isEqualTo("gate");
               assertThat(approval.name()).isEqualTo("approve");
             })
+        .verifyComplete();
+    // no session: every known run's wait, each with its own session
+    StepVerifier.create(gateway.pendingApprovals(null).map(a -> a.sessionId()))
+        .expectNext("session-pa", "another-session")
         .verifyComplete();
     mine.dispose();
     other.dispose();

@@ -38,6 +38,12 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings("PMD.TooManyMethods")
 public class ExecutionControlController {
 
+  /** Most approvals returned. */
+  private static final int MAX_APPROVALS = 1000;
+
+  /** Approvals returned when no limit is given. */
+  private static final int DEFAULT_APPROVALS = 100;
+
   /** Session ID parameter description. */
   private static final String SESSION_ID = "Session ID";
 
@@ -357,6 +363,24 @@ public class ExecutionControlController {
       @Parameter(description = SESSION_ID) @PathVariable final String sessionId) {
     return controlBus
         .pendingApprovals(sessionId)
+        .collectList()
+        .map(list -> ApiResponse.success(200, "Pending approvals retrieved", list));
+  }
+
+  /** List the nodes of every session that wait for a signal. */
+  @GetMapping("/approvals")
+  @Operation(
+      summary = "List pending approvals across sessions",
+      description =
+          "Lists the nodes of all sessions that wait for a signal now, oldest first (at most"
+              + " limit, default 100, up to 1000), each with its session, execution, node, signal"
+              + " name and waiting-since.")
+  public Mono<ApiResponse<List<PendingApproval>>> allPendingApprovals(
+      @RequestParam(required = false) final Integer limit) {
+    final int max = limit == null ? DEFAULT_APPROVALS : Math.clamp(limit, 1, MAX_APPROVALS);
+    return controlBus
+        .pendingApprovals(null)
+        .take(max)
         .collectList()
         .map(list -> ApiResponse.success(200, "Pending approvals retrieved", list));
   }
