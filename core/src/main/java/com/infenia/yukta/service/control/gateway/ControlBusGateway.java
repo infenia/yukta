@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
@@ -514,4 +515,11 @@ public interface ControlBusGateway {
    * @return list of all active node IDs
    */
   List<String> getActiveNodes();
+
+  /**
+   * The last heartbeat of every node of every run.
+   *
+   * @return one heartbeat per node and run that sent one
+   */
+  List<NodeHeartbeat> getHeartbeats();
 }

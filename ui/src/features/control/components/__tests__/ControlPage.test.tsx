@@ -10,7 +10,7 @@ import {
   afterAll,
   afterEach,
 } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -27,9 +27,15 @@ const ok = (data: unknown) =>
     path: '/',
   });
 
-let nodes: string[] = [];
-let nodesFail = false;
-let heartbeatFail = false;
+const beat = (workflowId: string, nodeId: string, executionId: string) => ({
+  workflowId,
+  nodeId,
+  executionId,
+  timestamp: new Date(Date.now() - 3000).toISOString(),
+});
+
+let beats: ReturnType<typeof beat>[] = [];
+let beatsFail = false;
 let commandStatus = 200;
 let commandBody: unknown;
 let commandReply: unknown = { payload: { done: true } };
@@ -50,13 +56,8 @@ const server = setupServer(
   http.get('/api/edition', () =>
     ok({ edition: 'PLUS', license: 'x', features: [], source: null })
   ),
-  http.get('/api/control/nodes', () =>
-    nodesFail ? HttpResponse.json({ message: 'x' }, { status: 500 }) : ok(nodes)
-  ),
-  http.get('/api/control/workflows/:wf/nodes/:node/heartbeat', ({ params }) =>
-    heartbeatFail
-      ? HttpResponse.json({ message: 'none' }, { status: 404 })
-      : ok({ nodeId: params.node, beat: 1 })
+  http.get('/api/control/heartbeats', () =>
+    beatsFail ? HttpResponse.json({ message: 'x' }, { status: 500 }) : ok(beats)
   ),
   http.post(
     '/api/control/workflows/:wf/nodes/:node/command',
@@ -72,9 +73,8 @@ const server = setupServer(
 beforeAll(() => server.listen());
 beforeEach(() => installMockEventSource());
 afterEach(() => {
-  nodes = [];
-  nodesFail = false;
-  heartbeatFail = false;
+  beats = [];
+  beatsFail = false;
   commandStatus = 200;
   commandBody = undefined;
   commandReply = { payload: { done: true } };
@@ -82,8 +82,9 @@ afterEach(() => {
 afterAll(() => server.close());
 
 async function pick(user: ReturnType<typeof userEvent.setup>) {
-  await user.selectOptions(await screen.findByLabelText('Workflow'), 'a');
-  await user.selectOptions(screen.getByLabelText('Node'), 'n:1');
+  await user.click(
+    await screen.findByRole('button', { name: 'Send command to n:1' })
+  );
 }
 
 describe('ControlPage', () => {
@@ -93,49 +94,58 @@ describe('ControlPage', () => {
   });
 
   it('reports a failure to load nodes and retries', async () => {
-    nodesFail = true;
+    beatsFail = true;
     renderWithProviders(<ControlPage />);
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Failed to load nodes'
     );
 
-    nodesFail = false;
-    nodes = ['a:n1'];
+    beatsFail = false;
+    beats = [beat('a', 'n1', 'run-1')];
     await userEvent
       .setup()
       .click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('n1')).toBeInTheDocument();
+  });
+
+  it('lists every node of every run with its heartbeat age, in a fixed order', async () => {
+    beats = [
+      beat('b', 'other', ''),
+      beat('a', 'n:1', 'run-2-0123456789'),
+      beat('a', 'n:1', 'run-1-0123456789'),
+      beat('a', 'm', 'x'),
+    ];
+    renderWithProviders(<ControlPage />);
+    const table = await screen.findByRole('table');
+    const rows = within(table).getAllByRole('row').slice(1);
     expect(
-      await screen.findByRole('option', { name: 'a' })
+      rows.map((row) =>
+        within(row)
+          .getAllByRole('cell')
+          .slice(0, 3)
+          .map((cell) => cell.textContent)
+      )
+    ).toEqual([
+      ['m', 'a', 'x'],
+      ['n:1', 'a', 'run-1-01'],
+      ['n:1', 'a', 'run-2-01'],
+      ['other', 'b', '—'],
+    ]);
+    expect(within(rows[1]).getByText(/^\d+ seconds ago$/)).toBeInTheDocument();
+    expect(within(rows[1]).getByText('run-1-01')).toHaveAttribute(
+      'title',
+      'run-1-0123456789'
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Live nodes 4' })
     ).toBeInTheDocument();
   });
 
-  it('shows the heartbeat as soon as a node is chosen; a node id keeps its colons', async () => {
-    nodes = ['a:n:1', 'b:other'];
-    const user = userEvent.setup();
-    renderWithProviders(<ControlPage />);
-    await user.selectOptions(await screen.findByLabelText('Workflow'), 'a');
-    expect(screen.getByLabelText('Node')).toHaveDisplayValue('Choose a node…');
-    await user.selectOptions(screen.getByLabelText('Node'), 'n:1');
-
-    expect(await screen.findByText(/"nodeId": "n:1"/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Send command…' })).toBeEnabled();
-  });
-
-  it('says so when a node has no heartbeat', async () => {
-    heartbeatFail = true;
-    nodes = ['a:n:1'];
-    const user = userEvent.setup();
-    renderWithProviders(<ControlPage />);
-    await pick(user);
-    expect(await screen.findByText('No heartbeat')).toBeInTheDocument();
-  });
-
   it('sends a command and shows the response with a link to the audit log', async () => {
-    nodes = ['a:n:1'];
+    beats = [beat('a', 'n:1', 'run-1')];
     const user = userEvent.setup();
     renderWithProviders(<ControlPage />);
     await pick(user);
-    await user.click(screen.getByRole('button', { name: 'Send command…' }));
     expect(screen.getByRole('dialog')).toHaveTextContent(
       'recorded in the audit log'
     );
@@ -155,23 +165,21 @@ describe('ControlPage', () => {
   });
 
   it('shows null when the node answers with no payload', async () => {
-    nodes = ['a:n:1'];
+    beats = [beat('a', 'n:1', 'run-1')];
     commandReply = {};
     const user = userEvent.setup();
     renderWithProviders(<ControlPage />);
     await pick(user);
-    await user.click(screen.getByRole('button', { name: 'Send command…' }));
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(await screen.findByText('null')).toBeInTheDocument();
   });
 
   it('refuses a command that is not valid before sending it', async () => {
-    nodes = ['a:n:1'];
+    beats = [beat('a', 'n:1', 'run-1')];
     const user = userEvent.setup();
     renderWithProviders(<ControlPage />);
     await pick(user);
-    await user.click(screen.getByRole('button', { name: 'Send command…' }));
     const editor = screen.getByLabelText('Command (JSON object)');
     const submit = async (text: string) => {
       await user.clear(editor);
@@ -200,11 +208,10 @@ describe('ControlPage', () => {
   });
 
   it('says an ADMIN key is needed on a 403, and shows other failures', async () => {
-    nodes = ['a:n:1'];
+    beats = [beat('a', 'n:1', 'run-1')];
     const user = userEvent.setup();
     renderWithProviders(<ControlPage />);
     await pick(user);
-    await user.click(screen.getByRole('button', { name: 'Send command…' }));
     const send = async () => {
       await user.click(screen.getByRole('button', { name: 'Send' }));
     };

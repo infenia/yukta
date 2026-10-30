@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.model.control.PendingApproval;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
@@ -52,6 +53,7 @@ import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -1361,6 +1363,15 @@ class DefaultControlBusGatewayTest {
     // Then
     assertThat(result).isNull();
     verify(controlBusService).getLastStatistics(workflowId, nodeId);
+  }
+
+  @Test
+  void getHeartbeats_delegatesToControlBusService() {
+    final List<NodeHeartbeat> beats =
+        List.of(new NodeHeartbeat("workflow-4", "run-1", "node-14", Instant.EPOCH));
+    when(controlBusService.getHeartbeats()).thenReturn(beats);
+
+    assertThat(gateway.getHeartbeats()).isEqualTo(beats);
   }
 
   @Test

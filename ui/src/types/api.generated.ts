@@ -1556,6 +1556,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/heartbeats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get every node's heartbeat
+         * @description Lists the last heartbeat of every node of every run on the Control Bus, in one call
+         */
+        get: operations["getHeartbeats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3314,6 +3334,46 @@ export interface components {
              * @description Nodes in the run
              */
             total?: number;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListNodeHeartbeat: {
+            /** @description The response data */
+            data?: components["schemas"]["NodeHeartbeat"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        NodeHeartbeat: {
+            executionId?: string;
+            nodeId?: string;
+            /** Format: date-time */
+            timestamp?: string;
+            workflowId?: string;
         };
     };
     responses: never;
@@ -5480,6 +5540,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListPendingApproval"];
+                };
+            };
+        };
+    };
+    getHeartbeats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListNodeHeartbeat"];
                 };
             };
         };
