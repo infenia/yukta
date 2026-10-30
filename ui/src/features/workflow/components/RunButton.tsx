@@ -117,7 +117,10 @@ export function RunButton({
             setOpen(true);
           }}
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-base">
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-base"
+          >
             play_arrow
           </span>
           Run

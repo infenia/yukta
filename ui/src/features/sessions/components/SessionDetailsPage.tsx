@@ -107,7 +107,10 @@ function SessionCopyAs({
           className={buttonVariants({ variant: 'outline' })}
           aria-label="Copy as"
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-base">
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-base"
+          >
             content_copy
           </span>
           Copy as…

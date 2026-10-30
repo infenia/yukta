@@ -126,11 +126,7 @@ export function RunControls({
   const canRestart = executionId !== null && isTerminalExecStatus(status);
   const canPrioritize = executionId !== null && isQueuedExecStatus(status);
   const canRecover = executionId !== null && isAbortedExecStatus(status);
-  const failure = [
-    control.priority,
-    control.runAction,
-    control.stopAll,
-  ]
+  const failure = [control.priority, control.runAction, control.stopAll]
     .map((mutation) => mutation.error)
     .find(Boolean);
 
