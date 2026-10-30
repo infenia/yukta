@@ -13,6 +13,7 @@ import com.infenia.yukta.service.plugin.PluginRegistry;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -67,17 +68,57 @@ public class WorkflowValidationController {
                     node -> portsOf(pluginRegistry.get(node.type()), node),
                     // A duplicate node id is for the validator to report, not a 500 here.
                     (first, second) -> first));
+    final List<WorkflowValidationResult.Warning> warnings = unreadPorts(definition, ports);
     return workflowValidator
         .validate(definition)
-        .thenReturn(new WorkflowValidationResult(true, null, ports))
+        .thenReturn(new WorkflowValidationResult(true, null, ports, warnings))
         // only the validator's own verdict is a result; anything else is for the central handler
         .onErrorResume(
             IllegalArgumentException.class,
             e ->
                 Mono.just(
                     new WorkflowValidationResult(
-                        false, e.getMessage() != null ? e.getMessage() : e.toString(), ports)))
+                        false,
+                        e.getMessage() != null ? e.getMessage() : e.toString(),
+                        ports,
+                        warnings)))
         .map(result -> ApiResponse.success(200, "Workflow validated", result));
+  }
+
+  /**
+   * The ports no edge reads from, on nodes with several: a child filters its parent's messages by
+   * port, so what a node sends on such a port goes nowhere. An edge saved without a port reads the
+   * "default" port only (AppConfigMapper fills it in), so every edge here names its port.
+   */
+  private static List<WorkflowValidationResult.Warning> unreadPorts(
+      final WorkflowDefinition definition, final Map<String, List<String>> ports) {
+    final List<WorkflowValidationResult.Warning> warnings = new ArrayList<>();
+    definition.nodes().stream()
+        .map(WorkflowDefinition.Node::nodeId)
+        .distinct()
+        .filter(ports::containsKey)
+        .forEach(
+            nodeId -> {
+              final List<String> declared = ports.get(nodeId);
+              final List<WorkflowDefinition.Edge> out =
+                  definition.edges().stream().filter(edge -> nodeId.equals(edge.source())).toList();
+              if (declared.size() < 2) {
+                return;
+              }
+              declared.stream()
+                  .filter(port -> out.stream().noneMatch(edge -> port.equals(edge.sourcePort())))
+                  .map(
+                      port ->
+                          new WorkflowValidationResult.Warning(
+                              nodeId,
+                              port,
+                              nodeId
+                                  + " has no edge from its '"
+                                  + port
+                                  + "' port, so what it sends there is dropped"))
+                  .forEach(warnings::add);
+            });
+    return warnings;
   }
 
   /** The node's output ports, or none when its draft configuration is too incomplete to say. */

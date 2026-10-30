@@ -1782,6 +1782,8 @@ export interface components {
             outputPorts?: {
                 [key: string]: string[];
             };
+            /** @description Problems that do not stop the workflow, for the editor to show */
+            warnings?: components["schemas"]["Warning"][];
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseMapStringInteger: {
@@ -3122,6 +3124,15 @@ export interface components {
             actor?: string;
             applied?: boolean;
             reason?: string;
+        };
+        /** @description A problem that does not stop the workflow */
+        Warning: {
+            /** @description The config field or output port it is about */
+            field?: string;
+            /** @description What is wrong */
+            message?: string;
+            /** @description The node it is about */
+            nodeId?: string;
         };
     };
     responses: never;

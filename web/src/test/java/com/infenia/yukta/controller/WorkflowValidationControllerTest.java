@@ -177,4 +177,40 @@ class WorkflowValidationControllerTest {
         .expectBody(String.class)
         .value(body -> assertThat(body).doesNotContain("secret detail"));
   }
+
+  @Test
+  void testWarnsAboutPortsNoEdgeReadsFrom() {
+    final Plugin branch = mock(Plugin.class);
+    when(branch.getOutputPorts(any())).thenReturn(List.of("success", "failure"));
+    final Plugin single = mock(Plugin.class);
+    when(single.getOutputPorts(any())).thenReturn(List.of("default"));
+    when(pluginRegistry.get("BRANCH")).thenReturn(branch);
+    when(pluginRegistry.get("ECHO")).thenReturn(single);
+    when(workflowValidator.validate(any()))
+        .thenReturn(Mono.error(new IllegalArgumentException("still invalid")));
+
+    post("""
+    {"workflowId":"wf","description":"d",
+     "nodes":[{"nodeId":"gate","type":"BRANCH","config":{}},
+              {"nodeId":"all","type":"BRANCH","config":{}},
+              {"nodeId":"one","type":"ECHO","config":{}},
+              {"nodeId":"ok","type":"ECHO","config":{}}],
+     "edges":[{"source":"gate","target":"ok","sourcePort":"success"},
+              {"source":"all","target":"ok","sourcePort":"success"},
+              {"source":"all","target":"one","sourcePort":"failure"}]}
+    """)
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath(VALID)
+        .isEqualTo(false)
+        .jsonPath("$.data.warnings.length()")
+        .isEqualTo(1)
+        .jsonPath("$.data.warnings[0].nodeId")
+        .isEqualTo("gate")
+        .jsonPath("$.data.warnings[0].field")
+        .isEqualTo("failure")
+        .jsonPath("$.data.warnings[0].message")
+        .isEqualTo("gate has no edge from its 'failure' port, so what it sends there is dropped");
+  }
 }

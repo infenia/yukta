@@ -263,6 +263,37 @@ function Editor({
             Workflow is valid.
           </Callout>
         )}
+        {result?.warnings?.map((warning) => (
+          <Callout
+            key={`${warning.nodeId}/${warning.field}`}
+            kind="warning"
+            compact
+            className="mt-2"
+          >
+            <span className="flex flex-wrap items-center gap-2">
+              {warning.message}
+              <button
+                type="button"
+                className="text-primary font-semibold hover:underline"
+                onClick={() => {
+                  // the warnings are about ports so far: start an edge from it
+                  setSelected(warning.nodeId);
+                  setListTab('edges');
+                  setEdge({
+                    source: warning.nodeId,
+                    target: '',
+                    sourcePort: warning.field,
+                  });
+                  requestAnimationFrame(() =>
+                    document.getElementById('edge-target')?.focus()
+                  );
+                }}
+              >
+                Fix it
+              </button>
+            </span>
+          </Callout>
+        ))}
       </div>
 
       {/* Three columns from lg up; on phones and tablets the panels stack (list, canvas,
@@ -427,6 +458,7 @@ function Editor({
                   ))}
                 </NativeSelect>
                 <NativeSelect
+                  id="edge-target"
                   aria-label="Edge target"
                   value={edge.target}
                   onChange={(event) =>
