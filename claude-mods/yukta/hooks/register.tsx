@@ -1,11 +1,21 @@
 import type { EngineInterface as Engine, PluginOptions, Register } from 'claude-code'
 
 type Run = { sessionId: string; executionId: string; workflowId: string; status: string; startTime?: string }
+type Insights = { queued: number; failed: number; sample: number; successPct: number; medianSec: number; top: string }
 type Approval = { sessionId: string; executionId: string; workflowId: string; nodeId: string; name: string }
 
 const PANE = 'yukta-runs'
 const TITLE = ['#a78bfa', '#818cf8', '#60a5fa', '#22d3ee', '#34d399']
 const SPIN = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+const TIPS = [
+  'Define a workflow once as JSON nodes and edges, then run it from REST, the web UI or MCP.',
+  'An approval step waits for a signal: approve it here, or from the band above the prompt.',
+  'Swagger UI lives at /swagger-ui.html on the server.',
+  'Extend Yukta with Trigger, Processor and Terminal plugins through plugin-api.',
+  'Stop ends a run and every sub-workflow it started.',
+  'Workflow versions can be diffed and rolled back: ask Claude for diff_workflow_versions or rollback_workflow.',
+  'Claude can start, pause and inspect workflows through the Yukta MCP tools.',
+]
 const AMBER = ['#f59e0b', '#fcd34d']
 
 // ponytail: the pane animates by redrawing at ~8 fps while it is on screen and work runs; a push channel would not need the timer
@@ -31,6 +41,8 @@ let runs: Run[] = []
 let approvals: Approval[] = []
 let isDown = true
 let why = ''
+let insights: Insights | undefined
+let ticks = 0
 let skips = 0
 let headers: Promise<Record<string, string>> | undefined
 
@@ -82,6 +94,7 @@ const tick = async ($: Engine) => {
     approvals = pending
     isDown = false
     why = ''
+    if (ticks++ % 10 === 0) await loadInsights($).catch(() => undefined)
   } catch (err) {
     why = err instanceof Error ? err.message : 'request failed'
     runs = []
@@ -90,6 +103,25 @@ const tick = async ($: Engine) => {
   }
   if (opts.show_status) $.ui.status(summary())
   $.ui.invalidate('ui.render')
+}
+
+const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0
+
+// ponytail: sampled from the newest 50 runs every ~30 s; a stats endpoint would be exact
+const loadInsights = async ($: Engine) => {
+  const counts = await api($, '/executions/counts')
+  const hits: Run[] & { endTime?: string }[] = (await api($, '/executions?limit=50')) ?? []
+  const done = hits.filter((h: any) => h.endTime && h.startTime)
+  const byFlow = new Map<string, number>()
+  for (const h of hits) byFlow.set(h.workflowId, (byFlow.get(h.workflowId) ?? 0) + 1)
+  insights = {
+    queued: counts?.queued ?? 0,
+    failed: counts?.failed ?? 0,
+    sample: hits.length,
+    successPct: hits.length ? Math.round((100 * hits.filter(h => h.status === 'SUCCESS').length) / hits.length) : 0,
+    medianSec: Math.round(median(done.map((h: any) => (Date.parse(h.endTime) - Date.parse(h.startTime)) / 1000))),
+    top: [...byFlow.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '-',
+  }
 }
 
 const animate = async ($: Engine) => {
@@ -159,6 +191,24 @@ export const register: Register = (on, options) => {
         {!isDown && runs.length === 0 && approvals.length === 0 && (
           <Box marginTop={1}><Text dimColor italic>✦ all quiet — nothing is running</Text></Box>
         )}
+        {!isDown && insights && (
+          <Box marginTop={1} flexDirection="column" borderStyle="round" borderColor="#3b82f6" paddingX={1}>
+            <Text bold color="#60a5fa">◆ Insights <Text dimColor>(last {insights.sample} runs)</Text></Text>
+            <Text>
+              <Text color={insights.successPct >= 90 ? '#34d399' : insights.successPct >= 60 ? '#fcd34d' : '#f87171'} bold>{insights.successPct}%</Text>
+              <Text dimColor> succeeded  ·  median </Text>{insights.medianSec}s
+              <Text dimColor>  ·  </Text>{insights.queued}<Text dimColor> queued</Text>
+            </Text>
+            <Text>
+              <Text color={insights.failed ? '#f87171' : undefined} dimColor={!insights.failed}>{insights.failed} failed in 24h</Text>
+              <Text dimColor>  ·  busiest </Text>{insights.top}
+            </Text>
+          </Box>
+        )}
+        <Box marginTop={1}>
+          <Text color="#22d3ee">✦ </Text>
+          <Text italic dimColor>{TIPS[Math.floor(frame / 100) % TIPS.length]}</Text>
+        </Box>
         {isDown && <Box marginTop={1}><Text color="#f87171">✗ {base}: {why || 'unreachable'}</Text></Box>}
         {runs.map(r => (
           <Box

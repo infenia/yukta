@@ -32,6 +32,8 @@ test('the pane lists a running execution and a pending approval, on every surfac
     const ui = await $.ui.mount({ ...PANE, surface })
     expect(await ui.find({ type: 'Text', text: /1 awaiting approval/ })).toBeTruthy()
     expect(await ui.find({ type: 'Button', key: 'stop-e1234567890' })).toBeTruthy()
+    expect(await ui.find({ type: 'Text', text: /Insights/ })).toBeTruthy()
+    expect(await ui.find({ type: 'Text', text: /Define a workflow/ })).toBeTruthy()
     expect(await ui.find({ type: 'Button', key: 'ok-e1234567890-gate' })).toBeTruthy()
     await ui.unmount()
   }
