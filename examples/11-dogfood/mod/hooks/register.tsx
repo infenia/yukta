@@ -12,8 +12,18 @@ let root = ''
 let yk = ''
 let check: { execution: string; lines: string[]; isDone: boolean } | undefined
 
-const isOff = async ($: Engine) =>
-  (await $.env.get('YUKTA_DOGFOOD')) === 'off' || !!(await $.env.get('YUKTA_HEAL_FIXER')) || !yk
+// Finds the repo and its yk. Done on demand: a mod installed or reloaded mid-session never sees SessionStart.
+const locate = async ($: Engine, cwd?: string) => {
+  const top = await $.process.run(['git', 'rev-parse', '--show-toplevel'], cwd ? { cwd } : undefined)
+  root = top.exitCode === 0 ? top.stdout.trim() : ''
+  yk = root && (await $.fs.exists(`${root}/examples/11-dogfood/yk`)) ? `${root}/examples/11-dogfood/yk` : ''
+}
+
+const isOff = async ($: Engine) => {
+  if ((await $.env.get('YUKTA_DOGFOOD')) === 'off' || (await $.env.get('YUKTA_HEAL_FIXER'))) return true
+  if (!yk) await locate($)
+  return !yk
+}
 
 const run = async ($: Engine, argv: string[]) => {
   const { stdout } = await $.process.run(argv, { cwd: root })
@@ -23,9 +33,7 @@ const run = async ($: Engine, argv: string[]) => {
 const changesSum = ($: Engine) => run($, [yk, 'sum'])
 
 const startSession = async ($: Engine, sid: string, source: string | undefined, cwd: string) => {
-  const top = await $.process.run(['git', 'rev-parse', '--show-toplevel'], { cwd })
-  root = top.exitCode === 0 ? top.stdout.trim() : ''
-  yk = root && (await $.fs.exists(`${root}/examples/11-dogfood/yk`)) ? `${root}/examples/11-dogfood/yk` : ''
+  await locate($, cwd)
   if (await isOff($)) return undefined
   const baseline = `${root}/.yukta-dev/baseline-${sid}`
   // a resumed session keeps its first baseline
@@ -102,8 +110,8 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('command.run', { command: 'yk-plan' }, async $ => ({ text: (await isOff($)) ? 'yukta-dogfood is off' : await run($, [yk, 'plan']) }))
-  on('command.run', { command: 'yk-check' }, async $ => ({ text: (await isOff($)) ? 'yukta-dogfood is off' : await followCheck($) }))
+  on('command.run', { command: 'yk-plan' }, async $ => ({ text: (await isOff($)) ? 'yukta-dogfood is off (YUKTA_DOGFOOD=off, or no examples/11-dogfood/yk in this repo)' : await run($, [yk, 'plan']) }))
+  on('command.run', { command: 'yk-check' }, async $ => ({ text: (await isOff($)) ? 'yukta-dogfood is off (YUKTA_DOGFOOD=off, or no examples/11-dogfood/yk in this repo)' : await followCheck($) }))
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Button, Text } = $.ui.resolve(e)
