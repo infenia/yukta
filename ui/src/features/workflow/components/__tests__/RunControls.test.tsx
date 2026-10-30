@@ -105,10 +105,14 @@ describe('RunControls', () => {
   it('only offers Run before any execution', () => {
     setup(null, null);
     expect(screen.getByRole('button', { name: 'Run workflow' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /pause/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /resume/i })).toBeDisabled();
+    // Pause, Stop and Restart are one group; Resume shows only while paused
+    const group = screen.getByRole('group', { name: 'Run controls' });
     expect(
-      screen.getByRole('button', { name: /stop options/i })
+      within(group).getByRole('button', { name: /pause/i })
+    ).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /resume/i })).toBeNull();
+    expect(
+      within(group).getByRole('button', { name: /stop options/i })
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: /restart/i })).toBeDisabled();
   });

@@ -31,6 +31,9 @@ import {
 } from '../lib/statusMapper';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
+/** A button inside the segmented run controls. */
+const SEG =
+  'text-label-md text-on-surface hover:bg-muted flex h-7 items-center gap-1 rounded-full px-2.5 font-medium disabled:pointer-events-none disabled:opacity-45';
 
 /** Priorities the scheduler accepts from the UI. */
 export const MIN_PRIORITY = -100;
@@ -183,70 +186,71 @@ export function RunControls({
         workflowId={workflowId}
         onStarted={onStarted}
       />
+      {/* Pause or Resume, Stop and Restart as one segmented control, as on the run view artboard */}
       <RequirePermission perm="controlRuns">
-        <button
-          type="button"
-          className={BUTTON}
-          disabled={category !== 'running'}
-          onClick={() => act('pause')}
+        <div
+          role="group"
+          aria-label="Run controls"
+          className="border-border bg-card flex items-center gap-0.5 rounded-full border p-0.5"
         >
-          <span className="material-symbols-outlined text-base">pause</span>
-          Pause
-        </button>
-      </RequirePermission>
-      <RequirePermission perm="controlRuns">
-        <button
-          type="button"
-          className={BUTTON}
-          disabled={category !== 'paused'}
-          onClick={() => act('resume')}
-        >
-          <span className="material-symbols-outlined text-base">
-            play_circle
-          </span>
-          Resume
-        </button>
-      </RequirePermission>
-      <DropdownMenu>
-        <RequirePermission perm="controlRuns">
-          <DropdownMenuTrigger
-            className={BUTTON}
-            disabled={!live}
-            aria-label="Stop options"
-          >
-            <span className="material-symbols-outlined text-base">stop</span>
-            Stop
-            <span className="material-symbols-outlined text-base">
-              arrow_drop_down
-            </span>
-          </DropdownMenuTrigger>
-        </RequirePermission>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onClick={() => setConfirm({ label: 'Stop this run', mode: null })}
-          >
-            Stop this run
-          </DropdownMenuItem>
-          {(['DRAIN', 'CANCEL', 'KILL'] as const).map((mode) => (
-            <DropdownMenuItem
-              key={mode}
-              onClick={() => setConfirm({ label: `${mode} all runs`, mode })}
+          {category === 'paused' ? (
+            <button type="button" className={SEG} onClick={() => act('resume')}>
+              <span className="material-symbols-outlined text-base">
+                play_circle
+              </span>
+              Resume
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={SEG}
+              disabled={category !== 'running'}
+              onClick={() => act('pause')}
             >
-              {mode === 'DRAIN'
-                ? 'Drain'
-                : mode === 'CANCEL'
-                  ? 'Cancel'
-                  : 'Kill'}{' '}
-              all runs
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <RequirePermission perm="controlRuns">
-        <>
+              <span className="material-symbols-outlined text-base">pause</span>
+              Pause
+            </button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={SEG}
+              disabled={!live}
+              aria-label="Stop options"
+            >
+              <span className="material-symbols-outlined text-base">stop</span>
+              Stop
+              <span className="material-symbols-outlined text-base">
+                arrow_drop_down
+              </span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  setConfirm({ label: 'Stop this run', mode: null })
+                }
+              >
+                Stop this run
+              </DropdownMenuItem>
+              {(['DRAIN', 'CANCEL', 'KILL'] as const).map((mode) => (
+                <DropdownMenuItem
+                  key={mode}
+                  onClick={() =>
+                    setConfirm({ label: `${mode} all runs`, mode })
+                  }
+                >
+                  {mode === 'DRAIN'
+                    ? 'Drain'
+                    : mode === 'CANCEL'
+                      ? 'Cancel'
+                      : 'Kill'}{' '}
+                  all runs
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <button
             type="button"
-            className={BUTTON}
+            className={SEG}
             disabled={!canRestart}
             onClick={() => act('restart')}
           >
@@ -255,20 +259,22 @@ export function RunControls({
             </span>
             Restart
           </button>
-          {canPrioritize && (
-            <button
-              type="button"
-              className={BUTTON}
-              onClick={() => setPrioritizing(true)}
-            >
-              <span className="material-symbols-outlined text-base">
-                low_priority
-              </span>
-              Priority…
-            </button>
-          )}
-        </>
+        </div>
       </RequirePermission>
+      {canPrioritize && (
+        <RequirePermission perm="controlRuns">
+          <button
+            type="button"
+            className={BUTTON}
+            onClick={() => setPrioritizing(true)}
+          >
+            <span className="material-symbols-outlined text-base">
+              low_priority
+            </span>
+            Priority…
+          </button>
+        </RequirePermission>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger className={BUTTON} aria-label="Copy as">
           <span className="material-symbols-outlined text-base">

@@ -147,27 +147,46 @@ describe('WorkflowDetailsPage', () => {
   it('opens a sub-workflow from its node, and links a sub-workflow run back to its parent', async () => {
     server.use(
       http.get('/api/sessions/:sessionId/workflows/:workflowId/graph', () =>
-        HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data: createStagedGraph(), path: '/graph' })
+        HttpResponse.json({
+          timestamp: 't',
+          status: 200,
+          message: 'ok',
+          data: createStagedGraph(),
+          path: '/graph',
+        })
       ),
       http.get('/api/executions/:executionId/tree', () =>
-        HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', path: '/', data: [] })
+        HttpResponse.json({
+          timestamp: 't',
+          status: 200,
+          message: 'ok',
+          path: '/',
+          data: [],
+        })
       ),
       http.get('/api/executions/:executionId', ({ params }) =>
         HttpResponse.json({
-          timestamp: 't', status: 200, message: 'ok', path: '/status',
+          timestamp: 't',
+          status: 200,
+          message: 'ok',
+          path: '/status',
           data:
             params.executionId === 'parent-run'
-              ? createMockProgress({ executionId: 'parent-run', workflowId: 'outer' })
+              ? createMockProgress({
+                  executionId: 'parent-run',
+                  workflowId: 'outer',
+                })
               : createMockProgress({ parentExecutionId: 'parent-run' }),
         })
       )
     );
     renderPage('/sessions/SESSION_A92_XP_2024/workflow/gate?stages=all');
-    expect(await screen.findByRole('link', { name: 'Open sub-workflow fix' })).toHaveAttribute(
-      'href',
-      '/sessions/SESSION_A92_XP_2024/workflow/fix'
-    );
-    expect(await screen.findByRole('link', { name: 'Parent run' })).toHaveAttribute(
+    expect(
+      await screen.findByRole('link', { name: 'Open sub-workflow fix' })
+    ).toHaveAttribute('href', '/sessions/SESSION_A92_XP_2024/workflow/fix');
+    expect(
+      await screen.findByRole('link', { name: 'Parent run' })
+    ).toHaveAttribute(
       'href',
       '/sessions/SESSION_A92_XP_2024/workflow/outer?exec=parent-run'
     );
@@ -192,10 +211,22 @@ describe('WorkflowDetailsPage', () => {
   it('follows the running nodes of a live run until told not to', async () => {
     const user = userEvent.setup();
     renderPage();
-    const follow = await screen.findByRole('button', { name: 'Follow running nodes' });
+    const follow = await screen.findByRole('button', {
+      name: 'Follow running nodes',
+    });
     expect(follow).toHaveAttribute('aria-pressed', 'true');
     await user.click(follow);
     expect(follow).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('finds a node from the canvas toolbar', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const find = await screen.findByRole('searchbox', {
+      name: 'Find node on canvas',
+    });
+    await user.type(find, 'vector');
+    expect(find).toHaveValue('vector');
   });
 
   it('shows a loading state before data arrives', () => {
@@ -233,8 +264,7 @@ describe('WorkflowDetailsPage', () => {
     const toolbar = must(
       screen.getByRole('heading', { name: 'wf-982-xk-11' }).parentElement
     );
-    expect(toolbar.textContent).toContain('Run History:');
-    expect(toolbar.textContent).toContain('exec-091-qp-55');
+    expect(toolbar.textContent).toContain('Runexec-091');
     expect(
       within(toolbar).getByRole('button', { name: 'Workflow progress' })
     ).toHaveAttribute('aria-pressed', 'true');
@@ -326,7 +356,9 @@ describe('WorkflowDetailsPage', () => {
 
     expect(screen.getByTestId('status-chip')).toHaveTextContent('Not run');
     expect(screen.getByTestId('run-history-empty')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Follow running nodes' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Follow running nodes' })
+    ).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: 'Details' }));
     expect(screen.getByTestId('execution-summary')).toHaveTextContent(
       'Not run'

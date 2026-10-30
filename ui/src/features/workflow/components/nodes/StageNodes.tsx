@@ -117,15 +117,21 @@ export function StageFrame({ data }: NodeProps<StageFrameNode>) {
 export function GroupingSwitch({
   grouped,
   onChange,
+  className = 'absolute top-3 left-3 z-10',
 }: {
   grouped: boolean;
   onChange: (grouped: boolean) => void;
+  /** Where it sits; by default over the canvas's top-left corner. */
+  className?: string;
 }) {
   return (
     <div
       role="radiogroup"
       aria-label="Canvas grouping"
-      className="bg-surface border-border shadow-card absolute top-3 left-3 z-10 flex gap-0.5 rounded-lg border p-0.5"
+      className={cn(
+        'bg-surface border-border shadow-card flex gap-0.5 rounded-lg border p-0.5',
+        className
+      )}
     >
       {(
         [

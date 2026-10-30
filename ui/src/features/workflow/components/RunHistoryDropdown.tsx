@@ -10,7 +10,7 @@ import {
 import { formatClockTime } from '../lib/timeFormat';
 import type { ExecutionSummary } from '../types/workflow';
 
-/** Breadcrumb-bar dropdown selecting which execution (run) the page shows. */
+/** The run picker: which run the page shows ("Run <id> · started <time>"). */
 export function RunHistoryDropdown({
   executions,
   selectedExecutionId,
@@ -31,18 +31,26 @@ export function RunHistoryDropdown({
     );
   }
 
+  const selected = executions.find(
+    (execution) => execution.executionId === selectedExecutionId
+  );
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="text-body-sm text-on-surface hover:text-primary flex items-center gap-1 transition-colors"
+        className="border-border bg-card text-label-md text-on-surface hover:bg-muted flex h-8 items-center gap-2 rounded-full border px-3"
         aria-label="Run history"
       >
-        <span className="material-symbols-outlined text-sm">history</span>
-        <span className="font-medium">Run History:</span>
-        <span className="font-mono">{selectedExecutionId ?? '—'}</span>
-        <span className="material-symbols-outlined text-sm">
-          arrow_drop_down
+        <span className="material-symbols-outlined text-base">history</span>
+        Run
+        <span className="font-mono">
+          {selectedExecutionId?.slice(0, 8) ?? '—'}
         </span>
+        {selected && (
+          <span className="text-on-surface-variant font-normal">
+            · started {formatClockTime(selected.startTime)}
+          </span>
+        )}
+        <span className="material-symbols-outlined text-base">expand_more</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {executions.map((execution) => (
