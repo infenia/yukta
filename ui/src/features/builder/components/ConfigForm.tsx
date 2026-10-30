@@ -69,6 +69,81 @@ export function JsonField({
   );
 }
 
+const isStrings = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+/** A list of strings as removable chips plus an add box; "Edit as JSON" for anything else. */
+function ListField({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}) {
+  const [asJson, setAsJson] = useState(
+    value !== undefined && !isStrings(value)
+  );
+  const [draft, setDraft] = useState('');
+  if (asJson) {
+    return <JsonField id={id} value={value} onChange={onChange} />;
+  }
+  const items = isStrings(value) ? value : [];
+  const add = () => {
+    if (draft.trim()) onChange([...items, draft.trim()]);
+    setDraft('');
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      {items.length > 0 && (
+        <ul className="flex flex-wrap gap-1">
+          {items.map((item, index) => (
+            <li
+              key={index}
+              className="flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-code-sm"
+            >
+              {item}
+              <button
+                type="button"
+                aria-label={`Remove ${item}`}
+                onClick={() => {
+                  const next = items.filter((_, i) => i !== index);
+                  onChange(next.length > 0 ? next : undefined);
+                }}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <input
+        id={id}
+        type="text"
+        className={INPUT}
+        placeholder="Add an item, then press Enter"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={add}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            add();
+          }
+        }}
+      />
+      <button
+        type="button"
+        className="self-start text-body-sm text-on-surface-variant underline"
+        onClick={() => setAsJson(true)}
+      >
+        Edit as JSON
+      </button>
+    </div>
+  );
+}
+
 function FieldInput({
   id,
   field,
@@ -127,6 +202,7 @@ function FieldInput({
         />
       );
     case 'LIST':
+      return <ListField id={id} value={value} onChange={onChange} />;
     case 'MAP':
       return <JsonField id={id} value={value} onChange={onChange} />;
     case 'EXPRESSION':
@@ -183,7 +259,7 @@ export function ConfigForm({
         <div key={field.name} className="flex flex-col gap-1">
           <label
             htmlFor={`${scope}-${field.name}`}
-            className="text-label-sm text-on-surface font-semibold"
+            className="text-label-sm font-semibold text-on-surface"
           >
             {field.name}
             {field.required && <span className="text-error"> *</span>}

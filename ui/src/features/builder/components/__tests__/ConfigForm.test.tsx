@@ -173,9 +173,36 @@ describe('ConfigForm', () => {
     expect(values()).toBe('{"headers":[1,2]}');
   });
 
-  it('starts a JSON field empty when the value is unset', () => {
+  it('adds and removes list items as chips, dropping the field when emptied', async () => {
+    const user = userEvent.setup();
     render(<Harness schema={[field({ name: 'items', type: 'LIST' })]} />);
+    await user.type(screen.getByLabelText('items'), 'prettier{Enter}');
+    await user.type(screen.getByLabelText('items'), '--check');
+    await user.tab();
+    await user.type(screen.getByLabelText('items'), '   {Enter}');
+    expect(values()).toBe('{"items":["prettier","--check"]}');
+    await user.click(screen.getByRole('button', { name: 'Remove prettier' }));
+    await user.click(screen.getByRole('button', { name: 'Remove --check' }));
+    expect(values()).toBe('{}');
+  });
+
+  it('edits a list as JSON on request, and opens non-string lists that way', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <Harness schema={[field({ name: 'items', type: 'LIST' })]} />
+    );
+    await user.click(screen.getByRole('button', { name: 'Edit as JSON' }));
     expect(screen.getByLabelText('items')).toHaveValue('');
+    unmount();
+    render(
+      <Harness
+        schema={[field({ name: 'items', type: 'LIST' })]}
+        initial={{ items: [{ a: 1 }] }}
+      />
+    );
+    expect(screen.getByLabelText('items')).toHaveValue(
+      JSON.stringify([{ a: 1 }], null, 2)
+    );
   });
 
   it('shows a non-string value in a text field as empty', () => {
