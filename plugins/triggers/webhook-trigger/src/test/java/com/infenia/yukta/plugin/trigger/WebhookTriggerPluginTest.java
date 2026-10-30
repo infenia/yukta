@@ -33,6 +33,21 @@ class WebhookTriggerPluginTest {
   }
 
   @Test
+  void validateConfig_requiresPathAndSecret() {
+    StepVerifier.create(plugin.validateConfig(Map.of("path", "push", "secret", "decrypted:gh")))
+        .verifyComplete();
+    StepVerifier.create(plugin.validateConfig(Map.of("secret", "decrypted:gh")))
+        .expectErrorMessage("path is required")
+        .verify();
+    StepVerifier.create(plugin.validateConfig(Map.of("path", " ", "secret", "decrypted:gh")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(plugin.validateConfig(Map.of("path", "push")))
+        .expectErrorMessage("secret is required")
+        .verify();
+  }
+
+  @Test
   void describesItself() {
     assertEquals("WEBHOOK_TRIGGER", plugin.getType(), "type");
     assertEquals(6, plugin.getConfigSchema().size(), "schema");

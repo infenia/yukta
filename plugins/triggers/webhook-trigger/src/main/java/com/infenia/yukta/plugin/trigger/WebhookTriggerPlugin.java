@@ -8,12 +8,14 @@ import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
+import com.infenia.yukta.plugin.util.ConfigValidation;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Starts a workflow from an inbound HTTP call to {@code POST /hooks/{sessionId}/{path}}. The web
@@ -65,6 +67,15 @@ public class WebhookTriggerPlugin implements TriggerPlugin {
             "Header whose value makes a repeated delivery return the first run"),
         ConfigField.optional(
             "headers", ConfigField.Type.STRING, null, "Comma-separated headers passed in payload"));
+  }
+
+  @Override
+  public Mono<Void> validateConfig(final Map<String, Object> config) {
+    return Mono.fromRunnable(
+        () -> {
+          ConfigValidation.requiredString(config, "path");
+          ConfigValidation.requiredString(config, "secret");
+        });
   }
 
   @Override

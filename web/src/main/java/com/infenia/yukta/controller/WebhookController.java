@@ -14,11 +14,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
-import java.util.Arrays;
 import java.util.HexFormat;
-import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Optional;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import lombok.RequiredArgsConstructor;
@@ -104,7 +101,8 @@ public class WebhookController {
   private Mono<ApiResponse<WorkflowStartResponse>> start(
       final String sessionId, final Hook hook, final HttpHeaders headers, final byte[] raw) {
     return secret(sessionId, hook)
-        .filter(secret -> signed(secret, hook, headers, raw))
+        .flatMap(secret -> Mono.fromCallable(() -> signed(secret, hook, headers, raw)))
+        .filter(Boolean::booleanValue)
         .switchIfEmpty(
             Mono.error(
                 () -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid signature")))
@@ -139,9 +137,10 @@ public class WebhookController {
   }
 
   private static boolean signed(
-      final String secret, final Hook hook, final HttpHeaders headers, final byte[] raw) {
-    final String header =
-        Optional.ofNullable(text(hook.config(), "signatureHeader")).orElse("X-Hub-Signature-256");
+      final String secret, final Hook hook, final HttpHeaders headers, final byte[] raw)
+      throws GeneralSecurityException {
+    final String configured = text(hook.config(), "signatureHeader");
+    final String header = configured == null ? "X-Hub-Signature-256" : configured;
     // an empty prefix is allowed (a bare digest), so only an absent value falls back
     final String prefix =
         hook.config().get("signaturePrefix") instanceof final String set ? set : "sha256=";
@@ -149,37 +148,35 @@ public class WebhookController {
     if (given == null || !given.startsWith(prefix)) {
       return false;
     }
-    try {
-      final Mac mac = Mac.getInstance(HMAC);
-      mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), HMAC));
-      final byte[] expected =
-          HexFormat.of().formatHex(mac.doFinal(raw)).getBytes(StandardCharsets.US_ASCII);
-      return MessageDigest.isEqual(
-          expected,
-          given
-              .substring(prefix.length())
-              .toLowerCase(java.util.Locale.ROOT)
-              .getBytes(StandardCharsets.US_ASCII));
-    } catch (final GeneralSecurityException e) {
-      throw new IllegalStateException("HMAC-SHA256 is not available", e);
-    }
+    final Mac mac = Mac.getInstance(HMAC);
+    mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), HMAC));
+    final byte[] expected =
+        HexFormat.of().formatHex(mac.doFinal(raw)).getBytes(StandardCharsets.US_ASCII);
+    return MessageDigest.isEqual(
+        expected,
+        given
+            .substring(prefix.length())
+            .toLowerCase(java.util.Locale.ROOT)
+            .getBytes(StandardCharsets.US_ASCII));
   }
 
   private static Map<String, Object> payload(
       final Hook hook, final HttpHeaders headers, final byte[] raw) {
-    final Map<String, Object> passed = new LinkedHashMap<>();
+    final Map<String, Object> passed = new java.util.concurrent.ConcurrentHashMap<>();
     final String names = text(hook.config(), "headers");
     if (names != null) {
-      Arrays.stream(names.split(","))
-          .map(String::strip)
-          .filter(name -> !name.isEmpty() && headers.getFirst(name) != null)
-          .forEach(name -> passed.put(name, headers.getFirst(name)));
+      for (final String name : names.split(",")) {
+        final String key = name.strip();
+        final String value = key.isEmpty() ? null : headers.getFirst(key);
+        if (value != null) {
+          passed.put(key, value);
+        }
+      }
     }
     return Map.of("body", new String(raw, StandardCharsets.UTF_8), "headers", passed);
   }
 
-  private static Optional<Hook> find(
-      final Map<String, WorkflowDefinition> workflows, final String path) {
+  private static Hook find(final Map<String, WorkflowDefinition> workflows, final String path) {
     return workflows.values().stream()
         .flatMap(
             workflow ->
@@ -187,7 +184,8 @@ public class WebhookController {
                     .filter(node -> TYPE.equals(node.type()))
                     .filter(node -> path.equals(text(node.config(), "path")))
                     .map(node -> new Hook(workflow.workflowId(), node.nodeId(), node.config())))
-        .findFirst();
+        .findFirst()
+        .orElse(null);
   }
 
   private static String text(final Map<String, Object> config, final String key) {

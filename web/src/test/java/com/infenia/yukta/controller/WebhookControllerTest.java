@@ -18,6 +18,7 @@ import com.infenia.yukta.plugin.store.SecretProvider;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowService;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -42,14 +43,19 @@ class WebhookControllerTest {
   private final SecretProvider secrets = mock(SecretProvider.class);
   private WebTestClient client;
 
-  private static String sign(final String key, final String body) throws Exception {
-    final Mac mac = Mac.getInstance("HmacSHA256");
-    mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-    return "sha256=" + HexFormat.of().formatHex(mac.doFinal(body.getBytes(StandardCharsets.UTF_8)));
+  private static String sign(final String key, final String body) {
+    try {
+      final Mac mac = Mac.getInstance("HmacSHA256");
+      mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+      final byte[] digest = mac.doFinal(body.getBytes(StandardCharsets.UTF_8));
+      return "sha256=" + HexFormat.of().formatHex(digest);
+    } catch (GeneralSecurityException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   private void hook(final Map<String, Object> extra) {
-    final Map<String, Object> config = new java.util.HashMap<>(extra);
+    final Map<String, Object> config = new java.util.concurrent.ConcurrentHashMap<>(extra);
     config.put("path", "push");
     final var node = new WorkflowDefinition.Node("t", "WEBHOOK_TRIGGER", config);
     final var other = new WorkflowDefinition.Node("x", "API_TRIGGER", Map.of("path", "push"));
@@ -71,7 +77,7 @@ class WebhookControllerTest {
   }
 
   @Test
-  void validSignature_startsTheRunWithBodyAndChosenHeaders() throws Exception {
+  void validSignature_startsTheRunWithBodyAndChosenHeaders() {
     hook(Map.of("secret", "decrypted:gh", "headers", "X-GitHub-Event, X-Missing"));
 
     client
@@ -93,7 +99,7 @@ class WebhookControllerTest {
   }
 
   @Test
-  void missingOrWrongSignature_isRefused() throws Exception {
+  void missingOrWrongSignature_isRefused() {
     hook(Map.of("secret", "decrypted:gh"));
 
     client.post().uri(URI).bodyValue(BODY).exchange().expectStatus().isUnauthorized();
@@ -125,7 +131,7 @@ class WebhookControllerTest {
   }
 
   @Test
-  void hookWithoutAUsableSecret_isNeverOpen() throws Exception {
+  void hookWithoutUsableSecret_isNeverOpen() {
     hook(Map.of("secret", "plain-text"));
     client
         .post()
@@ -149,10 +155,50 @@ class WebhookControllerTest {
         .exchange()
         .expectStatus()
         .isUnauthorized();
+
+    hook(Map.of("secret", "decrypted:blank"));
+    when(secrets.getSecret(eq("blank"), any())).thenReturn(Mono.just(""));
+    client
+        .post()
+        .uri(URI)
+        .header("X-Hub-Signature-256", "sha256=00")
+        .bodyValue(BODY)
+        .exchange()
+        .expectStatus()
+        .isUnauthorized();
+    verify(workflows, never()).validateAndStartWorkflow(any(), any(), anyMap(), any());
   }
 
   @Test
-  void deliveryHeader_isPassedAsIdempotencyKey_andCustomSignatureHeaderIsUsed() throws Exception {
+  void blankOptionalSettings_fallBackToDefaults() {
+    hook(
+        Map.of(
+            "secret",
+            "decrypted:gh",
+            "signatureHeader",
+            " ",
+            "idempotencyHeader",
+            " ",
+            "headers",
+            "X-GitHub-Event, "));
+
+    client
+        .post()
+        .uri(URI)
+        .header("X-Hub-Signature-256", sign("s3cret", BODY))
+        .header("X-GitHub-Event", "push")
+        .bodyValue(BODY)
+        .exchange()
+        .expectStatus()
+        .isAccepted();
+
+    verify(workflows)
+        .validateAndStartWorkflow(
+            "s1", "wf", Map.of("body", BODY, "headers", Map.of("X-GitHub-Event", "push")), null);
+  }
+
+  @Test
+  void deliveryHeader_isPassedAsIdempotencyKey_andCustomSignatureHeaderIsUsed() {
     hook(
         Map.of(
             "secret",
@@ -178,7 +224,7 @@ class WebhookControllerTest {
   }
 
   @Test
-  void emptyBody_isSignedAndAccepted() throws Exception {
+  void emptyBody_isSignedAndAccepted() {
     hook(Map.of("secret", "decrypted:gh"));
 
     client
@@ -201,5 +247,6 @@ class WebhookControllerTest {
 
     when(sessions.getSessionWorkflows("gone")).thenReturn(Mono.empty());
     client.post().uri("/hooks/gone/push").bodyValue(BODY).exchange().expectStatus().isNotFound();
+    verify(workflows, never()).validateAndStartWorkflow(any(), any(), anyMap(), any());
   }
 }
