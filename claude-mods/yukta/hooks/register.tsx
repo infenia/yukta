@@ -1,9 +1,28 @@
 import type { EngineInterface as Engine, PluginOptions, Register } from 'claude-code'
 
-type Run = { sessionId: string; executionId: string; workflowId: string; status: string }
+type Run = { sessionId: string; executionId: string; workflowId: string; status: string; startTime?: string }
 type Approval = { sessionId: string; executionId: string; workflowId: string; nodeId: string; name: string }
 
 const PANE = 'yukta-runs'
+const TITLE = ['#a78bfa', '#818cf8', '#60a5fa', '#22d3ee', '#34d399']
+const SPIN = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+const AMBER = ['#f59e0b', '#fcd34d']
+
+// ponytail: the pane animates by redrawing at ~8 fps while it is on screen and work runs; a push channel would not need the timer
+let frame = 0
+let nowMs = 0
+let lastDraw = 0
+
+const elapsed = (startTime: string | undefined) => {
+  const s = startTime ? Math.max(0, Math.round((nowMs - Date.parse(startTime)) / 1000)) : 0
+  return s >= 60 ? `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s` : `${s}s`
+}
+
+// A bright block sweeping across a dim track.
+const bar = (width: number) => {
+  const at = Math.floor(frame / 2) % (width + 6)
+  return Array.from({ length: width }, (_, i) => (i >= at - 5 && i <= at ? '█' : i < at - 5 ? '▓' : '░')).join('')
+}
 
 
 let opts: PluginOptions = {}
@@ -69,6 +88,14 @@ const tick = async ($: Engine) => {
   $.ui.invalidate('ui.render')
 }
 
+const animate = async ($: Engine) => {
+  nowMs = await $.clock.now()
+  // only while the pane drew within the last 2 s and there is work to show
+  if (nowMs - lastDraw > 2000) return
+  frame += 1
+  $.ui.invalidate('ui.render')
+}
+
 const decide = async ($: Engine, a: Approval, decision: 'approve' | 'reject') => {
   const q = `name=${encodeURIComponent(a.name)}&decision=${decision}`
   await api($, `/executions/${a.executionId}/nodes/${a.nodeId}/signal?${q}`, 'POST')
@@ -88,11 +115,13 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'yukta', description: 'Show Yukta runs and approvals in a pane' })
     $.clock.every(Number(options.poll_seconds) * 1000, () => tick($))
+    $.clock.every(120, () => animate($))
     void tick($)
     return next(e)
   })
 
   on('command.run', { command: 'yukta' }, async $ => {
+    nowMs = lastDraw = await $.clock.now()
     await tick($)
     await $.ui.open({ id: PANE, title: 'Yukta' })
     return { text: summary() }
@@ -100,25 +129,71 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Button, Text } = $.ui.resolve(e)
+    lastDraw = nowMs
+    const width = Math.max(10, Math.min(48, (e.props.bodyColumns ?? 60) - 8))
+    const wait = AMBER[Math.floor(frame / 4) % 2]
     return (
-      <Box flexDirection="column">
-        <Text>{summary()}</Text>
-        {runs.length === 0 && !isDown && <Text dimColor>No running executions.</Text>}
+      <Box flexDirection="column" paddingX={1}>
+        <Box>
+          <Text bold color="#a78bfa">▲ </Text>
+          {[...'YUKTA'].map((c, i) => (
+            <Text bold color={TITLE[(i + Math.floor(frame / 3)) % TITLE.length]}>{c}</Text>
+          ))}
+          <Text dimColor>  live runs</Text>
+        </Box>
+        <Box marginTop={1}>
+          <Text color={isDown ? '#f87171' : '#34d399'}>{isDown ? '○ offline' : frame % 16 < 12 ? '● online' : '◉ online'}</Text>
+          <Text dimColor>  ·  </Text>
+          <Text color="#818cf8" bold>{runs.length}</Text>
+          <Text dimColor> running  ·  </Text>
+          <Text color={approvals.length ? wait : undefined} bold={approvals.length > 0} dimColor={!approvals.length}>
+            {approvals.length} awaiting approval
+          </Text>
+        </Box>
+        {!isDown && runs.length === 0 && approvals.length === 0 && (
+          <Box marginTop={1}><Text dimColor italic>✦ all quiet — nothing is running</Text></Box>
+        )}
+        {isDown && <Box marginTop={1}><Text color="#f87171">✗ {base} is unreachable</Text></Box>}
         {runs.map(r => (
-          <Box key={r.executionId}>
-            <Text>
-              {r.workflowId} {r.executionId.slice(0, 8)} {r.status}{' '}
-            </Text>
-            <Button key={`stop-${r.executionId}`} label="Stop" onPress={() => stop($, r)} />
+          <Box
+            key={r.executionId}
+            marginTop={1}
+            flexDirection="column"
+            borderStyle="round"
+            borderColor="#6366f1"
+            paddingX={1}
+            hover={{ borderColor: '#22d3ee' }}
+          >
+            <Box>
+              <Text bold color="#a78bfa">{SPIN[frame % SPIN.length]} </Text>
+              <Text bold>{r.workflowId}</Text>
+              <Text dimColor>  {r.executionId.slice(0, 8)}  ⏱ {elapsed(r.startTime)}</Text>
+            </Box>
+            <Text color="#6366f1">{bar(width)}</Text>
+            <Box>
+              <Text color="#34d399">{r.status.toLowerCase()}  </Text>
+              <Button key={`stop-${r.executionId}`} label="■ Stop" onPress={() => stop($, r)} />
+            </Box>
           </Box>
         ))}
         {approvals.map(a => (
-          <Box key={`${a.executionId}-${a.nodeId}`}>
+          <Box
+            key={`${a.executionId}-${a.nodeId}`}
+            marginTop={1}
+            flexDirection="column"
+            borderStyle="double"
+            borderColor={wait}
+            paddingX={1}
+          >
+            <Text bold color={wait}>⏸ approval needed</Text>
             <Text>
-              {a.workflowId} waits at {a.nodeId}{' '}
+              {a.workflowId} <Text dimColor>at</Text> {a.nodeId} <Text dimColor>({a.name})</Text>
             </Text>
-            <Button key={`ok-${a.executionId}-${a.nodeId}`} label="Approve" onPress={() => decide($, a, 'approve')} />
-            <Button key={`no-${a.executionId}-${a.nodeId}`} label="Reject" onPress={() => decide($, a, 'reject')} />
+            <Box>
+              <Button key={`ok-${a.executionId}-${a.nodeId}`} label="✓ Approve" onPress={() => decide($, a, 'approve')} />
+              <Text>  </Text>
+              <Button key={`no-${a.executionId}-${a.nodeId}`} label="✗ Reject" onPress={() => decide($, a, 'reject')} />
+            </Box>
           </Box>
         ))}
       </Box>

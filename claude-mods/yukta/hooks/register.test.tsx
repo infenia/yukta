@@ -11,6 +11,7 @@ const reply = (data: unknown) => ({ value: { status: 200, ok: true, headers: {},
 
 test('the pane lists a running execution and a pending approval, on every surface', async ($, on) => {
   on('command.register', () => ({ value: { command: 'yukta' } }))
+  on('clock.now', () => ({ value: 1_000 }))
   on('clock.every', () => ({ value: undefined }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('http.fetch', (_, e) => {
@@ -19,6 +20,9 @@ test('the pane lists a running execution and a pending approval, on every surfac
     }
     return reply([{ sessionId: 's1', executionId: 'e1234567890', workflowId: 'wf', status: 'RUNNING' }])
   })
+  on('ui.toast', () => ({ value: undefined }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.invalidate', () => ({ value: undefined }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
 
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
@@ -26,7 +30,8 @@ test('the pane lists a running execution and a pending approval, on every surfac
 
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    expect((await ui.find({ type: 'Text', text: /wf e1234567 RUNNING/ }))?.text).toBeTruthy()
+    expect(await ui.find({ type: 'Text', text: /1 awaiting approval/ })).toBeTruthy()
+    expect(await ui.find({ type: 'Button', key: 'stop-e1234567890' })).toBeTruthy()
     expect(await ui.find({ type: 'Button', key: 'ok-e1234567890-gate' })).toBeTruthy()
     await ui.unmount()
   }
