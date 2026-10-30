@@ -34,6 +34,7 @@ export function WorkflowCanvas({
   tasksByNode,
   focusOn,
   stageView,
+  onConnect,
   onNodeClick,
 }: {
   graph: WorkflowGraph;
@@ -42,13 +43,22 @@ export function WorkflowCanvas({
   focusOn?: string[];
   /** Group nodes into stages: the open ones show their nodes, the others one box each. */
   stageView?: { open: ReadonlySet<string>; onToggle: (stage: string) => void };
+  /** Lets edges be drawn by dragging from an output port to a node; the port is the handle's. */
+  onConnect?: (
+    source: string,
+    target: string,
+    sourcePort: string | null
+  ) => void;
   /** A workflow node was clicked, with its node ID. */
   onNodeClick?: (nodeId: string) => void;
 }) {
-  const { nodes, edges } = useMemo(
-    () => layoutGraph(graph, tasksByNode, stageView),
-    [graph, tasksByNode, stageView]
-  );
+  const connectable = onConnect !== undefined;
+  const { nodes, edges } = useMemo(() => {
+    const laid = layoutGraph(graph, tasksByNode, stageView);
+    return connectable
+      ? { ...laid, nodes: laid.nodes.map((node) => ({ ...node, connectable })) }
+      : laid;
+  }, [graph, tasksByNode, stageView, connectable]);
 
   // A large graph opens on its running nodes (else its first few); the minimap shows the rest
   const running = nodes.filter(
@@ -74,7 +84,14 @@ export function WorkflowCanvas({
         // phone-width canvas, so let it zoom out further
         minZoom={0.2}
         nodesDraggable={false}
-        nodesConnectable={false}
+        nodesConnectable={connectable}
+        onConnect={(connection) =>
+          onConnect?.(
+            connection.source,
+            connection.target,
+            connection.sourceHandle ?? null
+          )
+        }
         elementsSelectable
         // a stage box or frame isn't a node the logs know
         onNodeClick={(_, node) =>

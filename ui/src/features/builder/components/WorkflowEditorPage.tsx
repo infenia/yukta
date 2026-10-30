@@ -173,25 +173,26 @@ function Editor({
     setSelected(null);
   };
 
-  const addEdge = () => {
-    if (!edge.source || !edge.target) return;
-    if (edge.source === edge.target) {
+  /** Adds an edge from the Edges form, or one drawn on the canvas, unless it is a loop or a copy. */
+  const addEdge = (next: DraftEdge = edge) => {
+    if (!next.source || !next.target) return;
+    if (next.source === next.target) {
       setError('An edge cannot connect a node to itself.');
       return;
     }
     if (
       workflow.edges.some(
         (e) =>
-          e.source === edge.source &&
-          e.target === edge.target &&
-          (e.sourcePort ?? null) === edge.sourcePort
+          e.source === next.source &&
+          e.target === next.target &&
+          (e.sourcePort ?? null) === next.sourcePort
       )
     ) {
       setError('That edge already exists.');
       return;
     }
     setError(null);
-    update({ edges: [...workflow.edges, edge] });
+    update({ edges: [...workflow.edges, next] });
     setEdge({ source: '', target: '', sourcePort: null });
   };
 
@@ -510,7 +511,11 @@ function Editor({
                     <option key={n.nodeId}>{n.nodeId}</option>
                   ))}
                 </NativeSelect>
-                <button type="button" className={BUTTON} onClick={addEdge}>
+                <button
+                  type="button"
+                  className={BUTTON}
+                  onClick={() => addEdge()}
+                >
                   Add edge
                 </button>
               </div>
@@ -530,6 +535,9 @@ function Editor({
             key={`${workflow.nodes.length}/${selected ?? ''}`}
             graph={graph}
             tasksByNode={NO_TASKS}
+            onConnect={(source, target, sourcePort) =>
+              addEdge({ source, target, sourcePort })
+            }
             focusOn={
               selected
                 ? [
