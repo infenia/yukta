@@ -78,7 +78,9 @@ test.describe('Workflow Details Page', () => {
     await expect(runHistory).toContainText('exec-091-qp-55');
     // the trail sits above the title, in the page: Sessions › session › workflow
     const trail = page.getByRole('navigation', { name: 'breadcrumb' });
-    await expect(trail.getByRole('link', { name: 'SESSION_A92_XP_2024' })).toBeVisible();
+    await expect(
+      trail.getByRole('link', { name: 'SESSION_A92_XP_2024' })
+    ).toBeVisible();
     await expect(trail.getByText('wf-982-xk-11')).toHaveAttribute(
       'aria-current',
       'page'
