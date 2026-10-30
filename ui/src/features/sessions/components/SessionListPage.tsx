@@ -86,10 +86,10 @@ export function SessionListPage() {
     onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: setColumnFilters,
     globalFilterFn: (row: any, _columnId: string, filterValue: string) => {
-      const { name, sessionId } = row.original;
-      return (
-        name.toLowerCase().includes(filterValue.toLowerCase()) ||
-        sessionId.toLowerCase().includes(filterValue.toLowerCase())
+      const { name, sessionId, description } = row.original;
+      const needle = filterValue.toLowerCase();
+      return [name, sessionId, description ?? ''].some((text) =>
+        text.toLowerCase().includes(needle)
       );
     },
     initialState: {
@@ -135,7 +135,7 @@ export function SessionListPage() {
       <Link
         to="/sessions/new"
         className={buttonVariants({
-          variant: isEmpty ? 'default' : 'outline',
+          variant: 'default',
           size: 'default',
         })}
       >
@@ -169,7 +169,7 @@ export function SessionListPage() {
                   <span className="material-symbols-outlined text-base">
                     upload
                   </span>
-                  Import
+                  Import JSON
                 </Link>
                 {newSession}
               </div>

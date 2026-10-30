@@ -161,7 +161,10 @@ test.describe('Visual Regression - Screenshots', () => {
       await page.goto('/');
       await waitForLoadingComplete(page);
 
-      const filterBar = page.getByPlaceholder(/Search by name or session ID/i).locator('..').locator('..');
+      const filterBar = page
+        .getByPlaceholder(/Filter by name, ID or description/i)
+        .locator('..')
+        .locator('..');
       await expect(filterBar).toHaveScreenshot('session-list-filter-bar.png', {
         ...screenshotOptions.partial,
       });
