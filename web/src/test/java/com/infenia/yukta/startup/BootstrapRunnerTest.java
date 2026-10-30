@@ -100,7 +100,7 @@ class BootstrapRunnerTest {
   }
 
   @Test
-  void apply_skipsUnchangedFiles_andReappliesAChangedOne() throws IOException {
+  void apply_skipsUnchangedFiles_andReappliesOneThatChanged() throws IOException {
     final Path file = dir.resolve("a.json");
     Files.writeString(file, VALID);
     final BootstrapRunner runner = runner(dir);
@@ -114,7 +114,7 @@ class BootstrapRunnerTest {
   }
 
   @Test
-  void apply_picksUpAFileAddedLater_andRetriesABrokenOneOnlyWhenItChanges() throws IOException {
+  void apply_picksUpFileAddedLater_andRetriesBrokenOneOnlyWhenItChanges() throws IOException {
     final BootstrapRunner runner = runner(dir);
     assertThat(runner.apply()).isZero();
 
