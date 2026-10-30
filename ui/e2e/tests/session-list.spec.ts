@@ -130,7 +130,7 @@ test.describe('Session List Page - Mocked API', () => {
   test.describe('Filtering', () => {
     test('should have a search input', async ({ page }) => {
       const filterInput = page.getByPlaceholder(
-        /Search by name or session ID/i
+        /Filter by name, ID or description/i
       );
       await expect(filterInput).toBeVisible();
     });
@@ -139,7 +139,7 @@ test.describe('Session List Page - Mocked API', () => {
       page,
     }) => {
       const filterInput = page.getByPlaceholder(
-        /Search by name or session ID/i
+        /Filter by name, ID or description/i
       );
 
       await filterInput.fill('Build');
@@ -153,7 +153,7 @@ test.describe('Session List Page - Mocked API', () => {
       page,
     }) => {
       const filterInput = page.getByPlaceholder(
-        /Search by name or session ID/i
+        /Filter by name, ID or description/i
       );
 
       await filterInput.fill('no-such-session-xyz');
@@ -321,7 +321,7 @@ test.describe('Session List Page - Tag and Initiator filters', () => {
     await expect(page.getByText('Code Review')).toBeHidden();
     await expect(
       page.getByRole('button', { name: /tag filter/i })
-    ).toContainText('Tag · 1');
+    ).toContainText('Tag: production');
 
     await page.reload();
     await expect(page.getByText('Build Pipeline')).toBeVisible();

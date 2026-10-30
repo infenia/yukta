@@ -98,7 +98,7 @@ describe('SessionListPage', () => {
         ).toBeInTheDocument();
         const p = container.querySelector('p');
         expect(p?.textContent).toContain('3 sessions');
-        expect(p?.textContent).toContain('found.');
+        expect(p?.textContent).toContain("a project's workflows");
       });
     });
 
@@ -123,7 +123,7 @@ describe('SessionListPage', () => {
         expect(screen.getByText(mockSessions[0].name)).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText(/search by name/i);
+      const searchInput = screen.getByPlaceholderText(/filter by name/i);
       await user.type(searchInput, 'Session 1');
 
       await waitFor(() => {
@@ -142,7 +142,7 @@ describe('SessionListPage', () => {
         expect(screen.getByText('session-1')).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText(/search by name/i);
+      const searchInput = screen.getByPlaceholderText(/filter by name/i);
       await user.type(searchInput, 'session-2');
 
       await waitFor(() => {
@@ -151,6 +151,33 @@ describe('SessionListPage', () => {
           screen.queryByText(mockSessions[0].name)
         ).not.toBeInTheDocument();
       });
+    });
+
+    it('should filter by description, skipping sessions without one', async () => {
+      server.use(
+        http.get('/api/sessions/summaries', () =>
+          HttpResponse.json({
+            status: 200,
+            data: [
+              mockSessions[0],
+              { ...mockSessions[1], description: undefined },
+            ],
+          })
+        )
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<SessionListPage />);
+      await screen.findByText(mockSessions[1].name);
+
+      await user.type(
+        screen.getByPlaceholderText(/filter by name/i),
+        'description 1'
+      );
+
+      await waitFor(() =>
+        expect(screen.queryByText(mockSessions[1].name)).not.toBeInTheDocument()
+      );
+      expect(screen.getByText(mockSessions[0].name)).toBeInTheDocument();
     });
 
     it('should clear search with reset button', async () => {
@@ -162,7 +189,7 @@ describe('SessionListPage', () => {
       });
 
       const searchInput = screen.getByPlaceholderText(
-        /search by name/i
+        /filter by name/i
       ) as HTMLInputElement;
       await user.type(searchInput, 'Session 1');
 
@@ -185,7 +212,7 @@ describe('SessionListPage', () => {
         expect(screen.getByText(mockSessions[0].name)).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText(/search by name/i);
+      const searchInput = screen.getByPlaceholderText(/filter by name/i);
       await user.type(searchInput, 'nonexistent');
 
       await waitFor(() => {
@@ -203,7 +230,7 @@ describe('SessionListPage', () => {
         expect(screen.getByText(mockSessions[0].name)).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText(/search by name/i);
+      const searchInput = screen.getByPlaceholderText(/filter by name/i);
       await user.type(searchInput, 'session');
 
       await waitFor(() => {
@@ -222,7 +249,7 @@ describe('SessionListPage', () => {
       });
 
       const searchInput = screen.getByPlaceholderText(
-        /search by name/i
+        /filter by name/i
       ) as HTMLInputElement;
       await user.type(searchInput, 'Session 2');
 

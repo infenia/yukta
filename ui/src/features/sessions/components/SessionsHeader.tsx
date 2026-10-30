@@ -17,11 +17,11 @@ export function SessionsHeader({ sessionCount, actions }: SessionsHeaderProps) {
         title="Sessions"
         description={
           <>
-            Manage and monitor active data orchestration environments.{' '}
+            A session holds a project&apos;s workflows and their runs.{' '}
             <span className="text-primary font-semibold">
               {sessionCount} session{sessionCount !== 1 ? 's' : ''}
-            </span>{' '}
-            found.
+            </span>
+            .
           </>
         }
       />

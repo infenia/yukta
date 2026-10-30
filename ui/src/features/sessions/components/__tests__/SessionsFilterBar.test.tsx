@@ -20,7 +20,7 @@ describe('SessionsFilterBar', () => {
         onReset={() => {}}
       />
     );
-    expect(screen.getByPlaceholderText(/search by name/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/filter by name/i)).toBeInTheDocument();
   });
 
   it('should render reset button', () => {
@@ -52,7 +52,7 @@ describe('SessionsFilterBar', () => {
       />
     );
 
-    const input = screen.getByPlaceholderText(/search by name/i);
+    const input = screen.getByPlaceholderText(/filter by name/i);
     await user.type(input, 'test');
 
     expect(handleChange).toHaveBeenCalled();
@@ -91,7 +91,9 @@ describe('SessionsFilterBar', () => {
       />
     );
 
-    const input = screen.getByPlaceholderText(/search by name/i) as HTMLInputElement;
+    const input = screen.getByPlaceholderText(
+      /filter by name/i
+    ) as HTMLInputElement;
     expect(input.value).toBe('test');
   });
 });
