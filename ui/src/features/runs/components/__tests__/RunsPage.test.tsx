@@ -76,7 +76,9 @@ const server = setupServer(
       )
     );
   }),
-  http.get('/api/executions/counts', () => ok({ running: 2, queued: 1, failed: 3 })),
+  http.get('/api/executions/counts', () =>
+    ok({ running: 2, queued: 1, failed: 3 })
+  ),
   http.post('/api/executions/:id/recover', ({ params }) => {
     recovered.push(params.id as string);
     return ok({ executionId: 'new-run' });
@@ -180,7 +182,9 @@ describe('RunsPage', () => {
     total = 2;
     renderAt('/runs');
     await screen.findByRole('link', { name: '0000xyz-' });
-    const cells = screen.getAllByRole('cell').filter((c) => c.dataset.label === 'Progress');
+    const cells = screen
+      .getAllByRole('cell')
+      .filter((c) => c.dataset.label === 'Progress');
     expect(cells[0]).toHaveTextContent('11/100failed at spotbugs');
     expect(cells[1]).toHaveTextContent('—');
   });
@@ -189,12 +193,21 @@ describe('RunsPage', () => {
     total = 1;
     const user = userEvent.setup();
     renderAt('/runs');
-    const failed = await screen.findByRole('button', { name: '3 failed in 24 h' });
-    expect(screen.getByRole('button', { name: '2 running' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: '1 queued' })).toBeInTheDocument();
+    const failed = await screen.findByRole('button', {
+      name: '3 failed in 24 h',
+    });
+    expect(screen.getByRole('button', { name: '2 running' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+    expect(
+      screen.getByRole('button', { name: '1 queued' })
+    ).toBeInTheDocument();
 
     await user.click(failed);
-    expect(screen.getByTestId('where')).toHaveTextContent('/runs?status=FAILURE&range=24h');
+    expect(screen.getByTestId('where')).toHaveTextContent(
+      '/runs?status=FAILURE&range=24h'
+    );
     expect(failed).toHaveAttribute('aria-pressed', 'true');
     await user.click(failed);
     expect(screen.getByTestId('where')).toHaveTextContent(/^\/runs$/);
@@ -264,17 +277,13 @@ describe('RunsPage', () => {
     total = 150;
     const user = userEvent.setup();
     renderAt('/runs');
-    await screen.findAllByRole('link', { name: /xyz-/ });
-    expect(screen.getAllByRole('link', { name: /xyz-/ })).toHaveLength(100);
+    // ByText: a role query over 100+ rows can time out under coverage
+    expect(await screen.findAllByText(/xyz-/)).toHaveLength(100);
 
-    await user.click(screen.getByRole('button', { name: 'Load more' }));
-    await waitFor(() =>
-      expect(screen.getAllByRole('link', { name: /xyz-/ })).toHaveLength(150)
-    );
+    await user.click(screen.getByText('Load more'));
+    await waitFor(() => expect(screen.getAllByText(/xyz-/)).toHaveLength(150));
     expect(requests.at(-1)?.get('limit')).toBe('200');
-    expect(
-      screen.queryByRole('button', { name: 'Load more' })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Load more')).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText('Status'), 'ERROR');
     await waitFor(() => expect(requests.at(-1)?.get('limit')).toBe('100'));
@@ -285,17 +294,13 @@ describe('RunsPage', () => {
     const user = userEvent.setup();
     renderAt('/runs');
     for (let n = 100; n < 1000; n += 100) {
-      await user.click(
-        await screen.findByRole('button', { name: 'Load more' })
-      );
+      await user.click(await screen.findByText('Load more'));
       await waitFor(() =>
         expect(requests.at(-1)?.get('limit')).toBe(String(n + 100))
       );
     }
     await waitFor(() =>
-      expect(
-        screen.queryByRole('button', { name: 'Load more' })
-      ).not.toBeInTheDocument()
+      expect(screen.queryByText('Load more')).not.toBeInTheDocument()
     );
   }, 60_000);
 
