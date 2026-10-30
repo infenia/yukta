@@ -21,6 +21,19 @@ permissions:
   contents: read
 
 jobs:
+  # Release-please PRs skip the analysis above; the ruleset still requires one check per
+  # language, and a skipped matrix job reports under the unexpanded name, so report them here.
+  analyze-skipped:
+    name: Analyze (${{ matrix.language }})
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release-please--')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        language: [ actions, go, java-kotlin, javascript-typescript ]
+    steps:
+      - run: echo "CodeQL is skipped on release-please PRs"
+
   analyze:
     name: Analyze (${{ matrix.language }})
     if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release-please--')
