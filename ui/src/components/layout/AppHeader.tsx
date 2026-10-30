@@ -6,7 +6,7 @@ import HeaderLogo from './HeaderLogo';
 import IdentityChip from './IdentityChip';
 import AccountMenu from './AccountMenu';
 import ThemeToggle from './ThemeToggle';
-import { openCommandPalette } from './CommandPalette';
+import { openCommandPalette } from './CommandPalette.helpers';
 
 /* `section` is the path prefix the item owns: Sessions is current on the list and on every
    session, workflow and editor page under /sessions. */
@@ -72,7 +72,7 @@ export default function AppHeader() {
                 key={to}
                 to={to}
                 aria-current={active ? 'page' : undefined}
-                className={`transition-standard text-body-md flex items-center gap-1.5 rounded-lg px-2 py-1.5 no-underline sm:px-2.5 ${active ? 'bg-accent text-accent-foreground font-semibold' : 'text-muted-foreground hover:bg-muted hover:text-foreground font-medium'}`}
+                className={`text-body-md transition-standard flex items-center gap-1.5 rounded-lg px-2 py-1.5 no-underline sm:px-2.5 ${active ? 'bg-accent text-accent-foreground font-semibold' : 'text-muted-foreground hover:bg-muted hover:text-foreground font-medium'}`}
               >
                 <span
                   aria-hidden="true"
@@ -91,7 +91,7 @@ export default function AppHeader() {
           onClick={openCommandPalette}
           aria-keyshortcuts="Meta+K Control+K"
           aria-label="Search and jump to (⌘K)"
-          className="bg-muted text-muted-foreground hover:text-foreground transition-standard text-body-md mr-2 flex h-8 items-center gap-2 rounded-full px-2.5 lg:w-75 lg:pr-2"
+          className="bg-muted text-body-md text-muted-foreground transition-standard hover:text-foreground mr-2 flex h-8 items-center gap-2 rounded-full px-2.5 lg:w-75 lg:pr-2"
         >
           <span
             aria-hidden="true"

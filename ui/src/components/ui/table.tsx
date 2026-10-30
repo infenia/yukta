@@ -78,7 +78,7 @@ function TableRow({ className, ...props }: React.ComponentProps<'tr'>) {
     <tr
       data-slot="table-row"
       className={cn(
-        'border-border hover:bg-muted/60 has-aria-expanded:bg-muted/60 data-[state=selected]:bg-accent transition-standard border-b',
+        'border-border transition-standard hover:bg-muted/60 has-aria-expanded:bg-muted/60 data-[state=selected]:bg-accent border-b',
         className
       )}
       {...props}
@@ -92,7 +92,7 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
       data-slot="table-head"
       scope="col"
       className={cn(
-        'text-overline h-10 px-3 text-left align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0',
+        'text-overline h-10 px-3 text-left align-middle whitespace-nowrap has-[[role=checkbox]]:pr-0',
         className
       )}
       {...props}
@@ -105,7 +105,7 @@ function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
     <td
       data-slot="table-cell"
       className={cn(
-        'text-on-surface px-3 py-2.5 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0',
+        'text-on-surface px-3 py-2.5 align-middle whitespace-nowrap has-[[role=checkbox]]:pr-0',
         className
       )}
       {...props}
@@ -120,7 +120,7 @@ function TableCaption({
   return (
     <caption
       data-slot="table-caption"
-      className={cn('text-muted-foreground text-body-sm mt-4', className)}
+      className={cn('text-body-sm text-muted-foreground mt-4', className)}
       {...props}
     />
   );

@@ -17,7 +17,7 @@ import {
   setLimits,
   type SchedulerLimits,
 } from '../api/scheduler';
-import { useFallbackPoll } from '../context/ControlEvents';
+import { useFallbackPoll } from '../context/ControlEventsContext';
 
 /** One limit tile: a label, the number, and what the number is out of. */
 function Tile({

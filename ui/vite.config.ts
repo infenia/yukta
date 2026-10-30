@@ -19,10 +19,26 @@ export default defineConfig({
         // Stable vendor chunks cache across releases and keep every chunk under the size budget
         codeSplitting: {
           groups: [
-            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 30 },
-            { name: 'tanstack', test: /node_modules[\\/]@tanstack[\\/]/, priority: 20 },
-            { name: 'router', test: /node_modules[\\/]react-router[\\/]/, priority: 20 },
-            { name: 'ui-kit', test: /node_modules[\\/]@base-ui[\\/]/, priority: 20 },
+            {
+              name: 'react',
+              test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+              priority: 30,
+            },
+            {
+              name: 'tanstack',
+              test: /node_modules[\\/]@tanstack[\\/]/,
+              priority: 20,
+            },
+            {
+              name: 'router',
+              test: /node_modules[\\/]react-router[\\/]/,
+              priority: 20,
+            },
+            {
+              name: 'ui-kit',
+              test: /node_modules[\\/]@base-ui[\\/]/,
+              priority: 20,
+            },
           ],
         },
       },

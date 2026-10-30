@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useQuery } from '@tanstack/react-query';
-import { useFallbackPoll } from '../context/ControlEvents';
+import { useFallbackPoll } from '../context/ControlEventsContext';
 import { fetchApi } from '@/lib/apiClient';
 import { StateMessage } from '@/components/common/StateMessage';
 import {

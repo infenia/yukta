@@ -315,7 +315,7 @@ export function WorkflowDetailsPage() {
           panel beside both, so a 100-node run no longer stretches the page */}
       {/* The canvas nodes and the failure callout both open sub-workflow runs */}
       <SubWorkflowLinks value={subWorkflowLinks}>
-        <div className="flex min-h-[28rem] flex-1">
+        <div className="flex min-h-112 flex-1">
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="relative min-h-0 flex-1">
               <WorkflowCanvas
@@ -334,7 +334,7 @@ export function WorkflowDetailsPage() {
                   placeholder="Find node"
                   value={findQuery}
                   onChange={(event) => setFindQuery(event.target.value)}
-                  className="bg-surface border-border shadow-card text-body-md placeholder:text-on-surface-variant focus-visible:ring-primary/40 pointer-events-auto h-8 w-60 rounded-full border px-3 outline-none focus-visible:ring-2"
+                  className="border-border bg-surface text-body-md shadow-card placeholder:text-on-surface-variant focus-visible:ring-primary/40 pointer-events-auto h-8 w-60 rounded-full border px-3 outline-none focus-visible:ring-2"
                 />
                 {stages.hasStages && (
                   <GroupingSwitch
@@ -349,7 +349,7 @@ export function WorkflowDetailsPage() {
                     aria-pressed={follow}
                     onClick={() => setFollow((value) => !value)}
                     className={cn(
-                      'bg-surface border-border shadow-card text-label-sm pointer-events-auto ml-auto rounded-lg border px-2.5 py-1',
+                      'border-border bg-surface text-label-sm shadow-card pointer-events-auto ml-auto rounded-lg border px-2.5 py-1',
                       follow
                         ? 'bg-accent text-accent-foreground'
                         : 'text-on-surface-variant hover:text-on-surface'

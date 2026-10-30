@@ -37,7 +37,7 @@ function Trail({ className }: { className?: string }) {
               {item.href ? (
                 <Link
                   to={item.href}
-                  className="text-body-sm text-on-surface-variant hover:text-on-surface transition-standard rounded-sm"
+                  className="text-body-sm text-on-surface-variant transition-standard hover:text-on-surface rounded-sm"
                 >
                   {item.label}
                 </Link>

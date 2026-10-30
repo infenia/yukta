@@ -11,11 +11,11 @@ import { cn } from '@/lib/utils';
  * 1px lift on hover; reduced motion drops the lift (global guard in index.css).
  */
 const cardVariants = cva(
-  'group/card bg-card text-card-foreground border-border shadow-card flex flex-col rounded-xl border',
+  'group/card flex flex-col rounded-xl border border-border bg-card text-card-foreground shadow-card',
   {
     variants: {
       interactive: {
-        true: 'transition-standard hover:shadow-raised cursor-pointer hover:-translate-y-px hover:border-[color-mix(in_oklch,var(--primary)_45%,var(--border))] focus-visible:-translate-y-px',
+        true: 'cursor-pointer transition-standard hover:-translate-y-px hover:border-[color-mix(in_oklch,var(--primary)_45%,var(--border))] hover:shadow-raised focus-visible:-translate-y-px',
         false: '',
       },
     },

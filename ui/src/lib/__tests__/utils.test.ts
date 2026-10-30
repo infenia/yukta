@@ -97,7 +97,7 @@ describe('cn', () => {
   });
 
   it('should handle space-separated classes', () => {
-    const result = cn('px-2 py-1 rounded');
+    const result = cn('rounded px-2 py-1');
     expect(result).toContain('px-2');
     expect(result).toContain('py-1');
     expect(result).toContain('rounded');
@@ -147,7 +147,9 @@ describe('newIdempotencyKey', () => {
     crypto.randomUUID = undefined;
     try {
       const key = newIdempotencyKey();
-      expect(key).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      expect(key).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+      );
       expect(newIdempotencyKey()).not.toBe(key);
     } finally {
       crypto.randomUUID = original;

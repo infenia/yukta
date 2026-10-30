@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StateMessage } from '@/components/common/StateMessage';
 import { formatLogTimestamp } from '@/features/workflow/lib/timeFormat';
-import { useControlEvents } from '../context/ControlEvents';
+import { useControlEvents } from '../context/ControlEventsContext';
 import {
   EVENT_TYPES,
   MAX_EVENTS,

@@ -3,9 +3,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -14,24 +12,7 @@ import {
 } from 'react';
 import { useEventSourceJson } from '@/hooks/useEventSourceJson';
 import { appendBounded, type ActivityEvent, type Entry } from '../lib/activity';
-
-/** How often events that arrived since the last tick are added to the list. */
-export const FLUSH_MS = 250;
-
-/** Polling interval of the control panels while the stream is down. */
-export const FALLBACK_POLL_MS = 60_000;
-
-interface ControlEvents {
-  connected: boolean;
-  events: Entry[];
-  dropped: number;
-}
-
-const ControlEventsContext = createContext<ControlEvents>({
-  connected: false,
-  events: [],
-  dropped: 0,
-});
+import { ControlEventsContext, FLUSH_MS } from './ControlEventsContext';
 
 /**
  * One connection to the global event stream for the Control page. Events are collected and added
@@ -99,11 +80,4 @@ export function ControlEventsProvider({ children }: { children: ReactNode }) {
       {children}
     </ControlEventsContext.Provider>
   );
-}
-
-export const useControlEvents = () => useContext(ControlEventsContext);
-
-/** How often a panel that follows control events should poll: never while the stream is up. */
-export function useFallbackPoll(): number | false {
-  return useControlEvents().connected ? false : FALLBACK_POLL_MS;
 }

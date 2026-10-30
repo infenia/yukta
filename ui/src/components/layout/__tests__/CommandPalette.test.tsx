@@ -10,7 +10,8 @@ import { MemoryRouter, useLocation } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createTestQueryClient } from '@/test/utils/testUtils';
 import { createMockSession } from '@/test/factories/sessionFactory';
-import { CommandPalette, openCommandPalette } from '../CommandPalette';
+import { CommandPalette } from '../CommandPalette';
+import { openCommandPalette } from '../CommandPalette.helpers';
 
 const ok = (data: unknown) =>
   HttpResponse.json({

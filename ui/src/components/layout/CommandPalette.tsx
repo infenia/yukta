@@ -17,13 +17,7 @@ import { searchExecutions } from '@/features/runs/api/searchExecutions';
 import { parseFilters } from '@/features/runs/lib/filters';
 import { StatusPill } from '@/features/workflow/components/StatusPill';
 import type { WorkflowSummary } from '@/features/sessions/types/session';
-
-/** Fired to open the palette from anywhere (the header's search button). */
-const OPEN_EVENT = 'yukta:open-command-palette';
-
-export function openCommandPalette(): void {
-  window.dispatchEvent(new Event(OPEN_EVENT));
-}
+import { OPEN_EVENT } from './CommandPalette.helpers';
 
 /** Results shown per group, so one busy group cannot push the others out of view. */
 const PER_GROUP = 5;
@@ -268,7 +262,7 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="bg-foreground/30 fixed inset-0 z-[70] flex justify-center p-4 pt-[12vh]"
+      className="bg-foreground/30 fixed inset-0 z-70 flex justify-center p-4 pt-[12vh]"
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <div

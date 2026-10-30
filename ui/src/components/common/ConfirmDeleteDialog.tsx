@@ -9,12 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/apiClient';
 import { Callout } from './Callout';
 import { Modal } from './Modal';
-
-/** The run ids a 409 names: "2 run(s) are still active: e1, e2. Stop them first…". */
-export function activeRunIds(message: string): string[] {
-  const match = /still active: ([^.]*)\./.exec(message);
-  return match ? match[1].split(', ').filter(Boolean) : [];
-}
+import { activeRunIds } from './ConfirmDeleteDialog.helpers';
 
 /**
  * A delete the user must confirm by typing the id. Active runs (409) are shown before anything is
@@ -93,7 +88,7 @@ export function ConfirmDeleteDialog({
             <ul>
               {runs.map((run) => (
                 <li key={run}>
-                  <Link className="font-mono text-primary" to={runLink(run)}>
+                  <Link className="text-primary font-mono" to={runLink(run)}>
                     {run}
                   </Link>
                 </li>
@@ -102,7 +97,7 @@ export function ConfirmDeleteDialog({
             {runs.length === 0 && error.message}
           </Callout>
         )}
-        <label className="flex flex-col gap-1 text-label-md text-on-surface">
+        <label className="text-label-md text-on-surface flex flex-col gap-1">
           Type {id} to confirm
           <Input
             value={typed}

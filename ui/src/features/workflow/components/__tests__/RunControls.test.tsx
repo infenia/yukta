@@ -15,7 +15,8 @@ import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
-import { parsePayload, RunControls } from '../RunControls';
+import { RunControls } from '../RunControls';
+import { parsePayload } from '../RunButton.helpers';
 
 const calls: string[] = [];
 let startStatus = 200;

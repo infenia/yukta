@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { createBrowserRouter, Navigate, useLocation } from 'react-router';
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+  useLocation,
+} from 'react-router';
 import App from '@/App';
 import { SessionListPage } from '@/features/sessions/components/SessionListPage';
 
@@ -29,59 +34,71 @@ const router = createBrowserRouter([
         path: 'sessions/new',
         // Builder pages stay out of the initial bundle
         lazy: async () => ({
-          Component: (await import('@/features/builder/components/SessionFormPage')).SessionFormPage,
+          Component: (
+            await import('@/features/builder/components/SessionFormPage')
+          ).SessionFormPage,
         }),
       },
       {
         path: 'sessions/import',
         lazy: async () => ({
-          Component: (await import('@/features/builder/components/SessionImportPage')).SessionImportPage,
+          Component: (
+            await import('@/features/builder/components/SessionImportPage')
+          ).SessionImportPage,
         }),
       },
       {
         path: 'sessions/:sessionId/edit',
         lazy: async () => ({
-          Component: (await import('@/features/builder/components/SessionFormPage')).SessionFormPage,
+          Component: (
+            await import('@/features/builder/components/SessionFormPage')
+          ).SessionFormPage,
         }),
       },
       {
         path: 'sessions/:sessionId',
         lazy: async () => ({
-          Component: (await import('@/features/sessions/components/SessionDetailsPage'))
-            .SessionDetailsPage,
+          Component: (
+            await import('@/features/sessions/components/SessionDetailsPage')
+          ).SessionDetailsPage,
         }),
       },
       {
         path: 'sessions/:sessionId/workflow/:workflowId',
         // Keeps React Flow and dagre out of the initial bundle
         lazy: async () => ({
-          Component: (await import('@/features/workflow/components/WorkflowDetailsPage'))
-            .WorkflowDetailsPage,
+          Component: (
+            await import('@/features/workflow/components/WorkflowDetailsPage')
+          ).WorkflowDetailsPage,
         }),
       },
       {
         path: 'sessions/:sessionId/workflow/:workflowId/edit',
         lazy: async () => ({
-          Component: (await import('@/features/builder/components/WorkflowEditorPage'))
-            .WorkflowEditorPage,
+          Component: (
+            await import('@/features/builder/components/WorkflowEditorPage')
+          ).WorkflowEditorPage,
         }),
       },
       {
         path: 'plugins',
         lazy: async () => ({
-          Component: (await import('@/features/plugins/components/PluginsPage')).PluginsPage,
+          Component: (await import('@/features/plugins/components/PluginsPage'))
+            .PluginsPage,
         }),
       },
       {
         path: 'control',
         lazy: async () => ({
-          Component: (await import('@/features/control/components/ControlPage')).ControlPage,
+          Component: (await import('@/features/control/components/ControlPage'))
+            .ControlPage,
         }),
       },
       {
         path: 'runs',
         lazy: async () => ({
-          Component: (await import('@/features/runs/components/RunsPage')).RunsPage,
+          Component: (await import('@/features/runs/components/RunsPage'))
+            .RunsPage,
         }),
       },
       {
@@ -93,4 +110,7 @@ const router = createBrowserRouter([
   },
 ]);
 
-export default router;
+/** The app's router, rendered once by main.tsx. */
+export function AppRouter() {
+  return <RouterProvider router={router} />;
+}

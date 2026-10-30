@@ -197,6 +197,8 @@ export function LogsPanel({
     );
   }, [entries, rawLines, raw, filter, minLevel, node]);
 
+  // TanStack Virtual returns values the React Compiler cannot memoize; the hook is correct without it.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: visibleEntries.length,
     getScrollElement: () => bodyRef.current,
@@ -354,7 +356,7 @@ export function LogsPanel({
         )}
         <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-4 sm:gap-y-1.5">
           {node && !raw && (
-            <span className="border-primary text-primary text-label-sm inline-flex items-center gap-1 rounded-lg border px-2 py-0.5">
+            <span className="border-primary text-label-sm text-primary inline-flex items-center gap-1 rounded-lg border px-2 py-0.5">
               Node: {node}
               <button
                 type="button"

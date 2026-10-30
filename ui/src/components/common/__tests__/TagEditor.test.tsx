@@ -5,13 +5,8 @@ import { describe, it, expect } from 'vitest';
 import { useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {
-  TagEditor,
-  tagsError,
-  toRows,
-  toTags,
-  type TagRow,
-} from '../TagEditor';
+import { TagEditor } from '../TagEditor';
+import { tagsError, toRows, toTags, type TagRow } from '../TagEditor.helpers';
 
 function Harness({ initial }: { initial: TagRow[] }) {
   const [rows, setRows] = useState(initial);

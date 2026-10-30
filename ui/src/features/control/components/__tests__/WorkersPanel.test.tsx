@@ -8,7 +8,8 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import type { Worker } from '../../api/workers';
-import { relativeTime, WorkersPanel } from '../WorkersPanel';
+import { WorkersPanel } from '../WorkersPanel';
+import { relativeTime } from '../WorkersPanel.helpers';
 
 const ok = (data: unknown) =>
   HttpResponse.json({

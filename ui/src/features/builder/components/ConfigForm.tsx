@@ -1,23 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { createContext, useContext, useEffect, useId, useState } from 'react';
+import { useContext, useEffect, useId, useState } from 'react';
 import {
   NativeSelect,
   inputFieldClassName,
   textareaFieldClassName,
 } from '@/components/ui/native-select';
 import type { ConfigField } from '@/features/plugins/types';
+import { JsonValidityContext } from './ConfigForm.helpers';
 
 type Values = Record<string, unknown>;
 
 const INPUT = inputFieldClassName;
 const TEXTAREA = `${textareaFieldClassName} text-code-sm`;
-
-/** Where a JsonField reports whether its text is invalid, so the page can block Save and Validate. */
-export const JsonValidityContext = createContext<
-  (key: string, invalid: boolean) => void
->(() => {});
 
 /** LIST and MAP values are edited as JSON; the draft text is kept until it parses. */
 export function JsonField({
@@ -101,7 +97,7 @@ function ListField({
           {items.map((item, index) => (
             <li
               key={index}
-              className="flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-code-sm"
+              className="bg-muted text-code-sm flex items-center gap-1 rounded-full border px-2 py-0.5"
             >
               {item}
               <button
@@ -135,7 +131,7 @@ function ListField({
       />
       <button
         type="button"
-        className="self-start text-body-sm text-on-surface-variant underline"
+        className="text-body-sm text-on-surface-variant self-start underline"
         onClick={() => setAsJson(true)}
       >
         Edit as JSON
@@ -259,7 +255,7 @@ export function ConfigForm({
         <div key={field.name} className="flex flex-col gap-1">
           <label
             htmlFor={`${scope}-${field.name}`}
-            className="text-label-sm font-semibold text-on-surface"
+            className="text-label-sm text-on-surface font-semibold"
           >
             {field.name}
             {field.required && <span className="text-error"> *</span>}

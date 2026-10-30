@@ -88,7 +88,7 @@ function PluginDetail({ type }: { type: string }) {
           <h2 className="text-headline-lg text-on-surface">
             {pluginLabel(plugin.type)}
           </h2>
-          <div className="text-on-surface-variant text-body-md mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="text-body-md text-on-surface-variant mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="inline-flex items-center gap-2">
               <span
                 aria-hidden="true"
@@ -102,7 +102,7 @@ function PluginDetail({ type }: { type: string }) {
           </div>
         </header>
         {plugin.description && (
-          <p className="text-on-surface text-body-md max-w-prose">
+          <p className="text-body-md text-on-surface max-w-prose">
             {plugin.description}
           </p>
         )}
@@ -155,7 +155,7 @@ function PluginDetail({ type }: { type: string }) {
           ))}
         </div>
         {tab === 'ports' && (
-          <p className="text-on-surface-variant text-body-md">{ports}</p>
+          <p className="text-body-md text-on-surface-variant">{ports}</p>
         )}
         {tab === 'config' && (
           <TableFrame>
@@ -195,7 +195,7 @@ function PluginDetail({ type }: { type: string }) {
             <CodeBlock code={example} label="example" />
             {plugin.usagePattern && (
               <section>
-                <h3 className="text-on-surface text-label-md mb-1.5">Usage</h3>
+                <h3 className="text-label-md text-on-surface mb-1.5">Usage</h3>
                 <CodeBlock code={plugin.usagePattern} label="usage" />
               </section>
             )}
@@ -222,7 +222,7 @@ function PluginDetail({ type }: { type: string }) {
                   className="flex items-baseline justify-between gap-3"
                 >
                   <Link
-                    className="text-primary text-body-md"
+                    className="text-body-md text-primary"
                     to={`/sessions/${encodeURIComponent(use.sessionId)}/workflow/${encodeURIComponent(use.workflowId)}`}
                   >
                     {use.sessionId} / {use.workflowId}
@@ -236,7 +236,7 @@ function PluginDetail({ type }: { type: string }) {
           ))}
       </div>
       <section className="min-w-0 xl:sticky xl:top-18 xl:self-start">
-        <h3 className="text-on-surface text-label-md mb-1.5">On the canvas</h3>
+        <h3 className="text-label-md text-on-surface mb-1.5">On the canvas</h3>
         <PluginCanvasPreview plugin={plugin} />
       </section>
     </article>
@@ -313,7 +313,7 @@ export function PluginsPage() {
                         aria-current={p.type === selected}
                         onClick={() => setParams({ type: p.type })}
                         className={cn(
-                          'transition-standard text-body-md w-full rounded-lg px-3 py-1.5 text-left',
+                          'text-body-md transition-standard w-full rounded-lg px-3 py-1.5 text-left',
                           p.type === selected
                             ? 'bg-accent text-accent-foreground font-semibold'
                             : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'

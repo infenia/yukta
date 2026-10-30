@@ -14,8 +14,12 @@ import openapiTS, { astToString } from 'openapi-typescript';
 
 const args = process.argv.slice(2);
 const check = args.includes('--check');
-const source = args.find((a) => !a.startsWith('--')) ?? 'http://localhost:8080/v3/api-docs';
-const target = path.resolve(import.meta.dirname, '../src/types/api.generated.ts');
+const source =
+  args.find((a) => !a.startsWith('--')) ?? 'http://localhost:8080/v3/api-docs';
+const target = path.resolve(
+  import.meta.dirname,
+  '../src/types/api.generated.ts'
+);
 
 const spec = /^https?:/.test(source)
   ? await (await fetch(source)).json()
@@ -32,7 +36,9 @@ const generated = header + astToString(await openapiTS(spec));
 
 if (check) {
   if (!fs.existsSync(target) || fs.readFileSync(target, 'utf8') !== generated) {
-    console.error('src/types/api.generated.ts is stale; run `pnpm run api:types` and commit it.');
+    console.error(
+      'src/types/api.generated.ts is stale; run `pnpm run api:types` and commit it.'
+    );
     process.exit(1);
   }
   console.log('API types are up to date');

@@ -12,45 +12,17 @@ import { CodeBlock } from '@/components/common/CodeBlock';
 import { toCommand, type CommandFormat } from '@/lib/commandEquivalents';
 import { InlineError } from '@/components/common/InlineError';
 import { StateMessage } from '@/components/common/StateMessage';
+import { TagEditor } from '@/components/common/TagEditor';
 import {
-  TagEditor,
   toRows,
   toTags,
   type TagRow,
-} from '@/components/common/TagEditor';
+} from '../../../components/common/TagEditor.helpers';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ApiError } from '@/lib/apiClient';
 import { checkProjectPath, getSessionDraft, saveSession } from '../api';
 import type { SessionDraft } from '../types';
-
-/** A session needs a workflow, so a new one starts with a trigger wired to a console terminal. */
-export function starterSession(
-  fields: Omit<SessionDraft, 'workflows' | 'tags'>
-): SessionDraft {
-  return {
-    ...fields,
-    tags: {},
-    workflows: {
-      main: {
-        workflowId: 'main',
-        description: 'Starter workflow',
-        nodes: [
-          { nodeId: 'start', type: 'API_TRIGGER', config: {} },
-          { nodeId: 'out', type: 'CONSOLE_TERMINAL', config: {} },
-        ],
-        edges: [{ source: 'start', target: 'out', sourcePort: null }],
-      },
-    },
-  };
-}
-
-/** A session ID made from a name: lower case, with every run of other characters one dash. */
-export function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
+import { starterSession, slugify } from './SessionFormPage.helpers';
 
 const FORMATS: [CommandFormat, string][] = [
   ['mcp', 'MCP'],
@@ -346,7 +318,7 @@ function SessionForm({ loaded }: { loaded?: SessionDraft }) {
       >
         <span
           aria-current="page"
-          className="text-label-md border-primary text-on-surface -mb-px border-b-2 py-2"
+          className="border-primary text-label-md text-on-surface -mb-px border-b-2 py-2"
         >
           Fill in details
         </span>
