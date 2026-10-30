@@ -83,8 +83,10 @@ public class ExecutionSearchController {
         .filter(id -> sessionId == null || sessionId.equals(id))
         .concatMap(
             id ->
-                controlBus
-                    .getHistory(id)
+                (filter.workflowId() == null
+                        ? controlBus.getHistory(id)
+                        // the tracker narrows by workflow before it builds and sorts summaries
+                        : controlBus.getHistory(id, filter.workflowId()))
                     .flatMapIterable(history -> history)
                     .filter(filter::matches)
                     .map(run -> hit(id, run)))
