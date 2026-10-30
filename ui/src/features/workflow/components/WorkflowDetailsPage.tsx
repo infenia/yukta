@@ -20,7 +20,6 @@ import {
 } from '../hooks/useExecutionControl';
 import type { NodeCommand } from './NodeControlsMenu';
 import { RunControls } from './RunControls';
-import { useBreadcrumbOverride } from '@/lib/breadcrumbOverrides';
 import { LogsPanel } from './LogsPanel';
 import { PendingApprovals } from './PendingApprovals';
 import { ProgressPanel } from './ProgressPanel';
@@ -81,7 +80,6 @@ export function WorkflowDetailsPage() {
 
   const graph = graphQuery.data;
   // the crumb shows the ID as typed, not title-cased like other path segments
-  useBreadcrumbOverride(workflowId, workflowId);
 
   const nodeControl = useExecutionControl(sessionId, workflowId);
   const [breakpointNode, setBreakpointNode] = useState<string | null>(null);

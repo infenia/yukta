@@ -76,9 +76,15 @@ test.describe('Workflow Details Page', () => {
 
     const runHistory = page.getByRole('button', { name: 'Run history' });
     await expect(runHistory).toContainText('exec-091-qp-55');
-    await expect(page.locator('header')).toContainText('SESSION_A92_XP_2024');
-    // the crumb and the title are the workflow ID; the description sits under the title
-    await expect(page.locator('header')).toContainText('wf-982-xk-11');
+    // the trail sits above the title, in the page: Sessions › session › workflow
+    const trail = page.getByRole('navigation', { name: 'breadcrumb' });
+    await expect(
+      trail.getByRole('link', { name: 'SESSION_A92_XP_2024' })
+    ).toBeVisible();
+    await expect(trail.getByText('wf-982-xk-11')).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
     await expect(
       page.getByRole('heading', { name: 'wf-982-xk-11' })
     ).toBeVisible();

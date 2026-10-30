@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import BreadcrumbNav from '@/components/layout/BreadcrumbNav';
 import { useState, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import type { SessionDetails } from '../types/session';
@@ -39,6 +40,7 @@ export function SessionInfoPanel({ session, actions }: SessionInfoPanelProps) {
     <header className="border-outline-variant bg-surface-container border-b px-4 py-6 sm:px-6">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
+          <BreadcrumbNav className="mb-2" />
           <h1 className="text-headline-lg text-on-surface">{session.name}</h1>
           <p className="text-code-sm text-on-surface-variant mt-1">
             Session ID: {session.sessionId}

@@ -7,6 +7,9 @@ import type { BreadcrumbItem, RouteSegmentMap } from '@/types/breadcrumb';
 const ROUTE_LABEL_MAP: RouteSegmentMap = {
   sessions: 'Sessions',
   workflows: 'Workflows',
+  new: 'New',
+  import: 'Import',
+  edit: 'Edit',
 };
 
 // Literal route segments folded into their neighbours instead of rendering their own crumb,
@@ -18,15 +21,20 @@ const FOLDED_SEGMENTS = new Set(['workflow']);
  * Routes like /sessions/123/workflows/456 become:
  * [Sessions (link to /sessions)] > [Workflows (current)]
  *
- * Optional overrides replace the label of a raw path segment (e.g. a workflow ID
- * segment labelled with the workflow's display name).
+ * Other segments are IDs and keep their spelling (a workflow "check" stays "check").
  */
-export function parseBreadcrumbsFromPath(
-  pathname: string,
-  overrides: Record<string, string> = {}
-): BreadcrumbItem[] {
-  // Remove leading/trailing slashes and split
-  const segments = pathname.split('/').filter(Boolean).filter((segment) => !FOLDED_SEGMENTS.has(segment));
+export function parseBreadcrumbsFromPath(pathname: string): BreadcrumbItem[] {
+  // The crumb segments, each with the real path up to it (a folded segment stays in the link)
+  const segments: string[] = [];
+  const paths: string[] = [];
+  let pathSoFar = '';
+  for (const segment of pathname.split('/').filter(Boolean)) {
+    pathSoFar += `/${segment}`;
+    if (!FOLDED_SEGMENTS.has(segment)) {
+      segments.push(segment);
+      paths.push(pathSoFar);
+    }
+  }
 
   if (segments.length === 0) {
     // Root path
@@ -53,11 +61,9 @@ export function parseBreadcrumbsFromPath(
   }
 
   const breadcrumbs: BreadcrumbItem[] = [];
-  let accumulatedPath = '';
   let sessionsPrependNeeded = false;
 
   segments.forEach((segment, index) => {
-    accumulatedPath += `/${segment}`;
     const isLast = index === segments.length - 1;
     const isNumeric = /^\d+$/.test(segment);
 
@@ -74,12 +80,11 @@ export function parseBreadcrumbsFromPath(
       return;
     }
 
-    // Overrides win, then the friendly label map, then the capitalized segment
+    // The friendly label of a route word, else the segment as written
     const hasOwn = Object.prototype.hasOwnProperty;
     const label =
-      (hasOwn.call(overrides, segment) && overrides[segment]) ||
       (hasOwn.call(ROUTE_LABEL_MAP, segment) && ROUTE_LABEL_MAP[segment]) ||
-      capitalizeFirst(segment);
+      segment;
 
     // Determine if Sessions needs to be prepended
     if (breadcrumbs.length === 0 && label !== 'Sessions') {
@@ -93,7 +98,7 @@ export function parseBreadcrumbsFromPath(
 
     breadcrumbs.push({
       label,
-      href: isCurrent ? undefined : accumulatedPath, // Current items have no href
+      href: isCurrent ? undefined : paths[index], // Current items have no href
       isCurrent,
     });
   });
@@ -108,8 +113,4 @@ export function parseBreadcrumbsFromPath(
   }
 
   return breadcrumbs;
-}
-
-function capitalizeFirst(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
 }

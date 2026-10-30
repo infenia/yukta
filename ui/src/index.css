@@ -276,8 +276,8 @@
   --spacing-spacing-xl: 32px;
   --spacing-gutter: 1px;
   --spacing-margin-compact: 16px;
-  /* Height of the fixed AppHeader (48px top row + 40px breadcrumb row); main starts below it */
-  --spacing-header: 88px;
+  /* Height of the fixed AppHeader (its 48px row; each page shows its own trail); main starts below it */
+  --spacing-header: 48px;
 
   /* The docs theme's one easing curve: short, functional, ease-out */
   --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
