@@ -200,10 +200,10 @@ class DefaultTaskTrackerServiceTest {
     tracker.recordLineage("t-other", null, null);
 
     assertThat(tracker.getTree("t-top"))
-        .extracting(com.infenia.yukta.model.execution.WorkflowExecutionSummary::executionId)
+        .extracting(WorkflowExecutionSummary::executionId)
         .containsExactlyInAnyOrder("t-top", "t-child", "t-grandchild");
     assertThat(tracker.getTree("t-child"))
-        .extracting(com.infenia.yukta.model.execution.WorkflowExecutionSummary::executionId)
+        .extracting(WorkflowExecutionSummary::executionId)
         .containsExactlyInAnyOrder("t-child", "t-grandchild");
     assertThat(tracker.getTree("nope")).isEmpty();
   }

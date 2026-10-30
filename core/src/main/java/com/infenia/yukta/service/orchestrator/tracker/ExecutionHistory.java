@@ -125,12 +125,9 @@ final class ExecutionHistory {
   }
 
   /** How far a run got: its nodes in a final state, of all, and the first that failed. */
-  @SuppressWarnings("PMD.AvoidSynchronizedStatement")
   private static WorkflowExecutionSummary.Nodes nodes(final WorkflowState state) {
-    final List<TaskProgress> tasks;
-    synchronized (state.taskMap) {
-      tasks = List.copyOf(state.taskMap.values());
-    }
+    // The synchronized map copies its values under its own lock, so this is a consistent snapshot.
+    final List<TaskProgress> tasks = List.copyOf(state.taskMap.values());
     return new WorkflowExecutionSummary.Nodes(
         (int) tasks.stream().filter(t -> TaskStatus.isTerminalName(t.status())).count(),
         tasks.size(),
