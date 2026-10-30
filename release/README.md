@@ -88,10 +88,10 @@ One pull request to approve, one button to press.
    - uploads everything to the **draft** release release-please created;
    - `verify` downloads the draft, checks the checksums and signature, installs it with `install.sh` and
      the `.deb` on a clean Ubuntu container, pulls the image logged out and runs the Quickstart on it.
-   The server job records a PGO profile first (an instrumented native build, then the examples) and then
-   builds again with it, so it takes longer than a plain build. On the hosted runner (4 vCPU, 16 GB) the
-   instrumented build ran out of memory in `0.1.0-alpha.2` (the build then went on without a profile) and
-   hung in `0.1.0-alpha.3`. `release.yml` sets `NATIVE_PGO_REQUIRED=1`, so this now fails the release.
+   The server job does not record a PGO profile: the instrumented build ran out of memory in
+   `0.1.0-alpha.2` and hung in `0.1.0-alpha.3` on the hosted runner (4 vCPU, 16 GB). The binary is `-O3` with
+   the profile Graal infers itself, as in alpha.2. For a recorded profile, run `release/pgo-profile.sh` on a
+   machine with enough memory and rebuild with `NATIVE_PGO_PROFILE`, or move the job to a larger runner.
 4. **Publish.** When the workflow is green, open the draft, and for a first run of a changed pipeline
    also run the `cosign verify-blob` from "Verify a download" below on the draft's files yourself, add highlights and known limitations to the
    notes, keep "pre-release" ticked for a version with a `-`, and press Publish. *Why a person:* this is
