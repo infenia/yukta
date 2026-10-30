@@ -42,7 +42,10 @@ const changesSum = ($: Engine) => run($, [yk, 'sum'])
 const startSession = async ($: Engine, sid: string, source: string | undefined, cwd: string) => {
   await locate($, cwd)
   if (await isOff($)) return undefined
-  const baseline = `${root}/.yukta-dev/baseline-${sid}`
+  const state = `${root}/.yukta-dev`
+  await $.process.run(['mkdir', '-p', state])
+  await $.process.run(['find', state, '-maxdepth', '1', '-name', 'baseline-*', '-mtime', '+7', '-delete'])
+  const baseline = `${state}/baseline-${sid}`
   // a resumed session keeps its first baseline
   if (!(await $.fs.exists(baseline))) await $.fs.write(baseline, `${await changesSum($)}\n`)
   if (source !== 'compact') await $.process.run([yk, 'up', '--background'], { cwd: root })
@@ -63,6 +66,7 @@ const stopNudge = async ($: Engine, sid: string) => {
   // a check already passed on exactly these changes
   const [passedSum, status, scope] = (await read('last-result')).split(/\s+/)
   if (passedSum === sum && status === 'SUCCESS' && scope === 'check') return undefined
+  await $.process.run(['mkdir', '-p', state])
   await $.fs.write(`${state}/nudged`, `${sum}\n`)
   return 'Uncommitted code changes: run the quality gate before finishing: yk check (yukta skill: start it in the background; it heals what it can, so review its healed= changes with git diff). YUKTA_DOGFOOD=off skips this.'
 }
@@ -73,10 +77,12 @@ const loadPlan = async ($: Engine) => {
 }
 
 const startCheck = async ($: Engine) => {
-  if (!plan) await loadPlan($)
-  const started = await run($, [yk, 'check', '--detach'])
-  const m = /STARTED execution=(\S+) session=(\S+)/.exec(started)
-  if (!m) return started || 'yk check did not start'
+  // plan again: the changes may differ from the last plan the pane showed
+  await loadPlan($)
+  const out = await $.process.run([yk, 'check', '--detach'], { cwd: root })
+  const m = /STARTED execution=(\S+) session=(\S+)/.exec(out.stdout)
+  // yk reports why it refused (for example another healing check is running) on stderr
+  if (!m) return (out.stderr || out.stdout).trim().split('\n').slice(-2).join(' ') || 'yk check did not start'
   const current = newCheck(m[1] ?? '', plan ?? { summary: '', notes: [], stages: [] }, await $.clock.now())
   check = current
   void (async () => {

@@ -11,6 +11,8 @@ test('builds, tests and lint are sent to yk; the app and other commands pass', (
     ['go version', undefined],
     ['./gradlew bootRun', undefined],
     ['./gradlew :boot:bootRun --args=x', undefined],
+    ['echo bootRun; ./gradlew test', 'yk gradle test'],
+    ["git commit -m 'fix bootRun' && npx prettier .", 'yk tool -C ui npx prettier .'],
     ['ls | grep gradle', undefined],
     ['git status', undefined],
   ]

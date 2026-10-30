@@ -13,11 +13,13 @@ export function rewrite(cmd: string): string | undefined {
     const name = (words[0] ?? '').split('/').pop() ?? ''
     const args = words.slice(1)
     const all = words.join(' ')
-    // Running the app being developed is not a build or a check.
-    if (/[\s:](bootRun|nativeRun)\s/.test(` ${name === 'go' || JS.has(name) ? all : args.join(' ')} `)) return undefined
-    if (name === 'gradlew' || name === 'gradle') return `yk gradle ${args.filter(a => !NOISE.test(a)).join(' ') || '<tasks>'}`
-    if (name === 'go' && /^(test|vet|build|fmt)$/.test(args[0] ?? '')) return `yk tool -C cli ${all}`
-    if (JS.has(name)) return `yk tool -C ui ${all}`
+    const isGradle = name === 'gradlew' || name === 'gradle'
+    const isGo = name === 'go' && /^(test|vet|build|fmt)$/.test(args[0] ?? '')
+    if (!isGradle && !isGo && !JS.has(name)) continue
+    // Running the app being developed is not a build or a check, but only for the command that runs it.
+    if (/[\s:](bootRun|nativeRun)\s/.test(` ${isGradle ? args.join(' ') : all} `)) return undefined
+    if (isGradle) return `yk gradle ${args.filter(a => !NOISE.test(a)).join(' ') || '<tasks>'}`
+    return isGo ? `yk tool -C cli ${all}` : `yk tool -C ui ${all}`
   }
   return undefined
 }

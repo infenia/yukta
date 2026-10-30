@@ -44,6 +44,7 @@ let why = ''
 let insights: Insights | undefined
 let ticks = 0
 let skips = 0
+let isTicking = false
 let headers: Record<string, string> | undefined
 
 const resolveHeaders = async ($: Engine) => {
@@ -77,7 +78,9 @@ const summary = () =>
 
 const tick = async ($: Engine) => {
   // ponytail: while the server is down, ask every 3rd tick; a push channel would end polling
-  if (isDown && skips++ % 3) return
+  // a slow server must not let two polls overlap and toast twice
+  if (isTicking || (isDown && skips++ % 3)) return
+  isTicking = true
   try {
     const running: Run[] = (await api($, '/executions?status=RUNNING&limit=50')) ?? []
     const sessions = [...new Set(running.map(r => r.sessionId))]
@@ -102,9 +105,10 @@ const tick = async ($: Engine) => {
     if (ticks++ % 10 === 0) await loadInsights($).catch(() => undefined)
   } catch (err) {
     why = err instanceof Error ? err.message : 'request failed'
-    runs = []
-    approvals = []
+    // keep the last known runs and approvals: a failed poll must not re-announce them on reconnect
     isDown = true
+  } finally {
+    isTicking = false
   }
   if (opts.show_status) $.ui.status(summary())
   $.ui.invalidate('ui.render')
@@ -215,7 +219,7 @@ export const register: Register = (on, options) => {
           <Text italic dimColor>{TIPS[Math.floor(frame / 100) % TIPS.length]}</Text>
         </Box>
         {isDown && <Box marginTop={1}><Text color="#f87171">✗ {base}: {why || 'unreachable'}</Text></Box>}
-        {runs.map(r => (
+        {!isDown && runs.map(r => (
           <Box
             key={r.executionId}
             marginTop={1}
@@ -237,7 +241,7 @@ export const register: Register = (on, options) => {
             </Box>
           </Box>
         ))}
-        {approvals.map(a => (
+        {!isDown && approvals.map(a => (
           <Box
             key={`${a.executionId}-${a.nodeId}`}
             marginTop={1}
@@ -263,7 +267,7 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const a = approvals[0]
-    if (e.props.hasSurvey || !a) return next(e)
+    if (e.props.hasSurvey || !a || isDown) return next(e)
     const { Box, Button, Text } = $.ui.resolve(e)
     return (
       <Box>
