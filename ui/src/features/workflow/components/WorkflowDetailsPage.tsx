@@ -161,8 +161,9 @@ export function WorkflowDetailsPage() {
   );
 
   return (
+    // At least the screen's height (less the phone tab bar), so the logs dock at its bottom edge
     <div
-      className="bg-background flex flex-1 flex-col"
+      className="bg-background flex min-h-[calc(100dvh-var(--spacing-header)-4rem)] flex-1 flex-col sm:min-h-[calc(100dvh-var(--spacing-header))]"
       data-testid="workflow-details-page"
     >
       <WorkflowTitleBar
@@ -309,40 +310,52 @@ export function WorkflowDetailsPage() {
         />
       )}
 
-      {/* A fixed-height workspace: the canvas fills it and the panel scrolls inside it, so a
-          100-node run no longer stretches the page */}
+      {/* The workspace fills the rest of the screen: the canvas over the logs dock, the progress
+          panel beside both, so a 100-node run no longer stretches the page */}
       {/* The canvas nodes and the failure callout both open sub-workflow runs */}
       <SubWorkflowLinks value={subWorkflowLinks}>
-        <div className="flex h-[clamp(28rem,calc(100dvh-14rem),56rem)]">
-          <div className="relative min-w-0 flex-1">
-            <WorkflowCanvas
-              graph={graph}
-              tasksByNode={tasksByNode}
-              stageView={stages.stageView}
-              onNodeClick={setLogNode}
-              follow={follow && followable}
-            />
-            {followable && (
-              <button
-                type="button"
-                aria-pressed={follow}
-                onClick={() => setFollow((value) => !value)}
-                className={cn(
-                  'bg-surface border-border shadow-card text-label-sm absolute top-3 right-3 z-10 rounded-lg border px-2.5 py-1',
-                  follow
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                )}
-              >
-                Follow running nodes
-              </button>
-            )}
-            {stages.hasStages && (
-              <GroupingSwitch
-                grouped={stages.grouped}
-                onChange={stages.setGrouped}
+        <div className="flex min-h-[28rem] flex-1">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="relative min-h-0 flex-1">
+              <WorkflowCanvas
+                graph={graph}
+                tasksByNode={tasksByNode}
+                stageView={stages.stageView}
+                onNodeClick={setLogNode}
+                follow={follow && followable}
               />
-            )}
+              {followable && (
+                <button
+                  type="button"
+                  aria-pressed={follow}
+                  onClick={() => setFollow((value) => !value)}
+                  className={cn(
+                    'bg-surface border-border shadow-card text-label-sm absolute top-3 right-3 z-10 rounded-lg border px-2.5 py-1',
+                    follow
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  )}
+                >
+                  Follow running nodes
+                </button>
+              )}
+              {stages.hasStages && (
+                <GroupingSwitch
+                  grouped={stages.grouped}
+                  onChange={stages.setGrouped}
+                />
+              )}
+            </div>
+            <LogsPanel
+              sessionId={sessionId}
+              executionId={selectedExecutionId}
+              entries={logs.entries}
+              dropped={logs.dropped}
+              isStreaming={isStreaming || logs.isStreaming}
+              node={logNode}
+              onClearNode={() => setLogNode(null)}
+              progress={progress}
+            />
           </div>
           {panelOpen && (
             <ProgressPanel
@@ -356,17 +369,6 @@ export function WorkflowDetailsPage() {
           )}
         </div>
       </SubWorkflowLinks>
-
-      <LogsPanel
-        sessionId={sessionId}
-        executionId={selectedExecutionId}
-        entries={logs.entries}
-        dropped={logs.dropped}
-        isStreaming={isStreaming || logs.isStreaming}
-        node={logNode}
-        onClearNode={() => setLogNode(null)}
-        progress={progress}
-      />
     </div>
   );
 }

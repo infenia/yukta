@@ -20,6 +20,23 @@ import type { LogEntry, WorkflowProgress } from '../types/workflow';
 /** Fixed row height (leading-5) so only the visible window of the buffered lines is in the DOM. */
 const ROW_HEIGHT = 20;
 
+/** The dock's height in px, toolbar included; the user's choice is kept across runs and reloads. */
+const HEIGHT_KEY = 'yukta.logsHeight';
+const DEFAULT_HEIGHT = 236;
+const MIN_HEIGHT = 120;
+const KEY_STEP = 24;
+
+/** The tallest the dock may be dragged: its column, or most of the window before layout. */
+function maxHeight(section: HTMLElement | null): number {
+  const column = section?.parentElement?.clientHeight ?? 0;
+  return column > 0 ? column : Math.round(window.innerHeight * 0.8);
+}
+
+function storedHeight(): number {
+  const stored = Number(localStorage.getItem(HEIGHT_KEY));
+  return stored >= MIN_HEIGHT ? stored : DEFAULT_HEIGHT;
+}
+
 function levelClass(level: string | null): string {
   switch (level) {
     case 'WARN':
@@ -103,6 +120,39 @@ export function LogsPanel({
   progress?: WorkflowProgress | null;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [height, setHeight] = useState(storedHeight);
+  const [maximized, setMaximized] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const resize = (next: number) => {
+    setMaximized(false);
+    setHeight(
+      Math.round(
+        Math.min(Math.max(next, MIN_HEIGHT), maxHeight(sectionRef.current))
+      )
+    );
+  };
+  useEffect(() => {
+    localStorage.setItem(HEIGHT_KEY, String(height));
+  }, [height]);
+  // Dragging the top edge: window listeners, so the drag holds when the pointer leaves the handle
+  const startDrag = (event: React.PointerEvent) => {
+    event.preventDefault();
+    const startY = event.clientY;
+    const startHeight = sectionRef.current?.offsetHeight || height;
+    const move = (e: PointerEvent) => resize(startHeight + startY - e.clientY);
+    const stop = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', stop);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop);
+  };
+  const resizeByKey = (event: React.KeyboardEvent) => {
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      resize(height + (event.key === 'ArrowUp' ? KEY_STEP : -KEY_STEP));
+    }
+  };
   const [view, setView] = useState<'logs' | 'events'>('logs');
   const events = useMemo(
     () =>
@@ -198,11 +248,27 @@ export function LogsPanel({
 
   return (
     <section
-      className="border-outline-variant bg-surface border-t"
+      ref={sectionRef}
+      className="border-outline-variant bg-surface relative flex shrink-0 flex-col border-t"
+      style={collapsed ? undefined : { height: maximized ? '100%' : height }}
       data-testid="logs-panel"
       aria-label="Execution logs"
     >
-      <div className="flex flex-wrap items-center gap-3 px-4 py-2 sm:h-11 sm:flex-nowrap sm:py-0">
+      {!collapsed && (
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize the logs"
+          aria-valuemin={MIN_HEIGHT}
+          aria-valuemax={maxHeight(sectionRef.current)}
+          aria-valuenow={height}
+          tabIndex={0}
+          onPointerDown={startDrag}
+          onKeyDown={resizeByKey}
+          className="hover:bg-primary/40 focus-visible:bg-primary/60 absolute inset-x-0 -top-1 z-10 h-2 cursor-row-resize touch-none focus-visible:outline-none"
+        />
+      )}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-1.5 sm:min-h-11">
         <button
           type="button"
           onClick={() => setCollapsed((value) => !value)}
@@ -216,10 +282,28 @@ export function LogsPanel({
             {collapsed ? 'expand_less' : 'expand_more'}
           </span>
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            setCollapsed(false);
+            setMaximized((value) => !value);
+          }}
+          aria-label={
+            maximized ? 'Restore the logs height' : 'Maximize the logs'
+          }
+          aria-pressed={maximized}
+          className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center transition-colors"
+        >
+          <span className="material-symbols-outlined text-base">
+            {maximized ? 'close_fullscreen' : 'open_in_full'}
+          </span>
+        </button>
         <span className="material-symbols-outlined text-on-surface-variant text-base">
           terminal
         </span>
-        <h2 className="text-label-md text-on-surface">Execution logs</h2>
+        <h2 className="text-label-md text-on-surface whitespace-nowrap">
+          Execution logs
+        </h2>
         {progress && (
           <div role="tablist" aria-label="Logs or events" className="flex">
             {(
@@ -266,7 +350,7 @@ export function LogsPanel({
             {dropped.toLocaleString()} EARLIER LINES HIDDEN
           </span>
         )}
-        <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-4 sm:gap-y-1.5">
           {node && !raw && (
             <span className="border-primary text-primary text-label-sm inline-flex items-center gap-1 rounded-lg border px-2 py-0.5">
               Node: {node}
@@ -418,7 +502,7 @@ export function LogsPanel({
       </div>
       {!collapsed && showEvents && (
         <ol
-          className="bg-terminal text-code-sm text-terminal-fg h-56 overflow-y-auto px-4 py-2 leading-5"
+          className="bg-terminal text-code-sm text-terminal-fg min-h-0 flex-1 overflow-y-auto px-4 py-2 leading-5"
           aria-label="Run events"
         >
           {events.length === 0 ? (
@@ -436,10 +520,10 @@ export function LogsPanel({
         </ol>
       )}
       {!collapsed && !showEvents && (
-        <div className="relative">
+        <div className="relative min-h-0 flex-1">
           <div
             ref={bodyRef}
-            className="bg-terminal text-code-sm h-56 overflow-y-auto px-4 py-2 leading-5"
+            className="bg-terminal text-code-sm h-full overflow-y-auto px-4 py-2 leading-5"
             data-testid="logs-body"
           >
             {visibleEntries.length === 0 ? (
