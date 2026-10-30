@@ -103,7 +103,7 @@ describe('NodeInspector', () => {
       />
     );
     await screen.findByLabelText(/url/);
-    await user.click(screen.getByText(/Error handling/));
+    await user.click(screen.getByRole('tab', { name: 'Policy' }));
 
     await user.selectOptions(screen.getByLabelText('trigger'), 'ALL_DONE');
     expect(config()).toBe('{"url":"a","engine":{"onError":"ROUTE","trigger":"ALL_DONE"}}');
