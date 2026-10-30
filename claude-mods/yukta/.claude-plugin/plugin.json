@@ -1,0 +1,45 @@
+{
+  "name": "yukta",
+  "displayName": "Yukta",
+  "version": "0.1.0",
+  "description": "Live view of Yukta runs and approvals in Claude Code: a /yukta pane, status line, toasts, an approval band and the Yukta MCP server",
+  "repository": "https://github.com/infenia/yukta",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Infenia"
+  },
+  "userConfig": {
+    "server_url": {
+      "type": "string",
+      "title": "Yukta server URL",
+      "description": "Base URL of the Yukta server, without a trailing slash",
+      "default": "http://localhost:8080"
+    },
+    "api_key": {
+      "type": "string",
+      "title": "API key",
+      "description": "Sent as X-API-Key. Leave empty for a server without authentication",
+      "sensitive": true
+    },
+    "headers_command": {
+      "type": "string",
+      "title": "Headers command",
+      "description": "Optional shell command that prints a JSON object of request headers (for the mod's REST calls); wins over the API key",
+      "default": ""
+    },
+    "poll_seconds": {
+      "type": "number",
+      "title": "Poll interval (seconds)",
+      "description": "How often the mod asks the server for running executions and approvals",
+      "default": 3,
+      "min": 1,
+      "max": 60
+    },
+    "show_status": {
+      "type": "boolean",
+      "title": "Status line entry",
+      "description": "Show the server and run counts in the status line",
+      "default": true
+    }
+  }
+}

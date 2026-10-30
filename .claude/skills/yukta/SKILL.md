@@ -7,7 +7,7 @@ allowed-tools: Bash, Read, Monitor
 # Build, test and check through Yukta
 
 Every Gradle, Go and pnpm/npx run in this repo goes through a Yukta workflow on the dev server (built from `origin/main`,
-`http://127.0.0.1:9858`, started on demand). `yk` is `examples/11-dogfood/yk` (on PATH after session start). A hook blocks
+`http://127.0.0.1:9858`, started on demand). `yk` is `examples/11-dogfood/yk` (on PATH after session start). The `yukta-dogfood` mod (`examples/11-dogfood/mod`) blocks
 direct `./gradlew`, `gradle`, `go test|vet|build|fmt` and `pnpm|npm|npx` and names the `yk` command to use instead.
 
 ```bash
@@ -39,7 +39,7 @@ every attempt. An attempt that changed no file ends the ladder, and `reuse`, `do
 was healed, the Gradle tasks of all stages run once more. `licenses` and `security` are never healed. `--no-heal` stops at the
 first failure (use it to see a failure as it is); `--triage off` starts every heal at the average level.
 
-A Stop hook asks once, before you finish with uncommitted code changes, to run `yk check`.
+The mod asks once, before you finish with uncommitted code changes, to run `yk check`.
 
 **While a check runs, do not edit files or run Gradle in this checkout**: a fixer is editing it. When it ends, review everything
 under `healed=` with `git diff`; fixers never commit.

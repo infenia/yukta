@@ -27,7 +27,7 @@ This is a multi-module Gradle monorepo. Launch Claude from the specific package 
 
 ## Global Commands
 
-Builds, tests and lint (Gradle, Go, pnpm/npx) run **through Yukta**, never `./gradlew` directly (a hook blocks it and names the command to
+Builds, tests and lint (Gradle, Go, pnpm/npx) run **through Yukta**, never `./gradlew` directly (the `yukta-dogfood` mod blocks it and names the command to
 use). `yk` is `examples/11-dogfood/yk` (on PATH in Claude Code sessions); `yk gradle` and `yk tool` run every call as
 the `tool` Yukta workflow on the **dev server: built from `origin/main`, on `http://127.0.0.1:9858`**, started
 on demand. See the `yukta` skill.

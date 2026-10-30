@@ -1,0 +1,19 @@
+# yukta (Claude Code mod)
+
+A live view of your Yukta server inside Claude Code.
+
+- `/yukta` opens a pane: running executions (Stop) and pending approvals (Approve / Reject)
+- a status-line entry (`yukta ✓ 2 running · 1 awaiting approval`) and toasts when a run ends or waits for approval
+- a band above the prompt while an approval waits
+- the Yukta MCP server (`mcp__plugin_yukta_yukta__*` tools)
+
+## Install
+
+```
+/plugin install yukta --marketplace infenia/yukta
+```
+
+Then set the options in `/config` (Plugins): `server_url` (default `http://localhost:8080`), `api_key` (sent as `X-API-Key`),
+`headers_command` (optional, prints a JSON object of headers; wins over the key), `poll_seconds`, `show_status`.
+
+The MCP server uses `server_url` and `api_key` only. A server that needs dynamic headers is better added with your own `.mcp.json`.
