@@ -11,6 +11,11 @@ def merge(o,n):
         return out
     if isinstance(o,list) and isinstance(n,list) and len(o)==len(n):
         return [merge(a,b) for a,b in zip(o,n)]
+    if isinstance(o,list) and isinstance(n,list):
+        # An item was added or removed: take each item's key order from an equal old item, else from one with the same keys.
+        def like(b):
+            return next((a for a in o if a==b), None) or next((a for a in o if isinstance(a,dict) and isinstance(b,dict) and a.keys()==b.keys()), b)
+        return [merge(like(b),b) for b in n]
     return n
 m=merge(old,new); assert m==new
 open(sys.argv[2],'w').write(dump(m))
