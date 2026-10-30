@@ -394,7 +394,11 @@ describe('WorkflowEditorPage', () => {
       message: null,
       outputPorts: { start: ['ok', 'failure'], out: [] },
       warnings: [
-        { nodeId: 'start', field: 'failure', message: "start has no edge from its 'failure' port" },
+        {
+          nodeId: 'start',
+          field: 'failure',
+          message: "start has no edge from its 'failure' port",
+        },
       ],
     };
     const user = userEvent.setup();
@@ -403,13 +407,22 @@ describe('WorkflowEditorPage', () => {
     await user.click(screen.getByRole('button', { name: /^out/ }));
     await user.click(screen.getByRole('button', { name: 'Validate' }));
 
-    expect(await screen.findByText("start has no edge from its 'failure' port")).toBeInTheDocument();
+    expect(
+      await screen.findByText("start has no edge from its 'failure' port")
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Fix it' }));
-    expect(screen.getByRole('tab', { name: /Edges/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /Edges/ })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
     expect(screen.getByLabelText('Edge source')).toHaveValue('start');
     expect(screen.getByLabelText('Edge port')).toHaveValue('failure');
-    await waitFor(() => expect(screen.getByLabelText('Edge target')).toHaveFocus());
-    expect(screen.getByRole('region', { name: 'Node start' })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText('Edge target')).toHaveFocus()
+    );
+    expect(
+      screen.getByRole('region', { name: 'Node start' })
+    ).toBeInTheDocument();
   });
 
   it('rejects an edge that already exists and an edge from a node to itself', async () => {
