@@ -12,7 +12,18 @@ export interface RunHit {
   status: string;
   startTime: string | null;
   endTime: string | null;
+  /** How far the run got through its nodes, when the server knows. */
+  nodes?: { done: number; total: number; failed: string | null } | null;
 }
+
+/** Runs running and queued now, and runs that failed in the last 24 hours. */
+export interface RunCounts {
+  running: number;
+  queued: number;
+  failed: number;
+}
+
+export const getRunCounts = () => fetchApi<RunCounts>('/api/executions/counts');
 
 /** The most runs the server returns for one search. */
 export const MAX_RUNS = 1000;

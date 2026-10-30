@@ -35,6 +35,7 @@ export function WorkflowCanvas({
   focusOn,
   stageView,
   onConnect,
+  onNodeClick,
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
@@ -48,6 +49,8 @@ export function WorkflowCanvas({
     target: string,
     sourcePort: string | null
   ) => void;
+  /** A workflow node was clicked, with its node ID. */
+  onNodeClick?: (nodeId: string) => void;
 }) {
   const connectable = onConnect !== undefined;
   const { nodes, edges } = useMemo(() => {
@@ -90,6 +93,10 @@ export function WorkflowCanvas({
           )
         }
         elementsSelectable
+        // a stage box or frame isn't a node the logs know
+        onNodeClick={(_, node) =>
+          node.type === 'workflowNode' && onNodeClick?.(node.id)
+        }
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} />
