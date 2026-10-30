@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,7 +42,47 @@ class PayloadSizeTest {
   }
 
   @Test
-  void pathIsNotWalked() {
+  void recordComponentsAreCounted() {
+    record Body(String text, byte[] data, List<String> parts) {}
+
+    assertThat(PayloadSize.bytesIn(new Body("abc", new byte[4], List.of("xy")))).isEqualTo(9);
+  }
+
+  @Test
+  void unreadableRecordComponentCountsZero() {
+    record Broken(int value) {
+      @Override
+      public int value() {
+        throw new IllegalStateException();
+      }
+    }
+
+    assertThat(PayloadSize.bytesIn(new Broken(7))).isZero();
+  }
+
+  @Test
+  void sharedEmptyAndPathValuesCount() {
+    record Empty() {}
+
+    record Pair(String a) {}
+
+    final Pair pair = new Pair("pq");
+    final Object[] array = {"rs"};
+    final List<String> list = List.of("tuv");
+    final Map<String, Object> shared = new ConcurrentHashMap<>();
+    shared.put("k", "pq");
+    final Map<String, Object> outer = new ConcurrentHashMap<>();
+    outer.put("a", shared);
+    outer.put("b", shared);
+
+    assertThat(PayloadSize.bytesIn(new Empty())).isZero();
+    assertThat(PayloadSize.bytesIn(List.of())).isZero();
+    assertThat(PayloadSize.bytesIn(Map.of())).isZero();
+    assertThat(PayloadSize.bytesIn(List.of(pair, pair))).isEqualTo(2);
+    assertThat(PayloadSize.bytesIn(List.of(array, array))).isEqualTo(2);
+    assertThat(PayloadSize.bytesIn(List.of(list, list))).isEqualTo(3);
+    assertThat(PayloadSize.bytesIn(outer)).isEqualTo(5);
+    assertThat(PayloadSize.bytesIn(Arrays.asList(null, "rs"))).isEqualTo(2);
     assertThat(PayloadSize.bytesIn(Path.of("a", "b", "c"))).isZero();
     assertThat(PayloadSize.bytesIn(List.of(Path.of("a", "b"), "xy"))).isEqualTo(2);
   }
@@ -49,7 +90,7 @@ class PayloadSizeTest {
   @Test
   void selfContainingContainerCountsOnce() {
     final List<Object> cyclic = new ArrayList<>();
-    cyclic.add("abc");
+    cyclic.add("xyz");
     append(cyclic, cyclic);
     final Map<String, Object> map = new ConcurrentHashMap<>();
     map.put("k", map);
