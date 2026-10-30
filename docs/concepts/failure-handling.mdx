@@ -44,6 +44,8 @@ Retries, error routing and time limits are not plugin features. They are applied
 | `trigger` | Nodes with several parents | Join rule; see [Nodes, edges and ports](/concepts/nodes-edges-ports) |
 | `elementTimeoutMs`, `deadlineMs` | Processors, any node | Time limits; see [Time limits](/concepts/time-limits) |
 | `edgeBuffer` | Any node with a processor | Drop instead of slowing producers; see [Delivery and back-pressure](/concepts/delivery-and-backpressure) |
+| `stallAfterMs` | Processors and triggers | Logs one `NodeStalled` warning when a running node shows no activity for this long. It does not fail or pause the node. Off by default |
+| `concurrencyGroup` | Processors | Joins a named group; at most `yukta.concurrency.groups.<name>` of its nodes run at once, the others wait as `QUEUED` |
 | `placement` | Processors | Run on a remote worker pool; see [Remote workers](/operations/remote-workers) |
 
 A malformed policy is rejected when the workflow is validated, with the node id and the option at fault. Unknown keys are rejected, `maxBackoffMs` must be below the node timeout, `retryOn` and `noRetryOn` must not share an entry, and `deadlineMs` must be above `elementTimeoutMs`.
@@ -83,7 +85,7 @@ With `retry` or `onError` of `CONTINUE` or `ROUTE`, whatever an attempt emitted 
 | A terminal fails | The execution ends at once and the other branches are `CANCELLED` |
 | A time limit expires | The node ends `TIMED_OUT` (or the attempt fails, for the element timeout, so retry and error routing apply) |
 | A node's configuration cannot be resolved | That message fails like any plugin failure, so retry and error routing apply |
-| A budget with a hard stop is exceeded | The whole execution ends; the failure is never retried, dropped or routed |
+| A failure budget is exceeded | The node fails instead of dropping or routing the message that goes over the budget |
 
 ## Next steps
 

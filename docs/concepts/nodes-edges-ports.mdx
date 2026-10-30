@@ -47,16 +47,16 @@ A node can publish messages on a named **output port**. An edge can name the por
 
 | Edge | Receives |
 |---|---|
-| No `sourcePort` | Only messages on the `default` port |
-| `sourcePort: "*"` | Every message the source emits, **except** messages on the `error` port |
-| `sourcePort` set | Only messages the source emitted on that port |
+| No `sourcePort` | Every message the source emits, **except** messages on the `error` port |
+| `sourcePort: "*"` | The same messages as no `sourcePort`, but the child sees them on the `default` port |
+| `sourcePort` set | Only messages the source emitted on that port, which the child then sees on `default` |
 
 The ports a node offers depend on its plugin. Examples: the process plugin routes by exit code to `success` and `failure`, the HTTP plugin can route by status, the branch plugin offers one port per case, and the validate plugin sends rejected messages to `invalid`. The plugin reference lists each node's ports.
 
 The `error` port is built in. When a processor is configured with `onError: ROUTE`, a message that fails all its retries leaves on `error`, carrying the reason, so you can send it to a dead-letter node. Edges without a port never carry dead letters, so failures cannot leak into the normal path. See [Failure handling](/concepts/failure-handling).
 
 <Warning>
-  A message emitted on a port that no edge listens to is dropped. Validation rejects an edge that names a port the source plugin does not declare.
+  A message on a port that no edge listens to is dropped. An edge without a `sourcePort` listens to every port except `error`, so it catches the messages a named edge misses. Validation rejects an edge that names a port the source plugin does not declare (`error` is allowed only with `onError: ROUTE`).
 </Warning>
 
 ## Several parents: join rules

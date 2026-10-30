@@ -36,7 +36,13 @@ Four global flags apply to every command. Flags go before or after the command n
 | `--url` | `YUKTA_SERVER_URL` | `http://localhost:8080` | Base address of the server |
 | `--token` | `YUKTA_TOKEN` | none | API key, sent as `Authorization: Bearer <key>` |
 | `--timeout` | none | `30s` | Time limit for each non-streaming request. `0` disables it. Streaming commands are not limited |
+| `--token-file` | none | none | Read the API key from a file instead of the command line |
+| `--insecure-token` | `YUKTA_INSECURE_TOKEN` | `false` | Allow sending the token over plain http to a host that is not loopback. Refused otherwise |
+| `--retries` | none | `0` | Extra attempts for reads, and for starts (a key is generated for each), on network errors, `429` and `502`–`504` |
+| `--retry-wait` | none | `1s` | First pause between retries. It doubles each time, and a `Retry-After` from the server wins if it is longer |
 | `-o`, `--output` | none | `table` | `table` or `json` |
+
+Stream limits are set only with environment variables: `YUKTA_STREAM_IDLE` (a duration; `0` turns the idle check off) and `YUKTA_STREAM_RECONNECTS` (a count of reconnects).
 
 A flag overrides the environment variable. The client reads no configuration file.
 
@@ -94,6 +100,7 @@ yukta-cli session get demo
 |---|---|
 | `--payload <json>` | Inline JSON object |
 | `--payload-file <path>` | File that holds a JSON object |
+| `--idempotency-key <key>` | A repeated start with the same key, session and workflow returns the first execution id instead of a second run. Use it when a start may be retried |
 
 The two flags cannot be combined, and the payload must be a JSON object.
 

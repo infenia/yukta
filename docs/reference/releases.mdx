@@ -11,6 +11,20 @@ keywords: ["releases", "changelog", "versions", "verify download"]
 
 ## Release history
 
+<Update label="0.1.0-alpha.3" description="2026-10-30">
+  **Second public alpha.** Breaking changes to the workflow JSON, the REST API, the MCP tools and the plugin contract are still possible before 1.0.
+
+  - Stop an execution with a mode: `DRAIN`, `CANCEL` or `KILL` (REST, MCP).
+  - Delete a session or a workflow (REST, MCP, CLI), read the execution limits, and read part of a node's output.
+  - `WEBHOOK_TRIGGER` and signed `POST /hooks/{sessionId}/{path}`.
+  - Optional OTLP trace and metric export, off by default.
+  - Per-key request limit on `/mcp`, and a `GET /api/me` endpoint.
+  - The MCP tools work on the native server again ([#773](https://github.com/infenia/yukta/issues/773)).
+  - Known limitations: no native server for ARM, macOS or Windows yet (use Docker Desktop or WSL 2).
+
+  [Full release notes](https://github.com/infenia/yukta/releases/tag/v0.1.0-alpha.3) · [Changelog](https://github.com/infenia/yukta/blob/main/CHANGELOG.md)
+</Update>
+
 <Update label="0.1.0-alpha.2" description="2026-10-21">
   **First public alpha.** Expect breaking changes to the workflow JSON, the REST API, the MCP tools and the plugin contract before 1.0.
 
@@ -33,7 +47,7 @@ Yukta follows [Semantic Versioning 2.0.0](https://semver.org). A version looks l
 
 ## What a release contains
 
-Current release: **`0.1.0-alpha.2`**.
+Current release: **`0.1.0-alpha.3`**.
 
 | File | What it is |
 |---|---|
@@ -57,7 +71,7 @@ Current release: **`0.1.0-alpha.2`**.
 
 | Tag | Moves? | Meaning |
 |---|---|---|
-| `0.1.0-alpha.2` | Never | Exactly this release. Use it for repeatable deployments |
+| `0.1.0-alpha.3` | Never | Exactly this release. Use it for repeatable deployments |
 | `0.1`, `latest` | On each stable release | Only stable releases (no pre-release label) move these. Until the first stable release they do not exist |
 
 ## Verify a download

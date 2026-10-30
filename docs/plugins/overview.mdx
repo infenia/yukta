@@ -9,19 +9,19 @@ keywords: ["plugins", "triggers", "processors", "terminals"]
   **In plain terms:** plugins are the building blocks you drop into a flowchart. Each box in a workflow is one plugin with its own settings: a *trigger* to start the job, *processors* to do the work (call a web service, reshape data, make a choice, ask an AI model) and *terminals* to finish a path. Skim the tables to see what exists; each group has its own page with every option.
 </Info>
 
-A plugin is the implementation behind a node `type`. Yukta ships 35 of them in three roles: **triggers** start a workflow, **processors** transform, route and call out, and **terminals** end a branch.
+A plugin is the implementation behind a node `type`. Yukta ships 37 of them in three roles: **triggers** start a workflow, **processors** transform, route and call out, and **terminals** end a branch.
 
 AI has first-class support: the AI plugins (`LLM_CALL`, `MCP_LIST_TOOLS`, `MCP_TOOL_CALL`, `SESSION_MEMORY`) build agents, and the decision plugins use fast System One decision models (or an LLM) to classify, gate and score. See [AI and agents](/building/ai-and-agents).
 
 This page lists every type at a glance. Each group has its own page with every option, the output ports and a JSON example.
 
 <Note>
-  The plugin set and the options of each plugin are in alpha (`0.1.0-alpha.2`) and may change before v0.1.0.
+  The plugin set and the options of each plugin are in alpha (`0.1.0-alpha.3`) and may change before v0.1.0.
 </Note>
 
 ## Type strings
 
-Use a type string exactly as written below. Lookup is exact and case-sensitive, so `branch` and `Branch` are not found. Every type is upper case with underscores. Before this release the content filter was written `CONTENT-FILTER`; that id is no longer found, so change it in stored workflows.
+Use a type string exactly as written below. Lookup is exact and case-sensitive, so `branch` and `Branch` are not found. Every type is upper case with underscores. The content filter was renamed from `CONTENT-FILTER` to `CONTENT_FILTER`; the old id is no longer found, so change it in stored workflows.
 
 ## Triggers
 

@@ -17,11 +17,11 @@ You create or replace a session by sending its whole configuration in one reques
 
 | Field | Required | Meaning |
 |---|---|---|
-| `sessionId` | yes | Identifier used in every later call. Up to 256 characters; must not contain `/`, `\` or `..` |
+| `sessionId` | yes | Identifier used in every later call. Must not contain `/`, `\` or `..` |
 | `name` | yes | Human-readable name, up to 256 characters |
-| `description` | yes | Human-readable description, up to 256 characters |
-| `initiator` | yes | Who or what created the session, for example a user name or `AI Agent` |
-| `projectPath` | no | Absolute path on the server that the session works in |
+| `description` | no | Human-readable description, up to 256 characters |
+| `initiator` | no | Who or what created the session, for example a user name or `AI Agent` |
+| `projectPath` | no | Absolute path on the server that the session works in, up to 1024 characters |
 | `tags` | no | Free-form string key-value labels for filtering |
 | `workflows` | yes | Map of workflow definitions, keyed by `workflowId`; at least one |
 
@@ -37,7 +37,7 @@ Before any plugin runs, a definition is validated: it must be acyclic, ids must 
 
 ## Versions
 
-Each workflow keeps its newest 20 versions. You can diff two versions, annotate a version with a note and roll back to an earlier one. Each execution records a content hash of the graph it ran, so progress, history and the log always say which definition produced them. To run a specific saved version instead of the current one, pass the version in the start payload.
+Each workflow keeps its newest 20 versions. You can diff two versions, annotate a version with a note and roll back to an earlier one. Each execution records a content hash of the graph it ran, so progress, history and the log always say which definition produced them. To run a saved version without changing the current one, put `yukta.version` in the start payload. See [Validation and versions](/building/validation-and-versions).
 
 ## Addressing
 
@@ -50,7 +50,7 @@ Each workflow keeps its newest 20 versions. You can diff two versions, annotate 
 
 ## Where sessions are kept
 
-By default sessions, definitions and versions live in memory and are lost on restart. Keep them on disk (`yukta.session.store-type=file`) or in PostgreSQL with the Plus edition. See [Persistence](/operations/persistence) and [Licensing and editions](/reference/licensing).
+By default sessions, definitions and versions live in memory and are lost on restart. Keep them on disk (`yukta.session.store-type=file`) or in PostgreSQL. Both need the Plus edition. See [Persistence](/operations/persistence) and [Licensing and editions](/reference/licensing).
 
 ## Next steps
 

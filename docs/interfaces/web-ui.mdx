@@ -130,7 +130,7 @@ The toggle in the top bar cycles through light, dark and system. System follows 
 
 ## Authentication
 
-The web UI does not send an API key. It works against a server that has no key configured, which is the default on loopback. On a server that requires a key, the UI's requests are answered with `401` and its pages show load errors. For such a server use the [command-line client](/interfaces/cli), the [REST API](/api/overview) or the [MCP server](/interfaces/mcp), which all accept a key. See [Security](/operations/security).
+On a server with no key configured, which is the default on loopback, the UI works without asking for anything. When the server answers `401` or `403`, the UI asks for the API key once and sends it as `Authorization: Bearer <key>`. The key stays in that browser tab only and is gone when the tab closes. See [Security](/operations/security).
 
 ## Next steps
 

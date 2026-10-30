@@ -17,7 +17,7 @@ It is small, but it is the same thing Yukta does for a CI pipeline or a team of 
 You need a terminal and `curl`.
 
 <Note>
-  Yukta `0.1.0-alpha.2` ships a native server for Linux (amd64), a Docker image, and the command-line client for Linux, macOS and Windows. Native installers for macOS and Windows are coming soon; until then, run the server there with Docker. See [Releases](/reference/releases).
+  Yukta `0.1.0-alpha.3` ships a native server for Linux (amd64), a Docker image, and the command-line client for Linux, macOS and Windows. Native installers for macOS and Windows are coming soon; until then, run the server there with Docker. See [Releases](/reference/releases).
 </Note>
 
 <Steps titleSize="h2">
@@ -25,7 +25,7 @@ You need a terminal and `curl`.
     <Tabs>
       <Tab title="Linux" icon="terminal">
         ```bash
-        curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.2/install.sh | sh
+        curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh
         yukta
         ```
 
@@ -35,10 +35,10 @@ You need a terminal and `curl`.
         ```bash
         docker run --rm -p 127.0.0.1:8080:8080 \
           -e YUKTA_API_KEY=change-me \
-          ghcr.io/infenia/yukta:0.1.0-alpha.2
+          ghcr.io/infenia/yukta:0.1.0-alpha.3
         ```
 
-        A container needs an API key. Add `-H "X-API-Key: change-me"` to every `curl` below. The web UI does not send a key yet, so use `curl`, the CLI or MCP with this setup.
+        A container needs an API key. Add `-H "X-API-Key: change-me"` to every `curl` below. The web UI asks for the same key on first use.
       </Tab>
     </Tabs>
 
