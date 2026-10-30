@@ -57,55 +57,56 @@ export default function AppHeader() {
         data-testid="brand-line"
         className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-[linear-gradient(90deg,var(--primary)_0_94%,var(--attention)_94%_100%)]"
       />
-      {/* Top row: Logo + page actions + Theme Toggle */}
-      <div className="px-spacing-md flex h-12 w-full items-center justify-between pr-2 sm:px-6">
+      {/* As on the artboards: logo, sections; then search, account, theme */}
+      <div className="px-spacing-md flex h-13 w-full items-center pr-2 sm:px-6">
         <HeaderLogo />
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={openCommandPalette}
-            aria-keyshortcuts="Meta+K Control+K"
-            aria-label="Search and jump to (⌘K)"
-            className="bg-muted text-muted-foreground hover:text-foreground transition-standard text-body-md mr-2 flex h-8 items-center gap-2 rounded-full px-2.5 lg:w-64 lg:pr-2"
-          >
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-lg"
-            >
-              search
-            </span>
-            <span className="hidden flex-1 text-left lg:inline">Jump to…</span>
-            <kbd className="border-border bg-card hidden rounded border px-1.5 font-mono text-[11px] lg:inline">
-              ⌘K
-            </kbd>
-          </button>
-          <nav
-            aria-label="Primary"
-            className="mr-1 hidden items-center gap-1 sm:flex"
-          >
-            {NAV.map(({ to, section, label, icon }) => {
-              const active = isCurrent(pathname, to, section);
-              return (
-                <Link
-                  key={to}
-                  to={to}
-                  aria-current={active ? 'page' : undefined}
-                  className={`transition-standard text-body-md flex items-center gap-1.5 rounded-lg px-2 py-1.5 no-underline sm:px-2.5 ${active ? 'bg-accent text-accent-foreground font-semibold' : 'text-muted-foreground hover:bg-muted hover:text-foreground font-medium'}`}
+        <nav
+          aria-label="Primary"
+          className="ml-4 hidden items-center gap-0.5 sm:flex"
+        >
+          {NAV.map(({ to, section, label, icon }) => {
+            const active = isCurrent(pathname, to, section);
+            return (
+              <Link
+                key={to}
+                to={to}
+                aria-current={active ? 'page' : undefined}
+                className={`transition-standard text-body-md flex items-center gap-1.5 rounded-lg px-2 py-1.5 no-underline sm:px-2.5 ${active ? 'bg-accent text-accent-foreground font-semibold' : 'text-muted-foreground hover:bg-muted hover:text-foreground font-medium'}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
                 >
-                  <span
-                    aria-hidden="true"
-                    className="material-symbols-outlined text-base"
-                  >
-                    {icon}
-                  </span>
-                  {label}
-                </Link>
-              );
-            })}
-          </nav>
-          <IdentityChip />
-          <ThemeToggle />
-        </div>
+                  {icon}
+                </span>
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="flex-1" />
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          aria-keyshortcuts="Meta+K Control+K"
+          aria-label="Search and jump to (⌘K)"
+          className="bg-muted text-muted-foreground hover:text-foreground transition-standard text-body-md mr-2 flex h-8 items-center gap-2 rounded-full px-2.5 lg:w-75 lg:pr-2"
+        >
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-lg"
+          >
+            search
+          </span>
+          <span className="hidden flex-1 truncate text-left lg:inline">
+            Jump to a session, workflow or run…
+          </span>
+          <kbd className="border-border bg-card hidden rounded border px-1.5 font-mono text-[11px] lg:inline">
+            ⌘K
+          </kbd>
+        </button>
+        <IdentityChip />
+        <ThemeToggle />
       </div>
     </header>
   );

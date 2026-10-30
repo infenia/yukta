@@ -116,11 +116,23 @@ describe('AppHeader', () => {
     expect(children?.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('should render top row with logo and theme toggle', () => {
-    const { container } = renderWithRouter(<AppHeader />);
-    const topRow = container.querySelector('.flex.h-12');
-    expect(topRow).toBeInTheDocument();
-    expect(topRow).toHaveClass('justify-between');
+  it('puts the sections beside the logo, then search, then the theme toggle', () => {
+    renderWithRouter(<AppHeader />);
+    const order = [
+      screen.getByRole('link', { name: /Yukta/ }),
+      screen.getByRole('navigation', { name: 'Primary' }),
+      screen.getByRole('button', { name: 'Search and jump to (⌘K)' }),
+      screen.getByRole('button', { name: /theme/i }),
+    ];
+    for (let i = 1; i < order.length; i += 1) {
+      expect(
+        order[i - 1].compareDocumentPosition(order[i]) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    }
+    expect(
+      screen.getByText('Jump to a session, workflow or run…')
+    ).toBeInTheDocument();
   });
 
   it('should apply correct spacing classes', () => {
