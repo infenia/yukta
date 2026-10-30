@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import type { ExecutionSummary } from '@/features/workflow/types/workflow';
+
 export interface SessionListItem {
   sessionId: string;
   name: string;
@@ -9,6 +11,8 @@ export interface SessionListItem {
   tags: string[];
   projectPath: string;
   workflowCount: number;
+  /** The session's newest run; absent when it never ran. */
+  lastRun?: ExecutionSummary | null;
 }
 
 export interface SessionDetails {

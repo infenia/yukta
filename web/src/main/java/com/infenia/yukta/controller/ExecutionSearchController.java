@@ -7,11 +7,14 @@ import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -49,6 +52,7 @@ public class ExecutionSearchController {
    * @param status the status
    * @param startTime when it started, if it did
    * @param endTime when it ended, if it did
+   * @param nodes how far it got through its nodes, if known
    */
   public record Hit(
       String sessionId,
@@ -56,7 +60,17 @@ public class ExecutionSearchController {
       String workflowId,
       String status,
       LocalDateTime startTime,
-      LocalDateTime endTime) {}
+      LocalDateTime endTime,
+      @Schema(nullable = true) WorkflowExecutionSummary.@Nullable Nodes nodes) {}
+
+  /**
+   * How many runs are in each state that needs attention.
+   *
+   * @param running runs running now
+   * @param queued runs waiting for an execution slot
+   * @param failed runs with status FAILURE that started in the window
+   */
+  public record Counts(int running, int queued, int failed) {}
 
   /**
    * Find runs across all sessions, newest first.
@@ -96,6 +110,46 @@ public class ExecutionSearchController {
         .map(hits -> ApiResponse.success(200, "Executions found", hits));
   }
 
+  /**
+   * Count the runs of every session that are running or queued, and that failed recently.
+   *
+   * @param hours how far back a failure counts (default 24)
+   * @return the counts
+   */
+  @GetMapping("/executions/counts")
+  @Operation(
+      summary = "Count runs that need attention",
+      description =
+          "Across all sessions: runs RUNNING and QUEUED now, and runs with status FAILURE that"
+              + " started in the last `hours` (default 24)."
+              + " The history of each session is bounded by yukta.execution-log.retained-runs.")
+  public Mono<ApiResponse<Counts>> counts(@RequestParam(defaultValue = "24") final int hours) {
+    final LocalDateTime since = LocalDateTime.now().minusHours(Math.max(hours, 0));
+    return sessions
+        .getSessionIds()
+        .concatMap(id -> controlBus.getHistory(id).flatMapIterable(history -> history))
+        .collectList()
+        .map(
+            runs ->
+                ApiResponse.success(
+                    200,
+                    "Executions counted",
+                    new Counts(
+                        count(runs, run -> "RUNNING".equals(run.status())),
+                        count(runs, run -> "QUEUED".equals(run.status())),
+                        count(
+                            runs,
+                            run ->
+                                "FAILURE".equals(run.status())
+                                    && run.startTime() != null
+                                    && !run.startTime().isBefore(since)))));
+  }
+
+  private static int count(
+      final List<WorkflowExecutionSummary> runs, final Predicate<WorkflowExecutionSummary> test) {
+    return (int) runs.stream().filter(test).count();
+  }
+
   private static Hit hit(final String sessionId, final WorkflowExecutionSummary run) {
     return new Hit(
         sessionId,
@@ -103,6 +157,7 @@ public class ExecutionSearchController {
         run.workflowId(),
         run.status(),
         run.startTime(),
-        run.endTime());
+        run.endTime(),
+        run.nodes());
   }
 }

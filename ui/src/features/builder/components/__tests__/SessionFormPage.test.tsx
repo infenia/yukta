@@ -2,12 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
-import { SessionFormPage, starterSession } from '../SessionFormPage';
+import { SessionFormPage, slugify, starterSession } from '../SessionFormPage';
 
 const posted: unknown[] = [];
 let failure: Response | null = null;
@@ -37,7 +37,7 @@ async function fillAndSubmit() {
   await user.type(screen.getByLabelText('Name'), 'My session');
   await user.type(screen.getByLabelText('Description'), 'desc');
   await user.type(screen.getByLabelText('Project path'), '/work');
-  await user.click(screen.getByRole('button', { name: 'Create' }));
+  await user.click(screen.getByRole('button', { name: 'Create session' }));
 }
 
 describe('starterSession', () => {
@@ -85,12 +85,73 @@ describe('SessionFormPage', () => {
     ) as unknown as Response;
     await fillAndSubmit();
     expect(await screen.findByRole('alert')).toHaveTextContent('projectPath: must be absolute');
-    expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Create session' })).toBeEnabled();
   });
 
   it('shows the message of any other failure', async () => {
     failure = HttpResponse.json({ message: 'Storage down' }, { status: 500 }) as unknown as Response;
     await fillAndSubmit();
     expect(await screen.findByRole('alert')).toHaveTextContent('Storage down');
+  });
+});
+
+describe('slugify', () => {
+  it('lower-cases and joins every run of other characters with one dash', () => {
+    expect(slugify('  Payments service / v2! ')).toBe('payments-service-v2');
+    expect(slugify('***')).toBe('');
+  });
+});
+
+describe('SessionFormPage, new', () => {
+  it('makes the session ID from the name until the ID is edited', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SessionFormPage />);
+    await user.type(screen.getByLabelText('Name'), 'Payments service');
+    expect(screen.getByLabelText('Session ID')).toHaveValue('payments-service');
+
+    await user.type(screen.getByLabelText('Session ID'), '-x');
+    await user.type(screen.getByLabelText('Name'), ' 2');
+    expect(screen.getByLabelText('Session ID')).toHaveValue(
+      'payments-service-x'
+    );
+  });
+
+  it('shows the same session as an MCP call, curl and the CLI, as you type', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SessionFormPage />);
+    await user.type(screen.getByLabelText('Name'), 'Pay');
+    const panel = screen.getByRole('region', { name: 'Same thing, scripted' });
+    const code = () =>
+      within(panel).getByText((_, node) => node?.tagName === 'PRE')
+        .textContent ?? '';
+    const mcp = JSON.parse(code());
+    expect(mcp.name).toBe('create_session');
+    expect(mcp.arguments.config).toMatchObject({
+      sessionId: 'pay',
+      name: 'Pay',
+      initiator: 'ui',
+      tags: {},
+    });
+    expect(mcp.arguments.config.workflows.main.workflowId).toBe('main');
+
+    await user.click(within(panel).getByRole('tab', { name: 'curl' }));
+    expect(code()).toMatch(
+      /^curl -X POST http:\/\/localhost:\d+\/api\/sessions /
+    );
+    await user.click(within(panel).getByRole('tab', { name: 'CLI' }));
+    expect(code()).toMatch(/^yukta-cli session apply '\{"sessionId":"pay"/);
+  });
+
+  it('links to the JSON import, and Cancel goes home without saving', async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, '', '/sessions/new');
+    renderWithProviders(<SessionFormPage />);
+    expect(screen.getByRole('link', { name: 'Import JSON' })).toHaveAttribute(
+      'href',
+      '/sessions/import'
+    );
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(window.location.pathname).toBe('/');
+    expect(posted).toEqual([]);
   });
 });

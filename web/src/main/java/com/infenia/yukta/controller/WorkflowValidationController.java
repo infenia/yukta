@@ -70,7 +70,9 @@ public class WorkflowValidationController {
     return workflowValidator
         .validate(definition)
         .thenReturn(new WorkflowValidationResult(true, null, ports))
+        // only the validator's own verdict is a result; anything else is for the central handler
         .onErrorResume(
+            IllegalArgumentException.class,
             e ->
                 Mono.just(
                     new WorkflowValidationResult(

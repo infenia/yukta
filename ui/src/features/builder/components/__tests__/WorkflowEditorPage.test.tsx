@@ -388,6 +388,30 @@ describe('WorkflowEditorPage', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 
+  it('marks unsaved changes, warns before leaving, and Discard goes back to the loaded draft', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    const box = await screen.findByLabelText('Configuration (JSON)');
+    expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Description'), ' more');
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    const leaving = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(leaving);
+    expect(leaving.defaultPrevented).toBe(true);
+
+    await user.click(box);
+    await user.paste('{"k"');
+    await user.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Description')).toHaveValue('first');
+    expect(screen.getByLabelText('Configuration (JSON)')).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    const after = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(after);
+    expect(after.defaultPrevented).toBe(false);
+  });
+
   it('rejects an edge that already exists and an edge from a node to itself', async () => {
     const user = userEvent.setup();
     renderEditor();

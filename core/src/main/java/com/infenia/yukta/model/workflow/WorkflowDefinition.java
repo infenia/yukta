@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Defines a Directed Acyclic Graph (DAG) of plugins for execution.
@@ -47,6 +48,7 @@ public record WorkflowDefinition(
    * @param nodeId unique identifier for the node
    * @param type the type of plugin to use
    * @param config configuration for the plugin
+   * @param group the stage the node belongs to, for display only; null when undeclared
    */
   @Schema(description = "A single node in the workflow DAG")
   public record Node(
@@ -58,10 +60,27 @@ public record WorkflowDefinition(
           @NotNull(message = "Plugin type cannot be null")
           @NotBlank(message = "Plugin type cannot be blank")
           String type,
-      @Schema(description = "Plugin configuration") Map<String, Object> config) {
+      @Schema(description = "Plugin configuration") Map<String, Object> config,
+      @Schema(
+              description =
+                  "The stage the node belongs to, for display only: the UI groups nodes of one"
+                      + " stage. Without it, nodes group by node-ID prefix (before the first dot)",
+              nullable = true)
+          @Nullable String group) {
     /** Compact constructor. */
     public Node {
       config = config != null ? Map.copyOf(config) : Map.of();
+    }
+
+    /**
+     * A node in no declared group.
+     *
+     * @param nodeId unique identifier for the node
+     * @param type the type of plugin to use
+     * @param config configuration for the plugin
+     */
+    public Node(final String nodeId, final String type, final Map<String, Object> config) {
+      this(nodeId, type, config, null);
     }
   }
 

@@ -14,6 +14,7 @@ import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
+import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionControl;
@@ -187,8 +188,8 @@ class RestartCommandProcessorTest {
     final var first = processor.process(new RestartCommand("exec-1", "new-1"));
     final var second = processor.process(new RestartCommand("exec-1", "new-2"));
 
-    StepVerifier.create(second).verifyError(IllegalStateException.class);
-    verify(completionSink).completeRestartFailure(eq("new-2"), any(IllegalStateException.class));
+    StepVerifier.create(second).verifyError(ConflictException.class);
+    verify(completionSink).completeRestartFailure(eq("new-2"), any(ConflictException.class));
     StepVerifier.create(first).verifyComplete();
     verify(completionSink).completeRestartSuccess("new-1");
   }

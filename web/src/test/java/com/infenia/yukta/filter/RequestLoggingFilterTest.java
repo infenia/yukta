@@ -7,13 +7,20 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.RequestPath;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
@@ -164,5 +171,44 @@ class RequestLoggingFilterTest {
     StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
     verify(chain).filter(exchange);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {200, 400, 401, 403, 404, 429})
+  void testFilterCompletesWithAnyStatusAndAnyRemoteAddress(final int status)
+      throws UnknownHostException {
+    for (final InetSocketAddress remote :
+        new InetSocketAddress[] {
+          null,
+          InetSocketAddress.createUnresolved("unresolved.example", 1),
+          new InetSocketAddress(InetAddress.getByAddress(new byte[] {10, 0, 0, 1}), 1)
+        }) {
+      final MockServerWebExchange exchange =
+          MockServerWebExchange.from(
+              MockServerHttpRequest.get("/api/x").remoteAddress(remote).build());
+      final WebFilterChain chain =
+          e -> {
+            e.getResponse().setRawStatusCode(status);
+            return Mono.empty();
+          };
+
+      StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+    }
+  }
+
+  @Test
+  void testRunsInsideTracingAndOutsideTheRejectingFilters() {
+    final int tracing = order(RequestTracingFilter.class);
+    final int logging = order(RequestLoggingFilter.class);
+    assertThat(tracing).isLessThan(logging);
+    assertThat(logging).isLessThan(order(HostOriginFilter.class));
+    assertThat(logging).isLessThan(order(ApiKeyFilter.class));
+  }
+
+  private static int order(final Class<?> type) {
+    return java.util.Objects.requireNonNull(
+            org.springframework.core.annotation.AnnotationUtils.findAnnotation(
+                type, org.springframework.core.annotation.Order.class))
+        .value();
   }
 }
