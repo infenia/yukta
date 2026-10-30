@@ -3513,16 +3513,15 @@
           },
           "description" : {
             "type" : "string",
-            "description" : "A human-readable description of the session",
+            "description" : "A human-readable description of the session (optional; defaults to the name)",
             "example" : "Daily build and quality check",
             "maxLength" : 256,
             "minLength" : 0
           },
           "initiator" : {
             "type" : "string",
-            "description" : "The name of the initiator (user or system)",
-            "example" : "AI Agent",
-            "minLength" : 1
+            "description" : "The name of the initiator (user or system); optional, defaults to anonymous",
+            "example" : "AI Agent"
           },
           "tags" : {
             "type" : "object",
@@ -3537,7 +3536,7 @@
           },
           "projectPath" : {
             "type" : "string",
-            "description" : "The absolute root path of the project on the server's filesystem",
+            "description" : "The absolute root path of the project on the server's filesystem; optional, defaults to the current directory",
             "example" : "/home/user/workspace/project-alpha",
             "maxLength" : 1024,
             "minLength" : 0
@@ -3551,7 +3550,7 @@
             "minProperties" : 1
           }
         },
-        "required" : [ "description", "initiator", "name", "projectPath", "sessionId", "workflows" ]
+        "required" : [ "name", "sessionId", "workflows" ]
       },
       "EdgeRequest" : {
         "type" : "object",
@@ -3607,7 +3606,7 @@
           },
           "description" : {
             "type" : "string",
-            "description" : "A human-readable description of the workflow",
+            "description" : "A human-readable description of the workflow (optional; defaults to the workflow ID)",
             "example" : "Quality check",
             "maxLength" : 256,
             "minLength" : 0
@@ -3628,7 +3627,7 @@
             }
           }
         },
-        "required" : [ "description", "edges", "nodes", "workflowId" ]
+        "required" : [ "edges", "nodes", "workflowId" ]
       },
       "ApiResponseVoid" : {
         "type" : "object",

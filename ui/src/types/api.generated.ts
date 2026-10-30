@@ -1688,15 +1688,15 @@ export interface components {
              */
             name: string;
             /**
-             * @description A human-readable description of the session
+             * @description A human-readable description of the session (optional; defaults to the name)
              * @example Daily build and quality check
              */
-            description: string;
+            description?: string;
             /**
-             * @description The name of the initiator (user or system)
+             * @description The name of the initiator (user or system); optional, defaults to anonymous
              * @example AI Agent
              */
-            initiator: string;
+            initiator?: string;
             /**
              * @description Metadata tags for categorization and filtering
              * @example {
@@ -1708,10 +1708,10 @@ export interface components {
                 [key: string]: string;
             };
             /**
-             * @description The absolute root path of the project on the server's filesystem
+             * @description The absolute root path of the project on the server's filesystem; optional, defaults to the current directory
              * @example /home/user/workspace/project-alpha
              */
-            projectPath: string;
+            projectPath?: string;
             /** @description A map of workflow definition requests keyed by workflow ID */
             workflows: {
                 [key: string]: components["schemas"]["WorkflowDefinitionRequest"];
@@ -1742,10 +1742,10 @@ export interface components {
             /** @description Unique workflow identifier */
             workflowId: string;
             /**
-             * @description A human-readable description of the workflow
+             * @description A human-readable description of the workflow (optional; defaults to the workflow ID)
              * @example Quality check
              */
-            description: string;
+            description?: string;
             /** @description Nodes in the workflow */
             nodes: components["schemas"]["NodeRequest"][];
             /** @description Edges connecting the nodes */

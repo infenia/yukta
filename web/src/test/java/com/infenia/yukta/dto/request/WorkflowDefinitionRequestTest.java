@@ -293,18 +293,15 @@ class WorkflowDefinitionRequestTest {
   }
 
   @Test
-  void validation_blankDescription_fails() {
-    // Given
+  void blankDescriptionDefaultsToTheWorkflowId() {
     final WorkflowDefinitionRequest request =
         new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, "", validNodes, validEdges);
 
-    // When
-    final Set<ConstraintViolation<WorkflowDefinitionRequest>> violations =
-        validator.validate(request);
-
-    // Then
-    assertThat(violations).isNotEmpty();
-    assertThat(violations).anyMatch(v -> v.getMessage().contains("description"));
+    assertThat(request.description()).isEqualTo(WORKFLOW_ID_WF1);
+    assertThat(validator.validate(request)).isEmpty();
+    assertThat(new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, null, validNodes, validEdges))
+        .extracting(WorkflowDefinitionRequest::description)
+        .isEqualTo(WORKFLOW_ID_WF1);
   }
 
   @Test
