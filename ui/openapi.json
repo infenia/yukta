@@ -1977,12 +1977,20 @@
       "get" : {
         "tags" : [ "Execution API" ],
         "summary" : "Get workflow execution status",
-        "description" : "Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)",
+        "description" : "Pass sessionId to read a run older than the execution index from its session's history. Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)",
         "operationId" : "getWorkflowStatus",
         "parameters" : [ {
-          "name" : "executionId",
-          "in" : "path",
+          "description" : "Session ID, to read from the session's history",
+          "in" : "query",
+          "name" : "sessionId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "description" : "Execution ID",
+          "in" : "path",
+          "name" : "executionId",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -2006,20 +2014,28 @@
       "get" : {
         "tags" : [ "Execution API" ],
         "summary" : "Get workflow execution status",
-        "description" : "Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)",
+        "description" : "Pass sessionId to read a run older than the execution index from its session's history. Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)",
         "operationId" : "getWorkflowStatus_1",
         "parameters" : [ {
-          "name" : "sessionId",
-          "in" : "path",
           "description" : "Session ID",
+          "in" : "path",
+          "name" : "sessionId",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "name" : "executionId",
-          "in" : "path",
+          "description" : "Session ID, to read from the session's history",
+          "in" : "query",
+          "name" : "sessionId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "description" : "Execution ID",
+          "in" : "path",
+          "name" : "executionId",
           "required" : true,
           "schema" : {
             "type" : "string"
