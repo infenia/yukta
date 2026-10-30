@@ -17,7 +17,7 @@ import java.util.Optional;
  * from zero.
  */
 @SuppressFBWarnings(
-    value = {"SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", "MS_EXPOSE_REP"},
+    value = "MS_EXPOSE_REP",
     justification = "shared() is a convenience; tests and plugins may still own an instance")
 public final class RunBudgets {
 
