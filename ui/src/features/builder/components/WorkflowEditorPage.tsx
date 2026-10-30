@@ -549,7 +549,9 @@ function Editor({
                     setEdge({ ...edge, sourcePort: event.target.value || null })
                   }
                 >
-                  <option value="">all ports</option>
+                  {/* no port is the "default" port; "*" takes every port but "error" */}
+                  <option value="">no port (default)</option>
+                  <option value="*">all ports</option>
                   {(ports[edge.source] ?? []).map((port) => (
                     <option key={port}>{port}</option>
                   ))}
