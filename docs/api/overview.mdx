@@ -176,7 +176,7 @@ Execution endpoints exist at two paths. The `/api/executions/{executionId}/...` 
 | `POST /api/executions/{executionId}/pause` and `/resume` and `/recover` | `POST /api/workflow/{sessionId}/{executionId}/pause`, `/resume`, `/recover` |
 | `POST /api/executions/{executionId}/nodes/{nodeId}/pause`, `/resume`, `/stop`, `/skip`, `/step`, `/step/enable`, `/step/disable` | `POST /api/workflow/{sessionId}/{executionId}/node/{nodeId}/...` |
 
-Retry, breakpoint, signal and priority exist only at the current path. The execution index behind `/api/executions/{executionId}` keeps a finished run for `yukta.tracker.cleanup-ttl` (default `10m`). To read an older run from the session history, use the status alias that names the session.
+Retry, breakpoint, signal and priority exist only at the current path. The execution index behind `/api/executions/{executionId}` keeps a finished run for `yukta.tracker.cleanup-ttl` (default `10m`). To read an older run from the session history, add the session: `GET /api/executions/{executionId}?sessionId={sessionId}`. That form also checks that the run belongs to the session.
 
 ## Next steps
 

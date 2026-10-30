@@ -198,6 +198,14 @@ class ExecutionControllerTest {
   }
 
   @Test
+  void statusWithSessionQueryChecksOwnership() {
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", "COMPLETED"));
+
+    client.get().uri("/api/executions/e1?sessionId=s1").exchange().expectStatus().isOk();
+    client.get().uri("/api/executions/e1?sessionId=other").exchange().expectStatus().isNotFound();
+  }
+
+  @Test
   void testStatusStreamCarriesEventIdsAndRejectsForeignSession() {
     when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", "RUNNING"));
     when(controlBus.watchExecution("e1", true))

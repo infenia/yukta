@@ -104,7 +104,7 @@ Returns a snapshot of the run: its status and a status for every node.
 | `rootExecutionId` | string | The top of this run's tree of runs: the run itself when it has no parent |
 | `restartOf` | string | The run this one restarts (a restart from a node is a new run), or `null`. Runs in the session history carry the same three fields |
 
-`GET /api/executions/{executionId}` resolves a run from the execution index, which keeps a finished run for 10 minutes (`yukta.tracker.cleanup-ttl`). To read an older run that is still in its session's history, use the deprecated alias `GET /api/workflow/{sessionId}/status/{executionId}`.
+`GET /api/executions/{executionId}` resolves a run from the execution index, which keeps a finished run for 10 minutes (`yukta.tracker.cleanup-ttl`). To read an older run that is still in its session's history, add the session: `GET /api/executions/{executionId}?sessionId={sessionId}`, which also checks that the run belongs to that session.
 
 ```http
 GET /api/executions/550e8400-e29b-41d4-a716-446655440000

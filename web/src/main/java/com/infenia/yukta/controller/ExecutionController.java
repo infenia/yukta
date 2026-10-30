@@ -149,18 +149,26 @@ public class ExecutionController {
    * Get an execution's progress.
    *
    * @param sessionId the owning session (legacy path only)
+   * @param session the owning session as a query parameter: reads a run from the session's history
+   *     once the execution index has dropped it, and checks that the run belongs to the session
    * @param executionId the execution
    * @return the progress snapshot
    */
   @GetMapping({"/executions/{executionId}", "/workflow/{sessionId}/status/{executionId}"})
   @Operation(
       summary = "Get workflow execution status",
-      description = "Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)")
+      description =
+          "Pass sessionId to read a run older than the execution index from its session's"
+              + " history. Legacy path: /api/workflow/{sessionId}/status/{executionId}"
+              + " (deprecated)")
   public Mono<ApiResponse<WorkflowProgress>> getWorkflowStatus(
       @Parameter(description = "Session ID") @PathVariable(required = false) final String sessionId,
+      @Parameter(description = "Session ID, to read from the session's history")
+          @RequestParam(name = "sessionId", required = false)
+          final String session,
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId) {
     return access
-        .require(sessionId, executionId)
+        .require(sessionId == null ? session : sessionId, executionId)
         .map(
             progress ->
                 ApiResponse.success(200, "Workflow status retrieved successfully", progress));
