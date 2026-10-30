@@ -122,7 +122,7 @@ describe('AppHeader', () => {
       screen.getByRole('link', { name: /Yukta/ }),
       screen.getByRole('navigation', { name: 'Primary' }),
       screen.getByRole('button', { name: 'Search and jump to (⌘K)' }),
-      screen.getByRole('button', { name: /theme/i }),
+      screen.getByRole('button', { name: 'Toggle theme' }),
     ];
     for (let i = 1; i < order.length; i += 1) {
       expect(

@@ -14,7 +14,6 @@ import { InlineError } from '@/components/common/InlineError';
 import { StateMessage } from '@/components/common/StateMessage';
 import {
   TagEditor,
-  tagsError,
   toRows,
   toTags,
   type TagRow,
@@ -184,11 +183,6 @@ function SessionForm({ loaded }: { loaded?: SessionDraft }) {
 
   const submit = async (event: { preventDefault(): void }) => {
     event.preventDefault();
-    const invalidTags = tagsError(rows);
-    if (invalidTags) {
-      setError(invalidTags);
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
