@@ -360,9 +360,18 @@ describe('WorkflowEditorPage', () => {
     expect(screen.getByLabelText('Edge port')).toHaveValue('');
 
     await user.selectOptions(screen.getByLabelText('Edge source'), 'start');
-    await user.selectOptions(screen.getByLabelText('Edge port'), 'default');
     await user.selectOptions(screen.getByLabelText('Edge port'), 'all ports');
+    expect(screen.getByLabelText('Edge port')).toHaveValue('*');
+    await user.selectOptions(
+      screen.getByLabelText('Edge port'),
+      'no port (default)'
+    );
     expect(screen.getByLabelText('Edge port')).toHaveValue('');
+
+    await user.selectOptions(screen.getByLabelText('Edge port'), 'all ports');
+    await user.selectOptions(screen.getByLabelText('Edge target'), 'out');
+    await user.click(screen.getByRole('button', { name: 'Add edge' }));
+    expect(screen.getByText('start:* → out')).toBeInTheDocument();
   });
 
   it('blocks Validate and Save while a JSON field does not parse', async () => {

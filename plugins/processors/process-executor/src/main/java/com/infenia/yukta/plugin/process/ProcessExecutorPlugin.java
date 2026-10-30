@@ -265,7 +265,7 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
     - routeByExitCode: Boolean (default: false, requires failureMode: CONTINUE)
       Stamps output messages with source port "success" (exit code 0) or "failure"
       (non-zero exit or timeout). Wire edges with sourcePort success/failure to route
-      without a separate BRANCH node; edges without a sourcePort receive all messages.
+      without a separate BRANCH node; an edge with sourcePort "*" receives both.
     - reports: List of {format: junit | checkstyle | sarif, glob} (default: none)
       After the process ends, the report files matching glob (relative to workingDir) that were
       written during the run are read, and STRUCTURED/JSON payloads get "failures" (at most 50 of

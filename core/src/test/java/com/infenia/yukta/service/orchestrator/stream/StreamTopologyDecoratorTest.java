@@ -205,6 +205,22 @@ class StreamTopologyDecoratorTest {
 
   @Test
   @SuppressWarnings(UNCHECKED)
+  void testApplyEdgeRoutingAllPortsTakesEveryPortButErrorAndResetsToDefault() {
+    final Message<?> onA = DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(PORT_A);
+    final Message<?> onB = DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(PORT_B);
+    final Message<?> dead =
+        DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(NodePolicy.ERROR_PORT);
+    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(onA, dead, onB)};
+    final ParentEdgeInfo edge = new ParentEdgeInfo(0, PARENT_1, NodePolicy.ALL_PORTS);
+
+    StepVerifier.create(decorator.applyEdgeRouting(streams, edge))
+        .assertNext(m -> assertThat(m.sourcePort()).isEqualTo(NodePolicy.DEFAULT_PORT))
+        .assertNext(m -> assertThat(m.sourcePort()).isEqualTo(NodePolicy.DEFAULT_PORT))
+        .verifyComplete();
+  }
+
+  @Test
+  @SuppressWarnings(UNCHECKED)
   void testFanOutGivesEachEdgeItsOwnPayloadCopy() {
     final List<Object> shared = new ArrayList<>(List.of(DATA));
     final List<Disposable> disposables = new ArrayList<>();

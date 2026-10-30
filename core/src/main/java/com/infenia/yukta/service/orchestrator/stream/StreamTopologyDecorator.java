@@ -206,7 +206,13 @@ public class StreamTopologyDecorator {
                     }));
 
     final String sourcePort = edge.sourcePort();
-    if (sourcePort != null) {
+    if (NodePolicy.ALL_PORTS.equals(sourcePort)) {
+      // Every port but the error port; like a named port it then starts the child at "default"
+      stream =
+          stream
+              .filter(msg -> !NodePolicy.ERROR_PORT.equals(msg.sourcePort()))
+              .map(msg -> msg.withSourcePort(NodePolicy.DEFAULT_PORT));
+    } else if (sourcePort != null) {
       log.atDebug().setMessage("Filtering by source port: {}").addArgument(sourcePort).log();
       stream = stream.filter(msg -> sourcePort.equals(msg.sourcePort()));
       if (!NodePolicy.ERROR_PORT.equals(sourcePort)) {

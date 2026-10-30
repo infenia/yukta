@@ -181,6 +181,27 @@ class WorkflowValidationControllerTest {
   }
 
   @Test
+  void testAnAllPortsEdgeReadsEveryPortButError() {
+    final Plugin routed = mock(Plugin.class);
+    when(routed.getOutputPorts(any())).thenReturn(List.of("success", "failure", "error"));
+    when(pluginRegistry.get(BRANCH)).thenReturn(routed);
+    when(workflowValidator.validate(any())).thenReturn(Mono.empty());
+
+    post(
+            """
+            {"workflowId":"wf","description":"d",
+            "nodes":[{"nodeId":"gate","type":"BRANCH","config":{}},
+            {"nodeId":"ok","type":"BRANCH","config":{}}],
+            "edges":[{"source":"gate","target":"ok","sourcePort":"*"}]}
+            """)
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.warnings[?(@.nodeId == 'gate')].field")
+        .isEqualTo(List.of("error"));
+  }
+
+  @Test
   void testWarnsAboutPortsNoEdgeReadsFrom() {
     final Plugin branch = mock(Plugin.class);
     when(branch.getOutputPorts(any())).thenReturn(List.of("success", "failure"));

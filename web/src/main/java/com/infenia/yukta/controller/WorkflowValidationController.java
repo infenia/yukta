@@ -6,6 +6,7 @@ import com.infenia.yukta.dto.request.WorkflowDefinitionRequest;
 import com.infenia.yukta.dto.response.WorkflowValidationResult;
 import com.infenia.yukta.mapper.AppConfigMapper;
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
@@ -88,7 +89,8 @@ public class WorkflowValidationController {
   /**
    * The ports no edge reads from, on nodes with several: a child filters its parent's messages by
    * port, so what a node sends on such a port goes nowhere. An edge saved without a port reads the
-   * "default" port only (AppConfigMapper fills it in), so every edge here names its port.
+   * "default" port only (AppConfigMapper fills it in), so every edge here names its port, or "*"
+   * for every port but "error".
    */
   private static List<WorkflowValidationResult.Warning> unreadPorts(
       final WorkflowDefinition definition, final Map<String, List<String>> ports) {
@@ -104,7 +106,7 @@ public class WorkflowValidationController {
               final List<WorkflowDefinition.Edge> out =
                   definition.edges().stream().filter(edge -> nodeId.equals(edge.source())).toList();
               declared.stream()
-                  .filter(port -> out.stream().noneMatch(edge -> port.equals(edge.sourcePort())))
+                  .filter(port -> out.stream().noneMatch(edge -> reads(edge, port)))
                   .map(
                       port ->
                           new WorkflowValidationResult.Warning(
@@ -117,6 +119,12 @@ public class WorkflowValidationController {
                   .forEach(warnings::add);
             });
     return warnings;
+  }
+
+  /** Whether an edge takes what its source sends on a port: by name, or as an all-ports edge. */
+  private static boolean reads(final WorkflowDefinition.Edge edge, final String port) {
+    return port.equals(edge.sourcePort())
+        || NodePolicy.ALL_PORTS.equals(edge.sourcePort()) && !NodePolicy.ERROR_PORT.equals(port);
   }
 
   /** The node's output ports, or none when its draft configuration is too incomplete to say. */

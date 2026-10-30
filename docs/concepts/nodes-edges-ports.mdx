@@ -47,7 +47,8 @@ A node can publish messages on a named **output port**. An edge can name the por
 
 | Edge | Receives |
 |---|---|
-| No `sourcePort` | Every message the source emits, **except** messages on the `error` port |
+| No `sourcePort` | Only messages on the `default` port |
+| `sourcePort: "*"` | Every message the source emits, **except** messages on the `error` port |
 | `sourcePort` set | Only messages the source emitted on that port |
 
 The ports a node offers depend on its plugin. Examples: the process plugin routes by exit code to `success` and `failure`, the HTTP plugin can route by status, the branch plugin offers one port per case, and the validate plugin sends rejected messages to `invalid`. The plugin reference lists each node's ports.

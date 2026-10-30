@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -165,6 +166,17 @@ class WorkflowValidatorTest {
             List.of(node("a", "T"), node("b", "P")),
             List.of(new WorkflowDefinition.Edge("a", "b", "nope"))),
         "output port 'nope'");
+  }
+
+  @Test
+  void testAllPortsEdgeNeedsNoDeclaredPort() {
+    when(registry.get("T")).thenReturn(triggerPlugin);
+    assertRejectedNotForPort(
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(node("a", "T"), node("b", "P")),
+            List.of(new WorkflowDefinition.Edge("a", "b", NodePolicy.ALL_PORTS))));
   }
 
   @Test

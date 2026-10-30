@@ -174,7 +174,8 @@ public class SessionInfoProvider {
         plugin, see list_plugins), a 'config' object for that plugin and, optionally, a 'group' \
         naming the stage it belongs to (display only). An edge has a 'source' \
         and a 'target' node id and, optionally, a 'sourcePort' (for example 'success', 'failure' \
-        or 'error'; without one it uses the default port). Cycles are not allowed. Execution \
+        or 'error'; without one it uses the default port, and '*' takes every port but \
+        'error'). Cycles are not allowed. Execution \
         flows from trigger nodes through processors to terminal nodes.\
         """;
 

@@ -74,7 +74,7 @@ public record WorkflowDefinitionRequest(
    *
    * @param source the source node ID
    * @param target the target node ID
-   * @param sourcePort the optional source port; null means route all messages from source to target
+   * @param sourcePort the optional source port; null means "default", "*" every port but "error"
    */
   @Schema(description = "A connection between two nodes")
   public record EdgeRequest(

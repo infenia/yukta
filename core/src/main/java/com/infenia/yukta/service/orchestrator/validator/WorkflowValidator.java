@@ -93,7 +93,9 @@ public class WorkflowValidator {
     if (!seen.add(edge)) {
       return Optional.of(label + " is defined more than once");
     }
-    if (edge.sourcePort() != null && !hasPort(nodes.get(edge.source()), edge.sourcePort())) {
+    if (edge.sourcePort() != null
+        && !NodePolicy.ALL_PORTS.equals(edge.sourcePort())
+        && !hasPort(nodes.get(edge.source()), edge.sourcePort())) {
       return Optional.of(
           label + " uses output port '" + edge.sourcePort() + "' that the source does not have");
     }

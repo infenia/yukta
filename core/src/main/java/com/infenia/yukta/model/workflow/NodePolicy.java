@@ -87,6 +87,9 @@ public record NodePolicy(
   /** Port of an edge that names none, and the port a message starts from at each node. */
   public static final String DEFAULT_PORT = "default";
 
+  /** Port of an edge that takes every port of its source except {@link #ERROR_PORT}. */
+  public static final String ALL_PORTS = "*";
+
   /** No retry, fail on error, fail when a parent fails. */
   public static final NodePolicy DEFAULT =
       new NodePolicy(null, OnError.FAIL, JoinRule.ALL_SUCCESS, null, null, null, null, null);
