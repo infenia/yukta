@@ -97,14 +97,12 @@ public class WorkflowValidationController {
         .map(WorkflowDefinition.Node::nodeId)
         .distinct()
         .filter(ports::containsKey)
+        .filter(nodeId -> ports.get(nodeId).size() > 1)
         .forEach(
             nodeId -> {
               final List<String> declared = ports.get(nodeId);
               final List<WorkflowDefinition.Edge> out =
                   definition.edges().stream().filter(edge -> nodeId.equals(edge.source())).toList();
-              if (declared.size() < 2) {
-                return;
-              }
               declared.stream()
                   .filter(port -> out.stream().noneMatch(edge -> port.equals(edge.sourcePort())))
                   .map(

@@ -29,6 +29,8 @@ class WorkflowValidationControllerTest {
   /** JSON path of the verdict. */
   private static final String VALID = "$.data.valid";
 
+  private static final String BRANCH = "BRANCH";
+
   /** A draft with one known and one unknown plugin type. */
   private static final String DRAFT =
       """
@@ -85,7 +87,7 @@ class WorkflowValidationControllerTest {
   void testValidDraftListsPortsOfKnownPluginsOnly() {
     final Plugin plugin = mock(Plugin.class);
     when(plugin.getOutputPorts(any())).thenReturn(List.of("a", "b"));
-    when(pluginRegistry.get("BRANCH")).thenReturn(plugin);
+    when(pluginRegistry.get(BRANCH)).thenReturn(plugin);
     when(workflowValidator.validate(any())).thenReturn(Mono.empty());
 
     post()
@@ -121,7 +123,7 @@ class WorkflowValidationControllerTest {
   void testDuplicateNodeIdIsReportedByValidatorNotServerError() {
     final Plugin plugin = mock(Plugin.class);
     when(plugin.getOutputPorts(any())).thenReturn(List.of("a"));
-    when(pluginRegistry.get("BRANCH")).thenReturn(plugin);
+    when(pluginRegistry.get(BRANCH)).thenReturn(plugin);
     when(workflowValidator.validate(any()))
         .thenReturn(Mono.error(new IllegalArgumentException("Duplicate node id 'n1'")));
 
@@ -139,7 +141,7 @@ class WorkflowValidationControllerTest {
   void testPluginThatCannotListPortsForDraftConfigIsNotServerError() {
     final Plugin plugin = mock(Plugin.class);
     when(plugin.getOutputPorts(any())).thenThrow(new IllegalStateException("config incomplete"));
-    when(pluginRegistry.get("BRANCH")).thenReturn(plugin);
+    when(pluginRegistry.get(BRANCH)).thenReturn(plugin);
     when(workflowValidator.validate(any())).thenReturn(Mono.empty());
 
     post()
@@ -184,21 +186,23 @@ class WorkflowValidationControllerTest {
     when(branch.getOutputPorts(any())).thenReturn(List.of("success", "failure"));
     final Plugin single = mock(Plugin.class);
     when(single.getOutputPorts(any())).thenReturn(List.of("default"));
-    when(pluginRegistry.get("BRANCH")).thenReturn(branch);
+    when(pluginRegistry.get(BRANCH)).thenReturn(branch);
     when(pluginRegistry.get("ECHO")).thenReturn(single);
     when(workflowValidator.validate(any()))
         .thenReturn(Mono.error(new IllegalArgumentException("still invalid")));
 
-    post("""
-    {"workflowId":"wf","description":"d",
-     "nodes":[{"nodeId":"gate","type":"BRANCH","config":{}},
-              {"nodeId":"all","type":"BRANCH","config":{}},
-              {"nodeId":"one","type":"ECHO","config":{}},
-              {"nodeId":"ok","type":"ECHO","config":{}}],
-     "edges":[{"source":"gate","target":"ok","sourcePort":"success"},
-              {"source":"all","target":"ok","sourcePort":"success"},
-              {"source":"all","target":"one","sourcePort":"failure"}]}
-    """)
+    final String body =
+        """
+        {"workflowId":"wf","description":"d",
+        "nodes":[{"nodeId":"gate","type":"BRANCH","config":{}},
+        {"nodeId":"all","type":"BRANCH","config":{}},
+        {"nodeId":"one","type":"ECHO","config":{}},
+        {"nodeId":"ok","type":"ECHO","config":{}}],
+        "edges":[{"source":"gate","target":"ok","sourcePort":"success"},
+        {"source":"all","target":"ok","sourcePort":"success"},
+        {"source":"all","target":"one","sourcePort":"failure"}]}
+        """;
+    post(body)
         .expectStatus()
         .isOk()
         .expectBody()
