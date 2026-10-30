@@ -23,16 +23,17 @@ import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
 /** Tests for the behaviour described by {@link ExecutionControlController}. */
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert",
-  "PMD.AvoidDuplicateLiterals",
+  "PMD.AvoidDuplicateLiterals"
 })
 class ExecutionControlControllerTest {
 
@@ -262,6 +263,13 @@ class ExecutionControlControllerTest {
     client.delete().uri("/api/executions/e1/nodes/n1/breakpoint").exchange().expectStatus().isOk();
     verify(controlBus).addBreakpoint("e1", "n1", "payload.status", "error");
     verify(controlBus).clearBreakpoint("e1", "n1");
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"maxConcurrent=-1&maxPerWorkflow=2", "maxConcurrent=2&maxPerWorkflow=-1"})
+  void changeLimitsRejectsNegativeValues(final String query) {
+    client.post().uri("/api/scheduler/limits?" + query).exchange().expectStatus().isBadRequest();
+    org.mockito.Mockito.verifyNoInteractions(controlBus);
   }
 
   @Test

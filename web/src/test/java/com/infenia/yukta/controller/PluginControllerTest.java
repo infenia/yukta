@@ -11,6 +11,7 @@ import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.List;
 import java.util.Optional;
 import lombok.NoArgsConstructor;
@@ -21,7 +22,6 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 
 /** Tests for PluginController. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.LawOfDemeter")
 class PluginControllerTest {
 
   /** Test plugin identifier. */
@@ -136,6 +136,7 @@ class PluginControllerTest {
   }
 
   @Test
+  @ExpectedErrorLog("HttpWebHandlerAdapter")
   void testListPluginsError() {
     when(registry.listPlugins()).thenThrow(new RuntimeException("Registry error"));
 

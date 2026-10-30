@@ -2,8 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Callout } from '@/components/common/Callout';
 import { Modal } from '@/components/common/Modal';
@@ -18,12 +19,27 @@ import {
 } from '../api/scheduler';
 import { useFallbackPoll } from '../context/ControlEvents';
 
-function Stat({ label, value }: { label: string; value: string }) {
+/** One limit tile: a label, the number, and what the number is out of. */
+function Tile({
+  label,
+  value,
+  hint,
+  children,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  children?: ReactNode;
+}) {
   return (
-    <div>
-      <dt className="text-body-sm text-on-surface-variant">{label}</dt>
-      <dd className="text-headline-md text-on-surface">{value}</dd>
-    </div>
+    <Card className="gap-1.5 px-4 py-3.5">
+      <dt className="text-overline">{label}</dt>
+      <dd className="text-on-surface text-2xl font-semibold tabular-nums">
+        {value}
+      </dd>
+      <dd className="text-body-sm text-on-surface-variant">{hint}</dd>
+      {children}
+    </Card>
   );
 }
 
@@ -144,22 +160,9 @@ export function SchedulerPanel() {
       aria-labelledby="scheduler-heading"
       className="flex flex-col gap-2"
     >
-      <div className="flex items-center gap-3">
-        <h2 id="scheduler-heading" className="text-headline-md text-on-surface">
-          Execution limits
-        </h2>
-        {limits.data && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            onClick={() => setEditing(true)}
-          >
-            Edit limits
-          </Button>
-        )}
-      </div>
+      <h2 id="scheduler-heading" className="sr-only">
+        Execution limits
+      </h2>
       {limits.error ? (
         <StateMessage
           tone="error"
@@ -171,30 +174,54 @@ export function SchedulerPanel() {
         <StateMessage tone="loading" title="Loading…" compact />
       ) : (
         <>
-          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-            <Stat
-              label="Max concurrent"
-              value={limitText(limits.data.maxConcurrent)}
+          <dl className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
+            <Tile
+              label="Running"
+              value={String(limits.data.running)}
+              hint={`of ${limitText(limits.data.maxConcurrent).toLowerCase()}`}
+            >
+              {limits.data.maxConcurrent > 0 && (
+                <progress
+                  aria-label="Slots in use"
+                  className="w-full"
+                  max={limits.data.maxConcurrent}
+                  value={Math.min(
+                    limits.data.running,
+                    limits.data.maxConcurrent
+                  )}
+                />
+              )}
+            </Tile>
+            <Tile
+              label="Queued"
+              value={String(limits.data.queued)}
+              hint={`queue holds ${limits.data.queueCapacity}`}
             />
-            <Stat
+            <Tile
               label="Max per workflow"
               value={limitText(limits.data.maxPerWorkflow)}
+              hint="concurrent runs of one workflow"
             />
-            <Stat label="Running" value={String(limits.data.running)} />
-            <Stat label="Queued" value={String(limits.data.queued)} />
-            <Stat
-              label="Queue capacity"
-              value={String(limits.data.queueCapacity)}
-            />
+            <Card className="justify-between gap-2 px-4 py-3.5">
+              <dt className="text-overline">Limits</dt>
+              <dd>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditing(true)}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-base"
+                  >
+                    tune
+                  </span>
+                  Edit limits
+                </Button>
+              </dd>
+            </Card>
           </dl>
-          {limits.data.maxConcurrent > 0 && (
-            <progress
-              aria-label="Slots in use"
-              className="w-full"
-              max={limits.data.maxConcurrent}
-              value={Math.min(limits.data.running, limits.data.maxConcurrent)}
-            />
-          )}
           {editing && (
             <EditDialog
               limits={limits.data}

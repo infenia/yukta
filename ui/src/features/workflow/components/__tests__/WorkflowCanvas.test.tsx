@@ -43,11 +43,11 @@ describe('WorkflowCanvas', () => {
     );
 
     expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent(
-      'Done'
+      'Succeeded'
     );
     expect(
       screen.getByTestId('workflow-node-vectorize-batch')
-    ).toHaveTextContent('Active');
+    ).toHaveTextContent('Running');
     expect(screen.getByTestId('workflow-node-sink-storage')).toHaveTextContent(
       'Waiting'
     );

@@ -21,7 +21,6 @@ import java.util.regex.Pattern;
  * allowed {@code git} or {@code java} runs any code. A deny-list cannot be complete, so this is not
  * isolation.
  */
-@SuppressWarnings("PMD.AtLeastOneConstructor")
 /* default */ final class ProcessLimits {
 
   /**

@@ -40,13 +40,9 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({
   "PMD.GodClass",
   "PMD.TooManyMethods",
-  "PMD.CommentRequired",
   "PMD.FieldDeclarationsShouldBeAtStartOfClass",
   "PMD.UseConcurrentHashMap",
-  "PMD.OnlyOneReturn",
   "PMD.AvoidCatchingGenericException",
-  "PMD.LawOfDemeter",
-  "PMD.ShortVariable"
 })
 public final class PluginConformance {
 

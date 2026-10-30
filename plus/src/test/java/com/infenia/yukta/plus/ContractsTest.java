@@ -34,11 +34,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** Runs the contract tests of the test kit against the stores that ship with the repository. */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.TestClassWithoutTestCases",
-  "PMD.PublicMemberInNonPublicType"
-})
+@SuppressWarnings({"PMD.TestClassWithoutTestCases", "PMD.PublicMemberInNonPublicType"})
 class ContractsTest {
 
   private static final ObjectMapper MAPPER = JsonMapper.builder().build();

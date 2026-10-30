@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
 
   private R2dbcSessionConfigStore store;

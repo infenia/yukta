@@ -19,7 +19,6 @@ import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class NodeRunnerTest {
 
   private final TriggerPlugin trigger = mock(TriggerPlugin.class);

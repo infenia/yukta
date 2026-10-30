@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.CommentRequired", "PMD.ShortVariable"})
 class PluginGuardTest {
 
   private final Message<?> input = DefaultMessage.create(UUID.randomUUID(), Map.of("a", 1));

@@ -17,11 +17,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.UnitTestShouldIncludeAssert",
-  "PMD.AvoidDuplicateLiterals"
-})
+@SuppressWarnings({"PMD.UnitTestShouldIncludeAssert", "PMD.AvoidDuplicateLiterals"})
 class ExecutionSearchControllerTest {
 
   private static final LocalDateTime NOON = LocalDateTime.of(2026, 1, 2, 12, 0);
@@ -98,5 +94,72 @@ class ExecutionSearchControllerTest {
         .expectBody()
         .jsonPath("$.data.length()")
         .isEqualTo(1);
+  }
+
+  @Test
+  void hitsCarryNodeProgress() {
+    when(sessions.getSessionIds()).thenReturn(Flux.just("s1"));
+    when(controlBus.getHistory("s1"))
+        .thenReturn(
+            Mono.just(
+                List.of(
+                    new WorkflowExecutionSummary(
+                        "a1",
+                        "wf",
+                        "FAILURE",
+                        NOON,
+                        null,
+                        null,
+                        null,
+                        null,
+                        new WorkflowExecutionSummary.Nodes(11, 100, "spotbugs")))));
+
+    client
+        .get()
+        .uri("/api/executions")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data[0].nodes.done")
+        .isEqualTo(11)
+        .jsonPath("$.data[0].nodes.total")
+        .isEqualTo(100)
+        .jsonPath("$.data[0].nodes.failed")
+        .isEqualTo("spotbugs");
+  }
+
+  @Test
+  void countsRunningAndQueuedNow_andFailuresInTheWindow() {
+    final LocalDateTime now = LocalDateTime.now();
+    when(sessions.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
+    when(controlBus.getHistory("s1"))
+        .thenReturn(
+            Mono.just(
+                List.of(
+                    run("r1", "wf", "RUNNING", now),
+                    run("f1", "wf", "FAILURE", now.minusHours(1)),
+                    run("f2", "wf", "FAILURE", now.minusHours(30)),
+                    run("f3", "wf", "FAILURE", null))));
+    when(controlBus.getHistory("s2"))
+        .thenReturn(
+            Mono.just(List.of(run("q1", "wf", "QUEUED", null), run("e1", "wf", "ERROR", now))));
+
+    client
+        .get()
+        .uri("/api/executions/counts")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.running")
+        .isEqualTo(1)
+        .jsonPath("$.data.queued")
+        .isEqualTo(1)
+        .jsonPath("$.data.failed")
+        .isEqualTo(1);
+    client
+        .get()
+        .uri("/api/executions/counts?hours=48")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.failed")
+        .isEqualTo(2);
   }
 }

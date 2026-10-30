@@ -29,7 +29,6 @@ import reactor.core.publisher.Mono;
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
   "PMD.LocalVariableCouldBeFinal",
-  "PMD.LawOfDemeter",
   "PMD.AvoidAccessibilityAlteration"
 })
 class DefaultPluginLoggerFactoryTest {

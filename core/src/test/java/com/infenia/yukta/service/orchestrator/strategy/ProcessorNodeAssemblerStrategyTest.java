@@ -61,7 +61,6 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({
   "PMD.ExcessiveImports",
   "PMD.TooManyStaticImports",
-  "PMD.CommentRequired",
   "PMD.TooManyMethods",
   "PMD.CouplingBetweenObjects",
   "PMD.AvoidDuplicateLiterals",

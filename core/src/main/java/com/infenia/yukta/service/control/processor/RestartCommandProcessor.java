@@ -6,6 +6,7 @@ import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
+import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
@@ -74,7 +75,6 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
     return serializeRestart(restart);
   }
 
-  @SuppressWarnings("PMD.OnlyOneReturn")
   private Mono<WorkflowDirective> serializeRestart(final RestartCommand restart) {
     final Object lock = new Object();
     final boolean acquired = restartInProgress.putIfAbsent(restart.executionId(), lock) == null;
@@ -83,8 +83,8 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
       log.atWarn()
           .addKeyValue("executionId", restart.executionId())
           .log("Restart already in progress, rejecting duplicate");
-      final IllegalStateException busy =
-          new IllegalStateException("Restart already in progress for this execution");
+      final ConflictException busy =
+          new ConflictException("Restart already in progress for this execution");
       completionSink.completeRestartFailure(restart.newExecutionId(), busy);
       return Mono.error(busy);
     }

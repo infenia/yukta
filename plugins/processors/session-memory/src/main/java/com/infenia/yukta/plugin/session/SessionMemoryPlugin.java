@@ -29,7 +29,7 @@ import reactor.core.publisher.Mono;
  * assistant's turn. Compaction is a workflow pattern: branch on history length and summarize with
  * an llm-call node.
  */
-@SuppressWarnings({"PMD.CommentRequired", "PMD.UseConcurrentHashMap", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.TooManyMethods"})
 @Slf4j
 @Component
 @RequiredArgsConstructor

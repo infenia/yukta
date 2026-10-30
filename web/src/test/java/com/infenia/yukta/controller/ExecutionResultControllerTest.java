@@ -21,12 +21,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 
 /** Tests for the behaviour described by {@link ExecutionResultController}. */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.UnitTestShouldIncludeAssert",
-  "PMD.LawOfDemeter",
-  "PMD.CommentRequired"
-})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.UnitTestShouldIncludeAssert"})
 class ExecutionResultControllerTest {
 
   private static final String URI = "/api/sessions/s1/executions/e1/results";

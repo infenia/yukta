@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 @NoArgsConstructor
 class SessionStoreTest {
 

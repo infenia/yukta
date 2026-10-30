@@ -45,11 +45,9 @@ import reactor.util.retry.Retry;
  * routeByStatus} and wire the {@code failure} port to a second llm-call node.
  */
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.ExcessiveImports",
   "PMD.GodClass",
   "PMD.CouplingBetweenObjects",
-  "PMD.OnlyOneReturn",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap"
 })
@@ -129,7 +127,6 @@ public final class LlmCallPlugin implements ProcessorPlugin {
    * @param meterProvider optional Micrometer registry for the token and cost meters
    */
   @Autowired
-  @SuppressWarnings("PMD.LawOfDemeter")
   @SuppressFBWarnings("EI_EXPOSE_REP2") // the gateway is a shared Spring bean
   public LlmCallPlugin(
       final LlmGateway gateway,

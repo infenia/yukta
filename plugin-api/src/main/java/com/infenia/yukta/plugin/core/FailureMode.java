@@ -6,7 +6,6 @@ import java.util.Arrays;
 import java.util.Locale;
 
 /** How a plugin reacts to a failed operation (failed request, non-zero exit, SQL error, ...). */
-@SuppressWarnings("PMD.OnlyOneReturn")
 public enum FailureMode {
   /** Fail the workflow node (default). */
   ERROR,

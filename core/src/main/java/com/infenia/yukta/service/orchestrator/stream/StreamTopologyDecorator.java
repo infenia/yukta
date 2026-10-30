@@ -91,7 +91,6 @@ public class StreamTopologyDecorator {
    * @param parentEdges edge metadata describing parent connections
    * @return merged Flux with routed and filtered messages
    */
-  @SuppressWarnings("PMD.OnlyOneReturn")
   public Flux<Message<?>> mergeParentStreams(
       final NodePolicy.JoinRule rule,
       final Flux<Message<?>>[] streams,

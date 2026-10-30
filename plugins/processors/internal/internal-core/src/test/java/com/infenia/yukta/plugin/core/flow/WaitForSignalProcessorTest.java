@@ -23,14 +23,7 @@ import reactor.util.context.Context;
 
 /** Tests for WaitForSignalProcessor. */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.CommentRequired",
-  "PMD.LawOfDemeter",
-  "PMD.ShortVariable",
-  "PMD.TooManyMethods",
-  "PMD.UseConcurrentHashMap"
-})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
 class WaitForSignalProcessorTest {
 
   private final WaitForSignalProcessor processor =

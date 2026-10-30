@@ -97,7 +97,7 @@ Meters are read at `GET /actuator/metrics` (the list) and `GET /actuator/metrics
 | `yukta.tracker.dropped` | counter | `type` (`log`, `state`) or `kind` (`supervisor`) | Dropped log lines, lost state events, and events a slow supervisor missed |
 | `yukta.tracker.log.append.failed` | counter | `type` (`node`, `run`) | Failed writes to the execution log |
 | `yukta.execution.log.lost` | counter | `reason` (`queue_full`, `write_failed`) | Execution log events that never reached PostgreSQL. A lost start or end event stops a run from being resumed. Start and end events are not dropped for a full queue and are retried when an insert fails (about 3 s in all), so a rise means the database was down for longer than that. Alert on any rise |
-| `yukta.edge.dropped` | counter | `type` | Messages dropped by an edge buffer. `type` is the node's plugin type |
+| `yukta.edge.dropped` | counter | `type`, `node` | Messages dropped by an edge buffer. `type` is the node's plugin type, `node` its id |
 | `yukta.checkpoint.bytes` | gauge | none | Node output held by the checkpoint store |
 | `yukta.checkpoint.errors` | counter | none | End markers that could not be written |
 | `yukta.plugin.events` | counter | `plugin`, `outcome` | Counts that plugins report. Includes `llm.budget.exceeded` and `mcp.budget.exceeded` as `plugin` values |

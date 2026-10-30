@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 /** Unit tests for {@link TopologicalSortService}. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.ShortVariable", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.TooManyMethods")
 @ExpectedErrorLog(
     "ERROR com.infenia.yukta.service.orchestrator.preparator.TopologicalSortService - ")
 class TopologicalSortServiceTest {

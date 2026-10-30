@@ -38,7 +38,6 @@ public record RuleSet(List<Rule> rules) {
    * @param then what to do when triggered
    * @param deny the commands to refuse
    */
-  @SuppressWarnings("PMD.ShortVariable")
   public record Rule(String id, @Nullable When when, @Nullable Then then, @Nullable Deny deny) {}
 
   /**

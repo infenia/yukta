@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test;
  * the migrations on top.
  */
 @NoArgsConstructor
-@SuppressWarnings("PMD.LawOfDemeter")
 @ExpectedErrorLog("ERROR org.flywaydb.core.internal.command.DbMigrate - ")
 class MigrationUpgradeTest extends PostgresTestSupport {
 

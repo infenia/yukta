@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @ExpectedErrorLog("ERROR com.infenia.yukta.plus.FileSessionHistoryStore - ")
 class FileSessionHistoryStoreTest {
 

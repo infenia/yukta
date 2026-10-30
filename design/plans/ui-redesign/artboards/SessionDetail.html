@@ -1,0 +1,189 @@
+<!--
+SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Session dogfood</title>
+</head>
+<body>
+
+
+<style>
+@font-face{font-family:'Inter';src:url(assets/inter.woff2) format('woff2');font-weight:100 900;font-display:block}
+@font-face{font-family:'JetBrains Mono';src:url(assets/jetbrains-mono.woff2) format('woff2');font-weight:100 800;font-display:block}
+@font-face{font-family:'Material Symbols Outlined';src:url(assets/material-symbols.woff2) format('woff2');font-weight:300;font-display:block}
+.ms{font-feature-settings:'liga'}
+body{margin:0}
+.yk{--bg:oklch(0.99 0.003 262);--fg:oklch(0.2 0.02 262);--card:oklch(1 0 0);--primary:oklch(0.55 0.21 264);--pfg:oklch(0.99 0 0);--muted:oklch(0.965 0.008 262);--mfg:oklch(0.48 0.03 262);--accent:oklch(0.95 0.03 262);--afg:oklch(0.3 0.1 264);--destr:oklch(0.577 0.245 27.325);--border:oklch(0.91 0.01 262);--sh:oklch(0.93 0.015 262);--outline:oklch(0.57 0.05 262);--attn:oklch(0.62 0.19 45);--success:oklch(0.527 0.154 150);--warn:oklch(0.52 0.12 85);--term:oklch(0.97 0.005 262);--termfg:oklch(0.2 0.02 262);--ldebug:oklch(0.5 0.03 262);--linfo:oklch(0.45 0.15 264);--lwarn:oklch(0.5 0.12 80);--lerr:oklch(0.577 0.245 27.325);--cat-trig:oklch(0.62 0.19 45);--cat-proc:oklch(0.58 0.21 264);--cat-term:oklch(0.57 0.05 262);--e1:0 1px 2px rgb(17 22 31 / .05),0 1px 3px rgb(17 22 31 / .04);--e2:0 2px 4px rgb(17 22 31 / .04),0 12px 28px -12px rgb(17 22 31 / .16);
+background:var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif;font-size:14px;line-height:18px;letter-spacing:.16px;-webkit-font-smoothing:antialiased;min-height:100%}
+.yk.dark{--bg:oklch(0.16 0.015 262);--fg:oklch(0.97 0.005 262);--card:oklch(0.2 0.02 262);--primary:oklch(0.72 0.15 262);--pfg:oklch(0.15 0.03 262);--muted:oklch(0.25 0.02 262);--mfg:oklch(0.72 0.03 262);--accent:oklch(0.3 0.06 264);--afg:oklch(0.92 0.04 262);--destr:oklch(0.704 0.191 22.216);--border:oklch(0.32 0.02 262);--sh:oklch(0.3 0.025 262);--outline:oklch(0.65 0.05 262);--attn:oklch(0.75 0.16 50);--success:oklch(0.75 0.17 150);--warn:oklch(0.82 0.16 85);--term:oklch(0.13 0.015 262);--termfg:oklch(0.92 0.01 262);--ldebug:oklch(0.7 0.03 262);--linfo:oklch(0.75 0.12 262);--lwarn:oklch(0.82 0.16 85);--lerr:oklch(0.75 0.17 22);--cat-trig:oklch(0.75 0.16 50);--cat-proc:oklch(0.72 0.15 262);--cat-term:oklch(0.7 0.05 262);--e1:0 1px 2px rgb(0 0 0 / .35);--e2:0 2px 4px rgb(0 0 0 / .3),0 14px 32px -12px rgb(0 0 0 / .55)}
+.yk *{box-sizing:border-box}
+.yk a{color:var(--primary);text-decoration:none}.yk a:hover{text-decoration:underline}
+.ms{font-family:'Material Symbols Outlined';font-weight:300;font-style:normal;font-size:18px;line-height:1;display:inline-block;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 20;-webkit-font-smoothing:antialiased;user-select:none}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:16px;letter-spacing:0}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--mfg)}
+.over{font-size:12px;font-weight:600;line-height:16px;letter-spacing:.02em;color:var(--mfg)}
+.h1{margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.022em}
+.h2{margin:0;font-size:16px;line-height:22px;font-weight:600;letter-spacing:-.01em}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;border-radius:18px;border:1px solid transparent;font:inherit;font-weight:500;white-space:nowrap;cursor:pointer;background:transparent;color:var(--fg)}
+.btn:focus-visible{outline:3px solid color-mix(in oklch,var(--primary) 35%,transparent);outline-offset:1px}
+.btn-p{background:var(--primary);color:var(--pfg)}.btn-p:hover{background:color-mix(in oklch,var(--primary) 85%,var(--fg))}
+.btn-o{border-color:var(--border);background:var(--card)}.btn-o:hover,.btn-g:hover{background:var(--muted)}
+.btn-d{color:var(--destr)}.btn-d:hover{background:color-mix(in oklch,var(--destr) 10%,transparent)}
+.btn-sm{height:28px;padding:0 10px;font-size:13px}.btn-i{width:32px;padding:0}.btn-sm.btn-i{width:28px}
+.btn[disabled]{opacity:.45;cursor:default}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:18px;background:var(--card);padding:2px;gap:2px}
+.seg .btn{height:26px;border-radius:14px}
+.kbd{font-family:'JetBrains Mono',monospace;font-size:11px;line-height:16px;padding:0 5px;border-radius:4px;border:1px solid var(--border);background:var(--muted);color:var(--mfg)}
+.input{height:32px;padding:0 12px;border-radius:18px;border:1px solid transparent;background:var(--muted);color:var(--fg);font:inherit;min-width:0}
+.input::placeholder{color:var(--mfg)}
+.chip{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:11px;font-size:12px;font-weight:500;background:var(--muted);color:var(--fg);border:1px solid var(--border);white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 10px 0 8px;border-radius:11px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--t);background:color-mix(in oklch,var(--t) 11%,var(--card));border:1px solid color-mix(in oklch,var(--t) 28%,transparent)}
+.pill .ms{font-size:15px}
+.pill.dash{border-style:dashed;background:transparent}
+.t-muted{--t:var(--mfg)}.t-primary{--t:var(--primary)}.t-attn{--t:var(--attn)}.t-ok{--t:var(--success)}.t-bad{--t:var(--destr)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--t);box-shadow:0 0 0 3px color-mix(in oklch,var(--t) 25%,transparent)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--e1)}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;font-size:12px;font-weight:600;color:var(--mfg);background:var(--muted);padding:9px 16px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{padding:10px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl tbody tr:hover td{background:color-mix(in oklch,var(--muted) 55%,transparent)}
+.copy{display:inline-flex;align-items:center;gap:4px;border:0;background:none;padding:2px 4px;border-radius:6px;color:var(--mfg);cursor:pointer;font:inherit}
+.copy:hover{background:var(--muted);color:var(--fg)}
+.navlink{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:8px;color:var(--mfg) !important;font-weight:500;text-decoration:none !important}
+.navlink:hover{background:var(--muted);color:var(--fg) !important}
+.navlink.on{background:var(--accent);color:var(--afg) !important}
+.crumb{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mfg)}
+.crumb a{color:var(--mfg)}
+.tab{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 2px;border:0;border-bottom:2px solid transparent;background:none;font:inherit;font-weight:500;color:var(--mfg);cursor:pointer}
+.tab.on{color:var(--fg);border-bottom-color:var(--primary)}
+.count{font-size:11px;line-height:16px;padding:0 6px;border-radius:8px;background:var(--muted);color:var(--mfg)}
+@media (max-width:760px){.hide-sm{display:none !important}}
+</style>
+
+
+<div class="yk" data-default-theme="dark">
+<header style="position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 16px; height: 52px; padding: 0 24px; background: var(--card); border-bottom: 1px solid var(--border)">
+  <a href="Main.html" style="display: flex; align-items: center; gap: 8px; color: var(--fg); text-decoration: none; font-weight: 600; font-size: 16px; letter-spacing: -.01em">
+    <img src="assets/yukta-mark.svg" alt="" style="width: 26px; height: 26px">Yukta
+  </a>
+  <nav aria-label="Main" style="display: flex; align-items: center; gap: 2px">
+    <a class="navlink on" href="Main.html"><span class="ms">folder</span>Sessions</a>
+    <a class="navlink " href="#"><span class="ms">history</span>Runs</a>
+    <a class="navlink " href="#"><span class="ms">extension</span>Plugins</a>
+    <a class="navlink " href="#"><span class="ms">hub</span>Control</a>
+  </nav>
+  <div style="flex: 1"></div>
+  <a href="CommandPalette.html" class="hide-sm" style="display: flex; align-items: center; gap: 8px; width: 300px; height: 32px; padding: 0 8px 0 12px; border-radius: 18px; background: var(--muted); color: var(--mfg); text-decoration: none">
+    <span class="ms">search</span><span style="flex: 1">Jump to a session, workflow or run…</span><span class="kbd">⌘K</span>
+  </a>
+  <span class="chip" title="Signed in with API key 'default'"><span class="ms" style="font-size: 15px">key</span>default · Admin</span>
+  <button class="btn btn-g btn-i" aria-label="Switch to dark theme"><span class="ms">dark_mode</span></button>
+</header>
+
+<main style="max-width: 1360px; margin: 0 auto; padding: 20px 24px 48px; display: flex; flex-direction: column; gap: 24px">
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <nav class="crumb" aria-label="Breadcrumb"><a href="Main.html">Sessions</a><span class="ms" style="font-size: 14px">chevron_right</span><span style="color: var(--fg)">dogfood</span></nav>
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px">
+      <div style="flex: 1 1 420px; min-width: 0">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+          <h1 class="h1">dogfood</h1>
+          <button class="copy mono" title="Copy session ID">dogfood<span class="ms" style="font-size: 14px">content_copy</span></button>
+        </div>
+        <p style="margin: 4px 0 0; max-width: 72ch">Run the repo quality gates as a staged, fail-fast Yukta workflow.</p>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap">
+        <button class="btn btn-o"><span class="ms">terminal</span>Copy as<span class="ms" style="font-size: 16px">expand_more</span></button>
+        <button class="btn btn-p"><span class="ms">add</span>New workflow</button>
+        <button class="btn btn-o btn-i" aria-label="More session actions: edit details, export JSON, delete"><span class="ms">more_vert</span></button>
+      </div>
+    </div>
+    <dl style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 24px; margin: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--card)">
+      <div><dt class="over">Initiator</dt><dd style="margin: 4px 0 0">examples</dd></div>
+      <div><dt class="over">Tags</dt><dd style="margin: 4px 0 0"><span class="chip">example</span></dd></div>
+      <div><dt class="over">Workflows</dt><dd class="num" style="margin: 4px 0 0">5 · 145 nodes in all</dd></div>
+      <div style="min-width: 0"><dt class="over">Project path</dt><dd style="margin: 4px 0 0"><button class="copy mono" title="Copy path" style="max-width: 100%; overflow: hidden">/home/arun/.local/state/yukta-dev/main<span class="ms" style="font-size: 14px">content_copy</span></button></dd></div>
+    </dl>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+      <h2 class="h2">Workflows</h2><span class="count num">5</span>
+      <div style="flex: 1"></div>
+      <label style="position: relative; display: flex; width: 260px">
+        <span class="ms" style="position: absolute; left: 10px; top: 7px; color: var(--mfg)">search</span>
+        <input class="input" style="width: 100%; padding-left: 36px" placeholder="Filter workflows" aria-label="Filter workflows">
+      </label>
+    </div>
+    <div class="card" style="overflow-x: auto">
+      <table class="tbl" style="min-width: 900px">
+        <thead><tr><th>Workflow</th><th>Size</th><th>Last run</th><th style="width: 132px"><span style="position: absolute; left: -9999px">Actions</span></th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="max-width: 560px"><a href="RunView.html" style="font-weight: 600" class="mono">check</a><div class="muted" style="font-size: 12px; margin-top: 2px">The scoped, self-healing quality gate: one tool call per planned stage; a failed stage goes to heal.</div></td>
+            <td class="num muted" style="white-space: nowrap">100 nodes · 124 edges</td>
+            <td><span class="pill t-muted" data-status="NOT_RUN"><span class="ms">schedule</span>Not run</span></td>
+            <td><div style="display: flex; gap: 4px; justify-content: flex-end"><button class="btn btn-o btn-sm"><span class="ms" style="font-size: 16px">play_arrow</span>Run</button><a class="btn btn-g btn-sm btn-i" href="Builder.html" aria-label="Edit check"><span class="ms" style="font-size: 16px">edit</span></a></div></td>
+          </tr>
+          <tr>
+            <td style="max-width: 560px"><a href="RunView.html" style="font-weight: 600" class="mono">tool</a><div class="muted" style="font-size: 12px; margin-top: 2px">Run one shell command (gradle, go, pnpm, …) in one project, once. The caller decides what and where.</div></td>
+            <td class="num muted" style="white-space: nowrap">4 nodes · 3 edges</td>
+            <td><div style="display: flex; align-items: center; gap: 8px"><span class="pill t-ok" data-status="SUCCESS"><span class="ms">check_circle</span>Succeeded</span><span class="muted mono">1m 20s · 4 min ago</span></div></td>
+            <td><div style="display: flex; gap: 4px; justify-content: flex-end"><button class="btn btn-o btn-sm"><span class="ms" style="font-size: 16px">play_arrow</span>Run</button><a class="btn btn-g btn-sm btn-i" href="Builder.html" aria-label="Edit tool"><span class="ms" style="font-size: 16px">edit</span></a></div></td>
+          </tr>
+          <tr>
+            <td style="max-width: 560px"><a href="RunView.html" style="font-weight: 600" class="mono">heal</a><div class="muted" style="font-size: 12px; margin-top: 2px">Repair a failed stage: the free automatic fix first, then triage and the model ladder, escalating on no progress.</div></td>
+            <td class="num muted" style="white-space: nowrap">26 nodes · 45 edges</td>
+            <td><span class="pill t-muted" data-status="NOT_RUN"><span class="ms">schedule</span>Not run</span></td>
+            <td><div style="display: flex; gap: 4px; justify-content: flex-end"><button class="btn btn-o btn-sm"><span class="ms" style="font-size: 16px">play_arrow</span>Run</button><a class="btn btn-g btn-sm btn-i" href="Builder.html" aria-label="Edit heal"><span class="ms" style="font-size: 16px">edit</span></a></div></td>
+          </tr>
+          <tr>
+            <td style="max-width: 560px"><a href="RunView.html" style="font-weight: 600" class="mono">attempt</a><div class="muted" style="font-size: 12px; margin-top: 2px">One repair attempt: one Claude session at one model and effort, judged by re-running the failed check.</div></td>
+            <td class="num muted" style="white-space: nowrap">11 nodes · 18 edges</td>
+            <td><span class="pill t-muted" data-status="NOT_RUN"><span class="ms">schedule</span>Not run</span></td>
+            <td><div style="display: flex; gap: 4px; justify-content: flex-end"><button class="btn btn-o btn-sm"><span class="ms" style="font-size: 16px">play_arrow</span>Run</button><a class="btn btn-g btn-sm btn-i" href="Builder.html" aria-label="Edit attempt"><span class="ms" style="font-size: 16px">edit</span></a></div></td>
+          </tr>
+          <tr>
+            <td style="max-width: 560px"><a href="RunView.html" style="font-weight: 600" class="mono">claude</a><div class="muted" style="font-size: 12px; margin-top: 2px">One headless Claude Code session in a project; returns its JSON answer and what it cost.</div></td>
+            <td class="num muted" style="white-space: nowrap">4 nodes · 3 edges</td>
+            <td><span class="pill t-muted" data-status="NOT_RUN"><span class="ms">schedule</span>Not run</span></td>
+            <td><div style="display: flex; gap: 4px; justify-content: flex-end"><button class="btn btn-o btn-sm"><span class="ms" style="font-size: 16px">play_arrow</span>Run</button><a class="btn btn-g btn-sm btn-i" href="Builder.html" aria-label="Edit claude"><span class="ms" style="font-size: 16px">edit</span></a></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 12px"><h2 class="h2">Recent runs</h2><div style="flex: 1"></div><a href="#" style="font-weight: 500">All runs of dogfood</a></div>
+    <div class="card" style="overflow-x: auto">
+      <table class="tbl num" style="min-width: 760px">
+        <thead><tr><th>Status</th><th>Run</th><th>Workflow</th><th>Started</th><th>Duration</th><th>Initiator</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill t-ok" data-status="SUCCESS"><span class="ms">check_circle</span>Succeeded</span></td><td><a href="RunView.html" class="mono">87bff7ec</a> <button class="copy" aria-label="Copy run ID 87bff7ec"><span class="ms" style="font-size: 14px">content_copy</span></button></td><td class="mono">tool</td><td class="mono">22:36:56</td><td class="mono">1m 20s</td><td>yk gradle</td></tr>
+          <tr><td><span class="pill t-ok" data-status="SUCCESS"><span class="ms">check_circle</span>Succeeded</span></td><td><a href="RunView.html" class="mono">6faa9d4d</a> <button class="copy" aria-label="Copy run ID 6faa9d4d"><span class="ms" style="font-size: 14px">content_copy</span></button></td><td class="mono">tool</td><td class="mono">22:36:35</td><td class="mono">7s</td><td>yk tool</td></tr>
+          <tr><td><span class="pill t-ok" data-status="SUCCESS"><span class="ms">check_circle</span>Succeeded</span></td><td><a href="RunView.html" class="mono">4432be6e</a> <button class="copy" aria-label="Copy run ID 4432be6e"><span class="ms" style="font-size: 14px">content_copy</span></button></td><td class="mono">tool</td><td class="mono">22:36:09</td><td class="mono">1s</td><td>yk tool</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+</div>
+
+<script>
+// Offline copy of a Claude Design artboard. Theme: add #dark or #light to the URL.
+(function(){var root=document.querySelector('.yk');var h=location.hash.slice(1);
+var t=h==='dark'||h==='light'?h:root.getAttribute('data-default-theme');
+root.classList.toggle('dark',t==='dark');
+window.addEventListener('hashchange',function(){location.reload()});})();
+</script>
+</body>
+</html>

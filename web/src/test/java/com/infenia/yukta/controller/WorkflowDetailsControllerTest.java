@@ -15,6 +15,7 @@ import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowGraphService;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,10 +25,7 @@ import reactor.core.publisher.Mono;
 
 /** Tests for the behaviour described by {@link WorkflowDetailsController}. */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.LawOfDemeter",
-  "PMD.UnitTestShouldIncludeAssert",
-})
+@SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
 class WorkflowDetailsControllerTest {
 
   /** The session service. */
@@ -142,5 +140,38 @@ class WorkflowDetailsControllerTest {
         .isEqualTo("a")
         .jsonPath("$.data.topologicalOrder[1]")
         .isEqualTo("b");
+  }
+
+  @Test
+  void testGraphCarriesDeclaredGroupsAndTheWorkflowRunBySubWorkflowNode() {
+    final WorkflowDefinition staged =
+        new WorkflowDefinition(
+            "wf3",
+            "desc",
+            List.of(
+                new WorkflowDefinition.Node(
+                    "lint.heal", "SUB_WORKFLOW", Map.of("workflowId", "heal"), "lint"),
+                new WorkflowDefinition.Node("odd", "SUB_WORKFLOW", Map.of("workflowId", 3), null),
+                new WorkflowDefinition.Node("plain", "x", Map.of("workflowId", "heal"))),
+            List.of());
+    when(sessionService.getSessionWorkflow("s1", "wf3")).thenReturn(Mono.just(staged));
+
+    client
+        .get()
+        .uri("/api/sessions/s1/workflows/wf3/graph")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.nodes[0].group")
+        .isEqualTo("lint")
+        .jsonPath("$.data.nodes[0].subWorkflowId")
+        .isEqualTo("heal")
+        .jsonPath("$.data.nodes[1].group")
+        .isEmpty()
+        .jsonPath("$.data.nodes[1].subWorkflowId")
+        .isEmpty()
+        .jsonPath("$.data.nodes[2].subWorkflowId")
+        .isEmpty();
   }
 }

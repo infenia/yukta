@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import reactor.core.publisher.Hooks;
 
 /** Records the signals Reactor drops because no subscriber could take them. */
-@SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 final class ReactorProbe implements Probe {
 

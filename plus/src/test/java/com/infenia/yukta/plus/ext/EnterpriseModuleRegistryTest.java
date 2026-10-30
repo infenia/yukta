@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class EnterpriseModuleRegistryTest {
 
   private static EnterpriseModule module(final int api, final String... features) {

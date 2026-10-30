@@ -113,11 +113,11 @@ export function toDisplayExecStatus(
     : (status ?? null);
 }
 
-/** Mockup-style node status label, e.g. "Done", "Active", "Waiting". */
+/** Label of a node rendering status, in the design system's status vocabulary. */
 export function toNodeStatusLabel(status: NodeUiStatus): string {
   const labels: Record<NodeUiStatus, string> = {
-    completed: 'Done',
-    running: 'Active',
+    completed: 'Succeeded',
+    running: 'Running',
     pending: 'Waiting',
     failed: 'Failed',
     paused: 'Paused',
@@ -126,15 +126,111 @@ export function toNodeStatusLabel(status: NodeUiStatus): string {
   return labels[status];
 }
 
-/** Right-aligned task sequence label, e.g. "COMPLETED", "RUNNING", "PENDING". */
-export function toTaskSequenceLabel(status: NodeUiStatus): string {
-  const labels: Record<NodeUiStatus, string> = {
-    completed: 'COMPLETED',
-    running: 'RUNNING',
-    pending: 'PENDING',
-    failed: 'FAILED',
-    paused: 'PAUSED',
-    skipped: 'SKIPPED',
+/** Colour family of a status: a design-system token (muted is muted-foreground). */
+export type StatusTone =
+  'muted' | 'primary' | 'attention' | 'success' | 'destructive';
+
+/** How a status is shown: label, tone, and an icon, or a live dot while work is happening. */
+export interface StatusDisplay {
+  label: string;
+  tone: StatusTone;
+  /** Material Symbol name; null shows a live dot instead. */
+  icon: string | null;
+  /** The node never ran: drawn with a dashed outline. */
+  dashed?: boolean;
+}
+
+const RUNNING_DISPLAY: StatusDisplay = {
+  label: 'Running',
+  tone: 'primary',
+  icon: null,
+};
+const PAUSED_DISPLAY: StatusDisplay = {
+  label: 'Paused',
+  tone: 'attention',
+  icon: 'pause',
+};
+const SUCCEEDED_DISPLAY: StatusDisplay = {
+  label: 'Succeeded',
+  tone: 'success',
+  icon: 'check_circle',
+};
+const FAILED_DISPLAY: StatusDisplay = {
+  label: 'Failed',
+  tone: 'destructive',
+  icon: 'error',
+};
+const STOPPED_DISPLAY: StatusDisplay = {
+  label: 'Stopped',
+  tone: 'muted',
+  icon: 'stop_circle',
+};
+
+/** The one status vocabulary (design system "Run status" table), keyed by raw backend value. */
+const STATUS_DISPLAY: Record<string, StatusDisplay> = {
+  PENDING: { label: 'Waiting', tone: 'muted', icon: 'hourglass_empty' },
+  QUEUED: { label: 'Queued', tone: 'muted', icon: 'schedule' },
+  RUNNING: RUNNING_DISPLAY,
+  NODE_RESUMED: RUNNING_DISPLAY,
+  NODE_STEPPED: RUNNING_DISPLAY,
+  NODE_UNSKIPPED: RUNNING_DISPLAY,
+  PAUSED: PAUSED_DISPLAY,
+  NODE_PAUSED: PAUSED_DISPLAY,
+  STOPPING: { label: 'Stopping', tone: 'attention', icon: null },
+  SUCCESS: SUCCEEDED_DISPLAY,
+  COMPLETED: SUCCEEDED_DISPLAY,
+  FAILURE: FAILED_DISPLAY,
+  FAILED: FAILED_DISPLAY,
+  ERROR: FAILED_DISPLAY,
+  TIMED_OUT: { label: 'Timed out', tone: 'destructive', icon: 'timer_off' },
+  ABORTED: { label: 'Interrupted', tone: 'destructive', icon: 'power_off' },
+  STOPPED: STOPPED_DISPLAY,
+  CANCELLED: STOPPED_DISPLAY,
+  WORKFLOW_STOPPED: STOPPED_DISPLAY,
+  NODE_STOPPED: STOPPED_DISPLAY,
+  SKIPPED: { label: 'Skipped', tone: 'muted', icon: 'skip_next', dashed: true },
+  NODE_SKIPPED: {
+    label: 'Skipped',
+    tone: 'muted',
+    icon: 'skip_next',
+    dashed: true,
+  },
+  UPSTREAM_FAILED: {
+    label: 'Not reached',
+    tone: 'muted',
+    icon: 'block',
+    dashed: true,
+  },
+};
+
+const NOT_RUN_DISPLAY: StatusDisplay = {
+  label: 'Not run',
+  tone: 'muted',
+  icon: 'schedule',
+};
+
+/**
+ * Display of a raw status. `run` scope reads node control events the way core writes them as a
+ * workflow status: a stopped or skipped node leaves the run going. Unknown values show humanized.
+ */
+export function toStatusDisplay(
+  raw: string | null | undefined,
+  scope: 'run' | 'node' = 'run'
+): StatusDisplay {
+  if (!raw) {
+    return NOT_RUN_DISPLAY;
+  }
+  if (scope === 'run' && (raw === 'NODE_STOPPED' || raw === 'NODE_SKIPPED')) {
+    return RUNNING_DISPLAY;
+  }
+  const known = STATUS_DISPLAY[raw];
+  if (known) {
+    return known;
+  }
+  const words = raw.replace(/_/g, ' ').toLowerCase();
+  return {
+    label: words.charAt(0).toUpperCase() + words.slice(1),
+    tone: 'muted',
+    icon: 'help',
   };
-  return labels[status];
 }

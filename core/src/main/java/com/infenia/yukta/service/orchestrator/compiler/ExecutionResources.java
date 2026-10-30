@@ -17,7 +17,6 @@ import reactor.core.scheduler.Scheduler;
 /** Runs the assembled terminals under the session's execution timeout and releases resources. */
 @Slf4j
 @UtilityClass
-@SuppressWarnings("PMD.AtLeastOneConstructor")
 public class ExecutionResources {
 
   /** Default timeout in seconds when the execution has no session. */

@@ -22,12 +22,10 @@ import reactor.util.context.ContextView;
  * @param <T> what is remembered
  */
 @SuppressWarnings({
-  "PMD.AtLeastOneConstructor",
   "PMD.AvoidFieldNameMatchingMethodName",
   "PMD.AvoidSynchronizedAtMethodLevel",
   "PMD.AvoidSynchronizedStatement",
   "PMD.CommentDefaultAccessModifier",
-  "PMD.OnlyOneReturn",
   "PMD.UseConcurrentHashMap"
 })
 final class DecisionWindow<T> {

@@ -202,7 +202,6 @@ class WorkflowProgressTest {
   }
 
   @Test
-  @SuppressWarnings("PMD.LawOfDemeter")
   void testWorkflowProgressToString() {
     final LocalDateTime startTime = LocalDateTime.of(2026, 5, 30, 10, 0, 0);
     final LocalDateTime endTime = LocalDateTime.of(2026, 5, 30, 10, 5, 0);

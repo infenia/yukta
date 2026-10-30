@@ -30,7 +30,7 @@ import reactor.core.scheduler.Schedulers;
 /** Executes a target plugin repeatedly and flattens all produced messages into a single stream. */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.LawOfDemeter", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.TooManyMethods")
 @NoArgsConstructor
 public class LoopStreamProcessor implements ProcessorPlugin {
 

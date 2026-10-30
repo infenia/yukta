@@ -26,7 +26,6 @@ import reactor.netty.tcp.TcpClient;
  * certificate is verified.
  */
 @UtilityClass
-@SuppressWarnings("PMD.LawOfDemeter")
 class WorkerTransport {
 
   /**

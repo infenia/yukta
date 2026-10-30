@@ -22,7 +22,7 @@ import reactor.core.publisher.Mono;
 /** Resolves variables and expressions in configuration values. */
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.SimplifyBooleanReturns", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.SimplifyBooleanReturns", "PMD.TooManyMethods"})
 public class VariableResolver {
 
   /** Pattern for matching variable expressions like ${varname}. */

@@ -67,7 +67,7 @@ These refusals carry no JSON body. Handle them by status code.
 
 ### Named keys
 
-For several people or agents, define a list. Each entry has a name, a key, a role and optional sessions.
+For several people or agents, define a list. Each entry has a name, a key, a role and optional sessions and an optional expiry.
 
 ```properties
 yukta.api-keys[0].name=ci
@@ -85,6 +85,7 @@ yukta.api-keys[1].role=ADMIN
 | `key` | required | Plain text or `sha256:<64 hex digits>` |
 | `role` | `VIEWER` | `VIEWER`, `OPERATOR` or `ADMIN` |
 | `sessions` | all | Session ids the key may reach |
+| `expires` | never | ISO-8601 instant (for example `2026-12-31T00:00:00Z`) after which the key is refused with `401`. Revoking a key still needs a configuration change and a restart |
 
 ### Hashed keys
 

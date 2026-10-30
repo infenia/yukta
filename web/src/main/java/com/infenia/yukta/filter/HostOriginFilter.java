@@ -33,8 +33,7 @@ import reactor.core.publisher.Mono;
  * configured the check is off: a page cannot send the key header across sites.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.OnlyOneReturn"})
+@Order(Ordered.HIGHEST_PRECEDENCE + 3)
 public class HostOriginFilter implements WebFilter {
 
   /** Host names that always reach a loopback server. */

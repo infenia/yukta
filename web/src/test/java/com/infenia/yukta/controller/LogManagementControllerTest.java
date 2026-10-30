@@ -30,10 +30,8 @@ import reactor.core.publisher.Sinks;
 /** Tests for the behaviour described by {@link LogManagementController}. */
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.LawOfDemeter",
   "PMD.UnitTestShouldIncludeAssert",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.ShortVariable",
   "PMD.TooManyMethods"
 })
 class LogManagementControllerTest {

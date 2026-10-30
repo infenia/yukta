@@ -10,7 +10,7 @@ import {
   toNodeStatusLabel,
   toDisplayExecStatus,
   toNodeUiStatus,
-  toTaskSequenceLabel,
+  toStatusDisplay,
 } from '../statusMapper';
 import type { NodeUiStatus } from '../../types/workflow';
 
@@ -96,18 +96,57 @@ describe('isTerminalExecStatus', () => {
 });
 
 describe('status labels', () => {
-  const cases: Array<[NodeUiStatus, string, string]> = [
-    ['completed', 'Done', 'COMPLETED'],
-    ['running', 'Active', 'RUNNING'],
-    ['pending', 'Waiting', 'PENDING'],
-    ['failed', 'Failed', 'FAILED'],
-    ['paused', 'Paused', 'PAUSED'],
-    ['skipped', 'Skipped', 'SKIPPED'],
+  const cases: Array<[NodeUiStatus, string]> = [
+    ['completed', 'Succeeded'],
+    ['running', 'Running'],
+    ['pending', 'Waiting'],
+    ['failed', 'Failed'],
+    ['paused', 'Paused'],
+    ['skipped', 'Skipped'],
   ];
 
-  it.each(cases)('labels %s as %s / %s', (status, nodeLabel, sequenceLabel) => {
-    expect(toNodeStatusLabel(status)).toBe(nodeLabel);
-    expect(toTaskSequenceLabel(status)).toBe(sequenceLabel);
+  it.each(cases)('labels %s as %s', (status, label) => {
+    expect(toNodeStatusLabel(status)).toBe(label);
+  });
+});
+
+describe('toStatusDisplay', () => {
+  it.each([
+    ['PENDING', 'Waiting', 'muted'],
+    ['QUEUED', 'Queued', 'muted'],
+    ['RUNNING', 'Running', 'primary'],
+    ['NODE_PAUSED', 'Paused', 'attention'],
+    ['STOPPING', 'Stopping', 'attention'],
+    ['SUCCESS', 'Succeeded', 'success'],
+    ['COMPLETED', 'Succeeded', 'success'],
+    ['ERROR', 'Failed', 'destructive'],
+    ['TIMED_OUT', 'Timed out', 'destructive'],
+    ['ABORTED', 'Interrupted', 'destructive'],
+    ['CANCELLED', 'Stopped', 'muted'],
+    ['UPSTREAM_FAILED', 'Not reached', 'muted'],
+  ])('shows %s as %s (%s)', (raw, label, tone) => {
+    expect(toStatusDisplay(raw)).toMatchObject({ label, tone });
+  });
+
+  it('shows Not run without a status', () => {
+    expect(toStatusDisplay(null).label).toBe('Not run');
+  });
+
+  it('reads a stopped node as a running run, but a stopped node as stopped', () => {
+    expect(toStatusDisplay('NODE_STOPPED').label).toBe('Running');
+    expect(toStatusDisplay('NODE_STOPPED', 'node').label).toBe('Stopped');
+  });
+
+  it('humanizes an unknown value', () => {
+    expect(toStatusDisplay('WAITING_FOR_GODOT').label).toBe(
+      'Waiting for godot'
+    );
+  });
+
+  it('shows a live dot (no icon) only while work is happening', () => {
+    expect(toStatusDisplay('RUNNING').icon).toBeNull();
+    expect(toStatusDisplay('STOPPING').icon).toBeNull();
+    expect(toStatusDisplay('SUCCESS').icon).toBe('check_circle');
   });
 });
 

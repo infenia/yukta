@@ -45,7 +45,6 @@ import reactor.util.concurrent.Queues;
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidThrowingRawExceptionTypes",
   "PMD.CommentDefaultAccessModifier",
-  "PMD.CommentRequired",
   "PMD.ExcessiveImports",
   "PMD.FieldDeclarationsShouldBeAtStartOfClass",
   "PMD.LinguisticNaming",

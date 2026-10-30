@@ -39,10 +39,8 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({
   "PMD.ExcessiveImports",
   "PMD.TooManyStaticImports",
-  "PMD.CommentRequired",
   "PMD.TooManyMethods",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.ShortVariable"
+  "PMD.AvoidDuplicateLiterals"
 })
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator - ")
 class WorkflowPreparatorTest {

@@ -18,7 +18,7 @@ import reactor.test.StepVerifier;
 
 /** Tests for AskPlugin. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LawOfDemeter", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
 class AskPluginTest {
 
   private static Map<String, Object> config(final Object questions) {

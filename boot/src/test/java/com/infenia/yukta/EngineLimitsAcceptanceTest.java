@@ -29,7 +29,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = {"yukta.process.allow-any=true", "yukta.concurrency.groups.tiny=2"})
-@SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 class EngineLimitsAcceptanceTest {
 

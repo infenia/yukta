@@ -33,7 +33,7 @@ import reactor.test.StepVerifier;
 
 /** Tests for GlobalExceptionHandler. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.LawOfDemeter", "PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 @ExpectedErrorLog("ERROR com.infenia.yukta.exception.GlobalExceptionHandler - ")
 class GlobalExceptionHandlerTest {
 

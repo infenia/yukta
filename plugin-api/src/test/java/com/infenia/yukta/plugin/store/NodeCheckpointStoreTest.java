@@ -11,9 +11,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @SuppressWarnings({
-  "PMD.AtLeastOneConstructor",
   "PMD.CommentDefaultAccessModifier",
-  "PMD.CommentRequired",
   "PMD.LinguisticNaming",
   "PMD.UnitTestAssertionsShouldIncludeMessage"
 })

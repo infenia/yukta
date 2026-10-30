@@ -21,12 +21,12 @@ import reactor.util.context.Context;
  * Gives every request an ID that is returned in {@code X-Request-ID}/{@code X-Correlation-ID},
  * exposed to the rest of the chain, and written into the Reactor context and the logging MDC (key
  * {@code requestId}) so log lines can be correlated. Client-supplied IDs are used only when they
- * match {@code [A-Za-z0-9-]{1,64}}.
+ * match {@code [A-Za-z0-9-]{1,64}}. It runs first, so requests rejected by the host and key filters
+ * carry an ID too.
  */
 @Component
 @NullMarked
-@Order(Ordered.HIGHEST_PRECEDENCE + 10)
-@SuppressWarnings("PMD.LawOfDemeter")
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class RequestTracingFilter implements WebFilter {
 
   /** Header name for request ID. */

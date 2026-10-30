@@ -39,8 +39,7 @@ import reactor.core.scheduler.Schedulers;
 @SuppressWarnings({
   "PMD.UseConcurrentHashMap",
   "PMD.AvoidInstantiatingObjectsInLoops",
-  "PMD.CouplingBetweenObjects",
-  "PMD.OnlyOneReturn"
+  "PMD.CouplingBetweenObjects"
 }) // ordered rows
 public final class SqlQueryPlugin implements ProcessorPlugin {
 

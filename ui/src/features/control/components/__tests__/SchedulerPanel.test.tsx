@@ -109,14 +109,15 @@ describe('SchedulerPanel', () => {
     panel();
     expect(await screen.findByText('Max per workflow')).toBeInTheDocument();
     expect(screen.getByText('Unlimited')).toBeInTheDocument();
-    expect(screen.getByText('100')).toBeInTheDocument();
+    expect(screen.getByText('of 4')).toBeInTheDocument();
+    expect(screen.getByText('queue holds 100')).toBeInTheDocument();
     expect(screen.getByLabelText('Slots in use')).toHaveAttribute('value', '3');
   });
 
   it('has no bar when unlimited, and clamps it when more run than the limit', async () => {
     limits = { ...limits, maxConcurrent: 0 };
     const first = panel();
-    await screen.findByText('Max per workflow');
+    expect(await screen.findByText('of unlimited')).toBeInTheDocument();
     expect(screen.queryByLabelText('Slots in use')).not.toBeInTheDocument();
     first.unmount();
 
@@ -163,7 +164,7 @@ describe('SchedulerPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await user.click(screen.getByRole('button', { name: 'Confirm and save' }));
 
-    expect(await screen.findByText('80')).toBeInTheDocument();
+    expect(await screen.findByText('of 80')).toBeInTheDocument();
     expect(posts).toEqual(['?maxConcurrent=80&maxPerWorkflow=2']);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
@@ -199,12 +200,12 @@ describe('SchedulerPanel', () => {
     ).not.toBeInTheDocument();
     readFails = false;
     await user.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByText('Queue capacity')).toBeInTheDocument();
+    expect(await screen.findByText('queue holds 100')).toBeInTheDocument();
   });
 
   it('refetches when a run starts or ends, but not for other events', async () => {
     panel();
-    await screen.findByText('Queue capacity');
+    await screen.findByText('queue holds 100');
     const source = MockEventSource.byUrl('/api/events/stream');
     act(() => source.open());
     const before = reads;

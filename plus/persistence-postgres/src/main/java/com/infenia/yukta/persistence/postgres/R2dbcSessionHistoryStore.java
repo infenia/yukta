@@ -25,7 +25,7 @@ import tools.jackson.databind.ObjectMapper;
  * does not answer leaves the history in memory only.
  */
 @Slf4j
-@SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.OnlyOneReturn"})
+@SuppressWarnings("PMD.AvoidCatchingGenericException")
 public class R2dbcSessionHistoryStore implements SessionHistoryStore {
 
   /** The stored turns of one session. */

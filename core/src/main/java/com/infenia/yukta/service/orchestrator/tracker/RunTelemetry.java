@@ -153,6 +153,10 @@ final class RunTelemetry {
     meters.counter(name, "type", type).increment();
   }
 
+  /* default */ void edgeDropped(final String type, final String nodeId) {
+    meters.counter("yukta.edge.dropped", "type", type, "node", nodeId).increment();
+  }
+
   /* default */ void logAppendFailed(final String name, final String type) {
     meters.counter(name, "type", type).increment();
   }

@@ -33,7 +33,7 @@ import reactor.core.scheduler.Schedulers;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.LawOfDemeter", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.TooManyMethods")
 @NoArgsConstructor
 public class LoopPredicateProcessor implements ProcessorPlugin {
 

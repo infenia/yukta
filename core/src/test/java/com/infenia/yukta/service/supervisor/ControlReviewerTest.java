@@ -21,12 +21,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.ShortVariable",
-  "PMD.ShortMethodName",
-  "PMD.AvoidFieldNameMatchingMethodName"
-})
+@SuppressWarnings({"PMD.ShortMethodName", "PMD.AvoidFieldNameMatchingMethodName"})
 @NoArgsConstructor
 class ControlReviewerTest {
 

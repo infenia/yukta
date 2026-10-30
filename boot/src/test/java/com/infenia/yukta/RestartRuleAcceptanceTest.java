@@ -33,7 +33,7 @@ import org.springframework.test.context.DynamicPropertySource;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
-@SuppressWarnings({"PMD.CommentRequired", "PMD.ShortVariable", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @NoArgsConstructor
 class RestartRuleAcceptanceTest {
 

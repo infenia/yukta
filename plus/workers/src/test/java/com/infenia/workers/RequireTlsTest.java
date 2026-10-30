@@ -8,11 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 
 /** Plain TCP is allowed only on this machine, unless the operator opts out. */
-@SuppressWarnings({
-  "PMD.AtLeastOneConstructor",
-  "PMD.AvoidUsingHardCodedIP",
-  "PMD.AvoidDuplicateLiterals"
-})
+@SuppressWarnings({"PMD.AvoidUsingHardCodedIP", "PMD.AvoidDuplicateLiterals"})
 class RequireTlsTest {
 
   @Test

@@ -18,9 +18,6 @@ import reactor.test.StepVerifier;
 
 /** Tests for the behaviour described by {@link Pagination}. */
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.LawOfDemeter",
-})
 class SseStreamsAndPaginationTest {
 
   @Test

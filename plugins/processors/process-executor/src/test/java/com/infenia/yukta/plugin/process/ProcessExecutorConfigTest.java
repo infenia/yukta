@@ -13,7 +13,7 @@ import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings({"PMD.CommentRequired", "PMD.UseConcurrentHashMap", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.AvoidDuplicateLiterals"})
 @NoArgsConstructor
 class ProcessExecutorConfigTest {
 

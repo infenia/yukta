@@ -25,12 +25,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.CommentRequired",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.TooManyStaticImports",
-  "PMD.LawOfDemeter"
-})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyStaticImports"})
 class McpListToolsPluginTest {
 
   private final McpClientGateway gateway = mock(McpClientGateway.class);

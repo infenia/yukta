@@ -9,7 +9,6 @@ import com.infenia.yukta.plugin.core.FailureMode;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 class EnumsTest {
 

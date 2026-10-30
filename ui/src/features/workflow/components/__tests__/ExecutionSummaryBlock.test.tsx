@@ -16,7 +16,7 @@ describe('ExecutionSummaryBlock', () => {
     expect(block).toHaveTextContent('Execution summary');
     expect(block).toHaveTextContent('exec-091-qp-55');
     expect(block).toHaveTextContent('SESSION_A92_XP_2024');
-    expect(block).toHaveTextContent('RUNNING');
+    expect(block).toHaveTextContent('Running');
     expect(block).toHaveTextContent('14:22:01');
   });
 
@@ -37,7 +37,7 @@ describe('ExecutionSummaryBlock', () => {
     const block = screen.getByTestId('execution-summary');
     expect(block).toHaveTextContent('—');
     expect(block).toHaveTextContent('SESSION_A92_XP_2024');
-    expect(block).toHaveTextContent('NOT RUN');
+    expect(block).toHaveTextContent('Not run');
   });
 
   it('renders the end time once the execution finishes', () => {

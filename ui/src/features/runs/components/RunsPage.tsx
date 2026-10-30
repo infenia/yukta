@@ -3,7 +3,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -20,12 +21,22 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useSessionSummaries } from '@/features/sessions/hooks/useSessionSummaries';
 import { useSessionWorkflows } from '@/features/sessions/hooks/useSessionWorkflows';
-import { StatusChip } from '@/features/workflow/components/StatusChip';
+import { RecoverButton } from '@/features/workflow/components/RecoverButton';
+import { StatusPill } from '@/features/workflow/components/StatusPill';
+import {
+  isAbortedExecStatus,
+  toStatusDisplay,
+} from '@/features/workflow/lib/statusMapper';
 import {
   formatClockTime,
   formatDuration,
 } from '@/features/workflow/lib/timeFormat';
-import { MAX_RUNS, searchExecutions } from '../api/searchExecutions';
+import {
+  MAX_RUNS,
+  getRunCounts,
+  searchExecutions,
+  type RunCounts,
+} from '../api/searchExecutions';
 import {
   RUN_STATUSES,
   parseFilters,
@@ -46,7 +57,16 @@ const RANGE_LABELS: [Range, string][] = [
 ];
 
 /** Runs of every session, newest first, narrowed by filters that live in the URL. */
+/** Phones: each run stacks into a card of labelled values (the label comes from data-label). */
+const STACKED_CELL =
+  'px-4 max-sm:flex max-sm:items-center max-sm:gap-3 max-sm:py-0.5 max-sm:whitespace-normal max-sm:before:w-20 max-sm:before:shrink-0 max-sm:before:text-body-sm max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]';
+
+/** The run view of one execution. */
+const runPath = (sessionId: string, workflowId: string, executionId: string) =>
+  `/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}?exec=${encodeURIComponent(executionId)}`;
+
 export function RunsPage() {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const filters = parseFilters(params);
   const [limit, setLimit] = useState(PAGE);
@@ -57,6 +77,16 @@ export function RunsPage() {
     placeholderData: (previous) => previous,
   });
   const workflows = useSessionWorkflows(filters.session);
+  const counts = useQuery({
+    queryKey: ['runs', 'counts'],
+    queryFn: getRunCounts,
+  });
+  // Each chip is a filter: the same status (and, for failures, the last 24 hours)
+  const chips: [keyof RunCounts, string, Partial<RunFilters>][] = [
+    ['running', 'running', { status: 'RUNNING', range: '' }],
+    ['queued', 'queued', { status: 'QUEUED', range: '' }],
+    ['failed', 'failed in 24 h', { status: 'FAILURE', range: '24h' }],
+  ];
 
   const set = (change: Partial<RunFilters>) => {
     setParams(toParams({ ...filters, ...change }), { replace: true });
@@ -69,6 +99,38 @@ export function RunsPage() {
         title="Runs"
         description="Runs of every session, newest first."
       />
+      {counts.data && (
+        <div
+          role="group"
+          aria-label="Run counts"
+          className="flex flex-wrap gap-2"
+        >
+          {chips.map(([key, label, change]) => {
+            const active =
+              filters.status === change.status &&
+              filters.range === change.range;
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => set(active ? { status: '', range: '' } : change)}
+                className={cn(
+                  'text-label-md inline-flex h-8 items-center gap-1.5 rounded-full border px-3',
+                  active
+                    ? 'bg-accent text-accent-foreground border-transparent'
+                    : 'border-border text-on-surface hover:bg-muted'
+                )}
+              >
+                <span className="font-semibold tabular-nums">
+                  {counts.data[key]}
+                </span>{' '}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <NativeSelect
           aria-label="Session"
@@ -105,7 +167,12 @@ export function RunsPage() {
         >
           <option value="">Any status</option>
           {RUN_STATUSES.map((status) => (
-            <option key={status}>{status}</option>
+            <option key={status} value={status}>
+              {/* FAILURE and ERROR both read "Failed"; the filter still tells them apart */}
+              {status === 'ERROR'
+                ? 'Failed (error)'
+                : toStatusDisplay(status).label}
+            </option>
           ))}
         </NativeSelect>
         <Input
@@ -162,29 +229,43 @@ export function RunsPage() {
       ) : (
         <>
           <TableFrame>
-            <Table>
-              <TableHeader>
+            <Table className="max-sm:block [&_tbody]:max-sm:block">
+              <TableHeader className="max-sm:hidden">
                 <TableRow>
                   <TableHead className="px-4">Status</TableHead>
                   <TableHead className="px-4">Run</TableHead>
                   <TableHead className="px-4">Session</TableHead>
                   <TableHead className="px-4">Workflow</TableHead>
                   <TableHead className="px-4">Started</TableHead>
+                  <TableHead className="px-4">Progress</TableHead>
                   <TableHead className="px-4">Duration</TableHead>
                   <TableHead className="px-4">Ended</TableHead>
+                  <TableHead className="px-4">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {runs.data.map((run) => (
-                  <TableRow key={run.executionId}>
-                    <TableCell className="px-4">
-                      <StatusChip status={run.status} />
+                  <TableRow
+                    key={run.executionId}
+                    className="max-sm:flex max-sm:flex-col max-sm:gap-1 max-sm:py-3"
+                  >
+                    <TableCell data-label="Status" className={STACKED_CELL}>
+                      <StatusPill status={run.status} />
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-code-sm">
+                    <TableCell
+                      data-label="Run"
+                      className={cn(STACKED_CELL, 'text-code-sm py-3')}
+                    >
                       <Link
                         className="text-primary"
                         title={run.executionId}
-                        to={`/sessions/${encodeURIComponent(run.sessionId)}/workflow/${encodeURIComponent(run.workflowId)}?exec=${encodeURIComponent(run.executionId)}`}
+                        to={runPath(
+                          run.sessionId,
+                          run.workflowId,
+                          run.executionId
+                        )}
                       >
                         {run.executionId.slice(0, 8)}
                       </Link>
@@ -194,21 +275,70 @@ export function RunsPage() {
                         onClick={() =>
                           void navigator.clipboard.writeText(run.executionId)
                         }
-                        className="material-symbols-outlined ml-1 align-middle text-sm text-on-surface-variant"
+                        className="material-symbols-outlined text-on-surface-variant ml-1 align-middle text-sm"
                       >
                         content_copy
                       </button>
                     </TableCell>
-                    <TableCell className="px-4">{run.sessionId}</TableCell>
-                    <TableCell className="px-4">{run.workflowId}</TableCell>
-                    <TableCell className="px-4 text-code-sm">
+                    <TableCell data-label="Session" className={STACKED_CELL}>
+                      {run.sessionId}
+                    </TableCell>
+                    <TableCell data-label="Workflow" className={STACKED_CELL}>
+                      {run.workflowId}
+                    </TableCell>
+                    <TableCell
+                      data-label="Started"
+                      className={cn(STACKED_CELL, 'text-code-sm')}
+                    >
                       {formatClockTime(run.startTime)}
                     </TableCell>
-                    <TableCell className="px-4 text-code-sm">
+                    <TableCell
+                      data-label="Progress"
+                      className={cn(STACKED_CELL, 'text-code-sm')}
+                    >
+                      {run.nodes ? (
+                        <>
+                          {run.nodes.done}/{run.nodes.total}
+                          {run.nodes.failed && (
+                            <span className="text-error ml-2">
+                              failed at {run.nodes.failed}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell
+                      data-label="Duration"
+                      className={cn(STACKED_CELL, 'text-code-sm')}
+                    >
                       {formatDuration(run.startTime, run.endTime)}
                     </TableCell>
-                    <TableCell className="px-4 text-code-sm">
+                    <TableCell
+                      data-label="Ended"
+                      className={cn(STACKED_CELL, 'text-code-sm')}
+                    >
                       {formatClockTime(run.endTime)}
+                    </TableCell>
+                    <TableCell className="px-4 max-sm:empty:hidden">
+                      {isAbortedExecStatus(run.status) && (
+                        <RecoverButton
+                          size="sm"
+                          sessionId={run.sessionId}
+                          workflowId={run.workflowId}
+                          executionId={run.executionId}
+                          onRecovered={(executionId) =>
+                            void navigate(
+                              runPath(
+                                run.sessionId,
+                                run.workflowId,
+                                executionId
+                              )
+                            )
+                          }
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

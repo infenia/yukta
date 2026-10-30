@@ -35,9 +35,9 @@ describe('WorkflowNodeCard', () => {
     });
 
     const card = screen.getByTestId('workflow-node-data-ingress');
-    expect(card).toHaveAttribute('aria-label', 'data-ingress: Done');
+    expect(card).toHaveAttribute('aria-label', 'data-ingress: Succeeded');
     expect(screen.getByTestId('node-icon')).toHaveTextContent('input');
-    expect(card).toHaveTextContent('Done');
+    expect(card).toHaveTextContent('Succeeded');
     expect(card).not.toHaveTextContent('100%');
     expect(card.querySelector('.target')).toBeNull();
     expect(card.querySelector('.source')).not.toBeNull();

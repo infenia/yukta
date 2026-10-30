@@ -8,7 +8,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("PMD.CommentRequired")
 @NoArgsConstructor
 class FailureModeTest {
 

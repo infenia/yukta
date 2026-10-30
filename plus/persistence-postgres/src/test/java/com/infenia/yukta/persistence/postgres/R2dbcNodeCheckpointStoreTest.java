@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 @ExpectedErrorLog({
   "ERROR com.infenia.yukta.persistence.postgres.Fencing - ",
   "ERROR com.infenia.yukta.persistence.postgres.R2dbcNodeCheckpointStore - "

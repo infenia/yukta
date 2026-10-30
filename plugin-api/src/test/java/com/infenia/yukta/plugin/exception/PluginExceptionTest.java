@@ -6,13 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings({
-  "PMD.AtLeastOneConstructor",
-  "PMD.CommentRequired",
-  "PMD.LocalVariableCouldBeFinal",
-  "PMD.ShortVariable",
-  "PMD.UnitTestAssertionsShouldIncludeMessage"
-})
+@SuppressWarnings({"PMD.LocalVariableCouldBeFinal", "PMD.UnitTestAssertionsShouldIncludeMessage"})
 class PluginExceptionTest {
 
   @Test

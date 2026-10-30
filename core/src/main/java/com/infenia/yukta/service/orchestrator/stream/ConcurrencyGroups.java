@@ -25,12 +25,7 @@ import reactor.core.publisher.MonoSink;
  * nodes are served in arrival order. The limits are read at start-up.
  */
 @Component
-@SuppressWarnings({
-  "PMD.AvoidSynchronizedStatement",
-  "PMD.AvoidSynchronizedAtMethodLevel",
-  "PMD.OnlyOneReturn",
-  "PMD.LawOfDemeter"
-})
+@SuppressWarnings({"PMD.AvoidSynchronizedStatement", "PMD.AvoidSynchronizedAtMethodLevel"})
 public final class ConcurrencyGroups {
 
   /** The most nodes allowed at once, by group name. */

@@ -53,11 +53,9 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.CyclomaticComplexity",
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports",
-  "PMD.CommentRequired",
   "PMD.TooManyStaticImports",
   "PMD.LinguisticNaming",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.LawOfDemeter",
   "PMD.UseConcurrentHashMap",
   "unchecked"
 })

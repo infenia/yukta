@@ -27,7 +27,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class SignalNodeCommandProcessorTest {
 
   private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);

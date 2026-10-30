@@ -19,7 +19,7 @@ import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class WorkerSessionHandlerTest {
 
   private final WorkerRegistry registry =

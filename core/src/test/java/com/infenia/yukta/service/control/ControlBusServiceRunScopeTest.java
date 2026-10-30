@@ -29,7 +29,7 @@ import reactor.test.StepVerifier;
 
 /** Two runs of the same workflow report on the same node ids; their signals must not mix. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentRequired"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class ControlBusServiceRunScopeTest {
 
   private static final String WORKFLOW_ID = "wf";

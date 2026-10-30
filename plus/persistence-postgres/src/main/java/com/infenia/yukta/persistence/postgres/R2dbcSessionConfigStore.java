@@ -22,7 +22,7 @@ import tools.jackson.databind.ObjectMapper;
  * while they are still empty.
  */
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.OnlyOneReturn", "PMD.LinguisticNaming"})
+@SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.LinguisticNaming"})
 public class R2dbcSessionConfigStore implements SessionConfigStore {
 
   /** Tags as stored. */

@@ -12,7 +12,6 @@ import org.jspecify.annotations.Nullable;
  * @param savedAt when it was saved
  * @param note what the version is for, or null when nobody wrote one
  */
-@SuppressWarnings("PMD.ShortVariable")
 public record DefinitionRevision(String id, Instant savedAt, @Nullable String note) {
 
   /**

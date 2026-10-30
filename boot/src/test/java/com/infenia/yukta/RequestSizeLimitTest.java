@@ -16,7 +16,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 /** A request body above {@code spring.codec.max-in-memory-size} is refused with 413. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.SignatureDeclareThrowsException"})
+@SuppressWarnings("PMD.SignatureDeclareThrowsException")
 class RequestSizeLimitTest {
 
   @LocalServerPort private int port;

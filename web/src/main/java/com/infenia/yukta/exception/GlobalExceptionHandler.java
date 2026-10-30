@@ -50,7 +50,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             .map(err -> new ApiResponse.FieldError(err.getField(), err.getDefaultMessage()))
             .collect(Collectors.toList());
 
-    @SuppressWarnings("PMD.LawOfDemeter")
     final var request = exchange.getRequest();
     final String path = request.getPath().value();
     final ApiResponse<Object> errorResponse =
@@ -380,7 +379,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     return ResponseEntity.status(status).body(errorResponse);
   }
 
-  @SuppressWarnings("PMD.LawOfDemeter")
   private static String requestId(final ServerHttpRequest request) {
     final HttpHeaders headers = request.getHeaders();
     final String value =
@@ -388,12 +386,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     return value == null ? "unavailable" : value;
   }
 
-  @SuppressWarnings("PMD.LawOfDemeter")
   private String getRequestPath(final ServerHttpRequest request) {
     return request.getPath().value();
   }
 
-  @SuppressWarnings("PMD.OnlyOneReturn")
   private @Nullable UnrecognizedPropertyException findUnrecognizedPropertyException(
       final Throwable throwable) {
     Throwable cause = throwable;

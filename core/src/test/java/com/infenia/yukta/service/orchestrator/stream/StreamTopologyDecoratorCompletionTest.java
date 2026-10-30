@@ -30,7 +30,7 @@ import reactor.test.StepVerifier;
 
 /** The end of a node is made durable once, after its output, before the completion goes on. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.TooManyStaticImports"})
+@SuppressWarnings("PMD.TooManyStaticImports")
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator - ")
 class StreamTopologyDecoratorCompletionTest {
 

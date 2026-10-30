@@ -18,7 +18,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.CommentRequired")
 class TreeControlTest {
 
   private final TaskTrackerService tracker = mock(TaskTrackerService.class);

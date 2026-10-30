@@ -15,7 +15,7 @@ import lombok.experimental.UtilityClass;
 
 /** Content hash of a workflow graph, stable across JVM runs and independent of map ordering. */
 @UtilityClass
-@SuppressWarnings({"PMD.AtLeastOneConstructor", "PMD.ShortMethodName", "PMD.OnlyOneReturn"})
+@SuppressWarnings("PMD.ShortMethodName")
 public class DefinitionVersion {
 
   /** Length of the hex prefix kept; 16 hex digits are plenty to tell versions apart. */

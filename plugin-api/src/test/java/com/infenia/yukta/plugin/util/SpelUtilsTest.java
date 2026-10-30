@@ -13,8 +13,6 @@ import org.springframework.expression.spel.SpelEvaluationException;
 import reactor.test.StepVerifier;
 
 @SuppressWarnings({
-  "PMD.AtLeastOneConstructor",
-  "PMD.CommentRequired",
   "PMD.TooManyMethods",
   "PMD.UnnecessaryCast",
   "PMD.UnnecessaryFullyQualifiedName"

@@ -31,12 +31,10 @@ import org.springframework.boot.test.web.server.LocalServerPort;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @SuppressWarnings({
-  "PMD.CommentRequired",
   "PMD.SignatureDeclareThrowsException",
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
   "PMD.CyclomaticComplexity",
-  "PMD.ShortVariable",
   "PMD.UnitTestShouldIncludeAssert"
 })
 @NoArgsConstructor

@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 /** Test for {@link ExecutionControlFactory}. */
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentRequired"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @NoArgsConstructor
 class ExecutionControlFactoryTest {
 

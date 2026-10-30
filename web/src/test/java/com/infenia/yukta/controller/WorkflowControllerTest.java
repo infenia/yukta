@@ -32,12 +32,10 @@ import reactor.core.publisher.Mono;
 /** Tests for the behaviour described by {@link WorkflowController}. */
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.LawOfDemeter",
   "PMD.UnitTestShouldIncludeAssert",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyStaticImports",
-  "PMD.TooManyMethods",
-  "PMD.ShortVariable"
+  "PMD.TooManyMethods"
 })
 @ExpectedErrorLog("ERROR com.infenia.yukta.exception.GlobalExceptionHandler - ")
 class WorkflowControllerTest {

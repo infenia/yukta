@@ -68,9 +68,12 @@ describe('SessionDetailsPage export', () => {
     vi.mocked(exportSessionConfig).mockResolvedValue();
     const user = userEvent.setup();
     renderPage();
-    const button = await screen.findByRole('button', { name: /export json/i });
-    expect(button).toHaveAttribute('title', 'Secret values are not exported.');
-    await user.click(button);
+    await user.click(
+      await screen.findByRole('button', { name: 'Session actions' })
+    );
+    const item = await screen.findByRole('menuitem', { name: /export json/i });
+    expect(item).toHaveAttribute('title', 'Secret values are not exported.');
+    await user.click(item);
     expect(exportSessionConfig).toHaveBeenCalledWith('sess-123');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
@@ -80,12 +83,18 @@ describe('SessionDetailsPage export', () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(
-      await screen.findByRole('button', { name: /export json/i })
+      await screen.findByRole('button', { name: 'Session actions' })
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: /export json/i })
     );
     expect(await screen.findByRole('alert')).toHaveTextContent('gone');
 
     vi.mocked(exportSessionConfig).mockRejectedValueOnce('boom');
-    await user.click(screen.getByRole('button', { name: /export json/i }));
+    await user.click(screen.getByRole('button', { name: 'Session actions' }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: /export json/i })
+    );
     expect(await screen.findByRole('alert')).toHaveTextContent('Export failed');
   });
 });

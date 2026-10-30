@@ -3,6 +3,7 @@
 package com.infenia.yukta.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -14,6 +15,7 @@ import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.ActiveRunsException;
 import com.infenia.yukta.service.session.SessionService;
@@ -32,16 +34,17 @@ import reactor.core.publisher.Mono;
 /** Tests for the behaviour described by {@link SessionConfigController}. */
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert",
-  "PMD.TooManyStaticImports",
-  "PMD.ShortVariable"
+  "PMD.TooManyStaticImports"
 })
 class SessionConfigControllerTest {
 
   /** A session id nothing is stored under. */
   private static final String NOPE = "nope";
+
+  /** The control bus. */
+  private ControlBusGateway controlBus;
 
   /** The session service. */
   private SessionService sessionService;
@@ -61,12 +64,15 @@ class SessionConfigControllerTest {
   @BeforeEach
   void setUp() {
     sessionService = mock(SessionService.class);
+    controlBus = mock(ControlBusGateway.class);
+    when(controlBus.getHistory(anyString())).thenReturn(Mono.just(List.of()));
     client =
         WebTestClient.bindToController(
                 new SessionConfigController(
                     sessionService,
                     Mappers.getMapper(SessionMapper.class),
-                    new ConfigRedactor(mock(PluginRegistry.class))))
+                    new ConfigRedactor(mock(PluginRegistry.class)),
+                    controlBus))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
   }
@@ -178,6 +184,42 @@ class SessionConfigControllerTest {
         .isEqualTo(1);
     verify(sessionService, never()).getSessionConfig("c");
     verify(sessionService, never()).getAllSessionConfigs();
+  }
+
+  @Test
+  void testSummariesCarryEachSessionsNewestRun() {
+    when(sessionService.getSessionIds()).thenReturn(Flux.just("a", "b", "c"));
+    for (final String id : List.of("a", "b", "c")) {
+      when(sessionService.getSessionConfig(id)).thenReturn(Mono.just(config(id)));
+    }
+    final LocalDateTime noon = LocalDateTime.of(2026, 10, 30, 12, 0);
+    when(controlBus.getHistory("a"))
+        .thenReturn(
+            Mono.just(
+                List.of(run("old", noon.minusHours(1)), run("new", noon), run("queued", null))));
+    when(controlBus.getHistory("b")).thenReturn(Mono.error(new IllegalStateException("down")));
+
+    client
+        .get()
+        .uri("/api/sessions/summaries")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data[0].lastRun.executionId")
+        .isEqualTo("new")
+        .jsonPath("$.data[0].lastRun.workflowId")
+        .isEqualTo("wf")
+        .jsonPath("$.data[1].sessionId")
+        .isEqualTo("b")
+        .jsonPath("$.data[1].lastRun")
+        .doesNotExist()
+        .jsonPath("$.data[2].lastRun")
+        .doesNotExist();
+  }
+
+  private static WorkflowExecutionSummary run(final String id, final LocalDateTime start) {
+    return new WorkflowExecutionSummary(id, "wf", "SUCCESS", start, null);
   }
 
   @Test

@@ -23,14 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Unit tests for {@link WorkflowGraphService}. */
-@SuppressWarnings({
-  "PMD.TooManyStaticImports",
-  "PMD.AtLeastOneConstructor",
-  "PMD.TooManyMethods",
-  "PMD.CommentRequired",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.ShortVariable"
-})
+@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class WorkflowGraphServiceTest {
 
   private static final String NODE_ID = "test-node";

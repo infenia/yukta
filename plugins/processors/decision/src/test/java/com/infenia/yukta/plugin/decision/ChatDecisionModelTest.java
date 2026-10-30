@@ -25,8 +25,6 @@ import org.mockito.ArgumentCaptor;
 @NoArgsConstructor
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
-  "PMD.CommentRequired",
-  "PMD.LawOfDemeter",
   "PMD.TooManyMethods",
   "PMD.TooManyStaticImports",
   "PMD.UseConcurrentHashMap",

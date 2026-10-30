@@ -6,26 +6,29 @@ import { render, screen } from '@testing-library/react';
 import { WorkflowTitleBar } from '../WorkflowTitleBar';
 
 describe('WorkflowTitleBar', () => {
-  it('renders the display name as heading, the ID and the status chip', () => {
+  it('titles the page with the workflow ID, its status and its description', () => {
     render(
       <WorkflowTitleBar
-        displayName="Supply_Chain_Optimizer_V2"
         workflowId="wf-982-xk-11"
+        description="Supply chain optimizer"
         status="RUNNING"
+        actions={<button type="button">Run</button>}
       />
     );
 
     expect(
-      screen.getByRole('heading', { name: 'Supply_Chain_Optimizer_V2' })
+      screen.getByRole('heading', { name: 'wf-982-xk-11' })
     ).toBeInTheDocument();
-    expect(screen.getByText('ID: wf-982-xk-11')).toBeInTheDocument();
-    expect(screen.getByTestId('status-chip')).toHaveTextContent('RUNNING');
+    expect(screen.getByText('Supply chain optimizer')).toBeInTheDocument();
+    expect(screen.getByTestId('status-chip')).toHaveTextContent('Running');
+    expect(screen.getByRole('button', { name: 'Run' })).toBeInTheDocument();
   });
 
-  it('shows NOT RUN when there is no execution', () => {
-    render(
-      <WorkflowTitleBar displayName="wf1" workflowId="wf1" status={null} />
+  it('shows Not run, and no description line when there is none', () => {
+    const { container } = render(
+      <WorkflowTitleBar workflowId="wf1" status={null} />
     );
-    expect(screen.getByTestId('status-chip')).toHaveTextContent('NOT RUN');
+    expect(container.querySelector('p')).toBeNull();
+    expect(screen.getByTestId('status-chip')).toHaveTextContent('Not run');
   });
 });

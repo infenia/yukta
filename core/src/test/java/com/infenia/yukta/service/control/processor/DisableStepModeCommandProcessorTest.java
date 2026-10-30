@@ -24,7 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CommentRequired", "PMD.LinguisticNaming"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LinguisticNaming"})
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
 class DisableStepModeCommandProcessorTest {

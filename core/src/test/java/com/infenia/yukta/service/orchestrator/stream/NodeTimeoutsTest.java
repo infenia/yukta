@@ -25,7 +25,7 @@ import reactor.test.StepVerifier;
 import reactor.test.scheduler.VirtualTimeScheduler;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.CommentRequired", "PMD.AvoidDuplicateLiterals", "PMD.TooManyStaticImports"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyStaticImports"})
 class NodeTimeoutsTest {
 
   private final VariableResolver resolver = new VariableResolver(mock(SecretProvider.class));

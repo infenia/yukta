@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.OnlyOneReturn", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings("PMD.UseConcurrentHashMap")
 public class ConfigRedactor {
 
   /** What replaces a secret in a definition that is handed out. */
@@ -58,7 +58,10 @@ public class ConfigRedactor {
         workflow.workflowId(),
         workflow.description(),
         workflow.nodes().stream()
-            .map(node -> new WorkflowDefinition.Node(node.nodeId(), node.type(), redactNode(node)))
+            .map(
+                node ->
+                    new WorkflowDefinition.Node(
+                        node.nodeId(), node.type(), redactNode(node), node.group()))
             .toList(),
         workflow.edges());
   }

@@ -11,11 +11,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /** Utility methods for working with Maps and nested structures. */
 @UtilityClass
-@SuppressWarnings({
-  "PMD.OnlyOneReturn",
-  "PMD.UseConcurrentHashMap",
-  "PMD.AvoidInstantiatingObjectsInLoops"
-})
+@SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.AvoidInstantiatingObjectsInLoops"})
 public class MapUtils {
 
   /** ObjectMapper for converting objects to/from Maps. */
