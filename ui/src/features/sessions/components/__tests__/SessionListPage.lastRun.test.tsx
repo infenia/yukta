@@ -21,8 +21,7 @@ const ok = (data: unknown) =>
     path: '/',
   });
 
-const run = (sessionId: string, executionId: string, status: string) => ({
-  sessionId,
+const run = (executionId: string, status: string) => ({
   executionId,
   workflowId: 'check',
   status,
@@ -37,13 +36,10 @@ const server = setupServer(
         sessionId: 'dogfood',
         name: 'dogfood',
         projectPath: '/srv/dogfood',
+        lastRun: run('a1', 'RUNNING'),
       }),
-      createMockSession({ sessionId: 'idle', name: 'idle' }),
+      createMockSession({ sessionId: 'idle', name: 'idle', lastRun: null }),
     ])
-  ),
-  // newest first: dogfood's last run is the running one, not the older failure
-  http.get('/api/executions', () =>
-    ok([run('dogfood', 'a1', 'RUNNING'), run('dogfood', 'b2', 'FAILURE')])
   )
 );
 
@@ -71,13 +67,12 @@ const rowOf = (name: string) =>
     .closest('tr') as HTMLElement;
 
 describe('SessionListPage last run', () => {
-  it("shows each session's newest run, and a dash where none was found", async () => {
+  it("shows each session's newest run from the server, and Not run without one", async () => {
     renderList();
     const pill = await screen.findByTestId('status-chip');
     expect(pill).toHaveTextContent('Running');
     expect(rowOf('dogfood')).toHaveTextContent('check ·');
-    expect(screen.queryByText('Failed')).not.toBeInTheDocument();
-    expect(within(rowOf('idle')).getByText('—')).toBeInTheDocument();
+    expect(within(rowOf('idle')).getByText('Not run')).toBeInTheDocument();
   });
 
   it('labels each cell for the stacked phone layout', async () => {

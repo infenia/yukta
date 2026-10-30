@@ -57,6 +57,8 @@ export function WorkflowDetailsPage() {
   const [deleting, setDeleting] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [stopping, setStopping] = useState<string | null>(null);
+  // Clicking a node on the canvas narrows the logs to it
+  const [logNode, setLogNode] = useState<string | null>(null);
 
   const graphQuery = useWorkflowGraph(sessionId, workflowId);
   const executionsQuery = useWorkflowExecutions(sessionId, workflowId);
@@ -314,6 +316,7 @@ export function WorkflowDetailsPage() {
               graph={graph}
               tasksByNode={tasksByNode}
               stageView={stages.stageView}
+              onNodeClick={setLogNode}
             />
           </SubWorkflowLinks>
           {stages.hasStages && (
@@ -341,6 +344,8 @@ export function WorkflowDetailsPage() {
         entries={logs.entries}
         dropped={logs.dropped}
         isStreaming={isStreaming || logs.isStreaming}
+        node={logNode}
+        onClearNode={() => setLogNode(null)}
       />
     </div>
   );
