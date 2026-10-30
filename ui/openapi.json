@@ -65,6 +65,9 @@
     "name" : "Webhook API",
     "description" : "Signed inbound calls that start a workflow"
   }, {
+    "name" : "Session API",
+    "description" : "Check a project path before creating a session"
+  }, {
     "name" : "Plugin API",
     "description" : "Endpoints for discovering workflow plugins"
   } ],
@@ -3335,6 +3338,36 @@
         "summary" : "List pending approvals across sessions",
         "tags" : [ "Execution Control API" ]
       }
+    },
+    "/api/sessions/validate/project-path" : {
+      "post" : {
+        "description" : "Says whether the path exists on the server and is a directory. Nothing else about the file system is returned.",
+        "operationId" : "checkProjectPath",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProjectPathRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProjectPathCheck"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Check a project path",
+        "tags" : [ "Session API" ]
+      }
     }
   },
   "components" : {
@@ -6167,6 +6200,75 @@
             "type" : "integer"
           }
         },
+        "type" : "object"
+      },
+      "ApiResponseProjectPathCheck" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ProjectPathCheck",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ProjectPathCheck" : {
+        "properties" : {
+          "directory" : {
+            "description" : "It is a directory",
+            "type" : "boolean"
+          },
+          "exists" : {
+            "description" : "Something is at the path",
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "ProjectPathRequest" : {
+        "properties" : {
+          "projectPath" : {
+            "description" : "Project path",
+            "example" : "/data/pipelines/main",
+            "maxLength" : 1024,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "projectPath" ],
         "type" : "object"
       }
     }

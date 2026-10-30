@@ -19,3 +19,13 @@ export function validateWorkflow(workflow: DraftWorkflow): Promise<ValidationRes
     body: JSON.stringify(workflow),
   });
 }
+
+/** What the server finds at a project path (only an ADMIN key may ask). */
+export function checkProjectPath(
+  projectPath: string
+): Promise<{ exists: boolean; directory: boolean }> {
+  return fetchApi('/api/sessions/validate/project-path', {
+    method: 'POST',
+    body: JSON.stringify({ projectPath }),
+  });
+}
