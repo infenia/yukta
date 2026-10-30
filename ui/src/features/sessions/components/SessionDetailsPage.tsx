@@ -180,6 +180,10 @@ export function SessionDetailsPage() {
       <div>
         <SessionInfoPanel
           session={session}
+          workflows={{
+            count: workflows.length,
+            nodes: workflows.reduce((sum, w) => sum + w.nodeCount, 0),
+          }}
           actions={
             <div className="flex items-center gap-2">
               <Button type="button" onClick={() => setCreating(true)}>
