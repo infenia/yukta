@@ -382,19 +382,19 @@ describe('WorkflowEditorPage', () => {
     await user.paste('{"k"');
 
     expect(screen.getByRole('button', { name: 'Validate' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save version' })).toBeDisabled();
     expect(screen.getByText(/Fix the JSON field/)).toBeInTheDocument();
 
     await user.clear(box);
-    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Save version' })).toBeEnabled();
     await user.paste('{"k":1}');
     expect(screen.getByRole('button', { name: 'Validate' })).toBeEnabled();
 
     await user.clear(box);
     await user.paste('{');
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save version' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: /^out/ }));
-    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Save version' })).toBeEnabled();
   });
 
   it('removes an edge from the inspector, and starts one from the selected node', async () => {
@@ -402,11 +402,18 @@ describe('WorkflowEditorPage', () => {
     renderEditor();
     await screen.findByRole('region', { name: 'Node start' });
     await user.click(screen.getByRole('tab', { name: 'Connections' }));
-    await user.click(screen.getByRole('button', { name: 'Remove the edge start → out' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Remove the edge start → out' })
+    );
     expect(screen.getByTestId('canvas')).toHaveTextContent('2 nodes 0 edges');
 
-    await user.click(screen.getByRole('button', { name: 'Add an edge from start' }));
-    expect(screen.getByRole('tab', { name: /Edges/ })).toHaveAttribute('aria-selected', 'true');
+    await user.click(
+      screen.getByRole('button', { name: 'Add an edge from start' })
+    );
+    expect(screen.getByRole('tab', { name: /Edges/ })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
     expect(screen.getByLabelText('Edge source')).toHaveValue('start');
   });
 
@@ -465,7 +472,7 @@ describe('WorkflowEditorPage', () => {
     expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Description')).toHaveValue('first');
     expect(screen.getByLabelText('Configuration (JSON)')).toHaveValue('');
-    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Save version' })).toBeEnabled();
     const after = new Event('beforeunload', { cancelable: true });
     window.dispatchEvent(after);
     expect(after.defaultPrevented).toBe(false);
@@ -545,7 +552,7 @@ describe('WorkflowEditorPage', () => {
     renderEditor();
     await screen.findByRole('region', { name: 'Node start' });
     await user.type(screen.getByLabelText('Description'), ' edited');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: 'Save version' }));
 
     await waitFor(() => expect(saved).toHaveLength(1));
     expect(saved[0].tags).toEqual({ env: 'prod' });
@@ -561,7 +568,7 @@ describe('WorkflowEditorPage', () => {
     const user = userEvent.setup();
     renderEditor();
     await screen.findByRole('region', { name: 'Node start' });
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: 'Save version' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('cycle');
     expect(saved).toHaveLength(0);
   });
@@ -571,7 +578,7 @@ describe('WorkflowEditorPage', () => {
     const user = userEvent.setup();
     renderEditor();
     await screen.findByRole('region', { name: 'Node start' });
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: 'Save version' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('boom');
     expect(saved).toHaveLength(0);
   });
@@ -581,7 +588,7 @@ describe('WorkflowEditorPage', () => {
     const user = userEvent.setup();
     renderEditor();
     await screen.findByRole('region', { name: 'Node start' });
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: 'Save version' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('disk full');
   });
 

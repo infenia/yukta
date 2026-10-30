@@ -320,7 +320,7 @@ function Editor({
               disabled={busy || invalidJson.size > 0}
               onClick={save}
             >
-              Save
+              Save version
             </button>
           </RequirePermission>
         </div>

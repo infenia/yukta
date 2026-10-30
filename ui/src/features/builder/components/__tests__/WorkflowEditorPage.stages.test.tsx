@@ -174,7 +174,7 @@ describe('WorkflowEditorPage stages', () => {
 
     await user.click(screen.getByRole('button', { name: /^unit/ }));
     await user.clear(screen.getByLabelText('Stage'));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('button', { name: 'Save version' }));
     await waitFor(() => expect(saved).toHaveLength(1));
     const nodes = saved[0].workflows.wf.nodes;
     expect(nodes.find((n) => n.nodeId === 'alone')?.group).toBe('lint');
