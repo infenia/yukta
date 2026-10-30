@@ -31,7 +31,12 @@ import {
   formatClockTime,
   formatDuration,
 } from '@/features/workflow/lib/timeFormat';
-import { MAX_RUNS, searchExecutions } from '../api/searchExecutions';
+import {
+  MAX_RUNS,
+  getRunCounts,
+  searchExecutions,
+  type RunCounts,
+} from '../api/searchExecutions';
 import {
   RUN_STATUSES,
   parseFilters,
@@ -72,6 +77,16 @@ export function RunsPage() {
     placeholderData: (previous) => previous,
   });
   const workflows = useSessionWorkflows(filters.session);
+  const counts = useQuery({
+    queryKey: ['runs', 'counts'],
+    queryFn: getRunCounts,
+  });
+  // Each chip is a filter: the same status (and, for failures, the last 24 hours)
+  const chips: [keyof RunCounts, string, Partial<RunFilters>][] = [
+    ['running', 'running', { status: 'RUNNING', range: '' }],
+    ['queued', 'queued', { status: 'QUEUED', range: '' }],
+    ['failed', 'failed in 24 h', { status: 'FAILURE', range: '24h' }],
+  ];
 
   const set = (change: Partial<RunFilters>) => {
     setParams(toParams({ ...filters, ...change }), { replace: true });
@@ -84,6 +99,38 @@ export function RunsPage() {
         title="Runs"
         description="Runs of every session, newest first."
       />
+      {counts.data && (
+        <div
+          role="group"
+          aria-label="Run counts"
+          className="flex flex-wrap gap-2"
+        >
+          {chips.map(([key, label, change]) => {
+            const active =
+              filters.status === change.status &&
+              filters.range === change.range;
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => set(active ? { status: '', range: '' } : change)}
+                className={cn(
+                  'text-label-md inline-flex h-8 items-center gap-1.5 rounded-full border px-3',
+                  active
+                    ? 'bg-accent text-accent-foreground border-transparent'
+                    : 'border-border text-on-surface hover:bg-muted'
+                )}
+              >
+                <span className="font-semibold tabular-nums">
+                  {counts.data[key]}
+                </span>{' '}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <NativeSelect
           aria-label="Session"
@@ -190,6 +237,7 @@ export function RunsPage() {
                   <TableHead className="px-4">Session</TableHead>
                   <TableHead className="px-4">Workflow</TableHead>
                   <TableHead className="px-4">Started</TableHead>
+                  <TableHead className="px-4">Progress</TableHead>
                   <TableHead className="px-4">Duration</TableHead>
                   <TableHead className="px-4">Ended</TableHead>
                   <TableHead className="px-4">
@@ -243,6 +291,23 @@ export function RunsPage() {
                       className={cn(STACKED_CELL, 'text-code-sm')}
                     >
                       {formatClockTime(run.startTime)}
+                    </TableCell>
+                    <TableCell
+                      data-label="Progress"
+                      className={cn(STACKED_CELL, 'text-code-sm')}
+                    >
+                      {run.nodes ? (
+                        <>
+                          {run.nodes.done}/{run.nodes.total}
+                          {run.nodes.failed && (
+                            <span className="text-error ml-2">
+                              failed at {run.nodes.failed}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell
                       data-label="Duration"
