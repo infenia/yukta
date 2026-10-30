@@ -187,12 +187,12 @@ export function RunControls({
         onStarted={onStarted}
       />
       {/* Pause or Resume, Stop and Restart as one segmented control, as on the run view artboard */}
-      <RequirePermission perm="controlRuns">
-        <div
-          role="group"
-          aria-label="Run controls"
-          className="border-border bg-card flex items-center gap-0.5 rounded-full border p-0.5"
-        >
+      <div
+        role="group"
+        aria-label="Run controls"
+        className="border-border bg-card flex items-center gap-0.5 rounded-full border p-0.5"
+      >
+        <RequirePermission perm="controlRuns">
           {category === 'paused' ? (
             <button type="button" className={SEG} onClick={() => act('resume')}>
               <span className="material-symbols-outlined text-base">
@@ -211,7 +211,9 @@ export function RunControls({
               Pause
             </button>
           )}
-          <DropdownMenu>
+        </RequirePermission>
+        <DropdownMenu>
+          <RequirePermission perm="controlRuns">
             <DropdownMenuTrigger
               className={SEG}
               disabled={!live}
@@ -223,31 +225,29 @@ export function RunControls({
                 arrow_drop_down
               </span>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+          </RequirePermission>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => setConfirm({ label: 'Stop this run', mode: null })}
+            >
+              Stop this run
+            </DropdownMenuItem>
+            {(['DRAIN', 'CANCEL', 'KILL'] as const).map((mode) => (
               <DropdownMenuItem
-                onClick={() =>
-                  setConfirm({ label: 'Stop this run', mode: null })
-                }
+                key={mode}
+                onClick={() => setConfirm({ label: `${mode} all runs`, mode })}
               >
-                Stop this run
+                {mode === 'DRAIN'
+                  ? 'Drain'
+                  : mode === 'CANCEL'
+                    ? 'Cancel'
+                    : 'Kill'}{' '}
+                all runs
               </DropdownMenuItem>
-              {(['DRAIN', 'CANCEL', 'KILL'] as const).map((mode) => (
-                <DropdownMenuItem
-                  key={mode}
-                  onClick={() =>
-                    setConfirm({ label: `${mode} all runs`, mode })
-                  }
-                >
-                  {mode === 'DRAIN'
-                    ? 'Drain'
-                    : mode === 'CANCEL'
-                      ? 'Cancel'
-                      : 'Kill'}{' '}
-                  all runs
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <RequirePermission perm="controlRuns">
           <button
             type="button"
             className={SEG}
@@ -259,8 +259,8 @@ export function RunControls({
             </span>
             Restart
           </button>
-        </div>
-      </RequirePermission>
+        </RequirePermission>
+      </div>
       {canPrioritize && (
         <RequirePermission perm="controlRuns">
           <button
