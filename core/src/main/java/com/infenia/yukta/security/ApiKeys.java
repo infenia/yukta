@@ -5,6 +5,7 @@ package com.infenia.yukta.security;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
@@ -21,9 +22,9 @@ import org.springframework.http.HttpHeaders;
 /**
  * The API keys of the server, shared by the REST and the MCP filter. Keys come from {@code
  * yukta.api-key} (one key that may do everything) and {@code yukta.api-keys} (named keys with a
- * role and an optional list of sessions). A configured key is plain text or {@code sha256:<hex>}
- * (the hash of the key), so the file need not hold the secret; listing several keys at once lets a
- * key be rotated without downtime.
+ * role, an optional list of sessions and an optional expiry). A configured key is plain text or
+ * {@code sha256:<hex>} (the hash of the key), so the file need not hold the secret; listing several
+ * keys at once lets a key be rotated without downtime.
  */
 public final class ApiKeys {
 
@@ -45,8 +46,12 @@ public final class ApiKeys {
   /** Whether named keys exist, so a key name is the actor of a request. */
   private final boolean namedKeys;
 
-  /** A key as written in the configuration. */
-  public record KeyEntry(String name, String key, ApiRole role, List<String> sessions) {
+  /**
+   * A key as written in the configuration; {@code expires} (an ISO-8601 instant) is optional, and
+   * after it the key no longer matches.
+   */
+  public record KeyEntry(
+      String name, String key, ApiRole role, List<String> sessions, @Nullable Instant expires) {
 
     /** Copies the session list. */
     public KeyEntry {
@@ -80,7 +85,7 @@ public final class ApiKeys {
   }
 
   /** A key by the hex of its SHA-256 hash. */
-  private record Key(String digest, Match match) {}
+  private record Key(String digest, Match match, @Nullable Instant expires) {}
 
   private ApiKeys(final List<Key> keys, final boolean named) {
     this.keys = List.copyOf(keys);
@@ -101,9 +106,9 @@ public final class ApiKeys {
             .bind("yukta.api-keys", Bindable.listOf(KeyEntry.class))
             .orElseGet(List::of);
     final List<Key> all = new ArrayList<>();
-    add(all, DEFAULT_NAME, environment.getProperty("yukta.api-key"), ApiRole.ADMIN, Set.of());
+    add(all, DEFAULT_NAME, environment.getProperty("yukta.api-key"), ApiRole.ADMIN, Set.of(), null);
     if (extraKeyProperty != null) {
-      add(all, "mcp", environment.getProperty(extraKeyProperty), ApiRole.ADMIN, Set.of());
+      add(all, "mcp", environment.getProperty(extraKeyProperty), ApiRole.ADMIN, Set.of(), null);
     }
     for (final KeyEntry entry : entries) {
       add(
@@ -111,7 +116,8 @@ public final class ApiKeys {
           Objects.requireNonNullElse(entry.name(), "unnamed"),
           Objects.requireNonNull(entry.key(), "yukta.api-keys[].key is required"),
           Objects.requireNonNullElse(entry.role(), ApiRole.VIEWER),
-          Set.copyOf(entry.sessions()));
+          Set.copyOf(entry.sessions()),
+          entry.expires());
     }
     return new ApiKeys(all, !entries.isEmpty());
   }
@@ -124,7 +130,7 @@ public final class ApiKeys {
    */
   public static ApiKeys single(final String apiKey) {
     final List<Key> all = new ArrayList<>();
-    add(all, DEFAULT_NAME, apiKey, ApiRole.ADMIN, Set.of());
+    add(all, DEFAULT_NAME, apiKey, ApiRole.ADMIN, Set.of(), null);
     return new ApiKeys(all, false);
   }
 
@@ -133,12 +139,13 @@ public final class ApiKeys {
       final String name,
       @Nullable final String key,
       final ApiRole role,
-      final Set<String> sessions) {
+      final Set<String> sessions,
+      @Nullable final Instant expires) {
     if (key == null || key.isBlank()) {
       return;
     }
     final String digest = key.startsWith(HASH_PREFIX) ? hashed(name, key) : sha256(key);
-    all.add(new Key(digest, new Match(name, role, sessions)));
+    all.add(new Key(digest, new Match(name, role, sessions), expires));
   }
 
   /**
@@ -185,9 +192,11 @@ public final class ApiKeys {
   @Nullable
   public Match find(final String presented) {
     final byte[] digest = sha256(presented).getBytes(StandardCharsets.UTF_8);
+    final Instant now = Instant.now();
     Match found = null;
     for (final Key key : keys) {
-      if (MessageDigest.isEqual(digest, key.digest().getBytes(StandardCharsets.UTF_8))) {
+      if (MessageDigest.isEqual(digest, key.digest().getBytes(StandardCharsets.UTF_8))
+          && (key.expires() == null || now.isBefore(key.expires()))) {
         found = key.match();
       }
     }

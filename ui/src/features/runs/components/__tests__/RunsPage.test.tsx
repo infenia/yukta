@@ -65,10 +65,18 @@ const server = setupServer(
     const limit = Number(params.get('limit'));
     return ok(
       Array.from({ length: Math.min(limit, total) }, (_, i) =>
-        hit(i, aborted && i === 0 ? { status: 'ABORTED' } : {})
+        hit(
+          i,
+          aborted && i === 0
+            ? { status: 'ABORTED' }
+            : i === 0
+              ? { nodes: { done: 11, total: 100, failed: 'spotbugs' } }
+              : {}
+        )
       )
     );
   }),
+  http.get('/api/executions/counts', () => ok({ running: 2, queued: 1, failed: 3 })),
   http.post('/api/executions/:id/recover', ({ params }) => {
     recovered.push(params.id as string);
     return ok({ executionId: 'new-run' });
@@ -166,6 +174,30 @@ describe('RunsPage', () => {
       )
     );
     expect(recovered).toEqual(['0000xyz-abcdef']);
+  });
+
+  it('shows each run’s progress, and where it failed', async () => {
+    total = 2;
+    renderAt('/runs');
+    await screen.findByRole('link', { name: '0000xyz-' });
+    const cells = screen.getAllByRole('cell').filter((c) => c.dataset.label === 'Progress');
+    expect(cells[0]).toHaveTextContent('11/100failed at spotbugs');
+    expect(cells[1]).toHaveTextContent('—');
+  });
+
+  it('counts runs that need attention, and filters by a count', async () => {
+    total = 1;
+    const user = userEvent.setup();
+    renderAt('/runs');
+    const failed = await screen.findByRole('button', { name: '3 failed in 24 h' });
+    expect(screen.getByRole('button', { name: '2 running' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: '1 queued' })).toBeInTheDocument();
+
+    await user.click(failed);
+    expect(screen.getByTestId('where')).toHaveTextContent('/runs?status=FAILURE&range=24h');
+    expect(failed).toHaveAttribute('aria-pressed', 'true');
+    await user.click(failed);
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/runs$/);
   });
 
   it('copies a run id', async () => {

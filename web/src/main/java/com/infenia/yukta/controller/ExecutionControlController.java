@@ -435,6 +435,10 @@ public class ExecutionControlController {
           final int maxConcurrent,
       @Parameter(description = "Most executions of one workflow running at once") @RequestParam
           final int maxPerWorkflow) {
+    // 0 means unlimited, so a negative value must not slip through as 0.
+    if (maxConcurrent < 0 || maxPerWorkflow < 0) {
+      throw new IllegalArgumentException("Limits must be 0 (unlimited) or greater");
+    }
     return controlBus
         .changeLimits(maxConcurrent, maxPerWorkflow)
         .thenReturn(

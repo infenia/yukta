@@ -11,6 +11,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 /** Mapper for converting between API DTOs and internal domain models. */
 @Mapper(componentModel = "spring")
@@ -41,10 +42,11 @@ public interface AppConfigMapper {
   Node toNode(NodeRequest nodeRequest);
 
   /**
-   * Map EdgeRequest to Edge.
+   * Map EdgeRequest to Edge, defaulting a missing sourcePort like {@link SessionMapper} does.
    *
    * @param edgeRequest the edge request
    * @return the edge
    */
+  @Mapping(target = "sourcePort", source = "sourcePort", defaultValue = "default")
   Edge toEdge(EdgeRequest edgeRequest);
 }

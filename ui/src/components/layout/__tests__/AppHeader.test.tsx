@@ -78,7 +78,7 @@ describe('AppHeader', () => {
 
   it('should render HeaderLogo component', () => {
     renderWithRouter(<AppHeader />);
-    const logo = screen.getByAltText('Yukta');
+    const logo = screen.getByRole('link', { name: 'Yukta' });
     expect(logo).toBeInTheDocument();
   });
 
@@ -139,7 +139,7 @@ describe('AppHeader', () => {
 
   it('should render complete header hierarchy', () => {
     renderWithRouter(<AppHeader />);
-    const yukta = screen.getByText('YUKTA');
+    const yukta = screen.getByText('Yukta');
     const toggleButton = screen.getByLabelText('Toggle theme');
     expect(yukta).toBeInTheDocument();
     expect(toggleButton).toBeInTheDocument();

@@ -5,12 +5,11 @@ import type { LegacyColumnDef } from '@tanstack/react-table/legacy';
 import { Badge } from '@/components/ui/badge';
 import { StatusPill } from '@/features/workflow/components/StatusPill';
 import { formatClockTime } from '@/features/workflow/lib/timeFormat';
-import type { RunHit } from '@/features/runs/api/searchExecutions';
 import type { SessionListItem } from '../types/session';
 import { SessionRowActionsMenu } from './SessionRowActionsMenu';
 
 /** A session row, with its newest run when the list found one. */
-export type SessionRow = SessionListItem & { lastRun?: RunHit };
+export type SessionRow = SessionListItem;
 
 export const columns: LegacyColumnDef<SessionRow>[] = [
   {
@@ -34,8 +33,7 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
     id: 'lastRun',
     header: 'Last run',
     cell: ({ row }) => {
-      const run: RunHit | undefined = row.original.lastRun;
-      // "—" rather than "Not run": an older run may exist beyond the runs the list looked at
+      const run = row.original.lastRun;
       return run ? (
         <div className="flex items-center gap-2 whitespace-nowrap">
           <StatusPill status={run.status} />
@@ -44,7 +42,7 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
           </span>
         </div>
       ) : (
-        <span className="text-muted-foreground">—</span>
+        <span className="text-muted-foreground">Not run</span>
       );
     },
   },

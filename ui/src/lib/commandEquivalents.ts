@@ -52,7 +52,9 @@ export type CommandAction =
       nodeId: string;
       name: string;
       decision: 'approve' | 'reject';
-    };
+    }
+  /** Creates (or overwrites) a whole session: its metadata, tags and workflows. */
+  | { kind: 'createSession'; session: { sessionId: string } & object };
 
 export type CommandFormat = 'cli' | 'curl' | 'mcp';
 
@@ -131,6 +133,13 @@ function cliCommand(action: CommandAction): string {
       );
     case 'node':
       return nodeCli(action);
+    case 'createSession':
+      return sh(
+        'yukta-cli',
+        'session',
+        'apply',
+        JSON.stringify(action.session)
+      );
     case 'signal':
       return sh(
         'yukta-cli',
@@ -193,6 +202,8 @@ function rest(action: CommandAction): { path: string; body?: string } {
       return {
         path: `/api/executions/${enc(action.executionId)}/nodes/${enc(action.nodeId)}/${action.verb}`,
       };
+    case 'createSession':
+      return { path: '/api/sessions', body: JSON.stringify(action.session) };
     case 'signal':
       return {
         path:
@@ -272,6 +283,8 @@ export function toMcp(action: CommandAction): string {
         nodeId: action.nodeId,
         action: NODE_MCP_ACTION[action.verb],
       });
+    case 'createSession':
+      return call('create_session', { config: action.session });
     case 'signal':
       return call('signal_node', {
         sessionId: action.sessionId,

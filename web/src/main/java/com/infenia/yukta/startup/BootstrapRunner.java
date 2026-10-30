@@ -6,21 +6,28 @@ import com.infenia.yukta.dto.request.ConfigRequest;
 import com.infenia.yukta.mapper.SessionMapper;
 import com.infenia.yukta.service.session.SessionService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import jakarta.annotation.PreDestroy;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
+import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -29,6 +36,12 @@ import tools.jackson.databind.ObjectMapper;
  * on restart, so this lets definitions live in files (for example in git) and come back by
  * themselves. A file that cannot be read, is invalid or cannot be applied is logged and skipped; it
  * never stops start-up.
+ *
+ * <p>With {@code yukta.bootstrap.watch=true} the folder is then polled every {@code
+ * yukta.bootstrap.watch-interval} (default 5s) and a new or changed file is applied again, so a
+ * definition changed in git reaches the running server. A file removed from the folder is kept as a
+ * session. Polling, not a file-system watch, so it also works on network mounts and after a {@code
+ * git pull}.
  */
 @Slf4j
 @Component
@@ -53,6 +66,18 @@ public class BootstrapRunner implements ApplicationRunner {
   /** Applies the sessions. */
   private final SessionService sessionService;
 
+  /** Whether to keep watching the folder after start-up. */
+  private final boolean watch;
+
+  /** How often the folder is checked. */
+  private final Duration interval;
+
+  /** The last modification time seen per file; a file is applied again when it differs. */
+  private final Map<Path, FileTime> seen = new ConcurrentHashMap<>();
+
+  /** The running watch, or null. */
+  private Disposable watcher;
+
   /**
    * Create the runner.
    *
@@ -61,6 +86,8 @@ public class BootstrapRunner implements ApplicationRunner {
    * @param validator checks the files
    * @param sessionMapper maps the request to the session model
    * @param sessionService applies the sessions
+   * @param watch whether to keep watching the folder
+   * @param interval how often to check the folder
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2") // all are shared Spring beans
   public BootstrapRunner(
@@ -68,18 +95,35 @@ public class BootstrapRunner implements ApplicationRunner {
       final ObjectMapper mapper,
       final Validator validator,
       final SessionMapper sessionMapper,
-      final SessionService sessionService) {
+      final SessionService sessionService,
+      @Value("${yukta.bootstrap.watch:false}") final boolean watch,
+      @Value("${yukta.bootstrap.watch-interval:5s}") final Duration interval) {
     this.dir = Path.of(dir);
     this.mapper = mapper;
     this.validator = validator;
     this.sessionMapper = sessionMapper;
     this.sessionService = sessionService;
+    this.watch = watch;
+    this.interval = interval;
   }
 
   @Override
   public void run(final ApplicationArguments args) {
     final int applied = apply();
     log.atInfo().addKeyValue("dir", dir).addKeyValue("sessions", applied).log("Bootstrap done");
+    if (watch) {
+      watcher =
+          Flux.interval(interval, Schedulers.boundedElastic())
+              .subscribe(_ -> apply(), e -> log.atError().setCause(e).log("Bootstrap watch ended"));
+    }
+  }
+
+  /** Stops the watch. */
+  @PreDestroy
+  /* default */ void stop() {
+    if (watcher != null) {
+      watcher.dispose();
+    }
   }
 
   /**
@@ -90,11 +134,22 @@ public class BootstrapRunner implements ApplicationRunner {
   /* default */ int apply() {
     int applied = 0;
     for (final Path file : files()) {
-      if (applyFile(file)) {
+      if (changed(file) && applyFile(file)) {
         applied++;
       }
     }
     return applied;
+  }
+
+  /** Whether the file is new or was modified since it was last looked at; records the time. */
+  private boolean changed(final Path file) {
+    try {
+      final FileTime time = Files.getLastModifiedTime(file);
+      return !time.equals(seen.put(file, time));
+    } catch (final IOException e) {
+      log.atWarn().setCause(e).addKeyValue("file", file).log("Could not read the file's time");
+      return false;
+    }
   }
 
   private List<Path> files() {
