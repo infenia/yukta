@@ -16,14 +16,16 @@ import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.test.web.reactive.server.EntityExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
 
@@ -171,10 +173,8 @@ class PluginControllerTest {
   }
 
   private static SessionConfigResponse session(final String id, final WorkflowDefinition... wfs) {
-    final Map<String, WorkflowDefinition> byId = new HashMap<>();
-    for (final WorkflowDefinition wf : wfs) {
-      byId.put(wf.workflowId(), wf);
-    }
+    final Map<String, WorkflowDefinition> byId =
+        Arrays.stream(wfs).collect(Collectors.toMap(WorkflowDefinition::workflowId, wf -> wf));
     return new SessionConfigResponse(id, "n", "d", "i", Map.of(), "/p", byId);
   }
 
@@ -189,22 +189,25 @@ class PluginControllerTest {
                     workflow("check", "PROCESS_EXECUTOR", "BRANCH", "PROCESS_EXECUTOR"),
                     workflow("notify", "HTTP_REQUEST"))));
 
-    webTestClient
-        .get()
-        .uri("/api/plugins/PROCESS_EXECUTOR/usage")
-        .exchange()
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.data.length()")
-        .isEqualTo(2)
-        .jsonPath("$.data[0].sessionId")
-        .isEqualTo("dogfood")
-        .jsonPath("$.data[0].workflowId")
-        .isEqualTo("check")
-        .jsonPath("$.data[0].nodes")
-        .isEqualTo(2)
-        .jsonPath("$.data[1].sessionId")
-        .isEqualTo("zeta");
+    final EntityExchangeResult<byte[]> result =
+        webTestClient
+            .get()
+            .uri("/api/plugins/PROCESS_EXECUTOR/usage")
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectBody()
+            .jsonPath("$.data.length()")
+            .isEqualTo(2)
+            .jsonPath("$.data[0].sessionId")
+            .isEqualTo("dogfood")
+            .jsonPath("$.data[0].workflowId")
+            .isEqualTo("check")
+            .jsonPath("$.data[0].nodes")
+            .isEqualTo(2)
+            .jsonPath("$.data[1].sessionId")
+            .isEqualTo("zeta")
+            .returnResult();
+    assertThat(result.getStatus().value()).isEqualTo(200);
   }
 }
