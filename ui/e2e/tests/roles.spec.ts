@@ -51,7 +51,7 @@ test.describe('A VIEWER key', () => {
     await expect(pause).toBeDisabled();
     await expect(pause).toHaveAttribute('title', 'Needs OPERATOR');
     await expect(
-      page.getByRole('button', { name: /Run$/ })
+      page.getByRole('button', { name: 'Run workflow' })
     ).toBeDisabled();
   });
 
