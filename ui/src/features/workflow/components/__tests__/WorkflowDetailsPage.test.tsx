@@ -192,6 +192,15 @@ describe('WorkflowDetailsPage', () => {
     expect(screen.queryByText('Node: vectorize-batch')).not.toBeInTheDocument();
   });
 
+  it('follows the running nodes of a live run until told not to', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const follow = await screen.findByRole('button', { name: 'Follow running nodes' });
+    expect(follow).toHaveAttribute('aria-pressed', 'true');
+    await user.click(follow);
+    expect(follow).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('shows a loading state before data arrives', () => {
     renderPage();
     expect(screen.getByText('Loading workflow...')).toBeInTheDocument();
@@ -320,6 +329,7 @@ describe('WorkflowDetailsPage', () => {
 
     expect(screen.getByTestId('status-chip')).toHaveTextContent('Not run');
     expect(screen.getByTestId('run-history-empty')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Follow running nodes' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: 'Details' }));
     expect(screen.getByTestId('execution-summary')).toHaveTextContent(
       'Not run'

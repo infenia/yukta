@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   Background,
   BackgroundVariant,
   Controls,
   MiniMap,
   ReactFlow,
+  useReactFlow,
 } from '@xyflow/react';
 import { categoryAccent } from '../lib/categoryAccent';
 import type { WorkflowFlowNode } from '../lib/layout';
@@ -28,6 +29,23 @@ const LARGE_GRAPH = 30;
 /** What a large graph opens on when nothing is running: its start. */
 const OPENING_NODES = 12;
 
+/** Keeps the given nodes in view: fits to them again whenever the set changes. */
+function FollowNodes({ ids }: { ids: string }) {
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    if (ids) {
+      void fitView({
+        nodes: ids.split('\n').map((id) => ({ id })),
+        padding: 0.3,
+        // pan to one running node without blowing it up
+        maxZoom: 1,
+        duration: 300,
+      });
+    }
+  }, [ids, fitView]);
+  return null;
+}
+
 /** The workflow DAG canvas: pan/zoom viewport of backend-driven node placeholders. */
 export function WorkflowCanvas({
   graph,
@@ -36,6 +54,7 @@ export function WorkflowCanvas({
   stageView,
   onConnect,
   onNodeClick,
+  follow = false,
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
@@ -51,6 +70,8 @@ export function WorkflowCanvas({
   ) => void;
   /** A workflow node was clicked, with its node ID. */
   onNodeClick?: (nodeId: string) => void;
+  /** Keep the running nodes in view as the run moves on. */
+  follow?: boolean;
 }) {
   const connectable = onConnect !== undefined;
   const { nodes, edges } = useMemo(() => {
@@ -99,6 +120,9 @@ export function WorkflowCanvas({
         }
         proOptions={{ hideAttribution: true }}
       >
+        {follow && (
+          <FollowNodes ids={running.map((node) => node.id).join('\n')} />
+        )}
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} />
         <Controls showInteractive={false} />
         <MiniMap
