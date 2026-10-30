@@ -35,15 +35,11 @@ public class DirectNodeMessageChannel implements NodeMessageChannel {
   @Override
   public Flux<Message<?>> inbound(
       final String nodeId, final String executionId, final Flux<Message<?>> upstream) {
-    return limited(nodeId, upstream.filter(msg -> notExpired(nodeId, msg)));
+    return limited(nodeId, upstream.filter(DirectNodeMessageChannel::notExpired));
   }
 
-  private static boolean notExpired(final String nodeId, final Message<?> msg) {
-    final boolean expired = msg.expiration() > 0 && System.currentTimeMillis() >= msg.expiration();
-    if (expired) {
-      log.debug("Dropping expired message {} before node {}", msg.id(), nodeId);
-    }
-    return !expired;
+  private static boolean notExpired(final Message<?> msg) {
+    return msg.expiration() <= 0 || System.currentTimeMillis() < msg.expiration();
   }
 
   @Override

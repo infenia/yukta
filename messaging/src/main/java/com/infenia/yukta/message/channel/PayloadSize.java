@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.message.channel;
 
-import java.lang.reflect.InaccessibleObjectException;
 import java.lang.reflect.Method;
 import java.lang.reflect.RecordComponent;
 import java.nio.ByteBuffer;
@@ -67,11 +66,11 @@ final class PayloadSize {
     long sum = 0;
     for (final RecordComponent component : record.getClass().getRecordComponents()) {
       try {
+        // a component that cannot be read (a non-public type, or an accessor that throws) counts 0
         final Method accessor = component.getAccessor();
-        accessor.setAccessible(true);
         sum += bytesIn(accessor.invoke(record), seen);
-      } catch (ReflectiveOperationException | InaccessibleObjectException | SecurityException e) {
-        // a component that cannot be read counts 0, like any other unknown object
+      } catch (ReflectiveOperationException e) {
+        continue;
       }
     }
     return sum;
