@@ -10,7 +10,7 @@ import {
   afterEach,
   beforeEach,
 } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -130,6 +130,9 @@ describe('WorkflowDetailsPage', () => {
     expect(await screen.findByTestId('stage-lint')).toBeInTheDocument();
     expect(screen.getByTestId('stage-frame-test')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Group by stage' })).toBeChecked();
+    // a stage box is not a node the logs can narrow to
+    fireEvent.click(screen.getByTestId('stage-lint'));
+    expect(screen.queryByText(/^Node: /)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('radio', { name: 'All nodes' }));
     expect(
@@ -165,6 +168,18 @@ describe('WorkflowDetailsPage', () => {
       'href',
       '/sessions/SESSION_A92_XP_2024/workflow/outer?exec=parent-run'
     );
+  });
+
+  it('narrows the logs to a node clicked on the canvas', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    // fireEvent: user-event's pointer events on the xyflow pane outlive the test
+    fireEvent.click(await screen.findByTestId('workflow-node-vectorize-batch'));
+    expect(await screen.findByText('Node: vectorize-batch')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: "Show every node's lines, not only vectorize-batch's" })
+    );
+    expect(screen.queryByText('Node: vectorize-batch')).not.toBeInTheDocument();
   });
 
   it('shows a loading state before data arrives', () => {
