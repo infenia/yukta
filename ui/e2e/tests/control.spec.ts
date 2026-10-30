@@ -19,7 +19,7 @@ const envelope = (path: string, data: unknown) => ({
 async function mockControlApi(
   page: Page,
   workers: unknown[],
-  nodes: string[] = []
+  heartbeats: unknown[] = []
 ) {
   await page.route('**/api/supervisors', (route) =>
     route.fulfill(envelope('/supervisors', []))
@@ -27,8 +27,8 @@ async function mockControlApi(
   await page.route('**/api/control/audit*', (route) =>
     route.fulfill(envelope('/audit', []))
   );
-  await page.route('**/api/control/nodes', (route) =>
-    route.fulfill(envelope('/nodes', nodes))
+  await page.route('**/api/control/heartbeats', (route) =>
+    route.fulfill(envelope('/heartbeats', heartbeats))
   );
   await page.route('**/api/edition', (route) =>
     route.fulfill(
@@ -77,10 +77,17 @@ test.describe('Control page', () => {
   });
 
   test('sends a command to a node and shows the response', async ({ page }) => {
-    await mockControlApi(page, [], ['wf-1:ingest']);
-    await page.route(
-      '**/api/control/workflows/wf-1/nodes/ingest/heartbeat',
-      (route) => route.fulfill(envelope('/heartbeat', { beat: 1 }))
+    await mockControlApi(
+      page,
+      [],
+      [
+        {
+          workflowId: 'wf-1',
+          executionId: 'exec-1111-aaaa',
+          nodeId: 'ingest',
+          timestamp: new Date().toISOString(),
+        },
+      ]
     );
     let sent: unknown;
     await page.route(
@@ -94,10 +101,9 @@ test.describe('Control page', () => {
     );
     await page.goto('/control');
 
-    await page.getByLabel('Workflow', { exact: true }).selectOption('wf-1');
-    await page.getByLabel('Node', { exact: true }).selectOption('ingest');
-    await expect(page.getByText('"beat": 1')).toBeVisible();
-    await page.getByRole('button', { name: 'Send command…' }).click();
+    const row = page.getByRole('row', { name: /ingest/ });
+    await expect(row).toContainText('exec-111');
+    await row.getByRole('button', { name: 'Send command to ingest' }).click();
     await page.getByLabel('Command (JSON object)').fill('{"action":"flush"}');
     await page.getByRole('button', { name: 'Send', exact: true }).click();
 

@@ -3335,6 +3335,26 @@
         "summary" : "List pending approvals across sessions",
         "tags" : [ "Execution Control API" ]
       }
+    },
+    "/api/control/heartbeats" : {
+      "get" : {
+        "description" : "Lists the last heartbeat of every node of every run on the Control Bus, in one call",
+        "operationId" : "getHeartbeats",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListNodeHeartbeat"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get every node's heartbeat",
+        "tags" : [ "Control Bus & Observability API" ]
+      }
     }
   },
   "components" : {
@@ -6165,6 +6185,70 @@
             "description" : "Nodes in the run",
             "format" : "int32",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseListNodeHeartbeat" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/NodeHeartbeat"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "NodeHeartbeat" : {
+        "properties" : {
+          "executionId" : {
+            "type" : "string"
+          },
+          "nodeId" : {
+            "type" : "string"
+          },
+          "timestamp" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "workflowId" : {
+            "type" : "string"
           }
         },
         "type" : "object"

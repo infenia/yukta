@@ -12,7 +12,9 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -69,6 +71,26 @@ class ControlBusControllerTest {
             .isEqualTo("Active nodes retrieved")
             .returnResult();
     assertThat(result.getStatus().value()).isEqualTo(200);
+  }
+
+  @Test
+  void getHeartbeatsListsEveryNodeOfEveryRun() {
+    when(controlBusGateway.getHeartbeats())
+        .thenReturn(
+            List.of(new NodeHeartbeat("wf1", "run-1", NODE1, Instant.parse("2026-10-30T10:00:00Z"))));
+    webClient
+        .get()
+        .uri("/api/control/heartbeats")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data[0].executionId")
+        .isEqualTo("run-1")
+        .jsonPath("$.data[0].nodeId")
+        .isEqualTo(NODE1)
+        .jsonPath(MESSAGE_PATH)
+        .isEqualTo("Heartbeats retrieved");
   }
 
   @Test

@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.control;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.core.Plugin;
@@ -295,6 +296,28 @@ public class ControlBusService {
   public Message<?> getLastHeartbeat(
       @NotBlank final String workflowId, @NotBlank final String nodeId) {
     return newest(workflowId, nodeId, ControlSignalHandler::getLastHeartbeat);
+  }
+
+  /**
+   * The last heartbeat of every node of every run, in one read, so a list of live nodes needs no
+   * request per node.
+   *
+   * @return one heartbeat per node and run that sent one
+   */
+  public List<NodeHeartbeat> getHeartbeats() {
+    return activeKeys().stream()
+        .distinct()
+        .flatMap(
+            key ->
+                Stream.ofNullable(read(key, ControlSignalHandler::getLastHeartbeat))
+                    .map(
+                        beat ->
+                            new NodeHeartbeat(
+                                ControlKey.workflowId(key),
+                                ControlKey.executionId(key),
+                                ControlKey.nodeId(key),
+                                beat.timestamp())))
+        .toList();
   }
 
   /**

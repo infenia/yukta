@@ -4,55 +4,44 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { NativeSelect } from '@/components/ui/native-select';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
 import {
-  getBusNodes,
-  getHeartbeat,
-  parseBusNode,
-  type BusNode,
-} from '../api/controlBus';
+  Table,
+  TableBody,
+  TableCell,
+  TableFrame,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { getHeartbeats, type BusNode } from '../api/controlBus';
+import { relativeTime } from './WorkersPanel';
 import { SendCommandDialog } from './SendCommandDialog';
 
-function Heartbeat({ node }: { node: BusNode }) {
-  const beat = useQuery({
-    queryKey: ['control', node.workflowId, node.nodeId, 'heartbeat'],
-    queryFn: () => getHeartbeat(node.workflowId, node.nodeId),
-  });
-  if (beat.isPending)
-    return <span className="text-on-surface-variant">Loading…</span>;
-  if (beat.error) return <span className="text-error">No heartbeat</span>;
-  return (
-    <CodeBlock code={JSON.stringify(beat.data, null, 2)} label="heartbeat" />
-  );
-}
-
-/** Pick a workflow and a node on the control bus, see its heartbeat and send it a command. */
+/** Every node on the control bus with the age of its last heartbeat, and a command to send it. */
 export function ControlBusPanel() {
-  const [workflowId, setWorkflowId] = useState('');
-  const [nodeId, setNodeId] = useState('');
-  const [sending, setSending] = useState(false);
+  const [target, setTarget] = useState<BusNode | null>(null);
   const [response, setResponse] = useState<unknown>(undefined);
-  const nodes = useQuery({
-    queryKey: ['control', 'nodes'],
-    queryFn: getBusNodes,
+  const beats = useQuery({
+    queryKey: ['control', 'heartbeats'],
+    queryFn: getHeartbeats,
     refetchInterval: 5000,
   });
 
-  if (nodes.error) {
+  if (beats.error) {
     return (
       <StateMessage
         tone="error"
         title="Failed to load nodes"
-        onRetry={() => void nodes.refetch()}
+        onRetry={() => void beats.refetch()}
       />
     );
   }
-  if (nodes.isPending) {
+  if (beats.isPending) {
     return <StateMessage tone="loading" title="Loading…" compact />;
   }
-  if (nodes.data.length === 0) {
+  if (beats.data.length === 0) {
     return (
       <StateMessage title="No active nodes.">
         Nodes appear here once a workflow is running.
@@ -60,56 +49,69 @@ export function ControlBusPanel() {
     );
   }
 
-  const parsed = nodes.data.map(parseBusNode);
-  const workflows = [...new Set(parsed.map((n) => n.workflowId))];
-  const nodeIds = parsed
-    .filter((n) => n.workflowId === workflowId)
-    .map((n) => n.nodeId);
-  const chosen = workflowId && nodeId ? { workflowId, nodeId } : null;
+  // The server's order changes between polls; a fixed one keeps rows from jumping
+  const rows = [...beats.data].sort(
+    (a, b) =>
+      a.workflowId.localeCompare(b.workflowId) ||
+      a.nodeId.localeCompare(b.nodeId) ||
+      a.executionId.localeCompare(b.executionId)
+  );
 
   return (
     <section aria-labelledby="bus-heading" className="flex flex-col gap-3">
       <h2 id="bus-heading" className="text-headline-md text-on-surface">
-        Nodes
+        Live nodes{' '}
+        <span className="text-on-surface-variant">{rows.length}</span>
       </h2>
-      <div className="flex flex-wrap items-center gap-3">
-        <NativeSelect
-          aria-label="Workflow"
-          value={workflowId}
-          onChange={(event) => {
-            setWorkflowId(event.target.value);
-            setNodeId('');
-            setResponse(undefined);
-          }}
-        >
-          <option value="">Choose a workflow…</option>
-          {workflows.map((id) => (
-            <option key={id}>{id}</option>
-          ))}
-        </NativeSelect>
-        <NativeSelect
-          aria-label="Node"
-          value={nodeId}
-          disabled={!workflowId}
-          onChange={(event) => {
-            setNodeId(event.target.value);
-            setResponse(undefined);
-          }}
-        >
-          <option value="">Choose a node…</option>
-          {nodeIds.map((id) => (
-            <option key={id}>{id}</option>
-          ))}
-        </NativeSelect>
-        <Button
-          type="button"
-          disabled={!chosen}
-          onClick={() => setSending(true)}
-        >
-          Send command…
-        </Button>
-      </div>
-      {chosen && <Heartbeat node={chosen} />}
+      <TableFrame>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Node</TableHead>
+              <TableHead>Workflow</TableHead>
+              <TableHead>Run</TableHead>
+              <TableHead>Last heartbeat</TableHead>
+              <TableHead>
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((beat) => (
+              <TableRow
+                key={`${beat.workflowId}\0${beat.executionId}\0${beat.nodeId}`}
+              >
+                <TableCell className="text-code-sm">{beat.nodeId}</TableCell>
+                <TableCell className="text-code-sm">
+                  {beat.workflowId}
+                </TableCell>
+                <TableCell
+                  className="text-code-sm text-on-surface-variant"
+                  title={beat.executionId || undefined}
+                >
+                  {beat.executionId.slice(0, 8) || '—'}
+                </TableCell>
+                <TableCell className="text-on-surface-variant">
+                  {relativeTime(beat.timestamp)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    aria-label={`Send command to ${beat.nodeId}`}
+                    onClick={() => {
+                      setResponse(undefined);
+                      setTarget(beat);
+                    }}
+                  >
+                    Send command…
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableFrame>
       {response !== undefined && (
         <div className="flex flex-col gap-1">
           <p className="text-body-sm text-on-surface-variant">
@@ -124,13 +126,14 @@ export function ControlBusPanel() {
           />
         </div>
       )}
-      {sending && chosen && (
+      {target && (
         <SendCommandDialog
-          {...chosen}
-          onClose={() => setSending(false)}
+          workflowId={target.workflowId}
+          nodeId={target.nodeId}
+          onClose={() => setTarget(null)}
           onSent={(payload) => {
             setResponse(payload ?? null);
-            setSending(false);
+            setTarget(null);
           }}
         />
       )}

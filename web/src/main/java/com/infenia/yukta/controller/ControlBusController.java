@@ -8,6 +8,7 @@ import com.infenia.yukta.exception.ResourceNotFoundException;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -67,6 +68,21 @@ public class ControlBusController {
         .switchIfEmpty(
             Mono.error(() -> new ResourceNotFoundException("Heartbeat", workflowId + "/" + nodeId)))
         .map(hb -> ApiResponse.success(200, "Node heartbeat retrieved", hb));
+  }
+
+  /**
+   * Get the last heartbeat of every node of every run.
+   *
+   * @return one heartbeat per node and run
+   */
+  @GetMapping("/control/heartbeats")
+  @Operation(
+      summary = "Get every node's heartbeat",
+      description =
+          "Lists the last heartbeat of every node of every run on the Control Bus, in one call")
+  public Mono<ApiResponse<List<NodeHeartbeat>>> getHeartbeats() {
+    return Mono.fromCallable(controlBus::getHeartbeats)
+        .map(beats -> ApiResponse.success(200, "Heartbeats retrieved", beats));
   }
 
   /**

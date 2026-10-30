@@ -3,26 +3,21 @@
 
 import { api, fetchApi } from '@/lib/apiClient';
 
-/** A node on the control bus: the server lists them as `workflowId:nodeId`. */
+/** A node on the control bus. */
 export interface BusNode {
   workflowId: string;
   nodeId: string;
 }
 
-/** Splits `workflowId:nodeId` at the first colon; a node id may contain more colons. */
-export function parseBusNode(entry: string): BusNode {
-  const cut = entry.indexOf(':');
-  return cut < 0
-    ? { workflowId: entry, nodeId: '' }
-    : { workflowId: entry.slice(0, cut), nodeId: entry.slice(cut + 1) };
+/** The last heartbeat of one node of one run (`executionId` is empty without a run). */
+export interface NodeHeartbeat extends BusNode {
+  executionId: string;
+  timestamp: string;
 }
 
-export const getBusNodes = () => fetchApi<string[]>('/api/control/nodes');
-
-export const getHeartbeat = (workflowId: string, nodeId: string) =>
-  fetchApi<unknown>(
-    api`/api/control/workflows/${workflowId}/nodes/${nodeId}/heartbeat`
-  );
+/** Every node's last heartbeat, in one request. */
+export const getHeartbeats = () =>
+  fetchApi<NodeHeartbeat[]>('/api/control/heartbeats');
 
 /** The most keys the server accepts in a command. */
 export const MAX_COMMAND_KEYS = 100;
