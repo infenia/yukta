@@ -403,9 +403,11 @@ test.describe('Workflow Details Page', () => {
     );
 
     await page.getByLabel('Filter logs').fill('memory pressure');
-    await page.getByRole('button', { name: 'Download logs' }).click();
+    await page.getByRole('button', { name: 'More log options' }).click();
     const download = page.waitForEvent('download');
-    await page.getByRole('menuitem', { name: 'Visible lines (.log)' }).click();
+    await page
+      .getByRole('menuitem', { name: 'Download visible lines (.log)' })
+      .click();
 
     const file = await download;
     expect(file.suggestedFilename()).toBe(

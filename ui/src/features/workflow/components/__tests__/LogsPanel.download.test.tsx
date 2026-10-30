@@ -50,8 +50,18 @@ async function download(
   user: ReturnType<typeof userEvent.setup>,
   item: string
 ) {
-  await user.click(screen.getByRole('button', { name: 'Download logs' }));
+  await user.click(screen.getByRole('button', { name: 'More log options' }));
   await user.click(await screen.findByRole('menuitem', { name: item }));
+}
+
+/** Turns the server's raw lines on or off from the More menu. */
+async function toggleRaw(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'More log options' }));
+  await user.click(
+    await screen.findByRole('menuitemcheckbox', {
+      name: "The server's raw lines",
+    })
+  );
 }
 
 describe('LogsPanel downloads', () => {
@@ -59,7 +69,7 @@ describe('LogsPanel downloads', () => {
     const user = userEvent.setup();
     render(panel());
     await user.type(screen.getByLabelText('Filter logs'), 'beta');
-    await download(user, 'Visible lines (.log)');
+    await download(user, 'Download visible lines (.log)');
 
     expect(names).toEqual(['s1-e1.log']);
     const text = await blobs[0].text();
@@ -71,7 +81,7 @@ describe('LogsPanel downloads', () => {
     const user = userEvent.setup();
     render(panel());
     await user.type(screen.getByLabelText('Filter logs'), 'beta');
-    await download(user, 'All entries (.jsonl)');
+    await download(user, 'Download all entries (.jsonl)');
 
     expect(names).toEqual(['s1-e1.jsonl']);
     expect(await blobs[0].text()).toBe(
@@ -82,33 +92,35 @@ describe('LogsPanel downloads', () => {
   it('falls back to a plain name without a session and says how many lines are kept', async () => {
     const user = userEvent.setup();
     render(panel({ sessionId: '', executionId: null, dropped: 5 }));
-    await user.click(screen.getByRole('button', { name: 'Download logs' }));
+    await user.click(screen.getByRole('button', { name: 'More log options' }));
     expect(
       await screen.findByText(/includes only the 2 lines kept/)
     ).toBeInTheDocument();
     await user.click(
-      screen.getByRole('menuitem', { name: 'Visible lines (.log)' })
+      screen.getByRole('menuitem', { name: 'Download visible lines (.log)' })
     );
     expect(names).toEqual(['logs.log']);
   });
 });
 
 describe('LogsPanel raw mode', () => {
-  it('cannot switch to raw without an execution', () => {
+  it('cannot switch to raw without an execution', async () => {
+    const user = userEvent.setup();
     render(panel({ executionId: null }));
-    expect(screen.getByRole('button', { name: 'RAW' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'More log options' }));
+    expect(
+      await screen.findByRole('menuitemcheckbox', {
+        name: "The server's raw lines",
+      })
+    ).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('streams the plain-text log of the execution and downloads those lines', async () => {
     const user = userEvent.setup();
     render(panel());
-    await user.click(screen.getByRole('button', { name: 'RAW' }));
+    await toggleRaw(user);
     const source = MockEventSource.byUrl('/api/sessions/s1/executions/e1/logs');
     expect(source.url).not.toContain('/entries');
-    expect(screen.getByRole('button', { name: 'RAW' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
 
     act(() => {
       source.emit('first raw line');
@@ -119,27 +131,23 @@ describe('LogsPanel raw mode', () => {
 
     await user.type(screen.getByLabelText('Filter logs'), 'second');
     expect(screen.queryByText('first raw line')).not.toBeInTheDocument();
-    await download(user, 'Visible lines (.log)');
+    await download(user, 'Download visible lines (.log)');
     expect(await blobs[0].text()).toBe('second raw line\n');
   });
 
   it('starts from an empty list each time raw is switched on, and returns to structured', async () => {
     const user = userEvent.setup();
     render(panel());
-    await user.click(screen.getByRole('button', { name: 'RAW' }));
+    await toggleRaw(user);
     act(() => MockEventSource.latest().emit('old line'));
     expect(screen.getByTestId('logs-body')).toHaveTextContent('old line');
 
-    await user.click(screen.getByRole('button', { name: 'STRUCTURED' }));
+    await toggleRaw(user);
     expect(screen.getByTestId('logs-body')).toHaveTextContent('alpha line');
 
-    await user.click(screen.getByRole('button', { name: 'RAW' }));
+    await toggleRaw(user);
     expect(screen.getByTestId('logs-body')).not.toHaveTextContent('old line');
     act(() => MockEventSource.latest().emit('new line'));
-    expect(screen.getByTestId('logs-body')).toHaveTextContent('new line');
-
-    // already raw: a second click changes nothing
-    await user.click(screen.getByRole('button', { name: 'RAW' }));
     expect(screen.getByTestId('logs-body')).toHaveTextContent('new line');
   });
 });

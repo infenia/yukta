@@ -6,8 +6,10 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { downloadText } from '../lib/downloadFile';
@@ -399,59 +401,78 @@ export function LogsPanel({
               </div>
               <button
                 type="button"
-                onClick={() => setWrap((value) => !value)}
-                aria-pressed={wrap}
+                role="switch"
+                aria-checked={autoScroll}
+                aria-label="Toggle auto-scroll"
+                title="Keep the newest line in view"
+                onClick={() => setAutoScroll((value) => !value)}
                 className={cn(
-                  'text-label-sm transition-standard rounded-lg border px-2 py-1 tracking-wider',
-                  wrap
-                    ? 'border-primary text-primary'
-                    : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+                  'text-label-sm rounded-full px-2.5 py-1',
+                  autoScroll
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-on-surface-variant hover:bg-muted'
                 )}
               >
-                WRAP
+                Follow
               </button>
-              <div role="group" aria-label="Log view" className="flex">
-                {(['Structured', 'Raw'] as const).map((mode) => {
-                  const selected = (mode === 'Raw') === raw;
-                  return (
-                    <button
-                      key={mode}
-                      type="button"
-                      aria-pressed={selected}
-                      disabled={mode === 'Raw' && !executionId}
-                      onClick={() => {
-                        if (mode === 'Raw' && !raw) {
-                          setRawRuns((count) => count + 1);
-                          setRawRun(rawRuns + 1);
-                        } else if (mode === 'Structured') {
-                          setRawRun(null);
-                        }
-                      }}
-                      className={cn(
-                        'text-label-sm border px-2 py-1 tracking-wider first:rounded-l-lg last:rounded-r-lg disabled:opacity-50',
-                        selected
-                          ? 'border-primary text-primary'
-                          : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
-                      )}
-                    >
-                      {mode.toUpperCase()}
-                    </button>
-                  );
-                })}
-              </div>
+              <button
+                type="button"
+                onClick={copyLogs}
+                aria-label="Copy logs"
+                title="Copy the visible lines"
+                className="text-on-surface-variant hover:bg-muted hover:text-on-surface flex size-7 items-center justify-center rounded-full"
+              >
+                <span className="material-symbols-outlined text-base">
+                  content_copy
+                </span>
+              </button>
+              {copyStatus && (
+                <span
+                  role="status"
+                  className="text-label-sm text-on-surface-variant"
+                >
+                  {copyStatus === 'copied' ? 'Copied' : 'Copy failed'}
+                </span>
+              )}
+              {/* Less used: wrapping, the server's raw lines and downloads */}
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  aria-label="Download logs"
-                  className="border-outline-variant text-label-sm text-on-surface-variant transition-standard hover:bg-surface-container-high rounded-lg border px-2 py-1 tracking-wider"
+                  aria-label="More log options"
+                  className="text-on-surface-variant hover:bg-muted hover:text-on-surface flex size-7 items-center justify-center rounded-full"
                 >
-                  DOWNLOAD
+                  <span className="material-symbols-outlined text-base">
+                    more_horiz
+                  </span>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuCheckboxItem
+                    closeOnClick
+                    checked={wrap}
+                    onCheckedChange={(checked) => setWrap(checked)}
+                  >
+                    Wrap long lines
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    closeOnClick
+                    checked={raw}
+                    disabled={!executionId}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setRawRuns((count) => count + 1);
+                        setRawRun(rawRuns + 1);
+                      } else {
+                        setRawRun(null);
+                      }
+                    }}
+                  >
+                    The server&apos;s raw lines
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={downloadVisible}>
-                    Visible lines (.log)
+                    Download visible lines (.log)
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={downloadAll}>
-                    All entries (.jsonl)
+                    Download all entries (.jsonl)
                   </DropdownMenuItem>
                   {dropped > 0 && (
                     <div className="text-body-sm text-on-surface-variant max-w-56 px-3 py-2">
@@ -462,40 +483,6 @@ export function LogsPanel({
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <button
-                type="button"
-                onClick={copyLogs}
-                className="border-outline-variant text-label-sm text-on-surface-variant transition-standard hover:bg-surface-container-high rounded-lg border px-2 py-1 tracking-wider"
-              >
-                {copyStatus === 'copied'
-                  ? 'COPIED'
-                  : copyStatus === 'failed'
-                    ? 'FAILED'
-                    : 'COPY'}
-              </button>
-              <label className="text-label-sm text-on-surface-variant flex cursor-pointer items-center gap-2 tracking-wider">
-                AUTO-SCROLL
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={autoScroll}
-                  aria-label="Toggle auto-scroll"
-                  onClick={() => setAutoScroll((value) => !value)}
-                  className={cn(
-                    'h-4 w-8 border transition-colors',
-                    autoScroll
-                      ? 'border-primary bg-primary'
-                      : 'border-outline bg-surface-container'
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'bg-surface block size-3 transition-transform',
-                      autoScroll ? 'translate-x-4' : 'translate-x-0.5'
-                    )}
-                  />
-                </button>
-              </label>
             </>
           )}
         </div>
