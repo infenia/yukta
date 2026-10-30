@@ -5,7 +5,7 @@ import { RequirePermission } from '@/components/common/RequirePermission';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { cn } from '@/lib/utils';
 import { CodeBlock } from '@/components/common/CodeBlock';
@@ -21,7 +21,7 @@ import {
 } from '@/components/common/TagEditor';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ApiError } from '@/lib/apiClient';
-import { getSessionDraft, saveSession } from '../api';
+import { checkProjectPath, getSessionDraft, saveSession } from '../api';
 import type { SessionDraft } from '../types';
 
 /** A session needs a workflow, so a new one starts with a trigger wired to a console terminal. */
@@ -159,6 +159,28 @@ function SessionForm({ loaded }: { loaded?: SessionDraft }) {
   const [seen, setSeen] = useState(loaded ? JSON.stringify(loaded) : null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The project path last left (on blur), looked up on the server; a failed lookup says nothing
+  const [checkedPath, setCheckedPath] = useState(fields.projectPath.trim());
+  const pathCheck = useQuery({
+    queryKey: ['project-path', checkedPath],
+    queryFn: () => checkProjectPath(checkedPath),
+    enabled: checkedPath !== '',
+    retry: false,
+  });
+  const found = pathCheck.data;
+  const pathProblem =
+    found && !found.directory && checkedPath === fields.projectPath.trim() ? (
+      found.exists ? (
+        <>
+          <code>{checkedPath}</code> is a file, not a directory.
+        </>
+      ) : (
+        <>
+          The server can't find <code>{checkedPath}</code>. Use an absolute path
+          on the server, not on your machine.
+        </>
+      )
+    ) : null;
 
   const submit = async (event: { preventDefault(): void }) => {
     event.preventDefault();
@@ -211,7 +233,12 @@ function SessionForm({ loaded }: { loaded?: SessionDraft }) {
     });
   };
 
-  const field = (key: keyof Fields, label: string, hint?: string) => (
+  const field = (
+    key: keyof Fields,
+    label: string,
+    hint?: string,
+    problem?: ReactNode
+  ) => (
     <div className="flex flex-col gap-1">
       <label htmlFor={`s-${key}`} className="text-label-md text-on-surface">
         {label}
@@ -221,16 +248,37 @@ function SessionForm({ loaded }: { loaded?: SessionDraft }) {
         required
         readOnly={loaded !== undefined && key === 'sessionId'}
         aria-describedby={hint ? `s-${key}-hint` : undefined}
+        aria-invalid={problem ? true : undefined}
         value={fields[key]}
         onChange={(event) => change(key, event.target.value)}
+        onBlur={
+          key === 'projectPath'
+            ? (event) => setCheckedPath(event.target.value.trim())
+            : undefined
+        }
       />
-      {hint && (
+      {problem ? (
         <span
           id={`s-${key}-hint`}
-          className="text-body-sm text-on-surface-variant"
+          className="text-body-sm text-error flex items-start gap-1"
         >
-          {hint}
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-base"
+          >
+            error
+          </span>
+          <span>{problem}</span>
         </span>
+      ) : (
+        hint && (
+          <span
+            id={`s-${key}-hint`}
+            className="text-body-sm text-on-surface-variant"
+          >
+            {hint}
+          </span>
+        )
       )}
     </div>
   );
@@ -249,7 +297,8 @@ function SessionForm({ loaded }: { loaded?: SessionDraft }) {
       {field(
         'projectPath',
         'Project path',
-        'Absolute path on the server, not on your machine'
+        'Absolute path on the server, not on your machine',
+        pathProblem
       )}
       {field('initiator', 'Initiator', 'Who or what starts its runs')}
       <TagEditor rows={rows} onChange={setRows} />

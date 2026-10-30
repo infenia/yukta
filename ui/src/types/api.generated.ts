@@ -1576,6 +1576,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/validate/project-path": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a project path
+         * @description Says whether the path exists on the server and is a directory. Nothing else about the file system is returned.
+         */
+        post: operations["checkProjectPath"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3374,6 +3394,52 @@ export interface components {
             /** Format: date-time */
             timestamp?: string;
             workflowId?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseProjectPathCheck: {
+            /** @description The response data */
+            data?: components["schemas"]["ProjectPathCheck"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        ProjectPathCheck: {
+            /** @description It is a directory */
+            directory?: boolean;
+            /** @description Something is at the path */
+            exists?: boolean;
+        };
+        ProjectPathRequest: {
+            /**
+             * @description Project path
+             * @example /data/pipelines/main
+             */
+            projectPath: string;
         };
     };
     responses: never;
@@ -5560,6 +5626,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListNodeHeartbeat"];
+                };
+            };
+        };
+    };
+    checkProjectPath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectPathRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectPathCheck"];
                 };
             };
         };

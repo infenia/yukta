@@ -42,6 +42,15 @@ const ok = (data: unknown) =>
   });
 
 const server = setupServer(
+  http.post('/api/sessions/validate/project-path', () =>
+    HttpResponse.json({
+      timestamp: 't',
+      status: 200,
+      message: 'ok',
+      data: { exists: true, directory: true },
+      path: '/',
+    })
+  ),
   http.get('/api/sessions/:sid/config', () =>
     loadFails
       ? HttpResponse.json({ message: 'x' }, { status: 500 })
