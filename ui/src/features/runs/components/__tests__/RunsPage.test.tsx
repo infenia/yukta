@@ -92,6 +92,7 @@ afterEach(() => {
   fail = false;
   aborted = false;
   recovered.length = 0;
+  server.resetHandlers();
 });
 afterAll(() => server.close());
 
@@ -156,6 +157,26 @@ describe('RunsPage', () => {
     );
     expect(requests[0].get('limit')).toBe('100');
     expect(screen.getAllByText('9s')).toHaveLength(2);
+    // the session by its name, then the workflow; and how many runs
+    const cell = screen
+      .getAllByRole('cell')
+      .find((c) => c.dataset.label === 'Session / workflow');
+    expect(cell).toHaveTextContent('One / wf');
+    expect(screen.getByText(/^2 runs/)).toBeInTheDocument();
+  });
+
+  it('names a session without a name by its ID, and counts one run', async () => {
+    server.use(
+      http.get('/api/executions', () => ok([hit(0, { sessionId: 's2' })]))
+    );
+    renderAt('/runs?range=24h');
+    await screen.findByRole('link', { name: '0000xyz-' });
+    expect(
+      screen
+        .getAllByRole('cell')
+        .find((c) => c.dataset.label === 'Session / workflow')
+    ).toHaveTextContent('s2 / wf');
+    expect(screen.getByText('1 run in the last 24 hours')).toBeInTheDocument();
   });
 
   it('recovers an aborted run after confirmation and opens the new run', async () => {
