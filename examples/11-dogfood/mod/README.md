@@ -17,5 +17,5 @@ Off: `YUKTA_DOGFOOD=off`. Headless fixers (`YUKTA_HEAL_FIXER=1`) are skipped.
 /plugin install yukta-dogfood --marketplace infenia/yukta
 ```
 
-In `/config` set the `yukta` mod to `server_url` `http://127.0.0.1:9858`, and
+In `/config` set the `yukta` mod's
 `headers_command` `bash -c 'exec "$(git rev-parse --show-toplevel)"/examples/11-dogfood/yk mcp-headers'`.

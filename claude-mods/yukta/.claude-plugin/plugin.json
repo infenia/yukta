@@ -13,7 +13,7 @@
       "type": "string",
       "title": "Yukta server URL",
       "description": "Base URL of the Yukta server, without a trailing slash",
-      "default": "http://localhost:8080"
+      "default": "http://localhost:9858"
     },
     "api_key": {
       "type": "string",
