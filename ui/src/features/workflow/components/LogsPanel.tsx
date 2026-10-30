@@ -14,7 +14,8 @@ import { downloadText } from '../lib/downloadFile';
 import { useRawLogLines } from '../hooks/useRawLogLines';
 import { formatLogTimestamp } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
-import type { LogEntry } from '../types/workflow';
+import { runEvents } from '../lib/runEvents';
+import type { LogEntry, WorkflowProgress } from '../types/workflow';
 
 /** Fixed row height (leading-5) so only the visible window of the buffered lines is in the DOM. */
 const ROW_HEIGHT = 20;
@@ -86,6 +87,7 @@ export function LogsPanel({
   executionId = null,
   node = null,
   onClearNode,
+  progress = null,
 }: {
   entries: LogEntry[];
   isStreaming: boolean;
@@ -97,8 +99,19 @@ export function LogsPanel({
   /** Show only this node's lines (set by clicking it on the canvas). */
   node?: string | null;
   onClearNode?: () => void;
+  /** The run, for the Events tab (its status transitions); no tab without it. */
+  progress?: WorkflowProgress | null;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [view, setView] = useState<'logs' | 'events'>('logs');
+  const events = useMemo(
+    () =>
+      progress
+        ? runEvents(progress).filter((event) => !node || event.nodeId === node)
+        : [],
+    [progress, node]
+  );
+  const showEvents = view === 'events' && progress !== null;
   const [filter, setFilter] = useState('');
   const [minLevel, setMinLevel] = useState<MinLevel>('all');
   const [autoScroll, setAutoScroll] = useState(true);
@@ -207,6 +220,32 @@ export function LogsPanel({
           terminal
         </span>
         <h2 className="text-label-md text-on-surface">Execution logs</h2>
+        {progress && (
+          <div role="tablist" aria-label="Logs or events" className="flex">
+            {(
+              [
+                ['logs', 'Logs'],
+                ['events', 'Events'],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={view === key}
+                onClick={() => setView(key)}
+                className={cn(
+                  'text-label-sm rounded-md px-2 py-0.5',
+                  view === key
+                    ? 'bg-muted text-on-surface'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {isStreaming && (
           <span
             className="border-primary/40 bg-primary/10 text-label-sm text-primary inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 tracking-wider"
@@ -241,138 +280,162 @@ export function LogsPanel({
               </button>
             </span>
           )}
-          <div role="group" aria-label="Log level" className="flex">
-            {(['all', 'info', 'warn', 'error'] as const).map((level) => (
+          {!showEvents && (
+            <>
+              <div role="group" aria-label="Log level" className="flex">
+                {(['all', 'info', 'warn', 'error'] as const).map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    aria-pressed={minLevel === level}
+                    disabled={raw}
+                    onClick={() => setMinLevel(level)}
+                    className={cn(
+                      'text-label-sm border px-2 py-1 tracking-wider uppercase first:rounded-l-lg last:rounded-r-lg disabled:opacity-50',
+                      minLevel === level
+                        ? 'border-primary text-primary'
+                        : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+                    )}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+              <div className="relative w-full sm:w-56">
+                <span className="material-symbols-outlined text-on-surface-variant pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-sm">
+                  search
+                </span>
+                <Input
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value)}
+                  placeholder="Filter logs..."
+                  aria-label="Filter logs"
+                  className="text-body-sm h-7 w-full pl-8"
+                />
+              </div>
               <button
-                key={level}
                 type="button"
-                aria-pressed={minLevel === level}
-                disabled={raw}
-                onClick={() => setMinLevel(level)}
+                onClick={() => setWrap((value) => !value)}
+                aria-pressed={wrap}
                 className={cn(
-                  'text-label-sm border px-2 py-1 tracking-wider uppercase first:rounded-l-lg last:rounded-r-lg disabled:opacity-50',
-                  minLevel === level
+                  'text-label-sm transition-standard rounded-lg border px-2 py-1 tracking-wider',
+                  wrap
                     ? 'border-primary text-primary'
                     : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
                 )}
               >
-                {level}
+                WRAP
               </button>
-            ))}
-          </div>
-          <div className="relative w-full sm:w-56">
-            <span className="material-symbols-outlined text-on-surface-variant pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-sm">
-              search
-            </span>
-            <Input
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-              placeholder="Filter logs..."
-              aria-label="Filter logs"
-              className="text-body-sm h-7 w-full pl-8"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setWrap((value) => !value)}
-            aria-pressed={wrap}
-            className={cn(
-              'text-label-sm transition-standard rounded-lg border px-2 py-1 tracking-wider',
-              wrap
-                ? 'border-primary text-primary'
-                : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
-            )}
-          >
-            WRAP
-          </button>
-          <div role="group" aria-label="Log view" className="flex">
-            {(['Structured', 'Raw'] as const).map((mode) => {
-              const selected = (mode === 'Raw') === raw;
-              return (
+              <div role="group" aria-label="Log view" className="flex">
+                {(['Structured', 'Raw'] as const).map((mode) => {
+                  const selected = (mode === 'Raw') === raw;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      aria-pressed={selected}
+                      disabled={mode === 'Raw' && !executionId}
+                      onClick={() => {
+                        if (mode === 'Raw' && !raw) {
+                          setRawRuns((count) => count + 1);
+                          setRawRun(rawRuns + 1);
+                        } else if (mode === 'Structured') {
+                          setRawRun(null);
+                        }
+                      }}
+                      className={cn(
+                        'text-label-sm border px-2 py-1 tracking-wider first:rounded-l-lg last:rounded-r-lg disabled:opacity-50',
+                        selected
+                          ? 'border-primary text-primary'
+                          : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+                      )}
+                    >
+                      {mode.toUpperCase()}
+                    </button>
+                  );
+                })}
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  aria-label="Download logs"
+                  className="border-outline-variant text-label-sm text-on-surface-variant transition-standard hover:bg-surface-container-high rounded-lg border px-2 py-1 tracking-wider"
+                >
+                  DOWNLOAD
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={downloadVisible}>
+                    Visible lines (.log)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={downloadAll}>
+                    All entries (.jsonl)
+                  </DropdownMenuItem>
+                  {dropped > 0 && (
+                    <div className="text-body-sm text-on-surface-variant max-w-56 px-3 py-2">
+                      Download includes only the{' '}
+                      {entries.length.toLocaleString()} lines kept in the
+                      browser.
+                    </div>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <button
+                type="button"
+                onClick={copyLogs}
+                className="border-outline-variant text-label-sm text-on-surface-variant transition-standard hover:bg-surface-container-high rounded-lg border px-2 py-1 tracking-wider"
+              >
+                {copyStatus === 'copied'
+                  ? 'COPIED'
+                  : copyStatus === 'failed'
+                    ? 'FAILED'
+                    : 'COPY'}
+              </button>
+              <label className="text-label-sm text-on-surface-variant flex cursor-pointer items-center gap-2 tracking-wider">
+                AUTO-SCROLL
                 <button
-                  key={mode}
                   type="button"
-                  aria-pressed={selected}
-                  disabled={mode === 'Raw' && !executionId}
-                  onClick={() => {
-                    if (mode === 'Raw' && !raw) {
-                      setRawRuns((count) => count + 1);
-                      setRawRun(rawRuns + 1);
-                    } else if (mode === 'Structured') {
-                      setRawRun(null);
-                    }
-                  }}
+                  role="switch"
+                  aria-checked={autoScroll}
+                  aria-label="Toggle auto-scroll"
+                  onClick={() => setAutoScroll((value) => !value)}
                   className={cn(
-                    'text-label-sm border px-2 py-1 tracking-wider first:rounded-l-lg last:rounded-r-lg disabled:opacity-50',
-                    selected
-                      ? 'border-primary text-primary'
-                      : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+                    'h-4 w-8 border transition-colors',
+                    autoScroll
+                      ? 'border-primary bg-primary'
+                      : 'border-outline bg-surface-container'
                   )}
                 >
-                  {mode.toUpperCase()}
+                  <span
+                    className={cn(
+                      'bg-surface block size-3 transition-transform',
+                      autoScroll ? 'translate-x-4' : 'translate-x-0.5'
+                    )}
+                  />
                 </button>
-              );
-            })}
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Download logs"
-              className="border-outline-variant text-label-sm text-on-surface-variant transition-standard hover:bg-surface-container-high rounded-lg border px-2 py-1 tracking-wider"
-            >
-              DOWNLOAD
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={downloadVisible}>
-                Visible lines (.log)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={downloadAll}>
-                All entries (.jsonl)
-              </DropdownMenuItem>
-              {dropped > 0 && (
-                <div className="text-body-sm text-on-surface-variant max-w-56 px-3 py-2">
-                  Download includes only the {entries.length.toLocaleString()}{' '}
-                  lines kept in the browser.
-                </div>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <button
-            type="button"
-            onClick={copyLogs}
-            className="border-outline-variant text-label-sm text-on-surface-variant transition-standard hover:bg-surface-container-high rounded-lg border px-2 py-1 tracking-wider"
-          >
-            {copyStatus === 'copied'
-              ? 'COPIED'
-              : copyStatus === 'failed'
-                ? 'FAILED'
-                : 'COPY'}
-          </button>
-          <label className="text-label-sm text-on-surface-variant flex cursor-pointer items-center gap-2 tracking-wider">
-            AUTO-SCROLL
-            <button
-              type="button"
-              role="switch"
-              aria-checked={autoScroll}
-              aria-label="Toggle auto-scroll"
-              onClick={() => setAutoScroll((value) => !value)}
-              className={cn(
-                'h-4 w-8 border transition-colors',
-                autoScroll
-                  ? 'border-primary bg-primary'
-                  : 'border-outline bg-surface-container'
-              )}
-            >
-              <span
-                className={cn(
-                  'bg-surface block size-3 transition-transform',
-                  autoScroll ? 'translate-x-4' : 'translate-x-0.5'
-                )}
-              />
-            </button>
-          </label>
+              </label>
+            </>
+          )}
         </div>
       </div>
-      {!collapsed && (
+      {!collapsed && showEvents && (
+        <ol
+          className="bg-terminal text-code-sm text-terminal-fg h-56 overflow-y-auto px-4 py-2 leading-5"
+          aria-label="Run events"
+        >
+          {events.length === 0 ? (
+            <li className="text-log-debug">No events yet.</li>
+          ) : (
+            events.map((event, index) => (
+              <li key={index} className="whitespace-pre">
+                <span className="text-log-debug">
+                  {formatLogTimestamp(event.time)}
+                </span>{' '}
+                {event.nodeId ?? 'run'} {event.label}
+              </li>
+            ))
+          )}
+        </ol>
+      )}
+      {!collapsed && !showEvents && (
         <div className="relative">
           <div
             ref={bodyRef}
