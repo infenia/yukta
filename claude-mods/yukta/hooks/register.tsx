@@ -5,7 +5,7 @@ type Insights = { queued: number; failed: number; sample: number; successPct: nu
 type Approval = { sessionId: string; executionId: string; workflowId: string; nodeId: string; name: string }
 
 const PANE = 'yukta-runs'
-const TITLE = ['#a78bfa', '#818cf8', '#60a5fa', '#22d3ee', '#34d399']
+const TITLE = ['#2F6BFF', '#5E7FE8', '#9E7A9B', '#E8742E', '#E85D0C']
 const SPIN = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const TIPS = [
   'Define a workflow once as JSON nodes and edges, then run it from REST, the web UI or MCP.',
@@ -16,7 +16,7 @@ const TIPS = [
   'Workflow versions can be diffed and rolled back: ask Claude for diff_workflow_versions or rollback_workflow.',
   'Claude can start, pause and inspect workflows through the Yukta MCP tools.',
 ]
-const AMBER = ['#f59e0b', '#fcd34d']
+const AMBER = ['#E85D0C', '#FF9A57']
 
 // ponytail: the pane animates by redrawing at ~8 fps while it is on screen and work runs; a push channel would not need the timer
 let frame = 0
@@ -178,7 +178,7 @@ export const register: Register = (on, options) => {
     return (
       <Box flexDirection="column" paddingX={1}>
         <Box>
-          <Text bold color="#a78bfa">▲ </Text>
+          <Text bold color="#E85D0C">▲ </Text>
           {[...'YUKTA'].map((c, i) => (
             <Text bold color={TITLE[(i + Math.floor(frame / 3)) % TITLE.length]}>{c}</Text>
           ))}
@@ -187,7 +187,7 @@ export const register: Register = (on, options) => {
         <Box marginTop={1}>
           <Text color={isDown ? '#f87171' : '#34d399'}>{isDown ? '○ offline' : frame % 16 < 12 ? '● online' : '◉ online'}</Text>
           <Text dimColor>  ·  </Text>
-          <Text color="#818cf8" bold>{runs.length}</Text>
+          <Text color="#5B8BFF" bold>{runs.length}</Text>
           <Text dimColor> running  ·  </Text>
           <Text color={approvals.length ? wait : undefined} bold={approvals.length > 0} dimColor={!approvals.length}>
             {approvals.length} awaiting approval
@@ -197,10 +197,10 @@ export const register: Register = (on, options) => {
           <Box marginTop={1}><Text dimColor italic>✦ all quiet — nothing is running</Text></Box>
         )}
         {!isDown && insights && (
-          <Box marginTop={1} flexDirection="column" borderStyle="round" borderColor="#3b82f6" paddingX={1}>
-            <Text bold color="#60a5fa">◆ Insights <Text dimColor>(last {insights.sample} runs)</Text></Text>
+          <Box marginTop={1} flexDirection="column" borderStyle="round" borderColor="#2F6BFF" paddingX={1}>
+            <Text bold color="#5B8BFF">◆ Insights <Text dimColor>(last {insights.sample} runs)</Text></Text>
             <Text>
-              <Text color={insights.successPct >= 90 ? '#34d399' : insights.successPct >= 60 ? '#fcd34d' : '#f87171'} bold>{insights.successPct}%</Text>
+              <Text color={insights.successPct >= 90 ? '#34d399' : insights.successPct >= 60 ? '#FF9A57' : '#f87171'} bold>{insights.successPct}%</Text>
               <Text dimColor> succeeded  ·  median </Text>{insights.medianSec}s
               <Text dimColor>  ·  </Text>{insights.queued}<Text dimColor> queued</Text>
             </Text>
@@ -211,7 +211,7 @@ export const register: Register = (on, options) => {
           </Box>
         )}
         <Box marginTop={1}>
-          <Text color="#22d3ee">✦ </Text>
+          <Text color="#E85D0C">✦ </Text>
           <Text italic dimColor>{TIPS[Math.floor(frame / 100) % TIPS.length]}</Text>
         </Box>
         {isDown && <Box marginTop={1}><Text color="#f87171">✗ {base}: {why || 'unreachable'}</Text></Box>}
@@ -221,16 +221,16 @@ export const register: Register = (on, options) => {
             marginTop={1}
             flexDirection="column"
             borderStyle="round"
-            borderColor="#6366f1"
+            borderColor="#2F6BFF"
             paddingX={1}
-            hover={{ borderColor: '#22d3ee' }}
+            hover={{ borderColor: '#E85D0C' }}
           >
             <Box>
-              <Text bold color="#a78bfa">{SPIN[frame % SPIN.length]} </Text>
+              <Text bold color="#E85D0C">{SPIN[frame % SPIN.length]} </Text>
               <Text bold>{r.workflowId}</Text>
               <Text dimColor>  {r.executionId.slice(0, 8)}  ⏱ {elapsed(r.startTime)}</Text>
             </Box>
-            <Text color="#6366f1">{bar(width)}</Text>
+            <Text color="#2F6BFF">{bar(width)}</Text>
             <Box>
               <Text color="#34d399">{r.status.toLowerCase()}  </Text>
               <Button key={`stop-${r.executionId}`} label="■ Stop" onPress={() => stop($, r)} />

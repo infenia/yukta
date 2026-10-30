@@ -5,19 +5,19 @@ import type { Check, Plan, Stage } from './plan'
 
 type Ui = { Box: any; Button: any; Text: any }
 
-const TITLE = ['#a78bfa', '#818cf8', '#60a5fa', '#22d3ee', '#34d399']
+const TITLE = ['#2F6BFF', '#5E7FE8', '#9E7A9B', '#E8742E', '#E85D0C']
 const SPIN = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const GROUP: Record<string, { color: string; icon: string; label: string }> = {
-  gradle: { color: '#fbbf24', icon: '☕', label: 'Gradle' },
-  ui: { color: '#22d3ee', icon: '◈', label: 'UI' },
-  go: { color: '#60a5fa', icon: '❖', label: 'Go CLI' },
-  repo: { color: '#c084fc', icon: '✦', label: 'Repo' },
-  run: { color: '#94a3b8', icon: '•', label: 'Other' },
+  gradle: { color: '#E85D0C', icon: '☕', label: 'Gradle' },
+  ui: { color: '#5B8BFF', icon: '◈', label: 'UI' },
+  go: { color: '#6A7A9B', icon: '❖', label: 'Go CLI' },
+  repo: { color: '#9E7A9B', icon: '✦', label: 'Repo' },
+  run: { color: '#6A7A9B', icon: '•', label: 'Other' },
 }
 const OK = '#34d399'
 const BAD = '#f87171'
-const WARN = '#fcd34d'
-const RUN = '#22d3ee'
+const WARN = '#FF9A57'
+const RUN = '#5B8BFF'
 
 const groupOf = (g: string) => GROUP[g] ?? GROUP.run!
 
@@ -25,7 +25,7 @@ const duration = (s: number) => (s >= 60 ? `${Math.floor(s / 60)}m${String(Math.
 
 const Title = ({ Box, Text }: Ui, label: string, frame: number) => (
   <Box>
-    <Text bold color="#a78bfa">▲ </Text>
+    <Text bold color="#E85D0C">▲ </Text>
     {[...label].map((c, i) => (
       <Text bold color={TITLE[(i + Math.floor(frame / 3)) % TITLE.length]}>{c}</Text>
     ))}
@@ -56,7 +56,7 @@ export function PlanPane(ui: Ui, plan: Plan | undefined, width: number, frame: n
     <Box flexDirection="column" paddingX={1}>
       {Title(ui, 'YK PLAN', frame)}
       <Box marginTop={1}>
-        <Text color="#60a5fa" bold>{plan.summary || 'no changes'}</Text>
+        <Text color="#5B8BFF" bold>{plan.summary || 'no changes'}</Text>
       </Box>
       <Box>
         <Text color={OK} bold>{plan.stages.length}</Text>
