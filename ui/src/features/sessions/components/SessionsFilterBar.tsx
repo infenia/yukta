@@ -7,23 +7,34 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { toStatusDisplay } from '@/features/workflow/lib/statusMapper';
 import type { SessionListItem } from '../types/session';
 
 /** The selected Tag (all must match) and Initiator (any may match) values. */
 export interface SessionFilters {
   tags: string[];
   initiators: string[];
+  /** Labels of the last run's status ("Failed", "Running"…), or "Not run". */
+  lastRuns: string[];
 }
 
-/** Sessions that carry every selected tag and were started by one of the selected initiators. */
+/** How the Last run filter names a session's last run. */
+export const lastRunLabel = (session: SessionListItem) =>
+  session.lastRun ? toStatusDisplay(session.lastRun.status).label : 'Not run';
+
+/**
+ * Sessions that carry every selected tag, were started by one of the selected initiators, and
+ * whose last run is one of the selected kinds.
+ */
 export function filterSessions(
   sessions: SessionListItem[],
-  { tags, initiators }: SessionFilters
+  { tags, initiators, lastRuns }: SessionFilters
 ): SessionListItem[] {
   return sessions.filter(
     (session) =>
       tags.every((tag) => session.tags.includes(tag)) &&
-      (initiators.length === 0 || initiators.includes(session.initiator))
+      (initiators.length === 0 || initiators.includes(session.initiator)) &&
+      (lastRuns.length === 0 || lastRuns.includes(lastRunLabel(session)))
   );
 }
 
@@ -119,6 +130,13 @@ export function SessionsFilterBar({
             options={distinct(data.flatMap((session) => session.tags))}
             selected={filters.tags}
             onChange={(tags) => onFiltersChange({ ...filters, tags })}
+          />
+          <MultiFilter
+            label="Last run"
+            icon="history"
+            options={distinct(data.map(lastRunLabel))}
+            selected={filters.lastRuns}
+            onChange={(lastRuns) => onFiltersChange({ ...filters, lastRuns })}
           />
           <MultiFilter
             label="Initiator"

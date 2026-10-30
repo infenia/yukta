@@ -50,3 +50,33 @@ export function formatDuration(
 export function formatLogTimestamp(iso: string | null | undefined): string {
   return `[${formatClockTime(iso)}]`;
 }
+
+const RELATIVE = new Intl.RelativeTimeFormat('en', {
+  numeric: 'auto',
+  style: 'short',
+});
+/** Seconds in each unit, largest first, for {@link formatRelative}. */
+const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ['year', 31_536_000],
+  ['month', 2_592_000],
+  ['week', 604_800],
+  ['day', 86_400],
+  ['hour', 3600],
+  ['minute', 60],
+];
+
+/** How long ago an ISO timestamp was, e.g. "4 min. ago", "yesterday"; "just now" under a minute. */
+export function formatRelative(
+  iso: string | null | undefined,
+  now = Date.now()
+): string {
+  const time = iso ? new Date(iso).getTime() : Number.NaN;
+  if (Number.isNaN(time)) {
+    return '--';
+  }
+  const seconds = Math.round((time - now) / 1000);
+  const unit = UNITS.find(([, size]) => Math.abs(seconds) >= size);
+  return unit
+    ? RELATIVE.format(Math.round(seconds / unit[1]), unit[0])
+    : 'just now';
+}
