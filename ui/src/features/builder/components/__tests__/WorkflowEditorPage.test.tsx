@@ -388,6 +388,19 @@ describe('WorkflowEditorPage', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 
+  it('removes an edge from the inspector, and starts one from the selected node', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByRole('region', { name: 'Node start' });
+    await user.click(screen.getByRole('tab', { name: 'Connections' }));
+    await user.click(screen.getByRole('button', { name: 'Remove the edge start → out' }));
+    expect(screen.getByTestId('canvas')).toHaveTextContent('2 nodes 0 edges');
+
+    await user.click(screen.getByRole('button', { name: 'Add an edge from start' }));
+    expect(screen.getByRole('tab', { name: /Edges/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Edge source')).toHaveValue('start');
+  });
+
   it('rejects an edge that already exists and an edge from a node to itself', async () => {
     const user = userEvent.setup();
     renderEditor();
