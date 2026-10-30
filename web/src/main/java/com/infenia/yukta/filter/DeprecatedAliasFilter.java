@@ -39,11 +39,9 @@ public class DeprecatedAliasFilter implements WebFilter {
     final String path = exchange.getRequest().getPath().value();
     if (ALIAS.matcher(path).matches()) {
       exchange.getResponse().getHeaders().set("Deprecation", "true");
-      log.warn(
-          "Deprecated alias {} {} from {}",
-          exchange.getRequest().getMethod(),
-          path,
-          exchange.getRequest().getHeaders().getFirst("User-Agent"));
+      final String method = String.valueOf(exchange.getRequest().getMethod());
+      final String agent = exchange.getRequest().getHeaders().getFirst("User-Agent");
+      log.warn("Deprecated alias {} {} from {}", method, path, agent);
     }
     return chain.filter(exchange);
   }
