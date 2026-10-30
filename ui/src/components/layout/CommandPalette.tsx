@@ -3,7 +3,12 @@
 
 import { useDeferredValue, useEffect, useId, useState } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router';
+import { useMatch, useNavigate, useSearchParams } from 'react-router';
+import { useMe } from '@/lib/identity';
+import { toCli, toMcp } from '@/lib/commandEquivalents';
+import { useWorkflowExecutions } from '@/features/workflow/hooks/useWorkflowExecutions';
+import { useExecutionControl } from '@/features/workflow/hooks/useExecutionControl';
+import { isTerminalExecStatus } from '@/features/workflow/lib/statusMapper';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme';
 import { useSessionSummaries } from '@/features/sessions/hooks/useSessionSummaries';
@@ -98,7 +103,70 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
     void navigate(to);
   };
 
+  // On a run view: the workflow and its run (the one in the URL, else the newest)
+  const here = useMatch('/sessions/:sessionId/workflow/:workflowId');
+  const [params] = useSearchParams();
+  const sessionId = here?.params.sessionId ?? '';
+  const workflowId = here?.params.workflowId ?? '';
+  const executions = useWorkflowExecutions(sessionId, workflowId).data ?? [];
+  const run =
+    executions.find((e) => e.executionId === params.get('exec')) ??
+    executions[0];
+  const control = useExecutionControl(sessionId, workflowId);
+  const me = useMe();
+  // Stopping cannot be undone, so it takes a second press
+  const [confirmStop, setConfirmStop] = useState(false);
+  const copy = (text: string) => () => {
+    void navigator.clipboard?.writeText(text);
+    onClose();
+  };
+  const start = { kind: 'start', sessionId, workflowId } as const;
+  const contextual: PaletteItem[] = here
+    ? [
+        {
+          id: 'here:cli',
+          group: 'This workflow',
+          icon: 'terminal',
+          label: 'Copy CLI command to run it',
+          perform: copy(toCli(start, window.location.origin)),
+        },
+        {
+          id: 'here:mcp',
+          group: 'This workflow',
+          icon: 'data_object',
+          label: 'Copy MCP call to run it',
+          perform: copy(toMcp(start)),
+        },
+        ...(run &&
+        !isTerminalExecStatus(run.status) &&
+        (!me || me.permissions.controlRuns)
+          ? [
+              {
+                id: 'here:stop',
+                group: 'This workflow',
+                icon: 'stop_circle',
+                label: confirmStop
+                  ? `Press again to stop run ${run.executionId.slice(0, 8)}`
+                  : `Stop run ${run.executionId.slice(0, 8)}`,
+                perform: () => {
+                  if (!confirmStop) {
+                    setConfirmStop(true);
+                    return;
+                  }
+                  control.runAction.mutate({
+                    executionId: run.executionId,
+                    action: 'stop',
+                  });
+                  onClose();
+                },
+              },
+            ]
+          : []),
+      ]
+    : [];
+
   const all: PaletteItem[] = [
+    ...contextual,
     ...[
       ['Sessions', '/', 'folder'],
       ['Runs', '/runs', 'history'],
