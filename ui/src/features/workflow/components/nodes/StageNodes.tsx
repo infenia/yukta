@@ -112,3 +112,43 @@ export function StageFrame({ data }: NodeProps<StageFrameNode>) {
     </div>
   );
 }
+
+/** The canvas switch between stages and every node. */
+export function GroupingSwitch({
+  grouped,
+  onChange,
+}: {
+  grouped: boolean;
+  onChange: (grouped: boolean) => void;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Canvas grouping"
+      className="bg-surface border-border shadow-card absolute top-3 left-3 z-10 flex gap-0.5 rounded-lg border p-0.5"
+    >
+      {(
+        [
+          [true, 'Group by stage'],
+          [false, 'All nodes'],
+        ] as const
+      ).map(([value, label]) => (
+        <button
+          key={label}
+          type="button"
+          role="radio"
+          aria-checked={grouped === value}
+          onClick={() => onChange(value)}
+          className={cn(
+            'text-label-sm rounded-md px-2.5 py-1',
+            grouped === value
+              ? 'bg-muted text-on-surface'
+              : 'text-on-surface-variant hover:text-on-surface'
+          )}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}

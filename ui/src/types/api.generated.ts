@@ -1556,6 +1556,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/control/heartbeats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get every node's heartbeat
+         * @description Lists the last heartbeat of every node of every run on the Control Bus, in one call
+         */
+        get: operations["getHeartbeats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/validate/project-path": {
         parameters: {
             query?: never;
@@ -1708,15 +1728,15 @@ export interface components {
              */
             name: string;
             /**
-             * @description A human-readable description of the session
+             * @description A human-readable description of the session (optional; defaults to the name)
              * @example Daily build and quality check
              */
-            description: string;
+            description?: string;
             /**
-             * @description The name of the initiator (user or system)
+             * @description The name of the initiator (user or system); optional, defaults to anonymous
              * @example AI Agent
              */
-            initiator: string;
+            initiator?: string;
             /**
              * @description Metadata tags for categorization and filtering
              * @example {
@@ -1728,10 +1748,10 @@ export interface components {
                 [key: string]: string;
             };
             /**
-             * @description The absolute root path of the project on the server's filesystem
+             * @description The absolute root path of the project on the server's filesystem; optional, defaults to the current directory
              * @example /home/user/workspace/project-alpha
              */
-            projectPath: string;
+            projectPath?: string;
             /** @description A map of workflow definition requests keyed by workflow ID */
             workflows: {
                 [key: string]: components["schemas"]["WorkflowDefinitionRequest"];
@@ -1762,10 +1782,10 @@ export interface components {
             /** @description Unique workflow identifier */
             workflowId: string;
             /**
-             * @description A human-readable description of the workflow
+             * @description A human-readable description of the workflow (optional; defaults to the workflow ID)
              * @example Quality check
              */
-            description: string;
+            description?: string;
             /** @description Nodes in the workflow */
             nodes: components["schemas"]["NodeRequest"][];
             /** @description Edges connecting the nodes */
@@ -3334,6 +3354,46 @@ export interface components {
              * @description Nodes in the run
              */
             total?: number;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListNodeHeartbeat: {
+            /** @description The response data */
+            data?: components["schemas"]["NodeHeartbeat"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        NodeHeartbeat: {
+            executionId?: string;
+            nodeId?: string;
+            /** Format: date-time */
+            timestamp?: string;
+            workflowId?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseProjectPathCheck: {
@@ -5546,6 +5606,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListPendingApproval"];
+                };
+            };
+        };
+    };
+    getHeartbeats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListNodeHeartbeat"];
                 };
             };
         };

@@ -10,6 +10,7 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.control.ControlHeartbeat;
 import com.infenia.yukta.model.control.ControlStatistics;
+import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.service.control.directive.ControlHeartbeatHandler;
 import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.directive.ControlStatisticsHandler;
@@ -125,5 +126,27 @@ class ControlBusServiceRunScopeTest {
 
     assertThat(service.getActiveNodes(WORKFLOW_ID)).containsExactly(NODE_ID);
     assertThat(service.getActiveNodes()).containsExactly(NODE_ID);
+  }
+
+  @Test
+  void heartbeatsListEveryRunOfNodeAndSkipNodesWithOnlyStatistics() {
+    final Message<?> first = heartbeat("run-1");
+    emitAndWaitFor(first, "run-1");
+    emitAndWaitFor(heartbeat("run-2"), "run-2");
+    final Message<?> stats =
+        DefaultMessage.create(UUID.randomUUID(), new ControlStatistics("quiet", 1.0, 2.0, Map.of()))
+            .withWorkflowId(WORKFLOW_ID)
+            .withSourceNodeId("quiet");
+    StepVerifier.create(service.emit(stats)).verifyComplete();
+    await()
+        .atMost(Duration.ofSeconds(3))
+        .until(() -> service.getLastStatistics(WORKFLOW_ID, "quiet") != null);
+
+    assertThat(service.getHeartbeats())
+        .extracting(NodeHeartbeat::executionId)
+        .containsExactlyInAnyOrder("run-1", "run-2");
+    assertThat(service.getHeartbeats())
+        .filteredOn(beat -> "run-1".equals(beat.executionId()))
+        .containsExactly(new NodeHeartbeat(WORKFLOW_ID, "run-1", NODE_ID, first.timestamp()));
   }
 }

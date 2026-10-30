@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.model.control.PendingApproval;
 import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.model.execution.TaskProgress;
@@ -694,6 +695,11 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   @Override
   public Message<?> getLastStatistics(final String workflowId, final String nodeId) {
     return queries.getLastStatistics(workflowId, nodeId);
+  }
+
+  @Override
+  public List<NodeHeartbeat> getHeartbeats() {
+    return controlBusService.getHeartbeats();
   }
 
   @Override

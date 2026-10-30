@@ -65,7 +65,7 @@ const server = setupServer(
   http.get('/api/edition', () =>
     ok({ edition: 'PLUS', license: 'x', features: [], source: null })
   ),
-  http.get('/api/control/nodes', () => ok([]))
+  http.get('/api/control/heartbeats', () => ok([]))
 );
 
 beforeAll(() => server.listen());

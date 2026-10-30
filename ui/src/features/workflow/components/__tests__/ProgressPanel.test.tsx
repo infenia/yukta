@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ProgressPanel } from '../ProgressPanel';
 import {
@@ -25,8 +25,10 @@ describe('ProgressPanel', () => {
     expect(screen.getByTestId('progress-panel')).toHaveTextContent(
       'Workflow progress'
     );
-    expect(screen.getByTestId('execution-summary')).toBeInTheDocument();
     expect(screen.getByTestId('task-sequence')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
+    expect(screen.getByTestId('execution-summary')).toBeInTheDocument();
+    expect(screen.queryByTestId('task-sequence')).not.toBeInTheDocument();
   });
 
   it('notifies close', async () => {

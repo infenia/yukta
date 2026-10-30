@@ -26,6 +26,7 @@ import { PendingApprovals } from './PendingApprovals';
 import { ProgressPanel } from './ProgressPanel';
 import { RunHistoryDropdown } from './RunHistoryDropdown';
 import { WorkflowCanvas } from './WorkflowCanvas';
+import { GroupingSwitch } from './nodes/StageNodes';
 import { WorkflowTitleBar } from './WorkflowTitleBar';
 import { WorkflowVersionsPanel } from './WorkflowVersionsPanel';
 import { isTerminalExecStatus, toDisplayExecStatus } from '../lib/statusMapper';
@@ -120,6 +121,9 @@ export function WorkflowDetailsPage() {
   }, [progress]);
   const stages = useStageView(graph, tasksByNode);
   const live = !isTerminalExecStatus(progress?.status);
+  const [follow, setFollow] = useState(true);
+  // only a run that is going has running nodes to follow
+  const followable = progress !== null && live;
   const subWorkflowLinks = useSubWorkflowLinks(
     sessionId,
     graph,
@@ -309,58 +313,51 @@ export function WorkflowDetailsPage() {
 
       {/* A fixed-height workspace: the canvas fills it and the panel scrolls inside it, so a
           100-node run no longer stretches the page */}
-      <div className="flex h-[clamp(28rem,calc(100dvh-14rem),56rem)]">
-        <div className="relative min-w-0 flex-1">
-          <SubWorkflowLinks value={subWorkflowLinks}>
+      {/* The canvas nodes and the failure callout both open sub-workflow runs */}
+      <SubWorkflowLinks value={subWorkflowLinks}>
+        <div className="flex h-[clamp(28rem,calc(100dvh-14rem),56rem)]">
+          <div className="relative min-w-0 flex-1">
             <WorkflowCanvas
               graph={graph}
               tasksByNode={tasksByNode}
               stageView={stages.stageView}
               onNodeClick={setLogNode}
+              follow={follow && followable}
             />
-          </SubWorkflowLinks>
-          {stages.hasStages && (
-            <div
-              role="radiogroup"
-              aria-label="Canvas grouping"
-              className="bg-surface border-border shadow-card absolute top-3 left-3 z-10 flex gap-0.5 rounded-lg border p-0.5"
-            >
-              {(
-                [
-                  [true, 'Group by stage'],
-                  [false, 'All nodes'],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={label}
-                  type="button"
-                  role="radio"
-                  aria-checked={stages.grouped === value}
-                  onClick={() => stages.setGrouped(value)}
-                  className={cn(
-                    'text-label-sm rounded-md px-2.5 py-1',
-                    stages.grouped === value
-                      ? 'bg-muted text-on-surface'
-                      : 'text-on-surface-variant hover:text-on-surface'
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            {followable && (
+              <button
+                type="button"
+                aria-pressed={follow}
+                onClick={() => setFollow((value) => !value)}
+                className={cn(
+                  'bg-surface border-border shadow-card text-label-sm absolute top-3 right-3 z-10 rounded-lg border px-2.5 py-1',
+                  follow
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                )}
+              >
+                Follow running nodes
+              </button>
+            )}
+            {stages.hasStages && (
+              <GroupingSwitch
+                grouped={stages.grouped}
+                onChange={stages.setGrouped}
+              />
+            )}
+          </div>
+          {panelOpen && (
+            <ProgressPanel
+              graph={graph}
+              progress={progress}
+              tasksByNode={tasksByNode}
+              sessionId={sessionId}
+              onClose={() => setPanelOpen(false)}
+              onNodeCommand={selectedExecutionId ? onNodeCommand : undefined}
+            />
           )}
         </div>
-        {panelOpen && (
-          <ProgressPanel
-            graph={graph}
-            progress={progress}
-            tasksByNode={tasksByNode}
-            sessionId={sessionId}
-            onClose={() => setPanelOpen(false)}
-            onNodeCommand={selectedExecutionId ? onNodeCommand : undefined}
-          />
-        )}
-      </div>
+      </SubWorkflowLinks>
 
       <LogsPanel
         sessionId={sessionId}

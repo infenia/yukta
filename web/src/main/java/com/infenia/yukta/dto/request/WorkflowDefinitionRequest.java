@@ -28,8 +28,11 @@ public record WorkflowDefinitionRequest(
     @Schema(description = "Unique workflow identifier")
         @NotBlank(message = "Workflow ID is mandatory")
         String workflowId,
-    @Schema(description = "A human-readable description of the workflow", example = "Quality check")
-        @NotBlank(message = "Workflow description is mandatory")
+    @Schema(
+            description =
+                "A human-readable description of the workflow (optional; defaults to the workflow"
+                    + " ID)",
+            example = "Quality check")
         @Size(max = 256, message = "Workflow description must be at most 256 characters")
         String description,
     @Schema(description = "Nodes in the workflow")
@@ -41,6 +44,7 @@ public record WorkflowDefinitionRequest(
 
   /** Compact constructor to ensure immutability. */
   public WorkflowDefinitionRequest {
+    description = description == null || description.isBlank() ? workflowId : description;
     nodes = nodes != null ? List.copyOf(nodes) : List.of();
     edges = edges != null ? List.copyOf(edges) : List.of();
   }

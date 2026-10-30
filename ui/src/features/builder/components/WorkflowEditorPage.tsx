@@ -10,6 +10,8 @@ import { useNavigate, useParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
 import { usePlugins } from '@/features/plugins/hooks/usePlugins';
 import { WorkflowCanvas } from '@/features/workflow/components/WorkflowCanvas';
+import { GroupingSwitch } from '@/features/workflow/components/nodes/StageNodes';
+import { groupNodes, stageOf } from '@/features/workflow/lib/groups';
 import type { WorkflowGraph } from '@/features/workflow/types/workflow';
 import { getSessionDraft, saveSession, validateWorkflow } from '../api';
 import type {
@@ -50,6 +52,7 @@ export function toPreviewGraph(
       description: null,
       uiDesign: null,
       outputPorts: ports[node.nodeId] ?? ['default'],
+      group: node.group,
     })),
     edges: workflow.edges,
     topologicalOrder: [],
@@ -113,6 +116,38 @@ function Editor({
     [workflow, categories, ports]
   );
   const node = workflow.nodes.find((n) => n.nodeId === selected);
+
+  // Stages on the canvas: the selected node's stage is always open; closing it deselects
+  const stages = useMemo(() => groupNodes(workflow.nodes), [workflow.nodes]);
+  /** Where each stage's first node is, so the outline lists a stage's nodes together. */
+  const stageRank = useMemo(() => {
+    const rank = new Map<string, number>();
+    workflow.nodes.forEach((n, index) => {
+      if (!rank.has(stageOf(n))) rank.set(stageOf(n), index);
+    });
+    return rank;
+  }, [workflow.nodes]);
+  const [grouped, setGrouped] = useState(true);
+  const [openStages, setOpenStages] = useState<ReadonlySet<string>>(new Set());
+  const selectedStage =
+    node && stages.has(stageOf(node)) ? stageOf(node) : null;
+  const openNow = new Set(openStages);
+  if (selectedStage) openNow.add(selectedStage);
+  const toggleStage = (stage: string) => {
+    const next = new Set(openNow);
+    if (next.delete(stage)) {
+      if (stage === selectedStage) setSelected(null);
+    } else {
+      next.add(stage);
+    }
+    setOpenStages(next);
+  };
+  // ponytail: a new object each render, so the canvas lays out again on every edit; memoize if
+  // large drafts get slow (react-hooks' compiler lint rejects the obvious useMemo here)
+  const stageView =
+    grouped && stages.size > 0
+      ? { open: openNow, onToggle: toggleStage }
+      : undefined;
   // The select lists plugins by category; until the user picks one, what it shows is the first option.
   const selectedType =
     newType ||
@@ -415,8 +450,27 @@ function Editor({
                       .toLowerCase()
                       .includes(nodeQuery.trim().toLowerCase())
                   )
-                  .map((n) => (
+                  // a stage's nodes sit together, under its name, where its first node is
+                  .sort(
+                    (a, b) =>
+                      (stageRank.get(stageOf(a)) as number) -
+                      (stageRank.get(stageOf(b)) as number)
+                  )
+                  .map((n, index, shown) => (
                     <li key={n.nodeId}>
+                      {stages.has(stageOf(n)) &&
+                        stageOf(shown[index - 1] ?? { nodeId: '' }) !==
+                          stageOf(n) && (
+                          <p
+                            className="text-overline flex items-center gap-2 px-3 pt-3 pb-1"
+                            data-testid={`outline-stage-${stageOf(n)}`}
+                          >
+                            {stageOf(n)}
+                            <span className="text-muted-foreground tabular-nums">
+                              {stages.get(stageOf(n))?.length}
+                            </span>
+                          </p>
+                        )}
                       <button
                         type="button"
                         aria-current={n.nodeId === selected}
@@ -528,13 +582,17 @@ function Editor({
 
         <div
           data-testid="editor-canvas"
-          className="h-80 min-w-0 shrink-0 lg:h-auto lg:flex-1"
+          className="relative h-80 min-w-0 shrink-0 lg:h-auto lg:flex-1"
         >
+          {stages.size > 0 && (
+            <GroupingSwitch grouped={grouped} onChange={setGrouped} />
+          )}
           {/* Re-keyed on selection so the view opens on the selected node and its neighbours */}
           <WorkflowCanvas
             key={`${workflow.nodes.length}/${selected ?? ''}`}
             graph={graph}
             tasksByNode={NO_TASKS}
+            stageView={stageView}
             onConnect={(source, target, sourcePort) =>
               addEdge({ source, target, sourcePort })
             }
@@ -564,6 +622,16 @@ function Editor({
                 key={`${node.nodeId}/${revision}`}
                 node={node}
                 onRemove={() => removeNode(node.nodeId)}
+                onGroupChange={(group) =>
+                  update({
+                    // an undefined group is left out of the saved JSON
+                    nodes: workflow.nodes.map((n) =>
+                      n.nodeId === node.nodeId
+                        ? { ...n, group: group ?? undefined }
+                        : n
+                    ),
+                  })
+                }
                 edges={workflow.edges}
                 onRemoveEdge={(gone) =>
                   update({

@@ -3339,6 +3339,26 @@
         "tags" : [ "Execution Control API" ]
       }
     },
+    "/api/control/heartbeats" : {
+      "get" : {
+        "description" : "Lists the last heartbeat of every node of every run on the Control Bus, in one call",
+        "operationId" : "getHeartbeats",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListNodeHeartbeat"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get every node's heartbeat",
+        "tags" : [ "Control Bus & Observability API" ]
+      }
+    },
     "/api/sessions/validate/project-path" : {
       "post" : {
         "description" : "Says whether the path exists on the server and is a directory. Nothing else about the file system is returned.",
@@ -3546,16 +3566,15 @@
           },
           "description" : {
             "type" : "string",
-            "description" : "A human-readable description of the session",
+            "description" : "A human-readable description of the session (optional; defaults to the name)",
             "example" : "Daily build and quality check",
             "maxLength" : 256,
             "minLength" : 0
           },
           "initiator" : {
             "type" : "string",
-            "description" : "The name of the initiator (user or system)",
-            "example" : "AI Agent",
-            "minLength" : 1
+            "description" : "The name of the initiator (user or system); optional, defaults to anonymous",
+            "example" : "AI Agent"
           },
           "tags" : {
             "type" : "object",
@@ -3570,7 +3589,7 @@
           },
           "projectPath" : {
             "type" : "string",
-            "description" : "The absolute root path of the project on the server's filesystem",
+            "description" : "The absolute root path of the project on the server's filesystem; optional, defaults to the current directory",
             "example" : "/home/user/workspace/project-alpha",
             "maxLength" : 1024,
             "minLength" : 0
@@ -3584,7 +3603,7 @@
             "minProperties" : 1
           }
         },
-        "required" : [ "description", "initiator", "name", "projectPath", "sessionId", "workflows" ]
+        "required" : [ "name", "sessionId", "workflows" ]
       },
       "EdgeRequest" : {
         "type" : "object",
@@ -3640,7 +3659,7 @@
           },
           "description" : {
             "type" : "string",
-            "description" : "A human-readable description of the workflow",
+            "description" : "A human-readable description of the workflow (optional; defaults to the workflow ID)",
             "example" : "Quality check",
             "maxLength" : 256,
             "minLength" : 0
@@ -3661,7 +3680,7 @@
             }
           }
         },
-        "required" : [ "description", "edges", "nodes", "workflowId" ]
+        "required" : [ "edges", "nodes", "workflowId" ]
       },
       "ApiResponseVoid" : {
         "type" : "object",
@@ -6198,6 +6217,70 @@
             "description" : "Nodes in the run",
             "format" : "int32",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseListNodeHeartbeat" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/NodeHeartbeat"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "NodeHeartbeat" : {
+        "properties" : {
+          "executionId" : {
+            "type" : "string"
+          },
+          "nodeId" : {
+            "type" : "string"
+          },
+          "timestamp" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "workflowId" : {
+            "type" : "string"
           }
         },
         "type" : "object"

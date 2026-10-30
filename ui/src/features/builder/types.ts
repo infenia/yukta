@@ -5,6 +5,8 @@ export interface DraftNode {
   nodeId: string;
   type: string;
   config: Record<string, unknown>;
+  /** The stage the node belongs to, for display; absent means its node-ID prefix. */
+  group?: string | null;
 }
 
 export interface DraftEdge {
