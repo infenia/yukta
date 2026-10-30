@@ -32,6 +32,7 @@ A trigger has no input. It produces the first message of a run. See [Triggers](/
 | `API_TRIGGER` | Passes the payload of the start request into the workflow |
 | `CONSTANT_SOURCE` | Emits a message built from fixed variables at startup |
 | `SCHEDULE_TRIGGER` | Emits a message on a fixed interval or a cron schedule |
+| `WEBHOOK_TRIGGER` | Starts the workflow from a signed `POST /hooks/{sessionId}/{path}` call |
 
 ## Processors
 

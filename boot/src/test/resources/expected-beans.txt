@@ -23,6 +23,7 @@ com.infenia.yukta.controller.PluginController
 com.infenia.yukta.controller.SessionConfigController
 com.infenia.yukta.controller.SupervisorsController
 com.infenia.yukta.controller.TemplateController
+com.infenia.yukta.controller.WebhookController
 com.infenia.yukta.controller.WorkersController
 com.infenia.yukta.controller.WorkflowController
 com.infenia.yukta.controller.WorkflowDetailsController
@@ -104,6 +105,7 @@ com.infenia.yukta.plugin.terminal.OutcomeTerminal
 com.infenia.yukta.plugin.trigger.ApiTriggerPlugin
 com.infenia.yukta.plugin.trigger.ConfigVariableSource
 com.infenia.yukta.plugin.trigger.ScheduleTrigger
+com.infenia.yukta.plugin.trigger.WebhookTriggerPlugin
 com.infenia.yukta.plugin.util.EgressPolicy
 com.infenia.yukta.plugin.util.VariableResolver
 com.infenia.yukta.security.ApiKeyAuthenticator
