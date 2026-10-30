@@ -2,7 +2,7 @@
 
 **Status (2026-10-30, second session).** The page-group PRs (#1468–#1483) are merged. Most of the work items below are built: each is its own PR, which passed `yk check` and has 100% unit-test coverage. The table says where each one stands. Before starting anything, check the live state with `gh pr view <n>`, because PRs merge while work goes on.
 
-| Item | PR | State (2026-10-30, 2nd session, 16:00) | Notes |
+| Item | PR | State (2026-10-30, 3rd session, 20:00) | Notes |
 |---|---|---|---|
 | U2 Recover on Runs | #1479 | merged | |
 | C1 limit tiles | #1480 | merged | live-nodes table still open (decision Q3) |
@@ -11,25 +11,25 @@
 | D3 "Yukta" wordmark | #1483 | merged | |
 | D1 server: node `group`, `subWorkflowId` | #1487 | merged | |
 | R1 canvas + R5 drill-down | #1488 | merged | |
-| R1 task list + B1 builder | #1490 | open, base main | |
-| R3 progress tabs + failure callout | #1492 | open, stacked on #1490 | |
-| R4 follow running nodes | #1504 | open, stacked on #1492 | |
+| R1 task list + B1 builder | #1490 | merged | |
+| R3 progress tabs + failure callout | #1492 | merged | rebuilt as main + its one commit; run-view baselines from CI |
+| R4 follow running nodes | #1504 | merged (into #1492's branch) | the follow pan (`fitView`, 300 ms) makes CI's attempts differ by a few pixels, within the screenshot tolerance |
 | S1 last run per session | #1496 | merged | |
-| S3 relative times + Last run filter | #1505 | open, base main | still carries #1496's commits |
+| S3 relative times + Last run filter | #1505 | merged | |
 | U1 run progress + counts | #1498 | merged | |
-| B2 validation warnings (unread ports) | #1502 | open, base main | rule changed from the plan: see B2 |
-| P1 "Used in" + `/api/plugins/{type}/usage` | #1503 | open, base main | |
+| B2 validation warnings (unread ports) | #1502 | merged | rule changed from the plan: see B2 |
+| P1 "Used in" + `/api/plugins/{type}/usage` | #1503 | merged | |
 | S2 per-row Run + session Copy as | #1506 | merged | |
 | R2 log level + node filter | #1507 | merged | stage-box clicks don't set the node filter |
 | B4 unsaved changes + Discard | #1508 | merged | |
 | K1 palette actions | #1510 | merged | |
-| B3 inspector tabs | #1511 | open, base main | |
-| B4 drag-to-connect | #1512 | open, base main | |
-| K2 breadcrumbs inside pages | #1520 | open, base main | header row removed (`--spacing-header` 48px); IDs keep their spelling; workflow-details and editor chromium baselines need regenerating in CI |
-| R2 Events tab | #1517 | open, base main | from the run's start/end times, so finished runs have events too |
-| C1 live-nodes table | #1516 | open, base main | `GET /api/control/heartbeats` |
-| N1 project-path check | #1518 | open, base main | `POST /api/sessions/validate/project-path`, ADMIN only; a warning, not a block |
-| Q5 "all ports" edge fix (#1515) | #1519 | open, stacked on #1502 | `sourcePort: "*"`; omitted still means `default` |
+| B3 inspector tabs | #1511 | merged | |
+| B4 drag-to-connect | #1512 | merged | |
+| K2 breadcrumbs inside pages | #1520 | open, base main, green | header row removed (`--spacing-header` 48px); IDs keep their spelling; 14 chromium baselines (11 `session-list-*`, 2 `workflow-details-full-page*`, `workflow-editor-mobile`) taken from CI |
+| R2 Events tab | #1517 | merged | from the run's start/end times, so finished runs have events too |
+| C1 live-nodes table | #1516 | merged | `GET /api/control/heartbeats` |
+| N1 project-path check | #1518 | open, base main, green | `POST /api/sessions/validate/project-path`, ADMIN only; a warning, not a block |
+| Q5 "all ports" edge fix (#1515) | #1519 | open, base main, green | `sourcePort: "*"`; omitted still means `default` (user confirmed 2026-10-30) |
 
 **Stacks:** when a base PR is squash-merged, rebase the next PR onto main with `git rebase --onto origin/main <old-base-branch> <branch>`, then force-push. GitHub moves the PR's base to main by itself. A PR in the merge queue can't be pushed to.
 
@@ -42,22 +42,19 @@
 - **Live canvas:** https://claude.ai/artifact/FDLDwU5fDE6XqogqKQzqNQ (editable).
 - **Design system:** https://claude.ai/artifact/LeqMJNrp9wEkCaEDrKAWch. Its README has the status vocabulary and the agent-friendly rules.
 
-## Resume here (state at 2026-10-30 16:20, end of the second session)
+## Resume here (state at 2026-10-30 20:00, third session)
 
-Nothing new is left to build; what remains is getting the open PRs merged.
+Nothing new is left to build. Open and green: #1518 (N1 path check), #1519 (Q5 `sourcePort "*"`), #1520 (K2 breadcrumbs, run-view baselines retaken from CI on top of #1492/#1504).
 
-**This session's PRs (yours to keep green):**
-- #1516 C1 heartbeats: CI was still running after the last push (a flaky time assertion was fixed). Check it again.
-- #1517 R2 Events tab and #1518 N1 path check: green.
-- #1519 Q5 `sourcePort "*"`: stacked on #1502 (`feat/validation-warnings`). Once #1502 is squash-merged, run `git rebase --onto origin/main <#1502's last head> fix/edge-all-ports`, rerun `./examples/11-dogfood/yk check --base origin/main` and force-push. The other session agreed you do this.
-- #1520 K2 breadcrumbs: **E2E fails as expected.** The chromium baselines `workflow-details-full-page`, `workflow-details-full-page-dark` (maybe `-progress-panel`) and `workflow-editor-mobile` must come from CI's renderer, because local chromium differs on every glyph. Take them from CI with `gh run download <run-id> -D <dir>` (artifact `playwright-videos`), open each `*-actual.png`, copy each over `ui/e2e/__snapshots__/<spec>/<name>-chromium-linux.png`, commit and push. Use the image that two attempts agree on. Rebase on main first if #1490/#1492/#1504/#1511/#1512 merged, since they touch the same headers.
-- #1521 this plan update: green.
+**Retaking a chromium baseline:** never render it locally. Push, let E2E fail, then `gh run download <run-id> -n playwright-videos -D <new empty dir>`. Use the `*-actual.png` that two of the three attempts agree on (`md5sum`); the run view's attempts differ by a few pixels since #1504's follow pan, so there take the first attempt. Open it, copy it over `ui/e2e/__snapshots__/<spec>/<name>-chromium-linux.png`, push, and check the next E2E run passes with no flaky retries.
+
+**Gate noise:** `ui/.prettierrc` sets no `printWidth`, so prettier's 80 columns apply, and many files on main are wider. `yk check`'s `ui_prettier` heal rewraps those (e.g. `WorkflowDetailsPage.test.tsx`) and rewrites all of `api.generated.ts`. In a PR, `prettier --write` the files you changed, then drop the heal's edits to other files with `git checkout ui`. One `style(ui): prettier` PR, once the redesign PRs merge, would end this.
 
 **Owned by the other session (`yukta-ui-redesign-design-system`):** #1490, #1492, #1502, #1503, #1504, #1505, #1511, #1512, plus its own non-redesign PRs. It merges main into them and fixes their CI. Ask it (SendMessage) before pushing to any of them. If it's gone, they're yours: check `gh pr view <n>` and follow the stack rules below.
 
 **PR title rule:** CI's "Conventional PR title" accepts only one scope matching `[a-z0-9._/-]+`. `feat(web,ui)` fails; use `feat(control)` or `feat(sessions)`.
 
-**Open product question (raise with the user):** the public docs promised that an edge without `sourcePort` takes every port, but the engine always delivered only `default` (the mappers' default). #1519 keeps that behaviour, documents it and adds `"*"`. Making an omitted port mean every port instead would change existing workflows.
+**Edge ports (decided 2026-10-30):** an edge without `sourcePort` keeps meaning `default`, as the engine always did; `"*"` (#1519) means every port but `error`. The user chose this over making an omitted port mean every port, which would change existing workflows.
 
 ## Decisions (made 2026-10-30)
 
@@ -227,7 +224,7 @@ Answers: Q1 yes, per-page breadcrumbs; Q2 the run's status transitions; Q3 batch
 - **Running yk from a worktree:** run `yk check` and `yk plan` as `./examples/11-dogfood/yk …` from inside the worktree. The `yk` on PATH resolves to the main checkout. `yk gradle` and `yk tool` already follow the current directory. Start `yk check` in the background, and don't edit that worktree while it runs. For a stacked PR, add `--base origin/<parent-branch>`.
 - **Prettier:** run `prettier --write` on the files you changed only, never on a directory, because many files on main aren't prettier-clean. The gate's `ui_prettier` fix rewrites untouched test files and `src/types/api.generated.ts`. Revert those with `git checkout ui`, and keep the gate's Java style and spotbugs fixes after reading them.
 - **Reading vitest results:** `yk tool` hides output on success. Use `--reporter=json --outputFile=/tmp/x.json` to get test counts. Coverage is 100% on all ui code: find gaps with `--coverage.reporter=json`, then read `coverage-final.json`. A FAILED result with every test passing usually means an *uncaught exception*. It's typically `userEvent` on the xyflow canvas leaving a pointer event after jsdom is torn down, so use `fireEvent` for canvas clicks.
-- **API changes:** refresh the snapshot with `yk gradle :boot:test --tests '*OpenApiSnapshotTest' -Pyukta.openapi.update=true`. That rewrites `ui/openapi.json` with sorted keys, so put it back in the committed order with `python3 design/plans/ui-redesign/tools/specmerge.py <old.json from git show HEAD:ui/openapi.json> ui/openapi.json`. Then regenerate the types with `yk tool -C ui node scripts/generate-api-types.mjs openapi.json`. The diff should then be only the new fields.
+- **API changes:** if two PRs both add to `ui/openapi.json`, resolve a rebase conflict by taking main's file and regenerating, not by hand. Refresh the snapshot with `yk gradle :boot:test --tests '*OpenApiSnapshotTest' -Pyukta.openapi.update=true`. That rewrites `ui/openapi.json` with sorted keys, so put it back in the committed order with `python3 design/plans/ui-redesign/tools/specmerge.py <old.json from git show HEAD:ui/openapi.json> ui/openapi.json`. Then regenerate the types with `yk tool -C ui node scripts/generate-api-types.mjs openapi.json`. The diff should then be only the new fields.
 - **Spotless:** if root `spotlessApply` fails on `spotlessKotlinGradle` (a config-cache problem), use the module-scoped tasks, e.g. `:web:spotlessApply`.
 - **Icons:** the icon font is a subset. Use a Material Symbols name that already appears somewhere in `src`, or regenerate the font with `pnpm run icons` (needs network).
 
@@ -239,7 +236,7 @@ Answers: Q1 yes, per-page breadcrumbs; Q2 the run's status transitions; Q3 batch
 - The chromium screenshots for `workflow-details` on main differ on every text glyph in a local run, regardless of the change being tested, so they and the Firefox/WebKit baselines need regenerating in CI. Update a screenshot locally only for a change you've made, and open the image before updating the baseline.
 
 - The Firefox and WebKit `session-list-*` screenshot baselines fail on `main` as well. Regenerate them in the CI environment.
-- Under coverage load, the full vitest run sometimes times out `RunsPage` "loads more…" and `SessionDetailsPage` "renders…" at 5 s. They pass on rerun. Raise their timeout or find what's slow.
+- Under coverage load, the full vitest run sometimes timed out `RunsPage` "loads more…" and `SessionDetailsPage` "renders…" at 5 s. #1523 fixes `RunsPage` (role queries over 100+ rows). `SessionDetailsPage` takes 0.9 s in a full coverage run and has nothing slow in it, so it is left as is; if it times out again, check what else was running.
 
 ## Verification, for every item
 
