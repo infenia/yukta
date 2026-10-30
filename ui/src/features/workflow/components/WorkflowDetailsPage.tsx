@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Link, useParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
 import {
@@ -120,6 +121,9 @@ export function WorkflowDetailsPage() {
   }, [progress]);
   const stages = useStageView(graph, tasksByNode);
   const live = !isTerminalExecStatus(progress?.status);
+  const [follow, setFollow] = useState(true);
+  // only a run that is going has running nodes to follow
+  const followable = progress !== null && live;
   const subWorkflowLinks = useSubWorkflowLinks(
     sessionId,
     graph,
@@ -318,7 +322,23 @@ export function WorkflowDetailsPage() {
               tasksByNode={tasksByNode}
               stageView={stages.stageView}
               onNodeClick={setLogNode}
+              follow={follow && followable}
             />
+            {followable && (
+              <button
+                type="button"
+                aria-pressed={follow}
+                onClick={() => setFollow((value) => !value)}
+                className={cn(
+                  'bg-surface border-border shadow-card text-label-sm absolute top-3 right-3 z-10 rounded-lg border px-2.5 py-1',
+                  follow
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                )}
+              >
+                Follow running nodes
+              </button>
+            )}
             {stages.hasStages && (
               <GroupingSwitch
                 grouped={stages.grouped}
