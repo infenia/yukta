@@ -30,6 +30,9 @@
 | C1 live-nodes table | #1516 | merged | `GET /api/control/heartbeats` |
 | N1 project-path check | #1518 | open, base main, green | `POST /api/sessions/validate/project-path`, ADMIN only; a warning, not a block |
 | Q5 "all ports" edge fix (#1515) | #1519 | open, base main, green | `sourcePort: "*"`; omitted still means `default` (user confirmed 2026-10-30) |
+| Run view logs dock | #1526 | open, base main | logs under the canvas, drag to resize, maximize; beyond the artboard (see "Changes from the plan") |
+| Header as on the artboards | #1527 | open, base main | sections beside the logo, 300 px search, 52 px row |
+| Flaky `RunsPage` tests | #1523 | open, base main | role queries over 100+ rows replaced by text queries |
 
 **Stacks:** when a base PR is squash-merged, rebase the next PR onto main with `git rebase --onto origin/main <old-base-branch> <branch>`, then force-push. GitHub moves the PR's base to main by itself. A PR in the merge queue can't be pushed to.
 
@@ -217,6 +220,7 @@ Answers: Q1 yes, per-page breadcrumbs; Q2 the run's status transitions; Q3 batch
 - **U1:** `failed` in the counts means status FAILURE only, so it matches the Runs filter `status=FAILURE&range=24h`.
 - **N1:** Description stays required, because the server's `@NotBlank` rejects a blank one.
 - **R4:** follow is capped at 100% zoom, so one running node is panned to without being magnified.
+- **Run view logs (#1526):** the artboard has a fixed 236 px panel with a collapse button. The user asked for logs docked at the bottom of the screen that drag to resize and expand, so the run view fills the screen, the logs sit under the canvas in its column, and their height is kept in `localStorage`.
 
 ## How to work on this (lessons from the first session)
 
@@ -227,6 +231,25 @@ Answers: Q1 yes, per-page breadcrumbs; Q2 the run's status transitions; Q3 batch
 - **API changes:** if two PRs both add to `ui/openapi.json`, resolve a rebase conflict by taking main's file and regenerating, not by hand. Refresh the snapshot with `yk gradle :boot:test --tests '*OpenApiSnapshotTest' -Pyukta.openapi.update=true`. That rewrites `ui/openapi.json` with sorted keys, so put it back in the committed order with `python3 design/plans/ui-redesign/tools/specmerge.py <old.json from git show HEAD:ui/openapi.json> ui/openapi.json`. Then regenerate the types with `yk tool -C ui node scripts/generate-api-types.mjs openapi.json`. The diff should then be only the new fields.
 - **Spotless:** if root `spotlessApply` fails on `spotlessKotlinGradle` (a config-cache problem), use the module-scoped tasks, e.g. `:web:spotlessApply`.
 - **Icons:** the icon font is a subset. Use a Material Symbols name that already appears somewhere in `src`, or regenerate the font with `pnpm run icons` (needs network).
+
+## Gaps against the artboards (reviewed 2026-10-30, third session)
+
+Compared every artboard with the UI on main after #1520. The deliberate deviations above (D2, R3, B2, N1, R4) are left out.
+
+| Area | Gap | Status |
+|---|---|---|
+| Header | sections beside the logo; 300 px "Jump to a session, workflow or run…"; 52 px | #1527 |
+| Run view | logs below the fold | #1526 |
+| Run view | one "Run a3f19c02 · started · 0m 31s" picker; Pause / Stop / Restart as one segmented group; "Find node" box on the canvas; compact logs toolbar (tabs, node chip, level, filter, Follow, copy, collapse; Wrap / Raw / Download in a menu) | open |
+| Sessions list | subtitle; "Import JSON" and a filled New session; "Tag: any ▾" / "Initiator: any ▾" / "Last run: any ▾" chips and "Filters are kept in the URL"; "Not run" as a pill; footer "Showing 1–4 of 4" and the ⌘K / `/` tip | open |
+| Runs | one "Session / workflow" column and an Initiator column (no Ended); footer "N runs in the last 24 hours" and "Showing the newest 200…" | open |
+| Session detail | facts card "5 · 145 nodes in all" | open |
+| Builder | "Tidy layout" and "Connect" in the canvas toolbar; "Save version"; **inspector form from the plugin's config schema** instead of raw JSON (large; ask first) | open |
+| Plugins | "Filter by name or ID" on the catalog | open |
+| Control | Overview / Activity tabs | open |
+| New session | tags as `key: value` chips | open |
+| Command palette | placeholder "Search sessions, workflows, runs, nodes and actions"; footer hints (Tab for actions, `>` for commands) | open |
+| Phone | "Account and theme" button in the header | open |
 
 ## Housekeeping
 
