@@ -4,15 +4,17 @@
 import type { NodeUiStatus, WorkflowGraphNode } from '../types/workflow';
 
 /** The stage a node belongs to: its declared group, else its node-ID prefix before the first dot. */
-export function stageOf(node: WorkflowGraphNode): string {
+export function stageOf(
+  node: Pick<WorkflowGraphNode, 'nodeId' | 'group'>
+): string {
   return node.group || node.nodeId.split('.')[0];
 }
 
 /** Stages of two or more nodes, in the order their first node appears; a lone node is no stage. */
-export function groupNodes(
-  nodes: WorkflowGraphNode[]
-): Map<string, WorkflowGraphNode[]> {
-  const stages = new Map<string, WorkflowGraphNode[]>();
+export function groupNodes<
+  T extends Pick<WorkflowGraphNode, 'nodeId' | 'group'>,
+>(nodes: T[]): Map<string, T[]> {
+  const stages = new Map<string, T[]>();
   nodes.forEach((node) => {
     const stage = stageOf(node);
     stages.set(stage, [...(stages.get(stage) ?? []), node]);
