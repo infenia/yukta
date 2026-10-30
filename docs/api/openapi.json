@@ -42,10 +42,6 @@
     },
     {
       "name": "Session API",
-      "description": "Endpoints for session and workflow discovery, configuration management"
-    },
-    {
-      "name": "Session API",
       "description": "Validate a draft workflow without saving it"
     },
     {
@@ -75,16 +71,82 @@
     {
       "name": "Plugin API",
       "description": "Endpoints for discovering workflow plugins"
+    },
+    {
+      "name": "Edition API",
+      "description": "Edition, licence and features of this build"
+    },
+    {
+      "name": "Node Output API",
+      "description": "Read part of the output of a node"
+    },
+    {
+      "name": "Templates API",
+      "description": "Example sessions to start from"
+    },
+    {
+      "name": "Webhook API",
+      "description": "Signed inbound calls that start a workflow"
     }
   ],
   "paths": {
+    "/hooks/{sessionId}/{path}": {
+      "post": {
+        "description": "Starts the workflow whose WEBHOOK_TRIGGER node has this path. 401 unless the body is signed with the node's secret; 404 for an unknown hook.",
+        "operationId": "call",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "format": "byte",
+                "type": "string"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseWorkflowStartResponse"
+                }
+              }
+            },
+            "description": "Accepted"
+          }
+        },
+        "summary": "Call a webhook",
+        "tags": [
+          "Webhook API"
+        ]
+      }
+    },
     "/api/workflow/executions/{executionId}/stop": {
       "post": {
         "tags": [
           "Execution API"
         ],
         "summary": "Stop a specific execution",
-        "description": "Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)",
+        "description": "With tree=true also every unfinished run it started as a sub-workflow. Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)",
         "operationId": "stopExecution",
         "parameters": [
           {
@@ -99,7 +161,7 @@
           {
             "name": "tree",
             "in": "query",
-            "description": "Also every unfinished run the execution started as a sub-workflow, at any depth",
+            "description": "Also the runs it started as sub-workflows, at any depth",
             "required": false,
             "schema": {
               "type": "boolean",
@@ -143,7 +205,7 @@
           "Execution API"
         ],
         "summary": "Stop a specific execution",
-        "description": "Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)",
+        "description": "With tree=true also every unfinished run it started as a sub-workflow. Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)",
         "operationId": "stopExecution_1",
         "parameters": [
           {
@@ -158,7 +220,7 @@
           {
             "name": "tree",
             "in": "query",
-            "description": "Also every unfinished run the execution started as a sub-workflow, at any depth",
+            "description": "Also the runs it started as sub-workflows, at any depth",
             "required": false,
             "schema": {
               "type": "boolean",
@@ -353,7 +415,7 @@
           "Execution Control API"
         ],
         "summary": "Resume a workflow execution",
-        "description": "Resumes a specific paused workflow execution. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)",
+        "description": "Resumes a specific paused workflow execution; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)",
         "operationId": "resumeWorkflow",
         "parameters": [
           {
@@ -396,7 +458,7 @@
           "Execution Control API"
         ],
         "summary": "Resume a workflow execution",
-        "description": "Resumes a specific paused workflow execution. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)",
+        "description": "Resumes a specific paused workflow execution; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)",
         "operationId": "resumeWorkflow_1",
         "parameters": [
           {
@@ -525,7 +587,7 @@
           "Execution Control API"
         ],
         "summary": "Pause a workflow execution",
-        "description": "Pauses a specific workflow execution via global backpressure. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)",
+        "description": "Pauses a specific workflow execution via global backpressure; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)",
         "operationId": "pauseWorkflow",
         "parameters": [
           {
@@ -568,7 +630,7 @@
           "Execution Control API"
         ],
         "summary": "Pause a workflow execution",
-        "description": "Pauses a specific workflow execution via global backpressure. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)",
+        "description": "Pauses a specific workflow execution via global backpressure; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)",
         "operationId": "pauseWorkflow_1",
         "parameters": [
           {
@@ -1646,6 +1708,26 @@
       }
     },
     "/api/scheduler/limits": {
+      "get": {
+        "tags": [
+          "Execution Control API"
+        ],
+        "summary": "Read the execution limits",
+        "description": "The limits set at startup or by the last POST (0 means unlimited), with how many executions run and wait now",
+        "operationId": "getLimits",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseSchedulerLimits"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "Execution Control API"
@@ -2001,6 +2083,67 @@
         }
       }
     },
+    "/api/admin/drain": {
+      "get": {
+        "tags": [
+          "Execution Control API"
+        ],
+        "summary": "Drain state",
+        "description": "idle is true once nothing runs or waits",
+        "operationId": "drainStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Execution Control API"
+        ],
+        "summary": "Drain the server",
+        "description": "Refuses new starts (HTTP 429) while running ones carry on. Poll GET until idle is true, then swap the server; DELETE admits starts again. Admin keys only.",
+        "operationId": "drain",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Execution Control API"
+        ],
+        "summary": "Stop draining the server",
+        "operationId": "undrain",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/executions/{executionId}/status/stream": {
       "get": {
         "tags": [
@@ -2115,7 +2258,8 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true
       }
     },
     "/api/executions/{executionId}": {
@@ -2124,13 +2268,22 @@
           "Execution API"
         ],
         "summary": "Get workflow execution status",
-        "description": "Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)",
+        "description": "Pass sessionId to read a run older than the execution index from its session's history. Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)",
         "operationId": "getWorkflowStatus",
         "parameters": [
           {
-            "name": "executionId",
-            "in": "path",
+            "description": "Session ID, to read from the session's history",
+            "in": "query",
+            "name": "sessionId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "description": "Execution ID",
+            "in": "path",
+            "name": "executionId",
             "required": true,
             "schema": {
               "type": "string"
@@ -2157,22 +2310,31 @@
           "Execution API"
         ],
         "summary": "Get workflow execution status",
-        "description": "Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)",
+        "description": "Pass sessionId to read a run older than the execution index from its session's history. Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)",
         "operationId": "getWorkflowStatus_1",
         "parameters": [
           {
-            "name": "sessionId",
-            "in": "path",
             "description": "Session ID",
+            "in": "path",
+            "name": "sessionId",
             "required": true,
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "executionId",
-            "in": "path",
+            "description": "Session ID, to read from the session's history",
+            "in": "query",
+            "name": "sessionId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "description": "Execution ID",
+            "in": "path",
+            "name": "executionId",
             "required": true,
             "schema": {
               "type": "string"
@@ -2190,7 +2352,8 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true
       }
     },
     "/api/workflow/{sessionId}/history": {
@@ -2273,6 +2436,61 @@
         }
       }
     },
+    "/api/templates": {
+      "get": {
+        "tags": [
+          "Templates API"
+        ],
+        "summary": "List the session templates",
+        "description": "The bundled examples: id, title, a one-line summary and the plugin types used",
+        "operationId": "list_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListTemplateSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/templates/{id}": {
+      "get": {
+        "tags": [
+          "Templates API"
+        ],
+        "summary": "Get a session template",
+        "description": "The README (markdown) and the session definition to apply. 404 if unknown",
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Template id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTemplateDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/supervisors": {
       "get": {
         "tags": [
@@ -2280,7 +2498,7 @@
         ],
         "summary": "List supervisors",
         "description": "Lists the supervisors and control-plane plugins running on the control bus, in review order, with how many commands each applied, had refused, only recorded (dry-run) or dropped (rate limit) since startup",
-        "operationId": "list_1",
+        "operationId": "list_2",
         "responses": {
           "200": {
             "description": "OK",
@@ -2324,6 +2542,40 @@
                 }
               }
             }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Session API"
+        ],
+        "summary": "Delete a session",
+        "description": "Removes the session, its workflows and their versions. Run history and logs stay and age out with the log retention. Answers 409 with the run ids while runs are active, unless force=true, which cancels them first. ADMIN keys only; a key limited to sessions may delete only its own. Recorded in the control audit.",
+        "operationId": "deleteSession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "The unique identifier of the session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "description": "Cancel active runs first",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -2399,6 +2651,49 @@
                 }
               }
             }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Session API"
+        ],
+        "summary": "Delete a workflow",
+        "description": "Removes the workflow and its versions. Its runs stay readable. Answers 409 with the run ids while its runs are active, unless force=true. ADMIN keys only. Recorded in the control audit.",
+        "operationId": "deleteWorkflow",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "The unique identifier of the session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflowId",
+            "in": "path",
+            "description": "The unique identifier of the workflow",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "description": "Cancel active runs first",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -2612,7 +2907,7 @@
           "Execution Results API"
         ],
         "summary": "Read the result of an execution",
-        "description": "Returns what the terminal nodes received so far; complete is true once the execution ended. Answers 404 for an unknown execution or one of another session.",
+        "description": "Returns what the terminal nodes received so far; complete is true once the execution ended. The stdout and stderr fields of the payloads are left out unless named in include (stdout, stderr or stdout,stderr); fetch again to drill down. Answers 404 for an unknown execution or one of another session.",
         "operationId": "streamResults",
         "parameters": [
           {
@@ -2659,6 +2954,15 @@
               "type": "integer",
               "format": "int64",
               "default": 0
+            }
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "description": "Output fields to keep in the payloads: stdout, stderr or both",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -2962,6 +3266,28 @@
         }
       }
     },
+    "/api/me": {
+      "get": {
+        "tags": [
+          "Session API"
+        ],
+        "summary": "Who am I",
+        "description": "The name, role and sessions of the API key of this request, and what it may do (start and control runs, edit and delete sessions, change limits, send commands). With no key configured the role is ADMIN and authEnabled is false. Never returns the key or its hash.",
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseWhoami"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/executions": {
       "get": {
         "tags": [
@@ -3004,6 +3330,150 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponseListHit"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/executions/{executionId}/tree": {
+      "get": {
+        "tags": [
+          "Execution API"
+        ],
+        "summary": "Get the tree of runs below an execution",
+        "description": "The execution and every run it started as a sub-workflow, at any depth, oldest first, each with its parentExecutionId and status",
+        "operationId": "getTree",
+        "parameters": [
+          {
+            "name": "executionId",
+            "in": "path",
+            "description": "Execution ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListWorkflowExecutionSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/executions/{executionId}/nodes/{nodeId}/output": {
+      "get": {
+        "tags": [
+          "Node Output API"
+        ],
+        "summary": "Read part of the output of a node",
+        "description": "Returns numbered lines of what the node wrote: the tail, the head, a page (offset and limit, at most 500 lines) or only the lines matching a regular expression with context. Reports the total lines and bytes and whether lines were left out. 400 for a bad argument, 404 for an unknown execution or node.",
+        "operationId": "getOutput",
+        "parameters": [
+          {
+            "name": "executionId",
+            "in": "path",
+            "description": "Execution ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nodeId",
+            "in": "path",
+            "description": "Node ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stream",
+            "in": "query",
+            "description": "stdout, stderr or all",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "all"
+            }
+          },
+          {
+            "name": "tail",
+            "in": "query",
+            "description": "The last N lines",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "head",
+            "in": "query",
+            "description": "The first N lines",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "First line of a page, 0-based",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Page size, default 50, at most 500",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "grep",
+            "in": "query",
+            "description": "Regular expression the lines must match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "context",
+            "in": "query",
+            "description": "Context lines either side of a match, at most 20",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseNodeOutputSlice"
                 }
               }
             }
@@ -3068,6 +3538,28 @@
                   "items": {
                     "$ref": "#/components/schemas/ServerSentEventEnvelope"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/edition": {
+      "get": {
+        "tags": [
+          "Edition API"
+        ],
+        "summary": "Show the edition",
+        "description": "Returns the edition of this build (COMMUNITY, PLUS or ENTERPRISE), its licence, the optional features it has and, where the licence asks for it, where the source is",
+        "operationId": "show",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseEditionInfo"
                 }
               }
             }
@@ -3176,7 +3668,7 @@
         ],
         "summary": "List control commands",
         "description": "Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them",
-        "operationId": "list_2",
+        "operationId": "list_3",
         "parameters": [
           {
             "name": "limit",
@@ -3211,40 +3703,15 @@
         }
       }
     },
-    "/api/edition": {
+    "/api/plugins/{type}/usage": {
       "get": {
-        "tags": [
-          "Edition API"
-        ],
-        "summary": "Show the edition",
-        "description": "Returns the edition of this build (COMMUNITY, PLUS or ENTERPRISE), its licence, the optional features it has and, where the licence asks for it, where the source is",
-        "operationId": "show",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponseEditionInfo"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/executions/{executionId}/tree": {
-      "get": {
-        "tags": [
-          "Execution API"
-        ],
-        "summary": "Get the tree of runs below an execution",
-        "operationId": "getTree",
+        "description": "Every workflow of every session with at least one node of the type, and how many, sorted by session and workflow ID. An unknown type is used nowhere.",
+        "operationId": "getPluginUsage",
         "parameters": [
           {
-            "name": "executionId",
+            "description": "The unique identifier of the plugin type",
             "in": "path",
-            "description": "Execution ID",
+            "name": "type",
             "required": true,
             "schema": {
               "type": "string"
@@ -3253,16 +3720,141 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseListWorkflowExecutionSummary"
+                  "$ref": "#/components/schemas/ApiResponseListUsage"
                 }
               }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "List the workflows that use a plugin",
+        "tags": [
+          "Plugin API"
+        ]
+      }
+    },
+    "/api/executions/counts": {
+      "get": {
+        "description": "Across all sessions: runs RUNNING and QUEUED now, and runs with status FAILURE that started in the last `hours` (default 24). The history of each session is bounded by yukta.execution-log.retained-runs.",
+        "operationId": "counts",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "hours",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "format": "int32",
+              "type": "integer"
             }
           }
-        }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseCounts"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Count runs that need attention",
+        "tags": [
+          "Execution Search API"
+        ]
+      }
+    },
+    "/api/approvals": {
+      "get": {
+        "description": "Lists the nodes of all sessions that wait for a signal now, oldest first (at most limit, default 100, up to 1000), each with its session, execution, node, signal name and waiting-since.",
+        "operationId": "allPendingApprovals",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListPendingApproval"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "List pending approvals across sessions",
+        "tags": [
+          "Execution Control API"
+        ]
+      }
+    },
+    "/api/control/heartbeats": {
+      "get": {
+        "description": "Lists the last heartbeat of every node of every run on the Control Bus, in one call",
+        "operationId": "getHeartbeats",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListNodeHeartbeat"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Get every node's heartbeat",
+        "tags": [
+          "Control Bus & Observability API"
+        ]
+      }
+    },
+    "/api/sessions/validate/project-path": {
+      "post": {
+        "description": "Says whether the path exists on the server and is a directory. Nothing else about the file system is returned.",
+        "operationId": "checkProjectPath",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectPathRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseProjectPathCheck"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Check a project path",
+        "tags": [
+          "Session API"
+        ]
       }
     }
   },
@@ -3448,16 +4040,15 @@
           },
           "description": {
             "type": "string",
-            "description": "A human-readable description of the session",
+            "description": "A human-readable description of the session (optional; defaults to the name)",
             "example": "Daily build and quality check",
             "maxLength": 256,
             "minLength": 0
           },
           "initiator": {
             "type": "string",
-            "description": "The name of the initiator (user or system)",
-            "example": "AI Agent",
-            "minLength": 1
+            "description": "The name of the initiator (user or system); optional, defaults to anonymous",
+            "example": "AI Agent"
           },
           "tags": {
             "type": "object",
@@ -3472,7 +4063,7 @@
           },
           "projectPath": {
             "type": "string",
-            "description": "The absolute root path of the project on the server's filesystem",
+            "description": "The absolute root path of the project on the server's filesystem; optional, defaults to the current directory",
             "example": "/home/user/workspace/project-alpha",
             "maxLength": 1024,
             "minLength": 0
@@ -3487,10 +4078,7 @@
           }
         },
         "required": [
-          "description",
-          "initiator",
           "name",
-          "projectPath",
           "sessionId",
           "workflows"
         ]
@@ -3555,7 +4143,7 @@
           },
           "description": {
             "type": "string",
-            "description": "A human-readable description of the workflow",
+            "description": "A human-readable description of the workflow (optional; defaults to the workflow ID)",
             "example": "Quality check",
             "maxLength": 256,
             "minLength": 0
@@ -3577,7 +4165,6 @@
           }
         },
         "required": [
-          "description",
           "edges",
           "nodes",
           "workflowId"
@@ -3735,6 +4322,13 @@
               }
             },
             "description": "Output ports per node id, for the node's configuration"
+          },
+          "warnings": {
+            "description": "Problems that do not stop the workflow, for the editor to show",
+            "items": {
+              "$ref": "#/components/schemas/Warning"
+            },
+            "type": "array"
           }
         }
       },
@@ -3837,6 +4431,50 @@
           }
         }
       },
+      "ApiResponseMapStringObject": {
+        "type": "object",
+        "description": "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The time the response was generated"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The HTTP status code",
+            "example": 200
+          },
+          "message": {
+            "type": "string",
+            "description": "A human-readable message",
+            "example": "Operation successful"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "The response data"
+          },
+          "error": {
+            "type": "string",
+            "description": "The HTTP status error name",
+            "example": "Bad Request"
+          },
+          "path": {
+            "type": "string",
+            "description": "The request path",
+            "example": "/api/files"
+          },
+          "errors": {
+            "type": "array",
+            "description": "The list of field validation errors",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          }
+        }
+      },
       "ServerSentEventWorkflowProgress": {},
       "ApiResponseWorkflowProgress": {
         "type": "object",
@@ -3881,6 +4519,17 @@
           }
         }
       },
+      "Breakpoint": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "equals": {
+            "type": "string"
+          }
+        }
+      },
       "TaskProgress": {
         "type": "object",
         "properties": {
@@ -3894,16 +4543,25 @@
             "type": "string"
           },
           "startTime": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time"
           },
           "endTime": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time"
           },
           "metadata": {
             "type": "object",
             "additionalProperties": {}
+          },
+          "breakpoint": {
+            "$ref": "#/components/schemas/Breakpoint"
           }
         }
       },
@@ -3933,23 +4591,41 @@
             "format": "date-time"
           },
           "endTime": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time"
           },
           "controlState": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "definitionVersion": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "parentExecutionId": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "rootExecutionId": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "restartOf": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -4040,24 +4716,41 @@
           "startTime": {
             "type": "string",
             "format": "date-time",
-            "description": "The start time of the execution"
+            "description": "The start time of the execution, with the server's UTC offset"
           },
           "endTime": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
-            "description": "The end time of the execution"
+            "description": "The end time of the execution, with the server's UTC offset"
           },
           "parentExecutionId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "The run that started this one as a sub-workflow, if any"
           },
           "rootExecutionId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "The top of this run's tree of runs (itself when it has no parent)"
           },
           "restartOf": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "The run this one restarts, if any"
+          },
+          "nodes": {
+            "$ref": "#/components/schemas/Nodes",
+            "description": "How far the run got through its nodes",
+            "type": "null"
           }
         }
       },
@@ -4145,6 +4838,230 @@
           "leaseUntil": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "ApiResponseListTemplateSummary": {
+        "type": "object",
+        "description": "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The time the response was generated"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The HTTP status code",
+            "example": 200
+          },
+          "message": {
+            "type": "string",
+            "description": "A human-readable message",
+            "example": "Operation successful"
+          },
+          "data": {
+            "type": "array",
+            "description": "The response data",
+            "items": {
+              "$ref": "#/components/schemas/TemplateSummary"
+            }
+          },
+          "error": {
+            "type": "string",
+            "description": "The HTTP status error name",
+            "example": "Bad Request"
+          },
+          "path": {
+            "type": "string",
+            "description": "The request path",
+            "example": "/api/files"
+          },
+          "errors": {
+            "type": "array",
+            "description": "The list of field validation errors",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          }
+        }
+      },
+      "TemplateSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "pluginTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ApiResponseTemplateDetail": {
+        "type": "object",
+        "description": "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The time the response was generated"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The HTTP status code",
+            "example": 200
+          },
+          "message": {
+            "type": "string",
+            "description": "A human-readable message",
+            "example": "Operation successful"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TemplateDetail",
+            "description": "The response data"
+          },
+          "error": {
+            "type": "string",
+            "description": "The HTTP status error name",
+            "example": "Bad Request"
+          },
+          "path": {
+            "type": "string",
+            "description": "The request path",
+            "example": "/api/files"
+          },
+          "errors": {
+            "type": "array",
+            "description": "The list of field validation errors",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          }
+        }
+      },
+      "JsonNode": {
+        "type": "object",
+        "properties": {
+          "empty": {
+            "type": "boolean"
+          },
+          "array": {
+            "type": "boolean"
+          },
+          "null": {
+            "type": "boolean"
+          },
+          "object": {
+            "type": "boolean"
+          },
+          "float": {
+            "type": "boolean"
+          },
+          "pojo": {
+            "type": "boolean"
+          },
+          "floatingPointNumber": {
+            "type": "boolean"
+          },
+          "short": {
+            "type": "boolean"
+          },
+          "int": {
+            "type": "boolean"
+          },
+          "long": {
+            "type": "boolean"
+          },
+          "double": {
+            "type": "boolean"
+          },
+          "bigDecimal": {
+            "type": "boolean"
+          },
+          "bigInteger": {
+            "type": "boolean"
+          },
+          "textual": {
+            "type": "boolean",
+            "deprecated": true
+          },
+          "boolean": {
+            "type": "boolean"
+          },
+          "binary": {
+            "type": "boolean"
+          },
+          "valueNode": {
+            "type": "boolean"
+          },
+          "missingNode": {
+            "type": "boolean"
+          },
+          "nodeType": {
+            "type": "string",
+            "enum": [
+              "ARRAY",
+              "BINARY",
+              "BOOLEAN",
+              "MISSING",
+              "NULL",
+              "NUMBER",
+              "OBJECT",
+              "POJO",
+              "STRING"
+            ]
+          },
+          "string": {
+            "type": "boolean"
+          },
+          "integralNumber": {
+            "type": "boolean"
+          },
+          "container": {
+            "type": "boolean"
+          },
+          "number": {
+            "type": "boolean"
+          },
+          "embeddedValue": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TemplateDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "pluginTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "readme": {
+            "type": "string"
+          },
+          "session": {
+            "$ref": "#/components/schemas/JsonNode"
           }
         }
       },
@@ -4539,6 +5456,13 @@
             "type": "object",
             "additionalProperties": {},
             "description": "Plugin configuration"
+          },
+          "group": {
+            "description": "The stage the node belongs to, for display only: the UI groups nodes of one stage. Without it, nodes group by node-ID prefix (before the first dot)",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -4773,7 +5697,13 @@
       "UiDesign": {
         "type": "object",
         "properties": {
-          "html": {
+          "color": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "label": {
             "type": "string"
           },
           "width": {
@@ -4884,6 +5814,20 @@
             "items": {
               "type": "string"
             }
+          },
+          "group": {
+            "description": "The stage the node declares it belongs to, null when it declares none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subWorkflowId": {
+            "description": "For a SUB_WORKFLOW node, the workflow it runs (its workflowId config), else null",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -5087,6 +6031,9 @@
           "since": {
             "type": "string",
             "format": "date-time"
+          },
+          "sessionId": {
+            "type": "string"
           }
         }
       },
@@ -5181,6 +6128,176 @@
             "format": "int32",
             "description": "Number of workflows",
             "example": 24
+          },
+          "lastRun": {
+            "$ref": "#/components/schemas/WorkflowExecutionSummary",
+            "description": "The session's newest run, null when it has none",
+            "type": "null"
+          }
+        }
+      },
+      "ApiResponseSchedulerLimits": {
+        "type": "object",
+        "description": "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The time the response was generated"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The HTTP status code",
+            "example": 200
+          },
+          "message": {
+            "type": "string",
+            "description": "A human-readable message",
+            "example": "Operation successful"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SchedulerLimits",
+            "description": "The response data"
+          },
+          "error": {
+            "type": "string",
+            "description": "The HTTP status error name",
+            "example": "Bad Request"
+          },
+          "path": {
+            "type": "string",
+            "description": "The request path",
+            "example": "/api/files"
+          },
+          "errors": {
+            "type": "array",
+            "description": "The list of field validation errors",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          }
+        }
+      },
+      "SchedulerLimits": {
+        "type": "object",
+        "properties": {
+          "maxConcurrent": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxPerWorkflow": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "running": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "queued": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "queueCapacity": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ApiResponseWhoami": {
+        "type": "object",
+        "description": "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The time the response was generated"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The HTTP status code",
+            "example": 200
+          },
+          "message": {
+            "type": "string",
+            "description": "A human-readable message",
+            "example": "Operation successful"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Whoami",
+            "description": "The response data"
+          },
+          "error": {
+            "type": "string",
+            "description": "The HTTP status error name",
+            "example": "Bad Request"
+          },
+          "path": {
+            "type": "string",
+            "description": "The request path",
+            "example": "/api/files"
+          },
+          "errors": {
+            "type": "array",
+            "description": "The list of field validation errors",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          }
+        }
+      },
+      "Permissions": {
+        "type": "object",
+        "properties": {
+          "startRuns": {
+            "type": "boolean"
+          },
+          "controlRuns": {
+            "type": "boolean"
+          },
+          "editSessions": {
+            "type": "boolean"
+          },
+          "deleteSessions": {
+            "type": "boolean"
+          },
+          "changeLimits": {
+            "type": "boolean"
+          },
+          "sendCommands": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Whoami": {
+        "type": "object",
+        "properties": {
+          "authenticated": {
+            "type": "boolean"
+          },
+          "keyName": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "VIEWER",
+              "OPERATOR",
+              "ADMIN"
+            ]
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authEnabled": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "$ref": "#/components/schemas/Permissions"
           }
         }
       },
@@ -5252,10 +6369,173 @@
           "endTime": {
             "type": "string",
             "format": "date-time"
+          },
+          "nodes": {
+            "$ref": "#/components/schemas/Nodes",
+            "type": "null"
+          }
+        }
+      },
+      "ApiResponseNodeOutputSlice": {
+        "type": "object",
+        "description": "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The time the response was generated"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The HTTP status code",
+            "example": 200
+          },
+          "message": {
+            "type": "string",
+            "description": "A human-readable message",
+            "example": "Operation successful"
+          },
+          "data": {
+            "$ref": "#/components/schemas/NodeOutputSlice",
+            "description": "The response data"
+          },
+          "error": {
+            "type": "string",
+            "description": "The HTTP status error name",
+            "example": "Bad Request"
+          },
+          "path": {
+            "type": "string",
+            "description": "The request path",
+            "example": "/api/files"
+          },
+          "errors": {
+            "type": "array",
+            "description": "The list of field validation errors",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          }
+        }
+      },
+      "Line": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "NodeOutputSlice": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "stream": {
+            "type": "string"
+          },
+          "totalLines": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "matchedLines": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "nextOffset": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Line"
+            }
           }
         }
       },
       "ServerSentEventEnvelope": {},
+      "ApiResponseEditionInfo": {
+        "type": "object",
+        "description": "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The time the response was generated"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The HTTP status code",
+            "example": 200
+          },
+          "message": {
+            "type": "string",
+            "description": "A human-readable message",
+            "example": "Operation successful"
+          },
+          "data": {
+            "$ref": "#/components/schemas/EditionInfo",
+            "description": "The response data"
+          },
+          "error": {
+            "type": "string",
+            "description": "The HTTP status error name",
+            "example": "Bad Request"
+          },
+          "path": {
+            "type": "string",
+            "description": "The request path",
+            "example": "/api/files"
+          },
+          "errors": {
+            "type": "array",
+            "description": "The list of field validation errors",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          }
+        }
+      },
+      "EditionInfo": {
+        "type": "object",
+        "properties": {
+          "edition": {
+            "type": "string",
+            "enum": [
+              "COMMUNITY",
+              "PLUS",
+              "ENTERPRISE"
+            ]
+          },
+          "license": {
+            "type": "string"
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source": {
+            "type": "string"
+          }
+        }
+      },
       "ApiResponseMessageObject": {
         "type": "object",
         "description": "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
@@ -5370,77 +6650,302 @@
           }
         }
       },
-      "ApiResponseEditionInfo": {
-        "type": "object",
+      "ApiResponseListUsage": {
         "description": "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties": {
-          "timestamp": {
-            "type": "string",
-            "format": "date-time",
-            "description": "The time the response was generated"
-          },
-          "status": {
-            "type": "integer",
-            "format": "int32",
-            "description": "The HTTP status code",
-            "example": 200
-          },
-          "message": {
-            "type": "string",
-            "description": "A human-readable message",
-            "example": "Operation successful"
-          },
           "data": {
-            "$ref": "#/components/schemas/EditionInfo"
+            "description": "The response data",
+            "items": {
+              "$ref": "#/components/schemas/Usage"
+            },
+            "type": "array"
           },
           "error": {
-            "type": "string",
             "description": "The HTTP status error name",
-            "example": "Bad Request"
-          },
-          "path": {
-            "type": "string",
-            "description": "The request path",
-            "example": "/api/files"
+            "example": "Bad Request",
+            "type": "string"
           },
           "errors": {
-            "type": "array",
             "description": "The list of field validation errors",
             "items": {
               "$ref": "#/components/schemas/FieldError"
-            }
+            },
+            "type": "array"
+          },
+          "message": {
+            "description": "A human-readable message",
+            "example": "Operation successful",
+            "type": "string"
+          },
+          "path": {
+            "description": "The request path",
+            "example": "/api/files",
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code",
+            "example": 200,
+            "format": "int32",
+            "type": "integer"
+          },
+          "timestamp": {
+            "description": "The time the response was generated",
+            "format": "date-time",
+            "type": "string"
           }
-        }
+        },
+        "type": "object"
       },
-      "EditionInfo": {
-        "type": "object",
-        "description": "What this build is: its edition, licence and features",
+      "Usage": {
         "properties": {
-          "edition": {
-            "type": "string",
-            "enum": [
-              "COMMUNITY",
-              "PLUS",
-              "ENTERPRISE"
+          "nodes": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "workflowId": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Warning": {
+        "description": "A problem that does not stop the workflow",
+        "properties": {
+          "field": {
+            "description": "The config field or output port it is about",
+            "type": "string"
+          },
+          "message": {
+            "description": "What is wrong",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "The node it is about",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseCounts": {
+        "description": "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Counts",
+            "description": "The response data"
+          },
+          "error": {
+            "description": "The HTTP status error name",
+            "example": "Bad Request",
+            "type": "string"
+          },
+          "errors": {
+            "description": "The list of field validation errors",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "type": "array"
+          },
+          "message": {
+            "description": "A human-readable message",
+            "example": "Operation successful",
+            "type": "string"
+          },
+          "path": {
+            "description": "The request path",
+            "example": "/api/files",
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code",
+            "example": 200,
+            "format": "int32",
+            "type": "integer"
+          },
+          "timestamp": {
+            "description": "The time the response was generated",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Counts": {
+        "properties": {
+          "failed": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "queued": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "running": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "Nodes": {
+        "description": "How far a run got through its nodes",
+        "properties": {
+          "done": {
+            "description": "Nodes in a final state",
+            "format": "int32",
+            "type": "integer"
+          },
+          "failed": {
+            "description": "The first node that failed, if any",
+            "type": [
+              "string",
+              "null"
             ]
           },
-          "license": {
-            "type": "string",
-            "description": "The SPDX licence expression of the build",
-            "example": "Apache-2.0"
-          },
-          "features": {
-            "type": "array",
-            "description": "The optional features present",
-            "items": {
-              "type": "string"
-            }
-          },
-          "source": {
-            "type": "string",
-            "description": "Where the corresponding source can be obtained, if the licence asks for it"
+          "total": {
+            "description": "Nodes in the run",
+            "format": "int32",
+            "type": "integer"
           }
-        }
+        },
+        "type": "object"
+      },
+      "ApiResponseListNodeHeartbeat": {
+        "description": "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties": {
+          "data": {
+            "description": "The response data",
+            "items": {
+              "$ref": "#/components/schemas/NodeHeartbeat"
+            },
+            "type": "array"
+          },
+          "error": {
+            "description": "The HTTP status error name",
+            "example": "Bad Request",
+            "type": "string"
+          },
+          "errors": {
+            "description": "The list of field validation errors",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "type": "array"
+          },
+          "message": {
+            "description": "A human-readable message",
+            "example": "Operation successful",
+            "type": "string"
+          },
+          "path": {
+            "description": "The request path",
+            "example": "/api/files",
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code",
+            "example": 200,
+            "format": "int32",
+            "type": "integer"
+          },
+          "timestamp": {
+            "description": "The time the response was generated",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "NodeHeartbeat": {
+        "properties": {
+          "executionId": {
+            "type": "string"
+          },
+          "nodeId": {
+            "type": "string"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "workflowId": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ApiResponseProjectPathCheck": {
+        "description": "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProjectPathCheck",
+            "description": "The response data"
+          },
+          "error": {
+            "description": "The HTTP status error name",
+            "example": "Bad Request",
+            "type": "string"
+          },
+          "errors": {
+            "description": "The list of field validation errors",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "type": "array"
+          },
+          "message": {
+            "description": "A human-readable message",
+            "example": "Operation successful",
+            "type": "string"
+          },
+          "path": {
+            "description": "The request path",
+            "example": "/api/files",
+            "type": "string"
+          },
+          "status": {
+            "description": "The HTTP status code",
+            "example": 200,
+            "format": "int32",
+            "type": "integer"
+          },
+          "timestamp": {
+            "description": "The time the response was generated",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ProjectPathCheck": {
+        "properties": {
+          "directory": {
+            "description": "It is a directory",
+            "type": "boolean"
+          },
+          "exists": {
+            "description": "Something is at the path",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ProjectPathRequest": {
+        "properties": {
+          "projectPath": {
+            "description": "Project path",
+            "example": "/data/pipelines/main",
+            "maxLength": 1024,
+            "minLength": 0,
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectPath"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {

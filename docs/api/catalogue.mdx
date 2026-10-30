@@ -17,6 +17,8 @@ The catalogue endpoints describe what the server offers and who is attached to i
 | `GET /api/plugins/{type}` | Describe one plugin type |
 | `GET /api/supervisors` | List running supervisors and control planes |
 | `GET /api/workers` | List connected remote workers |
+| `GET /api/templates` | List the example sessions bundled with the server |
+| `GET /api/templates/{id}` | Read one example: its README and session definition |
 | `GET /api/edition` | Show the edition, licence and features of this build |
 
 ## List plugins
@@ -200,6 +202,12 @@ Lists the remote workers that are connected and keep their lease, ordered by wor
 }
 ```
 
+## Templates
+
+`GET /api/templates` lists the example sessions bundled with the server. Each entry has `id`, `title`, `summary` and `pluginTypes`, the plugin types its workflows use.
+
+`GET /api/templates/{id}` adds `readme` (markdown) and `session`, a session definition you can apply as it is. An unknown `id` answers `404`.
+
 ## Show the edition
 
 `GET /api/edition`
@@ -232,7 +240,7 @@ Tells which edition of Yukta this server is, under which licence, and which opti
 ## Next steps
 
 <Card title="Built-in plugins" icon="puzzle-piece" horizontal href="/plugins/overview">
-  The 35 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include.
+  The 37 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include.
 </Card>
 
 <Card title="Supervisors" icon="shield-halved" horizontal href="/running/supervisors">

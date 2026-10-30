@@ -71,6 +71,8 @@ Returns the nodes and edges enriched with what a canvas needs to draw them, plus
 | `nodes[].description` | string | What the plugin does. Absent if the type is unknown |
 | `nodes[].uiDesign` | object | The node's drawing: `html`, `width` and `height`. Absent when the plugin has none |
 | `nodes[].outputPorts` | array | Output port names for this node's configuration |
+| `nodes[].group` | string | The stage the node declares it belongs to. Absent when it declares none |
+| `nodes[].subWorkflowId` | string | For a `SUB_WORKFLOW` node, the workflow it runs. Absent for other nodes |
 | `edges` | array | `source`, `target` and `sourcePort` |
 | `topologicalOrder` | array | Node ids in execution order |
 

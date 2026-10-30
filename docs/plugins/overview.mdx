@@ -1,7 +1,7 @@
 ---
 title: "Built-in plugins: triggers, processors and terminals"
 sidebarTitle: "Built-in plugins"
-description: "The 35 triggers, processors and terminals that ship with Yukta, the options every node accepts, how a build picks its plugins and how to read their schemas."
+description: "The 37 triggers, processors and terminals that ship with Yukta, the options every node accepts, how a build picks its plugins and how to read their schemas."
 keywords: ["plugins", "triggers", "processors", "terminals"]
 ---
 
@@ -77,6 +77,7 @@ See [External I/O](/plugins/external-io).
 | `FILE_READ` | Reads a text file inside a sandbox directory |
 | `FILE_WRITE` | Writes or appends text to a file inside a sandbox directory |
 | `KV_STORE` | Reads and writes small shared state: get, put, incr, delete |
+| `PATCH_GUARD` | Judges the working-tree change of a git checkout against rules; routes to `pass` or `reject` |
 
 ### AI
 

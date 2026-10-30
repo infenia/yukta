@@ -14,6 +14,7 @@ An execution is one run of a workflow, identified by the `executionId` that the 
 | Method and path | Purpose | Role |
 |---|---|---|
 | `GET /api/executions` | Search runs across sessions | `VIEWER` |
+| `GET /api/executions/counts` | Count the runs that need attention | `VIEWER` |
 | `GET /api/executions/{executionId}` | Read the status of a run | `VIEWER` |
 | `GET /api/sessions/{sessionId}/executions/{executionId}/results` | Read what reached the terminal nodes | `VIEWER` |
 | `GET /api/sessions/{sessionId}/approvals` | List nodes that wait for a decision | `VIEWER` |
@@ -26,6 +27,7 @@ An execution is one run of a workflow, identified by the `executionId` that the 
 | `POST /api/executions/{executionId}/priority` | Change the priority of a queued run | `OPERATOR` |
 | `GET /api/scheduler/limits` | Read the execution limits and how many runs execute and wait | `VIEWER` |
 | `POST /api/scheduler/limits` | Change the execution limits | `ADMIN` |
+| `GET`, `POST`, `DELETE /api/admin/drain` | Read, start or end a drain of the server | `ADMIN` |
 
 Responses use the [envelope](/api/overview#response-envelope), except the results read, which returns its object directly. For an unknown execution, or one that belongs to another session, every call answers `404`. The older `/api/workflow/...` paths for these calls are listed under [deprecated aliases](/api/overview#deprecated-aliases).
 
@@ -77,6 +79,18 @@ GET /api/executions?status=FAILURE&since=2026-07-19T00:00:00&limit=10
     }
   ]
 }
+```
+
+## Count the runs that need attention
+
+`GET /api/executions/counts?hours={n}`
+
+Counts runs across all sessions: those `RUNNING` and `QUEUED` now, and those with status `FAILURE` that started in the last `hours` (default `24`). Each session's history is bounded by `yukta.execution-log.retained-runs`.
+
+**Response `data`**: `running`, `queued` and `failed`.
+
+```json
+{ "running": 3, "queued": 0, "failed": 1 }
 ```
 
 ## Get the status of a run
@@ -328,6 +342,18 @@ POST /api/scheduler/limits?maxConcurrent=8&maxPerWorkflow=2
   "data": { "maxConcurrent": 8, "maxPerWorkflow": 2 }
 }
 ```
+
+## Drain the server
+
+Use a drain to swap the server without cutting off runs. While it is on, new starts are refused with `429` and the runs already going carry on.
+
+| Call | Effect |
+|---|---|
+| `POST /api/admin/drain` | Start draining |
+| `GET /api/admin/drain` | Read the state |
+| `DELETE /api/admin/drain` | Admit starts again |
+
+**Response `data`**: `draining`, `running`, `queued` and `idle`, which is `true` once nothing runs or waits. Poll `GET` until `idle` is `true`, then swap the server.
 
 ## Next steps
 
