@@ -4,6 +4,7 @@
 import { Link, useLocation } from 'react-router';
 import HeaderLogo from './HeaderLogo';
 import IdentityChip from './IdentityChip';
+import AccountMenu from './AccountMenu';
 import ThemeToggle from './ThemeToggle';
 import { openCommandPalette } from './CommandPalette';
 
@@ -105,8 +106,11 @@ export default function AppHeader() {
             ⌘K
           </kbd>
         </button>
-        <IdentityChip />
-        <ThemeToggle />
+        <div className="hidden items-center sm:flex">
+          <IdentityChip />
+          <ThemeToggle />
+        </div>
+        <AccountMenu />
       </div>
     </header>
   );

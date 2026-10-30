@@ -1,0 +1,16 @@
+{
+  "name": "yukta",
+  "owner": { "name": "Infenia" },
+  "plugins": [
+    {
+      "name": "yukta",
+      "source": "./claude-mods/yukta",
+      "description": "Live view of Yukta runs and approvals in Claude Code"
+    },
+    {
+      "name": "yukta-dogfood",
+      "source": "./examples/11-dogfood/mod",
+      "description": "Develop Yukta with Yukta: yk routing, check nudges, dev-server status"
+    }
+  ]
+}

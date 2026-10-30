@@ -34,9 +34,10 @@ describe('RunHistoryDropdown', () => {
         onSelect={vi.fn()}
       />
     );
+    // the first 8 characters, as in the Runs list, and when it started
     expect(
       screen.getByRole('button', { name: /run history/i })
-    ).toHaveTextContent('exec-091-qp-55');
+    ).toHaveTextContent(/Run\s*exec-091\s*· started /);
   });
 
   it('renders a dash before a selection exists', () => {

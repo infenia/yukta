@@ -75,7 +75,8 @@ test.describe('Workflow Details Page', () => {
     await expect(page.getByTestId('workflow-details-page')).toBeVisible();
 
     const runHistory = page.getByRole('button', { name: 'Run history' });
-    await expect(runHistory).toContainText('exec-091-qp-55');
+    // the first 8 characters of the run ID, as in the Runs list
+    await expect(runHistory).toContainText('exec-091');
     // the trail sits above the title, in the page: Sessions › session › workflow
     const trail = page.getByRole('navigation', { name: 'breadcrumb' });
     await expect(
@@ -182,7 +183,7 @@ test.describe('Workflow Details Page', () => {
     await expect(page).toHaveURL(/exec=exec-090-aa-12/);
     await expect(
       page.getByRole('button', { name: 'Run history' })
-    ).toContainText('exec-090-aa-12');
+    ).toContainText('exec-090');
   });
 
   test('stops a node immediately with a reason', async ({ page }) => {

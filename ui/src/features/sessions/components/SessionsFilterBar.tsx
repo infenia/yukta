@@ -40,6 +40,14 @@ export function filterSessions(
 
 const distinct = (values: string[]) => [...new Set(values)].sort();
 
+/** What a filter chip says it is set to: any, the one value, or how many. */
+const summary = (selected: string[]) =>
+  selected.length === 0
+    ? 'any'
+    : selected.length === 1
+      ? selected[0]
+      : `${selected.length} selected`;
+
 function MultiFilter({
   label,
   icon,
@@ -57,10 +65,11 @@ function MultiFilter({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`${label} filter`}
-        className="border-outline-variant text-label-sm text-on-surface-variant hover:bg-surface-container-high flex h-10 items-center gap-2 border-l px-4"
+        className="border-border bg-card text-label-md text-on-surface hover:bg-muted flex h-8 items-center gap-1.5 rounded-full border px-3"
       >
-        {selected.length > 0 ? `${label} · ${selected.length}` : label}
-        <span className="material-symbols-outlined text-lg">{icon}</span>
+        <span className="material-symbols-outlined text-base">{icon}</span>
+        {label}: {summary(selected)}
+        <span className="material-symbols-outlined text-base">expand_more</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {options.length === 0 ? (
@@ -107,58 +116,53 @@ export function SessionsFilterBar({
   onReset,
 }: SessionsFilterBarProps) {
   return (
-    <div className="px-4 pb-4 sm:px-6">
-      <div className="border-outline-variant bg-surface-container flex flex-wrap items-center gap-px overflow-hidden rounded-xl border">
-        <div className="ring-primary bg-surface-container flex h-10 min-w-[300px] flex-1 items-center px-4 focus-within:ring-1 focus-within:ring-inset">
-          <span className="material-symbols-outlined text-on-surface-variant mr-3">
-            search
-          </span>
-          <input
-            type="text"
-            placeholder="Search by name or session ID..."
-            value={globalFilter}
-            onChange={(e) => onGlobalFilterChange(e.target.value)}
-            aria-label="Search sessions by name or session ID"
-            className="text-body-md text-on-surface placeholder:text-outline w-full border-none bg-transparent focus:ring-0 focus:outline-hidden"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center">
-          <MultiFilter
-            label="Tag"
-            icon="filter_alt"
-            options={distinct(data.flatMap((session) => session.tags))}
-            selected={filters.tags}
-            onChange={(tags) => onFiltersChange({ ...filters, tags })}
-          />
-          <MultiFilter
-            label="Last run"
-            icon="history"
-            options={distinct(data.map(lastRunLabel))}
-            selected={filters.lastRuns}
-            onChange={(lastRuns) => onFiltersChange({ ...filters, lastRuns })}
-          />
-          <MultiFilter
-            label="Initiator"
-            icon="person"
-            options={distinct(data.map((session) => session.initiator))}
-            selected={filters.initiators}
-            onChange={(initiators) =>
-              onFiltersChange({ ...filters, initiators })
-            }
-          />
-          <button
-            type="button"
-            onClick={onReset}
-            aria-label="Reset filters"
-            className="border-outline-variant text-on-surface-variant hover:bg-error-container/20 hover:text-error flex h-10 items-center border-l px-4 transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg">
-              restart_alt
-            </span>
-          </button>
-        </div>
-      </div>
+    <div className="flex flex-wrap items-center gap-2 px-4 pb-4 sm:px-6">
+      <label className="relative flex max-w-[420px] min-w-[280px] flex-1 items-center">
+        <span className="material-symbols-outlined text-on-surface-variant pointer-events-none absolute left-3 text-lg">
+          search
+        </span>
+        <input
+          type="text"
+          placeholder="Filter by name, ID or description"
+          value={globalFilter}
+          onChange={(e) => onGlobalFilterChange(e.target.value)}
+          aria-label="Search sessions by name or session ID"
+          className="bg-muted text-body-md text-on-surface placeholder:text-on-surface-variant focus-visible:ring-primary/40 h-8 w-full rounded-full border-none pr-3 pl-9 focus:outline-hidden focus-visible:ring-2"
+        />
+      </label>
+      <MultiFilter
+        label="Tag"
+        icon="label"
+        options={distinct(data.flatMap((session) => session.tags))}
+        selected={filters.tags}
+        onChange={(tags) => onFiltersChange({ ...filters, tags })}
+      />
+      <MultiFilter
+        label="Initiator"
+        icon="person"
+        options={distinct(data.map((session) => session.initiator))}
+        selected={filters.initiators}
+        onChange={(initiators) => onFiltersChange({ ...filters, initiators })}
+      />
+      <MultiFilter
+        label="Last run"
+        icon="history"
+        options={distinct(data.map(lastRunLabel))}
+        selected={filters.lastRuns}
+        onChange={(lastRuns) => onFiltersChange({ ...filters, lastRuns })}
+      />
+      <span className="text-body-sm text-on-surface-variant ml-auto hidden sm:inline">
+        Filters are kept in the URL
+      </span>
+      <button
+        type="button"
+        onClick={onReset}
+        aria-label="Reset filters"
+        title="Reset filters"
+        className="text-on-surface-variant hover:bg-muted hover:text-on-surface flex size-8 items-center justify-center rounded-full transition-colors"
+      >
+        <span className="material-symbols-outlined text-lg">restart_alt</span>
+      </button>
     </div>
   );
 }

@@ -56,6 +56,15 @@ const RANGE_LABELS: [Range, string][] = [
   ['custom', 'Custom…'],
 ];
 
+/** How the footer names the time range of the runs it counts. */
+const RANGE_PHRASE: Record<Range, string> = {
+  '': '',
+  '1h': ' in the last hour',
+  '24h': ' in the last 24 hours',
+  '7d': ' in the last 7 days',
+  custom: ' in this time range',
+};
+
 /** Runs of every session, newest first, narrowed by filters that live in the URL. */
 /** Phones: each run stacks into a card of labelled values (the label comes from data-label). */
 const STACKED_CELL =
@@ -71,6 +80,9 @@ export function RunsPage() {
   const filters = parseFilters(params);
   const [limit, setLimit] = useState(PAGE);
   const sessions = useSessionSummaries();
+  const sessionNames = new Map(
+    sessions.data?.map((session) => [session.sessionId, session.name])
+  );
   const runs = useQuery({
     queryKey: ['runs', filters, limit],
     queryFn: () => searchExecutions(filters, limit),
@@ -234,12 +246,10 @@ export function RunsPage() {
                 <TableRow>
                   <TableHead className="px-4">Status</TableHead>
                   <TableHead className="px-4">Run</TableHead>
-                  <TableHead className="px-4">Session</TableHead>
-                  <TableHead className="px-4">Workflow</TableHead>
-                  <TableHead className="px-4">Started</TableHead>
+                  <TableHead className="px-4">Session / workflow</TableHead>
                   <TableHead className="px-4">Progress</TableHead>
+                  <TableHead className="px-4">Started</TableHead>
                   <TableHead className="px-4">Duration</TableHead>
-                  <TableHead className="px-4">Ended</TableHead>
                   <TableHead className="px-4">
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -280,17 +290,13 @@ export function RunsPage() {
                         content_copy
                       </button>
                     </TableCell>
-                    <TableCell data-label="Session" className={STACKED_CELL}>
-                      {run.sessionId}
-                    </TableCell>
-                    <TableCell data-label="Workflow" className={STACKED_CELL}>
-                      {run.workflowId}
-                    </TableCell>
                     <TableCell
-                      data-label="Started"
-                      className={cn(STACKED_CELL, 'text-code-sm')}
+                      data-label="Session / workflow"
+                      className={STACKED_CELL}
                     >
-                      {formatClockTime(run.startTime)}
+                      {sessionNames.get(run.sessionId) || run.sessionId}
+                      <span className="text-on-surface-variant"> / </span>
+                      <span className="text-code-sm">{run.workflowId}</span>
                     </TableCell>
                     <TableCell
                       data-label="Progress"
@@ -310,16 +316,16 @@ export function RunsPage() {
                       )}
                     </TableCell>
                     <TableCell
+                      data-label="Started"
+                      className={cn(STACKED_CELL, 'text-code-sm')}
+                    >
+                      {formatClockTime(run.startTime)}
+                    </TableCell>
+                    <TableCell
                       data-label="Duration"
                       className={cn(STACKED_CELL, 'text-code-sm')}
                     >
                       {formatDuration(run.startTime, run.endTime)}
-                    </TableCell>
-                    <TableCell
-                      data-label="Ended"
-                      className={cn(STACKED_CELL, 'text-code-sm')}
-                    >
-                      {formatClockTime(run.endTime)}
                     </TableCell>
                     <TableCell className="px-4 max-sm:empty:hidden">
                       {isAbortedExecStatus(run.status) && (
@@ -345,8 +351,12 @@ export function RunsPage() {
               </TableBody>
             </Table>
           </TableFrame>
-          {runs.data.length >= limit && limit < MAX_RUNS && (
-            <div>
+          <div className="text-body-sm text-on-surface-variant flex flex-wrap items-center gap-3">
+            <span>
+              {runs.data.length} run{runs.data.length === 1 ? '' : 's'}
+              {RANGE_PHRASE[filters.range]}
+            </span>
+            {runs.data.length >= limit && limit < MAX_RUNS && (
               <Button
                 type="button"
                 variant="outline"
@@ -354,8 +364,14 @@ export function RunsPage() {
               >
                 Load more
               </Button>
-            </div>
-          )}
+            )}
+            {runs.data.length >= MAX_RUNS && (
+              <span className="ml-auto">
+                Showing the newest {MAX_RUNS} · narrow the filters to see older
+                runs
+              </span>
+            )}
+          </div>
         </>
       )}
     </div>

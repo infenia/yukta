@@ -19,51 +19,16 @@
       "mcp__yukta__diff_workflow_versions"
     ]
   },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.sh session-start"
-          }
-        ]
+  "extraKnownMarketplaces": {
+    "yukta": {
+      "source": {
+        "source": "github",
+        "repo": "infenia/yukta"
       }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.sh pre-bash"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.sh stop"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.sh prompt"
-          }
-        ]
-      }
-    ]
+    }
   },
-  "statusLine": {
-    "type": "command",
-    "command": "\"$(git rev-parse --show-toplevel)\"/examples/11-dogfood/yk statusline"
+  "enabledPlugins": {
+    "yukta@yukta": true,
+    "yukta-dogfood@yukta": true
   }
 }

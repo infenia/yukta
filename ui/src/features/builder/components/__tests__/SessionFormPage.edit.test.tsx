@@ -96,8 +96,9 @@ describe('SessionFormPage in edit mode', () => {
     renderEdit();
     expect(await screen.findByDisplayValue('Name')).toBeInTheDocument();
     expect(screen.getByLabelText('Session ID')).toHaveAttribute('readonly');
-    expect(screen.getByLabelText('Tag 1 key')).toHaveValue('env');
-    expect(screen.getByLabelText('Tag 1 value')).toHaveValue('prod');
+    expect(
+      screen.getByRole('button', { name: 'env: prod' })
+    ).toBeInTheDocument();
   });
 
   it('saves edited metadata and tags and leaves the workflows as they are', async () => {
@@ -106,9 +107,7 @@ describe('SessionFormPage in edit mode', () => {
     const name = await screen.findByLabelText('Name');
     await user.clear(name);
     await user.type(name, 'Renamed');
-    await user.click(screen.getByRole('button', { name: 'Add tag' }));
-    await user.type(screen.getByLabelText('Tag 2 key'), 'team');
-    await user.type(screen.getByLabelText('Tag 2 value'), 'core');
+    await user.type(screen.getByLabelText('Add a tag'), 'team: core{Enter}');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(posted).toHaveLength(1));
@@ -150,17 +149,25 @@ describe('SessionFormPage in edit mode', () => {
     expect(Object.keys(posted[0].workflows)).toEqual(['wf', 'extra']);
   });
 
-  it('does not save tags with an empty or repeated key', async () => {
+  it('refuses a tag without a key or with a key in use, and saves the others', async () => {
     const user = userEvent.setup();
     renderEdit();
     await screen.findByLabelText('Name');
-    await user.click(screen.getByRole('button', { name: 'Add tag' }));
+    const add = screen.getByLabelText('Add a tag');
+    await user.type(add, ': x{Enter}');
+    expect(
+      screen.getByText('A tag needs a key: write key: value.')
+    ).toBeInTheDocument();
+    await user.clear(add);
+    await user.type(add, 'env: dev{Enter}');
+    expect(
+      screen.getByText('The tag key "env" is used already.')
+    ).toBeInTheDocument();
+    await user.clear(add);
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'A tag needs a key.'
-    );
-    expect(posted).toHaveLength(0);
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]).toMatchObject({ tags: { env: 'prod' } });
   });
 
   it('shows a failed save and lets the user retry', async () => {
@@ -199,9 +206,7 @@ describe('SessionFormPage in edit mode', () => {
     await user.type(screen.getByLabelText('Name'), 'n');
     await user.type(screen.getByLabelText('Description'), 'd');
     await user.type(screen.getByLabelText('Project path'), '/w');
-    await user.click(screen.getByRole('button', { name: 'Add tag' }));
-    await user.type(screen.getByLabelText('Tag 1 key'), 'env');
-    await user.type(screen.getByLabelText('Tag 1 value'), 'dev');
+    await user.type(screen.getByLabelText('Add a tag'), 'env: dev{Enter}');
     await user.click(screen.getByRole('button', { name: 'Create session' }));
 
     await waitFor(() => expect(posted).toHaveLength(1));

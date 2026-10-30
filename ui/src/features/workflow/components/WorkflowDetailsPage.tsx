@@ -120,6 +120,7 @@ export function WorkflowDetailsPage() {
   const stages = useStageView(graph, tasksByNode);
   const live = !isTerminalExecStatus(progress?.status);
   const [follow, setFollow] = useState(true);
+  const [findQuery, setFindQuery] = useState('');
   // only a run that is going has running nodes to follow
   const followable = progress !== null && live;
   const subWorkflowLinks = useSubWorkflowLinks(
@@ -323,28 +324,41 @@ export function WorkflowDetailsPage() {
                 stageView={stages.stageView}
                 onNodeClick={setLogNode}
                 follow={follow && followable}
+                find={findQuery}
               />
-              {followable && (
-                <button
-                  type="button"
-                  aria-pressed={follow}
-                  onClick={() => setFollow((value) => !value)}
-                  className={cn(
-                    'bg-surface border-border shadow-card text-label-sm absolute top-3 right-3 z-10 rounded-lg border px-2.5 py-1',
-                    follow
-                      ? 'bg-accent text-accent-foreground'
-                      : 'text-on-surface-variant hover:text-on-surface'
-                  )}
-                >
-                  Follow running nodes
-                </button>
-              )}
-              {stages.hasStages && (
-                <GroupingSwitch
-                  grouped={stages.grouped}
-                  onChange={stages.setGrouped}
+              {/* The canvas toolbar; its gaps pass the pointer through to the canvas */}
+              <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-wrap items-center gap-2">
+                <input
+                  type="search"
+                  aria-label="Find node on canvas"
+                  placeholder="Find node"
+                  value={findQuery}
+                  onChange={(event) => setFindQuery(event.target.value)}
+                  className="bg-surface border-border shadow-card text-body-md placeholder:text-on-surface-variant focus-visible:ring-primary/40 pointer-events-auto h-8 w-60 rounded-full border px-3 outline-none focus-visible:ring-2"
                 />
-              )}
+                {stages.hasStages && (
+                  <GroupingSwitch
+                    grouped={stages.grouped}
+                    onChange={stages.setGrouped}
+                    className="pointer-events-auto"
+                  />
+                )}
+                {followable && (
+                  <button
+                    type="button"
+                    aria-pressed={follow}
+                    onClick={() => setFollow((value) => !value)}
+                    className={cn(
+                      'bg-surface border-border shadow-card text-label-sm pointer-events-auto ml-auto rounded-lg border px-2.5 py-1',
+                      follow
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    )}
+                  >
+                    Follow running nodes
+                  </button>
+                )}
+              </div>
             </div>
             <LogsPanel
               sessionId={sessionId}

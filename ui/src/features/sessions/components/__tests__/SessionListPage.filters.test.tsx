@@ -16,14 +16,26 @@ const sessions = [
     name: 'Alpha',
     initiator: 'alice',
     tags: ['env=prod', 'team=a'],
-    lastRun: { executionId: 'e', workflowId: 'wf', status: 'FAILURE', startTime: '2026-10-30T08:00:00', endTime: null },
+    lastRun: {
+      executionId: 'e',
+      workflowId: 'wf',
+      status: 'FAILURE',
+      startTime: '2026-10-30T08:00:00',
+      endTime: null,
+    },
   }),
   createMockSession({
     sessionId: 's2',
     name: 'Bravo',
     initiator: 'bob',
     tags: ['env=prod'],
-    lastRun: { executionId: 'e', workflowId: 'wf', status: 'RUNNING', startTime: '2026-10-30T08:00:00', endTime: null },
+    lastRun: {
+      executionId: 'e',
+      workflowId: 'wf',
+      status: 'RUNNING',
+      startTime: '2026-10-30T08:00:00',
+      endTime: null,
+    },
   }),
   createMockSession({
     sessionId: 's3',
@@ -100,10 +112,13 @@ describe('SessionListPage Tag and Initiator filters', () => {
     await waitFor(() => expect(shown()).toEqual(['Alpha', 'Bravo']));
     expect(
       screen.getByRole('button', { name: /tag filter/i })
-    ).toHaveTextContent('Tag · 1');
+    ).toHaveTextContent('Tag: env=prod');
 
     await pick(user, /tag filter/i, 'team=a');
     await waitFor(() => expect(shown()).toEqual(['Alpha']));
+    expect(
+      screen.getByRole('button', { name: /tag filter/i })
+    ).toHaveTextContent('Tag: 2 selected');
     expect(window.location.search).toBe('?tag=env%3Dprod&tag=team%3Da');
 
     await pick(user, /initiator filter/i, 'bob');
@@ -117,6 +132,9 @@ describe('SessionListPage Tag and Initiator filters', () => {
     const user = userEvent.setup();
     renderWithProviders(<SessionListPage />);
     await screen.findByText('Alpha');
+    expect(
+      screen.getByRole('button', { name: /last run filter/i })
+    ).toHaveTextContent('Last run: any');
 
     await pick(user, /last run filter/i, 'Failed');
     await waitFor(() => expect(shown()).toEqual(['Alpha']));
@@ -144,10 +162,10 @@ describe('SessionListPage Tag and Initiator filters', () => {
     expect(shown()).toEqual(['Bravo']);
     expect(
       screen.getByRole('button', { name: /tag filter/i })
-    ).toHaveTextContent('Tag · 1');
+    ).toHaveTextContent('Tag: env=prod');
     expect(
       screen.getByRole('button', { name: /initiator filter/i })
-    ).toHaveTextContent('Initiator · 1');
+    ).toHaveTextContent('Initiator: bob');
   });
 
   it('clears the search and both filters with Reset', async () => {

@@ -51,7 +51,7 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
           </span>
         </div>
       ) : (
-        <span className="text-muted-foreground">Not run</span>
+        <StatusPill status={null} />
       );
     },
   },

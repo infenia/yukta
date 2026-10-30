@@ -9,6 +9,8 @@ import type { SessionDetails } from '../types/session';
 interface SessionInfoPanelProps {
   session: SessionDetails;
   actions?: ReactNode;
+  /** How many workflows the session has, and their nodes in all. */
+  workflows?: { count: number; nodes: number };
 }
 
 function getInitials(initiator: string): string {
@@ -19,7 +21,11 @@ function getInitials(initiator: string): string {
   return initiator.substring(0, 2).toUpperCase();
 }
 
-export function SessionInfoPanel({ session, actions }: SessionInfoPanelProps) {
+export function SessionInfoPanel({
+  session,
+  actions,
+  workflows,
+}: SessionInfoPanelProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopyPath = async () => {
@@ -49,7 +55,7 @@ export function SessionInfoPanel({ session, actions }: SessionInfoPanelProps) {
         {actions}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1.5fr]">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr_1.5fr]">
         <div className="space-y-1">
           <h3 className={label}>Description</h3>
           <p className="text-body-md text-on-surface max-w-prose">
@@ -81,6 +87,15 @@ export function SessionInfoPanel({ session, actions }: SessionInfoPanelProps) {
             <p className="text-on-surface text-body-md">{session.initiator}</p>
           </div>
         </div>
+
+        {workflows && (
+          <div className="space-y-1">
+            <h3 className={label}>Workflows</h3>
+            <p className="text-on-surface text-body-md">
+              {workflows.count} · {workflows.nodes} nodes in all
+            </p>
+          </div>
+        )}
 
         <div className="min-w-0 space-y-1">
           <h3 className={label}>Project Path</h3>

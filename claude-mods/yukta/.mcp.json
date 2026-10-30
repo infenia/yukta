@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "yukta": {
+      "type": "http",
+      "url": "${user_config.server_url}/mcp",
+      "headers": { "X-API-Key": "${user_config.api_key}" }
+    }
+  }
+}
