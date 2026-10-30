@@ -34,7 +34,13 @@ const server = setupServer(
     posted.push(await request.json());
     return (
       failure ??
-      HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data: null, path: '/' })
+      HttpResponse.json({
+        timestamp: 't',
+        status: 200,
+        message: 'ok',
+        data: null,
+        path: '/',
+      })
     );
   })
 );
@@ -92,18 +98,14 @@ describe('SessionFormPage', () => {
   it("says when the server can't find the project path, until the path changes", async () => {
     found = { exists: false, directory: false };
     const { user, input } = await leavePath(' /srv/repos/payments ');
-    expect(
-      await screen.findByText(/The server can't find/)
-    ).toHaveTextContent(
+    expect(await screen.findByText(/The server can't find/)).toHaveTextContent(
       "The server can't find /srv/repos/payments. Use an absolute path on the server, not on your machine."
     );
     expect(input).toHaveAttribute('aria-invalid', 'true');
     expect(checked).toEqual([{ projectPath: '/srv/repos/payments' }]);
 
     await user.type(input, 'x');
-    expect(
-      screen.queryByText(/The server can't find/)
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/The server can't find/)).not.toBeInTheDocument();
     expect(
       screen.getByText('Absolute path on the server, not on your machine')
     ).toBeInTheDocument();
@@ -145,7 +147,9 @@ describe('SessionFormPage', () => {
       workflows: { main: { workflowId: 'main' } },
     });
     await waitFor(() =>
-      expect(window.location.pathname).toBe('/sessions/my-session/workflow/main/edit')
+      expect(window.location.pathname).toBe(
+        '/sessions/my-session/workflow/main/edit'
+      )
     );
   });
 
@@ -158,12 +162,19 @@ describe('SessionFormPage', () => {
       { status: 400 }
     ) as unknown as Response;
     await fillAndSubmit();
-    expect(await screen.findByRole('alert')).toHaveTextContent('projectPath: must be absolute');
-    expect(screen.getByRole('button', { name: 'Create session' })).toBeEnabled();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'projectPath: must be absolute'
+    );
+    expect(
+      screen.getByRole('button', { name: 'Create session' })
+    ).toBeEnabled();
   });
 
   it('shows the message of any other failure', async () => {
-    failure = HttpResponse.json({ message: 'Storage down' }, { status: 500 }) as unknown as Response;
+    failure = HttpResponse.json(
+      { message: 'Storage down' },
+      { status: 500 }
+    ) as unknown as Response;
     await fillAndSubmit();
     expect(await screen.findByRole('alert')).toHaveTextContent('Storage down');
   });

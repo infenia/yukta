@@ -10,10 +10,15 @@ export function getSessionDraft(sessionId: string): Promise<SessionDraft> {
 }
 
 export function saveSession(session: SessionDraft): Promise<unknown> {
-  return fetchApi<unknown>('/api/sessions', { method: 'POST', body: JSON.stringify(session) });
+  return fetchApi<unknown>('/api/sessions', {
+    method: 'POST',
+    body: JSON.stringify(session),
+  });
 }
 
-export function validateWorkflow(workflow: DraftWorkflow): Promise<ValidationResult> {
+export function validateWorkflow(
+  workflow: DraftWorkflow
+): Promise<ValidationResult> {
   return fetchApi<ValidationResult>('/api/sessions/validate', {
     method: 'POST',
     body: JSON.stringify(workflow),
