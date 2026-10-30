@@ -75,6 +75,14 @@ function renderEdit() {
 }
 
 describe('SessionFormPage in edit mode', () => {
+  it('goes back to the session on Cancel', async () => {
+    const user = userEvent.setup();
+    renderEdit();
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(window.location.pathname).toBe('/sessions/s1');
+    expect(posted).toEqual([]);
+  });
+
   it('shows the session with its id read-only and its tags', async () => {
     renderEdit();
     expect(await screen.findByDisplayValue('Name')).toBeInTheDocument();
@@ -185,7 +193,7 @@ describe('SessionFormPage in edit mode', () => {
     await user.click(screen.getByRole('button', { name: 'Add tag' }));
     await user.type(screen.getByLabelText('Tag 1 key'), 'env');
     await user.type(screen.getByLabelText('Tag 1 value'), 'dev');
-    await user.click(screen.getByRole('button', { name: 'Create' }));
+    await user.click(screen.getByRole('button', { name: 'Create session' }));
 
     await waitFor(() => expect(posted).toHaveLength(1));
     expect(posted[0]).toMatchObject({

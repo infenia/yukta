@@ -35,7 +35,14 @@ export interface RunFilters {
   until: string;
 }
 
-const FIELDS = ['session', 'workflow', 'status', 'text', 'since', 'until'] as const;
+const FIELDS = [
+  'session',
+  'workflow',
+  'status',
+  'text',
+  'since',
+  'until',
+] as const;
 
 export function parseFilters(params: URLSearchParams): RunFilters {
   const range = params.get('range') ?? '';
@@ -44,7 +51,9 @@ export function parseFilters(params: URLSearchParams): RunFilters {
     workflow: params.get('workflow') ?? '',
     status: params.get('status') ?? '',
     text: params.get('text') ?? '',
-    range: (RANGES as readonly string[]).includes(range) ? (range as Range) : '',
+    range: (RANGES as readonly string[]).includes(range)
+      ? (range as Range)
+      : '',
     since: params.get('since') ?? '',
     until: params.get('until') ?? '',
   };

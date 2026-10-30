@@ -11,7 +11,13 @@ import { http, HttpResponse } from 'msw';
 import { PluginsPage } from '../PluginsPage';
 import { createTestQueryClient } from '@/test/utils/testUtils';
 
-const envelope = (data: unknown) => ({ timestamp: 't', status: 200, message: 'ok', data, path: '/' });
+const envelope = (data: unknown) => ({
+  timestamp: 't',
+  status: 200,
+  message: 'ok',
+  data,
+  path: '/',
+});
 
 const server = setupServer(
   http.get('/api/plugins', () =>
@@ -50,12 +56,37 @@ describe('PluginsPage', () => {
     );
 
     expect(await screen.findByText('About OneShotTrigger')).toBeInTheDocument();
-    expect(await screen.findByTestId('plugin-canvas-preview')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('plugin-canvas-preview')
+    ).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'ShellProcessor' }));
+    // each entry reads as a name, with the plugin ID under it
+    const shell = screen.getByRole('button', { name: /ShellProcessor/ });
+    expect(shell).toHaveTextContent('Shellprocessor');
+    await userEvent.click(shell);
     expect(await screen.findByText('About ShellProcessor')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Shellprocessor' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Processor')).toBeInTheDocument();
+    // a catalog preview has no run, so its node shows no status
+    expect(screen.getByTestId('plugin-canvas-preview')).not.toHaveTextContent(
+      /Succeeded|Waiting/
+    );
 
     await userEvent.type(screen.getByLabelText('Filter plugins'), 'oneshot');
-    expect(screen.queryByRole('button', { name: 'ShellProcessor' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /ShellProcessor/ })
+    ).not.toBeInTheDocument();
+
+    // the readable name matches too
+    await userEvent.clear(screen.getByLabelText('Filter plugins'));
+    await userEvent.type(screen.getByLabelText('Filter plugins'), 'shellproc');
+    expect(
+      screen.getByRole('button', { name: /ShellProcessor/ })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /OneShotTrigger/ })
+    ).not.toBeInTheDocument();
   });
 });

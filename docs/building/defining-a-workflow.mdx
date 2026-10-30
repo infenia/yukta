@@ -82,6 +82,7 @@ See [Sessions and workflows](/concepts/sessions-and-workflows) for the session-l
 | `nodeId` | yes | Unique within the workflow, up to 256 characters |
 | `type` | yes | Plugin type string, used exactly as listed in the [plugin overview](/plugins/overview) |
 | `config` | no | The plugin's options, plus the reserved `engine` object |
+| `group` | no | The stage the node belongs to, for display only. The web UI groups the nodes of one stage. Nodes without a `group` are grouped by node-ID prefix: `lint`, `lint.fail` and `lint.heal` form the stage `lint` |
 
 ### Plugin options
 

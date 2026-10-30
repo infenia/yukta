@@ -11,7 +11,7 @@ describe('columns', () => {
   });
 
   it('should have correct number of columns', () => {
-    expect(columns).toHaveLength(6);
+    expect(columns).toHaveLength(7);
   });
 
   it('should have name column', () => {
@@ -43,7 +43,7 @@ describe('columns', () => {
       (col) => (col as any).accessorKey === 'projectPath'
     );
     expect(pathColumn).toBeDefined();
-    expect((pathColumn as any).header).toBe('Project Path');
+    expect((pathColumn as any).header).toBe('Project path');
   });
 
   it('should have workflowCount column', () => {

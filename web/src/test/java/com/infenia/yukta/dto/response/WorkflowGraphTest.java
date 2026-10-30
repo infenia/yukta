@@ -26,7 +26,14 @@ class WorkflowGraphTest {
   /** Sample node constant. */
   private static final WorkflowGraphNode NODE =
       new WorkflowGraphNode(
-          NODE_ID, "ingress-v1", PluginCategory.TRIGGER, null, null, List.of("default"));
+          NODE_ID,
+          "ingress-v1",
+          PluginCategory.TRIGGER,
+          null,
+          null,
+          List.of("default"),
+          null,
+          null);
 
   /** Sample edge constant. */
   private static final WorkflowGraphEdge EDGE =

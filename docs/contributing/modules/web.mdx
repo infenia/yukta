@@ -69,7 +69,7 @@ A client starts a workflow and web answers. Click a step to see what happens, wh
 
 **Why it works this way.** It runs first, so a caller without the key costs almost nothing and never reaches validation or core. Constant-time comparison means response time does not reveal how many leading characters were right.
 
-**Can go wrong.** If no key is configured the check is off and the API is open. A rejected request gets no request id and no access-log line, because the later filters never run.
+**Can go wrong.** If no key is configured the check is off and the API is open. A rejected request still gets a request id and an access-log line (a warning with the source address).
 
 </Step>
 <Step title="Request id">
@@ -156,7 +156,7 @@ for long jobs the client opens a stream and receives events with ids and a heart
 
 Runs on every request before any controller: checks the API key, gives the request an id and writes one access-log line when it ends.
 
-- Order matters. The key filter runs first, the request-id filter second, the access-log filter last (it has no explicit order, so it runs after the others). The reason for key-first is that an unauthenticated caller should cost as little as possible. The consequence is that a rejected 401 has no request id and no log line.
+- Order matters. The request-id filter runs first, then the access-log filter, then the host and key filters. The key filter still rejects an unauthenticated caller before any controller work, but the 400, 401, 403 and 429 it answers carry a request id and are logged at WARN with the source address. They are not counted in a metric.
 - The key check applies when yukta.api-key or yukta.api-keys is set, to /api and to the actuator except /actuator/health. The path is decoded first; encoded separators, ';' and dot segments are refused with 400. The key comes from 'Authorization: Bearer &lt;key&gt;' or X-API-Key and is compared as a SHA-256 digest with MessageDigest.isEqual. A named key has a role (VIEWER reads; OPERATOR also POST/DELETE under /api/executions/ and /api/workflow/; ADMIN everything, including the actuator) and optionally a list of sessions; a miss gives 401 and an empty body, a role or session that does not allow the request gives 403. Without any key, HostOriginFilter answers 403 to a Host that is not loopback (or in yukta.allowed-hosts) and to a non-GET whose Origin is not the Host.
 - The request id: a client's X-Request-ID is kept only if it matches [A-Za-z0-9-]\{1,64\}; otherwise a UUID is generated. X-Correlation-ID follows the same rule and falls back to the request id. Both are returned on the response. The id goes into the Reactor context and the logging MDC, so every log line of that request shows [requestId] even when work hops threads. The strict pattern exists because the value is written to logs and headers: a newline in it could forge a log line.
 - The access log writes 'POST /api/workflow/start -&gt; 202 in 14ms' at INFO when the exchange ends. For a stream that is when the connection closes. The line has method, path, status and duration, with no query string and no caller identity (the actor of a control command goes to the execution log instead).
@@ -164,7 +164,7 @@ Runs on every request before any controller: checks the API key, gives the reque
 
 - **Guarantees.** A request that passes the key check has a request id that is echoed in X-Request-ID. The key comparison is constant-time. Client-supplied ids can only contain letters, digits and hyphens.
 - **State.** Only the key bytes, read once when the server starts. Nothing is stored per request. Changing the key needs a restart.
-- **Ceiling.** Keys are configuration: no expiry, and a change needs a restart. Roles are matched by path prefix. No rate limiting. Rejections (400, 401, 403) leave no log line.
+- **Ceiling.** Keys are configuration: an optional `expires` per key, but no runtime revoke, and a change needs a restart. Roles are matched by path prefix. No rate limiting. Rejections (400, 401, 403) leave no log line.
 - **On failure.** Missing or wrong key: 401 with an empty body. If the key is empty the filter lets everything through.
 
 **Settings:** `yukta.api-key (empty = API open)`, `Authorization: Bearer <key> or X-API-Key`, `X-Request-ID, X-Correlation-ID`
@@ -224,7 +224,7 @@ Starts a workflow, stops one run or every run of a workflow, restarts a run whol
 - **Guarantees.** A 202 means core admitted the start. The same Idempotency-Key never starts a second run inside core's window. Stop returns only the ids actually signalled.
 - **State.** None in web. Run state and history live in core.
 - **Ceiling.** History is loaded in full from core and then cut into a page by web. Admission limits, queues and the idempotency window are core's.
-- **On failure.** 404 unknown session, workflow, execution or node. 429 when core refuses a start. 500 if core throws something unmapped, such as a restart already in progress (see risks).
+- **On failure.** 404 unknown session, workflow, execution or node. 429 when core refuses a start. 409 when a restart of the same run is already in progress. 500 if core throws something unmapped.
 
 **Settings:** `POST /api/workflow/start (Idempotency-Key)`, `POST /api/workflow/{sid}/{wid}/stop?mode=DRAIN|CANCEL|KILL`, `POST /api/executions/{eid}/stop|restart|restart/{node}`, `GET /api/executions/{eid}`, `GET /api/workflow/{sid}/history`
 
@@ -239,7 +239,7 @@ Defines the one JSON shape for every reply and the one place that turns exceptio
 - A 500 never carries exception text. The message is 'An unexpected error occurred. Reference: &lt;request id&gt;' and the cause is logged with the same id. The reason: exception messages can name classes, paths or SQL; a client should get a ticket number, not internals.
 - 4xx replies do carry the exception message, because 'Session not found: team-x' is what the caller needs. This relies on core writing client-safe messages.
 - Framework errors (unsupported method, wrong content type, unknown route) pass through the same handler, so even those get the envelope.
-- Two places bypass the handler: the validate endpoint (returns e.getMessage() inside a 200) and the plugin list (a 500 whose message includes 'Failed to retrieve plugins: ' plus the exception text).
+- One place still bypasses the handler: the session summaries endpoint logs and skips a session it cannot read. The validate endpoint catches only the validator's IllegalArgumentException (the draft's problem, in a 200); anything else goes to the handler.
 
 - **Guarantees.** Every error reply has the envelope with status, error, message and path. A 500 reveals no exception text.
 - **State.** None.
@@ -407,11 +407,11 @@ The body is fine but the workflow does not exist. Core throws NotFoundException,
 <Step title="Too many runs">
 Core's limit is reached and it refuses the start with ExecutionRejectedException. The handler answers 429. The client should retry later.
 </Step>
-<Step title="An unmapped failure">
-Two restarts of the same run arrive together. Core throws IllegalStateException ('Restart already in progress'). The handler maps it to 500 with only 'Reference: &lt;request id&gt;' (a ConflictException would give 409, but this path does not use it); the cause is in the log.
+<Step title="A state conflict">
+Two restarts of the same run arrive together. Core throws ConflictException ('Restart already in progress') and the handler answers 409 with that message. Any other IllegalStateException is still a 500 with only 'Reference: &lt;request id&gt;'; the cause is in the log.
 </Step>
 <Step title="The exception to the rule">
-POST /api/sessions/validate catches every error itself and puts e.getMessage() in the reply. That is useful for an editor but it is the one path that can show exception text for an unexpected failure.
+GET /api/sessions summaries skips a session it cannot read (logged, still a 200), so a corrupt session simply vanishes from the table.
 </Step>
 </Steps>
 
@@ -449,7 +449,7 @@ What an API key does and does not protect once the server is reachable from the 
 An operator sets YUKTA_SERVER_ADDRESS=0.0.0.0 and a key. Loopback is the default so that exposure is a decision, not an accident, and boot now refuses to start on another address without a key. Caution: the guard also counts yukta.mcp.api-key as a key, so a server with only the MCP key set starts and leaves /api open (boot guide, guardMcpKeyOnly).
 </Step>
 <Step title="A call without the key">
-The filter answers 401 with 'WWW-Authenticate: Bearer' and an empty body. The request-id and access-log filters never run, so the rejected call is not in the access log (nor is a 400 or 403 from the same filter).
+The filter answers 401 with 'WWW-Authenticate: Bearer' and an empty body. The request-id and access-log filters run before it, so the rejected call has a request id and a WARN access-log line with the source address (as does a 400, 403 or 429 from the same filter).
 </Step>
 <Step title="A call with the key">
 The key is compared in constant time and the call proceeds. Nothing in the request says who the caller is; the key is the same for everyone.
@@ -494,7 +494,7 @@ Capabilities grouped by what a client wants to do. Each card says what it does, 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
 | API key guard | Optional shared secret for /api/\*\*. | Filter compares the presented key (Bearer or X-API-Key) with the configured one in constant time. | Wrong or missing key is always a 401 with WWW-Authenticate. | One key for all callers; off when yukta.api-key is empty. |
-| Request tracing | A request id on every accepted request. | Accepts a safe X-Request-ID or generates a UUID; puts it in headers, Reactor context and the logging MDC. | Client ids are limited to 1 to 64 letters, digits and hyphens. | Not set for requests rejected by the key filter. |
+| Request tracing | A request id on every accepted request. | Accepts a safe X-Request-ID or generates a UUID; puts it in headers, Reactor context and the logging MDC. | Client ids are limited to 1 to 64 letters, digits and hyphens. | |
 | Access log | One line per request. | Logs method, path, status and duration when the exchange ends. | Written even if the stream is cancelled (it runs on completion of any kind). | No query string, no caller identity, no line for 401s. |
 | Strict JSON | Typos in field names are errors. | Jackson is configured to fail on unknown properties. | A misspelled field never silently disappears. | Applies to JSON bodies only; query parameters are not checked this way. |
 
@@ -563,7 +563,7 @@ The key filter checks paths under /api and /actuator (except /actuator/health) w
 | Reply shape | Every reply is an ApiResponse. Success has data; failure has error, path and a possibly empty list of field errors. |
 | Start | 202 means admitted, not finished. The same Idempotency-Key (same session and workflow, inside core's window) returns the first execution id. |
 | Control commands | Reply is sent after core acknowledges; the effect is visible through status. Core applies commands per run in order. |
-| Request id | Echoed in X-Request-ID on every request that passes the key check; it is the only detail a 500 gives. |
+| Request id | Echoed in X-Request-ID on every request, including ones the key filter rejects; it is the only detail a 500 gives. |
 | Error text | 5xx never contains exception text. 4xx contains core's message, so core must keep messages client-safe. |
 | Paging | Newest first for runs, alphabetical for sessions. Cursor is the id of the last item. An unknown cursor starts again from the first item. |
 | Streams | Event ids count from 0 per connection; heartbeat every 15 s; reconnect with Last-Event-ID. Live parts are best effort. |
@@ -641,7 +641,7 @@ Canonical routes are /api/executions/...; the /api/workflow/... forms are deprec
 | POST | /api/workflow/\{sid\}/\{wid\}/stop?mode= | Stop every active run of a workflow | DRAIN (default), CANCEL or KILL. Returns signalled ids | 404 |
 | GET | /api/workflow/\{sid\}/history?limit&cursor | A session's runs, newest first | Paged; whole history loaded then cut | 404 unknown session |
 | POST | /api/executions/\{eid\}/stop (alias /api/workflow/executions/\{eid\}/stop) | Stop one run | Returns the same id. No ownership check | 404 |
-| POST | /api/executions/\{eid\}/restart (alias /api/workflow/executions/\{eid\}/restart) | Stop and start again with the original payload | New execution id. No ownership check | 404; 500 if a restart is already in progress |
+| POST | /api/executions/\{eid\}/restart (alias /api/workflow/executions/\{eid\}/restart) | Stop and start again with the original payload | New execution id. No ownership check | 404; 409 if a restart is already in progress |
 | POST | /api/executions/\{eid\}/restart/\{node\} (alias /api/workflow/executions/\{eid\}/restart/\{node\}) | Restart from a node using its parents' checkpoints | New execution id | 404 |
 | POST | /api/executions/\{eid\}/nodes/\{nid\}/retry | Restart from a failed node | Canonical only. Existence checked | 404 |
 | GET | /api/executions/\{eid\} (alias /api/workflow/\{sid\}/status/\{eid\}) | Progress snapshot | Alias carries a session and checks ownership | 404 |
@@ -818,7 +818,7 @@ What a new endpoint should do to fit in.
 <Accordion title="Web holds no state and delegates every decision to core">
 **Context.** REST, the UI, the CLI and MCP must behave identically for starts, limits and control commands.
 
-**Decision.** Web keeps no state of its own and adds no rules. Limits, ordering, idempotency, supervisors and checkpoints are core's. Even ownership uses core's tracker.
+**Decision.** Web keeps no state of its own and adds no rules. Limits, ordering, idempotency, supervisors and checkpoints are core's. Even ownership uses core's tracker, then its execution log for runs that left the tracker.
 
 **Consequences.** No duplicated logic between REST and MCP; web is easy to test. But web cannot protect itself (no limits, no identity) unless core or a gateway does.
 

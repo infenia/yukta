@@ -499,7 +499,7 @@ class NodePoliciesTest {
   void edgeBuffered_withoutBuffer_passesInputThrough() {
     final Flux<Message<?>> input = Flux.just(DefaultMessage.create(UUID.randomUUID(), "a"));
 
-    assertThat(NodePolicies.edgeBuffered(null, input, mock(TaskTrackerService.class), "T"))
+    assertThat(NodePolicies.edgeBuffered(null, input, mock(TaskTrackerService.class), "T", "n1"))
         .isSameAs(input);
   }
 
@@ -521,7 +521,8 @@ class NodePoliciesTest {
                 new NodePolicy.EdgeBuffer(3, NodePolicy.Overflow.DROP_OLDEST),
                 oldest.asFlux(),
                 tracker,
-                "T"),
+                "T",
+                "n1"),
             0)
         .then(() -> emitTen(oldest))
         .thenRequest(Long.MAX_VALUE)
@@ -533,7 +534,8 @@ class NodePoliciesTest {
                 new NodePolicy.EdgeBuffer(3, NodePolicy.Overflow.DROP_NEWEST),
                 newest.asFlux(),
                 tracker,
-                "T"),
+                "T",
+                "n1"),
             0)
         .then(() -> emitTen(newest))
         .thenRequest(Long.MAX_VALUE)
@@ -541,6 +543,6 @@ class NodePoliciesTest {
         .expectNextCount(2)
         .verifyComplete();
 
-    verify(tracker, times(14)).recordEdgeDropped("T");
+    verify(tracker, times(14)).recordEdgeDropped("T", "n1");
   }
 }

@@ -5,6 +5,7 @@ package executions
 
 import (
 	"fmt"
+	"strconv"
 
 	"com.infenia.yukta/go-cli/internal/client"
 	"com.infenia.yukta/go-cli/internal/commands"
@@ -60,5 +61,29 @@ Returns the execution ID of the new execution.`,
 		},
 	}))
 
+	cmd.AddCommand(commands.DataCmd("recover <execution-id>", "Recover an aborted execution", 1,
+		func(a []string) (any, error) { return c.RecoverExecution(a[0]) }))
+	cmd.AddCommand(priorityCmd(c))
+	var session, filter string
+	var limit int
+	search := commands.DataCmd("search", "Search runs across sessions", 0,
+		func([]string) (any, error) { return c.SearchExecutions(session, filter, limit) })
+	search.Flags().StringVar(&session, "session", "", "Only runs of this session")
+	search.Flags().StringVar(&filter, "filter", "", "Server-side filter expression")
+	search.Flags().IntVar(&limit, "limit", 0, "At most this many runs (default: the server's)")
+	cmd.AddCommand(search)
+
 	return cmd
+}
+
+// priorityCmd builds "priority <execution-id> <priority>".
+func priorityCmd(c *client.Client) *cobra.Command {
+	return commands.DataCmd("priority <execution-id> <priority>", "Change the priority of a queued execution", 2,
+		func(a []string) (any, error) {
+			p, err := strconv.Atoi(a[1])
+			if err != nil {
+				return nil, fmt.Errorf("priority must be a whole number: %w", err)
+			}
+			return c.SetExecutionPriority(a[0], p)
+		})
 }

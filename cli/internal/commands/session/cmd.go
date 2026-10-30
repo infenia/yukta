@@ -36,6 +36,8 @@ Subcommands allow you to:
 
 	sessionCmd.AddCommand(dataCmd("approvals <session-id>", "List the approvals the session's runs wait for", 1,
 		func(a []string) (any, error) { return c.GetPendingApprovals(a[0]) }))
+	sessionCmd.AddCommand(dataCmd("config <session-id>", "Show the configuration a session was created from", 1,
+		func(a []string) (any, error) { return c.GetSessionConfig(a[0]) }))
 	sessionCmd.AddCommand(validateCmd(c))
 
 	return sessionCmd

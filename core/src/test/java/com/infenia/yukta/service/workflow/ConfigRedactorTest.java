@@ -51,6 +51,14 @@ class ConfigRedactorTest {
   }
 
   @Test
+  void redactingKeepsTheNodeGroup() {
+    final WorkflowDefinition grouped =
+        new WorkflowDefinition(
+            "w", "d", List.of(new WorkflowDefinition.Node("n1", "X", Map.of(), "lint")), List.of());
+    assertThat(redactor.redact(grouped).nodes().getFirst().group()).isEqualTo("lint");
+  }
+
+  @Test
   void literalValueInPluginSecretFieldIsMasked() {
     typeWithSecretField("SQL_QUERY", "dbCredential");
 

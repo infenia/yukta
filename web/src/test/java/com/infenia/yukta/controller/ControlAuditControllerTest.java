@@ -19,7 +19,9 @@ class ControlAuditControllerTest {
     log.append(ExecutionLogEvent.control(true, "e1", "PauseWorkflowCommand [by key:bob]", null));
     log.append(
         ExecutionLogEvent.control(false, "e1", "StopWorkflowCommand [by rules]", "deny: busy"));
+    log.append(ExecutionLogEvent.idempotencyKey("e2", "k"));
     log.append(ExecutionLogEvent.control(true, "e2", "SetLimits(2, 0)", null));
+    log.append(ExecutionLogEvent.idempotencyKey("e3", "k2"));
     return new ControlAuditController(log);
   }
 

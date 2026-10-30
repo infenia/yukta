@@ -528,8 +528,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   @Override
-  public void recordEdgeDropped(final String module) {
-    telemetry.dropped("yukta.edge.dropped", module);
+  public void recordEdgeDropped(final String module, final String nodeId) {
+    telemetry.edgeDropped(module, nodeId);
   }
 
   /**

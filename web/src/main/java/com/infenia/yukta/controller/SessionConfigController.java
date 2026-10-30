@@ -8,15 +8,18 @@ import com.infenia.yukta.dto.response.SessionListItem;
 import com.infenia.yukta.dto.response.WorkflowSummary;
 import com.infenia.yukta.mapper.SessionMapper;
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.ConfigRedactor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,6 +66,9 @@ public class SessionConfigController {
 
   /** Hides literal secrets in the definitions this controller hands out. */
   private final ConfigRedactor configRedactor;
+
+  /** The control bus, which knows each session's run history. */
+  private final ControlBusGateway controlBus;
 
   /**
    * Delete a session.
@@ -219,11 +225,33 @@ public class SessionConfigController {
                                     return Mono.empty();
                                   }))
                   .map(sessionMapper::sessionConfigResponseToSessionListItem)
+                  .concatMap(this::withLastRun)
                   .collectList()
                   .map(
                       items ->
                           Pagination.respond(items, page.next(), "Session summaries retrieved"));
             });
+  }
+
+  /** The item with its session's newest run; without one when the history cannot be read. */
+  private Mono<SessionListItem> withLastRun(final SessionListItem item) {
+    return controlBus
+        .getHistory(item.sessionId())
+        .map(
+            history ->
+                item.withLastRun(
+                    history.stream()
+                        .max(
+                            Comparator.comparing(
+                                WorkflowExecutionSummary::startTime,
+                                Comparator.nullsFirst(Comparator.naturalOrder())))
+                        .orElse(null)))
+        .onErrorResume(
+            e -> {
+              log.atWarn().setCause(e).log("No run history for {}", item.sessionId());
+              return Mono.just(item);
+            })
+        .defaultIfEmpty(item);
   }
 
   /**

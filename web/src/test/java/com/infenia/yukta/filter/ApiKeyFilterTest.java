@@ -411,12 +411,19 @@ class ApiKeyFilterTest {
 
   private HttpStatus executionRoute(
       final com.infenia.yukta.service.control.gateway.ControlBusGateway gateway, final String id) {
+    return executionRoute(gateway, null, id);
+  }
+
+  private HttpStatus executionRoute(
+      final com.infenia.yukta.service.control.gateway.ControlBusGateway gateway,
+      final com.infenia.yukta.service.log.ExecutionLogStore log,
+      final String id) {
     passed.set(false);
     final var exchange =
         MockServerWebExchange.from(
             MockServerHttpRequest.post("/api/executions/" + id + "/priority")
                 .header("X-API-Key", "t"));
-    new ApiKeyFilter(scoped(), gateway)
+    new ApiKeyFilter(com.infenia.yukta.security.ApiKeyAuthenticator.read(scoped()), gateway, log)
         .filter(
             exchange,
             _ -> {
@@ -441,6 +448,22 @@ class ApiKeyFilterTest {
     assertThat(executionRoute(gateway, "theirs")).isEqualTo(HttpStatus.FORBIDDEN);
     assertThat(executionRoute(gateway, "unknown")).isEqualTo(HttpStatus.FORBIDDEN);
     assertThat(executionRoute(null, "mine")).isEqualTo(HttpStatus.FORBIDDEN);
+  }
+
+  @Test
+  void testRunThatLeftTheTrackerIsFoundInTheExecutionLog() {
+    final var gateway =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.control.gateway.ControlBusGateway.class);
+    final var log = new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
+    log.append(
+        com.infenia.yukta.service.log.ExecutionLogEvent.started("old-mine", "a", "w", "v", null));
+    log.append(
+        com.infenia.yukta.service.log.ExecutionLogEvent.started("old-theirs", "b", "w", "v", null));
+
+    executionRoute(gateway, log, "old-mine");
+    assertThat(passed).isTrue();
+    assertThat(executionRoute(gateway, log, "old-theirs")).isEqualTo(HttpStatus.FORBIDDEN);
+    assertThat(executionRoute(gateway, log, "never-existed")).isEqualTo(HttpStatus.FORBIDDEN);
   }
 
   private static com.infenia.yukta.model.execution.WorkflowProgress progress(final String session) {

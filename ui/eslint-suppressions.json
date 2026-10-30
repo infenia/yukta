@@ -19,11 +19,6 @@
       "count": 16
     }
   },
-  "src/features/sessions/components/columns.tsx": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 4
-    }
-  },
   "src/features/workflow/hooks/useExecutionLogs.ts": {
     "react-hooks/refs": {
       "count": 3

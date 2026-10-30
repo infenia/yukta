@@ -17,7 +17,14 @@ final class SessionListItemTest {
     final List<String> tags = List.of("prod", "etl", "critical");
     final SessionListItem item =
         new SessionListItem(
-            "sess-123", "Production ETL", "Nightly batch", "scheduler", tags, "/data/main", 5);
+            "sess-123",
+            "Production ETL",
+            "Nightly batch",
+            "scheduler",
+            tags,
+            "/data/main",
+            5,
+            null);
 
     assertThat(item).isNotNull();
     assertThat(item.sessionId()).isEqualTo("sess-123");
@@ -33,7 +40,7 @@ final class SessionListItemTest {
   void testSessionListItemWithNullTags() {
     final SessionListItem item =
         new SessionListItem(
-            "sess-456", "Test Session", "Test Description", "user", null, "/home/project", 0);
+            "sess-456", "Test Session", "Test Description", "user", null, "/home/project", 0, null);
 
     assertThat(item).isNotNull();
     assertThat(item.sessionId()).isEqualTo("sess-456");
@@ -46,7 +53,14 @@ final class SessionListItemTest {
     final List<String> emptyTags = List.of();
     final SessionListItem item =
         new SessionListItem(
-            "sess-789", "Empty Tags Session", "Has empty list", "admin", emptyTags, "/var/app", 3);
+            "sess-789",
+            "Empty Tags Session",
+            "Has empty list",
+            "admin",
+            emptyTags,
+            "/var/app",
+            3,
+            null);
 
     assertThat(item).isNotNull();
     assertThat(item.tags()).isEmpty();

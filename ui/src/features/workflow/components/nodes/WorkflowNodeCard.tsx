@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { Handle, Position } from '@xyflow/react';
+import { useContext } from 'react';
+import { Link } from 'react-router';
+import { SubWorkflowLinks } from '../../hooks/useSubWorkflowLinks';
 import type { NodeProps } from '@xyflow/react';
 import { toNodeStatusLabel, toStatusDisplay } from '../../lib/statusMapper';
 import { cn } from '@/lib/utils';
@@ -81,7 +84,8 @@ export function WorkflowNodeCard({
   data,
   selected,
 }: NodeProps<WorkflowFlowNode>) {
-  const { node, status, task, hideDescription } = data;
+  const { node, status, task, hideDescription, hideStatus } = data;
+  const subWorkflowHref = useContext(SubWorkflowLinks).get(node.nodeId);
   const isTrigger = node.category === 'TRIGGER';
   const isTerminal = node.category === 'TERMINAL';
   const icon = STATUS_ICONS[status] ?? pluginIcon(node.type, node.category);
@@ -183,20 +187,38 @@ export function WorkflowNodeCard({
       )}
 
       <div className="mt-auto flex items-center justify-between px-3 pt-1 pb-2">
-        <span
-          className={cn(
-            'text-body-sm text-on-surface-variant inline-flex items-center gap-1.5',
-            status === 'failed' && 'text-error'
-          )}
-        >
+        {!hideStatus && (
           <span
-            aria-hidden="true"
-            className={cn('size-2 rounded-full', STATUS_DOT_CLASSES[status])}
-          />
-          {statusLabel}
-        </span>
+            className={cn(
+              'text-body-sm text-on-surface-variant inline-flex items-center gap-1.5',
+              status === 'failed' && 'text-error'
+            )}
+          >
+            <span
+              aria-hidden="true"
+              className={cn('size-2 rounded-full', STATUS_DOT_CLASSES[status])}
+            />
+            {statusLabel}
+          </span>
+        )}
         {detail && (
           <span className="text-body-sm text-on-surface-variant">{detail}</span>
+        )}
+        {subWorkflowHref && (
+          <Link
+            to={subWorkflowHref}
+            aria-label={`Open sub-workflow ${node.subWorkflowId}`}
+            title={`Open ${node.subWorkflowId}`}
+            className="nodrag text-label-sm text-primary inline-flex items-center hover:underline"
+          >
+            Open
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-base"
+            >
+              chevron_right
+            </span>
+          </Link>
         )}
       </div>
       {percent !== null && (

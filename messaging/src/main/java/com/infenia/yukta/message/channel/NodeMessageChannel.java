@@ -28,7 +28,9 @@ public interface NodeMessageChannel {
 
   /**
    * Wraps the upstream Flux before the plugin receives it. Called by Processor and Terminal
-   * assembler strategies.
+   * assembler strategies. A node's {@code engine.edgeBuffer} sits in front of this call, so the
+   * channel sees only the messages the buffer let through; drops are counted in {@code
+   * yukta.edge.dropped}, tagged with the node.
    *
    * @param nodeId the node identifier
    * @param executionId the execution identifier
