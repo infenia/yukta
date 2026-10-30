@@ -45,35 +45,64 @@ describe('tag rows', () => {
 });
 
 describe('TagEditor', () => {
-  it('adds, edits and removes rows', async () => {
+  const tags = () => screen.getByTestId('tags');
+
+  it('adds key: value tags on Enter, a comma or leaving the box, and removes them', async () => {
     const user = userEvent.setup();
     render(<Harness initial={[{ key: 'env', value: 'prod' }]} />);
+    const add = screen.getByLabelText('Add a tag');
 
-    await user.click(screen.getByRole('button', { name: 'Add tag' }));
-    await user.type(screen.getByLabelText('Tag 2 key'), 'team');
-    await user.type(screen.getByLabelText('Tag 2 value'), 'core');
-    expect(screen.getByTestId('tags')).toHaveTextContent(
+    await user.type(add, ' team :  core {Enter}');
+    await user.type(add, 'solo,');
+    await user.type(add, 'stage: release');
+    await user.tab();
+    expect(tags()).toHaveTextContent(
       JSON.stringify([
         { key: 'env', value: 'prod' },
         { key: 'team', value: 'core' },
+        { key: 'solo', value: '' },
+        { key: 'stage', value: 'release' },
       ])
     );
+    // a tag without a value shows its key alone
+    expect(screen.getByRole('button', { name: 'solo' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Remove tag 1' }));
-    expect(screen.getByTestId('tags')).toHaveTextContent(
-      JSON.stringify([{ key: 'team', value: 'core' }])
+    await user.click(screen.getByRole('button', { name: 'Remove tag env' }));
+    expect(tags()).not.toHaveTextContent('prod');
+  });
+
+  it('puts a clicked tag back in the box to edit it', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={[{ key: 'env', value: 'prod' }]} />);
+    await user.click(screen.getByRole('button', { name: 'env: prod' }));
+    expect(screen.getByLabelText('Add a tag')).toHaveValue('env: prod');
+    expect(tags()).toHaveTextContent('[]');
+  });
+
+  it('refuses a tag without a key or with a key in use, until the text changes', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={[{ key: 'a', value: '1' }]} />);
+    const add = screen.getByLabelText('Add a tag');
+
+    await user.type(add, '{Enter}');
+    expect(screen.queryByText(/needs a key/)).not.toBeInTheDocument();
+    await user.type(add, ': x{Enter}');
+    expect(
+      screen.getByText('A tag needs a key: write key: value.')
+    ).toBeInTheDocument();
+    await user.clear(add);
+    expect(screen.queryByText(/needs a key/)).not.toBeInTheDocument();
+    await user.type(add, 'a: 2{Enter}');
+    expect(
+      screen.getByText('The tag key "a" is used already.')
+    ).toBeInTheDocument();
+    expect(tags()).toHaveTextContent(
+      JSON.stringify([{ key: 'a', value: '1' }])
     );
   });
 
-  it('says why the rows cannot be saved', async () => {
-    const user = userEvent.setup();
-    render(<Harness initial={[{ key: 'a', value: '1' }]} />);
-
-    await user.click(screen.getByRole('button', { name: 'Add tag' }));
+  it('says why rows given to it cannot be saved', () => {
+    render(<Harness initial={[{ key: '', value: '1' }]} />);
     expect(screen.getByText('A tag needs a key.')).toBeInTheDocument();
-    await user.type(screen.getByLabelText('Tag 2 key'), 'a');
-    expect(
-      screen.getByText('The tag key "a" is used twice.')
-    ).toBeInTheDocument();
   });
 });

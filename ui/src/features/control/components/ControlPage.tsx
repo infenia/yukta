@@ -26,26 +26,28 @@ export function ControlPage() {
       <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
         <PageHeader
           title="Control bus"
-          description="Nodes registered on the control bus, supervisors, workers, who sent which command, and the live activity feed."
+          description="Who and what is steering runs: live nodes and their heartbeats, supervisors, workers, and every control command with who sent it."
+          actions={
+            <div role="tablist" className="border-border flex gap-4 border-b">
+              {(['overview', 'activity'] as const).map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === name}
+                  onClick={() => show(name)}
+                  className={`text-label-md -mb-px h-9 border-b-2 px-0.5 capitalize ${
+                    tab === name
+                      ? 'border-primary text-on-surface'
+                      : 'text-on-surface-variant hover:text-on-surface border-transparent'
+                  }`}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          }
         />
-        <div role="tablist" className="flex gap-1">
-          {(['overview', 'activity'] as const).map((name) => (
-            <button
-              key={name}
-              type="button"
-              role="tab"
-              aria-selected={tab === name}
-              onClick={() => show(name)}
-              className={`text-label-md rounded-lg px-3 py-1 capitalize ${
-                tab === name
-                  ? 'bg-muted text-on-surface'
-                  : 'text-on-surface-variant hover:bg-muted'
-              }`}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
         {tab === 'activity' ? (
           <ActivityPanel />
         ) : (

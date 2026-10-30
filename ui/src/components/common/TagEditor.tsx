@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useState } from 'react';
 
 export interface TagRow {
   key: string;
@@ -31,7 +30,25 @@ export function toTags(rows: TagRow[]): Record<string, string> {
   return Object.fromEntries(rows.map(({ key, value }) => [key.trim(), value]));
 }
 
-/** Add, edit and remove key/value rows. */
+/** A tag typed as `key: value` (the value may be empty), or why it can't be added. */
+export function parseTag(
+  text: string,
+  rows: TagRow[]
+): TagRow | { error: string } {
+  const colon = text.indexOf(':');
+  const key = (colon < 0 ? text : text.slice(0, colon)).trim();
+  const value = colon < 0 ? '' : text.slice(colon + 1).trim();
+  if (!key) return { error: 'A tag needs a key: write key: value.' };
+  if (rows.some((row) => row.key.trim() === key)) {
+    return { error: `The tag key "${key}" is used already.` };
+  }
+  return { key, value };
+}
+
+/**
+ * Tags as `key: value` chips, as on the New session artboard: type one and press Enter (or a
+ * comma) to add it, × to remove it, or click a chip to edit it in the box again.
+ */
 export function TagEditor({
   rows,
   onChange,
@@ -39,51 +56,70 @@ export function TagEditor({
   rows: TagRow[];
   onChange: (rows: TagRow[]) => void;
 }) {
-  const error = tagsError(rows);
-  const edit = (index: number, patch: Partial<TagRow>) =>
-    onChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  const [draft, setDraft] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
+  const error = problem ?? tagsError(rows);
+  const add = () => {
+    if (!draft.trim()) return;
+    const tag = parseTag(draft, rows);
+    if ('error' in tag) {
+      setProblem(tag.error);
+      return;
+    }
+    onChange([...rows, tag]);
+    setDraft('');
+    setProblem(null);
+  };
+  const label = ({ key, value }: TagRow) => (value ? `${key}: ${value}` : key);
 
   return (
-    <fieldset className="flex flex-col gap-2">
-      <legend className="text-label-md text-on-surface">Tags</legend>
-      {rows.map((row, index) => (
-        <div key={index} className="flex items-center gap-2">
-          <Input
-            aria-label={`Tag ${index + 1} key`}
-            placeholder="key"
-            value={row.key}
-            onChange={(event) => edit(index, { key: event.target.value })}
-          />
-          <Input
-            aria-label={`Tag ${index + 1} value`}
-            placeholder="value"
-            value={row.value}
-            onChange={(event) => edit(index, { value: event.target.value })}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-label={`Remove tag ${index + 1}`}
-            onClick={() => onChange(rows.filter((_, i) => i !== index))}
+    <fieldset className="flex flex-col gap-1.5">
+      <legend className="text-label-md text-on-surface mb-1.5">Tags</legend>
+      <div className="bg-muted flex flex-wrap items-center gap-1.5 rounded-2xl px-2 py-1.5">
+        {rows.map((row, index) => (
+          <span
+            key={index}
+            className="border-border bg-card text-label-sm inline-flex h-6 items-center gap-1 rounded-full border pr-1 pl-2.5"
           >
-            <span className="material-symbols-outlined" aria-hidden="true">
+            <button
+              type="button"
+              title="Edit this tag"
+              onClick={() => {
+                setDraft(label(row));
+                onChange(rows.filter((_, i) => i !== index));
+              }}
+            >
+              {label(row)}
+            </button>
+            <button
+              type="button"
+              aria-label={`Remove tag ${row.key}`}
+              onClick={() => onChange(rows.filter((_, i) => i !== index))}
+              className="material-symbols-outlined text-on-surface-variant hover:text-on-surface text-sm"
+            >
               close
-            </span>
-          </Button>
-        </div>
-      ))}
-      {error && <span className="text-body-sm text-error">{error}</span>}
-      <div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onChange([...rows, { key: '', value: '' }])}
-        >
-          Add tag
-        </Button>
+            </button>
+          </span>
+        ))}
+        <input
+          aria-label="Add a tag"
+          placeholder="key: value"
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setProblem(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ',') {
+              event.preventDefault();
+              add();
+            }
+          }}
+          onBlur={add}
+          className="text-body-md placeholder:text-on-surface-variant min-w-32 flex-1 bg-transparent px-1 outline-none"
+        />
       </div>
+      {error && <span className="text-body-sm text-error">{error}</span>}
     </fieldset>
   );
 }
