@@ -4,6 +4,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '@/test/utils/testUtils';
 import userEvent from '@testing-library/user-event';
 import { WorkflowTable } from '../WorkflowTable';
 import type { WorkflowSummary } from '../../types/session';
@@ -28,6 +30,7 @@ const mockWorkflows: WorkflowSummary[] = [
 describe('WorkflowTable', () => {
   it('renders workflow count in header', () => {
     render(
+      <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter>
         <WorkflowTable
           sessionId="sess-123"
@@ -36,6 +39,7 @@ describe('WorkflowTable', () => {
           onFilterChange={() => {}}
         />
       </MemoryRouter>
+      </QueryClientProvider>
     );
 
     expect(
@@ -46,6 +50,7 @@ describe('WorkflowTable', () => {
 
   it('renders all workflows', () => {
     render(
+      <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter>
         <WorkflowTable
           sessionId="sess-123"
@@ -54,6 +59,7 @@ describe('WorkflowTable', () => {
           onFilterChange={() => {}}
         />
       </MemoryRouter>
+      </QueryClientProvider>
     );
 
     expect(screen.getByText('wf1')).toBeInTheDocument();
@@ -62,6 +68,7 @@ describe('WorkflowTable', () => {
 
   it('filters workflows by name', () => {
     render(
+      <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter>
         <WorkflowTable
           sessionId="sess-123"
@@ -70,6 +77,7 @@ describe('WorkflowTable', () => {
           onFilterChange={() => {}}
         />
       </MemoryRouter>
+      </QueryClientProvider>
     );
 
     expect(screen.getByText('wf1')).toBeInTheDocument();
@@ -78,6 +86,7 @@ describe('WorkflowTable', () => {
 
   it('filters workflows by description', () => {
     render(
+      <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter>
         <WorkflowTable
           sessionId="sess-123"
@@ -86,6 +95,7 @@ describe('WorkflowTable', () => {
           onFilterChange={() => {}}
         />
       </MemoryRouter>
+      </QueryClientProvider>
     );
 
     expect(screen.queryByText('wf1')).not.toBeInTheDocument();
@@ -94,6 +104,7 @@ describe('WorkflowTable', () => {
 
   it('shows empty state when no workflows', () => {
     render(
+      <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter>
         <WorkflowTable
           sessionId="sess-123"
@@ -102,6 +113,7 @@ describe('WorkflowTable', () => {
           onFilterChange={() => {}}
         />
       </MemoryRouter>
+      </QueryClientProvider>
     );
 
     expect(screen.getByText('No workflows')).toBeInTheDocument();
@@ -109,6 +121,7 @@ describe('WorkflowTable', () => {
 
   it('shows no match message when filter returns empty', () => {
     render(
+      <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter>
         <WorkflowTable
           sessionId="sess-123"
@@ -117,6 +130,7 @@ describe('WorkflowTable', () => {
           onFilterChange={() => {}}
         />
       </MemoryRouter>
+      </QueryClientProvider>
     );
 
     expect(
@@ -127,6 +141,7 @@ describe('WorkflowTable', () => {
   it('calls onFilterChange when input changes', () => {
     const onFilterChange = vi.fn();
     render(
+      <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter>
         <WorkflowTable
           sessionId="sess-123"
@@ -135,6 +150,7 @@ describe('WorkflowTable', () => {
           onFilterChange={onFilterChange}
         />
       </MemoryRouter>
+      </QueryClientProvider>
     );
 
     const input = screen.getByLabelText('Filter workflows');
@@ -145,6 +161,7 @@ describe('WorkflowTable', () => {
 
   it('shows each workflow as a row: link, size and last run', () => {
     render(
+      <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter>
         <WorkflowTable
           sessionId="sess 1"
@@ -153,6 +170,7 @@ describe('WorkflowTable', () => {
           onFilterChange={() => {}}
         />
       </MemoryRouter>
+      </QueryClientProvider>
     );
     const row = screen.getByTestId('workflow-row-wf1');
     expect(screen.getByRole('link', { name: 'wf1' })).toHaveAttribute(
@@ -166,6 +184,7 @@ describe('WorkflowTable', () => {
 
   it('leaves out an empty description', () => {
     render(
+      <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter>
         <WorkflowTable
           sessionId="s"
@@ -174,6 +193,7 @@ describe('WorkflowTable', () => {
           onFilterChange={() => {}}
         />
       </MemoryRouter>
+      </QueryClientProvider>
     );
     expect(
       screen.getByTestId('workflow-row-wf1').querySelector('p')
@@ -186,6 +206,7 @@ describe('WorkflowTable', () => {
       return <output data-testid="where">{useLocation().pathname}</output>;
     }
     render(
+      <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter>
         <Where />
         <WorkflowTable
@@ -195,6 +216,7 @@ describe('WorkflowTable', () => {
           onFilterChange={() => {}}
         />
       </MemoryRouter>
+      </QueryClientProvider>
     );
     await user.click(
       screen.getByRole('button', { name: 'Actions for workflow wf2' })

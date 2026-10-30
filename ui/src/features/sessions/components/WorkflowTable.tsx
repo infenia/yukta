@@ -22,6 +22,7 @@ import {
 import { StateMessage } from '@/components/common/StateMessage';
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { StatusPill } from '@/features/workflow/components/StatusPill';
+import { RunButton } from '@/features/workflow/components/RunButton';
 import { DeleteWorkflowDialog } from './DeleteDialogs';
 import type { WorkflowSummary } from '../types/session';
 
@@ -92,6 +93,7 @@ export function WorkflowTable({
   filter,
   onFilterChange,
 }: WorkflowTableProps) {
+  const navigate = useNavigate();
   const needle = filter.toLowerCase();
   const shown = workflows.filter(
     (workflow) =>
@@ -141,7 +143,7 @@ export function WorkflowTable({
                 <TableHead className="px-4">Workflow</TableHead>
                 <TableHead className="px-4">Size</TableHead>
                 <TableHead className="px-4">Last run</TableHead>
-                <TableHead className="w-12 px-4">
+                <TableHead className="px-4">
                   <span className="sr-only">Actions</span>
                 </TableHead>
               </TableRow>
@@ -171,11 +173,24 @@ export function WorkflowTable({
                   <TableCell className="px-4">
                     <StatusPill status={workflow.status} />
                   </TableCell>
-                  <TableCell className="px-4 text-right">
-                    <WorkflowActionsMenu
-                      sessionId={sessionId}
-                      workflowId={workflow.workflowId}
-                    />
+                  <TableCell className="px-4">
+                    <div className="flex items-center justify-end gap-1">
+                      <RunButton
+                        size="sm"
+                        label={`Run ${workflow.workflowId}`}
+                        sessionId={sessionId}
+                        workflowId={workflow.workflowId}
+                        onStarted={(executionId) =>
+                          void navigate(
+                            `/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflow.workflowId)}?exec=${encodeURIComponent(executionId)}`
+                          )
+                        }
+                      />
+                      <WorkflowActionsMenu
+                        sessionId={sessionId}
+                        workflowId={workflow.workflowId}
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
