@@ -39,6 +39,29 @@ Started with `POST /api/workflow/start` and this body, the first message carries
 }
 ```
 
+## WEBHOOK_TRIGGER
+
+Starts the workflow from an inbound call by a service that signs its requests, such as GitHub or Stripe, which cannot send the start body or an API key. The call is `POST /hooks/{sessionId}/{path}`. It sits outside `/api/**`, so it needs no API key, and it is refused with `401` unless the signature header holds the hex HMAC-SHA256 of the raw body under the node's secret, compared in constant time. A node whose `secret` is missing, not a `decrypted:` reference or not found is never open: every call gets `401`. An unknown session or path answers `404`.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `path` | required | Last part of the URL |
+| `secret` | required | `decrypted:<name>`, resolved like any other secret |
+| `signatureHeader` | `X-Hub-Signature-256` | Header that carries the signature |
+| `signaturePrefix` | `sha256=` | Text before the hex digest; may be empty |
+| `idempotencyHeader` | none | Header whose value (for example `X-GitHub-Delivery`) makes a repeated delivery return the first run |
+| `headers` | none | Comma-separated header names to pass on |
+
+The message payload is `{"body": "<raw body text>", "headers": {...}}`. The call is answered `202` with the execution id; it does not wait for the result. The start goes through the usual admission limits (`429`) and the server-wide request size limit (`413`).
+
+```json
+{
+  "nodeId": "hook",
+  "type": "WEBHOOK_TRIGGER",
+  "config": { "path": "github-push", "secret": "decrypted:gh-hook", "idempotencyHeader": "X-GitHub-Delivery", "headers": "X-GitHub-Event" }
+}
+```
+
 ## CONSTANT_SOURCE
 
 Emits one message built from fixed variables when the workflow starts. Use it for workflows that need no outside input, for constants, or for values read from the server's environment.

@@ -17,13 +17,15 @@ class WorkflowValidationResultTest {
 
   @Test
   void nullPortsBecomeEmpty() {
-    assertThat(new WorkflowValidationResult(true, null, null).outputPorts()).isEmpty();
+    assertThat(new WorkflowValidationResult(true, null, null, null).outputPorts()).isEmpty();
+    assertThat(new WorkflowValidationResult(true, null, null, null).warnings()).isEmpty();
   }
 
   @Test
   void portsAreCopied() {
     final Map<String, List<String>> ports = new ConcurrentHashMap<>(Map.of("n1", List.of("a")));
-    final WorkflowValidationResult result = new WorkflowValidationResult(false, "bad", ports);
+    final WorkflowValidationResult result =
+        new WorkflowValidationResult(false, "bad", ports, List.of());
     ports.put("n2", List.of());
 
     assertThat(result.outputPorts()).containsOnlyKeys("n1");

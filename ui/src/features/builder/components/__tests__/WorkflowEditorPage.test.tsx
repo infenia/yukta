@@ -388,6 +388,43 @@ describe('WorkflowEditorPage', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 
+  it('lists validation warnings, and Fix it starts an edge from the unread port', async () => {
+    validation = {
+      valid: true,
+      message: null,
+      outputPorts: { start: ['ok', 'failure'], out: [] },
+      warnings: [
+        {
+          nodeId: 'start',
+          field: 'failure',
+          message: "start has no edge from its 'failure' port",
+        },
+      ],
+    };
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByRole('region', { name: 'Node start' });
+    await user.click(screen.getByRole('button', { name: /^out/ }));
+    await user.click(screen.getByRole('button', { name: 'Validate' }));
+
+    expect(
+      await screen.findByText("start has no edge from its 'failure' port")
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Fix it' }));
+    expect(screen.getByRole('tab', { name: /Edges/ })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByLabelText('Edge source')).toHaveValue('start');
+    expect(screen.getByLabelText('Edge port')).toHaveValue('failure');
+    await waitFor(() =>
+      expect(screen.getByLabelText('Edge target')).toHaveFocus()
+    );
+    expect(
+      screen.getByRole('region', { name: 'Node start' })
+    ).toBeInTheDocument();
+  });
+
   it('marks unsaved changes, warns before leaving, and Discard goes back to the loaded draft', async () => {
     const user = userEvent.setup();
     renderEditor();

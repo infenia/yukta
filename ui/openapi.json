@@ -62,10 +62,58 @@
     "name" : "Templates API",
     "description" : "Example sessions to start from"
   }, {
+    "name" : "Webhook API",
+    "description" : "Signed inbound calls that start a workflow"
+  }, {
     "name" : "Plugin API",
     "description" : "Endpoints for discovering workflow plugins"
   } ],
   "paths" : {
+    "/hooks/{sessionId}/{path}" : {
+      "post" : {
+        "description" : "Starts the workflow whose WEBHOOK_TRIGGER node has this path. 401 unless the body is signed with the node's secret; 404 for an unknown hook.",
+        "operationId" : "call",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "sessionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "format" : "byte",
+                "type" : "string"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
+                }
+              }
+            },
+            "description" : "Accepted"
+          }
+        },
+        "summary" : "Call a webhook",
+        "tags" : [ "Webhook API" ]
+      }
+    },
     "/api/workflow/executions/{executionId}/stop" : {
       "post" : {
         "tags" : [ "Execution API" ],
@@ -3660,6 +3708,13 @@
               }
             },
             "description" : "Output ports per node id, for the node's configuration"
+          },
+          "warnings" : {
+            "description" : "Problems that do not stop the workflow, for the editor to show",
+            "items" : {
+              "$ref" : "#/components/schemas/Warning"
+            },
+            "type" : "array"
           }
         }
       },
@@ -5877,6 +5932,24 @@
             "type" : "string"
           }
         }
+      },
+      "Warning" : {
+        "description" : "A problem that does not stop the workflow",
+        "properties" : {
+          "field" : {
+            "description" : "The config field or output port it is about",
+            "type" : "string"
+          },
+          "message" : {
+            "description" : "What is wrong",
+            "type" : "string"
+          },
+          "nodeId" : {
+            "description" : "The node it is about",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
       },
       "ApiResponseCounts" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",

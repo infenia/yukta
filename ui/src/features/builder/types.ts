@@ -36,4 +36,6 @@ export interface ValidationResult {
   valid: boolean;
   message: string | null;
   outputPorts: Record<string, string[]>;
+  /** What would run but probably not as meant; `field` is a config field or an output port. */
+  warnings?: { nodeId: string; field: string; message: string }[];
 }

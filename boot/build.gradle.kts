@@ -55,6 +55,7 @@ dependencies {
     implementation(project(":plugins:triggers:api-trigger"))
     implementation(project(":plugins:triggers:constant-source"))
     implementation(project(":plugins:triggers:schedule-trigger"))
+    implementation(project(":plugins:triggers:webhook-trigger"))
     implementation(project(":plugins:terminals:notify-terminal"))
     implementation(project(":plugins:terminals:outcome-terminal"))
     implementation(project(":plugins:terminals:console-terminal"))

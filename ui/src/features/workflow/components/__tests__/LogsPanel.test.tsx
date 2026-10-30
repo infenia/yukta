@@ -5,7 +5,11 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LogsPanel } from '../LogsPanel';
-import { createMockLogEntry } from '@/test/factories/workflowFactory';
+import {
+  createMockLogEntry,
+  createMockProgress,
+  createMockTask,
+} from '@/test/factories/workflowFactory';
 
 const entries = [
   createMockLogEntry({
@@ -22,6 +26,70 @@ const entries = [
 ];
 
 describe('LogsPanel', () => {
+  const progress = createMockProgress({
+    startTime: '2026-10-30T10:00:00Z',
+    endTime: null,
+    tasks: [
+      createMockTask({
+        nodeId: 'fetch',
+        status: 'SUCCESS',
+        startTime: '2026-10-30T10:00:01Z',
+        endTime: '2026-10-30T10:00:02Z',
+      }),
+      createMockTask({
+        nodeId: 'load',
+        status: 'RUNNING',
+        startTime: '2026-10-30T10:00:03Z',
+        endTime: null,
+      }),
+    ],
+  });
+
+  it('has no Events tab without a run', () => {
+    render(<LogsPanel entries={entries} isStreaming={false} />);
+    expect(
+      screen.queryByRole('tab', { name: 'Events' })
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the run's status transitions on the Events tab, narrowed to the clicked node", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <LogsPanel entries={entries} isStreaming={false} progress={progress} />
+    );
+    await user.click(screen.getByRole('tab', { name: 'Events' }));
+
+    const list = screen.getByRole('list', { name: 'Run events' });
+    expect(
+      Array.from(list.querySelectorAll('li')).map((li) =>
+        li.textContent?.replace(/^\[[^\]]*\] /, '')
+      )
+    ).toEqual([
+      'run Started',
+      'fetch Started',
+      'fetch Succeeded',
+      'load Started',
+    ]);
+    // the log-only controls are hidden
+    expect(screen.queryByLabelText('Filter logs')).not.toBeInTheDocument();
+
+    rerender(
+      <LogsPanel
+        entries={entries}
+        isStreaming={false}
+        progress={progress}
+        node="ghost"
+      />
+    );
+    expect(screen.getByText('No events yet.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Logs' }));
+    expect(screen.getByLabelText('Filter logs')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('list', { name: 'Run events' })
+    ).not.toBeInTheDocument();
+  });
+
   it('virtualises long logs so only the visible window is in the DOM', () => {
     const many = Array.from({ length: 2000 }, (_, i) =>
       createMockLogEntry({ message: `line ${i}` })
