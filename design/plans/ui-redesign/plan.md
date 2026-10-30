@@ -1,8 +1,8 @@
 # UI redesign: the parts that need more than a restyle
 
-**Status (2026-10-30, end of the first session).** The page-group PRs (#1468–#1483) are merged. Most of the work items below are built: each is its own PR, which passed `yk check` and has 100% unit-test coverage. The table says where each one stands. Before starting anything, check the live state with `gh pr view <n>`, because PRs merge while work goes on.
+**Status (2026-10-30, second session).** The page-group PRs (#1468–#1483) are merged. Most of the work items below are built: each is its own PR, which passed `yk check` and has 100% unit-test coverage. The table says where each one stands. Before starting anything, check the live state with `gh pr view <n>`, because PRs merge while work goes on.
 
-| Item | PR | State on 2026-10-30 | Notes |
+| Item | PR | State (2026-10-30, 2nd session) | Notes |
 |---|---|---|---|
 | U2 Recover on Runs | #1479 | merged | |
 | C1 limit tiles | #1480 | merged | live-nodes table still open (decision Q3) |
@@ -11,21 +11,25 @@
 | D3 "Yukta" wordmark | #1483 | merged | |
 | D1 server: node `group`, `subWorkflowId` | #1487 | merged | |
 | R1 canvas + R5 drill-down | #1488 | merged | |
-| R1 task list + B1 builder | #1490 | open, base main | |
+| R1 task list + B1 builder | #1490 | open, base main | rebased onto main after #1488 |
 | R3 progress tabs + failure callout | #1492 | open, stacked on #1490 | |
 | R4 follow running nodes | #1504 | open, stacked on #1492 | |
 | S1 last run per session | #1496 | open, base main | |
 | S3 relative times + Last run filter | #1505 | open, stacked on #1496 | |
 | U1 run progress + counts | #1498 | open, base main | |
-| B2 validation warnings (unread ports) | #1502 | open, base main | rule changed from the plan: see B2 |
+| B2 validation warnings (unread ports) | #1502 | open, base main | rule changed from the plan: see B2; rebased |
 | P1 "Used in" + `/api/plugins/{type}/usage` | #1503 | open, base main | |
 | S2 per-row Run + session Copy as | #1506 | open, base main | |
-| R2 log level + node filter | #1507 | open, base main | Events tab still open (Q2) |
+| R2 log level + node filter | #1507 | open, base main | rebased; stage-box clicks don't set the node filter |
 | B4 unsaved changes + Discard | #1508 | open, base main | |
 | K1 palette actions | #1510 | open, base main | |
 | B3 inspector tabs | #1511 | open, base main | |
 | B4 drag-to-connect | #1512 | open, base main | |
-| K2 breadcrumbs inside pages | none | not started | waiting on Q1 |
+| K2 breadcrumbs inside pages | none | not started | Q1: yes |
+| R2 Events tab | none | not started | Q2: run status transitions |
+| C1 live-nodes table | none | not started | Q3: batch heartbeats on the server |
+| N1 project-path check | none | not started | Q4: server endpoint |
+| Q5 "all ports" edge fix | none | not started | Q5: fix it, and file an issue |
 
 **Stacks:** when a base PR is squash-merged, rebase the next PR onto main with `git rebase --onto origin/main <old-base-branch> <branch>`, then force-push. GitHub moves the PR's base to main by itself. A PR in the merge queue can't be pushed to.
 
@@ -179,7 +183,10 @@ Each item lists: the artboard, what it adds, why it isn't a restyle, the approac
   - the "Same thing, scripted" panel (MCP / curl), via `commandEquivalents`
 - **Needs more:** inline project-path validation ("The server can't find …") requires a server check, either a `validate` call or a dry-run.
 
-## Open questions for the user
+## Open questions for the user (answered 2026-10-30)
+
+Answers: Q1 yes, per-page breadcrumbs; Q2 the run's status transitions; Q3 batch on the server; Q4 a server endpoint; Q5 fix it (keep `null` through the mappers and have the engine read every port).
+
 
 1. **Q1, K2:** move the breadcrumbs into each page and remove the global `BreadcrumbNav` row? It changes every page and most screenshots.
 2. **Q2, R2 Events tab:** what source should it use, the control-bus activity feed (`features/control`) or the run's status transitions?
