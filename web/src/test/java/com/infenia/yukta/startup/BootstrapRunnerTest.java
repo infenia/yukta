@@ -18,6 +18,8 @@ import jakarta.validation.Validator;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Duration;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -48,7 +50,13 @@ class BootstrapRunnerTest {
         .thenReturn(mock(SessionConfigData.class));
     when(service.applyConfig(any())).thenReturn(Mono.empty());
     return new BootstrapRunner(
-        folder.toString(), JsonMapper.builder().build(), validator, mapper, service);
+        folder.toString(),
+        JsonMapper.builder().build(),
+        validator,
+        mapper,
+        service,
+        false,
+        Duration.ofSeconds(5));
   }
 
   @Test
@@ -89,5 +97,34 @@ class BootstrapRunnerTest {
     assertThat(runner.apply()).isZero();
     runner.run(null);
     verify(service, never()).applyConfig(any());
+  }
+
+  @Test
+  void apply_skipsUnchangedFiles_andReappliesAChangedOne() throws IOException {
+    final Path file = dir.resolve("a.json");
+    Files.writeString(file, VALID);
+    final BootstrapRunner runner = runner(dir);
+
+    assertThat(runner.apply()).isEqualTo(1);
+    assertThat(runner.apply()).isZero();
+
+    Files.writeString(file, VALID);
+    Files.setLastModifiedTime(file, FileTime.fromMillis(System.currentTimeMillis() + 60_000));
+    assertThat(runner.apply()).isEqualTo(1);
+  }
+
+  @Test
+  void apply_picksUpAFileAddedLater_andRetriesABrokenOneOnlyWhenItChanges() throws IOException {
+    final BootstrapRunner runner = runner(dir);
+    assertThat(runner.apply()).isZero();
+
+    final Path file = dir.resolve("late.json");
+    Files.writeString(file, "not json");
+    assertThat(runner.apply()).isZero();
+    assertThat(runner.apply()).isZero();
+
+    Files.writeString(file, VALID);
+    Files.setLastModifiedTime(file, FileTime.fromMillis(System.currentTimeMillis() + 60_000));
+    assertThat(runner.apply()).isEqualTo(1);
   }
 }
