@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useQuery } from '@tanstack/react-query';
+import { Link, useSearchParams } from 'react-router';
 import { cn } from '@/lib/utils';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -24,6 +25,7 @@ import type { PluginCategory } from '@/features/workflow/types/workflow';
 import { useCopyCommand } from '@/features/workflow/hooks/useCopyCommand';
 import { usePlugin, usePlugins } from '../hooks/usePlugins';
 import { nodeExample } from '../lib/nodeExample';
+import { getPluginUsage } from '../api/plugins';
 import { PluginCanvasPreview } from './PluginCanvasPreview';
 
 const CATEGORIES: { key: PluginCategory; label: string }[] = [
@@ -32,7 +34,7 @@ const CATEGORIES: { key: PluginCategory; label: string }[] = [
   { key: 'TERMINAL', label: 'Terminals' },
 ];
 
-type Tab = 'config' | 'ports' | 'example';
+type Tab = 'config' | 'ports' | 'example' | 'usage';
 
 /** A default as the config table shows it. */
 const defaultText = (value: unknown) =>
@@ -46,6 +48,10 @@ function PluginDetail({ type }: { type: string }) {
   const { data: plugin, isPending, error } = usePlugin(type);
   const [chosen, setChosen] = useState<Tab | null>(null);
   const { status: copied, copy } = useCopyCommand();
+  const usage = useQuery({
+    queryKey: ['plugins', type, 'usage'],
+    queryFn: () => getPluginUsage(type),
+  });
   if (isPending) return <StateMessage tone="loading" title="Loading…" />;
   if (error || !plugin) {
     return <StateMessage tone="error" title={`Failed to load ${type}.`} />;
@@ -71,6 +77,7 @@ function PluginDetail({ type }: { type: string }) {
       : []),
     { key: 'ports', label: 'Ports', count: plugin.outputPorts.length },
     { key: 'example', label: 'Example' },
+    { key: 'usage', label: 'Used in', count: usage.data?.length },
   ];
   const tab = chosen ?? tabs[0].key;
 
@@ -194,6 +201,39 @@ function PluginDetail({ type }: { type: string }) {
             )}
           </>
         )}
+        {tab === 'usage' &&
+          (usage.error ? (
+            <StateMessage
+              tone="error"
+              title="Failed to load where it is used."
+              compact
+            />
+          ) : usage.isPending ? (
+            <StateMessage tone="loading" title="Loading…" compact />
+          ) : usage.data.length === 0 ? (
+            <p className="text-body-md text-on-surface-variant">
+              No workflow uses {plugin.type} yet.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {usage.data.map((use) => (
+                <li
+                  key={`${use.sessionId}/${use.workflowId}`}
+                  className="flex items-baseline justify-between gap-3"
+                >
+                  <Link
+                    className="text-primary text-body-md"
+                    to={`/sessions/${encodeURIComponent(use.sessionId)}/workflow/${encodeURIComponent(use.workflowId)}`}
+                  >
+                    {use.sessionId} / {use.workflowId}
+                  </Link>
+                  <span className="text-body-sm text-muted-foreground tabular-nums">
+                    {use.nodes} {use.nodes === 1 ? 'node' : 'nodes'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ))}
       </div>
       <section className="min-w-0 xl:sticky xl:top-28 xl:self-start">
         <h3 className="text-on-surface text-label-md mb-1.5">On the canvas</h3>
