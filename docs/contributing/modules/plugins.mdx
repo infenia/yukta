@@ -1,11 +1,11 @@
 ---
 title: "Plugins module: the built-in node types"
 sidebarTitle: "Plugins module"
-description: "The 35 built-in node types, the supervisors and control planes, how each is built, and what a workflow author can and cannot make them do."
+description: "The 37 built-in node types, the supervisors and control planes, how each is built, and what a workflow author can and cannot make them do."
 keywords: ["plugins module", "built-in plugins", "node types"]
 ---
 
-The plugins module is the toolbox of Yukta: 35 built-in node types (triggers that start a workflow, processors that route, transform, call outside systems or ask a model, and terminals that finish a branch) plus the supervisors and control planes that watch runs from outside. Each one is a small Spring bean that obeys a contract from plugin-api; the engine in core does the scheduling, retries and timeouts around it. This page is for thinking, not documenting: open a component, play a scenario, then challenge the weak spots, most of which are about what a workflow author is allowed to make a plugin do.
+The plugins module is the toolbox of Yukta: 37 built-in node types (triggers that start a workflow, processors that route, transform, call outside systems or ask a model, and terminals that finish a branch) plus the supervisors and control planes that watch runs from outside. Each one is a small Spring bean that obeys a contract from plugin-api; the engine in core does the scheduling, retries and timeouts around it. This page is for thinking, not documenting: open a component, play a scenario, then challenge the weak spots, most of which are about what a workflow author is allowed to make a plugin do.
 
 | Property | What it means |
 |---|---|
@@ -154,11 +154,12 @@ separately, supervisors and control planes read the stream of run events and may
 
 *API, constant, schedule*
 
-Creates the first message of a run. Three types: API_TRIGGER, CONSTANT_SOURCE and SCHEDULE_TRIGGER.
+Creates the first message of a run. Four types: API_TRIGGER, CONSTANT_SOURCE, SCHEDULE_TRIGGER and WEBHOOK_TRIGGER.
 
 - API_TRIGGER takes the payload that the REST or MCP start call carried and emits it as one message with a fresh id. If the start call had no payload, it emits an empty one. It has no settings.
 - CONSTANT_SOURCE emits one message built from a 'variables' map (dots in a key make nested fields: 'user.name'). 'target' says whether the values go into the payload (default) or the metadata. The values may use $\{env.X\}, $\{sys.p\}, $\{context.k\} and decrypted:key, but $\{payload...\} is not replaced with data: a trigger has no incoming message to read from.
 - SCHEDULE_TRIGGER emits \{tick, firedAt\} repeatedly. Set exactly one of intervalMs (fixed gap; the first message comes after one interval, not at once) or cron (a Spring 6-field expression: second, minute, hour, day, month, weekday). 'zone' sets the cron time zone (default is the server's), 'maxRuns' stops after that many messages. A cron with no future date, or both or neither of the two settings, is rejected when the config is checked.
+- WEBHOOK_TRIGGER starts the workflow from `POST /hooks/{sessionId}/{path}`, a call by a service that signs its requests (GitHub, Stripe). The route is outside `/api/**`, so it needs no API key; it answers `401` unless the signature header (`signatureHeader`, default X-Hub-Signature-256) holds the hex HMAC-SHA256 of the raw body under `secret` (`decrypted:<name>`), compared in constant time. A node without a usable secret rejects every call. `signaturePrefix` (default `sha256=`), `idempotencyHeader` (a repeat delivery returns the first run) and `headers` (names to pass on) are optional. The payload is \{body, headers\}; the call is answered `202` with the execution id.
 - A scheduled workflow is one long run that stays open and keeps emitting. The schedule lives inside that run, not in a separate scheduler: nothing remembers it after a restart, so a restarted server does not fire missed ticks.
 
 - **Guarantees.** Each start produces a message with a new random id. SCHEDULE_TRIGGER never runs both schedules at once and refuses invalid cron or non-positive intervals at validation time.
@@ -166,7 +167,7 @@ Creates the first message of a run. Three types: API_TRIGGER, CONSTANT_SOURCE an
 - **Ceiling.** A trigger is one stream per run. Many schedules mean many open runs, each holding a timer and its downstream streams.
 - **On failure.** A bad config is rejected before the run starts. A tick that finds downstream busy is not queued by the trigger itself; how back-pressure is handled is the engine's job.
 
-**Settings:** `API_TRIGGER: none`, `CONSTANT_SOURCE: variables, target (PAYLOAD|METADATA)`, `SCHEDULE_TRIGGER: intervalMs | cron, zone, maxRuns`
+**Settings:** `API_TRIGGER: none`, `CONSTANT_SOURCE: variables, target (PAYLOAD|METADATA)`, `SCHEDULE_TRIGGER: intervalMs | cron, zone, maxRuns`, `WEBHOOK_TRIGGER: path, secret, signatureHeader, signaturePrefix, idempotencyHeader, headers`
 
 ### Routing & EIP
 
@@ -265,13 +266,14 @@ Model-backed nodes: LLM_CALL, SESSION_MEMORY and the decision family CLASSIFY, G
 
 ### Terminals
 
-*console, webhook*
+*console, webhook, outcome*
 
-Ends a branch: CONSOLE_TERMINAL logs the payload, NOTIFY_TERMINAL posts it to a webhook.
+Ends a branch: CONSOLE_TERMINAL logs the payload, NOTIFY_TERMINAL posts it to a webhook, OUTCOME_TERMINAL names the exit a run took.
 
 - CONSOLE_TERMINAL writes 'Consuming message:  ' to the application log at DEBUG for every message, and 'Consumed N message(s)' at INFO when its input ends. It takes no settings. It is the quickest way to see a result (enable DEBUG for `com.infenia.yukta.plugin.terminal`); payloads are written in full only at DEBUG.
 - NOTIFY_TERMINAL sends \{text: ...\} as a JSON POST (Slack-compatible). The text is the 'text' setting if set, else the payload's 'text' field, else the payload turned into a string. url must be https; plain http is allowed only for localhost, 127.x and [::1].
 - It sends one message at a time, in order. timeoutMs defaults to 10,000. failureMode ERROR (default) fails the node on a non-2xx answer, and redirects count as failures; CONTINUE logs the failure and keeps sending later messages.
+- OUTCOME_TERMINAL names the exit a run took, so a supervisor can act on it. `outcome` is required: SUCCESS, RETRY (the cause was repaired, run again), ESCALATE (needs a fixer) or FAILED. `restartFrom` names the node to restart from (omit to restart from the start) and `reason` is free text. The supervisor reads all three from the terminal's status event.
 - NOTIFY_TERMINAL's url is fixed in config and is not run through the variable resolver, so a message cannot choose where it is sent. Any https host is still accepted, including internal ones.
 
 - **Guarantees.** NOTIFY_TERMINAL never sends in clear text except to the local machine, never follows a redirect silently, and sends messages in order. A terminal only consumes: it has no output ports.
@@ -608,6 +610,7 @@ Type id, what it does, key settings with defaults, and notes. All 'strictMode' d
 | API_TRIGGER | Trigger | Emits the start payload from the REST or MCP start call | none | Empty map if no payload |
 | CONSTANT_SOURCE | Trigger | Emits one message of fixed or env-derived values | variables (empty), target PAYLOAD\|METADATA (PAYLOAD) | No $\{payload\}; static value cache unbounded |
 | SCHEDULE_TRIGGER | Trigger | Emits \{tick, firedAt\} on a schedule | intervalMs xor cron (6-field), zone (system), maxRuns (unbounded) | First tick after one interval; schedule lost on restart |
+| WEBHOOK_TRIGGER | Trigger | Starts a run from a signed `POST /hooks/{sessionId}/{path}`; payload \{body, headers\} | path, secret (both required), signatureHeader (X-Hub-Signature-256), signaturePrefix (sha256=), idempotencyHeader, headers | Outside /api/**, no API key; `401` unless the HMAC-SHA256 matches; answers `202` |
 | FILTER | Processor | Keeps messages where a condition is true | condition, engine SpEL\|SIMPLE (SpEL), discardPort, strictMode, allowAfterHeavy (false) | REGO rejected as not implemented; no discardPort means silent drop |
 | BRANCH | Processor | Routes a message to a named port | mode SELECT_KEY\|EXPRESSION (SELECT_KEY), selector, cases, defaultPort, allowMultipleMatches (false), errorPort | No match and no default is an error when strict |
 | RECIPIENT_LIST | Processor | Copies a message to several ports | mode DYNAMIC\|STATIC\|EXTERNAL (DYNAMIC), recipients, expression, sourceField, parallel (true), errorPort | Dynamic mode declares any port name |
@@ -650,6 +653,7 @@ Decision plugins share these settings: backend SYSTEMONE|LLM (SYSTEMONE), provid
 |---|---|---|---|---|
 | CONSOLE_TERMINAL | Terminal | Logs each payload at DEBUG, a count at INFO | none | Full payloads in logs at DEBUG (consoleLogs) |
 | NOTIFY_TERMINAL | Terminal | POSTs \{text\} to a webhook | url (https, http only for localhost), text, timeoutMs (10000), failureMode (ERROR) | Redirects count as failures; url is not variable-resolved |
+| OUTCOME_TERMINAL | Terminal | Names the exit a run took for a supervisor | outcome (required: SUCCESS, RETRY, ESCALATE, FAILED), restartFrom, reason | A workflow with several exits ends each one in its own |
 | RuleSupervisor (id 'rules') | Supervisor | Applies JSON rules to events and reviews commands | yukta.supervisor.rules.file | Rules fixed at startup |
 | RuleControlPlane | Control plane | The same rules behind decide(event) | yukta.control-plane.rules.file | Probability 1, source RULE |
 | ModelControlPlane | Control plane | Asks a decision model what to do about an event | yukta.control-plane.model.name; .backend (SYSTEMONE), .provider, .base-url, .api-key, .timeout (2s), .min-probability (0.6), .instructions, .options.&lt;key&gt;.description and .command NONE\|PAUSE\|STOP (defaults continue=NONE, pause=PAUSE), .events (NodeStatusChanged, WorkflowStatusChanged) | Fails open; no command review; at least two options required |
@@ -678,8 +682,8 @@ Always-on modules are compiled into every build. Optional modules are picked wit
 | Module (name in yukta.plugins) | Always on? | Types or components it provides |
 |---|---|---|
 | internal-core | Always | FILTER, BRANCH, RECIPIENT_LIST, SPLITTER, AGGREGATE, VALIDATE, MAPPER, CONTENT_FILTER, DELAY, LOOP_STREAM, LOOP_PREDICATE, KV_STORE |
-| api-trigger, constant-source, schedule-trigger | Always | API_TRIGGER, CONSTANT_SOURCE, SCHEDULE_TRIGGER |
-| console-terminal, notify-terminal | Always | CONSOLE_TERMINAL, NOTIFY_TERMINAL |
+| api-trigger, constant-source, schedule-trigger, webhook-trigger | Always | API_TRIGGER, CONSTANT_SOURCE, SCHEDULE_TRIGGER, WEBHOOK_TRIGGER |
+| console-terminal, notify-terminal, outcome-terminal | Always | CONSOLE_TERMINAL, NOTIFY_TERMINAL, OUTCOME_TERMINAL |
 | rule-supervisor, rule-control-plane, model-control-plane, rules-first-control-plane | Always | RuleSupervisor, RuleControlPlane, ModelControlPlane, RulesFirstControlPlane (each active only if its property is set) |
 | process-executor | Optional | PROCESS_EXECUTOR |
 | http-request | Optional | HTTP_REQUEST |
@@ -814,7 +818,7 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 |---|---|---|
 | Plugin | A named kind of node (trigger, processor or terminal) implemented as a Spring bean. | Every capability of a workflow is a plugin; adding one means adding a bean. |
 | Trigger | A plugin with no input that creates the first messages of a run. | Without one a workflow never starts. |
-| Processor | A plugin that takes messages in and sends messages out. | Most of the module's 35 types are processors. |
+| Processor | A plugin that takes messages in and sends messages out. | Most of the module's 37 types are processors. |
 | Terminal | A plugin that only receives messages and ends a branch. | It is where results become visible: a log line or a webhook. |
 | Message | The unit of data between nodes: payload, metadata, id and the output port it left on. | Plugins read and rewrite it; many risks are about what goes into it. |
 | Payload and metadata | Payload is the data being processed. Metadata is labels about it, such as a model's verdict. | Decision plugins write results to metadata so the payload stays unchanged. |
@@ -856,7 +860,7 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 ## Next steps
 
 <Card title="Built-in plugins" icon="puzzle-piece" horizontal href="/plugins/overview">
-  The 35 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include.
+  The 37 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include.
 </Card>
 
 <Card title="Plugin API module" icon="plug" horizontal href="/contributing/modules/plugin-api">

@@ -32,7 +32,7 @@ Durations accept a number with a unit, such as `30s`, `10m` or `1h`. A plain `0`
 
 These environment variables are used in the project's own scripts and image: `YUKTA_SERVER_ADDRESS`, `YUKTA_API_KEY`, `YUKTA_LIMITS_MAX_BODY`, `YUKTA_SESSION_BASE_DIR`, `YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS`, `YUKTA_PROCESS_ALLOW_ANY`, `SERVER_PORT` and `SPRING_PROFILES_ACTIVE`.
 
-Four groups are not read from the configuration file. `yukta.script.timeout-ms`, `yukta.script.max-statements`, `yukta.spel.timeout-ms` and `yukta.spel.max-length` are read only as system properties. The variable allow-list is read from the system property `yukta.variables.allowed` or the environment variable `YUKTA_VARIABLES_ALLOWED`. Workflow variables are read from system properties `yukta.var.*` or environment variables `YUKTA_VAR_*`. Secrets are read only from environment variables `YUKTA_SECRET_*`.
+Four groups are not read from the configuration file. `yukta.script.timeout-ms`, `yukta.script.max-statements`, `yukta.script.max-heap-bytes`, `yukta.spel.timeout-ms` and `yukta.spel.max-length` are read only as system properties. The variable allow-list is read from the system property `yukta.variables.allowed` or the environment variable `YUKTA_VARIABLES_ALLOWED`. Workflow variables are read from system properties `yukta.var.*` or environment variables `YUKTA_VAR_*`. Secrets are read only from environment variables `YUKTA_SECRET_*`.
 
 ```properties
 yukta.execution.max-concurrent=20
@@ -189,6 +189,7 @@ See [Security](/operations/security).
 | `yukta.spel.max-length` | `10000` | Longest expression, in characters, that is parsed; a longer one is refused. System property only |
 | `yukta.spel.timeout-ms` | `1000` | Longest one expression (filter, branch, mapper projection, loop condition, ...) may run; `0` turns the limit off. System property only |
 | `yukta.script.max-statements` | `50000000` | Most statements a script may run. System property only |
+| `yukta.script.max-heap-bytes` | `0` (no limit) | Most heap, in bytes, a script may use. Only Oracle GraalVM can enforce it; on another runtime a warning is logged and the limit is ignored. System property only |
 | `yukta.messaging.max-payload-bytes` | `67108864` | Largest payload (64 MiB), in bytes, that a node may send or receive. Counts strings and byte arrays, also inside maps and lists; a larger message fails the node with `PayloadTooLargeException`. `0` turns the check off |
 | `yukta.streams.max-concurrent` | `500` | Most event and log streams (SSE) open at once. The next one is answered with `429`; `0` turns the cap off. System property only |
 | `yukta.streams.max-per-key` | `50` | Most streams one named key has open at once; the next gets `429`. `0` turns it off. System property only |
