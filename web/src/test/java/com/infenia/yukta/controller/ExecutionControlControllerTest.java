@@ -126,7 +126,7 @@ class ExecutionControlControllerTest {
         .thenReturn(
             reactor.core.publisher.Flux.just(
                 new com.infenia.yukta.model.control.PendingApproval(
-                    "e1", "wf", "gate", "approve", java.time.Instant.EPOCH)));
+                    "s1", "e1", "wf", "gate", "approve", java.time.Instant.EPOCH)));
 
     client
         .get()
@@ -139,6 +139,36 @@ class ExecutionControlControllerTest {
         .isEqualTo("e1")
         .jsonPath("$.data[0].name")
         .isEqualTo("approve");
+  }
+
+  @Test
+  void testPendingApprovalsAcrossSessionsAreListedWithTheirSession() {
+    when(controlBus.pendingApprovals(null))
+        .thenReturn(
+            reactor.core.publisher.Flux.just(
+                new com.infenia.yukta.model.control.PendingApproval(
+                    "s1", "e1", "wf", "gate", "approve", java.time.Instant.EPOCH),
+                new com.infenia.yukta.model.control.PendingApproval(
+                    "s2", "e2", "wf", "gate", "approve", java.time.Instant.EPOCH)));
+
+    client
+        .get()
+        .uri("/api/approvals?limit=1")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.length()")
+        .isEqualTo(1)
+        .jsonPath("$.data[0].sessionId")
+        .isEqualTo("s1");
+    client
+        .get()
+        .uri("/api/approvals")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.length()")
+        .isEqualTo(2);
   }
 
   @Test

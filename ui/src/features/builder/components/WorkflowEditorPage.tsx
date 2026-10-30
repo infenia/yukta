@@ -632,6 +632,20 @@ function Editor({
                     ),
                   })
                 }
+                edges={workflow.edges}
+                onRemoveEdge={(gone) =>
+                  update({
+                    edges: workflow.edges.filter((edge) => edge !== gone),
+                  })
+                }
+                onAddEdge={() => {
+                  setListTab('edges');
+                  setEdge({
+                    source: node.nodeId,
+                    target: '',
+                    sourcePort: null,
+                  });
+                }}
                 onChange={(config) =>
                   update({
                     nodes: workflow.nodes.map((n) =>

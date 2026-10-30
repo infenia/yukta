@@ -4,7 +4,10 @@
 import type { LegacyColumnDef } from '@tanstack/react-table/legacy';
 import { Badge } from '@/components/ui/badge';
 import { StatusPill } from '@/features/workflow/components/StatusPill';
-import { formatClockTime } from '@/features/workflow/lib/timeFormat';
+import {
+  formatClockTime,
+  formatRelative,
+} from '@/features/workflow/lib/timeFormat';
 import type { SessionListItem } from '../types/session';
 import { SessionRowActionsMenu } from './SessionRowActionsMenu';
 
@@ -38,7 +41,13 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
         <div className="flex items-center gap-2 whitespace-nowrap">
           <StatusPill status={run.status} />
           <span className="text-body-sm text-muted-foreground">
-            {run.workflowId} · {formatClockTime(run.startTime)}
+            {run.workflowId} ·{' '}
+            <time
+              dateTime={run.startTime ?? undefined}
+              title={formatClockTime(run.startTime)}
+            >
+              {formatRelative(run.startTime)}
+            </time>
           </span>
         </div>
       ) : (
@@ -50,9 +59,7 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
     accessorKey: 'workflowCount',
     header: 'Workflows',
     cell: ({ row }) => (
-      <div className="tabular-nums">
-        {row.getValue('workflowCount')}
-      </div>
+      <div className="tabular-nums">{row.getValue('workflowCount')}</div>
     ),
   },
   {

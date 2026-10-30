@@ -39,6 +39,11 @@ const server = setupServer(
         lastRun: run('a1', 'RUNNING'),
       }),
       createMockSession({ sessionId: 'idle', name: 'idle', lastRun: null }),
+      createMockSession({
+        sessionId: 'waiting',
+        name: 'waiting',
+        lastRun: { ...run('q1', 'QUEUED'), startTime: null },
+      }),
     ])
   )
 );
@@ -69,15 +74,18 @@ const rowOf = (name: string) =>
 describe('SessionListPage last run', () => {
   it("shows each session's newest run from the server, and Not run without one", async () => {
     renderList();
-    const pill = await screen.findByTestId('status-chip');
+    await screen.findAllByTestId('status-chip');
+    const pill = within(rowOf('dogfood')).getByTestId('status-chip');
     expect(pill).toHaveTextContent('Running');
     expect(rowOf('dogfood')).toHaveTextContent('check ·');
     expect(within(rowOf('idle')).getByText('Not run')).toBeInTheDocument();
+    // a queued run has not started yet
+    expect(rowOf('waiting')).toHaveTextContent('check · --');
   });
 
   it('labels each cell for the stacked phone layout', async () => {
     renderList();
-    await screen.findByTestId('status-chip');
+    await screen.findAllByTestId('status-chip');
     const cells = within(rowOf('dogfood')).getAllByRole('cell');
     expect(cells.map((cell) => cell.getAttribute('data-label'))).toEqual([
       'Name',

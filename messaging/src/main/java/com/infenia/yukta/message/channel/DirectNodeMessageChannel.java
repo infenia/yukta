@@ -3,13 +3,16 @@
 package com.infenia.yukta.message.channel;
 
 import com.infenia.yukta.message.Message;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 
 /**
- * Passthrough channel. With no size limit both sides return the Flux unchanged; with one, a message
- * whose payload is larger fails the stream with a {@link PayloadTooLargeException}, whether a
- * plugin produced it or is about to receive it.
+ * Passthrough channel. Inbound it drops a message whose {@link Message#expiration()} has passed.
+ * With no size limit both sides otherwise return the Flux unchanged; with one, a message whose
+ * payload is larger fails the stream with a {@link PayloadTooLargeException}, whether a plugin
+ * produced it or is about to receive it.
  */
+@Slf4j
 public class DirectNodeMessageChannel implements NodeMessageChannel {
 
   /** Largest payload in bytes; 0 or less means no limit. */
@@ -32,7 +35,11 @@ public class DirectNodeMessageChannel implements NodeMessageChannel {
   @Override
   public Flux<Message<?>> inbound(
       final String nodeId, final String executionId, final Flux<Message<?>> upstream) {
-    return limited(nodeId, upstream);
+    return limited(nodeId, upstream.filter(DirectNodeMessageChannel::notExpired));
+  }
+
+  private static boolean notExpired(final Message<?> msg) {
+    return msg.expiration() <= 0 || System.currentTimeMillis() < msg.expiration();
   }
 
   @Override
