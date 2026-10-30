@@ -47,12 +47,12 @@ let skips = 0
 let headers: Promise<Record<string, string>> | undefined
 
 const resolveHeaders = async ($: Engine) => {
-  const command = String(opts.headers_command)
+  const command = String(opts.headers_command ?? '')
   if (command) {
     const { exitCode, stdout } = await $.process.run(['sh', '-c', command])
     if (exitCode === 0) return JSON.parse(stdout) as Record<string, string>
   }
-  const key = String(opts.api_key)
+  const key = String(opts.api_key ?? '')
   return key ? { 'X-API-Key': key } : {}
 }
 
@@ -146,11 +146,11 @@ const stop = async ($: Engine, r: Run) => {
 
 export const register: Register = (on, options) => {
   opts = options
-  base = String(options.server_url).replace(/\/+$/, '')
+  base = String(options.server_url || 'http://localhost:9858').replace(/\/+$/, '')
 
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'yukta', description: 'Show Yukta runs and approvals in a pane' })
-    $.clock.every(Number(options.poll_seconds) * 1000, () => tick($))
+    $.clock.every((Number(options.poll_seconds) || 3) * 1000, () => tick($))
     $.clock.every(120, () => animate($))
     // an entry an earlier version (or show_status) left behind stays until it is cleared
     if (!opts.show_status) $.ui.status(undefined)
