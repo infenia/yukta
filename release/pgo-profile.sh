@@ -60,6 +60,9 @@ done
 [[ $ok -gt 0 ]] || die "every training round failed; see $work/examples.log"
 
 kill -TERM "$pid"
+# The profile is written on exit; a server that ignores TERM must not hang the release.
+for _ in $(seq 1 60); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+kill -0 "$pid" 2>/dev/null && { kill -KILL "$pid" 2>/dev/null || true; die "server did not exit within 60s of TERM"; }
 wait "$pid" || true
 pid=""
 [[ -s $work/default.iprof ]] || die "no profile written; see $work/server.log"
