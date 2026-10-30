@@ -172,6 +172,7 @@ class PluginConformanceSweepTest {
   private static Map<String, Supplier<Map<String, Object>>> fixtures() {
     final Map<String, Supplier<Map<String, Object>>> fixtures = new HashMap<>();
     fixtures.put("API_TRIGGER", Map::of);
+    fixtures.put("WEBHOOK_TRIGGER", () -> Map.of("path", "p", "secret", "s"));
     fixtures.put("CONSTANT_SOURCE", () -> Map.of("variables", Map.of("a", 1)));
     fixtures.put("SCHEDULE_TRIGGER", () -> Map.of("intervalMs", 50, "maxRuns", 2));
     fixtures.put("CONSOLE_TERMINAL", Map::of);

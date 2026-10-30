@@ -28,6 +28,7 @@ class PluginCoverageAcceptanceTest {
           "AGGREGATE",
           "ANOMALY",
           "API_TRIGGER",
+          "WEBHOOK_TRIGGER",
           "ASK",
           "BRANCH",
           "CLASSIFY",
