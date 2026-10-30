@@ -50,6 +50,10 @@ func run() (int, error) {
 	rootCmd.AddCommand(controlbus.ControlBusCmd(c))
 	rootCmd.AddCommand(whoami.WhoamiCmd(c))
 	rootCmd.AddCommand(scheduler.SchedulerCmd(c))
+	rootCmd.AddCommand(commands.DataCmd("supervisors", "List supervisors", 0,
+		func([]string) (any, error) { return c.GetSupervisors() }))
+	rootCmd.AddCommand(commands.DataCmd("workers", "List workers", 0,
+		func([]string) (any, error) { return c.GetWorkers() }))
 
 	// Add the logs command for streaming execution logs
 	rootCmd.AddCommand(logs.LogsCmd(c))

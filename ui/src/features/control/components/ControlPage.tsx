@@ -25,7 +25,7 @@ export function ControlPage() {
     <ControlEventsProvider>
       <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
         <PageHeader
-          title="Control Bus"
+          title="Control bus"
           description="Nodes registered on the control bus, supervisors, workers, who sent which command, and the live activity feed."
         />
         <div role="tablist" className="flex gap-1">

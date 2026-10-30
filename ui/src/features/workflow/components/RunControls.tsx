@@ -3,9 +3,7 @@
 
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { buttonVariants } from '@/components/ui/button';
-import { useRef, useState } from 'react';
-import { newIdempotencyKey } from '@/lib/utils';
-import { textareaFieldClassName } from '@/components/ui/native-select';
+import { useState } from 'react';
 import { InlineError } from '@/components/common/InlineError';
 import { Modal } from '@/components/common/Modal';
 import {
@@ -17,6 +15,10 @@ import {
 import type { StopMode } from '../api/executionControl';
 import { useCopyCommand } from '../hooks/useCopyCommand';
 import { CopyAsMenu, type CopyChoice } from './CopyAsMenu';
+import { RunButton } from './RunButton';
+
+export { parsePayload } from './RunButton';
+import { RecoverButton } from './RecoverButton';
 import {
   controlErrorMessage,
   useExecutionControl,
@@ -33,78 +35,6 @@ const BUTTON = buttonVariants({ variant: 'outline' });
 /** Priorities the scheduler accepts from the UI. */
 export const MIN_PRIORITY = -100;
 export const MAX_PRIORITY = 100;
-
-/** Parses the payload editor text; empty means no payload. */
-export function parsePayload(text: string): Record<string, unknown> {
-  if (!text.trim()) return {};
-  const value: unknown = JSON.parse(text);
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Payload must be a JSON object');
-  }
-  return value as Record<string, unknown>;
-}
-
-function RunDialog({
-  onSubmit,
-  onClose,
-  pending,
-  error,
-}: {
-  onSubmit: (payload: Record<string, unknown>) => void;
-  onClose: () => void;
-  pending: boolean;
-  error: string | null;
-}) {
-  const [text, setText] = useState('');
-  const [parseError, setParseError] = useState<string | null>(null);
-
-  const submit = () => {
-    try {
-      onSubmit(parsePayload(text));
-      setParseError(null);
-    } catch (e) {
-      setParseError(
-        e instanceof SyntaxError
-          ? 'Payload is not valid JSON'
-          : (e as Error).message
-      );
-    }
-  };
-
-  return (
-    <Modal title="Run workflow" onClose={onClose}>
-      <label
-        className="text-body-md text-on-surface mb-1 block"
-        htmlFor="run-payload"
-      >
-        Trigger payload (JSON, optional)
-      </label>
-      <textarea
-        id="run-payload"
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        rows={8}
-        spellCheck={false}
-        placeholder='{"key": "value"}'
-        className={`${textareaFieldClassName} text-code-sm mb-3`}
-      />
-      <InlineError message={parseError ?? error} />
-      <div className="mt-4 flex justify-end gap-2">
-        <button type="button" className={BUTTON} onClick={onClose}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className={BUTTON}
-          onClick={submit}
-          disabled={pending}
-        >
-          Run
-        </button>
-      </div>
-    </Modal>
-  );
-}
 
 function PriorityDialog({
   onSubmit,
@@ -184,10 +114,7 @@ export function RunControls({
 }) {
   const control = useExecutionControl(sessionId, workflowId);
   const { status: copied, copy } = useCopyCommand();
-  const [running, setRunning] = useState(false);
-  const runKey = useRef('');
   const [prioritizing, setPrioritizing] = useState(false);
-  const [recovering, setRecovering] = useState(false);
   const [confirm, setConfirm] = useState<{
     label: string;
     mode: StopMode | null;
@@ -199,13 +126,7 @@ export function RunControls({
   const canRestart = executionId !== null && isTerminalExecStatus(status);
   const canPrioritize = executionId !== null && isQueuedExecStatus(status);
   const canRecover = executionId !== null && isAbortedExecStatus(status);
-  const failure = [
-    control.priority,
-    control.runAction,
-    control.stopAll,
-    control.start,
-    control.recover,
-  ]
+  const failure = [control.priority, control.runAction, control.stopAll]
     .map((mutation) => mutation.error)
     .find(Boolean);
 
@@ -257,21 +178,11 @@ export function RunControls({
       className="flex flex-wrap items-center gap-2"
       data-testid="run-controls"
     >
-      <RequirePermission perm="startRuns">
-        <button
-          type="button"
-          className={BUTTON}
-          onClick={() => {
-            runKey.current = newIdempotencyKey();
-            setRunning(true);
-          }}
-        >
-          <span className="material-symbols-outlined text-base">
-            play_arrow
-          </span>
-          Run
-        </button>
-      </RequirePermission>
+      <RunButton
+        sessionId={sessionId}
+        workflowId={workflowId}
+        onStarted={onStarted}
+      />
       <RequirePermission perm="controlRuns">
         <button
           type="button"
@@ -375,42 +286,15 @@ export function RunControls({
         </span>
       )}
       {canRecover && (
-        <RequirePermission perm="controlRuns">
-          <button
-            type="button"
-            className={BUTTON}
-            disabled={control.recover.isPending}
-            onClick={() => setRecovering(true)}
-          >
-            <span className="material-symbols-outlined text-base">history</span>
-            Recover
-          </button>
-        </RequirePermission>
+        <RecoverButton
+          sessionId={sessionId}
+          workflowId={workflowId}
+          executionId={executionId as string}
+          onRecovered={onStarted}
+        />
       )}
       <InlineError message={failure ? controlErrorMessage(failure) : null} />
 
-      {running && (
-        <RunDialog
-          pending={control.start.isPending}
-          error={
-            control.start.error
-              ? controlErrorMessage(control.start.error)
-              : null
-          }
-          onClose={() => setRunning(false)}
-          onSubmit={(payload) =>
-            control.start.mutate(
-              { payload, idempotencyKey: runKey.current },
-              {
-                onSuccess: (result) => {
-                  setRunning(false);
-                  onStarted(result.executionId);
-                },
-              }
-            )
-          }
-        />
-      )}
       {prioritizing && (
         <PriorityDialog
           pending={control.priority.isPending}
@@ -423,34 +307,6 @@ export function RunControls({
             });
           }}
         />
-      )}
-      {recovering && (
-        <Modal title="Recover this run?" onClose={() => setRecovering(false)}>
-          <p className="text-body-md text-on-surface-variant mb-4">
-            Continue this run as a new run? Finished nodes are replayed.
-          </p>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className={BUTTON}
-              onClick={() => setRecovering(false)}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className={BUTTON}
-              onClick={() => {
-                setRecovering(false);
-                control.recover.mutate(executionId as string, {
-                  onSuccess: (result) => onStarted(result.executionId),
-                });
-              }}
-            >
-              Recover
-            </button>
-          </div>
-        </Modal>
       )}
       {confirm && (
         <Modal title={`${confirm.label}?`} onClose={() => setConfirm(null)}>

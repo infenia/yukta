@@ -187,6 +187,19 @@ const CASES: Case[] = [
       },
     },
   },
+  {
+    name: 'create session',
+    action: {
+      kind: 'createSession',
+      session: { sessionId: 'p', tags: { a: 'b' } },
+    },
+    cli: `yukta-cli session apply '{"sessionId":"p","tags":{"a":"b"}}'`,
+    curl: `curl -X POST ${BASE}/api/sessions ${AUTH} -H 'Content-Type: application/json' -d '{"sessionId":"p","tags":{"a":"b"}}'`,
+    mcp: {
+      name: 'create_session',
+      arguments: { config: { sessionId: 'p', tags: { a: 'b' } } },
+    },
+  },
 ];
 
 afterEach(() => setApiKey(null));

@@ -3,11 +3,17 @@
 
 import { DeleteWorkflowDialog } from '@/features/sessions/components/DeleteDialogs';
 import { RequirePermission } from '@/components/common/RequirePermission';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Link, useParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
-import HeaderPortal from '@/components/layout/HeaderPortal';
 import {
   controlErrorMessage,
   useExecutionControl,
@@ -28,6 +34,13 @@ import { useExecutionProgress } from '../hooks/useExecutionProgress';
 import { useExecutionSelection } from '../hooks/useExecutionSelection';
 import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { useWorkflowGraph } from '../hooks/useWorkflowGraph';
+import { useStageView } from '../hooks/useStageView';
+import {
+  SubWorkflowLinks,
+  useSubWorkflowLinks,
+} from '../hooks/useSubWorkflowLinks';
+import { useQuery } from '@tanstack/react-query';
+import { getWorkflowProgress } from '../api/getWorkflowProgress';
 import type { TaskProgress } from '../types/workflow';
 import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -44,6 +57,8 @@ export function WorkflowDetailsPage() {
   const [deleting, setDeleting] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [stopping, setStopping] = useState<string | null>(null);
+  // Clicking a node on the canvas narrows the logs to it
+  const [logNode, setLogNode] = useState<string | null>(null);
 
   const graphQuery = useWorkflowGraph(sessionId, workflowId);
   const executionsQuery = useWorkflowExecutions(sessionId, workflowId);
@@ -64,8 +79,8 @@ export function WorkflowDetailsPage() {
   );
 
   const graph = graphQuery.data;
-  const displayName = graph?.description || workflowId;
-  useBreadcrumbOverride(workflowId, displayName);
+  // the crumb shows the ID as typed, not title-cased like other path segments
+  useBreadcrumbOverride(workflowId, workflowId);
 
   const nodeControl = useExecutionControl(sessionId, workflowId);
   const [breakpointNode, setBreakpointNode] = useState<string | null>(null);
@@ -103,6 +118,21 @@ export function WorkflowDetailsPage() {
     });
     return byNode;
   }, [progress]);
+  const stages = useStageView(graph, tasksByNode);
+  const live = !isTerminalExecStatus(progress?.status);
+  const subWorkflowLinks = useSubWorkflowLinks(
+    sessionId,
+    graph,
+    selectedExecutionId,
+    live
+  );
+  // A sub-workflow run links back to the run that started it, which may be another workflow
+  const parentId = progress?.parentExecutionId ?? null;
+  const parent = useQuery({
+    queryKey: ['workflow', sessionId, 'status', parentId],
+    queryFn: () => getWorkflowProgress(parentId as string),
+    enabled: parentId !== null,
+  });
 
   if (graphQuery.isLoading || executionsQuery.isLoading) {
     return (
@@ -133,66 +163,31 @@ export function WorkflowDetailsPage() {
       className="bg-background flex flex-1 flex-col"
       data-testid="workflow-details-page"
     >
-      <HeaderPortal targetId="header-actions">
-        <button
-          type="button"
-          onClick={() => setPanelOpen((value) => !value)}
-          aria-pressed={panelOpen}
-          className={buttonVariants({ variant: 'outline' })}
-        >
-          <span className="material-symbols-outlined text-base">
-            right_panel_open
-          </span>
-          Workflow progress
-        </button>
-      </HeaderPortal>
-      <HeaderPortal targetId="breadcrumb-actions">
-        <RunHistoryDropdown
-          executions={executions}
-          selectedExecutionId={selectedExecutionId}
-          onSelect={selectExecution}
-        />
-      </HeaderPortal>
-
       <WorkflowTitleBar
-        displayName={displayName}
         workflowId={workflowId}
+        description={graph.description}
         status={executionStatus}
         actions={
           <>
-            <button
-              type="button"
-              onClick={() => setVersionsOpen((value) => !value)}
-              aria-expanded={versionsOpen}
-              className={buttonVariants({ variant: 'outline' })}
-            >
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined text-base"
+            {parent.data && (
+              <Link
+                to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(parent.data.workflowId)}?exec=${encodeURIComponent(parent.data.executionId)}`}
+                className={buttonVariants({ variant: 'ghost' })}
               >
-                history
-              </span>
-              Versions
-            </button>
-            <Link
-              to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
-              className={buttonVariants({ variant: 'outline' })}
-            >
-              <span className="material-symbols-outlined text-base">edit</span>
-              Edit
-            </Link>
-            <RequirePermission perm="deleteSessions">
-              <button
-                type="button"
-                onClick={() => setDeleting(true)}
-                className={buttonVariants({ variant: 'destructive' })}
-              >
-                <span className="material-symbols-outlined text-base">
-                  delete
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
+                >
+                  chevron_left
                 </span>
-                Delete workflow…
-              </button>
-            </RequirePermission>
+                Parent run
+              </Link>
+            )}
+            <RunHistoryDropdown
+              executions={executions}
+              selectedExecutionId={selectedExecutionId}
+              onSelect={selectExecution}
+            />
             <RunControls
               sessionId={sessionId}
               workflowId={workflowId}
@@ -200,6 +195,56 @@ export function WorkflowDetailsPage() {
               status={executionStatus}
               onStarted={selectExecution}
             />
+            <Link
+              to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
+              className={buttonVariants({ variant: 'outline' })}
+            >
+              <span className="material-symbols-outlined text-base">edit</span>
+              Edit
+            </Link>
+            <button
+              type="button"
+              onClick={() => setPanelOpen((value) => !value)}
+              aria-pressed={panelOpen}
+              aria-label="Workflow progress"
+              title="Show or hide the progress panel"
+              className={buttonVariants({ variant: 'outline', size: 'icon' })}
+            >
+              <span className="material-symbols-outlined text-base">
+                right_panel_open
+              </span>
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={(state) => (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Workflow actions"
+                    {...state}
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      aria-hidden="true"
+                    >
+                      more_vert
+                    </span>
+                  </Button>
+                )}
+              />
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => setVersionsOpen((value) => !value)}
+                >
+                  {versionsOpen ? 'Hide versions' : 'Versions'}
+                </DropdownMenuItem>
+                <RequirePermission perm="deleteSessions">
+                  <DropdownMenuItem onClick={() => setDeleting(true)}>
+                    Delete workflow…
+                  </DropdownMenuItem>
+                </RequirePermission>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         }
       />
@@ -262,9 +307,48 @@ export function WorkflowDetailsPage() {
         />
       )}
 
-      <div className="flex min-h-100 flex-1">
-        <div className="min-w-0 flex-1">
-          <WorkflowCanvas graph={graph} tasksByNode={tasksByNode} />
+      {/* A fixed-height workspace: the canvas fills it and the panel scrolls inside it, so a
+          100-node run no longer stretches the page */}
+      <div className="flex h-[clamp(28rem,calc(100dvh-14rem),56rem)]">
+        <div className="relative min-w-0 flex-1">
+          <SubWorkflowLinks value={subWorkflowLinks}>
+            <WorkflowCanvas
+              graph={graph}
+              tasksByNode={tasksByNode}
+              stageView={stages.stageView}
+              onNodeClick={setLogNode}
+            />
+          </SubWorkflowLinks>
+          {stages.hasStages && (
+            <div
+              role="radiogroup"
+              aria-label="Canvas grouping"
+              className="bg-surface border-border shadow-card absolute top-3 left-3 z-10 flex gap-0.5 rounded-lg border p-0.5"
+            >
+              {(
+                [
+                  [true, 'Group by stage'],
+                  [false, 'All nodes'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={label}
+                  type="button"
+                  role="radio"
+                  aria-checked={stages.grouped === value}
+                  onClick={() => stages.setGrouped(value)}
+                  className={cn(
+                    'text-label-sm rounded-md px-2.5 py-1',
+                    stages.grouped === value
+                      ? 'bg-muted text-on-surface'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         {panelOpen && (
           <ProgressPanel
@@ -284,6 +368,8 @@ export function WorkflowDetailsPage() {
         entries={logs.entries}
         dropped={logs.dropped}
         isStreaming={isStreaming || logs.isStreaming}
+        node={logNode}
+        onClearNode={() => setLogNode(null)}
       />
     </div>
   );

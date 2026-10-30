@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useEffect, useState } from 'react';
-import { toNodeUiStatus } from '../lib/statusMapper';
+import { toNodeStatusLabel, toNodeUiStatus } from '../lib/statusMapper';
 import { StatusPill } from './StatusPill';
 import { formatClockTime, formatDuration } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,25 @@ import type {
   TaskProgress,
   WorkflowGraph,
 } from '../types/workflow';
+
+/** Filter chips and summary-bar segments, in the order a run moves through them. */
+const STATUS_ORDER: NodeUiStatus[] = [
+  'failed',
+  'running',
+  'paused',
+  'completed',
+  'skipped',
+  'pending',
+];
+
+const BAR_COLOR: Record<NodeUiStatus, string> = {
+  failed: 'bg-destructive',
+  running: 'bg-primary',
+  paused: 'bg-attention',
+  completed: 'bg-success',
+  skipped: 'bg-outline',
+  pending: 'bg-transparent',
+};
 
 /** How often the running-duration display refreshes between SSE updates. */
 const DURATION_REFRESH_MS = 1000;
@@ -133,6 +152,25 @@ export function TaskSequenceList({
   const hasRunningTask = tasks.some(
     (task) => toNodeUiStatus(task.status) === 'running'
   );
+  const [show, setShow] = useState<NodeUiStatus | 'all'>('all');
+  const [query, setQuery] = useState('');
+  const counts = new Map<NodeUiStatus, number>();
+  for (const task of tasks) {
+    const status = toNodeUiStatus(task.status);
+    counts.set(status, (counts.get(status) ?? 0) + 1);
+  }
+  const needle = query.trim().toLowerCase();
+  const shown = tasks.filter(
+    (task) =>
+      (show === 'all' || toNodeUiStatus(task.status) === show) &&
+      `${task.nodeId} ${task.module}`.toLowerCase().includes(needle)
+  );
+  const chip = (active: boolean) =>
+    `text-label-sm inline-flex h-6 items-center gap-1 rounded-full border px-2 tabular-nums ${
+      active
+        ? 'border-transparent bg-accent text-accent-foreground'
+        : 'border-border text-on-surface hover:bg-muted'
+    }`;
 
   // Re-render on a fixed interval so running durations keep advancing between SSE updates;
   // the interval only exists while a task is actually running.
@@ -149,10 +187,68 @@ export function TaskSequenceList({
   }, [hasRunningTask]);
 
   return (
-    <div data-testid="task-sequence">
-      <h3 className="text-overline mb-2">Task sequence</h3>
+    <div data-testid="task-sequence" className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between">
+        <h3 className="text-overline">Task sequence</h3>
+        <span className="text-body-sm text-muted-foreground tabular-nums">
+          {tasks.length} nodes
+        </span>
+      </div>
+      <div
+        role="img"
+        aria-label={STATUS_ORDER.filter((status) => counts.has(status))
+          .map((status) => `${counts.get(status)} ${toNodeStatusLabel(status)}`)
+          .join(', ')}
+        className="bg-surface-container-high flex h-2 overflow-hidden rounded-full"
+      >
+        {STATUS_ORDER.map((status) => (
+          <span
+            key={status}
+            className={BAR_COLOR[status]}
+            style={{
+              width: `${((counts.get(status) ?? 0) / Math.max(tasks.length, 1)) * 100}%`,
+            }}
+          />
+        ))}
+      </div>
+      <div
+        role="group"
+        aria-label="Show nodes"
+        className="flex flex-wrap gap-1.5"
+      >
+        <button
+          type="button"
+          aria-pressed={show === 'all'}
+          onClick={() => setShow('all')}
+          className={chip(show === 'all')}
+        >
+          All {tasks.length}
+        </button>
+        {STATUS_ORDER.filter((status) => counts.has(status)).map((status) => (
+          <button
+            key={status}
+            type="button"
+            aria-pressed={show === status}
+            onClick={() => setShow(status)}
+            className={chip(show === status)}
+          >
+            {toNodeStatusLabel(status)} {counts.get(status)}
+          </button>
+        ))}
+      </div>
+      <input
+        type="search"
+        aria-label="Filter nodes"
+        placeholder="Filter nodes"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        className="bg-muted text-body-md placeholder:text-muted-foreground focus-visible:ring-ring/40 h-8 rounded-full px-3 outline-none focus-visible:ring-2"
+      />
+      {shown.length === 0 && (
+        <p className="text-body-sm text-muted-foreground">No nodes match.</p>
+      )}
       <ul className="flex flex-col">
-        {tasks.map((task) => (
+        {shown.map((task) => (
           <TaskSequenceItem
             key={task.nodeId}
             task={task}

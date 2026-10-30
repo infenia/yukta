@@ -11,6 +11,7 @@ import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
@@ -199,10 +200,10 @@ class DefaultTaskTrackerServiceTest {
     tracker.recordLineage("t-other", null, null);
 
     assertThat(tracker.getTree("t-top"))
-        .extracting(com.infenia.yukta.model.execution.WorkflowExecutionSummary::executionId)
+        .extracting(WorkflowExecutionSummary::executionId)
         .containsExactlyInAnyOrder("t-top", "t-child", "t-grandchild");
     assertThat(tracker.getTree("t-child"))
-        .extracting(com.infenia.yukta.model.execution.WorkflowExecutionSummary::executionId)
+        .extracting(WorkflowExecutionSummary::executionId)
         .containsExactlyInAnyOrder("t-child", "t-grandchild");
     assertThat(tracker.getTree("nope")).isEmpty();
   }
@@ -753,6 +754,28 @@ class DefaultTaskTrackerServiceTest {
               assertThat(history.getFirst().workflowId()).isEqualTo(workflowId);
             })
         .verifyComplete();
+  }
+
+  @Test
+  void testGetHistoryCountsFinishedNodesAndTheFirstFailure() {
+    StepVerifier.create(
+            tracker.startWorkflow("exec-nodes", "sess-nodes", "wf", List.of("a", "b", "c", "d")))
+        .verifyComplete();
+    tracker.emitTaskStatusEvent("exec-nodes", "a", "echo", TaskStatus.SUCCESS, Map.of());
+    tracker.emitTaskStatusEvent("exec-nodes", "b", "echo", TaskStatus.TIMED_OUT, Map.of());
+    tracker.emitTaskStatusEvent("exec-nodes", "c", "echo", TaskStatus.FAILURE, Map.of());
+    tracker.emitTaskStatusEvent("exec-nodes", "d", "echo", TaskStatus.RUNNING, Map.of());
+
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                StepVerifier.create(tracker.getHistory("sess-nodes"))
+                    .assertNext(
+                        history ->
+                            assertThat(history.getFirst().nodes())
+                                .isEqualTo(new WorkflowExecutionSummary.Nodes(3, 4, "b")))
+                    .verifyComplete());
   }
 
   @Test
@@ -3243,9 +3266,15 @@ class DefaultTaskTrackerServiceTest {
         new DefaultTaskTrackerService(
             Duration.ofSeconds(30), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
 
-    counting.recordEdgeDropped("HTTP_REQUEST");
+    counting.recordEdgeDropped("HTTP_REQUEST", "n1");
 
-    assertThat(meters.get("yukta.edge.dropped").tag("type", "HTTP_REQUEST").counter().count())
+    assertThat(
+            meters
+                .get("yukta.edge.dropped")
+                .tag("type", "HTTP_REQUEST")
+                .tag("node", "n1")
+                .counter()
+                .count())
         .isEqualTo(1);
   }
 

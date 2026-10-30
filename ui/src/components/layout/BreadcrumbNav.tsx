@@ -53,7 +53,6 @@ export default function BreadcrumbNav() {
           ))}
         </BreadcrumbList>
       </Breadcrumb>
-      <div id="breadcrumb-actions" className="ml-auto flex items-center" />
     </div>
   );
 }

@@ -5,6 +5,7 @@ package controlbus
 
 import (
 	"com.infenia.yukta/go-cli/internal/client"
+	"com.infenia.yukta/go-cli/internal/commands"
 	"github.com/spf13/cobra"
 )
 
@@ -22,6 +23,13 @@ func ControlBusCmd(c *client.Client) *cobra.Command {
 	cmd.AddCommand(HeartbeatCmd(c))
 	cmd.AddCommand(CommandCmd(c))
 	cmd.AddCommand(WatchCmd(c))
+	var limit int
+	var execution string
+	audit := commands.DataCmd("audit", "List control commands sent, newest first", 0,
+		func([]string) (any, error) { return c.GetControlAudit(limit, execution) })
+	audit.Flags().IntVar(&limit, "limit", 0, "At most this many entries (default: the server's)")
+	audit.Flags().StringVar(&execution, "execution", "", "Only commands to this execution")
+	cmd.AddCommand(audit)
 
 	return cmd
 }
