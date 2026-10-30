@@ -105,7 +105,7 @@ jobs:
       # records a PGO profile on this runner (release/pgo-profile.sh), so the profile matches the commit.
       # NATIVE_HEAP is lowered from 16g in case the hosted runner has less memory.
       - name: Native compile
-        timeout-minutes: 100   # alpha.1/2 took under 45 min in all; a stall fails here, not after 3 h
+        timeout-minutes: 120   # a healthy PGO build (instrumented build, training, final build) is not yet measured; a stall fails here, not after 3 h
         env:
           NATIVE_HEAP: 12g
           NATIVE_PGO_REQUIRED: 1   # a release without a recorded profile is a different binary: fail

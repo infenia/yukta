@@ -66,7 +66,11 @@ rehearsals; `release.sh --publish` refuses it.
 
 One pull request to approve, one button to press.
 
-1. **Merge the release PR.** release-please keeps a PR titled `chore(main): release X.Y.Z` up to date
+1. **Rehearse first.** Run **Release** by hand on `main` (Actions → Release → Run workflow, or
+   `gh workflow run release.yml --ref main`). It builds everything and publishes nothing. Merge the release
+   PR only when it is green. *Why:* the tag cannot be deleted, so a release that fails after tagging costs a
+   version number (`alpha.3` stalled in the native build and the next release became `alpha.4`).
+2. **Merge the release PR.** release-please keeps a PR titled `chore(main): release X.Y.Z` up to date
    from the Conventional Commits on `main`. It sets the version in `gradle.properties` and
    `ui/package.json` and writes `CHANGELOG.md`. Approve and merge it when you want to release.
    *Why not by hand:* the version, changelog and tag always agree, and the PR gets the same review and
@@ -74,7 +78,7 @@ One pull request to approve, one button to press.
    costs a version number.
    - A prerelease advances by itself (`alpha.2` → `alpha.3`). To change the stage or the version, add
      a `Release-As: 0.1.0-beta.1` footer to a commit on `main`.
-2. **CI does the rest** (the **Release** workflow, started by the tag; about an hour):
+3. **CI does the rest** (the **Release** workflow, started by the tag; about an hour):
    - `assemble` refuses a tag whose commit is not on `main`, because it signs as the workflow;
    - builds the CLI (five platforms) and the linux-amd64 server, runs the Quickstart workflow against the
      server binary, and attests both (`gh attestation verify`);
@@ -84,18 +88,20 @@ One pull request to approve, one button to press.
    - uploads everything to the **draft** release release-please created;
    - `verify` downloads the draft, checks the checksums and signature, installs it with `install.sh` and
      the `.deb` on a clean Ubuntu container, pulls the image logged out and runs the Quickstart on it.
-   A "PGO profile" out-of-memory message in the server job's log is expected on the hosted runner; only
-   a red job is a failure.
-3. **Publish.** When the workflow is green, open the draft, and for a first run of a changed pipeline
+   The server job records a PGO profile first (an instrumented native build, then the examples) and then
+   builds again with it, so it takes longer than a plain build. On the hosted runner (4 vCPU, 16 GB) the
+   instrumented build ran out of memory in `0.1.0-alpha.2` (the build then went on without a profile) and
+   hung in `0.1.0-alpha.3`. `release.yml` sets `NATIVE_PGO_REQUIRED=1`, so this now fails the release.
+4. **Publish.** When the workflow is green, open the draft, and for a first run of a changed pipeline
    also run the `cosign verify-blob` from "Verify a download" below on the draft's files yourself, add highlights and known limitations to the
    notes, keep "pre-release" ticked for a version with a `-`, and press Publish. *Why a person:* this is
    the point of no return; from here the assets and tag cannot change. Release notes are also an
    OpenSSF Best Practices requirement.
-4. **Approve the docs PR.** Publishing opens `chore(docs): install the X.Y.Z release`, which points the install
+5. **Approve the docs PR.** Publishing opens `chore(docs): install the X.Y.Z release`, which points the install
    commands at the new release and has auto-merge on. Approve it, then check the Mintlify deployment is
    live. *Why after publishing:* Mintlify publishes `docs/` from `main` immediately, so merged earlier,
    the install commands would point at a release that does not exist yet.
-5. **Stable releases only:** `release/build-image.sh X.Y.Z --promote` moves `X.Y` and `latest`.
+6. **Stable releases only:** `release/build-image.sh X.Y.Z --promote` moves `X.Y` and `latest`.
    *Why separate:* these tags move, so they point at a release only after it is published and tested.
 
 `main` carries the last released version; there is no `-SNAPSHOT`. A build from `main` is identified by
