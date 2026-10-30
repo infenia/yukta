@@ -99,7 +99,6 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'yk-check', description: 'Run the yk check gate and follow its stages in a pane' })
     await $.command.register({ name: 'yk-plan', description: 'Show the stages yk check would run for your changes' })
-    $.clock.every(10000, () => statusLine($))
     return next(e)
   })
 
@@ -119,8 +118,4 @@ export const register: Register = on => {
       </Box>
     )
   })
-}
-
-async function statusLine($: Engine) {
-  if (!(await isOff($))) $.ui.status(await run($, [yk, 'statusline']))
 }

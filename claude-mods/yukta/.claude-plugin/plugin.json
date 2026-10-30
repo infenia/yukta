@@ -39,7 +39,7 @@
       "type": "boolean",
       "title": "Status line entry",
       "description": "Show the server and run counts in the status line",
-      "default": true
+      "default": false
     }
   }
 }
