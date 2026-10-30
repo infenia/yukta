@@ -55,6 +55,7 @@ export function WorkflowCanvas({
   onConnect,
   onNodeClick,
   follow = false,
+  find = '',
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
@@ -72,6 +73,8 @@ export function WorkflowCanvas({
   onNodeClick?: (nodeId: string) => void;
   /** Keep the running nodes in view as the run moves on. */
   follow?: boolean;
+  /** Bring the nodes whose ID contains this into view (it wins over follow). */
+  find?: string;
 }) {
   const connectable = onConnect !== undefined;
   const { nodes, edges } = useMemo(() => {
@@ -85,6 +88,13 @@ export function WorkflowCanvas({
   const running = nodes.filter(
     (node) => node.type !== 'stageFrame' && node.data.status === 'running'
   );
+  const needle = find.trim().toLowerCase();
+  const found = needle
+    ? nodes
+        .filter((node) => node.id.toLowerCase().includes(needle))
+        .map((node) => node.id)
+        .join('\n')
+    : '';
   const focus = focusOn
     ? focusOn.map((id) => ({ id }))
     : nodes.length <= LARGE_GRAPH
@@ -120,8 +130,12 @@ export function WorkflowCanvas({
         }
         proOptions={{ hideAttribution: true }}
       >
-        {follow && (
-          <FollowNodes ids={running.map((node) => node.id).join('\n')} />
+        {found ? (
+          <FollowNodes ids={found} />
+        ) : (
+          follow && (
+            <FollowNodes ids={running.map((node) => node.id).join('\n')} />
+          )
         )}
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} />
         <Controls showInteractive={false} />

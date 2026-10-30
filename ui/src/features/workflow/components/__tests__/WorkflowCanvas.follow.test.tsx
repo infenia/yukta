@@ -65,3 +65,46 @@ describe('WorkflowCanvas follow', () => {
     expect(fitView).not.toHaveBeenCalled();
   });
 });
+
+describe('WorkflowCanvas find', () => {
+  beforeEach(() => fitView.mockClear());
+
+  it('brings the nodes whose ID matches into view, over following', () => {
+    const graph = createMockGraph();
+    const { rerender } = render(
+      <WorkflowCanvas
+        graph={graph}
+        tasksByNode={running('sink-storage')}
+        follow
+        find=" VECTOR "
+      />
+    );
+    expect(fitView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ nodes: [{ id: 'vectorize-batch' }] })
+    );
+
+    // cleared: following takes over again
+    rerender(
+      <WorkflowCanvas
+        graph={graph}
+        tasksByNode={running('sink-storage')}
+        follow
+        find=""
+      />
+    );
+    expect(fitView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ nodes: [{ id: 'sink-storage' }] })
+    );
+  });
+
+  it('does nothing when no node matches', () => {
+    render(
+      <WorkflowCanvas
+        graph={createMockGraph()}
+        tasksByNode={{}}
+        find="no-such-node"
+      />
+    );
+    expect(fitView).not.toHaveBeenCalled();
+  });
+});
