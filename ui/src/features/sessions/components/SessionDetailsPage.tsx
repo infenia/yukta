@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/common/Modal';
 import { useSessionDetails } from '../hooks/useSessionDetails';
@@ -13,6 +12,19 @@ import { SessionRowActionsMenu } from './SessionRowActionsMenu';
 import { WorkflowTable } from './WorkflowTable';
 import { RecentRuns } from './RecentRuns';
 import { StateMessage } from '@/components/common/StateMessage';
+import { useQuery } from '@tanstack/react-query';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { getSessionDraft } from '@/features/builder/api';
+import {
+  CopyAsMenu,
+  type CopyChoice,
+} from '@/features/workflow/components/CopyAsMenu';
+import { useCopyCommand } from '@/features/workflow/hooks/useCopyCommand';
 
 /** Asks for the new workflow's ID, then opens the editor on it. */
 function NewWorkflowDialog({
@@ -58,6 +70,61 @@ function NewWorkflowDialog({
         </div>
       </form>
     </Modal>
+  );
+}
+
+/** The session as an MCP call, curl or the CLI: create it, or run one of its workflows. */
+function SessionCopyAs({
+  sessionId,
+  workflowIds,
+}: {
+  sessionId: string;
+  workflowIds: string[];
+}) {
+  const draft = useQuery({
+    queryKey: ['session-draft', sessionId],
+    queryFn: () => getSessionDraft(sessionId),
+  });
+  const { status, copy } = useCopyCommand();
+  const choices: CopyChoice[] = [
+    ...(draft.data
+      ? [
+          {
+            label: 'Create this session',
+            action: { kind: 'createSession', session: draft.data } as const,
+          },
+        ]
+      : []),
+    ...workflowIds.map((workflowId) => ({
+      label: `Run ${workflowId}`,
+      action: { kind: 'start', sessionId, workflowId } as const,
+    })),
+  ];
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className={buttonVariants({ variant: 'outline' })}
+          aria-label="Copy as"
+        >
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-base"
+          >
+            content_copy
+          </span>
+          Copy as…
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <CopyAsMenu choices={choices} onCopy={copy} />
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {status && (
+        <span role="status" className="text-label-sm text-on-surface-variant">
+          {status === 'copied' ? 'Copied' : 'Copy failed'}
+        </span>
+      )}
+    </>
   );
 }
 
@@ -119,6 +186,10 @@ export function SessionDetailsPage() {
                 <span className="material-symbols-outlined text-base">add</span>
                 New workflow
               </Button>
+              <SessionCopyAs
+                sessionId={session.sessionId}
+                workflowIds={workflows.map((w) => w.workflowId)}
+              />
               <SessionRowActionsMenu session={session} showView={false} />
             </div>
           }

@@ -136,6 +136,8 @@ See [Persistence](/operations/persistence) and [Checkpoints and resume](/operati
 | Setting | Default | Meaning and effect |
 |---|---|---|
 | `yukta.bootstrap.dir` | unset | A folder of session files (`*.json`, the body of `POST /api/sessions`) applied at start-up, in name order. See [Persistence](/operations/persistence) |
+| `yukta.bootstrap.watch` | `false` | Keep checking `yukta.bootstrap.dir` after start-up and apply a new or changed file again (a new session version through the usual validation). A file that is invalid is logged and skipped until it changes again. A file removed from the folder keeps its session |
+| `yukta.bootstrap.watch-interval` | `5s` | How often the folder is checked when `yukta.bootstrap.watch` is on |
 | `yukta.session.store-type` | `in-memory` | `in-memory`, `file` or `postgres`. Selects the store for sessions and workflow definitions, and for the execution log when `postgres` |
 | `yukta.session.base-dir` (`YUKTA_SESSION_BASE_DIR`) | `.yukta` in the user's home directory | Root directory of the file store |
 | `yukta.restart.store-type` | file if `yukta.restart.dir` is set, else memory | `postgres` stores checkpoints in PostgreSQL |

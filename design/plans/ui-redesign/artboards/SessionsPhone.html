@@ -1,0 +1,145 @@
+<!--
+SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sessions on a phone</title>
+</head>
+<body>
+
+
+<style>
+@font-face{font-family:'Inter';src:url(assets/inter.woff2) format('woff2');font-weight:100 900;font-display:block}
+@font-face{font-family:'JetBrains Mono';src:url(assets/jetbrains-mono.woff2) format('woff2');font-weight:100 800;font-display:block}
+@font-face{font-family:'Material Symbols Outlined';src:url(assets/material-symbols.woff2) format('woff2');font-weight:300;font-display:block}
+.ms{font-feature-settings:'liga'}
+body{margin:0}
+.yk{--bg:oklch(0.99 0.003 262);--fg:oklch(0.2 0.02 262);--card:oklch(1 0 0);--primary:oklch(0.55 0.21 264);--pfg:oklch(0.99 0 0);--muted:oklch(0.965 0.008 262);--mfg:oklch(0.48 0.03 262);--accent:oklch(0.95 0.03 262);--afg:oklch(0.3 0.1 264);--destr:oklch(0.577 0.245 27.325);--border:oklch(0.91 0.01 262);--sh:oklch(0.93 0.015 262);--outline:oklch(0.57 0.05 262);--attn:oklch(0.62 0.19 45);--success:oklch(0.527 0.154 150);--warn:oklch(0.52 0.12 85);--term:oklch(0.97 0.005 262);--termfg:oklch(0.2 0.02 262);--ldebug:oklch(0.5 0.03 262);--linfo:oklch(0.45 0.15 264);--lwarn:oklch(0.5 0.12 80);--lerr:oklch(0.577 0.245 27.325);--cat-trig:oklch(0.62 0.19 45);--cat-proc:oklch(0.58 0.21 264);--cat-term:oklch(0.57 0.05 262);--e1:0 1px 2px rgb(17 22 31 / .05),0 1px 3px rgb(17 22 31 / .04);--e2:0 2px 4px rgb(17 22 31 / .04),0 12px 28px -12px rgb(17 22 31 / .16);
+background:var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif;font-size:14px;line-height:18px;letter-spacing:.16px;-webkit-font-smoothing:antialiased;min-height:100%}
+.yk.dark{--bg:oklch(0.16 0.015 262);--fg:oklch(0.97 0.005 262);--card:oklch(0.2 0.02 262);--primary:oklch(0.72 0.15 262);--pfg:oklch(0.15 0.03 262);--muted:oklch(0.25 0.02 262);--mfg:oklch(0.72 0.03 262);--accent:oklch(0.3 0.06 264);--afg:oklch(0.92 0.04 262);--destr:oklch(0.704 0.191 22.216);--border:oklch(0.32 0.02 262);--sh:oklch(0.3 0.025 262);--outline:oklch(0.65 0.05 262);--attn:oklch(0.75 0.16 50);--success:oklch(0.75 0.17 150);--warn:oklch(0.82 0.16 85);--term:oklch(0.13 0.015 262);--termfg:oklch(0.92 0.01 262);--ldebug:oklch(0.7 0.03 262);--linfo:oklch(0.75 0.12 262);--lwarn:oklch(0.82 0.16 85);--lerr:oklch(0.75 0.17 22);--cat-trig:oklch(0.75 0.16 50);--cat-proc:oklch(0.72 0.15 262);--cat-term:oklch(0.7 0.05 262);--e1:0 1px 2px rgb(0 0 0 / .35);--e2:0 2px 4px rgb(0 0 0 / .3),0 14px 32px -12px rgb(0 0 0 / .55)}
+.yk *{box-sizing:border-box}
+.yk a{color:var(--primary);text-decoration:none}.yk a:hover{text-decoration:underline}
+.ms{font-family:'Material Symbols Outlined';font-weight:300;font-style:normal;font-size:18px;line-height:1;display:inline-block;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 20;-webkit-font-smoothing:antialiased;user-select:none}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:16px;letter-spacing:0}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--mfg)}
+.over{font-size:12px;font-weight:600;line-height:16px;letter-spacing:.02em;color:var(--mfg)}
+.h1{margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.022em}
+.h2{margin:0;font-size:16px;line-height:22px;font-weight:600;letter-spacing:-.01em}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;border-radius:18px;border:1px solid transparent;font:inherit;font-weight:500;white-space:nowrap;cursor:pointer;background:transparent;color:var(--fg)}
+.btn:focus-visible{outline:3px solid color-mix(in oklch,var(--primary) 35%,transparent);outline-offset:1px}
+.btn-p{background:var(--primary);color:var(--pfg)}.btn-p:hover{background:color-mix(in oklch,var(--primary) 85%,var(--fg))}
+.btn-o{border-color:var(--border);background:var(--card)}.btn-o:hover,.btn-g:hover{background:var(--muted)}
+.btn-d{color:var(--destr)}.btn-d:hover{background:color-mix(in oklch,var(--destr) 10%,transparent)}
+.btn-sm{height:28px;padding:0 10px;font-size:13px}.btn-i{width:32px;padding:0}.btn-sm.btn-i{width:28px}
+.btn[disabled]{opacity:.45;cursor:default}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:18px;background:var(--card);padding:2px;gap:2px}
+.seg .btn{height:26px;border-radius:14px}
+.kbd{font-family:'JetBrains Mono',monospace;font-size:11px;line-height:16px;padding:0 5px;border-radius:4px;border:1px solid var(--border);background:var(--muted);color:var(--mfg)}
+.input{height:32px;padding:0 12px;border-radius:18px;border:1px solid transparent;background:var(--muted);color:var(--fg);font:inherit;min-width:0}
+.input::placeholder{color:var(--mfg)}
+.chip{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:11px;font-size:12px;font-weight:500;background:var(--muted);color:var(--fg);border:1px solid var(--border);white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 10px 0 8px;border-radius:11px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--t);background:color-mix(in oklch,var(--t) 11%,var(--card));border:1px solid color-mix(in oklch,var(--t) 28%,transparent)}
+.pill .ms{font-size:15px}
+.pill.dash{border-style:dashed;background:transparent}
+.t-muted{--t:var(--mfg)}.t-primary{--t:var(--primary)}.t-attn{--t:var(--attn)}.t-ok{--t:var(--success)}.t-bad{--t:var(--destr)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--t);box-shadow:0 0 0 3px color-mix(in oklch,var(--t) 25%,transparent)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--e1)}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;font-size:12px;font-weight:600;color:var(--mfg);background:var(--muted);padding:9px 16px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{padding:10px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl tbody tr:hover td{background:color-mix(in oklch,var(--muted) 55%,transparent)}
+.copy{display:inline-flex;align-items:center;gap:4px;border:0;background:none;padding:2px 4px;border-radius:6px;color:var(--mfg);cursor:pointer;font:inherit}
+.copy:hover{background:var(--muted);color:var(--fg)}
+.navlink{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:8px;color:var(--mfg) !important;font-weight:500;text-decoration:none !important}
+.navlink:hover{background:var(--muted);color:var(--fg) !important}
+.navlink.on{background:var(--accent);color:var(--afg) !important}
+.crumb{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mfg)}
+.crumb a{color:var(--mfg)}
+.tab{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 2px;border:0;border-bottom:2px solid transparent;background:none;font:inherit;font-weight:500;color:var(--mfg);cursor:pointer}
+.tab.on{color:var(--fg);border-bottom-color:var(--primary)}
+.count{font-size:11px;line-height:16px;padding:0 6px;border-radius:8px;background:var(--muted);color:var(--mfg)}
+@media (max-width:760px){.hide-sm{display:none !important}}
+</style>
+
+
+<div class="yk" data-default-theme="light">
+<div style="width: 390px; height: 1100px; display: flex; flex-direction: column; background: var(--bg); overflow: hidden">
+  <header style="display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 12px 0 16px; background: var(--card); border-bottom: 1px solid var(--border)">
+    <img src="assets/yukta-mark.svg" alt="" style="width: 24px; height: 24px"><span style="font-weight: 600; font-size: 16px">Yukta</span>
+    <div style="flex: 1"></div>
+    <a class="btn btn-g btn-i" href="CommandPalette.html" aria-label="Search" style="width: 44px; height: 44px"><span class="ms">search</span></a>
+    <button class="btn btn-g btn-i" aria-label="Account and theme" style="width: 44px; height: 44px"><span class="ms">account_circle</span></button>
+  </header>
+  <main style="flex: 1; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <h1 class="h1" style="flex: 1">Sessions</h1>
+      <a class="btn btn-p" href="#" style="height: 40px; text-decoration: none"><span class="ms">add</span>New</a>
+    </div>
+    <input class="input" style="height: 44px" placeholder="Filter sessions" aria-label="Filter sessions">
+    <div style="display: flex; gap: 6px; overflow-x: auto">
+      <button class="btn btn-o btn-sm">Tag: any</button><button class="btn btn-o btn-sm">Initiator: any</button><button class="btn btn-o btn-sm">Last run: any</button>
+    </div>
+    <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px">
+      <li class="card" style="padding: 14px; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; align-items: center; gap: 8px"><a href="SessionDetail.html" style="font-weight: 600; flex: 1">dogfood</a><button class="btn btn-g btn-i" aria-label="More actions for dogfood" style="width: 44px; height: 44px; margin: -10px -10px -10px 0"><span class="ms">more_vert</span></button></div>
+        <div class="muted" style="font-size: 13px">Run the repo quality gates as a staged, fail-fast Yukta workflow.</div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"><span class="pill t-ok" data-status="SUCCESS"><span class="ms">check_circle</span>Succeeded</span><span class="muted" style="font-size: 12px">tool · 4 min ago</span></div>
+        <dl style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 13px">
+          <dt class="muted">Workflows</dt><dd style="margin: 0" class="num">5</dd>
+          <dt class="muted">Initiator</dt><dd style="margin: 0">examples</dd>
+          <dt class="muted">Path</dt><dd style="margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap" class="mono">/home/arun/.local/state/yukta-dev/main</dd>
+        </dl>
+      </li>
+      <li class="card" style="padding: 14px; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; align-items: center; gap: 8px"><a href="SessionDetail.html" style="font-weight: 600; flex: 1">Build pipeline</a><button class="btn btn-g btn-i" aria-label="More actions for Build pipeline" style="width: 44px; height: 44px; margin: -10px -10px -10px 0"><span class="ms">more_vert</span></button></div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"><span class="pill t-primary" data-status="RUNNING"><span class="dot"></span>Running</span><span class="muted" style="font-size: 12px">deploy · 1m 12s</span></div>
+        <dl style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 13px">
+          <dt class="muted">Workflows</dt><dd style="margin: 0" class="num">3</dd>
+          <dt class="muted">Initiator</dt><dd style="margin: 0">github-actions</dd>
+        </dl>
+      </li>
+      <li class="card" style="padding: 14px; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; align-items: center; gap: 8px"><a href="SessionDetail.html" style="font-weight: 600; flex: 1">Code review</a><button class="btn btn-g btn-i" aria-label="More actions for Code review" style="width: 44px; height: 44px; margin: -10px -10px -10px 0"><span class="ms">more_vert</span></button></div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"><span class="pill t-bad" data-status="FAILURE"><span class="ms">error</span>Failed</span><span class="muted" style="font-size: 12px">quality-gate · 2 h ago</span></div>
+        <dl style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 13px">
+          <dt class="muted">Workflows</dt><dd style="margin: 0" class="num">5</dd>
+          <dt class="muted">Initiator</dt><dd style="margin: 0">agent · claude</dd>
+        </dl>
+      </li>
+      <li class="card" style="padding: 14px; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; align-items: center; gap: 8px"><a href="SessionDetail.html" style="font-weight: 600; flex: 1">Data pipeline</a><button class="btn btn-g btn-i" aria-label="More actions for Data pipeline" style="width: 44px; height: 44px; margin: -10px -10px -10px 0"><span class="ms">more_vert</span></button></div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"><span class="pill t-muted" data-status="NOT_RUN"><span class="ms">schedule</span>Not run</span></div>
+        <dl style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 13px">
+          <dt class="muted">Workflows</dt><dd style="margin: 0" class="num">2</dd>
+          <dt class="muted">Initiator</dt><dd style="margin: 0">schedule</dd>
+        </dl>
+      </li>
+    </ul>
+    <p class="muted" style="text-align: center; font-size: 12px; margin: 4px 0 0">4 of 4 sessions</p>
+  </main>
+  <nav aria-label="Main" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); height: 64px; border-top: 1px solid var(--border); background: var(--card)">
+    <a href="Main.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--primary); font-size: 11px; font-weight: 600; text-decoration: none"><span class="ms" style="font-size: 22px">folder</span>Sessions</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--mfg); font-size: 11px; font-weight: 500; text-decoration: none"><span class="ms" style="font-size: 22px">history</span>Runs</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--mfg); font-size: 11px; font-weight: 500; text-decoration: none"><span class="ms" style="font-size: 22px">extension</span>Plugins</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--mfg); font-size: 11px; font-weight: 500; text-decoration: none"><span class="ms" style="font-size: 22px">hub</span>Control</a>
+  </nav>
+</div>
+
+</div>
+
+<script>
+// Offline copy of a Claude Design artboard. Theme: add #dark or #light to the URL.
+(function(){var root=document.querySelector('.yk');var h=location.hash.slice(1);
+var t=h==='dark'||h==='light'?h:root.getAttribute('data-default-theme');
+root.classList.toggle('dark',t==='dark');
+window.addEventListener('hashchange',function(){location.reload()});})();
+</script>
+</body>
+</html>
