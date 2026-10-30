@@ -40,6 +40,16 @@ test.describe('Workflow Details Page', () => {
       'Waiting'
     );
 
+    await expect(page.getByTestId('task-sequence')).toContainText('Succeeded');
+    await expect(page.getByTestId('task-sequence')).toContainText(
+      'module: vector-engine-v2'
+    );
+    await expect(page.getByTestId('task-sequence')).toContainText(
+      'Dur: 1m 12s'
+    );
+
+    // the run's IDs and times sit on the Details tab
+    await page.getByRole('tab', { name: 'Details' }).click();
     await expect(page.getByTestId('execution-summary')).toContainText(
       'exec-091-qp-55'
     );
@@ -48,13 +58,6 @@ test.describe('Workflow Details Page', () => {
     );
     await expect(page.getByTestId('execution-summary')).toContainText(
       '--:--:--'
-    );
-    await expect(page.getByTestId('task-sequence')).toContainText('Succeeded');
-    await expect(page.getByTestId('task-sequence')).toContainText(
-      'module: vector-engine-v2'
-    );
-    await expect(page.getByTestId('task-sequence')).toContainText(
-      'Dur: 1m 12s'
     );
 
     await expect(page.getByTestId('logs-body')).toContainText(
@@ -438,7 +441,7 @@ test.describe('Workflow Details Page', () => {
     );
     await page.goto(WORKFLOW_URL);
 
-    await page.getByRole('tab', { name: 'results' }).click();
+    await page.getByRole('tab', { name: 'Result' }).click();
     await expect(page.getByText('Persist_Results · #1')).toBeVisible();
     const download = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Download JSON' }).click();

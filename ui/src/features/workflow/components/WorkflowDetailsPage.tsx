@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Link, useParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
 import {
@@ -120,6 +121,9 @@ export function WorkflowDetailsPage() {
   }, [progress]);
   const stages = useStageView(graph, tasksByNode);
   const live = !isTerminalExecStatus(progress?.status);
+  const [follow, setFollow] = useState(true);
+  // only a run that is going has running nodes to follow
+  const followable = progress !== null && live;
   const subWorkflowLinks = useSubWorkflowLinks(
     sessionId,
     graph,
@@ -309,34 +313,51 @@ export function WorkflowDetailsPage() {
 
       {/* A fixed-height workspace: the canvas fills it and the panel scrolls inside it, so a
           100-node run no longer stretches the page */}
-      <div className="flex h-[clamp(28rem,calc(100dvh-14rem),56rem)]">
-        <div className="relative min-w-0 flex-1">
-          <SubWorkflowLinks value={subWorkflowLinks}>
+      {/* The canvas nodes and the failure callout both open sub-workflow runs */}
+      <SubWorkflowLinks value={subWorkflowLinks}>
+        <div className="flex h-[clamp(28rem,calc(100dvh-14rem),56rem)]">
+          <div className="relative min-w-0 flex-1">
             <WorkflowCanvas
               graph={graph}
               tasksByNode={tasksByNode}
               stageView={stages.stageView}
               onNodeClick={setLogNode}
+              follow={follow && followable}
             />
-          </SubWorkflowLinks>
-          {stages.hasStages && (
-            <GroupingSwitch
-              grouped={stages.grouped}
-              onChange={stages.setGrouped}
+            {followable && (
+              <button
+                type="button"
+                aria-pressed={follow}
+                onClick={() => setFollow((value) => !value)}
+                className={cn(
+                  'bg-surface border-border shadow-card text-label-sm absolute top-3 right-3 z-10 rounded-lg border px-2.5 py-1',
+                  follow
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                )}
+              >
+                Follow running nodes
+              </button>
+            )}
+            {stages.hasStages && (
+              <GroupingSwitch
+                grouped={stages.grouped}
+                onChange={stages.setGrouped}
+              />
+            )}
+          </div>
+          {panelOpen && (
+            <ProgressPanel
+              graph={graph}
+              progress={progress}
+              tasksByNode={tasksByNode}
+              sessionId={sessionId}
+              onClose={() => setPanelOpen(false)}
+              onNodeCommand={selectedExecutionId ? onNodeCommand : undefined}
             />
           )}
         </div>
-        {panelOpen && (
-          <ProgressPanel
-            graph={graph}
-            progress={progress}
-            tasksByNode={tasksByNode}
-            sessionId={sessionId}
-            onClose={() => setPanelOpen(false)}
-            onNodeCommand={selectedExecutionId ? onNodeCommand : undefined}
-          />
-        )}
-      </div>
+      </SubWorkflowLinks>
 
       <LogsPanel
         sessionId={sessionId}

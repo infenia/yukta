@@ -192,6 +192,15 @@ describe('WorkflowDetailsPage', () => {
     expect(screen.queryByText('Node: vectorize-batch')).not.toBeInTheDocument();
   });
 
+  it('follows the running nodes of a live run until told not to', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const follow = await screen.findByRole('button', { name: 'Follow running nodes' });
+    expect(follow).toHaveAttribute('aria-pressed', 'true');
+    await user.click(follow);
+    expect(follow).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('shows a loading state before data arrives', () => {
     renderPage();
     expect(screen.getByText('Loading workflow...')).toBeInTheDocument();
@@ -287,6 +296,7 @@ describe('WorkflowDetailsPage', () => {
 
     await user.click(screen.getByRole('button', { name: /run history/i }));
     await user.click(await screen.findByText('exec-old-1'));
+    await user.click(screen.getByRole('tab', { name: 'Details' }));
 
     await waitFor(() =>
       expect(screen.getByTestId('execution-summary')).toHaveTextContent(
@@ -303,6 +313,7 @@ describe('WorkflowDetailsPage', () => {
       '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11?exec=exec-old-1'
     );
     await screen.findByTestId('workflow-details-page');
+    await userEvent.click(screen.getByRole('tab', { name: 'Details' }));
 
     await waitFor(() =>
       expect(screen.getByTestId('execution-summary')).toHaveTextContent(
@@ -318,6 +329,8 @@ describe('WorkflowDetailsPage', () => {
 
     expect(screen.getByTestId('status-chip')).toHaveTextContent('Not run');
     expect(screen.getByTestId('run-history-empty')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Follow running nodes' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: 'Details' }));
     expect(screen.getByTestId('execution-summary')).toHaveTextContent(
       'Not run'
     );
