@@ -97,6 +97,23 @@ class ExecutionSearchControllerTest {
   }
 
   @Test
+  void workflowFilter_isAskedOfTheTrackerPerSession() {
+    when(sessions.getSessionIds()).thenReturn(Flux.just("s1"));
+    when(controlBus.getHistory("s1", "wf"))
+        .thenReturn(Mono.just(List.of(run("a1", "wf", "SUCCESS", NOON))));
+
+    client
+        .get()
+        .uri("/api/executions?workflowId=wf")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.length()")
+        .isEqualTo(1)
+        .jsonPath("$.data[0].executionId")
+        .isEqualTo("a1");
+  }
+
+  @Test
   void hitsCarryNodeProgress() {
     when(sessions.getSessionIds()).thenReturn(Flux.just("s1"));
     when(controlBus.getHistory("s1"))
