@@ -5,67 +5,115 @@
     "version" : "v0"
   },
   "tags" : [ {
-    "description" : "Supervisors and control planes on the control bus",
-    "name" : "Supervisors API"
+    "name" : "Supervisors API",
+    "description" : "Supervisors and control planes on the control bus"
   }, {
-    "description" : "List the saved versions and roll back",
-    "name" : "Workflow Versions API"
+    "name" : "Workflow Versions API",
+    "description" : "List the saved versions and roll back"
   }, {
-    "description" : "Endpoints for starting workflows and listing their executions",
-    "name" : "Workflow API"
+    "name" : "Workflow API",
+    "description" : "Endpoints for starting workflows and listing their executions"
   }, {
-    "description" : "Edition, licence and features of this build",
-    "name" : "Edition API"
+    "name" : "Edition API",
+    "description" : "Edition, licence and features of this build"
   }, {
-    "description" : "Stop, restart and observe workflow executions",
-    "name" : "Execution API"
+    "name" : "Execution API",
+    "description" : "Stop, restart and observe workflow executions"
   }, {
-    "description" : "Find runs across sessions",
-    "name" : "Execution Search API"
+    "name" : "Execution Search API",
+    "description" : "Find runs across sessions"
   }, {
-    "description" : "Endpoints for control bus operations, node management, and execution observability",
-    "name" : "Control Bus & Observability API"
+    "name" : "Control Bus & Observability API",
+    "description" : "Endpoints for control bus operations, node management, and execution observability"
   }, {
-    "description" : "Who is calling and what the key may do",
-    "name" : "Session API"
+    "name" : "Session API",
+    "description" : "Who is calling and what the key may do"
   }, {
-    "description" : "Read part of the output of a node",
-    "name" : "Node Output API"
+    "name" : "Node Output API",
+    "description" : "Read part of the output of a node"
   }, {
-    "description" : "Pause, resume, step and stop nodes",
-    "name" : "Execution Control API"
+    "name" : "Execution Control API",
+    "description" : "Pause, resume, step and stop nodes"
   }, {
-    "description" : "Endpoints for session and workflow discovery, configuration management",
-    "name" : "Session API"
+    "name" : "Session API",
+    "description" : "Endpoints for session and workflow discovery, configuration management"
   }, {
-    "description" : "Validate a draft workflow without saving it",
-    "name" : "Session API"
+    "name" : "Session API",
+    "description" : "Validate a draft workflow without saving it"
   }, {
-    "description" : "Workers connected to the control plane",
-    "name" : "Workers API"
+    "name" : "Workers API",
+    "description" : "Workers connected to the control plane"
   }, {
-    "description" : "Live feed of execution events",
-    "name" : "Events API"
+    "name" : "Events API",
+    "description" : "Live feed of execution events"
   }, {
-    "description" : "Workflow DAG graph with plugin metadata and per-workflow execution history",
-    "name" : "Workflow Details API"
+    "name" : "Workflow Details API",
+    "description" : "Workflow DAG graph with plugin metadata and per-workflow execution history"
   }, {
-    "description" : "Follow the result of an execution",
-    "name" : "Execution Results API"
+    "name" : "Execution Results API",
+    "description" : "Follow the result of an execution"
   }, {
-    "description" : "Stream execution logs",
-    "name" : "Execution Logs API"
+    "name" : "Execution Logs API",
+    "description" : "Stream execution logs"
   }, {
-    "description" : "Control commands and who sent them",
-    "name" : "Control audit API"
+    "name" : "Control audit API",
+    "description" : "Control commands and who sent them"
   }, {
-    "description" : "Example sessions to start from",
-    "name" : "Templates API"
+    "name" : "Templates API",
+    "description" : "Example sessions to start from"
   }, {
-    "description" : "Endpoints for discovering workflow plugins",
-    "name" : "Plugin API"
+    "name" : "Webhook API",
+    "description" : "Signed inbound calls that start a workflow"
+  }, {
+    "name" : "Plugin API",
+    "description" : "Endpoints for discovering workflow plugins"
   } ],
   "paths" : {
+    "/hooks/{sessionId}/{path}" : {
+      "post" : {
+        "description" : "Starts the workflow whose WEBHOOK_TRIGGER node has this path. 401 unless the body is signed with the node's secret; 404 for an unknown hook.",
+        "operationId" : "call",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "sessionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "format" : "byte",
+                "type" : "string"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
+                }
+              }
+            },
+            "description" : "Accepted"
+          }
+        },
+        "summary" : "Call a webhook",
+        "tags" : [ "Webhook API" ]
+      }
+    },
     "/api/workflow/executions/{executionId}/stop" : {
       "post" : {
         "tags" : [ "Execution API" ],
@@ -73,31 +121,31 @@
         "description" : "With tree=true also every unfinished run it started as a sub-workflow. Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)",
         "operationId" : "stopExecution",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Also the runs it started as sub-workflows, at any depth",
-          "in" : "query",
           "name" : "tree",
+          "in" : "query",
+          "description" : "Also the runs it started as sub-workflows, at any depth",
           "required" : false,
           "schema" : {
-            "default" : false,
-            "type" : "boolean"
+            "type" : "boolean",
+            "default" : false
           }
         }, {
-          "description" : "DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once",
-          "in" : "query",
           "name" : "mode",
+          "in" : "query",
+          "description" : "DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once",
           "required" : false,
           "schema" : {
+            "type" : "string",
             "default" : "DRAIN",
-            "enum" : [ "DRAIN", "CANCEL", "KILL" ],
-            "type" : "string"
+            "enum" : [ "DRAIN", "CANCEL", "KILL" ]
           }
         } ],
         "responses" : {
@@ -121,31 +169,31 @@
         "description" : "With tree=true also every unfinished run it started as a sub-workflow. Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)",
         "operationId" : "stopExecution_1",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Also the runs it started as sub-workflows, at any depth",
-          "in" : "query",
           "name" : "tree",
+          "in" : "query",
+          "description" : "Also the runs it started as sub-workflows, at any depth",
           "required" : false,
           "schema" : {
-            "default" : false,
-            "type" : "boolean"
+            "type" : "boolean",
+            "default" : false
           }
         }, {
-          "description" : "DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once",
-          "in" : "query",
           "name" : "mode",
+          "in" : "query",
+          "description" : "DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once",
           "required" : false,
           "schema" : {
+            "type" : "string",
             "default" : "DRAIN",
-            "enum" : [ "DRAIN", "CANCEL", "KILL" ],
-            "type" : "string"
+            "enum" : [ "DRAIN", "CANCEL", "KILL" ]
           }
         } ],
         "responses" : {
@@ -169,17 +217,17 @@
         "description" : "Restarts from a node, replaying the last checkpoints of its parents. Legacy path: /api/workflow/executions/{executionId}/restart/{fromNodeId} (deprecated)",
         "operationId" : "restartFromNode",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID to restart from",
-          "in" : "path",
           "name" : "fromNodeId",
+          "in" : "path",
+          "description" : "Node ID to restart from",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -206,17 +254,17 @@
         "description" : "Restarts from a node, replaying the last checkpoints of its parents. Legacy path: /api/workflow/executions/{executionId}/restart/{fromNodeId} (deprecated)",
         "operationId" : "restartFromNode_1",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID to restart from",
-          "in" : "path",
           "name" : "fromNodeId",
+          "in" : "path",
+          "description" : "Node ID to restart from",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -243,9 +291,9 @@
         "description" : "Stops the execution and restarts the workflow with the original trigger payload. Legacy path: /api/workflow/executions/{executionId}/restart (deprecated)",
         "operationId" : "restartWorkflow",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -272,9 +320,9 @@
         "description" : "Stops the execution and restarts the workflow with the original trigger payload. Legacy path: /api/workflow/executions/{executionId}/restart (deprecated)",
         "operationId" : "restartWorkflow_1",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -301,21 +349,21 @@
         "description" : "Resumes a specific paused workflow execution; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)",
         "operationId" : "resumeWorkflow",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Also every unfinished run the execution started as a sub-workflow, at any depth",
-          "in" : "query",
           "name" : "tree",
+          "in" : "query",
+          "description" : "Also every unfinished run the execution started as a sub-workflow, at any depth",
           "required" : false,
           "schema" : {
-            "default" : false,
-            "type" : "boolean"
+            "type" : "boolean",
+            "default" : false
           }
         } ],
         "responses" : {
@@ -339,29 +387,29 @@
         "description" : "Resumes a specific paused workflow execution; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)",
         "operationId" : "resumeWorkflow_1",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
           "in" : "path",
-          "name" : "executionId",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Also every unfinished run the execution started as a sub-workflow, at any depth",
-          "in" : "query",
+          "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "tree",
+          "in" : "query",
+          "description" : "Also every unfinished run the execution started as a sub-workflow, at any depth",
           "required" : false,
           "schema" : {
-            "default" : false,
-            "type" : "boolean"
+            "type" : "boolean",
+            "default" : false
           }
         } ],
         "responses" : {
@@ -385,9 +433,9 @@
         "description" : "Continues a run that a server restart aborted as a new run: nodes that finished are replayed from their recorded output, the rest run again. Needs the file execution log and checkpoint directories. Answers 409 if the run was not aborted, was already resumed or its workflow changed.",
         "operationId" : "recoverExecution",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -414,17 +462,17 @@
         "description" : "Continues a run that a server restart aborted as a new run: nodes that finished are replayed from their recorded output, the rest run again. Needs the file execution log and checkpoint directories. Answers 409 if the run was not aborted, was already resumed or its workflow changed.",
         "operationId" : "recoverExecution_1",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -451,21 +499,21 @@
         "description" : "Pauses a specific workflow execution via global backpressure; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)",
         "operationId" : "pauseWorkflow",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Also every unfinished run the execution started as a sub-workflow, at any depth",
-          "in" : "query",
           "name" : "tree",
+          "in" : "query",
+          "description" : "Also every unfinished run the execution started as a sub-workflow, at any depth",
           "required" : false,
           "schema" : {
-            "default" : false,
-            "type" : "boolean"
+            "type" : "boolean",
+            "default" : false
           }
         } ],
         "responses" : {
@@ -489,29 +537,29 @@
         "description" : "Pauses a specific workflow execution via global backpressure; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)",
         "operationId" : "pauseWorkflow_1",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
           "in" : "path",
-          "name" : "executionId",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Also every unfinished run the execution started as a sub-workflow, at any depth",
-          "in" : "query",
+          "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "tree",
+          "in" : "query",
+          "description" : "Also every unfinished run the execution started as a sub-workflow, at any depth",
           "required" : false,
           "schema" : {
-            "default" : false,
-            "type" : "boolean"
+            "type" : "boolean",
+            "default" : false
           }
         } ],
         "responses" : {
@@ -535,38 +583,38 @@
         "description" : "Stops a single node, immediately or after draining inflight work. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/stop (deprecated)",
         "operationId" : "stopNode",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
           "in" : "path",
-          "name" : "nodeId",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "True for hard stop, false for drain & stop",
-          "in" : "query",
-          "name" : "immediate",
-          "required" : false,
+          "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
+          "required" : true,
           "schema" : {
-            "default" : false,
-            "type" : "boolean"
+            "type" : "string"
           }
         }, {
-          "description" : "Human-readable reason for the stop",
+          "name" : "immediate",
           "in" : "query",
-          "name" : "reason",
+          "description" : "True for hard stop, false for drain & stop",
           "required" : false,
           "schema" : {
-            "default" : "Stopped via REST API",
-            "type" : "string"
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
+          "name" : "reason",
+          "in" : "query",
+          "description" : "Human-readable reason for the stop",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "Stopped via REST API"
           }
         } ],
         "responses" : {
@@ -590,46 +638,46 @@
         "description" : "Stops a single node, immediately or after draining inflight work. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/stop (deprecated)",
         "operationId" : "stopNode_1",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
           "in" : "path",
-          "name" : "nodeId",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "True for hard stop, false for drain & stop",
-          "in" : "query",
-          "name" : "immediate",
-          "required" : false,
+          "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
+          "required" : true,
           "schema" : {
-            "default" : false,
-            "type" : "boolean"
+            "type" : "string"
           }
         }, {
-          "description" : "Human-readable reason for the stop",
+          "name" : "immediate",
           "in" : "query",
-          "name" : "reason",
+          "description" : "True for hard stop, false for drain & stop",
           "required" : false,
           "schema" : {
-            "default" : "Stopped via REST API",
-            "type" : "string"
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
+          "name" : "reason",
+          "in" : "query",
+          "description" : "Human-readable reason for the stop",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "Stopped via REST API"
           }
         } ],
         "responses" : {
@@ -653,17 +701,17 @@
         "description" : "Enables step-through debug mode on a node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/enable (deprecated)",
         "operationId" : "enableStepMode",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID",
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -690,25 +738,25 @@
         "description" : "Enables step-through debug mode on a node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/enable (deprecated)",
         "operationId" : "enableStepMode_1",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID",
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -735,17 +783,17 @@
         "description" : "Disables step-through debug mode on a node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/disable (deprecated)",
         "operationId" : "disableStepMode",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID",
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -772,25 +820,25 @@
         "description" : "Disables step-through debug mode on a node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/disable (deprecated)",
         "operationId" : "disableStepMode_1",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID",
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -817,17 +865,17 @@
         "description" : "Lets exactly one element through a node in step-through mode. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step (deprecated)",
         "operationId" : "stepNode",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID",
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -854,25 +902,25 @@
         "description" : "Lets exactly one element through a node in step-through mode. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step (deprecated)",
         "operationId" : "stepNode_1",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID",
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -899,29 +947,29 @@
         "description" : "Marks a node as skipped (passthrough) or not. Core currently rejects this for running executions.. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/skip (deprecated)",
         "operationId" : "skipNode",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
           "in" : "path",
-          "name" : "nodeId",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "True to skip, false to unskip",
-          "in" : "query",
+          "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "skip",
+          "in" : "query",
+          "description" : "True to skip, false to unskip",
           "required" : false,
           "schema" : {
-            "default" : true,
-            "type" : "boolean"
+            "type" : "boolean",
+            "default" : true
           }
         } ],
         "responses" : {
@@ -945,37 +993,37 @@
         "description" : "Marks a node as skipped (passthrough) or not. Core currently rejects this for running executions.. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/skip (deprecated)",
         "operationId" : "skipNode_1",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
           "in" : "path",
-          "name" : "nodeId",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "True to skip, false to unskip",
-          "in" : "query",
+          "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "skip",
+          "in" : "query",
+          "description" : "True to skip, false to unskip",
           "required" : false,
           "schema" : {
-            "default" : true,
-            "type" : "boolean"
+            "type" : "boolean",
+            "default" : true
           }
         } ],
         "responses" : {
@@ -999,17 +1047,17 @@
         "description" : "Resumes a single paused node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/resume (deprecated)",
         "operationId" : "resumeNode",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID",
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -1036,25 +1084,25 @@
         "description" : "Resumes a single paused node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/resume (deprecated)",
         "operationId" : "resumeNode_1",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID",
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -1081,17 +1129,17 @@
         "description" : "Pauses a single node via backpressure. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/pause (deprecated)",
         "operationId" : "pauseNode",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID",
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -1118,25 +1166,25 @@
         "description" : "Pauses a single node via backpressure. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/pause (deprecated)",
         "operationId" : "pauseNode_1",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID",
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -1163,30 +1211,30 @@
         "description" : "Stops all active executions of a workflow and severs the trigger plugin input stream",
         "operationId" : "stopWorkflow",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Workflow ID",
           "in" : "path",
-          "name" : "workflowId",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once",
-          "in" : "query",
+          "name" : "workflowId",
+          "in" : "path",
+          "description" : "Workflow ID",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "mode",
+          "in" : "query",
+          "description" : "DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once",
           "required" : false,
           "schema" : {
+            "type" : "string",
             "default" : "DRAIN",
-            "enum" : [ "DRAIN", "CANCEL", "KILL" ],
-            "type" : "string"
+            "enum" : [ "DRAIN", "CANCEL", "KILL" ]
           }
         } ],
         "responses" : {
@@ -1210,8 +1258,8 @@
         "description" : "Starts the execution of a DAG workflow for a session. Answers 404 for an unknown session or workflow and 429 when the execution limit is reached.",
         "operationId" : "startWorkflow",
         "parameters" : [ {
-          "in" : "header",
           "name" : "Idempotency-Key",
+          "in" : "header",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -1248,16 +1296,16 @@
         "description" : "Lists session identifiers alphabetically. A further page is announced in the X-Next-Cursor header.",
         "operationId" : "listSessions",
         "parameters" : [ {
-          "in" : "query",
           "name" : "limit",
+          "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         }, {
-          "in" : "query",
           "name" : "cursor",
+          "in" : "query",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -1311,37 +1359,37 @@
         "summary" : "Write or clear the note on a saved version",
         "operationId" : "note",
         "parameters" : [ {
-          "description" : "The unique identifier of the session",
-          "in" : "path",
           "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "The unique identifier of the workflow",
           "in" : "path",
+          "description" : "The unique identifier of the session",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "workflowId",
+          "in" : "path",
+          "description" : "The unique identifier of the workflow",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Version id from the list",
-          "in" : "query",
           "name" : "version",
+          "in" : "query",
+          "description" : "Version id from the list",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "The note; blank clears it",
-          "in" : "query",
           "name" : "note",
+          "in" : "query",
+          "description" : "The note; blank clears it",
           "required" : false,
           "schema" : {
-            "default" : "",
-            "type" : "string"
+            "type" : "string",
+            "default" : ""
           }
         } ],
         "responses" : {
@@ -1364,25 +1412,25 @@
         "summary" : "Roll a workflow back to a saved version",
         "operationId" : "rollback",
         "parameters" : [ {
-          "description" : "The unique identifier of the session",
-          "in" : "path",
           "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "The unique identifier of the workflow",
           "in" : "path",
-          "name" : "workflowId",
+          "description" : "The unique identifier of the session",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Version id from the list",
-          "in" : "query",
+          "name" : "workflowId",
+          "in" : "path",
+          "description" : "The unique identifier of the workflow",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "version",
+          "in" : "query",
+          "description" : "Version id from the list",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -1456,22 +1504,22 @@
         "summary" : "Change the execution limits",
         "operationId" : "changeLimits",
         "parameters" : [ {
-          "description" : "Most executions running at once",
-          "in" : "query",
           "name" : "maxConcurrent",
+          "in" : "query",
+          "description" : "Most executions running at once",
           "required" : true,
           "schema" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         }, {
-          "description" : "Most executions of one workflow running at once",
-          "in" : "query",
           "name" : "maxPerWorkflow",
+          "in" : "query",
+          "description" : "Most executions of one workflow running at once",
           "required" : true,
           "schema" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         } ],
         "responses" : {
@@ -1495,21 +1543,21 @@
         "description" : "Rejected unless the execution is waiting for a slot",
         "operationId" : "changePriority",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "New priority; higher runs first",
-          "in" : "query",
           "name" : "priority",
+          "in" : "query",
+          "description" : "New priority; higher runs first",
           "required" : true,
           "schema" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         } ],
         "responses" : {
@@ -1533,41 +1581,41 @@
         "description" : "Releases or rejects a node that waits for the named signal, for example a WAIT_FOR_SIGNAL approval step. Answers 409 if the node is not waiting for it.",
         "operationId" : "signalNode",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
           "in" : "path",
+          "description" : "Execution ID",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Name of the signal the node waits for",
-          "in" : "query",
           "name" : "name",
+          "in" : "query",
+          "description" : "Name of the signal the node waits for",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Decision, for example approve or reject",
-          "in" : "query",
           "name" : "decision",
+          "in" : "query",
+          "description" : "Decision, for example approve or reject",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Optional text that goes with the decision",
-          "in" : "query",
           "name" : "data",
+          "in" : "query",
+          "description" : "Optional text that goes with the decision",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -1594,17 +1642,17 @@
         "description" : "Restarts the execution from a node that failed. Returns the new execution.",
         "operationId" : "retryNode",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID",
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -1631,33 +1679,33 @@
         "description" : "Pauses the node when the given payload field equals the given value, for example field=payload.status&equals=error",
         "operationId" : "addBreakpoint",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
           "in" : "path",
+          "description" : "Execution ID",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Field to compare, for example payload.status",
-          "in" : "query",
           "name" : "field",
+          "in" : "query",
+          "description" : "Field to compare, for example payload.status",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Value that triggers the breakpoint",
-          "in" : "query",
           "name" : "equals",
+          "in" : "query",
+          "description" : "Value that triggers the breakpoint",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -1681,17 +1729,17 @@
         "summary" : "Clear a breakpoint on a node",
         "operationId" : "clearBreakpoint",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Node ID",
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -1718,15 +1766,15 @@
         "description" : "Sends an administrative command to a specific node in a workflow",
         "operationId" : "sendCommand",
         "parameters" : [ {
-          "in" : "path",
           "name" : "workflowId",
+          "in" : "path",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -1828,25 +1876,25 @@
         "description" : "Streams progress via SSE. Legacy path: /api/workflow/{sessionId}/status/{executionId}/stream (deprecated)",
         "operationId" : "streamWorkflowStatus",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Include historical status updates (last N minutes)",
-          "in" : "query",
           "name" : "includeHistory",
+          "in" : "query",
+          "description" : "Include historical status updates (last N minutes)",
           "required" : false,
           "schema" : {
-            "default" : true,
-            "type" : "boolean"
+            "type" : "boolean",
+            "default" : true
           }
         }, {
-          "in" : "header",
           "name" : "Last-Event-ID",
+          "in" : "header",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -1876,33 +1924,33 @@
         "description" : "Streams progress via SSE. Legacy path: /api/workflow/{sessionId}/status/{executionId}/stream (deprecated)",
         "operationId" : "streamWorkflowStatus_1",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
           "in" : "path",
-          "name" : "executionId",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Include historical status updates (last N minutes)",
-          "in" : "query",
+          "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "includeHistory",
+          "in" : "query",
+          "description" : "Include historical status updates (last N minutes)",
           "required" : false,
           "schema" : {
-            "default" : true,
-            "type" : "boolean"
+            "type" : "boolean",
+            "default" : true
           }
         }, {
-          "in" : "header",
           "name" : "Last-Event-ID",
+          "in" : "header",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -1932,9 +1980,9 @@
         "description" : "Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)",
         "operationId" : "getWorkflowStatus",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -1961,17 +2009,17 @@
         "description" : "Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)",
         "operationId" : "getWorkflowStatus_1",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -1998,31 +2046,31 @@
         "description" : "Lists the executions of a session, newest first. A further page is announced in the X-Next-Cursor header. Narrow it with workflowId, status, text (text in the execution id) and since/until (start time range, ISO date-time).",
         "operationId" : "getWorkflowHistory",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "in" : "query",
           "name" : "limit",
+          "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         }, {
-          "in" : "query",
           "name" : "cursor",
+          "in" : "query",
           "required" : false,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "in" : "query",
           "name" : "filter",
+          "in" : "query",
           "required" : true,
           "schema" : {
             "$ref" : "#/components/schemas/HistoryFilter"
@@ -2089,9 +2137,9 @@
         "description" : "The README (markdown) and the session definition to apply. 404 if unknown",
         "operationId" : "get",
         "parameters" : [ {
-          "description" : "Template id",
-          "in" : "path",
           "name" : "id",
+          "in" : "path",
+          "description" : "Template id",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -2138,9 +2186,9 @@
         "description" : "Retrieves details of a specific session including workflow IDs",
         "operationId" : "getSessionDetails",
         "parameters" : [ {
-          "description" : "The unique identifier of the session",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "The unique identifier of the session",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -2165,21 +2213,21 @@
         "description" : "Removes the session, its workflows and their versions. Run history and logs stay and age out with the log retention. Answers 409 with the run ids while runs are active, unless force=true, which cancels them first. ADMIN keys only; a key limited to sessions may delete only its own. Recorded in the control audit.",
         "operationId" : "deleteSession",
         "parameters" : [ {
-          "description" : "The unique identifier of the session",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "The unique identifier of the session",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Cancel active runs first",
-          "in" : "query",
           "name" : "force",
+          "in" : "query",
+          "description" : "Cancel active runs first",
           "required" : false,
           "schema" : {
-            "default" : false,
-            "type" : "boolean"
+            "type" : "boolean",
+            "default" : false
           }
         } ],
         "responses" : {
@@ -2196,9 +2244,9 @@
         "description" : "All workflows of a session with node/edge counts and the latest execution status",
         "operationId" : "getSessionWorkflows",
         "parameters" : [ {
-          "description" : "The unique identifier of the session",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "The unique identifier of the session",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -2225,17 +2273,17 @@
         "description" : "Retrieves the definition of a workflow",
         "operationId" : "getWorkflow",
         "parameters" : [ {
-          "description" : "The unique identifier of the session",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "The unique identifier of the session",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "The unique identifier of the workflow",
-          "in" : "path",
           "name" : "workflowId",
+          "in" : "path",
+          "description" : "The unique identifier of the workflow",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -2260,29 +2308,29 @@
         "description" : "Removes the workflow and its versions. Its runs stay readable. Answers 409 with the run ids while its runs are active, unless force=true. ADMIN keys only. Recorded in the control audit.",
         "operationId" : "deleteWorkflow",
         "parameters" : [ {
-          "description" : "The unique identifier of the session",
-          "in" : "path",
           "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "The unique identifier of the workflow",
           "in" : "path",
-          "name" : "workflowId",
+          "description" : "The unique identifier of the session",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Cancel active runs first",
-          "in" : "query",
+          "name" : "workflowId",
+          "in" : "path",
+          "description" : "The unique identifier of the workflow",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "force",
+          "in" : "query",
+          "description" : "Cancel active runs first",
           "required" : false,
           "schema" : {
-            "default" : false,
-            "type" : "boolean"
+            "type" : "boolean",
+            "default" : false
           }
         } ],
         "responses" : {
@@ -2299,17 +2347,17 @@
         "description" : "Newest first; the newest 20 saves are kept",
         "operationId" : "versions",
         "parameters" : [ {
-          "description" : "The unique identifier of the session",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "The unique identifier of the session",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "The unique identifier of the workflow",
-          "in" : "path",
           "name" : "workflowId",
+          "in" : "path",
+          "description" : "The unique identifier of the workflow",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -2336,33 +2384,33 @@
         "description" : "Nodes added, removed or changed, and edges added or removed",
         "operationId" : "diff",
         "parameters" : [ {
-          "description" : "The unique identifier of the session",
-          "in" : "path",
           "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "The unique identifier of the workflow",
           "in" : "path",
+          "description" : "The unique identifier of the session",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "workflowId",
+          "in" : "path",
+          "description" : "The unique identifier of the workflow",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Older version id from the list",
-          "in" : "query",
           "name" : "from",
+          "in" : "query",
+          "description" : "Older version id from the list",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Newer version id; the current definition if omitted",
-          "in" : "query",
           "name" : "to",
+          "in" : "query",
+          "description" : "Newer version id; the current definition if omitted",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -2389,17 +2437,17 @@
         "description" : "Nodes and edges enriched with plugin category, description, UI design and config-aware output ports, plus the topological execution order",
         "operationId" : "getWorkflowGraph",
         "parameters" : [ {
-          "description" : "The unique identifier of the session",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "The unique identifier of the session",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "The unique identifier of the workflow",
-          "in" : "path",
           "name" : "workflowId",
+          "in" : "path",
+          "description" : "The unique identifier of the workflow",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -2426,32 +2474,32 @@
         "description" : "Execution summaries of a single workflow, most recent first. An empty list means the workflow has never been executed. A further page is announced in the X-Next-Cursor header.",
         "operationId" : "getWorkflowExecutions",
         "parameters" : [ {
-          "description" : "The unique identifier of the session",
-          "in" : "path",
           "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "The unique identifier of the workflow",
           "in" : "path",
-          "name" : "workflowId",
+          "description" : "The unique identifier of the session",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "in" : "query",
+          "name" : "workflowId",
+          "in" : "path",
+          "description" : "The unique identifier of the workflow",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "limit",
+          "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         }, {
-          "in" : "query",
           "name" : "cursor",
+          "in" : "query",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -2478,50 +2526,50 @@
         "description" : "Returns what the terminal nodes received so far; complete is true once the execution ended. The stdout and stderr fields of the payloads are left out unless named in include (stdout, stderr or stdout,stderr); fetch again to drill down. Answers 404 for an unknown execution or one of another session.",
         "operationId" : "streamResults",
         "parameters" : [ {
-          "description" : "Session identifier",
-          "in" : "path",
           "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution identifier",
           "in" : "path",
-          "name" : "executionId",
+          "description" : "Session identifier",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Only this terminal node (the execution-end event always comes)",
-          "in" : "query",
+          "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution identifier",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "nodeId",
+          "in" : "query",
+          "description" : "Only this terminal node (the execution-end event always comes)",
           "required" : false,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "in" : "header",
           "name" : "Last-Event-ID",
+          "in" : "header",
           "required" : false,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "nextCursor of an earlier read",
-          "in" : "query",
           "name" : "afterCursor",
+          "in" : "query",
+          "description" : "nextCursor of an earlier read",
           "required" : false,
           "schema" : {
-            "default" : 0,
+            "type" : "integer",
             "format" : "int64",
-            "type" : "integer"
+            "default" : 0
           }
         }, {
-          "description" : "Output fields to keep in the payloads: stdout, stderr or both",
-          "in" : "query",
           "name" : "include",
+          "in" : "query",
+          "description" : "Output fields to keep in the payloads: stdout, stderr or both",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -2556,24 +2604,24 @@
         "description" : "Streams stored structured entries first, then live ones. Stops when the execution reaches a terminal state. Answers 404 for an unknown execution or one of another session.",
         "operationId" : "streamExecutionLogEntries",
         "parameters" : [ {
-          "description" : "Session identifier",
-          "in" : "path",
           "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution identifier",
           "in" : "path",
-          "name" : "executionId",
+          "description" : "Session identifier",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "in" : "header",
+          "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution identifier",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "Last-Event-ID",
+          "in" : "header",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -2603,24 +2651,24 @@
         "description" : "Streams stored log lines first, then live ones. Stops when the execution reaches a terminal state. Answers 404 for an unknown execution or one of another session.",
         "operationId" : "streamExecutionLogs",
         "parameters" : [ {
-          "description" : "Session identifier",
-          "in" : "path",
           "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution identifier",
           "in" : "path",
-          "name" : "executionId",
+          "description" : "Session identifier",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "in" : "header",
+          "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution identifier",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "Last-Event-ID",
+          "in" : "header",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -2650,9 +2698,9 @@
         "description" : "The full configuration of a session including tag values and workflow definitions, so an editor can change it and send it back with POST /api/sessions",
         "operationId" : "getSessionConfig",
         "parameters" : [ {
-          "description" : "The unique identifier of the session",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "The unique identifier of the session",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -2679,9 +2727,9 @@
         "description" : "Lists the nodes of the session that wait for a signal now (for example WAIT_FOR_SIGNAL approval steps), oldest first. Answer one with the signal endpoint of its execution.",
         "operationId" : "pendingApprovals",
         "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
           "name" : "sessionId",
+          "in" : "path",
+          "description" : "Session ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -2708,16 +2756,16 @@
         "description" : "Lean per-session rows for table display, alphabetical by session ID. Only the requested page is loaded. A further page is announced in the X-Next-Cursor header.",
         "operationId" : "listSessionSummaries",
         "parameters" : [ {
-          "in" : "query",
           "name" : "limit",
+          "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         }, {
-          "in" : "query",
           "name" : "cursor",
+          "in" : "query",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -2766,9 +2814,9 @@
         "description" : "Retrieves details of a specific plugin. Response is non-blocking and returned asynchronously via Mono.",
         "operationId" : "getPluginDetails",
         "parameters" : [ {
-          "description" : "The unique identifier of the plugin type",
-          "in" : "path",
           "name" : "type",
+          "in" : "path",
+          "description" : "The unique identifier of the plugin type",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -2823,23 +2871,23 @@
         "description" : "Lists the runs of all sessions (or of sessionId), newest first, narrowed by workflowId, status, text (in the execution id) and since/until (start time, ISO date-time). The history of each session is bounded by yukta.execution-log.retained-runs.",
         "operationId" : "search",
         "parameters" : [ {
-          "in" : "query",
           "name" : "sessionId",
+          "in" : "query",
           "required" : false,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "in" : "query",
           "name" : "limit",
+          "in" : "query",
           "required" : false,
           "schema" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         }, {
-          "in" : "query",
           "name" : "filter",
+          "in" : "query",
           "required" : true,
           "schema" : {
             "$ref" : "#/components/schemas/HistoryFilter"
@@ -2866,9 +2914,9 @@
         "description" : "The execution and every run it started as a sub-workflow, at any depth, oldest first, each with its parentExecutionId and status",
         "operationId" : "getTree",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
+          "in" : "path",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -2895,82 +2943,82 @@
         "description" : "Returns numbered lines of what the node wrote: the tail, the head, a page (offset and limit, at most 500 lines) or only the lines matching a regular expression with context. Reports the total lines and bytes and whether lines were left out. 400 for a bad argument, 404 for an unknown execution or node.",
         "operationId" : "getOutput",
         "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
           "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
           "in" : "path",
-          "name" : "nodeId",
+          "description" : "Execution ID",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "stdout, stderr or all",
-          "in" : "query",
+          "name" : "nodeId",
+          "in" : "path",
+          "description" : "Node ID",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "stream",
+          "in" : "query",
+          "description" : "stdout, stderr or all",
           "required" : false,
           "schema" : {
-            "default" : "all",
-            "type" : "string"
+            "type" : "string",
+            "default" : "all"
           }
         }, {
-          "description" : "The last N lines",
-          "in" : "query",
           "name" : "tail",
+          "in" : "query",
+          "description" : "The last N lines",
           "required" : false,
           "schema" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         }, {
-          "description" : "The first N lines",
-          "in" : "query",
           "name" : "head",
+          "in" : "query",
+          "description" : "The first N lines",
           "required" : false,
           "schema" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         }, {
-          "description" : "First line of a page, 0-based",
-          "in" : "query",
           "name" : "offset",
+          "in" : "query",
+          "description" : "First line of a page, 0-based",
           "required" : false,
           "schema" : {
-            "format" : "int64",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int64"
           }
         }, {
-          "description" : "Page size, default 50, at most 500",
-          "in" : "query",
           "name" : "limit",
+          "in" : "query",
+          "description" : "Page size, default 50, at most 500",
           "required" : false,
           "schema" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         }, {
-          "description" : "Regular expression the lines must match",
-          "in" : "query",
           "name" : "grep",
+          "in" : "query",
+          "description" : "Regular expression the lines must match",
           "required" : false,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Context lines either side of a match, at most 20",
-          "in" : "query",
           "name" : "context",
+          "in" : "query",
+          "description" : "Context lines either side of a match, at most 20",
           "required" : false,
           "schema" : {
-            "format" : "int32",
-            "type" : "integer"
+            "type" : "integer",
+            "format" : "int32"
           }
         } ],
         "responses" : {
@@ -2994,34 +3042,34 @@
         "description" : "Live node and workflow status changes, control command outcomes and log lines of all executions, each with a severity (INFO, WARN, ERROR)",
         "operationId" : "stream",
         "parameters" : [ {
-          "description" : "Only events of this execution",
-          "in" : "query",
           "name" : "executionId",
+          "in" : "query",
+          "description" : "Only events of this execution",
           "required" : false,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "With executionId, also the events of the sub-workflow runs it started, at any depth",
-          "in" : "query",
           "name" : "tree",
+          "in" : "query",
+          "description" : "With executionId, also the events of the sub-workflow runs it started, at any depth",
           "required" : false,
           "schema" : {
-            "default" : false,
-            "type" : "boolean"
+            "type" : "boolean",
+            "default" : false
           }
         }, {
-          "description" : "Only events of this kind",
-          "in" : "query",
           "name" : "type",
+          "in" : "query",
+          "description" : "Only events of this kind",
           "required" : false,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "Only events of this severity or above: INFO, WARN or ERROR",
-          "in" : "query",
           "name" : "severity",
+          "in" : "query",
+          "description" : "Only events of this severity or above: INFO, WARN or ERROR",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -3071,8 +3119,8 @@
         "description" : "Lists all nodes in a specific workflow currently registered on the Control Bus",
         "operationId" : "getActiveNodes",
         "parameters" : [ {
-          "in" : "path",
           "name" : "workflowId",
+          "in" : "path",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -3099,15 +3147,15 @@
         "description" : "Retrieves the most recent heartbeat for a specific node in a workflow",
         "operationId" : "getLastHeartbeat",
         "parameters" : [ {
-          "in" : "path",
           "name" : "workflowId",
+          "in" : "path",
           "required" : true,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "in" : "path",
           "name" : "nodeId",
+          "in" : "path",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -3154,17 +3202,17 @@
         "description" : "Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them",
         "operationId" : "list_3",
         "parameters" : [ {
-          "in" : "query",
           "name" : "limit",
+          "in" : "query",
           "required" : false,
           "schema" : {
-            "default" : 100,
+            "type" : "integer",
             "format" : "int32",
-            "type" : "integer"
+            "default" : 100
           }
         }, {
-          "in" : "query",
           "name" : "executionId",
+          "in" : "query",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -3212,6 +3260,35 @@
         },
         "summary" : "Count runs that need attention",
         "tags" : [ "Execution Search API" ]
+      }
+    },
+    "/api/approvals" : {
+      "get" : {
+        "description" : "Lists the nodes of all sessions that wait for a signal now, oldest first (at most limit, default 100, up to 1000), each with its session, execution, node, signal name and waiting-since.",
+        "operationId" : "allPendingApprovals",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListPendingApproval"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List pending approvals across sessions",
+        "tags" : [ "Execution Control API" ]
       }
     }
   },
@@ -3659,6 +3736,13 @@
               }
             },
             "description" : "Output ports per node id, for the node's configuration"
+          },
+          "warnings" : {
+            "description" : "Problems that do not stop the workflow, for the editor to show",
+            "items" : {
+              "$ref" : "#/components/schemas/Warning"
+            },
+            "type" : "array"
           }
         }
       },
@@ -5272,6 +5356,9 @@
           "since" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "sessionId" : {
+            "type" : "string"
           }
         }
       },
@@ -5876,6 +5963,24 @@
             "type" : "string"
           }
         }
+      },
+      "Warning" : {
+        "description" : "A problem that does not stop the workflow",
+        "properties" : {
+          "field" : {
+            "description" : "The config field or output port it is about",
+            "type" : "string"
+          },
+          "message" : {
+            "description" : "What is wrong",
+            "type" : "string"
+          },
+          "nodeId" : {
+            "description" : "The node it is about",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
       },
       "ApiResponseCounts" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",

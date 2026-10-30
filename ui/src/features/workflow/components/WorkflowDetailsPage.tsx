@@ -370,6 +370,7 @@ export function WorkflowDetailsPage() {
         isStreaming={isStreaming || logs.isStreaming}
         node={logNode}
         onClearNode={() => setLogNode(null)}
+        progress={progress}
       />
     </div>
   );

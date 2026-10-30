@@ -16,12 +16,14 @@ const sessions = [
     name: 'Alpha',
     initiator: 'alice',
     tags: ['env=prod', 'team=a'],
+    lastRun: { executionId: 'e', workflowId: 'wf', status: 'FAILURE', startTime: '2026-10-30T08:00:00', endTime: null },
   }),
   createMockSession({
     sessionId: 's2',
     name: 'Bravo',
     initiator: 'bob',
     tags: ['env=prod'],
+    lastRun: { executionId: 'e', workflowId: 'wf', status: 'RUNNING', startTime: '2026-10-30T08:00:00', endTime: null },
   }),
   createMockSession({
     sessionId: 's3',
@@ -109,6 +111,18 @@ describe('SessionListPage Tag and Initiator filters', () => {
     await pick(user, /initiator filter/i, 'alice');
     await waitFor(() => expect(shown()).toEqual(['Alpha']));
     expect(window.location.search).toContain('initiator=bob&initiator=alice');
+  });
+
+  it('filters by the kind of last run, and keeps it in the URL', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SessionListPage />);
+    await screen.findByText('Alpha');
+
+    await pick(user, /last run filter/i, 'Failed');
+    await waitFor(() => expect(shown()).toEqual(['Alpha']));
+    await pick(user, /last run filter/i, 'Not run');
+    await waitFor(() => expect(shown()).toEqual(['Alpha', 'Charlie']));
+    expect(window.location.search).toBe('?lastrun=Failed&lastrun=Not+run');
   });
 
   it('removes a value when it is unchecked', async () => {

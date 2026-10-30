@@ -35,7 +35,7 @@ expect 'mcp/src/A.java' "$affected" '":boot :mcp"'
 expect 'core/src/A.java' "$affected" \
   '":boot :core :mcp :plugins:processors:internal:internal-core :plugins:processors:internal:script-js :plus :plus:persistence-postgres :plus:workers :web"'
 expect 'core/src/A.java' "$shards" '"platform infra plugins postgres-acceptance workers-acceptance plus-acceptance"'
-expect 'messaging/src/A.java' '.affected | length' '29'
+expect 'messaging/src/A.java' '.affected | length' '30'
 expect 'messaging/src/A.java' '.affected | index(":cli")' 'null'
 
 # Plugin-to-plugin dependencies are followed transitively.
@@ -88,7 +88,7 @@ expect 'core/gradle.lockfile' '.full' 'false'
 
 # FULL=true (main, schedule, dispatch, `ci:full` label) runs every shard and E2E.
 got=$(FULL=true "$planner" </dev/null | jq -c '[([.shards[].name] | join(" ")), (.affected | length), .e2e]')
-want='["platform infra plugins cli ui postgres-acceptance workers-acceptance plus-acceptance",32,true]'
+want='["platform infra plugins cli ui postgres-acceptance workers-acceptance plus-acceptance",33,true]'
 [ "$got" = "$want" ] || fail "FULL=true" "$want" "$got"
 
 # A dependency on a module missing from settings.gradle.kts must fail loudly, not be skipped.

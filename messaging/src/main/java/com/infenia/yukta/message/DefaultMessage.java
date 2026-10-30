@@ -3,6 +3,8 @@
 package com.infenia.yukta.message;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,11 +12,13 @@ import java.util.Objects;
 import java.util.UUID;
 import lombok.Builder;
 import lombok.With;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Default implementation of the {@link Message} interface using a Java record.
  *
- * @param id unique identifier for the message
+ * @param id logical identifier: kept across {@code from}/{@code with*} copies, so not unique per
+ *     node output (key stores by execution, node and id)
  * @param traceId identifier for tracing the workflow execution
  * @param correlationId unique ID used to match replies to requests
  * @param replyTo pointer to the channel where a reply should be sent
@@ -38,6 +42,7 @@ import lombok.With;
  * @param workflowId the ID of the workflow context
  * @param <T> the type of the payload
  */
+@Slf4j
 @Builder(toBuilder = true)
 public record DefaultMessage<T>(
     @With String id,
@@ -64,12 +69,18 @@ public record DefaultMessage<T>(
     @With String workflowId)
     implements Message<T> {
 
-  /** Maximum number of node IDs kept in {@code messageHistory}; the oldest are dropped first. */
+  /**
+   * Maximum number of entries kept in {@code messageHistory}. Past it the first node stays, the
+   * oldest after it are dropped, and a {@code "…(+N)"} marker after the first says how many.
+   */
   public static final int MAX_HISTORY = 64;
+
+  /** Prefix of the history entry that counts the dropped node IDs. */
+  private static final String DROPPED_MARKER = "…(+";
 
   /**
    * Compact constructor to ensure metadata and history are immutable. Metadata entries with a null
-   * value are dropped; a null key is rejected.
+   * value are dropped (logged at debug); a null key is rejected.
    */
   public DefaultMessage {
     metadata = copyWithoutNulls(metadata);
@@ -78,14 +89,12 @@ public record DefaultMessage<T>(
   }
 
   @Override
-  @SuppressWarnings("PMD.OptimizableToArrayCall") // one extra slot is filled below
   public Message<T> withAddedHistory(final String nodeId) {
     Objects.requireNonNull(nodeId, "nodeId must not be null when stamping message history");
-    final int size = messageHistory.size();
-    final List<String> tail = messageHistory.subList(Math.max(0, size - (MAX_HISTORY - 1)), size);
-    final String[] history = tail.toArray(new String[tail.size() + 1]);
-    history[tail.size()] = nodeId;
-    return withMessageHistory(List.of(history));
+    final List<String> history = new ArrayList<>(messageHistory.size() + 1);
+    history.addAll(messageHistory);
+    history.add(nodeId);
+    return withMessageHistory(history); // the constructor applies the cap
   }
 
   @Override
@@ -109,29 +118,48 @@ public record DefaultMessage<T>(
   }
 
   @Override
-  @SuppressWarnings("PMD.UseConcurrentHashMap") // local, never shared
   public Message<T> withHeader(final String key, final Object value) {
     Objects.requireNonNull(key, "header key must not be null");
+    return withHeaders(Collections.singletonMap(key, value));
+  }
+
+  @Override
+  @SuppressWarnings("PMD.UseConcurrentHashMap") // local, never shared
+  public Message<T> withHeaders(final Map<String, ?> headers) {
     final Map<String, Object> newMetadata = new HashMap<>(metadata);
-    if (value == null) {
-      newMetadata.remove(key);
-    } else {
-      newMetadata.put(key, value);
-    }
+    headers.forEach(
+        (key, value) -> {
+          Objects.requireNonNull(key, "header key must not be null");
+          if (value == null) {
+            newMetadata.remove(key);
+          } else {
+            newMetadata.put(key, value);
+          }
+        });
     return withMetadata(newMetadata);
   }
 
   /** The history cut to {@link #MAX_HISTORY}; an immutable list within the cap is not copied. */
   private static List<String> capHistory(final List<String> history) {
     List<String> result = List.of();
-    if (history != null) {
-      result =
-          List.copyOf(
-              history.size() <= MAX_HISTORY
-                  ? history
-                  : history.subList(history.size() - MAX_HISTORY, history.size()));
+    if (history != null && history.size() <= MAX_HISTORY) {
+      result = List.copyOf(history);
+    } else if (history != null) {
+      final boolean marked = history.get(1).startsWith(DROPPED_MARKER);
+      final List<String> rest = history.subList(marked ? 2 : 1, history.size());
+      final int keep = MAX_HISTORY - 2;
+      final int dropped = (marked ? droppedIn(history.get(1)) : 0) + rest.size() - keep;
+      final List<String> capped = new ArrayList<>(MAX_HISTORY);
+      capped.add(history.get(0));
+      capped.add(DROPPED_MARKER + dropped + ")");
+      capped.addAll(rest.subList(rest.size() - keep, rest.size()));
+      result = List.copyOf(capped);
     }
     return result;
+  }
+
+  private static int droppedIn(final String marker) {
+    return Integer.parseInt(marker.substring(DROPPED_MARKER.length(), marker.length() - 1));
   }
 
   private static Map<String, Object> copyWithoutNulls(final Map<String, Object> source) {

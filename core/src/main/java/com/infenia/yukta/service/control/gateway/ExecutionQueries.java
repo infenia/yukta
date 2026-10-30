@@ -101,9 +101,11 @@ final class ExecutionQueries {
             wait -> {
               final WorkflowProgress progress =
                   taskTracker.getProgressByExecutionId(wait.executionId());
-              return progress != null && sessionId.equals(progress.sessionId())
+              return progress != null
+                      && (sessionId == null || sessionId.equals(progress.sessionId()))
                   ? Mono.just(
                       new PendingApproval(
+                          progress.sessionId(),
                           wait.executionId(),
                           progress.workflowId(),
                           wait.nodeId(),

@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.control.PendingApproval;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
@@ -1268,11 +1269,16 @@ class DefaultControlBusGatewayTest {
     StepVerifier.create(gateway.pendingApprovals("session-pa"))
         .assertNext(
             approval -> {
+              assertThat(approval.sessionId()).isEqualTo("session-pa");
               assertThat(approval.executionId()).isEqualTo("exec-pa-1");
               assertThat(approval.workflowId()).isEqualTo("wf-pa");
               assertThat(approval.nodeId()).isEqualTo("gate");
               assertThat(approval.name()).isEqualTo("approve");
             })
+        .verifyComplete();
+    // no session: every known run's wait, each with its own session
+    StepVerifier.create(gateway.pendingApprovals(null).map(PendingApproval::sessionId))
+        .expectNext("session-pa", "another-session")
         .verifyComplete();
     mine.dispose();
     other.dispose();
