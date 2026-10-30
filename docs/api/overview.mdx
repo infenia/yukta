@@ -164,7 +164,7 @@ The server reads request bodies up to `1MB`. A larger body is answered with `413
 
 ## Deprecated aliases
 
-Execution endpoints exist at two paths. The `/api/executions/{executionId}/...` form is current. The older `/api/workflow/...` form still works and is marked deprecated; where it names a session, it also checks that the execution belongs to that session.
+Execution endpoints exist at two paths. The `/api/executions/{executionId}/...` form is current. The older `/api/workflow/...` form still works and is marked deprecated: its responses carry `Deprecation: true` and the server logs each call at WARN (`Deprecated alias ...`, with the caller's `User-Agent`) so you can see who still uses it; where it names a session, it also checks that the execution belongs to that session.
 
 | Current path | Deprecated alias |
 |---|---|
