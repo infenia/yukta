@@ -3,7 +3,6 @@
 
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { buttonVariants } from '@/components/ui/button';
 import {
@@ -25,15 +24,6 @@ import {
 import { StateMessage } from '@/components/common/StateMessage';
 import { useSessionSummaries } from '../hooks/useSessionSummaries';
 import { columns, type SessionRow } from './columns';
-import {
-  searchExecutions,
-  type RunHit,
-} from '@/features/runs/api/searchExecutions';
-import { parseFilters } from '@/features/runs/lib/filters';
-
-// ponytail: the newest runs across all sessions; a session whose last run is older shows "—". A
-// per-session "last run" from the server lifts this ceiling.
-const LAST_RUN_SCAN = 200;
 import { SessionsHeader } from './SessionsHeader';
 import {
   filterSessions,
@@ -60,22 +50,10 @@ export function SessionListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [searchParams]
   );
-  const { data: recentRuns = [] } = useQuery({
-    queryKey: ['runs', 'latest', LAST_RUN_SCAN],
-    queryFn: () =>
-      searchExecutions(parseFilters(new URLSearchParams()), LAST_RUN_SCAN),
-  });
-  const filtered = useMemo<SessionRow[]>(() => {
-    // runs come newest first, so the first one seen per session is its last run
-    const lastRun = new Map<string, RunHit>();
-    for (const run of recentRuns) {
-      if (!lastRun.has(run.sessionId)) lastRun.set(run.sessionId, run);
-    }
-    return filterSessions(sessions, filters).map((session) => ({
-      ...session,
-      lastRun: lastRun.get(session.sessionId),
-    }));
-  }, [sessions, filters, recentRuns]);
+  const filtered = useMemo<SessionRow[]>(
+    () => filterSessions(sessions, filters),
+    [sessions, filters]
+  );
   const setFilters = (next: SessionFilters) =>
     setSearchParams(
       (current) => {

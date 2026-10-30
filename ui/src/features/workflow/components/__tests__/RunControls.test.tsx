@@ -104,7 +104,7 @@ describe('parsePayload', () => {
 describe('RunControls', () => {
   it('only offers Run before any execution', () => {
     setup(null, null);
-    expect(screen.getByRole('button', { name: /play_arrow/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Run workflow' })).toBeEnabled();
     expect(screen.getByRole('button', { name: /pause/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /resume/i })).toBeDisabled();
     expect(
@@ -289,7 +289,7 @@ describe('RunControls', () => {
   it('starts a run with a parsed payload and closes the dialog', async () => {
     const user = userEvent.setup();
     const onStarted = setup(null, null);
-    await user.click(screen.getByRole('button', { name: /play_arrow/ }));
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
     await user.click(screen.getByLabelText(/trigger payload/i));
     await user.paste('{"a":1}');
     await user.click(screen.getByRole('button', { name: 'Run' }));
@@ -300,7 +300,7 @@ describe('RunControls', () => {
   it('starts with an empty payload', async () => {
     const user = userEvent.setup();
     const onStarted = setup(null, null);
-    await user.click(screen.getByRole('button', { name: /play_arrow/ }));
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
     await user.click(screen.getByRole('button', { name: 'Run' }));
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('new-run'));
   });
@@ -308,7 +308,7 @@ describe('RunControls', () => {
   it('reports invalid JSON and non-object payloads without calling the server', async () => {
     const user = userEvent.setup();
     const onStarted = setup(null, null);
-    await user.click(screen.getByRole('button', { name: /play_arrow/ }));
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
     const box = screen.getByLabelText(/trigger payload/i);
 
     await user.click(box);
@@ -330,7 +330,7 @@ describe('RunControls', () => {
     const user = userEvent.setup();
     startStatus = 429;
     setup(null, null);
-    await user.click(screen.getByRole('button', { name: /play_arrow/ }));
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
     await user.click(screen.getByRole('button', { name: 'Run' }));
     expect((await screen.findAllByRole('alert'))[0]).toHaveTextContent(
       /scheduler/i

@@ -818,7 +818,7 @@ What a new endpoint should do to fit in.
 <Accordion title="Web holds no state and delegates every decision to core">
 **Context.** REST, the UI, the CLI and MCP must behave identically for starts, limits and control commands.
 
-**Decision.** Web keeps no state of its own and adds no rules. Limits, ordering, idempotency, supervisors and checkpoints are core's. Even ownership uses core's tracker.
+**Decision.** Web keeps no state of its own and adds no rules. Limits, ordering, idempotency, supervisors and checkpoints are core's. Even ownership uses core's tracker, then its execution log for runs that left the tracker.
 
 **Consequences.** No duplicated logic between REST and MCP; web is easy to test. But web cannot protect itself (no limits, no identity) unless core or a gateway does.
 

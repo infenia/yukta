@@ -40,7 +40,9 @@ class WorkflowGraphNodeTest {
             PluginCategory.TRIGGER,
             DESCRIPTION,
             uiDesign,
-            List.of(DEFAULT_PORT, "error"));
+            List.of(DEFAULT_PORT, "error"),
+            null,
+            null);
 
     // Then
     assertThat(node.nodeId()).isEqualTo(NODE_ID);
@@ -55,7 +57,7 @@ class WorkflowGraphNodeTest {
   void constructor_nullPluginMetadata_allowsUnknownPluginType() {
     // Given-When
     final WorkflowGraphNode node =
-        new WorkflowGraphNode(NODE_ID, TYPE, null, null, null, List.of(DEFAULT_PORT));
+        new WorkflowGraphNode(NODE_ID, TYPE, null, null, null, List.of(DEFAULT_PORT), null, null);
 
     // Then
     assertThat(node.category()).isNull();
@@ -67,7 +69,8 @@ class WorkflowGraphNodeTest {
   void constructor_withNullOutputPorts_convertsToEmptyList() {
     // Given-When
     final WorkflowGraphNode node =
-        new WorkflowGraphNode(NODE_ID, TYPE, PluginCategory.PROCESSOR, DESCRIPTION, null, null);
+        new WorkflowGraphNode(
+            NODE_ID, TYPE, PluginCategory.PROCESSOR, DESCRIPTION, null, null, null, null);
 
     // Then
     assertThat(node.outputPorts()).isEmpty();
@@ -79,7 +82,14 @@ class WorkflowGraphNodeTest {
     // Given
     final WorkflowGraphNode node =
         new WorkflowGraphNode(
-            NODE_ID, TYPE, PluginCategory.PROCESSOR, DESCRIPTION, null, List.of(DEFAULT_PORT));
+            NODE_ID,
+            TYPE,
+            PluginCategory.PROCESSOR,
+            DESCRIPTION,
+            null,
+            List.of(DEFAULT_PORT),
+            null,
+            null);
 
     // When-Then
     assertThatThrownBy(() -> node.outputPorts().add("extra"))
@@ -91,10 +101,24 @@ class WorkflowGraphNodeTest {
     // Given
     final WorkflowGraphNode node1 =
         new WorkflowGraphNode(
-            NODE_ID, TYPE, PluginCategory.TERMINAL, DESCRIPTION, null, List.of(DEFAULT_PORT));
+            NODE_ID,
+            TYPE,
+            PluginCategory.TERMINAL,
+            DESCRIPTION,
+            null,
+            List.of(DEFAULT_PORT),
+            null,
+            null);
     final WorkflowGraphNode node2 =
         new WorkflowGraphNode(
-            NODE_ID, TYPE, PluginCategory.TERMINAL, DESCRIPTION, null, List.of(DEFAULT_PORT));
+            NODE_ID,
+            TYPE,
+            PluginCategory.TERMINAL,
+            DESCRIPTION,
+            null,
+            List.of(DEFAULT_PORT),
+            null,
+            null);
 
     // When-Then
     assertThat(node1).isEqualTo(node2);
@@ -104,7 +128,8 @@ class WorkflowGraphNodeTest {
   void verifyToStringContainsRelevantFieldValues() {
     // Given
     final WorkflowGraphNode node =
-        new WorkflowGraphNode(NODE_ID, TYPE, PluginCategory.TRIGGER, DESCRIPTION, null, List.of());
+        new WorkflowGraphNode(
+            NODE_ID, TYPE, PluginCategory.TRIGGER, DESCRIPTION, null, List.of(), null, null);
 
     // When
     final String actual = node.toString();
