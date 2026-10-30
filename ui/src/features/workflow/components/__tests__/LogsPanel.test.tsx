@@ -47,7 +47,9 @@ describe('LogsPanel', () => {
 
   it('has no Events tab without a run', () => {
     render(<LogsPanel entries={entries} isStreaming={false} />);
-    expect(screen.queryByRole('tab', { name: 'Events' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('tab', { name: 'Events' })
+    ).not.toBeInTheDocument();
   });
 
   it("shows the run's status transitions on the Events tab, narrowed to the clicked node", async () => {
@@ -83,7 +85,9 @@ describe('LogsPanel', () => {
 
     await user.click(screen.getByRole('tab', { name: 'Logs' }));
     expect(screen.getByLabelText('Filter logs')).toBeInTheDocument();
-    expect(screen.queryByRole('list', { name: 'Run events' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('list', { name: 'Run events' })
+    ).not.toBeInTheDocument();
   });
 
   it('virtualises long logs so only the visible window is in the DOM', () => {
