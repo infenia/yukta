@@ -2,7 +2,7 @@
 
 **Status (2026-10-30, second session).** The page-group PRs (#1468–#1483) are merged. Most of the work items below are built: each is its own PR, which passed `yk check` and has 100% unit-test coverage. The table says where each one stands. Before starting anything, check the live state with `gh pr view <n>`, because PRs merge while work goes on.
 
-| Item | PR | State (2026-10-30, 2nd session) | Notes |
+| Item | PR | State (2026-10-30, 2nd session, 16:00) | Notes |
 |---|---|---|---|
 | U2 Recover on Runs | #1479 | merged | |
 | C1 limit tiles | #1480 | merged | live-nodes table still open (decision Q3) |
@@ -11,29 +11,31 @@
 | D3 "Yukta" wordmark | #1483 | merged | |
 | D1 server: node `group`, `subWorkflowId` | #1487 | merged | |
 | R1 canvas + R5 drill-down | #1488 | merged | |
-| R1 task list + B1 builder | #1490 | open, base main | rebased onto main after #1488 |
+| R1 task list + B1 builder | #1490 | open, base main | |
 | R3 progress tabs + failure callout | #1492 | open, stacked on #1490 | |
 | R4 follow running nodes | #1504 | open, stacked on #1492 | |
-| S1 last run per session | #1496 | open, base main | |
-| S3 relative times + Last run filter | #1505 | open, stacked on #1496 | |
-| U1 run progress + counts | #1498 | open, base main | |
-| B2 validation warnings (unread ports) | #1502 | open, base main | rule changed from the plan: see B2; rebased |
+| S1 last run per session | #1496 | merged | |
+| S3 relative times + Last run filter | #1505 | open, base main | still carries #1496's commits |
+| U1 run progress + counts | #1498 | merged | |
+| B2 validation warnings (unread ports) | #1502 | open, base main | rule changed from the plan: see B2 |
 | P1 "Used in" + `/api/plugins/{type}/usage` | #1503 | open, base main | |
-| S2 per-row Run + session Copy as | #1506 | open, base main | |
-| R2 log level + node filter | #1507 | open, base main | rebased; stage-box clicks don't set the node filter |
-| B4 unsaved changes + Discard | #1508 | open, base main | |
-| K1 palette actions | #1510 | open, base main | |
+| S2 per-row Run + session Copy as | #1506 | merged | |
+| R2 log level + node filter | #1507 | merged | stage-box clicks don't set the node filter |
+| B4 unsaved changes + Discard | #1508 | merged | |
+| K1 palette actions | #1510 | merged | |
 | B3 inspector tabs | #1511 | open, base main | |
 | B4 drag-to-connect | #1512 | open, base main | |
-| K2 breadcrumbs inside pages | none | not started | Q1: yes |
-| R2 Events tab | none | not started | Q2: run status transitions |
-| C1 live-nodes table | none | not started | Q3: batch heartbeats on the server |
-| N1 project-path check | none | not started | Q4: server endpoint |
-| Q5 "all ports" edge fix | none | not started | Q5: fix it, and file an issue |
+| K2 breadcrumbs inside pages | #1520 | open, base main | header row removed (`--spacing-header` 48px); IDs keep their spelling; workflow-details and editor chromium baselines need regenerating in CI |
+| R2 Events tab | #1517 | open, base main | from the run's start/end times, so finished runs have events too |
+| C1 live-nodes table | #1516 | open, base main | `GET /api/control/heartbeats` |
+| N1 project-path check | #1518 | open, base main | `POST /api/sessions/validate/project-path`, ADMIN only; a warning, not a block |
+| Q5 "all ports" edge fix (#1515) | #1519 | open, stacked on #1502 | `sourcePort: "*"`; omitted still means `default` |
 
 **Stacks:** when a base PR is squash-merged, rebase the next PR onto main with `git rebase --onto origin/main <old-base-branch> <branch>`, then force-push. GitHub moves the PR's base to main by itself. A PR in the merge queue can't be pushed to.
 
-**Likely conflicts:** #1508, #1511 and #1512 all change `WorkflowEditorPage.tsx`. Rebase whichever merges later.
+**Likely conflicts:** #1511, #1512, #1502 and #1519 all change `WorkflowEditorPage.tsx` or its test. K2 also touches `WorkflowTitleBar`, `SessionInfoPanel`, the editor header and the `WorkflowDetailsPage` tests, so it conflicts with #1492, #1504, #1511 and #1512.
+
+**Who updates which branch:** a second session (`yukta-ui-redesign-design-system`) merges main into the older PR branches (#1490–#1512) and fixes their CI. Don't push to those without asking it. This session's branches are #1516–#1519 and K2.
 
 **Design references**
 - **Offline:** [`artboards/index.html`](artboards/index.html) has a static copy of every artboard. Fonts, icons and the logo are in `artboards/assets/`, so it opens with no network. Add `#dark` or `#light` to any URL to switch theme.
@@ -213,6 +215,9 @@ Answers: Q1 yes, per-page breadcrumbs; Q2 the run's status transitions; Q3 batch
 - **Icons:** the icon font is a subset. Use a Material Symbols name that already appears somewhere in `src`, or regenerate the font with `pnpm run icons` (needs network).
 
 ## Housekeeping
+
+- **Docs said the opposite of the engine (found 2026-10-30):** `nodes-edges-ports.mdx` promised that an edge without `sourcePort` receives every port except `error`, but the mappers' `defaultValue = "default"` meant it only ever read `default`. #1519 corrects the docs and adds `"*"` for every port. Whether an omitted port *should* mean every port is still a product decision; changing it would alter existing workflows.
+- **Local screenshot drift also hits `workflow-editor-mobile`** (chromium), not only `workflow-details`.
 
 - The chromium screenshots for `workflow-details` on main differ on every text glyph in a local run, regardless of the change being tested, so they and the Firefox/WebKit baselines need regenerating in CI. Update a screenshot locally only for a change you've made, and open the image before updating the baseline.
 
