@@ -54,27 +54,27 @@ class ProjectPathControllerTest {
   }
 
   @Test
-  void aDirectoryExistsAndIsADirectory() {
+  void directoryExistsAndIsDirectory() {
     expect(dir.toString(), true, true);
   }
 
   @Test
-  void aFileExistsButIsNoDirectory() throws IOException {
+  void fileExistsButIsNotDirectory() throws IOException {
     expect(Files.createFile(dir.resolve("file")).toString(), true, false);
   }
 
   @Test
-  void aMissingPathDoesNotExist() {
+  void missingPathDoesNotExist() {
     expect(dir.resolve("missing").toString(), false, false);
   }
 
   @Test
-  void aPathTheFileSystemCannotNameDoesNotExist() {
+  void unnameablePathDoesNotExist() {
     expect("bad\0path", false, false);
   }
 
   @Test
-  void aBlankPathIsABadRequest() {
+  void blankPathIsBadRequest() {
     check(" ").expectStatus().isBadRequest();
   }
 }
