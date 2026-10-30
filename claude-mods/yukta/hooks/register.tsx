@@ -120,6 +120,8 @@ export const register: Register = (on, options) => {
     await $.command.register({ name: 'yukta', description: 'Show Yukta runs and approvals in a pane' })
     $.clock.every(Number(options.poll_seconds) * 1000, () => tick($))
     $.clock.every(120, () => animate($))
+    // an entry an earlier version (or show_status) left behind stays until it is cleared
+    if (!opts.show_status) $.ui.status(undefined)
     void tick($)
     return next(e)
   })
