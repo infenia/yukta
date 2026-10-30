@@ -30,6 +30,7 @@ let base = ''
 let runs: Run[] = []
 let approvals: Approval[] = []
 let isDown = true
+let why = ''
 let skips = 0
 let headers: Promise<Record<string, string>> | undefined
 
@@ -46,14 +47,15 @@ const resolveHeaders = async ($: Engine) => {
 const api = async ($: Engine, path: string, method = 'GET') => {
   headers ??= resolveHeaders($).catch(() => ({}))
   const res = await $.http.fetch(`${base}/api${path}`, { method, headers: await headers })
-  if (!res.ok) throw new Error(`${method} ${path}: ${res.status}`)
+  if (res.status === 401 || res.status === 403) throw new Error(`HTTP ${res.status}: set api_key or headers_command in /config`)
+  if (!res.ok) throw new Error(`${method} ${path}: HTTP ${res.status}`)
   const body = res.text ? JSON.parse(res.text) : {}
   return body.data
 }
 
 const summary = () =>
   isDown
-    ? 'yukta ✗ server unreachable'
+    ? `yukta ✗ ${why || 'server unreachable'}`
     : `yukta ✓ ${runs.length} running` + (approvals.length ? ` · ${approvals.length} awaiting approval` : '')
 
 const tick = async ($: Engine) => {
@@ -79,12 +81,14 @@ const tick = async ($: Engine) => {
     runs = running
     approvals = pending
     isDown = false
-  } catch {
+    why = ''
+  } catch (err) {
+    why = err instanceof Error ? err.message : 'request failed'
     runs = []
     approvals = []
     isDown = true
   }
-  $.ui.status(summary())
+  if (opts.show_status) $.ui.status(summary())
   $.ui.invalidate('ui.render')
 }
 
@@ -153,7 +157,7 @@ export const register: Register = (on, options) => {
         {!isDown && runs.length === 0 && approvals.length === 0 && (
           <Box marginTop={1}><Text dimColor italic>✦ all quiet — nothing is running</Text></Box>
         )}
-        {isDown && <Box marginTop={1}><Text color="#f87171">✗ {base} is unreachable</Text></Box>}
+        {isDown && <Box marginTop={1}><Text color="#f87171">✗ {base}: {why || 'unreachable'}</Text></Box>}
         {runs.map(r => (
           <Box
             key={r.executionId}
