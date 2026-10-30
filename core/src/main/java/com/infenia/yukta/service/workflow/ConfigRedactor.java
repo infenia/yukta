@@ -58,7 +58,10 @@ public class ConfigRedactor {
         workflow.workflowId(),
         workflow.description(),
         workflow.nodes().stream()
-            .map(node -> new WorkflowDefinition.Node(node.nodeId(), node.type(), redactNode(node)))
+            .map(
+                node ->
+                    new WorkflowDefinition.Node(
+                        node.nodeId(), node.type(), redactNode(node), node.group()))
             .toList(),
         workflow.edges());
   }

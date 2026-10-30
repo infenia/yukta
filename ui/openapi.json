@@ -4697,6 +4697,10 @@
             "type" : "object",
             "additionalProperties" : { },
             "description" : "Plugin configuration"
+          },
+          "group" : {
+            "description" : "The stage the node belongs to, for display only: the UI groups nodes of one stage. Without it, nodes group by node-ID prefix (before the first dot)",
+            "type" : [ "string", "null" ]
           }
         },
         "required" : [ "nodeId", "type" ]
@@ -5027,6 +5031,14 @@
             "items" : {
               "type" : "string"
             }
+          },
+          "group" : {
+            "description" : "The stage the node declares it belongs to, null when it declares none",
+            "type" : [ "string", "null" ]
+          },
+          "subWorkflowId" : {
+            "description" : "For a SUB_WORKFLOW node, the workflow it runs (its workflowId config), else null",
+            "type" : [ "string", "null" ]
           }
         }
       },

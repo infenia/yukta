@@ -2447,6 +2447,8 @@ export interface components {
             config?: {
                 [key: string]: unknown;
             };
+            /** @description The stage the node belongs to, for display only: the UI groups nodes of one stage. Without it, nodes group by node-ID prefix (before the first dot) */
+            group?: string | null;
         };
         /** @description Definition of a reactive workflow DAG */
         WorkflowDefinition: {
@@ -2623,6 +2625,10 @@ export interface components {
             uiDesign?: components["schemas"]["UiDesign"];
             /** @description The config-aware output port names for this node */
             outputPorts?: string[];
+            /** @description The stage the node declares it belongs to, null when it declares none */
+            group?: string | null;
+            /** @description For a SUB_WORKFLOW node, the workflow it runs (its workflowId config), else null */
+            subWorkflowId?: string | null;
         };
         ServerSentEventResultEvent: unknown;
         ExecutionResults: {
