@@ -279,7 +279,7 @@ export function PluginsPage() {
           <Input
             type="search"
             aria-label="Filter plugins"
-            placeholder="Filter plugins"
+            placeholder="Filter by name or ID"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />

@@ -293,7 +293,7 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
               shown[current] ? `${listId}-${current}` : undefined
             }
             aria-label="Search pages, sessions, workflows, runs and actions"
-            placeholder="Jump to a session, workflow or run…"
+            placeholder="Search sessions, workflows, runs and actions"
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);

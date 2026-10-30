@@ -82,9 +82,13 @@ describe('SessionDetailsPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Workflows' })).toBeDefined();
+      expect(
+        screen.getByRole('heading', { name: 'Workflows', level: 2 })
+      ).toBeDefined();
     });
     expect(screen.getByRole('button', { name: /New workflow/ })).toBeDefined();
+    // the facts: one workflow of 5 nodes
+    expect(screen.getByText('1 · 5 nodes in all')).toBeDefined();
     // Edit, export and delete live in the session menu, without its own View Details
     await userEvent.click(
       screen.getByRole('button', { name: 'Session actions' })
