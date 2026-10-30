@@ -2,8 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.dto.response;
 
+import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
+import lombok.With;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Response DTO representing a single session in a list view.
@@ -18,8 +21,10 @@ import java.util.List;
  * @param tags flat list of tag keys associated with the session
  * @param projectPath the project path configured for the session
  * @param workflowCount the number of workflows defined in this session
+ * @param lastRun the session's newest run, or null when it has none
  */
 @Schema(description = "A session summary for list/table display")
+@With
 public record SessionListItem(
     @Schema(description = "The unique session identifier", example = "sess-123") String sessionId,
     @Schema(description = "Human-readable name for the session", example = "Production ETL v4")
@@ -31,7 +36,9 @@ public record SessionListItem(
     @Schema(description = "Tags associated with the session", example = "[\"prod\", \"etl\"]")
         List<String> tags,
     @Schema(description = "Project path", example = "/data/pipelines/main") String projectPath,
-    @Schema(description = "Number of workflows", example = "24") int workflowCount) {
+    @Schema(description = "Number of workflows", example = "24") int workflowCount,
+    @Schema(description = "The session's newest run, null when it has none", nullable = true)
+        @Nullable WorkflowExecutionSummary lastRun) {
 
   /** Compact constructor for defensive copying. */
   public SessionListItem {

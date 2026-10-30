@@ -8,6 +8,7 @@ import {
   layoutGraph,
 } from '../layout';
 import {
+  createStagedGraph,
   createMockGraph,
   createMockProgress,
   createMockTask,
@@ -169,5 +170,82 @@ describe('layoutGraph', () => {
 
     const edge = must(edges.find((e) => e.source === 'data-ingress'));
     expect(edge.style?.stroke).toBe('var(--color-primary)');
+  });
+});
+
+describe('layoutGraph with stages', () => {
+  const toggle = () => undefined;
+  const view = (...open: string[]) => ({
+    open: new Set(open),
+    onToggle: toggle,
+  });
+
+  it('draws a closed stage as one box with its count and aggregate status', () => {
+    const tasks = tasksByNode([
+      createMockTask({ nodeId: 'lint', status: 'SUCCESS' }),
+      createMockTask({ nodeId: 'lint.fail', status: 'FAILURE' }),
+    ]);
+    const { nodes, edges } = layoutGraph(createStagedGraph(), tasks, view());
+    expect(nodes.map((n) => n.id).sort()).toEqual([
+      'end',
+      'stage:lint',
+      'stage:test',
+      'start',
+    ]);
+    const lint = must(nodes.find((n) => n.id === 'stage:lint'));
+    expect(lint.type).toBe('stageNode');
+    expect(lint.data).toMatchObject({
+      stage: 'lint',
+      count: 3,
+      status: 'failed',
+      onToggle: toggle,
+    });
+
+    // edges inside a stage vanish, and the two lint → test edges become one without a port
+    expect(edges.map((e) => `${e.source}>${e.target}`)).toEqual([
+      'start>stage:lint',
+      'stage:lint>stage:test',
+      'stage:test>end',
+    ]);
+    expect(edges[1].sourceHandle).toBeUndefined();
+  });
+
+  it('frames an open stage behind its nodes, which keep their ports', () => {
+    const { nodes, edges } = layoutGraph(createStagedGraph(), {}, view('lint'));
+    const frame = must(nodes.find((n) => n.id === 'frame:lint'));
+    expect(nodes[0]).toBe(frame);
+    expect(frame).toMatchObject({
+      type: 'stageFrame',
+      zIndex: -1,
+      selectable: false,
+    });
+    expect(frame.data).toMatchObject({ count: 3, status: 'pending' });
+    for (const id of ['lint', 'lint.fail', 'lint.fix']) {
+      const member = must(nodes.find((n) => n.id === id));
+      expect(member.position.x).toBeGreaterThan(frame.position.x);
+      expect(member.position.y).toBeGreaterThan(frame.position.y);
+      expect(member.position.x + DEFAULT_NODE_WIDTH).toBeLessThan(
+        frame.position.x + (frame.width ?? 0)
+      );
+      expect(member.position.y + DEFAULT_NODE_HEIGHT).toBeLessThan(
+        frame.position.y + (frame.height ?? 0)
+      );
+    }
+    expect(
+      must(
+        edges.find((e) => e.source === 'lint.fail' && e.target === 'lint.fix')
+      ).sourceHandle
+    ).toBe('failure');
+    expect(
+      must(
+        edges.find((e) => e.source === 'lint.fail' && e.target === 'stage:test')
+      ).sourceHandle
+    ).toBe('success');
+  });
+
+  it('draws every node when there is no stage view', () => {
+    const { nodes } = layoutGraph(createStagedGraph(), {});
+    expect(nodes).toHaveLength(7);
+    expect(nodes.every((n) => n.type === 'workflowNode')).toBe(true);
   });
 });
