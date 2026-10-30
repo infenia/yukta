@@ -235,7 +235,7 @@ function PluginDetail({ type }: { type: string }) {
             </ul>
           ))}
       </div>
-      <section className="min-w-0 xl:sticky xl:top-28 xl:self-start">
+      <section className="min-w-0 xl:sticky xl:top-18 xl:self-start">
         <h3 className="text-on-surface text-label-md mb-1.5">On the canvas</h3>
         <PluginCanvasPreview plugin={plugin} />
       </section>
@@ -274,7 +274,7 @@ export function PluginsPage() {
       <div className="flex flex-col gap-6 md:flex-row">
         <nav
           aria-label="Plugins"
-          className="flex shrink-0 flex-col gap-4 md:sticky md:top-28 md:max-h-[calc(100vh-8rem)] md:w-72 md:self-start md:overflow-y-auto"
+          className="flex shrink-0 flex-col gap-4 md:sticky md:top-18 md:max-h-[calc(100vh-5.5rem)] md:w-72 md:self-start md:overflow-y-auto"
         >
           <Input
             type="search"

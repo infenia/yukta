@@ -3,7 +3,6 @@
 
 import { Link, useLocation } from 'react-router';
 import HeaderLogo from './HeaderLogo';
-import BreadcrumbNav from './BreadcrumbNav';
 import IdentityChip from './IdentityChip';
 import ThemeToggle from './ThemeToggle';
 import { openCommandPalette } from './CommandPalette';
@@ -108,9 +107,6 @@ export default function AppHeader() {
           <ThemeToggle />
         </div>
       </div>
-
-      {/* Bottom row: Breadcrumb Navigation */}
-      <BreadcrumbNav />
     </header>
   );
 }

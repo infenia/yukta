@@ -7,7 +7,6 @@ import AppHeader, { MobileNav } from '@/components/layout/AppHeader';
 import { CommandPalette } from '@/components/layout/CommandPalette';
 import ApiKeyPrompt from '@/components/common/ApiKeyPrompt';
 import AppFooter from '@/components/layout/AppFooter';
-import { BreadcrumbOverridesProvider } from '@/lib/breadcrumbOverrides';
 import { loadMe } from '@/features/auth/me';
 import { usePageTransition } from '@/lib/usePageTransition';
 
@@ -20,17 +19,15 @@ export default function App() {
   }, []);
 
   return (
-    <BreadcrumbOverridesProvider>
-      <div className="bg-background text-on-surface flex min-h-screen flex-col pb-16 sm:pb-0">
-        <AppHeader />
-        <ApiKeyPrompt />
-        <main ref={mainRef} className="mt-header flex w-full flex-1 flex-col">
-          <Outlet />
-        </main>
-        <AppFooter />
-        <MobileNav />
-        <CommandPalette />
-      </div>
-    </BreadcrumbOverridesProvider>
+    <div className="bg-background text-on-surface flex min-h-screen flex-col pb-16 sm:pb-0">
+      <AppHeader />
+      <ApiKeyPrompt />
+      <main ref={mainRef} className="mt-header flex w-full flex-1 flex-col">
+        <Outlet />
+      </main>
+      <AppFooter />
+      <MobileNav />
+      <CommandPalette />
+    </div>
   );
 }

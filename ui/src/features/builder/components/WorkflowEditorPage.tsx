@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import BreadcrumbNav from '@/components/layout/BreadcrumbNav';
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -269,6 +270,7 @@ function Editor({
   return (
     <div className="flex flex-1 flex-col" data-testid="workflow-editor">
       <div className="border-border flex flex-wrap items-center gap-3 border-b px-4 py-3 sm:px-6">
+        <BreadcrumbNav className="basis-full" />
         <h1 className="text-on-surface text-headline-lg">
           Edit {workflow.workflowId}
         </h1>

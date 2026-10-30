@@ -17,7 +17,6 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { WorkflowDetailsPage } from '../WorkflowDetailsPage';
-import { BreadcrumbOverridesProvider } from '@/lib/breadcrumbOverrides';
 import { createTestQueryClient } from '@/test/utils/testUtils';
 import {
   createMockExecution,
@@ -134,17 +133,15 @@ function Where() {
 function renderPage() {
   return render(
     <QueryClientProvider client={createTestQueryClient()}>
-      <BreadcrumbOverridesProvider>
-        <MemoryRouter initialEntries={['/sessions/S 1/workflow/wf-982-xk-11']}>
-          <Where />
-          <Routes>
-            <Route
-              path="/sessions/:sessionId/workflow/:workflowId"
-              element={<WorkflowDetailsPage />}
-            />
-          </Routes>
-        </MemoryRouter>
-      </BreadcrumbOverridesProvider>
+      <MemoryRouter initialEntries={['/sessions/S 1/workflow/wf-982-xk-11']}>
+        <Where />
+        <Routes>
+          <Route
+            path="/sessions/:sessionId/workflow/:workflowId"
+            element={<WorkflowDetailsPage />}
+          />
+        </Routes>
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }

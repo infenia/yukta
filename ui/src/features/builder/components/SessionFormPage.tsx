@@ -65,7 +65,7 @@ function ScriptedPanel({ session }: { session: SessionDraft }) {
   return (
     <section
       aria-labelledby="scripted-heading"
-      className="flex min-w-0 flex-col gap-2 lg:sticky lg:top-28 lg:self-start"
+      className="flex min-w-0 flex-col gap-2 lg:sticky lg:top-18 lg:self-start"
     >
       <h2 id="scripted-heading" className="text-label-md text-on-surface">
         Same thing, scripted

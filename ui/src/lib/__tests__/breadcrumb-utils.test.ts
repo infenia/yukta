@@ -35,11 +35,11 @@ describe('parseBreadcrumbsFromPath', () => {
     });
   });
 
-  it('should handle unmapped segments by capitalizing first letter', () => {
+  it('keeps an unmapped segment as written', () => {
     const breadcrumbs = parseBreadcrumbsFromPath('/history');
     expect(breadcrumbs).toHaveLength(1);
     expect(breadcrumbs[0]).toEqual({
-      label: 'History',
+      label: 'history',
       href: undefined,
       isCurrent: true,
     });
@@ -138,7 +138,7 @@ describe('parseBreadcrumbsFromPath', () => {
     const breadcrumbs = parseBreadcrumbsFromPath('/reports');
     expect(breadcrumbs).toHaveLength(1);
     expect(breadcrumbs[0]).toEqual({
-      label: 'Reports',
+      label: 'reports',
       href: undefined,
       isCurrent: true,
     });
@@ -160,7 +160,7 @@ describe('parseBreadcrumbsFromPath', () => {
       isCurrent: false,
     });
     expect(breadcrumbs[2]).toEqual({
-      label: 'History',
+      label: 'history',
       href: undefined,
       isCurrent: true,
     });
@@ -182,7 +182,7 @@ describe('parseBreadcrumbsFromPath', () => {
   it('should handle mixed alphanumeric segments', () => {
     const breadcrumbs = parseBreadcrumbsFromPath('/sessions/123/item');
     expect(breadcrumbs).toHaveLength(2);
-    expect(breadcrumbs[1].label).toBe('Item');
+    expect(breadcrumbs[1].label).toBe('item');
     expect(breadcrumbs[1].isCurrent).toBe(true);
   });
 
@@ -199,19 +199,17 @@ describe('parseBreadcrumbsFromPath', () => {
     expect(breadcrumbs.map((item) => item.label)).toEqual([
       'Sessions',
       'SESSION_A92_XP_2024',
-      'Wf-982-xk-11',
+      'wf-982-xk-11',
     ]);
     expect(breadcrumbs[2].isCurrent).toBe(true);
   });
 
-  it('should apply label overrides to raw segments', () => {
-    const breadcrumbs = parseBreadcrumbsFromPath(
-      '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11',
-      { 'wf-982-xk-11': 'Supply_Chain_Optimizer_V2' }
-    );
-
-    expect(breadcrumbs[2].label).toBe('Supply_Chain_Optimizer_V2');
-    expect(breadcrumbs[1].label).toBe('SESSION_A92_XP_2024');
+  it('keeps IDs as written and names the route words', () => {
+    expect(
+      parseBreadcrumbsFromPath('/sessions/dogfood/workflow/check/edit').map(
+        (b) => b.label
+      )
+    ).toEqual(['Sessions', 'dogfood', 'check', 'Edit']);
   });
 
   it('should keep intermediate session segment clickable on the workflow page', () => {

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import type { ReactNode } from 'react';
+import BreadcrumbNav from './BreadcrumbNav';
 
 /** The single h1 per page, with optional eyebrow, description and actions. */
 export function PageHeader({
@@ -19,6 +20,7 @@ export function PageHeader({
   return (
     <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
+        <BreadcrumbNav className="mb-2" />
         {eyebrow && (
           <span
             data-testid="page-eyebrow"
