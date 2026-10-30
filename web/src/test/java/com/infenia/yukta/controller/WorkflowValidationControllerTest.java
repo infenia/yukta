@@ -70,10 +70,6 @@ class WorkflowValidationControllerTest {
             .build();
   }
 
-  private WebTestClient.ResponseSpec post() {
-    return post(DRAFT);
-  }
-
   private WebTestClient.ResponseSpec post(final String body) {
     return client
         .post()
@@ -90,7 +86,7 @@ class WorkflowValidationControllerTest {
     when(pluginRegistry.get(BRANCH)).thenReturn(plugin);
     when(workflowValidator.validate(any())).thenReturn(Mono.empty());
 
-    post()
+    post(DRAFT)
         .expectStatus()
         .isOk()
         .expectBody()
@@ -107,7 +103,7 @@ class WorkflowValidationControllerTest {
     when(workflowValidator.validate(any()))
         .thenReturn(Mono.error(new IllegalArgumentException("no trigger")));
 
-    post()
+    post(DRAFT)
         .expectStatus()
         .isOk()
         .expectBody()
@@ -144,7 +140,7 @@ class WorkflowValidationControllerTest {
     when(pluginRegistry.get(BRANCH)).thenReturn(plugin);
     when(workflowValidator.validate(any())).thenReturn(Mono.empty());
 
-    post()
+    post(DRAFT)
         .expectStatus()
         .isOk()
         .expectBody()
@@ -158,7 +154,7 @@ class WorkflowValidationControllerTest {
   void testFailureWithoutMessageStillSaysWhatFailed() {
     when(workflowValidator.validate(any())).thenReturn(Mono.error(new IllegalArgumentException()));
 
-    post()
+    post(DRAFT)
         .expectStatus()
         .isOk()
         .expectBody()
@@ -173,7 +169,7 @@ class WorkflowValidationControllerTest {
     when(workflowValidator.validate(any()))
         .thenReturn(Mono.error(new IllegalStateException("secret detail")));
 
-    post()
+    post(DRAFT)
         .expectStatus()
         .is5xxServerError()
         .expectBody(String.class)
@@ -187,13 +183,14 @@ class WorkflowValidationControllerTest {
     when(pluginRegistry.get(BRANCH)).thenReturn(routed);
     when(workflowValidator.validate(any())).thenReturn(Mono.empty());
 
-    post(
-            """
-            {"workflowId":"wf","description":"d",
-            "nodes":[{"nodeId":"gate","type":"BRANCH","config":{}},
-            {"nodeId":"ok","type":"BRANCH","config":{}}],
-            "edges":[{"source":"gate","target":"ok","sourcePort":"*"}]}
-            """)
+    final String body =
+        """
+        {"workflowId":"wf","description":"d",
+        "nodes":[{"nodeId":"gate","type":"BRANCH","config":{}},
+        {"nodeId":"ok","type":"BRANCH","config":{}}],
+        "edges":[{"source":"gate","target":"ok","sourcePort":"*"}]}
+        """;
+    post(body)
         .expectStatus()
         .isOk()
         .expectBody()
