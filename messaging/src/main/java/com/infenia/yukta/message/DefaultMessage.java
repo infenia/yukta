@@ -179,14 +179,6 @@ public record DefaultMessage<T>(
     if (copy.containsKey(null)) {
       throw new NullPointerException("metadata key must not be null");
     }
-    if (log.isDebugEnabled()) {
-      log.debug(
-          "Dropping null-valued metadata entries {}",
-          copy.entrySet().stream()
-              .filter(e -> e.getValue() == null)
-              .map(Map.Entry::getKey)
-              .toList());
-    }
     copy.values().removeIf(Objects::isNull);
     return Map.copyOf(copy);
   }
