@@ -1496,6 +1496,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List pending approvals across sessions
+         * @description Lists the nodes of all sessions that wait for a signal now, oldest first (at most limit, default 100, up to 1000), each with its session, execution, node, signal name and waiting-since.
+         */
+        get: operations["allPendingApprovals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2762,6 +2782,7 @@ export interface components {
             name?: string;
             /** Format: date-time */
             since?: string;
+            sessionId?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListSessionListItem: {
@@ -5291,6 +5312,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseCounts"];
+                };
+            };
+        };
+    };
+    allPendingApprovals: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListPendingApproval"];
                 };
             };
         };
