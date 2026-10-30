@@ -837,7 +837,7 @@ export interface paths {
         };
         /**
          * Get workflow execution status
-         * @description Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)
+         * @description Pass sessionId to read a run older than the execution index from its session's history. Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)
          */
         get: operations["getWorkflowStatus"];
         put?: never;
@@ -857,7 +857,7 @@ export interface paths {
         };
         /**
          * Get workflow execution status
-         * @description Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)
+         * @description Pass sessionId to read a run older than the execution index from its session's history. Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)
          */
         get: operations["getWorkflowStatus_1"];
         put?: never;
@@ -4416,7 +4416,10 @@ export interface operations {
     };
     getWorkflowStatus: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Session ID, to read from the session's history */
+                sessionId?: string;
+            };
             header?: never;
             path: {
                 /** @description Execution ID */
@@ -4439,7 +4442,10 @@ export interface operations {
     };
     getWorkflowStatus_1: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Session ID, to read from the session's history */
+                sessionId?: string;
+            };
             header?: never;
             path: {
                 /** @description Session ID */

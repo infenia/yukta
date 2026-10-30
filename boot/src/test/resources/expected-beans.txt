@@ -31,6 +31,7 @@ com.infenia.yukta.controller.WorkflowVersionController
 com.infenia.yukta.edition.EditionInfo
 com.infenia.yukta.exception.GlobalExceptionHandler
 com.infenia.yukta.filter.ApiKeyFilter
+com.infenia.yukta.filter.DeprecatedAliasFilter
 com.infenia.yukta.filter.HostOriginFilter
 com.infenia.yukta.filter.RequestLoggingFilter
 com.infenia.yukta.filter.RequestTracingFilter
