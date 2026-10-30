@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" font-family="Noto Sans, Inter, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#111C33"/>
+    </linearGradient>
+    <style>
+      .line { fill: none; stroke: #6A7A9B; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+      .ring { fill: none; stroke: #2F6BFF; }
+      .solid { fill: #2F6BFF; }
+      .dot { fill: #E85D0C; }
+      .ring-accent { fill: none; stroke: #E85D0C; stroke-width: 5; }
+      .chip { fill: #16233F; stroke: #2B3C61; stroke-width: 2; }
+      .chip-t { fill: #C9D4EC; font-size: 26px; font-weight: 600; }
+    </style>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect x="0" y="632" width="1280" height="8" fill="#2F6BFF"/>
+
+  <!-- logo, scaled -->
+  <g transform="translate(70 95) scale(1.15)">
+    <g class="line">
+      <path d="M67 62 82 77H138"/><path d="M82 77V89"/><path d="M61 184 82 163H131"/><path d="M82 163V151"/>
+      <path d="M35 120H51"/><path d="M165 104V129"/><path d="M130 128 141 139"/><path d="M184 58 194 48"/><path d="M189 187 195 193"/>
+    </g>
+    <circle class="ring-accent" cx="54" cy="49" r="10"/>
+    <circle class="solid" cx="82" cy="120" r="25"/>
+    <circle class="ring" cx="165" cy="77" r="15" stroke-width="12"/>
+    <circle class="ring" cx="165" cy="163" r="20" stroke-width="16"/>
+    <circle class="dot" cx="206" cy="204" r="10"/>
+  </g>
+
+  <!-- text -->
+  <text x="370" y="215" fill="#FFFFFF" font-size="104" font-weight="700">Yukta</text>
+  <text x="372" y="285" fill="#C9D4EC" font-size="36" font-weight="500">Reactive, DAG-based workflow</text>
+  <text x="372" y="332" fill="#C9D4EC" font-size="36" font-weight="500">orchestration server</text>
+  <text x="372" y="390" fill="#8EA0C4" font-size="26">Define a workflow once as JSON. Run it from</text>
+  <text x="372" y="426" fill="#8EA0C4" font-size="26">REST, a web UI, a CLI or an AI agent over MCP.</text>
+
+  <!-- chips -->
+  <g>
+    <rect class="chip" x="90" y="500" width="130" height="56" rx="28"/><text class="chip-t" x="155" y="537" text-anchor="middle">REST</text>
+    <rect class="chip" x="236" y="500" width="150" height="56" rx="28"/><text class="chip-t" x="311" y="537" text-anchor="middle">Web UI</text>
+    <rect class="chip" x="402" y="500" width="110" height="56" rx="28"/><text class="chip-t" x="457" y="537" text-anchor="middle">CLI</text>
+    <rect class="chip" x="528" y="500" width="120" height="56" rx="28"/><text class="chip-t" x="588" y="537" text-anchor="middle">MCP</text>
+    <rect class="chip" x="664" y="500" width="150" height="56" rx="28"/><text class="chip-t" x="739" y="537" text-anchor="middle">Java 25</text>
+  </g>
+  <text x="1190" y="537" fill="#8EA0C4" font-size="26" text-anchor="end">github.com/infenia/yukta</text>
+</svg>
