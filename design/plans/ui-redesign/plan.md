@@ -42,6 +42,23 @@
 - **Live canvas:** https://claude.ai/artifact/FDLDwU5fDE6XqogqKQzqNQ (editable).
 - **Design system:** https://claude.ai/artifact/LeqMJNrp9wEkCaEDrKAWch. Its README has the status vocabulary and the agent-friendly rules.
 
+## Resume here (state at 2026-10-30 16:20, end of the second session)
+
+Nothing new is left to build; what remains is getting the open PRs merged.
+
+**This session's PRs (yours to keep green):**
+- #1516 C1 heartbeats: CI was still running after the last push (a flaky time assertion was fixed). Check it again.
+- #1517 R2 Events tab and #1518 N1 path check: green.
+- #1519 Q5 `sourcePort "*"`: stacked on #1502 (`feat/validation-warnings`). Once #1502 is squash-merged, run `git rebase --onto origin/main <#1502's last head> fix/edge-all-ports`, rerun `./examples/11-dogfood/yk check --base origin/main` and force-push. The other session agreed you do this.
+- #1520 K2 breadcrumbs: **E2E fails as expected.** The chromium baselines `workflow-details-full-page`, `workflow-details-full-page-dark` (maybe `-progress-panel`) and `workflow-editor-mobile` must come from CI's renderer, because local chromium differs on every glyph. Take them from CI with `gh run download <run-id> -D <dir>` (artifact `playwright-videos`), open each `*-actual.png`, copy each over `ui/e2e/__snapshots__/<spec>/<name>-chromium-linux.png`, commit and push. Use the image that two attempts agree on. Rebase on main first if #1490/#1492/#1504/#1511/#1512 merged, since they touch the same headers.
+- #1521 this plan update: green.
+
+**Owned by the other session (`yukta-ui-redesign-design-system`):** #1490, #1492, #1502, #1503, #1504, #1505, #1511, #1512, plus its own non-redesign PRs. It merges main into them and fixes their CI. Ask it (SendMessage) before pushing to any of them. If it's gone, they're yours: check `gh pr view <n>` and follow the stack rules below.
+
+**PR title rule:** CI's "Conventional PR title" accepts only one scope matching `[a-z0-9._/-]+`. `feat(web,ui)` fails; use `feat(control)` or `feat(sessions)`.
+
+**Open product question (raise with the user):** the public docs promised that an edge without `sourcePort` takes every port, but the engine always delivered only `default` (the mappers' default). #1519 keeps that behaviour, documents it and adds `"*"`. Making an omitted port mean every port instead would change existing workflows.
+
 ## Decisions (made 2026-10-30)
 
 - **D1:** declared `group` on a node, with the node-ID prefix as the fallback. The server part (the `group` field on a workflow node, passed through by the graph endpoint) is in progress on `feat/node-group`.
