@@ -3261,6 +3261,35 @@
         "summary" : "Count runs that need attention",
         "tags" : [ "Execution Search API" ]
       }
+    },
+    "/api/approvals" : {
+      "get" : {
+        "description" : "Lists the nodes of all sessions that wait for a signal now, oldest first (at most limit, default 100, up to 1000), each with its session, execution, node, signal name and waiting-since.",
+        "operationId" : "allPendingApprovals",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListPendingApproval"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List pending approvals across sessions",
+        "tags" : [ "Execution Control API" ]
+      }
     }
   },
   "components" : {
@@ -5328,6 +5357,9 @@
           "since" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "sessionId" : {
+            "type" : "string"
           }
         }
       },

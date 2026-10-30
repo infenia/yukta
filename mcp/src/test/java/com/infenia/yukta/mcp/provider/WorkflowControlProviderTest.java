@@ -592,7 +592,7 @@ class WorkflowControlProviderTest {
   void pendingApprovals_listsTheOpenWaitsOfTheSession() {
     final var approval =
         new com.infenia.yukta.model.control.PendingApproval(
-            EXECUTION, "wf", NODE, "approval", java.time.Instant.EPOCH);
+            SESSION, EXECUTION, "wf", NODE, "approval", java.time.Instant.EPOCH);
     when(controlBus.pendingApprovals(SESSION))
         .thenReturn(reactor.core.publisher.Flux.just(approval));
 
