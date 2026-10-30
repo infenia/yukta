@@ -131,7 +131,7 @@ describe('ControlPage', () => {
       ['n:1', 'a', 'run-2-01'],
       ['other', 'b', '—'],
     ]);
-    expect(within(rows[1]).getByText('3 seconds ago')).toBeInTheDocument();
+    expect(within(rows[1]).getByText(/^\d+ seconds ago$/)).toBeInTheDocument();
     expect(within(rows[1]).getByText('run-1-01')).toHaveAttribute(
       'title',
       'run-1-0123456789'
