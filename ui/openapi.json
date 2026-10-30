@@ -3183,6 +3183,36 @@
           }
         }
       }
+    },
+    "/api/executions/counts" : {
+      "get" : {
+        "description" : "Across all sessions: runs RUNNING and QUEUED now, and runs with status FAILURE that started in the last `hours` (default 24). The history of each session is bounded by yukta.execution-log.retained-runs.",
+        "operationId" : "counts",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "hours",
+          "required" : false,
+          "schema" : {
+            "default" : 24,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCounts"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Count runs that need attention",
+        "tags" : [ "Execution Search API" ]
+      }
     }
   },
   "components" : {
@@ -4011,6 +4041,11 @@
           "restartOf" : {
             "type" : [ "string", "null" ],
             "description" : "The run this one restarts, if any"
+          },
+          "nodes" : {
+            "$ref" : "#/components/schemas/Nodes",
+            "description" : "How far the run got through its nodes",
+            "type" : "null"
           }
         }
       },
@@ -5566,6 +5601,10 @@
           "endTime" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "nodes" : {
+            "$ref" : "#/components/schemas/Nodes",
+            "type" : "null"
           }
         }
       },
@@ -5838,6 +5877,86 @@
             "type" : "string"
           }
         }
+      },
+      "ApiResponseCounts" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/Counts",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Counts" : {
+        "properties" : {
+          "failed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "queued" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "running" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "Nodes" : {
+        "description" : "How far a run got through its nodes",
+        "properties" : {
+          "done" : {
+            "description" : "Nodes in a final state",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "failed" : {
+            "description" : "The first node that failed, if any",
+            "type" : [ "string", "null" ]
+          },
+          "total" : {
+            "description" : "Nodes in the run",
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
       }
     }
   }
