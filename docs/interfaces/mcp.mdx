@@ -19,20 +19,20 @@ Yukta works with AI agents in both directions: workflows can call out to agents 
 
 ## Endpoint and transport
 
-The server listens at `/mcp` on the same address and port as the REST API, for example `http://localhost:8080/mcp`. It uses the streamable HTTP transport in stateless mode: every request stands alone and there is no MCP session to keep. There is no standard-input transport. The former path `/sse` is still accepted as an alias for `/mcp`.
+The server listens at `/mcp` on the same address and port as the REST API, for example `http://localhost:9858/mcp`. It uses the streamable HTTP transport in stateless mode: every request stands alone and there is no MCP session to keep. There is no standard-input transport. The former path `/sse` is still accepted as an alias for `/mcp`.
 
 ## Connect a client
 
 With Claude Code, one command adds the server:
 
 ```bash
-claude mcp add --transport http yukta http://localhost:8080/mcp
+claude mcp add --transport http yukta http://localhost:9858/mcp
 ```
 
 When the server requires a key, add it as a header:
 
 ```bash
-claude mcp add --transport http yukta http://localhost:8080/mcp \
+claude mcp add --transport http yukta http://localhost:9858/mcp \
   --header "Authorization: Bearer <key>"
 ```
 
@@ -43,7 +43,7 @@ Other clients take the same two values, a URL and optional headers. A typical co
   "mcpServers": {
     "yukta": {
       "type": "http",
-      "url": "http://localhost:8080/mcp",
+      "url": "http://localhost:9858/mcp",
       "headers": { "Authorization": "Bearer <key>" }
     }
   }

@@ -241,7 +241,7 @@
         Say ''
         if (-not $cliOnly -and -not $installedServer) {
             Say 'Note: this release has no native Windows server yet. Run the server with Docker Desktop instead:'
-            Say "  docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:$version"
+            Say "  docker run --rm -p 127.0.0.1:9858:9858 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:$version"
         }
         Say "  verified:   $verified$(if ($sigNote) { "  [$sigNote]" })"
         if ($installedServer) { Say "Installed: $(Join-Path $dir 'yukta.exe') (server) $version" }
@@ -268,7 +268,7 @@
         }
         Say "$O${B}Done!$Z Yukta $version is ready (took $([int]((Get-Date) - $tStart).TotalSeconds)s)."
         Say 'Next:'
-        if ($installedServer) { Say '  yukta                          # start the server on http://localhost:8080' }
+        if ($installedServer) { Say '  yukta                          # start the server on http://localhost:9858' }
         if (-not $serverOnly) { Say '  yukta-cli session list         # talk to a running server' }
         Say '  https://yukta.infenia.com      # docs and first workflow'
     }

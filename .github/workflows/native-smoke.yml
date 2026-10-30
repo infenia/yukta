@@ -43,4 +43,4 @@ jobs:
           dist/linux-amd64/yukta &
           pid=$!
           trap 'kill "$pid" || true' EXIT
-          release/smoke-test.sh http://127.0.0.1:8080
+          release/smoke-test.sh http://127.0.0.1:9858

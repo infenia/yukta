@@ -18,7 +18,7 @@ import (
 
 // TestListCmd_createsCommand_withCorrectUse tests that ListCmd creates command with correct Use.
 func TestListCmd_createsCommand_withCorrectUse(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := ListCmd(c)
 
 	if cmd.Use != "list" {
@@ -28,7 +28,7 @@ func TestListCmd_createsCommand_withCorrectUse(t *testing.T) {
 
 // TestListCmd_hasDescription tests that command has description.
 func TestListCmd_hasDescription(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := ListCmd(c)
 
 	if cmd.Short == "" {
@@ -233,7 +233,7 @@ func TestListCmd_multipleRows_displaysAllSessions(t *testing.T) {
 
 // TestListCmd_commandHasRunE tests that command has RunE handler.
 func TestListCmd_commandHasRunE(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := ListCmd(c)
 
 	if cmd.RunE == nil {
@@ -243,7 +243,7 @@ func TestListCmd_commandHasRunE(t *testing.T) {
 
 // TestListCmd_noArgs_required tests that list command requires no arguments.
 func TestListCmd_noArgs_required(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := ListCmd(c)
 
 	// Should not have Args restriction (accepts zero arguments)

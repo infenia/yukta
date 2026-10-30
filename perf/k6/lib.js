@@ -7,7 +7,7 @@ import exec from 'k6/execution';
 import { Counter, Rate, Trend } from 'k6/metrics';
 import { CATALOG, selected, sessionBody, sessionId } from './workflows.js';
 
-export const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
+export const BASE_URL = __ENV.BASE_URL || 'http://localhost:9858';
 const API_KEY = __ENV.API_KEY || '';
 // Never send the key in clear text to a remote host.
 if (API_KEY && !/^https:\/\//i.test(BASE_URL) && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/i.test(BASE_URL)) {

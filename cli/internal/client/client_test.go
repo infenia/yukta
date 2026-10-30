@@ -15,7 +15,7 @@ import (
 
 // TestNewRequest_emptyMethod tests that an empty method returns an error.
 func TestNewRequest_emptyMethod_returnsError(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.newRequest("", "/api/sessions")
 	if err == nil {
 		t.Error("expected error for empty method, got nil")
@@ -27,7 +27,7 @@ func TestNewRequest_emptyMethod_returnsError(t *testing.T) {
 
 // TestNewRequest_pathWithoutSlash tests that a path without leading slash returns an error.
 func TestNewRequest_pathWithoutSlash_returnsError(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.newRequest("GET", "api/sessions")
 	if err == nil {
 		t.Error("expected error for path without leading slash, got nil")
@@ -39,7 +39,7 @@ func TestNewRequest_pathWithoutSlash_returnsError(t *testing.T) {
 
 // TestNewRequest_validMethodAndPath_setsHeaders tests that valid request sets correct headers.
 func TestNewRequest_validMethodAndPath_setsHeaders(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	req, err := c.newRequest("GET", "/api/sessions")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -58,13 +58,13 @@ func TestNewRequest_validMethodAndPath_setsHeaders(t *testing.T) {
 
 // TestNewRequest_validMethodAndPath_correctURL tests that valid request has correct URL.
 func TestNewRequest_validMethodAndPath_correctURL(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	req, err := c.newRequest("GET", "/api/sessions")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expectedURL := "http://localhost:8080/api/sessions"
+	expectedURL := "http://localhost:9858/api/sessions"
 	if req.URL.String() != expectedURL {
 		t.Errorf("expected URL %q, got %q", expectedURL, req.URL.String())
 	}
@@ -72,7 +72,7 @@ func TestNewRequest_validMethodAndPath_correctURL(t *testing.T) {
 
 // TestNewRequest_differentMethod_correctMethod tests that request has the correct HTTP method.
 func TestNewRequest_differentMethod_correctMethod(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	req, err := c.newRequest("POST", "/api/sessions")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -97,7 +97,7 @@ func TestNewRequest_invalidURL_returnsError(t *testing.T) {
 
 // TestDoRequest_nilRequest_returnsError tests that a nil request returns an error.
 func TestDoRequest_nilRequest_returnsError(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.doRequest(nil)
 	if err == nil {
 		t.Error("expected error for nil request, got nil")
@@ -259,7 +259,7 @@ func TestDoRequest_largeResponse_returnsComplete(t *testing.T) {
 
 // TestNewRequest_invalidURL_withMalformedPath tests URL parsing with special characters.
 func TestNewRequest_invalidURL_withMalformedPath(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	// Path with invalid control characters that would make URL parsing fail
 	req, err := c.newRequest("GET", "/api/sessions")
 	if err != nil {
@@ -273,7 +273,7 @@ func TestNewRequest_invalidURL_withMalformedPath(t *testing.T) {
 // TestNewRequest_allHTTPMethods tests various HTTP methods.
 func TestNewRequest_allHTTPMethods(t *testing.T) {
 	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 
 	for _, method := range methods {
 		req, err := c.newRequest(method, "/api/test")
@@ -294,7 +294,7 @@ func TestNewRequest_allHTTPMethods(t *testing.T) {
 // TestNewClient_emptyURL_defaultsToLocalhost tests default URL with empty input.
 func TestNewClient_emptyURL_defaultsToLocalhost(t *testing.T) {
 	c := NewClient("")
-	if c.BaseURL != "http://localhost:8080" {
+	if c.BaseURL != "http://localhost:9858" {
 		t.Errorf("expected default URL, got %q", c.BaseURL)
 	}
 }
@@ -325,7 +325,7 @@ func TestNewClient_multipleTrailingSlashes_removed(t *testing.T) {
 
 // TestNewClient_httpClientNotNil tests that HTTPClient is initialized.
 func TestNewClient_httpClientNotNil(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	if c.HTTPClient == nil {
 		t.Error("expected HTTPClient to be initialized, got nil")
 	}
@@ -333,13 +333,13 @@ func TestNewClient_httpClientNotNil(t *testing.T) {
 
 // TestNewRequest_complexPath_works tests that complex paths work correctly.
 func TestNewRequest_complexPath_works(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	req, err := c.newRequest("GET", "/api/sessions/session-123/workflows/workflow-456")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expectedURL := "http://localhost:8080/api/sessions/session-123/workflows/workflow-456"
+	expectedURL := "http://localhost:9858/api/sessions/session-123/workflows/workflow-456"
 	if req.URL.String() != expectedURL {
 		t.Errorf("expected URL %q, got %q", expectedURL, req.URL.String())
 	}
@@ -363,7 +363,7 @@ func TestDoRequest_redirectStatus_returnsError(t *testing.T) {
 
 // TestNewRequest_methodPreserved tests that HTTP methods are case-sensitive.
 func TestNewRequest_methodPreserved(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	req, err := c.newRequest("DELETE", "/api/sessions")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -425,7 +425,7 @@ func TestDoRequestTimesOut(t *testing.T) {
 }
 
 func TestBearerTokenHeader(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	req, _ := c.newRequest("GET", "/api/sessions")
 	if got := req.Header.Get("Authorization"); got != "" {
 		t.Fatalf("unexpected Authorization %q", got)

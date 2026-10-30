@@ -26,7 +26,7 @@ func TestToken_overPlainHttpToARemoteHostIsRefused(t *testing.T) {
 }
 
 func TestToken_allowedOnLoopbackHttpsAndWithoutAToken(t *testing.T) {
-	for _, base := range []string{"http://localhost:8080", "http://127.0.0.1:1", "http://[::1]:1", "https://prod.example.com"} {
+	for _, base := range []string{"http://localhost:9858", "http://127.0.0.1:1", "http://[::1]:1", "https://prod.example.com"} {
 		c := NewClient(base)
 		c.Token = "secret"
 		if _, err := c.newRequest("GET", "/x"); err != nil {

@@ -80,8 +80,8 @@ A cold start of the native binary, up to a user pasting the link /sessions/x int
 **Can go wrong.** Scanning is by package, not by an explicit list. A bean that happens to be on the classpath is switched on whether or not anyone meant it.
 
 </Step>
-<Step title="Listen on :8080">
-**What happens.** Netty starts and binds to server.address, which is $\{YUKTA_SERVER_ADDRESS:127.0.0.1\}, on the default port 8080. Virtual threads are enabled for blocking work.
+<Step title="Listen on :9858">
+**What happens.** Netty starts and binds to server.address, which is $\{YUKTA_SERVER_ADDRESS:127.0.0.1\}, on the default port 9858. Virtual threads are enabled for blocking work.
 
 **Why it is built this way.** Loopback means a laptop install is not reachable from the office network. The container image sets YUKTA_SERVER_ADDRESS=0.0.0.0 because a container must listen on all its interfaces.
 
@@ -249,7 +249,7 @@ Gives operators health, info and metrics, and developers a few more diagnostics,
 
 - Base and prod expose health, info and metrics. Dev adds loggers, mappings and threaddump. Not exposed in either profile: heapdump, env, beans, shutdown.
 - Health details use show-details: when-authorized. Boot contains no Spring Security, so in our view nobody counts as authorised and detail fields are most likely never shown; this was not run to confirm.
-- Management shares port 8080; there is no separate management port. The SPA router excludes /actuator/\*\*, so these paths are never answered with index.html.
+- Management shares port 9858; there is no separate management port. The SPA router excludes /actuator/\*\*, so these paths are never answered with index.html.
 - The API key filter in web now also covers /actuator (except /actuator/health): with a key set, the rest needs an ADMIN key. With no key on a loopback bind, the actuator is open to local callers; in the dev profile loggers can be read and changed (POST to /actuator/loggers). Swagger and /v3 are still outside any key check.
 
 - **Guarantees.** Prod exposure is exactly health, info, metrics (asserted by ProfileConfigTest). No endpoint that dumps memory is exposed anywhere.
@@ -288,7 +288,7 @@ Compiles the app into a standalone executable with fast start and low memory.
 - Optimization: the build uses Oracle GraalVM at -O3 with a PGO profile. release/build-server.sh records a fresh profile for every full build (release/pgo-profile.sh: an instrumented build, with the examples as training load) into boot/pgo/yukta.iprof, which is git-ignored, and keeps a copy next to the binary (dist/<platform>/yukta.iprof). With NATIVE_PGO=0 Oracle GraalVM infers a profile itself (GraalNN); if recording fails the build does the same with a warning, unless NATIVE_PGO_REQUIRED=1, which the release workflow sets, makes it fail. -Pnative.quick builds with -Ob instead. release.sh attaches each platform's profile to the release as pgo-profile-<platform>.iprof.gz; NATIVE_PGO_PROFILE=<that file> builds with it instead of recording a new one, which rebuilds a release the same way (same builder image digest, same profile). Only linux-amd64 is built today.
 - Build arguments -Dspring.profiles.active=prod and -Dspring.aot.enabled=true are also set. Spring AOT precomputes the bean wiring at build time, which is what makes native start-up fast.
 - Whether the -D profile argument reaches the running binary was not verified: it is passed to the native-image builder. The launcher's own prod rule in main() is the part that is covered by a test.
-- The Dockerfile builds the image in a GraalVM stage, optionally compresses the binary with UPX, then copies it into a distroless nonroot image that exposes 8080 and sets YUKTA_SERVER_ADDRESS=0.0.0.0. There is no shell in the final image.
+- The Dockerfile builds the image in a GraalVM stage, optionally compresses the binary with UPX, then copies it into a distroless nonroot image that exposes 9858 and sets YUKTA_SERVER_ADDRESS=0.0.0.0. There is no shell in the final image.
 - script-js (GraalJS) is no longer in the default set: it is the largest part of the native image, so ask for it with -Pyukta.plugins=all or by name.
 - `META-INF/native-image/com.infenia.yukta/boot/reflect-config.json` (and `resource-config.json`) are hand-kept metadata for classes the AOT step cannot see, mostly cache and library internals. Prefer declaring reflection next to the class with `@RegisterReflectionForBinding` or a `RuntimeHintsRegistrar` (see `MessageReflectionHints`); both are merged into the same image. When a new dependency or plugin fails in the native binary with a missing-class error, add the entry in code, or regenerate the file by running the tests on a GraalVM JVM with the tracing agent (`-agentlib:native-image-agent=config-merge-dir=boot/src/main/resources/META-INF/native-image/com.infenia.yukta/boot`) and review the diff: the agent only records what the run touched, so entries it did not see are not removed for you.
 
@@ -334,10 +334,10 @@ Context propagation is enabled. It is a JVM, not a native image, so the launcher
 With no profile named, spring.profiles.default makes prod active. Dev (debug logging, TRACE for the orchestrator stream package and the longer management list) is opt-in; bootRun asks for it.
 </Step>
 <Step title="Context starts">
-Beans from all modules are created. The server binds to 127.0.0.1:8080, so only this machine can connect.
+Beans from all modules are created. The server binds to 127.0.0.1:9858, so only this machine can connect.
 </Step>
 <Step title="Browse the UI">
-The browser opens http://localhost:8080, the fallback router serves index.html and the UI calls /api.
+The browser opens http://localhost:9858, the fallback router serves index.html and the UI calls /api.
 </Step>
 </Steps>
 
@@ -356,7 +356,7 @@ The Dockerfile copies the binary into a distroless nonroot image and sets YUKTA_
 main() sees a native image with no profile argument and sets prod. Logging is quiet and management exposure is health, info and metrics.
 </Step>
 <Step title="Serve">
-Port 8080 answers API, MCP, actuator and UI. The key filter guards /api and /actuator when a key is set; Swagger and /v3 have no check.
+Port 9858 answers API, MCP, actuator and UI. The key filter guards /api and /actuator when a key is set; Swagger and /v3 have no check.
 </Step>
 </Steps>
 
@@ -694,7 +694,7 @@ JVM vs native.
 | Default profile | The profile used when none is named. | Here it is dev. |
 | application.yaml | The main configuration file, with overlays per profile. | Where most defaults live. |
 | WebFlux | Spring's non-blocking web stack, built on Reactor and Netty. | The server model of the whole app. |
-| Netty | The network library that actually accepts connections. | The server on port 8080. |
+| Netty | The network library that actually accepts connections. | The server on port 9858. |
 | Reactor | The library for asynchronous streams used across Yukta. | Context propagation is set up in main(). |
 | Context propagation | Copying values such as a request id from one thread to the next. | Keeps log lines correlated. |
 | Virtual threads | Very cheap Java threads for blocking work. | Blocking plugins do not tie up the event loop. |

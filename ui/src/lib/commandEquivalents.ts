@@ -70,7 +70,7 @@ const sh = (...words: string[]) => words.map(shellQuote).join(' ');
 const enc = encodeURIComponent;
 
 /** The server the CLI talks to unless told otherwise (`--url`, env YUKTA_SERVER_URL). */
-const CLI_DEFAULT_URL = 'http://localhost:8080';
+const CLI_DEFAULT_URL = 'http://localhost:9858';
 
 /** `yukta-cli ...` for the action; a `baseUrl` other than the CLI's default is passed as `--url`. */
 export function toCli(

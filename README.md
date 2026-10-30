@@ -46,7 +46,7 @@ Most workflow engines make you pick: a heavy platform you have to operate, or a 
 | Linux (server + CLI) | `curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.2/install.sh \| sh` |
 | Windows (CLI) | `irm https://github.com/infenia/yukta/releases/latest/download/install.ps1 \| iex` |
 | macOS (CLI) | download `yukta-cli-darwin-arm64` or `-amd64` from the [release](https://github.com/infenia/yukta/releases/tag/v0.1.0-alpha.2) |
-| Any (Docker) | `docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:0.1.0-alpha.2` |
+| Any (Docker) | `docker run --rm -p 127.0.0.1:9858:9858 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:0.1.0-alpha.2` |
 | Debian / RPM | `.deb` and `.rpm` packages on the [releases page](https://github.com/infenia/yukta/releases) |
 | From source | JDK 25, then `./gradlew bootRun` (see [Develop](#develop)) |
 
@@ -54,13 +54,13 @@ Release files carry `SHA256SUMS` and a Sigstore signature. See [Deployment](http
 
 ## Quick start
 
-Start the server (`yukta`, or the Docker command above), then open the web UI at <http://localhost:8080/> or the API docs at <http://localhost:8080/swagger-ui.html>. With the Docker command, add `-H "X-API-Key: change-me"` to each `curl`.
+Start the server (`yukta`, or the Docker command above), then open the web UI at <http://localhost:9858/> or the API docs at <http://localhost:9858/swagger-ui.html>. With the Docker command, add `-H "X-API-Key: change-me"` to each `curl`.
 
 Create a session with one workflow, start it and read the result:
 
 ```bash
 # 1. Create a session containing a workflow
-curl -X POST http://localhost:8080/api/sessions -H "Content-Type: application/json" -d '{
+curl -X POST http://localhost:9858/api/sessions -H "Content-Type: application/json" -d '{
   "sessionId": "demo",
   "name": "Quick demo",
   "description": "Quick demo",
@@ -84,12 +84,12 @@ curl -X POST http://localhost:8080/api/sessions -H "Content-Type: application/js
 }'
 
 # 2. Start it (returns 202 with data.executionId)
-curl -X POST http://localhost:8080/api/workflow/start -H "Content-Type: application/json" \
+curl -X POST http://localhost:9858/api/workflow/start -H "Content-Type: application/json" \
   -d '{ "sessionId": "demo", "workflowId": "hello" }'
 
 # 3. Check the status, or follow it live over SSE
-curl http://localhost:8080/api/executions/{executionId}
-curl -N http://localhost:8080/api/executions/{executionId}/status/stream
+curl http://localhost:9858/api/executions/{executionId}
+curl -N http://localhost:9858/api/executions/{executionId}/status/stream
 ```
 
 Sessions are held in memory, so apply them again after a restart. For a longer walk-through see the [Quickstart](https://yukta.infenia.com/quickstart).
@@ -107,12 +107,12 @@ Sessions are held in memory, so apply them again after a restart. For a longer w
 Connect Claude Code to the MCP server:
 
 ```bash
-claude mcp add --transport http yukta http://localhost:8080/mcp
+claude mcp add --transport http yukta http://localhost:9858/mcp
 # with an API key:
-claude mcp add --transport http yukta http://localhost:8080/mcp --header "Authorization: Bearer <key>"
+claude mcp add --transport http yukta http://localhost:9858/mcp --header "Authorization: Bearer <key>"
 ```
 
-Or install the plugin, which adds the live view as well (set `server_url` to `http://localhost:8080` in `/config`; the plugin defaults to the dev server on `:9858`):
+Or install the plugin, which adds the live view as well (set `server_url` to `http://localhost:9858` in `/config`; the plugin defaults to the dev server on `:9858`):
 
 ```
 /plugin marketplace add infenia/yukta

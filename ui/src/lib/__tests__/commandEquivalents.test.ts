@@ -12,7 +12,7 @@ import {
   type CommandAction,
 } from '../commandEquivalents';
 
-const BASE = 'http://localhost:8080';
+const BASE = 'http://localhost:9858';
 const S = 's1';
 const E = 'e1';
 const N = 'n1';
@@ -245,7 +245,7 @@ describe('commandEquivalents', () => {
       sessionId: S,
       executionId: E,
     };
-    expect(toCli(action, 'http://localhost:8080/')).toBe(
+    expect(toCli(action, 'http://localhost:9858/')).toBe(
       'yukta-cli workflow pause s1 e1'
     );
     expect(toCommand('cli', action, 'https://yukta.example.com/')).toBe(

@@ -14,7 +14,7 @@ Key settings:
 
 **Trigger**
 ```bash
-curl -X POST localhost:8080/api/workflow/start -H 'Content-Type: application/json' \
+curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
   -d '{"sessionId":"example-08-retry-until-ready","workflowId":"wait-ready"}'
 ```
 

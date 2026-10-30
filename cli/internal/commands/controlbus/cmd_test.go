@@ -11,7 +11,7 @@ import (
 )
 
 func TestControlBusCmd_createsCommand(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := ControlBusCmd(c)
 
 	if cmd.Use != "controlbus" {
@@ -20,7 +20,7 @@ func TestControlBusCmd_createsCommand(t *testing.T) {
 }
 
 func TestControlBusCmd_registersSubcommands(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := ControlBusCmd(c)
 
 	subcommands := cmd.Commands()

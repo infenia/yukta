@@ -117,7 +117,7 @@ jobs:
           dist/${{ matrix.platform }}/yukta &
           pid=$!
           trap 'kill "$pid" || true' EXIT
-          release/smoke-test.sh http://127.0.0.1:8080
+          release/smoke-test.sh http://127.0.0.1:9858
 
       - name: Attest build provenance
         if: github.ref_type == 'tag'
@@ -240,6 +240,6 @@ jobs:
           export DOCKER_CONFIG
           image="ghcr.io/$REPO:${TAG#v}"
           docker pull "$image"
-          docker run -d --rm --name ytest -p 127.0.0.1:18081:8080 -e YUKTA_API_KEY=x "$image"
+          docker run -d --rm --name ytest -p 127.0.0.1:18081:9858 -e YUKTA_API_KEY=x "$image"
           trap 'docker rm -f ytest >/dev/null 2>&1 || true' EXIT
           release/smoke-test.sh http://127.0.0.1:18081 x

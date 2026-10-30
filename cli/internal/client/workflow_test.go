@@ -620,7 +620,7 @@ func TestStopWorkflow_httpError(t *testing.T) {
 
 // TestStopWorkflow_emptySessionID tests validation error
 func TestStopWorkflow_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.StopWorkflow("", "workflow-1", "")
 
 	if err == nil {
@@ -633,7 +633,7 @@ func TestStopWorkflow_emptySessionID(t *testing.T) {
 
 // TestStopWorkflow_emptyWorkflowID tests validation error
 func TestStopWorkflow_emptyWorkflowID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.StopWorkflow("session-1", "", "")
 
 	if err == nil {
@@ -679,7 +679,7 @@ func TestStopExecution_httpError(t *testing.T) {
 
 // TestStopExecution_emptyExecutionID tests validation error
 func TestStopExecution_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.StopExecution("")
 
 	if err == nil {
@@ -725,7 +725,7 @@ func TestRestartExecution_httpError(t *testing.T) {
 
 // TestRestartExecution_emptyExecutionID tests validation error
 func TestRestartExecution_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.RestartExecution("")
 
 	if err == nil {
@@ -735,7 +735,7 @@ func TestRestartExecution_emptyExecutionID(t *testing.T) {
 
 // TestRestartFromNode_emptyExecutionID tests validation error
 func TestRestartFromNode_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.RestartFromNode("", "node-1")
 
 	if err == nil {
@@ -745,7 +745,7 @@ func TestRestartFromNode_emptyExecutionID(t *testing.T) {
 
 // TestRestartFromNode_emptyNodeID tests validation error
 func TestRestartFromNode_emptyNodeID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.RestartFromNode("exec-123", "")
 
 	if err == nil {
@@ -771,7 +771,7 @@ func TestRestartFromNode_httpError(t *testing.T) {
 
 // TestPauseWorkflow_emptySessionID tests validation error
 func TestPauseWorkflow_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.PauseWorkflow("", "exec-123")
 
 	if err == nil {
@@ -781,7 +781,7 @@ func TestPauseWorkflow_emptySessionID(t *testing.T) {
 
 // TestPauseWorkflow_emptyExecutionID tests validation error
 func TestPauseWorkflow_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.PauseWorkflow("session-1", "")
 
 	if err == nil {
@@ -810,7 +810,7 @@ func TestPauseWorkflow_httpError(t *testing.T) {
 
 // TestResumeWorkflow_emptySessionID tests validation error
 func TestResumeWorkflow_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.ResumeWorkflow("", "exec-123")
 
 	if err == nil {
@@ -820,7 +820,7 @@ func TestResumeWorkflow_emptySessionID(t *testing.T) {
 
 // TestResumeWorkflow_emptyExecutionID tests validation error
 func TestResumeWorkflow_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.ResumeWorkflow("session-1", "")
 
 	if err == nil {
@@ -849,7 +849,7 @@ func TestResumeWorkflow_httpError(t *testing.T) {
 
 // TestGetWorkflowStatus_emptySessionID tests validation error
 func TestGetWorkflowStatus_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.GetWorkflowStatus("", "exec-123")
 
 	if err == nil {
@@ -859,7 +859,7 @@ func TestGetWorkflowStatus_emptySessionID(t *testing.T) {
 
 // TestGetWorkflowStatus_emptyExecutionID tests validation error
 func TestGetWorkflowStatus_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.GetWorkflowStatus("session-1", "")
 
 	if err == nil {
@@ -902,7 +902,7 @@ func TestGetWorkflowStatus_httpError(t *testing.T) {
 
 // TestGetWorkflowHistory_emptySessionID tests validation error
 func TestGetWorkflowHistory_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.GetWorkflowHistory("")
 
 	if err == nil {
@@ -945,7 +945,7 @@ func TestGetWorkflowHistory_httpError(t *testing.T) {
 
 // TestPauseNode_emptySessionID tests validation error
 func TestPauseNode_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.PauseNode("", "exec-123", "node-1")
 
 	if err == nil {
@@ -955,7 +955,7 @@ func TestPauseNode_emptySessionID(t *testing.T) {
 
 // TestPauseNode_emptyExecutionID tests validation error
 func TestPauseNode_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.PauseNode("session-1", "", "node-1")
 
 	if err == nil {
@@ -965,7 +965,7 @@ func TestPauseNode_emptyExecutionID(t *testing.T) {
 
 // TestPauseNode_emptyNodeID tests validation error
 func TestPauseNode_emptyNodeID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.PauseNode("session-1", "exec-123", "")
 
 	if err == nil {
@@ -994,7 +994,7 @@ func TestPauseNode_httpError(t *testing.T) {
 
 // TestResumeNode_emptySessionID tests validation error
 func TestResumeNode_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.ResumeNode("", "exec-123", "node-1")
 
 	if err == nil {
@@ -1004,7 +1004,7 @@ func TestResumeNode_emptySessionID(t *testing.T) {
 
 // TestResumeNode_emptyExecutionID tests validation error
 func TestResumeNode_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.ResumeNode("session-1", "", "node-1")
 
 	if err == nil {
@@ -1014,7 +1014,7 @@ func TestResumeNode_emptyExecutionID(t *testing.T) {
 
 // TestResumeNode_emptyNodeID tests validation error
 func TestResumeNode_emptyNodeID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.ResumeNode("session-1", "exec-123", "")
 
 	if err == nil {
@@ -1043,7 +1043,7 @@ func TestResumeNode_httpError(t *testing.T) {
 
 // TestEnableStepMode_emptySessionID tests validation error
 func TestEnableStepMode_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.EnableStepMode("", "exec-123", "node-1")
 
 	if err == nil {
@@ -1053,7 +1053,7 @@ func TestEnableStepMode_emptySessionID(t *testing.T) {
 
 // TestEnableStepMode_emptyExecutionID tests validation error
 func TestEnableStepMode_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.EnableStepMode("session-1", "", "node-1")
 
 	if err == nil {
@@ -1063,7 +1063,7 @@ func TestEnableStepMode_emptyExecutionID(t *testing.T) {
 
 // TestEnableStepMode_emptyNodeID tests validation error
 func TestEnableStepMode_emptyNodeID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.EnableStepMode("session-1", "exec-123", "")
 
 	if err == nil {
@@ -1092,7 +1092,7 @@ func TestEnableStepMode_httpError(t *testing.T) {
 
 // TestDisableStepMode_emptySessionID tests validation error
 func TestDisableStepMode_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.DisableStepMode("", "exec-123", "node-1")
 
 	if err == nil {
@@ -1102,7 +1102,7 @@ func TestDisableStepMode_emptySessionID(t *testing.T) {
 
 // TestDisableStepMode_emptyExecutionID tests validation error
 func TestDisableStepMode_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.DisableStepMode("session-1", "", "node-1")
 
 	if err == nil {
@@ -1112,7 +1112,7 @@ func TestDisableStepMode_emptyExecutionID(t *testing.T) {
 
 // TestDisableStepMode_emptyNodeID tests validation error
 func TestDisableStepMode_emptyNodeID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.DisableStepMode("session-1", "exec-123", "")
 
 	if err == nil {
@@ -1141,7 +1141,7 @@ func TestDisableStepMode_httpError(t *testing.T) {
 
 // TestStepNode_emptySessionID tests validation error
 func TestStepNode_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.StepNode("", "exec-123", "node-1")
 
 	if err == nil {
@@ -1151,7 +1151,7 @@ func TestStepNode_emptySessionID(t *testing.T) {
 
 // TestStepNode_emptyExecutionID tests validation error
 func TestStepNode_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.StepNode("session-1", "", "node-1")
 
 	if err == nil {
@@ -1161,7 +1161,7 @@ func TestStepNode_emptyExecutionID(t *testing.T) {
 
 // TestStepNode_emptyNodeID tests validation error
 func TestStepNode_emptyNodeID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.StepNode("session-1", "exec-123", "")
 
 	if err == nil {
@@ -1208,7 +1208,7 @@ func TestStopNode_noReasonSendsNoReasonParameter(t *testing.T) {
 }
 
 func TestStopNode_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.StopNode("", "exec-123", "node-1", true, "test")
 
 	if err == nil {
@@ -1218,7 +1218,7 @@ func TestStopNode_emptySessionID(t *testing.T) {
 
 // TestStopNode_emptyExecutionID tests validation error
 func TestStopNode_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.StopNode("session-1", "", "node-1", true, "test")
 
 	if err == nil {
@@ -1228,7 +1228,7 @@ func TestStopNode_emptyExecutionID(t *testing.T) {
 
 // TestStopNode_emptyNodeID tests validation error
 func TestStopNode_emptyNodeID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.StopNode("session-1", "exec-123", "", true, "test")
 
 	if err == nil {
@@ -1257,7 +1257,7 @@ func TestStopNode_httpError(t *testing.T) {
 
 // TestSkipNode_emptySessionID tests validation error
 func TestSkipNode_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.SkipNode("", "exec-123", "node-1", true)
 
 	if err == nil {
@@ -1267,7 +1267,7 @@ func TestSkipNode_emptySessionID(t *testing.T) {
 
 // TestSkipNode_emptyExecutionID tests validation error
 func TestSkipNode_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.SkipNode("session-1", "", "node-1", true)
 
 	if err == nil {
@@ -1277,7 +1277,7 @@ func TestSkipNode_emptyExecutionID(t *testing.T) {
 
 // TestSkipNode_emptyNodeID tests validation error
 func TestSkipNode_emptyNodeID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.SkipNode("session-1", "exec-123", "", true)
 
 	if err == nil {
@@ -1306,7 +1306,7 @@ func TestSkipNode_httpError(t *testing.T) {
 
 // TestStreamWorkflowStatus_emptySessionID tests validation error
 func TestStreamWorkflowStatus_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	err := c.StreamWorkflowStatus(context.Background(), "", "exec-123", false, func(progress WorkflowProgress) error {
 		return nil
 	})
@@ -1318,7 +1318,7 @@ func TestStreamWorkflowStatus_emptySessionID(t *testing.T) {
 
 // TestStreamWorkflowStatus_emptyExecutionID tests validation error
 func TestStreamWorkflowStatus_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	err := c.StreamWorkflowStatus(context.Background(), "session-1", "", false, func(progress WorkflowProgress) error {
 		return nil
 	})
@@ -1330,7 +1330,7 @@ func TestStreamWorkflowStatus_emptyExecutionID(t *testing.T) {
 
 // TestStreamWorkflowStatus_nilOnProgress tests validation error for a nil callback
 func TestStreamWorkflowStatus_nilOnProgress(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	err := c.StreamWorkflowStatus(context.Background(), "session-1", "exec-123", false, nil)
 
 	if err == nil {

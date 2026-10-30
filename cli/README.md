@@ -114,13 +114,13 @@ yukta-cli [flags] <resource> <action> [arguments]
 
 The CLI can be configured using environment variables:
 
-- **YUKTA_SERVER_URL** - The base URL of the Yukta server (e.g., `http://localhost:8080`)
+- **YUKTA_SERVER_URL** - The base URL of the Yukta server (e.g., `http://localhost:9858`)
 - **YUKTA_TOKEN** - The API key to send as `Authorization: Bearer <key>` to a server that has keys set
 
 Example:
 
 ```bash
-export YUKTA_SERVER_URL=http://production-yukta.example.com:8080
+export YUKTA_SERVER_URL=http://production-yukta.example.com:9858
 yukta-cli session list
 ```
 
@@ -130,7 +130,7 @@ The CLI resolves the server URL using the following priority (highest to lowest)
 
 1. **Command-line flag** (`--url`)
 2. **Environment variable** (`YUKTA_SERVER_URL`)
-3. **Default value** (`http://localhost:8080`)
+3. **Default value** (`http://localhost:9858`)
 
 ### No configuration file
 

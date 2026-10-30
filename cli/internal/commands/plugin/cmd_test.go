@@ -11,7 +11,7 @@ import (
 )
 
 func TestPluginCmd_createsCommand(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := PluginCmd(c)
 
 	if cmd.Use != "plugin" {
@@ -20,7 +20,7 @@ func TestPluginCmd_createsCommand(t *testing.T) {
 }
 
 func TestPluginCmd_registersSubcommands(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := PluginCmd(c)
 
 	subcommands := cmd.Commands()

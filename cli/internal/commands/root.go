@@ -30,7 +30,7 @@ func RootCmd(c *client.Client) *cobra.Command {
 	// Determine the default server URL: env var takes precedence, then hardcoded default.
 	defaultURL := os.Getenv("YUKTA_SERVER_URL")
 	if defaultURL == "" {
-		defaultURL = "http://localhost:8080"
+		defaultURL = "http://localhost:9858"
 	}
 
 	// Stream limits are deployment properties (a proxy that buffers SSE), so env only, no flags.

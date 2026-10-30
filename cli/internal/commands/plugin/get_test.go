@@ -18,7 +18,7 @@ import (
 )
 
 func TestGetCmd_requiresPluginType(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := GetCmd(c)
 
 	// Cobra's ExactArgs(1) should reject with no args

@@ -8,8 +8,8 @@ CONSTANT_SOURCE ──► PROCESS_EXECUTOR (echo) ──► CONSOLE_TERMINAL
 
 **Trigger**
 ```bash
-curl -X POST localhost:8080/api/sessions -H 'Content-Type: application/json' -d @session.json
-curl -X POST localhost:8080/api/workflow/start -H 'Content-Type: application/json' \
+curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @session.json
+curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
   -d '{"sessionId":"example-01-hello","workflowId":"hello"}'
 ```
 

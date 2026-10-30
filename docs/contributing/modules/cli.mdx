@@ -61,7 +61,7 @@ A developer starts a workflow with an input payload, then watches it live. Click
 
 **Why.** Checking argument counts before any network call means a typo costs nothing. Binding flags directly to the client avoids a separate configuration step that could be skipped.
 
-**Can go wrong.** The URL default comes from `YUKTA_SERVER_URL` if set, else `http://localhost:8080`. A forgotten variable silently points the command at the wrong server.
+**Can go wrong.** The URL default comes from `YUKTA_SERVER_URL` if set, else `http://localhost:9858`. A forgotten variable silently points the command at the wrong server.
 
 </Step>
 <Step title="Check payload">
@@ -175,7 +175,7 @@ Starts the program: creates one HTTP client, builds the root command, attaches t
 
 Defines the top-level `yukta-cli` command and the four options every command inherits, and applies the defaults.
 
-- `--url` defaults to the `YUKTA_SERVER_URL` environment variable, or `http://localhost:8080` when that is unset. The flag always wins over the variable. The default is read when the command tree is built, which is why a test or a script must set the variable before the program starts.
+- `--url` defaults to the `YUKTA_SERVER_URL` environment variable, or `http://localhost:9858` when that is unset. The flag always wins over the variable. The default is read when the command tree is built, which is why a test or a script must set the variable before the program starts.
 - `--token` defaults to `YUKTA_TOKEN`. It is sent as `Authorization: Bearer ...` on normal requests and on streams. The server accepts it only when `yukta.api-key` is configured; otherwise the server ignores it. Passing the secret as a flag puts it in shell history and in the process list (visible to other users on the machine), so the environment variable or `--token-file <path>` is the safer way. The CLI refuses to send a token over plain `http` to a host that is not loopback unless `--insecure-token` (or `YUKTA_INSECURE_TOKEN=1`, for CI and other trusted networks) is given, and a 401 answer hints at `YUKTA_TOKEN`.
 - Followed streams (`logs`, `workflow status-stream`, `result`) reconnect with `Last-Event-ID` and exit 1 if they cannot finish. `YUKTA_STREAM_IDLE` (default `45s`, three missed 15 s server pings; `0` turns it off) and `YUKTA_STREAM_RECONNECTS` (default `5` in a row) tune this for proxies that buffer SSE. Invalid or negative values are ignored.
 - `--timeout` defaults to 30 seconds and applies only to normal calls. `0` turns it off. Streams ignore it on purpose, because a status stream may run for hours.
@@ -187,7 +187,7 @@ Defines the top-level `yukta-cli` command and the four options every command inh
 - **Ceiling.** No ceiling. The only shared mutable state is the output-format variable, which is why tests that change it must reset it.
 - **On failure.** A bad duration such as `--timeout abc` is rejected by Cobra before anything runs.
 
-**Settings:** `--url / YUKTA_SERVER_URL (default http://localhost:8080)`, `--token / YUKTA_TOKEN`, `--timeout (default 30s, 0 = off)`, `-o, --output table|json (default table)`
+**Settings:** `--url / YUKTA_SERVER_URL (default http://localhost:9858)`, `--token / YUKTA_TOKEN`, `--timeout (default 30s, 0 = off)`, `-o, --output table|json (default table)`
 
 ### Command Builders
 
@@ -561,7 +561,7 @@ Per-call semantics. The CLI keeps no data between runs.
 
 | Setting | Value |
 |---|---|
-| Server URL | `YUKTA_SERVER_URL`, else `http://localhost:8080` (the server itself listens on loopback by default) |
+| Server URL | `YUKTA_SERVER_URL`, else `http://localhost:9858` (the server itself listens on loopback by default) |
 | Token | `YUKTA_TOKEN`, else none |
 | Request timeout | 30 s for normal calls; `0` disables; not applied to streams |
 | Output | `table`; `json` is the only other defined value |

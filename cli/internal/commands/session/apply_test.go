@@ -23,7 +23,7 @@ import (
 // TestReadConfigInputFromDirectory tests handling when input is a directory path.
 // TestApplyCmd_createsCommand_withCorrectUse tests that ApplyCmd creates command with correct Use.
 func TestApplyCmd_createsCommand_withCorrectUse(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := ApplyCmd(c)
 
 	if !strings.Contains(cmd.Use, "apply") {
@@ -33,7 +33,7 @@ func TestApplyCmd_createsCommand_withCorrectUse(t *testing.T) {
 
 // TestApplyCmd_hasDescription tests that command has description.
 func TestApplyCmd_hasDescription(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := ApplyCmd(c)
 
 	if cmd.Short == "" {
@@ -47,7 +47,7 @@ func TestApplyCmd_hasDescription(t *testing.T) {
 
 // TestApplyCmd_commandHasRunE tests that command has RunE handler.
 func TestApplyCmd_commandHasRunE(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := ApplyCmd(c)
 
 	if cmd.RunE == nil {
@@ -57,7 +57,7 @@ func TestApplyCmd_commandHasRunE(t *testing.T) {
 
 // TestApplyCmd_invalidJSON_returnsError tests handling of invalid JSON input.
 func TestApplyCmd_invalidJSON_returnsError(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := ApplyCmd(c)
 
 	err := cmd.RunE(cmd, []string{`{invalid json}`})
@@ -186,7 +186,7 @@ func TestApplyCmd_readConfigInput_error(t *testing.T) {
 		t.Skip("skipping test when running as root")
 	}
 
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := ApplyCmd(c)
 
 	// Create a file with no read permissions to trigger os.ReadFile error
