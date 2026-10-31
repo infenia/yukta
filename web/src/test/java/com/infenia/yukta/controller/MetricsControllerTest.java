@@ -36,9 +36,11 @@ class MetricsControllerTest {
 
   @Test
   void answersEmptyBeforeTheFirstSample() {
-    StepVerifier.create(controller.snapshot()).verifyComplete();
+    StepVerifier.create(controller.snapshot())
+        .assertNext(r -> assertThat(r.data().values()).isEmpty())
+        .verifyComplete();
     StepVerifier.create(controller.catalog())
-        .assertNext(c -> assertThat(c.series()).isEmpty())
+        .assertNext(r -> assertThat(r.data().series()).isEmpty())
         .verifyComplete();
   }
 
@@ -48,10 +50,10 @@ class MetricsControllerTest {
     sampler.sample(System.currentTimeMillis());
 
     StepVerifier.create(controller.series(List.of("yukta.g"), "15m"))
-        .assertNext(s -> assertThat(s.series().get("yukta.g")).hasSize(1))
+        .assertNext(s -> assertThat(s.data().series().get("yukta.g")).hasSize(1))
         .verifyComplete();
     StepVerifier.create(controller.snapshot())
-        .assertNext(s -> assertThat(s.values()).containsEntry("yukta.g", 7.0))
+        .assertNext(s -> assertThat(s.data().values()).containsEntry("yukta.g", 7.0))
         .verifyComplete();
   }
 

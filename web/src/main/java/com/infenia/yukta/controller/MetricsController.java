@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
+import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.service.metrics.MetricSample;
 import com.infenia.yukta.service.metrics.MetricsSampler;
 import io.swagger.v3.oas.annotations.Operation;
@@ -69,8 +70,9 @@ public class MetricsController {
    */
   @GetMapping("/catalog")
   @Operation(summary = "List sampled metric series")
-  public Mono<Catalog> catalog() {
-    return Mono.fromSupplier(() -> new Catalog(sampler.catalog()));
+  public Mono<ApiResponse<Catalog>> catalog() {
+    return Mono.fromSupplier(
+        () -> ApiResponse.success(200, "Metric catalog retrieved", new Catalog(sampler.catalog())));
   }
 
   /**
@@ -82,7 +84,7 @@ public class MetricsController {
    */
   @GetMapping("/series")
   @Operation(summary = "Metric history", description = "Points of the named series over a range")
-  public Mono<Series> series(
+  public Mono<ApiResponse<Series>> series(
       @RequestParam final List<String> names,
       @RequestParam(defaultValue = "1h") final String range) {
     final Duration duration = RANGES.get(range);
@@ -91,18 +93,25 @@ public class MetricsController {
           new ResponseStatusException(HttpStatus.BAD_REQUEST, "range must be 15m, 1h, 6h or 24h"));
     }
     return Mono.fromSupplier(
-        () -> new Series(range, sampler.series(names, duration, System.currentTimeMillis())));
+        () ->
+            ApiResponse.success(
+                200,
+                "Metric series retrieved",
+                new Series(range, sampler.series(names, duration, System.currentTimeMillis()))));
   }
 
   /**
    * The newest sample.
    *
-   * @return every sampled value, empty before the first sample
+   * @return every sampled value; time 0 and no values before the first sample
    */
   @GetMapping("/snapshot")
   @Operation(summary = "Newest metric sample")
-  public Mono<MetricSample> snapshot() {
-    return sampler.snapshot();
+  public Mono<ApiResponse<MetricSample>> snapshot() {
+    return sampler
+        .snapshot()
+        .defaultIfEmpty(new MetricSample(0, Map.of()))
+        .map(sample -> ApiResponse.success(200, "Metric snapshot retrieved", sample));
   }
 
   /**
