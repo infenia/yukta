@@ -254,14 +254,14 @@ export function WorkflowDetailsPage() {
               onClick={() => setPanelOpen((value) => !value)}
               aria-pressed={panelOpen}
               aria-label="Workflow progress"
-              title="Show or hide the progress panel"
+              title={panelOpen ? 'Hide progress panel' : 'Show progress panel'}
               className={buttonVariants({ variant: 'outline', size: 'icon' })}
             >
               <span
                 aria-hidden="true"
                 className="material-symbols-outlined text-base"
               >
-                right_panel_open
+                {panelOpen ? 'right_panel_close' : 'right_panel_open'}
               </span>
             </button>
             <DropdownMenu>

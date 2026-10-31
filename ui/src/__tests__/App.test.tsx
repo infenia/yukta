@@ -9,6 +9,7 @@ import App from '../App';
 vi.mock('@/components/layout/AppHeader', () => ({
   default: () => <div data-testid="app-header">Header</div>,
   MobileNav: () => <nav data-testid="mobile-nav" />,
+  Sidebar: () => <aside data-testid="sidebar" />,
 }));
 
 vi.mock('@/components/layout/CommandPalette', () => ({

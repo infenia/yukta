@@ -22,7 +22,7 @@ function SheetContent({
 }: Dialog.Popup.Props) {
   return (
     <Dialog.Portal>
-      <Dialog.Backdrop className="bg-foreground/30 fixed inset-0 z-60" />
+      <Dialog.Backdrop className="bg-overlay/50 fixed inset-0 z-60" />
       <Dialog.Popup
         data-slot="sheet-content"
         finalFocus={finalFocus}
