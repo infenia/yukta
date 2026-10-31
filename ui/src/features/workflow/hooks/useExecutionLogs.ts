@@ -43,9 +43,16 @@ export function useExecutionLogs(
   if (bufferExecutionId !== executionId) {
     setBufferExecutionId(executionId);
     setBuffer(EMPTY_BUFFER);
+  }
+
+  // The refs belong to one execution too. They are reset in an effect, not while rendering: a
+  // render may run twice or be thrown away, and a ref written in it would not be undone.
+  useEffect(() => {
     seen.current.clear();
     pending.current = [];
-  }
+    clearTimeout(timer.current);
+    timer.current = undefined;
+  }, [executionId]);
 
   const url =
     sessionId && executionId
@@ -80,8 +87,13 @@ export function useExecutionLogs(
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
+  // Cleared lines stay in `seen` on purpose: the server replays its history on every reconnect,
+  // and without that the cleared lines would come back. (Until log entries carry a server
+  // sequence, #695, two identical lines with one timestamp still count as one.)
   const clear = useCallback(() => {
     pending.current = [];
+    clearTimeout(timer.current);
+    timer.current = undefined;
     setBuffer(EMPTY_BUFFER);
   }, []);
 

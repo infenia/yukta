@@ -152,4 +152,40 @@ describe('useExecutionLogs', () => {
     act(() => result.current.clear());
     expect(result.current.entries).toEqual([]);
   });
+
+  it('does not bring back a line that was waiting for the flush when it was cleared', () => {
+    const { result } = renderHook(() =>
+      useExecutionLogs('s1', 'exec-091-qp-55')
+    );
+
+    act(() =>
+      MockEventSource.latest().emit(createMockLogEntry({ message: 'waiting' }))
+    );
+    act(() => result.current.clear());
+    flush();
+    expect(result.current.entries).toEqual([]);
+  });
+
+  it('keeps cleared lines away when the server replays its history', () => {
+    const { result } = renderHook(() =>
+      useExecutionLogs('s1', 'exec-091-qp-55')
+    );
+
+    act(() => {
+      MockEventSource.latest().emit(createMockLogEntry({ message: 'old' }));
+      MockEventSource.latest().emitError();
+    });
+    flush();
+    act(() => result.current.clear());
+    act(() => vi.advanceTimersByTime(1000));
+
+    act(() => {
+      MockEventSource.latest().emit(createMockLogEntry({ message: 'old' }));
+      MockEventSource.latest().emit(createMockLogEntry({ message: 'new' }));
+    });
+    flush();
+    expect(result.current.entries.map((entry) => entry.message)).toEqual([
+      'new',
+    ]);
+  });
 });

@@ -19,11 +19,6 @@
       "count": 16
     }
   },
-  "src/features/workflow/hooks/useExecutionLogs.ts": {
-    "react-hooks/refs": {
-      "count": 3
-    }
-  },
   "src/lib/__tests__/theme.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
