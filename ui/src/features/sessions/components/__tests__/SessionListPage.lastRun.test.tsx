@@ -94,7 +94,6 @@ describe('SessionListPage last run', () => {
       'Initiator',
       'Tags',
       'Working directory',
-      null,
     ]);
   });
 

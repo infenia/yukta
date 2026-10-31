@@ -17,12 +17,9 @@ test.describe('Deleting', () => {
       deleted.push(route.request().url());
       return route.fulfill({ status: 204 });
     });
-    await page.goto('/sessions');
+    await page.goto('/sessions/session-1');
 
-    await page
-      .getByRole('button', { name: /^Delete session / })
-      .first()
-      .click();
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
     const dialog = page.getByRole('dialog', {
       name: 'Delete session session-1',
     });
