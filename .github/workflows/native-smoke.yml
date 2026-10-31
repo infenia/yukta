@@ -5,7 +5,8 @@ name: Native smoke
 
 # Builds the native server with -Ob (NATIVE_QUICK=1) and runs the Quickstart workflow against it
 # (release/smoke-test.sh), so missing reflection or resource entries show up between releases and not
-# when the release build fails. The real release build (release.yml) runs the same smoke test.
+# when the release build fails. The real release build (release.yml) runs the same smoke test, and
+# release/console-smoke.sh checks the daemon commands and the console.
 on:
   schedule:
     - cron: '43 2 * * *' # daily, 8:13 AM IST (02:43 UTC)
@@ -44,3 +45,8 @@ jobs:
           pid=$!
           trap 'kill "$pid" || true' EXIT
           release/smoke-test.sh http://127.0.0.1:9858
+
+      # Run modes of the same binary: daemon commands and the console on a pseudo-terminal. Here and
+      # not on pull requests, because it needs the native build above.
+      - name: Run modes (daemon and console)
+        run: release/console-smoke.sh dist/linux-amd64/yukta

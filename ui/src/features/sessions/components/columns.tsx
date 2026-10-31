@@ -9,7 +9,6 @@ import {
   formatRelative,
 } from '@/features/workflow/lib/timeFormat';
 import type { SessionListItem } from '../types/session';
-import { SessionRowDelete } from './SessionRowDelete';
 
 /** A session row, with its newest run when the list found one. */
 export type SessionRow = SessionListItem;
@@ -107,14 +106,6 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
           content_copy
         </span>
       </button>
-    ),
-  },
-  {
-    id: 'actions',
-    cell: ({ row }) => (
-      <div onClick={(e) => e.stopPropagation()}>
-        <SessionRowDelete sessionId={row.original.sessionId} />
-      </div>
     ),
   },
 ];

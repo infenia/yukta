@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 [versions]
+jline = "3.30.17"
 springBoot = "4.1.2"
 springDependencyManagement = "1.1.7"
 graalvmBuildtools = "1.1.16"
@@ -44,6 +45,7 @@ spring-boot-starter-actuator = { group = "org.springframework.boot", name = "spr
 micrometer-registry-prometheus = { group = "io.micrometer", name = "micrometer-registry-prometheus" }
 spring-boot-starter-opentelemetry = { group = "org.springframework.boot", name = "spring-boot-starter-opentelemetry" }
 spring-boot-configuration-processor = { group = "org.springframework.boot", name = "spring-boot-configuration-processor", version.ref = "springBoot" }
+jline = { group = "org.jline", name = "jline", version.ref = "jline" }
 jackson-databind = { group = "tools.jackson.core", name = "jackson-databind" }
 jackson-dataformat-yaml = { group = "tools.jackson.dataformat", name = "jackson-dataformat-yaml" }
 mapstruct = { group = "org.mapstruct", name = "mapstruct", version.ref = "mapstruct" }

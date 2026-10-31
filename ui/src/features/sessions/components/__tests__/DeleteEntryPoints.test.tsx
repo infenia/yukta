@@ -11,7 +11,6 @@ import { http, HttpResponse } from 'msw';
 import { createTestQueryClient } from '@/test/utils/testUtils';
 import { setMe, type Me } from '@/lib/identity';
 import { SessionDetailsPage } from '../SessionDetailsPage';
-import { SessionRowDelete } from '../SessionRowDelete';
 import { WorkflowTable } from '../WorkflowTable';
 
 const server = setupServer(
@@ -43,23 +42,6 @@ const wrap = (ui: React.ReactElement, path = '/') => (
 );
 
 describe('where deleting starts', () => {
-  it('a session row has a Delete icon button that opens the typed confirmation', async () => {
-    const user = userEvent.setup();
-    render(wrap(<SessionRowDelete sessionId="sess-1" />));
-    expect(
-      screen.queryByRole('button', { name: 'Session actions' })
-    ).not.toBeInTheDocument();
-    await user.click(
-      screen.getByRole('button', { name: 'Delete session sess-1' })
-    );
-
-    expect(
-      screen.getByRole('dialog', { name: 'Delete session sess-1' })
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
   it('a workflow row has no action menu', () => {
     render(
       wrap(
@@ -103,7 +85,7 @@ describe('where deleting starts', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('a VIEWER sees the delete buttons disabled, with the reason', async () => {
+  it('a VIEWER sees the session page Delete button disabled, with the reason', async () => {
     const viewer: Me = {
       authenticated: true,
       keyName: 'v',
@@ -120,10 +102,15 @@ describe('where deleting starts', () => {
       },
     };
     setMe(viewer);
-    render(wrap(<SessionRowDelete sessionId="sess-1" />));
-    const button = screen.getByRole('button', {
-      name: 'Delete session sess-1',
-    });
+    render(
+      wrap(
+        <Routes>
+          <Route path="/sessions/:sessionId" element={<SessionDetailsPage />} />
+        </Routes>,
+        '/sessions/sess-1'
+      )
+    );
+    const button = await screen.findByRole('button', { name: 'Delete' });
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute('title', 'Needs ADMIN');
     setMe(null);
