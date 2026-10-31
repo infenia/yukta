@@ -53,42 +53,65 @@ describe('useDashboardParams', () => {
 });
 
 describe('useMetricStream', () => {
-  it('appends samples to the cached series, trims old points and updates the snapshot', () => {
-    const client = new QueryClient();
-    const now = Date.now();
-    client.setQueryData(
-      ['metrics', 'series', 'runs', 'global', '15m'],
-      [
-        { t: now - 20 * 60_000, v: 1 },
-        { t: now - 60_000, v: 2 },
-      ]
-    );
-    const wrapper = ({ children }: { children: ReactNode }) => (
+  const wrapperFor =
+    (client: QueryClient) =>
+    ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );
-    renderHook(() => useMetricStream('global', true), { wrapper });
-    expect(streamedUrl).toBe('/api/metrics/stream?scope=global');
 
-    act(() => handler({ metric: 'runs', t: now, v: 3 }));
+  it('appends samples to the cached series of the same meter, trims old points and updates the snapshot', () => {
+    const client = new QueryClient();
+    const now = Date.now();
+    const key = 'yukta.executions.rejected{reason=limit}|rate';
+    client.setQueryData(
+      ['metrics', 'series', 'yukta.executions.rejected', '15m'],
+      {
+        [key]: [
+          { t: now - 20 * 60_000, v: 1 },
+          { t: now - 60_000, v: 2 },
+        ],
+      }
+    );
+    client.setQueryData(['metrics', 'series', 'yukta.other', '15m'], {});
+    renderHook(() => useMetricStream(true), { wrapper: wrapperFor(client) });
+    expect(streamedUrl).toBe('/api/metrics/stream');
+
+    act(() =>
+      handler({
+        time: now,
+        values: {
+          [key]: 3,
+          'yukta.executions.rejected{reason=queue_full}|rate': 0.5,
+          'yukta.executions.running': 4,
+        },
+      })
+    );
 
     expect(
-      client.getQueryData(['metrics', 'series', 'runs', 'global', '15m'])
-    ).toEqual([
-      { t: now - 60_000, v: 2 },
-      { t: now, v: 3 },
-    ]);
-    expect(client.getQueryData(['metrics', 'snapshot', 'global'])).toEqual({
-      runs: 3,
+      client.getQueryData([
+        'metrics',
+        'series',
+        'yukta.executions.rejected',
+        '15m',
+      ])
+    ).toEqual({
+      [key]: [
+        { t: now - 60_000, v: 2 },
+        { t: now, v: 3 },
+      ],
+      'yukta.executions.rejected{reason=queue_full}|rate': [{ t: now, v: 0.5 }],
+    });
+    expect(
+      client.getQueryData(['metrics', 'series', 'yukta.other', '15m'])
+    ).toEqual({});
+    expect(client.getQueryData(['metrics', 'snapshot'])).toMatchObject({
+      'yukta.executions.running': 4,
     });
   });
 
   it('stays idle when paused', () => {
-    renderHook(() => useMetricStream('global', false), {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={new QueryClient()}>
-          {children}
-        </QueryClientProvider>
-      ),
+    renderHook(() => useMetricStream(false), {
+      wrapper: wrapperFor(new QueryClient()),
     });
     expect(streamedUrl).toBeNull();
   });

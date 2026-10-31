@@ -20,7 +20,7 @@ test.describe('Visual Regression - Screenshots', () => {
       await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
-      await expect(page).toHaveScreenshot('session-list-full-page.png', {
+      await expect(page).toHaveScreenshot('session-list-full-page.webp', {
         ...screenshotOptions.full,
         animations: 'disabled',
       });
@@ -31,7 +31,7 @@ test.describe('Visual Regression - Screenshots', () => {
       await waitForLoadingComplete(page);
 
       const table = page.locator('table');
-      await expect(table).toHaveScreenshot('session-list-table.png', {
+      await expect(table).toHaveScreenshot('session-list-table.webp', {
         ...screenshotOptions.partial,
       });
     });
@@ -41,7 +41,7 @@ test.describe('Visual Regression - Screenshots', () => {
       await waitForLoadingComplete(page);
 
       const header = page.locator('header');
-      await expect(header).toHaveScreenshot('session-list-header.png', {
+      await expect(header).toHaveScreenshot('session-list-header.webp', {
         ...screenshotOptions.strict,
       });
     });
@@ -62,7 +62,7 @@ test.describe('Visual Regression - Screenshots', () => {
       // Extra wait for theme CSS to settle
       await page.waitForTimeout(500);
 
-      await expect(page).toHaveScreenshot('session-list-dark-mode.png', {
+      await expect(page).toHaveScreenshot('session-list-dark-mode.webp', {
         ...screenshotOptions.full,
         animations: 'disabled',
       });
@@ -72,7 +72,7 @@ test.describe('Visual Regression - Screenshots', () => {
       await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
-      await expect(page).toHaveScreenshot('session-list-light-mode.png', {
+      await expect(page).toHaveScreenshot('session-list-light-mode.webp', {
         ...screenshotOptions.full,
         animations: 'disabled',
       });
@@ -85,7 +85,7 @@ test.describe('Visual Regression - Screenshots', () => {
       await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
-      await expect(page).toHaveScreenshot('session-list-mobile.png', {
+      await expect(page).toHaveScreenshot('session-list-mobile.webp', {
         ...screenshotOptions.full,
         animations: 'disabled',
       });
@@ -96,7 +96,7 @@ test.describe('Visual Regression - Screenshots', () => {
       await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
-      await expect(page).toHaveScreenshot('session-list-tablet.png', {
+      await expect(page).toHaveScreenshot('session-list-tablet.webp', {
         ...screenshotOptions.full,
         animations: 'disabled',
       });
@@ -107,7 +107,7 @@ test.describe('Visual Regression - Screenshots', () => {
       await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
-      await expect(page).toHaveScreenshot('session-list-desktop.png', {
+      await expect(page).toHaveScreenshot('session-list-desktop.webp', {
         ...screenshotOptions.full,
         animations: 'disabled',
       });
@@ -123,7 +123,7 @@ test.describe('Visual Regression - Screenshots', () => {
       await page.goto('/sessions');
       await expect(page.getByText('Failed to load sessions')).toBeVisible();
 
-      await expect(page).toHaveScreenshot('session-list-error-state.png', {
+      await expect(page).toHaveScreenshot('session-list-error-state.webp', {
         ...screenshotOptions.full,
         animations: 'disabled',
       });
@@ -137,7 +137,7 @@ test.describe('Visual Regression - Screenshots', () => {
       await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
-      await expect(page).toHaveScreenshot('session-list-empty-state.png', {
+      await expect(page).toHaveScreenshot('session-list-empty-state.webp', {
         ...screenshotOptions.full,
         animations: 'disabled',
       });
@@ -152,7 +152,7 @@ test.describe('Visual Regression - Screenshots', () => {
       const firstRow = page.locator('tbody tr').first();
       await firstRow.hover();
 
-      await expect(firstRow).toHaveScreenshot('session-list-row-hover.png', {
+      await expect(firstRow).toHaveScreenshot('session-list-row-hover.webp', {
         ...screenshotOptions.partial,
       });
     });
@@ -165,7 +165,7 @@ test.describe('Visual Regression - Screenshots', () => {
         .getByPlaceholder(/Filter by name, ID or description/i)
         .locator('..')
         .locator('..');
-      await expect(filterBar).toHaveScreenshot('session-list-filter-bar.png', {
+      await expect(filterBar).toHaveScreenshot('session-list-filter-bar.webp', {
         ...screenshotOptions.partial,
       });
     });
@@ -175,9 +175,12 @@ test.describe('Visual Regression - Screenshots', () => {
       await waitForLoadingComplete(page);
 
       const pagination = page.getByText(/items$/).locator('..');
-      await expect(pagination).toHaveScreenshot('session-list-pagination.png', {
-        ...screenshotOptions.partial,
-      });
+      await expect(pagination).toHaveScreenshot(
+        'session-list-pagination.webp',
+        {
+          ...screenshotOptions.partial,
+        }
+      );
     });
   });
 });

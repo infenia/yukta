@@ -1,0 +1,8 @@
+{
+  "name": "churn-model",
+  "version": "v7",
+  "accuracy": 0.93,
+  "latencyMs": 120,
+  "biasGap": 0.03,
+  "maxLatencyMs": 200
+}

@@ -1,0 +1,9 @@
+{
+  "reportId": "R-101",
+  "service": "catalog",
+  "exception": "java.lang.NullPointerException",
+  "frame": "ItemMapper.map(ItemMapper.java:88)",
+  "message": "Cannot invoke getId() because item is null",
+  "version": "4.1.0",
+  "knownTicket": "BUG-431"
+}

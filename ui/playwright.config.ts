@@ -7,7 +7,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright Configuration with MSW Integration
  *
  * This configuration:
- * - Runs tests in parallel across all browsers
+ * - Runs tests in parallel (Chromium only: CI and the snapshots are Chromium)
  * - Uses MSW for API mocking (no real backend calls)
  * - Captures traces and screenshots on failure
  * - Supports both CI/CD and local development workflows
@@ -30,7 +30,8 @@ export default defineConfig({
 
   // Screenshot comparison (organized by test file name for better maintainability)
   snapshotDir: 'e2e/__snapshots__',
-  snapshotPathTemplate: '{snapshotDir}/{testFileName}/{arg}-{projectName}-{platform}{ext}',
+  snapshotPathTemplate:
+    '{snapshotDir}/{testFileName}/{arg}-{projectName}-{platform}{ext}',
 
   // Reporting
   reporter: [
@@ -46,7 +47,10 @@ export default defineConfig({
 
     // Screenshot and trace configuration
     screenshot: 'only-on-failure',
-    trace: 'on-first-retry',
+    trace: {
+      mode: 'on-first-retry',
+      snapshots: { dom: true, aria: true, screen: true },
+    },
 
     // Video recording (optional, can be slow)
     // video: 'retain-on-failure',
@@ -62,14 +66,6 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chromium'] },
-    },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
     },
 
     // Optional: Mobile testing

@@ -8,7 +8,9 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -451,7 +453,7 @@ export function LogsPanel({
                 onClick={copyLogs}
                 aria-label="Copy logs"
                 title="Copy the visible lines"
-                className="text-on-surface-variant hover:bg-muted hover:text-on-surface flex size-7 items-center justify-center rounded-full"
+                className="text-on-surface-variant hover:bg-muted hover:text-on-surface data-popup-open:bg-muted data-popup-open:text-on-surface focus-visible:ring-ring flex size-6 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
               >
                 <span className="material-symbols-outlined text-base">
                   content_copy
@@ -469,42 +471,51 @@ export function LogsPanel({
               <DropdownMenu>
                 <DropdownMenuTrigger
                   aria-label="More log options"
-                  className="text-on-surface-variant hover:bg-muted hover:text-on-surface flex size-7 items-center justify-center rounded-full"
+                  className="text-on-surface-variant hover:bg-muted hover:text-on-surface data-popup-open:bg-muted data-popup-open:text-on-surface focus-visible:ring-ring flex size-6 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
                 >
                   <span className="material-symbols-outlined text-base">
                     more_horiz
                   </span>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuCheckboxItem
-                    closeOnClick
-                    checked={wrap}
-                    onCheckedChange={(checked) => setWrap(checked)}
-                  >
-                    Wrap long lines
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    closeOnClick
-                    checked={raw}
-                    disabled={!executionId}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setRawRuns((count) => count + 1);
-                        setRawRun(rawRuns + 1);
-                      } else {
-                        setRawRun(null);
-                      }
-                    }}
-                  >
-                    The server&apos;s raw lines
-                  </DropdownMenuCheckboxItem>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-60 max-w-[calc(100vw-1rem)]"
+                >
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Display</DropdownMenuLabel>
+                    <DropdownMenuCheckboxItem
+                      closeOnClick
+                      checked={wrap}
+                      onCheckedChange={(checked) => setWrap(checked)}
+                    >
+                      Wrap long lines
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      closeOnClick
+                      checked={raw}
+                      disabled={!executionId}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setRawRuns((count) => count + 1);
+                          setRawRun(rawRuns + 1);
+                        } else {
+                          setRawRun(null);
+                        }
+                      }}
+                    >
+                      The server&apos;s raw lines
+                    </DropdownMenuCheckboxItem>
+                  </DropdownMenuGroup>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={downloadVisible}>
-                    Download visible lines (.log)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={downloadAll}>
-                    Download all entries (.jsonl)
-                  </DropdownMenuItem>
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Download</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={downloadVisible}>
+                      Download visible lines (.log)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={downloadAll}>
+                      Download all entries (.jsonl)
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
                   {dropped > 0 && (
                     <div className="text-body-sm text-on-surface-variant max-w-56 px-3 py-2">
                       Download includes only the{' '}
