@@ -156,6 +156,7 @@ Starts the application and chooses the profile in the one case where it must not
 - main() first calls Hooks.enableAutomaticContextPropagation(). This makes Reactor copy context values (request id, tracing) from one thread to the next. Reason: Yukta is reactive, and without this the request id in log lines would vanish whenever work moves to another thread.
 - If the process is a native image and no argument starts with --spring.profiles.active= or -Dspring.profiles.active=, main() sets the system property to prod. Example: ./yukta runs as prod; ./yukta --spring.profiles.active=dev runs as dev.
 - In a normal JVM the launcher does nothing about profiles. The default profile in the base YAML, prod, applies. Example: java -jar boot.jar with no flags logs at INFO and exposes only health, info and metrics.
+- Before Spring starts, main() also handles `--version` and `--help`, the daemon commands (`start|stop|status|restart|logs`, class `Daemon`) and resolves the run mode (class `RunMode`: `--plain`, `--mode`, `YUKTA_MODE`, else console on a TTY). In console mode the `console` package takes over the screen (`ConsoleRunner`, JLine) and sends logs to a ring buffer (`ConsoleLogs`). See [Run modes](/running/run-modes).
 - Only command-line arguments are checked. If a native image is started with only the SPRING_PROFILES_ACTIVE environment variable, main() still sets the system property to prod; which of the two Spring then prefers was not tested.
 
 - **Guarantees.** Context propagation is on before any Spring code runs. An explicit profile argument is never overwritten.
@@ -560,6 +561,7 @@ JVM vs native.
 | Run with chosen plugins | ./gradlew bootRun -Pyukta.plugins=http-request,script-js | Unknown names fail the build |
 | Run without optional plugins | ./gradlew bootRun -Pyukta.plugins=none | Acceptance tests then fail |
 | Build a jar | ./gradlew :boot:bootJar | Then java -jar boot/build/libs/\*.jar --spring.profiles.active=prod |
+| Run as a daemon | java -jar boot/build/libs/\*.jar start | Also stop, status, restart, logs [-f]; state in $YUKTA_HOME |
 | Build native | ./gradlew :boot:nativeCompile | Output boot/build/native/nativeCompile/yukta; slow, needs GraalVM 25 |
 | Run native | ./boot/build/native/nativeCompile/yukta | prod chosen by main() if no profile argument |
 | Remote access | YUKTA_SERVER_ADDRESS=0.0.0.0 yukta.api-key=&lt;secret&gt; | Without a key the server refuses to start; set the REST keys (they cover /mcp too), not just yukta.mcp.api-key. Swagger and /v3 are still open |
