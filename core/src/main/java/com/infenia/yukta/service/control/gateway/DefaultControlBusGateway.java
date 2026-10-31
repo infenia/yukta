@@ -526,6 +526,14 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         });
   }
 
+  /** The review request for a command, with the session and workflow of its live run if any. */
+  private ControlRequest request(final ExecutionControlCommand command, final String actor) {
+    return executionControlRegistry
+        .findByExecutionId(command.executionId())
+        .map(run -> new ControlRequest(command, actor, run.sessionId(), run.workflowId()))
+        .orElseGet(() -> new ControlRequest(command, actor, null, null));
+  }
+
   /**
    * Asks the supervisors, applies a command that has no run queue and records the outcome in the
    * execution log with the actor, like the commands that go through the dispatcher.
@@ -536,7 +544,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         context -> {
           final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
           final Mono<Void> review =
-              reviewer == null ? Mono.empty() : reviewer.review(new ControlRequest(command, actor));
+              reviewer == null ? Mono.empty() : reviewer.review(request(command, actor));
           return review
               .then(Mono.<Void>fromRunnable(apply))
               .doOnSuccess(
