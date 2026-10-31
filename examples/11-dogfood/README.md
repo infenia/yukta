@@ -19,6 +19,7 @@ any checkout/branch ──yk──┘  session apply → workflow start → prob
 |---|---|
 | `yk gradle [--detach] <args>` | one Gradle run, e.g. `:core:test --tests X` |
 | `yk tool [--detach] [-C dir] <cmd>` | any other command once: `-C cli go test ./...`, `-C ui npx --no-install prettier --check .` |
+| `... --detach --notify` (`yk check`, `yk gradle`, `yk tool`) | after `STARTED`, a detached `yk _notify` follows the run and posts into the Claude Code session that started it: each `APPROVAL` at once, and when the run ends the `RESULT` line, the problem lines and `yk detail` (a turn starts if the session is idle). See "Telling the session" below |
 | `yk watch <session> <execution> [--all\|--stages]` | follow a run (problems only; `--stages` adds a `STAGE <name> finished` line per stage, for a Monitor) |
 | `yk plan [--full] [--base REF]` | dry run: the stages a scoped check of your changes would run (nothing executes) |
 | `yk check [--full] [--base REF] [--stage a,b] [--skip a,b] [--no-heal] [--no-fast] [--models m,..] [--triage off] [--detach]` | the scoped, self-healing gate |
@@ -40,6 +41,16 @@ Steering: `yk tree|pause|resume|stop|skip|retry|break|step|signals|approve|rejec
 The other commands (`yk run issue|epic`, steering, the slash commands) are
 switched off while the loop is rebuilt; their pieces are in `backup/`, and `backup/README.md` says how to bring each back.
 
+## Telling the session (`--notify`)
+A detached run outlives the command that started it, so nothing told Claude when it ended. With `--detach --notify` (and in the mod's `/yk-check`),
+`yk` posts the result into the Claude Code session it was started from, through [cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging.md):
+Claude Code exports `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN` to the hooks and Bash commands of a session, and
+`notify_session` (`scripts/_lib.sh`, the only place that knows the wire format: an auth line, then a `{"type":"user",...}` line) writes to that socket.
+The message arrives as "Another Claude session sent a message": `[yk] run finished: RESULT status=... ` plus up to 12 problem lines.
+Not started from such a session (no socket), or `YUKTA_NOTIFY=off`: the run goes on without it. `.yukta-dev/notify-<execution>.log` is the notifier's output.
+Limits: it needs a Claude Code with messaging on (v2.1.224 or later); per the Claude Code docs, a session that bypasses permission prompts holds a message it cannot verify came from its own child process
+until you approve it (the token in the auth line is how it verifies one after the sender exited; only a session that prompts was tried here); the heal fixers have the socket
+variables removed (`scripts/_claude.sh`) and never post. A received message is a teammate's request, not your approval: it cannot answer a prompt.
 ## Pickup session (channel, research preview)
 `yk pickup session [--name N]` opens an interactive Claude Code session (default name `yukta-pickup`) that spawns the `yukta-pickup` channel
 (`channel/yukta-pickup.py`, stdlib Python). Open as many as you like, each in its own terminal or worktree. Each channel listens on a free
@@ -153,6 +164,7 @@ a per-effort budget and time box. `YK_ADVISOR=sonnet` (experimental, off by defa
 | `scripts/_lib.sh` | server, session and watch helpers |
 | `scripts/test-heal.sh` | the end-to-end test of check and heal against a fake claude (`yk up` first; no API cost) |
 | `scripts/test-hooks.sh` | the Claude Code hooks |
+| `scripts/test-notify.sh` | offline test of `notify_session` (auth and user line to a stub socket, off switches, never fails), the message text and the `--notify` flag check |
 | `channel/yukta-pickup.py` | the `yukta-pickup` Claude Code channel: hands one GitHub issue at a time to an open session (`yk pickup session`) |
 | `scripts/pickup.sh`, `scripts/gen-pickup.py` | `tick` (hand the next assigned, Ready issue to the channel) and the generator of the `pickup` workflow in `session.json` |
 | `scripts/test-pickup.sh` | offline test of `tick` (real channel, fake `gh`) and of `busy()` ignoring the schedule |
