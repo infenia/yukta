@@ -49,7 +49,12 @@ test.describe('Session List Page - Mocked API', () => {
     });
 
     test('should display table headers', async ({ page }) => {
-      const expectedHeaders = ['Name', 'Initiator', 'Tags', 'Project Path'];
+      const expectedHeaders = [
+        'Name',
+        'Initiator',
+        'Tags',
+        'Working Directory',
+      ];
       await assertTableColumns(page, expectedHeaders);
     });
 
@@ -92,7 +97,7 @@ test.describe('Session List Page - Mocked API', () => {
       }
     });
 
-    test('should display session project path in the row', async ({
+    test('should display session working directory in the row', async ({
       page,
       mockSessions,
     }) => {

@@ -217,7 +217,7 @@ describe('SessionFormPage in edit mode', () => {
     await user.type(screen.getByLabelText('Session ID'), 'fresh');
     await user.type(screen.getByLabelText('Name'), 'n');
     await user.type(screen.getByLabelText('Description'), 'd');
-    await user.type(screen.getByLabelText('Project path'), '/w');
+    await user.type(screen.getByLabelText('Working directory'), '/w');
     await user.type(screen.getByLabelText('Add a tag'), 'env: dev{Enter}');
     await user.click(screen.getByRole('button', { name: 'Create session' }));
 

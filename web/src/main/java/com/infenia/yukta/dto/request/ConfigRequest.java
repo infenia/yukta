@@ -15,8 +15,8 @@ import java.util.Map;
 /**
  * Request object for session configuration.
  *
- * <p>Used to either initialize a new session or update an existing one with project paths, workflow
- * definitions, and metadata.
+ * <p>Used to either initialize a new session or update an existing one with working directories,
+ * workflow definitions, and metadata.
  *
  * @param sessionId the unique session identifier
  * @param name a human-readable name for the session
@@ -60,7 +60,7 @@ public record ConfigRequest(
                 "The absolute root path of the project on the server's filesystem; optional,"
                     + " defaults to the current directory",
             example = "/home/user/workspace/project-alpha")
-        @Size(max = 1024, message = "Project path must be at most 1024 characters")
+        @Size(max = 1024, message = "Working directory must be at most 1024 characters")
         String projectPath,
     @Schema(description = "A map of workflow definition requests keyed by workflow ID")
         @NotEmpty(message = "At least one workflow definition is required")
