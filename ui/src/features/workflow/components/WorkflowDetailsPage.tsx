@@ -191,6 +191,22 @@ export function WorkflowDetailsPage() {
         workflowId={workflowId}
         description={graph.description}
         status={executionStatus}
+        runGroup={
+          <>
+            <RunHistoryDropdown
+              executions={executions}
+              selectedExecutionId={selectedExecutionId}
+              onSelect={selectExecution}
+            />
+            <RunControls
+              sessionId={sessionId}
+              workflowId={workflowId}
+              executionId={selectedExecutionId}
+              status={executionStatus}
+              onStarted={selectExecution}
+            />
+          </>
+        }
         actions={
           <>
             {parent.data && (
@@ -207,18 +223,6 @@ export function WorkflowDetailsPage() {
                 Parent run
               </Link>
             )}
-            <RunHistoryDropdown
-              executions={executions}
-              selectedExecutionId={selectedExecutionId}
-              onSelect={selectExecution}
-            />
-            <RunControls
-              sessionId={sessionId}
-              workflowId={workflowId}
-              executionId={selectedExecutionId}
-              status={executionStatus}
-              onStarted={selectExecution}
-            />
             <Link
               to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
               aria-label="Edit"
