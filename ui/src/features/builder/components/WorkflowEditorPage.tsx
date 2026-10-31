@@ -248,9 +248,23 @@ function Editor({
     if (!outcome?.valid) return;
     setBusy(true);
     try {
+      // The server replaces the whole session, so write into its current copy, not the one loaded
+      // when the editor opened: other workflows saved since stay as they are. This workflow
+      // changing underneath us is refused. ponytail: a check-then-write, so two saves landing in the
+      // same instant can still race; a version the server compares on save would close that.
+      const current = await getSessionDraft(session.sessionId);
+      const stored = current.workflows[workflow.workflowId] ?? null;
+      const loaded = session.workflows[workflow.workflowId] ? initial : null;
+      if (JSON.stringify(stored) !== JSON.stringify(loaded)) {
+        setError(
+          'Someone else saved this workflow after you opened it. Reload the page to see their version; saving now would overwrite it.'
+        );
+        setBusy(false);
+        return;
+      }
       await saveSession({
-        ...session,
-        workflows: { ...session.workflows, [workflow.workflowId]: workflow },
+        ...current,
+        workflows: { ...current.workflows, [workflow.workflowId]: workflow },
       });
       await queryClient.invalidateQueries({ queryKey: ['sessions'] });
       leaving.current = true;
