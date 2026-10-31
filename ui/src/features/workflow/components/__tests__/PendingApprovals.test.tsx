@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -99,16 +99,58 @@ describe('PendingApprovals', () => {
     );
   });
 
-  it('rejects, and shows why a decision was not accepted', async () => {
+  it('rejects only after a confirm, with the reason', async () => {
     approvals = [waiting()];
-    signalStatus = 409;
     renderWithProviders(<PendingApprovals sessionId="s1" workflowId="wf" />);
 
     await userEvent.click(
       await screen.findByRole('button', { name: 'Reject' })
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(signals).toEqual([]);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reject' }));
+    await userEvent.type(
+      screen.getByLabelText('Reason (optional)'),
+      'too risky'
+    );
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Reject' })
+    );
+
+    await waitFor(() => expect(signals).toHaveLength(1));
+    expect(signals[0]).toContain('decision=reject&data=too%20risky');
+  });
+
+  it('shows how long a step has waited', async () => {
+    approvals = [
+      waiting({ since: new Date(Date.now() - 180_000).toISOString() }),
+    ];
+    renderWithProviders(<PendingApprovals sessionId="s1" workflowId="wf" />);
+    expect(await screen.findByText(/since 3 minutes ago/)).toBeInTheDocument();
+  });
+
+  it('says a repeated decision was already answered', async () => {
+    approvals = [waiting()];
+    signalStatus = 409;
+    renderWithProviders(<PendingApprovals sessionId="s1" workflowId="wf" />);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Approve' })
+    );
+
+    expect(await screen.findByText('Already answered.')).toBeInTheDocument();
+  });
+
+  it('shows why a decision failed, and keeps the other rows usable', async () => {
+    approvals = [waiting(), waiting({ nodeId: 'second', executionId: 'zz9' })];
+    signalStatus = 500;
+    renderWithProviders(<PendingApprovals sessionId="s1" workflowId="wf" />);
+
+    const approve = await screen.findAllByRole('button', { name: 'Approve' });
+    await userEvent.click(approve[0]);
 
     expect(await screen.findByText('Node is not waiting')).toBeInTheDocument();
-    expect(signals[0]).toContain('decision=reject');
+    expect(screen.getAllByRole('button', { name: 'Approve' })[1]).toBeEnabled();
   });
 });
