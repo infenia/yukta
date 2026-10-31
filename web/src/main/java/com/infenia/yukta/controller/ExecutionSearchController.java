@@ -53,6 +53,7 @@ public class ExecutionSearchController {
    * @param startTime when it started, if it did
    * @param endTime when it ended, if it did
    * @param nodes how far it got through its nodes, if known
+   * @param initiator who or what started it, if known
    */
   public record Hit(
       String sessionId,
@@ -61,7 +62,8 @@ public class ExecutionSearchController {
       String status,
       LocalDateTime startTime,
       LocalDateTime endTime,
-      @Schema(nullable = true) WorkflowExecutionSummary.@Nullable Nodes nodes) {}
+      @Schema(nullable = true) WorkflowExecutionSummary.@Nullable Nodes nodes,
+      @Schema(nullable = true) @Nullable String initiator) {}
 
   /**
    * How many runs are in each state that needs attention.
@@ -158,6 +160,7 @@ public class ExecutionSearchController {
         run.status(),
         run.startTime(),
         run.endTime(),
-        run.nodes());
+        run.nodes(),
+        run.initiator());
   }
 }

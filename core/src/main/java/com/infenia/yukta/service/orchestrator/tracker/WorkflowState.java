@@ -42,6 +42,9 @@ final class WorkflowState {
   /** The run this one restarts, or null. */
   /* default */ volatile String restartOf;
 
+  /** Who or what started the run, or null when not known. */
+  /* default */ volatile String initiator;
+
   /** Map of task progress by node ID. */
   /* default */ final Map<String, TaskProgress> taskMap;
 

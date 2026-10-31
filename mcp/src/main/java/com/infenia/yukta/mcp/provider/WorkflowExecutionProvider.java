@@ -7,8 +7,11 @@ import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowExecution;
+import com.infenia.yukta.security.ApiKeys;
+import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.control.gateway.StartIdempotency;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.ConfigRedactor;
 import com.infenia.yukta.service.workflow.WorkflowService;
@@ -21,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.util.context.ContextView;
 
 /**
  * Handles workflow execution operations including definition retrieval, start operations, status
@@ -117,16 +121,29 @@ public class WorkflowExecutionProvider {
     final boolean keyed = idempotencyKey != null && !idempotencyKey.isBlank();
     // Without a key the server derives one from the session and workflow: a model that repeats a
     // start it got no answer to is merged for a short window; a deliberate later start is not.
-    return keyed
-        ? workflowService
-            .validateAndStartWorkflow(sessionId, workflowId, Map.of(), idempotencyKey.strip())
-            .map(execution -> new WorkflowStartResult(execution.executionId(), false))
-        : startMergingRepeats(sessionId, workflowId);
+    return Mono.deferContextual(
+        context -> {
+          final Map<String, Object> payload =
+              ExecutionLogEvent.withInitiator(Map.of(), initiator(context));
+          return keyed
+              ? workflowService
+                  .validateAndStartWorkflow(sessionId, workflowId, payload, idempotencyKey.strip())
+                  .map(execution -> new WorkflowStartResult(execution.executionId(), false))
+              : startMergingRepeats(sessionId, workflowId, payload);
+        });
+  }
+
+  /** Who started the run: an agent over MCP, with the name of its key when it has one. */
+  private static String initiator(final ContextView context) {
+    return context
+        .<ApiKeys.Match>getOrEmpty(CallerIdentity.CONTEXT_KEY)
+        .map(key -> "mcp · " + key.name())
+        .orElse("mcp");
   }
 
   /** Starts without a client key; a repeat inside the window gets the first run, marked reused. */
   private Mono<WorkflowStartResult> startMergingRepeats(
-      final String sessionId, final String workflowId) {
+      final String sessionId, final String workflowId, final Map<String, Object> payload) {
     // Only the call that really starts the run subscribes to the supplier; a merged repeat never
     // does.
     final AtomicBoolean started = new AtomicBoolean();
@@ -139,7 +156,7 @@ public class WorkflowExecutionProvider {
                     () -> {
                       started.set(true);
                       return workflowService
-                          .validateAndStartWorkflow(sessionId, workflowId)
+                          .validateAndStartWorkflow(sessionId, workflowId, payload)
                           .map(WorkflowExecution::executionId);
                     }))
         .map(executionId -> new WorkflowStartResult(executionId, !started.get()));

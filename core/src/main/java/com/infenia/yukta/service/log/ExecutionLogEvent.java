@@ -21,6 +21,7 @@ import org.jspecify.annotations.Nullable;
  * @param nodeId the node (set on {@code NODE_FINISHED})
  * @param payload the trigger payload the run started with (set on {@code RUN_STARTED})
  * @param timestamp when it happened
+ * @param initiator who or what started the run (set on {@code RUN_STARTED}), or null if unknown
  */
 @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.NullAssignment"})
 public record ExecutionLogEvent(
@@ -33,25 +34,14 @@ public record ExecutionLogEvent(
     Map<String, String> nodeStatuses,
     @Nullable String nodeId,
     @Nullable Map<String, Object> payload,
-    Instant timestamp) {
+    Instant timestamp,
+    @Nullable String initiator) {
+
+  /** The reserved payload key under which a start carries who or what started the run. */
+  public static final String INITIATOR_KEY = "yukta.initiator";
 
   /** Run id under which changes that belong to no run (scheduler limits) are recorded. */
   public static final String SCHEDULER = "scheduler";
-
-  /** Kind of log entry. */
-  public enum Type {
-    RUN_STARTED,
-    RUN_FINISHED,
-    RUN_ABORTED,
-    CONTROL_APPLIED,
-    CONTROL_REJECTED,
-    /** A node ended successfully, so its recorded output is a safe place to resume from. */
-    NODE_FINISHED,
-    /** An aborted run was resumed; its status holds the id of the new run. */
-    RUN_RESUMED,
-    /** A start with an idempotency key succeeded; its status holds the scope and the key. */
-    IDEMPOTENCY_KEY
-  }
 
   /**
    * Keeps an immutable copy of the node statuses.
@@ -66,10 +56,26 @@ public record ExecutionLogEvent(
    * @param nodeId the node, for node events
    * @param payload the trigger payload, for run starts
    * @param timestamp when it happened
+   * @param initiator who or what started the run, or null if unknown
    */
   public ExecutionLogEvent {
     nodeStatuses = nodeStatuses == null ? Map.of() : Map.copyOf(nodeStatuses);
     payload = payload == null ? null : Collections.unmodifiableMap(new HashMap<>(payload));
+  }
+
+  /** Kind of log entry. */
+  public enum Type {
+    RUN_STARTED,
+    RUN_FINISHED,
+    RUN_ABORTED,
+    CONTROL_APPLIED,
+    CONTROL_REJECTED,
+    /** A node ended successfully, so its recorded output is a safe place to resume from. */
+    NODE_FINISHED,
+    /** An aborted run was resumed; its status holds the id of the new run. */
+    RUN_RESUMED,
+    /** A start with an idempotency key succeeded; its status holds the scope and the key. */
+    IDEMPOTENCY_KEY
   }
 
   /**
@@ -98,7 +104,8 @@ public record ExecutionLogEvent(
         Map.of(),
         null,
         payload,
-        Instant.now());
+        Instant.now(),
+        initiatorOf(payload));
   }
 
   /**
@@ -116,6 +123,31 @@ public record ExecutionLogEvent(
       final String workflowId,
       final String definitionVersion) {
     return started(executionId, sessionId, workflowId, definitionVersion, null);
+  }
+
+  /**
+   * The payload with the initiator under its reserved key. A caller's own value of that key is
+   * dropped, so a run's initiator cannot be forged through the payload.
+   *
+   * @param payload the trigger payload
+   * @param initiator who or what starts the run, or null if not known
+   * @return a copy of the payload
+   */
+  public static Map<String, Object> withInitiator(
+      final Map<String, Object> payload, @Nullable final String initiator) {
+    final var copy = new HashMap<>(payload);
+    copy.remove(INITIATOR_KEY);
+    if (initiator != null && !initiator.isBlank()) {
+      copy.put(INITIATOR_KEY, initiator);
+    }
+    return copy;
+  }
+
+  /** The initiator a start's payload carries under {@link #INITIATOR_KEY}, or null. */
+  public static @Nullable String initiatorOf(@Nullable final Map<String, Object> payload) {
+    return payload != null && payload.get(INITIATOR_KEY) instanceof String text && !text.isBlank()
+        ? text
+        : null;
   }
 
   /**
@@ -142,7 +174,8 @@ public record ExecutionLogEvent(
         Map.of(),
         nodeId,
         null,
-        Instant.now());
+        Instant.now(),
+        null);
   }
 
   /**
@@ -163,7 +196,8 @@ public record ExecutionLogEvent(
         Map.of(),
         null,
         null,
-        Instant.now());
+        Instant.now(),
+        null);
   }
 
   /**
@@ -185,7 +219,8 @@ public record ExecutionLogEvent(
         Map.of(),
         null,
         null,
-        Instant.now());
+        Instant.now(),
+        null);
   }
 
   /**
@@ -214,7 +249,8 @@ public record ExecutionLogEvent(
         nodeStatuses,
         null,
         null,
-        Instant.now());
+        Instant.now(),
+        null);
   }
 
   /**
@@ -246,7 +282,8 @@ public record ExecutionLogEvent(
         nodeStatuses,
         null,
         null,
-        Instant.now());
+        Instant.now(),
+        null);
   }
 
   /**
@@ -270,7 +307,8 @@ public record ExecutionLogEvent(
         Map.of(),
         null,
         null,
-        Instant.now());
+        Instant.now(),
+        null);
   }
 
   /**
@@ -289,6 +327,7 @@ public record ExecutionLogEvent(
         nodeStatuses,
         nodeId,
         null,
-        timestamp);
+        timestamp,
+        null);
   }
 }

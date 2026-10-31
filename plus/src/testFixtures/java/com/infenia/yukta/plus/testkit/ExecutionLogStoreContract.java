@@ -42,6 +42,22 @@ public abstract class ExecutionLogStoreContract {
   }
 
   @Test
+  void runStartKeepsWhoStartedIt() {
+    final ExecutionLogStore store = create();
+    final ExecutionLogEvent started =
+        ExecutionLogEvent.started(
+            "e1", "s", "w", "v", ExecutionLogEvent.withInitiator(Map.of("k", "v"), "yk check"));
+    final ExecutionLogEvent without = ExecutionLogEvent.started("e2", "s", "w", "v");
+
+    store.append(started);
+    store.append(without);
+
+    assertThat(store.readAll())
+        .extracting(ExecutionLogEvent::initiator)
+        .containsExactly("yk check", null);
+  }
+
+  @Test
   void anEmptyStoreReadsAsEmpty() {
     assertThat(create().readAll()).isEmpty();
   }

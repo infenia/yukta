@@ -211,7 +211,8 @@ Starts a run and returns its id at once. The run continues in the background; fo
 |---|---|---|---|
 | `sessionId` | string | yes | The session |
 | `workflowId` | string | yes | The workflow |
-| `payload` | object | no | Input for the trigger node. Treated as empty when omitted. A numeric `yukta.priority` key sets the queue priority; higher is admitted first |
+| `payload` | object | no | Input for the trigger node. Treated as empty when omitted. A numeric `yukta.priority` key sets the queue priority; higher is admitted first. The key `yukta.initiator` is reserved: the server sets it (see `initiator`) and drops any value you send |
+| `initiator` | string | no | Who or what starts the run, at most 64 characters (for example `yk check` or `schedule`). Without it, the name of the API key that made the request is recorded, and nothing when no key is in use. The runs list shows it. Starts through MCP are recorded as `mcp` (`mcp · <key name>` with a named key), and webhook starts as `webhook` |
 
 **Response** `202 Accepted`. `data.executionId` is the run id.
 

@@ -426,6 +426,7 @@ public class WorkflowOrchestrator {
     final String version = DefinitionVersion.of(prepared);
     executionLog.append(
         ExecutionLogEvent.started(executionId, sessionId, workflowId, version, payload));
+    tracker.setInitiator(executionId, ExecutionLogEvent.initiatorOf(payload));
     executionArchive
         .put(new ArchivedExecution(executionId, sessionId, workflowId, prepared, version, payload))
         .forEach(this::releaseCheckpoints);

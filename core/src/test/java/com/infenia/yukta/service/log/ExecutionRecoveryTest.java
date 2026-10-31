@@ -66,6 +66,23 @@ class ExecutionRecoveryTest {
   }
 
   @Test
+  void restoredRunsKeepWhoStartedThem() {
+    store.append(
+        ExecutionLogEvent.started(
+            "mine", "s1", "w1", "v1", ExecutionLogEvent.withInitiator(Map.of(), "schedule")));
+    store.append(
+        ExecutionLogEvent.finished("mine", "s1", "w1", "SUCCESS", Map.of("n1", "SUCCESS")));
+    store.append(ExecutionLogEvent.started("old", "s1", "w1", "v1"));
+    store.append(ExecutionLogEvent.finished("old", "s1", "w1", "SUCCESS", Map.of("n1", "SUCCESS")));
+
+    new ExecutionRecovery(store, tracker, 100).recover();
+
+    assertThat(tracker.getHistory("s1").block())
+        .extracting(run -> run.executionId() + ":" + run.initiator())
+        .containsExactlyInAnyOrder("mine:schedule", "old:null");
+  }
+
+  @Test
   void runThatEndedLast_isNewerThanOnesStartedAfterIt() {
     store.append(ExecutionLogEvent.started("long", "s1", "w1", "v1"));
     finishedRun("r2", "SUCCESS");
