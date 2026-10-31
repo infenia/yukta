@@ -1,0 +1,76 @@
+---
+title: "Run modes: console, plain and daemon"
+sidebarTitle: "Run modes"
+description: "Start the Yukta server with an interactive console, with plain log lines, or as a background daemon you start, stop and watch with one command."
+keywords: ["console", "daemon", "run mode", "systemd", "docker", "logs"]
+---
+
+<Info>
+  **In plain terms:** `yukta` can show itself three ways. At a terminal you get a live dashboard. Under systemd, Docker or a pipe you get ordinary log lines. And `yukta start` runs it in the background for you.
+</Info>
+
+## Choose a mode
+
+| Mode | What you get | Default when |
+|---|---|---|
+| `console` | A full-screen dashboard: version, URL, uptime, health, run counts, recent runs and a log pane | stdin and stdout are a terminal |
+| `plain` | Log lines on stdout, as before | not a terminal (service, container, pipe) |
+| `daemon` | A detached background process managed by `yukta start`, `stop` and `status` | never; use the commands below |
+
+Pick one explicitly, strongest first: `--plain`, then `--mode=console|plain|daemon`, then the `YUKTA_MODE` variable.
+
+```bash
+yukta                  # console on a terminal, plain otherwise
+yukta --plain          # always log lines
+YUKTA_MODE=plain yukta # same, from the environment
+```
+
+## The console
+
+| Key | Action |
+|---|---|
+| `q` | Stop the server and leave |
+| `l` | Full-screen logs (press again to go back) |
+| `r` | The longer list of runs |
+| `f` | Cycle the log level filter: ALL, DEBUG, INFO, WARN, ERROR |
+| `↑` `↓` `PgUp` `PgDn` | Scroll the logs; `G` follows the newest line |
+| `?` | Help |
+
+The counts and runs come from the server's own REST API, once a second. Logs are kept in a ring of the last 5000 lines and are not written to stdout while the console is up. If the server fails to start, the buffered logs are printed to stderr. The terminal is restored when you quit, when the console fails and when the process is killed.
+
+<Note>
+  The console is for a person at a terminal. For a service or a container use `plain`, so the logs reach `journalctl` or `docker logs`.
+</Note>
+
+## Run in the background
+
+```bash
+yukta start            # detached, plain mode; waits until /actuator/health answers
+yukta status           # running or not, pid, URL, health (exit status 3 when stopped)
+yukta logs             # the last 100 lines
+yukta logs -f          # follow
+yukta restart
+yukta stop             # drain, then SIGTERM, then SIGKILL after 30 s
+```
+
+Anything else on the `start` line goes to the server: `yukta start --spring.profiles.active=dev`. `stop` first asks the server to refuse new runs (`POST /api/admin/drain`, using `YUKTA_API_KEY` when set), so running executions can finish within the [graceful shutdown](/operations/deployment#graceful-shutdown) window.
+
+State lives in `$YUKTA_HOME`, else `$XDG_STATE_HOME/yukta`, else `~/.local/state/yukta`:
+
+| File | Holds |
+|---|---|
+| `yukta.pid` | The pid and start time, so a reused pid is not mistaken for the server |
+| `yukta.log` | The server's output |
+
+The log file is not rotated. Use the service packages on Windows; the commands are for Linux and macOS.
+
+## Which to use
+
+| You run Yukta | Use |
+|---|---|
+| At your desk | `yukta` (console) |
+| On a dev box or CI runner, no init system | `yukta start` |
+| On a server | [systemd](/operations/deployment#run-as-a-linux-service), which restarts it and collects logs |
+| In a container | The [image](/operations/deployment#container-image), in plain mode; the orchestrator is the supervisor |
+
+Do not run `yukta start` inside a container or under systemd: the supervisor already does the job, and a detached child hides the real process from it.
