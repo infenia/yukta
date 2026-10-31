@@ -122,6 +122,8 @@ public class R2dbcLeaderElection implements LeaderElection, SmartLifecycle {
       renewal =
           Flux.interval(Duration.ZERO, lease.dividedBy(3))
               .onBackpressureDrop()
+              // ends the loop after abandon() without cancelling a statement that is in flight
+              .takeWhile(_ -> running.get())
               // defer: an exception while the statement is being built must not end the loop
               .concatMap(
                   _ ->
@@ -234,7 +236,9 @@ public class R2dbcLeaderElection implements LeaderElection, SmartLifecycle {
 
   /** Stops renewing without giving the lease up, as a crash would; for tests. */
   /* default */ void abandon() {
+    // not disposed: cancelling while a renew is in flight makes its row arrive after the cancel
+    // (a dropped signal). The loop ends itself at the next tick; an in-flight renew may still
+    // extend the lease once, which a crash just after a renewal does too.
     running.set(false);
-    renewal.dispose();
   }
 }
