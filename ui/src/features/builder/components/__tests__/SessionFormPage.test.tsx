@@ -35,6 +35,18 @@ const server = setupServer(
       path: '/',
     })
   ),
+  http.get('/api/plugins', () =>
+    HttpResponse.json({
+      timestamp: 't',
+      status: 200,
+      message: 'ok',
+      data: [
+        { type: 'CONSTANT_SOURCE', category: 'TRIGGER' },
+        { type: 'CONSOLE_TERMINAL', category: 'TERMINAL' },
+      ],
+      path: '/',
+    })
+  ),
   http.get('/api/templates/01-hello-world', () =>
     HttpResponse.json({
       timestamp: 't',
@@ -59,6 +71,15 @@ const server = setupServer(
               description: 'Echo',
               nodes: [{ nodeId: 'start', type: 'CONSTANT_SOURCE', config: {} }],
               edges: [],
+            },
+            second: {
+              workflowId: 'second',
+              description: 'Another',
+              nodes: [
+                { nodeId: 'a', type: 'CONSTANT_SOURCE', config: {} },
+                { nodeId: 'b', type: 'CONSOLE_TERMINAL', config: {} },
+              ],
+              edges: [{ source: 'a', target: 'b', sourcePort: null }],
             },
           },
         },
@@ -95,6 +116,7 @@ const server = setupServer(
 
 beforeAll(() => server.listen());
 afterEach(() => {
+  server.resetHandlers();
   posted.length = 0;
   failure = null;
   found = { exists: true, directory: true };
@@ -328,11 +350,107 @@ describe('SessionFormPage, new', () => {
     renderWithProviders(<SessionFormPage />);
     await user.click(await screen.findByRole('button', { name: 'Preview' }));
     const dialog = await screen.findByRole('dialog', { name: 'Hello world' });
+    // the README is Markdown (a heading), and markup in it stays text
+    expect(
+      within(dialog).getByRole('heading', { name: '01 — Hello world' })
+    ).toBeInTheDocument();
     expect(within(dialog).getByText(/<b>not html<\/b>/)).toBeInTheDocument();
     await user.click(
       within(dialog).getByRole('button', { name: 'Use this template' })
     );
     expect(await screen.findByLabelText('Name')).toHaveValue('Hello world');
+  });
+
+  it('shows the workflow on a canvas, with a tab for each workflow', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SessionFormPage />);
+    await user.click(await screen.findByRole('button', { name: 'Preview' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Hello world' });
+
+    expect(within(dialog).getByTestId('template-canvas')).toBeInTheDocument();
+    const tabs = within(dialog).getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['hello', 'second']);
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+    await user.click(tabs[1]);
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('previews a template without a canvas when it has no workflow, and without tabs for one', async () => {
+    const template = (workflows: Record<string, unknown>) =>
+      HttpResponse.json({
+        timestamp: 't',
+        status: 200,
+        message: 'ok',
+        data: {
+          id: '01-hello-world',
+          title: 'Hello world',
+          summary: 's',
+          pluginTypes: ['MYSTERY'],
+          readme: 'text',
+          session: {
+            sessionId: 'x',
+            name: 'Hello world',
+            description: 's',
+            initiator: 'examples',
+            projectPath: '/tmp',
+            tags: {},
+            workflows,
+          },
+        },
+        path: '/',
+      });
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/templates', () =>
+        HttpResponse.json({
+          timestamp: 't',
+          status: 200,
+          message: 'ok',
+          data: [
+            {
+              id: '01-hello-world',
+              title: 'Hello world',
+              summary: 's',
+              pluginTypes: ['MYSTERY'],
+            },
+          ],
+          path: '/',
+        })
+      ),
+      http.get('/api/templates/01-hello-world', () => template({}))
+    );
+    renderWithProviders(<SessionFormPage />);
+    await user.click(await screen.findByRole('button', { name: 'Preview' }));
+    const empty = await screen.findByRole('dialog', { name: 'Hello world' });
+    expect(within(empty).queryByTestId('template-canvas')).toBeNull();
+    // a type no plugin is registered for gets the neutral colour
+    expect(screen.getByText('MYSTERY').getAttribute('style')).toContain(
+      '--color-outline'
+    );
+    await user.click(within(empty).getByRole('button', { name: 'Close' }));
+
+    server.use(
+      http.get('/api/templates/01-hello-world', () =>
+        template({
+          only: { workflowId: 'only', description: '', nodes: [], edges: [] },
+        })
+      )
+    );
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    const one = await screen.findByRole('dialog', { name: 'Hello world' });
+    expect(await within(one).findByTestId('template-canvas')).toBeVisible();
+    expect(within(one).queryByRole('tab')).toBeNull();
+  });
+
+  it('colours the plugin chips by category', async () => {
+    renderWithProviders(<SessionFormPage />);
+    const chip = await screen.findByText('CONSOLE_TERMINAL');
+    await waitFor(() =>
+      expect(chip.getAttribute('style')).toContain('--color-cat-terminal')
+    );
+    expect(screen.getByText('CONSTANT_SOURCE').getAttribute('style')).toContain(
+      '--color-cat-trigger'
+    );
   });
 
   it('closes the preview without choosing', async () => {
