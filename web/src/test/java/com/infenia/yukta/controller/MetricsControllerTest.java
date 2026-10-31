@@ -19,6 +19,8 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 class MetricsControllerTest {
 
+  private static final String GAUGE = "yukta.g";
+
   private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
 
   private final MetricsSampler sampler =
@@ -46,20 +48,20 @@ class MetricsControllerTest {
 
   @Test
   void seriesReturnsSampledPoints() {
-    registry.gauge("yukta.g", 7);
+    registry.gauge(GAUGE, 7);
     sampler.sample(System.currentTimeMillis());
 
-    StepVerifier.create(controller.series(List.of("yukta.g"), "15m"))
-        .assertNext(s -> assertThat(s.data().series().get("yukta.g")).hasSize(1))
+    StepVerifier.create(controller.series(List.of(GAUGE), "15m"))
+        .assertNext(s -> assertThat(s.data().series().get(GAUGE)).hasSize(1))
         .verifyComplete();
     StepVerifier.create(controller.snapshot())
-        .assertNext(s -> assertThat(s.data().values()).containsEntry("yukta.g", 7.0))
+        .assertNext(s -> assertThat(s.data().values()).containsEntry(GAUGE, 7.0))
         .verifyComplete();
   }
 
   @Test
-  void unknownRangeIsABadRequest() {
-    StepVerifier.create(controller.series(List.of("yukta.g"), "2d"))
+  void unknownRangeIsRejected() {
+    StepVerifier.create(controller.series(List.of(GAUGE), "2d"))
         .expectErrorSatisfies(
             e ->
                 assertThat(((ResponseStatusException) e).getStatusCode())
@@ -69,7 +71,7 @@ class MetricsControllerTest {
 
   @Test
   void streamEmitsTheNewestSampleFirst() {
-    registry.gauge("yukta.g", 1);
+    registry.gauge(GAUGE, 1);
     sampler.sample(1L);
 
     StepVerifier.create(controller.stream(null).take(1))

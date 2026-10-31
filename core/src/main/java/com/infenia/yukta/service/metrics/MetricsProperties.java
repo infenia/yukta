@@ -24,7 +24,11 @@ public record MetricsProperties(
     @DefaultValue("1h") Duration fineRetention,
     @DefaultValue("24h") Duration coarseRetention,
     @DefaultValue("500") int maxSeries,
-    @DefaultValue({
+    List<String> allowList) {
+
+  /** Meter name prefixes sampled when {@code yukta.metrics.allow-list} is not set. */
+  private static final List<String> DEFAULT_ALLOW_LIST =
+      List.of(
           "yukta.",
           "llm.",
           "jvm.memory.used",
@@ -32,6 +36,11 @@ public record MetricsProperties(
           "jvm.threads.live",
           "jvm.gc.pause",
           "process.cpu.usage",
-          "system.cpu.usage"
-        })
-        List<String> allowList) {}
+          "system.cpu.usage");
+
+  /** Falls back to the default allow-list when none is configured. */
+  public MetricsProperties {
+    allowList =
+        allowList == null || allowList.isEmpty() ? DEFAULT_ALLOW_LIST : List.copyOf(allowList);
+  }
+}

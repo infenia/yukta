@@ -54,14 +54,26 @@ public class MetricsController {
    * @param range the range asked for
    * @param series series key to ordered points
    */
-  public record Series(String range, Map<String, List<MetricsSampler.Point>> series) {}
+  public record Series(String range, Map<String, List<MetricsSampler.Point>> series) {
+
+    /** Keeps an immutable copy of the series. */
+    public Series {
+      series = Map.copyOf(series);
+    }
+  }
 
   /**
    * The series that exist.
    *
    * @param series series keys in the newest sample
    */
-  public record Catalog(List<String> series) {}
+  public record Catalog(List<String> series) {
+
+    /** Keeps an immutable copy of the keys. */
+    public Catalog {
+      series = List.copyOf(series);
+    }
+  }
 
   /**
    * List the sampled series.

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.metrics;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.Gauge;
@@ -14,6 +15,7 @@ import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,13 @@ import reactor.core.publisher.Sinks;
  */
 @Slf4j
 @Component
+// All state is guarded by this one lock, so plain maps and method-level synchronization are right.
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.UseConcurrentHashMap",
+  "PMD.AvoidSynchronizedAtMethodLevel",
+  "PMD.AvoidInstantiatingObjectsInLoops"
+})
 public class MetricsSampler {
 
   /** Milliseconds in a minute. */
@@ -55,10 +64,10 @@ public class MetricsSampler {
   private final MetricsProperties properties;
 
   /** Samples at the sampling interval. */
-  private final ArrayDeque<MetricSample> fine = new ArrayDeque<>();
+  private final Deque<MetricSample> fine = new ArrayDeque<>();
 
   /** Samples taken once a minute. */
-  private final ArrayDeque<MetricSample> coarse = new ArrayDeque<>();
+  private final Deque<MetricSample> coarse = new ArrayDeque<>();
 
   /** Newest sample to every stream subscriber. */
   private final Sinks.Many<MetricSample> live = Sinks.many().multicast().directBestEffort();
@@ -81,6 +90,9 @@ public class MetricsSampler {
    * @param registry where the values come from
    * @param properties the settings
    */
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP2",
+      justification = "Spring injects the shared registry, which is meant to be held")
   public MetricsSampler(final MeterRegistry registry, final MetricsProperties properties) {
     this.registry = registry;
     this.properties = properties;
@@ -91,9 +103,7 @@ public class MetricsSampler {
   /* default */ void start() {
     if (properties.enabled()) {
       ticker =
-          Flux.interval(properties.interval())
-              .subscribe(
-                  _ -> sample(System.currentTimeMillis()), e -> log.error("Sampler died", e));
+          Flux.interval(properties.interval()).subscribe(_ -> sample(System.currentTimeMillis()));
     }
   }
 
@@ -121,8 +131,10 @@ public class MetricsSampler {
       if (allowed(meter.getId().getName())) {
         try {
           read(meter, seconds, values, raw);
-        } catch (RuntimeException e) {
-          log.debug("Skipped meter {}", meter.getId(), e);
+        } catch (
+            @SuppressWarnings("PMD.AvoidCatchingGenericException")
+            final RuntimeException e) {
+          log.atDebug().setCause(e).addKeyValue("meter", meter.getId()).log("Skipped meter");
         }
       }
     }
@@ -210,7 +222,7 @@ public class MetricsSampler {
   }
 
   private static void push(
-      final ArrayDeque<MetricSample> buffer, final MetricSample sample, final long capacity) {
+      final Deque<MetricSample> buffer, final MetricSample sample, final long capacity) {
     buffer.addLast(sample);
     while (buffer.size() > Math.max(1, capacity)) {
       buffer.removeFirst();
@@ -236,7 +248,7 @@ public class MetricsSampler {
    */
   public synchronized Map<String, List<Point>> series(
       final List<String> names, final Duration range, final long now) {
-    final ArrayDeque<MetricSample> source =
+    final Deque<MetricSample> source =
         range.compareTo(properties.fineRetention()) <= 0 ? fine : coarse;
     final long from = now - range.toMillis();
     final Map<String, List<Point>> out = new TreeMap<>();

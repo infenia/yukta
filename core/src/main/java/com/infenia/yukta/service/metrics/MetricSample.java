@@ -12,4 +12,10 @@ import java.util.Map;
  *     {@code |rate}, {@code |mean} (ms), {@code |max} (ms) and {@code |p50}, {@code |p95}, {@code
  *     |p99} (ms)
  */
-public record MetricSample(long time, Map<String, Double> values) {}
+public record MetricSample(long time, Map<String, Double> values) {
+
+  /** Keeps an immutable copy of the values. */
+  public MetricSample {
+    values = Map.copyOf(values);
+  }
+}
