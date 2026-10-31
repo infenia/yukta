@@ -240,3 +240,10 @@ val verifyNettyVersion by tasks.registering {
     }
 }
 tasks.named("check") { dependsOn(verifyNettyVersion) }
+
+// Spring AOT freezes @ConditionalOnProperty at build time, so a stray YUKTA_* variable in the build
+// environment (the dev server sets YUKTA_SUPERVISOR_RULES_FILE) would bake that bean into the native
+// binary and break its start. Build from a clean environment.
+tasks.withType<org.springframework.boot.gradle.tasks.aot.ProcessAot>().configureEach {
+    environment.keys.filter { it.startsWith("YUKTA_") || it.startsWith("SPRING_") }.forEach { environment.remove(it) }
+}

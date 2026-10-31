@@ -51,6 +51,9 @@ public enum RunMode {
   /** Whether stdin and stdout are both a terminal. */
   @SuppressWarnings("SystemConsoleNull") // still null when the JDK has no console (e.g. tests)
   /* default */ static boolean isTty() {
+    // the java.base provider asks the OS directly; the default one is not in a native image, where
+    // System.console() would be null even on a terminal
+    System.setProperty("jdk.console", "java.base");
     final var console = System.console();
     return console != null && console.isTerminal();
   }

@@ -12,6 +12,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.event.ApplicationFailedEvent;
 import org.springframework.boot.context.event.ApplicationPreparedEvent;
+import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationListener;
 import reactor.core.publisher.Hooks;
 
@@ -91,10 +92,17 @@ public class YuktaApplication {
     final SpringApplication app = new SpringApplication(YuktaApplication.class);
     if (mode == RunMode.CONSOLE) {
       // the dashboard owns the screen: logs go to its ring buffer; if startup fails, print them
+      // one listener on ApplicationEvent: a lambda typed on a subclass loses its generics, and
+      // the resulting ClassCastException is only tolerated on a JVM, not in a native image
       app.addListeners(
-          (ApplicationListener<ApplicationPreparedEvent>) e -> ConsoleLogs.install(),
-          (ApplicationListener<ApplicationFailedEvent>)
-              e -> ConsoleLogs.restore().forEach(System.err::println));
+          (ApplicationListener<ApplicationEvent>)
+              e -> {
+                if (e instanceof ApplicationPreparedEvent) {
+                  ConsoleLogs.install();
+                } else if (e instanceof ApplicationFailedEvent) {
+                  ConsoleLogs.restore().forEach(System.err::println);
+                }
+              });
     }
     app.run(args);
   }
