@@ -79,7 +79,7 @@ A fixer's prompt carries the failure in short (the L1 digest) and its session id
 start, control or change anything (a `VIEWER` key, plus a deny list in `examples/11-dogfood/scripts/_claude.sh`). `YUKTA_FIXER_MCP=off` disables it.
 
 ## Pickup (scheduled issue hand-over)
-`yk pickup session` opens the one interactive session that receives issues; `yk pickup on|off|now|status` drives the schedule. An event
+`yk pickup session` opens an interactive session that receives issues (several may be open; the schedule hands each idle one an issue); `yk pickup on|off|now|status` drives the schedule. An event
 `<channel source="yukta-pickup" ..>` means: use the `pickup` skill. Details in `examples/11-dogfood/README.md` ("Pickup session").
 
 ## Don'ts
