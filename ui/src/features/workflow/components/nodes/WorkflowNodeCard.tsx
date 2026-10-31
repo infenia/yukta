@@ -8,6 +8,11 @@ import { SubWorkflowLinks } from '../../hooks/useSubWorkflowLinks';
 import type { NodeProps } from '@xyflow/react';
 import { toNodeStatusLabel, toStatusDisplay } from '../../lib/statusMapper';
 import { cn } from '@/lib/utils';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { categoryAccent, categoryTint } from '../../lib/categoryAccent';
 import { pluginIcon, pluginLabel } from '../../lib/pluginIcons';
 import type { WorkflowFlowNode } from '../../lib/layout';
@@ -69,6 +74,9 @@ function progressDetail(
 function outputHandleTop(index: number, count: number): string {
   return `${((index + 1) / (count + 1)) * 100}%`;
 }
+
+/** A description longer than this probably does not fit on the card's one line. */
+const LONG_DESCRIPTION = 32;
 
 const HANDLE_CLASSES =
   'size-2.5! border-2! border-(--node-accent)! bg-surface!';
@@ -187,9 +195,31 @@ export function WorkflowNodeCard({
       </div>
 
       {node.description && !hideDescription && (
-        <p className="text-body-sm text-on-surface-variant line-clamp-2 px-3 pt-1.5">
-          {node.description}
-        </p>
+        <div className="flex items-start gap-1 px-3 pt-1.5">
+          <p className="text-body-sm text-on-surface-variant min-w-0 flex-1 truncate">
+            {node.description}
+          </p>
+          {node.description.length > LONG_DESCRIPTION && (
+            <Popover>
+              <PopoverTrigger
+                aria-label={`Show the full description of ${node.nodeId}`}
+                className="nodrag text-on-surface-variant hover:text-on-surface -my-0.5 inline-flex shrink-0 items-center rounded"
+              >
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
+                >
+                  expand_more
+                </span>
+              </PopoverTrigger>
+              <PopoverContent className="nodrag nowheel">
+                <p className="text-body-sm text-on-surface whitespace-pre-line">
+                  {node.description}
+                </p>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
       )}
 
       <div className="mt-auto flex items-center justify-between px-3 pt-1 pb-2">

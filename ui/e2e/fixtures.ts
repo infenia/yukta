@@ -95,7 +95,7 @@ async function mockSessionsApi(
 
 // Mirrors the workflow-screen design mockup: trigger fans out to two processors
 // that fan into a terminal, with the first node done and the second running.
-const defaultWorkflowGraph: WorkflowGraph = {
+export const defaultWorkflowGraph: WorkflowGraph = {
   workflowId: 'wf-982-xk-11',
   description: 'Supply_Chain_Optimizer_V2',
   nodes: [
