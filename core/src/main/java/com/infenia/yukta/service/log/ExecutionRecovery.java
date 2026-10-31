@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -152,10 +153,23 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
         new ArrayList<>(
             scheduler.subList(Math.max(0, scheduler.size() - retainedRuns), scheduler.size()));
     final List<List<ExecutionLogEvent>> runs = new ArrayList<>(byRun.values());
-    final int skip = Math.max(0, runs.size() - retainedRuns);
-    runs.subList(0, skip).forEach(run -> checkpoints.clear(run.getFirst().executionId()));
+    final Set<String> keep =
+        LogRetention.keep(
+            new ArrayList<>(byRun.keySet()),
+            id -> {
+              final ExecutionLogEvent first =
+                  find(byRun.get(id), ExecutionLogEvent.Type.RUN_STARTED);
+              return first == null ? null : first.sessionId();
+            },
+            retainedRuns);
     final List<String> abortedIds = new ArrayList<>();
-    for (final List<ExecutionLogEvent> run : runs.subList(skip, runs.size())) {
+    int skip = 0;
+    for (final List<ExecutionLogEvent> run : runs) {
+      if (!keep.contains(run.getFirst().executionId())) {
+        checkpoints.clear(run.getFirst().executionId());
+        skip++;
+        continue;
+      }
       final ExecutionLogEvent started = find(run, ExecutionLogEvent.Type.RUN_STARTED);
       final ExecutionLogEvent ended = end(run);
       if (started != null && ended == null) {
