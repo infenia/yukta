@@ -89,7 +89,7 @@ describe('SessionListPage', () => {
   });
 
   describe('Header & Metadata', () => {
-    it('should display header with correct title and session count', async () => {
+    it('should display the header title and description, without a session count', async () => {
       const { container } = renderWithProviders(<SessionListPage />);
 
       await waitFor(() => {
@@ -97,7 +97,7 @@ describe('SessionListPage', () => {
           screen.getByRole('heading', { name: /Sessions/ })
         ).toBeInTheDocument();
         const p = container.querySelector('p');
-        expect(p?.textContent).toContain('3 sessions');
+        expect(p?.textContent).not.toMatch(/\d+ sessions/);
         expect(p?.textContent).toContain("a project's workflows");
       });
     });

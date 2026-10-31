@@ -155,7 +155,6 @@ export function SessionListPage() {
           className={`hero-backdrop pointer-events-none absolute inset-x-0 top-0 -z-10 ${isEmpty ? 'h-128' : 'h-56'}`}
         />
         <SessionsHeader
-          sessionCount={sessions.length}
           actions={
             isEmpty ? undefined : (
               <div className="flex gap-2">
