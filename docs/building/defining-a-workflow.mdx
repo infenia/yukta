@@ -20,11 +20,11 @@ A workflow is plain JSON. You send it inside a [session](/concepts/sessions-and-
 ```json
 {
   "sessionId": "triage",
-  "name": "Ticket triage",
-  "description": "Classify a ticket, wait for approval, update the tracker",
-  "initiator": "ops-team",
+  "name": "Crash triage",
+  "description": "Classify a crash report, wait for approval, update the tracker",
+  "initiator": "platform-team",
   "projectPath": "/srv/triage",
-  "tags": { "team": "support" },
+  "tags": { "team": "platform" },
   "workflows": {
     "triage": {
       "workflowId": "triage",
