@@ -36,6 +36,8 @@ YUKTA_MODE=plain yukta # same, from the environment
 | `↑` `↓` `PgUp` `PgDn` | Scroll the logs; `G` follows the newest line |
 | `?` | Help |
 
+Health, run counts, run status and log levels are colored. Set `NO_COLOR` (any value) or use `TERM=dumb` for plain text.
+
 The counts and runs come from the server's own REST API, once a second. Logs are kept in a ring of the last 5000 lines and are not written to stdout while the console is up. If the server fails to start, the buffered logs are printed to stderr. The terminal is restored when you quit, when the console fails and when the process is killed.
 
 <Note>
