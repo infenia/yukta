@@ -51,7 +51,7 @@ export function ApprovalRow({
     (decide.error as { status?: number } | null)?.status === 409;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="min-w-0 flex-1 text-body-md text-on-surface">
+      <span className="text-body-md text-on-surface min-w-0 flex-1">
         {label}{' '}
         <span className="text-on-surface-variant">
           since {waitingSince(approval.since)}

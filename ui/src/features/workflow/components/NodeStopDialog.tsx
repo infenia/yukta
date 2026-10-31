@@ -28,7 +28,7 @@ export function NodeStopDialog({
 
   return (
     <Modal title={`Stop ${nodeId}?`} onClose={onClose}>
-      <label className="mb-3 flex items-center gap-2 text-body-md text-on-surface">
+      <label className="text-body-md text-on-surface mb-3 flex items-center gap-2">
         <input
           type="checkbox"
           checked={immediate}
@@ -37,7 +37,7 @@ export function NodeStopDialog({
         Stop immediately (do not drain)
       </label>
       <label
-        className="mb-1 block text-body-md text-on-surface"
+        className="text-body-md text-on-surface mb-1 block"
         htmlFor="stop-reason"
       >
         Reason (optional)
@@ -50,7 +50,7 @@ export function NodeStopDialog({
         rows={3}
         className={`${textareaFieldClassName} mb-1`}
       />
-      <p className="mb-4 text-body-sm text-on-surface-variant">
+      <p className="text-body-sm text-on-surface-variant mb-4">
         The reason is recorded in the control audit.
       </p>
       <div className="flex justify-end gap-2">

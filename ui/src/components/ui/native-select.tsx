@@ -31,7 +31,7 @@ function NativeSelect({ className, ...props }: React.ComponentProps<'select'>) {
       />
       <span
         aria-hidden="true"
-        className="material-symbols-outlined pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-base text-on-surface-variant"
+        className="material-symbols-outlined text-on-surface-variant pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-base"
       >
         expand_more
       </span>

@@ -51,7 +51,7 @@ function ScriptedPanel({ session }: { session: SessionDraft }) {
             aria-selected={format === key}
             onClick={() => setFormat(key)}
             className={cn(
-              'rounded-lg px-3 py-1 text-label-md',
+              'text-label-md rounded-lg px-3 py-1',
               format === key
                 ? 'bg-muted text-on-surface'
                 : 'text-on-surface-variant hover:bg-muted'
@@ -253,7 +253,7 @@ function SessionForm({
       {problem ? (
         <span
           id={`s-${key}-hint`}
-          className="flex items-start gap-1 text-body-sm text-error"
+          className="text-body-sm text-error flex items-start gap-1"
         >
           <span
             aria-hidden="true"
@@ -343,17 +343,17 @@ function SessionForm({
       />
       <nav
         aria-label="How to create"
-        className="flex gap-5 border-b border-border"
+        className="border-border flex gap-5 border-b"
       >
         <span
           aria-current="page"
-          className="-mb-px border-b-2 border-primary py-2 text-label-md text-on-surface"
+          className="border-primary text-label-md text-on-surface -mb-px border-b-2 py-2"
         >
           Fill in details
         </span>
         <Link
           to="/sessions/import"
-          className="py-2 text-label-md text-on-surface-variant hover:text-on-surface"
+          className="text-label-md text-on-surface-variant hover:text-on-surface py-2"
         >
           Import JSON
         </Link>

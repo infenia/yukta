@@ -52,7 +52,7 @@ function FailureCallout({
       )}
       {failed.length > 1 && <p>{failed.length - 1} more failed.</p>}
       {href && (
-        <Link to={href} className="font-semibold text-primary hover:underline">
+        <Link to={href} className="text-primary font-semibold hover:underline">
           Open sub-workflow run
         </Link>
       )}
@@ -83,7 +83,7 @@ export function ProgressPanel({
     progress && isTerminalExecStatus(progress.status) ? progress : null;
   return (
     <aside
-      className="flex w-95 shrink-0 flex-col overflow-y-auto border-l border-border bg-background"
+      className="border-border bg-background flex w-95 shrink-0 flex-col overflow-y-auto border-l"
       data-testid="progress-panel"
       aria-label="Workflow progress"
     >
@@ -93,12 +93,12 @@ export function ProgressPanel({
           type="button"
           onClick={onClose}
           aria-label="Close workflow progress panel"
-          className="flex size-7 items-center justify-center rounded-lg text-on-surface-variant transition-standard hover:bg-muted hover:text-on-surface"
+          className="text-on-surface-variant transition-standard hover:bg-muted hover:text-on-surface flex size-7 items-center justify-center rounded-lg"
         >
           <span className="material-symbols-outlined text-lg">close</span>
         </button>
       </div>
-      <div role="tablist" className="flex gap-5 border-b border-border px-4">
+      <div role="tablist" className="border-border flex gap-5 border-b px-4">
         {(
           [
             ['progress', 'Progress'],
@@ -112,10 +112,10 @@ export function ProgressPanel({
             role="tab"
             aria-selected={tab === name}
             onClick={() => setTab(name)}
-            className={`-mb-px border-b-2 py-2 text-label-md ${
+            className={`text-label-md -mb-px border-b-2 py-2 ${
               tab === name
                 ? 'border-primary text-on-surface'
-                : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                : 'text-on-surface-variant hover:text-on-surface border-transparent'
             }`}
           >
             {label}

@@ -184,7 +184,7 @@ export function WorkflowDetailsPage() {
   return (
     // Exactly the screen's height (less the phone tab bar): the workspace scrolls inside, so the logs dock stays at the bottom edge
     <div
-      className="flex h-[calc(100dvh-var(--spacing-header)-4rem)] flex-col bg-background sm:h-[calc(100dvh-var(--spacing-header))]"
+      className="bg-background flex h-[calc(100dvh-var(--spacing-header)-4rem)] flex-col sm:h-[calc(100dvh-var(--spacing-header))]"
       data-testid="workflow-details-page"
     >
       <WorkflowTitleBar
@@ -426,7 +426,7 @@ export function WorkflowDetailsPage() {
                     placeholder="Find node"
                     value={findQuery}
                     onChange={(event) => setFindQuery(event.target.value)}
-                    className="pointer-events-auto h-8 w-60 rounded-full border border-border bg-surface px-3 text-body-md shadow-card outline-none placeholder:text-on-surface-variant focus-visible:ring-2 focus-visible:ring-primary/40"
+                    className="border-border bg-surface text-body-md shadow-card placeholder:text-on-surface-variant focus-visible:ring-primary/40 pointer-events-auto h-8 w-60 rounded-full border px-3 outline-none focus-visible:ring-2"
                   />
                   {stages.hasStages && (
                     <GroupingSwitch
@@ -441,7 +441,7 @@ export function WorkflowDetailsPage() {
                       aria-pressed={follow}
                       onClick={() => setFollow((value) => !value)}
                       className={cn(
-                        'pointer-events-auto ml-auto rounded-lg border border-border bg-surface px-2.5 py-1 text-label-sm shadow-card',
+                        'border-border bg-surface text-label-sm shadow-card pointer-events-auto ml-auto rounded-lg border px-2.5 py-1',
                         follow
                           ? 'bg-accent text-accent-foreground'
                           : 'text-on-surface-variant hover:text-on-surface'

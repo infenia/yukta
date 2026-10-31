@@ -14,7 +14,7 @@ function inline(text: string): ReactNode[] {
   return text.split(INLINE).map((part, index) => {
     if (part.startsWith('`') && part.length > 1) {
       return (
-        <code key={index} className="rounded bg-muted px-1 text-code-sm">
+        <code key={index} className="text-code-sm bg-muted rounded px-1">
           {part.slice(1, -1)}
         </code>
       );
@@ -62,14 +62,14 @@ export function Markdown({ source }: { source: string }) {
       blocks.push(
         <pre
           key={key()}
-          className="overflow-auto rounded-lg bg-muted p-3 text-code-sm"
+          className="text-code-sm bg-muted overflow-auto rounded-lg p-3"
         >
           {code.join('\n')}
         </pre>
       );
     } else if (/^#{1,6} /.test(line)) {
       blocks.push(
-        <h3 key={key()} className="mt-2 text-label-md text-on-surface">
+        <h3 key={key()} className="text-label-md text-on-surface mt-2">
           {inline(line.replace(/^#+ /, ''))}
         </h3>
       );
@@ -84,11 +84,11 @@ export function Markdown({ source }: { source: string }) {
       while (i < lines.length && lines[i].startsWith('|'))
         rows.push(cells(lines[i++]));
       blocks.push(
-        <table key={key()} className="w-full border-collapse text-body-sm">
+        <table key={key()} className="text-body-sm w-full border-collapse">
           <thead>
             <tr>
               {head.map((cell, c) => (
-                <th key={c} className="border-b border-border p-1 text-left">
+                <th key={c} className="border-border border-b p-1 text-left">
                   {inline(cell)}
                 </th>
               ))}
@@ -98,7 +98,7 @@ export function Markdown({ source }: { source: string }) {
             {rows.map((row, r) => (
               <tr key={r}>
                 {row.map((cell, c) => (
-                  <td key={c} className="border-b border-border p-1 align-top">
+                  <td key={c} className="border-border border-b p-1 align-top">
                     {inline(cell)}
                   </td>
                 ))}
@@ -132,7 +132,7 @@ export function Markdown({ source }: { source: string }) {
       blocks.push(
         <blockquote
           key={key()}
-          className="border-l-2 border-border pl-3 text-on-surface-variant"
+          className="border-border text-on-surface-variant border-l-2 pl-3"
         >
           {inline(quote.join(' '))}
         </blockquote>
@@ -155,5 +155,5 @@ export function Markdown({ source }: { source: string }) {
       blocks.push(<p key={key()}>{inline(paragraph.join(' '))}</p>);
     }
   }
-  return <div className="flex flex-col gap-2 text-body-md">{blocks}</div>;
+  return <div className="text-body-md flex flex-col gap-2">{blocks}</div>;
 }

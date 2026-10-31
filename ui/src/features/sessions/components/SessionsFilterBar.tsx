@@ -38,7 +38,7 @@ function MultiFilter({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`${label} filter`}
-        className="flex h-8 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-label-md text-on-surface hover:bg-muted"
+        className="border-border bg-card text-label-md text-on-surface hover:bg-muted flex h-8 items-center gap-1.5 rounded-full border px-3"
       >
         <span className="material-symbols-outlined text-base">{icon}</span>
         {label}: {summary(selected)}
@@ -46,7 +46,7 @@ function MultiFilter({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {options.length === 0 ? (
-          <div className="px-3 py-2 text-body-sm text-on-surface-variant">
+          <div className="text-body-sm text-on-surface-variant px-3 py-2">
             None in these sessions
           </div>
         ) : (
@@ -91,7 +91,7 @@ export function SessionsFilterBar({
   return (
     <div className="flex flex-wrap items-center gap-2 px-4 pb-4 sm:px-6">
       <label className="relative flex max-w-105 min-w-70 flex-1 items-center">
-        <span className="material-symbols-outlined pointer-events-none absolute left-3 text-lg text-on-surface-variant">
+        <span className="material-symbols-outlined text-on-surface-variant pointer-events-none absolute left-3 text-lg">
           search
         </span>
         <input
@@ -100,7 +100,7 @@ export function SessionsFilterBar({
           value={globalFilter}
           onChange={(e) => onGlobalFilterChange(e.target.value)}
           aria-label="Search sessions by name or session ID"
-          className="h-8 w-full rounded-full border-none bg-muted pr-3 pl-9 text-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40"
+          className="bg-muted text-body-md text-on-surface placeholder:text-on-surface-variant focus-visible:ring-primary/40 h-8 w-full rounded-full border-none pr-3 pl-9 focus:outline-hidden focus-visible:ring-2"
         />
       </label>
       <MultiFilter
@@ -124,7 +124,7 @@ export function SessionsFilterBar({
         selected={filters.lastRuns}
         onChange={(lastRuns) => onFiltersChange({ ...filters, lastRuns })}
       />
-      <span className="ml-auto hidden text-body-sm text-on-surface-variant sm:inline">
+      <span className="text-body-sm text-on-surface-variant ml-auto hidden sm:inline">
         Filters are kept in the URL
       </span>
       <button
@@ -132,7 +132,7 @@ export function SessionsFilterBar({
         onClick={onReset}
         aria-label="Reset filters"
         title="Reset filters"
-        className="flex size-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-muted hover:text-on-surface"
+        className="text-on-surface-variant hover:bg-muted hover:text-on-surface flex size-8 items-center justify-center rounded-full transition-colors"
       >
         <span className="material-symbols-outlined text-lg">restart_alt</span>
       </button>

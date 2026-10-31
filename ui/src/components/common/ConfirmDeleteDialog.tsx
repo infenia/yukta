@@ -88,7 +88,7 @@ export function ConfirmDeleteDialog({
             <ul>
               {runs.map((run) => (
                 <li key={run}>
-                  <Link className="font-mono text-primary" to={runLink(run)}>
+                  <Link className="text-primary font-mono" to={runLink(run)}>
                     {run}
                   </Link>
                 </li>
@@ -97,7 +97,7 @@ export function ConfirmDeleteDialog({
             {runs.length === 0 && error.message}
           </Callout>
         )}
-        <label className="flex flex-col gap-1 text-label-md text-on-surface">
+        <label className="text-label-md text-on-surface flex flex-col gap-1">
           Type {id} to confirm
           <Input
             value={typed}

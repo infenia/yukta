@@ -50,7 +50,7 @@ export function StatusPill({
       data-status={raw}
       title={raw}
       className={cn(
-        'inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border pr-2.5 pl-2 text-label-sm whitespace-nowrap',
+        'text-label-sm inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border pr-2.5 pl-2 whitespace-nowrap',
         TONE_CLASSES[tone].pill,
         dashed && 'border-dashed bg-transparent',
         className

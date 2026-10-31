@@ -43,12 +43,12 @@ export function SessionInfoPanel({
   const label = 'text-label-sm text-on-surface-variant';
 
   return (
-    <header className="border-b border-outline-variant bg-surface-container px-4 py-6 sm:px-6">
+    <header className="border-outline-variant bg-surface-container border-b px-4 py-6 sm:px-6">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <BreadcrumbNav className="mb-2" />
           <h1 className="text-headline-lg text-on-surface">{session.name}</h1>
-          <p className="mt-1 text-code-sm text-on-surface-variant">
+          <p className="text-code-sm text-on-surface-variant mt-1">
             Session ID: {session.sessionId}
           </p>
         </div>
@@ -58,7 +58,7 @@ export function SessionInfoPanel({
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr_1.5fr]">
         <div className="space-y-1">
           <h3 className={label}>Description</h3>
-          <p className="max-w-prose text-body-md text-on-surface">
+          <p className="text-body-md text-on-surface max-w-prose">
             {session.description}
           </p>
         </div>
@@ -81,7 +81,7 @@ export function SessionInfoPanel({
         <div className="space-y-1">
           <h3 className={label}>Initiator</h3>
           <div className="flex items-center gap-2">
-            <div className="flex size-6 items-center justify-center rounded-full bg-accent text-label-sm text-accent-foreground">
+            <div className="bg-accent text-label-sm text-accent-foreground flex size-6 items-center justify-center rounded-full">
               {initials}
             </div>
             <p className="text-body-md text-on-surface">{session.initiator}</p>
@@ -104,13 +104,13 @@ export function SessionInfoPanel({
             aria-label={
               copied ? 'Working directory copied' : 'Copy working directory'
             }
-            className="group flex w-full items-center justify-between rounded-lg border border-border bg-card p-2 shadow-card transition-standard hover:border-ring"
+            className="group border-border bg-card shadow-card transition-standard hover:border-ring flex w-full items-center justify-between rounded-lg border p-2"
           >
-            <code className="truncate pr-4 text-code-sm text-on-surface">
+            <code className="text-code-sm text-on-surface truncate pr-4">
               {session.projectPath}
             </code>
             <span
-              className="material-symbols-outlined text-sm transition-colors group-hover:text-primary"
+              className="material-symbols-outlined group-hover:text-primary text-sm transition-colors"
               aria-hidden="true"
               style={{ color: copied ? 'var(--color-primary)' : undefined }}
             >

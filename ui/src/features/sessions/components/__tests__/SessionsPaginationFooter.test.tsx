@@ -118,9 +118,7 @@ describe('SessionsPaginationFooter', () => {
     expect(screen.getByText('1–10 of 40 items')).toBeInTheDocument();
 
     // Verify navigation buttons are present
-    expect(
-      screen.getByRole('button', { name: 'Next page' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeInTheDocument();
   });
 
   it('should organize controls horizontally', () => {
@@ -130,9 +128,7 @@ describe('SessionsPaginationFooter', () => {
     // Verify all controls are present and accessible
     expect(screen.getByText(/Rows per page:/)).toBeInTheDocument();
     expect(screen.getByText('1–10 of 50 items')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Last page' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Last page' })).toBeInTheDocument();
   });
 
   it('should render navigation icons', () => {
