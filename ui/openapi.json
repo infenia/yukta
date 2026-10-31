@@ -1,7 +1,6 @@
 {
   "components" : {
     "schemas" : {
-<<<<<<< HEAD
       "Annotation" : {
         "properties" : {
           "actor" : {
@@ -32,18 +31,54 @@
         },
         "type" : "object"
       },
-      "ApiResponseCatalog" : {
-        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
-        "properties" : {
-          "data" : {
-            "$ref" : "#/components/schemas/Catalog",
-=======
       "ApiResponseBindingBody" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/BindingBody",
->>>>>>> feat/supervisor-bindings
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseCatalog" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/Catalog",
             "description" : "The response data"
           },
           "error" : {
@@ -168,21 +203,59 @@
         },
         "type" : "object"
       },
-<<<<<<< HEAD
       "ApiResponseListAnnotation" : {
-=======
-      "ApiResponseListBindingBody" : {
->>>>>>> feat/supervisor-bindings
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
           "data" : {
             "description" : "The response data",
             "items" : {
-<<<<<<< HEAD
               "$ref" : "#/components/schemas/Annotation"
-=======
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseListBindingBody" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
               "$ref" : "#/components/schemas/BindingBody"
->>>>>>> feat/supervisor-bindings
             },
             "type" : "array"
           },
@@ -2735,7 +2808,6 @@
         },
         "type" : "object"
       },
-<<<<<<< HEAD
       "Point" : {
         "properties" : {
           "time" : {
@@ -2745,7 +2817,10 @@
           "value" : {
             "format" : "double",
             "type" : "number"
-=======
+          }
+        },
+        "type" : "object"
+      },
       "ProfileBody" : {
         "properties" : {
           "dryRun" : {
@@ -2760,7 +2835,6 @@
           },
           "type" : {
             "type" : "string"
->>>>>>> feat/supervisor-bindings
           }
         },
         "type" : "object"

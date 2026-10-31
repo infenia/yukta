@@ -96,9 +96,11 @@ public class AppMcpTools {
   /** Provides the saved versions of workflows for MCP tools. */
   private final WorkflowVersionProvider workflowVersionProvider;
 
-<<<<<<< HEAD
   /** Provides the server's metrics for MCP tools. */
   private final MetricsProvider metricsProvider;
+
+  /** Lists, attaches and detaches supervisors for MCP tools. */
+  private final SupervisorProvider supervisorProvider;
 
   /**
    * Read the newest metrics.
@@ -121,9 +123,7 @@ public class AppMcpTools {
               description = "global (default), session:<id> or workflow:<id>")
           final String scope) {
     return metricsProvider.getMetricsSnapshot(scope);
-=======
-  /** Lists, attaches and detaches supervisors for MCP tools. */
-  private final SupervisorProvider supervisorProvider;
+  }
 
   /**
    * List the supervisors.
@@ -203,7 +203,6 @@ public class AppMcpTools {
       @McpToolParam(required = true, description = "The binding id from list_supervisors")
           final String bindingId) {
     return supervisorProvider.detach(bindingId);
->>>>>>> feat/supervisor-bindings
   }
 
   /**

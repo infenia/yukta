@@ -65,11 +65,8 @@ class AppMcpToolsTest {
     systemHealthProvider = mock(SystemHealthProvider.class);
     resultProvider = mock(ResultProvider.class);
     workflowVersionProvider = mock(com.infenia.yukta.mcp.provider.WorkflowVersionProvider.class);
-<<<<<<< HEAD
     metricsProvider = mock(com.infenia.yukta.mcp.provider.MetricsProvider.class);
-=======
     supervisorProvider = mock(com.infenia.yukta.mcp.provider.SupervisorProvider.class);
->>>>>>> feat/supervisor-bindings
     mcpTools =
         new AppMcpTools(
             sessionInfoProvider,
@@ -80,11 +77,8 @@ class AppMcpToolsTest {
             systemHealthProvider,
             resultProvider,
             workflowVersionProvider,
-<<<<<<< HEAD
-            metricsProvider);
-=======
+            metricsProvider,
             supervisorProvider);
->>>>>>> feat/supervisor-bindings
   }
 
   @Test
@@ -379,7 +373,6 @@ class AppMcpToolsTest {
   }
 
   @Test
-<<<<<<< HEAD
   void metricsSnapshotDelegatesToTheMetricsProvider() {
     final var snapshot =
         new com.infenia.yukta.mcp.dto.MetricsSnapshot("session:s1", 0, java.util.Map.of("a", 1.0));
@@ -388,7 +381,9 @@ class AppMcpToolsTest {
     StepVerifier.create(mcpTools.getMetricsSnapshot("session:s1"))
         .expectNext(snapshot)
         .verifyComplete();
-=======
+  }
+
+  @Test
   void supervisorToolsDelegateToTheSupervisorProvider() {
     final var listing =
         new com.infenia.yukta.mcp.dto.SupervisorListing(List.of(), List.of(), List.of("t"));
@@ -404,6 +399,5 @@ class AppMcpToolsTest {
         .expectNext(binding)
         .verifyComplete();
     StepVerifier.create(mcpTools.detachSupervisor("b")).expectNext(detached).verifyComplete();
->>>>>>> feat/supervisor-bindings
   }
 }
