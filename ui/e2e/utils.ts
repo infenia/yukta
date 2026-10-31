@@ -177,59 +177,6 @@ export async function mockMetricsApi(
 }
 
 /**
- * Mock `/api/metrics/*` with fixed data, so a dashboard spec makes no unmocked `/api` call.
- * `values` are the series keys of the snapshot (and of each series, which gets a 12-point ramp
- * ending at that value); the stream answers one sample and stays open until the page closes.
- *
- * @example
- * await mockMetricsApi(page, { 'yukta.executions.running': 3 });
- */
-export async function mockMetricsApi(
-  page: Page,
-  values: Record<string, number> = {}
-): Promise<void> {
-  const ok = (data: unknown) => ({
-    contentType: 'application/json',
-    body: JSON.stringify({
-      timestamp: new Date().toISOString(),
-      status: 200,
-      message: 'ok',
-      data,
-      path: '/api/metrics',
-    }),
-  });
-  const now = Date.now();
-  await page.route('**/api/metrics/snapshot', (route) =>
-    route.fulfill(ok({ time: now, values }))
-  );
-  await page.route('**/api/metrics/catalog', (route) =>
-    route.fulfill(ok({ series: Object.keys(values).sort() }))
-  );
-  await page.route('**/api/metrics/series?*', (route) => {
-    const url = new URL(route.request().url());
-    const names = (url.searchParams.get('names') ?? '').split(',');
-    const series = Object.fromEntries(
-      Object.entries(values)
-        .filter(([key]) => names.some((name) => key.startsWith(name)))
-        .map(([key, value]) => [
-          key,
-          Array.from({ length: 12 }, (_, i) => ({
-            time: now - (11 - i) * 5000,
-            value: (value * (i + 1)) / 12,
-          })),
-        ])
-    );
-    return route.fulfill(ok({ range: url.searchParams.get('range'), series }));
-  });
-  await page.route('**/api/metrics/stream', (route) =>
-    route.fulfill({
-      contentType: 'text/event-stream',
-      body: `id: 0\ndata: ${JSON.stringify({ time: now, values })}\n\n`,
-    })
-  );
-}
-
-/**
  * Get all visible text in an element (including children)
  *
  * @example
