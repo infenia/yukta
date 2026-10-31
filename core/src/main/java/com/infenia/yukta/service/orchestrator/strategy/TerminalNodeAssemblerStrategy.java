@@ -119,6 +119,15 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
       // The idle clock starts at the terminal's first input and holds while paused.
       final NodeActivity activity = new NodeActivity();
+      // RUNNING at the first input, like a processor, not when the pipeline is subscribed
+      activity.onFirstTouch(
+          () ->
+              tracker.emitTaskStatusEvent(
+                  context.executionId(),
+                  node.nodeId(),
+                  node.type(),
+                  TaskStatus.RUNNING,
+                  Collections.emptyMap()));
       final Flux<Message<?>> inputToTerminal =
           activity
               .guard(
@@ -204,12 +213,6 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                         .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
                         .addKeyValue("executionId", context.executionId())
                         .log("Terminal node execution started");
-                    tracker.emitTaskStatusEvent(
-                        context.executionId(),
-                        node.nodeId(),
-                        node.type(),
-                        TaskStatus.RUNNING,
-                        Collections.emptyMap());
                   })
               .doOnSuccess(
                   v -> {
