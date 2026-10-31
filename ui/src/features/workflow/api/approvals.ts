@@ -18,10 +18,12 @@ export const getPendingApprovals = (sessionId: string) =>
 /** Answers the wait with the decision (approve or reject). */
 export const sendDecision = (
   approval: PendingApproval,
-  decision: 'approve' | 'reject'
+  decision: 'approve' | 'reject',
+  reason?: string
 ) =>
   fetchApi<unknown>(
     `${api`/api/executions/${approval.executionId}/nodes/${approval.nodeId}/signal`}` +
-      `?name=${encodeURIComponent(approval.name)}&decision=${decision}`,
+      `?name=${encodeURIComponent(approval.name)}&decision=${decision}` +
+      (reason ? `&data=${encodeURIComponent(reason)}` : ''),
     { method: 'POST' }
   );

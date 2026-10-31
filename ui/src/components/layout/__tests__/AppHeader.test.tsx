@@ -37,6 +37,7 @@ describe('AppHeader', () => {
   });
 
   it.each([
+    ['/', 'Overview'],
     ['/sessions/s1', 'Sessions'],
     ['/sessions/s1/workflow/w1/edit', 'Sessions'],
     ['/plugins', 'Plugins'],
@@ -68,7 +69,7 @@ describe('AppHeader', () => {
 
   it('should show the active route as an accent pill', () => {
     renderWithRouter(<AppHeader />);
-    const active = screen.getByRole('link', { name: /Sessions/ });
+    const active = screen.getByRole('link', { name: /Overview/ });
     expect(active).toHaveAttribute('aria-current', 'page');
     expect(active).toHaveClass('rounded-lg', 'bg-accent', 'font-semibold');
     const inactive = screen.getByRole('link', { name: /Plugins/ });
@@ -96,7 +97,8 @@ describe('AppHeader', () => {
       a.getAttribute('href'),
     ]);
     expect(links).toEqual([
-      ['Sessions', '/'],
+      ['Overview', '/'],
+      ['Sessions', '/sessions'],
       ['Runs', '/runs'],
       ['Plugins', '/plugins'],
       ['Control', '/control'],
@@ -170,7 +172,13 @@ describe('AppHeader', () => {
 
   it('shows every nav label, not only icons', () => {
     renderWithRouter(<AppHeader />);
-    for (const label of ['Sessions', 'Runs', 'Plugins', 'Control']) {
+    for (const label of [
+      'Overview',
+      'Sessions',
+      'Runs',
+      'Plugins',
+      'Control',
+    ]) {
       expect(
         screen.getByRole('link', { name: new RegExp(label) })
       ).toHaveTextContent(label);
@@ -180,7 +188,8 @@ describe('AppHeader', () => {
 
 describe('MobileNav', () => {
   it.each([
-    ['/', 'Sessions'],
+    ['/', 'Overview'],
+    ['/sessions', 'Sessions'],
     ['/runs', 'Runs'],
     ['/plugins/x', 'Plugins'],
   ])('marks the tab of %s as current', (path, label) => {
@@ -205,6 +214,6 @@ describe('MobileNav', () => {
     );
     const nav = screen.getByRole('navigation', { name: 'Primary' });
     expect(nav).toHaveClass('fixed', 'bottom-0', 'sm:hidden');
-    expect(screen.getAllByRole('link')).toHaveLength(4);
+    expect(screen.getAllByRole('link')).toHaveLength(5);
   });
 });

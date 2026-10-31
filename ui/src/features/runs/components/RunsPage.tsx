@@ -22,6 +22,7 @@ import { StateMessage } from '@/components/common/StateMessage';
 import { useSessionSummaries } from '@/features/sessions/hooks/useSessionSummaries';
 import { useSessionWorkflows } from '@/features/sessions/hooks/useSessionWorkflows';
 import { RecoverButton } from '@/features/workflow/components/RecoverButton';
+import { runPath } from '../lib/runPath';
 import { StatusPill } from '@/features/workflow/components/StatusPill';
 import {
   isAbortedExecStatus,
@@ -69,10 +70,6 @@ const RANGE_PHRASE: Record<Range, string> = {
 /** Phones: each run stacks into a card of labelled values (the label comes from data-label). */
 const STACKED_CELL =
   'px-4 max-sm:flex max-sm:items-center max-sm:gap-3 max-sm:py-0.5 max-sm:whitespace-normal max-sm:before:w-20 max-sm:before:shrink-0 max-sm:before:text-body-sm max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]';
-
-/** The run view of one execution. */
-const runPath = (sessionId: string, workflowId: string, executionId: string) =>
-  `/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}?exec=${encodeURIComponent(executionId)}`;
 
 export function RunsPage() {
   const navigate = useNavigate();

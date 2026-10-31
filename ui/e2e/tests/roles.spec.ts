@@ -65,7 +65,7 @@ test.describe('A VIEWER key', () => {
         body: '{"message":"no"}',
       })
     );
-    await page.goto('/');
+    await page.goto('/sessions');
 
     await expect(page.getByRole('alertdialog')).toHaveCount(0);
   });

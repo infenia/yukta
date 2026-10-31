@@ -17,7 +17,7 @@ const screenshotOptions = {
 test.describe('Visual Regression - Screenshots', () => {
   test.describe('Session List Page', () => {
     test('should match screenshot - full page', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
       await expect(page).toHaveScreenshot('session-list-full-page.png', {
@@ -27,7 +27,7 @@ test.describe('Visual Regression - Screenshots', () => {
     });
 
     test('should match screenshot - table only', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
       const table = page.locator('table');
@@ -37,7 +37,7 @@ test.describe('Visual Regression - Screenshots', () => {
     });
 
     test('should match screenshot - header', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
       const header = page.locator('header');
@@ -49,7 +49,7 @@ test.describe('Visual Regression - Screenshots', () => {
 
   test.describe('Session List - Dark Mode', () => {
     test('should match screenshot - dark mode', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/sessions');
       await waitForLoadingComplete(page);
       const toggle = page.getByRole('button', { name: 'Toggle theme' });
       for (let i = 0; i < 3; i += 1) {
@@ -69,7 +69,7 @@ test.describe('Visual Regression - Screenshots', () => {
     });
 
     test('should match screenshot - light mode', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
       await expect(page).toHaveScreenshot('session-list-light-mode.png', {
@@ -82,7 +82,7 @@ test.describe('Visual Regression - Screenshots', () => {
   test.describe('Session List - Responsive', () => {
     test('should match screenshot - mobile viewport', async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 667 });
-      await page.goto('/');
+      await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
       await expect(page).toHaveScreenshot('session-list-mobile.png', {
@@ -93,7 +93,7 @@ test.describe('Visual Regression - Screenshots', () => {
 
     test('should match screenshot - tablet viewport', async ({ page }) => {
       await page.setViewportSize({ width: 768, height: 1024 });
-      await page.goto('/');
+      await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
       await expect(page).toHaveScreenshot('session-list-tablet.png', {
@@ -104,7 +104,7 @@ test.describe('Visual Regression - Screenshots', () => {
 
     test('should match screenshot - desktop viewport', async ({ page }) => {
       await page.setViewportSize({ width: 1920, height: 1080 });
-      await page.goto('/');
+      await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
       await expect(page).toHaveScreenshot('session-list-desktop.png', {
@@ -120,7 +120,7 @@ test.describe('Visual Regression - Screenshots', () => {
       mockSessionsApi,
     }) => {
       await mockSessionsApi(page, { status: 500 });
-      await page.goto('/');
+      await page.goto('/sessions');
       await expect(page.getByText('Failed to load sessions')).toBeVisible();
 
       await expect(page).toHaveScreenshot('session-list-error-state.png', {
@@ -134,7 +134,7 @@ test.describe('Visual Regression - Screenshots', () => {
       mockSessionsApi,
     }) => {
       await mockSessionsApi(page, { sessions: [] });
-      await page.goto('/');
+      await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
       await expect(page).toHaveScreenshot('session-list-empty-state.png', {
@@ -146,7 +146,7 @@ test.describe('Visual Regression - Screenshots', () => {
 
   test.describe('UI Components - Screenshots', () => {
     test('should match screenshot - table row hover', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
       const firstRow = page.locator('tbody tr').first();
@@ -158,7 +158,7 @@ test.describe('Visual Regression - Screenshots', () => {
     });
 
     test('should match screenshot - filter bar', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
       const filterBar = page
@@ -171,7 +171,7 @@ test.describe('Visual Regression - Screenshots', () => {
     });
 
     test('should match screenshot - pagination footer', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/sessions');
       await waitForLoadingComplete(page);
 
       const pagination = page.getByText(/items$/).locator('..');

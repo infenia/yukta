@@ -9,7 +9,7 @@ describe('parseBreadcrumbsFromPath', () => {
     const breadcrumbs = parseBreadcrumbsFromPath('/');
     expect(breadcrumbs).toHaveLength(1);
     expect(breadcrumbs[0]).toEqual({
-      label: 'Sessions',
+      label: 'Overview',
       href: undefined,
       isCurrent: true,
     });
@@ -19,7 +19,7 @@ describe('parseBreadcrumbsFromPath', () => {
     const breadcrumbs = parseBreadcrumbsFromPath('');
     expect(breadcrumbs).toHaveLength(1);
     expect(breadcrumbs[0]).toEqual({
-      label: 'Sessions',
+      label: 'Overview',
       href: undefined,
       isCurrent: true,
     });
