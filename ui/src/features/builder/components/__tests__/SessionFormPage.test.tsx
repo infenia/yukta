@@ -19,6 +19,53 @@ let found: { exists: boolean; directory: boolean } | null = {
 const checked: unknown[] = [];
 
 const server = setupServer(
+  http.get('/api/templates', () =>
+    HttpResponse.json({
+      timestamp: 't',
+      status: 200,
+      message: 'ok',
+      data: [
+        {
+          id: '01-hello-world',
+          title: 'Hello world',
+          summary: 'Smallest workflow',
+          pluginTypes: ['CONSOLE_TERMINAL', 'CONSTANT_SOURCE'],
+        },
+      ],
+      path: '/',
+    })
+  ),
+  http.get('/api/templates/01-hello-world', () =>
+    HttpResponse.json({
+      timestamp: 't',
+      status: 200,
+      message: 'ok',
+      data: {
+        id: '01-hello-world',
+        title: 'Hello world',
+        summary: 'Smallest workflow',
+        pluginTypes: ['CONSOLE_TERMINAL', 'CONSTANT_SOURCE'],
+        readme: '# 01 — Hello world\n<b>not html</b>',
+        session: {
+          sessionId: 'example-01-hello',
+          name: 'Hello world',
+          description: 'Smallest workflow',
+          initiator: 'examples',
+          projectPath: '/tmp',
+          tags: { example: '01' },
+          workflows: {
+            hello: {
+              workflowId: 'hello',
+              description: 'Echo',
+              nodes: [{ nodeId: 'start', type: 'CONSTANT_SOURCE', config: {} }],
+              edges: [],
+            },
+          },
+        },
+      },
+      path: '/',
+    })
+  ),
   http.post('/api/sessions/validate/project-path', async ({ request }) => {
     checked.push(await request.json());
     return found
@@ -59,6 +106,7 @@ afterAll(() => server.close());
 async function fillAndSubmit() {
   const user = userEvent.setup();
   renderWithProviders(<SessionFormPage />);
+  await user.click(await screen.findByRole('button', { name: 'Start blank' }));
   await user.type(screen.getByLabelText('Session ID'), 'my-session');
   await user.type(screen.getByLabelText('Name'), 'My session');
   await user.type(screen.getByLabelText('Description'), 'desc');
@@ -90,6 +138,9 @@ describe('SessionFormPage', () => {
   async function leavePath(path: string) {
     const user = userEvent.setup();
     renderWithProviders(<SessionFormPage />);
+    await user.click(
+      await screen.findByRole('button', { name: 'Start blank' })
+    );
     const input = screen.getByLabelText('Project path');
     await user.type(input, path);
     await user.tab();
@@ -192,6 +243,9 @@ describe('SessionFormPage, new', () => {
   it('makes the session ID from the name until the ID is edited', async () => {
     const user = userEvent.setup();
     renderWithProviders(<SessionFormPage />);
+    await user.click(
+      await screen.findByRole('button', { name: 'Start blank' })
+    );
     await user.type(screen.getByLabelText('Name'), 'Payments service');
     expect(screen.getByLabelText('Session ID')).toHaveValue('payments-service');
 
@@ -205,6 +259,9 @@ describe('SessionFormPage, new', () => {
   it('shows the same session as an MCP call, curl and the CLI, as you type', async () => {
     const user = userEvent.setup();
     renderWithProviders(<SessionFormPage />);
+    await user.click(
+      await screen.findByRole('button', { name: 'Start blank' })
+    );
     await user.type(screen.getByLabelText('Name'), 'Pay');
     const panel = screen.getByRole('region', { name: 'Same thing, scripted' });
     const code = () =>
@@ -232,6 +289,9 @@ describe('SessionFormPage, new', () => {
     const user = userEvent.setup();
     window.history.pushState({}, '', '/sessions/new');
     renderWithProviders(<SessionFormPage />);
+    await user.click(
+      await screen.findByRole('button', { name: 'Start blank' })
+    );
     expect(screen.getByRole('link', { name: 'Import JSON' })).toHaveAttribute(
       'href',
       '/sessions/import'
@@ -239,5 +299,76 @@ describe('SessionFormPage, new', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(window.location.pathname).toBe('/');
     expect(posted).toEqual([]);
+  });
+
+  it('creates a session from a template with its workflows, name and a suggested ID', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SessionFormPage />);
+    await user.click(
+      await screen.findByRole('button', { name: 'Use Hello world' })
+    );
+    expect(await screen.findByLabelText('Session ID')).toHaveValue(
+      '01-hello-world-1'
+    );
+    expect(screen.getByLabelText('Name')).toHaveValue('Hello world');
+    await user.clear(screen.getByLabelText('Project path'));
+    await user.type(screen.getByLabelText('Project path'), '/work');
+    await user.click(screen.getByRole('button', { name: 'Create session' }));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]).toMatchObject({
+      sessionId: '01-hello-world-1',
+      name: 'Hello world',
+      tags: { example: '01' },
+      workflows: { hello: { nodes: [{ nodeId: 'start' }] } },
+    });
+  });
+
+  it('previews the README as text and uses the template from the preview', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SessionFormPage />);
+    await user.click(await screen.findByRole('button', { name: 'Preview' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Hello world' });
+    expect(within(dialog).getByText(/<b>not html<\/b>/)).toBeInTheDocument();
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Use this template' })
+    );
+    expect(await screen.findByLabelText('Name')).toHaveValue('Hello world');
+  });
+
+  it('closes the preview without choosing', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SessionFormPage />);
+    await user.click(await screen.findByRole('button', { name: 'Preview' }));
+    await user.click(await screen.findByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows an error when a template cannot be fetched', async () => {
+    server.use(
+      http.get('/api/templates/01-hello-world', () =>
+        HttpResponse.json({ message: 'gone' }, { status: 404 })
+      )
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<SessionFormPage />);
+    await user.click(
+      await screen.findByRole('button', { name: 'Use Hello world' })
+    );
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+  });
+
+  it('still offers a blank start when the templates fail to load', async () => {
+    server.use(
+      http.get('/api/templates', () =>
+        HttpResponse.json({ message: 'down' }, { status: 500 })
+      )
+    );
+    renderWithProviders(<SessionFormPage />);
+    expect(
+      await screen.findByRole('button', { name: 'Start blank' })
+    ).toBeInTheDocument();
   });
 });

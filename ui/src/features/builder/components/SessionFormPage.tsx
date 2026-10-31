@@ -21,8 +21,9 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ApiError } from '@/lib/apiClient';
 import { checkProjectPath, getSessionDraft, saveSession } from '../api';
-import type { SessionDraft } from '../types';
-import { starterSession, slugify } from './SessionFormPage.helpers';
+import type { SessionDraft, TemplateDetail } from '../types';
+import { newSession, slugify } from './SessionFormPage.helpers';
+import { TemplateGallery } from './TemplateGallery';
 
 const FORMATS: [CommandFormat, string][] = [
   ['mcp', 'MCP'],
@@ -94,7 +95,25 @@ function errorText(e: unknown): string {
 /** Create a session, or edit the metadata and tags of one (`/sessions/:sessionId/edit`). */
 export function SessionFormPage() {
   const { sessionId } = useParams();
-  return sessionId ? <EditSession sessionId={sessionId} /> : <SessionForm />;
+  return sessionId ? <EditSession sessionId={sessionId} /> : <NewSession />;
+}
+
+/** Step 1 picks a start (blank or a template); step 2 is the form, filled from it. */
+function NewSession() {
+  // undefined: still choosing; null: blank
+  const [start, setStart] = useState<TemplateDetail | null | undefined>();
+  if (start === undefined) {
+    return (
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6">
+        <PageHeader
+          title="New session"
+          description="Choose a start. A template is a working example pipeline you can change after creating it."
+        />
+        <TemplateGallery onPick={(template) => setStart(template ?? null)} />
+      </div>
+    );
+  }
+  return <SessionForm template={start ?? undefined} />;
 }
 
 function EditSession({ sessionId }: { sessionId: string }) {
@@ -113,19 +132,27 @@ function EditSession({ sessionId }: { sessionId: string }) {
 }
 
 /** The form for a new session, or for `loaded` (whose workflows are kept as they are). */
-function SessionForm({ loaded }: { loaded?: SessionDraft }) {
+function SessionForm({
+  loaded,
+  template,
+}: {
+  loaded?: SessionDraft;
+  template?: TemplateDetail;
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [fields, setFields] = useState<Fields>({
-    sessionId: loaded?.sessionId ?? '',
-    name: loaded?.name ?? '',
-    description: loaded?.description ?? '',
+    sessionId: loaded?.sessionId ?? (template ? `${template.id}-1` : ''),
+    name: loaded?.name ?? template?.title ?? '',
+    description: loaded?.description ?? template?.summary ?? '',
     initiator: loaded?.initiator ?? 'ui',
     projectPath: loaded?.projectPath ?? '',
   });
-  const [rows, setRows] = useState<TagRow[]>(toRows(loaded?.tags ?? {}));
+  const [rows, setRows] = useState<TagRow[]>(
+    toRows(loaded?.tags ?? template?.session.tags ?? {})
+  );
   // A new session's ID follows its name until the ID is edited by hand.
-  const [idEdited, setIdEdited] = useState(false);
+  const [idEdited, setIdEdited] = useState(template !== undefined);
   // What the session looked like when the page loaded; a difference at save time is a change by someone else.
   const [seen, setSeen] = useState(loaded ? JSON.stringify(loaded) : null);
   const [error, setError] = useState<string | null>(null);
@@ -175,7 +202,7 @@ function SessionForm({ loaded }: { loaded?: SessionDraft }) {
           workflows: current.workflows,
         });
       } else {
-        await saveSession({ ...starterSession(fields), tags: metadata.tags });
+        await saveSession(newSession(fields, metadata.tags, template));
       }
       await queryClient.invalidateQueries({ queryKey: ['sessions'] });
       navigate(
@@ -331,9 +358,7 @@ function SessionForm({ loaded }: { loaded?: SessionDraft }) {
       </nav>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,36rem)_minmax(0,1fr)]">
         {form}
-        <ScriptedPanel
-          session={{ ...starterSession(fields), tags: toTags(rows) }}
-        />
+        <ScriptedPanel session={newSession(fields, toTags(rows), template)} />
       </div>
     </div>
   );

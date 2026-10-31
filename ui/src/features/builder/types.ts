@@ -39,3 +39,17 @@ export interface ValidationResult {
   /** What would run but probably not as meant; `field` is a config field or an output port. */
   warnings?: { nodeId: string; field: string; message: string }[];
 }
+
+/** A bundled example a new session can start from. */
+export interface TemplateSummary {
+  id: string;
+  title: string;
+  summary: string;
+  pluginTypes: string[];
+}
+
+export interface TemplateDetail extends TemplateSummary {
+  readme: string;
+  /** The session definition to apply; its workflows are kept, its metadata is replaced. */
+  session: SessionDraft;
+}
