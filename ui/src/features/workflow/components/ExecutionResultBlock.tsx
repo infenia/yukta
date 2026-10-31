@@ -35,6 +35,7 @@ export function ExecutionResultBlock({
         Result
         {isStreaming && (
           <span
+            role="status"
             className="text-label-sm text-primary"
             data-testid="result-streaming"
           >

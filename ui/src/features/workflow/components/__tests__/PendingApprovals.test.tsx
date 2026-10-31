@@ -63,17 +63,24 @@ const waiting = (over: Partial<PendingApproval> = {}): PendingApproval => ({
 
 describe('PendingApprovals', () => {
   it('shows nothing when no step waits, or the list cannot be read', async () => {
-    const { container, unmount } = renderWithProviders(
+    const { unmount } = renderWithProviders(
       <PendingApprovals sessionId="s1" workflowId="wf" />
     );
-    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    // an empty live region stays, so that the strip is announced when it appears
+    const region = await screen.findByTestId('approvals-live');
+    await waitFor(() => expect(region).toBeEmptyDOMElement());
+    expect(
+      screen.queryByRole('region', { name: 'Pending approvals' })
+    ).not.toBeInTheDocument();
     unmount();
 
     listFails = true;
     const failed = renderWithProviders(
       <PendingApprovals sessionId="s1" workflowId="wf" />
     );
-    await waitFor(() => expect(failed.container).toBeEmptyDOMElement());
+    await waitFor(() =>
+      expect(failed.container.querySelector('section')).toBeNull()
+    );
   });
 
   it('lists the steps of this workflow only, and approves one', async () => {
