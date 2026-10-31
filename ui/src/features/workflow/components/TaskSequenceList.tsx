@@ -88,7 +88,7 @@ function TaskSequenceItem({
         <span className="text-label-md text-on-surface">{task.nodeId}</span>
         {breakpoint && (
           <span
-            className="material-symbols-outlined text-base text-error"
+            className="material-symbols-outlined text-error text-base"
             title={`${breakpoint.field} = ${breakpoint.equals}`}
             aria-label={`Breakpoint: ${breakpoint.field} = ${breakpoint.equals}`}
             role="img"
@@ -143,7 +143,7 @@ function StageSection({
         open={openByDefault || status === 'failed' || status === 'running'}
         className="group/stage"
       >
-        <summary className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-2 hover:bg-muted">
+        <summary className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-lg px-1 py-2">
           <span
             aria-hidden="true"
             className="material-symbols-outlined text-base transition-transform group-open/stage:rotate-90"
@@ -278,7 +278,7 @@ export function TaskSequenceList({
         aria-label={STATUS_ORDER.filter((status) => counts.has(status))
           .map((status) => `${counts.get(status)} ${toNodeStatusLabel(status)}`)
           .join(', ')}
-        className="flex h-2 overflow-hidden rounded-full bg-surface-container-high"
+        className="bg-surface-container-high flex h-2 overflow-hidden rounded-full"
       >
         {STATUS_ORDER.map((status) => (
           <span
@@ -321,7 +321,7 @@ export function TaskSequenceList({
         placeholder="Filter nodes"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        className="h-8 rounded-full bg-muted px-3 text-body-md outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="bg-muted text-body-md placeholder:text-muted-foreground focus-visible:ring-ring/40 h-8 rounded-full px-3 outline-none focus-visible:ring-2"
       />
       {shown.length === 0 && (
         <p className="text-body-sm text-muted-foreground">No nodes match.</p>

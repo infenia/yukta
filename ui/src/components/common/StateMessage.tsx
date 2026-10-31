@@ -54,7 +54,7 @@ export function StateMessage({
       }
       data-tone={tone}
       className={cn(
-        'flex flex-col items-center gap-2 rounded-xl border border-border bg-card/50 text-center',
+        'border-border bg-card/50 flex flex-col items-center gap-2 rounded-xl border text-center',
         compact ? 'px-4 py-6' : 'px-6 py-12',
         className
       )}
@@ -78,7 +78,7 @@ export function StateMessage({
       </span>
       <p className={cn('text-label-md', style.title)}>{title}</p>
       {children && (
-        <p className="max-w-prose text-body-sm text-on-surface-variant">
+        <p className="text-body-sm text-on-surface-variant max-w-prose">
           {children}
         </p>
       )}

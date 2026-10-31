@@ -56,7 +56,7 @@ export function TemplateGallery({
   const card = (t: TemplateSummary) => (
     <li
       key={t.id}
-      className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4"
+      className="border-border bg-card flex flex-col gap-2 rounded-xl border p-4"
     >
       <h3 className="text-label-md text-on-surface">{t.title}</h3>
       <p className="text-body-sm text-on-surface-variant">{t.summary}</p>
@@ -96,7 +96,7 @@ export function TemplateGallery({
         <InlineError message="Templates could not be loaded; you can still start blank." />
       )}
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <li className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
+        <li className="border-border bg-card flex flex-col gap-2 rounded-xl border p-4">
           <h3 className="text-label-md text-on-surface">Blank session</h3>
           <p className="text-body-sm text-on-surface-variant">
             A trigger wired to a console terminal. Build the rest yourself.
@@ -161,7 +161,7 @@ function TemplateCanvas({
               role="tab"
               aria-selected={w.workflowId === chosen}
               onClick={() => setChosen(w.workflowId)}
-              className={`rounded-lg px-3 py-1 text-label-md ${
+              className={`text-label-md rounded-lg px-3 py-1 ${
                 w.workflowId === chosen
                   ? 'bg-muted text-on-surface'
                   : 'text-on-surface-variant hover:bg-muted'
@@ -174,7 +174,7 @@ function TemplateCanvas({
       )}
       <div
         data-testid="template-canvas"
-        className="h-64 overflow-hidden rounded-xl border border-border"
+        className="border-border h-64 overflow-hidden rounded-xl border"
       >
         <WorkflowCanvas key={chosen} graph={graph} tasksByNode={NO_TASKS} />
       </div>

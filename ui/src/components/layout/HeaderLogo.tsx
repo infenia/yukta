@@ -12,7 +12,7 @@ export default function HeaderLogo() {
       to="/"
       className={cn(
         buttonVariants({ variant: 'ghost' }),
-        'gap-spacing-sm rounded-lg no-underline hover:bg-muted'
+        'gap-spacing-sm hover:bg-muted rounded-lg no-underline'
       )}
     >
       {/* Yukta mark: public/favicon.svg is generated from public/logo.svg (pnpm run favicons) */}

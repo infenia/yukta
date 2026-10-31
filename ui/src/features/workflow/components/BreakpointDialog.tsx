@@ -38,12 +38,12 @@ export function BreakpointDialog({
 
   return (
     <Modal title={`Set a breakpoint on ${nodeId}`} onClose={onClose}>
-      <p className="mb-3 text-body-sm text-on-surface-variant">
+      <p className="text-body-sm text-on-surface-variant mb-3">
         The node pauses when the field of its message equals the value. Resume
         or Step it from its menu.
       </p>
       <label
-        className="mb-1 block text-body-md text-on-surface"
+        className="text-body-md text-on-surface mb-1 block"
         htmlFor="bp-field"
       >
         Field
@@ -56,7 +56,7 @@ export function BreakpointDialog({
         className="mb-3"
       />
       <label
-        className="mb-1 block text-body-md text-on-surface"
+        className="text-body-md text-on-surface mb-1 block"
         htmlFor="bp-equals"
       >
         Equals

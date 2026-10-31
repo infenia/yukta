@@ -47,7 +47,6 @@ import { NodeSheet } from './NodeSheet';
 import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
 import { BreakpointDialog } from './BreakpointDialog';
-import { ScopedSupervisors } from '@/features/control/supervisors/ScopedSupervisors';
 
 /** The workflow page: the run, its tasks and logs, and the controls. */
 
@@ -184,13 +183,29 @@ export function WorkflowDetailsPage() {
   return (
     // Exactly the screen's height (less the phone tab bar): the workspace scrolls inside, so the logs dock stays at the bottom edge
     <div
-      className="flex h-[calc(100dvh-var(--spacing-header)-4rem)] flex-col bg-background sm:h-[calc(100dvh-var(--spacing-header))]"
+      className="bg-background flex h-[calc(100dvh-var(--spacing-header)-4rem)] flex-col sm:h-[calc(100dvh-var(--spacing-header))]"
       data-testid="workflow-details-page"
     >
       <WorkflowTitleBar
         workflowId={workflowId}
         description={graph.description}
         status={executionStatus}
+        runGroup={
+          <>
+            <RunHistoryDropdown
+              executions={executions}
+              selectedExecutionId={selectedExecutionId}
+              onSelect={selectExecution}
+            />
+            <RunControls
+              sessionId={sessionId}
+              workflowId={workflowId}
+              executionId={selectedExecutionId}
+              status={executionStatus}
+              onStarted={selectExecution}
+            />
+          </>
+        }
         actions={
           <>
             {parent.data && (
@@ -207,18 +222,6 @@ export function WorkflowDetailsPage() {
                 Parent run
               </Link>
             )}
-            <RunHistoryDropdown
-              executions={executions}
-              selectedExecutionId={selectedExecutionId}
-              onSelect={selectExecution}
-            />
-            <RunControls
-              sessionId={sessionId}
-              workflowId={workflowId}
-              executionId={selectedExecutionId}
-              status={executionStatus}
-              onStarted={selectExecution}
-            />
             <Link
               to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
               className={buttonVariants({ variant: 'outline' })}
@@ -251,14 +254,14 @@ export function WorkflowDetailsPage() {
               onClick={() => setPanelOpen((value) => !value)}
               aria-pressed={panelOpen}
               aria-label="Workflow progress"
-              title="Show or hide the progress panel"
+              title={panelOpen ? 'Hide progress panel' : 'Show progress panel'}
               className={buttonVariants({ variant: 'outline', size: 'icon' })}
             >
               <span
                 aria-hidden="true"
                 className="material-symbols-outlined text-base"
               >
-                right_panel_open
+                {panelOpen ? 'right_panel_close' : 'right_panel_open'}
               </span>
             </button>
             <DropdownMenu>
@@ -317,10 +320,6 @@ export function WorkflowDetailsPage() {
           liveRun={live}
         />
       )}
-
-      <div className="px-6 py-2">
-        <ScopedSupervisors sessionId={sessionId} workflowId={workflowId} />
-      </div>
 
       <PendingApprovals
         sessionId={sessionId}
@@ -422,7 +421,7 @@ export function WorkflowDetailsPage() {
                     placeholder="Find node"
                     value={findQuery}
                     onChange={(event) => setFindQuery(event.target.value)}
-                    className="pointer-events-auto h-8 w-60 rounded-full border border-border bg-surface px-3 text-body-md shadow-card outline-none placeholder:text-on-surface-variant focus-visible:ring-2 focus-visible:ring-primary/40"
+                    className="border-border bg-surface text-body-md shadow-card placeholder:text-on-surface-variant focus-visible:ring-primary/40 pointer-events-auto h-8 w-60 rounded-full border px-3 outline-none focus-visible:ring-2"
                   />
                   {stages.hasStages && (
                     <GroupingSwitch
@@ -437,7 +436,7 @@ export function WorkflowDetailsPage() {
                       aria-pressed={follow}
                       onClick={() => setFollow((value) => !value)}
                       className={cn(
-                        'pointer-events-auto ml-auto rounded-lg border border-border bg-surface px-2.5 py-1 text-label-sm shadow-card',
+                        'border-border bg-surface text-label-sm shadow-card pointer-events-auto ml-auto rounded-lg border px-2.5 py-1',
                         follow
                           ? 'bg-accent text-accent-foreground'
                           : 'text-on-surface-variant hover:text-on-surface'

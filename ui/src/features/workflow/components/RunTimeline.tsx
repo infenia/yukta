@@ -28,7 +28,7 @@ export function ViewSwitch({
       role="radiogroup"
       aria-label="Run view"
       className={cn(
-        'flex gap-0.5 rounded-lg border border-border bg-surface p-0.5 shadow-card',
+        'border-border bg-surface shadow-card flex gap-0.5 rounded-lg border p-0.5',
         className
       )}
     >
@@ -45,7 +45,7 @@ export function ViewSwitch({
           aria-checked={view === value}
           onClick={() => onChange(value)}
           className={cn(
-            'rounded-md px-2.5 py-1 text-label-sm',
+            'text-label-sm rounded-md px-2.5 py-1',
             view === value
               ? 'bg-muted text-on-surface'
               : 'text-on-surface-variant hover:text-on-surface'
@@ -84,7 +84,7 @@ export function RunTimeline({
 
   return (
     <div
-      className="absolute inset-0 overflow-auto bg-background p-3"
+      className="bg-background absolute inset-0 overflow-auto p-3"
       data-testid="run-timeline"
     >
       <div className="mb-3">{switcher}</div>
@@ -96,7 +96,7 @@ export function RunTimeline({
         <table className="w-full table-fixed border-collapse">
           <caption className="sr-only">When each node ran</caption>
           <thead>
-            <tr className="text-left text-overline text-on-surface-variant">
+            <tr className="text-overline text-on-surface-variant text-left">
               <th scope="col" className="w-48 pb-1 font-normal">
                 Node
               </th>
@@ -116,10 +116,10 @@ export function RunTimeline({
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.nodeId} className="border-t border-border">
+              <tr key={row.nodeId} className="border-border border-t">
                 <th
                   scope="row"
-                  className="truncate py-1.5 pr-2 text-left text-body-sm font-normal text-on-surface"
+                  className="text-body-sm text-on-surface truncate py-1.5 pr-2 text-left font-normal"
                   title={`${row.nodeId} (${row.module})`}
                 >
                   {row.nodeId}
@@ -127,10 +127,10 @@ export function RunTimeline({
                 <td className="py-1.5 pr-2">
                   <StatusPill status={row.status} scope="node" />
                 </td>
-                <td className="py-1.5 pr-2 text-body-sm num text-on-surface-variant">
+                <td className="num text-body-sm text-on-surface-variant py-1.5 pr-2">
                   {formatClockTime(new Date(row.startMs).toISOString())}
                 </td>
-                <td className="py-1.5 pr-2 text-body-sm num text-on-surface-variant">
+                <td className="num text-body-sm text-on-surface-variant py-1.5 pr-2">
                   {formatDuration(
                     new Date(row.startMs).toISOString(),
                     new Date(row.endMs).toISOString()
@@ -138,7 +138,7 @@ export function RunTimeline({
                 </td>
                 <td className="py-1.5">
                   <div
-                    className="relative h-3 rounded-full bg-muted"
+                    className="bg-muted relative h-3 rounded-full"
                     aria-hidden="true"
                   >
                     <div

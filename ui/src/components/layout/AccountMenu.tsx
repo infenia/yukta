@@ -30,7 +30,7 @@ export default function AccountMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Account and theme"
-        className="flex size-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-muted hover:text-on-surface sm:hidden"
+        className="text-on-surface-variant hover:bg-muted hover:text-on-surface flex size-8 items-center justify-center rounded-full sm:hidden"
       >
         <span aria-hidden="true" className="material-symbols-outlined text-lg">
           person

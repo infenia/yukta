@@ -40,7 +40,7 @@ export function RecentRuns({ sessionId }: { sessionId: string }) {
         <h2 className="text-headline-md text-on-surface">Recent runs</h2>
         <Link
           to={`/runs?session=${session}`}
-          className="ml-auto text-label-md text-primary"
+          className="text-label-md text-primary ml-auto"
         >
           All runs of {sessionId}
         </Link>
@@ -76,13 +76,13 @@ export function RecentRuns({ sessionId }: { sessionId: string }) {
                       {run.executionId.slice(0, 8)}
                     </Link>
                   </TableCell>
-                  <TableCell className="px-4 text-code-sm">
+                  <TableCell className="text-code-sm px-4">
                     {run.workflowId}
                   </TableCell>
-                  <TableCell className="px-4 text-code-sm tabular-nums">
+                  <TableCell className="text-code-sm px-4 tabular-nums">
                     {formatClockTime(run.startTime)}
                   </TableCell>
-                  <TableCell className="px-4 text-code-sm tabular-nums">
+                  <TableCell className="text-code-sm px-4 tabular-nums">
                     {formatDuration(run.startTime, run.endTime)}
                   </TableCell>
                 </TableRow>

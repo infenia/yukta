@@ -8,7 +8,9 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -90,7 +92,7 @@ function LogLine({ entry }: { entry: LogEntry | string }) {
       >
         {entry.level ?? 'INFO'}
       </span>{' '}
-      <span className="inline-block min-w-36 align-top text-on-surface-variant">
+      <span className="text-on-surface-variant inline-block min-w-36 align-top">
         [{entry.pluginId}]
       </span>{' '}
       <span className={levelClass(entry.level)}>{entry.message}</span>
@@ -275,7 +277,7 @@ export function LogsPanel({
     <section
       ref={sectionRef}
       className={cn(
-        'relative flex shrink-0 flex-col border-t border-outline-variant bg-surface',
+        'border-outline-variant bg-surface relative flex shrink-0 flex-col border-t',
         // Over the canvas toolbar (z-10): nothing of the canvas may draw on an expanded terminal
         maximized && !collapsed && 'z-20'
       )}
@@ -294,7 +296,7 @@ export function LogsPanel({
           tabIndex={0}
           onPointerDown={startDrag}
           onKeyDown={resizeByKey}
-          className="absolute inset-x-0 -top-1 z-10 h-2 cursor-row-resize touch-none hover:bg-primary/40 focus-visible:bg-primary/60 focus-visible:outline-none"
+          className="hover:bg-primary/40 focus-visible:bg-primary/60 absolute inset-x-0 -top-1 z-10 h-2 cursor-row-resize touch-none focus-visible:outline-none"
         />
       )}
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-1.5 sm:min-h-11">
@@ -305,7 +307,7 @@ export function LogsPanel({
             collapsed ? 'Expand execution logs' : 'Collapse execution logs'
           }
           aria-expanded={!collapsed}
-          className="flex size-6 items-center justify-center text-on-surface-variant transition-colors hover:text-on-surface"
+          className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center transition-colors"
         >
           <span className="material-symbols-outlined text-lg">
             {collapsed ? 'expand_less' : 'expand_more'}
@@ -321,7 +323,7 @@ export function LogsPanel({
             maximized ? 'Restore the logs height' : 'Maximize the logs'
           }
           aria-pressed={maximized}
-          className="flex size-6 items-center justify-center text-on-surface-variant transition-colors hover:text-on-surface"
+          className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center transition-colors"
         >
           <span className="material-symbols-outlined text-base">
             {maximized ? 'close_fullscreen' : 'open_in_full'}
@@ -333,7 +335,7 @@ export function LogsPanel({
           <div
             role="tablist"
             aria-label="Logs or events"
-            className="flex gap-4 self-stretch border-outline-variant"
+            className="border-outline-variant flex gap-4 self-stretch"
           >
             {(
               [
@@ -348,10 +350,10 @@ export function LogsPanel({
                 aria-selected={view === key}
                 onClick={() => setView(key)}
                 className={cn(
-                  '-mb-px border-b-2 px-0.5 text-label-md',
+                  'text-label-md -mb-px border-b-2 px-0.5',
                   view === key
                     ? 'border-primary text-on-surface'
-                    : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                    : 'text-on-surface-variant hover:text-on-surface border-transparent'
                 )}
               >
                 {label}
@@ -361,19 +363,19 @@ export function LogsPanel({
         )}
         {isStreaming && (
           <span
-            className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-label-sm tracking-wider text-primary"
+            className="border-primary/40 bg-primary/10 text-label-sm text-primary inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 tracking-wider"
             data-testid="streaming-pill"
           >
             <span
               aria-hidden
-              className="live-dot size-1.5 rounded-full bg-attention"
+              className="live-dot bg-attention size-1.5 rounded-full"
             />
             STREAMING
           </span>
         )}
         {dropped > 0 && (
           <span
-            className="rounded-full border border-log-warn/40 bg-log-warn/10 px-2.5 py-0.5 text-label-sm tracking-wider text-log-warn"
+            className="border-log-warn/40 bg-log-warn/10 text-label-sm text-log-warn rounded-full border px-2.5 py-0.5 tracking-wider"
             data-testid="dropped-pill"
           >
             {dropped.toLocaleString()} EARLIER LINES HIDDEN
@@ -381,7 +383,7 @@ export function LogsPanel({
         )}
         <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-4 sm:gap-y-1.5">
           {node && !raw && (
-            <span className="inline-flex items-center gap-1 rounded-lg border border-primary px-2 py-0.5 text-label-sm text-primary">
+            <span className="border-primary text-label-sm text-primary inline-flex items-center gap-1 rounded-lg border px-2 py-0.5">
               Node: {node}
               <button
                 type="button"
@@ -398,7 +400,7 @@ export function LogsPanel({
               <div
                 role="group"
                 aria-label="Log level"
-                className="flex rounded-lg bg-muted p-0.5"
+                className="bg-muted flex rounded-lg p-0.5"
               >
                 {(['all', 'info', 'warn', 'error'] as const).map((level) => (
                   <button
@@ -408,7 +410,7 @@ export function LogsPanel({
                     disabled={raw}
                     onClick={() => setMinLevel(level)}
                     className={cn(
-                      'rounded-md px-2 py-0.5 text-label-sm tracking-wider uppercase disabled:opacity-50',
+                      'text-label-sm rounded-md px-2 py-0.5 tracking-wider uppercase disabled:opacity-50',
                       minLevel === level
                         ? 'bg-card text-on-surface shadow-card'
                         : 'text-on-surface-variant hover:text-on-surface'
@@ -419,7 +421,7 @@ export function LogsPanel({
                 ))}
               </div>
               <div className="relative w-full sm:w-56">
-                <span className="material-symbols-outlined pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-sm text-on-surface-variant">
+                <span className="material-symbols-outlined text-on-surface-variant pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-sm">
                   search
                 </span>
                 <Input
@@ -427,7 +429,7 @@ export function LogsPanel({
                   onChange={(event) => setFilter(event.target.value)}
                   placeholder="Filter logs..."
                   aria-label="Filter logs"
-                  className="h-7 w-full pl-8 text-body-sm"
+                  className="text-body-sm h-7 w-full pl-8"
                 />
               </div>
               <button
@@ -438,7 +440,7 @@ export function LogsPanel({
                 title="Keep the newest line in view"
                 onClick={() => setAutoScroll((value) => !value)}
                 className={cn(
-                  'rounded-full px-2.5 py-1 text-label-sm',
+                  'text-label-sm rounded-full px-2.5 py-1',
                   autoScroll
                     ? 'bg-accent text-accent-foreground'
                     : 'text-on-surface-variant hover:bg-muted'
@@ -451,7 +453,7 @@ export function LogsPanel({
                 onClick={copyLogs}
                 aria-label="Copy logs"
                 title="Copy the visible lines"
-                className="flex size-7 items-center justify-center rounded-full text-on-surface-variant hover:bg-muted hover:text-on-surface"
+                className="text-on-surface-variant hover:bg-muted hover:text-on-surface data-popup-open:bg-muted data-popup-open:text-on-surface focus-visible:ring-ring flex size-6 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
               >
                 <span className="material-symbols-outlined text-base">
                   content_copy
@@ -469,44 +471,53 @@ export function LogsPanel({
               <DropdownMenu>
                 <DropdownMenuTrigger
                   aria-label="More log options"
-                  className="flex size-7 items-center justify-center rounded-full text-on-surface-variant hover:bg-muted hover:text-on-surface"
+                  className="text-on-surface-variant hover:bg-muted hover:text-on-surface data-popup-open:bg-muted data-popup-open:text-on-surface focus-visible:ring-ring flex size-6 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
                 >
                   <span className="material-symbols-outlined text-base">
                     more_horiz
                   </span>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuCheckboxItem
-                    closeOnClick
-                    checked={wrap}
-                    onCheckedChange={(checked) => setWrap(checked)}
-                  >
-                    Wrap long lines
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    closeOnClick
-                    checked={raw}
-                    disabled={!executionId}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setRawRuns((count) => count + 1);
-                        setRawRun(rawRuns + 1);
-                      } else {
-                        setRawRun(null);
-                      }
-                    }}
-                  >
-                    The server&apos;s raw lines
-                  </DropdownMenuCheckboxItem>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-60 max-w-[calc(100vw-1rem)]"
+                >
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Display</DropdownMenuLabel>
+                    <DropdownMenuCheckboxItem
+                      closeOnClick
+                      checked={wrap}
+                      onCheckedChange={(checked) => setWrap(checked)}
+                    >
+                      Wrap long lines
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      closeOnClick
+                      checked={raw}
+                      disabled={!executionId}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setRawRuns((count) => count + 1);
+                          setRawRun(rawRuns + 1);
+                        } else {
+                          setRawRun(null);
+                        }
+                      }}
+                    >
+                      The server&apos;s raw lines
+                    </DropdownMenuCheckboxItem>
+                  </DropdownMenuGroup>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={downloadVisible}>
-                    Download visible lines (.log)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={downloadAll}>
-                    Download all entries (.jsonl)
-                  </DropdownMenuItem>
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Download</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={downloadVisible}>
+                      Download visible lines (.log)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={downloadAll}>
+                      Download all entries (.jsonl)
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
                   {dropped > 0 && (
-                    <div className="max-w-56 px-3 py-2 text-body-sm text-on-surface-variant">
+                    <div className="text-body-sm text-on-surface-variant max-w-56 px-3 py-2">
                       Download includes only the{' '}
                       {entries.length.toLocaleString()} lines kept in the
                       browser.
@@ -520,7 +531,7 @@ export function LogsPanel({
       </div>
       {!collapsed && showEvents && (
         <ol
-          className="min-h-0 flex-1 overflow-y-auto bg-terminal px-4 py-2 text-code-sm leading-5 text-terminal-fg"
+          className="bg-terminal text-code-sm text-terminal-fg min-h-0 flex-1 overflow-y-auto px-4 py-2 leading-5"
           aria-label="Run events"
         >
           {events.length === 0 ? (
@@ -541,7 +552,7 @@ export function LogsPanel({
         <div className="relative min-h-0 flex-1">
           <div
             ref={bodyRef}
-            className="h-full overflow-y-auto bg-terminal px-4 py-2 text-code-sm leading-5"
+            className="bg-terminal text-code-sm h-full overflow-y-auto px-4 py-2 leading-5"
             data-testid="logs-body"
           >
             {visibleEntries.length === 0 ? (
@@ -557,7 +568,7 @@ export function LogsPanel({
                     ref={virtualizer.measureElement}
                     data-index={row.index}
                     className={cn(
-                      'absolute left-0 w-full text-terminal-fg',
+                      'text-terminal-fg absolute left-0 w-full',
                       wrap ? 'break-all whitespace-pre-wrap' : 'whitespace-pre'
                     )}
                     style={{ top: row.start, minHeight: ROW_HEIGHT }}
@@ -572,7 +583,7 @@ export function LogsPanel({
             <button
               type="button"
               onClick={jumpToLatest}
-              className="absolute right-4 bottom-3 rounded-lg bg-primary px-3 py-1 text-label-sm text-on-primary"
+              className="bg-primary text-label-sm text-on-primary absolute right-4 bottom-3 rounded-lg px-3 py-1"
             >
               Jump to latest
             </button>

@@ -263,16 +263,16 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-70 flex justify-center bg-foreground/30 p-4 pt-[12vh]"
+      className="bg-overlay/50 fixed inset-0 z-70 flex justify-center p-4 pt-[12vh]"
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        className="flex h-fit max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-raised"
+        className="border-border bg-card shadow-raised flex h-fit max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border"
       >
-        <div className="flex h-13 items-center gap-2.5 border-b border-border px-4">
+        <div className="border-border flex h-13 items-center gap-2.5 border-b px-4">
           <span
             aria-hidden="true"
             className="material-symbols-outlined text-muted-foreground"
@@ -295,21 +295,21 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
               setActive(0);
             }}
             onKeyDown={onKeyDown}
-            className="flex-1 bg-transparent text-base text-on-surface outline-none placeholder:text-muted-foreground"
+            className="text-on-surface placeholder:text-muted-foreground flex-1 bg-transparent text-base outline-none"
           />
-          <kbd className="rounded border border-border bg-muted px-1.5 font-mono text-[11px] text-muted-foreground">
+          <kbd className="border-border bg-muted text-muted-foreground rounded border px-1.5 font-mono text-[11px]">
             Esc
           </kbd>
         </div>
         <div id={listId} role="listbox" className="overflow-y-auto p-1.5">
           {shown.length === 0 && (
-            <p className="px-3 py-6 text-center text-body-sm text-muted-foreground">
+            <p className="text-body-sm text-muted-foreground px-3 py-6 text-center">
               Nothing matches “{query}”.
             </p>
           )}
           {[...groups.entries()].map(([group, items]) => (
             <div key={group} role="group" aria-label={group}>
-              <p className="px-2.5 pt-2.5 pb-1 text-overline">{group}</p>
+              <p className="text-overline px-2.5 pt-2.5 pb-1">{group}</p>
               {items.map((item) => {
                 const index = shown.indexOf(item);
                 return (
@@ -328,7 +328,7 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
                   >
                     <span
                       aria-hidden="true"
-                      className="material-symbols-outlined text-lg text-muted-foreground"
+                      className="material-symbols-outlined text-muted-foreground text-lg"
                     >
                       {item.icon}
                     </span>
@@ -341,7 +341,7 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
                       {item.label}
                     </span>
                     {item.hint && (
-                      <span className="truncate text-body-sm text-muted-foreground">
+                      <span className="text-body-sm text-muted-foreground truncate">
                         {item.hint}
                       </span>
                     )}
@@ -358,7 +358,7 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
             </div>
           ))}
         </div>
-        <div className="flex flex-wrap gap-4 border-t border-border bg-muted px-4 py-2 text-body-sm text-muted-foreground">
+        <div className="border-border bg-muted text-body-sm text-muted-foreground flex flex-wrap gap-4 border-t px-4 py-2">
           <span>↑ ↓ move</span>
           <span>⏎ open</span>
           <span>Esc close</span>

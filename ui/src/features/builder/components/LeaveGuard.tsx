@@ -35,7 +35,7 @@ function Guard({
   if (blocker.state !== 'blocked') return null;
   return (
     <Modal title="Leave without saving?" onClose={() => blocker.reset()}>
-      <p className="mb-4 text-body-md text-on-surface-variant">
+      <p className="text-body-md text-on-surface-variant mb-4">
         Your changes to this workflow are not saved and will be lost.
       </p>
       <div className="flex justify-end gap-2">

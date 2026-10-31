@@ -37,7 +37,7 @@ export function PendingApprovals({
     <section
       aria-label="Pending approvals"
       aria-live="polite"
-      className="flex flex-col gap-2 border-b border-outline-variant bg-surface-container-low px-6 py-3"
+      className="border-outline-variant bg-surface-container-low flex flex-col gap-2 border-b px-6 py-3"
     >
       {mine.map((approval) => (
         <ApprovalRow

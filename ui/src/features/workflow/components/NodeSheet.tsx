@@ -129,8 +129,15 @@ export function NodeSheet({
     .filter((entry) => entry.pluginId === node.nodeId)
     .slice(-MAX_LINES);
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <Sheet
+      open
+      modal={false}
+      // a click elsewhere on the page (another node, the controls) must not close it
+      disablePointerDismissal
+      onOpenChange={(open) => !open && onClose()}
+    >
       <SheetContent
+        backdrop={false}
         // back to the node on the canvas, not the page
         finalFocus={() =>
           document.querySelector<HTMLElement>(
@@ -150,7 +157,7 @@ export function NodeSheet({
           </div>
           <SheetClose
             aria-label="Close node details"
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface"
+            className="text-on-surface-variant hover:text-on-surface flex size-8 shrink-0 items-center justify-center rounded-lg"
           >
             <span aria-hidden="true" className="material-symbols-outlined">
               close
@@ -161,7 +168,7 @@ export function NodeSheet({
         <Section title="Status">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <StatusPill status={task?.status} scope="node" />
-            <span className="text-body-sm num text-on-surface-variant">
+            <span className="num text-body-sm text-on-surface-variant">
               {formatClockTime(task?.startTime)} to{' '}
               {formatClockTime(task?.endTime)}
               {' · '}
@@ -178,7 +185,7 @@ export function NodeSheet({
                   <button
                     type="button"
                     onClick={() => onCommand(node.nodeId, item.command)}
-                    className="rounded-lg border border-border px-2.5 py-1 text-label-md hover:bg-muted"
+                    className="border-border text-label-md hover:bg-muted rounded-lg border px-2.5 py-1"
                   >
                     {item.label}
                   </button>
@@ -198,7 +205,7 @@ export function NodeSheet({
 
         <Section title="Logs">
           {lines.length > 0 ? (
-            <pre className="text-terminal-foreground max-h-60 overflow-auto rounded-xl bg-terminal p-2 text-code-sm whitespace-pre-wrap">
+            <pre className="bg-terminal text-terminal-foreground text-code-sm max-h-60 overflow-auto rounded-xl p-2 whitespace-pre-wrap">
               {lines.map((l) => l.message).join('\n')}
             </pre>
           ) : (

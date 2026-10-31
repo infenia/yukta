@@ -36,6 +36,7 @@ describe('useSessionDetails', () => {
     server.close();
   });
 
+
   it('fetches session details when sessionId is provided', async () => {
     const { result } = renderHook(() => useSessionDetails('sess-123'), {
       wrapper: createTestWrapper(),

@@ -93,7 +93,7 @@ export function SessionImportPage() {
         title="Import a session"
         description="Load a session exported from Yukta or written by hand. Nothing is saved until you apply it."
       />
-      <label className="flex flex-col gap-1 text-label-md text-on-surface">
+      <label className="text-label-md text-on-surface flex flex-col gap-1">
         Session file (.json)
         <input
           type="file"
@@ -101,7 +101,7 @@ export function SessionImportPage() {
           onChange={(event) => void readFile(event.target.files?.[0])}
         />
       </label>
-      <label className="flex flex-col gap-1 text-label-md text-on-surface">
+      <label className="text-label-md text-on-surface flex flex-col gap-1">
         Or paste the JSON
         <textarea
           value={text}

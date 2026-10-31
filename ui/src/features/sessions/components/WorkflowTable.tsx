@@ -42,12 +42,12 @@ export function WorkflowTable({
     <section className="flex flex-col gap-3 px-4 py-6 sm:px-6">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-headline-md text-on-surface">Workflows</h2>
-        <span className="rounded-full bg-muted px-2 text-label-sm text-muted-foreground tabular-nums">
+        <span className="bg-muted text-label-sm text-muted-foreground rounded-full px-2 tabular-nums">
           {workflows.length}
         </span>
-        <label className="ml-auto flex w-full items-center gap-2 rounded-full border border-transparent bg-muted px-3 py-1.5 transition-standard focus-within:border-ring sm:w-64">
+        <label className="bg-muted transition-standard focus-within:border-ring ml-auto flex w-full items-center gap-2 rounded-full border border-transparent px-3 py-1.5 sm:w-64">
           <span
-            className="material-symbols-outlined text-base text-muted-foreground"
+            className="material-symbols-outlined text-muted-foreground text-base"
             aria-hidden="true"
           >
             search
@@ -58,7 +58,7 @@ export function WorkflowTable({
             placeholder="Filter workflows"
             value={filter}
             onChange={(e) => onFilterChange(e.target.value)}
-            className="min-w-0 flex-1 border-none bg-transparent p-0 text-body-md outline-none focus:ring-0"
+            className="text-body-md min-w-0 flex-1 border-none bg-transparent p-0 outline-none focus:ring-0"
           />
         </label>
       </div>
@@ -94,17 +94,17 @@ export function WorkflowTable({
                   <TableCell className="max-w-xl px-4 whitespace-normal">
                     <Link
                       to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflow.workflowId)}`}
-                      className="text-code-sm font-semibold break-all text-primary"
+                      className="text-code-sm text-primary font-semibold break-all"
                     >
                       {workflow.workflowId}
                     </Link>
                     {workflow.description && (
-                      <p className="mt-0.5 line-clamp-2 text-body-sm text-muted-foreground">
+                      <p className="text-body-sm text-muted-foreground mt-0.5 line-clamp-2">
                         {workflow.description}
                       </p>
                     )}
                   </TableCell>
-                  <TableCell className="px-4 text-body-sm whitespace-nowrap text-muted-foreground tabular-nums">
+                  <TableCell className="text-body-sm text-muted-foreground px-4 whitespace-nowrap tabular-nums">
                     {workflow.nodeCount} nodes · {workflow.edgeCount} edges
                   </TableCell>
                   <TableCell className="px-4">

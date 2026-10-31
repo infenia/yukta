@@ -46,7 +46,7 @@ function RunDialog({
   return (
     <Modal title="Run workflow" onClose={onClose}>
       <label
-        className="mb-1 block text-body-md text-on-surface"
+        className="text-body-md text-on-surface mb-1 block"
         htmlFor="run-payload"
       >
         Trigger payload (JSON, optional)
@@ -58,7 +58,7 @@ function RunDialog({
         rows={8}
         spellCheck={false}
         placeholder='{"key": "value"}'
-        className={`${textareaFieldClassName} mb-3 text-code-sm`}
+        className={`${textareaFieldClassName} text-code-sm mb-3`}
       />
       <InlineError message={parseError ?? error} />
       <div className="mt-4 flex justify-end gap-2">
