@@ -20,7 +20,7 @@ yk gradle :mcp:test
 - **Control**: `control_workflow` (PAUSE/RESUME/STOP/STOP_ALL/RESTART/RESTART_FROM_NODE),
   `control_node` (PAUSE/RESUME/STOP/STEP/STEP_ENABLE/STEP_DISABLE)
 - **Plugins**: `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`
-- **Monitoring**: `get_control_bus_status`
+- **Monitoring**: `get_control_bus_status`, `get_metrics_snapshot` (sampled meters plus per-scope run aggregates from `MetricsProvider`)
 
 ## Key Files
 - `src/main/java/com/infenia/yukta/mcp/AppMcpTools.java`: `@McpTool` facade.
