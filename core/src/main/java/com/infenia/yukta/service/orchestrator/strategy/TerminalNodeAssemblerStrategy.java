@@ -128,7 +128,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                   node.type(),
                   TaskStatus.RUNNING,
                   Collections.emptyMap()));
-      final Flux<Message<?>> inputToTerminal =
+      final Flux<Message<?>> guardedInput =
           activity
               .guard(
                   NodeTimeouts.retimeOnFirstInput(
@@ -163,6 +163,9 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                     }
                     return published;
                   });
+      // subscribeOn moves only the subscription; a blocking terminal needs its elements moved too
+      final Flux<Message<?>> inputToTerminal =
+          terminal.isBlocking() ? guardedInput.publishOn(virtualThreadScheduler, 1) : guardedInput;
 
       log.atDebug()
           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())

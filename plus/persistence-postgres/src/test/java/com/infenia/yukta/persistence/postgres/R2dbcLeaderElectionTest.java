@@ -54,7 +54,7 @@ class R2dbcLeaderElectionTest extends PostgresTestSupport {
     await().pollDelay(Duration.ofSeconds(3)).atMost(WAIT).until(() -> true);
     assertThat(first.isLeader()).isTrue();
     assertThat(second.isLeader()).isFalse();
-    assertThat(first.fencingToken()).isEqualTo(1);
+    assertThat(first.getFencingToken()).isEqualTo(1);
     assertThat(meters.get("yukta.leader").gauge().value()).isEqualTo(1.0);
     assertThat(standbyMeters.get("yukta.leader").gauge().value()).isZero();
 
@@ -62,7 +62,7 @@ class R2dbcLeaderElectionTest extends PostgresTestSupport {
 
     await().atMost(WAIT).until(second::isLeader);
     await().atMost(WAIT).until(() -> takeovers.get() == 1);
-    assertThat(second.fencingToken()).isEqualTo(2);
+    assertThat(second.getFencingToken()).isEqualTo(2);
     assertThat(first.isLeader()).isFalse();
     assertThat(first.isRunning()).isFalse();
   }
@@ -78,7 +78,7 @@ class R2dbcLeaderElectionTest extends PostgresTestSupport {
     first.abandon();
 
     await().atMost(WAIT).until(second::isLeader);
-    assertThat(second.fencingToken()).isEqualTo(2);
+    assertThat(second.getFencingToken()).isEqualTo(2);
     await().atMost(WAIT).until(() -> !first.isLeader());
   }
 
@@ -114,6 +114,27 @@ class R2dbcLeaderElectionTest extends PostgresTestSupport {
     assertThat(first.recoversOnTakeover()).isTrue();
     first.stop();
     first.stop();
+  }
+
+  @Test
+  void lostLease_runsLossActions_andOneFailingDoesNotStopOthers() {
+    final AtomicInteger lost = new AtomicInteger();
+    first = election("one");
+    first.onLoss(
+        () -> {
+          throw new IllegalStateException("boom");
+        });
+    first.onLoss(lost::incrementAndGet);
+    first.start();
+    await().atMost(WAIT).until(first::isLeader);
+
+    db.sql("UPDATE leader_lease SET holder = 'intruder', expires_at = now() + interval '1 hour'")
+        .fetch()
+        .rowsUpdated()
+        .block();
+
+    await().atMost(WAIT).until(() -> lost.get() == 1);
+    assertThat(first.isRunning()).isTrue();
   }
 
   @Test

@@ -78,4 +78,13 @@ public class ExecutionControlRegistry {
       final String sessionId, final String workflowId) {
     return store.findAllActiveByWorkflow(sessionId, workflowId);
   }
+
+  /**
+   * Every live execution.
+   *
+   * @return the handles, empty if none
+   */
+  public java.util.List<ExecutionControl> findAll() {
+    return store.findAll();
+  }
 }
