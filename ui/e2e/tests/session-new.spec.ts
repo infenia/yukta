@@ -89,6 +89,11 @@ test.describe('New session', () => {
         })
       )
     );
+    await page.route('**/api/sessions/validate/project-path', (route) =>
+      route.fulfill(
+        envelope('/project-path', { exists: true, directory: true })
+      )
+    );
     await page.route('**/api/sessions', (route) => {
       if (route.request().method() !== 'POST') return route.fallback();
       saved = route.request().postDataJSON();
