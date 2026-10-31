@@ -479,6 +479,55 @@ describe('WorkflowEditorPage', () => {
     expect(after.defaultPrevented).toBe(false);
   });
 
+  describe('saving while somebody else saves', () => {
+    const save = async (user: ReturnType<typeof userEvent.setup>) => {
+      renderEditor();
+      await user.type(await screen.findByLabelText('Description'), ' mine');
+      await user.click(screen.getByRole('button', { name: 'Save version' }));
+    };
+
+    it('keeps another workflow saved since the editor opened', async () => {
+      const user = userEvent.setup();
+      saved.length = 0;
+      // the first read opens the editor; later reads see Ana's change to the other workflow
+      let reads = 0;
+      server.use(
+        http.get('/api/sessions/:sid/config', () => {
+          reads += 1;
+          const s = session();
+          if (reads > 1) s.workflows.other!.description = 'ana';
+          return ok(s);
+        })
+      );
+      await save(user);
+      await waitFor(() => expect(saved).toHaveLength(1));
+      expect(saved[0]!.workflows.other!.description).toBe('ana');
+      expect(saved[0]!.workflows.wf!.description).toBe('first mine');
+    });
+
+    it('refuses to overwrite this workflow when it changed since the editor opened', async () => {
+      const user = userEvent.setup();
+      saved.length = 0;
+      let reads = 0;
+      server.use(
+        http.get('/api/sessions/:sid/config', () => {
+          reads += 1;
+          const s = session();
+          if (reads > 1) s.workflows.wf!.description = 'ben';
+          return ok(s);
+        })
+      );
+      await save(user);
+      expect(
+        await screen.findByText(/Someone else saved this workflow/)
+      ).toBeInTheDocument();
+      expect(saved).toHaveLength(0);
+      expect(
+        screen.getByRole('button', { name: 'Save version' })
+      ).toBeEnabled();
+    });
+  });
+
   it('rejects an edge that already exists and an edge from a node to itself', async () => {
     const user = userEvent.setup();
     renderEditor();
