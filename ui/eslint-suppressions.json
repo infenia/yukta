@@ -16,7 +16,7 @@
   },
   "src/features/sessions/components/__tests__/columns.test.tsx": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 16
+      "count": 14
     }
   },
   "src/lib/__tests__/theme.test.ts": {

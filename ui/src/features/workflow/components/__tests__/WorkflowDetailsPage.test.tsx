@@ -421,6 +421,57 @@ describe('WorkflowDetailsPage', () => {
     expect(screen.queryByText('0001-a')).not.toBeInTheDocument();
   });
 
+  describe('rollback while another run is going', () => {
+    const open = async (runs: ReturnType<typeof createMockExecution>[]) => {
+      executionsPayload = () => runs;
+      server.use(
+        http.get(
+          '/api/sessions/:sessionId/workflows/:workflowId/versions',
+          () =>
+            HttpResponse.json({
+              timestamp: 't',
+              status: 200,
+              message: 'ok',
+              data: [{ id: '0001-a', savedAt: '2026-10-13T10:00:00Z' }],
+              path: '/versions',
+            })
+        )
+      );
+      // the finished run is on screen
+      renderPage(
+        '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11?exec=exec-old-1'
+      );
+      await userEvent.click(
+        await screen.findByRole('button', { name: 'Workflow actions' })
+      );
+      await userEvent.click(
+        await screen.findByRole('menuitem', { name: 'Versions' })
+      );
+      return screen.findByRole('button', { name: 'Roll back' });
+    };
+    const done = createMockExecution({
+      executionId: 'exec-old-1',
+      status: 'COMPLETED',
+      endTime: '2026-07-25T10:00:00',
+    });
+
+    it('is blocked when a run that is not on screen is still running', async () => {
+      const button = await open([createMockExecution(), done]);
+      expect(button).toBeDisabled();
+    });
+
+    it('is allowed when every run has finished', async () => {
+      const button = await open([
+        createMockExecution({
+          status: 'COMPLETED',
+          endTime: '2026-07-26T15:00:00',
+        }),
+        done,
+      ]);
+      expect(button).toBeEnabled();
+    });
+  });
+
   it('links from the run to its control commands', async () => {
     renderPage();
     await userEvent.click(

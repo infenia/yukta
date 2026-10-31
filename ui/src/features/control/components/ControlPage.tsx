@@ -35,7 +35,7 @@ export function ControlPage() {
           title="Control bus"
           description="How the server is doing, who and what is steering runs, and every control command with who sent it."
           actions={
-            <div role="tablist" className="flex gap-4 border-b border-border">
+            <div role="tablist" className="border-border flex gap-4 border-b">
               {TABS.map((name) => (
                 <button
                   key={name}

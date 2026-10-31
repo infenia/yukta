@@ -4,7 +4,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { useEventSourceJson } from '../useEventSourceJson';
-import { installMockEventSource, MockEventSource } from '@/test/mocks/MockEventSource';
+import {
+  installMockEventSource,
+  MockEventSource,
+} from '@/test/mocks/MockEventSource';
 
 describe('useEventSourceJson', () => {
   beforeEach(() => {
@@ -20,7 +23,9 @@ describe('useEventSourceJson', () => {
   });
 
   it('connects and reports open', () => {
-    const { result } = renderHook(() => useEventSourceJson('/api/stream', vi.fn()));
+    const { result } = renderHook(() =>
+      useEventSourceJson('/api/stream', vi.fn())
+    );
 
     expect(result.current.status).toBe('connecting');
     act(() => MockEventSource.latest().open());
@@ -30,7 +35,9 @@ describe('useEventSourceJson', () => {
 
   it('parses JSON frames and forwards them to the handler', () => {
     const onMessage = vi.fn();
-    renderHook(() => useEventSourceJson<{ value: number }>('/api/stream', onMessage));
+    renderHook(() =>
+      useEventSourceJson<{ value: number }>('/api/stream', onMessage)
+    );
 
     act(() => MockEventSource.latest().emit({ value: 42 }));
     expect(onMessage).toHaveBeenCalledWith({ value: 42 });
@@ -50,7 +57,9 @@ describe('useEventSourceJson', () => {
 
   it('ends the stream on error when reconnect is disabled', () => {
     vi.useFakeTimers();
-    const { result } = renderHook(() => useEventSourceJson('/api/stream', vi.fn(), false));
+    const { result } = renderHook(() =>
+      useEventSourceJson('/api/stream', vi.fn(), false)
+    );
 
     act(() => MockEventSource.latest().emitError());
     expect(result.current.status).toBe('error');
@@ -81,9 +90,28 @@ describe('useEventSourceJson', () => {
     vi.useRealTimers();
   });
 
+  it('leaves a dropped native stream to the browser, which resumes from Last-Event-ID', () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() =>
+      useEventSourceJson('/api/stream', vi.fn())
+    );
+    act(() => MockEventSource.latest().open());
+
+    act(() => MockEventSource.latest().emitDrop());
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(MockEventSource.instances).toHaveLength(1);
+    expect(MockEventSource.latest().readyState).toBe(
+      MockEventSource.CONNECTING
+    );
+    expect(result.current.status).toBe('connecting');
+    vi.useRealTimers();
+  });
+
   it('cancels a pending reconnect on unmount', () => {
     vi.useFakeTimers();
-    const { unmount } = renderHook(() => useEventSourceJson('/api/stream', vi.fn()));
+    const { unmount } = renderHook(() =>
+      useEventSourceJson('/api/stream', vi.fn())
+    );
     act(() => MockEventSource.latest().emitError());
     unmount();
     act(() => vi.advanceTimersByTime(60_000));
@@ -92,9 +120,12 @@ describe('useEventSourceJson', () => {
   });
 
   it('closes the previous stream when the url changes', () => {
-    const { rerender } = renderHook(({ url }) => useEventSourceJson(url, vi.fn()), {
-      initialProps: { url: '/api/stream-1' as string | null },
-    });
+    const { rerender } = renderHook(
+      ({ url }) => useEventSourceJson(url, vi.fn()),
+      {
+        initialProps: { url: '/api/stream-1' as string | null },
+      }
+    );
 
     const first = MockEventSource.latest();
     rerender({ url: '/api/stream-2' });
@@ -105,17 +136,24 @@ describe('useEventSourceJson', () => {
   });
 
   it('goes idle when the url becomes null', () => {
-    const { result, rerender } = renderHook(({ url }) => useEventSourceJson(url, vi.fn()), {
-      initialProps: { url: '/api/stream' as string | null },
-    });
+    const { result, rerender } = renderHook(
+      ({ url }) => useEventSourceJson(url, vi.fn()),
+      {
+        initialProps: { url: '/api/stream' as string | null },
+      }
+    );
 
     rerender({ url: null });
     expect(result.current.status).toBe('idle');
-    expect(MockEventSource.instances[0].readyState).toBe(MockEventSource.CLOSED);
+    expect(MockEventSource.instances[0].readyState).toBe(
+      MockEventSource.CLOSED
+    );
   });
 
   it('closes the stream on unmount', () => {
-    const { unmount } = renderHook(() => useEventSourceJson('/api/stream', vi.fn()));
+    const { unmount } = renderHook(() =>
+      useEventSourceJson('/api/stream', vi.fn())
+    );
 
     unmount();
     expect(MockEventSource.latest().readyState).toBe(MockEventSource.CLOSED);
@@ -124,9 +162,12 @@ describe('useEventSourceJson', () => {
   it('uses the latest handler without resubscribing', () => {
     const first = vi.fn();
     const second = vi.fn();
-    const { rerender } = renderHook(({ handler }) => useEventSourceJson('/api/stream', handler), {
-      initialProps: { handler: first },
-    });
+    const { rerender } = renderHook(
+      ({ handler }) => useEventSourceJson('/api/stream', handler),
+      {
+        initialProps: { handler: first },
+      }
+    );
 
     rerender({ handler: second });
     act(() => MockEventSource.latest().emit({ n: 1 }));
