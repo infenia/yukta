@@ -381,14 +381,16 @@ public class WorkflowOrchestrator {
               ExecutionScheduler.priorityOf(payload),
               admission,
               recordReplayed.then(
-                  compiler.executeTemplate(
-                      newExecutionId,
-                      payload,
-                      nodeCount,
-                      assemblers,
-                      sessionId,
-                      workflowId,
-                      nodeIds)),
+                  Mono.defer(
+                      () ->
+                          compiler.executeTemplate(
+                              newExecutionId,
+                              payload,
+                              nodeCount,
+                              assemblers,
+                              sessionId,
+                              workflowId,
+                              nodeIds))),
               new Origin("RestartFromNode execution", previousExecutionId));
         });
   }

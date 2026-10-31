@@ -76,8 +76,8 @@ public class ControlReviewer {
    * @return completes if every supervisor allows it; fails with {@link ControlRejectedException}
    *     otherwise. A supervisor that fails to answer counts as a refusal, and so does one that
    *     takes longer than {@code yukta.supervisor.review-timeout} (default 5 s), except for a stop:
-   *     a stop is allowed when the review times out or fails, so a hung supervisor cannot keep a
-   *     person from stopping a run.
+   *     a stop is allowed when the review times out, so a hung supervisor cannot keep a person from
+   *     stopping a run.
    */
   public Mono<Void> review(final ControlRequest request) {
     return Flux.fromStream(
@@ -99,7 +99,7 @@ public class ControlReviewer {
                               .setCause(error)
                               .addKeyValue("supervisor", supervisor.id())
                               .log("Supervisor review failed");
-                          return Mono.just(fallback(supervisor, request, "review failed"));
+                          return Mono.just(Decision.deny("review failed"));
                         })
                     .filter(decision -> !decision.allowed())
                     .map(decision -> supervisor.id() + ": " + decision.reason()))
@@ -107,7 +107,7 @@ public class ControlReviewer {
         .flatMap(reason -> Mono.<Void>error(new ControlRejectedException(reason)));
   }
 
-  /** The answer when a supervisor does not give one: a stop is allowed, anything else refused. */
+  /** The answer when a supervisor times out: a stop is allowed, anything else refused. */
   private Decision fallback(
       final ExecutionSupervisor supervisor, final ControlRequest request, final String why) {
     final boolean stop =

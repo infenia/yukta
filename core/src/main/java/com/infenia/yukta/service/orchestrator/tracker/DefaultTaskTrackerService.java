@@ -860,7 +860,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
                 executionIndex.remove(execId);
                 streams.drop(execId);
               });
-      latestExecs.keySet().removeIf(key -> key.startsWith(sessionId + "\0"));
+      // by run, not by session: a run started again under this id since keeps its entry
+      latestExecs.values().removeIf(states::containsKey);
       log.atInfo()
           .addKeyValue("sessionId", sessionId)
           .addKeyValue("executionsRemoved", executionCount)

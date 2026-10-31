@@ -211,7 +211,7 @@ class ControlReviewerTest {
   }
 
   @Test
-  void review_failingSupervisor_stillLetsStopThrough() {
+  void review_failingSupervisor_refusesStopToo() {
     final ControlReviewer reviewer =
         new ControlReviewer(
             providerOf(
@@ -228,6 +228,7 @@ class ControlReviewerTest {
                     null,
                     null,
                     null)))
-        .verifyComplete();
+        .expectErrorMessage("broken: review failed")
+        .verify();
   }
 }

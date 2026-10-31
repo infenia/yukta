@@ -503,7 +503,11 @@ class DefaultTaskTrackerServiceTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(() -> assertThat(tracker.getLogStream("idx-1")).isNotNull());
+        .until(() -> "SUCCESS".equals(tracker.getProgressByExecutionId("idx-1").status()));
+    // the streams close at cleanup
+    StepVerifier.create(tracker.getLogStream("idx-1"))
+        .expectComplete()
+        .verify(Duration.ofSeconds(5));
     // well past the 200 ms cleanup TTL, both lookups still agree
     await()
         .pollDelay(500, TimeUnit.MILLISECONDS)
@@ -556,9 +560,16 @@ class DefaultTaskTrackerServiceTest {
     final Map<String, Object> withNull = HashMap.newHashMap(2);
     withNull.put("exitCode", null);
     withNull.put("ok", "yes");
-    org.assertj.core.api.Assertions.assertThatCode(
-            () -> tracker.emitTaskStatusEvent("meta-1", "n1", "mod", TaskStatus.SUCCESS, withNull))
-        .doesNotThrowAnyException();
+    tracker.emitTaskStatusEvent("meta-1", "n1", "mod", TaskStatus.SUCCESS, withNull);
+
+    // the event is applied asynchronously: the null value is dropped, the other one kept
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(tracker.getProgressByExecutionId("meta-1").tasks().getFirst().metadata())
+                    .containsEntry("ok", "yes")
+                    .doesNotContainKey("exitCode"));
   }
 
   @Test
@@ -2214,14 +2225,15 @@ class DefaultTaskTrackerServiceTest {
     // Emit terminal status to trigger cleanup with short TTL
     shortTtlTracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
 
-    // Wait for cleanup to happen
+    // Wait past the cleanup TTL, which closes the streams but keeps the run in the index
     await()
+        .pollDelay(500, TimeUnit.MILLISECONDS)
         .atMost(Duration.ofSeconds(5))
         .until(
-            () -> {
-              final Map<String, WorkflowState> index = field(shortTtlTracker, "executionIndex");
-              return index.remove(executionId) != null;
-            });
+            () -> "SUCCESS".equals(shortTtlTracker.getProgressByExecutionId(executionId).status()));
+    // the state is gone: take it out of the index explicitly
+    final Map<String, WorkflowState> index = field(shortTtlTracker, "executionIndex");
+    assertThat(index.remove(executionId)).isNotNull();
 
     // Now try to emit task status for the cleaned-up execution
     // notifyStatusChange will be called but state should be null
@@ -2230,8 +2242,8 @@ class DefaultTaskTrackerServiceTest {
 
     settle();
 
-    // Should handle gracefully without errors
-    assertThat(true).isTrue();
+    // handled gracefully: the late event neither throws nor brings the run back
+    assertThat(index).doesNotContainKey(executionId);
   }
 
   @Test
