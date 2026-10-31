@@ -141,6 +141,43 @@ class SupervisorBindingsControllerTest {
   }
 
   @Test
+  void replacingRestoresNestedSecretsAndKeepsAMaskThatHasNothingBehindIt() {
+    when(service.profiles())
+        .thenReturn(
+            Flux.just(
+                new SupervisorProfile(
+                    "p", "t", Map.of("auth", Map.of("password", "pw"), "flat", "x"), false)));
+    when(service.saveProfile(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+
+    StepVerifier.create(
+            controller.replaceProfile(
+                "p",
+                new ProfileBody(
+                    "p",
+                    "t",
+                    Map.of(
+                        "auth",
+                        Map.of("password", "***", "user", "u"),
+                        "flat",
+                        Map.of("token", "***"),
+                        "secret",
+                        "***",
+                        "note",
+                        "***"),
+                    false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    final ArgumentCaptor<SupervisorProfile> saved =
+        ArgumentCaptor.forClass(SupervisorProfile.class);
+    verify(service).saveProfile(saved.capture());
+    assertThat(saved.getValue().settings())
+        .containsEntry("auth", Map.of("password", "pw", "user", "u"))
+        .containsEntry("flat", Map.of("token", "***"))
+        .containsEntry("secret", "***")
+        .containsEntry("note", "***");
+  }
+
+  @Test
   void secretsInsideListsAreHidden() {
     when(service.profiles())
         .thenReturn(

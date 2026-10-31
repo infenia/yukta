@@ -168,12 +168,7 @@ public class SupervisorHost {
   public synchronized void attach(final BoundSupervisor supervisor) {
     detach(supervisor.id());
     attachedSupervisors.put(supervisor);
-    final Disposable previous =
-        attachedSubscriptions.put(
-            supervisor.id(), launch(supervisor, supervisor.dryRun() || dryRun));
-    if (previous != null) {
-      previous.dispose();
-    }
+    attachedSubscriptions.put(supervisor.id(), launch(supervisor, supervisor.dryRun() || dryRun));
   }
 
   /**

@@ -47,18 +47,13 @@ class AttachedSupervisorTest {
 
   private final DirectiveDispatcher dispatcher = mock(DirectiveDispatcher.class);
 
+  private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+
   private final AttachedSupervisors attached = new AttachedSupervisors();
 
   private final SupervisorHost host =
       new SupervisorHost(
-          providerOf(),
-          feed,
-          dispatcher,
-          new InMemoryExecutionLogStore(),
-          new SimpleMeterRegistry(),
-          false,
-          10,
-          1000);
+          providerOf(), feed, dispatcher, new InMemoryExecutionLogStore(), meters, false, 10, 1000);
 
   private final List<String> seen = new CopyOnWriteArrayList<>();
 
@@ -140,6 +135,24 @@ class AttachedSupervisorTest {
               assertThat(info.scopeSessionId()).isEqualTo("A");
               assertThat(info.dryRun()).isTrue();
             });
+  }
+
+  @Test
+  void detachingRemovesTheCommandCountersOfTheBinding() {
+    when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
+    host.setAttachedSupervisors(attached);
+    host.attach(bound("b1", new SupervisorScope.Global(), false));
+    publishUntilSeen("r1", "A");
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(meters.find("yukta.supervisor.commands").tag("id", "b1").counters())
+                    .isNotEmpty());
+
+    host.detach("b1");
+
+    assertThat(meters.find("yukta.supervisor.commands").tag("id", "b1").counters()).isEmpty();
   }
 
   @Test

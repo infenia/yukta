@@ -6,8 +6,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -28,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import reactor.util.context.Context;
 
@@ -281,5 +284,82 @@ class SupervisorServiceTest {
         .atMost(3, TimeUnit.SECONDS)
         .untilAsserted(() -> verify(host, times(1)).attach(any(BoundSupervisor.class)));
     verify(host, never()).detach(anyString());
+  }
+
+  /** A service whose store refuses to save a binding, after a binding {@code b} was attached. */
+  private SupervisorService failingSave(final boolean firstEnabled) {
+    final SupervisorStore failing = spy(new InMemorySupervisorStore());
+    final SupervisorService failingService =
+        new SupervisorService(failing, List.of(factory), host, log);
+    StepVerifier.create(failingService.saveProfile(profile("p")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(
+            failingService.attach(binding("b", "p", new SupervisorScope.Global(), firstEnabled)))
+        .expectNextCount(1)
+        .verifyComplete();
+    doReturn(Mono.error(new IllegalStateException("db"))).when(failing).saveBinding(any());
+    return failingService;
+  }
+
+  @Test
+  void failedSaveRestartsTheBindingThatWasStored() {
+    final SupervisorService failing = failingSave(true);
+
+    StepVerifier.create(failing.attach(binding("b", "p", new SupervisorScope.Global(), true)))
+        .expectError(IllegalStateException.class)
+        .verify();
+
+    verify(host, times(3)).attach(any());
+  }
+
+  @Test
+  void failedSaveStopsTheSupervisorWhenTheStoredBindingIsOff() {
+    final SupervisorService failing = failingSave(false);
+
+    StepVerifier.create(failing.attach(binding("b", "p", new SupervisorScope.Global(), true)))
+        .expectError(IllegalStateException.class)
+        .verify();
+
+    verify(host, times(1)).attach(any());
+    verify(host, times(2)).detach("b");
+  }
+
+  @Test
+  void failedSaveOfANewBindingStopsItsSupervisor() {
+    final SupervisorStore failing = spy(new InMemorySupervisorStore());
+    final SupervisorService failingService =
+        new SupervisorService(failing, List.of(factory), host, log);
+    StepVerifier.create(failingService.saveProfile(profile("p")))
+        .expectNextCount(1)
+        .verifyComplete();
+    doReturn(Mono.error(new IllegalStateException("db"))).when(failing).saveBinding(any());
+
+    StepVerifier.create(
+            failingService.attach(binding("n", "p", new SupervisorScope.Global(), true)))
+        .expectError(IllegalStateException.class)
+        .verify();
+
+    verify(host).detach("n");
+  }
+
+  @Test
+  void failedSaveReportsTheSaveErrorEvenWhenTheRollbackCannotRead() {
+    final SupervisorStore failing = spy(new InMemorySupervisorStore());
+    final SupervisorService failingService =
+        new SupervisorService(failing, List.of(factory), host, log);
+    StepVerifier.create(failingService.saveProfile(profile("p")))
+        .expectNextCount(1)
+        .verifyComplete();
+    doReturn(Mono.error(new IllegalStateException("db"))).when(failing).saveBinding(any());
+    doReturn(Flux.empty())
+        .doReturn(Flux.error(new IllegalStateException("read")))
+        .when(failing)
+        .bindings();
+
+    StepVerifier.create(
+            failingService.attach(binding("n", "p", new SupervisorScope.Global(), true)))
+        .expectErrorMessage("db")
+        .verify();
   }
 }
