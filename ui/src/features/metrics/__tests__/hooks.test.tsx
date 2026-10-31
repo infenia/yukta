@@ -64,7 +64,7 @@ describe('useMetricStream', () => {
     const now = Date.now();
     const key = 'yukta.executions.rejected{reason=limit}|rate';
     client.setQueryData(
-      ['metrics', 'series', 'yukta.executions.rejected', '15m'],
+      ['metrics', 'series', 'yukta.executions.rejected', '15m', 'global'],
       {
         [key]: [
           { t: now - 20 * 60_000, v: 1 },
@@ -72,7 +72,10 @@ describe('useMetricStream', () => {
         ],
       }
     );
-    client.setQueryData(['metrics', 'series', 'yukta.other', '15m'], {});
+    client.setQueryData(
+      ['metrics', 'series', 'yukta.other', '15m', 'global'],
+      {}
+    );
     renderHook(() => useMetricStream(true), { wrapper: wrapperFor(client) });
     expect(streamedUrl).toBe('/api/metrics/stream');
 
@@ -93,6 +96,7 @@ describe('useMetricStream', () => {
         'series',
         'yukta.executions.rejected',
         '15m',
+        'global',
       ])
     ).toEqual({
       [key]: [
@@ -102,9 +106,11 @@ describe('useMetricStream', () => {
       'yukta.executions.rejected{reason=queue_full}|rate': [{ t: now, v: 0.5 }],
     });
     expect(
-      client.getQueryData(['metrics', 'series', 'yukta.other', '15m'])
+      client.getQueryData(['metrics', 'series', 'yukta.other', '15m', 'global'])
     ).toEqual({});
-    expect(client.getQueryData(['metrics', 'snapshot'])).toMatchObject({
+    expect(
+      client.getQueryData(['metrics', 'snapshot', 'global'])
+    ).toMatchObject({
       'yukta.executions.running': 4,
     });
   });

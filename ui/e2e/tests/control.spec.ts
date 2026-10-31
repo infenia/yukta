@@ -175,4 +175,72 @@ test.describe('Control page', () => {
     expect(posted).toBe('?maxConcurrent=8&maxPerWorkflow=2');
     await expect(page.getByText('of 8', { exact: true })).toBeVisible();
   });
+
+  test('shows the dashboard: numbers, a slow live run and the limit knob', async ({
+    page,
+  }) => {
+    await mockControlApi(page, []);
+    await page.route('**/api/metrics/snapshot*', (route) =>
+      route.fulfill(
+        envelope('/metrics/snapshot', {
+          time: Date.now(),
+          values: { 'runs.finished': 120, 'duration.p95': 1800 },
+        })
+      )
+    );
+    await page.route('**/api/metrics/runs/live', (route) =>
+      route.fulfill(
+        envelope('/metrics/runs/live', [
+          {
+            executionId: 'run-1',
+            sessionId: 's1',
+            workflowId: 'wf-slow',
+            startedAt: Date.now() - 90_000,
+            elapsedMs: 90_000,
+            nodesDone: 1,
+            nodesSeen: 4,
+            p95Ms: 30_000,
+          },
+        ])
+      )
+    );
+    await page.route('**/api/metrics/heatmap*', (route) =>
+      route.fulfill(
+        envelope('/metrics/heatmap', [
+          { time: Date.now(), runs: 10, failed: 1, failedRuns: ['x'] },
+        ])
+      )
+    );
+    let posted = '';
+    await page.route('**/api/scheduler/limits*', (route) => {
+      if (route.request().method() === 'POST') {
+        posted = new URL(route.request().url()).search;
+        return route.fulfill(envelope('/scheduler/limits', null));
+      }
+      return route.fulfill(
+        envelope('/scheduler/limits', {
+          maxConcurrent: 4,
+          maxPerWorkflow: 0,
+          running: 2,
+          queued: 0,
+          queueCapacity: 100,
+        })
+      );
+    });
+    await page.goto('/control');
+
+    const strip = page.getByTestId('command-strip');
+    await expect(strip).toContainText('2.0');
+    await expect(strip).toContainText('1.8 s');
+    await expect(strip).toContainText('90%');
+    const slow = page.getByRole('listitem').filter({ hasText: 'wf-slow' });
+    await expect(slow).toContainText('(slow)');
+    await expect(slow).toHaveAttribute('data-slow', 'true');
+
+    const knob = page.getByRole('slider', { name: /Concurrent run limit/ });
+    await expect(knob).toHaveAttribute('aria-valuenow', '4');
+    await knob.focus();
+    await page.keyboard.press('ArrowUp');
+    await expect.poll(() => posted).toBe('?maxConcurrent=5&maxPerWorkflow=0');
+  });
 });

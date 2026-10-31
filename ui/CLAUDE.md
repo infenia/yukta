@@ -104,7 +104,7 @@ Report location: `coverage/index.html` (generated, git-ignored)
 - **Layout**: pages are full width (no `max-w-*` on `<main>`); the header, breadcrumb, pages and footer share one gutter (`px-4 sm:px-6`). Only prose (`max-w-prose`) and forms (`max-w-xl`) keep a readable measure. Spacing tokens are `--spacing-spacing-*` (class `px-spacing-md`) so they do not override Tailwind's `max-w-md`/`w-lg` named sizes
 - **Plugin categories**: `--cat-trigger|processor|terminal` (the logo's orange, blue and slate) are used only on the canvas, the plugin catalog and edges (`features/workflow/lib/categoryAccent.ts`). Node effects (running glow, edge flow, hover, selected ring, graph fade-in) live in `index.css` under "Workflow canvas" and are disabled by `prefers-reduced-motion`
 - **Icon names missing from `material-symbols`** (`expand_more`, `expand_less`) are listed in `PLUGIN_ICONS` in `scripts/subset-icons.mjs`
-- **Bundle budget**: `pnpm run build` fails if a JS chunk is over 300 KB or the icon font over 100 KB (`scripts/check-bundle-size.js`)
+- **Bundle budget**: `pnpm run build` fails if a JS chunk is over 300 KB (the lazy `charts` chunk with recharts: 450 KB) or the icon font over 100 KB (`scripts/check-bundle-size.js`)
 
 ## Development Workflow
 1. **Frontend dev**: `cd ui && pnpm dev` (Vite dev server auto-rebuilds, HMR enabled)

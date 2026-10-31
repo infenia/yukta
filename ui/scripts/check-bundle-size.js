@@ -9,7 +9,9 @@ import path from 'path';
 
 const dir = path.resolve(import.meta.dirname, '../dist/assets');
 const budgets = [
-  { pattern: /\.js$/, max: 300 * 1000, label: 'JS chunk' },
+  { pattern: /^(?!charts-).*\.js$/, max: 300 * 1000, label: 'JS chunk' },
+  // recharts and d3, loaded only when a dashboard chart shows (see the `charts` group in vite.config.ts)
+  { pattern: /^charts-.*\.js$/, max: 450 * 1000, label: 'charts chunk' },
   { pattern: /^material-symbols.*\.woff2$/, max: 100 * 1000, label: 'icon font' },
 ];
 
