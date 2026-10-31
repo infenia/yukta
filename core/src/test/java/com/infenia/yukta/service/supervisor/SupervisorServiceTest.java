@@ -39,7 +39,8 @@ import reactor.util.context.Context;
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyStaticImports",
   "PMD.ShortMethodName",
-  "PMD.AvoidInstantiatingObjectsInLoops"
+  "PMD.AvoidInstantiatingObjectsInLoops",
+  "PMD.ExcessiveImports"
 })
 class SupervisorServiceTest {
 
@@ -326,7 +327,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void failedSaveOfANewBindingStopsItsSupervisor() {
+  void failedSaveOfNewBindingStopsItsSupervisor() {
     final SupervisorStore failing = spy(new InMemorySupervisorStore());
     final SupervisorService failingService =
         new SupervisorService(failing, List.of(factory), host, log);

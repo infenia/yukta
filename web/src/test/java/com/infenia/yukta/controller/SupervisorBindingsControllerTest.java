@@ -120,7 +120,7 @@ class SupervisorBindingsControllerTest {
   }
 
   @Test
-  void replacingProfileKeepsTheStoredSecretBehindAMask() {
+  void replacingProfileKeepsTheStoredSecretBehindMask() {
     when(service.profiles())
         .thenReturn(
             Flux.just(
@@ -141,7 +141,7 @@ class SupervisorBindingsControllerTest {
   }
 
   @Test
-  void replacingRestoresNestedSecretsAndKeepsAMaskThatHasNothingBehindIt() {
+  void replacingRestoresNestedSecretsAndKeepsMaskWithNothingBehindIt() {
     when(service.profiles())
         .thenReturn(
             Flux.just(
