@@ -495,14 +495,15 @@ describe('WorkflowEditorPage', () => {
         http.get('/api/sessions/:sid/config', () => {
           reads += 1;
           const s = session();
-          if (reads > 1) s.workflows.other!.description = 'ana';
+          const other = s.workflows.other;
+          if (reads > 1 && other) other.description = 'ana';
           return ok(s);
         })
       );
       await save(user);
       await waitFor(() => expect(saved).toHaveLength(1));
-      expect(saved[0]!.workflows.other!.description).toBe('ana');
-      expect(saved[0]!.workflows.wf!.description).toBe('first mine');
+      expect(saved[0]?.workflows.other?.description).toBe('ana');
+      expect(saved[0]?.workflows.wf?.description).toBe('first mine');
     });
 
     it('refuses to overwrite this workflow when it changed since the editor opened', async () => {
@@ -513,7 +514,8 @@ describe('WorkflowEditorPage', () => {
         http.get('/api/sessions/:sid/config', () => {
           reads += 1;
           const s = session();
-          if (reads > 1) s.workflows.wf!.description = 'ben';
+          const wf = s.workflows.wf;
+          if (reads > 1 && wf) wf.description = 'ben';
           return ok(s);
         })
       );
