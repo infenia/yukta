@@ -6,6 +6,7 @@ import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.ControlBusStatus;
 import com.infenia.yukta.mcp.dto.ExecutionLogs;
 import com.infenia.yukta.mcp.dto.ExecutionResultView;
+import com.infenia.yukta.mcp.dto.MetricsSnapshot;
 import com.infenia.yukta.mcp.dto.NodeControlAction;
 import com.infenia.yukta.mcp.dto.NodeOutputResult;
 import com.infenia.yukta.mcp.dto.PendingApprovals;
@@ -25,6 +26,7 @@ import com.infenia.yukta.mcp.dto.WorkflowStartResult;
 import com.infenia.yukta.mcp.dto.WorkflowVersionNote;
 import com.infenia.yukta.mcp.dto.WorkflowVersions;
 import com.infenia.yukta.mcp.provider.LogProvider;
+import com.infenia.yukta.mcp.provider.MetricsProvider;
 import com.infenia.yukta.mcp.provider.PluginInfoProvider;
 import com.infenia.yukta.mcp.provider.ResultProvider;
 import com.infenia.yukta.mcp.provider.SessionInfoProvider;
@@ -89,6 +91,32 @@ public class AppMcpTools {
 
   /** Provides the saved versions of workflows for MCP tools. */
   private final WorkflowVersionProvider workflowVersionProvider;
+
+  /** Provides the server's metrics for MCP tools. */
+  private final MetricsProvider metricsProvider;
+
+  /**
+   * Read the newest metrics.
+   *
+   * @param scope {@code global} (default), {@code session:<id>} or {@code workflow:<id>}
+   * @return the metric values
+   */
+  @McpTool(
+      name = "get_metrics_snapshot",
+      title = "Get Metrics Snapshot",
+      description =
+          "Get the newest server metrics (throughput, queue, workers, JVM, LLM use) or, for scope "
+              + "session:<id> or workflow:<id>, the run counts, failures and p95 duration of the "
+              + "last hour. Counters are rates per second, timers are milliseconds.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<MetricsSnapshot> getMetricsSnapshot(
+      @McpToolParam(
+              required = false,
+              description = "global (default), session:<id> or workflow:<id>")
+          final String scope) {
+    return metricsProvider.getMetricsSnapshot(scope);
+  }
 
   /**
    * Get details of a specific session.

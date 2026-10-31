@@ -1,0 +1,8 @@
+{
+  "reportId": "R-100",
+  "service": "checkout",
+  "exception": "java.net.SocketTimeoutException",
+  "frame": "HttpClient.read(HttpClient.java:210)",
+  "message": "Read timed out calling inventory",
+  "version": "4.1.0"
+}

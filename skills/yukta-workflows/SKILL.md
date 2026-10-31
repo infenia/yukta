@@ -50,6 +50,7 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 | `signal_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `signalName`, `decision`, optional `data` |
 | `list_pending_approvals` | `VIEWER` | optional `sessionId` |
 | `get_scheduler_limits` | `VIEWER` | none |
+| `get_metrics_snapshot` | `VIEWER` | optional `scope` |
 | `set_scheduler_limits` | `ADMIN` | `maxConcurrent`, `maxPerWorkflow` |
 | `list_workflow_versions` | `VIEWER` | `sessionId`, `workflowId` |
 | `diff_workflow_versions` | `VIEWER` | `sessionId`, `workflowId`, `olderVersion`, optional `newerVersion` |

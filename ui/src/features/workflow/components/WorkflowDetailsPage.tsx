@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
@@ -138,6 +139,15 @@ export function WorkflowDetailsPage() {
   const stages = useStageView(graph, tasksByNode);
   const openGraphNode = graph?.nodes.find((n) => n.nodeId === openNode);
   const live = !isTerminalExecStatus(progress?.status);
+  // Rollback is blocked while any run of this workflow is going, not only the one on screen: the
+  // shown run's live status comes from its stream, the others from the executions list
+  const anyRunLive =
+    live ||
+    executions.some(
+      (run) =>
+        run.executionId !== selectedExecutionId &&
+        !isTerminalExecStatus(run.status)
+    );
   const [follow, setFollow] = useState(true);
   const [findQuery, setFindQuery] = useState('');
   // only a run that is going has running nodes to follow
@@ -190,6 +200,22 @@ export function WorkflowDetailsPage() {
         workflowId={workflowId}
         description={graph.description}
         status={executionStatus}
+        runGroup={
+          <>
+            <RunHistoryDropdown
+              executions={executions}
+              selectedExecutionId={selectedExecutionId}
+              onSelect={selectExecution}
+            />
+            <RunControls
+              sessionId={sessionId}
+              workflowId={workflowId}
+              executionId={selectedExecutionId}
+              status={executionStatus}
+              onStarted={selectExecution}
+            />
+          </>
+        }
         actions={
           <>
             {parent.data && (
@@ -206,21 +232,11 @@ export function WorkflowDetailsPage() {
                 Parent run
               </Link>
             )}
-            <RunHistoryDropdown
-              executions={executions}
-              selectedExecutionId={selectedExecutionId}
-              onSelect={selectExecution}
-            />
-            <RunControls
-              sessionId={sessionId}
-              workflowId={workflowId}
-              executionId={selectedExecutionId}
-              status={executionStatus}
-              onStarted={selectExecution}
-            />
             <Link
               to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
-              className={buttonVariants({ variant: 'outline' })}
+              aria-label="Edit"
+              title="Edit workflow"
+              className={buttonVariants({ variant: 'outline', size: 'icon' })}
             >
               <span
                 aria-hidden="true"
@@ -228,36 +244,20 @@ export function WorkflowDetailsPage() {
               >
                 edit
               </span>
-              Edit
             </Link>
-            <RequirePermission perm="deleteSessions">
-              <button
-                type="button"
-                onClick={() => setDeleting(true)}
-                className={buttonVariants({ variant: 'outline' })}
-              >
-                <span
-                  aria-hidden="true"
-                  className="material-symbols-outlined text-base"
-                >
-                  delete
-                </span>
-                Delete
-              </button>
-            </RequirePermission>
             <button
               type="button"
               onClick={() => setPanelOpen((value) => !value)}
               aria-pressed={panelOpen}
               aria-label="Workflow progress"
-              title="Show or hide the progress panel"
-              className={buttonVariants({ variant: 'outline', size: 'icon' })}
+              title={panelOpen ? 'Hide progress panel' : 'Show progress panel'}
+              className={`${buttonVariants({ variant: 'outline', size: 'icon' })} transition-standard active:scale-95`}
             >
               <span
                 aria-hidden="true"
                 className="material-symbols-outlined text-base"
               >
-                right_panel_open
+                {panelOpen ? 'right_panel_close' : 'right_panel_open'}
               </span>
             </button>
             <DropdownMenu>
@@ -295,6 +295,15 @@ export function WorkflowDetailsPage() {
                     Control commands of this run
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuSeparator />
+                <RequirePermission perm="deleteSessions">
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setDeleting(true)}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </RequirePermission>
               </DropdownMenuContent>
             </DropdownMenu>
           </>
@@ -313,7 +322,7 @@ export function WorkflowDetailsPage() {
         <WorkflowVersionsPanel
           sessionId={sessionId}
           workflowId={workflowId}
-          liveRun={live}
+          liveRun={anyRunLive}
         />
       )}
 

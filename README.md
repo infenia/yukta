@@ -61,6 +61,17 @@ Yukta separates *what must happen* from *who does the work*. The process lives i
 
 Release files carry `SHA256SUMS` and a Sigstore signature. See [Deployment](https://yukta.infenia.com/operations/deployment) for upgrades, packages and verification.
 
+### Run modes
+
+`yukta` starts with a live terminal dashboard (health, run counts, recent runs and logs) when it runs in a terminal, and with plain log lines otherwise (service, container, pipe). Set the mode with `--mode=console|plain`, `--plain` or `YUKTA_MODE`; `NO_COLOR` turns the colors off. To run it in the background:
+
+```bash
+yukta start      # detached; waits until healthy
+yukta status     # also: stop, restart, logs [-f]
+```
+
+Under systemd or in Docker the server uses plain mode on its own. See [Run modes](https://yukta.infenia.com/running/run-modes).
+
 ## Quick start
 
 Start the server (`yukta`, or the Docker command above), then open the web UI at <http://localhost:9858/> or the API docs at <http://localhost:9858/swagger-ui.html>. With the Docker command, add `-H "X-API-Key: change-me"` to each `curl`.
@@ -147,7 +158,7 @@ Browse them in the [plugin docs](https://yukta.infenia.com/plugins/overview), wi
 
 ### Examples
 
-[`examples/`](examples/README.md) has ready-to-run workflows, each with a config, a trigger and a test script. Ten are templates for a real pain point in a different domain: an agent that must not skip verification, release and loan approvals, returns and fraud, support triage, a nightly data pipeline, alert triage, content review, a multi-agent team and recruiting. The rest show the basics, an LLM chat agent, driving Yukta over MCP, and how Yukta checks its own code. Run them all against a local server with `examples/run-all.sh`.
+[`examples/`](examples/README.md) has ready-to-run workflows, each with a config, a trigger and a test script. Ten are templates for a real pain point in a different software domain: an agent that must not skip verification, release approval (DevOps), a PR risk gate, dependency-update triage, crash-report triage, an event data pipeline (data engineering), alert triage (SRE), model promotion (MLOps), security-finding triage (AppSec) and a multi-agent team. The rest show the basics, an LLM chat agent, driving Yukta over MCP, and how Yukta checks its own code. Run them all against a local server with `examples/run-all.sh`.
 
 ## Security
 

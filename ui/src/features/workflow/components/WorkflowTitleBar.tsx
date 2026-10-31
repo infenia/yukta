@@ -13,21 +13,27 @@ export function WorkflowTitleBar({
   workflowId,
   description,
   status,
+  runGroup,
   actions,
 }: {
   workflowId: string;
   description?: string;
   status: string | null;
+  /** Run selector and run controls, kept together beside the title (left-aligned). */
+  runGroup?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
-    <div className="border-outline-variant bg-card flex flex-col gap-2 border-b px-4 py-3 sm:px-6">
+    <div className="border-outline-variant bg-surface-container flex flex-col gap-2 border-b px-4 py-3 sm:px-6">
       <BreadcrumbNav />
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-headline-lg text-on-surface font-mono tracking-tight break-all">
           {workflowId}
         </h1>
         <StatusPill status={status} />
+        {runGroup && (
+          <div className="flex flex-wrap items-center gap-2">{runGroup}</div>
+        )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {actions}
         </div>

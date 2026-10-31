@@ -1,0 +1,9 @@
+event_id,user_id,event_type,ts
+E1,u-ana,page_view,2026-10-30T01:00:00Z
+E2,u-bo,click,2026-10-30T01:00:05Z
+E3,u-cy,purchase,2026-10-30T01:01:00Z
+E2,u-bo,click,2026-10-30T01:00:05Z
+E4,u-dee,teleport,2026-10-30T01:02:00Z
+E5,u-ed,signup,2026-10-30T01:03:10Z
+E6,u-flo,page_view,2026-10-30T01:04:00Z
+E7,u-gus,click,2026-10-30T01:05:30Z

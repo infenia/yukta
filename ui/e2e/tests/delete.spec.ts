@@ -6,30 +6,27 @@ import { test, expect } from '../fixtures';
 const WORKFLOW_URL = '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11';
 
 test.describe('Deleting', () => {
-  test('deletes a session from the list after typing its id', async ({
+  test('deletes a session from its page after typing its id', async ({
     page,
     mockSessionsApi,
   }) => {
     await mockSessionsApi(page, {});
     const deleted: string[] = [];
-    await page.route('**/api/sessions/session-1', (route) => {
+    await page.route('**/api/sessions/session', (route) => {
       if (route.request().method() !== 'DELETE') return route.fallback();
       deleted.push(route.request().url());
       return route.fulfill({ status: 204 });
     });
-    await page.goto('/sessions');
+    await page.goto('/sessions/session');
 
-    await page
-      .getByRole('button', { name: /^Delete session / })
-      .first()
-      .click();
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
     const dialog = page.getByRole('dialog', {
-      name: 'Delete session session-1',
+      name: 'Delete session session',
     });
     await expect(dialog.getByRole('button', { name: 'Delete' })).toBeDisabled();
-    await dialog.getByLabel('Type session-1 to confirm').fill('session-1');
+    await dialog.getByLabel('Type session to confirm').fill('session');
     await dialog.getByRole('button', { name: 'Delete' }).click();
-    await expect(dialog.getByText('Deleted session-1.')).toBeVisible();
+    await expect(dialog.getByText('Deleted session.')).toBeVisible();
     await dialog.getByRole('button', { name: 'Done' }).click();
 
     expect(deleted).toHaveLength(1);
@@ -59,7 +56,8 @@ test.describe('Deleting', () => {
     });
     await page.goto(WORKFLOW_URL);
 
-    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    await page.getByRole('button', { name: 'Workflow actions' }).click();
+    await page.getByRole('menuitem', { name: 'Delete' }).click();
     const dialog = page.getByRole('dialog', { name: /Delete workflow/ });
     await dialog.getByLabel(/Type .* to confirm/).fill('wf-982-xk-11');
     await dialog.getByRole('button', { name: 'Delete' }).click();

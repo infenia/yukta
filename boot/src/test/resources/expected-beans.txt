@@ -7,6 +7,7 @@ com.infenia.yukta.config.MessageReflectionHints
 com.infenia.yukta.config.MetadataGuardCustomizer
 com.infenia.yukta.config.SessionConfigProperties
 com.infenia.yukta.config.SpaWebFluxConfig
+com.infenia.yukta.console.ConsoleRunner
 com.infenia.yukta.controller.ControlAuditController
 com.infenia.yukta.controller.ControlBusController
 com.infenia.yukta.controller.EditionController
@@ -55,6 +56,7 @@ com.infenia.yukta.mcp.McpEndpointFilter
 com.infenia.yukta.mcp.McpErrorAdvice
 com.infenia.yukta.mcp.McpErrorFilter
 com.infenia.yukta.mcp.provider.LogProvider
+com.infenia.yukta.mcp.provider.MetricsProvider
 com.infenia.yukta.mcp.provider.PluginInfoProvider
 com.infenia.yukta.mcp.provider.ResultProvider
 com.infenia.yukta.mcp.provider.SessionInfoProvider
@@ -150,6 +152,7 @@ com.infenia.yukta.service.metrics.MetricsConfiguration
 com.infenia.yukta.service.metrics.MetricsConfiguration$1
 com.infenia.yukta.service.metrics.MetricsProperties
 com.infenia.yukta.service.metrics.MetricsSampler
+com.infenia.yukta.service.metrics.RunAnalytics
 com.infenia.yukta.service.orchestrator.ExecutionResumer
 com.infenia.yukta.service.orchestrator.SubWorkflowRunner
 com.infenia.yukta.service.orchestrator.WorkflowOrchestrator

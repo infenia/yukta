@@ -1,0 +1,8 @@
+{
+  "reportId": "R-105",
+  "service": "reports",
+  "exception": "java.lang.IllegalArgumentException",
+  "frame": "DateRange.of(DateRange.java:21)",
+  "message": "end before start",
+  "version": "4.1.0"
+}

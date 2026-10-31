@@ -22,7 +22,7 @@ export function ScopeBar({
         aria-label="Scope"
         value={scope}
         onChange={(e) => setScope(e.target.value)}
-        className="border-border bg-surface text-body-md h-8 rounded-lg border px-2"
+        className="h-8 rounded-lg border border-border bg-surface px-2 text-body-md"
       >
         {scopes.map((s) => (
           <option key={s.value} value={s.value}>
@@ -37,7 +37,7 @@ export function ScopeBar({
             type="button"
             aria-pressed={r === range}
             onClick={() => setRange(r)}
-            className={`text-label-md h-8 rounded-lg px-2.5 ${r === range ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+            className={`h-8 rounded-lg px-2.5 text-label-md ${r === range ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted'}`}
           >
             {r}
           </button>
@@ -47,7 +47,7 @@ export function ScopeBar({
         type="button"
         aria-pressed={live}
         onClick={() => setLive(!live)}
-        className="border-border text-label-md h-8 rounded-lg border px-2.5"
+        className="h-8 rounded-lg border border-border px-2.5 text-label-md"
       >
         {live ? 'Live' : 'Paused'}
       </button>

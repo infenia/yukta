@@ -116,6 +116,7 @@ const server = setupServer(
 
 beforeAll(() => server.listen());
 afterEach(() => {
+  sessionStorage.clear();
   server.resetHandlers();
   sessionFails = false;
   validateFails = false;
@@ -528,6 +529,39 @@ describe('WorkflowEditorPage', () => {
         screen.getByRole('button', { name: 'Save version' })
       ).toBeEnabled();
     });
+  });
+
+  it('keeps unsaved edits in the tab and restores them on reopening; Discard forgets them', async () => {
+    const user = userEvent.setup();
+    const first = renderEditor();
+    await screen.findByLabelText('Configuration (JSON)');
+    await user.type(screen.getByLabelText('Description'), ' more');
+    first.unmount();
+
+    renderEditor();
+    expect(await screen.findByLabelText('Description')).toHaveValue(
+      'first more'
+    );
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    expect(screen.getByText(/Restored your unsaved edits/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(screen.queryByText(/Restored your unsaved edits/)).toBeNull();
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('does not restore a draft made from an older definition', async () => {
+    sessionStorage.setItem(
+      'yukta.draft.s1/wf',
+      JSON.stringify({
+        base: '{"an":"older definition"}',
+        draft: { workflowId: 'wf', description: 'stale', nodes: [], edges: [] },
+      })
+    );
+    renderEditor();
+    expect(await screen.findByLabelText('Description')).toHaveValue('first');
+    expect(screen.queryByText('Unsaved changes')).toBeNull();
+    expect(sessionStorage.length).toBe(0);
   });
 
   it('rejects an edge that already exists and an edge from a node to itself', async () => {

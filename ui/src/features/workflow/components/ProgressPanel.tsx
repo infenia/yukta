@@ -83,7 +83,7 @@ export function ProgressPanel({
     progress && isTerminalExecStatus(progress.status) ? progress : null;
   return (
     <aside
-      className="border-border bg-background flex w-95 shrink-0 flex-col overflow-y-auto border-l"
+      className="animate-in slide-in-from-right-4 fade-in-0 border-border bg-background flex w-95 shrink-0 flex-col overflow-y-auto border-l duration-150"
       data-testid="progress-panel"
       aria-label="Workflow progress"
     >

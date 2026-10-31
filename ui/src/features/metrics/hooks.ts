@@ -6,8 +6,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router';
 import { useEventSourceJson } from '@/hooks/useEventSourceJson';
 import {
+  GLOBAL,
   RANGES,
+  RANGE_MS,
   STREAM_URL,
+  getAnnotations,
+  getHeatmap,
+  getLiveRuns,
+  getModules,
   getSeries,
   getSnapshot,
   type MetricPoint,
@@ -16,24 +22,27 @@ import {
   type Scope,
 } from './api';
 
-const RANGE_MS: Record<Range, number> = {
-  '15m': 15 * 60_000,
-  '1h': 60 * 60_000,
-  '6h': 6 * 60 * 60_000,
-  '24h': 24 * 60 * 60_000,
-};
-
 type SeriesData = Record<string, MetricPoint[]>;
 
 /** History of `name` and its tag variants over `range`, keyed by series key. */
-export const useMetricSeries = (name: string, range: Range) =>
+export const useMetricSeries = (
+  name: string,
+  range: Range,
+  scope: Scope = GLOBAL
+) =>
   useQuery({
-    queryKey: ['metrics', 'series', name, range],
-    queryFn: () => getSeries(name, range),
+    queryKey: ['metrics', 'series', name, range, scope],
+    queryFn: () => getSeries(name, range, scope),
+    // the stream keeps the global series current; a scope is read again now and then
+    refetchInterval: scope === GLOBAL ? false : 15_000,
   });
 
-export const useMetricSnapshot = () =>
-  useQuery({ queryKey: ['metrics', 'snapshot'], queryFn: getSnapshot });
+export const useMetricSnapshot = (scope: Scope = GLOBAL) =>
+  useQuery({
+    queryKey: ['metrics', 'snapshot', scope],
+    queryFn: () => getSnapshot(scope),
+    refetchInterval: scope === GLOBAL ? false : 15_000,
+  });
 
 /**
  * Keeps every cached series and the snapshot current from the server's stream: each sample is
@@ -48,7 +57,14 @@ export function useMetricStream(live: boolean) {
       for (const [queryKey, data] of client.getQueriesData<SeriesData>({
         queryKey: ['metrics', 'series'],
       })) {
-        const [, , name, range] = queryKey as [string, string, string, Range];
+        const [, , name, range, scope] = queryKey as [
+          string,
+          string,
+          string,
+          Range,
+          Scope,
+        ];
+        if (scope !== GLOBAL) continue; // the stream carries the whole server only
         const next: SeriesData = { ...data };
         for (const [key, v] of Object.entries(values)) {
           if (key.startsWith(name)) {
@@ -60,12 +76,43 @@ export function useMetricStream(live: boolean) {
         }
         client.setQueryData(queryKey, next);
       }
-      client.setQueryData(['metrics', 'snapshot'], values);
+      client.setQueryData(['metrics', 'snapshot', GLOBAL], values);
     },
     [client]
   );
   return useEventSourceJson<MetricSample>(live ? STREAM_URL : null, onSample);
 }
+
+/** Minute aggregates move slowly, so the analytics panels read again every 15 s while live. */
+const slow = (live: boolean) => (live ? 15_000 : false);
+
+export const useHeatmap = (range: Range, scope: Scope, live: boolean) =>
+  useQuery({
+    queryKey: ['metrics', 'heatmap', range, scope],
+    queryFn: () => getHeatmap(range, scope),
+    refetchInterval: slow(live),
+  });
+
+export const useModules = (range: Range, scope: Scope, live: boolean) =>
+  useQuery({
+    queryKey: ['metrics', 'modules', range, scope],
+    queryFn: () => getModules(range, scope),
+    refetchInterval: slow(live),
+  });
+
+export const useAnnotations = (range: Range, scope: Scope, live: boolean) =>
+  useQuery({
+    queryKey: ['metrics', 'annotations', range, scope],
+    queryFn: () => getAnnotations(range, scope),
+    refetchInterval: slow(live),
+  });
+
+export const useLiveRuns = (live: boolean) =>
+  useQuery({
+    queryKey: ['metrics', 'live-runs'],
+    queryFn: getLiveRuns,
+    refetchInterval: live ? 3_000 : false,
+  });
 
 /** Scope, range and live/paused, kept in the URL so a view can be shared and survives a reload. */
 export function useDashboardParams() {

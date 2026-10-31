@@ -243,6 +243,27 @@ describe('WorkflowDetailsPage', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
+    it('keeps the page usable while a node is open: another node switches the panel, Escape closes it', async () => {
+      definition();
+      renderPage();
+      fireEvent.click(
+        await screen.findByTestId('workflow-node-vectorize-batch')
+      );
+      await screen.findByRole('dialog', { name: 'vectorize-batch' });
+      // not modal: the page behind is neither hidden from nor inert to the user
+      expect(screen.getByTestId('workflow-details-page')).not.toHaveAttribute(
+        'aria-hidden'
+      );
+
+      fireEvent.click(screen.getByTestId('workflow-node-data-ingress'));
+      expect(
+        await screen.findByRole('dialog', { name: 'data-ingress' })
+      ).toBeInTheDocument();
+
+      await userEvent.setup().keyboard('{Escape}');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
     it('opens from a shared ?node= link', async () => {
       definition();
       renderPage(
@@ -400,6 +421,57 @@ describe('WorkflowDetailsPage', () => {
     expect(screen.queryByText('0001-a')).not.toBeInTheDocument();
   });
 
+  describe('rollback while another run is going', () => {
+    const open = async (runs: ReturnType<typeof createMockExecution>[]) => {
+      executionsPayload = () => runs;
+      server.use(
+        http.get(
+          '/api/sessions/:sessionId/workflows/:workflowId/versions',
+          () =>
+            HttpResponse.json({
+              timestamp: 't',
+              status: 200,
+              message: 'ok',
+              data: [{ id: '0001-a', savedAt: '2026-10-13T10:00:00Z' }],
+              path: '/versions',
+            })
+        )
+      );
+      // the finished run is on screen
+      renderPage(
+        '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11?exec=exec-old-1'
+      );
+      await userEvent.click(
+        await screen.findByRole('button', { name: 'Workflow actions' })
+      );
+      await userEvent.click(
+        await screen.findByRole('menuitem', { name: 'Versions' })
+      );
+      return screen.findByRole('button', { name: 'Roll back' });
+    };
+    const done = createMockExecution({
+      executionId: 'exec-old-1',
+      status: 'COMPLETED',
+      endTime: '2026-07-25T10:00:00',
+    });
+
+    it('is blocked when a run that is not on screen is still running', async () => {
+      const button = await open([createMockExecution(), done]);
+      expect(button).toBeDisabled();
+    });
+
+    it('is allowed when every run has finished', async () => {
+      const button = await open([
+        createMockExecution({
+          status: 'COMPLETED',
+          endTime: '2026-07-26T15:00:00',
+        }),
+        done,
+      ]);
+      expect(button).toBeEnabled();
+    });
+  });
+
   it('links from the run to its control commands', async () => {
     renderPage();
     await userEvent.click(
@@ -419,15 +491,20 @@ describe('WorkflowDetailsPage', () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByTestId('progress-panel');
+    const toggle = screen.getByRole('button', { name: 'Workflow progress' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(toggle).toHaveAttribute('title', 'Hide progress panel');
+    expect(toggle).toHaveTextContent('right_panel_close');
 
     await user.click(
       screen.getByRole('button', { name: /close workflow progress/i })
     );
     expect(screen.queryByTestId('progress-panel')).toBeNull();
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(toggle).toHaveAttribute('title', 'Show progress panel');
+    expect(toggle).toHaveTextContent('right_panel_open');
 
-    await user.click(
-      screen.getByRole('button', { name: /workflow progress/i })
-    );
+    await user.click(toggle);
     expect(screen.getByTestId('progress-panel')).toBeInTheDocument();
   });
 

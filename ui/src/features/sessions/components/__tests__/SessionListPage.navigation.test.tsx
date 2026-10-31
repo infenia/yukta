@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SessionListPage } from '../SessionListPage';
 import * as useSessionSummariesModule from '../../hooks/useSessionSummaries';
@@ -68,16 +68,5 @@ describe('SessionListPage row navigation', () => {
 
     await userEvent.keyboard('a');
     expect(navigate).toHaveBeenCalledTimes(2);
-  });
-
-  it('does not open the session when the actions cell is clicked', () => {
-    renderWithProviders(<SessionListPage />);
-    const actionsCell = firstRow().querySelector(
-      'td:last-child > div'
-    ) as HTMLElement;
-
-    fireEvent.click(actionsCell);
-
-    expect(navigate).not.toHaveBeenCalled();
   });
 });

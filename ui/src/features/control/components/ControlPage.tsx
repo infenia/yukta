@@ -3,6 +3,7 @@
 
 import { useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { DashboardView } from '../dashboard/DashboardView';
 import { SupervisorsPanel } from './SupervisorsPanel';
 import { ControlAuditPanel } from './ControlAuditPanel';
 import { ControlBusPanel } from './ControlBusPanel';
@@ -11,11 +12,16 @@ import { WorkersPanel } from './WorkersPanel';
 import { ActivityPanel } from './ActivityPanel';
 import { ControlEventsProvider } from '../context/ControlEvents';
 
-/** The control bus: its nodes (heartbeat, commands), supervisors, workers and the audit log. */
+/** The tabs: the dashboard with the tables and audit log under it, and the live activity feed. */
+const TABS = ['overview', 'activity'] as const;
+type Tab = (typeof TABS)[number];
+
+/** Mission Control: how the server is doing, who is steering runs, and every control command. */
 export function ControlPage() {
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'activity' ? 'activity' : 'overview';
-  const show = (next: string) => {
+  const requested = params.get('tab');
+  const tab: Tab = TABS.find((t) => t === requested) ?? 'overview';
+  const show = (next: Tab) => {
     const updated = new URLSearchParams(params);
     if (next === 'overview') updated.delete('tab');
     else updated.set('tab', next);
@@ -27,10 +33,10 @@ export function ControlPage() {
         <PageHeader
           backdrop
           title="Control bus"
-          description="Who and what is steering runs: live nodes and their heartbeats, supervisors, workers, and every control command with who sent it."
+          description="How the server is doing, who and what is steering runs, and every control command with who sent it."
           actions={
             <div role="tablist" className="border-border flex gap-4 border-b">
-              {(['overview', 'activity'] as const).map((name) => (
+              {TABS.map((name) => (
                 <button
                   key={name}
                   type="button"
@@ -49,10 +55,12 @@ export function ControlPage() {
             </div>
           }
         />
-        {tab === 'activity' ? (
-          <ActivityPanel />
-        ) : (
+        {tab === 'activity' && <ActivityPanel />}
+        {tab === 'overview' && (
           <>
+            <DashboardView />
+            {/* ponytail: the tables below stay until the supervisor cockpit (#1591) and a
+                tables-as-dialogs pass replace them */}
             <ControlBusPanel />
             <SchedulerPanel />
             <SupervisorsPanel />

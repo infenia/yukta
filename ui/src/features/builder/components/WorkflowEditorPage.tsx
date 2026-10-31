@@ -28,6 +28,7 @@ import { StateMessage } from '@/components/common/StateMessage';
 import { Callout } from '@/components/common/Callout';
 import { NativeSelect } from '@/components/ui/native-select';
 import { toPreviewGraph } from './WorkflowEditorPage.helpers';
+import { readDraft, writeDraft } from './workflowDraft';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
 const PLUGIN_CATEGORIES = ['TRIGGER', 'PROCESSOR', 'TERMINAL'] as const;
@@ -53,7 +54,12 @@ function Editor({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const plugins = usePlugins();
-  const [workflow, setWorkflow] = useState(initial);
+  // Unsaved edits survive a reload or an accidental leave, in this tab only
+  const [restored] = useState(() =>
+    readDraft(session.sessionId, initial.workflowId, initial)
+  );
+  const [workflow, setWorkflow] = useState(restored ?? initial);
+  const [showRestored, setShowRestored] = useState(restored !== null);
   const firstNode = initial.nodes[0]?.nodeId ?? null;
   const [selected, setSelected] = useState<string | null>(firstNode);
   const [result, setResult] = useState<ValidationResult | null>(null);
@@ -143,6 +149,7 @@ function Editor({
     setResult(null);
     setError(null);
     setInvalidJson(new Set());
+    setShowRestored(false);
     setRevision((n) => n + 1);
   };
   useEffect(() => {
@@ -151,6 +158,15 @@ function Editor({
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
+
+  useEffect(() => {
+    writeDraft(
+      session.sessionId,
+      initial.workflowId,
+      initial,
+      dirty ? workflow : null
+    );
+  }, [session.sessionId, initial, workflow, dirty]);
 
   // Saving navigates away on purpose; that must not ask
   const leaving = useRef(false);
@@ -252,6 +268,7 @@ function Editor({
       });
       await queryClient.invalidateQueries({ queryKey: ['sessions'] });
       leaving.current = true;
+      writeDraft(session.sessionId, initial.workflowId, initial, null);
       navigate(
         `/sessions/${encodeURIComponent(session.sessionId)}/workflow/${encodeURIComponent(workflow.workflowId)}`
       );
@@ -321,6 +338,12 @@ function Editor({
         </div>
       </div>
       <div className="px-4 py-2 sm:px-6">
+        {showRestored && (
+          <Callout kind="info" compact>
+            Restored your unsaved edits from this browser tab. Discard goes back
+            to the saved version.
+          </Callout>
+        )}
         <InlineError
           message={
             error ??
