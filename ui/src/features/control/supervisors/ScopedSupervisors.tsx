@@ -16,9 +16,12 @@ import { useBindings } from './useSupervisorData';
 export function ScopedSupervisors({
   sessionId,
   workflowId,
+  className = '',
 }: {
   sessionId: string;
   workflowId?: string;
+  /** Spacing from the page; it lives here so nothing is left behind while this shows nothing. */
+  className?: string;
 }) {
   const bindings = useBindings();
   const [attaching, setAttaching] = useState(false);
@@ -29,7 +32,7 @@ export function ScopedSupervisors({
   return (
     <section
       aria-label="Supervisors"
-      className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-4 py-2"
+      className={`flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 ${className}`}
     >
       <h2 className="text-label-md text-on-surface">Supervisors</h2>
       {here.length === 0 ? (

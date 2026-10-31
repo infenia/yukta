@@ -47,6 +47,7 @@ import { NodeSheet } from './NodeSheet';
 import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
 import { BreakpointDialog } from './BreakpointDialog';
+import { ScopedSupervisors } from '@/features/control/supervisors/ScopedSupervisors';
 
 /** The workflow page: the run, its tasks and logs, and the controls. */
 
@@ -320,6 +321,12 @@ export function WorkflowDetailsPage() {
           liveRun={live}
         />
       )}
+
+      <ScopedSupervisors
+        sessionId={sessionId}
+        workflowId={workflowId}
+        className="mx-6 my-2"
+      />
 
       <PendingApprovals
         sessionId={sessionId}
