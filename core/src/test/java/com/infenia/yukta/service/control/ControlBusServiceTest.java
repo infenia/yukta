@@ -148,7 +148,8 @@ class ControlBusServiceTest {
 
       verify(preparedWorkflowCache).invalidate(SESSION_ID, WORKFLOW_ID);
       verify(orchestrator).prepareWorkflow(workflowDefinition);
-      verify(preparedWorkflowCache).put(SESSION_ID, WORKFLOW_ID, preparedWorkflow);
+      verify(preparedWorkflowCache)
+          .put(eq(SESSION_ID), eq(WORKFLOW_ID), eq(preparedWorkflow), any());
     }
 
     @Test
@@ -163,7 +164,7 @@ class ControlBusServiceTest {
           .verify(Duration.ofSeconds(2));
 
       verify(preparedWorkflowCache).invalidate(SESSION_ID, WORKFLOW_ID);
-      verify(preparedWorkflowCache, never()).put(any(), any(), any());
+      verify(preparedWorkflowCache, never()).put(any(), any(), any(), any());
     }
   }
 

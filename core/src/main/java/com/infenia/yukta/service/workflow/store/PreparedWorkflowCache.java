@@ -6,10 +6,12 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import jakarta.annotation.PreDestroy;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -34,7 +36,10 @@ public class PreparedWorkflowCache {
   private static final String WORKFLOW_ID_KEY = "workflowId";
 
   /** The Caffeine cache for prepared workflows. */
-  private final Cache<String, PreparedWorkflow> cache;
+  /** A prepared workflow and the definition it was built from (null when not known). */
+  private record Entry(@Nullable WorkflowDefinition definition, PreparedWorkflow prepared) {}
+
+  private final Cache<String, Entry> cache;
 
   /**
    * Spring-managed constructor.
@@ -70,7 +75,8 @@ public class PreparedWorkflowCache {
   }
 
   /**
-   * Store a compiled workflow in the cache.
+   * Store a compiled workflow whose definition is not known; a start that checks the definition
+   * will not use it.
    *
    * @param sessionId the session identifier
    * @param workflowId the workflow identifier
@@ -78,9 +84,25 @@ public class PreparedWorkflowCache {
    */
   public void put(
       final String sessionId, final String workflowId, final PreparedWorkflow prepared) {
+    put(sessionId, workflowId, prepared, null);
+  }
+
+  /**
+   * Store a compiled workflow in the cache.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param prepared the compiled workflow
+   * @param definition the definition it was built from, or null if not known
+   */
+  public void put(
+      final String sessionId,
+      final String workflowId,
+      final PreparedWorkflow prepared,
+      @Nullable final WorkflowDefinition definition) {
     final String compositeKey = key(sessionId, workflowId);
     final boolean isReplacement = cache.getIfPresent(compositeKey) != null;
-    cache.put(compositeKey, prepared);
+    cache.put(compositeKey, new Entry(definition, prepared));
     log.atDebug()
         .addKeyValue(SESSION_ID_KEY, sessionId)
         .addKeyValue(WORKFLOW_ID_KEY, workflowId)
@@ -97,7 +119,7 @@ public class PreparedWorkflowCache {
    */
   public Optional<PreparedWorkflow> get(final String sessionId, final String workflowId) {
     final Optional<PreparedWorkflow> result =
-        Optional.ofNullable(cache.getIfPresent(key(sessionId, workflowId)));
+        Optional.ofNullable(cache.getIfPresent(key(sessionId, workflowId))).map(Entry::prepared);
     if (result.isEmpty()) {
       log.atDebug()
           .addKeyValue(SESSION_ID_KEY, sessionId)
@@ -110,6 +132,22 @@ public class PreparedWorkflowCache {
           .log("Cache hit: retrieved compiled workflow");
     }
     return result;
+  }
+
+  /**
+   * Retrieve a compiled workflow only if it was built from {@code definition}: a start that loaded
+   * a newer definition while an apply was in progress must not run the older graph.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param definition the definition the caller is about to run
+   * @return the cached workflow, or empty if absent, evicted or built from another definition
+   */
+  public Optional<PreparedWorkflow> get(
+      final String sessionId, final String workflowId, final WorkflowDefinition definition) {
+    return Optional.ofNullable(cache.getIfPresent(key(sessionId, workflowId)))
+        .filter(entry -> definition.equals(entry.definition()))
+        .map(Entry::prepared);
   }
 
   /**

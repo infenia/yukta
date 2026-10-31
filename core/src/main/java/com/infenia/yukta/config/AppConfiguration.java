@@ -11,7 +11,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
-import tools.jackson.databind.ObjectMapper;
 
 /** Configuration for the application. */
 @Configuration
@@ -24,17 +23,6 @@ public class AppConfiguration {
 
   /** Seconds an idle virtual-thread worker is kept before being released. */
   private static final int VIRTUAL_THREAD_TTL_SECONDS = 60;
-
-  /**
-   * Provide an ObjectMapper bean if not already present.
-   *
-   * @return the ObjectMapper
-   */
-  @Bean
-  @ConditionalOnMissingBean
-  public ObjectMapper objectMapper() {
-    return new ObjectMapper();
-  }
 
   /**
    * Provide a Scheduler that runs each task on its own virtual thread.

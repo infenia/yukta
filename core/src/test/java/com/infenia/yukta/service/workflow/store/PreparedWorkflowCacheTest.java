@@ -208,4 +208,17 @@ class PreparedWorkflowCacheTest {
     assertThat(stats.hitCount()).isGreaterThan(0);
     assertThat(stats.missCount()).isGreaterThan(0);
   }
+
+  @Test
+  void get_withDefinition_onlyReturnsAnEntryBuiltFromThatDefinition() {
+    final com.infenia.yukta.model.workflow.WorkflowDefinition built =
+        new com.infenia.yukta.model.workflow.WorkflowDefinition("w", "d", List.of(), List.of());
+    final com.infenia.yukta.model.workflow.WorkflowDefinition newer =
+        new com.infenia.yukta.model.workflow.WorkflowDefinition("w", "newer", List.of(), List.of());
+    final PreparedWorkflow prepared = mockPrepared();
+    cache.put(SESSION_1, WORKFLOW_1, prepared, built);
+
+    assertThat(cache.get(SESSION_1, WORKFLOW_1, built)).containsSame(prepared);
+    assertThat(cache.get(SESSION_1, WORKFLOW_1, newer)).isEmpty();
+  }
 }

@@ -150,7 +150,7 @@ class WorkflowStarter {
                                   log.atDebug()
                                       .addKeyValue("executionId", executionId)
                                       .log("Workflow prepared and caching");
-                                  cache.put(sessionId, workflowId, prepared);
+                                  cache.put(sessionId, workflowId, prepared, def);
                                 })
                             .thenReturn(prepared))
                 .doFinally(_ -> preparing.remove(key))
@@ -174,7 +174,7 @@ class WorkflowStarter {
 
               // A run pinned to an older version must not take the current prepared workflow.
               final java.util.Optional<PreparedWorkflow> cached =
-                  useCache ? cache.get(sessionId, workflowId) : java.util.Optional.empty();
+                  useCache ? cache.get(sessionId, workflowId, def) : java.util.Optional.empty();
               if (cached.isPresent()) {
                 log.atDebug()
                     .addKeyValue("sessionId", sessionId)
