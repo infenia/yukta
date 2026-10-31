@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.control;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -12,9 +13,33 @@ import org.junit.jupiter.api.Test;
 class SupervisorScopeTest {
 
   @Test
-  void globalMatchesEverythingIncludingCommandsWithoutARun() {
+  void globalMatchesEverythingAndCommandsWithoutRun() {
     assertThat(new SupervisorScope.Global().matches(null, null)).isTrue();
     assertThat(new SupervisorScope.Global().matches("s", "w")).isTrue();
+  }
+
+  @Test
+  void describesItselfByKindSessionAndWorkflow() {
+    final SupervisorScope global = new SupervisorScope.Global();
+    final SupervisorScope session = new SupervisorScope.Session("A");
+    final SupervisorScope workflow = new SupervisorScope.Workflow("w", "A");
+
+    assertThat(global.kind()).isEqualTo(SupervisorScope.Kind.GLOBAL);
+    assertThat(global.sessionId()).isNull();
+    assertThat(global.workflowId()).isNull();
+    assertThat(session.sessionId()).isEqualTo("A");
+    assertThat(session.workflowId()).isNull();
+    assertThat(workflow.kind()).isEqualTo(SupervisorScope.Kind.WORKFLOW);
+    assertThat(workflow.sessionId()).isEqualTo("A");
+    assertThat(workflow.workflowId()).isEqualTo("w");
+  }
+
+  @Test
+  void rejectsMissingIds() {
+    assertThatThrownBy(() -> new SupervisorScope.Session(null))
+        .isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> new SupervisorScope.Workflow(null, null))
+        .isInstanceOf(NullPointerException.class);
   }
 
   @Test

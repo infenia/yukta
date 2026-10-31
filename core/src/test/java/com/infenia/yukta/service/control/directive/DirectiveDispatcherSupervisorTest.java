@@ -74,7 +74,8 @@ class DirectiveDispatcherSupervisorTest {
     when(processor.canProcess(any())).thenReturn(true);
     when(processor.process(any())).thenReturn(Mono.empty());
     supervisor = mock(ExecutionSupervisor.class);
-    when(supervisor.scope()).thenReturn(new com.infenia.yukta.plugin.control.SupervisorScope.Global());
+    when(supervisor.scope())
+        .thenReturn(new com.infenia.yukta.plugin.control.SupervisorScope.Global());
     when(supervisor.id()).thenReturn("guard");
     when(supervisor.review(any())).thenReturn(Mono.just(Decision.ALLOW));
     dispatcher =

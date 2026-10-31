@@ -34,6 +34,7 @@ class ExecutionSupervisorTest {
         new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e"), null, null, null);
 
     assertThat(supervisor.order()).isZero();
+    assertThat(supervisor.scope()).isEqualTo(new SupervisorScope.Global());
     assertThat(supervisor.review(request).block()).isEqualTo(Decision.ALLOW);
   }
 
@@ -89,6 +90,8 @@ class ExecutionSupervisorTest {
     final var missed = new ExecutionEvent.EventsMissed(3, Instant.now());
 
     assertThat(missed.executionId()).isEmpty();
+    assertThat(missed.sessionId()).isEmpty();
+    assertThat(missed.workflowId()).isEmpty();
     assertThat(missed.count()).isEqualTo(3);
   }
 

@@ -2366,6 +2366,15 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "scope" : {
+            "type" : "string"
+          },
+          "scopeSessionId" : {
+            "type" : "string"
+          },
+          "scopeWorkflowId" : {
+            "type" : "string"
+          },
           "type" : {
             "type" : "string"
           }
