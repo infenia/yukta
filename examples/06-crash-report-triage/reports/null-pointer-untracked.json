@@ -1,0 +1,8 @@
+{
+  "reportId": "R-102",
+  "service": "payments",
+  "exception": "java.lang.NullPointerException",
+  "frame": "InvoiceBuilder.build(InvoiceBuilder.java:57)",
+  "message": "Cannot invoke getTotal() because lines is null",
+  "version": "4.1.0"
+}

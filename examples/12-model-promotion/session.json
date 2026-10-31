@@ -1,0 +1,501 @@
+{
+  "sessionId": "example-12-model-promotion",
+  "name": "Model promotion",
+  "description": "A retrained model candidate goes through automatic eval checks (accuracy, latency, bias), then an ML reviewer approves it or asks for a retrain. Retrains loop back for at most 3 rounds; approved models are promoted to the registry and the team is notified.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": {
+    "example": "12-model-promotion"
+  },
+  "workflows": {
+    "round": {
+      "workflowId": "round",
+      "description": "One promotion round: retrain, eval checks, reviewer decision. Ends with outcome SUCCESS (approved) or RETRY (retrain wanted).",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "retrain",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "name": "payload.name",
+              "version": "payload.version",
+              "accuracy": "payload.accuracy",
+              "latencyMs": "payload.latencyMs",
+              "biasGap": "payload.biasGap",
+              "maxLatencyMs": "payload.maxLatencyMs",
+              "attempt": "payload.attempt",
+              "notes": "payload.notes",
+              "evalAccuracy": "payload.accuracy + 0.03 * (payload.attempt - 1)",
+              "evalLatencyMs": "payload.latencyMs",
+              "evalBiasGap": "payload.biasGap"
+            }
+          }
+        },
+        {
+          "nodeId": "check",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "problems": "(payload.evalAccuracy < 0.90 ? 'accuracy below floor 0.90: ' + payload.evalAccuracy + '; ' : '') + (payload.evalLatencyMs > payload.maxLatencyMs ? 'p95 latency too high: ' + payload.evalLatencyMs + ' ms, ceiling ' + payload.maxLatencyMs + '; ' : '') + (payload.evalBiasGap > 0.05 ? 'bias gap over limit 0.05: ' + payload.evalBiasGap : '')"
+            }
+          }
+        },
+        {
+          "nodeId": "gate",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload.problems == ''": "clean",
+              "payload.problems != ''": "fix"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "auto-notes",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "name": "payload.name",
+              "version": "payload.version",
+              "accuracy": "payload.accuracy",
+              "latencyMs": "payload.latencyMs",
+              "biasGap": "payload.biasGap",
+              "maxLatencyMs": "payload.maxLatencyMs",
+              "attempt": "payload.attempt",
+              "notes": "'automatic check failed: ' + payload.problems"
+            }
+          }
+        },
+        {
+          "nodeId": "reviewer",
+          "type": "WAIT_FOR_SIGNAL",
+          "config": {
+            "signal": "promote",
+            "timeoutSeconds": 900,
+            "onTimeout": "FAIL",
+            "onReject": "FAIL"
+          }
+        },
+        {
+          "nodeId": "decide",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "metadata['signal.decision'] == 'approve'": "approved",
+              "metadata['signal.decision'] != 'approve'": "retrain"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "approved-payload",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "name": "payload.name",
+              "version": "payload.version",
+              "evalAccuracy": "payload.evalAccuracy",
+              "evalLatencyMs": "payload.evalLatencyMs",
+              "evalBiasGap": "payload.evalBiasGap",
+              "attempt": "payload.attempt"
+            }
+          }
+        },
+        {
+          "nodeId": "changes-payload",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "name": "payload.name",
+              "version": "payload.version",
+              "accuracy": "payload.accuracy",
+              "latencyMs": "payload.latencyMs",
+              "biasGap": "payload.biasGap",
+              "maxLatencyMs": "payload.maxLatencyMs",
+              "attempt": "payload.attempt",
+              "notes": "metadata['signal.data']"
+            }
+          }
+        },
+        {
+          "nodeId": "approved",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "SUCCESS",
+            "reason": "approved by the ML reviewer"
+          }
+        },
+        {
+          "nodeId": "revise",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "RETRY",
+            "reason": "retrain wanted"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "retrain"
+        },
+        {
+          "source": "retrain",
+          "target": "check"
+        },
+        {
+          "source": "check",
+          "target": "gate"
+        },
+        {
+          "source": "gate",
+          "target": "reviewer",
+          "sourcePort": "clean"
+        },
+        {
+          "source": "gate",
+          "target": "auto-notes",
+          "sourcePort": "fix"
+        },
+        {
+          "source": "auto-notes",
+          "target": "revise"
+        },
+        {
+          "source": "reviewer",
+          "target": "decide"
+        },
+        {
+          "source": "decide",
+          "target": "approved-payload",
+          "sourcePort": "approved"
+        },
+        {
+          "source": "decide",
+          "target": "changes-payload",
+          "sourcePort": "retrain"
+        },
+        {
+          "source": "approved-payload",
+          "target": "approved"
+        },
+        {
+          "source": "changes-payload",
+          "target": "revise"
+        }
+      ]
+    },
+    "review": {
+      "workflowId": "review",
+      "description": "Validate the candidate, run up to 3 promotion rounds, promote to the registry when approved, notify the team either way",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "validate",
+          "type": "VALIDATE",
+          "config": {
+            "required": [
+              "name",
+              "version",
+              "accuracy",
+              "latencyMs",
+              "biasGap"
+            ],
+            "types": {
+              "name": "string",
+              "version": "string",
+              "accuracy": "number",
+              "latencyMs": "number",
+              "biasGap": "number",
+              "maxLatencyMs": "number"
+            }
+          }
+        },
+        {
+          "nodeId": "bad-candidate",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "'outbox.log'",
+              "content": "'NOT PROMOTED: the candidate is invalid'"
+            }
+          }
+        },
+        {
+          "nodeId": "start-round-1",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "name": "payload.name",
+              "version": "payload.version",
+              "accuracy": "payload.accuracy",
+              "latencyMs": "payload.latencyMs",
+              "biasGap": "payload.biasGap",
+              "maxLatencyMs": "payload['maxLatencyMs'] != null ? payload['maxLatencyMs'] : 200",
+              "attempt": "1",
+              "notes": "''"
+            }
+          }
+        },
+        {
+          "nodeId": "round-1",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "round",
+            "routeByOutcome": true,
+            "timeoutSeconds": 1000
+          }
+        },
+        {
+          "nodeId": "start-round-2",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "name": "payload.results[0].name",
+              "version": "payload.results[0].version",
+              "accuracy": "payload.results[0].accuracy",
+              "latencyMs": "payload.results[0].latencyMs",
+              "biasGap": "payload.results[0].biasGap",
+              "maxLatencyMs": "payload.results[0].maxLatencyMs",
+              "attempt": "payload.results[0].attempt + 1",
+              "notes": "payload.results[0].notes"
+            }
+          }
+        },
+        {
+          "nodeId": "round-2",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "round",
+            "routeByOutcome": true,
+            "timeoutSeconds": 1000
+          }
+        },
+        {
+          "nodeId": "start-round-3",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "name": "payload.results[0].name",
+              "version": "payload.results[0].version",
+              "accuracy": "payload.results[0].accuracy",
+              "latencyMs": "payload.results[0].latencyMs",
+              "biasGap": "payload.results[0].biasGap",
+              "maxLatencyMs": "payload.results[0].maxLatencyMs",
+              "attempt": "payload.results[0].attempt + 1",
+              "notes": "payload.results[0].notes"
+            }
+          }
+        },
+        {
+          "nodeId": "round-3",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "round",
+            "routeByOutcome": true,
+            "timeoutSeconds": 1000
+          }
+        },
+        {
+          "nodeId": "stamp-promoted",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "payload.results[0].name + '-' + payload.results[0].version + '.json'",
+              "name": "payload.results[0].name",
+              "version": "payload.results[0].version",
+              "content": "'# ' + payload.results[0].name + ' ' + payload.results[0].version + '\\n\\naccuracy ' + payload.results[0].evalAccuracy + ', p95 ' + payload.results[0].evalLatencyMs + ' ms, bias gap ' + payload.results[0].evalBiasGap + ' (round ' + payload.results[0].attempt + ')\\n'"
+            }
+          }
+        },
+        {
+          "nodeId": "promote",
+          "type": "FILE_WRITE",
+          "config": {
+            "baseDir": "/tmp/yukta-examples/model-promotion/registry",
+            "contentField": "content"
+          }
+        },
+        {
+          "nodeId": "stamp-notify-ok",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "'outbox.log'",
+              "content": "'PROMOTED: ' + payload.name + ' ' + payload.version + ' -> ' + payload.path"
+            }
+          }
+        },
+        {
+          "nodeId": "notify-ok",
+          "type": "FILE_WRITE",
+          "config": {
+            "baseDir": "/tmp/yukta-examples/model-promotion",
+            "contentField": "content",
+            "append": true
+          }
+        },
+        {
+          "nodeId": "done",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "SUCCESS",
+            "reason": "promoted"
+          }
+        },
+        {
+          "nodeId": "stamp-notify-stop",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "'outbox.log'",
+              "content": "payload['outcome'] == 'RETRY' ? 'NOT PROMOTED: not approved after 3 rounds, needs a model owner' : 'NOT PROMOTED: the reviewer rejected the candidate'"
+            }
+          }
+        },
+        {
+          "nodeId": "notify-stop",
+          "type": "FILE_WRITE",
+          "config": {
+            "baseDir": "/tmp/yukta-examples/model-promotion",
+            "contentField": "content",
+            "append": true
+          }
+        },
+        {
+          "nodeId": "stopped",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "not promoted"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "validate"
+        },
+        {
+          "source": "validate",
+          "target": "start-round-1"
+        },
+        {
+          "source": "validate",
+          "target": "bad-candidate",
+          "sourcePort": "invalid"
+        },
+        {
+          "source": "bad-candidate",
+          "target": "notify-stop"
+        },
+        {
+          "source": "start-round-1",
+          "target": "round-1"
+        },
+        {
+          "source": "round-1",
+          "target": "stamp-promoted",
+          "sourcePort": "success"
+        },
+        {
+          "source": "round-1",
+          "target": "start-round-2",
+          "sourcePort": "retry"
+        },
+        {
+          "source": "round-1",
+          "target": "stamp-notify-stop",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "start-round-2",
+          "target": "round-2"
+        },
+        {
+          "source": "round-2",
+          "target": "stamp-promoted",
+          "sourcePort": "success"
+        },
+        {
+          "source": "round-2",
+          "target": "start-round-3",
+          "sourcePort": "retry"
+        },
+        {
+          "source": "round-2",
+          "target": "stamp-notify-stop",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "start-round-3",
+          "target": "round-3"
+        },
+        {
+          "source": "round-3",
+          "target": "stamp-promoted",
+          "sourcePort": "success"
+        },
+        {
+          "source": "round-3",
+          "target": "stamp-notify-stop",
+          "sourcePort": "retry"
+        },
+        {
+          "source": "round-3",
+          "target": "stamp-notify-stop",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "stamp-promoted",
+          "target": "promote"
+        },
+        {
+          "source": "promote",
+          "target": "stamp-notify-ok"
+        },
+        {
+          "source": "stamp-notify-ok",
+          "target": "notify-ok"
+        },
+        {
+          "source": "notify-ok",
+          "target": "done"
+        },
+        {
+          "source": "stamp-notify-stop",
+          "target": "notify-stop"
+        },
+        {
+          "source": "notify-stop",
+          "target": "stopped"
+        }
+      ]
+    }
+  }
+}

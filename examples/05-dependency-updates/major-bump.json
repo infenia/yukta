@@ -1,0 +1,1 @@
+{ "requestId": "BUMP-2002", "package": "webpack-cli", "ecosystem": "npm", "fromVersion": "5.1.4", "toVersion": "6.0.0", "bumpType": "major", "hasCve": true, "testsPassed": true, "dependentsCount": 14, "maintainerEmail": "maint@example.com", "registryToken": "npm_9f3a7cSECRET", "daysSinceRelease": 2 }
