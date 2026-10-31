@@ -8,6 +8,7 @@ import { formatClockTime, formatDuration } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
 import { NodeControlsMenu, type NodeCommand } from './NodeControlsMenu';
 import { aggregateStatus, groupNodes, stageOf } from '../lib/groups';
+import { BAR_COLOR } from '../lib/timeline';
 import type {
   NodeUiStatus,
   TaskProgress,
@@ -23,15 +24,6 @@ const STATUS_ORDER: NodeUiStatus[] = [
   'skipped',
   'pending',
 ];
-
-const BAR_COLOR: Record<NodeUiStatus, string> = {
-  failed: 'bg-destructive',
-  running: 'bg-primary',
-  paused: 'bg-attention',
-  completed: 'bg-success',
-  skipped: 'bg-outline',
-  pending: 'bg-transparent',
-};
 
 /** A raw status for each bucket, so a stage's aggregate reads like a node's in StatusPill. */
 const RAW_STATUS: Record<NodeUiStatus, string> = {

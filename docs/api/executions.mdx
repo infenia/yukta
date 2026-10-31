@@ -56,6 +56,8 @@ Finds runs across all sessions, or in one session, newest first.
 | `status` | string | The run status |
 | `startTime` | string | When it started, with the server's UTC offset, for example `2026-07-19T15:10:01.512+05:30` (`Z` when the server runs in UTC) |
 | `endTime` | string | When it ended. Absent while it runs |
+| `nodes` | object | How far the run got: `done`, `total` and the first node that `failed`. Absent when not known |
+| `initiator` | string | Who or what started the run (see the `initiator` of [start](/api/workflows#start-a-workflow)). Absent for runs started before this was recorded and for runs that nothing named (a restart keeps the original run's initiator) |
 
 The search reads each session's history, which keeps the newest `yukta.execution-log.retained-runs` runs (default `500`).
 

@@ -41,7 +41,7 @@ sessions() {
 }
 
 tick() {
-  local mine ready open_prs n title url ref body code name port handed=0
+  local mine ready open_prs n title url ref body code name port handed=0 work cands
   local idle=() busy_names=() registered=0
   sessions
   ((registered > 0)) || skip "no channel${ONLY:+ named $ONLY} (open one with: yk pickup session)"
@@ -53,9 +53,19 @@ tick() {
   jq -e . >/dev/null <<<"$mine$ready$open_prs" 2>&1 || fail "gh answered something that is not JSON"
   [[ -s "$DEV_HOME/pickup-token" ]] || fail "no $DEV_HOME/pickup-token (yk pickup session creates it)"
 
-  # assigned AND Ready, highest Priority first (P0 before P3; no priority last), then the lowest number
+  # assigned AND Ready, highest Priority first (P0 before P3; no priority last), then the lowest number. The project has thousands of items:
+  # the JSON goes to jq in files, never as an argument (one argument is cut at 128 KB: "Argument list too long")
+  work="$(mktemp -d)"
+  trap "rm -rf '$work'" EXIT  # expanded now: $work is local and gone when the trap runs
+  printf '%s' "$mine" >"$work/mine.json"
+  printf '%s' "$ready" >"$work/ready.json"
+  cands="$(jq -rn --slurpfile mine "$work/mine.json" --slurpfile ready "$work/ready.json" '
+    ([$ready[0].items[]? | select(.status == "Ready") | {key: (.content.number | tostring), value: (.priority // "P9")}] | from_entries) as $pri
+    | [$mine[0][] | select($pri[(.number | tostring)] != null) | . + {p: $pri[(.number | tostring)]}]
+    | sort_by(.p, .number)[] | [.number, .title, .url] | @tsv')" || fail "could not rank the issues (jq failed)"
   while IFS=$'\t' read -r n title url; do
     ((${#idle[@]} > 0)) || break
+    [[ -n "$n" ]] || continue  # a here-string of nothing is one empty line
     # an open PR that names the issue, or its branch on the remote: someone is on it
     if jq -e --argjson n "$n" '[.[] | select(.headRefName == "issue/\($n)" or ((.title + " " + (.body // "")) | test("(?i)(fix(es|ed)?|close[sd]?|resolve[sd]?|refs?) #\($n)\\b")))] | length > 0' <<<"$open_prs" >/dev/null; then
       continue
@@ -75,10 +85,7 @@ tick() {
         *) fail "POST to $name (:$port) answered $code" ;;
       esac
     done
-  done < <(jq -rn --argjson mine "$mine" --argjson ready "$ready" '
-    ([$ready.items[]? | select(.status == "Ready") | {key: (.content.number | tostring), value: (.priority // "P9")}] | from_entries) as $pri
-    | [$mine[] | select($pri[(.number | tostring)] != null) | . + {p: $pri[(.number | tostring)]}]
-    | sort_by(.p, .number)[] | [.number, .title, .url] | @tsv')
+  done <<<"$cands"
   ((handed > 0)) || skip "nothing assigned to you is Ready, or each such issue has a PR or an issue/<n> branch"
 }
 

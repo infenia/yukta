@@ -3282,4 +3282,20 @@ class DefaultTaskTrackerServiceTest {
   private static void settle() {
     await().during(Duration.ofMillis(200)).atMost(Duration.ofSeconds(5)).until(() -> true);
   }
+
+  @Test
+  void testHistoryShowsWhoStartedTheRun() {
+    StepVerifier.create(tracker.startWorkflow("i-exec", "i-sess", "i-wf", List.of("a")))
+        .verifyComplete();
+    assertThat(tracker.getHistory("i-sess").block())
+        .singleElement()
+        .satisfies(run -> assertThat(run.initiator()).isNull());
+
+    tracker.setInitiator("i-exec", "yk check");
+    tracker.setInitiator("unknown", "ignored");
+
+    assertThat(tracker.getHistory("i-sess").block())
+        .singleElement()
+        .satisfies(run -> assertThat(run.initiator()).isEqualTo("yk check"));
+  }
 }

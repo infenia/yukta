@@ -100,7 +100,7 @@ const loadPlan = async ($: Engine) => {
 const startCheck = async ($: Engine) => {
   // plan again: the changes may differ from the last plan the pane showed
   await loadPlan($)
-  const out = await $.process.run([yk, 'check', '--detach'], { cwd: root })
+  const out = await $.process.run([yk, 'check', '--detach', '--notify'], { cwd: root })
   const m = /STARTED execution=(\S+) session=(\S+)/.exec(out.stdout)
   // yk reports why it refused (for example another healing check is running) on stderr
   if (!m) return (out.stderr || out.stdout).trim().split('\n').slice(-2).join(' ') || 'yk check did not start'

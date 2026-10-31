@@ -282,6 +282,23 @@ describe('WorkflowDetailsPage', () => {
     });
   });
 
+  it('switches between the graph and the timeline', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByTestId('workflow-node-vectorize-batch');
+
+    await user.click(screen.getByRole('radio', { name: 'Timeline' }));
+    expect(await screen.findByTestId('run-timeline')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('workflow-node-vectorize-batch')
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: 'Graph' }));
+    expect(
+      await screen.findByTestId('workflow-node-vectorize-batch')
+    ).toBeInTheDocument();
+  });
+
   it('follows the running nodes of a live run until told not to', async () => {
     const user = userEvent.setup();
     renderPage();

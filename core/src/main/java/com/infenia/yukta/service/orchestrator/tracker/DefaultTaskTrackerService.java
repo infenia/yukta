@@ -434,7 +434,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       @Nullable final String restartOf) {
     final WorkflowState state = findState(executionId);
     if (state != null) {
-      final WorkflowState parent = parentExecutionId == null ? null : findState(parentExecutionId);
+      final WorkflowState parent =
+          Optional.ofNullable(parentExecutionId).map(this::findState).orElse(null);
       state.parentExecutionId = parentExecutionId;
       state.restartOf = restartOf;
       if (parentExecutionId == null) {
@@ -771,16 +772,17 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   /**
-   * Puts a run that ended before this server started back into history.
+   * Puts a run that ended before this server started back into history, with who started it.
    *
-   * @param executionId the execution
-   * @param sessionId the session that owns it
-   * @param workflowId the workflow it ran
-   * @param status its final status
+   * @param executionId the execution identifier
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param status final workflow status
    * @param nodeStatuses final status of each node
    * @param started when it started
    * @param ended when it ended
    * @param definitionVersion content hash of the graph the run used, or null if not recorded
+   * @param initiator who or what started the run, or null if not recorded
    */
   @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public void restore(
@@ -791,7 +793,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final Map<String, String> nodeStatuses,
       final Instant started,
       final Instant ended,
-      final String definitionVersion) {
+      final String definitionVersion,
+      final String initiator) {
     history.restore(
         executionId,
         sessionId,
@@ -800,7 +803,13 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         nodeStatuses,
         started,
         ended,
-        definitionVersion);
+        definitionVersion,
+        initiator);
+  }
+
+  @Override
+  public void setInitiator(final String executionId, final String initiator) {
+    Optional.ofNullable(executionIndex.get(executionId)).ifPresent(s -> s.initiator = initiator);
   }
 
   /**

@@ -8,8 +8,11 @@ import com.infenia.yukta.dto.response.WorkflowStopResponse;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.plugin.control.StopMode;
+import com.infenia.yukta.security.ApiKeys;
+import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,7 +20,9 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
+import reactor.util.context.ContextView;
 
 /**
  * Starting workflows, stopping all runs of one, and listing a session's runs. Errors are not caught
@@ -44,6 +50,7 @@ import reactor.core.publisher.Mono;
     description = "Endpoints for starting workflows and listing their executions")
 // Query parameters bind to this record, which AOT cannot see from the method signature.
 @RegisterReflectionForBinding(HistoryFilter.class)
+@SuppressWarnings("PMD.ExcessiveImports")
 public class WorkflowController {
 
   /** Session ID parameter description. */
@@ -75,18 +82,38 @@ public class WorkflowController {
   public Mono<ApiResponse<WorkflowStartResponse>> startWorkflow(
       @Valid @RequestBody final WorkflowStartRequest request,
       @RequestHeader(value = "Idempotency-Key", required = false) final String idempotencyKey) {
-    final Mono<com.infenia.yukta.model.workflow.WorkflowExecution> started =
-        idempotencyKey == null
-            ? workflowService.validateAndStartWorkflow(
-                request.sessionId(), request.workflowId(), request.payload())
-            : workflowService.validateAndStartWorkflow(
-                request.sessionId(), request.workflowId(), request.payload(), idempotencyKey);
-    return started.map(
-        execution ->
-            ApiResponse.success(
-                202,
-                "Workflow start accepted",
-                new WorkflowStartResponse(execution.executionId())));
+    return Mono.deferContextual(
+            context -> {
+              final Map<String, Object> payload =
+                  ExecutionLogEvent.withInitiator(request.payload(), initiator(request, context));
+              return idempotencyKey == null
+                  ? workflowService.validateAndStartWorkflow(
+                      request.sessionId(), request.workflowId(), payload)
+                  : workflowService.validateAndStartWorkflow(
+                      request.sessionId(), request.workflowId(), payload, idempotencyKey);
+            })
+        .map(
+            execution ->
+                ApiResponse.success(
+                    202,
+                    "Workflow start accepted",
+                    new WorkflowStartResponse(execution.executionId())));
+  }
+
+  /**
+   * Who starts the run: the name the request gives, else the name of the API key that made it, else
+   * nobody known.
+   */
+  private static @Nullable String initiator(
+      final WorkflowStartRequest request, final ContextView context) {
+    final String named = request.initiator();
+    if (named != null && !named.isBlank()) {
+      return named.strip();
+    }
+    return context
+        .<ApiKeys.Match>getOrEmpty(CallerIdentity.CONTEXT_KEY)
+        .map(ApiKeys.Match::name)
+        .orElse(null);
   }
 
   /**

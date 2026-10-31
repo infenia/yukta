@@ -23,7 +23,8 @@ edges = [
 ]
 
 path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "session.json")
-d = json.load(open(path))
+with open(path) as f:
+    d = json.load(f)
 d["workflows"]["pickup"] = {"workflowId": "pickup", "description":
     "Scheduled pickup: every 30 minutes hand the next assigned, Ready issue to the yukta-pickup channel (yk pickup on)",
     "nodes": nodes, "edges": edges}

@@ -82,6 +82,45 @@ changes_sum() {
     | sha1sum | cut -d' ' -f1
 }
 
+# ---- Telling the Claude Code session that started a run (cross-session messaging) ----
+
+# notify_session TEXT: posts TEXT into the Claude Code session this process was started from, as a message from another session (it starts a
+# turn when that session is idle). Claude Code exports CLAUDE_CODE_MESSAGING_SOCKET and CLAUDE_CODE_MESSAGING_TOKEN to the hooks and Bash
+# commands of a session; with no socket, or YUKTA_NOTIFY=off, this does nothing. Best effort: it never fails the caller. The wire format is
+# not documented (the docs only show the auth line; the user line is the one Claude Code prints in its own debug hint), so it lives here only:
+#   {"type":"auth","token":"<token>"}
+#   {"type":"user","message":{"role":"user","content":"<text>"}}
+# The connection is opened only when the text is ready (Claude Code closes one that sends no full line within 30 s). Text is cut at 8000 characters.
+notify_session() {
+  [[ "${YUKTA_NOTIFY:-on}" != off && -n "${CLAUDE_CODE_MESSAGING_SOCKET:-}" ]] || return 0
+  python3 -I - "$CLAUDE_CODE_MESSAGING_SOCKET" "${CLAUDE_CODE_MESSAGING_TOKEN:-}" "$1" <<'PY' || true
+import json, socket, sys
+path, token, text = sys.argv[1:4]
+lines = ([{"type": "auth", "token": token}] if token else []) + [{"type": "user", "message": {"role": "user", "content": text[:8000]}}]
+try:
+    s = socket.socket(socket.AF_UNIX)
+    s.settimeout(5)
+    s.connect(path)
+    s.sendall(("\n".join(json.dumps(l) for l in lines) + "\n").encode())
+    s.close()
+except OSError as e:
+    print(f"notify: {e}", file=sys.stderr)
+PY
+}
+
+# notify_text SESSION EXECUTION LOGFILE: the message for a finished run from what `yk watch` printed: its RESULT line, the problem lines
+# before it, and how to read more. A watch that ended without a RESULT line says so.
+notify_text() {
+  local session="$1" exec="$2" log="$3" result problems
+  result="$(grep -a '^RESULT ' "$log" | tail -1)"
+  if [[ -z "$result" ]]; then
+    echo "[yk] run $exec ended without a RESULT line (stopped?). yk watch $session $exec shows where it is."
+    return
+  fi
+  problems="$(grep -a -E '^(ERROR|FAILED|OUTPUT) ' "$log" | tail -12 | cut -c1-300)"
+  printf '[yk] run finished: %s\n%s%s\nMore: yk detail %s %s\n' "$result" "$problems" "${problems:+$'\n'}" "$session" "$exec"
+}
+
 # ---- The dev server: built from origin/main, one per machine, on $DEV_PORT ----
 
 healthy() { curl -fsS -m 3 "${1:-$DEV_URL}/actuator/health" >/dev/null 2>&1; }

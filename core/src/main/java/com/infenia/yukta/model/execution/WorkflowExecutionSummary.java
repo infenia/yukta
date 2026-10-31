@@ -53,21 +53,38 @@ public record WorkflowExecutionSummary(
             description = "How far the run got through its nodes",
             requiredMode = Schema.RequiredMode.NOT_REQUIRED,
             nullable = true)
-        @Nullable Nodes nodes) {
+        @Nullable Nodes nodes,
+    @Schema(
+            description =
+                "Who or what started the run (a name given at the start, or the key that started"
+                    + " it), if known",
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+            nullable = true)
+        @Nullable String initiator) {
 
-  /**
-   * How far a run got through its nodes.
-   *
-   * @param done nodes in a final state (succeeded, failed, skipped, stopped…)
-   * @param total nodes in the run
-   * @param failed the first node that failed, errored or timed out, or null
-   */
-  @Schema(description = "How far a run got through its nodes")
-  public record Nodes(
-      @Schema(description = "Nodes in a final state") int done,
-      @Schema(description = "Nodes in the run") int total,
-      @Schema(description = "The first node that failed, if any", nullable = true)
-          @Nullable String failed) {}
+  /** A summary of a run whose initiator is not known. */
+  public WorkflowExecutionSummary(
+      final String executionId,
+      final String workflowId,
+      final String status,
+      final LocalDateTime startTime,
+      final LocalDateTime endTime,
+      final String parentExecutionId,
+      final String rootExecutionId,
+      final String restartOf,
+      final Nodes nodes) {
+    this(
+        executionId,
+        workflowId,
+        status,
+        startTime,
+        endTime,
+        parentExecutionId,
+        rootExecutionId,
+        restartOf,
+        nodes,
+        null);
+  }
 
   /**
    * A summary of a run in a tree of runs, without its node progress.
@@ -119,4 +136,18 @@ public record WorkflowExecutionSummary(
       final LocalDateTime endTime) {
     this(executionId, workflowId, status, startTime, endTime, null, null, null, null);
   }
+
+  /**
+   * How far a run got through its nodes.
+   *
+   * @param done nodes in a final state (succeeded, failed, skipped, stopped…)
+   * @param total nodes in the run
+   * @param failed the first node that failed, errored or timed out, or null
+   */
+  @Schema(description = "How far a run got through its nodes")
+  public record Nodes(
+      @Schema(description = "Nodes in a final state") int done,
+      @Schema(description = "Nodes in the run") int total,
+      @Schema(description = "The first node that failed, if any", nullable = true)
+          @Nullable String failed) {}
 }
