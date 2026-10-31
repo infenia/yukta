@@ -129,3 +129,42 @@ test.describe('Overview', () => {
     });
   }
 });
+
+test.describe('Hero backdrop behind the page headers', () => {
+  for (const [path, heading] of [
+    ['/', 'Overview'],
+    ['/runs', 'Runs'],
+    ['/plugins', 'Plugins'],
+    ['/control', 'Control bus'],
+  ] as const) {
+    for (const width of [1280, 390]) {
+      test(`${path} at ${width} px has the backdrop and no horizontal scroll`, async ({
+        page,
+      }) => {
+        await page.setViewportSize({ width, height: 800 });
+        await page.goto(path);
+        await expect(
+          page.getByRole('heading', { name: heading, level: 1 })
+        ).toBeVisible();
+
+        const backdrop = page.getByTestId('hero-backdrop');
+        await expect(backdrop).toHaveCount(1);
+        await expect(backdrop).toHaveAttribute('aria-hidden', 'true');
+        const sizes = await page.evaluate(() => ({
+          layer:
+            document
+              .querySelector('[data-testid="hero-backdrop"]')
+              ?.getBoundingClientRect().width ?? -1,
+          main:
+            document.querySelector('main')?.getBoundingClientRect().width ?? -2,
+          overflow:
+            document.documentElement.scrollWidth -
+            document.documentElement.clientWidth,
+        }));
+        // as wide as the page content area, and nothing sticks out
+        expect(sizes.layer).toBe(sizes.main);
+        expect(sizes.overflow).toBeLessThanOrEqual(0);
+      });
+    }
+  }
+});

@@ -27,4 +27,20 @@ describe('PageHeader', () => {
     expect(screen.getByTestId('page-eyebrow')).toHaveTextContent('Catalog');
     expect(screen.getByTestId('page-eyebrow')).toHaveClass('rounded-full');
   });
+
+  it('shows no backdrop unless asked to', () => {
+    render(<PageHeader title="Sessions" />);
+    expect(screen.queryByTestId('hero-backdrop')).not.toBeInTheDocument();
+  });
+
+  it('puts the hero backdrop behind the header, out of the way of focus and pointer', () => {
+    render(<PageHeader title="Plugins" backdrop />);
+    const backdrop = screen.getByTestId('hero-backdrop');
+    expect(backdrop).toHaveAttribute('aria-hidden', 'true');
+    expect(backdrop).toHaveClass(
+      'hero-backdrop',
+      'pointer-events-none',
+      '-z-10'
+    );
+  });
 });
