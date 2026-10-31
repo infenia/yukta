@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -102,6 +103,9 @@ public class SupervisorHost {
   private final BlockingDeque<SupervisorDecision> recentDecisions =
       new LinkedBlockingDeque<>(MAX_DECISIONS);
 
+  /** Serializes attaching, detaching and stopping, so a binding never has two subscriptions. */
+  private final ReentrantLock lock = new ReentrantLock();
+
   /** Subscriptions of the supervisors attached at run time, by binding id. */
   private final Map<String, Disposable> attachedSubscriptions = new ConcurrentHashMap<>();
 
@@ -166,9 +170,14 @@ public class SupervisorHost {
    * @param supervisor the supervisor
    */
   public void attach(final BoundSupervisor supervisor) {
-    detach(supervisor.id());
-    attachedSupervisors.put(supervisor);
-    attachedSubscriptions.put(supervisor.id(), launch(supervisor, supervisor.dryRun() || dryRun));
+    lock.lock();
+    try {
+      detach(supervisor.id());
+      attachedSupervisors.put(supervisor);
+      attachedSubscriptions.put(supervisor.id(), launch(supervisor, supervisor.dryRun() || dryRun));
+    } finally {
+      lock.unlock();
+    }
   }
 
   /**
@@ -178,20 +187,31 @@ public class SupervisorHost {
    * @return true if one was attached
    */
   public boolean detach(final String bindingId) {
-    final Disposable subscription = attachedSubscriptions.remove(bindingId);
-    if (subscription != null) {
-      subscription.dispose();
+    lock.lock();
+    try {
+      final Disposable subscription = attachedSubscriptions.remove(bindingId);
+      if (subscription != null) {
+        subscription.dispose();
+      }
+      meters.find(COMMANDS_METRIC).tag("id", bindingId).counters().forEach(meters::remove);
+      return attachedSupervisors.remove(bindingId) != null;
+    } finally {
+      lock.unlock();
     }
-    return attachedSupervisors.remove(bindingId) != null;
   }
 
   /** Stops every supervisor. */
   @PreDestroy
   public void stop() {
-    subscriptions.forEach(Disposable::dispose);
-    subscriptions.clear();
-    attachedSubscriptions.values().forEach(Disposable::dispose);
-    attachedSubscriptions.clear();
+    lock.lock();
+    try {
+      subscriptions.forEach(Disposable::dispose);
+      subscriptions.clear();
+      attachedSubscriptions.values().forEach(Disposable::dispose);
+      attachedSubscriptions.clear();
+    } finally {
+      lock.unlock();
+    }
   }
 
   /**

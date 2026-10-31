@@ -2565,6 +2565,10 @@
             "format" : "int32",
             "type" : "integer"
           },
+          "nodesTotal" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
           "p95Ms" : {
             "format" : "double",
             "type" : "number"
@@ -6455,7 +6459,7 @@
           "required" : true
         },
         "responses" : {
-          "200" : {
+          "201" : {
             "content" : {
               "*/*" : {
                 "schema" : {
@@ -6463,7 +6467,7 @@
                 }
               }
             },
-            "description" : "OK"
+            "description" : "Created"
           }
         },
         "summary" : "Attach a supervisor",
@@ -6564,7 +6568,7 @@
           "required" : true
         },
         "responses" : {
-          "200" : {
+          "201" : {
             "content" : {
               "*/*" : {
                 "schema" : {
@@ -6572,7 +6576,7 @@
                 }
               }
             },
-            "description" : "OK"
+            "description" : "Created"
           }
         },
         "summary" : "Create a supervisor profile",

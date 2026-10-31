@@ -120,6 +120,93 @@ class SupervisorBindingsControllerTest {
   }
 
   @Test
+  void replacingProfileKeepsTheStoredSecretBehindMask() {
+    when(service.profiles())
+        .thenReturn(
+            Flux.just(
+                new SupervisorProfile("p", "t", Map.of("apiKey", "sk-1", "model", "a"), false)));
+    when(service.saveProfile(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+
+    StepVerifier.create(
+            controller.replaceProfile(
+                "p", new ProfileBody("p", "t", Map.of("apiKey", "***", "model", "b"), false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    final ArgumentCaptor<SupervisorProfile> saved =
+        ArgumentCaptor.forClass(SupervisorProfile.class);
+    verify(service).saveProfile(saved.capture());
+    assertThat(saved.getValue().settings())
+        .containsEntry("apiKey", "sk-1")
+        .containsEntry("model", "b");
+  }
+
+  @Test
+  void replacingRestoresNestedSecretsAndKeepsMaskWithNothingBehindIt() {
+    when(service.profiles())
+        .thenReturn(
+            Flux.just(
+                new SupervisorProfile(
+                    "p", "t", Map.of("auth", Map.of("password", "pw"), "flat", "x"), false)));
+    when(service.saveProfile(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+
+    StepVerifier.create(
+            controller.replaceProfile(
+                "p",
+                new ProfileBody(
+                    "p",
+                    "t",
+                    Map.of(
+                        "auth",
+                        Map.of("password", "***", "user", "u"),
+                        "flat",
+                        Map.of("token", "***"),
+                        "secret",
+                        "***",
+                        "note",
+                        "***"),
+                    false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    final ArgumentCaptor<SupervisorProfile> saved =
+        ArgumentCaptor.forClass(SupervisorProfile.class);
+    verify(service).saveProfile(saved.capture());
+    assertThat(saved.getValue().settings())
+        .containsEntry("auth", Map.of("password", "pw", "user", "u"))
+        .containsEntry("flat", Map.of("token", "***"))
+        .containsEntry("secret", "***")
+        .containsEntry("note", "***");
+  }
+
+  @Test
+  void secretsInsideListsAreHidden() {
+    when(service.profiles())
+        .thenReturn(
+            Flux.just(
+                new SupervisorProfile(
+                    "p",
+                    "t",
+                    Map.of("targets", List.of(Map.of("token", "abc", "url", "u"))),
+                    false)));
+
+    StepVerifier.create(controller.profiles())
+        .assertNext(
+            r ->
+                assertThat(r.data().getFirst().settings().get("targets"))
+                    .isEqualTo(List.of(Map.of("token", "***", "url", "u"))))
+        .verifyComplete();
+  }
+
+  @Test
+  void missingRequiredFieldsAreClientErrors() {
+    StepVerifier.create(controller.createProfile(new ProfileBody(null, "t", Map.of(), false)))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(controller.attach(new BindingBody("b", " ", "global", true)))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
   void deletingProfileAndBindingDelegates() {
     when(service.deleteProfile("p")).thenReturn(Mono.empty());
     when(service.detach("b")).thenReturn(Mono.empty());

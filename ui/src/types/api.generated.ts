@@ -3638,6 +3638,8 @@ export interface components {
             nodesDone?: number;
             /** Format: int32 */
             nodesSeen?: number;
+            /** Format: int32 */
+            nodesTotal?: number;
             /** Format: double */
             p95Ms?: number;
             sessionId?: string;
@@ -6060,8 +6062,8 @@ export interface operations {
             };
         };
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6149,8 +6151,8 @@ export interface operations {
             };
         };
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

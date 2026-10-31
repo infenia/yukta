@@ -3,9 +3,11 @@
 package com.infenia.yukta.controller;
 
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.metrics.MetricSample;
 import com.infenia.yukta.service.metrics.MetricsSampler;
 import com.infenia.yukta.service.metrics.RunAnalytics;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Duration;
@@ -29,6 +31,8 @@ import reactor.core.publisher.Mono;
 
 /** Recent history of the server's own metrics, for the Control dashboard. */
 @RestController
+// the live-run lookup adds the tracker; this controller is the metrics facade
+@SuppressWarnings("PMD.CouplingBetweenObjects")
 @RequestMapping("/api/metrics")
 @RequiredArgsConstructor
 @Tag(name = "Metrics API", description = "Recent history of server metrics")
@@ -57,6 +61,9 @@ public class MetricsController {
 
   /** The per-session and per-workflow aggregates. */
   private final RunAnalytics analytics;
+
+  /** Knows how many nodes a running run has. */
+  private final TaskTrackerService tracker;
 
   /**
    * Series over a range.
@@ -207,7 +214,16 @@ public class MetricsController {
   @Operation(summary = "Live runs", description = "Running runs with progress and p95 baseline")
   public Mono<ApiResponse<List<RunAnalytics.LiveRun>>> liveRuns() {
     return Mono.fromSupplier(
-        () -> ApiResponse.success(200, "Live runs retrieved", analytics.liveRuns()));
+        () ->
+            ApiResponse.success(
+                200,
+                "Live runs retrieved",
+                analytics.liveRuns().stream().map(this::withNodesTotal).toList()));
+  }
+
+  private RunAnalytics.LiveRun withNodesTotal(final RunAnalytics.LiveRun run) {
+    final WorkflowProgress progress = tracker.getProgressByExecutionId(run.executionId());
+    return progress == null ? run : run.withNodesTotal(progress.tasks().size());
   }
 
   /**
