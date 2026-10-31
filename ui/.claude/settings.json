@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./**/pnpm-lock.yaml)",
+      "Read(./**/openapi.json)",
+      "Read(./**/*.generated.*)"
+    ]
+  }
+}
