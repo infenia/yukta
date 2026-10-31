@@ -3638,6 +3638,8 @@ export interface components {
             nodesDone?: number;
             /** Format: int32 */
             nodesSeen?: number;
+            /** Format: int32 */
+            nodesTotal?: number;
             /** Format: double */
             p95Ms?: number;
             sessionId?: string;

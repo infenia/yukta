@@ -3,11 +3,17 @@
 package com.infenia.yukta.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.execution.TaskProgress;
+import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.service.metrics.MetricsProperties;
 import com.infenia.yukta.service.metrics.MetricsSampler;
 import com.infenia.yukta.service.metrics.RunAnalytics;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
@@ -43,7 +49,9 @@ class MetricsControllerTest {
 
   private final RunAnalytics analytics = new RunAnalytics(new ExecutionEventFeed());
 
-  private final MetricsController controller = new MetricsController(sampler, analytics);
+  private final TaskTrackerService tracker = mock(TaskTrackerService.class);
+
+  private final MetricsController controller = new MetricsController(sampler, analytics, tracker);
 
   private void finishedRun(final String session, final String workflow, final String status) {
     final Instant now = Instant.now();
@@ -148,8 +156,18 @@ class MetricsControllerTest {
         .assertNext(
             r ->
                 assertThat(r.data())
-                    .extracting(RunAnalytics.LiveRun::executionId)
-                    .containsExactly("live"))
+                    .extracting(RunAnalytics.LiveRun::nodesTotal)
+                    .containsExactly((Integer) null))
+        .verifyComplete();
+    final var progress = mock(WorkflowProgress.class);
+    when(progress.tasks()).thenReturn(List.of(mock(TaskProgress.class), mock(TaskProgress.class)));
+    when(tracker.getProgressByExecutionId("live")).thenReturn(progress);
+    StepVerifier.create(controller.liveRuns())
+        .assertNext(
+            r ->
+                assertThat(r.data())
+                    .extracting(RunAnalytics.LiveRun::executionId, RunAnalytics.LiveRun::nodesTotal)
+                    .containsExactly(tuple("live", 2)))
         .verifyComplete();
   }
 
