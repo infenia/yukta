@@ -7,9 +7,9 @@ import { useSearchParams } from 'react-router';
 import { useEventSourceJson } from '@/hooks/useEventSourceJson';
 import {
   RANGES,
+  STREAM_URL,
   getSeries,
   getSnapshot,
-  streamUrl,
   type MetricPoint,
   type MetricSample,
   type Range,
@@ -23,45 +23,48 @@ const RANGE_MS: Record<Range, number> = {
   '24h': 24 * 60 * 60_000,
 };
 
-export const useMetricSeries = (metric: string, scope: Scope, range: Range) =>
+type SeriesData = Record<string, MetricPoint[]>;
+
+/** History of `name` and its tag variants over `range`, keyed by series key. */
+export const useMetricSeries = (name: string, range: Range) =>
   useQuery({
-    queryKey: ['metrics', 'series', metric, scope, range],
-    queryFn: () => getSeries(metric, scope, range),
+    queryKey: ['metrics', 'series', name, range],
+    queryFn: () => getSeries(name, range),
   });
 
-export const useMetricSnapshot = (scope: Scope) =>
-  useQuery({
-    queryKey: ['metrics', 'snapshot', scope],
-    queryFn: () => getSnapshot(scope),
-  });
+export const useMetricSnapshot = () =>
+  useQuery({ queryKey: ['metrics', 'snapshot'], queryFn: getSnapshot });
 
 /**
- * Keeps the series and snapshot of `scope` current from the server's stream: each sample is
- * appended to every cached range of its metric (dropping points older than the range) and
- * written into the snapshot. Idle when `live` is false.
+ * Keeps every cached series and the snapshot current from the server's stream: each sample is
+ * appended to the series it belongs to (dropping points older than the range) and written into
+ * the snapshot. Idle when `live` is false. The stream starts with the newest sample, so a
+ * reconnect needs no replay.
  */
-export function useMetricStream(scope: Scope, live: boolean) {
+export function useMetricStream(live: boolean) {
   const client = useQueryClient();
   const onSample = useCallback(
-    ({ metric, t, v }: MetricSample) => {
-      for (const range of RANGES) {
-        client.setQueryData<MetricPoint[]>(
-          ['metrics', 'series', metric, scope, range],
-          (old) =>
-            old && [...old.filter((p) => p.t > t - RANGE_MS[range]), { t, v }]
-        );
+    ({ time, values }: MetricSample) => {
+      for (const [queryKey, data] of client.getQueriesData<SeriesData>({
+        queryKey: ['metrics', 'series'],
+      })) {
+        const [, , name, range] = queryKey as [string, string, string, Range];
+        const next: SeriesData = { ...data };
+        for (const [key, v] of Object.entries(values)) {
+          if (key.startsWith(name)) {
+            next[key] = [
+              ...(next[key] ?? []).filter((p) => p.t > time - RANGE_MS[range]),
+              { t: time, v },
+            ];
+          }
+        }
+        client.setQueryData(queryKey, next);
       }
-      client.setQueryData<Record<string, number>>(
-        ['metrics', 'snapshot', scope],
-        (old) => ({ ...old, [metric]: v })
-      );
+      client.setQueryData(['metrics', 'snapshot'], values);
     },
-    [client, scope]
+    [client]
   );
-  return useEventSourceJson<MetricSample>(
-    live ? streamUrl(scope) : null,
-    onSample
-  );
+  return useEventSourceJson<MetricSample>(live ? STREAM_URL : null, onSample);
 }
 
 /** Scope, range and live/paused, kept in the URL so a view can be shared and survives a reload. */
