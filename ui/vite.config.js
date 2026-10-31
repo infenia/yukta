@@ -33,6 +33,12 @@ export default defineConfig({
                             priority: 20,
                         },
                         {
+                            // Only the lazy charts import these, so the main chunks never load them
+                            name: 'charts',
+                            test: /node_modules[\\/](recharts|d3-[^\\/]+|victory-vendor|internmap)[\\/]/,
+                            priority: 25,
+                        },
+                        {
                             name: 'ui-kit',
                             test: /node_modules[\\/]@base-ui[\\/]/,
                             priority: 20,

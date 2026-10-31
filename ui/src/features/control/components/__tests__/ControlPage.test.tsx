@@ -96,7 +96,9 @@ describe('ControlPage', () => {
   it('reports a failure to load nodes and retries', async () => {
     beatsFail = true;
     renderWithProviders(<ControlPage />);
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    // the dashboard's bus panel and the nodes table both read the same heartbeats
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts.map((a) => a.textContent).join(' ')).toContain(
       'Failed to load nodes'
     );
 
@@ -104,7 +106,7 @@ describe('ControlPage', () => {
     beats = [beat('a', 'n1', 'run-1')];
     await userEvent
       .setup()
-      .click(screen.getByRole('button', { name: 'Retry' }));
+      .click(screen.getAllByRole('button', { name: 'Retry' })[0]);
     expect(await screen.findByText('n1')).toBeInTheDocument();
   });
 

@@ -365,6 +365,33 @@ export const test = base.extend<TestFixtures>({
     await quiet(/\/api\/sessions\/[^/]+\/approvals$/, 200, []);
     await quiet(/\/api\/sessions\/[^/]+\/workflows\/[^/]+\/versions/, 200, []);
     await quiet(/\/api\/control\/audit/, 200, []);
+    // The Control dashboard's endpoints, empty. mockMetricsApi (utils.ts) fills them with data.
+    await quiet(
+      /\/api\/metrics\/(heatmap|modules|annotations|runs\/live)(\?|$)/,
+      200,
+      []
+    );
+    await quiet(/\/api\/metrics\/snapshot(\?|$)/, 200, { time: 0, values: {} });
+    await quiet(/\/api\/metrics\/series(\?|$)/, 200, {
+      range: '1h',
+      series: {},
+    });
+    await quiet(/\/api\/admin\/drain$/, 200, {
+      draining: false,
+      running: 0,
+      queued: 0,
+      idle: true,
+    });
+    await quiet(/\/api\/scheduler\/limits$/, 200, {
+      maxConcurrent: 0,
+      maxPerWorkflow: 0,
+      running: 0,
+      queued: 0,
+      queueCapacity: 100,
+    });
+    await page.route(/\/api\/metrics\/stream/, (route) =>
+      route.fulfill({ status: 200, contentType: 'text/event-stream', body: '' })
+    );
     await quiet(/\/api\/plugins\/[^/]+\/usage$/, 200, []);
     await quiet(/\/api\/executions(\?|$)/, 200, []);
     await quiet(/\/api\/sessions\/[^/]+\/config$/, 200, {
