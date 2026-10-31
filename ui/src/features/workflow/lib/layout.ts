@@ -137,6 +137,24 @@ export function layoutGraph(
     .map((node) => {
       const { width, height } = NODE_SIZE;
       const position = dagreGraph.node(node.nodeId);
+      // top port -> topmost target: the card lays ports out in this order
+      const targetY = (port: string) =>
+        Math.min(
+          ...validEdges
+            .filter(
+              (e) =>
+                e.source === node.nodeId &&
+                resolveSourceHandle(node, e.sourcePort) === port
+            )
+            .map((e) => dagreGraph.node(shownAs(e.target)).y),
+          Number.MAX_VALUE
+        );
+      const ordered = {
+        ...node,
+        outputPorts: [...node.outputPorts].sort(
+          (a, b) => targetY(a) - targetY(b)
+        ),
+      };
       return {
         id: node.nodeId,
         type: 'workflowNode',
@@ -146,7 +164,7 @@ export function layoutGraph(
         draggable: false,
         connectable: false,
         data: {
-          node,
+          node: ordered,
           status: statusOf(node.nodeId),
           task: tasksByNode[node.nodeId],
         },
