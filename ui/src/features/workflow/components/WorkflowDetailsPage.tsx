@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
 import {
   controlErrorMessage,
@@ -42,6 +42,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { getWorkflowProgress } from '../api/getWorkflowProgress';
 import type { TaskProgress } from '../types/workflow';
+import { NodeSheet } from './NodeSheet';
 import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
 import { BreakpointDialog } from './BreakpointDialog';
@@ -57,8 +58,22 @@ export function WorkflowDetailsPage() {
   const [deleting, setDeleting] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [stopping, setStopping] = useState<string | null>(null);
-  // Clicking a node on the canvas narrows the logs to it
-  const [logNode, setLogNode] = useState<string | null>(null);
+  // Clicking a node on the canvas opens its sheet; the node is in the URL so the view can be shared
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openNode = searchParams.get('node');
+  const setOpenNode = (nodeId: string | null) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (nodeId) {
+          next.set('node', nodeId);
+        } else {
+          next.delete('node');
+        }
+        return next;
+      },
+      { replace: true }
+    );
 
   const graphQuery = useWorkflowGraph(sessionId, workflowId);
   const executionsQuery = useWorkflowExecutions(sessionId, workflowId);
@@ -119,6 +134,7 @@ export function WorkflowDetailsPage() {
     return byNode;
   }, [progress]);
   const stages = useStageView(graph, tasksByNode);
+  const openGraphNode = graph?.nodes.find((n) => n.nodeId === openNode);
   const live = !isTerminalExecStatus(progress?.status);
   const [follow, setFollow] = useState(true);
   const [findQuery, setFindQuery] = useState('');
@@ -331,6 +347,19 @@ export function WorkflowDetailsPage() {
         />
       )}
 
+      {openGraphNode && (
+        <NodeSheet
+          node={openGraphNode}
+          task={tasksByNode[openGraphNode.nodeId]}
+          sessionId={sessionId}
+          workflowId={workflowId}
+          executionId={selectedExecutionId}
+          entries={logs.entries}
+          onCommand={onNodeCommand}
+          onClose={() => setOpenNode(null)}
+        />
+      )}
+
       {stopping && (
         <NodeStopDialog
           nodeId={stopping}
@@ -360,7 +389,7 @@ export function WorkflowDetailsPage() {
                 graph={graph}
                 tasksByNode={tasksByNode}
                 stageView={stages.stageView}
-                onNodeClick={setLogNode}
+                onNodeClick={setOpenNode}
                 follow={follow && followable}
                 find={findQuery}
               />
@@ -404,8 +433,6 @@ export function WorkflowDetailsPage() {
               entries={logs.entries}
               dropped={logs.dropped}
               isStreaming={isStreaming || logs.isStreaming}
-              node={logNode}
-              onClearNode={() => setLogNode(null)}
               progress={progress}
             />
           </div>

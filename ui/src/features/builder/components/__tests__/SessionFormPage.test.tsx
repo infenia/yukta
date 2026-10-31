@@ -132,7 +132,7 @@ async function fillAndSubmit() {
   await user.type(screen.getByLabelText('Session ID'), 'my-session');
   await user.type(screen.getByLabelText('Name'), 'My session');
   await user.type(screen.getByLabelText('Description'), 'desc');
-  await user.type(screen.getByLabelText('Project path'), '/work');
+  await user.type(screen.getByLabelText('Working directory'), '/work');
   await user.click(screen.getByRole('button', { name: 'Create session' }));
 }
 
@@ -163,13 +163,13 @@ describe('SessionFormPage', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Start blank' })
     );
-    const input = screen.getByLabelText('Project path');
+    const input = screen.getByLabelText('Working directory');
     await user.type(input, path);
     await user.tab();
     return { user, input };
   }
 
-  it("says when the server can't find the project path, until the path changes", async () => {
+  it("says when the server can't find the working directory, until the path changes", async () => {
     found = { exists: false, directory: false };
     const { user, input } = await leavePath(' /srv/repos/payments ');
     expect(await screen.findByText(/The server can't find/)).toHaveTextContent(
@@ -185,7 +185,7 @@ describe('SessionFormPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('says when the project path is a file', async () => {
+  it('says when the working directory is a file', async () => {
     found = { exists: true, directory: false };
     await leavePath('/etc/hosts');
     expect(
@@ -206,7 +206,7 @@ describe('SessionFormPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('does not look up an empty project path', async () => {
+  it('does not look up an empty working directory', async () => {
     await leavePath(' ');
     expect(checked).toEqual([]);
   });
@@ -333,8 +333,8 @@ describe('SessionFormPage, new', () => {
       '01-hello-world-1'
     );
     expect(screen.getByLabelText('Name')).toHaveValue('Hello world');
-    await user.clear(screen.getByLabelText('Project path'));
-    await user.type(screen.getByLabelText('Project path'), '/work');
+    await user.clear(screen.getByLabelText('Working directory'));
+    await user.type(screen.getByLabelText('Working directory'), '/work');
     await user.click(screen.getByRole('button', { name: 'Create session' }));
     await waitFor(() => expect(posted).toHaveLength(1));
     expect(posted[0]).toMatchObject({

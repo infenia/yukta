@@ -31,7 +31,7 @@ export function validateWorkflow(
   });
 }
 
-/** What the server finds at a project path (only an ADMIN key may ask). */
+/** What the server finds at a working directory (only an ADMIN key may ask). */
 export function checkProjectPath(
   projectPath: string
 ): Promise<{ exists: boolean; directory: boolean }> {

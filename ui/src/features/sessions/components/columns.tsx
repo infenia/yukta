@@ -87,12 +87,12 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
   },
   {
     accessorKey: 'projectPath',
-    header: 'Project path',
+    header: 'Working directory',
     cell: ({ row }) => (
       <button
         type="button"
-        title="Copy project path"
-        aria-label={`Copy project path ${row.original.projectPath}`}
+        title="Copy working directory"
+        aria-label={`Copy working directory ${row.original.projectPath}`}
         onClick={(e) => {
           e.stopPropagation();
           void navigator.clipboard?.writeText(row.original.projectPath);

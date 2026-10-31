@@ -93,17 +93,17 @@ describe('SessionListPage last run', () => {
       'Workflows',
       'Initiator',
       'Tags',
-      'Project path',
+      'Working directory',
       null,
     ]);
   });
 
-  it('copies the project path without opening the session', async () => {
+  it('copies the working directory without opening the session', async () => {
     const user = userEvent.setup();
     renderList();
     await user.click(
       await screen.findByRole('button', {
-        name: 'Copy project path /srv/dogfood',
+        name: 'Copy working directory /srv/dogfood',
       })
     );
     expect(await navigator.clipboard.readText()).toBe('/srv/dogfood');

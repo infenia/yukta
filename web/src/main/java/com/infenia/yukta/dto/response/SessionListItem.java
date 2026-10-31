@@ -19,7 +19,7 @@ import org.jspecify.annotations.Nullable;
  * @param description a human-readable description of the session
  * @param initiator the user or system that initiated the session
  * @param tags flat list of tag keys associated with the session
- * @param projectPath the project path configured for the session
+ * @param projectPath the working directory configured for the session
  * @param workflowCount the number of workflows defined in this session
  * @param lastRun the session's newest run, or null when it has none
  */
@@ -35,7 +35,7 @@ public record SessionListItem(
         String initiator,
     @Schema(description = "Tags associated with the session", example = "[\"prod\", \"etl\"]")
         List<String> tags,
-    @Schema(description = "Project path", example = "/data/pipelines/main") String projectPath,
+    @Schema(description = "Working directory", example = "/data/pipelines/main") String projectPath,
     @Schema(description = "Number of workflows", example = "24") int workflowCount,
     @Schema(description = "The session's newest run, null when it has none", nullable = true)
         @Nullable WorkflowExecutionSummary lastRun) {

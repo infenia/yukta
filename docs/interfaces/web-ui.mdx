@@ -30,11 +30,11 @@ A top bar links to Sessions, Plugins, History and Control, and has the theme tog
 
 ## Sessions
 
-The session list shows one row per session: its name, id and description, the initiator, tags, project path and the number of workflows. Search filters by name or session id. The table shows 10 rows per page. Select a row to open the session.
+The session list shows one row per session: its name, id and description, the initiator, tags, working directory and the number of workflows. Search filters by name or session id. The table shows 10 rows per page. Select a row to open the session.
 
-A session's page shows its description, tags, initiator and project path, with a button that copies the path. Below it, every workflow appears as a card with its id, description, node and edge counts, and the status of its latest run: Completed, Failed, Stopped, Running, Pending or Not Run. Select a card to open the workflow.
+A session's page shows its description, tags, initiator and working directory, with a button that copies the path. Below it, every workflow appears as a card with its id, description, node and edge counts, and the status of its latest run: Completed, Failed, Stopped, Running, Pending or Not Run. Select a card to open the workflow.
 
-**New session** asks for a session id, name, description, initiator and the absolute project path on the server. Creating the session saves it with a starter workflow named `main` (an API trigger wired to a console terminal) and opens the editor on it. **New workflow** on a session's page takes a workflow id and opens the editor on an empty workflow.
+**New session** asks for a session id, name, description, initiator and the absolute working directory on the server. Creating the session saves it with a starter workflow named `main` (an API trigger wired to a console terminal) and opens the editor on it. **New workflow** on a session's page takes a workflow id and opens the editor on an empty workflow.
 
 ## Build and edit workflows
 

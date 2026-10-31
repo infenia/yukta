@@ -13,7 +13,7 @@ import java.util.List;
  * @param description a human-readable description of the session
  * @param initiator the user or system that initiated the session
  * @param tags flat list of tag keys associated with the session
- * @param projectPath the project path configured for the session
+ * @param projectPath the working directory configured for the session
  * @param workflowIds the list of workflow identifiers defined in this session
  */
 @Schema(description = "Details of a session including metadata and workflows")
@@ -27,7 +27,7 @@ public record SessionDetails(
         String initiator,
     @Schema(description = "Tags associated with the session", example = "[\"prod\", \"etl\"]")
         List<String> tags,
-    @Schema(description = "Project path", example = "/data/pipelines/main") String projectPath,
+    @Schema(description = "Working directory", example = "/data/pipelines/main") String projectPath,
     @Schema(description = "The list of workflow identifiers") List<String> workflowIds) {
   /** Compact constructor for defensive copying. */
   public SessionDetails {

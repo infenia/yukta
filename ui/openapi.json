@@ -2133,7 +2133,7 @@
       "ProjectPathRequest" : {
         "properties" : {
           "projectPath" : {
-            "description" : "Project path",
+            "description" : "Working directory",
             "example" : "/data/pipelines/main",
             "maxLength" : 1024,
             "minLength" : 0,
@@ -2251,7 +2251,7 @@
             "type" : "string"
           },
           "projectPath" : {
-            "description" : "Project path",
+            "description" : "Working directory",
             "example" : "/data/pipelines/main",
             "type" : "string"
           },
@@ -2302,7 +2302,7 @@
             "type" : "string"
           },
           "projectPath" : {
-            "description" : "Project path",
+            "description" : "Working directory",
             "example" : "/data/pipelines/main",
             "type" : "string"
           },
@@ -4684,7 +4684,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Check a project path",
+        "summary" : "Check a working directory",
         "tags" : [ "Session API" ]
       }
     },
@@ -6361,6 +6361,9 @@
     "description" : "Find runs across sessions",
     "name" : "Execution Search API"
   }, {
+    "description" : "Check a working directory before creating a session",
+    "name" : "Session API"
+  }, {
     "description" : "Endpoints for control bus operations, node management, and execution observability",
     "name" : "Control Bus & Observability API"
   }, {
@@ -6402,9 +6405,6 @@
   }, {
     "description" : "Signed inbound calls that start a workflow",
     "name" : "Webhook API"
-  }, {
-    "description" : "Check a project path before creating a session",
-    "name" : "Session API"
   }, {
     "description" : "Endpoints for discovering workflow plugins",
     "name" : "Plugin API"
