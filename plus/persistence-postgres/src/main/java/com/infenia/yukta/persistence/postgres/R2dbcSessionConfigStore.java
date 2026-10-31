@@ -4,10 +4,10 @@ package com.infenia.yukta.persistence.postgres;
 
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.model.session.SessionConfigData;
+import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.time.Instant;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.r2dbc.core.DatabaseClient;
@@ -176,7 +176,7 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
   }
 
   @Override
-  public Mono<Map<String, Object>> getAllConfigs(final String sessionId) {
+  public Mono<SessionSnapshot> getAllConfigs(final String sessionId) {
     return client
         .sql("SELECT name FROM session_config WHERE session_id = :s")
         .bind("s", sessionId)
@@ -186,18 +186,7 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
             name ->
                 Mono.zip(
                     arr -> {
-                      final Map<String, Object> configs = new LinkedHashMap<>();
-                      configs.put("sessionId", sessionId);
-                      configs.put("projectPath", arr[0]);
-                      configs.put("executionTimeout", arr[1]);
-                      configs.put("fileLogDir", arr[2]);
-                      configs.put("resultLogDir", arr[3]);
-                      configs.put("initiator", arr[4]);
-                      configs.put("initiatedTime", arr[5]);
-                      configs.put("tags", arr[6]);
-                      configs.put("description", arr[7]);
-                      configs.put("name", name);
-                      configs.put("workflows", arr[8]);
+                      final SessionSnapshot configs = SessionSnapshot.of(sessionId, name, arr);
                       return configs;
                     },
                     getProjectPath(sessionId),
