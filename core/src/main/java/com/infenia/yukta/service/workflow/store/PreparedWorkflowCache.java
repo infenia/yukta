@@ -36,9 +36,6 @@ public class PreparedWorkflowCache {
   private static final String WORKFLOW_ID_KEY = "workflowId";
 
   /** The Caffeine cache for prepared workflows. */
-  /** A prepared workflow and the definition it was built from (null when not known). */
-  private record Entry(@Nullable WorkflowDefinition definition, PreparedWorkflow prepared) {}
-
   private final Cache<String, Entry> cache;
 
   /** Sessions ({@code id}) and workflows ({@code id\0workflow}) that are being deleted. */
@@ -236,4 +233,7 @@ public class PreparedWorkflowCache {
   private static String key(final String sessionId, final String workflowId) {
     return sessionId + COMPOSITE_KEY_SEPARATOR + workflowId;
   }
+
+  /** A prepared workflow and the definition it was built from (null when not known). */
+  private record Entry(@Nullable WorkflowDefinition definition, PreparedWorkflow prepared) {}
 }
