@@ -203,7 +203,12 @@ export function WorkflowDetailsPage() {
               to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
               className={buttonVariants({ variant: 'outline' })}
             >
-              <span className="material-symbols-outlined text-base">edit</span>
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined text-base"
+              >
+                edit
+              </span>
               Edit
             </Link>
             <button
@@ -214,7 +219,10 @@ export function WorkflowDetailsPage() {
               title="Show or hide the progress panel"
               className={buttonVariants({ variant: 'outline', size: 'icon' })}
             >
-              <span className="material-symbols-outlined text-base">
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined text-base"
+              >
                 right_panel_open
               </span>
             </button>
