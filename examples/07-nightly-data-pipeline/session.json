@@ -1,0 +1,166 @@
+{
+  "sessionId": "example-07-nightly-data-pipeline",
+  "name": "Nightly data pipeline",
+  "description": "Read a nightly CSV export, drop repeated rows, set bad rows aside, load the good ones in batches, and fail the run when too many rows are bad.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": { "example": "07-nightly-data-pipeline" },
+  "workflows": {
+    "nightly": {
+      "workflowId": "nightly",
+      "description": "Every night at 02:00 run the pipeline; a failed run is written to alerts.log and the schedule keeps going",
+      "nodes": [
+        { "nodeId": "at-2am", "type": "SCHEDULE_TRIGGER", "config": { "cron": "0 0 2 * * *", "timeoutSeconds": 90000 } },
+        {
+          "nodeId": "run-pipeline",
+          "type": "SUB_WORKFLOW",
+          "config": { "workflowId": "pipeline", "payload": { "path": "inbox/orders.csv" }, "routeByOutcome": true, "timeoutSeconds": 600 }
+        },
+        {
+          "nodeId": "format-alert",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "mapping": { "path": "'out/alerts.log'", "content": "'ALERT nightly pipeline failed: ' + payload.status" } }
+        },
+        {
+          "nodeId": "write-alert",
+          "type": "FILE_WRITE",
+          "config": { "baseDir": "/tmp/yukta-examples/nightly", "path": "out/alerts.log", "append": true }
+        },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "at-2am", "target": "run-pipeline" },
+        { "source": "run-pipeline", "target": "end", "sourcePort": "success" },
+        { "source": "run-pipeline", "target": "format-alert", "sourcePort": "failure" },
+        { "source": "format-alert", "target": "write-alert" },
+        { "source": "write-alert", "target": "end" }
+      ]
+    },
+    "pipeline": {
+      "workflowId": "pipeline",
+      "description": "Read, split, drop repeats, validate, load good rows in batches, quarantine bad rows, summarise, enforce the bad-row limit",
+      "nodes": [
+        { "nodeId": "start", "type": "API_TRIGGER", "config": {} },
+        { "nodeId": "read-file", "type": "FILE_READ", "config": { "baseDir": "/tmp/yukta-examples/nightly" } },
+        { "nodeId": "split-lines", "type": "SPLITTER", "config": { "itemsPath": "payload.content.split('\\n')" } },
+        {
+          "nodeId": "skip-header-and-blanks",
+          "type": "FILTER",
+          "config": { "condition": "payload.trim().length() > 0 && !payload.startsWith('id,')" }
+        },
+        { "nodeId": "row-key", "type": "MAPPER", "config": { "mode": "PROJECTION", "mapping": { "key": "payload" } } },
+        { "nodeId": "seen-row", "type": "KV_STORE", "config": { "op": "incr", "namespace": "nightly-orders" } },
+        {
+          "nodeId": "is-repeat",
+          "type": "BRANCH",
+          "config": { "mode": "EXPRESSION", "cases": { "payload.value > 1": "repeat", "payload.value <= 1": "fresh" } }
+        },
+        {
+          "nodeId": "parse-row",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "line": "payload.key",
+              "id": "payload.key.split(',')[0].matches('[A-Za-z0-9_-]+') ? payload.key.split(',')[0] : null",
+              "email": "payload.key.split(',').length > 1 && payload.key.split(',')[1].matches('[^@ ]+@[^@ ]+[.][^@ ]+') ? payload.key.split(',')[1] : null",
+              "amount": "payload.key.split(',').length > 2 && payload.key.split(',')[2].matches('[0-9]+([.][0-9]+)?') ? payload.key.split(',')[2] : null"
+            }
+          }
+        },
+        {
+          "nodeId": "check-row",
+          "type": "VALIDATE",
+          "config": { "required": ["id", "email", "amount"], "types": { "id": "string", "email": "string", "amount": "string" } }
+        },
+        {
+          "nodeId": "good-fan-out",
+          "type": "RECIPIENT_LIST",
+          "config": { "mode": "STATIC", "recipients": ["load", "count"], "parallel": true }
+        },
+        { "nodeId": "batch", "type": "AGGREGATE", "config": { "size": 3 } },
+        {
+          "nodeId": "format-batch",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "'out/loaded-batches.txt'",
+              "content": "'batch of ' + payload.count + ': ' + payload.items.![id + '|' + email + '|' + amount].toString().substring(1, payload.items.![id + '|' + email + '|' + amount].toString().length() - 1)"
+            }
+          }
+        },
+        {
+          "nodeId": "write-batch",
+          "type": "FILE_WRITE",
+          "config": { "baseDir": "/tmp/yukta-examples/nightly", "path": "out/loaded-batches.txt", "append": true }
+        },
+        {
+          "nodeId": "format-quarantine",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "mapping": { "path": "'out/quarantine.csv'", "content": "payload.line" } }
+        },
+        {
+          "nodeId": "write-quarantine",
+          "type": "FILE_WRITE",
+          "config": { "baseDir": "/tmp/yukta-examples/nightly", "path": "out/quarantine.csv", "append": true }
+        },
+        { "nodeId": "mark-good", "type": "MAPPER", "config": { "mode": "PROJECTION", "mapping": { "status": "'good'" } } },
+        { "nodeId": "mark-bad", "type": "MAPPER", "config": { "mode": "PROJECTION", "mapping": { "status": "'bad'" } } },
+        { "nodeId": "mark-repeat", "type": "MAPPER", "config": { "mode": "PROJECTION", "mapping": { "status": "'repeat'" } } },
+        { "nodeId": "tally", "type": "AGGREGATE", "config": { "size": 100000 } },
+        {
+          "nodeId": "summarise",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "'out/summary.log'",
+              "rows": "payload.items.size()",
+              "badPct": "payload.items.?[status == 'bad'].size() * 100 / payload.items.size()",
+              "content": "'rows=' + payload.items.size() + ' good=' + payload.items.?[status == 'good'].size() + ' bad=' + payload.items.?[status == 'bad'].size() + ' repeat=' + payload.items.?[status == 'repeat'].size()"
+            }
+          }
+        },
+        {
+          "nodeId": "write-summary",
+          "type": "FILE_WRITE",
+          "config": { "baseDir": "/tmp/yukta-examples/nightly", "path": "out/summary.log", "append": true }
+        },
+        {
+          "nodeId": "fail-if-too-many-bad-rows",
+          "type": "BRANCH",
+          "config": { "mode": "EXPRESSION", "cases": { "payload.badPct <= 25": "within-limit" }, "strictMode": true }
+        },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "start", "target": "read-file" },
+        { "source": "read-file", "target": "split-lines" },
+        { "source": "split-lines", "target": "skip-header-and-blanks" },
+        { "source": "skip-header-and-blanks", "target": "row-key" },
+        { "source": "row-key", "target": "seen-row" },
+        { "source": "seen-row", "target": "is-repeat" },
+        { "source": "is-repeat", "target": "parse-row", "sourcePort": "fresh" },
+        { "source": "is-repeat", "target": "mark-repeat", "sourcePort": "repeat" },
+        { "source": "parse-row", "target": "check-row" },
+        { "source": "check-row", "target": "good-fan-out" },
+        { "source": "check-row", "target": "format-quarantine", "sourcePort": "invalid" },
+        { "source": "good-fan-out", "target": "batch", "sourcePort": "load" },
+        { "source": "good-fan-out", "target": "mark-good", "sourcePort": "count" },
+        { "source": "batch", "target": "format-batch" },
+        { "source": "format-batch", "target": "write-batch" },
+        { "source": "write-batch", "target": "end" },
+        { "source": "format-quarantine", "target": "write-quarantine" },
+        { "source": "write-quarantine", "target": "mark-bad" },
+        { "source": "mark-good", "target": "tally" },
+        { "source": "mark-bad", "target": "tally" },
+        { "source": "mark-repeat", "target": "tally" },
+        { "source": "tally", "target": "summarise" },
+        { "source": "summarise", "target": "write-summary" },
+        { "source": "write-summary", "target": "fail-if-too-many-bad-rows" },
+        { "source": "fail-if-too-many-bad-rows", "target": "end", "sourcePort": "within-limit" }
+      ]
+    }
+  }
+}

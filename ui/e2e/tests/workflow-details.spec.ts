@@ -362,6 +362,22 @@ test.describe('Workflow Details Page', () => {
     await expect(page.getByText(long).last()).toBeVisible();
   });
 
+  test('fits the screen: no footer and no page scroll bar', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(WORKFLOW_URL);
+    await expect(page.getByTestId('workflow-details-page')).toBeVisible();
+
+    await expect(page.getByRole('contentinfo')).toHaveCount(0);
+    const overflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollHeight -
+        document.documentElement.clientHeight
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
   test('approves a step that waits for a decision', async ({ page }) => {
     const envelope = (path: string, data: unknown) => ({
       status: 200,

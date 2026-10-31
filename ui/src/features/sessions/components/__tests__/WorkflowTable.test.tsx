@@ -3,10 +3,9 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router';
+import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createTestQueryClient } from '@/test/utils/testUtils';
-import userEvent from '@testing-library/user-event';
 import { WorkflowTable } from '../WorkflowTable';
 import type { WorkflowSummary } from '../../types/session';
 
@@ -31,14 +30,14 @@ describe('WorkflowTable', () => {
   it('renders workflow count in header', () => {
     render(
       <QueryClientProvider client={createTestQueryClient()}>
-      <MemoryRouter>
-        <WorkflowTable
-          sessionId="sess-123"
-          workflows={mockWorkflows}
-          filter=""
-          onFilterChange={() => {}}
-        />
-      </MemoryRouter>
+        <MemoryRouter>
+          <WorkflowTable
+            sessionId="sess-123"
+            workflows={mockWorkflows}
+            filter=""
+            onFilterChange={() => {}}
+          />
+        </MemoryRouter>
       </QueryClientProvider>
     );
 
@@ -51,14 +50,14 @@ describe('WorkflowTable', () => {
   it('renders all workflows', () => {
     render(
       <QueryClientProvider client={createTestQueryClient()}>
-      <MemoryRouter>
-        <WorkflowTable
-          sessionId="sess-123"
-          workflows={mockWorkflows}
-          filter=""
-          onFilterChange={() => {}}
-        />
-      </MemoryRouter>
+        <MemoryRouter>
+          <WorkflowTable
+            sessionId="sess-123"
+            workflows={mockWorkflows}
+            filter=""
+            onFilterChange={() => {}}
+          />
+        </MemoryRouter>
       </QueryClientProvider>
     );
 
@@ -69,14 +68,14 @@ describe('WorkflowTable', () => {
   it('filters workflows by name', () => {
     render(
       <QueryClientProvider client={createTestQueryClient()}>
-      <MemoryRouter>
-        <WorkflowTable
-          sessionId="sess-123"
-          workflows={mockWorkflows}
-          filter="wf1"
-          onFilterChange={() => {}}
-        />
-      </MemoryRouter>
+        <MemoryRouter>
+          <WorkflowTable
+            sessionId="sess-123"
+            workflows={mockWorkflows}
+            filter="wf1"
+            onFilterChange={() => {}}
+          />
+        </MemoryRouter>
       </QueryClientProvider>
     );
 
@@ -87,14 +86,14 @@ describe('WorkflowTable', () => {
   it('filters workflows by description', () => {
     render(
       <QueryClientProvider client={createTestQueryClient()}>
-      <MemoryRouter>
-        <WorkflowTable
-          sessionId="sess-123"
-          workflows={mockWorkflows}
-          filter="Second"
-          onFilterChange={() => {}}
-        />
-      </MemoryRouter>
+        <MemoryRouter>
+          <WorkflowTable
+            sessionId="sess-123"
+            workflows={mockWorkflows}
+            filter="Second"
+            onFilterChange={() => {}}
+          />
+        </MemoryRouter>
       </QueryClientProvider>
     );
 
@@ -105,14 +104,14 @@ describe('WorkflowTable', () => {
   it('shows empty state when no workflows', () => {
     render(
       <QueryClientProvider client={createTestQueryClient()}>
-      <MemoryRouter>
-        <WorkflowTable
-          sessionId="sess-123"
-          workflows={[]}
-          filter=""
-          onFilterChange={() => {}}
-        />
-      </MemoryRouter>
+        <MemoryRouter>
+          <WorkflowTable
+            sessionId="sess-123"
+            workflows={[]}
+            filter=""
+            onFilterChange={() => {}}
+          />
+        </MemoryRouter>
       </QueryClientProvider>
     );
 
@@ -122,14 +121,14 @@ describe('WorkflowTable', () => {
   it('shows no match message when filter returns empty', () => {
     render(
       <QueryClientProvider client={createTestQueryClient()}>
-      <MemoryRouter>
-        <WorkflowTable
-          sessionId="sess-123"
-          workflows={mockWorkflows}
-          filter="nonexistent"
-          onFilterChange={() => {}}
-        />
-      </MemoryRouter>
+        <MemoryRouter>
+          <WorkflowTable
+            sessionId="sess-123"
+            workflows={mockWorkflows}
+            filter="nonexistent"
+            onFilterChange={() => {}}
+          />
+        </MemoryRouter>
       </QueryClientProvider>
     );
 
@@ -142,14 +141,14 @@ describe('WorkflowTable', () => {
     const onFilterChange = vi.fn();
     render(
       <QueryClientProvider client={createTestQueryClient()}>
-      <MemoryRouter>
-        <WorkflowTable
-          sessionId="sess-123"
-          workflows={mockWorkflows}
-          filter=""
-          onFilterChange={onFilterChange}
-        />
-      </MemoryRouter>
+        <MemoryRouter>
+          <WorkflowTable
+            sessionId="sess-123"
+            workflows={mockWorkflows}
+            filter=""
+            onFilterChange={onFilterChange}
+          />
+        </MemoryRouter>
       </QueryClientProvider>
     );
 
@@ -162,14 +161,14 @@ describe('WorkflowTable', () => {
   it('shows each workflow as a row: link, size and last run', () => {
     render(
       <QueryClientProvider client={createTestQueryClient()}>
-      <MemoryRouter>
-        <WorkflowTable
-          sessionId="sess 1"
-          workflows={mockWorkflows}
-          filter=""
-          onFilterChange={() => {}}
-        />
-      </MemoryRouter>
+        <MemoryRouter>
+          <WorkflowTable
+            sessionId="sess 1"
+            workflows={mockWorkflows}
+            filter=""
+            onFilterChange={() => {}}
+          />
+        </MemoryRouter>
       </QueryClientProvider>
     );
     const row = screen.getByTestId('workflow-row-wf1');
@@ -185,14 +184,14 @@ describe('WorkflowTable', () => {
   it('leaves out an empty description', () => {
     render(
       <QueryClientProvider client={createTestQueryClient()}>
-      <MemoryRouter>
-        <WorkflowTable
-          sessionId="s"
-          workflows={[{ ...mockWorkflows[0], description: '' }]}
-          filter=""
-          onFilterChange={() => {}}
-        />
-      </MemoryRouter>
+        <MemoryRouter>
+          <WorkflowTable
+            sessionId="s"
+            workflows={[{ ...mockWorkflows[0], description: '' }]}
+            filter=""
+            onFilterChange={() => {}}
+          />
+        </MemoryRouter>
       </QueryClientProvider>
     );
     expect(
@@ -200,30 +199,22 @@ describe('WorkflowTable', () => {
     ).toBeNull();
   });
 
-  it('opens the editor from the row menu', async () => {
-    const user = userEvent.setup();
-    function Where() {
-      return <output data-testid="where">{useLocation().pathname}</output>;
-    }
+  it('has no row menu; Edit and Delete are on the workflow page', () => {
     render(
       <QueryClientProvider client={createTestQueryClient()}>
-      <MemoryRouter>
-        <Where />
-        <WorkflowTable
-          sessionId="s1"
-          workflows={mockWorkflows}
-          filter=""
-          onFilterChange={() => {}}
-        />
-      </MemoryRouter>
+        <MemoryRouter>
+          <WorkflowTable
+            sessionId="s1"
+            workflows={mockWorkflows}
+            filter=""
+            onFilterChange={() => {}}
+          />
+        </MemoryRouter>
       </QueryClientProvider>
     );
-    await user.click(
-      screen.getByRole('button', { name: 'Actions for workflow wf2' })
-    );
-    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
-    expect(screen.getByTestId('where')).toHaveTextContent(
-      '/sessions/s1/workflow/wf2/edit'
-    );
+    expect(
+      screen.queryByRole('button', { name: 'Actions for workflow wf2' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
   });
 });

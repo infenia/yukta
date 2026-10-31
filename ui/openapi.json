@@ -2059,6 +2059,17 @@
         },
         "type" : "object"
       },
+      "NoteRequest" : {
+        "properties" : {
+          "note" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "PendingApproval" : {
         "properties" : {
           "executionId" : {
@@ -5293,6 +5304,7 @@
     },
     "/api/sessions/{sessionId}/workflows/{workflowId}/versions/note" : {
       "post" : {
+        "description" : "Send {version, note} as the JSON body; a blank note clears it. The query parameters version and note still work but put the note in access logs and URL limits.",
         "operationId" : "note",
         "parameters" : [ {
           "description" : "The unique identifier of the session",
@@ -5311,15 +5323,15 @@
             "type" : "string"
           }
         }, {
-          "description" : "Version id from the list",
+          "description" : "Version id from the list (deprecated: use the body)",
           "in" : "query",
           "name" : "version",
-          "required" : true,
+          "required" : false,
           "schema" : {
             "type" : "string"
           }
         }, {
-          "description" : "The note; blank clears it",
+          "description" : "The note (deprecated: use the body)",
           "in" : "query",
           "name" : "note",
           "required" : false,
@@ -5328,6 +5340,15 @@
             "type" : "string"
           }
         } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NoteRequest"
+              }
+            }
+          }
+        },
         "responses" : {
           "200" : {
             "content" : {

@@ -20,9 +20,9 @@ vi.mock('@/components/layout/AppFooter', () => ({
 }));
 
 describe('App', () => {
-  const renderApp = () => {
+  const renderApp = (path = '/') => {
     return render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <App />
       </MemoryRouter>
     );
@@ -44,6 +44,20 @@ describe('App', () => {
     renderApp();
     expect(screen.getByTestId('app-footer')).toBeInTheDocument();
     expect(screen.getByText('Footer')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['/sessions/s1/workflow/w1', false],
+    ['/sessions/s1/workflow/w1/', false],
+    ['/sessions/s1/workflow/w1/edit', true],
+    ['/sessions/s1', true],
+    ['/sessions', true],
+    ['/', true],
+  ])('footer on %s: %s', (path, shown) => {
+    renderApp(path);
+    expect(screen.queryByTestId('app-footer') !== null).toBe(shown);
+    // the mobile navigation stays on every page
+    expect(screen.getByTestId('mobile-nav')).toBeInTheDocument();
   });
 
   it('should render main content area', () => {
