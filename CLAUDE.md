@@ -108,6 +108,9 @@ Load the below skill for test generation and test improvement.
 
 
 ## Imports
+The yukta skill is imported so it is always loaded (also after /compact and in subagents), not only when its description matches.
+
+@.claude/skills/yukta/SKILL.md
 @.claude/rules/coding-standards.md
 @.claude/rules/git-workflow.md
 

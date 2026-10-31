@@ -10,6 +10,8 @@ Develops Yukta with Yukta. Needs the generic `yukta` mod (declared as a dependen
 - TaskCompleted (agent teams, experimental): a **teammate** cannot complete a task while the shared checkout fails `yk check --no-heal`; see "Agent teams" below
 - `/yk-check` runs `yk check --detach` and follows its stages in a pane (Stop button), `/yk-plan` prints `yk plan`
 
+The enforcement (deny, Stop nudge) is also in `.claude/hooks/yk-hook.py`, registered in `.claude/settings.json`, so it works without installing this mod; the mod adds the panes and commands.
+
 Off: `YUKTA_DOGFOOD=off`. Headless fixers (`YUKTA_HEAL_FIXER=1`) are skipped.
 
 ## Install
