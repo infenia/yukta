@@ -13,6 +13,9 @@ const WORKFLOW_URL = '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11';
 
 const screenshotOptions = {
   full: { maxDiffPixels: 2000, threshold: 0.2 },
+  // Full-page captures of the live run also move with the run's timers and the
+  // log tail; CI diffs have measured ~3.5k-5.3k pixels (about 1% of the page).
+  fullLive: { maxDiffPixels: 6000, threshold: 0.2 },
   partial: { maxDiffPixels: 1000, threshold: 0.2 },
 };
 
@@ -603,7 +606,7 @@ test.describe('Workflow Details Page', () => {
       await page.evaluate(() => document.fonts.ready);
 
       await expect(page).toHaveScreenshot('workflow-details-full-page.webp', {
-        ...screenshotOptions.full,
+        ...screenshotOptions.fullLive,
         animations: 'disabled',
         // The logs stream reconnects on its own, so its lines can shift between runs.
         mask: [page.getByTestId('logs-panel')],
@@ -628,7 +631,7 @@ test.describe('Workflow Details Page', () => {
       await expect(page).toHaveScreenshot(
         'workflow-details-full-page-dark.webp',
         {
-          ...screenshotOptions.full,
+          ...screenshotOptions.fullLive,
           animations: 'disabled',
           // The logs stream reconnects on its own, so its lines can shift between runs.
           mask: [page.getByTestId('logs-panel')],
