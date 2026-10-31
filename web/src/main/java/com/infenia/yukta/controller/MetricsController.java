@@ -31,6 +31,8 @@ import reactor.core.publisher.Mono;
 
 /** Recent history of the server's own metrics, for the Control dashboard. */
 @RestController
+// the live-run lookup adds the tracker; this controller is the metrics facade
+@SuppressWarnings("PMD.CouplingBetweenObjects")
 @RequestMapping("/api/metrics")
 @RequiredArgsConstructor
 @Tag(name = "Metrics API", description = "Recent history of server metrics")

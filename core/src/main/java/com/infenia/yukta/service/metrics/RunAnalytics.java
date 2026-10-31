@@ -336,12 +336,13 @@ public class RunAnalytics {
 
   private void seedControl(
       final ExecutionLogEvent e, final ExecutionLogEvent owner, final Instant from) {
-    if (e.timestamp().isBefore(from) || e.status() == null) {
+    final String status = e.status();
+    if (e.timestamp().isBefore(from) || status == null) {
       return;
     }
     final boolean applied = e.type() == ExecutionLogEvent.Type.CONTROL_APPLIED;
     // a rejection is logged as "command: reason"
-    final String[] parts = e.status().split(": ", 2);
+    final String[] parts = status.split(": ", 2);
     addAnnotation(
         new Annotation(
             e.timestamp().toEpochMilli(),

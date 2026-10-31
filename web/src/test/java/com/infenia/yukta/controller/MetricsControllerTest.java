@@ -3,6 +3,7 @@
 package com.infenia.yukta.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -151,6 +152,13 @@ class MetricsControllerTest {
                     .extracting(RunAnalytics.Annotation::command)
                     .containsExactly("PauseWorkflowCommand"))
         .verifyComplete();
+    StepVerifier.create(controller.liveRuns())
+        .assertNext(
+            r ->
+                assertThat(r.data())
+                    .extracting(RunAnalytics.LiveRun::nodesTotal)
+                    .containsExactly((Integer) null))
+        .verifyComplete();
     final var progress = mock(WorkflowProgress.class);
     when(progress.tasks()).thenReturn(List.of(mock(TaskProgress.class), mock(TaskProgress.class)));
     when(tracker.getProgressByExecutionId("live")).thenReturn(progress);
@@ -159,7 +167,7 @@ class MetricsControllerTest {
             r ->
                 assertThat(r.data())
                     .extracting(RunAnalytics.LiveRun::executionId, RunAnalytics.LiveRun::nodesTotal)
-                    .containsExactly(org.assertj.core.groups.Tuple.tuple("live", 2)))
+                    .containsExactly(tuple("live", 2)))
         .verifyComplete();
   }
 

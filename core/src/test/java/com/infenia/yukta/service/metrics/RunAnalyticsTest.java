@@ -4,9 +4,12 @@ package com.infenia.yukta.service.metrics;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import java.time.Clock;
 import java.time.Duration;
@@ -16,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 
 @SuppressWarnings({
   "PMD.TooManyMethods",
@@ -411,5 +415,155 @@ class RunAnalyticsTest {
         .containsExactly(
             org.assertj.core.groups.Tuple.tuple("PauseWorkflowCommand", true, null),
             org.assertj.core.groups.Tuple.tuple("StopCommand", false, "not running"));
+  }
+
+  @Test
+  void seedingSkipsIncompleteAndStaleEntries() {
+    final var noStatusRun =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.RUN_FINISHED,
+            "blank",
+            "s1",
+            "w1",
+            null,
+            null,
+            Map.of(),
+            null,
+            null,
+            T0.plusSeconds(12),
+            null);
+    final var orphanRun =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.RUN_FINISHED,
+            "orphan",
+            "s1",
+            "w1",
+            null,
+            SUCCESS,
+            Map.of(),
+            null,
+            null,
+            T0.plusSeconds(12),
+            null);
+    final var noStatusControl =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_APPLIED,
+            "blank",
+            "s1",
+            "w1",
+            null,
+            null,
+            Map.of(),
+            null,
+            null,
+            T0.plusSeconds(12),
+            null);
+    final var staleControl =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_APPLIED,
+            "old",
+            "s1",
+            "w1",
+            null,
+            "PauseWorkflowCommand",
+            Map.of(),
+            null,
+            null,
+            T0.minus(Duration.ofDays(3)),
+            null);
+    final var unownedRejection =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_REJECTED,
+            "nobody",
+            null,
+            null,
+            null,
+            "StopCommand",
+            Map.of(),
+            null,
+            null,
+            T0.plusSeconds(12),
+            null);
+
+    final var nodeDone =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.NODE_FINISHED,
+            "orphan",
+            "s1",
+            "w1",
+            null,
+            null,
+            Map.of(),
+            "n1",
+            null,
+            T0.plusSeconds(12),
+            null);
+    final var aborted =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.RUN_ABORTED,
+            "aborted",
+            "s1",
+            "w1",
+            null,
+            FAILURE,
+            Map.of(),
+            null,
+            null,
+            T0.plusSeconds(12),
+            null);
+
+    analytics.seed(
+        List.of(
+            noStatusRun,
+            orphanRun,
+            noStatusControl,
+            staleControl,
+            unownedRejection,
+            nodeDone,
+            aborted));
+
+    assertThat(analytics.snapshot("session:s1"))
+        .containsEntry("runs.finished", 2.0)
+        .containsEntry("runs.failed", 1.0);
+    assertThat(analytics.annotations(RunAnalytics.GLOBAL, Duration.ofDays(1)))
+        .singleElement()
+        .satisfies(
+            a -> {
+              assertThat(a.command()).isEqualTo("StopCommand");
+              assertThat(a.applied()).isFalse();
+              assertThat(a.reason()).isNull();
+            });
+  }
+
+  @Test
+  void startSeedsFromTheDurableLogOnlyWhenThereIsOne() {
+    final var finished =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.RUN_FINISHED,
+            "logged",
+            "s1",
+            "w1",
+            null,
+            SUCCESS,
+            Map.of(),
+            null,
+            null,
+            Instant.now(),
+            null);
+    final ExecutionLogStore store = mock(ExecutionLogStore.class);
+    when(store.readAll()).thenReturn(List.of(finished));
+    @SuppressWarnings("unchecked")
+    final ObjectProvider<ExecutionLogStore> provider = mock(ObjectProvider.class);
+    when(provider.getIfAvailable()).thenReturn(store);
+    final var withLog = new RunAnalytics(new ExecutionEventFeed(), provider);
+    withLog.start();
+    assertThat(withLog.snapshot("session:s1")).containsEntry("runs.finished", 1.0);
+    withLog.stop();
+
+    when(provider.getIfAvailable()).thenReturn(null);
+    final var withoutLog = new RunAnalytics(new ExecutionEventFeed(), provider);
+    withoutLog.start();
+    assertThat(withoutLog.snapshot("session:s1")).doesNotContainKey("runs.finished");
+    withoutLog.stop();
   }
 }
