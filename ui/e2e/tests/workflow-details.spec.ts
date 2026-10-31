@@ -605,6 +605,8 @@ test.describe('Workflow Details Page', () => {
       await expect(page).toHaveScreenshot('workflow-details-full-page.webp', {
         ...screenshotOptions.full,
         animations: 'disabled',
+        // The logs stream reconnects on its own, so its lines can shift between runs.
+        mask: [page.getByTestId('logs-panel')],
       });
     });
 
@@ -628,6 +630,8 @@ test.describe('Workflow Details Page', () => {
         {
           ...screenshotOptions.full,
           animations: 'disabled',
+          // The logs stream reconnects on its own, so its lines can shift between runs.
+          mask: [page.getByTestId('logs-panel')],
         }
       );
     });

@@ -202,7 +202,11 @@ export function RunControls({
       >
         <RequirePermission perm="controlRuns">
           {category === 'paused' ? (
-            <button type="button" className={SEG} onClick={() => act('resume')}>
+            <button
+              type="button"
+              className={`${SEG} text-primary`}
+              onClick={() => act('resume')}
+            >
               <span className="material-symbols-outlined text-base">
                 play_circle
               </span>
@@ -223,7 +227,7 @@ export function RunControls({
         <DropdownMenu>
           <RequirePermission perm="controlRuns">
             <DropdownMenuTrigger
-              className={SEG}
+              className={`${SEG} text-destructive`}
               disabled={!live}
               aria-label="Stop options"
             >
