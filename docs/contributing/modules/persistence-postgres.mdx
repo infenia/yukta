@@ -223,7 +223,7 @@ Stores the workflow definitions of each session with their newest 20 versions, a
 
 - `R2dbcWorkflowDefinitionStore.save` is one statement: it writes a new row in `workflow_definition_revision` unless the stored definition is identical (compared as JSONB), and upserts the current row. A second statement then deletes all but the newest 20 revisions of that workflow. The revision id comes from the time and the definition, and is ordered as text.
 - `saveNote` sets the note on one version (an empty note is stored as null) and fails with Not Found if the version does not exist. `findRevision` and `revisions` back the web diff and rollback endpoints.
-- `R2dbcSessionConfigStore` keeps name, description, project path, initiator, initiated time and tags in `session_config`. Initiator, description, initiated time and tags are set only while still empty. The execution timeout and the log directories are not stored: they come from `SessionConfigProperties` for every session.
+- `R2dbcSessionConfigStore` keeps name, description, working directory, initiator, initiated time and tags in `session_config`. Initiator, description, initiated time and tags are set only while still empty. The execution timeout and the log directories are not stored: they come from `SessionConfigProperties` for every session.
 - Applying a session config writes the row, then saves each workflow one after the other. The store has no way to delete a session row, and the interface has no delete either.
 - `getAllConfigs` runs about seven queries for one session. `getSessionIds` lists sessions that have a config row, so definitions without a row are not listed.
 
@@ -421,7 +421,7 @@ What this module does, how, what it guarantees and where the guarantee stops.
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| Session settings | Name, description, project path, initiator, initiated time and tags per session. | Table `session_config`; some fields are set only while empty. | The session list survives a restart. | Timeout and log directories are not stored; no way to delete a session. |
+| Session settings | Name, description, working directory, initiator, initiated time and tags per session. | Table `session_config`; some fields are set only while empty. | The session list survives a restart. | Timeout and log directories are not stored; no way to delete a session. |
 
 ### Run history
 

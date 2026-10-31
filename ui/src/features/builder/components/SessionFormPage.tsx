@@ -157,7 +157,7 @@ function SessionForm({
   const [seen, setSeen] = useState(loaded ? JSON.stringify(loaded) : null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // The project path last left (on blur), looked up on the server; a failed lookup says nothing
+  // The working directory last left (on blur), looked up on the server; a failed lookup says nothing
   const [checkedPath, setCheckedPath] = useState(fields.projectPath.trim());
   const pathCheck = useQuery({
     queryKey: ['project-path', checkedPath],
@@ -289,7 +289,7 @@ function SessionForm({
       {field('description', 'Description')}
       {field(
         'projectPath',
-        'Project path',
+        'Working directory',
         'Absolute path on the server, not on your machine',
         pathProblem
       )}

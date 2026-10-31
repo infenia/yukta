@@ -2,6 +2,7 @@ import type { EngineInterface as Engine, Register } from 'claude-code'
 
 import { PlanPane, CheckPane } from './panes'
 import { applyLine, newCheck, parsePlan, type Check, type Plan } from './plan'
+import { gateMessage, resultStatus } from './gate'
 import { rewrite } from './rewrite'
 
 const PLAN_PANE = 'yk-plan'
@@ -71,6 +72,26 @@ const stopNudge = async ($: Engine, sid: string) => {
   return 'Uncommitted code changes: run the quality gate before finishing: yk check (yukta skill: start it in the background; it heals what it can, so review its healed= changes with git diff). YUKTA_DOGFOOD=off skips this.'
 }
 
+// The gate of an agent team (experimental, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1): a teammate cannot complete a task while the shared
+// checkout fails `yk check --no-heal` (no heal: it takes no lock, queues on the server, and a fixer must not edit files under a team).
+// Only a teammate's completion is gated (the lead and plain sessions pass), a tree with no code changes passes, and so does one a
+// check already passed on. It fails open: no RESULT line, a timeout (nine minutes) or a yk that does not start never blocks a task.
+const taskGate = async ($: Engine, e: { session_id: string; task_subject: string; teammate_name?: string }) => {
+  if (!e.teammate_name || (await isOff($))) return undefined
+  const state = `${root}/.yukta-dev`
+  if (!(await run($, ['git', 'status', '--porcelain', '--', ...CODE]))) return undefined
+  const sum = await changesSum($)
+  const last = ((await $.fs.exists(`${state}/last-result`)) ? (await $.fs.read(`${state}/last-result`)).trim() : '').split(/\s+/)
+  if (last[0] === sum && last[1] === 'SUCCESS' && last[2] === 'check') return undefined
+  try {
+    const { stdout } = await $.process.run([yk, 'check', '--no-heal'], { cwd: root, timeoutMs: 540_000 })
+    const status = resultStatus(stdout)
+    return status === undefined || status === 'SUCCESS' ? undefined : gateMessage(e.task_subject, stdout)
+  } catch {
+    return undefined
+  }
+}
+
 const loadPlan = async ($: Engine) => {
   plan = parsePlan(await run($, [yk, 'plan']))
   $.ui.invalidate('ui.render')
@@ -136,6 +157,12 @@ export const register: Register = on => {
     const out = await next(e)
     if (e.stop_hook_active) return out
     const block = await stopNudge($, e.session_id)
+    return block ? { ...out, block } : out
+  })
+
+  on('classic.TaskCompleted', async ($, e, next) => {
+    const out = await next(e)
+    const block = await taskGate($, e)
     return block ? { ...out, block } : out
   })
 

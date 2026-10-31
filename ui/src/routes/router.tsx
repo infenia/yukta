@@ -105,6 +105,14 @@ const router = createBrowserRouter([
         }),
       },
       {
+        // the dashboard primitives on sample data, for design review
+        path: 'showcase/dashboard',
+        lazy: async () => ({
+          Component: (await import('@/features/metrics/DashboardShowcase'))
+            .DashboardShowcase,
+        }),
+      },
+      {
         path: 'runs',
         lazy: async () => ({
           Component: (await import('@/features/runs/components/RunsPage'))

@@ -233,7 +233,7 @@ The workflow page: a React Flow graph, a progress side panel, run controls, a ru
 
 Creates sessions and edits one workflow at a time through forms: nodes, edges, per-node settings and the engine failure policy.
 
-- 'New session' asks for id, name, description, initiator and project path, saves a starter workflow (an API_TRIGGER wired to a CONSOLE_TERMINAL, because a session needs at least one workflow) and opens the editor on it.
+- 'New session' asks for id, name, description, initiator and working directory, saves a starter workflow (an API_TRIGGER wired to a CONSOLE_TERMINAL, because a session needs at least one workflow) and opens the editor on it.
 - The editor loads the complete session from GET /api/sessions/\{id\}/config (always fresh, staleness 0) so that saving does not lose tags or other workflows. You pick a plugin type, press Add node (ids are generated like http-request-1), and add edges with three dropdowns: source, port and target.
 - Selecting a node shows the plugin's config schema as a form: text, number, checkbox, choice list and expression box. LIST and MAP settings are edited as JSON that is applied only when it parses. SECRET settings take a placeholder such as decrypted:&lt;key&gt; instead of the value. A plugin with no schema gets a raw JSON editor and its usage text. An empty field is removed so the plugin default applies.
 - Every node also has an 'Error handling and retries' panel for the engine policy: onError (FAIL, CONTINUE, ROUTE), trigger rule (ALL_SUCCESS, ALL_DONE, ONE_SUCCESS), retry, element timeout, deadline and failure budget.

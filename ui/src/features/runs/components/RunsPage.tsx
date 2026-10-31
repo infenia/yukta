@@ -22,6 +22,8 @@ import { StateMessage } from '@/components/common/StateMessage';
 import { useSessionSummaries } from '@/features/sessions/hooks/useSessionSummaries';
 import { useSessionWorkflows } from '@/features/sessions/hooks/useSessionWorkflows';
 import { RecoverButton } from '@/features/workflow/components/RecoverButton';
+import { ControlEventsProvider } from '@/features/control/context/ControlEvents';
+import { useControlEvents } from '@/features/control/context/ControlEventsContext';
 import { runPath } from '../lib/runPath';
 import { StatusPill } from '@/features/workflow/components/StatusPill';
 import {
@@ -71,7 +73,17 @@ const RANGE_PHRASE: Record<Range, string> = {
 const STACKED_CELL =
   'px-4 max-sm:flex max-sm:items-center max-sm:gap-3 max-sm:py-0.5 max-sm:whitespace-normal max-sm:before:w-20 max-sm:before:shrink-0 max-sm:before:text-body-sm max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]';
 
+/** The Runs page, kept up to date by the event stream. */
 export function RunsPage() {
+  return (
+    <ControlEventsProvider>
+      <Runs />
+    </ControlEventsProvider>
+  );
+}
+
+function Runs() {
+  const { connected } = useControlEvents();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const filters = parseFilters(params);
@@ -105,6 +117,7 @@ export function RunsPage() {
   return (
     <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
       <PageHeader
+        backdrop
         title="Runs"
         description="Runs of every session, newest first."
       />
@@ -247,6 +260,7 @@ export function RunsPage() {
                   <TableHead className="px-4">Progress</TableHead>
                   <TableHead className="px-4">Started</TableHead>
                   <TableHead className="px-4">Duration</TableHead>
+                  <TableHead className="px-4">Initiator</TableHead>
                   <TableHead className="px-4">
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -301,6 +315,31 @@ export function RunsPage() {
                     >
                       {run.nodes ? (
                         <>
+                          <span
+                            role="progressbar"
+                            aria-label={`Progress of run ${run.executionId.slice(0, 8)}`}
+                            aria-valuemin={0}
+                            aria-valuemax={run.nodes.total}
+                            aria-valuenow={run.nodes.done}
+                            className="bg-muted mr-2 inline-block h-1 w-16 overflow-hidden rounded-full align-middle"
+                          >
+                            <span
+                              className={cn(
+                                'block h-full rounded-full',
+                                run.nodes.failed ? 'bg-error' : 'bg-primary'
+                              )}
+                              style={{
+                                width: `${
+                                  run.nodes.total > 0
+                                    ? Math.min(
+                                        100,
+                                        (run.nodes.done / run.nodes.total) * 100
+                                      )
+                                    : 0
+                                }%`,
+                              }}
+                            />
+                          </span>
                           {run.nodes.done}/{run.nodes.total}
                           {run.nodes.failed && (
                             <span className="text-error ml-2">
@@ -323,6 +362,14 @@ export function RunsPage() {
                       className={cn(STACKED_CELL, 'text-code-sm')}
                     >
                       {formatDuration(run.startTime, run.endTime)}
+                    </TableCell>
+                    <TableCell
+                      data-label="Initiator"
+                      className={cn(STACKED_CELL, 'text-code-sm')}
+                    >
+                      {run.initiator || (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="px-4 max-sm:empty:hidden">
                       {isAbortedExecStatus(run.status) && (
@@ -362,12 +409,19 @@ export function RunsPage() {
                 Load more
               </Button>
             )}
-            {runs.data.length >= MAX_RUNS && (
-              <span className="ml-auto">
-                Showing the newest {MAX_RUNS} · narrow the filters to see older
-                runs
-              </span>
-            )}
+            <span className="ml-auto flex flex-wrap items-center gap-x-3">
+              {runs.data.length >= MAX_RUNS && (
+                <span>
+                  Showing the newest {MAX_RUNS} · narrow the filters to see
+                  older runs
+                </span>
+              )}
+              {connected && (
+                <span data-testid="runs-live">
+                  Updates live · filters are kept in the URL
+                </span>
+              )}
+            </span>
           </div>
         </>
       )}

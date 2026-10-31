@@ -1,0 +1,567 @@
+{
+  "sessionId": "example-13-multi-agent",
+  "name": "Multi-agent coordinator",
+  "description": "A coordinator runs a researcher, a writer and an independent verifier as separate workflows. A failed verification sends the verifier's feedback back to the writer, up to 3 attempts, then the run stops with a clear failure.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": {
+    "example": "13-multi-agent"
+  },
+  "workflows": {
+    "coordinator": {
+      "workflowId": "coordinator",
+      "description": "Research once, then write and verify until the verifier passes or 3 attempts are used",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "validate",
+          "type": "VALIDATE",
+          "config": {
+            "required": [
+              "runId",
+              "topic"
+            ],
+            "types": {
+              "runId": "string",
+              "topic": "string",
+              "fixAt": "number"
+            }
+          }
+        },
+        {
+          "nodeId": "refuse",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "result": "'REFUSED'",
+              "note": "'the request needs runId and topic'"
+            }
+          }
+        },
+        {
+          "nodeId": "research",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "researcher",
+            "timeoutSeconds": 60
+          }
+        },
+        {
+          "nodeId": "seed",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "results": "{{runId: payload.results[0].runId, topic: payload.results[0].topic, facts: payload.results[0].facts, fixAt: (payload.results[0]['fixAt'] != null ? payload.results[0]['fixAt'] : 2), feedback: '', attempt: 0}}"
+            }
+          }
+        },
+        {
+          "nodeId": "write-verify-loop",
+          "type": "LOOP_PREDICATE",
+          "config": {
+            "targetPluginId": "SUB_WORKFLOW",
+            "targetConfig": {
+              "workflowId": "attempt",
+              "timeoutSeconds": 120
+            },
+            "exitCondition": "payload['outcome'] == 'SUCCESS'",
+            "maxIterations": 3,
+            "maxDuration": "PT5M",
+            "failureStrategy": "ABORT",
+            "timeoutSeconds": 400
+          }
+        },
+        {
+          "nodeId": "verdict",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload['outcome'] == 'SUCCESS'": "accepted",
+              "payload['outcome'] != 'SUCCESS'": "stopped"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "accepted-report",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "result": "'ACCEPTED'",
+              "attempts": "payload.results.?[#this['topic'] != null][0].attempt",
+              "draft": "payload.results.?[#this['topic'] != null][0].draft"
+            }
+          }
+        },
+        {
+          "nodeId": "ask-counter",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "key": "payload.results.?[#this['topic'] != null][0].runId + ':attempts'"
+            }
+          }
+        },
+        {
+          "nodeId": "read-counter",
+          "type": "KV_STORE",
+          "config": {
+            "op": "get",
+            "namespace": "multi-agent"
+          }
+        },
+        {
+          "nodeId": "hard-stop-report",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "result": "'HARD STOP'",
+              "note": "'not verified after ' + payload.value + ' attempts (cap 3), a person must take over'",
+              "key": "payload.key"
+            }
+          }
+        },
+        {
+          "nodeId": "ok",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "SUCCESS",
+            "reason": "verified draft"
+          }
+        },
+        {
+          "nodeId": "failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "attempt cap reached or request refused"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "validate"
+        },
+        {
+          "source": "validate",
+          "target": "research"
+        },
+        {
+          "source": "validate",
+          "target": "refuse",
+          "sourcePort": "invalid"
+        },
+        {
+          "source": "refuse",
+          "target": "failed"
+        },
+        {
+          "source": "research",
+          "target": "seed"
+        },
+        {
+          "source": "seed",
+          "target": "write-verify-loop"
+        },
+        {
+          "source": "write-verify-loop",
+          "target": "verdict"
+        },
+        {
+          "source": "verdict",
+          "target": "accepted-report",
+          "sourcePort": "accepted"
+        },
+        {
+          "source": "verdict",
+          "target": "ask-counter",
+          "sourcePort": "stopped"
+        },
+        {
+          "source": "accepted-report",
+          "target": "ok"
+        },
+        {
+          "source": "ask-counter",
+          "target": "read-counter"
+        },
+        {
+          "source": "read-counter",
+          "target": "hard-stop-report"
+        },
+        {
+          "source": "hard-stop-report",
+          "target": "failed"
+        }
+      ]
+    },
+    "researcher": {
+      "workflowId": "researcher",
+      "description": "Stand-in for a research agent: returns a fixed list of facts",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "research",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "facts": "{'workflows are DAGs', 'nodes are plugins', 'runs can be paused'}"
+            }
+          }
+        },
+        {
+          "nodeId": "done",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "SUCCESS",
+            "reason": "facts ready"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "research"
+        },
+        {
+          "source": "research",
+          "target": "done"
+        }
+      ]
+    },
+    "writer": {
+      "workflowId": "writer",
+      "description": "Stand-in for a writer agent: the first draft is sloppy, later drafts use the feedback",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "pace-model-calls",
+          "type": "DELAY",
+          "config": {
+            "delayMs": 700
+          }
+        },
+        {
+          "nodeId": "write",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "addressed": "payload.feedback",
+              "draft": "(payload.feedback != '' && payload.attempt >= payload.fixAt) ? 'About ' + payload.topic + ': ' + payload.facts[0] + '; ' + payload.facts[1] + '; ' + payload.facts[2] + '.' : 'About ' + payload.topic + ': ' + payload.facts[0] + '. It always works perfectly.'"
+            }
+          }
+        },
+        {
+          "nodeId": "done",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "SUCCESS",
+            "reason": "draft ready"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "pace-model-calls"
+        },
+        {
+          "source": "pace-model-calls",
+          "target": "write"
+        },
+        {
+          "source": "write",
+          "target": "done"
+        }
+      ]
+    },
+    "verifier": {
+      "workflowId": "verifier",
+      "description": "Stand-in for an independent reviewer: sees only the facts and the draft, never the writer's reasoning",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "inspect",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "task": "payload.task",
+              "missing": "payload.facts.?[!#root.payload.draft.contains(#this)]",
+              "unsupported": "{'always', 'never', 'perfectly', 'guaranteed'}.?[#root.payload.draft.toLowerCase().contains(#this)]"
+            }
+          }
+        },
+        {
+          "nodeId": "judge",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "verdict": "(payload.missing.isEmpty() && payload.unsupported.isEmpty()) ? 'pass' : 'fail'",
+              "feedback": "(payload.missing.isEmpty() && payload.unsupported.isEmpty()) ? '' : 'add the missing facts: ' + payload.missing.toString() + '; remove unsupported claims: ' + payload.unsupported.toString()"
+            }
+          }
+        },
+        {
+          "nodeId": "done",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "SUCCESS",
+            "reason": "review done"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "inspect"
+        },
+        {
+          "source": "inspect",
+          "target": "judge"
+        },
+        {
+          "source": "judge",
+          "target": "done"
+        }
+      ]
+    },
+    "attempt": {
+      "workflowId": "attempt",
+      "description": "One write-and-verify attempt. Ends with outcome SUCCESS (verified) or RETRY (feedback attached).",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "unpack",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "runId": "payload.results.?[#this['topic'] != null][0].runId",
+              "topic": "payload.results.?[#this['topic'] != null][0].topic",
+              "facts": "payload.results.?[#this['topic'] != null][0].facts",
+              "fixAt": "payload.results.?[#this['topic'] != null][0].fixAt",
+              "feedback": "payload.results.?[#this['topic'] != null][0].feedback",
+              "attempt": "payload.results.?[#this['topic'] != null][0].attempt + 1"
+            }
+          }
+        },
+        {
+          "nodeId": "count-key",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "key": "payload.runId + ':attempts'",
+              "value": "1"
+            }
+          }
+        },
+        {
+          "nodeId": "count",
+          "type": "KV_STORE",
+          "config": {
+            "op": "incr",
+            "namespace": "multi-agent"
+          }
+        },
+        {
+          "nodeId": "write",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "writer",
+            "timeoutSeconds": 60
+          }
+        },
+        {
+          "nodeId": "to-verifier",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "task": "payload.results[0]",
+              "facts": "payload.results[0].facts",
+              "draft": "payload.results[0].draft"
+            }
+          }
+        },
+        {
+          "nodeId": "verify",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "verifier",
+            "timeoutSeconds": 60
+          }
+        },
+        {
+          "nodeId": "result",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "runId": "payload.results[0].task.runId",
+              "topic": "payload.results[0].task.topic",
+              "facts": "payload.results[0].task.facts",
+              "fixAt": "payload.results[0].task.fixAt",
+              "attempt": "payload.results[0].task.attempt",
+              "addressed": "payload.results[0].task.addressed",
+              "draft": "payload.results[0].task.draft",
+              "verdict": "payload.results[0].verdict",
+              "feedback": "payload.results[0].feedback"
+            }
+          }
+        },
+        {
+          "nodeId": "artefact-key",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "key": "payload.runId + ':draft'",
+              "value": "payload.draft"
+            }
+          }
+        },
+        {
+          "nodeId": "save-draft",
+          "type": "KV_STORE",
+          "config": {
+            "op": "put",
+            "namespace": "multi-agent"
+          }
+        },
+        {
+          "nodeId": "gate",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload.verdict == 'pass'": "pass",
+              "payload.verdict != 'pass'": "fail"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "verified",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "SUCCESS",
+            "reason": "verifier passed the draft"
+          }
+        },
+        {
+          "nodeId": "again",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "RETRY",
+            "reason": "verifier asked for changes"
+          }
+        },
+        {
+          "nodeId": "count-log",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        },
+        {
+          "nodeId": "save-log",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "unpack"
+        },
+        {
+          "source": "unpack",
+          "target": "count-key"
+        },
+        {
+          "source": "count-key",
+          "target": "count"
+        },
+        {
+          "source": "unpack",
+          "target": "write"
+        },
+        {
+          "source": "write",
+          "target": "to-verifier"
+        },
+        {
+          "source": "to-verifier",
+          "target": "verify"
+        },
+        {
+          "source": "verify",
+          "target": "result"
+        },
+        {
+          "source": "result",
+          "target": "artefact-key"
+        },
+        {
+          "source": "artefact-key",
+          "target": "save-draft"
+        },
+        {
+          "source": "result",
+          "target": "gate"
+        },
+        {
+          "source": "gate",
+          "target": "verified",
+          "sourcePort": "pass"
+        },
+        {
+          "source": "gate",
+          "target": "again",
+          "sourcePort": "fail"
+        },
+        {
+          "source": "count",
+          "target": "count-log"
+        },
+        {
+          "source": "save-draft",
+          "target": "save-log"
+        }
+      ]
+    }
+  }
+}

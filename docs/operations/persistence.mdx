@@ -143,7 +143,7 @@ Six numbered migrations create nine tables.
 |---|---|
 | `workflow_definition` | The current definition of each workflow, per session |
 | `workflow_definition_revision` | Saved versions of each workflow, with the optional note |
-| `session_config` | Session name, description, project path, initiator, initiated time and tags |
+| `session_config` | Session name, description, working directory, initiator, initiated time and tags |
 | `execution_log` | The execution log: run starts with their payload, node ends, control commands, idempotency keys |
 | `node_checkpoint` | Every message a node produced, in order, for restart and resume |
 | `node_checkpoint_state` | Per node: whether it finished (the durable end marker) and whether its output is incomplete |

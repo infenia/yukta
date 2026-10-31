@@ -1,0 +1,352 @@
+{
+  "sessionId": "example-03-release-approval",
+  "name": "Release with approval and rollback",
+  "description": "Build and test, deploy to staging, wait for a human approval, deploy to production, smoke check, and roll back automatically when the check fails.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": {
+    "example": "03-release-approval"
+  },
+  "workflows": {
+    "release": {
+      "workflowId": "release",
+      "description": "Build, test, staging, approval gate, deploy, smoke check, rollback",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "build",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "sh",
+              "/tmp/yukta-example-release-approval/release.sh",
+              "build",
+              "${start.version}"
+            ],
+            "timeout": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "test",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "sh",
+              "/tmp/yukta-example-release-approval/release.sh",
+              "test",
+              "${start.version}"
+            ],
+            "timeout": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "staging",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "sh",
+              "/tmp/yukta-example-release-approval/release.sh",
+              "staging",
+              "${start.version}"
+            ],
+            "timeout": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "blocked",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "result": "'blocked'",
+              "text": "'RELEASE BLOCKED before approval: ' + payload.stdout"
+            }
+          }
+        },
+        {
+          "nodeId": "approve",
+          "type": "WAIT_FOR_SIGNAL",
+          "config": {
+            "signal": "approve-release",
+            "timeoutSeconds": 900,
+            "onTimeout": "CONTINUE",
+            "onReject": "FAIL",
+            "engine": {
+              "onError": "ROUTE"
+            }
+          }
+        },
+        {
+          "nodeId": "after-approval",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "metadata['signal.decision'] == 'timeout'": "expired",
+              "metadata['signal.decision'] != 'timeout'": "go"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "expired",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "result": "'expired'",
+              "text": "'APPROVAL EXPIRED: nobody approved within 15 minutes, nothing was deployed'"
+            }
+          }
+        },
+        {
+          "nodeId": "deploy",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "sh",
+              "/tmp/yukta-example-release-approval/release.sh",
+              "deploy",
+              "${start.version}"
+            ],
+            "timeout": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "smoke",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "sh",
+              "/tmp/yukta-example-release-approval/release.sh",
+              "smoke",
+              "${start.version}"
+            ],
+            "timeout": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "live",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "result": "'live'",
+              "text": "'RELEASE LIVE: ' + payload.stdout"
+            }
+          }
+        },
+        {
+          "nodeId": "rollback",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "sh",
+              "/tmp/yukta-example-release-approval/release.sh",
+              "rollback",
+              "${start.version}"
+            ],
+            "timeout": 60,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "rolled-back",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "result": "'rolled-back'",
+              "text": "'ROLLED BACK after a failed deploy or smoke check: ' + payload.stdout"
+            }
+          }
+        },
+        {
+          "nodeId": "outbox",
+          "type": "FILE_WRITE",
+          "config": {
+            "baseDir": "/tmp/yukta-example-release-approval",
+            "path": "notices.log",
+            "contentField": "text",
+            "append": true
+          }
+        },
+        {
+          "nodeId": "finish",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "payload.result",
+            "cases": {
+              "live": "ok",
+              "blocked": "failed",
+              "rolled-back": "failed",
+              "expired": "escalate"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "released",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "SUCCESS",
+            "reason": "approved, deployed, smoke check green"
+          }
+        },
+        {
+          "nodeId": "not-released",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "blocked before approval, or rolled back after deploy"
+          }
+        },
+        {
+          "nodeId": "needs-owner",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "ESCALATE",
+            "reason": "approval window closed"
+          }
+        },
+        {
+          "nodeId": "rejected",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "approver rejected the release; nothing was deployed"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "build"
+        },
+        {
+          "source": "build",
+          "target": "test",
+          "sourcePort": "success"
+        },
+        {
+          "source": "build",
+          "target": "blocked",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "test",
+          "target": "staging",
+          "sourcePort": "success"
+        },
+        {
+          "source": "test",
+          "target": "blocked",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "staging",
+          "target": "approve",
+          "sourcePort": "success"
+        },
+        {
+          "source": "staging",
+          "target": "blocked",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "approve",
+          "target": "after-approval"
+        },
+        {
+          "source": "approve",
+          "target": "rejected",
+          "sourcePort": "error"
+        },
+        {
+          "source": "after-approval",
+          "target": "deploy",
+          "sourcePort": "go"
+        },
+        {
+          "source": "after-approval",
+          "target": "expired",
+          "sourcePort": "expired"
+        },
+        {
+          "source": "deploy",
+          "target": "smoke",
+          "sourcePort": "success"
+        },
+        {
+          "source": "deploy",
+          "target": "rollback",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "smoke",
+          "target": "live",
+          "sourcePort": "success"
+        },
+        {
+          "source": "smoke",
+          "target": "rollback",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "rollback",
+          "target": "rolled-back"
+        },
+        {
+          "source": "blocked",
+          "target": "outbox"
+        },
+        {
+          "source": "expired",
+          "target": "outbox"
+        },
+        {
+          "source": "live",
+          "target": "outbox"
+        },
+        {
+          "source": "rolled-back",
+          "target": "outbox"
+        },
+        {
+          "source": "outbox",
+          "target": "finish"
+        },
+        {
+          "source": "finish",
+          "target": "released",
+          "sourcePort": "ok"
+        },
+        {
+          "source": "finish",
+          "target": "not-released",
+          "sourcePort": "failed"
+        },
+        {
+          "source": "finish",
+          "target": "needs-owner",
+          "sourcePort": "escalate"
+        }
+      ]
+    }
+  }
+}

@@ -182,14 +182,16 @@ Makes an earlier version the current definition. The restored definition is save
 
 ## Write a version note
 
-`POST /api/sessions/{sessionId}/workflows/{workflowId}/versions/note?version={id}&note={text}`
+`POST /api/sessions/{sessionId}/workflows/{workflowId}/versions/note`
 
-Writes a note on a saved version, for example what changed and why. A blank note clears it. The text is trimmed.
+Writes a note on a saved version, for example what changed and why. A blank note clears it. The text is trimmed and at most 1000 characters (`400` beyond that).
 
-| Query parameter | Required | Meaning |
+| JSON body field | Required | Meaning |
 |---|---|---|
 | `version` | yes | The version id |
 | `note` | no | The note. Blank clears it |
+
+The query parameters `version` and `note` still work, but a note in the URL ends up in access and proxy logs, so send the body.
 
 **Response `data`**: `workflowId`, `version` and `note`.
 

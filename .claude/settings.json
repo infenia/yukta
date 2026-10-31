@@ -17,6 +17,13 @@
       "mcp__yukta__get_session_details",
       "mcp__yukta__list_workflow_versions",
       "mcp__yukta__diff_workflow_versions"
+    ],
+    "deny": [
+      "Read(./**/pnpm-lock.yaml)",
+      "Read(./**/openapi.json)",
+      "Read(./**/*.generated.*)",
+      "Read(./**/META-INF/native-image/**/*)",
+      "Read(./**/11-dogfood/session.json)"
     ]
   },
   "extraKnownMarketplaces": {
@@ -30,5 +37,10 @@
   "enabledPlugins": {
     "yukta@yukta": true,
     "yukta-dogfood@yukta": true
+  },
+  "worktree": {
+    "symlinkDirectories": [
+      "ui/node_modules"
+    ]
   }
 }

@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { RecoverButton } from '@/features/workflow/components/RecoverButton';
+import { Panel, Tile } from '@/components/dashboard/Tile';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { getLimits } from '@/features/control/api/scheduler';
 import { useWorkers } from '@/features/control/api/workers';
@@ -32,67 +33,6 @@ const NO_FILTERS = {
   since: '',
   until: '',
 };
-
-function Tile({
-  label,
-  value,
-  to,
-  hint,
-}: {
-  label: string;
-  value: ReactNode;
-  to: string;
-  hint?: string;
-}) {
-  const body = (
-    <>
-      <span className="text-label-md text-on-surface-variant">{label}</span>
-      <span className="text-headline-md text-on-surface">{value}</span>
-      {hint && (
-        <span className="text-body-sm text-on-surface-variant">{hint}</span>
-      )}
-    </>
-  );
-  const className =
-    'border-border bg-card flex flex-col gap-1 rounded-xl border p-4 no-underline';
-  // A tile that points into this page is a plain anchor, so the browser scrolls to it
-  return to.startsWith('#') ? (
-    <a href={to} className={className}>
-      {body}
-    </a>
-  ) : (
-    <Link to={to} className={className}>
-      {body}
-    </Link>
-  );
-}
-
-function Panel({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  const id = `ov-${title.replace(/\W+/g, '-').toLowerCase()}`;
-  return (
-    <section
-      id={`${id}-panel`}
-      aria-labelledby={id}
-      className="border-border bg-card flex min-w-0 scroll-mt-20 flex-col gap-2 rounded-xl border p-4"
-    >
-      <div className="flex items-center justify-between gap-2">
-        <h2 id={id} className="text-label-md text-on-surface">
-          {title}
-        </h2>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 const Empty = ({ children }: { children: ReactNode }) => (
   <p className="text-body-sm text-on-surface-variant">{children}</p>
@@ -152,7 +92,7 @@ function NeedsAttention({ poll }: { poll: number | false }) {
           >
             <StatusPill status={run.status} />
             <Link
-              className="text-primary text-body-md flex-1"
+              className="text-body-md text-primary flex-1"
               to={runPath(run.sessionId, run.workflowId, run.executionId)}
             >
               {run.sessionId}/{run.workflowId}
@@ -187,7 +127,7 @@ function RecentFailures({ poll }: { poll: number | false }) {
       title="Recent failures"
       action={
         <Link
-          className="text-primary text-label-md"
+          className="text-label-md text-primary"
           to="/runs?status=FAILURE&range=24h"
         >
           See all
@@ -200,7 +140,7 @@ function RecentFailures({ poll }: { poll: number | false }) {
           <li key={run.executionId} className="flex items-center gap-2">
             <StatusPill status={run.status} />
             <Link
-              className="text-primary text-body-md truncate"
+              className="text-body-md text-primary truncate"
               to={runPath(run.sessionId, run.workflowId, run.executionId)}
             >
               {run.sessionId}/{run.workflowId}
@@ -219,7 +159,7 @@ function LiveActivity() {
     <Panel
       title="Live activity"
       action={
-        <Link className="text-primary text-label-md" to="/control?tab=activity">
+        <Link className="text-label-md text-primary" to="/control?tab=activity">
           Open activity
         </Link>
       }
@@ -297,6 +237,7 @@ function Overview() {
   return (
     <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
       <PageHeader
+        backdrop
         title="Overview"
         description="What is running, what failed and what needs you, across all sessions."
       />

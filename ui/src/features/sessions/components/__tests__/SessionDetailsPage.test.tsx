@@ -10,7 +10,6 @@ import {
   vi,
   afterEach,
 } from 'vitest';
-import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -89,12 +88,13 @@ describe('SessionDetailsPage', () => {
     expect(screen.getByRole('button', { name: /New workflow/ })).toBeDefined();
     // the facts: one workflow of 5 nodes
     expect(screen.getByText('1 · 5 nodes in all')).toBeDefined();
-    // Edit, export and delete live in the session menu, without its own View Details
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Session actions' })
-    );
-    expect(await screen.findByRole('menuitem', { name: 'Edit' })).toBeDefined();
-    expect(screen.queryByRole('menuitem', { name: 'View Details' })).toBeNull();
+    // Edit, Export JSON and Delete are visible buttons, not a menu
+    expect(screen.getByRole('link', { name: 'Edit' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Export JSON' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeDefined();
+    expect(
+      screen.queryByRole('button', { name: 'Session actions' })
+    ).toBeNull();
   });
 
   it('shows loading state initially', async () => {

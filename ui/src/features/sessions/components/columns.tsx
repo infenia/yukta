@@ -9,7 +9,7 @@ import {
   formatRelative,
 } from '@/features/workflow/lib/timeFormat';
 import type { SessionListItem } from '../types/session';
-import { SessionRowActionsMenu } from './SessionRowActionsMenu';
+import { SessionRowDelete } from './SessionRowDelete';
 
 /** A session row, with its newest run when the list found one. */
 export type SessionRow = SessionListItem;
@@ -87,12 +87,12 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
   },
   {
     accessorKey: 'projectPath',
-    header: 'Project path',
+    header: 'Working directory',
     cell: ({ row }) => (
       <button
         type="button"
-        title="Copy project path"
-        aria-label={`Copy project path ${row.original.projectPath}`}
+        title="Copy working directory"
+        aria-label={`Copy working directory ${row.original.projectPath}`}
         onClick={(e) => {
           e.stopPropagation();
           void navigator.clipboard?.writeText(row.original.projectPath);
@@ -113,7 +113,7 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
     id: 'actions',
     cell: ({ row }) => (
       <div onClick={(e) => e.stopPropagation()}>
-        <SessionRowActionsMenu session={row.original} />
+        <SessionRowDelete sessionId={row.original.sessionId} />
       </div>
     ),
   },

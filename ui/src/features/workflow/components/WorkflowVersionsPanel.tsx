@@ -14,6 +14,7 @@ import {
   getVersions,
   rollback,
   saveNote,
+  MAX_NOTE,
   type WorkflowDiff,
 } from '../api/versions';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -139,6 +140,7 @@ export function WorkflowVersionsPanel({
           <div className="flex items-center gap-2">
             <input
               aria-label={`Note for ${version.id}`}
+              maxLength={MAX_NOTE}
               className={cn(inputFieldClassName, 'w-96 max-w-full')}
               placeholder="What is this version for?"
               value={notes[version.id] ?? version.note ?? ''}

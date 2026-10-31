@@ -175,7 +175,7 @@ Runs on every request before any controller: checks the API key, gives the reque
 
 Turns JSON bodies into validated Java records and maps them to and from core's own types.
 
-- Request bodies are records: ConfigRequest (a session), WorkflowDefinitionRequest (a workflow, also used by the dry-run validator), WorkflowStartRequest and NodeCommandRequest. Rules are annotations: a session id is at most 256 characters and must not contain '/', backslash or '..'; names and descriptions are at most 256; the project path is non-blank and at most 1024; a session needs at least one workflow, a workflow at least one node; a node command payload has 1 to 100 entries. In our view the id pattern exists so an id is safe to use as a file or path segment.
+- Request bodies are records: ConfigRequest (a session), WorkflowDefinitionRequest (a workflow, also used by the dry-run validator), WorkflowStartRequest and NodeCommandRequest. Rules are annotations: a session id is at most 256 characters and must not contain '/', backslash or '..'; names and descriptions are at most 256; the working directory is non-blank and at most 1024; a session needs at least one workflow, a workflow at least one node; a node command payload has 1 to 100 entries. In our view the id pattern exists so an id is safe to use as a file or path segment.
 - Unknown JSON fields are rejected. The setting lives in boot (spring.jackson.deserialization.fail-on-unknown-properties: true), so it applies to every JSON body. Example: a client sends workflowID instead of workflowId. Without the rule that field would be dropped and the call would fail later with a vague 'workflowId is required'.
 - Records copy their lists and maps and turn null into empty (a missing tags map means no tags), so nothing downstream has to null-check and nobody can change a request after validation.
 - Three MapStruct mappers convert records to core types and back. MapStruct generates plain Java at compile time (no reflection), which also suits a GraalVM native image. SessionMapper maps a session request to core's SessionConfigData and builds the summary rows; AppConfigMapper maps a workflow request for the dry-run validator; WorkflowMapper builds graph edges and log entries.
@@ -581,7 +581,7 @@ The key filter checks paths under /api and /actuator (except /actuator/health) w
 | Request id | [A-Za-z0-9-]\{1,64\}, else a UUID | RequestTracingFilter |
 | Session id | at most 256 chars, no '/', backslash or '..' | @SessionId (core) |
 | Session name and description | at most 256 chars each; both required | ConfigRequest |
-| Project path | required, at most 1024 chars, no other check | @ProjectPath (core) |
+| Working directory | required, at most 1024 chars, no other check | @ProjectPath (core) |
 | Node command payload | 1 to 100 entries | NodeCommandRequest |
 | Stop mode | DRAIN (default), CANCEL, KILL | WorkflowController |
 | Node stop | immediate=false, reason 'Stopped via REST API' | ExecutionControlController |

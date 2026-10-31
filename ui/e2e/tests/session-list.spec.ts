@@ -49,7 +49,12 @@ test.describe('Session List Page - Mocked API', () => {
     });
 
     test('should display table headers', async ({ page }) => {
-      const expectedHeaders = ['Name', 'Initiator', 'Tags', 'Project Path'];
+      const expectedHeaders = [
+        'Name',
+        'Initiator',
+        'Tags',
+        'Working Directory',
+      ];
       await assertTableColumns(page, expectedHeaders);
     });
 
@@ -92,7 +97,7 @@ test.describe('Session List Page - Mocked API', () => {
       }
     });
 
-    test('should display session project path in the row', async ({
+    test('should display session working directory in the row', async ({
       page,
       mockSessions,
     }) => {
@@ -270,7 +275,26 @@ test.describe('Session List Page - Mocked API', () => {
   });
 });
 
-test.describe('Session List Page - Export', () => {
+test.describe('Session List Page - row actions', () => {
+  test('a row shows only a Delete icon button, no actions menu', async ({
+    page,
+  }) => {
+    await page.goto('/sessions');
+    await expect(page.getByText('Build Pipeline')).toBeVisible();
+
+    await expect(
+      page.getByRole('button', { name: 'Session actions' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Delete session session-1' })
+    ).toBeVisible();
+    await expect(
+      page.locator('table .material-symbols-outlined', { hasText: 'more_vert' })
+    ).toHaveCount(0);
+  });
+});
+
+test.describe('Session page - Export', () => {
   test('downloads the session config as <sessionId>.json', async ({ page }) => {
     const config = {
       sessionId: 'session-1',
@@ -290,12 +314,35 @@ test.describe('Session List Page - Export', () => {
         }),
       })
     );
-    await page.goto('/sessions');
-    await expect(page.getByText('Build Pipeline')).toBeVisible();
+    // Export JSON is on the session's own page, not in a row menu
+    await page.route('**/api/sessions/session-1', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          timestamp: '2026-07-26T14:23:23',
+          status: 200,
+          message: 'OK',
+          path: '/session-1',
+          data: {
+            sessionId: 'session-1',
+            name: 'Build Pipeline',
+            description: '',
+            initiator: 'ui',
+            tags: [],
+            projectPath: '/tmp',
+            workflowIds: [],
+          },
+        }),
+      })
+    );
+    await page.goto('/sessions/session-1');
+    await expect(
+      page.getByRole('button', { name: 'Export JSON' })
+    ).toBeVisible();
 
-    await page.getByRole('button', { name: 'Session actions' }).first().click();
     const download = page.waitForEvent('download');
-    await page.getByRole('menuitem', { name: 'Export JSON' }).click();
+    await page.getByRole('button', { name: 'Export JSON' }).click();
 
     const file = await download;
     expect(file.suggestedFilename()).toBe('session-1.json');

@@ -6,20 +6,21 @@ import { render, screen } from '@testing-library/react';
 import { SessionsHeader } from '../SessionsHeader';
 
 describe('SessionsHeader', () => {
-  it.each([
-    { count: 0, expectedText: '0 sessions' },
-    { count: 1, expectedText: '1 session' },
-    { count: 5, expectedText: '5 sessions' },
-  ])(
-    'should display "$expectedText" for $count sessions',
-    ({ count, expectedText }) => {
-      const { container } = render(<SessionsHeader sessionCount={count} />);
-      const p = container.querySelector('p');
-      expect(
-        screen.getByRole('heading', { name: /Sessions/ })
-      ).toBeInTheDocument();
-      expect(p?.textContent).toContain(expectedText);
-      expect(p?.textContent).toContain("a project's workflows");
-    }
-  );
+  it('shows the title and the description, without a session count', () => {
+    const { container } = render(<SessionsHeader />);
+    const p = container.querySelector('p');
+
+    expect(
+      screen.getByRole('heading', { name: /Sessions/ })
+    ).toBeInTheDocument();
+    expect(p?.textContent).toBe(
+      "A session holds a project's workflows and their runs."
+    );
+    expect(p?.textContent).not.toMatch(/\d+ sessions?/);
+  });
+
+  it('shows the actions it is given', () => {
+    render(<SessionsHeader actions={<button type="button">New</button>} />);
+    expect(screen.getByRole('button', { name: 'New' })).toBeInTheDocument();
+  });
 });

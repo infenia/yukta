@@ -120,6 +120,11 @@
   --border: oklch(0.32 0.02 262);
   --input: oklch(0.35 0.025 262);
   --ring: oklch(0.6 0.15 262);
+  --chart-1: oklch(0.72 0.15 262);
+  --chart-2: oklch(0.75 0.16 50);
+  --chart-3: oklch(0.68 0.05 262);
+  --chart-4: oklch(0.78 0.13 190);
+  --chart-5: oklch(0.62 0.15 280);
   --sidebar: oklch(0.2 0.02 262);
   --sidebar-foreground: oklch(0.97 0.005 262);
   --sidebar-primary: oklch(0.72 0.15 262);
@@ -284,6 +289,12 @@
 }
 
 /* Named typography utilities */
+/* Mono digits that keep their width, so a live value does not jitter */
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
 @utility text-display-01 {
   font-family: var(--font-sans);
   font-size: 42px;
@@ -440,6 +451,42 @@
   :focus-visible {
     outline: 2px solid color-mix(in oklch, var(--primary) 55%, transparent);
     outline-offset: 2px;
+  }
+
+  /* Scrollbars: thin, a transparent track so the surface shows, a thumb from the theme tokens that
+     darkens on hover. Defined once here; light and dark follow --outline and --foreground. The
+     terminal and the command palette use the same rules. Firefox has only the standard
+     properties (no hover state); Chromium and Safari get the WebKit pseudo-elements. Chromium
+     120+ ignores those once scrollbar-color is set, so the standard ones are Firefox-only. */
+  :root {
+    --scrollbar-size: 0.5rem;
+    --scrollbar-thumb: color-mix(in oklch, var(--outline) 55%, transparent);
+    --scrollbar-thumb-hover: color-mix(
+      in oklch,
+      var(--foreground) 55%,
+      transparent
+    );
+  }
+  @supports (-moz-appearance: none) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
+  }
+  *::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+  }
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
   }
 
   .material-symbols-outlined {
