@@ -1,16 +1,13 @@
 ---
-title: "Example workflows for CI, data pipelines and AI agents"
+title: "Example workflows for real jobs: approvals, pipelines and AI agents"
 sidebarTitle: "Examples"
-description: "Ten ready-to-run example workflows, each a small version of a common job, from plain automation and data pipelines to AI as a step and AI agents driving Yukta."
-keywords: ["examples", "sample workflows", "CI", "data pipeline"]
+description: "Fourteen ready-to-run example workflows. Ten are templates for a real pain point in a different domain; the rest show the building blocks, MCP and how Yukta checks itself."
+keywords: ["examples", "sample workflows", "templates", "approval", "data pipeline", "agents"]
 ---
 
-Each example is a complete, small workflow for a common job. Find the one closest to yours, run it, then change it. They follow the same path as Yukta itself: plain automation first, then AI as a step, then AI driving the workflow.
+Each example is a complete workflow for a job you probably recognise: an agent that must not skip verification, a deploy that needs approval, a nightly load that must reject bad rows. Find the one closest to yours, run it, then change it. The ten use-case examples are written to be copied: each README lists which nodes to change and which stand-in to swap for a model call.
 
-<img className="yk-diagram block dark:hidden" src="/images/diagrams/examples-ci-gate.light.svg" alt="A CI gate: a trigger starts a command, and the command's exit code sends the run to a pass report or a fail report." loading="lazy" />
-<img className="yk-diagram hidden dark:block" src="/images/diagrams/examples-ci-gate.dark.svg" alt="A CI gate: a trigger starts a command, and the command's exit code sends the run to a pass report or a fail report." loading="lazy" />
-
-The picture above is example 03. Every example is a folder in the repository's [`examples`](https://github.com/infenia/yukta/tree/main/examples) directory with a `session.json` and a `run.sh` that applies the session, starts the run and prints `PASS` or `FAIL`.
+They run offline with fixed rules and no model, so you can try them anywhere. Every example is a folder in the repository's [`examples`](https://github.com/infenia/yukta/tree/main/examples) directory with a `session.json` and a `run.sh` that applies the session, starts the run, answers any approval itself and prints `PASS` or `FAIL`.
 
 ## Run one
 
@@ -18,43 +15,39 @@ You need a running server, `curl`, `jq` and a copy of the repository.
 
 ```bash
 git clone https://github.com/infenia/yukta.git && cd yukta
-./examples/03-ci-pipeline/run.sh   # one example
-./examples/run-all.sh              # all of them
+./examples/04-loan-approval/run.sh   # one example
+./examples/run-all.sh                # all of them
 ```
 
 <Note>
-  Examples 01, 03, 04, 06, 07 and 08 run operating-system commands, which Yukta refuses by default. For a local trial, start the server with `YUKTA_PROCESS_ALLOW_ANY=true`. See [Security](/operations/security). Example 09 needs an LLM endpoint (OpenAI-compatible, Anthropic or Ollama). Set `YUKTA_API_KEY` if your server requires a key.
+  Examples 01, 02, 03 and 08 run operating-system commands, which Yukta refuses by default. Allow only what they need, for example `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo`; each README names its set. Example 08 also needs `python3`. Example 09 needs an LLM endpoint (OpenAI-compatible, Anthropic or Ollama). Set `YUKTA_API_KEY` if your server requires a key. See [Security](/operations/security).
 </Note>
 
-## Plain automation
+## Use-case templates
 
-No AI involved: fixed steps, routed on outcomes.
+| # | Pain point | What it shows |
+|---|---|---|
+| [02](https://github.com/infenia/yukta/tree/main/examples/02-agent-verification) | An AI coding agent skips tests and says "done" | Verification gates and a bounded fix loop before "done" exists |
+| [03](https://github.com/infenia/yukta/tree/main/examples/03-release-approval) | Production deploy that needs a person, then a check | Approval with a timeout, smoke check, rollback |
+| [04](https://github.com/infenia/yukta/tree/main/examples/04-loan-approval) | Approve clear cases, send borderline ones to a person | Rule scoring, human review, stripping sensitive fields |
+| [05](https://github.com/infenia/yukta/tree/main/examples/05-returns-fraud) | Refund returns without paying out fraud | Risk routing and a manual review queue |
+| [06](https://github.com/infenia/yukta/tree/main/examples/06-support-triage) | Too many tickets, and the same one twice | Classify, auto-reply, escalate, skip duplicates |
+| [07](https://github.com/infenia/yukta/tree/main/examples/07-nightly-data-pipeline) | A nightly load that lets bad rows through | Schedule, validate, dedupe, quarantine, fail above a limit |
+| [08](https://github.com/infenia/yukta/tree/main/examples/08-alert-triage) | Alerts that need a restart before anyone is paged | Bounded auto-remediation, then page and incident record |
+| [12](https://github.com/infenia/yukta/tree/main/examples/12-content-review) | AI drafts that no one has checked | Rule check, editor review, revision limit, publish |
+| [13](https://github.com/infenia/yukta/tree/main/examples/13-multi-agent) | Several agents with no one checking the result | Researcher, writer and independent verifier with a retry cap |
+| [14](https://github.com/infenia/yukta/tree/main/examples/14-recruiting) | Reviewing many applicants fairly | Batch scoring, protected fields removed, recruiter decides |
+
+## Building blocks and reference
 
 | # | Job | What it shows |
 |---|---|---|
 | [01](https://github.com/infenia/yukta/tree/main/examples/01-hello-world) | Smallest end-to-end check | One trigger, one processor, one terminal |
-| [02](https://github.com/infenia/yukta/tree/main/examples/02-api-payload) | Pass data in and reshape it | Starting a run with a payload |
-| [03](https://github.com/infenia/yukta/tree/main/examples/03-ci-pipeline) | CI gate that passes or fails | Routing on a command's exit code |
-| [04](https://github.com/infenia/yukta/tree/main/examples/04-quality-gate) | Quality gate on metrics | Branching on values in the payload |
-| [05](https://github.com/infenia/yukta/tree/main/examples/05-data-pipeline) | Batch data pipeline | Split, filter, map |
-| [06](https://github.com/infenia/yukta/tree/main/examples/06-http-health-check) | Monitor with an alert path | Routing on an HTTP status |
-| [07](https://github.com/infenia/yukta/tree/main/examples/07-fan-out-notify) | One event to several channels | Fan-out to many recipients |
-| [08](https://github.com/infenia/yukta/tree/main/examples/08-retry-until-ready) | Retry until ready | Bounded repetition |
-
-## AI as a step
-
-| # | Job | What it shows |
-|---|---|---|
 | [09](https://github.com/infenia/yukta/tree/main/examples/09-llm-chat-agent) | Chat agent with per-user memory | Model calls with memory |
-
-## AI driving Yukta
-
-| # | Job | What it shows |
-|---|---|---|
 | [10](https://github.com/infenia/yukta/tree/main/examples/10-mcp-agent) | An AI agent creates and runs a workflow | Using Yukta over MCP |
 
 
-## In the wild: Yukta checks itself
+## How Yukta develops itself
 
 [Example 11](https://github.com/infenia/yukta/tree/main/examples/11-dogfood) is the workflow the Yukta team runs on its own code. It runs the full `gradle check` as a staged workflow. When a stage fails, a repair chain applies a formatter fix, then asks headless Claude Code for a fix, and runs the stage again. It needs a Yukta checkout and Claude Code, so it is a reference rather than a starter.
 

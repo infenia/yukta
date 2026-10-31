@@ -1,0 +1,212 @@
+{
+  "sessionId": "example-14-recruiting",
+  "name": "Recruiting screen",
+  "description": "A batch of applications is validated, stripped of personal and protected attributes, scored with fixed weights and shown to a recruiter, who invites, declines politely or moves the person to the talent pool. A summary closes the batch.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": { "example": "14-recruiting" },
+  "workflows": {
+    "batch": {
+      "workflowId": "batch",
+      "description": "Split a batch of applications, screen each one, summarise the outcomes",
+      "nodes": [
+        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "validate-batch",
+          "type": "VALIDATE",
+          "config": { "required": ["role", "applicants"], "types": { "role": "string", "applicants": "array" } }
+        },
+        {
+          "nodeId": "bad-batch",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "mapping": { "path": "'summary.txt'", "content": "'BATCH REFUSED: needs role and applicants'" } }
+        },
+        { "nodeId": "split", "type": "SPLITTER", "config": { "itemsPath": "payload.applicants" } },
+        {
+          "nodeId": "screen",
+          "type": "SUB_WORKFLOW",
+          "config": { "workflowId": "screen", "timeoutSeconds": 900, "concurrency": 1 }
+        },
+        {
+          "nodeId": "pick",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "id": "payload.results[0].id",
+              "decision": "payload.results[0].decision",
+              "score": "payload.results[0].score"
+            }
+          }
+        },
+        { "nodeId": "collect", "type": "AGGREGATE", "config": { "size": 100, "timeoutMs": 60000 } },
+        {
+          "nodeId": "summarise",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "'summary.txt'",
+              "content": "'SUMMARY: ' + payload.count + ' applications, invite=' + payload.items.?[#this['decision'] == 'invite'].size() + ' pool=' + payload.items.?[#this['decision'] == 'pool'].size() + ' decline=' + payload.items.?[#this['decision'] == 'decline'].size() + ' invalid=' + payload.items.?[#this['decision'] == 'invalid'].size()"
+            }
+          }
+        },
+        { "nodeId": "write-summary", "type": "FILE_WRITE", "config": { "baseDir": "/tmp/yukta-examples/recruiting" } },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "trigger", "target": "validate-batch" },
+        { "source": "validate-batch", "target": "split" },
+        { "source": "validate-batch", "target": "bad-batch", "sourcePort": "invalid" },
+        { "source": "bad-batch", "target": "write-summary" },
+        { "source": "split", "target": "screen" },
+        { "source": "screen", "target": "pick" },
+        { "source": "pick", "target": "collect" },
+        { "source": "collect", "target": "summarise" },
+        { "source": "summarise", "target": "write-summary" },
+        { "source": "write-summary", "target": "end" }
+      ]
+    },
+    "screen": {
+      "workflowId": "screen",
+      "description": "One application: validate, strip protected attributes, score, recruiter decision, outcome",
+      "nodes": [
+        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "validate",
+          "type": "VALIDATE",
+          "config": { "required": ["id", "years", "skills"], "types": { "id": "string", "years": "number", "skills": "array" } }
+        },
+        {
+          "nodeId": "redact",
+          "type": "CONTENT_FILTER",
+          "config": {
+            "mode": "EXCLUDE",
+            "paths": ["name", "email", "phone", "photoUrl", "gender", "age", "dateOfBirth", "nationality", "maritalStatus", "address"]
+          }
+        },
+        {
+          "nodeId": "score",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "yearsPoints": "(payload.years > 10 ? 10 : payload.years) * 4",
+              "skillPoints": "{'java', 'sql', 'spring'}.?[#root.payload.skills.contains(#this)].size() * 15",
+              "bonusPoints": "{'kubernetes', 'docker'}.?[#root.payload.skills.contains(#this)].size() * 7",
+              "score": "(payload.years > 10 ? 10 : payload.years) * 4 + {'java', 'sql', 'spring'}.?[#root.payload.skills.contains(#this)].size() * 15 + {'kubernetes', 'docker'}.?[#root.payload.skills.contains(#this)].size() * 7"
+            }
+          }
+        },
+        {
+          "nodeId": "band",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload.score >= 75": "strong",
+              "payload.score >= 40": "maybe",
+              "payload.score < 40": "weak"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "recruiter",
+          "type": "WAIT_FOR_SIGNAL",
+          "config": { "signal": "decision", "timeoutSeconds": 900, "onTimeout": "CONTINUE", "onReject": "FAIL" }
+        },
+        {
+          "nodeId": "decide",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "metadata['signal.decision']",
+            "cases": { "invite": "invite", "pool": "pool", "decline": "decline", "timeout": "pool" },
+            "defaultPort": "pool",
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "auto-decline",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "dropOriginal": false, "mapping": { "reason": "'below the minimum score for this role'" } }
+        },
+        {
+          "nodeId": "stamp-invite",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "id": "payload.id", "score": "payload.score", "decision": "'invite'",
+              "path": "'invitations.txt'",
+              "content": "'INVITE ' + payload.id + ' (score ' + payload.score + '): book a first interview'"
+            }
+          }
+        },
+        {
+          "nodeId": "stamp-pool",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "id": "payload.id", "score": "payload.score", "decision": "'pool'",
+              "path": "'talent-pool.txt'",
+              "content": "'POOL ' + payload.id + ' (score ' + payload.score + '): keep for future roles'"
+            }
+          }
+        },
+        {
+          "nodeId": "stamp-decline",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "id": "payload.id", "score": "payload.score", "decision": "'decline'",
+              "path": "'declines.txt'",
+              "content": "'DECLINE ' + payload.id + ' (score ' + payload.score + '): thank you for applying, we will not take your application further'"
+            }
+          }
+        },
+        { "nodeId": "write-invite", "type": "FILE_WRITE", "config": { "baseDir": "/tmp/yukta-examples/recruiting", "append": true } },
+        { "nodeId": "write-pool", "type": "FILE_WRITE", "config": { "baseDir": "/tmp/yukta-examples/recruiting", "append": true } },
+        { "nodeId": "write-decline", "type": "FILE_WRITE", "config": { "baseDir": "/tmp/yukta-examples/recruiting", "append": true } },
+        {
+          "nodeId": "stamp-invalid",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "mapping": { "id": "payload['id'] != null ? payload['id'] : 'unknown'", "score": "0", "decision": "'invalid'" } }
+        },
+        {
+          "nodeId": "result",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "mapping": { "id": "payload.id", "decision": "payload.decision", "score": "payload.score" } }
+        },
+        { "nodeId": "done", "type": "OUTCOME_TERMINAL", "config": { "outcome": "SUCCESS", "reason": "application handled" } }
+      ],
+      "edges": [
+        { "source": "trigger", "target": "validate" },
+        { "source": "validate", "target": "redact" },
+        { "source": "validate", "target": "stamp-invalid", "sourcePort": "invalid" },
+        { "source": "redact", "target": "score" },
+        { "source": "score", "target": "band" },
+        { "source": "band", "target": "recruiter", "sourcePort": "strong" },
+        { "source": "band", "target": "recruiter", "sourcePort": "maybe" },
+        { "source": "band", "target": "auto-decline", "sourcePort": "weak" },
+        { "source": "auto-decline", "target": "stamp-decline" },
+        { "source": "recruiter", "target": "decide" },
+        { "source": "decide", "target": "stamp-invite", "sourcePort": "invite" },
+        { "source": "decide", "target": "stamp-pool", "sourcePort": "pool" },
+        { "source": "decide", "target": "stamp-decline", "sourcePort": "decline" },
+        { "source": "stamp-invite", "target": "write-invite" },
+        { "source": "stamp-pool", "target": "write-pool" },
+        { "source": "stamp-decline", "target": "write-decline" },
+        { "source": "write-invite", "target": "result" },
+        { "source": "write-pool", "target": "result" },
+        { "source": "write-decline", "target": "result" },
+        { "source": "stamp-invalid", "target": "result" },
+        { "source": "result", "target": "done" }
+      ]
+    }
+  }
+}

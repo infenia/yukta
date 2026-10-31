@@ -138,7 +138,7 @@ Browse them in the [plugin docs](https://yukta.infenia.com/plugins/overview), wi
 
 ### Examples
 
-[`examples/`](examples/README.md) has ready-to-run workflows, each with a config, a trigger and a test script: a CI pipeline that stops on failure, a quality gate, a data pipeline, an HTTP health check with an alert path, fan-out notifications, retry until ready, an LLM chat agent with memory, and driving Yukta from an AI agent over MCP. Run them all against a local server with `examples/run-all.sh`.
+[`examples/`](examples/README.md) has ready-to-run workflows, each with a config, a trigger and a test script. Ten are templates for a real pain point in a different domain: an agent that must not skip verification, release and loan approvals, returns and fraud, support triage, a nightly data pipeline, alert triage, content review, a multi-agent team and recruiting. The rest show the basics, an LLM chat agent, driving Yukta over MCP, and how Yukta checks its own code. Run them all against a local server with `examples/run-all.sh`.
 
 ## Security
 

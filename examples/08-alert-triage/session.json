@@ -1,0 +1,349 @@
+{
+  "sessionId": "example-08-alert-triage",
+  "name": "Alert triage",
+  "description": "Route an alert by severity, try a bounded restart-and-check loop, and page the on-call with an incident record only when the fix did not work.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": {
+    "example": "08-alert-triage"
+  },
+  "workflows": {
+    "alert": {
+      "workflowId": "alert",
+      "description": "Severity routing, bounded auto-remediation, page and incident when it still fails",
+      "nodes": [
+        {
+          "nodeId": "alert-in",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "by-severity",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "payload.severity",
+            "cases": {
+              "critical": "fix",
+              "high": "fix"
+            },
+            "defaultPort": "log-only"
+          }
+        },
+        {
+          "nodeId": "format-low",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "'alerts.log'",
+              "content": "'LOGGED alert=' + payload.alertId + ' service=' + payload.service + ' severity=' + payload.severity"
+            }
+          }
+        },
+        {
+          "nodeId": "try-fix",
+          "type": "LOOP_PREDICATE",
+          "config": {
+            "targetPluginId": "SUB_WORKFLOW",
+            "targetConfig": {
+              "workflowId": "restart-and-check",
+              "payload": {
+                "key": "${start.alertId}|${start.service}|${start.severity}"
+              }
+            },
+            "exitCondition": "payload.results[0]['healthy'] == true",
+            "maxIterations": 3,
+            "maxDuration": "PT2M",
+            "delayInterval": "PT1S",
+            "failureStrategy": "ABORT",
+            "timeoutSeconds": 150
+          }
+        },
+        {
+          "nodeId": "did-it-heal",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload.results[0]['healthy'] == true": "healed",
+              "payload.results[0]['healthy'] != true": "still-failing"
+            }
+          }
+        },
+        {
+          "nodeId": "format-resolved",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "'alerts.log'",
+              "content": "'AUTO-RESOLVED alert=' + payload.results[0]['alertId'] + ' service=' + payload.results[0]['service'] + ' restarts=' + payload.results[0]['restarts']"
+            }
+          }
+        },
+        {
+          "nodeId": "write-record",
+          "type": "FILE_WRITE",
+          "config": {
+            "baseDir": "/tmp/yukta-examples/alert-triage",
+            "append": true
+          }
+        },
+        {
+          "nodeId": "end",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        },
+        {
+          "nodeId": "escalate",
+          "type": "RECIPIENT_LIST",
+          "config": {
+            "mode": "STATIC",
+            "recipients": [
+              "page",
+              "incident"
+            ],
+            "parallel": true
+          }
+        },
+        {
+          "nodeId": "format-page",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "text": "'PAGE on-call: ' + payload.results[0]['service'] + ' still failing after ' + payload.results[0]['restarts'] + ' restarts (' + payload.results[0]['severity'] + ', alert ' + payload.results[0]['alertId'] + ')'"
+            }
+          }
+        },
+        {
+          "nodeId": "page-oncall",
+          "type": "NOTIFY_TERMINAL",
+          "config": {
+            "url": "http://127.0.0.1:9877/page",
+            "timeoutMs": 5000,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "format-incident",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "'incidents.log'",
+              "content": "'INCIDENT OPENED status=open ' + 'alert=' + payload.results[0]['alertId'] + ' service=' + payload.results[0]['service'] + ' severity=' + payload.results[0]['severity'] + ' restarts=' + payload.results[0]['restarts']"
+            }
+          }
+        },
+        {
+          "nodeId": "open-incident",
+          "type": "FILE_WRITE",
+          "config": {
+            "baseDir": "/tmp/yukta-examples/alert-triage",
+            "path": "incidents.log",
+            "append": true
+          }
+        },
+        {
+          "nodeId": "wait-ack",
+          "type": "WAIT_FOR_SIGNAL",
+          "config": {
+            "signal": "ack",
+            "timeoutSeconds": 900,
+            "onTimeout": "CONTINUE",
+            "onReject": "FAIL"
+          }
+        },
+        {
+          "nodeId": "format-ack",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "'incidents.log'",
+              "content": "(metadata['signal.decision'] == 'timeout' ? 'INCIDENT NO-ACK, paging secondary on-call | ' : (metadata['signal.decision'] == 'decline' ? 'INCIDENT DECLINED by on-call, paging secondary on-call | ' : 'INCIDENT ACKNOWLEDGED by on-call | ')) + payload.content"
+            }
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "alert-in",
+          "target": "by-severity"
+        },
+        {
+          "source": "by-severity",
+          "target": "try-fix",
+          "sourcePort": "fix"
+        },
+        {
+          "source": "by-severity",
+          "target": "format-low",
+          "sourcePort": "log-only"
+        },
+        {
+          "source": "format-low",
+          "target": "write-record"
+        },
+        {
+          "source": "try-fix",
+          "target": "did-it-heal"
+        },
+        {
+          "source": "did-it-heal",
+          "target": "format-resolved",
+          "sourcePort": "healed"
+        },
+        {
+          "source": "did-it-heal",
+          "target": "escalate",
+          "sourcePort": "still-failing"
+        },
+        {
+          "source": "format-resolved",
+          "target": "write-record"
+        },
+        {
+          "source": "write-record",
+          "target": "end"
+        },
+        {
+          "source": "escalate",
+          "target": "format-page",
+          "sourcePort": "page"
+        },
+        {
+          "source": "escalate",
+          "target": "format-incident",
+          "sourcePort": "incident"
+        },
+        {
+          "source": "format-page",
+          "target": "page-oncall"
+        },
+        {
+          "source": "format-incident",
+          "target": "open-incident"
+        },
+        {
+          "source": "open-incident",
+          "target": "wait-ack"
+        },
+        {
+          "source": "wait-ack",
+          "target": "format-ack"
+        },
+        {
+          "source": "format-ack",
+          "target": "write-record"
+        }
+      ]
+    },
+    "restart-and-check": {
+      "workflowId": "restart-and-check",
+      "description": "One remediation attempt: restart the service, then check it. Stand-ins for two PROCESS_EXECUTOR commands.",
+      "nodes": [
+        {
+          "nodeId": "attempt",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "restart-service",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "sh",
+              "-c",
+              "mkdir -p /tmp/yukta-examples/alert-triage/state && echo restart >> /tmp/yukta-examples/alert-triage/state/\"$1\" && wc -l < /tmp/yukta-examples/alert-triage/state/\"$1\"",
+              "sh",
+              "${payload.key}"
+            ],
+            "includeInput": true,
+            "timeout": 30
+          }
+        },
+        {
+          "nodeId": "check-health",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "sh",
+              "-c",
+              "case \"$1\" in *'|flaky'*) [ \"$(wc -l < /tmp/yukta-examples/alert-triage/state/\"$1\")\" -ge 2 ];; *) false;; esac",
+              "sh",
+              "${payload.input.key}"
+            ],
+            "includeInput": true,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "timeout": 30
+          }
+        },
+        {
+          "nodeId": "result-up",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "alertId": "payload.input.input.key.split('[|]')[0]",
+              "service": "payload.input.input.key.split('[|]')[1]",
+              "severity": "payload.input.input.key.split('[|]')[2]",
+              "restarts": "payload.input.stdout.trim()",
+              "healthy": "true"
+            }
+          }
+        },
+        {
+          "nodeId": "result-down",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "alertId": "payload.input.input.key.split('[|]')[0]",
+              "service": "payload.input.input.key.split('[|]')[1]",
+              "severity": "payload.input.input.key.split('[|]')[2]",
+              "restarts": "payload.input.stdout.trim()",
+              "healthy": "false"
+            }
+          }
+        },
+        {
+          "nodeId": "end",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        }
+      ],
+      "edges": [
+        {
+          "source": "attempt",
+          "target": "restart-service"
+        },
+        {
+          "source": "restart-service",
+          "target": "check-health"
+        },
+        {
+          "source": "check-health",
+          "target": "result-up",
+          "sourcePort": "success"
+        },
+        {
+          "source": "check-health",
+          "target": "result-down",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "result-up",
+          "target": "end"
+        },
+        {
+          "source": "result-down",
+          "target": "end"
+        }
+      ]
+    }
+  }
+}

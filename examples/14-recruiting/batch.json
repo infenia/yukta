@@ -1,0 +1,11 @@
+{
+  "role": "Backend engineer",
+  "applicants": [
+    { "id": "A-101", "name": "Asha Verma", "email": "asha@example.com", "gender": "female", "age": 34, "nationality": "IN", "years": 8, "skills": ["java", "sql", "spring", "kubernetes", "docker"] },
+    { "id": "A-102", "name": "Ben Carter", "email": "ben@example.com", "gender": "male", "age": 52, "nationality": "GB", "years": 3, "skills": ["java", "sql"] },
+    { "id": "A-103", "name": "Chen Wei", "email": "chen@example.com", "gender": "male", "age": 29, "nationality": "CN", "years": 5, "skills": ["java", "spring"] },
+    { "id": "A-104", "name": "Dana Cole", "email": "dana@example.com", "gender": "female", "age": 41, "nationality": "US", "years": 1, "skills": ["python"] },
+    { "id": "A-105", "name": "Eli Stone", "email": "eli@example.com", "gender": "male", "age": 38, "nationality": "US", "years": 6 },
+    { "id": "A-106", "name": "Fatima Noor", "email": "fatima@example.com", "gender": "female", "age": 31, "nationality": "AE", "years": 10, "skills": ["java", "sql", "spring", "docker"] }
+  ]
+}

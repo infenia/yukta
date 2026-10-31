@@ -1,0 +1,189 @@
+{
+  "sessionId": "example-06-support-triage",
+  "name": "Support ticket triage",
+  "description": "Drop repeated tickets, answer routine ones, send billing disputes and angry customers to a human queue, and record every outcome.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": { "example": "06-support-triage" },
+  "workflows": {
+    "intake": {
+      "workflowId": "intake",
+      "description": "Validate, drop repeats, hand new tickets to the handler, log duplicates and rejects",
+      "nodes": [
+        { "nodeId": "ticket", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "check-fields",
+          "type": "VALIDATE",
+          "config": { "required": ["ticketId", "customer", "subject", "body"], "types": { "ticketId": "string", "customer": "string", "subject": "string", "body": "string" } }
+        },
+        {
+          "nodeId": "fingerprint",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "mapping": { "key": "payload.customer.toLowerCase().trim() + '|' + payload.subject.toLowerCase().trim()" } }
+        },
+        { "nodeId": "seen-before", "type": "KV_STORE", "config": { "op": "incr", "namespace": "support-tickets" } },
+        {
+          "nodeId": "is-repeat",
+          "type": "BRANCH",
+          "config": { "mode": "EXPRESSION", "cases": { "payload.value > 1": "repeat", "payload.value <= 1": "fresh" } }
+        },
+        {
+          "nodeId": "handle-ticket",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "handle",
+            "payload": {
+              "ticketId": "${start.ticketId}",
+              "customer": "${start.customer}",
+              "subject": "${start.subject}",
+              "body": "${start.body}",
+              "orderId": "${start.orderId}"
+            }
+          }
+        },
+        {
+          "nodeId": "format-repeat",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "mapping": { "path": "'outcomes.log'", "content": "'DUPLICATE seen=' + payload.value + ' fingerprint=' + payload.key" } }
+        },
+        {
+          "nodeId": "format-invalid",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "mapping": { "path": "'outcomes.log'", "content": "'REJECTED invalid ticket (missing or wrong-typed fields)'" } }
+        },
+        {
+          "nodeId": "write-log",
+          "type": "FILE_WRITE",
+          "config": { "baseDir": "/tmp/yukta-examples/support-triage", "path": "outcomes.log", "append": true }
+        },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "ticket", "target": "check-fields" },
+        { "source": "check-fields", "target": "fingerprint" },
+        { "source": "check-fields", "target": "format-invalid", "sourcePort": "invalid" },
+        { "source": "fingerprint", "target": "seen-before" },
+        { "source": "seen-before", "target": "is-repeat" },
+        { "source": "is-repeat", "target": "handle-ticket", "sourcePort": "fresh" },
+        { "source": "is-repeat", "target": "format-repeat", "sourcePort": "repeat" },
+        { "source": "handle-ticket", "target": "end" },
+        { "source": "format-repeat", "target": "write-log" },
+        { "source": "format-invalid", "target": "write-log" },
+        { "source": "write-log", "target": "end" }
+      ]
+    },
+    "handle": {
+      "workflowId": "handle",
+      "description": "Classify one ticket, auto-answer routine ones or queue it for a human, always record the outcome",
+      "nodes": [
+        { "nodeId": "ticket", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "lower-text",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "dropOriginal": false, "mapping": { "text": "(payload.subject + ' ' + payload.body).toLowerCase()" } }
+        },
+        {
+          "nodeId": "classify",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "category": "payload.text.contains('refund') || payload.text.contains('chargeback') || payload.text.contains('charged twice') || payload.text.contains('invoice') ? 'billing' : (payload.text.contains('unacceptable') || payload.text.contains('furious') || payload.text.contains('lawyer') || payload.text.contains('cancel my account') || payload.text.contains('!!!') ? 'angry' : (payload.text.contains('password') || payload.text.contains('locked out') ? 'login' : (payload.text.contains('where is my order') || payload.text.contains('tracking') ? 'order' : 'other')))"
+            }
+          }
+        },
+        {
+          "nodeId": "route",
+          "type": "BRANCH",
+          "config": { "mode": "SELECT_KEY", "selector": "payload.category", "cases": { "login": "auto", "order": "auto" }, "defaultPort": "human" }
+        },
+        {
+          "nodeId": "draft-reply",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "reply": "payload.category == 'login' ? 'Hello, use the Forgot password link on the sign-in page. The reset email arrives within a few minutes.' : 'Hello, your order ' + (payload['orderId'] == null ? 'UNKNOWN' : payload['orderId']) + ' is on its way. Tracking is in your order confirmation email.'"
+            }
+          }
+        },
+        {
+          "nodeId": "check-reply",
+          "type": "BRANCH",
+          "config": { "mode": "EXPRESSION", "cases": { "!payload.reply.contains('UNKNOWN')": "ok", "payload.reply.contains('UNKNOWN')": "unfit" } }
+        },
+        {
+          "nodeId": "mark-auto",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "dropOriginal": false, "mapping": { "outcome": "'auto_replied'", "queue": "'none'" } }
+        },
+        {
+          "nodeId": "mark-human",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "outcome": "'escalated'",
+              "queue": "payload.category == 'billing' ? 'billing-disputes' : (payload.category == 'angry' ? 'senior-support' : 'general')"
+            }
+          }
+        },
+        {
+          "nodeId": "fan-out",
+          "type": "RECIPIENT_LIST",
+          "config": { "mode": "STATIC", "recipients": ["slack", "email", "record"], "parallel": true }
+        },
+        {
+          "nodeId": "notify-slack",
+          "type": "MAPPER",
+          "config": { "mode": "TEMPLATE", "mapping": "slack #{{payload.queue}}: ticket {{payload.ticketId}} from {{payload.customer}} needs a person ({{payload.category}})" }
+        },
+        {
+          "nodeId": "notify-email",
+          "type": "MAPPER",
+          "config": { "mode": "TEMPLATE", "mapping": "email {{payload.queue}}@example.com: ticket {{payload.ticketId}}, {{payload.subject}}" }
+        },
+        {
+          "nodeId": "format-outcome",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "path": "'outcomes.log'",
+              "content": "'ticket=' + payload.ticketId + ' category=' + payload.category + ' outcome=' + payload.outcome + ' queue=' + payload.queue"
+            }
+          }
+        },
+        {
+          "nodeId": "write-outcome",
+          "type": "FILE_WRITE",
+          "config": { "baseDir": "/tmp/yukta-examples/support-triage", "path": "outcomes.log", "append": true }
+        },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "ticket", "target": "lower-text" },
+        { "source": "lower-text", "target": "classify" },
+        { "source": "classify", "target": "route" },
+        { "source": "route", "target": "draft-reply", "sourcePort": "auto" },
+        { "source": "route", "target": "mark-human", "sourcePort": "human" },
+        { "source": "draft-reply", "target": "check-reply" },
+        { "source": "check-reply", "target": "mark-auto", "sourcePort": "ok" },
+        { "source": "check-reply", "target": "mark-human", "sourcePort": "unfit" },
+        { "source": "mark-auto", "target": "format-outcome" },
+        { "source": "mark-human", "target": "fan-out" },
+        { "source": "fan-out", "target": "notify-slack", "sourcePort": "slack" },
+        { "source": "fan-out", "target": "notify-email", "sourcePort": "email" },
+        { "source": "fan-out", "target": "format-outcome", "sourcePort": "record" },
+        { "source": "notify-slack", "target": "end" },
+        { "source": "notify-email", "target": "end" },
+        { "source": "format-outcome", "target": "write-outcome" },
+        { "source": "write-outcome", "target": "end" }
+      ]
+    }
+  }
+}

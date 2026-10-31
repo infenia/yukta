@@ -1,0 +1,316 @@
+{
+  "sessionId": "example-02-agent-verification",
+  "name": "Agent verification gate",
+  "description": "An AI coding agent may report done only after build, tests, a patch guard and a coverage gate all ran and passed. Failures go to a bounded fix-and-retry loop, then to a hard stop.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": {
+    "example": "02-agent-verification"
+  },
+  "workflows": {
+    "verify-change": {
+      "workflowId": "verify-change",
+      "description": "Parent: run the attempt workflow up to 3 times, then record done or stop hard",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "attempts",
+          "type": "LOOP_PREDICATE",
+          "config": {
+            "targetPluginId": "SUB_WORKFLOW",
+            "targetConfig": {
+              "workflowId": "attempt"
+            },
+            "exitCondition": "payload.outcome == 'SUCCESS'",
+            "maxIterations": 3,
+            "maxDuration": "PT2M",
+            "failureStrategy": "ABORT",
+            "timeoutSeconds": 150
+          }
+        },
+        {
+          "nodeId": "decide",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload.outcome == 'SUCCESS'": "verified",
+              "payload.outcome != 'SUCCESS'": "exhausted"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "record-done",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "echo",
+              "DONE RECORDED: every gate ran and passed"
+            ]
+          }
+        },
+        {
+          "nodeId": "done",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "SUCCESS",
+            "reason": "build, tests, patch guard and coverage passed"
+          }
+        },
+        {
+          "nodeId": "record-stop",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "echo",
+              "HARD STOP: the change did not pass the gates in 3 attempts, no done recorded"
+            ]
+          }
+        },
+        {
+          "nodeId": "stopped",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "ESCALATE",
+            "reason": "verification still failing after the retry budget"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "attempts"
+        },
+        {
+          "source": "attempts",
+          "target": "decide"
+        },
+        {
+          "source": "decide",
+          "target": "record-done",
+          "sourcePort": "verified"
+        },
+        {
+          "source": "decide",
+          "target": "record-stop",
+          "sourcePort": "exhausted"
+        },
+        {
+          "source": "record-done",
+          "target": "done"
+        },
+        {
+          "source": "record-stop",
+          "target": "stopped"
+        }
+      ]
+    },
+    "attempt": {
+      "workflowId": "attempt",
+      "description": "One verification pass: build, test, patch guard, coverage. A failed gate calls the fixer and ends with RETRY",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "build",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "sh",
+              "build.sh"
+            ],
+            "workingDir": "/tmp/yukta-example-agent-verification/repo",
+            "timeout": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "test",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "sh",
+              "test.sh"
+            ],
+            "workingDir": "/tmp/yukta-example-agent-verification/repo",
+            "timeout": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "patch-guard",
+          "type": "PATCH_GUARD",
+          "config": {
+            "dir": "/tmp/yukta-example-agent-verification/repo",
+            "protectedPaths": [
+              "build.sh",
+              "test.sh",
+              "coverage.sh",
+              "coverage.txt"
+            ],
+            "forbidPatterns": [
+              "@Disabled",
+              "@Ignore",
+              "\\.skip\\("
+            ],
+            "noTestRemoval": true,
+            "requireChange": true
+          }
+        },
+        {
+          "nodeId": "coverage",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "sh",
+              "coverage.sh"
+            ],
+            "workingDir": "/tmp/yukta-example-agent-verification/repo",
+            "timeout": 60,
+            "outputFormat": "JSON",
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "coverage-gate",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload.output.coverage >= 80": "pass",
+              "payload.output.coverage < 80": "fail"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "gate-failed",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "gate": "'a gate failed'"
+            }
+          }
+        },
+        {
+          "nodeId": "fix",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "sh",
+              "/tmp/yukta-example-agent-verification/fixer.sh",
+              "/tmp/yukta-example-agent-verification/repo"
+            ],
+            "timeout": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "retry",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "RETRY",
+            "reason": "a gate failed; the fixer ran"
+          }
+        },
+        {
+          "nodeId": "verified",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "echo",
+              "ALL GATES PASSED"
+            ]
+          }
+        },
+        {
+          "nodeId": "ok",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "SUCCESS"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "build"
+        },
+        {
+          "source": "build",
+          "target": "test",
+          "sourcePort": "success"
+        },
+        {
+          "source": "build",
+          "target": "gate-failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "test",
+          "target": "patch-guard",
+          "sourcePort": "success"
+        },
+        {
+          "source": "test",
+          "target": "gate-failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "patch-guard",
+          "target": "coverage",
+          "sourcePort": "pass"
+        },
+        {
+          "source": "patch-guard",
+          "target": "gate-failed",
+          "sourcePort": "reject"
+        },
+        {
+          "source": "coverage",
+          "target": "coverage-gate",
+          "sourcePort": "success"
+        },
+        {
+          "source": "coverage",
+          "target": "gate-failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "coverage-gate",
+          "target": "verified",
+          "sourcePort": "pass"
+        },
+        {
+          "source": "coverage-gate",
+          "target": "gate-failed",
+          "sourcePort": "fail"
+        },
+        {
+          "source": "gate-failed",
+          "target": "fix"
+        },
+        {
+          "source": "fix",
+          "target": "retry"
+        },
+        {
+          "source": "verified",
+          "target": "ok"
+        }
+      ]
+    }
+  }
+}
