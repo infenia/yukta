@@ -1,0 +1,35 @@
+---
+title: "Control dashboard"
+sidebarTitle: "Control dashboard"
+description: "The Mission Control page: what each panel shows, where the numbers come from, how to scope it to a session, run it as a wall display, and attach supervisors."
+keywords: ["dashboard", "control", "metrics", "kiosk", "supervisors", "prometheus"]
+---
+
+<Info>
+  **In plain terms:** `/control` in the web UI is one page that shows how the server is doing right now and lets you steer it: change the run limit, drain it, and attach supervisors.
+</Info>
+
+## Panels
+
+| Panel | What it shows |
+|---|---|
+| Command strip | Runs per minute, failure rate, p95 duration and live runs, for the chosen scope |
+| Capacity | Concurrent run limit (0 is unlimited) with a knob, and the drain switch |
+| Throughput, latency | Time series for the chosen range (`5m` to `24h`); restarts and limit changes show as annotations |
+| Live runs | Runs in progress, slowest first |
+| Heatmap, leaderboard | Busiest and slowest modules |
+| Bus, worker slots, vitals, AI usage | Control-bus health, connected workers, JVM numbers and model usage |
+
+The scope, range and live/paused state are kept in the URL (`?scope=session:<id>&range=1h&live=0`), so a view can be shared. Metrics are sampled in memory since startup and come from `GET /api/metrics/series` and `GET /api/metrics/snapshot`; see [Observability](/running/observability).
+
+## Kiosk mode
+
+**Kiosk** opens a full-screen wall display: the command strip stays, and the panels cycle in three groups every 15 seconds with larger type. Hovering pauses the cycle; the dots jump to a group. **Esc** (or **Exit**) leaves it.
+
+## Supervisors
+
+The page lists every supervisor as a card with its scope, its decisions, and switches for dry run and enabled. A supervisor can apply to every run, one session or one workflow, and the session and workflow pages show the ones that apply there. See [Supervisors](/running/supervisors). Attaching needs an `ADMIN` key.
+
+## Prometheus
+
+The Prometheus registry is on the class path but the endpoint is off by default. To scrape it, set `management.endpoints.web.exposure.include=health,info,metrics,prometheus` and point the scraper at `/actuator/prometheus`. The dashboard does not need it.

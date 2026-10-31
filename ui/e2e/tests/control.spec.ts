@@ -335,4 +335,23 @@ test.describe('Control page', () => {
     await card.getByRole('button', { name: 'Confirm detach' }).click();
     await expect(card).toHaveCount(0);
   });
+
+  test('kiosk mode fills the screen, cycles the panels and leaves on Escape', async ({
+    page,
+  }) => {
+    await mockControlApi(page, []);
+    await page.goto('/control');
+    await page.getByRole('button', { name: 'Kiosk' }).click();
+
+    const kiosk = page.getByRole('dialog', { name: 'Kiosk mode' });
+    await expect(kiosk).toBeVisible();
+    const first = kiosk.getByRole('button', { name: 'Group 1' });
+    await expect(first).toHaveAttribute('aria-pressed', 'true');
+
+    await kiosk.getByRole('button', { name: 'Group 2' }).click();
+    await expect(first).toHaveAttribute('aria-pressed', 'false');
+
+    await page.keyboard.press('Escape');
+    await expect(kiosk).toHaveCount(0);
+  });
 });
