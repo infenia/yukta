@@ -25,6 +25,21 @@ export interface ControlAuditEntry {
   reason: string | null;
 }
 
+/**
+ * A key for each row. The server gives an entry no id, and the newest row comes first, so an index
+ * would move every key when a row arrives. The content is the key; a repeat of the same command in
+ * the same instant gets a number.
+ */
+export function rowKeys(entries: ControlAuditEntry[]): string[] {
+  const seen = new Map<string, number>();
+  return entries.map((entry) => {
+    const base = `${entry.time}|${entry.executionId}|${entry.command}|${entry.actor}`;
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    return `${base}|${count}`;
+  });
+}
+
 const getAudit = () =>
   fetchApi<ControlAuditEntry[]>('/api/control/audit?limit=50');
 
@@ -36,6 +51,7 @@ export function ControlAuditPanel() {
     queryFn: getAudit,
     refetchInterval: poll,
   });
+  const keys = audit.data ? rowKeys(audit.data) : [];
 
   return (
     <section aria-labelledby="audit-heading" className="flex flex-col gap-2">
@@ -71,7 +87,7 @@ export function ControlAuditPanel() {
             </TableHeader>
             <TableBody>
               {audit.data.map((entry, index) => (
-                <TableRow key={`${entry.time}-${entry.executionId}-${index}`}>
+                <TableRow key={keys[index]}>
                   <TableCell className="text-on-surface-variant">
                     {new Date(entry.time).toLocaleString()}
                   </TableCell>

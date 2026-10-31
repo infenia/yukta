@@ -9,6 +9,7 @@ import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import {
   ControlAuditPanel,
+  rowKeys,
   type ControlAuditEntry,
 } from '../ControlAuditPanel';
 
@@ -101,5 +102,28 @@ describe('ControlAuditPanel', () => {
     expect(
       await screen.findByText('No control commands recorded yet.')
     ).toBeInTheDocument();
+  });
+});
+
+describe('rowKeys', () => {
+  const entry = (command: string): ControlAuditEntry => ({
+    time: '2026-01-01T00:00:00',
+    executionId: 'e1',
+    command,
+    actor: null,
+    applied: true,
+    reason: null,
+  });
+
+  it("keeps a row's key when newer rows arrive in front of it", () => {
+    const old = entry('PAUSE');
+    const before = rowKeys([old]);
+    const after = rowKeys([entry('STOP'), old]);
+    expect(after[1]).toBe(before[0]);
+  });
+
+  it('tells apart the same command sent twice in the same instant', () => {
+    const [first, second] = rowKeys([entry('PAUSE'), entry('PAUSE')]);
+    expect(first).not.toBe(second);
   });
 });
