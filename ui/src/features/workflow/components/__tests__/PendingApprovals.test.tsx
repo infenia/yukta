@@ -67,7 +67,7 @@ describe('PendingApprovals', () => {
       <PendingApprovals sessionId="s1" workflowId="wf" />
     );
     // an empty live region stays, so that the strip is announced when it appears
-    const region = await screen.findByRole('status');
+    const region = await screen.findByTestId('approvals-live');
     await waitFor(() => expect(region).toBeEmptyDOMElement());
     expect(
       screen.queryByRole('region', { name: 'Pending approvals' })

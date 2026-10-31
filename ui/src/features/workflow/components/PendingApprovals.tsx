@@ -42,7 +42,7 @@ export function PendingApprovals({ sessionId, workflowId }: Props) {
   );
   // The live region stays in the page so that the strip is announced when it appears
   if (mine.length === 0 && !decide.error) {
-    return <div role="status" aria-live="polite" />;
+    return <div data-testid="approvals-live" aria-live="polite" />;
   }
 
   return (
