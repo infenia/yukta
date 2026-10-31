@@ -322,6 +322,30 @@ test.describe('Workflow Details Page', () => {
     expect(calls).toEqual(['?priority=10']);
   });
 
+  test('an expanded logs terminal is not drawn over by the canvas toolbar', async ({
+    page,
+  }) => {
+    await page.goto(WORKFLOW_URL);
+    const find = page.getByLabel('Find node on canvas');
+    await expect(find).toBeVisible();
+
+    await page.getByRole('button', { name: 'Maximize the logs' }).click();
+
+    // what is on top at the middle of the Find Node box is the logs panel, not the box
+    const onTop = await find.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      const top = document.elementFromPoint(
+        box.x + box.width / 2,
+        box.y + box.height / 2
+      );
+      return top?.closest('[data-testid="logs-panel"]') !== null;
+    });
+    expect(onTop).toBe(true);
+
+    await page.getByRole('button', { name: 'Restore the logs height' }).click();
+    await expect(find).toBeVisible();
+  });
+
   test('approves a step that waits for a decision', async ({ page }) => {
     const envelope = (path: string, data: unknown) => ({
       status: 200,
