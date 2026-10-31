@@ -12,6 +12,8 @@ export interface RunHit {
   status: string;
   startTime: string | null;
   endTime: string | null;
+  /** Who or what started the run (for example `yk check`, `schedule`), when the server knows. */
+  initiator?: string | null;
   /** How far the run got through its nodes, when the server knows. */
   nodes?: { done: number; total: number; failed: string | null } | null;
 }

@@ -94,6 +94,17 @@ describe('LogsPanel dock', () => {
     ).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it('draws over the canvas toolbar while maximized, and not otherwise', () => {
+    const { panel } = renderDock();
+    expect(panel).not.toHaveClass('z-20');
+    fireEvent.click(screen.getByRole('button', { name: 'Maximize the logs' }));
+    expect(panel).toHaveClass('z-20');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Restore the logs height' })
+    );
+    expect(panel).not.toHaveClass('z-20');
+  });
+
   it('collapses to its toolbar, and maximizing a collapsed dock opens it', () => {
     const { panel } = renderDock();
     fireEvent.click(

@@ -117,6 +117,12 @@ export function WorkflowNodeCard({
     <div
       role="group"
       tabIndex={0}
+      // Enter opens the node like a click does: the click reaches the canvas through the wrapper
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' && event.target === event.currentTarget) {
+          event.currentTarget.click();
+        }
+      }}
       aria-label={`${node.nodeId}: ${statusLabel}`}
       data-testid={`workflow-node-${node.nodeId}`}
       data-status={status}

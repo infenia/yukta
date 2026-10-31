@@ -43,7 +43,7 @@ class ConfigRequestTest {
   /** Test description field constant for validation testing. */
   private static final String DESCRIPTION_FIELD = "description";
 
-  /** Test project path. */
+  /** Test working directory. */
   private static final String PROJECT_PATH = "/path";
 
   /** Validator for testing constraint violations. */

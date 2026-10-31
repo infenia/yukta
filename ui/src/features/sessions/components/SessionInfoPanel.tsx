@@ -98,10 +98,12 @@ export function SessionInfoPanel({
         )}
 
         <div className="min-w-0 space-y-1">
-          <h3 className={label}>Project Path</h3>
+          <h3 className={label}>Working Directory</h3>
           <button
             onClick={handleCopyPath}
-            aria-label={copied ? 'Project path copied' : 'Copy project path'}
+            aria-label={
+              copied ? 'Working directory copied' : 'Copy working directory'
+            }
             className="group border-border bg-card shadow-card transition-standard hover:border-ring flex w-full items-center justify-between rounded-lg border p-2"
           >
             <code className="text-code-sm text-on-surface truncate pr-4">

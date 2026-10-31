@@ -63,6 +63,15 @@ const CLEAR_BREAKPOINT = {
   label: 'Clear breakpoint',
 } as const;
 
+/** The actions that make sense for a node in `status`; the menu and the node sheet share them. */
+export function nodeMenuItems(status: NodeUiStatus, hasBreakpoint: boolean) {
+  return ITEMS.filter((item) => item.when(status)).flatMap((item) =>
+    item.command === 'breakpoint' && hasBreakpoint
+      ? [item, CLEAR_BREAKPOINT]
+      : [item]
+  );
+}
+
 /** Per-node actions, listing only those that make sense for the node's current status. */
 export function NodeControlsMenu({
   nodeId,
@@ -81,11 +90,7 @@ export function NodeControlsMenu({
 }) {
   const { status: copied, copy } = useCopyCommand();
   // Every status has at least one applicable action, so the menu is never empty.
-  const items = ITEMS.filter((item) => item.when(status)).flatMap((item) =>
-    item.command === 'breakpoint' && hasBreakpoint
-      ? [item, CLEAR_BREAKPOINT]
-      : [item]
-  );
+  const items = nodeMenuItems(status, hasBreakpoint);
   const choices: CopyChoice[] = scope
     ? items.flatMap((item): CopyChoice[] => {
         // breakpoints are local to this tab and have no CLI, curl or MCP form

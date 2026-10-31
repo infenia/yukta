@@ -7,7 +7,7 @@ import java.util.Map;
 /**
  * Internal record for session configuration state stored in SessionConfigStore.
  *
- * @param projectPath the project path for the session
+ * @param projectPath the working directory for the session
  * @param initiator the initiator name
  * @param initiatedTime the timestamp when the session was initiated
  * @param tags additional tags for the session

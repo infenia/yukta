@@ -113,7 +113,7 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
     log.atDebug()
         .addKeyValue("sessionId", sessionId)
         .addKeyValue("projectPath", path)
-        .log("Set project path for session");
+        .log("Set working directory for session");
     return Mono.empty();
   }
 

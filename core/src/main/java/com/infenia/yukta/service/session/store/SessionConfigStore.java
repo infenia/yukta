@@ -27,18 +27,18 @@ public interface SessionConfigStore {
   Mono<Void> applySessionConfig(@Valid SessionConfigData data);
 
   /**
-   * Get the external project path for a session.
+   * Get the external working directory for a session.
    *
    * @param sessionId the session identifier
-   * @return Mono containing the project path
+   * @return Mono containing the working directory
    */
   Mono<String> getProjectPath(@SessionId String sessionId);
 
   /**
-   * Set the external project path override for a session.
+   * Set the external working directory override for a session.
    *
    * @param sessionId the session identifier
-   * @param path the project path
+   * @param path the working directory
    * @return Mono that completes when the path is set
    */
   Mono<Void> setProjectPath(@SessionId String sessionId, @ProjectPath String path);

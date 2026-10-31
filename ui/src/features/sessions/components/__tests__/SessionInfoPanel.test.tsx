@@ -2,7 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, vi } from 'vitest';
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import {
+  act,
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+} from '@testing-library/react';
 import { SessionInfoPanel } from '../SessionInfoPanel';
 import type { SessionDetails } from '../../types/session';
 
@@ -32,7 +38,7 @@ describe('SessionInfoPanel', () => {
     expect(screen.getByText('JD')).toBeInTheDocument();
   });
 
-  it('copies project path to clipboard on button click', async () => {
+  it('copies working directory to clipboard on button click', async () => {
     const writeTextMock = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, {
       clipboard: {
@@ -74,7 +80,7 @@ describe('SessionInfoPanel', () => {
     expect(screen.getByText('Tags')).toBeInTheDocument();
   });
 
-  it('displays project path in code block', () => {
+  it('displays working directory in code block', () => {
     render(<SessionInfoPanel session={mockSession} />);
     const codeBlock = screen.getByText('/path/to/project');
     expect(codeBlock.tagName).toBe('CODE');
@@ -90,7 +96,10 @@ describe('SessionInfoPanel', () => {
     fireEvent.click(screen.getByRole('button'));
 
     await waitFor(() => {
-      expect(error).toHaveBeenCalledWith('Failed to copy to clipboard:', expect.any(Error));
+      expect(error).toHaveBeenCalledWith(
+        'Failed to copy to clipboard:',
+        expect.any(Error)
+      );
     });
     error.mockRestore();
   });
