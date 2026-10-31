@@ -52,6 +52,20 @@ function levelClass(level: string | null): string {
   }
 }
 
+/** The colour of the level column; the message keeps the severity colours of levelClass. */
+function levelBadgeClass(level: string | null): string {
+  switch (level) {
+    case 'WARN':
+      return 'text-log-warn';
+    case 'ERROR':
+      return 'text-log-error';
+    case 'DEBUG':
+      return 'text-log-debug';
+    default:
+      return 'text-log-info';
+  }
+}
+
 const lineText = (entry: LogEntry | string) =>
   typeof entry === 'string' ? entry : formatLine(entry);
 
@@ -68,10 +82,17 @@ function LogLine({ entry }: { entry: LogEntry | string }) {
       <span className="text-log-debug">
         {formatLogTimestamp(entry.timestamp)}
       </span>{' '}
-      <span className="inline-block w-12 font-semibold">
+      <span
+        className={cn(
+          'inline-block w-12 font-semibold',
+          levelBadgeClass(entry.level)
+        )}
+      >
         {entry.level ?? 'INFO'}
       </span>{' '}
-      <span className="text-log-info">[{entry.pluginId}]</span>{' '}
+      <span className="text-on-surface-variant inline-block min-w-36 align-top">
+        [{entry.pluginId}]
+      </span>{' '}
       <span className={levelClass(entry.level)}>{entry.message}</span>
     </>
   );
@@ -253,7 +274,11 @@ export function LogsPanel({
   return (
     <section
       ref={sectionRef}
-      className="border-outline-variant bg-surface relative flex shrink-0 flex-col border-t"
+      className={cn(
+        'border-outline-variant bg-surface relative flex shrink-0 flex-col border-t',
+        // Over the canvas toolbar (z-10): nothing of the canvas may draw on an expanded terminal
+        maximized && !collapsed && 'z-20'
+      )}
       style={collapsed ? undefined : { height: maximized ? '100%' : height }}
       data-testid="logs-panel"
       aria-label="Execution logs"
@@ -302,14 +327,14 @@ export function LogsPanel({
             {maximized ? 'close_fullscreen' : 'open_in_full'}
           </span>
         </button>
-        <span className="material-symbols-outlined text-on-surface-variant text-base">
-          terminal
-        </span>
-        <h2 className="text-label-md text-on-surface whitespace-nowrap">
-          Execution logs
-        </h2>
+        {/* The design has no icon or title here; the heading stays for screen readers */}
+        <h2 className="sr-only">Execution logs</h2>
         {progress && (
-          <div role="tablist" aria-label="Logs or events" className="flex">
+          <div
+            role="tablist"
+            aria-label="Logs or events"
+            className="border-outline-variant flex gap-4 self-stretch"
+          >
             {(
               [
                 ['logs', 'Logs'],
@@ -323,10 +348,10 @@ export function LogsPanel({
                 aria-selected={view === key}
                 onClick={() => setView(key)}
                 className={cn(
-                  'text-label-sm rounded-md px-2 py-0.5',
+                  'text-label-md -mb-px border-b-2 px-0.5',
                   view === key
-                    ? 'bg-muted text-on-surface'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                    ? 'border-primary text-on-surface'
+                    : 'text-on-surface-variant hover:text-on-surface border-transparent'
                 )}
               >
                 {label}
@@ -370,7 +395,11 @@ export function LogsPanel({
           )}
           {!showEvents && (
             <>
-              <div role="group" aria-label="Log level" className="flex">
+              <div
+                role="group"
+                aria-label="Log level"
+                className="bg-muted flex rounded-lg p-0.5"
+              >
                 {(['all', 'info', 'warn', 'error'] as const).map((level) => (
                   <button
                     key={level}
@@ -379,10 +408,10 @@ export function LogsPanel({
                     disabled={raw}
                     onClick={() => setMinLevel(level)}
                     className={cn(
-                      'text-label-sm border px-2 py-1 tracking-wider uppercase first:rounded-l-lg last:rounded-r-lg disabled:opacity-50',
+                      'text-label-sm rounded-md px-2 py-0.5 tracking-wider uppercase disabled:opacity-50',
                       minLevel === level
-                        ? 'border-primary text-primary'
-                        : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+                        ? 'bg-card text-on-surface shadow-card'
+                        : 'text-on-surface-variant hover:text-on-surface'
                     )}
                   >
                     {level}
