@@ -36,7 +36,7 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
 
   return (
     <div
-      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6"
+      className="grid grid-cols-2 gap-3 lg:grid-cols-6"
       data-testid="command-strip"
     >
       <KpiTile
