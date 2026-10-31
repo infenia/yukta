@@ -127,7 +127,9 @@ public record ExecutionLogEvent(
 
   /**
    * The payload with the initiator under its reserved key. A caller's own value of that key is
-   * dropped, so a run's initiator cannot be forged through the payload.
+   * dropped, so a run's initiator cannot be forged through the payload. The parent-run key is
+   * dropped too: only a sub-workflow node may name a parent, and it does not pass through here, so
+   * an external caller cannot attach a run to another run's tree.
    *
    * @param payload the trigger payload
    * @param initiator who or what starts the run, or null if not known
@@ -137,6 +139,7 @@ public record ExecutionLogEvent(
       final Map<String, Object> payload, @Nullable final String initiator) {
     final var copy = new HashMap<>(payload);
     copy.remove(INITIATOR_KEY);
+    copy.remove("yukta.parentExecutionId"); // SubWorkflowGateway.PARENT_KEY, not visible from here
     if (initiator != null && !initiator.isBlank()) {
       copy.put(INITIATOR_KEY, initiator);
     }
