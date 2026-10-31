@@ -30,5 +30,10 @@
   "enabledPlugins": {
     "yukta@yukta": true,
     "yukta-dogfood@yukta": true
+  },
+  "worktree": {
+    "symlinkDirectories": [
+      "ui/node_modules"
+    ]
   }
 }
