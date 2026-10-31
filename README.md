@@ -61,6 +61,17 @@ Yukta separates *what must happen* from *who does the work*. The process lives i
 
 Release files carry `SHA256SUMS` and a Sigstore signature. See [Deployment](https://yukta.infenia.com/operations/deployment) for upgrades, packages and verification.
 
+### Run modes
+
+`yukta` starts with a live terminal dashboard (health, run counts, recent runs and logs) when it runs in a terminal, and with plain log lines otherwise (service, container, pipe). Set the mode with `--mode=console|plain`, `--plain` or `YUKTA_MODE`; `NO_COLOR` turns the colors off. To run it in the background:
+
+```bash
+yukta start      # detached; waits until healthy
+yukta status     # also: stop, restart, logs [-f]
+```
+
+Under systemd or in Docker the server uses plain mode on its own. See [Run modes](https://yukta.infenia.com/running/run-modes).
+
 ## Quick start
 
 Start the server (`yukta`, or the Docker command above), then open the web UI at <http://localhost:9858/> or the API docs at <http://localhost:9858/swagger-ui.html>. With the Docker command, add `-H "X-API-Key: change-me"` to each `curl`.

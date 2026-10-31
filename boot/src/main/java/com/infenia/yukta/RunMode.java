@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Locale;
+import java.util.Map;
+
+/** How the server presents itself: an interactive console, plain logs, or a background daemon. */
+@SuppressWarnings({"PMD.CyclomaticComplexity", "PMD.AvoidLiteralsInIfCondition"})
+public enum RunMode {
+  /** Interactive dashboard; the default when stdin and stdout are a terminal. */
+  CONSOLE,
+  /** Traditional log-only output; the default when not on a terminal. */
+  PLAIN,
+  /** Detached background process, managed by {@code yukta start|stop|status}. */
+  DAEMON;
+
+  /** Name of the command-line option and the environment variable's suffix. */
+  /* default */ static final String ENV = "YUKTA_MODE";
+
+  /**
+   * Resolves the mode: {@code --plain}, then {@code --mode=<m>} / {@code --mode <m>}, then {@code
+   * YUKTA_MODE}, then console on a terminal and plain otherwise.
+   *
+   * @throws IllegalArgumentException for an unknown mode name
+   */
+  /* default */ static RunMode resolve(
+      final Map<String, String> env, final boolean tty, final String... args) {
+    String name = env.get(ENV);
+    for (int i = 0; i < args.length; i++) {
+      if ("--plain".equals(args[i])) {
+        return PLAIN;
+      }
+      if (args[i].startsWith("--mode=")) {
+        name = args[i].substring("--mode=".length());
+      } else if ("--mode".equals(args[i]) && i + 1 < args.length) {
+        name = args[i + 1];
+      }
+    }
+    if (name == null || name.isBlank()) {
+      return tty ? CONSOLE : PLAIN;
+    }
+    try {
+      return valueOf(name.strip().toUpperCase(Locale.ROOT));
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException(
+          "Unknown run mode '" + name + "' (expected console, plain or daemon)", e);
+    }
+  }
+
+  /** Whether stdin and stdout are both a terminal. */
+  @SuppressWarnings("SystemConsoleNull") // still null when the JDK has no console (e.g. tests)
+  /* default */ static boolean isTty() {
+    // the java.base provider asks the OS directly (the default one is not in a native image)
+    System.setProperty("jdk.console", "java.base");
+    final var console = System.console();
+    return (console != null && console.isTerminal()) || (fdIsTerminal(0) && fdIsTerminal(1));
+  }
+
+  /** Linux fallback when the JDK does not say (native image): whether the descriptor is a tty. */
+  private static boolean fdIsTerminal(final int fd) {
+    try {
+      final String target = Files.readSymbolicLink(Path.of("/proc/self/fd/" + fd)).toString();
+      return target.startsWith("/dev/pts/") || target.startsWith("/dev/tty");
+    } catch (IOException | UnsupportedOperationException | SecurityException e) {
+      return false;
+    }
+  }
+}

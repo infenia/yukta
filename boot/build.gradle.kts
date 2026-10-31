@@ -82,6 +82,9 @@ dependencies {
     }
 
     implementation(libs.spring.boot.starter.webflux)
+    // interactive console (run mode "console")
+    implementation(libs.jline)
+    implementation(libs.jackson.databind)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.actuator)
     // /actuator/prometheus for Grafana users; exposed only when "prometheus" is in management.endpoints.web.exposure.include
@@ -154,6 +157,11 @@ graalvmNative {
             imageName.set("yukta")
             mainClass.set("com.infenia.yukta.YuktaApplication")
             buildArgs.add("--no-fallback")
+            // System.console() must be the OS-backed provider (see RunMode.isTty)
+            buildArgs.add("-Djdk.console=java.base")
+            // Netty frees direct buffers through a shared Arena on Java 25; without this, shutdown logs
+            // "Support for Arena.ofShared is not active"
+            buildArgs.add("-H:+SharedArenaSupport")
 
             // openai-java-core ships agent-recorded proxy/serialization metadata captured from its
             // own Gradle/ByteBuddy-based tests (classes absent here), so native-image warns
@@ -237,3 +245,45 @@ val verifyNettyVersion by tasks.registering {
     }
 }
 tasks.named("check") { dependsOn(verifyNettyVersion) }
+
+// Spring AOT freezes @ConditionalOnProperty at build time, so a stray YUKTA_* variable in the build
+// environment (the dev server sets YUKTA_SUPERVISOR_RULES_FILE) would bake that bean into the native
+// binary and break its start. Build from a clean environment.
+tasks.withType<org.springframework.boot.gradle.tasks.aot.ProcessAot>().configureEach {
+    environment.keys.filter { it.startsWith("YUKTA_") || it.startsWith("SPRING_") }.forEach { environment.remove(it) }
+}
+
+// Run modes: the parts that need a real terminal, a spawned server or a native image are covered by
+// release/console-smoke.sh (nightly, native-smoke.yml), not by unit tests.
+coverageConfig {
+    exception(
+        "com.infenia.yukta.console.ConsoleRunner",
+        "Full-screen JLine loop on a real terminal; checked by release/console-smoke.sh on a pty",
+        mapOf("LINE" to 0.0, "BRANCH" to 0.0)
+    )
+    exception(
+        "com.infenia.yukta.console.ConsoleLogs",
+        "Swaps the root logback appender of the running process; checked by console-smoke.sh",
+        mapOf("LINE" to 0.1, "BRANCH" to 0.0)
+    )
+    exception(
+        "com.infenia.yukta.console.ConsoleView",
+        "Rendering is tested; the page layouts for runs, help and the log scroll edges are not yet",
+        mapOf("LINE" to 0.7, "BRANCH" to 0.5)
+    )
+    exception(
+        "com.infenia.yukta.Daemon",
+        "start/stop spawn and signal a real server process; checked by console-smoke.sh",
+        mapOf("LINE" to 0.4, "BRANCH" to 0.3)
+    )
+    exception(
+        "com.infenia.yukta.RunMode",
+        "isTty() reads the real terminal and /proc, which a test run does not have",
+        mapOf("LINE" to 0.8, "BRANCH" to 0.5)
+    )
+    exception(
+        "com.infenia.yukta.YuktaApplication",
+        "main() dispatches to the daemon commands and the console, which need a terminal or a process",
+        mapOf("LINE" to 0.6, "BRANCH" to 0.7)
+    )
+}
