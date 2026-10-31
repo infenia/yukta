@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { test, expect, defaultProgress, sseBody } from '../fixtures';
+import {
+  test,
+  expect,
+  defaultProgress,
+  defaultWorkflowGraph,
+  sseBody,
+} from '../fixtures';
 
 const WORKFLOW_URL = '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11';
 
@@ -320,6 +326,40 @@ test.describe('Workflow Details Page', () => {
 
     await expect(page.getByRole('dialog')).toBeHidden();
     expect(calls).toEqual(['?priority=10']);
+  });
+
+  test('a long description stays on one line, so the card keeps its status row, and opens in full', async ({
+    page,
+    mockWorkflowApi,
+  }) => {
+    const long =
+      'Runs the whole repair loop: it reads the failing check, patches the code, and runs the check again until it passes.';
+    await mockWorkflowApi(page, {
+      graph: {
+        ...defaultWorkflowGraph,
+        nodes: defaultWorkflowGraph.nodes.map((node) =>
+          node.nodeId === 'Vectorize_Batch'
+            ? { ...node, description: long }
+            : node
+        ),
+      },
+    });
+    await page.goto(WORKFLOW_URL);
+
+    const card = page.getByTestId('workflow-node-Vectorize_Batch');
+    await expect(card).toContainText('Running');
+    // nothing of the card falls outside its box
+    const overflow = await card.evaluate(
+      (el) => el.scrollHeight - el.clientHeight
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+
+    await card
+      .getByRole('button', {
+        name: 'Show the full description of Vectorize_Batch',
+      })
+      .click();
+    await expect(page.getByText(long).last()).toBeVisible();
   });
 
   test('an expanded logs terminal is not drawn over by the canvas toolbar', async ({
