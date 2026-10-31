@@ -1,18 +1,15 @@
-<div align="center">
-  <img src="ui/public/logo.svg" alt="Yukta" width="120" height="120" />
-  <h1>Yukta</h1>
-  <p><strong>A reactive, DAG-based workflow orchestration server.</strong><br />
-  Define a workflow once as JSON. Run it from a script, a CI pipeline, a web UI or an AI agent.</p>
+# Yukta
 
-  <p>
-    <a href="https://yukta.infenia.com/">Docs</a> ·
-    <a href="#install">Install</a> ·
-    <a href="#quick-start">Quick start</a> ·
-    <a href="#interfaces">Interfaces</a> ·
-    <a href="examples/README.md">Examples</a> ·
-    <a href="#contributing">Contributing</a>
-  </p>
-</div>
+**Define the process once. Make sure it is followed every time, and keep control while it runs.**
+
+Yukta is a reactive, DAG-based workflow orchestration server. A workflow is a JSON graph that scripts, CI pipelines, people and AI agents all run the same way.
+
+[Docs](https://yukta.infenia.com/) ·
+[Install](#install) ·
+[Quick start](#quick-start) ·
+[Interfaces](#interfaces) ·
+[Examples](examples/README.md) ·
+[Contributing](#contributing)
 
 [![CI](https://github.com/infenia/yukta/actions/workflows/ci.yml/badge.svg)](https://github.com/infenia/yukta/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/infenia/yukta/actions/workflows/codeql.yml/badge.svg)](https://github.com/infenia/yukta/actions/workflows/codeql.yml)
@@ -21,25 +18,37 @@
 [![Release](https://img.shields.io/github/v/release/infenia/yukta?include_prereleases)](https://github.com/infenia/yukta/releases)
 [![License: Apache 2.0 / AGPL-3.0](https://img.shields.io/badge/license-Apache%202.0%20%2B%20AGPL--3.0-blue)](LICENSING.md)
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/diagrams/architecture.dark.svg" />
-  <img src="docs/images/diagrams/architecture.light.svg" alt="Yukta architecture: REST, MCP, web UI and CLI call a reactive DAG engine that runs trigger, processor and terminal plugins." />
-</picture>
+## The problem
 
-## Why Yukta
+You know how the work should go: build, test, review, get approval, deploy. You write it down in a wiki page, a README, a prompt or a script. Then the work runs, and the process quietly stops being followed.
 
-Most workflow engines make you pick: a heavy platform you have to operate, or a script you cannot observe. Yukta is a small server that sits between the two.
+- **Steps get skipped.** A check is "optional this once". A validation is assumed to have passed. Something reports "done" when it never ran the verification you asked for.
+- **Instructions are suggestions.** A process written in a document or a prompt relies on whoever (or whatever) reads it to comply. Nothing enforces the order, and nothing proves a step happened.
+- **A running job is a black box.** When something looks wrong halfway through, you can usually only wait or kill it. You cannot pause it, look at what it has done, fix the input and carry on from where it stopped.
+- **It gets worse with more actors.** The moment several scripts, services or AI agents share one process, nobody can say who owns which step, or what state the whole thing is in.
 
-- **Workflows are data.** A workflow is a JSON graph of nodes and edges. There is no DSL to learn, and a graph is easy for people, tools and AI agents to generate and review.
-- **One definition, many callers.** Start the same workflow from REST, the web UI, the Go CLI or an [MCP](https://modelcontextprotocol.io/) client such as Claude.
+If you have ever re-run a pipeline from the start because you could not resume it, or found out later that a gate was never checked, this is that problem.
+
+## What Yukta does
+
+Yukta separates *what must happen* from *who does the work*. The process lives in the server as a graph, and the server enforces it.
+
+- **The workflow is the source of truth.** A workflow is a JSON graph of nodes and edges. Steps run in the order the graph says, nothing is skipped by accident, and routing (for example `success` and `failure` paths, or one path per `BRANCH` case) is part of the definition. There is no DSL to learn, and a graph is easy for people, tools and AI agents to generate and review.
+- **Quality gates are nodes, not hopes.** Tests, checks, approvals and model-based decisions (`GATE`, `CLASSIFY`, `SCORE`, `ASK`) sit in the graph. Work that fails a gate does not reach the next step.
+- **Full control while it runs.** Pause, resume, stop, restart, skip, retry, step through, and set breakpoints, on a whole run or on a single node. Inspect any node's output, then continue.
+- **Agents are first-class.** An AI agent can start workflows, watch them, pause or restart them and answer approvals through the built-in [MCP](https://modelcontextprotocol.io/) server. The agent runs inside the process you defined, and still has the controls it needs.
+- **From a script to many agents.** The same engine runs a three-step shell pipeline, a CI/CD flow, a data pipeline or several cooperating agents. Fan out, wait for signals, route by result, loop until ready.
+- **One definition, many callers.** Start the same workflow from REST, the web UI, the Go CLI or an MCP client such as Claude.
+- **Observable.** Live DAG view with progress, SSE log and status streams, and run history.
 - **Reactive end to end.** Built on Spring WebFlux and Project Reactor. Nodes are non-blocking streams, and I/O runs on virtual threads.
-- **Observable and controllable.** Live DAG view, SSE log and status streams, and run controls: pause, resume, stop, restart, skip, retry, step and breakpoints.
 - **Extensible.** Plugins are Spring beans implementing a small interface from `plugin-api`. Adding one does not touch `core`.
 - **Safe to start with.** It binds to loopback by default, and an API key guards `/api/**` and `/mcp` when you expose it.
 
 > **Alpha (`0.1.0-alpha.2`).** The engine, plugins, REST API, MCP server, web UI and CLI run and are covered by tests. Expect breaking changes to the workflow JSON and the APIs before `0.1.0`. The native server is Linux amd64 only for now; macOS and Windows run it with Docker. See [Releases](https://yukta.infenia.com/reference/releases).
 
 ## Install
+
+> **Tested on Linux amd64 only.** The install methods below have been verified on Linux amd64. The Windows, macOS, Docker, Debian/RPM and from-source routes are provided but have not been tested on other machines or architectures, so they may not work as described. If you hit a problem, please [open an issue](https://github.com/infenia/yukta/issues/new/choose) with your OS and architecture.
 
 | Platform | Command |
 |----------|---------|
