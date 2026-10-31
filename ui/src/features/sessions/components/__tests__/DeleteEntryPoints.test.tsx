@@ -9,10 +9,9 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createTestQueryClient } from '@/test/utils/testUtils';
-import { createMockSession } from '@/test/factories/sessionFactory';
 import { setMe, type Me } from '@/lib/identity';
 import { SessionDetailsPage } from '../SessionDetailsPage';
-import { SessionRowActionsMenu } from '../SessionRowActionsMenu';
+import { SessionRowDelete } from '../SessionRowDelete';
 import { WorkflowTable } from '../WorkflowTable';
 
 const server = setupServer(
@@ -44,18 +43,14 @@ const wrap = (ui: React.ReactElement, path = '/') => (
 );
 
 describe('where deleting starts', () => {
-  it('the row menu offers Delete session… and opens the typed confirmation', async () => {
+  it('a session row has a Delete icon button that opens the typed confirmation', async () => {
     const user = userEvent.setup();
-    render(
-      wrap(
-        <SessionRowActionsMenu
-          session={createMockSession({ sessionId: 'sess-1' })}
-        />
-      )
-    );
-    await user.click(screen.getByRole('button', { name: 'Session actions' }));
+    render(wrap(<SessionRowDelete sessionId="sess-1" />));
+    expect(
+      screen.queryByRole('button', { name: 'Session actions' })
+    ).not.toBeInTheDocument();
     await user.click(
-      await screen.findByRole('menuitem', { name: 'Delete session…' })
+      screen.getByRole('button', { name: 'Delete session sess-1' })
     );
 
     expect(
@@ -65,8 +60,7 @@ describe('where deleting starts', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('a workflow row menu offers Delete workflow…', async () => {
-    const user = userEvent.setup();
+  it('a workflow row has no action menu', () => {
     render(
       wrap(
         <WorkflowTable
@@ -85,20 +79,13 @@ describe('where deleting starts', () => {
         />
       )
     );
-    await user.click(
-      screen.getByRole('button', { name: 'Actions for workflow wf1' })
-    );
-    await user.click(
-      await screen.findByRole('menuitem', { name: 'Delete workflow…' })
-    );
     expect(
-      screen.getByRole('dialog', { name: 'Delete workflow wf1' })
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      screen.queryByRole('button', { name: 'Actions for workflow wf1' })
+    ).not.toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('more_vert');
   });
 
-  it('the session page menu has Delete session… that opens the confirmation', async () => {
+  it('the session page has a visible Delete button that opens the confirmation', async () => {
     const user = userEvent.setup();
     render(
       wrap(
@@ -108,12 +95,7 @@ describe('where deleting starts', () => {
         '/sessions/sess-1'
       )
     );
-    await user.click(
-      await screen.findByRole('button', { name: 'Session actions' })
-    );
-    await user.click(
-      await screen.findByRole('menuitem', { name: 'Delete session…' })
-    );
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
     expect(
       screen.getByRole('dialog', { name: 'Delete session sess-1' })
     ).toBeInTheDocument();
@@ -121,7 +103,7 @@ describe('where deleting starts', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('a VIEWER sees the delete entries disabled', async () => {
+  it('a VIEWER sees the delete buttons disabled, with the reason', async () => {
     const viewer: Me = {
       authenticated: true,
       keyName: 'v',
@@ -138,33 +120,12 @@ describe('where deleting starts', () => {
       },
     };
     setMe(viewer);
-    const user = userEvent.setup();
-    render(
-      wrap(
-        <WorkflowTable
-          sessionId="sess-1"
-          workflows={[
-            {
-              workflowId: 'wf1',
-              description: 'd',
-              nodeCount: 1,
-              edgeCount: 0,
-              status: null,
-            },
-          ]}
-          filter=""
-          onFilterChange={() => {}}
-        />
-      )
-    );
-    await user.click(
-      screen.getByRole('button', { name: 'Actions for workflow wf1' })
-    );
-    const item = await screen.findByRole('menuitem', {
-      name: 'Delete workflow…',
+    render(wrap(<SessionRowDelete sessionId="sess-1" />));
+    const button = screen.getByRole('button', {
+      name: 'Delete session sess-1',
     });
-    expect(item).toHaveAttribute('aria-disabled', 'true');
-    expect(item).toHaveAttribute('title', 'Needs ADMIN');
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('title', 'Needs ADMIN');
     setMe(null);
   });
 });
