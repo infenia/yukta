@@ -15,7 +15,8 @@
 #   yk bench [--runs N] [--max-ratio R] [--check] [args]  the same Gradle work direct and through yk: wall times and ratio (exit 1 above R and +3 s)
 #   yk decision                              probe the optional decision model (decisions.json, YUKTA_DECISION_MODEL/_URL/off); yk status shows the same line
 #   yk tool [--detach] [-C dir] <cmd...>     run any other command once, e.g. -C ui pnpm lint | -C cli go test ./...
-#   yk pickup session                        open the interactive Claude Code session that receives issues through the yukta-pickup channel
+#   yk pickup session [--name N]             open an interactive Claude Code session that receives issues through its yukta-pickup channel (several may be open)
+#   yk pickup on|off|now [--to N]|status     the schedule that hands each idle session the next assigned, Ready issue every 30 min (now: one round at once)
 #
 # A run's last line is machine readable; exit 0 only on success:
 #   RESULT status=<S> failed_node=<node|-> healed=<stage:step,..|-> execution=<id> session=<id> wall=<s> cost=$<heal spend> bytes=<shown to you>
@@ -56,16 +57,61 @@ cmd_down() {
 # channel needs --dangerously-load-development-channels, whose dialog you accept at every start; -p ignores the flag). The channel server
 # is spawned by that session, not by the repo .mcp.json, so no other session fights for its port.
 cmd_pickup() {
-  case "${1:-}" in
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
     session)
+      local name=yukta-pickup
+      while (($#)); do
+        case "$1" in
+          --name) name="${2:?--name needs a session name}"; shift 2 ;;
+          *) die "usage: yk pickup session [--name NAME]" ;;
+        esac
+      done
       need claude; need jq
       mkdir -p "$DEV_HOME"
       [[ -s "$DEV_HOME/pickup-token" ]] || { (umask 077; head -c 24 /dev/urandom | base64 | tr -d '/+=\n' >"$DEV_HOME/pickup-token"); }
+      # the channel inherits only a filtered environment from claude, so what it needs goes in its config: where the token and the registry
+      # are, its name and, when you fixed one, its port (default: any free port; it registers itself, see channel/yukta-pickup.py)
       local cfg
-      cfg="$(jq -nc --arg s "$here/channel/yukta-pickup.py" '{mcpServers: {"yukta-pickup": {command: "python3", args: ["-I", $s]}}}')"
+      cfg="$(jq -nc --arg s "$here/channel/yukta-pickup.py" --arg h "$DEV_HOME" --arg n "$name" --arg p "${YUKTA_PICKUP_PORT:-}" \
+        '{mcpServers: {"yukta-pickup": {command: "python3", args: ["-I", $s], env: ({YUKTA_DEV_HOME: $h, YUKTA_PICKUP_NAME: $n} + (if $p == "" then {} else {YUKTA_PICKUP_PORT: $p} end))}}}')"
       cd "$REPO_ROOT"
-      exec claude --name yukta-pickup --mcp-config "$cfg" --dangerously-load-development-channels server:yukta-pickup ;;
-    *) die "usage: yk pickup session" ;;
+      exec claude --name "$name" --mcp-config "$cfg" --dangerously-load-development-channels server:yukta-pickup ;;
+    on)
+      need jq; ensure_server
+      if pickup_alive; then echo "pickup: already on (execution $(cat "$DEV_HOME/pickup.exec"))"; return 0; fi
+      echo "pickup: on (execution $(pickup_start || die "could not start the pickup workflow"))" ;;
+    off)
+      need jq
+      if pickup_alive; then
+        (api POST "/api/executions/$(cat "$DEV_HOME/pickup.exec")/stop?tree=true") >/dev/null 2>&1 || true
+      fi
+      rm -f "$DEV_HOME/pickup.exec"
+      echo "pickup: off" ;;
+    now)
+      need jq
+      if [[ "${1:-}" == --to ]]; then export YUKTA_PICKUP_ONLY="${2:?--to needs a session name}"; shift 2; fi
+      (($# == 0)) || die "usage: yk pickup now [--to NAME]"
+      exec "$here/scripts/pickup.sh" tick ;;
+    status)
+      need jq
+      local e f name port pid st rows=0
+      if pickup_alive; then e="on (execution $(cat "$DEV_HOME/pickup.exec"))"; elif [[ -s "$DEV_HOME/pickup.exec" ]]; then e="on, but not running (the next yk call restarts it)"; else e=off; fi
+      echo "schedule: $e"
+      for f in "$DEV_HOME"/pickup/*.json; do
+        [[ -f "$f" ]] || continue
+        IFS=$'\t' read -r name port pid < <(jq -r '[.name, .port, .pid] | @tsv' "$f" 2>/dev/null) || continue
+        [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null || continue
+        if st="$(curl -fsS -m 3 "http://127.0.0.1:$port/status" 2>/dev/null)"; then
+          st="$(jq -r 'if .busy then "busy with #\(.issue), since \(.since | todate)" else "idle" end' <<<"$st")"
+        else st="not answering"; fi
+        echo "session: $name  :$port  $st"
+        rows=$((rows + 1))
+      done
+      ((rows > 0)) || echo "sessions: none (yk pickup session)"
+      [[ ! -s "$DEV_HOME/pickup.jsonl" ]] || { echo "last:"; tail -n 5 "$DEV_HOME/pickup.jsonl"; } ;;
+    *) die "usage: yk pickup session [--name NAME]|on|off|now [--to NAME]|status" ;;
   esac
 }
 

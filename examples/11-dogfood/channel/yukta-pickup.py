@@ -2,19 +2,26 @@
 """yukta-pickup: a Claude Code channel (research preview) that hands one GitHub issue at a time to an open session.
 
 Claude Code spawns it as an MCP server over stdio (`yk pickup session`). It declares `experimental["claude/channel"]`, so a
-POST to 127.0.0.1:$YUKTA_PICKUP_PORT (default 8790) becomes a `notifications/claude/channel` event: the session starts a turn.
-Claude answers through the `pickup_done` tool, which frees the channel for the next issue.
+POST to its HTTP port becomes a `notifications/claude/channel` event: the session starts a turn. Claude answers through the
+`pickup_done` tool, which frees the channel for the next issue.
+
+Several sessions can each run one: the HTTP port is ephemeral (127.0.0.1:0) unless $YUKTA_PICKUP_PORT is set, and the channel registers
+itself in $DEV_HOME/pickup/<name>.json ({name, port, pid, started}; name = $YUKTA_PICKUP_NAME, default yukta-pickup, with -<pid> added when
+a live channel has it) and removes it on exit. scripts/pickup.sh reads that registry, drops entries whose pid is dead, and hands an issue
+to an idle one.
 
   GET  /status   {"busy": bool, "issue": n|null, "since": epoch|null}
   POST /issue    {"number": n, "title": "..", "url": ".."}  header X-Pickup-Token = $DEV_HOME/pickup-token
                  202 handed over, 403 bad token, 409 busy, 400 bad body
 
-State is in $DEV_HOME (default ~/.local/state/yukta-dev): pickup-token (read), pickup.jsonl (appended per finished issue).
+State is in $DEV_HOME (default ~/.local/state/yukta-dev): pickup-token (read), pickup/ (the registry), pickup.jsonl (appended per finished issue).
 Stdlib only. Logs go to stderr: stdout belongs to the MCP protocol.
 """
+import atexit
 import hmac
 import json
 import os
+import signal
 import sys
 import threading
 import time
@@ -22,7 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 HOME = Path(os.environ.get("YUKTA_DEV_HOME") or Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state") / "yukta-dev")
-PORT = int(os.environ.get("YUKTA_PICKUP_PORT", "8790"))
+PORT = int(os.environ.get("YUKTA_PICKUP_PORT") or 0)  # 0: any free port, found by the registry
 BUSY_LIMIT_S = int(os.environ.get("YUKTA_PICKUP_BUSY_LIMIT", str(4 * 3600)))  # ponytail: a lost pickup_done frees itself after 4 h
 # never 2026-07-28: Claude Code does not register a channel server that negotiates that revision
 KNOWN = ("2025-06-18", "2025-03-26", "2024-11-05")
@@ -131,11 +138,36 @@ class Http(BaseHTTPRequestHandler):
         self._json(code, ans)
 
 
+def register(port):
+    """Writes $DEV_HOME/pickup/<name>.json and returns its path (removed at exit). A live channel with the same name gets -<pid> added."""
+    reg = HOME / "pickup"
+    reg.mkdir(parents=True, exist_ok=True)
+    name = os.environ.get("YUKTA_PICKUP_NAME") or "yukta-pickup"
+    path = reg / f"{name}.json"
+    try:
+        os.kill(json.loads(path.read_text())["pid"], 0)  # alive: the name is taken
+        name = f"{name}-{os.getpid()}"
+        path = reg / f"{name}.json"
+    except (OSError, ValueError, KeyError, TypeError):
+        pass  # no file, a stale one or a dead pid: take the name
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"name": name, "port": port, "pid": os.getpid(), "started": int(time.time())}))
+    tmp.replace(path)
+    atexit.register(lambda: path.unlink(missing_ok=True))
+    log(f"registered {name} on 127.0.0.1:{port}")
+    return path
+
+
 def serve_http():
     try:
-        ThreadingHTTPServer(("127.0.0.1", PORT), Http).serve_forever()
-    except OSError as e:  # port taken (a second session): keep serving MCP without HTTP
-        log(f"no HTTP on 127.0.0.1:{PORT}: {e}")
+        srv = ThreadingHTTPServer(("127.0.0.1", PORT), Http)
+    except OSError as e:  # a fixed port taken: keep serving MCP without HTTP (and without a registry entry)
+        return log(f"no HTTP on 127.0.0.1:{PORT}: {e}")
+    try:
+        register(srv.server_address[1])
+    except OSError as e:
+        log(f"cannot register in {HOME / 'pickup'}: {e}")
+    srv.serve_forever()
 
 
 def done(args):
@@ -184,6 +216,7 @@ def handle(msg):
 
 
 def main():
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))  # atexit removes the registry entry
     threading.Thread(target=serve_http, daemon=True).start()
     for line in sys.stdin:  # ends when Claude Code closes the pipe: the session is gone
         line = line.strip()
