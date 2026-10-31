@@ -1,5 +1,62 @@
 # Changelog
 
+## [0.1.0-alpha.4](https://github.com/infenia/yukta/compare/v0.1.0-alpha.3...v0.1.0-alpha.4) (2026-10-31)
+
+
+### New features
+
+* **claude:** opt-in Stop hook that hints CLAUDE.md updates, skill telemetry docs ([#1623](https://github.com/infenia/yukta/issues/1623)) ([ffbc417](https://github.com/infenia/yukta/commit/ffbc417c7f83b859d941b3e87fe8b52857cefbbb)), closes [#1597](https://github.com/infenia/yukta/issues/1597)
+* **dogfood:** add the yukta-pickup channel and yk pickup session ([#1622](https://github.com/infenia/yukta/issues/1622)) ([8eb4c93](https://github.com/infenia/yukta/commit/8eb4c9356f0179d594a2c17d9fe632cc5e0677e9))
+* **dogfood:** gate agent-team task completion on yk check --no-heal ([#1628](https://github.com/infenia/yukta/issues/1628)) ([9134be7](https://github.com/infenia/yukta/commit/9134be7384b0c59fbf74a51775c5d80e48156025)), closes [#1599](https://github.com/infenia/yukta/issues/1599)
+* **dogfood:** post yk run results into the starting Claude Code session ([#1626](https://github.com/infenia/yukta/issues/1626)) ([e404ef7](https://github.com/infenia/yukta/commit/e404ef7791c1885028b20a55aa6e4c5d2b82c9bc)), closes [#1598](https://github.com/infenia/yukta/issues/1598)
+* list_pending_approvals for all sessions, a target for the approvals tile, Overview screenshots ([#1576](https://github.com/infenia/yukta/issues/1576)) ([42cd5f6](https://github.com/infenia/yukta/commit/42cd5f6c12be683ca35dcac2c79e77efbc7dea71))
+* **mcp:** add the yukta-workflows skill for any MCP-capable agent ([#1633](https://github.com/infenia/yukta/issues/1633)) ([14be6c0](https://github.com/infenia/yukta/commit/14be6c0b954c4803f380a39ec31566db9b4c9e8b)), closes [#1574](https://github.com/infenia/yukta/issues/1574)
+* **ui:** a node sheet on the run page with status, actions, config, logs and results ([#1632](https://github.com/infenia/yukta/issues/1632)) ([6ee7187](https://github.com/infenia/yukta/commit/6ee7187c019c69ca0841427b09e723f9bee7e6ab)), closes [#1170](https://github.com/infenia/yukta/issues/1170)
+* **ui:** a timeline view of when each node ran, beside the graph ([#1634](https://github.com/infenia/yukta/issues/1634)) ([006de0c](https://github.com/infenia/yukta/commit/006de0c4806522821bd928dc1dbe65e5adf03665)), closes [#857](https://github.com/infenia/yukta/issues/857)
+* **ui:** ask before the builder leaves unsaved edits ([#1554](https://github.com/infenia/yukta/issues/1554)) ([88014a0](https://github.com/infenia/yukta/commit/88014a0ba2205590b9c60bbd92f7f3f465d106ad))
+* **ui:** choose a start or a template when creating a session ([#1545](https://github.com/infenia/yukta/issues/1545)) ([912a310](https://github.com/infenia/yukta/commit/912a3100711a0d70760e1be2c2ca22f62de09bdb))
+* **ui:** confirm a rollback with its diff, block it during a live run ([#1552](https://github.com/infenia/yukta/issues/1552)) ([1af4c3b](https://github.com/infenia/yukta/commit/1af4c3b76ad42b3e59cf16c0d95dd1db491482a4))
+* **ui:** confirm and reason on reject, per-row pending, in the run view's approvals too ([#1567](https://github.com/infenia/yukta/issues/1567)) ([88a4c39](https://github.com/infenia/yukta/commit/88a4c39f8f54a1018d32edc7ed883f90f440cb7e)), closes [#683](https://github.com/infenia/yukta/issues/683)
+* **ui:** dashboard primitives, chart tokens and metric hooks ([#1631](https://github.com/infenia/yukta/issues/1631)) ([ec7a1c2](https://github.com/infenia/yukta/commit/ec7a1c207d7eeaac0ab96ed379c87c40ae255323)), closes [#1587](https://github.com/infenia/yukta/issues/1587)
+* **ui:** Initiator column, a progress bar and a live footer on the Runs page ([#1621](https://github.com/infenia/yukta/issues/1621)) ([9eba371](https://github.com/infenia/yukta/commit/9eba371168a06892e38f1f90b306ef4d02a5869f)), closes [#1571](https://github.com/infenia/yukta/issues/1571)
+* **ui:** Markdown README, canvas preview and coloured chips in the template preview ([#1583](https://github.com/infenia/yukta/issues/1583)) ([60c73d5](https://github.com/infenia/yukta/commit/60c73d56d255d3bd69e9946b65e76074bcae9bac)), closes [#1183](https://github.com/infenia/yukta/issues/1183)
+* **ui:** no three-dot menus on table rows: a Delete icon, and buttons on the pages ([#1612](https://github.com/infenia/yukta/issues/1612)) ([3ac61d4](https://github.com/infenia/yukta/commit/3ac61d4a40f1ca2ada9f644b03a3ca09962c9754))
+* **ui:** one themed, thin scrollbar style for the whole app ([#1602](https://github.com/infenia/yukta/issues/1602)) ([c56bc88](https://github.com/infenia/yukta/commit/c56bc888afec8f4028e6114dd02fba6e62bd28c7)), closes [#1555](https://github.com/infenia/yukta/issues/1555)
+* **ui:** Overview home with tiles, approvals, failures and live activity ([#1546](https://github.com/infenia/yukta/issues/1546)) ([b48501b](https://github.com/infenia/yukta/commit/b48501b16b35747eb34bdcfae49a50361ecbafcf))
+* **ui:** stop one run with Cancel or Kill; name the runs 'all runs' would stop ([#1563](https://github.com/infenia/yukta/issues/1563)) ([ca423e4](https://github.com/infenia/yukta/commit/ca423e4834416f1ea4ce1b91bfbad4e715c33c4e)), closes [#676](https://github.com/infenia/yukta/issues/676)
+* **ui:** the hero backdrop behind the headers of Overview, Runs, Plugins and Control ([#1606](https://github.com/infenia/yukta/issues/1606)) ([07d7736](https://github.com/infenia/yukta/commit/07d7736ec940e2c306fe138d31f9a856ea7c1b20)), closes [#1566](https://github.com/infenia/yukta/issues/1566)
+* **ui:** the logs terminal as designed, and no canvas toolbar over it when expanded ([#1614](https://github.com/infenia/yukta/issues/1614)) ([d325c43](https://github.com/infenia/yukta/commit/d325c438fb932338bada6e1a36f8380bfda3fadd))
+* **web:** record who started each run and return it with the run ([#1619](https://github.com/infenia/yukta/issues/1619)) ([0c24288](https://github.com/infenia/yukta/commit/0c24288b2e3f49687489e125a39f93916cbb8202))
+
+
+### Bug fixes
+
+* **core:** report a terminal node as running at its first input, not when subscribed ([#1627](https://github.com/infenia/yukta/issues/1627)) ([dd239fd](https://github.com/infenia/yukta/commit/dd239fd32915c2964053e6aea0832c1155d7f864)), closes [#1549](https://github.com/infenia/yukta/issues/1549)
+* **dogfood:** pickup tick on a real-size project, and the code-quality findings ([#1630](https://github.com/infenia/yukta/issues/1630)) ([f57c95d](https://github.com/infenia/yukta/commit/f57c95d9267278d08d3a21874845f225599eb3fe))
+* **ui:** announce the approvals strip and the LIVE badge, hide decorative icons ([#1548](https://github.com/infenia/yukta/issues/1548)) ([1b712a9](https://github.com/infenia/yukta/commit/1b712a9a3961eba75fcddcd6e7e9d90cdb4cf156))
+* **ui:** bound the run page to the screen so the logs terminal stays docked ([#1624](https://github.com/infenia/yukta/issues/1624)) ([ffb966d](https://github.com/infenia/yukta/commit/ffb966ddfd7d985e41c4b7ebd9816ffd7b8010f1)), closes [#1569](https://github.com/infenia/yukta/issues/1569)
+* **ui:** bump systeminformation to 5.33.16 (Dependabot [#221](https://github.com/infenia/yukta/issues/221)) ([#1556](https://github.com/infenia/yukta/issues/1556)) ([6037fda](https://github.com/infenia/yukta/commit/6037fdab323b6e8dcd03afdfe3c57f1d2d17182e))
+* **ui:** Clear cancels the pending flush; log refs reset in an effect ([#1551](https://github.com/infenia/yukta/issues/1551)) ([e955f00](https://github.com/infenia/yukta/commit/e955f0041446208d15e6634aebdf565805f9ee99))
+* **ui:** drop the session count from the Sessions description ([#1600](https://github.com/infenia/yukta/issues/1600)) ([4217e1c](https://github.com/infenia/yukta/commit/4217e1cee03d0325c5687554a589f6b3ca3cc612))
+* **ui:** follow the cursor when listing sessions, so a long list is not cut off ([#1573](https://github.com/infenia/yukta/issues/1573)) ([6e32c86](https://github.com/infenia/yukta/commit/6e32c86d50e0ca1dbfac3f71a38509599e0f3513))
+* **ui:** give the decision plugins their own icons ([#1547](https://github.com/infenia/yukta/issues/1547)) ([026fc3e](https://github.com/infenia/yukta/commit/026fc3ec74f9b22dff7877aff7361ca600256200)), closes [#672](https://github.com/infenia/yukta/issues/672)
+* **ui:** keep the node card's footer inside it; read a long description in full ([#1608](https://github.com/infenia/yukta/issues/1608)) ([de0d255](https://github.com/infenia/yukta/commit/de0d255b09e4cb4aad6e0783a2976a62cf612ead))
+* **ui:** key control audit rows by content, not by index ([#1550](https://github.com/infenia/yukta/issues/1550)) ([3712e71](https://github.com/infenia/yukta/commit/3712e713ba9234358f1acb910b9a47b9ce8c92fe)), closes [#686](https://github.com/infenia/yukta/issues/686)
+* **ui:** no footer on the workflow run page, where the logs terminal is docked ([#1601](https://github.com/infenia/yukta/issues/1601)) ([bd24cc8](https://github.com/infenia/yukta/commit/bd24cc8e38dd31c10a7b8fc03fb3c2001dd87e04)), closes [#1553](https://github.com/infenia/yukta/issues/1553)
+* **ui:** order a node's output ports by where their targets sit ([#1544](https://github.com/infenia/yukta/issues/1544)) ([126a1b5](https://github.com/infenia/yukta/commit/126a1b59e29187ac28d6b77bb85813e9894c1fd9)), closes [#1453](https://github.com/infenia/yukta/issues/1453)
+* **ui:** poll approvals only while the run is going; filter and page the control audit ([#1560](https://github.com/infenia/yukta/issues/1560)) ([b09767e](https://github.com/infenia/yukta/commit/b09767e87e09d0609363259f9176819efebdbb78)), closes [#684](https://github.com/infenia/yukta/issues/684)
+* **web:** send version notes in a JSON body, not the URL ([#1572](https://github.com/infenia/yukta/issues/1572)) ([6ae8fee](https://github.com/infenia/yukta/commit/6ae8fee12cff7e6dccf6741eef4519208501f905))
+
+
+### Documentation
+
+* call the session directory "working directory" in every module ([#1629](https://github.com/infenia/yukta/issues/1629)) ([9d4aa2d](https://github.com/infenia/yukta/commit/9d4aa2d9d3b4c4ffa9de3e35a55492e55463e468))
+* **claude:** record the LSP plugin evaluation, keep them disabled ([#1620](https://github.com/infenia/yukta/issues/1620)) ([bb892fa](https://github.com/infenia/yukta/commit/bb892fa3b73028b83bac3079bc2cee535b9bfda4)), closes [#1596](https://github.com/infenia/yukta/issues/1596)
+* **claude:** slim core/CLAUDE.md into path-scoped rules ([#1618](https://github.com/infenia/yukta/issues/1618)) ([15472ab](https://github.com/infenia/yukta/commit/15472ab07a2da83426fb436c2cafc920809de1eb)), closes [#1595](https://github.com/infenia/yukta/issues/1595)
+* **examples:** add ten use-case templates and drop the simple ones ([#1575](https://github.com/infenia/yukta/issues/1575)) ([c2d7109](https://github.com/infenia/yukta/commit/c2d71097f1a35f9e3daf52f3993f2289b7a3287a))
+* lead the README with the problem and add an install disclaimer ([#1561](https://github.com/infenia/yukta/issues/1561)) ([229d6b3](https://github.com/infenia/yukta/commit/229d6b38ecb744da8ca73e74350915cb3bfe2499))
+* sync the docs site with alpha.3, mark legacy API aliases deprecated ([#1543](https://github.com/infenia/yukta/issues/1543)) ([a71a145](https://github.com/infenia/yukta/commit/a71a1454001b4103f3f8b9619f8a6a9746879a39))
+
 ## [0.1.0-alpha.3](https://github.com/infenia/yukta/compare/v0.1.0-alpha.2...v0.1.0-alpha.3) (2026-10-30)
 
 
