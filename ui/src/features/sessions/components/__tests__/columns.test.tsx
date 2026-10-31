@@ -43,7 +43,7 @@ describe('columns', () => {
       (col) => (col as any).accessorKey === 'projectPath'
     );
     expect(pathColumn).toBeDefined();
-    expect((pathColumn as any).header).toBe('Project path');
+    expect((pathColumn as any).header).toBe('Working directory');
   });
 
   it('should have workflowCount column', () => {

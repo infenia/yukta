@@ -12,9 +12,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Annotation for project path validation. */
-@NotBlank(message = "Project path is required")
-@Size(max = 1024, message = "Project path must be at most 1024 characters")
+/** Annotation for working directory validation. */
+@NotBlank(message = "Working directory is required")
+@Size(max = 1024, message = "Working directory must be at most 1024 characters")
 @Target({
   ElementType.FIELD,
   ElementType.PARAMETER,
@@ -30,7 +30,7 @@ public @interface ProjectPath {
    *
    * @return the error message
    */
-  String message() default "Invalid project path";
+  String message() default "Invalid working directory";
 
   /**
    * Groups for validation.

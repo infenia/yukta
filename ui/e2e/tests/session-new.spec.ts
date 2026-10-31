@@ -23,7 +23,9 @@ const template = {
 };
 
 test.describe('New session', () => {
-  test("says when the server can't find the project path", async ({ page }) => {
+  test("says when the server can't find the working directory", async ({
+    page,
+  }) => {
     let asked: unknown;
     await page.route('**/api/sessions/validate/project-path', (route) => {
       asked = route.request().postDataJSON();
@@ -45,7 +47,7 @@ test.describe('New session', () => {
     await page.goto('/sessions/new');
     await page.getByRole('button', { name: 'Start blank' }).click();
 
-    const path = page.getByLabel('Project path');
+    const path = page.getByLabel('Working directory');
     await path.fill('/srv/repos/payments');
     await path.blur();
 
@@ -56,7 +58,7 @@ test.describe('New session', () => {
     expect(asked).toEqual({ projectPath: '/srv/repos/payments' });
   });
 
-  test('creates a session from a template, asking only for the project path', async ({
+  test('creates a session from a template, asking only for the working directory', async ({
     page,
   }) => {
     let saved: { sessionId?: string; workflows?: Record<string, unknown> } = {};
@@ -103,7 +105,7 @@ test.describe('New session', () => {
 
     await page.getByRole('button', { name: 'Use Hello world' }).click();
     await expect(page.getByLabel('Session ID')).toHaveValue('01-hello-world-1');
-    await page.getByLabel('Project path').fill('/srv/repos/demo');
+    await page.getByLabel('Working directory').fill('/srv/repos/demo');
     await page.getByRole('button', { name: 'Create session' }).click();
 
     await expect.poll(() => saved.sessionId).toBe('01-hello-world-1');
