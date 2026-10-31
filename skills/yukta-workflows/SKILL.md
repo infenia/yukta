@@ -50,6 +50,7 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 | `signal_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `signalName`, `decision`, optional `data` |
 | `list_pending_approvals` | `VIEWER` | optional `sessionId` |
 | `get_scheduler_limits` | `VIEWER` | none |
+| `get_metrics_snapshot` | `VIEWER` | optional `scope` |
 | `list_supervisors` | `VIEWER` | none |
 | `attach_supervisor` | `ADMIN` | `profileId`, `scope`, optional `enabled`, `bindingId` |
 | `detach_supervisor` | `ADMIN` | `bindingId` |

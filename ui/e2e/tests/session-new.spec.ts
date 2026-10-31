@@ -183,7 +183,7 @@ test.describe('New session: choosing a start', () => {
         page.getByRole('button', { name: 'Use Hello world' })
       ).toBeVisible();
       await expect(page).toHaveScreenshot(
-        `session-new-gallery-${name}.png`,
+        `session-new-gallery-${name}.webp`,
         shot
       );
     });

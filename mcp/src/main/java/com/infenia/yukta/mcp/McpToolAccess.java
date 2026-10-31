@@ -35,6 +35,7 @@ class McpToolAccess {
           Map.entry("get_execution_tree", ApiRole.VIEWER),
           Map.entry("whoami", ApiRole.VIEWER),
           Map.entry("get_scheduler_limits", ApiRole.VIEWER),
+          Map.entry("get_metrics_snapshot", ApiRole.VIEWER),
           Map.entry("list_supervisors", ApiRole.VIEWER),
           Map.entry("get_node_output", ApiRole.VIEWER),
           Map.entry("list_plugins", ApiRole.VIEWER),

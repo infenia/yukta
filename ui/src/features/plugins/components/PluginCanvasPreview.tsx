@@ -36,7 +36,7 @@ export function PluginCanvasPreview({ plugin }: { plugin: PluginDetails }) {
 
   return (
     <div
-      className="border-border bg-card shadow-card h-80 overflow-hidden rounded-xl border"
+      className="border-border bg-card shadow-card h-52 overflow-hidden rounded-xl border"
       data-testid="plugin-canvas-preview"
     >
       <ReactFlowProvider>

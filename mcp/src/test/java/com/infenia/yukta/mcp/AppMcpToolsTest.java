@@ -53,6 +53,8 @@ class AppMcpToolsTest {
   private com.infenia.yukta.mcp.provider.WorkflowVersionProvider workflowVersionProvider;
   private com.infenia.yukta.mcp.provider.SupervisorProvider supervisorProvider;
 
+  private com.infenia.yukta.mcp.provider.MetricsProvider metricsProvider;
+
   @BeforeEach
   void setUp() {
     sessionInfoProvider = mock(SessionInfoProvider.class);
@@ -63,6 +65,7 @@ class AppMcpToolsTest {
     systemHealthProvider = mock(SystemHealthProvider.class);
     resultProvider = mock(ResultProvider.class);
     workflowVersionProvider = mock(com.infenia.yukta.mcp.provider.WorkflowVersionProvider.class);
+    metricsProvider = mock(com.infenia.yukta.mcp.provider.MetricsProvider.class);
     supervisorProvider = mock(com.infenia.yukta.mcp.provider.SupervisorProvider.class);
     mcpTools =
         new AppMcpTools(
@@ -74,6 +77,7 @@ class AppMcpToolsTest {
             systemHealthProvider,
             resultProvider,
             workflowVersionProvider,
+            metricsProvider,
             supervisorProvider);
   }
 
@@ -366,6 +370,17 @@ class AppMcpToolsTest {
 
     StepVerifier.create(mcpTools.getSchedulerLimits()).expectNext(limits).verifyComplete();
     StepVerifier.create(mcpTools.setSchedulerLimits(4, 2)).expectNext(limits).verifyComplete();
+  }
+
+  @Test
+  void metricsSnapshotDelegatesToTheMetricsProvider() {
+    final var snapshot =
+        new com.infenia.yukta.mcp.dto.MetricsSnapshot("session:s1", 0, java.util.Map.of("a", 1.0));
+    when(metricsProvider.getMetricsSnapshot("session:s1")).thenReturn(Mono.just(snapshot));
+
+    StepVerifier.create(mcpTools.getMetricsSnapshot("session:s1"))
+        .expectNext(snapshot)
+        .verifyComplete();
   }
 
   @Test

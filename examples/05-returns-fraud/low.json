@@ -1,1 +1,0 @@
-{ "returnId": "RET-2001", "orderId": "ORD-5501", "customerName": "Maya Iyer", "customerEmail": "maya@example.com", "cardLast4": "4242", "amount": 40, "reason": "too_small", "ordersLast365d": 12, "returnsLast365d": 1, "accountAgeDays": 900 }

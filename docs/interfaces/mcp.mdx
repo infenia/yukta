@@ -110,6 +110,7 @@ Tools return structured JSON, except where noted. Every tool that takes an `exec
 | `control_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `action`; optional `immediate` and `reason` for `STOP` | The same result object |
 | `set_node_breakpoint` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `field`, `equalsValue` | The same result object |
 | `get_scheduler_limits` | `VIEWER` | none | `maxConcurrent`, `maxPerWorkflow` (`0` is no limit), `running`, `queued` and `queueCapacity` |
+| `get_metrics_snapshot` | `VIEWER` | optional `scope`: `global` (default), `session:<id>` or `workflow:<id>` | `scope`, `time` and `values`: the newest sampled meters (counters as a rate per second, timers in milliseconds) and the run counts, failures and p95 duration of the last hour; a scope other than `global` has only the run values, an unknown one none. A key limited to sessions cannot call it |
 | `list_supervisors` | `VIEWER` | none | `running` (every running supervisor with scope, `dryRun`, `applied`, `rejected`), `bindings` (`id`, `profileId`, `scope`, `enabled`) and `types`. A key limited to sessions cannot call it |
 | `attach_supervisor` | `ADMIN` | `profileId`, `scope` (`global`, `session:<id>`, `workflow:<id>` or `workflow:<sessionId>/<workflowId>`); optional `enabled`, `bindingId` | The binding. It supervises the runs of the scope from now on, including runs already going |
 | `detach_supervisor` | `ADMIN` | `bindingId` | `bindingId` and `detached`; an unknown binding is an error |

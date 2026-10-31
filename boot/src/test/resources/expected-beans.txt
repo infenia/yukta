@@ -18,6 +18,7 @@ com.infenia.yukta.controller.ExecutionResultController
 com.infenia.yukta.controller.ExecutionSearchController
 com.infenia.yukta.controller.LogManagementController
 com.infenia.yukta.controller.MeController
+com.infenia.yukta.controller.MetricsController
 com.infenia.yukta.controller.NodeOutputController
 com.infenia.yukta.controller.PluginController
 com.infenia.yukta.controller.ProjectPathController
@@ -58,6 +59,7 @@ com.infenia.yukta.mcp.McpEndpointFilter
 com.infenia.yukta.mcp.McpErrorAdvice
 com.infenia.yukta.mcp.McpErrorFilter
 com.infenia.yukta.mcp.provider.LogProvider
+com.infenia.yukta.mcp.provider.MetricsProvider
 com.infenia.yukta.mcp.provider.PluginInfoProvider
 com.infenia.yukta.mcp.provider.ResultProvider
 com.infenia.yukta.mcp.provider.SessionInfoProvider
@@ -150,6 +152,11 @@ com.infenia.yukta.service.leader.SingleServerLeader
 com.infenia.yukta.service.leader.TakeoverRecovery
 com.infenia.yukta.service.log.ExecutionRecovery
 com.infenia.yukta.service.log.InMemoryExecutionLogStore
+com.infenia.yukta.service.metrics.MetricsConfiguration
+com.infenia.yukta.service.metrics.MetricsConfiguration$1
+com.infenia.yukta.service.metrics.MetricsProperties
+com.infenia.yukta.service.metrics.MetricsSampler
+com.infenia.yukta.service.metrics.RunAnalytics
 com.infenia.yukta.service.orchestrator.ExecutionResumer
 com.infenia.yukta.service.orchestrator.SubWorkflowRunner
 com.infenia.yukta.service.orchestrator.WorkflowOrchestrator

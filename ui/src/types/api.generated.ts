@@ -199,7 +199,7 @@ export interface paths {
          * Stream execution events
          * @description Live node and workflow status changes, control command outcomes and log lines of all executions, each with a severity (INFO, WARN, ERROR)
          */
-        get: operations["stream"];
+        get: operations["stream_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -681,6 +681,157 @@ export interface paths {
          * @description The name, role and sessions of the API key of this request, and what it may do (start and control runs, edit and delete sessions, change limits, send commands). With no key configured the role is ADMIN and authEnabled is false. Never returns the key or its hash.
          */
         get: operations["me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/annotations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Control annotations
+         * @description Control commands, applied or rejected
+         */
+        get: operations["annotations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List sampled metric series */
+        get: operations["catalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/heatmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Runs per minute
+         * @description Runs and failures per minute
+         */
+        get: operations["heatmap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plugin leaderboard
+         * @description Executions, failures, mean duration
+         */
+        get: operations["modules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/runs/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live runs
+         * @description Running runs with progress and p95 baseline
+         */
+        get: operations["liveRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metric history
+         * @description Points of the named series over a range
+         */
+        get: operations["series"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Newest metric sample */
+        get: operations["snapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream metric samples */
+        get: operations["stream"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1723,10 +1874,54 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Annotation: {
+            actor?: string;
+            applied?: boolean;
+            command?: string;
+            executionId?: string;
+            reason?: string;
+            sessionId?: string;
+            /** Format: int64 */
+            time?: number;
+            workflowId?: string;
+        };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseBindingBody: {
             /** @description The response data */
             data?: components["schemas"]["BindingBody"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseCatalog: {
+            /** @description The response data */
+            data?: components["schemas"]["Catalog"];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -1793,6 +1988,39 @@ export interface components {
         ApiResponseEditionInfo: {
             /** @description The response data */
             data?: components["schemas"]["EditionInfo"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListAnnotation: {
+            /** @description The response data */
+            data?: components["schemas"]["Annotation"][];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -1922,9 +2150,108 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListHeatCell: {
+            /** @description The response data */
+            data?: components["schemas"]["HeatCell"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListHit: {
             /** @description The response data */
             data?: components["schemas"]["Hit"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListLiveRun: {
+            /** @description The response data */
+            data?: components["schemas"]["LiveRun"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListModuleRow: {
+            /** @description The response data */
+            data?: components["schemas"]["ModuleRow"][];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -2489,6 +2816,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseMetricSample: {
+            /** @description The response data */
+            data?: components["schemas"]["MetricSample"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseNodeCommandResponse: {
             /** @description The response data */
             data?: components["schemas"]["NodeCommandResponse"];
@@ -2624,6 +2984,39 @@ export interface components {
         ApiResponseSchedulerLimits: {
             /** @description The response data */
             data?: components["schemas"]["SchedulerLimits"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseSeries: {
+            /** @description The response data */
+            data?: components["schemas"]["Series"];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -3059,6 +3452,9 @@ export interface components {
             equals?: string;
             field?: string;
         };
+        Catalog: {
+            series?: string[];
+        };
         /** @description Request object for session configuration, supporting both initialization and runtime updates */
         ConfigRequest: {
             /**
@@ -3171,6 +3567,15 @@ export interface components {
              */
             message?: string;
         };
+        HeatCell: {
+            /** Format: int32 */
+            failed?: number;
+            failedRuns?: string[];
+            /** Format: int32 */
+            runs?: number;
+            /** Format: int64 */
+            time?: number;
+        };
         HistoryFilter: {
             /** Format: date-time */
             since?: string;
@@ -3225,7 +3630,38 @@ export interface components {
             number?: number;
             text?: string;
         };
+        LiveRun: {
+            /** Format: int64 */
+            elapsedMs?: number;
+            executionId?: string;
+            /** Format: int32 */
+            nodesDone?: number;
+            /** Format: int32 */
+            nodesSeen?: number;
+            /** Format: double */
+            p95Ms?: number;
+            sessionId?: string;
+            /** Format: int64 */
+            startedAt?: number;
+            workflowId?: string;
+        };
         MessageObject: unknown;
+        MetricSample: {
+            /** Format: int64 */
+            time?: number;
+            values?: {
+                [key: string]: number;
+            };
+        };
+        ModuleRow: {
+            /** Format: double */
+            avgMs?: number;
+            /** Format: int64 */
+            executions?: number;
+            /** Format: int64 */
+            failures?: number;
+            module?: string;
+        };
         /** @description A single node in the workflow DAG */
         Node: {
             /** @description Plugin configuration */
@@ -3312,6 +3748,12 @@ export interface components {
             sendCommands?: boolean;
             startRuns?: boolean;
         };
+        Point: {
+            /** Format: int64 */
+            time?: number;
+            /** Format: double */
+            value?: number;
+        };
         ProfileBody: {
             dryRun?: boolean;
             id?: string;
@@ -3357,8 +3799,15 @@ export interface components {
             /** Format: int32 */
             running?: number;
         };
+        Series: {
+            range?: string;
+            series?: {
+                [key: string]: components["schemas"]["Point"][];
+            };
+        };
         ServerSentEventEnvelope: unknown;
         ServerSentEventLogEntryResponse: unknown;
+        ServerSentEventMetricSample: unknown;
         ServerSentEventResultEvent: unknown;
         ServerSentEventString: unknown;
         ServerSentEventWorkflowProgress: unknown;
@@ -4015,7 +4464,7 @@ export interface operations {
             };
         };
     };
-    stream: {
+    stream_1: {
         parameters: {
             query?: {
                 /** @description Only events of this execution */
@@ -4695,6 +5144,183 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseWhoami"];
+                };
+            };
+        };
+    };
+    annotations: {
+        parameters: {
+            query?: {
+                range?: string;
+                scope?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListAnnotation"];
+                };
+            };
+        };
+    };
+    catalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCatalog"];
+                };
+            };
+        };
+    };
+    heatmap: {
+        parameters: {
+            query?: {
+                range?: string;
+                scope?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListHeatCell"];
+                };
+            };
+        };
+    };
+    modules: {
+        parameters: {
+            query?: {
+                range?: string;
+                scope?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListModuleRow"];
+                };
+            };
+        };
+    };
+    liveRuns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListLiveRun"];
+                };
+            };
+        };
+    };
+    series: {
+        parameters: {
+            query: {
+                names: string[];
+                range?: string;
+                scope?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSeries"];
+                };
+            };
+        };
+    };
+    snapshot: {
+        parameters: {
+            query?: {
+                scope?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMetricSample"];
+                };
+            };
+        };
+    };
+    stream: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Last-Event-ID"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["ServerSentEventMetricSample"][];
                 };
             };
         };

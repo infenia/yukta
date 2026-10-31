@@ -18,6 +18,9 @@ const NAV = [
   { to: '/control', section: '/control', label: 'Control', icon: 'hub' },
 ];
 
+const HEADER_NAV = NAV.slice(0, 1);
+const SIDE_NAV = NAV.slice(1);
+
 const isCurrent = (pathname: string, to: string, section: string) =>
   pathname === to || pathname === section || pathname.startsWith(`${section}/`);
 
@@ -49,6 +52,36 @@ export function MobileNav() {
   );
 }
 
+/** Desktop: a 64px icon rail under the header; the label shows on hover or keyboard focus. */
+export function Sidebar() {
+  const { pathname } = useLocation();
+  return (
+    <nav
+      aria-label="Primary"
+      className="border-border bg-background top-header fixed bottom-0 left-0 z-40 hidden w-16 flex-col items-center gap-1 border-r py-3 sm:flex"
+    >
+      {SIDE_NAV.map(({ to, section, label, icon }) => {
+        const active = isCurrent(pathname, to, section);
+        return (
+          <Link
+            key={to}
+            to={to}
+            aria-current={active ? 'page' : undefined}
+            className={`group transition-standard relative flex size-10 items-center justify-center rounded-lg no-underline ${active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+          >
+            <span aria-hidden="true" className="material-symbols-outlined">
+              {icon}
+            </span>
+            <span className="bg-foreground text-background text-label-sm pointer-events-none absolute left-full ml-2 rounded-md px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">
+              {label}
+            </span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 export default function AppHeader() {
   const { pathname } = useLocation();
   return (
@@ -63,10 +96,10 @@ export default function AppHeader() {
       <div className="px-spacing-md flex h-13 w-full items-center pr-2 sm:px-6">
         <HeaderLogo />
         <nav
-          aria-label="Primary"
+          aria-label="Home"
           className="ml-4 hidden items-center gap-0.5 sm:flex"
         >
-          {NAV.map(({ to, section, label, icon }) => {
+          {HEADER_NAV.map(({ to, section, label, icon }) => {
             const active = isCurrent(pathname, to, section);
             return (
               <Link
