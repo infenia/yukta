@@ -11,7 +11,8 @@ import { openCommandPalette } from './CommandPalette.helpers';
 /* `section` is the path prefix the item owns: Sessions is current on the list and on every
    session, workflow and editor page under /sessions. */
 const NAV = [
-  { to: '/', section: '/sessions', label: 'Sessions', icon: 'folder' },
+  { to: '/', section: '/overview', label: 'Overview', icon: 'dashboard' },
+  { to: '/sessions', section: '/sessions', label: 'Sessions', icon: 'folder' },
   { to: '/runs', section: '/runs', label: 'Runs', icon: 'history' },
   { to: '/plugins', section: '/plugins', label: 'Plugins', icon: 'extension' },
   { to: '/control', section: '/control', label: 'Control', icon: 'hub' },
@@ -26,7 +27,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Primary"
-      className="border-border bg-card fixed inset-x-0 bottom-0 z-50 grid h-16 grid-cols-4 border-t pb-[env(safe-area-inset-bottom)] sm:hidden"
+      className="border-border bg-card fixed inset-x-0 bottom-0 z-50 grid h-16 grid-cols-5 border-t pb-[env(safe-area-inset-bottom)] sm:hidden"
     >
       {NAV.map(({ to, section, label, icon }) => {
         const active = isCurrent(pathname, to, section);

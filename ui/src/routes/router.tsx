@@ -9,6 +9,17 @@ import {
 } from 'react-router';
 import App from '@/App';
 import { SessionListPage } from '@/features/sessions/components/SessionListPage';
+import { OverviewPage } from '@/features/overview/OverviewPage';
+
+/** The session list moved from / to /sessions; its query (?q=x) is kept. */
+export function HomeRoute() {
+  const { search } = useLocation();
+  return search ? (
+    <Navigate to={{ pathname: '/sessions', search }} replace />
+  ) : (
+    <OverviewPage />
+  );
+}
 
 /** /history became /runs; the query (?session=x) is kept. */
 export function HistoryRedirect() {
@@ -23,12 +34,11 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <SessionListPage />,
+        element: <HomeRoute />,
       },
       {
-        // Breadcrumbs link the "Sessions" crumb to /sessions; the list lives at the root.
         path: 'sessions',
-        element: <Navigate to="/" replace />,
+        element: <SessionListPage />,
       },
       {
         path: 'sessions/new',

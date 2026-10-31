@@ -9,7 +9,7 @@ const themeToggle = (page: import('@playwright/test').Page) =>
 
 test.describe('Theme Switching', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/sessions');
     await waitForLoadingComplete(page);
   });
 

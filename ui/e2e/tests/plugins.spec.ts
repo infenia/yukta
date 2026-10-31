@@ -60,7 +60,7 @@ test.describe('Plugins page', () => {
     page,
   }) => {
     await mockPluginsApi(page);
-    await page.goto('/');
+    await page.goto('/sessions');
     await page.getByRole('link', { name: 'Plugins' }).click();
 
     await expect(page).toHaveURL(/\/plugins$/);

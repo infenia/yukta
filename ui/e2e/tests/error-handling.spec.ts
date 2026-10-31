@@ -10,7 +10,7 @@ test.describe('Error Handling - Mocked API Failures', () => {
     mockSessionsApi,
   }) => {
     await mockSessionsApi(page, { status: 500 });
-    await page.goto('/');
+    await page.goto('/sessions');
 
     await expect(page.getByText('Failed to load sessions')).toBeVisible();
   });
@@ -20,7 +20,7 @@ test.describe('Error Handling - Mocked API Failures', () => {
     mockSessionsApi,
   }) => {
     await mockSessionsApi(page, { sessions: [] });
-    await page.goto('/');
+    await page.goto('/sessions');
     await waitForLoadingComplete(page);
 
     // With no sessions at all, a hero empty state replaces the table and offers the first step
@@ -35,7 +35,7 @@ test.describe('Error Handling - Mocked API Failures', () => {
     mockSessionsApi,
   }) => {
     await mockSessionsApi(page, { status: 500 });
-    await page.goto('/');
+    await page.goto('/sessions');
     await expect(page.getByText('Failed to load sessions')).toBeVisible();
 
     await mockSessionsApi(page, {});
@@ -65,7 +65,7 @@ test.describe('Error Handling - Mocked API Failures', () => {
       });
     });
 
-    const navigation = freshPage.goto('/', { waitUntil: 'commit' });
+    const navigation = freshPage.goto('/sessions', { waitUntil: 'commit' });
     await expect(freshPage.getByText('Loading sessions...')).toBeVisible();
     await navigation;
     await expect(freshPage.getByText('Failed to load sessions')).toBeVisible();
