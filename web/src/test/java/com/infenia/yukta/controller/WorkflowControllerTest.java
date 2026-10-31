@@ -132,32 +132,52 @@ class WorkflowControllerTest {
     assertThat(payloads.getValue()).doesNotContainKey(ExecutionLogEvent.INITIATOR_KEY);
   }
 
+  /** A client whose requests are made with the API key named keyName. */
+  private WebTestClient clientWithKey(final String keyName) {
+    return WebTestClient.bindToController(
+            new WorkflowController(workflowService, controlBus, sessionService))
+        .controllerAdvice(new GlobalExceptionHandler())
+        .webFilter(
+            (exchange, chain) ->
+                chain
+                    .filter(exchange)
+                    .contextWrite(
+                        ctx ->
+                            ctx.put(
+                                CallerIdentity.CONTEXT_KEY,
+                                new ApiKeys.Match(keyName, ApiRole.OPERATOR, java.util.Set.of()))))
+        .build();
+  }
+
   @Test
   void testStartWithoutNameRecordsTheKeyOfTheCaller() {
     final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
     when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture()))
         .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
-    final var withKey =
-        WebTestClient.bindToController(
-                new WorkflowController(workflowService, controlBus, sessionService))
-            .controllerAdvice(new GlobalExceptionHandler())
-            .webFilter(
-                (exchange, chain) ->
-                    chain
-                        .filter(exchange)
-                        .contextWrite(
-                            ctx ->
-                                ctx.put(
-                                    CallerIdentity.CONTEXT_KEY,
-                                    new ApiKeys.Match(
-                                        "ci-bot", ApiRole.OPERATOR, java.util.Set.of()))))
-            .build();
 
-    withKey
+    clientWithKey("ci-bot")
         .post()
         .uri("/api/workflow/start")
         .header("Content-Type", "application/json")
         .bodyValue(START_BODY)
+        .exchange()
+        .expectStatus()
+        .isAccepted();
+
+    assertThat(payloads.getValue()).containsEntry(ExecutionLogEvent.INITIATOR_KEY, "ci-bot");
+  }
+
+  @Test
+  void testBlankInitiatorIsNotRecordedAndFallsBackToTheCallerKey() {
+    final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
+    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture()))
+        .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
+
+    clientWithKey("ci-bot")
+        .post()
+        .uri("/api/workflow/start")
+        .header("Content-Type", "application/json")
+        .bodyValue("{\"sessionId\":\"s1\",\"workflowId\":\"wf\",\"initiator\":\"   \"}")
         .exchange()
         .expectStatus()
         .isAccepted();
