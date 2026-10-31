@@ -45,6 +45,17 @@ yukta.supervisor.rules.file=/etc/yukta/rules.json
 
 The rule format is in [Rule files](/running/rule-files).
 
+## Attach a supervisor while the server runs
+
+Besides the supervisors configured at startup, you can create **profiles** and **bind** them to a scope at run time, without a restart.
+
+- A **profile** names a supervisor type (`GET /api/supervisors/types`), its settings and whether its commands are only recorded (`dryRun`). For `rule-supervisor` the settings are the rules file: `{"rules": [...]}`.
+- A **binding** attaches a profile to a scope: `global`, `session:<id>`, `workflow:<id>` or `workflow:<sessionId>/<workflowId>`. `POST /api/supervisors/bindings` starts it at once; `DELETE /api/supervisors/bindings/{id}` stops it, and deleting a session removes the bindings limited to it.
+- Changing a profile (`PUT /api/supervisors/profiles/{id}`) restarts the supervisors that use it. A profile that a binding uses cannot be deleted.
+- An attached supervisor sees events and reviews commands from the moment it is attached, so a run that is already going is supervised from there, not from its start.
+- At most 50 bindings. Attaching and detaching are recorded in the execution log under the run id `supervisors`, with the caller as actor. Values under settings keys that look like secrets (`key`, `secret`, `token`, `password`) are shown as `***`.
+- Reading needs a viewer key; creating, changing and removing needs an admin key. Profiles and bindings are kept in memory and are gone after a restart.
+
 ## Safety
 
 A supervisor can never hold up an execution:

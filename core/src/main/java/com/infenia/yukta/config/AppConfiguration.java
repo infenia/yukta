@@ -4,6 +4,8 @@ package com.infenia.yukta.config;
 
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
+import com.infenia.yukta.service.supervisor.InMemorySupervisorStore;
+import com.infenia.yukta.service.supervisor.SupervisorStore;
 import lombok.NoArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -66,5 +68,19 @@ public class AppConfiguration {
   @ConditionalOnMissingBean
   public ExecutionControlStore executionControlStore() {
     return new InMemoryExecutionControlStore();
+  }
+
+  /**
+   * Provide the SupervisorStore bean.
+   *
+   * <p>Keeps supervisor profiles and bindings in memory. Override this bean to keep them across
+   * restarts.
+   *
+   * @return the supervisor store instance
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public SupervisorStore supervisorStore() {
+    return new InMemorySupervisorStore();
   }
 }

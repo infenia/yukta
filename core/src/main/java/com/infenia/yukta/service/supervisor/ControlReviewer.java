@@ -6,8 +6,10 @@ import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +25,9 @@ public class ControlReviewer {
 
   /** The registered supervisors; looked up per review so late registrations count. */
   private final ObjectProvider<ExecutionSupervisor> supervisors;
+
+  /** The supervisors attached at run time; set by Spring, empty without it. */
+  private AttachedSupervisors attached = new AttachedSupervisors();
 
   /** Longest a single supervisor may take to answer; a hung review must not block a run. */
   private final Duration timeout;
@@ -52,6 +57,19 @@ public class ControlReviewer {
   }
 
   /**
+   * Includes the supervisors attached at run time in reviews.
+   *
+   * @param attachedSupervisors the set
+   */
+  @Autowired
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP2",
+      justification = "Spring injects the shared service, which is meant to be held")
+  public void setAttachedSupervisors(final AttachedSupervisors attachedSupervisors) {
+    this.attached = attachedSupervisors;
+  }
+
+  /**
    * Reviews a command in supervisor order, stopping at the first refusal.
    *
    * @param request the command and who sent it
@@ -64,7 +82,7 @@ public class ControlReviewer {
   public Mono<Void> review(final ControlRequest request) {
     return Flux.fromStream(
             () ->
-                supervisors.stream()
+                Stream.concat(supervisors.stream(), attached.stream())
                     .filter(
                         supervisor ->
                             supervisor.scope().matches(request.sessionId(), request.workflowId()))
