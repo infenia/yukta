@@ -1,0 +1,11 @@
+{
+  "scan": "nightly SAST + secrets",
+  "findings": [
+    { "id": "F-101", "rule": "hardcoded-aws-key", "severity": "critical", "file": "src/billing/S3Client.java", "reachable": true, "exposed": true, "snippet": "AWS access key literal assigned in client constructor", "matchedSecret": "AKIAIOSFODNN7EXAMPLE", "rawLine": "String key = \"AKIAIOSFODNN7EXAMPLE\";", "committedBy": "dev1@example.com" },
+    { "id": "F-102", "rule": "github-token", "severity": "high", "file": "scripts/release.sh", "reachable": true, "exposed": false, "snippet": "personal access token exported in release script", "matchedSecret": "ghp_16C7e42F292c6912E7710c838347Ae178B4a", "rawLine": "export GH_TOKEN=ghp_16C7e42F292c6912E7710c838347Ae178B4a", "committedBy": "dev2@example.com" },
+    { "id": "F-103", "rule": "sql-injection", "severity": "medium", "file": "src/orders/OrderRepo.java", "reachable": true, "exposed": true, "snippet": "query built by string concatenation from request parameter" },
+    { "id": "F-104", "rule": "weak-hash-md5", "severity": "low", "file": "src/util/Etag.java", "reachable": false, "exposed": false, "snippet": "MD5 used for a cache ETag, not for security" },
+    { "id": "F-105", "rule": "unknown-rule", "severity": "high", "file": "src/legacy/Old.java", "reachable": true, "exposed": true },
+    { "id": "F-106", "rule": "private-key-block", "severity": "high", "file": "deploy/tls/server.pem", "reachable": true, "exposed": true, "snippet": "PEM private key committed to the repository", "matchedSecret": "-----BEGIN RSA PRIVATE KEY-----MIIEowIBAAKCAQEA", "rawLine": "-----BEGIN RSA PRIVATE KEY-----", "committedBy": "dev3@example.com" }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "reportId": "R-103",
+  "service": "search",
+  "exception": "java.lang.OutOfMemoryError",
+  "frame": "IndexWriter.addDocument(IndexWriter.java:402)",
+  "message": "Java heap space",
+  "version": "4.1.0"
+}

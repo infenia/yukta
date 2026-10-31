@@ -121,7 +121,7 @@ test.describe('Overview', () => {
       await expect(
         page.getByRole('region', { name: 'Recent failures' })
       ).toContainText('payments/deploy');
-      await expect(page).toHaveScreenshot(`overview-${name}.png`, {
+      await expect(page).toHaveScreenshot(`overview-${name}.webp`, {
         ...screenshotOptions,
         // the event stream is empty in tests, so its panel text depends on timing
         mask: [page.getByRole('region', { name: 'Live activity' })],
