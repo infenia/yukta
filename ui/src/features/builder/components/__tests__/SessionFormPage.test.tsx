@@ -237,7 +237,7 @@ describe('SessionFormPage, new', () => {
       '/sessions/import'
     );
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(window.location.pathname).toBe('/');
+    expect(window.location.pathname).toBe('/sessions');
     expect(posted).toEqual([]);
   });
 });

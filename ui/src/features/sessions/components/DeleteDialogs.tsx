@@ -27,7 +27,7 @@ export function DeleteSessionDialog({
       onClose={onClose}
       onDone={() => {
         void queryClient.invalidateQueries({ queryKey: ['sessions'] });
-        void navigate('/');
+        void navigate('/sessions');
         onClose();
       }}
     />

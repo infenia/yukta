@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect } from 'vitest';
-import router from '../router';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('@/features/overview/OverviewPage', () => ({
+  OverviewPage: () => 'the overview',
+}));
+import router, { AppRouter } from '../router';
 
 describe('router', () => {
   it('should be a valid router instance', () => {
@@ -56,7 +60,9 @@ describe('router', () => {
 
     it('should have control bus route', () => {
       const rootRoute = router.routes[0];
-      const controlRoute = rootRoute.children?.find((r) => r.path === 'control');
+      const controlRoute = rootRoute.children?.find(
+        (r) => r.path === 'control'
+      );
       expect(controlRoute).toBeDefined();
       expect(controlRoute?.lazy).toBeDefined();
     });
@@ -65,7 +71,9 @@ describe('router', () => {
       const rootRoute = router.routes[0];
       const runsRoute = rootRoute.children?.find((r) => r.path === 'runs');
       expect(runsRoute?.lazy).toBeDefined();
-      const historyRoute = rootRoute.children?.find((r) => r.path === 'history');
+      const historyRoute = rootRoute.children?.find(
+        (r) => r.path === 'history'
+      );
       expect(historyRoute?.element).toBeDefined();
     });
   });
@@ -119,10 +127,14 @@ describe('router', () => {
       const rootRoute = router.routes[0];
       const load = async (path: string) => {
         const route = rootRoute.children?.find((r) => r.path === path);
-        const lazyRoute = await (route?.lazy as () => Promise<{ Component: { name: string } }>)();
+        const lazyRoute = await (
+          route?.lazy as () => Promise<{ Component: { name: string } }>
+        )();
         return lazyRoute.Component.name;
       };
-      expect(await load('sessions/:sessionId/workflow/:workflowId')).toBe('WorkflowDetailsPage');
+      expect(await load('sessions/:sessionId/workflow/:workflowId')).toBe(
+        'WorkflowDetailsPage'
+      );
       expect(await load('sessions/:sessionId')).toBe('SessionDetailsPage');
       expect(await load('sessions/:sessionId/workflow/:workflowId/edit')).toBe(
         'WorkflowEditorPage'
@@ -156,5 +168,53 @@ describe('router', () => {
       expect(childPaths).toContain('control');
       expect(childPaths).toContain('history');
     });
+  });
+});
+
+describe('home route', () => {
+  it('shows the Overview, and sends old session-list queries to /sessions', async () => {
+    const { HomeRoute } = await import('../router');
+    const { MemoryRouter, Routes, Route } = await import('react-router');
+    const { render, screen } = await import('@testing-library/react');
+    const { createElement } = await import('react');
+    const where = () => createElement('p', null, 'sessions list');
+    const at = (url: string) =>
+      render(
+        createElement(
+          MemoryRouter,
+          { initialEntries: [url] },
+          createElement(
+            Routes,
+            null,
+            createElement(Route, { path: '/sessions', element: where() }),
+            createElement(Route, {
+              path: '/',
+              element: createElement(HomeRoute),
+            })
+          )
+        )
+      );
+    const first = at('/?q=abc');
+    expect(screen.getByText('sessions list')).toBeInTheDocument();
+    first.unmount();
+    at('/');
+    expect(screen.getByText('the overview')).toBeInTheDocument();
+  });
+});
+
+describe('AppRouter', () => {
+  it('renders the app at the current URL', async () => {
+    const { render, screen } = await import('@testing-library/react');
+    const { createElement } = await import('react');
+    const { QueryClientProvider } = await import('@tanstack/react-query');
+    const { createTestQueryClient } = await import('@/test/utils/testUtils');
+    render(
+      createElement(
+        QueryClientProvider,
+        { client: createTestQueryClient() },
+        createElement(AppRouter)
+      )
+    );
+    expect(await screen.findByText('the overview')).toBeInTheDocument();
   });
 });

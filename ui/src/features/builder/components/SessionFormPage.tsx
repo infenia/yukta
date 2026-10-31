@@ -275,7 +275,9 @@ function SessionForm({ loaded }: { loaded?: SessionDraft }) {
           variant="ghost"
           onClick={() =>
             navigate(
-              loaded ? `/sessions/${encodeURIComponent(loaded.sessionId)}` : '/'
+              loaded
+                ? `/sessions/${encodeURIComponent(loaded.sessionId)}`
+                : '/sessions'
             )
           }
         >

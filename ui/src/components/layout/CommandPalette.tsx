@@ -162,7 +162,8 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
   const all: PaletteItem[] = [
     ...contextual,
     ...[
-      ['Sessions', '/', 'folder'],
+      ['Overview', '/', 'dashboard'],
+      ['Sessions', '/sessions', 'folder'],
       ['Runs', '/runs', 'history'],
       ['Plugins', '/plugins', 'extension'],
       ['Control', '/control', 'hub'],
