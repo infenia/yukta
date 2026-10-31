@@ -212,6 +212,21 @@ export function WorkflowDetailsPage() {
               </span>
               Edit
             </Link>
+            <RequirePermission perm="deleteSessions">
+              <button
+                type="button"
+                onClick={() => setDeleting(true)}
+                className={buttonVariants({ variant: 'outline' })}
+              >
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
+                >
+                  delete
+                </span>
+                Delete
+              </button>
+            </RequirePermission>
             <button
               type="button"
               onClick={() => setPanelOpen((value) => !value)}
@@ -262,11 +277,6 @@ export function WorkflowDetailsPage() {
                     Control commands of this run
                   </DropdownMenuItem>
                 )}
-                <RequirePermission perm="deleteSessions">
-                  <DropdownMenuItem onClick={() => setDeleting(true)}>
-                    Delete workflow…
-                  </DropdownMenuItem>
-                </RequirePermission>
               </DropdownMenuContent>
             </DropdownMenu>
           </>

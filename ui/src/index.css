@@ -442,6 +442,42 @@
     outline-offset: 2px;
   }
 
+  /* Scrollbars: thin, a transparent track so the surface shows, a thumb from the theme tokens that
+     darkens on hover. Defined once here; light and dark follow --outline and --foreground. The
+     terminal and the command palette use the same rules. Firefox has only the standard
+     properties (no hover state); Chromium and Safari get the WebKit pseudo-elements. Chromium
+     120+ ignores those once scrollbar-color is set, so the standard ones are Firefox-only. */
+  :root {
+    --scrollbar-size: 0.5rem;
+    --scrollbar-thumb: color-mix(in oklch, var(--outline) 55%, transparent);
+    --scrollbar-thumb-hover: color-mix(
+      in oklch,
+      var(--foreground) 55%,
+      transparent
+    );
+  }
+  @supports (-moz-appearance: none) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
+  }
+  *::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+  }
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+
   .material-symbols-outlined {
     font-variation-settings:
       'FILL' 0,
