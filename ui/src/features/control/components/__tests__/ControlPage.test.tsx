@@ -42,6 +42,17 @@ let commandReply: unknown = { payload: { done: true } };
 
 const server = setupServer(
   http.get('/api/supervisors', () => ok([])),
+  http.get('/api/supervisors/profiles', () => ok([])),
+  http.get('/api/supervisors/bindings', () => ok([])),
+  http.get('/api/supervisors/decisions', () => ok([])),
+  http.get('/api/supervisors/types', () => ok([])),
+  http.get('/api/sessions/summaries', () => ok([])),
+  http.get('/api/metrics/snapshot', () => ok({ time: 0, values: {} })),
+  http.get('/api/metrics/series', () => ok({ range: '1h', series: {} })),
+  http.get('/api/metrics/heatmap', () => ok([])),
+  http.get('/api/metrics/modules', () => ok([])),
+  http.get('/api/metrics/annotations', () => ok([])),
+  http.get('/api/metrics/runs/live', () => ok([])),
   http.get('/api/control/audit', () => ok([])),
   http.get('/api/workers', () => ok([])),
   http.get('/api/scheduler/limits', () =>
@@ -97,9 +108,13 @@ describe('ControlPage', () => {
     beatsFail = true;
     renderWithProviders(<ControlPage />);
     // the dashboard's bus panel and the nodes table both read the same heartbeats
-    const alerts = await screen.findAllByRole('alert');
-    expect(alerts.map((a) => a.textContent).join(' ')).toContain(
-      'Failed to load nodes'
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole('alert')
+          .map((a) => a.textContent)
+          .join(' ')
+      ).toContain('Failed to load nodes')
     );
 
     beatsFail = false;
