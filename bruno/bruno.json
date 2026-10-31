@@ -12,7 +12,7 @@
     "tests": {}
   },
   "variables": {
-    "base_url": "http://localhost:8080",
+    "base_url": "http://localhost:9858",
     "sessionId": "session-001",
     "workflowId": "workflow-001",
     "executionId": "exec-001",

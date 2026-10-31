@@ -12,7 +12,7 @@ The check is a stand-in (`echo`, `exit 1`). Replace `command` with `./gradlew ch
 
 **Trigger**
 ```bash
-curl -X POST localhost:8080/api/workflow/start -H 'Content-Type: application/json' \
+curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
   -d '{"sessionId":"example-03-ci-pipeline","workflowId":"ci-pass"}'
 ```
 

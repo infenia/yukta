@@ -70,7 +70,7 @@ func TestStreamExecutionLogs_success(t *testing.T) {
 }
 
 func TestStreamExecutionLogs_emptySessionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	err := c.StreamExecutionLogs(context.Background(), "", "exec-456", func(line string) error {
 		return nil
 	})
@@ -84,7 +84,7 @@ func TestStreamExecutionLogs_emptySessionID(t *testing.T) {
 }
 
 func TestStreamExecutionLogs_emptyExecutionID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	err := c.StreamExecutionLogs(context.Background(), "session-123", "", func(line string) error {
 		return nil
 	})
@@ -98,7 +98,7 @@ func TestStreamExecutionLogs_emptyExecutionID(t *testing.T) {
 }
 
 func TestStreamExecutionLogs_nilOnLine(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	err := c.StreamExecutionLogs(context.Background(), "session-123", "exec-456", nil)
 
 	if err == nil {

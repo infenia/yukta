@@ -66,7 +66,7 @@ is `0 out of 0`), look in `server.log`. Any `ERROR` count in `diagnostics.txt` i
 thresholds pass; native mode currently logs 500s from the history endpoint (KNOWN-ISSUES #6).
 
 `PORT=18080 perf/run.sh ...` publishes the server on another host port and names the compose project after it, so a
-run does not collide with another server on 8080 or with a second `run.sh` (both ended runs here with 401s).
+run does not collide with another server on 9858 or with a second `run.sh` (both ended runs here with 401s).
 
 ## Chaos workflows
 
@@ -113,7 +113,7 @@ k6 run perf/k6/soak.js                                  # 20 starts/s for 1h
 k6 run -e DURATION=8h -e RATE=10 perf/k6/soak.js
 ```
 
-Env: `BASE_URL` (default `http://localhost:8080`), `API_KEY` (if `yukta.api-key` is set),
+Env: `BASE_URL` (default `http://localhost:9858`), `API_KEY` (if `yukta.api-key` is set),
 `RATE`, `RAMP`, `HOLD` (load), `RATE`, `DURATION` (perf, soak).
 
 ## Reading the soak

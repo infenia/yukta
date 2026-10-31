@@ -13,7 +13,7 @@ Replace each `echo` with a real delivery step (an HTTP_REQUEST to a webhook, a m
 
 **Trigger**
 ```bash
-curl -X POST localhost:8080/api/workflow/start -H 'Content-Type: application/json' \
+curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
   -d '{"sessionId":"example-07-fan-out","workflowId":"notify"}'
 ```
 

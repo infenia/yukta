@@ -22,10 +22,10 @@ func TestClientInitialization(t *testing.T) {
 		description string
 	}{
 		{
-			name:        "empty URL defaults to localhost:8080",
+			name:        "empty URL defaults to localhost:9858",
 			inputURL:    "",
-			expectedURL: "http://localhost:8080",
-			description: "Empty URL should default to localhost:8080",
+			expectedURL: "http://localhost:9858",
+			description: "Empty URL should default to localhost:9858",
 		},
 		{
 			name:        "custom URL is preserved",
@@ -77,7 +77,7 @@ func TestClientInitialization(t *testing.T) {
 // TestHTTPClientSetup verifies that the HTTP client is properly configured
 // with appropriate timeouts and other settings.
 func TestHTTPClientSetup(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 
 	// Verify HTTPClient is not nil
 	if c.HTTPClient == nil {
@@ -114,13 +114,13 @@ func TestClientURLNormalization(t *testing.T) {
 	}{
 		{
 			name:        "localhost with port",
-			inputURL:    "http://localhost:8080/",
-			expectedURL: "http://localhost:8080",
+			inputURL:    "http://localhost:9858/",
+			expectedURL: "http://localhost:9858",
 		},
 		{
 			name:        "IPv4 address",
-			inputURL:    "http://127.0.0.1:8080/",
-			expectedURL: "http://127.0.0.1:8080",
+			inputURL:    "http://127.0.0.1:9858/",
+			expectedURL: "http://127.0.0.1:9858",
 		},
 		{
 			name:        "domain with path",
@@ -152,7 +152,7 @@ func TestClientURLNormalization(t *testing.T) {
 // TestClientHTTPHeadersConfiguration verifies that the client can be used
 // to make requests with proper headers (tested through client structure).
 func TestClientHTTPHeadersConfiguration(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 
 	if c.HTTPClient == nil {
 		t.Fatal("HTTPClient should not be nil")
@@ -173,11 +173,11 @@ func TestClientHTTPHeadersConfiguration(t *testing.T) {
 // TestMultipleClientInstances verifies that multiple client instances
 // can be created independently without interference.
 func TestMultipleClientInstances(t *testing.T) {
-	client1 := client.NewClient("http://localhost:8080")
+	client1 := client.NewClient("http://localhost:9858")
 	client2 := client.NewClient("http://example.com:9090")
 	client3 := client.NewClient("")
 
-	if client1.BaseURL != "http://localhost:8080" {
+	if client1.BaseURL != "http://localhost:9858" {
 		t.Errorf("client1 BaseURL mismatch: got %q", client1.BaseURL)
 	}
 
@@ -185,8 +185,8 @@ func TestMultipleClientInstances(t *testing.T) {
 		t.Errorf("client2 BaseURL mismatch: got %q", client2.BaseURL)
 	}
 
-	if client3.BaseURL != "http://localhost:8080" {
-		t.Errorf("client3 should default to localhost:8080, got %q", client3.BaseURL)
+	if client3.BaseURL != "http://localhost:9858" {
+		t.Errorf("client3 should default to localhost:9858, got %q", client3.BaseURL)
 	}
 
 	// Verify each has their own HTTPClient

@@ -18,7 +18,7 @@ import (
 )
 
 func TestCommandCmd_createsCommand(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := CommandCmd(c)
 
 	if !strings.HasPrefix(cmd.Use, "command") {
@@ -168,7 +168,7 @@ func TestCommandCmd_executesSuccessfully_fromFile(t *testing.T) {
 }
 
 func TestCommandCmd_invalidJSON(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := CommandCmd(c)
 
 	err := cmd.RunE(cmd, []string{"workflow-123", "node-1", `{invalid json`})
@@ -465,7 +465,7 @@ func TestCommandCmd_fileReadError(t *testing.T) {
 		t.Fatalf("failed to chmod temp file: %v", err)
 	}
 
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := CommandCmd(c)
 
 	err = cmd.RunE(cmd, []string{"wf-123", "node-1", tmpFile.Name()})

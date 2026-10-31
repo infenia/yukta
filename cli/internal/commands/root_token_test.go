@@ -15,7 +15,7 @@ import (
 
 func TestRootCmd_tokenEnvIsNotPrintedInHelpButStillUsed(t *testing.T) {
 	t.Setenv("YUKTA_TOKEN", "s3cret-env")
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 	cmd.AddCommand(&cobra.Command{Use: "noop", Run: func(*cobra.Command, []string) {}})
 	var out strings.Builder
@@ -35,7 +35,7 @@ func TestRootCmd_tokenEnvIsNotPrintedInHelpButStillUsed(t *testing.T) {
 }
 
 func TestRootCmd_tokenAndTokenFileConflict(t *testing.T) {
-	cmd := RootCmd(client.NewClient("http://localhost:8080"))
+	cmd := RootCmd(client.NewClient("http://localhost:9858"))
 	cmd.AddCommand(&cobra.Command{Use: "noop", Run: func(*cobra.Command, []string) {}})
 	cmd.SetArgs([]string{"--token", "a", "--token-file", "f", "noop"})
 	cmd.SetOut(io.Discard)

@@ -18,7 +18,7 @@ import (
 )
 
 func TestListCmd_createsCommand_withCorrectUse(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := ListCmd(c)
 
 	if cmd.Use != "list" {
@@ -27,7 +27,7 @@ func TestListCmd_createsCommand_withCorrectUse(t *testing.T) {
 }
 
 func TestListCmd_rejectsStrayArgs(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := ListCmd(c)
 
 	if cmd.Args == nil {

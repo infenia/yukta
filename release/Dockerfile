@@ -28,7 +28,7 @@ LABEL org.opencontainers.image.title="Yukta" \
 
 COPY dist/linux-${TARGETARCH}/yukta /app/yukta
 
-EXPOSE 8080
+EXPOSE 9858
 
 # Inside a container the app must listen on all interfaces; publish the port deliberately.
 # The server refuses to start in this mode without an API key: run with -e YUKTA_API_KEY=<key>.

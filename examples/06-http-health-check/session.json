@@ -14,7 +14,7 @@
         {
           "nodeId": "probe",
           "type": "HTTP_REQUEST",
-          "config": { "url": "http://localhost:8080/api/plugins", "method": "GET", "timeout": 5, "failureMode": "CONTINUE", "routeByStatus": true }
+          "config": { "url": "http://localhost:9858/api/plugins", "method": "GET", "timeout": 5, "failureMode": "CONTINUE", "routeByStatus": true }
         },
         { "nodeId": "ok", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "HEALTH OK"] } },
         { "nodeId": "alert", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "HEALTH ALERT: service down"] } },

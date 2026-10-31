@@ -71,8 +71,8 @@ FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57
 
 COPY --from=compressor /tmp/yukta.compressed /app/yukta
 
-# Application will listen on 8080
-EXPOSE 8080
+# Application will listen on 9858
+EXPOSE 9858
 
 # Nonroot user: runs as unprivileged user (UID 65532)
 # Set HOME and PATH for application

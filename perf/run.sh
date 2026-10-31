@@ -4,7 +4,7 @@
 #
 # Run a k6 test against Yukta in a container with fixed resources and keep a report.
 #   perf/run.sh <perf|load|soak> [extra k6 args]
-# Env: PORT=8080 (the host port; a run on another port has its own compose project) CPUS=2 CPUSET=0,1 MEMORY=8g K6_CPUSET=2-15 (default: all cores after the server's; unpinned below 3 cores) JAVA_OPTS=... IMAGE=... KEEP=1 (leave server up)
+# Env: PORT=9858 (the host port; a run on another port has its own compose project) CPUS=2 CPUSET=0,1 MEMORY=8g K6_CPUSET=2-15 (default: all cores after the server's; unpinned below 3 cores) JAVA_OPTS=... IMAGE=... KEEP=1 (leave server up)
 #      MODE=native builds the native binary (release/build-server.sh; NATIVE_QUICK=1, NATIVE_HEAP=24g) and runs it
 #      BINARY=dist/linux-amd64/yukta runs an existing native binary without building (image debian:12-slim)
 #      plus the k6 -e variables, e.g. RATE=50 WORKFLOWS=mapper DURATION=10m
@@ -15,7 +15,7 @@ type=${1:?usage: run.sh <perf|load|soak> [k6 args]}; shift
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 
-export PORT=${PORT:-8080} CPUS=${CPUS:-2} CPUSET=${CPUSET:-0,1} MEMORY=${MEMORY:-8g}
+export PORT=${PORT:-9858} CPUS=${CPUS:-2} CPUSET=${CPUSET:-0,1} MEMORY=${MEMORY:-8g}
 cores=$(nproc)
 [[ -n ${K6_CPUSET+x} || $cores -le 2 ]] || K6_CPUSET=2-$((cores - 1))   # k6 off the server cores; unpinned on small hosts
 pin=(); [[ -z ${K6_CPUSET:-} ]] || pin=(taskset -c "$K6_CPUSET")
@@ -47,7 +47,7 @@ if [[ -n ${BINARY:-} ]]; then
   JAR=$(realpath "$BINARY"); export RUN_CMD="/app/yukta.jar -Dyukta.rate-limit-per-minute=0" IMAGE=${IMAGE:-debian:12-slim}   # mounted at the jar's path
 fi
 # One compose project per port, so two runs (two people, two sessions) on one machine never remove each other's server.
-export PORT=${PORT:-8080}
+export PORT=${PORT:-9858}
 compose=(docker compose -f perf/compose.yaml -p "yukta-perf-$PORT")
 
 sha=$(git rev-parse --short HEAD); dirty=$([[ -n $(git status --porcelain -- . ':!perf/reports') ]] && echo true || echo false)

@@ -18,7 +18,7 @@ import (
 
 // TestGetCmd_createsCommand_withCorrectUse tests that GetCmd creates command with correct Use.
 func TestGetCmd_createsCommand_withCorrectUse(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := GetCmd(c)
 
 	if !strings.Contains(cmd.Use, "get") {
@@ -32,7 +32,7 @@ func TestGetCmd_createsCommand_withCorrectUse(t *testing.T) {
 
 // TestGetCmd_hasDescription tests that command has description.
 func TestGetCmd_hasDescription(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := GetCmd(c)
 
 	if cmd.Short == "" {
@@ -46,7 +46,7 @@ func TestGetCmd_hasDescription(t *testing.T) {
 
 // TestGetCmd_requiresExactlyOneArg tests that command requires exactly one argument.
 func TestGetCmd_requiresExactlyOneArg(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := GetCmd(c)
 
 	// cobra.ExactArgs(1) validation
@@ -259,7 +259,7 @@ func TestGetCmd_noWorkflows_stillWorks(t *testing.T) {
 
 // TestGetCmd_commandHasRunE tests that command has RunE handler.
 func TestGetCmd_commandHasRunE(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := GetCmd(c)
 
 	if cmd.RunE == nil {

@@ -10,7 +10,7 @@ In production, swap `CONSTANT_SOURCE` for a source that reads your data (an HTTP
 
 **Trigger**
 ```bash
-curl -X POST localhost:8080/api/workflow/start -H 'Content-Type: application/json' \
+curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
   -d '{"sessionId":"example-05-data-pipeline","workflowId":"etl"}'
 ```
 

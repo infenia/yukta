@@ -7,7 +7,7 @@ example is a session JSON plus a small bash script.
 ## Prerequisites
 
 - A running Yukta server: `./gradlew bootRun`, or the native binary, or the Docker image
-  (set `YUKTA_SERVER_ADDRESS=0.0.0.0` in a container). Default address: `http://localhost:8080`.
+  (set `YUKTA_SERVER_ADDRESS=0.0.0.0` in a container). Default address: `http://localhost:9858`.
 - `curl` and `jq`.
 - Optional: an OpenAI-compatible LLM endpoint for example 09.
 
@@ -18,7 +18,7 @@ its session again each time.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `YUKTA_URL` | `http://localhost:8080` | Server base URL |
+| `YUKTA_URL` | `http://localhost:9858` | Server base URL |
 | `YUKTA_API_KEY` | unset | Sent as `X-API-Key` when the server sets `yukta.api-key` |
 | `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` | Ollama defaults | Used by example 09 only |
 
@@ -46,7 +46,7 @@ example waits over REST and reads the result through MCP only after the run fini
 Yukta has no webhook trigger. The examples are started by hand; a run starts from one of these:
 
 - **REST:** `POST /api/workflow/start` with `{"sessionId", "workflowId", "payload"?}`. Returns `202` and `data.executionId`.
-- **MCP:** the `start_workflow` tool at `http://localhost:8080/mcp` (see example 10).
+- **MCP:** the `start_workflow` tool at `http://localhost:9858/mcp` (see example 10).
 - **CLI:** `cli/build/yukta-cli-linux-amd64 workflow start <session> <workflow>`.
 - **UI:** the web console.
 

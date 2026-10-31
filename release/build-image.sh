@@ -43,7 +43,7 @@ revision="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 # so the check runs from the host against a published port.
 smoke_test() {
   local image="$1" platform="$2" port=18080 name="yukta-smoke-$$"
-  docker run -d --rm --name "$name" --platform "linux/$platform" -p "127.0.0.1:$port:8080" \
+  docker run -d --rm --name "$name" --platform "linux/$platform" -p "127.0.0.1:$port:9858" \
     -e YUKTA_API_KEY=smoke-test-key "$image" >/dev/null
   trap 'docker rm -f "$name" >/dev/null 2>&1 || true' RETURN
   for _ in $(seq 1 60); do

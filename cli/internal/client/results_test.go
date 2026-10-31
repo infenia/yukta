@@ -62,7 +62,7 @@ func TestStreamExecutionResults_withoutNodeFilterSendsNoQuery(t *testing.T) {
 }
 
 func TestStreamExecutionResults_rejectsBadArguments(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	noop := func(string, string) error { return nil }
 	if err := c.StreamExecutionResults(context.Background(), "", "e1", "", noop); err == nil {
 		t.Error("expected error for empty sessionID")

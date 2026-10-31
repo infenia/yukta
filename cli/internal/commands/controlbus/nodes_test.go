@@ -18,7 +18,7 @@ import (
 )
 
 func TestNodesCmd_createsCommand(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := NodesCmd(c)
 
 	if !strings.HasPrefix(cmd.Use, "nodes") {

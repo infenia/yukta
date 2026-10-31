@@ -167,7 +167,7 @@ Draws the header, breadcrumb and footer and maps each address to a screen. All r
 - **Ceiling.** Each route is a separate download, so the first visit to a heavy page pays a round trip. The build budget keeps any one file under 300 KB.
 - **On failure.** If a route file fails to download, that screen does not render. There is no custom error boundary that I found in the router setup; the router's default error screen applies.
 
-**Settings:** `boot: SpaWebFluxConfig (fallback and CSP)`, `Vite dev server proxies /api, /sse and /actuator to :8080`
+**Settings:** `boot: SpaWebFluxConfig (fallback and CSP)`, `Vite dev server proxies /api, /sse and /actuator to :9858`
 
 ### API Client & Cache
 
@@ -662,8 +662,8 @@ Measured from the ui/dist/assets folder present in the working tree when this pa
 
 | Command or rule | What it does |
 |---|---|
-| cd ui && pnpm dev | Vite dev server on :5173 with hot reload; proxies /api, /sse, /actuator to :8080 |
-| ./gradlew :boot:bootRun | Backend on :8080 for the dev server |
+| cd ui && pnpm dev | Vite dev server on :5173 with hot reload; proxies /api, /sse, /actuator to :9858 |
+| ./gradlew :boot:bootRun | Backend on :9858 for the dev server |
 | ./gradlew :ui:build | Type check, vite build, size check; packs dist/ into the jar |
 | ./gradlew :ui:pnpmTest or pnpm test | Vitest unit and component tests |
 | ./gradlew :ui:pnpmTestE2e -PrunE2e=true | Playwright E2E with mocked APIs (browsers must be installed) |

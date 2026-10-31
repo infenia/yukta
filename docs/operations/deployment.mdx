@@ -82,7 +82,7 @@ Pull the new image tag, or install the newer package or archive over the old one
 ./gradlew bootRun
 ```
 
-The server listens on `http://localhost:8080`, on loopback only, and uses the `dev` profile. Open `http://localhost:8080/` for the [web UI](/interfaces/web-ui).
+The server listens on `http://localhost:9858`, on loopback only, and uses the `dev` profile. Open `http://localhost:9858/` for the [web UI](/interfaces/web-ui).
 
 To run from source with the quieter profile, name it:
 
@@ -146,15 +146,15 @@ Add `-Pnative.quick` for a faster build that trades run-time speed for build tim
 
 ## Container image
 
-The release image is a minimal image with no shell and no package manager. It runs as an unprivileged user (UID 65532) and exposes port 8080. Pull it, or build it yourself from the repository's Dockerfile, which compiles the native binary in one stage:
+The release image is a minimal image with no shell and no package manager. It runs as an unprivileged user (UID 65532) and exposes port 9858. Pull it, or build it yourself from the repository's Dockerfile, which compiles the native binary in one stage:
 
 ```bash
-docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:0.1.0-alpha.2
+docker run --rm -p 127.0.0.1:9858:9858 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:0.1.0-alpha.2
 ```
 
 ```bash
 docker build -t yukta .
-docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me yukta
+docker run --rm -p 127.0.0.1:9858:9858 -e YUKTA_API_KEY=change-me yukta
 ```
 
 | Setting | In the image | Why it matters |
@@ -165,14 +165,14 @@ docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me yukta
 
 ### Expose it safely
 
-Publishing the container port makes the API reachable from the network that can reach the host. Publish on loopback (`-p 127.0.0.1:8080:8080`) when a reverse proxy on the same host fronts the server, and put TLS in that proxy. Use a long random key and named keys with limited roles for clients. See [Security](/operations/security).
+Publishing the container port makes the API reachable from the network that can reach the host. Publish on loopback (`-p 127.0.0.1:9858:9858`) when a reverse proxy on the same host fronts the server, and put TLS in that proxy. Use a long random key and named keys with limited roles for clients. See [Security](/operations/security).
 
 ### Keep data
 
 By default everything is in memory. To keep sessions and run history, mount a host directory that the unprivileged user (UID 65532) can write to, and point the file stores at it:
 
 ```bash
-docker run --rm -p 127.0.0.1:8080:8080 \
+docker run --rm -p 127.0.0.1:9858:9858 \
   -e YUKTA_API_KEY=change-me \
   -e YUKTA_SESSION_STORE_TYPE=file \
   -e YUKTA_SESSION_BASE_DIR=/data \
@@ -260,7 +260,7 @@ Executions still running when the process ends are marked `ABORTED` at the next 
 
 | Item | Value |
 |---|---|
-| Port | `8080` |
+| Port | `9858` |
 | Address | `127.0.0.1` |
 | Default profile | `dev` (native binary: `prod`) |
 | Shutdown timeout | 30 s |

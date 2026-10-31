@@ -47,7 +47,7 @@ func TestGetActiveNodesInWorkflow_success(t *testing.T) {
 }
 
 func TestGetActiveNodesInWorkflow_emptyWorkflowID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.GetActiveNodesInWorkflow("")
 
 	if err == nil {
@@ -123,7 +123,7 @@ func TestGetLastHeartbeat_success(t *testing.T) {
 }
 
 func TestGetLastHeartbeat_emptyIDs(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 
 	_, err := c.GetLastHeartbeat("", "node-1")
 	if err == nil {
@@ -171,7 +171,7 @@ func TestSendCommand_success(t *testing.T) {
 }
 
 func TestSendCommand_emptyPayload(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.SendCommand("workflow-123", "node-1", []byte{})
 
 	if err == nil {
@@ -183,7 +183,7 @@ func TestSendCommand_emptyPayload(t *testing.T) {
 }
 
 func TestSendCommand_emptyWorkflowID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.SendCommand("", "node-1", []byte(`{"action":"pause"}`))
 
 	if err == nil {
@@ -195,7 +195,7 @@ func TestSendCommand_emptyWorkflowID(t *testing.T) {
 }
 
 func TestSendCommand_emptyNodeID(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.SendCommand("workflow-123", "", []byte(`{"action":"pause"}`))
 
 	if err == nil {

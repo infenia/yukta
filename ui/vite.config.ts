@@ -31,15 +31,15 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:9858',
         changeOrigin: true,
       },
       '/sse': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:9858',
         changeOrigin: true,
       },
       '/actuator': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:9858',
         changeOrigin: true,
       },
     },

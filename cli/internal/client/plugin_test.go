@@ -177,7 +177,7 @@ func TestGetPluginDetails_notFound(t *testing.T) {
 }
 
 func TestGetPluginDetails_emptyPluginType(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.GetPluginDetails("")
 
 	if err == nil {

@@ -122,7 +122,7 @@ func TestGetSessions_missingSessionIds_returnsEmpty(t *testing.T) {
 
 // TestGetSessionDetails_emptySessionID_returnsError tests empty session ID validation.
 func TestGetSessionDetails_emptySessionID_returnsError(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.GetSessionDetails("")
 
 	if err == nil {
@@ -233,7 +233,7 @@ func TestGetSessionDetails_noWorkflows_returnsEmptyList(t *testing.T) {
 
 // TestGetWorkflow_emptySessionID_returnsError tests empty session ID validation.
 func TestGetWorkflow_emptySessionID_returnsError(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.GetWorkflow("", "workflow-123")
 
 	if err == nil {
@@ -247,7 +247,7 @@ func TestGetWorkflow_emptySessionID_returnsError(t *testing.T) {
 
 // TestGetWorkflow_emptyWorkflowID_returnsError tests empty workflow ID validation.
 func TestGetWorkflow_emptyWorkflowID_returnsError(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	_, err := c.GetWorkflow("session-123", "")
 
 	if err == nil {
@@ -356,7 +356,7 @@ func TestGetWorkflow_complexData_returnsCorrectly(t *testing.T) {
 
 // TestApplyConfig_emptyJSON_returnsError tests empty configuration validation.
 func TestApplyConfig_emptyJSON_returnsError(t *testing.T) {
-	c := NewClient("http://localhost:8080")
+	c := NewClient("http://localhost:9858")
 	err := c.ApplyConfig([]byte{})
 
 	if err == nil {
