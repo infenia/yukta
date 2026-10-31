@@ -18,6 +18,10 @@ export default function App() {
     void loadMe();
   }, []);
 
+  // The run page fills the screen with the logs terminal docked at its bottom; a footer below
+  // would make the document scroll. The editor (.../edit) and every other page keep it.
+  const showFooter = !/^\/sessions\/[^/]+\/workflow\/[^/]+\/?$/.test(pathname);
+
   return (
     <div className="bg-background text-on-surface flex min-h-screen flex-col pb-16 sm:pb-0">
       <AppHeader />
@@ -25,7 +29,7 @@ export default function App() {
       <main ref={mainRef} className="mt-header flex w-full flex-1 flex-col">
         <Outlet />
       </main>
-      <AppFooter />
+      {showFooter && <AppFooter />}
       <MobileNav />
       <CommandPalette />
     </div>
