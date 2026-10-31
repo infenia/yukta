@@ -2324,6 +2324,10 @@
             "format" : "int32",
             "type" : "integer"
           },
+          "nodesTotal" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
           "p95Ms" : {
             "format" : "double",
             "type" : "number"

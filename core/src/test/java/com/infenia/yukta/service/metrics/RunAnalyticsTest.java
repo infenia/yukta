@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import java.time.Clock;
 import java.time.Duration;
@@ -347,5 +348,68 @@ class RunAnalyticsTest {
     new RunAnalytics(feed).stop();
 
     assertThat(new RunAnalytics(feed).liveRuns()).isEmpty();
+  }
+
+  @Test
+  void seedingFromTheLogRestoresFinishedRunsAndControlCommands() {
+    final var started =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.RUN_STARTED,
+            "old",
+            "s1",
+            "w1",
+            null,
+            null,
+            Map.of(),
+            null,
+            null,
+            T0.plusSeconds(10),
+            null);
+    final var finished =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.RUN_FINISHED,
+            "old",
+            "s1",
+            "w1",
+            null,
+            FAILURE,
+            Map.of(),
+            null,
+            null,
+            T0.plusSeconds(12),
+            null);
+    final var applied = ExecutionLogEvent.control(true, "old", "PauseWorkflowCommand", null);
+    final var rejected = ExecutionLogEvent.control(false, "old", "StopCommand", "not running");
+    final var tooOld =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.RUN_FINISHED,
+            "ancient",
+            "s1",
+            "w1",
+            null,
+            SUCCESS,
+            Map.of(),
+            null,
+            null,
+            T0.minus(Duration.ofDays(3)),
+            null);
+
+    analytics.seed(List.of(started, tooOld, finished, applied, rejected));
+
+    assertThat(analytics.snapshot("session:s1"))
+        .containsEntry("runs.finished", 1.0)
+        .containsEntry("runs.failed", 1.0)
+        .containsEntry("duration.p95", 2000.0);
+    assertThat(analytics.heatmap("workflow:w1", HOUR))
+        .singleElement()
+        .satisfies(c -> assertThat(c.failedRuns()).containsExactly("old"));
+    assertThat(analytics.annotations("session:s1", Duration.ofDays(1)))
+        .extracting(
+            RunAnalytics.Annotation::command,
+            RunAnalytics.Annotation::applied,
+            RunAnalytics.Annotation::reason)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple("PauseWorkflowCommand", true, null),
+            org.assertj.core.groups.Tuple.tuple("StopCommand", false, "not running"));
   }
 }
