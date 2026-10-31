@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
@@ -224,7 +225,9 @@ export function WorkflowDetailsPage() {
             )}
             <Link
               to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
-              className={buttonVariants({ variant: 'outline' })}
+              aria-label="Edit"
+              title="Edit workflow"
+              className={buttonVariants({ variant: 'outline', size: 'icon' })}
             >
               <span
                 aria-hidden="true"
@@ -232,23 +235,7 @@ export function WorkflowDetailsPage() {
               >
                 edit
               </span>
-              Edit
             </Link>
-            <RequirePermission perm="deleteSessions">
-              <button
-                type="button"
-                onClick={() => setDeleting(true)}
-                className={buttonVariants({ variant: 'outline' })}
-              >
-                <span
-                  aria-hidden="true"
-                  className="material-symbols-outlined text-base"
-                >
-                  delete
-                </span>
-                Delete
-              </button>
-            </RequirePermission>
             <button
               type="button"
               onClick={() => setPanelOpen((value) => !value)}
@@ -299,6 +286,15 @@ export function WorkflowDetailsPage() {
                     Control commands of this run
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuSeparator />
+                <RequirePermission perm="deleteSessions">
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setDeleting(true)}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </RequirePermission>
               </DropdownMenuContent>
             </DropdownMenu>
           </>
