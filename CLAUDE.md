@@ -72,6 +72,19 @@ remove its rule in your own checkout for the session (a deny cannot be overridde
 
 All commits follow **Conventional Commits** format. See `.gitmessage` template (shown when committing), `.git-commit-guide.md`, and `.claude/rules/git-workflow.md` for full details. The `.git/hooks/commit-msg` hook validates format automatically.
 
+## Worktrees
+
+`claude --worktree` and subagent worktree isolation create worktrees under `.claude/worktrees/`. `.claude/settings.json` sets
+`worktree.symlinkDirectories` to `ui/node_modules`, so each one links to the main checkout's copy (about 440 MB) instead of installing its
+own. `yk tool -C ui` (`tsc`, `vitest`) works through the link. Caveats: a `pnpm install` (Gradle's `ui` tasks run one) in such a worktree
+writes into the shared copy, so run it deliberately when a branch changes `ui/package.json` or `ui/pnpm-lock.yaml`; worktrees made with
+`git worktree add` (the pickup skill, `yk` runs) do not get the link.
+
+`worktree.sparsePaths` is **not** set (measured 2026-10-31): the tracked tree is 16 MB and a full worktree is created in 0.2 s (0.1 s sparse),
+and a sparse tree breaks the build: Gradle fails with "Configuring project ':plugins:processors:internal' without an existing directory is not
+allowed" because `settings.gradle.kts` includes every module, and `yk` itself lives in `examples/11-dogfood`. Keeping all modules and `examples`
+leaves only `docs`, `design`, `bruno` and `.github` out, a few MB.
+
 ## Testing Strategy
 - Unit tests use JUnit 5 + Mockito (for reactive: `reactor.test`).
 - Use `StepVerifier` for testing reactive streams.
