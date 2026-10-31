@@ -7,6 +7,8 @@ import com.infenia.yukta.plugin.control.SupervisorBinding;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.ConflictException;
+import com.infenia.yukta.service.supervisor.SupervisorDecision;
+import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
@@ -37,11 +40,12 @@ import reactor.core.publisher.Mono;
  * never echoed in full: values under keys that look like secrets are replaced by {@code ***}.
  */
 @RestController
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports"})
 @RequestMapping("/api/supervisors")
 @RequiredArgsConstructor
 @Tag(name = "Supervisor bindings API", description = "Attach supervisors to a scope at run time")
 @RegisterReflectionForBinding({
+  SupervisorDecision.class,
   SupervisorBindingsController.ProfileBody.class,
   SupervisorBindingsController.BindingBody.class
 })
@@ -51,11 +55,17 @@ public class SupervisorBindingsController {
   private static final Pattern SECRET =
       Pattern.compile("(?i).*(key|secret|token|password|credential).*");
 
+  /** Most decisions one request may ask for. */
+  private static final int MAX_DECISIONS = 500;
+
   /** What replaces a secret value. */
   private static final String HIDDEN = "***";
 
   /** Attaches and detaches supervisors. */
   private final SupervisorService service;
+
+  /** Knows what supervisors decided. */
+  private final SupervisorHost host;
 
   /**
    * A profile as sent and shown.
@@ -202,6 +212,26 @@ public class SupervisorBindingsController {
                     body.enabled() == null || body.enabled()))
         .flatMap(service::attach)
         .map(saved -> ApiResponse.success(201, "Supervisor attached", view(saved)));
+  }
+
+  /**
+   * The newest decisions about the commands supervisors emitted since startup.
+   *
+   * @param binding only this supervisor or binding id; all when missing
+   * @param limit most entries, 1 to 500; 50 by default
+   * @return the decisions, newest first
+   */
+  @GetMapping("/decisions")
+  @Operation(summary = "Recent supervisor decisions")
+  public Mono<ApiResponse<List<SupervisorDecision>>> decisions(
+      @RequestParam(required = false) final String binding,
+      @RequestParam(defaultValue = "50") final int limit) {
+    return Mono.fromSupplier(
+        () ->
+            ApiResponse.success(
+                200,
+                "Decisions retrieved",
+                host.decisions(binding, Math.min(MAX_DECISIONS, Math.max(1, limit)))));
   }
 
   /**

@@ -51,6 +51,7 @@ class AppMcpToolsTest {
   private SystemHealthProvider systemHealthProvider;
   private ResultProvider resultProvider;
   private com.infenia.yukta.mcp.provider.WorkflowVersionProvider workflowVersionProvider;
+  private com.infenia.yukta.mcp.provider.SupervisorProvider supervisorProvider;
 
   @BeforeEach
   void setUp() {
@@ -62,6 +63,7 @@ class AppMcpToolsTest {
     systemHealthProvider = mock(SystemHealthProvider.class);
     resultProvider = mock(ResultProvider.class);
     workflowVersionProvider = mock(com.infenia.yukta.mcp.provider.WorkflowVersionProvider.class);
+    supervisorProvider = mock(com.infenia.yukta.mcp.provider.SupervisorProvider.class);
     mcpTools =
         new AppMcpTools(
             sessionInfoProvider,
@@ -71,7 +73,8 @@ class AppMcpToolsTest {
             pluginInfoProvider,
             systemHealthProvider,
             resultProvider,
-            workflowVersionProvider);
+            workflowVersionProvider,
+            supervisorProvider);
   }
 
   @Test
@@ -363,5 +366,23 @@ class AppMcpToolsTest {
 
     StepVerifier.create(mcpTools.getSchedulerLimits()).expectNext(limits).verifyComplete();
     StepVerifier.create(mcpTools.setSchedulerLimits(4, 2)).expectNext(limits).verifyComplete();
+  }
+
+  @Test
+  void supervisorToolsDelegateToTheSupervisorProvider() {
+    final var listing =
+        new com.infenia.yukta.mcp.dto.SupervisorListing(List.of(), List.of(), List.of("t"));
+    final var binding =
+        new com.infenia.yukta.mcp.dto.SupervisorBindingInfo("b", "p", "global", true);
+    final var detached = new com.infenia.yukta.mcp.dto.SupervisorDetached("b", true);
+    when(supervisorProvider.list()).thenReturn(Mono.just(listing));
+    when(supervisorProvider.attach("p", "global", null, null)).thenReturn(Mono.just(binding));
+    when(supervisorProvider.detach("b")).thenReturn(Mono.just(detached));
+
+    StepVerifier.create(mcpTools.listSupervisors()).expectNext(listing).verifyComplete();
+    StepVerifier.create(mcpTools.attachSupervisor("p", "global", null, null))
+        .expectNext(binding)
+        .verifyComplete();
+    StepVerifier.create(mcpTools.detachSupervisor("b")).expectNext(detached).verifyComplete();
   }
 }

@@ -15,6 +15,8 @@ import com.infenia.yukta.plugin.control.SupervisorBinding;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.ConflictException;
+import com.infenia.yukta.service.supervisor.SupervisorDecision;
+import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import java.util.List;
 import java.util.Map;
@@ -27,12 +29,15 @@ import reactor.test.StepVerifier;
 
 /** Tests for the behaviour described by {@link SupervisorBindingsController}. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyStaticImports")
+@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.TooManyMethods"})
 class SupervisorBindingsControllerTest {
 
   private final SupervisorService service = mock(SupervisorService.class);
 
-  private final SupervisorBindingsController controller = new SupervisorBindingsController(service);
+  private final SupervisorHost host = mock(SupervisorHost.class);
+
+  private final SupervisorBindingsController controller =
+      new SupervisorBindingsController(service, host);
 
   @Test
   void nullSettingsAreAcceptedAndNotShown() {
@@ -167,5 +172,22 @@ class SupervisorBindingsControllerTest {
         .assertNext(
             r -> assertThat(r.data()).containsExactly(new BindingBody("b", "p", "global", true)))
         .verifyComplete();
+  }
+
+  @Test
+  void decisionsAreFilteredAndTheLimitIsKeptInRange() {
+    final SupervisorDecision decision =
+        new SupervisorDecision(java.time.Instant.now(), "b1", "applied", "Pause", "e", null);
+    when(host.decisions("b1", 50)).thenReturn(List.of(decision));
+    when(host.decisions(null, 500)).thenReturn(List.of());
+    when(host.decisions(null, 1)).thenReturn(List.of());
+
+    StepVerifier.create(controller.decisions("b1", 50))
+        .assertNext(r -> assertThat(r.data()).containsExactly(decision))
+        .verifyComplete();
+    StepVerifier.create(controller.decisions(null, 99_999)).expectNextCount(1).verifyComplete();
+    StepVerifier.create(controller.decisions(null, -3)).expectNextCount(1).verifyComplete();
+    verify(host).decisions(null, 500);
+    verify(host).decisions(null, 1);
   }
 }

@@ -23,8 +23,10 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
@@ -51,11 +53,14 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
 public class SupervisorHost {
 
   /** Events handed to the supervisor's thread at a time. */
   private static final int SUPERVISOR_PREFETCH = 256;
+
+  /** Most decisions kept for the decision feed. */
+  private static final int MAX_DECISIONS = 500;
 
   /** Counter of supervisor commands by outcome. */
   private static final String COMMANDS_METRIC = "yukta.supervisor.commands";
@@ -92,6 +97,10 @@ public class SupervisorHost {
 
   /** Running supervisor subscriptions. */
   private final List<Disposable> subscriptions = new CopyOnWriteArrayList<>();
+
+  /** The newest decisions, newest last; a full queue drops its oldest to take a new one. */
+  private final BlockingDeque<SupervisorDecision> recentDecisions =
+      new LinkedBlockingDeque<>(MAX_DECISIONS);
 
   /** Subscriptions of the supervisors attached at run time, by binding id. */
   private final Map<String, Disposable> attachedSubscriptions = new ConcurrentHashMap<>();
@@ -303,10 +312,15 @@ public class SupervisorHost {
     return dispatcher
         .dispatchOrdered(command)
         .contextWrite(Context.of(ControlActor.CONTEXT_KEY, supervisorId))
-        .doOnSuccess(_ -> count(supervisorId, "applied"))
+        .doOnSuccess(
+            _ -> {
+              count(supervisorId, "applied");
+              decided(supervisorId, "applied", command, null);
+            })
         .onErrorResume(
             error -> {
               count(supervisorId, "rejected");
+              decided(supervisorId, "rejected", command, error.getMessage());
               log.atWarn()
                   .addKeyValue(SUPERVISOR_KEY, supervisorId)
                   .addKeyValue("command", command.getClass().getSimpleName())
@@ -323,6 +337,7 @@ public class SupervisorHost {
       final ExecutionControlCommand command,
       final String reason) {
     count(supervisorId, outcome);
+    decided(supervisorId, outcome, command, reason);
     ControlAudit.record(
         executionLog,
         auditSink,
@@ -344,6 +359,38 @@ public class SupervisorHost {
   @Autowired(required = false)
   public void setAuditSink(final AuditSink sink) {
     this.auditSink = sink;
+  }
+
+  private void decided(
+      final String supervisorId,
+      final String outcome,
+      final ExecutionControlCommand command,
+      @Nullable final String reason) {
+    final SupervisorDecision decision =
+        new SupervisorDecision(
+            Instant.now(),
+            supervisorId,
+            outcome,
+            command.getClass().getSimpleName(),
+            command.executionId(),
+            reason);
+    while (!recentDecisions.offerLast(decision)) {
+      recentDecisions.pollFirst();
+    }
+  }
+
+  /**
+   * The newest decisions about the commands supervisors emitted, since startup.
+   *
+   * @param supervisorId only this supervisor or binding, or null for all
+   * @param limit most entries to return
+   * @return the decisions, newest first
+   */
+  public List<SupervisorDecision> decisions(@Nullable final String supervisorId, final int limit) {
+    return List.copyOf(recentDecisions).reversed().stream()
+        .filter(d -> supervisorId == null || supervisorId.equals(d.supervisorId()))
+        .limit(Math.max(0, limit))
+        .toList();
   }
 
   private void count(final String supervisorId, final String outcome) {

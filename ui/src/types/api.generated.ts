@@ -1194,6 +1194,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/supervisors/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent supervisor decisions */
+        get: operations["decisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/supervisors/profiles": {
         parameters: {
             query?: never;
@@ -2073,6 +2090,39 @@ export interface components {
         ApiResponseListString: {
             /** @description The response data */
             data?: string[];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListSupervisorDecision: {
+            /** @description The response data */
+            data?: components["schemas"]["SupervisorDecision"][];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -3406,6 +3456,15 @@ export interface components {
              * @example 24
              */
             workflowCount?: number;
+        };
+        SupervisorDecision: {
+            command?: string;
+            executionId?: string;
+            outcome?: string;
+            reason?: string;
+            supervisorId?: string;
+            /** Format: date-time */
+            time?: string;
         };
         SupervisorInfo: {
             /** Format: int64 */
@@ -5404,6 +5463,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    decisions: {
+        parameters: {
+            query?: {
+                binding?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListSupervisorDecision"];
                 };
             };
         };

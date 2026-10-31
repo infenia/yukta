@@ -31,6 +31,9 @@ com.infenia.yukta.controller.WorkflowController
 com.infenia.yukta.controller.WorkflowDetailsController
 com.infenia.yukta.controller.WorkflowValidationController
 com.infenia.yukta.controller.WorkflowVersionController
+com.infenia.yukta.controlplane.composite.RulesFirstControlPlaneFactory
+com.infenia.yukta.controlplane.model.ModelControlPlaneFactory
+com.infenia.yukta.controlplane.rules.RuleControlPlaneFactory
 com.infenia.yukta.docs.ApiDocsCustomizer
 com.infenia.yukta.edition.EditionInfo
 com.infenia.yukta.exception.GlobalExceptionHandler
@@ -58,6 +61,7 @@ com.infenia.yukta.mcp.provider.LogProvider
 com.infenia.yukta.mcp.provider.PluginInfoProvider
 com.infenia.yukta.mcp.provider.ResultProvider
 com.infenia.yukta.mcp.provider.SessionInfoProvider
+com.infenia.yukta.mcp.provider.SupervisorProvider
 com.infenia.yukta.mcp.provider.SystemHealthProvider
 com.infenia.yukta.mcp.provider.WorkflowControlProvider
 com.infenia.yukta.mcp.provider.WorkflowExecutionProvider

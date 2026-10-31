@@ -34,7 +34,13 @@ import reactor.test.StepVerifier;
 
 /** Attaching and detaching supervisors at run time. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.ShortMethodName"})
+@SuppressWarnings({
+  "PMD.TooManyStaticImports",
+  "PMD.ShortMethodName",
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.UnitTestShouldIncludeAssert"
+})
 class AttachedSupervisorTest {
 
   private final ExecutionEventFeed feed = new ExecutionEventFeed();
@@ -210,5 +216,90 @@ class AttachedSupervisorTest {
                     new ExecutionControlCommand.PauseWorkflowCommand("e"), null, "A", "w")))
         .expectNext(Decision.deny("no"))
         .verifyComplete();
+  }
+
+  @Test
+  void decisionsRecordWhatBecameOfEachCommandNewestFirst() {
+    when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
+    host.setAttachedSupervisors(attached);
+    host.attach(bound("live", new SupervisorScope.Global(), false));
+    host.attach(bound("dry", new SupervisorScope.Global(), true));
+
+    publishUntilSeen("e1", "A");
+
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              assertThat(host.decisions("live", 10))
+                  .extracting(SupervisorDecision::outcome)
+                  .contains("applied");
+              assertThat(host.decisions("dry", 10))
+                  .extracting(SupervisorDecision::outcome)
+                  .contains("dry-run");
+            });
+    assertThat(host.decisions(null, 1)).hasSize(1);
+    assertThat(host.decisions("nobody", 10)).isEmpty();
+    assertThat(host.decisions(null, 0)).isEmpty();
+  }
+
+  @Test
+  void onlyTheNewestFiveHundredDecisionsAreKept() {
+    final ExecutionSupervisor chatty =
+        new ExecutionSupervisor() {
+          @Override
+          public String id() {
+            return "chatty";
+          }
+
+          @Override
+          public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+            return events
+                .take(1)
+                .flatMap(
+                    e ->
+                        Flux.range(0, 600)
+                            .map(i -> new ExecutionControlCommand.PauseWorkflowCommand("e" + i)));
+          }
+        };
+    host.setAttachedSupervisors(attached);
+    host.attach(
+        new BoundSupervisor(
+            new SupervisorBinding("chatty", "p", new SupervisorScope.Global(), true),
+            chatty,
+            true));
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              feed.publish(
+                  new ExecutionEvent.WorkflowStatusChanged(
+                      "x", "A", "w", "RUNNING", Instant.now()));
+              assertThat(host.decisions("chatty", 1000)).hasSize(500);
+            });
+    assertThat(host.decisions("chatty", 1000).getFirst().executionId()).isEqualTo("e599");
+  }
+
+  @Test
+  void rejectedCommandsAreRecordedWithTheirReason() {
+    when(dispatcher.dispatchOrdered(any()))
+        .thenReturn(Mono.error(new ControlRejectedException("no")));
+    host.setAttachedSupervisors(attached);
+    host.attach(bound("b1", new SupervisorScope.Global(), false));
+
+    publishUntilSeen("e1", "A");
+
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(host.decisions("b1", 10))
+                    .anySatisfy(
+                        d -> {
+                          assertThat(d.outcome()).isEqualTo("rejected");
+                          assertThat(d.reason()).contains("no");
+                          assertThat(d.command()).isEqualTo("PauseWorkflowCommand");
+                        }));
   }
 }

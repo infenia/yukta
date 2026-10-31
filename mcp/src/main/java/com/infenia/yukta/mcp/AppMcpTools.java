@@ -17,6 +17,9 @@ import com.infenia.yukta.mcp.dto.SessionCreationGuide;
 import com.infenia.yukta.mcp.dto.SessionCreationResult;
 import com.infenia.yukta.mcp.dto.SessionDetails;
 import com.infenia.yukta.mcp.dto.SessionList;
+import com.infenia.yukta.mcp.dto.SupervisorBindingInfo;
+import com.infenia.yukta.mcp.dto.SupervisorDetached;
+import com.infenia.yukta.mcp.dto.SupervisorListing;
 import com.infenia.yukta.mcp.dto.WhoamiResult;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowHistory;
@@ -28,6 +31,7 @@ import com.infenia.yukta.mcp.provider.LogProvider;
 import com.infenia.yukta.mcp.provider.PluginInfoProvider;
 import com.infenia.yukta.mcp.provider.ResultProvider;
 import com.infenia.yukta.mcp.provider.SessionInfoProvider;
+import com.infenia.yukta.mcp.provider.SupervisorProvider;
 import com.infenia.yukta.mcp.provider.SystemHealthProvider;
 import com.infenia.yukta.mcp.provider.WorkflowControlProvider;
 import com.infenia.yukta.mcp.provider.WorkflowExecutionProvider;
@@ -89,6 +93,89 @@ public class AppMcpTools {
 
   /** Provides the saved versions of workflows for MCP tools. */
   private final WorkflowVersionProvider workflowVersionProvider;
+
+  /** Lists, attaches and detaches supervisors for MCP tools. */
+  private final SupervisorProvider supervisorProvider;
+
+  /**
+   * List the supervisors.
+   *
+   * @return the running supervisors, the bindings attached at run time and the usable types
+   */
+  @McpTool(
+      name = "list_supervisors",
+      title = "List Supervisors",
+      description =
+          "List the running supervisors and control planes with their scope and command counts, "
+              + "the bindings attached at run time, and the supervisor types a profile may use",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisorListing> listSupervisors() {
+    return supervisorProvider.list();
+  }
+
+  /**
+   * Attach a supervisor profile to a scope.
+   *
+   * @param profileId an existing profile (created through the REST API)
+   * @param scope where it applies
+   * @param enabled whether it runs
+   * @param bindingId the binding id
+   * @return the binding
+   */
+  @McpTool(
+      name = "attach_supervisor",
+      title = "Attach Supervisor",
+      description =
+          "Attach a supervisor profile to a scope: global, session:<id>, workflow:<id> or "
+              + "workflow:<sessionId>/<workflowId>. It starts at once and supervises the runs of "
+              + "that scope from now on, including runs already going. Needs an admin key.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = false,
+              destructiveHint = false,
+              idempotentHint = false,
+              openWorldHint = false))
+  public Mono<SupervisorBindingInfo> attachSupervisor(
+      @McpToolParam(required = true, description = "The id of an existing supervisor profile")
+          final String profileId,
+      @McpToolParam(
+              required = true,
+              description =
+                  "global, session:<id>, workflow:<id> or workflow:<sessionId>/<workflowId>")
+          final String scope,
+      @McpToolParam(required = false, description = "Whether it runs; default true")
+          final Boolean enabled,
+      @McpToolParam(required = false, description = "The binding id; generated when omitted")
+          final String bindingId) {
+    return supervisorProvider.attach(profileId, scope, enabled, bindingId);
+  }
+
+  /**
+   * Detach a supervisor.
+   *
+   * @param bindingId the binding to remove
+   * @return the result
+   */
+  @McpTool(
+      name = "detach_supervisor",
+      title = "Detach Supervisor",
+      description =
+          "Detach a supervisor binding: its supervisor stops at once, without a restart. Needs an "
+              + "admin key.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = false,
+              destructiveHint = true,
+              idempotentHint = false,
+              openWorldHint = false))
+  public Mono<SupervisorDetached> detachSupervisor(
+      @McpToolParam(required = true, description = "The binding id from list_supervisors")
+          final String bindingId) {
+    return supervisorProvider.detach(bindingId);
+  }
 
   /**
    * Get details of a specific session.
