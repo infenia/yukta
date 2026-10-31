@@ -17,10 +17,13 @@ import {
   type WorkflowDiff,
 } from '../api/versions';
 import { StateMessage } from '@/components/common/StateMessage';
+import { Modal } from '@/components/common/Modal';
 
 interface Props {
   sessionId: string;
   workflowId: string;
+  /** A run of this workflow is going: going back would change it under the run. */
+  liveRun?: boolean;
 }
 
 const changes = (diff: WorkflowDiff): string[] => [
@@ -33,9 +36,15 @@ const changes = (diff: WorkflowDiff): string[] => [
 ];
 
 /** The saved versions of a workflow: compare one with the current definition, or go back to it. */
-export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
+export function WorkflowVersionsPanel({
+  sessionId,
+  workflowId,
+  liveRun = false,
+}: Props) {
   const queryClient = useQueryClient();
   const [compared, setCompared] = useState<string | null>(null);
+  // The version whose rollback awaits confirmation, shown with what it would change
+  const [confirming, setConfirming] = useState<string | null>(null);
   const versions = useQuery({
     queryKey: ['sessions', sessionId, 'workflows', workflowId, 'versions'],
     queryFn: () => getVersions(sessionId, workflowId),
@@ -51,6 +60,18 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
     ],
     queryFn: () => getDiff(sessionId, workflowId, compared as string),
     enabled: compared !== null,
+  });
+  const confirmDiff = useQuery({
+    queryKey: [
+      'sessions',
+      sessionId,
+      'workflows',
+      workflowId,
+      'diff',
+      confirming,
+    ],
+    queryFn: () => getDiff(sessionId, workflowId, confirming as string),
+    enabled: confirming !== null,
   });
   const [notes, setNotes] = useState<Record<string, string>>({});
   const writeNote = useMutation({
@@ -104,16 +125,12 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
               <Button
                 size="sm"
                 variant="outline"
-                disabled={goBack.isPending}
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      `Roll back to ${version.id}? This replaces the current definition.`
-                    )
-                  ) {
-                    goBack.mutate(version.id);
-                  }
-                }}
+                disabled={
+                  liveRun ||
+                  (goBack.isPending && goBack.variables === version.id)
+                }
+                title={liveRun ? 'Stop the running run first' : undefined}
+                onClick={() => setConfirming(version.id)}
               >
                 Roll back
               </Button>
@@ -170,6 +187,48 @@ export function WorkflowVersionsPanel({ sessionId, workflowId }: Props) {
           )}
         </div>
       ))}
+      {confirming && (
+        <Modal
+          title={`Roll back to ${confirming}?`}
+          onClose={() => setConfirming(null)}
+        >
+          <p className="text-body-md text-on-surface-variant mb-2">
+            This replaces the current definition. Changes since that version:
+          </p>
+          {confirmDiff.isLoading && (
+            <p role="status" className="text-body-sm">
+              Loading changes…
+            </p>
+          )}
+          {confirmDiff.error && (
+            <InlineError message={controlErrorMessage(confirmDiff.error)} />
+          )}
+          {confirmDiff.data && (
+            <ul className="text-code-sm text-on-surface-variant mb-4">
+              {changes(confirmDiff.data).length === 0 ? (
+                <li>Same as the current definition</li>
+              ) : (
+                changes(confirmDiff.data).map((line) => (
+                  <li key={line}>{line}</li>
+                ))
+              )}
+            </ul>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setConfirming(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                goBack.mutate(confirming);
+                setConfirming(null);
+              }}
+            >
+              Roll back
+            </Button>
+          </div>
+        </Modal>
+      )}
     </section>
   );
 }
