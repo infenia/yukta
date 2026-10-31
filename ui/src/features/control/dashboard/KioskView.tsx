@@ -24,7 +24,7 @@ export function KioskView({ onExit }: { onExit: () => void }) {
   const groups = [
     <div key="runs" className="grid gap-4 lg:grid-cols-2">
       <ThroughputPanel scope={scope} range={range} live={live} />
-      <LiveRunsPanel live={live} />
+      <LiveRunsPanel scope={scope} live={live} />
     </div>,
     <div key="latency" className="grid gap-4 lg:grid-cols-2">
       <LatencyPanel scope={scope} range={range} live={live} />
