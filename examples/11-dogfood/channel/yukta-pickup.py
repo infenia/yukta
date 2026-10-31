@@ -118,22 +118,26 @@ class Http(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path != "/status":
-            return self._json(404, {"error": "not found"})
+            self._json(404, {"error": "not found"})
+            return
         with lock:
             cur = busy_now()
-            return self._json(200, {"busy": cur is not None, "issue": cur, "since": state["since"]})
+            self._json(200, {"busy": cur is not None, "issue": cur, "since": state["since"]})
 
     def do_POST(self):
         if self.path != "/issue":
-            return self._json(404, {"error": "not found"})
+            self._json(404, {"error": "not found"})
+            return
         want = token()
         if not want or not hmac.compare_digest(want, self.headers.get("X-Pickup-Token", "")):
-            return self._json(403, {"error": "bad token"})
+            self._json(403, {"error": "bad token"})
+            return
         try:
             n = int(self.headers.get("Content-Length", "0"))
             body = json.loads(self.rfile.read(min(n, 65536)) or b"{}")
         except (ValueError, json.JSONDecodeError):
-            return self._json(400, {"error": "bad json"})
+            self._json(400, {"error": "bad json"})
+            return
         code, ans = hand_over(body if isinstance(body, dict) else {})
         self._json(code, ans)
 
@@ -162,7 +166,8 @@ def serve_http():
     try:
         srv = ThreadingHTTPServer(("127.0.0.1", PORT), Http)
     except OSError as e:  # a fixed port taken: keep serving MCP without HTTP (and without a registry entry)
-        return log(f"no HTTP on 127.0.0.1:{PORT}: {e}")
+        log(f"no HTTP on 127.0.0.1:{PORT}: {e}")
+        return
     try:
         register(srv.server_address[1])
     except OSError as e:
@@ -208,7 +213,8 @@ def handle(msg):
     elif method == "tools/call":
         p = msg.get("params") or {}
         if p.get("name") != "pickup_done":
-            return send({"jsonrpc": "2.0", "id": mid, "error": {"code": -32602, "message": f"unknown tool {p.get('name')}"}})
+            send({"jsonrpc": "2.0", "id": mid, "error": {"code": -32602, "message": f"unknown tool {p.get('name')}"}})
+            return
         text, is_err = done(p.get("arguments") or {})
         send({"jsonrpc": "2.0", "id": mid, "result": {"content": [{"type": "text", "text": text}], "isError": is_err}})
     else:
