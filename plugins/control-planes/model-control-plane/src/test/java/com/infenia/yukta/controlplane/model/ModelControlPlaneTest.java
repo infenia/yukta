@@ -87,7 +87,7 @@ class ModelControlPlaneTest {
 
   private static ExecutionEvent failure() {
     return new ExecutionEvent.NodeStatusChanged(
-        "e1", "wf", "n1", "HTTP_REQUEST", "FAILURE", Map.of("code", 500), Instant.now());
+        "e1", "s", "wf", "n1", "HTTP_REQUEST", "FAILURE", Map.of("code", 500), Instant.now());
   }
 
   /**
@@ -104,13 +104,16 @@ class ModelControlPlaneTest {
         new ModelControlPlane(spy, settings(null, Set.of("LogLine", "NodeStatusChanged")));
 
     plane
-        .decide(new ExecutionEvent.LogLine("e1", "n1", hostile, LogLevel.INFO, Instant.now()))
+        .decide(
+            new ExecutionEvent.LogLine(
+                "e1", "s", "wf", "n1", hostile, LogLevel.INFO, Instant.now()))
         .block();
     final Asked fromLog = spy.asked.get();
     plane
         .decide(
             new ExecutionEvent.NodeStatusChanged(
                 "e1",
+                "s",
                 "wf",
                 "n1",
                 "HTTP_REQUEST",
@@ -247,7 +250,8 @@ class ModelControlPlaneTest {
   @Test
   void decide_eventKindNotConfigured_modelNotAsked() {
     final ChoiceStub spy = choosing("pause", 1);
-    final var line = new ExecutionEvent.LogLine("e1", "n1", "hello", LogLevel.INFO, Instant.now());
+    final var line =
+        new ExecutionEvent.LogLine("e1", "s", "wf", "n1", "hello", LogLevel.INFO, Instant.now());
 
     assertThat(new ModelControlPlane(spy, defaults()).decide(line).block().commands()).isEmpty();
     assertThat(spy.asked.get()).isNull();
@@ -272,26 +276,29 @@ class ModelControlPlaneTest {
     plane.decide(new ExecutionEvent.EventsMissed(4, now)).block();
     assertThat(spy.asked.get().state())
         .isEqualTo("4 events were missed because the supervisor fell behind.");
-    plane.decide(new ExecutionEvent.WorkflowStatusChanged("e1", "wf", "RUNNING", now)).block();
+    plane.decide(new ExecutionEvent.WorkflowStatusChanged("e1", "s", "wf", "RUNNING", now)).block();
     assertThat(spy.asked.get().state()).isEqualTo("The workflow run changed status to RUNNING.");
-    plane.decide(new ExecutionEvent.LogLine("e1", "n1", "disk full", LogLevel.ERROR, now)).block();
+    plane
+        .decide(new ExecutionEvent.LogLine("e1", "s", "wf", "n1", "disk full", LogLevel.ERROR, now))
+        .block();
     assertThat(spy.asked.get().state()).isEqualTo("Step n1 wrote the ERROR log line: disk full");
     plane
         .decide(
-            new ExecutionEvent.ControlOutcome("e1", "PauseWorkflowCommand", null, true, null, now))
+            new ExecutionEvent.ControlOutcome(
+                "e1", null, null, "PauseWorkflowCommand", null, true, null, now))
         .block();
     assertThat(spy.asked.get().state()).isEqualTo("The command PauseWorkflowCommand was applied.");
     plane
         .decide(
             new ExecutionEvent.ControlOutcome(
-                "e1", "StopWorkflowCommand", "rules", false, "no", now))
+                "e1", null, null, "StopWorkflowCommand", "rules", false, "no", now))
         .block();
     assertThat(spy.asked.get().state())
         .isEqualTo("The command StopWorkflowCommand was rejected: no, sent by rules.");
     plane
         .decide(
             new ExecutionEvent.NodeStatusChanged(
-                "e1", "wf", "n1", "DELAY", "RUNNING", Map.of(), now))
+                "e1", "s", "wf", "n1", "DELAY", "RUNNING", Map.of(), now))
         .block();
     assertThat(spy.asked.get().state())
         .isEqualTo("Step DELAY changed status to RUNNING. Details reported by the step: none.");
@@ -337,6 +344,7 @@ class ModelControlPlaneTest {
     final var event =
         new ExecutionEvent.NodeStatusChanged(
             "e1",
+            "s",
             "wf",
             "n1",
             "HTTP_REQUEST",
@@ -359,7 +367,7 @@ class ModelControlPlaneTest {
     final String body = "x".repeat(14_999 - prefix.length()) + emoji + "zzzz".repeat(50);
     final var event =
         new ExecutionEvent.NodeStatusChanged(
-            "e1", "wf", "n1", "HTTP_REQUEST", "FAILURE", Map.of("body", body), Instant.now());
+            "e1", "s", "wf", "n1", "HTTP_REQUEST", "FAILURE", Map.of("body", body), Instant.now());
 
     new ModelControlPlane(stub, defaults()).decide(event).block();
 

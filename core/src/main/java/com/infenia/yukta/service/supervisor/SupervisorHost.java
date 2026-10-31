@@ -7,6 +7,7 @@ import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.control.ControlAudit;
@@ -155,7 +156,10 @@ public class SupervisorHost {
                     commands(supervisor.id(), "applied"),
                     commands(supervisor.id(), "rejected"),
                     commands(supervisor.id(), "dry-run"),
-                    commands(supervisor.id(), "rate-limited")))
+                    commands(supervisor.id(), "rate-limited"),
+                    supervisor.scope().kind().name(),
+                    supervisor.scope().sessionId(),
+                    supervisor.scope().workflowId()))
         .toList();
   }
 
@@ -178,7 +182,7 @@ public class SupervisorHost {
         .addKeyValue("dryRun", dryRun)
         .log("Starting supervisor");
     subscriptions.add(
-        Flux.defer(() -> supervisor.supervise(withoutOwnOutcomes(supervisorId)))
+        Flux.defer(() -> supervisor.supervise(withoutOwnOutcomes(supervisor)))
             .doOnError(
                 error ->
                     log.atWarn()
@@ -194,9 +198,12 @@ public class SupervisorHost {
   }
 
   /** A supervisor does not see the outcome of its own commands, so it cannot answer itself. */
-  private Flux<ExecutionEvent> withoutOwnOutcomes(final String supervisorId) {
+  private Flux<ExecutionEvent> withoutOwnOutcomes(final ExecutionSupervisor supervisor) {
+    final String supervisorId = supervisor.id();
+    final SupervisorScope scope = supervisor.scope();
     final AtomicLong missed = new AtomicLong();
     return feed.events()
+        .filter(event -> scope.matches(event.sessionId(), event.workflowId()))
         .filter(
             event ->
                 !(event instanceof ExecutionEvent.ControlOutcome outcome

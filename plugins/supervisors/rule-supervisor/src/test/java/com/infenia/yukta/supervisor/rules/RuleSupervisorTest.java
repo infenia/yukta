@@ -68,7 +68,7 @@ class RuleSupervisorTest {
   private static ExecutionEvent.NodeStatusChanged node(
       final String execution, final String status, final Map<String, Object> metadata) {
     return new ExecutionEvent.NodeStatusChanged(
-        execution, "wf", "n1", "HTTP_REQUEST", status, metadata, Instant.now());
+        execution, "s", "wf", "n1", "HTTP_REQUEST", status, metadata, Instant.now());
   }
 
   private static List<ExecutionControlCommand> run(
@@ -78,7 +78,7 @@ class RuleSupervisorTest {
 
   private static Decision review(
       final RuleSupervisor supervisor, final ExecutionControlCommand command) {
-    return supervisor.review(new ControlRequest(command, null)).block();
+    return supervisor.review(new ControlRequest(command, null, null, null)).block();
   }
 
   @Test
@@ -315,7 +315,8 @@ class RuleSupervisorTest {
     assertThat(
             run(
                 rules,
-                new ExecutionEvent.WorkflowStatusChanged("e1", "wf", "FAILURE", Instant.now())))
+                new ExecutionEvent.WorkflowStatusChanged(
+                    "e1", "s", "wf", "FAILURE", Instant.now())))
         .isEmpty();
   }
 
@@ -331,7 +332,8 @@ class RuleSupervisorTest {
     assertThat(
             run(
                 rules,
-                new ExecutionEvent.WorkflowStatusChanged("e1", "wf", "FAILURE", Instant.now())))
+                new ExecutionEvent.WorkflowStatusChanged(
+                    "e1", "s", "wf", "FAILURE", Instant.now())))
         .hasSize(1);
   }
 
@@ -371,9 +373,9 @@ class RuleSupervisorTest {
     assertThat(
             run(
                 rules,
-                new ExecutionEvent.WorkflowStatusChanged("e1", "wf", "FAILURE", now),
-                new ExecutionEvent.ControlOutcome("e1", "X", "human", false, "no", now),
-                new ExecutionEvent.LogLine("e1", "n1", "boom", LogLevel.INFO, now)))
+                new ExecutionEvent.WorkflowStatusChanged("e1", "s", "wf", "FAILURE", now),
+                new ExecutionEvent.ControlOutcome("e1", null, null, "X", "human", false, "no", now),
+                new ExecutionEvent.LogLine("e1", "s", "wf", "n1", "boom", LogLevel.INFO, now)))
         .hasSize(3);
     assertThat(Fields.eventFields(new ExecutionEvent.EventsMissed(5, now)))
         .containsEntry("status", "EVENTS_MISSED")
@@ -381,11 +383,14 @@ class RuleSupervisorTest {
     assertThat(
             run(
                 rules,
-                new ExecutionEvent.WorkflowStatusChanged("e1", "wf", "SUCCESS", now),
-                new ExecutionEvent.ControlOutcome("e1", "X", "rules", true, null, now),
-                new ExecutionEvent.LogLine("e1", "n1", "fine", LogLevel.INFO, now)))
+                new ExecutionEvent.WorkflowStatusChanged("e1", "s", "wf", "SUCCESS", now),
+                new ExecutionEvent.ControlOutcome("e1", null, null, "X", "rules", true, null, now),
+                new ExecutionEvent.LogLine("e1", "s", "wf", "n1", "fine", LogLevel.INFO, now)))
         .isEmpty();
-    assertThat(run(rules, new ExecutionEvent.LogLine("e1", "n1", "fine", LogLevel.ERROR, now)))
+    assertThat(
+            run(
+                rules,
+                new ExecutionEvent.LogLine("e1", "s", "wf", "n1", "fine", LogLevel.ERROR, now)))
         .hasSize(1);
   }
 
@@ -429,8 +434,10 @@ class RuleSupervisorTest {
             """);
     final var stop = new ExecutionControlCommand.StopNodeCommand("e1", "n1", true, "x");
 
-    assertThat(rules.review(new ControlRequest(stop, "ai")).block().allowed()).isFalse();
-    assertThat(rules.review(new ControlRequest(stop, "human")).block().allowed()).isTrue();
+    assertThat(rules.review(new ControlRequest(stop, "ai", null, null)).block().allowed())
+        .isFalse();
+    assertThat(rules.review(new ControlRequest(stop, "human", null, null)).block().allowed())
+        .isTrue();
   }
 
   @Test

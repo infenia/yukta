@@ -22,7 +22,7 @@ class ControlPlanePluginTest {
       new ExecutionControlCommand.PauseWorkflowCommand("e1");
 
   private static ExecutionEvent event(final String execution) {
-    return new ExecutionEvent.WorkflowStatusChanged(execution, "wf", "RUNNING", Instant.now());
+    return new ExecutionEvent.WorkflowStatusChanged(execution, "s", "wf", "RUNNING", Instant.now());
   }
 
   private static ControlPlanePlugin plane(
