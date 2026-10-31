@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta;
 
+import com.infenia.yukta.console.ConsoleLogs;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
@@ -9,6 +10,9 @@ import java.util.Map;
 import java.util.Properties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.event.ApplicationFailedEvent;
+import org.springframework.boot.context.event.ApplicationPreparedEvent;
+import org.springframework.context.ApplicationListener;
 import reactor.core.publisher.Hooks;
 
 /**
@@ -85,6 +89,13 @@ public class YuktaApplication {
     System.setProperty("yukta.run-mode", mode.name().toLowerCase(Locale.ROOT));
 
     final SpringApplication app = new SpringApplication(YuktaApplication.class);
+    if (mode == RunMode.CONSOLE) {
+      // the dashboard owns the screen: logs go to its ring buffer; if startup fails, print them
+      app.addListeners(
+          (ApplicationListener<ApplicationPreparedEvent>) e -> ConsoleLogs.install(),
+          (ApplicationListener<ApplicationFailedEvent>)
+              e -> ConsoleLogs.restore().forEach(System.err::println));
+    }
     app.run(args);
   }
 

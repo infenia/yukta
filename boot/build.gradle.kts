@@ -82,6 +82,9 @@ dependencies {
     }
 
     implementation(libs.spring.boot.starter.webflux)
+    // interactive console (run mode "console")
+    implementation(libs.jline)
+    implementation(libs.jackson.databind)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.actuator)
     // /actuator/prometheus for Grafana users; exposed only when "prometheus" is in management.endpoints.web.exposure.include
