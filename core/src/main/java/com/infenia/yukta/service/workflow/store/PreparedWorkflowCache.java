@@ -41,6 +41,9 @@ public class PreparedWorkflowCache {
 
   private final Cache<String, Entry> cache;
 
+  /** Sessions ({@code id}) and workflows ({@code id\0workflow}) that are being deleted. */
+  private final java.util.Set<String> deleting = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
   /**
    * Spring-managed constructor.
    *
@@ -148,6 +151,38 @@ public class PreparedWorkflowCache {
     return Optional.ofNullable(cache.getIfPresent(key(sessionId, workflowId)))
         .filter(entry -> definition.equals(entry.definition()))
         .map(Entry::prepared);
+  }
+
+  /**
+   * Marks a session (or one of its workflows) as being deleted, so starts are refused until {@link
+   * #endDelete}.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow, or null for the whole session
+   */
+  public void beginDelete(final String sessionId, @Nullable final String workflowId) {
+    deleting.add(workflowId == null ? sessionId : key(sessionId, workflowId));
+  }
+
+  /**
+   * Ends {@link #beginDelete}.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow, or null for the whole session
+   */
+  public void endDelete(final String sessionId, @Nullable final String workflowId) {
+    deleting.remove(workflowId == null ? sessionId : key(sessionId, workflowId));
+  }
+
+  /**
+   * Whether the workflow, or its session, is being deleted.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @return true if a delete is in progress
+   */
+  public boolean isDeleting(final String sessionId, final String workflowId) {
+    return deleting.contains(sessionId) || deleting.contains(key(sessionId, workflowId));
   }
 
   /**

@@ -87,7 +87,13 @@ public class ExecutionScheduler implements SmartLifecycle {
   /** Tells whether this server admits runs; a single server always does. */
   private LeaderElection election = new SingleServerLeader();
 
-  /** Starts waiting for a slot: highest priority first, oldest first within a priority. */
+  /**
+   * Starts waiting for a slot: highest priority first, oldest first within a priority.
+   *
+   * <p>ponytail: a plain list, so enqueue, the per-workflow count and the admit scan are O(n) under
+   * the lock. Fine at the default {@code queue-capacity=100}; above about 10k use a {@code
+   * TreeMap<priority, ArrayDeque>} plus a count per workflow.
+   */
   private final List<Waiter> queue = new ArrayList<>();
 
   /** Running executions per workflow. */

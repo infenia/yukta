@@ -4,6 +4,7 @@ package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
@@ -75,6 +76,11 @@ class WorkflowStarter {
         .addKeyValue("workflowId", workflowId)
         .log("Starting workflow execution");
 
+    if (cache.isDeleting(sessionId, workflowId)) {
+      return Mono.error(
+          new ConflictException(
+              "Workflow " + workflowId + " in session " + sessionId + " is being deleted"));
+    }
     final String pinned = pinnedVersion(payload);
     return (pinned == null
             ? definitions.find(sessionId, workflowId)

@@ -2360,6 +2360,15 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void startWorkflow_whileTheWorkflowIsBeingDeleted_isRefused() {
+    when(preparedWorkflowCache.isDeleting("s-del", "w-del")).thenReturn(true);
+
+    StepVerifier.create(gateway.startWorkflow("s-del", "w-del"))
+        .expectError(com.infenia.yukta.service.ConflictException.class)
+        .verify();
+  }
+
+  @Test
   void startWorkflow_workflowNotFound_throwsIllegalArgumentException() {
     // Given
     final String sessionId = "sess-not-found";

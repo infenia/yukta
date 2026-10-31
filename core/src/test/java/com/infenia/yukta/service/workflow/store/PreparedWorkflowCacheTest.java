@@ -221,4 +221,20 @@ class PreparedWorkflowCacheTest {
     assertThat(cache.get(SESSION_1, WORKFLOW_1, built)).containsSame(prepared);
     assertThat(cache.get(SESSION_1, WORKFLOW_1, newer)).isEmpty();
   }
+
+  @Test
+  void isDeleting_coversTheSessionAndOneWorkflow() {
+    assertThat(cache.isDeleting(SESSION_1, WORKFLOW_1)).isFalse();
+
+    cache.beginDelete(SESSION_1, WORKFLOW_1);
+    assertThat(cache.isDeleting(SESSION_1, WORKFLOW_1)).isTrue();
+    assertThat(cache.isDeleting(SESSION_1, WORKFLOW_2)).isFalse();
+    cache.endDelete(SESSION_1, WORKFLOW_1);
+
+    cache.beginDelete(SESSION_1, null);
+    assertThat(cache.isDeleting(SESSION_1, WORKFLOW_2)).isTrue();
+    assertThat(cache.isDeleting(SESSION_2, WORKFLOW_2)).isFalse();
+    cache.endDelete(SESSION_1, null);
+    assertThat(cache.isDeleting(SESSION_1, WORKFLOW_2)).isFalse();
+  }
 }

@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import tools.jackson.databind.ObjectMapper;
 
@@ -59,6 +60,18 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   /** How many cleared runs are remembered. */
   private static final int REMEMBERED_CLEARED = 4096;
+
+  /**
+   * Runs the file work of all checkpoint stores, apart from the shared {@code boundedElastic} that
+   * the runs and plugins use, so checkpoint writes cannot take the threads a run needs.
+   */
+  private static final Scheduler IO =
+      Schedulers.newBoundedElastic(
+          Math.max(4, Runtime.getRuntime().availableProcessors()),
+          Schedulers.DEFAULT_BOUNDED_ELASTIC_QUEUESIZE,
+          "yukta-checkpoint",
+          60,
+          true);
 
   /** Root directory. */
   private final Path root;
@@ -101,7 +114,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   @Override
   public Mono<Void> save(final String executionId, final String nodeId, final Message<?> message) {
     return Mono.fromRunnable(() -> write(executionId, nodeId, message))
-        .subscribeOn(Schedulers.boundedElastic())
+        .subscribeOn(IO)
         .then();
   }
 
@@ -113,13 +126,13 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   @Override
   public Flux<Message<?>> getAll(final String executionId, final String nodeId) {
     return Flux.defer(() -> Flux.fromIterable(read(executionId, nodeId)))
-        .subscribeOn(Schedulers.boundedElastic());
+        .subscribeOn(IO);
   }
 
   @Override
   public Mono<Void> markComplete(final String executionId, final String nodeId) {
     return Mono.fromRunnable(() -> writeDone(executionId, nodeId))
-        .subscribeOn(Schedulers.boundedElastic())
+        .subscribeOn(IO)
         .then();
   }
 
