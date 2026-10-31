@@ -160,7 +160,10 @@ describe('WorkflowDetailsPage controls', () => {
   it('opens the typed confirmation to delete the workflow', async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Workflow actions' })
+    );
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
     expect(
       screen.getByRole('dialog', { name: 'Delete workflow wf-982-xk-11' })
     ).toBeInTheDocument();

@@ -18,15 +18,22 @@ function SheetContent({
   className,
   children,
   finalFocus,
+  backdrop = true,
   ...props
-}: Dialog.Popup.Props) {
+}: Dialog.Popup.Props & {
+  /** False for a non-modal sheet (`Sheet modal={false}`): the page behind stays usable. */
+  backdrop?: boolean;
+}) {
   return (
     <Dialog.Portal>
-      <Dialog.Backdrop className="bg-overlay/50 fixed inset-0 z-60" />
+      {backdrop && (
+        <Dialog.Backdrop className="bg-overlay/50 transition-standard fixed inset-0 z-60 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+      )}
       <Dialog.Popup
         data-slot="sheet-content"
         finalFocus={finalFocus}
         className={cn(
+          'transition-standard data-ending-style:translate-y-4 data-ending-style:opacity-0 data-starting-style:translate-y-4 data-starting-style:opacity-0 sm:data-ending-style:translate-x-4 sm:data-ending-style:translate-y-0 sm:data-starting-style:translate-x-4 sm:data-starting-style:translate-y-0',
           'border-border bg-card shadow-raised fixed z-60 flex flex-col gap-3 overflow-y-auto border p-4 outline-none',
           'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl sm:inset-x-auto sm:top-(--spacing-header) sm:right-0 sm:bottom-0 sm:max-h-none sm:w-105 sm:rounded-none sm:border-y-0 sm:border-r-0',
           className

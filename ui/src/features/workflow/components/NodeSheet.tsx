@@ -129,8 +129,15 @@ export function NodeSheet({
     .filter((entry) => entry.pluginId === node.nodeId)
     .slice(-MAX_LINES);
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <Sheet
+      open
+      modal={false}
+      // a click elsewhere on the page (another node, the controls) must not close it
+      disablePointerDismissal
+      onOpenChange={(open) => !open && onClose()}
+    >
       <SheetContent
+        backdrop={false}
         // back to the node on the canvas, not the page
         finalFocus={() =>
           document.querySelector<HTMLElement>(

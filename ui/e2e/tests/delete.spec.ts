@@ -59,7 +59,8 @@ test.describe('Deleting', () => {
     });
     await page.goto(WORKFLOW_URL);
 
-    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    await page.getByRole('button', { name: 'Workflow actions' }).click();
+    await page.getByRole('menuitem', { name: 'Delete' }).click();
     const dialog = page.getByRole('dialog', { name: /Delete workflow/ });
     await dialog.getByLabel(/Type .* to confirm/).fill('wf-982-xk-11');
     await dialog.getByRole('button', { name: 'Delete' }).click();
