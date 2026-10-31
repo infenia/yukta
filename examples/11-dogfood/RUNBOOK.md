@@ -75,3 +75,17 @@ scripts/test-heal.sh                            # on the dev server (yk up), aga
 `test-heal.sh` runs five scenarios through the real `check` workflow: two failing stages healed one after the other, a no-change attempt that
 ends the ladder, an escalation, a failed verify that goes back to heal, and a triage that starts at `sonnet/low`. The tests of the switched-off
 pieces (issue, epic, nav, steer, heal report) are in `backup/scripts/`.
+
+## Scheduled pickup
+
+`yk pickup session` in the terminal that should receive issues (accept the development-channel dialog), then `yk pickup on`.
+`yk pickup status` shows the schedule, the channel and the last results; `yk pickup now` runs one round.
+
+| Symptom | Cause and fix |
+|---|---|
+| `PICKUP skipped=no channel` | no pickup session is open, or its channel lost the port: open `yk pickup session` |
+| `PICKUP skipped=busy with #n` for hours | the session never called `pickup_done` (it frees itself after 4 h): tell the session to report, or restart it |
+| `yk pickup session`: `another pickup session already owns :8790` | close the other session, or `lsof -i :8790` for a stale channel process |
+| `yk pickup on` cannot find workflow `pickup` | the dev server runs `origin/main`'s `session.json`; it appears after the pickup PR is merged and `yk up` swapped |
+| nothing is ever handed over | no issue is both assigned to you and Ready, or each has a PR or an `issue/<n>` branch |
+| the schedule vanished after a server swap | `yk pickup status`; the next `yk` call starts it again when it was on |

@@ -60,6 +60,11 @@ cmd_pickup() {
   local sub="${1:-}"
   case "$sub" in
     session)
+      local port="${YUKTA_PICKUP_PORT:-8790}"
+      # one receiver: the first session's channel owns the port, a second would get no issue (its channel runs without HTTP)
+      if curl -fsS -m 2 "http://127.0.0.1:$port/status" >/dev/null 2>&1; then
+        die "another pickup session already owns :$port (yk pickup status); close it first, or give this one YUKTA_PICKUP_PORT and the server's schedule the same"
+      fi
       need claude; need jq
       mkdir -p "$DEV_HOME"
       [[ -s "$DEV_HOME/pickup-token" ]] || { (umask 077; head -c 24 /dev/urandom | base64 | tr -d '/+=\n' >"$DEV_HOME/pickup-token"); }

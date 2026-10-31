@@ -45,4 +45,7 @@ jq -e '.id == 2 and .result.isError == false' <<<"$(sed -n 3p "$tmp/out")" >/dev
 jq -e '.busy == false' < <(curl -s "$url/status") >/dev/null || fail "pickup_done must free the channel"
 jq -e '.issue == 7 and .outcome == "pr"' "$tmp/pickup.jsonl" >/dev/null || fail "pickup.jsonl"
 [[ "$(code -X POST -H 'X-Pickup-Token: secret' -d "$issue" "$url/issue")" == 202 ]] || fail "free again: POST must be 202"
+# a second session must not start: the port is taken
+if out="$(YUKTA_DEV_HOME="$tmp" YUKTA_PICKUP_PORT="$port" "$here/yk" pickup session 2>&1)"; then fail "a second pickup session must be refused"; fi
+[[ "$out" == *"already owns :$port"* ]] || fail "second session message: $out"
 echo "ok: test-pickup-channel"

@@ -52,7 +52,20 @@ be interactive and stay open.
 assigned to you is Ready; otherwise it hands over the first issue by Priority (P0 first) that has no open PR naming it and no `issue/<n>`
 branch on the remote. `now` runs one tick at once. The schedule is one execution that lives as long as the server: `busy()` does not count it,
 so it never blocks a swap, and `server_up` starts it again after a swap when it was on (`pickup.exec` in the dev state dir). The dev server runs
-the `session.json` of `origin/main`, so `yk pickup on` finds the workflow only once this is merged. The skill that works an issue is #1605.
+the `session.json` of `origin/main`, so `yk pickup on` finds the workflow only once this is merged. The skill that works an issue is `.claude/skills/pickup/SKILL.md`.
+
+**Which session gets the issue.** Exactly one: the session whose channel owns the HTTP port. The channel runs inside each session started
+with `yk pickup session`, but only the first binds `127.0.0.1:8790`; `yk pickup session` refuses to start a second one while the port is
+taken (a second would get nothing). The schedule has no way to choose among sessions and no queue: while that session's channel is busy,
+a tick prints `PICKUP skipped=busy with #<n>` and waits for the next tick. The channel counts only the issue it handed over: a session busy
+with other work still receives the event, and Claude takes it after its current turn (events queue). To control the receiver, open
+`yk pickup session` only in the session you want and close it to stop pickup; `yk pickup status` shows whether a channel is up and
+busy, and `yk pickup off` stops the schedule without closing the session. A manual `/pickup <n>` works in any session and does not
+touch the channel.
+
+**Safety.** The event carries only the number, title and URL; the skill reads the body with `gh` and treats it as untrusted. Only issues
+that are assigned to you and Ready on the project are handed over. There is no permission relay: the session keeps its own permission
+mode (`auto` recommended) and a prompt waits at the terminal. Never start it with `--dangerously-skip-permissions`.
 
 ## Prerequisites
 `git`, `jq`, `curl`, `flock`, `python3`, Java 25, Go (the CLI is built with the server). Optional: `opengrep`, `trivy`
