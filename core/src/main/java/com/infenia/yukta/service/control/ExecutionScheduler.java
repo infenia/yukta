@@ -195,7 +195,7 @@ public class ExecutionScheduler implements SmartLifecycle {
    */
   public void assertCanAccept(final String sessionId, final String workflowId) {
     assertLeader();
-    assertStartRate(workflowId);
+    assertStartRate(sessionId, workflowId);
     synchronized (lock) {
       final ExecutionRejectedException unavailable = unavailable();
       if (unavailable != null) {
@@ -308,7 +308,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       final int priority,
       final String executionId) {
     assertLeader();
-    if (!startRate.tryAcquire(workflowId)) {
+    if (!startRate.tryAcquire(sessionId + "\0" + workflowId)) {
       return refused(
           refusal(RejectReason.RATE_LIMIT, "Too many starts of this workflow per minute"));
     }
@@ -503,8 +503,9 @@ public class ExecutionScheduler implements SmartLifecycle {
     this.startRate = new CallRateLimiter(perMinute);
   }
 
-  private void assertStartRate(final String workflowId) {
-    if (!startRate.tryAcquire(workflowId)) {
+  private void assertStartRate(final String sessionId, final String workflowId) {
+    // workflow ids are per session, so the session is part of the key
+    if (!startRate.tryAcquire(sessionId + "\0" + workflowId)) {
       throw refusal(RejectReason.RATE_LIMIT, "Too many starts of this workflow per minute");
     }
   }

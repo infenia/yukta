@@ -68,6 +68,18 @@ class RunAnalyticsTest {
   }
 
   @Test
+  void percentiles_sampleTheWholeMinute_notTheFirst64Runs() {
+    for (int i = 0; i < 64; i++) {
+      run("fast" + i, "s1", "w1", 0, 1, SUCCESS);
+    }
+    for (int i = 0; i < 5000; i++) {
+      run("slow" + i, "s1", "w1", 0, 1000, SUCCESS);
+    }
+
+    assertThat(analytics.snapshot(RunAnalytics.GLOBAL)).containsEntry("duration.p95", 1000.0);
+  }
+
+  @Test
   void countsRunsByStatusAndTimesThem() {
     run("a", "s1", "w1", 0, 1000, SUCCESS);
     run("b", "s1", "w1", 10, 3000, FAILURE);
@@ -244,7 +256,7 @@ class RunAnalyticsTest {
     }
     assertThat(analytics.snapshot(RunAnalytics.GLOBAL))
         .containsEntry("runs.finished", 240.0)
-        .containsEntry("duration.p95", 60.0);
+        .containsKey("duration.p95"); // sampled, so the value varies
     // a run a day and a minute later drops the old minute
     run("later", "s1", "w1", 25 * 3600, 10, SUCCESS);
 
@@ -293,7 +305,8 @@ class RunAnalyticsTest {
     assertThat(analytics.annotations(RunAnalytics.GLOBAL, HOUR)).hasSize(500);
     assertThat(analytics.series(RunAnalytics.GLOBAL, List.of("queue."), HOUR).get("queue.wait.p95"))
         .extracting(MetricsSampler.Point::value)
-        .containsExactly(60.0);
+        .singleElement()
+        .satisfies(v -> assertThat(v).isBetween(0.0, 69.0)); // sampled, so the value varies
   }
 
   @Test

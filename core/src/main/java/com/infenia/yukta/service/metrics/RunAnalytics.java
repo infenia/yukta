@@ -22,9 +22,12 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
+import reactor.core.publisher.BufferOverflowStrategy;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Per-minute aggregates of what happened to the runs, per session and per workflow, built from the
@@ -132,7 +135,12 @@ public class RunAnalytics {
   /** Starts following the feed. */
   @PostConstruct
   /* default */ void start() {
-    subscription = feed.events().subscribe(this::accept);
+    // own thread and buffer: a dashboard query holding the lock must not stall the tracker
+    subscription =
+        feed.events()
+            .onBackpressureBuffer(10_000, _ -> {}, BufferOverflowStrategy.DROP_LATEST)
+            .publishOn(Schedulers.single())
+            .subscribe(this::accept);
   }
 
   /** Stops following the feed. */
@@ -154,22 +162,30 @@ public class RunAnalytics {
     private final Map<String, double[]> modules = new TreeMap<>();
 
     private void addWait(final double wait) {
-      if (waitCount < SAMPLES) {
-        waits[waitCount] = wait;
-      }
       waitCount++;
+      reserve(waits, waitCount, wait);
     }
 
     private void addRun(final String executionId, final String status, final double ms) {
       byStatus.merge(status, 1, Integer::sum);
       if (ms >= 0) {
-        if (durationCount < SAMPLES) {
-          durations[durationCount] = ms;
-        }
         durationCount++;
+        reserve(durations, durationCount, ms);
       }
       if (FAILED.contains(status) && failedRuns.size() < FAILED_IDS) {
         failedRuns.add(executionId);
+      }
+    }
+
+    /** Reservoir sampling: after {@code seen} values, each one is kept with equal chance. */
+    private static void reserve(final double[] sample, final int seen, final double value) {
+      if (seen <= SAMPLES) {
+        sample[seen - 1] = value;
+      } else {
+        final int slot = ThreadLocalRandom.current().nextInt(seen);
+        if (slot < SAMPLES) {
+          sample[slot] = value;
+        }
       }
     }
 

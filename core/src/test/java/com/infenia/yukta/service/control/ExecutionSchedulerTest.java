@@ -143,6 +143,17 @@ class ExecutionSchedulerTest {
   }
 
   @Test
+  void startRate_isPerSession_soTwoSessionsDoNotShareBucket() {
+    final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
+    scheduler.setMaxStartsPerMinute(1);
+
+    scheduler.assertCanAccept("s1", "build");
+
+    org.assertj.core.api.Assertions.assertThatCode(() -> scheduler.assertCanAccept("s2", "build"))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
   void startRate_countsRestartsAndResumesWithNewStarts() {
     final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
     scheduler.setMaxStartsPerMinute(2);

@@ -62,15 +62,10 @@ public class ExecutionResources {
         });
   }
 
+  /** A connector that fails fails the run: its subgraph would otherwise wait for the deadline. */
   private void runConnectors(final List<Runnable> connectors) {
     for (int i = connectors.size() - 1; i >= 0; i--) {
-      try {
-        connectors.get(i).run();
-      } catch (
-          @SuppressWarnings("PMD.AvoidCatchingGenericException")
-          final Exception e) {
-        log.atError().addKeyValue("connectorIndex", i).setCause(e).log("Error executing connector");
-      }
+      connectors.get(i).run();
     }
   }
 

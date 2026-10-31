@@ -58,6 +58,36 @@ class InMemoryPluginLogStoreTest {
   }
 
   @Test
+  void testChattyExecutionKeepsOnlyTheNewestLines() {
+    final String executionId = "exec-chatty";
+    Flux.range(0, 10_050)
+        .concatMap(
+            i ->
+                store.write(
+                    new PluginLogEntry(
+                        executionId,
+                        SESSION_ID,
+                        PROCESSOR_ID,
+                        PROCESSOR_NAME,
+                        LogStream.STDOUT,
+                        "line " + i,
+                        LogLevel.INFO,
+                        Instant.now(),
+                        null,
+                        null)))
+        .blockLast();
+
+    StepVerifier.create(store.readExecution(executionId).map(PluginLogEntry::message).collectList())
+        .assertNext(
+            lines -> {
+              assertThat(lines).hasSize(10_000);
+              assertThat(lines.getFirst()).isEqualTo("line 50");
+              assertThat(lines.getLast()).isEqualTo("line 10049");
+            })
+        .verifyComplete();
+  }
+
+  @Test
   void testConcurrentWritesAreAllKept() {
     final String executionId = "exec-concurrent";
     final int count = 2000;

@@ -21,6 +21,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -492,6 +493,72 @@ class DefaultTaskTrackerServiceTest {
         .assertNext(p -> assertThat(p.status()).isEqualTo("STOPPED"))
         .expectComplete()
         .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void finishedRun_staysFindableByIdAfterCleanupTtl() {
+    StepVerifier.create(tracker.startWorkflow("idx-1", "sess-idx", "wf", List.of("n1")))
+        .verifyComplete();
+    tracker.emitWorkflowStatusEvent("idx-1", TaskStatus.SUCCESS);
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(() -> assertThat(tracker.getLogStream("idx-1")).isNotNull());
+    // well past the 200 ms cleanup TTL, both lookups still agree
+    await()
+        .pollDelay(500, TimeUnit.MILLISECONDS)
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              assertThat(tracker.getProgress("sess-idx", "idx-1")).isNotNull();
+              assertThat(tracker.getProgressByExecutionId("idx-1")).isNotNull();
+            });
+  }
+
+  @Test
+  void statusStream_afterTerminalUpdate_completesWithoutWaitingForCleanup() {
+    final DefaultTaskTrackerService slow =
+        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
+    slow.init();
+    StepVerifier.create(slow.startWorkflow("late-1", "sess-late", "wf", List.of("n1")))
+        .verifyComplete();
+    slow.emitWorkflowStatusEvent("late-1", TaskStatus.SUCCESS);
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .until(() -> "SUCCESS".equals(slow.getProgressByExecutionId("late-1").status()));
+
+    StepVerifier.create(slow.getStatusStream("late-1", false))
+        .assertNext(p -> assertThat(p.status()).isEqualTo("SUCCESS"))
+        .expectComplete()
+        .verify(Duration.ofSeconds(5));
+    StepVerifier.create(slow.getLogStream("late-1")).expectComplete().verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void statusStream_whenTheStateIsGone_waitsForTheLiveSinkInsteadOfCompleting() {
+    StepVerifier.create(tracker.startWorkflow("gone-1", "sess-gone", "wf", List.of("n1")))
+        .verifyComplete();
+    final Map<String, WorkflowState> index = field(tracker, "executionIndex");
+    index.remove("gone-1");
+
+    // no state to read a terminal status from, so nothing is replayed and the stream stays open
+    StepVerifier.create(tracker.getStatusStream("gone-1", false))
+        .expectSubscription()
+        .expectNoEvent(Duration.ofMillis(300))
+        .thenCancel()
+        .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void nullMetadataValue_isDroppedNotFatal() {
+    StepVerifier.create(tracker.startWorkflow("meta-1", "sess-meta", "wf", List.of("n1")))
+        .verifyComplete();
+    final Map<String, Object> withNull = HashMap.newHashMap(2);
+    withNull.put("exitCode", null);
+    withNull.put("ok", "yes");
+    org.assertj.core.api.Assertions.assertThatCode(
+            () -> tracker.emitTaskStatusEvent("meta-1", "n1", "mod", TaskStatus.SUCCESS, withNull))
+        .doesNotThrowAnyException();
   }
 
   @Test
@@ -2150,7 +2217,11 @@ class DefaultTaskTrackerServiceTest {
     // Wait for cleanup to happen
     await()
         .atMost(Duration.ofSeconds(5))
-        .until(() -> shortTtlTracker.getProgressByExecutionId(executionId) == null);
+        .until(
+            () -> {
+              final Map<String, WorkflowState> index = field(shortTtlTracker, "executionIndex");
+              return index.remove(executionId) != null;
+            });
 
     // Now try to emit task status for the cleaned-up execution
     // notifyStatusChange will be called but state should be null
@@ -2285,7 +2356,9 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(tracker.getLogStream(executionId)).expectSubscription().verifyComplete();
 
     // getStatusStream
-    StepVerifier.create(tracker.getStatusStream(executionId)).expectSubscription().verifyComplete();
+    StepVerifier.create(tracker.getStatusStream(executionId))
+        .assertNext(p -> assertThat(p.status()).isEqualTo("SUCCESS"))
+        .verifyComplete();
 
     // removeSession
     tracker.removeSession(sessionId);
@@ -2742,7 +2815,6 @@ class DefaultTaskTrackerServiceTest {
                       });
               longTtlTracker.emitLogEvent(executionId, "system", "line after terminal");
             })
-        .expectNext("line after terminal")
         .expectComplete()
         .verify(Duration.ofSeconds(5));
   }

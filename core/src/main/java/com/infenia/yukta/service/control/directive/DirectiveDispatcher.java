@@ -253,7 +253,9 @@ public class DirectiveDispatcher {
                 findProcessor(command)
                     .flatMap(processor -> processor.process(command))
                     .flatMap(directive -> applyDirective(control, directive)))
-        .orElseGet(Mono::empty);
+        .orElseGet(
+            () ->
+                Mono.error(new NotFoundException("Execution not found: " + command.executionId())));
   }
 
   private boolean isAddressable(final ExecutionControlCommand command) {

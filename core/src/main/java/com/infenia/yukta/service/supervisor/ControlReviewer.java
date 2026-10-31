@@ -58,8 +58,8 @@ public class ControlReviewer {
    * @return completes if every supervisor allows it; fails with {@link ControlRejectedException}
    *     otherwise. A supervisor that fails to answer counts as a refusal, and so does one that
    *     takes longer than {@code yukta.supervisor.review-timeout} (default 5 s), except for a stop:
-   *     a stop is allowed when the review times out, so a hung supervisor cannot keep a person from
-   *     stopping a run.
+   *     a stop is allowed when the review times out or fails, so a hung supervisor cannot keep a
+   *     person from stopping a run.
    */
   public Mono<Void> review(final ControlRequest request) {
     return Flux.fromStream(
@@ -72,14 +72,16 @@ public class ControlReviewer {
         .concatMap(
             supervisor ->
                 Mono.defer(() -> supervisor.review(request))
-                    .timeout(timeout, Mono.fromSupplier(() -> timedOut(supervisor, request)))
+                    .timeout(
+                        timeout,
+                        Mono.fromSupplier(() -> fallback(supervisor, request, "review timed out")))
                     .onErrorResume(
                         error -> {
                           log.atWarn()
                               .setCause(error)
                               .addKeyValue("supervisor", supervisor.id())
-                              .log("Supervisor review failed; refusing the command");
-                          return Mono.just(Decision.deny("review failed"));
+                              .log("Supervisor review failed");
+                          return Mono.just(fallback(supervisor, request, "review failed"));
                         })
                     .filter(decision -> !decision.allowed())
                     .map(decision -> supervisor.id() + ": " + decision.reason()))
@@ -87,7 +89,9 @@ public class ControlReviewer {
         .flatMap(reason -> Mono.<Void>error(new ControlRejectedException(reason)));
   }
 
-  private Decision timedOut(final ExecutionSupervisor supervisor, final ControlRequest request) {
+  /** The answer when a supervisor does not give one: a stop is allowed, anything else refused. */
+  private Decision fallback(
+      final ExecutionSupervisor supervisor, final ControlRequest request, final String why) {
     final boolean stop =
         request.command() instanceof ExecutionControlCommand.StopWorkflowCommand
             || request.command() instanceof ExecutionControlCommand.StopNodeCommand;
@@ -95,9 +99,8 @@ public class ControlReviewer {
         .addKeyValue("supervisor", supervisor.id())
         .addKeyValue("timeout", timeout)
         .log(
-            stop
-                ? "Supervisor review timed out; allowing the stop"
-                : "Supervisor review timed out; refusing the command");
-    return stop ? Decision.ALLOW : Decision.deny("review timed out");
+            stop ? "Supervisor: {}; allowing the stop" : "Supervisor: {}; refusing the command",
+            why);
+    return stop ? Decision.ALLOW : Decision.deny(why);
   }
 }
