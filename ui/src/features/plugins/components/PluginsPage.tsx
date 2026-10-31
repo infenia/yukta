@@ -102,7 +102,7 @@ function PluginDetail({ type }: { type: string }) {
           </div>
         </header>
         {plugin.description && (
-          <p className="text-body-md text-on-surface max-w-prose">
+          <p className="text-body-md text-on-surface max-w-prose whitespace-pre-line">
             {plugin.description}
           </p>
         )}
