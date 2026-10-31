@@ -165,10 +165,15 @@ public class SupervisorHost {
    *
    * @param supervisor the supervisor
    */
-  public void attach(final BoundSupervisor supervisor) {
+  public synchronized void attach(final BoundSupervisor supervisor) {
     detach(supervisor.id());
     attachedSupervisors.put(supervisor);
-    attachedSubscriptions.put(supervisor.id(), launch(supervisor, supervisor.dryRun() || dryRun));
+    final Disposable previous =
+        attachedSubscriptions.put(
+            supervisor.id(), launch(supervisor, supervisor.dryRun() || dryRun));
+    if (previous != null) {
+      previous.dispose();
+    }
   }
 
   /**
@@ -177,17 +182,18 @@ public class SupervisorHost {
    * @param bindingId the binding id
    * @return true if one was attached
    */
-  public boolean detach(final String bindingId) {
+  public synchronized boolean detach(final String bindingId) {
     final Disposable subscription = attachedSubscriptions.remove(bindingId);
     if (subscription != null) {
       subscription.dispose();
     }
+    meters.find(COMMANDS_METRIC).tag("id", bindingId).counters().forEach(meters::remove);
     return attachedSupervisors.remove(bindingId) != null;
   }
 
   /** Stops every supervisor. */
   @PreDestroy
-  public void stop() {
+  public synchronized void stop() {
     subscriptions.forEach(Disposable::dispose);
     subscriptions.clear();
     attachedSubscriptions.values().forEach(Disposable::dispose);

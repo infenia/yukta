@@ -18,6 +18,7 @@ import jakarta.annotation.PostConstruct;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -221,10 +222,37 @@ public class SupervisorService {
                 host.detach(binding.id());
               }
             })
-        .then(store.saveBinding(binding))
+        .then(
+            store
+                .saveBinding(binding)
+                .onErrorResume(error -> rollback(binding.id()).then(Mono.error(error))))
         .then(
             audited(true, "AttachSupervisor(" + binding.id() + ", " + binding.scope().key() + ")"))
         .thenReturn(binding);
+  }
+
+  /** Puts the host back to what the store holds for a binding when saving it failed. */
+  private Mono<Void> rollback(final String bindingId) {
+    return store
+        .bindings()
+        .filter(existing -> existing.id().equals(bindingId))
+        .next()
+        .map(Optional::of)
+        .defaultIfEmpty(Optional.empty())
+        .flatMap(
+            previous ->
+                previous
+                    .filter(SupervisorBinding::enabled)
+                    .map(
+                        enabled ->
+                            store
+                                .profiles()
+                                .filter(profile -> profile.id().equals(enabled.profileId()))
+                                .next()
+                                .doOnNext(profile -> start(enabled, profile))
+                                .then())
+                    .orElseGet(() -> Mono.fromRunnable(() -> host.detach(bindingId))))
+        .onErrorResume(error -> Mono.empty());
   }
 
   /**

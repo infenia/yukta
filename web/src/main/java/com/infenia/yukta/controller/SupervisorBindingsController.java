@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,6 +31,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
@@ -132,17 +134,22 @@ public class SupervisorBindingsController {
    * @return the profile; 409 if the id exists, 400 for an unknown type or invalid settings
    */
   @PostMapping("/profiles")
+  @ResponseStatus(HttpStatus.CREATED)
   @Operation(summary = "Create a supervisor profile")
   public Mono<ApiResponse<ProfileBody>> createProfile(@RequestBody final ProfileBody body) {
+    return Mono.fromSupplier(() -> profile(required("id", body.id()), body)).flatMap(this::create);
+  }
+
+  private Mono<ApiResponse<ProfileBody>> create(final SupervisorProfile profile) {
     return service
         .profiles()
-        .filter(existing -> existing.id().equals(body.id()))
+        .filter(existing -> existing.id().equals(profile.id()))
         .hasElements()
         .flatMap(
             exists ->
                 exists
-                    ? Mono.error(new ConflictException("Profile exists: " + body.id()))
-                    : service.saveProfile(profile(body.id(), body)))
+                    ? Mono.error(new ConflictException("Profile exists: " + profile.id()))
+                    : service.saveProfile(profile))
         .map(saved -> ApiResponse.success(201, "Profile created", view(saved)));
   }
 
@@ -167,7 +174,7 @@ public class SupervisorBindingsController {
         .flatMap(
             settings ->
                 service.saveProfile(
-                    new SupervisorProfile(id, body.type(), settings, body.dryRun())))
+                    new SupervisorProfile(id, required("type", body.type()), settings, body.dryRun())))
         .map(saved -> ApiResponse.success(200, "Profile saved", view(saved)));
   }
 
@@ -208,6 +215,7 @@ public class SupervisorBindingsController {
    * @return the binding; 404 for an unknown profile, 400 for a bad scope, 409 at the limit
    */
   @PostMapping("/bindings")
+  @ResponseStatus(HttpStatus.CREATED)
   @Operation(summary = "Attach a supervisor")
   public Mono<ApiResponse<BindingBody>> attach(@RequestBody final BindingBody body) {
     return Mono.fromSupplier(
@@ -216,8 +224,8 @@ public class SupervisorBindingsController {
                     body.id() == null || body.id().isBlank()
                         ? UUID.randomUUID().toString()
                         : body.id(),
-                    body.profileId(),
-                    SupervisorScope.parse(body.scope()),
+                    required("profileId", body.profileId()),
+                    SupervisorScope.parse(required("scope", body.scope())),
                     body.enabled() == null || body.enabled()))
         .flatMap(service::attach)
         .map(saved -> ApiResponse.success(201, "Supervisor attached", view(saved)));
@@ -258,7 +266,15 @@ public class SupervisorBindingsController {
   }
 
   private static SupervisorProfile profile(final String id, final ProfileBody body) {
-    return new SupervisorProfile(id, body.type(), body.settings(), body.dryRun());
+    return new SupervisorProfile(id, required("type", body.type()), body.settings(), body.dryRun());
+  }
+
+  /** A missing or blank field is a client error, not a server one. */
+  private static String required(final String name, final String value) {
+    if (value == null || value.isBlank()) {
+      throw new IllegalArgumentException(name + " is required");
+    }
+    return value;
   }
 
   private static ProfileBody view(final SupervisorProfile profile) {
@@ -301,12 +317,21 @@ public class SupervisorBindingsController {
           }
           if (SECRET.matcher(key).matches()) {
             out.put(key, HIDDEN);
-          } else if (value instanceof Map<?, ?> nested) {
-            out.put(key, hide((Map<String, Object>) nested));
           } else {
-            out.put(key, value);
+            out.put(key, hideValue(value));
           }
         });
     return out;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Object hideValue(final Object value) {
+    if (value instanceof Map<?, ?> nested) {
+      return hide((Map<String, Object>) nested);
+    }
+    if (value instanceof List<?> items) {
+      return items.stream().map(SupervisorBindingsController::hideValue).toList();
+    }
+    return value;
   }
 }
