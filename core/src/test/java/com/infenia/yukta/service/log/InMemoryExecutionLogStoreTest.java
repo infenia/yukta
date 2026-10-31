@@ -38,7 +38,8 @@ class InMemoryExecutionLogStoreTest {
                     null,
                     null,
                     null,
-                    started.timestamp())
+                    started.timestamp(),
+                    null)
                 .nodeStatuses())
         .isEmpty();
   }

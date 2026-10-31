@@ -7,6 +7,7 @@ import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.store.SecretContext;
 import com.infenia.yukta.plugin.store.SecretProvider;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -46,6 +47,7 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/hooks")
 @RequiredArgsConstructor
 @Tag(name = "Webhook API", description = "Signed inbound calls that start a workflow")
+@SuppressWarnings("PMD.ExcessiveImports")
 public class WebhookController {
 
   /** The trigger node type. */
@@ -111,7 +113,7 @@ public class WebhookController {
                 workflowService.validateAndStartWorkflow(
                     sessionId,
                     hook.workflowId(),
-                    payload(hook, headers, raw),
+                    ExecutionLogEvent.withInitiator(payload(hook, headers, raw), "webhook"),
                     text(hook.config(), "idempotencyHeader") == null
                         ? null
                         : headers.getFirst(text(hook.config(), "idempotencyHeader"))))

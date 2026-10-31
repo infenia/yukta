@@ -68,7 +68,8 @@ final class ExecutionHistory {
       final Map<String, String> nodeStatuses,
       final Instant started,
       final Instant ended,
-      final String definitionVersion) {
+      final String definitionVersion,
+      final String initiator) {
     final WorkflowState state =
         new WorkflowState(
             executionId,
@@ -81,6 +82,7 @@ final class ExecutionHistory {
         (nodeId, nodeStatus) -> state.updateTask(nodeId, "", nodeStatus, Map.of()));
     state.setEndTime(LocalDateTime.ofInstant(ended, ZoneId.systemDefault()));
     state.definitionVersion = definitionVersion;
+    state.initiator = initiator;
     sessionStates
         .computeIfAbsent(sessionId, _ -> new ConcurrentHashMap<>())
         .put(executionId, state);
@@ -121,7 +123,8 @@ final class ExecutionHistory {
         state.parentExecutionId,
         state.rootExecutionId,
         state.restartOf,
-        nodes(state));
+        nodes(state),
+        state.initiator);
   }
 
   /** How far a run got: its nodes in a final state, of all, and the first that failed. */

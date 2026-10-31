@@ -114,6 +114,37 @@ class ExecutionSearchControllerTest {
   }
 
   @Test
+  void hitsCarryWhoStartedTheRun() {
+    when(sessions.getSessionIds()).thenReturn(Flux.just("s1"));
+    when(controlBus.getHistory("s1"))
+        .thenReturn(
+            Mono.just(
+                List.of(
+                    new WorkflowExecutionSummary(
+                        "a1", "wf", "SUCCESS", NOON, null, null, null, null, null, "yk check"),
+                    new WorkflowExecutionSummary(
+                        "a2",
+                        "wf",
+                        "SUCCESS",
+                        NOON.minusMinutes(1),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null))));
+
+    client
+        .get()
+        .uri("/api/executions")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data[0].initiator")
+        .isEqualTo("yk check")
+        .jsonPath("$.data[1].initiator")
+        .isEmpty();
+  }
+
+  @Test
   void hitsCarryNodeProgress() {
     when(sessions.getSessionIds()).thenReturn(Flux.just("s1"));
     when(controlBus.getHistory("s1"))

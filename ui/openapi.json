@@ -1816,6 +1816,9 @@
           "executionId" : {
             "type" : "string"
           },
+          "initiator" : {
+            "type" : [ "string", "null" ]
+          },
           "nodes" : {
             "$ref" : "#/components/schemas/Nodes",
             "type" : "null"
@@ -2685,6 +2688,10 @@
             "description" : "The unique execution identifier",
             "type" : "string"
           },
+          "initiator" : {
+            "description" : "Who or what started the run (a name given at the start, or the key that started it), if known",
+            "type" : [ "string", "null" ]
+          },
           "nodes" : {
             "$ref" : "#/components/schemas/Nodes",
             "description" : "How far the run got through its nodes",
@@ -2863,6 +2870,13 @@
       "WorkflowStartRequest" : {
         "description" : "Request object for starting a workflow",
         "properties" : {
+          "initiator" : {
+            "description" : "Optional name of who or what starts the run; shown as the run's initiator. Defaults to the name of the API key.",
+            "example" : "yk check",
+            "maxLength" : 64,
+            "minLength" : 0,
+            "type" : "string"
+          },
           "payload" : {
             "additionalProperties" : { },
             "description" : "Optional trigger payload passed to the workflow's trigger node",
