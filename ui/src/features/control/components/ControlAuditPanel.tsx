@@ -74,7 +74,7 @@ export function ControlAuditPanel() {
         Who did what
       </h2>
       {execution && (
-        <p className="text-body-sm text-on-surface-variant flex items-center gap-2">
+        <p className="flex items-center gap-2 text-body-sm text-on-surface-variant">
           Commands of run <span className="text-code-sm">{execution}</span>
           <Button
             size="sm"

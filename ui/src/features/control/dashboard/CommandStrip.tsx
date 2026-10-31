@@ -44,7 +44,7 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
         value={((snapshot?.['runs.finished'] ?? 0) / 60).toFixed(1)}
         series={(finished?.['runs.finished'] ?? []).map((p) => p.v)}
       />
-      <div className="border-border bg-card flex items-center gap-3 rounded-xl border p-3">
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
         <div className="w-16 shrink-0">
           <RingProgress
             label="Success rate, 24 h"

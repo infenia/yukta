@@ -74,6 +74,18 @@ yukta.control-plane.rules-first.rules-file=/etc/yukta/rules.json
 yukta.control-plane.rules-first.model.name=my-model
 ```
 
+## Attaching a control plane at run time
+
+Each of the three can also be made from a profile (`POST /api/supervisors/profiles`) and attached to a scope without a restart; see [Supervisors](/running/supervisors). The profile `type` and `settings` are:
+
+| `type` | `settings` |
+|---|---|
+| `rule-control-plane` | the rules file as JSON: `{"rules": [...]}` |
+| `model-control-plane` | the keys of `yukta.control-plane.model.*` (`name`, `backend`, `provider`, `instructions`, `options`, `events`, `min-probability`, ...), with the same defaults |
+| `rules-first-control-plane` | `{"rules": [...], "model": {...}}`: the rules, and the model keys as above |
+
+The model types need the decision plugin. A wrong value is reported by its key and never repeated, because it may be a secret; `api-key` is shown as `***` when profiles are listed.
+
 ## Choosing
 
 | If you can... | Use |
