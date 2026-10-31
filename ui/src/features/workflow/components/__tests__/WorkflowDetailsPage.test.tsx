@@ -419,15 +419,20 @@ describe('WorkflowDetailsPage', () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByTestId('progress-panel');
+    const toggle = screen.getByRole('button', { name: 'Workflow progress' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(toggle).toHaveAttribute('title', 'Hide progress panel');
+    expect(toggle).toHaveTextContent('right_panel_close');
 
     await user.click(
       screen.getByRole('button', { name: /close workflow progress/i })
     );
     expect(screen.queryByTestId('progress-panel')).toBeNull();
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(toggle).toHaveAttribute('title', 'Show progress panel');
+    expect(toggle).toHaveTextContent('right_panel_open');
 
-    await user.click(
-      screen.getByRole('button', { name: /workflow progress/i })
-    );
+    await user.click(toggle);
     expect(screen.getByTestId('progress-panel')).toBeInTheDocument();
   });
 
