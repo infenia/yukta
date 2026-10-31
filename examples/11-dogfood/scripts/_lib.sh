@@ -125,13 +125,47 @@ notify_text() {
 
 healthy() { curl -fsS -m 3 "${1:-$DEV_URL}/actuator/health" >/dev/null 2>&1; }
 
-# busy: the number of executions not yet ended, on any session of the dev server. When that cannot be
-# read (the server answers badly, or not at all) it says 1: never stop a server we cannot see idle.
+# busy: the number of executions not yet ended, on any session of the dev server, except the `pickup` schedule (it runs for as long
+# as the server does and would block every swap; server_up restarts it). When that cannot be read (the server answers badly, or not at
+# all) it says 1: never stop a server we cannot see idle.
 busy() {
   local n
   n="$(curl -fsS -m 5 -H "X-API-Key: $(dev_key)" "$DEV_URL/api/executions?limit=1000" 2>/dev/null \
-    | jq -e '[(.data // .)[] | select(.status | test("RUNNING|PENDING|QUEUED|PAUSED"))] | length' 2>/dev/null)"
+    | jq -e '[(.data // .)[] | select(.workflowId != "pickup" and (.status | test("RUNNING|PENDING|QUEUED|PAUSED")))] | length' 2>/dev/null)"
   [[ "$n" =~ ^[0-9]+$ ]] && echo "$n" || echo 1
+}
+
+# ---- Scheduled pickup (yk pickup): the `pickup` workflow, one long-running execution whose id is kept in $DEV_HOME/pickup.exec ----
+
+# pickup_alive: the execution in pickup.exec is still running on the server.
+pickup_alive() {
+  local id
+  id="$(cat "$DEV_HOME/pickup.exec" 2>/dev/null)" && [[ -n "$id" ]] || return 1
+  curl -fsS -m 5 -H "X-API-Key: $(dev_key)" "$DEV_URL/api/executions?limit=1000" 2>/dev/null \
+    | jq -e --arg id "$id" '[(.data // .)[] | select(.executionId == $id and (.status | test("RUNNING|PENDING|QUEUED|PAUSED")))] | length > 0' >/dev/null 2>&1
+}
+
+# pickup_start: applies the library and starts `pickup` on session dogfood; prints the execution id and keeps it in pickup.exec.
+pickup_start() {
+  local cli tmp id
+  cli="$(find_cli)"
+  tmp="$(mktemp -d)"
+  render_session "$tmp/session.json"
+  "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 || { cat "$tmp/apply.out" >&2; rm -rf "$tmp"; return 1; }
+  id="$("$cli" -o json workflow start "$(check_session)" pickup --payload '{}' | jq -r '.data.executionId // .executionId')"
+  rm -rf "$tmp"
+  [[ -n "$id" && "$id" != null ]] || return 1
+  mkdir -p "$DEV_HOME"
+  echo "$id" >"$DEV_HOME/pickup.exec"
+  echo "$id"
+}
+
+# pickup_resume: after a server swap or start, start the schedule again when it was on (the execution dies with the old server).
+pickup_resume() {
+  [[ -s "$DEV_HOME/pickup.exec" ]] || return 0
+  pickup_alive && return 0
+  YUKTA_SERVER_URL="$DEV_URL" pickup_start >/dev/null && echo "pickup: schedule started again" >&2 \
+    || echo "WARN pickup: could not start the schedule again (yk pickup on)" >&2
 }
 
 # main_sync: brings the managed worktree $DEV_HOME/main to origin/main (or $YUKTA_DEV_MAIN_REF) and
@@ -276,6 +310,7 @@ server_up() {
     die "port $DEV_PORT is in use by another program; free it or set YUKTA_DEV_PORT"
   fi
   server_launch "$kind" "$id" "$label" "$rules" "${cmd[@]}"
+  pickup_resume
 }
 
 # ensure_server: before a run. Starts the dev server if it is down, and swaps an idle server for an

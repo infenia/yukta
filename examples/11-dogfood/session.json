@@ -3236,6 +3236,65 @@
           "sourcePort": "error"
         }
       ]
+    },
+    "pickup": {
+      "workflowId": "pickup",
+      "description": "Scheduled pickup: every 30 minutes hand the next assigned, Ready issue to the yukta-pickup channel (yk pickup on)",
+      "nodes": [
+        {
+          "nodeId": "every",
+          "type": "SCHEDULE_TRIGGER",
+          "config": {
+            "intervalMs": 1800000,
+            "timeoutSeconds": 2400
+          }
+        },
+        {
+          "nodeId": "tick",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bash",
+              "__DOGFOOD__/scripts/pickup.sh",
+              "tick"
+            ],
+            "workingDir": "__PROJECT_PATH__",
+            "timeout": 120,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "ok",
+          "type": "CONSOLE_TERMINAL",
+          "config": {
+            "displayOutput": true
+          }
+        },
+        {
+          "nodeId": "failed",
+          "type": "CONSOLE_TERMINAL",
+          "config": {
+            "displayOutput": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "every",
+          "target": "tick"
+        },
+        {
+          "source": "tick",
+          "target": "ok",
+          "sourcePort": "success"
+        },
+        {
+          "source": "tick",
+          "target": "failed",
+          "sourcePort": "failure"
+        }
+      ]
     }
   }
 }

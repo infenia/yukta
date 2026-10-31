@@ -15,3 +15,4 @@ Fixes #<!-- issue number; use "Refs #" if this PR does not close it -->
 - [ ] Tests added or updated
 - [ ] Product docs in `docs/` updated (if behavior changed)
 - [ ] Follow-up work filed as issues, not as TODOs or docs pages
+- [ ] CLAUDE.md, rule and skill edits reviewed like code (and still true: `.claude/hooks/README.md` has a hook that hints when they are not)
