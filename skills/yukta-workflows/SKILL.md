@@ -51,6 +51,9 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 | `list_pending_approvals` | `VIEWER` | optional `sessionId` |
 | `get_scheduler_limits` | `VIEWER` | none |
 | `get_metrics_snapshot` | `VIEWER` | optional `scope` |
+| `list_supervisors` | `VIEWER` | none |
+| `attach_supervisor` | `ADMIN` | `profileId`, `scope`, optional `enabled`, `bindingId` |
+| `detach_supervisor` | `ADMIN` | `bindingId` |
 | `set_scheduler_limits` | `ADMIN` | `maxConcurrent`, `maxPerWorkflow` |
 | `list_workflow_versions` | `VIEWER` | `sessionId`, `workflowId` |
 | `diff_workflow_versions` | `VIEWER` | `sessionId`, `workflowId`, `olderVersion`, optional `newerVersion` |

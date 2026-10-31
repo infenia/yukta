@@ -22,8 +22,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
@@ -48,11 +54,14 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
 public class SupervisorHost {
 
   /** Events handed to the supervisor's thread at a time. */
   private static final int SUPERVISOR_PREFETCH = 256;
+
+  /** Most decisions kept for the decision feed. */
+  private static final int MAX_DECISIONS = 500;
 
   /** Counter of supervisor commands by outcome. */
   private static final String COMMANDS_METRIC = "yukta.supervisor.commands";
@@ -90,6 +99,19 @@ public class SupervisorHost {
   /** Running supervisor subscriptions. */
   private final List<Disposable> subscriptions = new CopyOnWriteArrayList<>();
 
+  /** The newest decisions, newest last; a full queue drops its oldest to take a new one. */
+  private final BlockingDeque<SupervisorDecision> recentDecisions =
+      new LinkedBlockingDeque<>(MAX_DECISIONS);
+
+  /** Serializes attaching, detaching and stopping, so a binding never has two subscriptions. */
+  private final ReentrantLock lock = new ReentrantLock();
+
+  /** Subscriptions of the supervisors attached at run time, by binding id. */
+  private final Map<String, Disposable> attachedSubscriptions = new ConcurrentHashMap<>();
+
+  /** The supervisors attached at run time. */
+  private AttachedSupervisors attachedSupervisors = new AttachedSupervisors();
+
   /**
    * Creates the host.
    *
@@ -125,14 +147,71 @@ public class SupervisorHost {
   /** Starts every supervisor. */
   @PostConstruct
   public void start() {
-    supervisors.stream().forEach(this::launch);
+    supervisors.stream().forEach(supervisor -> subscriptions.add(launch(supervisor, dryRun)));
+  }
+
+  /**
+   * Shares the set of supervisors attached at run time with the reviewer.
+   *
+   * @param attached the set
+   */
+  @Autowired
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP2",
+      justification = "Spring injects the shared service, which is meant to be held")
+  public void setAttachedSupervisors(final AttachedSupervisors attached) {
+    this.attachedSupervisors = attached;
+  }
+
+  /**
+   * Starts a supervisor made from a binding, replacing one with the same binding id. It sees the
+   * events from now on, so a run already going is supervised from where it is.
+   *
+   * @param supervisor the supervisor
+   */
+  public void attach(final BoundSupervisor supervisor) {
+    lock.lock();
+    try {
+      detach(supervisor.id());
+      attachedSupervisors.put(supervisor);
+      attachedSubscriptions.put(supervisor.id(), launch(supervisor, supervisor.dryRun() || dryRun));
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
+   * Stops an attached supervisor.
+   *
+   * @param bindingId the binding id
+   * @return true if one was attached
+   */
+  public boolean detach(final String bindingId) {
+    lock.lock();
+    try {
+      final Disposable subscription = attachedSubscriptions.remove(bindingId);
+      if (subscription != null) {
+        subscription.dispose();
+      }
+      meters.find(COMMANDS_METRIC).tag("id", bindingId).counters().forEach(meters::remove);
+      return attachedSupervisors.remove(bindingId) != null;
+    } finally {
+      lock.unlock();
+    }
   }
 
   /** Stops every supervisor. */
   @PreDestroy
   public void stop() {
-    subscriptions.forEach(Disposable::dispose);
-    subscriptions.clear();
+    lock.lock();
+    try {
+      subscriptions.forEach(Disposable::dispose);
+      subscriptions.clear();
+      attachedSubscriptions.values().forEach(Disposable::dispose);
+      attachedSubscriptions.clear();
+    } finally {
+      lock.unlock();
+    }
   }
 
   /**
@@ -141,25 +220,28 @@ public class SupervisorHost {
    * @return one entry per supervisor, in review order
    */
   public List<SupervisorInfo> status() {
-    return supervisors
-        .orderedStream()
-        .sorted(Comparator.comparingInt(ExecutionSupervisor::order))
+    return Stream.concat(
+            supervisors.orderedStream().sorted(Comparator.comparingInt(ExecutionSupervisor::order)),
+            attachedSupervisors.stream().sorted(Comparator.comparing(BoundSupervisor::id)))
         .map(
-            supervisor ->
-                new SupervisorInfo(
-                    supervisor.id(),
-                    supervisor instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR",
-                    typeName(supervisor.getClass()),
-                    supervisor.order(),
-                    dryRun,
-                    maxCommandsPerSecond,
-                    commands(supervisor.id(), "applied"),
-                    commands(supervisor.id(), "rejected"),
-                    commands(supervisor.id(), "dry-run"),
-                    commands(supervisor.id(), "rate-limited"),
-                    supervisor.scope().kind().name(),
-                    supervisor.scope().sessionId(),
-                    supervisor.scope().workflowId()))
+            supervisor -> {
+              final ExecutionSupervisor real =
+                  supervisor instanceof BoundSupervisor bound ? bound.delegate() : supervisor;
+              return new SupervisorInfo(
+                  supervisor.id(),
+                  real instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR",
+                  typeName(real.getClass()),
+                  supervisor.order(),
+                  dryRun || supervisor instanceof BoundSupervisor bound && bound.dryRun(),
+                  maxCommandsPerSecond,
+                  commands(supervisor.id(), "applied"),
+                  commands(supervisor.id(), "rejected"),
+                  commands(supervisor.id(), "dry-run"),
+                  commands(supervisor.id(), "rate-limited"),
+                  supervisor.scope().kind().name(),
+                  supervisor.scope().sessionId(),
+                  supervisor.scope().workflowId());
+            })
         .toList();
   }
 
@@ -174,27 +256,25 @@ public class SupervisorHost {
     return counter == null ? 0 : (long) counter.count();
   }
 
-  private void launch(final ExecutionSupervisor supervisor) {
+  private Disposable launch(final ExecutionSupervisor supervisor, final boolean recordOnly) {
     final String supervisorId = supervisor.id();
     final RateLimit limit = new RateLimit(maxCommandsPerSecond);
     log.atInfo()
         .addKeyValue(SUPERVISOR_KEY, supervisorId)
-        .addKeyValue("dryRun", dryRun)
+        .addKeyValue("dryRun", recordOnly)
         .log("Starting supervisor");
-    subscriptions.add(
-        Flux.defer(() -> supervisor.supervise(withoutOwnOutcomes(supervisor)))
-            .doOnError(
-                error ->
-                    log.atWarn()
-                        .setCause(error)
-                        .addKeyValue(SUPERVISOR_KEY, supervisorId)
-                        .log("Supervisor failed; restarting"))
-            .retryWhen(
-                Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1))
-                    .maxBackoff(Duration.ofMinutes(1)))
-            .concatMap(command -> apply(supervisorId, command, limit))
-            .subscribeOn(Schedulers.boundedElastic())
-            .subscribe());
+    return Flux.defer(() -> supervisor.supervise(withoutOwnOutcomes(supervisor)))
+        .doOnError(
+            error ->
+                log.atWarn()
+                    .setCause(error)
+                    .addKeyValue(SUPERVISOR_KEY, supervisorId)
+                    .log("Supervisor failed; restarting"))
+        .retryWhen(
+            Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1)).maxBackoff(Duration.ofMinutes(1)))
+        .concatMap(command -> apply(supervisorId, command, limit, recordOnly))
+        .subscribeOn(Schedulers.boundedElastic())
+        .subscribe();
   }
 
   /** A supervisor does not see the outcome of its own commands, so it cannot answer itself. */
@@ -232,11 +312,14 @@ public class SupervisorHost {
   }
 
   private Mono<Void> apply(
-      final String supervisorId, final ExecutionControlCommand command, final RateLimit limit) {
+      final String supervisorId,
+      final ExecutionControlCommand command,
+      final RateLimit limit,
+      final boolean recordOnly) {
     final Mono<Void> result;
     if (limit.tryAcquire()) {
       result =
-          dryRun
+          recordOnly
               ? notApplied(supervisorId, "dry-run", command, "dry-run")
               : send(supervisorId, command);
     } else {
@@ -249,10 +332,15 @@ public class SupervisorHost {
     return dispatcher
         .dispatchOrdered(command)
         .contextWrite(Context.of(ControlActor.CONTEXT_KEY, supervisorId))
-        .doOnSuccess(_ -> count(supervisorId, "applied"))
+        .doOnSuccess(
+            _ -> {
+              count(supervisorId, "applied");
+              decided(supervisorId, "applied", command, null);
+            })
         .onErrorResume(
             error -> {
               count(supervisorId, "rejected");
+              decided(supervisorId, "rejected", command, error.getMessage());
               log.atWarn()
                   .addKeyValue(SUPERVISOR_KEY, supervisorId)
                   .addKeyValue("command", command.getClass().getSimpleName())
@@ -269,6 +357,7 @@ public class SupervisorHost {
       final ExecutionControlCommand command,
       final String reason) {
     count(supervisorId, outcome);
+    decided(supervisorId, outcome, command, reason);
     ControlAudit.record(
         executionLog,
         auditSink,
@@ -290,6 +379,38 @@ public class SupervisorHost {
   @Autowired(required = false)
   public void setAuditSink(final AuditSink sink) {
     this.auditSink = sink;
+  }
+
+  private void decided(
+      final String supervisorId,
+      final String outcome,
+      final ExecutionControlCommand command,
+      @Nullable final String reason) {
+    final SupervisorDecision decision =
+        new SupervisorDecision(
+            Instant.now(),
+            supervisorId,
+            outcome,
+            command.getClass().getSimpleName(),
+            command.executionId(),
+            reason);
+    while (!recentDecisions.offerLast(decision)) {
+      recentDecisions.pollFirst();
+    }
+  }
+
+  /**
+   * The newest decisions about the commands supervisors emitted, since startup.
+   *
+   * @param supervisorId only this supervisor or binding, or null for all
+   * @param limit most entries to return
+   * @return the decisions, newest first
+   */
+  public List<SupervisorDecision> decisions(@Nullable final String supervisorId, final int limit) {
+    return List.copyOf(recentDecisions).reversed().stream()
+        .filter(d -> supervisorId == null || supervisorId.equals(d.supervisorId()))
+        .limit(Math.max(0, limit))
+        .toList();
   }
 
   private void count(final String supervisorId, final String outcome) {

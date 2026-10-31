@@ -4,6 +4,8 @@ package com.infenia.yukta.service.metrics;
 
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -23,6 +25,8 @@ import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ThreadLocalRandom;
+import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
@@ -46,6 +50,7 @@ import reactor.core.scheduler.Schedulers;
 // All state is guarded by this one lock, so plain maps and method-level synchronization are right.
 @SuppressWarnings({
   "PMD.TooManyMethods",
+  "PMD.ExcessiveImports",
   "PMD.UseConcurrentHashMap",
   "PMD.AvoidSynchronizedAtMethodLevel",
   "PMD.AvoidInstantiatingObjectsInLoops",
@@ -90,6 +95,9 @@ public class RunAnalytics {
   /** Where the events come from. */
   private final ExecutionEventFeed feed;
 
+  /** The durable log the aggregates are seeded from at start, or null. */
+  private final @Nullable ExecutionLogStore logStore;
+
   /** The time of "now" for elapsed times. */
   private final Clock clock;
 
@@ -116,9 +124,20 @@ public class RunAnalytics {
    *
    * @param feed the event feed
    */
-  @Autowired
   public RunAnalytics(final ExecutionEventFeed feed) {
-    this(feed, Clock.systemUTC());
+    this(feed, Clock.systemUTC(), null);
+  }
+
+  /**
+   * Creates the aggregator, seeded at start from the execution log when there is one.
+   *
+   * @param feed the event feed
+   * @param logStore the execution log, if any
+   */
+  @Autowired
+  public RunAnalytics(
+      final ExecutionEventFeed feed, final ObjectProvider<ExecutionLogStore> logStore) {
+    this(feed, Clock.systemUTC(), logStore.getIfAvailable());
   }
 
   /**
@@ -128,13 +147,22 @@ public class RunAnalytics {
    * @param clock where "now" comes from
    */
   /* default */ RunAnalytics(final ExecutionEventFeed feed, final Clock clock) {
-    this.feed = feed;
-    this.clock = clock;
+    this(feed, clock, null);
   }
 
-  /** Starts following the feed. */
+  /* default */ RunAnalytics(
+      final ExecutionEventFeed feed, final Clock clock, final @Nullable ExecutionLogStore store) {
+    this.feed = feed;
+    this.clock = clock;
+    this.logStore = store;
+  }
+
+  /** Seeds from the execution log, then starts following the feed. */
   @PostConstruct
   /* default */ void start() {
+    if (logStore != null) {
+      seed(logStore.readAll());
+    }
     // own thread and buffer: a dashboard query holding the lock must not stall the tracker
     subscription =
         feed.events()
@@ -273,6 +301,7 @@ public class RunAnalytics {
    * @param nodesDone nodes that ended
    * @param nodesSeen nodes that have started or ended
    * @param p95Ms the workflow's usual p95 duration over the last day, or null when unknown
+   * @param nodesTotal nodes in the run's graph, or null when unknown; filled in by the web layer
    */
   public record LiveRun(
       String executionId,
@@ -282,7 +311,84 @@ public class RunAnalytics {
       long elapsedMs,
       int nodesDone,
       int nodesSeen,
-      Double p95Ms) {}
+      @Nullable Double p95Ms,
+      @Nullable Integer nodesTotal) {
+
+    /**
+     * Copy with the node total filled in.
+     *
+     * @param total nodes in the run's graph
+     * @return the copy
+     */
+    public LiveRun withNodesTotal(final int total) {
+      return new LiveRun(
+          executionId,
+          sessionId,
+          workflowId,
+          startedAt,
+          elapsedMs,
+          nodesDone,
+          nodesSeen,
+          p95Ms,
+          total);
+    }
+  }
+
+  /**
+   * Takes what the durable log remembers of the last day into the aggregates: finished runs with
+   * their durations, and control commands. Per-node figures and queue waits are not in the log, so
+   * they start empty.
+   *
+   * @param events the log, oldest first
+   */
+  public synchronized void seed(final List<ExecutionLogEvent> events) {
+    final Instant from = clock.instant().minus(RETENTION);
+    final Map<String, Instant> started = new HashMap<>();
+    final Map<String, ExecutionLogEvent> owners = new HashMap<>();
+    for (final ExecutionLogEvent e : events) {
+      switch (e.type()) {
+        case RUN_STARTED -> {
+          started.put(e.executionId(), e.timestamp());
+          owners.put(e.executionId(), e);
+        }
+        case RUN_FINISHED, RUN_ABORTED -> seedRun(e, started.get(e.executionId()), from);
+        case CONTROL_APPLIED, CONTROL_REJECTED -> seedControl(e, owners.get(e.executionId()), from);
+        default -> {
+          // nodes, resumes and idempotency keys carry nothing to aggregate
+        }
+      }
+    }
+  }
+
+  private void seedRun(final ExecutionLogEvent e, final Instant start, final Instant from) {
+    if (e.timestamp().isBefore(from) || e.status() == null) {
+      return;
+    }
+    final RunState run = new RunState(e.sessionId(), e.workflowId());
+    final double ms = start == null ? -1 : Duration.between(start, e.timestamp()).toMillis();
+    buckets(run, e.timestamp()).forEach(b -> b.addRun(e.executionId(), e.status(), ms));
+  }
+
+  private void seedControl(
+      final ExecutionLogEvent e, final ExecutionLogEvent owner, final Instant from) {
+    final String status = e.status();
+    if (e.timestamp().isBefore(from) || status == null) {
+      return;
+    }
+    final boolean applied = e.type() == ExecutionLogEvent.Type.CONTROL_APPLIED;
+    // a rejection is logged as "command: reason"
+    final String[] parts = status.split(": ", 2);
+    addAnnotation(
+        new Annotation(
+            e.timestamp().toEpochMilli(),
+            e.executionId(),
+            owner == null ? null : owner.sessionId(),
+            owner == null ? null : owner.workflowId(),
+            parts[0],
+            null,
+            applied,
+            applied || parts.length < 2 ? null : parts[1]));
+  }
 
   /**
    * Takes one event into the aggregates.
@@ -301,7 +407,7 @@ public class RunAnalytics {
   }
 
   private void onControl(final ExecutionEvent.ControlOutcome e) {
-    controlLog.addLast(
+    addAnnotation(
         new Annotation(
             e.timestamp().toEpochMilli(),
             e.executionId(),
@@ -311,6 +417,10 @@ public class RunAnalytics {
             e.actor(),
             e.applied(),
             e.reason()));
+  }
+
+  private void addAnnotation(final Annotation annotation) {
+    controlLog.addLast(annotation);
     while (controlLog.size() > MAX_ANNOTATIONS) {
       controlLog.removeFirst();
     }
@@ -549,7 +659,8 @@ public class RunAnalytics {
                   now - r.startedAt.toEpochMilli(),
                   r.nodesDone.size(),
                   r.nodesSeen.size(),
-                  baseline(r.workflowId));
+                  baseline(r.workflowId),
+                  null);
             })
         .sorted((a, b) -> Long.compare(b.elapsedMs(), a.elapsedMs()))
         .toList();

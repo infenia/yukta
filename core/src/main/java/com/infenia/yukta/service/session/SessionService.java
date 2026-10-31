@@ -11,10 +11,12 @@ import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.supervisor.SupervisorService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.validation.Valid;
 import java.time.Duration;
 import java.util.List;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Flux;
@@ -56,6 +59,22 @@ public class SessionService {
 
   /** Stale workflows removed at the same time. */
   private static final int REMOVAL_CONCURRENCY = 4;
+
+  /** Detaches the supervisors of a deleted session; absent where there are none. */
+  @Nullable private SupervisorService supervisors;
+
+  /**
+   * Lets a deleted session take its attached supervisors with it.
+   *
+   * @param supervisorService the service that attaches supervisors
+   */
+  @Autowired(required = false)
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP2",
+      justification = "Spring injects the shared service, which is meant to be held")
+  public void setSupervisors(final SupervisorService supervisorService) {
+    this.supervisors = supervisorService;
+  }
 
   /**
    * Apply configuration for a session.
@@ -204,6 +223,9 @@ public class SessionService {
         .then(Mono.defer(() -> clearActiveRuns(sessionId, null, force)))
         .then(Mono.defer(() -> workflowDefinitionStore.removeAll(sessionId)))
         .then(Mono.defer(() -> configService.removeSession(sessionId)))
+        .then(
+            Mono.defer(
+                () -> supervisors == null ? Mono.empty() : supervisors.removeForSession(sessionId)))
         .doOnSuccess(_ -> preparedWorkflowCache.invalidateAll(sessionId))
         .then(Mono.defer(() -> audited(command, sessionId)))
         .onErrorResume(error -> auditedFailure(error, command, sessionId));

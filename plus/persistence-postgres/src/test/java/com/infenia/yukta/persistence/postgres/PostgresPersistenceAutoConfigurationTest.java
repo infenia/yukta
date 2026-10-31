@@ -93,6 +93,17 @@ class PostgresPersistenceAutoConfigurationTest {
   }
 
   @Test
+  void supervisorProfilesAndBindingsAreDatabaseBacked() {
+    runner
+        .withPropertyValues("yukta.session.store-type=postgres")
+        .run(
+            context ->
+                assertThat(
+                        context.getBean(com.infenia.yukta.service.supervisor.SupervisorStore.class))
+                    .isInstanceOf(R2dbcSupervisorStore.class));
+  }
+
+  @Test
   void withHaModePostgres_theLeaderElectionIsDatabaseBacked() {
     runner
         .withInitializer(

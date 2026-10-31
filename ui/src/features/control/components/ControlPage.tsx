@@ -4,7 +4,7 @@
 import { useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { DashboardView } from '../dashboard/DashboardView';
-import { SupervisorsPanel } from './SupervisorsPanel';
+import { SupervisorCockpit } from '../supervisors/SupervisorCockpit';
 import { ControlAuditPanel } from './ControlAuditPanel';
 import { ControlBusPanel } from './ControlBusPanel';
 import { SchedulerPanel } from './SchedulerPanel';
@@ -43,10 +43,10 @@ export function ControlPage() {
                   role="tab"
                   aria-selected={tab === name}
                   onClick={() => show(name)}
-                  className={`text-label-md -mb-px h-9 border-b-2 px-0.5 capitalize ${
+                  className={`-mb-px h-9 border-b-2 px-0.5 text-label-md capitalize ${
                     tab === name
                       ? 'border-primary text-on-surface'
-                      : 'text-on-surface-variant hover:text-on-surface border-transparent'
+                      : 'border-transparent text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
                   {name}
@@ -59,11 +59,10 @@ export function ControlPage() {
         {tab === 'overview' && (
           <>
             <DashboardView />
-            {/* ponytail: the tables below stay until the supervisor cockpit (#1591) and a
-                tables-as-dialogs pass replace them */}
+            {/* ponytail: the tables below stay until a tables-as-dialogs pass replaces them */}
             <ControlBusPanel />
             <SchedulerPanel />
-            <SupervisorsPanel />
+            <SupervisorCockpit />
             <WorkersPanel />
             <ControlAuditPanel />
           </>

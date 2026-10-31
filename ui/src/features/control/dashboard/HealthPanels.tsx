@@ -107,7 +107,7 @@ export function VitalsPanel() {
             max={Math.max(100, threads)}
           />
         </div>
-        <dl className="text-body-sm text-on-surface-variant mt-2 flex gap-4">
+        <dl className="mt-2 flex gap-4 text-body-sm text-on-surface-variant">
           <div>
             <dt>Longest GC pause</dt>
             <dd className="num text-on-surface">
@@ -160,7 +160,7 @@ export function AiUsagePanel({ scope }: { scope: Scope }) {
         }
         onRetry={() => void snapshot.refetch()}
       >
-        <dl className="text-body-md grid grid-cols-3 gap-2">
+        <dl className="grid grid-cols-3 gap-2 text-body-md">
           {rows.map(([label, value]) => (
             <div key={label}>
               <dt className="text-body-sm text-on-surface-variant">{label}</dt>
