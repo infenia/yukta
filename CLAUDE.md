@@ -99,7 +99,7 @@ Waiting on tests is the main development bottleneck. **Run the smallest scope th
 - A public contract or many classes in a package: `--tests 'com.infenia.yukta.<package>.*'`.
 - Run `spotlessApply` once at the end, not after every edit. Don't use `clean` or `--rerun-tasks`.
 - Run long builds with `run_in_background`; on failure read only the failing test's report in `build/test-results`.
-- Locate tests via `<Class>Test` naming or CodeGraph, not repo-wide grep.
+- Locate tests via `<Class>Test` naming or codebase-memory, not repo-wide grep.
 
 ### Test Skill
 Load the below skill for test generation and test improvement.
