@@ -152,7 +152,7 @@ function NeedsAttention({ poll }: { poll: number | false }) {
           >
             <StatusPill status={run.status} />
             <Link
-              className="text-primary text-body-md flex-1"
+              className="text-body-md text-primary flex-1"
               to={runPath(run.sessionId, run.workflowId, run.executionId)}
             >
               {run.sessionId}/{run.workflowId}
@@ -187,7 +187,7 @@ function RecentFailures({ poll }: { poll: number | false }) {
       title="Recent failures"
       action={
         <Link
-          className="text-primary text-label-md"
+          className="text-label-md text-primary"
           to="/runs?status=FAILURE&range=24h"
         >
           See all
@@ -200,7 +200,7 @@ function RecentFailures({ poll }: { poll: number | false }) {
           <li key={run.executionId} className="flex items-center gap-2">
             <StatusPill status={run.status} />
             <Link
-              className="text-primary text-body-md truncate"
+              className="text-body-md text-primary truncate"
               to={runPath(run.sessionId, run.workflowId, run.executionId)}
             >
               {run.sessionId}/{run.workflowId}
@@ -219,7 +219,7 @@ function LiveActivity() {
     <Panel
       title="Live activity"
       action={
-        <Link className="text-primary text-label-md" to="/control?tab=activity">
+        <Link className="text-label-md text-primary" to="/control?tab=activity">
           Open activity
         </Link>
       }
@@ -297,6 +297,7 @@ function Overview() {
   return (
     <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
       <PageHeader
+        backdrop
         title="Overview"
         description="What is running, what failed and what needs you, across all sessions."
       />

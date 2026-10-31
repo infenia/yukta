@@ -22,7 +22,10 @@ export default function App() {
     <div className="bg-background text-on-surface flex min-h-screen flex-col pb-16 sm:pb-0">
       <AppHeader />
       <ApiKeyPrompt />
-      <main ref={mainRef} className="mt-header flex w-full flex-1 flex-col">
+      <main
+        ref={mainRef}
+        className="mt-header relative isolate flex w-full flex-1 flex-col"
+      >
         <Outlet />
       </main>
       <AppFooter />

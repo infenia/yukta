@@ -25,6 +25,7 @@ export function ControlPage() {
     <ControlEventsProvider>
       <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
         <PageHeader
+          backdrop
           title="Control bus"
           description="Who and what is steering runs: live nodes and their heartbeats, supervisors, workers, and every control command with who sent it."
           actions={
