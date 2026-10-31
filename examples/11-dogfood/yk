@@ -16,6 +16,7 @@
 #   yk decision                              probe the optional decision model (decisions.json, YUKTA_DECISION_MODEL/_URL/off); yk status shows the same line
 #   yk tool [--detach] [-C dir] <cmd...>     run any other command once, e.g. -C ui pnpm lint | -C cli go test ./...
 #   yk pickup session                        open the interactive Claude Code session that receives issues through the yukta-pickup channel
+#   yk pickup on|off|now|status              the schedule that hands it the next assigned, Ready issue every 30 min (now: one round at once)
 #
 # A run's last line is machine readable; exit 0 only on success:
 #   RESULT status=<S> failed_node=<node|-> healed=<stage:step,..|-> execution=<id> session=<id> wall=<s> cost=$<heal spend> bytes=<shown to you>
@@ -56,7 +57,8 @@ cmd_down() {
 # channel needs --dangerously-load-development-channels, whose dialog you accept at every start; -p ignores the flag). The channel server
 # is spawned by that session, not by the repo .mcp.json, so no other session fights for its port.
 cmd_pickup() {
-  case "${1:-}" in
+  local sub="${1:-}"
+  case "$sub" in
     session)
       need claude; need jq
       mkdir -p "$DEV_HOME"
@@ -65,7 +67,30 @@ cmd_pickup() {
       cfg="$(jq -nc --arg s "$here/channel/yukta-pickup.py" '{mcpServers: {"yukta-pickup": {command: "python3", args: ["-I", $s]}}}')"
       cd "$REPO_ROOT"
       exec claude --name yukta-pickup --mcp-config "$cfg" --dangerously-load-development-channels server:yukta-pickup ;;
-    *) die "usage: yk pickup session" ;;
+    on)
+      need jq; ensure_server
+      if pickup_alive; then echo "pickup: already on (execution $(cat "$DEV_HOME/pickup.exec"))"; return 0; fi
+      echo "pickup: on (execution $(pickup_start || die "could not start the pickup workflow"))" ;;
+    off)
+      need jq
+      if pickup_alive; then
+        (api POST "/api/executions/$(cat "$DEV_HOME/pickup.exec")/stop?tree=true") >/dev/null 2>&1 || true
+      fi
+      rm -f "$DEV_HOME/pickup.exec"
+      echo "pickup: off" ;;
+    now) need jq; exec "$here/scripts/pickup.sh" tick ;;
+    status)
+      need jq
+      local e port="${YUKTA_PICKUP_PORT:-8790}" st
+      if pickup_alive; then e="on (execution $(cat "$DEV_HOME/pickup.exec"))"; elif [[ -s "$DEV_HOME/pickup.exec" ]]; then e="on, but not running (the next yk call restarts it)"; else e=off; fi
+      echo "schedule: $e"
+      if st="$(curl -fsS -m 3 "http://127.0.0.1:$port/status" 2>/dev/null)"; then
+        echo "channel: up on :$port, $(jq -r 'if .busy then "busy with #\(.issue)" else "idle" end' <<<"$st")"
+      else
+        echo "channel: none on :$port (yk pickup session)"
+      fi
+      [[ ! -s "$DEV_HOME/pickup.jsonl" ]] || { echo "last:"; tail -n 5 "$DEV_HOME/pickup.jsonl"; } ;;
+    *) die "usage: yk pickup session|on|off|now|status" ;;
   esac
 }
 
