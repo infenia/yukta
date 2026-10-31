@@ -139,9 +139,9 @@ describe('WorkflowDetailsPage', () => {
     expect(await screen.findByTestId('stage-lint')).toBeInTheDocument();
     expect(screen.getByTestId('stage-frame-test')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Group by stage' })).toBeChecked();
-    // a stage box is not a node the logs can narrow to
+    // a stage box is not a node: no sheet
     fireEvent.click(screen.getByTestId('stage-lint'));
-    expect(screen.queryByText(/^Node: /)).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('radio', { name: 'All nodes' }));
     expect(
@@ -198,20 +198,88 @@ describe('WorkflowDetailsPage', () => {
     );
   });
 
-  it('narrows the logs to a node clicked on the canvas', async () => {
-    const user = userEvent.setup();
-    renderPage();
-    // fireEvent: user-event's pointer events on the xyflow pane outlive the test
-    fireEvent.click(await screen.findByTestId('workflow-node-vectorize-batch'));
-    expect(
-      await screen.findByText('Node: vectorize-batch')
-    ).toBeInTheDocument();
-    await user.click(
-      screen.getByRole('button', {
-        name: "Show every node's lines, not only vectorize-batch's",
-      })
-    );
-    expect(screen.queryByText('Node: vectorize-batch')).not.toBeInTheDocument();
+  describe('node sheet', () => {
+    const definition = () =>
+      server.use(
+        http.get('/api/sessions/:sessionId/workflows/:workflowId', () =>
+          HttpResponse.json({
+            timestamp: 't',
+            status: 200,
+            message: 'ok',
+            path: '/workflow',
+            data: {
+              workflowId: 'wf-982-xk-11',
+              nodes: [
+                {
+                  nodeId: 'vectorize-batch',
+                  type: 'X',
+                  config: { apiKey: '******', batch: 8 },
+                },
+              ],
+            },
+          })
+        )
+      );
+
+    it('opens a clicked node with its masked config, and closes it', async () => {
+      definition();
+      const user = userEvent.setup();
+      renderPage();
+      // fireEvent: user-event's pointer events on the xyflow pane outlive the test
+      fireEvent.click(
+        await screen.findByTestId('workflow-node-vectorize-batch')
+      );
+      const sheet = await screen.findByRole('dialog', {
+        name: 'vectorize-batch',
+      });
+      expect(await within(sheet).findByText(/"apiKey": "\*{6}"/)).toBeVisible();
+      expect(
+        within(sheet).getByText('No log lines from this node.')
+      ).toBeVisible();
+
+      await user.click(
+        within(sheet).getByRole('button', { name: 'Close node details' })
+      );
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('opens from a shared ?node= link', async () => {
+      definition();
+      renderPage(
+        '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11?node=vectorize-batch'
+      );
+      expect(
+        await screen.findByRole('dialog', { name: 'vectorize-batch' })
+      ).toBeInTheDocument();
+    });
+
+    it('ignores a ?node= that is not in the graph', async () => {
+      renderPage(
+        '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11?node=nope'
+      );
+      await screen.findByTestId('workflow-node-vectorize-batch');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('ignores other keys, and Enter pressed inside the node', async () => {
+      renderPage();
+      const card = await screen.findByTestId('workflow-node-vectorize-batch');
+      fireEvent.keyDown(card, { key: 'a' });
+      fireEvent.keyDown(must(card.firstElementChild), { key: 'Enter' });
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('opens on Enter from a focused node', async () => {
+      definition();
+      renderPage();
+      fireEvent.keyDown(
+        await screen.findByTestId('workflow-node-vectorize-batch'),
+        { key: 'Enter' }
+      );
+      expect(
+        await screen.findByRole('dialog', { name: 'vectorize-batch' })
+      ).toBeInTheDocument();
+    });
   });
 
   it('follows the running nodes of a live run until told not to', async () => {
