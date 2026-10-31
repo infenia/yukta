@@ -209,7 +209,8 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
           ended.nodeStatuses(),
           started.timestamp(),
           ended.timestamp(),
-          started.definitionVersion());
+          started.definitionVersion(),
+          started.initiator());
     }
   }
 

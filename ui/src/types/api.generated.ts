@@ -2908,6 +2908,7 @@ export interface components {
             /** Format: date-time */
             endTime?: string;
             executionId?: string;
+            initiator?: string | null;
             nodes?: components["schemas"]["Nodes"];
             sessionId?: string;
             /** Format: date-time */
@@ -3309,6 +3310,8 @@ export interface components {
             endTime?: string | null;
             /** @description The unique execution identifier */
             executionId?: string;
+            /** @description Who or what started the run (a name given at the start, or the key that started it), if known */
+            initiator?: string | null;
             /** @description How far the run got through its nodes */
             nodes?: components["schemas"]["Nodes"];
             /** @description The run that started this one as a sub-workflow, if any */
@@ -3389,6 +3392,11 @@ export interface components {
         };
         /** @description Request object for starting a workflow */
         WorkflowStartRequest: {
+            /**
+             * @description Optional name of who or what starts the run; shown as the run's initiator. Defaults to the name of the API key.
+             * @example yk check
+             */
+            initiator?: string;
             /** @description Optional trigger payload passed to the workflow's trigger node */
             payload?: {
                 [key: string]: unknown;

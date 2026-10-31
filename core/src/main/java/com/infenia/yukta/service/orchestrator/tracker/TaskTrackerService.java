@@ -174,6 +174,16 @@ public interface TaskTrackerService {
   void removeSession(@SessionId String sessionId);
 
   /**
+   * Records who or what started a run, for its history entry.
+   *
+   * @param executionId the execution
+   * @param initiator the name, or null when it is not known
+   */
+  default void setInitiator(final String executionId, final String initiator) {
+    // a tracker that keeps no history has nothing to record
+  }
+
+  /**
    * Emit a task status event for asynchronous processing.
    *
    * @param executionId the execution identifier

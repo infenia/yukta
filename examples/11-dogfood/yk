@@ -15,6 +15,7 @@
 #   yk bench [--runs N] [--max-ratio R] [--check] [args]  the same Gradle work direct and through yk: wall times and ratio (exit 1 above R and +3 s)
 #   yk decision                              probe the optional decision model (decisions.json, YUKTA_DECISION_MODEL/_URL/off); yk status shows the same line
 #   yk tool [--detach] [-C dir] <cmd...>     run any other command once, e.g. -C ui pnpm lint | -C cli go test ./...
+#   (check, gradle, tool) --detach --notify  also post the RESULT into the Claude Code session that started the run when it ends (YUKTA_NOTIFY=off: never)
 #   yk pickup session [--name N]             open an interactive Claude Code session that receives issues through its yukta-pickup channel (several may be open)
 #   yk pickup on|off|now [--to N]|status     the schedule that hands each idle session the next assigned, Ready issue every 30 min (now: one round at once)
 #
@@ -167,20 +168,47 @@ run_tool() {
     | jq -r '.data.executionId // .executionId')"
   [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start workflow"
   echo "STARTED execution=$exec_id session=$session"
+  [[ "${YK_NOTIFY:-}" != 1 ]] || YUKTA_PROJECT="$project" YUKTA_SCOPE="args:$(printf '%.60s' "$*")" start_notifier "$session" "$exec_id"
   [[ "$mode" == detach ]] && return 0
   YUKTA_PROJECT="$project" YUKTA_SCOPE="args:$(printf '%.60s' "$*")" watch_owned "$session" "$exec_id"
 }
 
-# yk check [--full] [--base REF] [--no-heal] [--models haiku,sonnet] [--triage off] [--detach]
+# start_notifier SESSION EXECUTION: with --notify, a detached `yk _notify` follows the run and posts into the Claude Code session that started it
+# (the approvals while it runs, the RESULT when it ends). Its output goes to .yukta-dev/notify-<execution>.log.
+start_notifier() {
+  if [[ -z "${CLAUDE_CODE_MESSAGING_SOCKET:-}" ]]; then
+    echo "notify: not started from a Claude Code session with cross-session messaging (no CLAUDE_CODE_MESSAGING_SOCKET); the run goes on without it" >&2
+    return 0
+  fi
+  [[ "${YUKTA_NOTIFY:-on}" != off ]] || return 0
+  mkdir -p "$STATE_DIR"
+  setsid "${BASH_SOURCE[0]}" _notify "$1" "$2" >"$STATE_DIR/notify-$2.log" 2>&1 </dev/null &
+}
+
+# yk _notify SESSION EXECUTION (internal): follows the run like `yk watch`, posts each APPROVAL line at once and, when the run ends, the summary.
+cmd_notify_run() {
+  local session="${1:?session}" exec="${2:?execution}" log line
+  log="$(mktemp)"
+  trap "rm -f '$log'" EXIT  # expanded now: $log is local and gone when the trap runs
+  cmd_watch "$session" "$exec" 2>&1 | while IFS= read -r line; do
+    printf '%s\n' "$line"
+    printf '%s\n' "$line" >>"$log"
+    [[ "$line" != APPROVAL\ * ]] || notify_session "[yk] $line"
+  done
+  notify_session "$(notify_text "$session" "$exec" "$log")"
+}
+
+# yk check [--full] [--base REF] [--no-heal] [--models haiku,sonnet] [--triage off] [--detach [--notify]]
 # The scoped, self-healing gate. scripts/plan.sh turns the changes into stage commands; the `check` workflow (scripts/gen-check.py)
 # runs them one after the other through `tool`. A failing stage goes to `heal` (scripts/gen-heal.py): its free fix, then the
 # System One triage rates the failure and picks the model and effort to start with, and fresh Claude sessions climb from there.
 # --no-heal sends heal = "off": heal ends at once, so the first failing stage ends the run.
 cmd_check() {
-  local mode=watch plan_args=() heal=on fast=on models="" triage=on root plan cmds only="" skip=""
+  local mode=watch plan_args=() heal=on fast=on models="" triage=on root plan cmds only="" skip="" notify=0
   while (($#)); do
     case "$1" in
       --detach) mode=detach; shift ;;
+      --notify) notify=1; shift ;;
       --full) plan_args+=(--full); shift ;;
       --base) plan_args+=(--base "${2:?--base needs a ref}"); shift 2 ;;
       --no-heal) heal=off; shift ;;
@@ -189,10 +217,11 @@ cmd_check() {
       --skip) skip="${2:?--skip needs stage names, e.g. security}"; shift 2 ;;
       --models) models="${2:?--models needs models, e.g. haiku,sonnet}"; shift 2 ;;
       --triage) [[ "${2:-}" == off ]] || die "invalid --triage '${2:-}' (off)"; triage=off; shift 2 ;;
-      *) die "unknown option '$1' (yk check [--full] [--base REF] [--stage a,b] [--skip a,b] [--no-heal] [--no-fast] [--models ..] [--triage off] [--detach])" ;;
+      *) die "unknown option '$1' (yk check [--full] [--base REF] [--stage a,b] [--skip a,b] [--no-heal] [--no-fast] [--models ..] [--triage off] [--detach [--notify]])" ;;
     esac
   done
   [[ -z "$models" || "$models" =~ ^(haiku|sonnet)(,(haiku|sonnet))*$ ]] || die "invalid --models '$models' (models from haiku, sonnet)"
+  ((notify == 0)) || [[ "$mode" == detach ]] || die "--notify needs --detach: a run you wait for reports to you anyway"
   need jq
   root="$(git rev-parse --show-toplevel)"
   plan="$("$here/scripts/plan.sh" "${plan_args[@]}")" || die "yk plan failed"
@@ -259,6 +288,7 @@ cmd_check() {
   [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start the check"
   [[ "$heal" != on ]] || echo "$exec_id" >"$STATE_DIR/check.holder"
   echo "STARTED execution=$exec_id session=$session"
+  ((notify == 0)) || YUKTA_FAILED_OUTPUT=1 YUKTA_PROJECT="$root" YUKTA_SCOPE=check start_notifier "$session" "$exec_id"
   [[ "$mode" == detach ]] && return 0
   YUKTA_FAILED_OUTPUT=1 YUKTA_PROJECT="$root" YUKTA_SCOPE=check watch_owned "$session" "$exec_id"
 }
@@ -266,24 +296,33 @@ cmd_check() {
 # yk gradle ARGS: ./gradlew ARGS in the checkout. yk tool [-C dir] CMD ARGS: any command in dir (relative to the
 # checkout root, default the root). Both are one run of the tool workflow; every argument is shell-quoted.
 cmd_gradle() {
-  local mode=watch
-  [[ "${1:-}" == --detach ]] && { mode=detach; shift; }
-  (($#)) || die "usage: yk gradle [--detach] <gradle args...>"
-  YK_TOOL=gradle run_tool "$mode" "$(git rev-parse --show-toplevel)" "$@"
+  local mode=watch notify=0
+  while (($#)); do
+    case "$1" in
+      --detach) mode=detach; shift ;;
+      --notify) notify=1; shift ;;
+      *) break ;;
+    esac
+  done
+  (($#)) || die "usage: yk gradle [--detach [--notify]] <gradle args...>"
+  ((notify == 0)) || [[ "$mode" == detach ]] || die "--notify needs --detach: a run you wait for reports to you anyway"
+  YK_NOTIFY=$((notify)) YK_TOOL=gradle run_tool "$mode" "$(git rev-parse --show-toplevel)" "$@"
 }
 
 cmd_tool() {
-  local mode=watch root dir
+  local mode=watch root dir notify=0
   root="$(git rev-parse --show-toplevel)" dir="$root"
   while (($#)); do
     case "$1" in
       --detach) mode=detach; shift ;;
+      --notify) notify=1; shift ;;
       -C) dir="$(cd "$root" && cd "${2:?-C needs a folder}" && pwd)" || die "no folder '$2'"; shift 2 ;;
       *) break ;;
     esac
   done
-  (($#)) || die "usage: yk tool [--detach] [-C dir] <command> [args...]"
-  YK_TOOL=tool run_tool "$mode" "$dir" "$@"
+  (($#)) || die "usage: yk tool [--detach [--notify]] [-C dir] <command> [args...]"
+  ((notify == 0)) || [[ "$mode" == detach ]] || die "--notify needs --detach: a run you wait for reports to you anyway"
+  YK_NOTIFY=$((notify)) YK_TOOL=tool run_tool "$mode" "$dir" "$@"
 }
 
 # watch_owned SESSION EXECUTION: cmd_watch for a run this client started. The run ends with the client: Ctrl-C, or Claude Code stopping
@@ -691,6 +730,7 @@ case "$cmd" in
   advise) exec "$here/scripts/advise.sh" "$@" ;;
   heal) need python3; exec python3 -I "$here/scripts/heal-report.py" "$@" ;;
   watch) cmd_watch "$@" ;;
+  _notify) cmd_notify_run "$@" ;;
   tree) cmd_tree "$@" ;;
   pause | resume | stop) cmd_run_control "$cmd" "$@" ;;
   skip | unskip | retry) cmd_node_control "$cmd" "$@" ;;

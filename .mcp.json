@@ -1,12 +1,8 @@
 {
   "mcpServers": {
-    "codegraph": {
+    "codebase-memory": {
       "type": "stdio",
-      "command": "codegraph",
-      "args": [
-        "serve",
-        "--mcp"
-      ]
+      "command": "codebase-memory-mcp"
     },
     "yukta": {
       "type": "http",

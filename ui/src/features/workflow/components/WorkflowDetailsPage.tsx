@@ -26,6 +26,7 @@ import { ProgressPanel } from './ProgressPanel';
 import { RunHistoryDropdown } from './RunHistoryDropdown';
 import { WorkflowCanvas } from './WorkflowCanvas';
 import { GroupingSwitch } from './nodes/StageNodes';
+import { RunTimeline, ViewSwitch, type RunView } from './RunTimeline';
 import { WorkflowTitleBar } from './WorkflowTitleBar';
 import { WorkflowVersionsPanel } from './WorkflowVersionsPanel';
 import { isTerminalExecStatus, toDisplayExecStatus } from '../lib/statusMapper';
@@ -74,6 +75,7 @@ export function WorkflowDetailsPage() {
       },
       { replace: true }
     );
+  const [view, setView] = useState<RunView>('graph');
 
   const graphQuery = useWorkflowGraph(sessionId, workflowId);
   const executionsQuery = useWorkflowExecutions(sessionId, workflowId);
@@ -385,47 +387,62 @@ export function WorkflowDetailsPage() {
         <div className="flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="relative min-h-0 flex-1">
-              <WorkflowCanvas
-                graph={graph}
-                tasksByNode={tasksByNode}
-                stageView={stages.stageView}
-                onNodeClick={setOpenNode}
-                follow={follow && followable}
-                find={findQuery}
-              />
-              {/* The canvas toolbar; its gaps pass the pointer through to the canvas */}
-              <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-wrap items-center gap-2">
-                <input
-                  type="search"
-                  aria-label="Find node on canvas"
-                  placeholder="Find node"
-                  value={findQuery}
-                  onChange={(event) => setFindQuery(event.target.value)}
-                  className="border-border bg-surface text-body-md shadow-card placeholder:text-on-surface-variant focus-visible:ring-primary/40 pointer-events-auto h-8 w-60 rounded-full border px-3 outline-none focus-visible:ring-2"
+              {view === 'timeline' && (
+                <RunTimeline
+                  tasks={progress?.tasks}
+                  switcher={<ViewSwitch view={view} onChange={setView} />}
                 />
-                {stages.hasStages && (
-                  <GroupingSwitch
-                    grouped={stages.grouped}
-                    onChange={stages.setGrouped}
+              )}
+              {view === 'graph' && (
+                <WorkflowCanvas
+                  graph={graph}
+                  tasksByNode={tasksByNode}
+                  stageView={stages.stageView}
+                  onNodeClick={setOpenNode}
+                  follow={follow && followable}
+                  find={findQuery}
+                />
+              )}
+              {/* The canvas toolbar; its gaps pass the pointer through to the canvas */}
+              {view === 'graph' && (
+                <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-wrap items-center gap-2">
+                  <ViewSwitch
+                    view={view}
+                    onChange={setView}
                     className="pointer-events-auto"
                   />
-                )}
-                {followable && (
-                  <button
-                    type="button"
-                    aria-pressed={follow}
-                    onClick={() => setFollow((value) => !value)}
-                    className={cn(
-                      'border-border bg-surface text-label-sm shadow-card pointer-events-auto ml-auto rounded-lg border px-2.5 py-1',
-                      follow
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-on-surface-variant hover:text-on-surface'
-                    )}
-                  >
-                    Follow running nodes
-                  </button>
-                )}
-              </div>
+                  <input
+                    type="search"
+                    aria-label="Find node on canvas"
+                    placeholder="Find node"
+                    value={findQuery}
+                    onChange={(event) => setFindQuery(event.target.value)}
+                    className="border-border bg-surface text-body-md shadow-card placeholder:text-on-surface-variant focus-visible:ring-primary/40 pointer-events-auto h-8 w-60 rounded-full border px-3 outline-none focus-visible:ring-2"
+                  />
+                  {stages.hasStages && (
+                    <GroupingSwitch
+                      grouped={stages.grouped}
+                      onChange={stages.setGrouped}
+                      className="pointer-events-auto"
+                    />
+                  )}
+                  {followable && (
+                    <button
+                      type="button"
+                      aria-pressed={follow}
+                      onClick={() => setFollow((value) => !value)}
+                      className={cn(
+                        'border-border bg-surface text-label-sm shadow-card pointer-events-auto ml-auto rounded-lg border px-2.5 py-1',
+                        follow
+                          ? 'bg-accent text-accent-foreground'
+                          : 'text-on-surface-variant hover:text-on-surface'
+                      )}
+                    >
+                      Follow running nodes
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             <LogsPanel
               sessionId={sessionId}

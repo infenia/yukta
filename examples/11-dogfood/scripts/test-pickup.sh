@@ -41,7 +41,8 @@ start_channel() {
 }
 done_for() { echo "{\"jsonrpc\":\"2.0\",\"id\":$3,\"method\":\"tools/call\",\"params\":{\"name\":\"pickup_done\",\"arguments\":{\"issue\":$2,\"outcome\":\"pr\"}}}" >&"${FD[$1]}"; sleep 0.4; }
 issues() { jq -nc '[{number: 11, title: "low", url: "u11"}, {number: 12, title: "top", url: "u12"}, {number: 13, title: "unready", url: "u13"}, {number: 14, title: "later", url: "u14"}]' >"$tmp/gh/mine.json"; }
-ready() { jq -nc --argjson i "$1" '{items: $i}' >"$tmp/gh/ready.json"; }
+# the real project has about 1200 items (2.4 MB of JSON): pad every answer so it is far past the 128 KB one jq argument can hold
+ready() { jq -nc --argjson i "$1" '{items: ($i + [range(5000) | {status: "Done", priority: "P3", title: ("x" * 60), content: {number: (100000 + .)}}])}' >"$tmp/gh/ready.json"; }
 issues
 
 # 1. no channel (an empty registry, and one whose only entry is a dead pid: dropped)
