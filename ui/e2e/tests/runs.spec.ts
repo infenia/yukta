@@ -26,7 +26,7 @@ const run = (n: number, status: string) => ({
 
 test.describe('Runs page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/sessions/summaries', (route) =>
+    await page.route('**/api/sessions/summaries*', (route) =>
       route.fulfill(envelope('/summaries', []))
     );
     await page.route('**/api/executions?*', (route) => {

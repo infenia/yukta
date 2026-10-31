@@ -2,7 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { api, fetchApi, ApiError, type ApiResponse } from '../apiClient';
+import {
+  api,
+  fetchAllPages,
+  fetchApi,
+  fetchApiPage,
+  ApiError,
+  type ApiResponse,
+} from '../apiClient';
 import { API_KEY_REQUIRED_EVENT } from '../apiKey';
 import { setMe, type Me } from '../identity';
 
@@ -44,11 +51,13 @@ function mockFetch(init: {
   status: number;
   statusText?: string;
   body?: unknown;
+  headers?: Record<string, string>;
 }) {
   const fetchMock = vi.fn().mockResolvedValueOnce({
     ok: init.ok,
     status: init.status,
     statusText: init.statusText ?? '',
+    headers: new Headers(init.headers),
     json:
       init.body === undefined
         ? vi.fn().mockRejectedValueOnce(new SyntaxError('Unexpected token <'))
@@ -145,10 +154,16 @@ describe('fetchApi', () => {
     expect(required).toHaveBeenCalledTimes(1);
 
     setMe({ ...ME, role: 'VIEWER' });
-    mockFetch({ ok: false, status: 403, body: { message: 'This API key may not do that' } });
+    mockFetch({
+      ok: false,
+      status: 403,
+      body: { message: 'This API key may not do that' },
+    });
     const refused = await fetchApi('/api/x').catch((e: ApiError) => e);
     expect(refused).toMatchObject({ status: 403, kind: 'forbidden' });
-    expect((refused as ApiError).message).toBe("Your key (role VIEWER) can't do this");
+    expect((refused as ApiError).message).toBe(
+      "Your key (role VIEWER) can't do this"
+    );
     expect(required).toHaveBeenCalledTimes(1);
 
     setMe(null);
@@ -157,3 +172,68 @@ describe('fetchApi', () => {
     window.removeEventListener(API_KEY_REQUIRED_EVENT, required);
   });
 });
+
+describe('paged lists', () => {
+  beforeEach(() => {
+    global.fetch = vi.fn();
+  });
+
+  const page = (data: number[]): ApiResponse<number[]> => ({
+    timestamp: 't',
+    status: 200,
+    message: 'ok',
+    data,
+    path: '/api/list',
+  });
+
+  it('returns the cursor the server announced, or null', async () => {
+    mockFetch({
+      ok: true,
+      status: 200,
+      body: page([1]),
+      headers: { 'X-Next-Cursor': 'c1' },
+    });
+    await expect(fetchApiPage('/api/list')).resolves.toEqual({
+      data: [1],
+      nextCursor: 'c1',
+    });
+    mockFetch({ ok: true, status: 200, body: page([2]) });
+    await expect(fetchApiPage('/api/list')).resolves.toEqual({
+      data: [2],
+      nextCursor: null,
+    });
+  });
+
+  it('follows the cursor until the last page', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(answer(page([1, 2]), 'a b'))
+      .mockResolvedValueOnce(answer(page([3])));
+    global.fetch = fetchMock;
+
+    await expect(fetchAllPages('/api/list', 2, 10)).resolves.toEqual([1, 2, 3]);
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      '/api/list?limit=2',
+      '/api/list?limit=2&cursor=a%20b',
+    ]);
+  });
+
+  it('adds to a query string that is already there, and stops at maxPages', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(answer(page([1]), 'more'));
+    global.fetch = fetchMock;
+
+    await expect(fetchAllPages('/api/list?x=1', 1, 2)).resolves.toEqual([1, 1]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/list?x=1&limit=1');
+  });
+});
+
+function answer(body: unknown, cursor?: string) {
+  return {
+    ok: true,
+    status: 200,
+    statusText: '',
+    headers: new Headers(cursor ? { 'X-Next-Cursor': cursor } : {}),
+    json: () => Promise.resolve(body),
+  };
+}
