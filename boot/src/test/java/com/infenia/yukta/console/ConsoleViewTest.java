@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 class ConsoleViewTest {
 
   private final ConsoleLogs logs = new ConsoleLogs();
-  private final ConsoleView view = new ConsoleView("1.2", "http://h:1", logs);
+  private final ConsoleView view = new ConsoleView("1.2", "http://h:1", logs, false);
   private final ConsoleView.Snapshot snap =
       new ConsoleView.Snapshot(
           "UP",
@@ -30,6 +30,23 @@ class ConsoleViewTest {
     final String all = String.join("\n", screen());
     assertThat(all).contains("Yukta 1.2", "up 0h01m05s", "health UP", "running 2", "build");
     assertThat(screen()).hasSize(20);
+  }
+
+  @Test
+  void colorsOnlyWhenWanted() {
+    final var colored = new ConsoleView("1.2", "http://h:1", logs, true);
+    assertThat(String.join("", colored.render(snap, Duration.ZERO, 80, 20)))
+        .contains("\033[32mUP", "\033[31m3");
+    assertThat(String.join("", screen())).doesNotContain("\033");
+  }
+
+  @Test
+  void colorFollowsNoColorAndTerm() {
+    assertThat(ConsoleView.colorWanted(java.util.Map.of("TERM", "xterm"))).isTrue();
+    assertThat(ConsoleView.colorWanted(java.util.Map.of("TERM", "xterm", "NO_COLOR", "")))
+        .isFalse();
+    assertThat(ConsoleView.colorWanted(java.util.Map.of("TERM", "dumb"))).isFalse();
+    assertThat(ConsoleView.colorWanted(java.util.Map.of())).isFalse();
   }
 
   @Test

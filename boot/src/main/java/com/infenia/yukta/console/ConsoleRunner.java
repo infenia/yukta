@@ -60,7 +60,11 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
             .map(BuildProperties::getVersion)
             .orElse("dev");
     final ConsoleView view =
-        new ConsoleView(version, "http://127.0.0.1:" + port, ConsoleLogs.install());
+        new ConsoleView(
+            version,
+            "http://127.0.0.1:" + port,
+            ConsoleLogs.install(),
+            ConsoleView.colorWanted(System.getenv()));
     Thread.ofPlatform()
         .name("yukta-console")
         .daemon(true)

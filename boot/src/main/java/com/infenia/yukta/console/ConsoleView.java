@@ -14,6 +14,7 @@ import java.util.List;
   "PMD.FieldDeclarationsShouldBeAtStartOfClass",
   "PMD.AvoidFieldNameMatchingMethodName",
   "PMD.CyclomaticComplexity",
+  "PMD.NPathComplexity",
   "PMD.AvoidLiteralsInIfCondition",
   "PMD.AvoidReassigningLoopVariables"
 })
@@ -34,6 +35,10 @@ import java.util.List;
   private static final String RESET = "\033[0m";
   private static final String BOLD = "\033[1m";
   private static final String DIM = "\033[2m";
+  private static final String RED = "\033[31m";
+  private static final String GREEN = "\033[32m";
+  private static final String YELLOW = "\033[33m";
+  private static final String CYAN = "\033[36m";
 
   /** One row of the runs table. */
   /* default */ record Run(String workflow, String status, String started, String initiator) {}
@@ -47,13 +52,22 @@ import java.util.List;
   private final String version;
   private final String url;
   private final ConsoleLogs logs;
+  private final boolean color;
 
   private Page page = Page.DASHBOARD;
   private int levelIndex = 2; // INFO
   private int scroll; // lines up from the newest; 0 follows the tail
   private boolean quit;
 
-  /* default */ ConsoleView(final String version, final String url, final ConsoleLogs logs) {
+  /** Whether the environment asks for plain text: NO_COLOR is set (any value) or TERM is dumb. */
+  /* default */ static boolean colorWanted(final java.util.Map<String, String> env) {
+    final String term = env.get("TERM");
+    return !env.containsKey("NO_COLOR") && term != null && !"dumb".equals(term);
+  }
+
+  /* default */ ConsoleView(
+      final String version, final String url, final ConsoleLogs logs, final boolean color) {
+    this.color = color;
     this.version = version;
     this.url = url;
     this.logs = logs;
@@ -117,9 +131,22 @@ import java.util.List;
             + "  up "
             + fmt(uptime)
             + "  health "
-            + s.health());
+            + ("UP".equals(s.health()) ? GREEN : RED)
+            + s.health()
+            + RESET);
     out.add(
-        "runs: running " + s.running() + "  queued " + s.queued() + "  failed(24h) " + s.failed());
+        "runs: running "
+            + CYAN
+            + s.running()
+            + RESET
+            + "  queued "
+            + (s.queued() > 0 ? YELLOW : "")
+            + s.queued()
+            + RESET
+            + "  failed(24h) "
+            + (s.failed() > 0 ? RED : "")
+            + s.failed()
+            + RESET);
     out.add("-".repeat(Math.max(0, width)));
     final int body = height - out.size() - 1;
     switch (page) {
@@ -138,7 +165,8 @@ import java.util.List;
     }
     final List<String> framed = new ArrayList<>(out.subList(0, height - 1));
     framed.add(DIM + "q quit  l logs  r runs  ? help  f level>=" + level() + "  ↑↓ scroll" + RESET);
-    return framed.stream().map(l -> clip(l, width)).toList();
+    final var lines = framed.stream().map(l -> clip(l, width));
+    return (color ? lines : lines.map(l -> l.replaceAll("\033\\[[0-9;]*m", ""))).toList();
   }
 
   private static List<String> runs(final Snapshot s, final int rows) {
@@ -149,13 +177,26 @@ import java.util.List;
             + RESET);
     for (final Run r : s.runs().stream().limit(Math.max(0, rows - 1)).toList()) {
       out.add(
-          String.format(
-              "%-28s %-10s %-20s %s", r.workflow(), r.status(), r.started(), r.initiator()));
+          String.format("%-28s ", r.workflow())
+              + statusColor(r.status())
+              + String.format("%-10s", r.status())
+              + RESET
+              + String.format(" %-20s %s", r.started(), r.initiator()));
     }
     if (s.runs().isEmpty()) {
       out.add(DIM + "no runs yet" + RESET);
     }
     return out;
+  }
+
+  private static String statusColor(final String status) {
+    return switch (status) {
+      case "RUNNING" -> CYAN;
+      case "SUCCESS" -> GREEN;
+      case "FAILURE", "TIMED_OUT" -> RED;
+      case "QUEUED", "PAUSED" -> YELLOW;
+      default -> "";
+    };
   }
 
   private List<String> logLines(final int rows) {
@@ -170,9 +211,12 @@ import java.util.List;
 
   private static String colour(final ConsoleLogs.Line l) {
     if (l.level().isGreaterOrEqual(Level.ERROR)) {
-      return "\033[31m" + l.text() + RESET;
+      return RED + l.text() + RESET;
     }
-    return l.level().isGreaterOrEqual(Level.WARN) ? "\033[33m" + l.text() + RESET : l.text();
+    if (l.level().isGreaterOrEqual(Level.WARN)) {
+      return YELLOW + l.text() + RESET;
+    }
+    return l.level().isGreaterOrEqual(Level.INFO) ? l.text() : DIM + l.text() + RESET;
   }
 
   private static List<String> help() {
