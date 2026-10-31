@@ -15,16 +15,22 @@ import {
 interface Props {
   sessionId: string;
   workflowId: string;
+  /** The run on screen is going: only then can a step start to wait, so only then poll. */
+  live?: boolean;
 }
 
 /** Steps of this workflow that wait for a person to approve or reject. */
-export function PendingApprovals({ sessionId, workflowId }: Props) {
+export function PendingApprovals({
+  sessionId,
+  workflowId,
+  live = true,
+}: Props) {
   const queryClient = useQueryClient();
   const key = ['approvals', sessionId];
   const approvals = useQuery({
     queryKey: key,
     queryFn: () => getPendingApprovals(sessionId),
-    refetchInterval: 5000,
+    refetchInterval: live ? 5000 : false,
   });
   const decide = useMutation({
     mutationFn: ({
