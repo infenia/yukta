@@ -50,7 +50,7 @@ test.describe('Error Handling - Mocked API Failures', () => {
     context,
   }) => {
     const freshPage = await context.newPage();
-    await freshPage.route('**/api/sessions/summaries', async (route) => {
+    await freshPage.route('**/api/sessions/summaries*', async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 500));
       await route.fulfill({
         status: 500,

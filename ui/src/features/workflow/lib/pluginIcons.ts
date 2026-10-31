@@ -30,6 +30,12 @@ const PLUGIN_ICONS: Record<string, string> = {
   FILE_WRITE: 'save_as',
   CONSOLE_TERMINAL: 'terminal',
   NOTIFY_TERMINAL: 'notifications',
+  CLASSIFY: 'label',
+  GATE: 'shield',
+  SCORE: 'grade',
+  ASK: 'help',
+  ANOMALY: 'warning',
+  DEDUPE: 'content_copy',
 };
 
 const CATEGORY_ICONS: Record<PluginCategory, string> = {

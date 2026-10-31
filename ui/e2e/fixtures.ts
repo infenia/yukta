@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { test as base } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { SessionListItem } from '../src/features/sessions/types/session';
 import type {
@@ -59,9 +59,12 @@ const defaultSessions: SessionListItem[] = [
 
 async function mockSessionsApi(
   page: Page,
-  { status = 200, sessions = defaultSessions }: { status?: number; sessions?: SessionListItem[] }
+  {
+    status = 200,
+    sessions = defaultSessions,
+  }: { status?: number; sessions?: SessionListItem[] }
 ): Promise<void> {
-  await page.route('**/api/sessions/summaries', (route) => {
+  await page.route('**/api/sessions/summaries*', (route) => {
     if (status !== 200) {
       return route.fulfill({
         status,
@@ -132,10 +135,19 @@ const defaultWorkflowGraph: WorkflowGraph = {
   edges: [
     { source: 'Data_Ingress', target: 'Vectorize_Batch', sourcePort: null },
     { source: 'Data_Ingress', target: 'Anomaly_Detection', sourcePort: null },
-    { source: 'Vectorize_Batch', target: 'Sink_Storage', sourcePort: 'default' },
+    {
+      source: 'Vectorize_Batch',
+      target: 'Sink_Storage',
+      sourcePort: 'default',
+    },
     { source: 'Anomaly_Detection', target: 'Sink_Storage', sourcePort: null },
   ],
-  topologicalOrder: ['Data_Ingress', 'Vectorize_Batch', 'Anomaly_Detection', 'Sink_Storage'],
+  topologicalOrder: [
+    'Data_Ingress',
+    'Vectorize_Batch',
+    'Anomaly_Detection',
+    'Sink_Storage',
+  ],
 };
 
 const defaultExecutions: ExecutionSummary[] = [
@@ -195,8 +207,16 @@ export const defaultProgress: WorkflowProgress = {
 };
 
 const defaultLogs: LogEntry[] = [
-  { message: 'Initializing workflow engine...', level: 'INFO', timestamp: '2026-07-26T14:22:01Z' },
-  { message: 'Loading node: Data_Ingress', level: 'INFO', timestamp: '2026-07-26T14:22:03Z' },
+  {
+    message: 'Initializing workflow engine...',
+    level: 'INFO',
+    timestamp: '2026-07-26T14:22:01Z',
+  },
+  {
+    message: 'Loading node: Data_Ingress',
+    level: 'INFO',
+    timestamp: '2026-07-26T14:22:03Z',
+  },
   {
     message: "Connection established to S3 bucket 'raw-data-v2'",
     level: 'INFO',
@@ -207,14 +227,26 @@ const defaultLogs: LogEntry[] = [
     level: 'INFO',
     timestamp: '2026-07-26T14:22:10Z',
   },
-  { message: 'Starting node: Vectorize_Batch', level: 'INFO', timestamp: '2026-07-26T14:22:11Z' },
+  {
+    message: 'Starting node: Vectorize_Batch',
+    level: 'INFO',
+    timestamp: '2026-07-26T14:22:11Z',
+  },
   {
     message: 'Allocating GPU resources (T4 x 2)...',
     level: 'INFO',
     timestamp: '2026-07-26T14:22:12Z',
   },
-  { message: 'Processing batch 1/45...', level: 'INFO', timestamp: '2026-07-26T14:22:15Z' },
-  { message: 'Processing batch 2/45...', level: 'INFO', timestamp: '2026-07-26T14:22:18Z' },
+  {
+    message: 'Processing batch 1/45...',
+    level: 'INFO',
+    timestamp: '2026-07-26T14:22:15Z',
+  },
+  {
+    message: 'Processing batch 2/45...',
+    level: 'INFO',
+    timestamp: '2026-07-26T14:22:18Z',
+  },
   {
     message: 'High memory pressure detected on worker-node-04',
     level: 'WARN',
@@ -232,7 +264,10 @@ export function sseBody(frames: unknown[]): string {
   return frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join('');
 }
 
-async function mockWorkflowApi(page: Page, data: MockWorkflowData = {}): Promise<void> {
+async function mockWorkflowApi(
+  page: Page,
+  data: MockWorkflowData = {}
+): Promise<void> {
   const graph = data.graph ?? defaultWorkflowGraph;
   const executions = data.executions ?? defaultExecutions;
   const progress = data.progress ?? defaultProgress;
@@ -286,11 +321,87 @@ export const test = base.extend<TestFixtures>({
     await use(mockWorkflowApi);
   },
   page: async ({ page }, use) => {
+    // An /api call that no test mocked is a test bug (it would hit no server at all), so it is
+    // recorded and fails the test. Routes registered later win over this one.
+    const unmocked: string[] = [];
+    await page.route(/^https?:\/\/[^/]+\/api\//, (route) => {
+      unmocked.push(
+        `${route.request().method()} ${new URL(route.request().url()).pathname}`
+      );
+      return route.fulfill({ status: 501, body: 'not mocked' });
+    });
+    // Endpoints every page asks for. A server without them answers 404 (what the pages were
+    // written for); lists answer empty. A test that needs more mocks the route itself.
+    const quiet = (pattern: RegExp, status: number, data?: unknown) =>
+      page.route(pattern, (route) =>
+        route.request().method() !== 'GET'
+          ? route.fallback()
+          : route.fulfill(
+              status === 200
+                ? {
+                    status,
+                    contentType: 'application/json',
+                    body: JSON.stringify({
+                      timestamp: new Date().toISOString(),
+                      status,
+                      message: 'OK',
+                      path: '/',
+                      data,
+                    }),
+                  }
+                : {
+                    status,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ message: 'not available' }),
+                  }
+            )
+      );
+    await quiet(/\/api\/(edition|me)$/, 404);
+    await quiet(/\/api\/sessions\/[^/]+\/approvals$/, 200, []);
+    await quiet(/\/api\/sessions\/[^/]+\/workflows\/[^/]+\/versions/, 200, []);
+    await quiet(/\/api\/control\/audit/, 200, []);
+    await quiet(/\/api\/plugins\/[^/]+\/usage$/, 200, []);
+    await quiet(/\/api\/executions(\?|$)/, 200, []);
+    await quiet(/\/api\/sessions\/[^/]+\/config$/, 200, {
+      sessionId: 'session',
+      name: 'Session',
+      description: '',
+      initiator: 'ui',
+      tags: {},
+      projectPath: '/tmp',
+      workflows: {},
+    });
+    await quiet(/\/api\/sessions\/[^/]+\/workflows$/, 200, []);
+    await quiet(/\/api\/executions\/counts$/, 200, {
+      running: 0,
+      queued: 0,
+      failed: 0,
+    });
+    await quiet(/\/api\/scheduler\/limits/, 200, {
+      maxConcurrent: 0,
+      maxPerWorkflow: 0,
+      running: 0,
+      queued: 0,
+      queueCapacity: 0,
+    });
+    await quiet(/\/api\/sessions\/(?!summaries)[^/]+$/, 200, {
+      sessionId: 'session',
+      name: 'Session',
+      description: '',
+      initiator: 'ui',
+      tags: [],
+      projectPath: '/tmp',
+      workflowIds: [],
+    });
+    await page.route(/\/api\/events\/stream/, (route) =>
+      route.fulfill({ status: 200, contentType: 'text/event-stream', body: '' })
+    );
     // Every test gets the happy-path mock by default; individual tests can
     // call `mockSessionsApi(page, { ... })` again before navigating to
     // override it (e.g. empty list or a 500 response).
     await mockSessionsApi(page, {});
     await use(page);
+    expect(unmocked, 'API calls without a mock').toEqual([]);
   },
 });
 

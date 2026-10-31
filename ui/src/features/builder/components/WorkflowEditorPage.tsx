@@ -6,8 +6,9 @@ import { RequirePermission } from '@/components/common/RequirePermission';
 import { buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { LeaveGuard } from './LeaveGuard';
 import { InlineError } from '@/components/common/InlineError';
 import { usePlugins } from '@/features/plugins/hooks/usePlugins';
 import { WorkflowCanvas } from '@/features/workflow/components/WorkflowCanvas';
@@ -151,6 +152,9 @@ function Editor({
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
+  // Saving navigates away on purpose; that must not ask
+  const leaving = useRef(false);
+
   const update = (patch: Partial<DraftWorkflow>) => {
     setWorkflow((current) => ({ ...current, ...patch }));
     setResult(null);
@@ -233,6 +237,7 @@ function Editor({
         workflows: { ...session.workflows, [workflow.workflowId]: workflow },
       });
       await queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      leaving.current = true;
       navigate(
         `/sessions/${encodeURIComponent(session.sessionId)}/workflow/${encodeURIComponent(workflow.workflowId)}`
       );
@@ -244,6 +249,7 @@ function Editor({
 
   return (
     <div className="flex flex-1 flex-col" data-testid="workflow-editor">
+      <LeaveGuard dirty={dirty} leaving={leaving} />
       <div className="border-border flex flex-wrap items-center gap-3 border-b px-4 py-3 sm:px-6">
         <BreadcrumbNav className="basis-full" />
         <h1 className="text-headline-lg text-on-surface">

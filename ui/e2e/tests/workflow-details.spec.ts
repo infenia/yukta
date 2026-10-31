@@ -322,6 +322,46 @@ test.describe('Workflow Details Page', () => {
     expect(calls).toEqual(['?priority=10']);
   });
 
+  test('approves a step that waits for a decision', async ({ page }) => {
+    const envelope = (path: string, data: unknown) => ({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        timestamp: '2026-07-26T14:23:23',
+        status: 200,
+        message: 'OK',
+        path,
+        data,
+      }),
+    });
+    await page.route('**/api/sessions/*/approvals', (route) =>
+      route.fulfill(
+        envelope('/approvals', [
+          {
+            executionId: 'exec-091-qp-55',
+            workflowId: 'wf-982-xk-11',
+            nodeId: 'Sink_Storage',
+            name: 'release',
+            since: '2026-07-26T14:20:00',
+          },
+        ])
+      )
+    );
+    let decision: string | null = null;
+    await page.route('**/api/executions/*/nodes/*/signal*', (route) => {
+      decision = new URL(route.request().url()).searchParams.get('decision');
+      return route.fulfill(
+        envelope('/signal', { executionId: 'exec-091-qp-55' })
+      );
+    });
+    await page.goto(WORKFLOW_URL);
+
+    const strip = page.getByRole('region', { name: 'Pending approvals' });
+    await expect(strip).toContainText('Sink_Storage');
+    await strip.getByRole('button', { name: 'Approve' }).click();
+    await expect.poll(() => decision).toBe('approve');
+  });
+
   test('recovers an aborted run as a new run', async ({
     page,
     mockWorkflowApi,

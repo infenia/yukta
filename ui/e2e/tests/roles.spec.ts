@@ -58,7 +58,7 @@ test.describe('A VIEWER key', () => {
   test('a 403 shows an error and never opens the key prompt', async ({
     page,
   }) => {
-    await page.route('**/api/sessions/summaries', (route) =>
+    await page.route('**/api/sessions/summaries*', (route) =>
       route.fulfill({
         status: 403,
         contentType: 'application/json',

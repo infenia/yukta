@@ -6,7 +6,10 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { renderWithProviders } from '@/test/utils/testUtils';
+import {
+  createTestQueryClient,
+  renderWithProviders,
+} from '@/test/utils/testUtils';
 import { PendingApprovals } from '../PendingApprovals';
 import type { PendingApproval } from '../../api/approvals';
 
@@ -25,11 +28,11 @@ let signalStatus = 200;
 const signals: string[] = [];
 
 const server = setupServer(
-  http.get('/api/sessions/s1/approvals', () =>
-    listFails
+  http.get('/api/sessions/s1/approvals', () => {
+    return listFails
       ? HttpResponse.json({ message: 'x' }, { status: 500 })
-      : ok(approvals)
-  ),
+      : ok(approvals);
+  }),
   http.post('/api/executions/:id/nodes/:node/signal', ({ params, request }) => {
     signals.push(`${params.id} ${params.node} ${new URL(request.url).search}`);
     if (signalStatus !== 200) {
@@ -63,17 +66,24 @@ const waiting = (over: Partial<PendingApproval> = {}): PendingApproval => ({
 
 describe('PendingApprovals', () => {
   it('shows nothing when no step waits, or the list cannot be read', async () => {
-    const { container, unmount } = renderWithProviders(
+    const { unmount } = renderWithProviders(
       <PendingApprovals sessionId="s1" workflowId="wf" />
     );
-    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    // an empty live region stays, so that the strip is announced when it appears
+    const region = await screen.findByTestId('approvals-live');
+    await waitFor(() => expect(region).toBeEmptyDOMElement());
+    expect(
+      screen.queryByRole('region', { name: 'Pending approvals' })
+    ).not.toBeInTheDocument();
     unmount();
 
     listFails = true;
     const failed = renderWithProviders(
       <PendingApprovals sessionId="s1" workflowId="wf" />
     );
-    await waitFor(() => expect(failed.container).toBeEmptyDOMElement());
+    await waitFor(() =>
+      expect(failed.container.querySelector('section')).toBeNull()
+    );
   });
 
   it('lists the steps of this workflow only, and approves one', async () => {
@@ -110,5 +120,23 @@ describe('PendingApprovals', () => {
 
     expect(await screen.findByText('Node is not waiting')).toBeInTheDocument();
     expect(signals[0]).toContain('decision=reject');
+  });
+
+  it('polls while the run is going, and not when it has ended', async () => {
+    const interval = (live: boolean) => {
+      const queryClient = createTestQueryClient();
+      const view = renderWithProviders(
+        <PendingApprovals sessionId="s1" workflowId="wf" live={live} />,
+        { queryClient }
+      );
+      const query = queryClient.getQueryCache().find({
+        queryKey: ['approvals', 's1'],
+      });
+      const value = query?.observers[0].options.refetchInterval;
+      view.unmount();
+      return value;
+    };
+    expect(interval(true)).toBe(5000);
+    expect(interval(false)).toBe(false);
   });
 });

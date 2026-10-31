@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -25,16 +25,23 @@ const ok = (data: unknown) =>
 let entries: ControlAuditEntry[] = [];
 let fail = false;
 
+const asked: string[] = [];
+
 const server = setupServer(
-  http.get('/api/control/audit', () =>
-    fail ? HttpResponse.json({ message: 'x' }, { status: 500 }) : ok(entries)
-  )
+  http.get('/api/control/audit', ({ request }) => {
+    asked.push(new URL(request.url).search);
+    return fail
+      ? HttpResponse.json({ message: 'x' }, { status: 500 })
+      : ok(entries);
+  })
 );
 
 beforeAll(() => server.listen());
 afterEach(() => {
   entries = [];
   fail = false;
+  asked.length = 0;
+  window.history.pushState({}, '', '/');
 });
 afterAll(() => server.close());
 
@@ -102,6 +109,49 @@ describe('ControlAuditPanel', () => {
     expect(
       await screen.findByText('No control commands recorded yet.')
     ).toBeInTheDocument();
+  });
+});
+
+describe('ControlAuditPanel filter and paging', () => {
+  const many = (n: number): ControlAuditEntry[] =>
+    Array.from({ length: n }, (_, i) => ({
+      time: `2026-10-14T10:00:${String(i % 60).padStart(2, '0')}Z`,
+      executionId: `e${i}`,
+      command: 'PauseWorkflowCommand',
+      actor: 'key:bob',
+      applied: true,
+      reason: null,
+    }));
+
+  it('asks for the commands of one run, and shows all again on request', async () => {
+    window.history.pushState({}, '', '/control?execution=run-7');
+    entries = many(1);
+    renderWithProviders(<ControlAuditPanel />);
+    expect(await screen.findByText('run-7')).toBeInTheDocument();
+    expect(asked[0]).toBe('?limit=50&executionId=run-7');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    await screen.findByText('Who did what');
+    expect(asked.at(-1)).toBe('?limit=50');
+    expect(screen.queryByText('run-7')).not.toBeInTheDocument();
+  });
+
+  it('offers more rows while the page is full, up to the limit', async () => {
+    entries = many(50);
+    renderWithProviders(<ControlAuditPanel />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Show more' })
+    );
+    await waitFor(() => expect(asked.at(-1)).toBe('?limit=100'));
+  });
+
+  it('hides Show more when the last page was not full', async () => {
+    entries = many(3);
+    renderWithProviders(<ControlAuditPanel />);
+    await screen.findAllByText('PauseWorkflowCommand');
+    expect(
+      screen.queryByRole('button', { name: 'Show more' })
+    ).not.toBeInTheDocument();
   });
 });
 
