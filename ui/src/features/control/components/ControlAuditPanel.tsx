@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
 import { useFallbackPoll } from '../context/ControlEventsContext';
 import { fetchApi } from '@/lib/apiClient';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -40,16 +43,28 @@ export function rowKeys(entries: ControlAuditEntry[]): string[] {
   });
 }
 
-const getAudit = () =>
-  fetchApi<ControlAuditEntry[]>('/api/control/audit?limit=50');
+/** Rows asked for at first, and added by each "Show more"; the server allows 500. */
+const PAGE = 50;
+const MAX = 500;
+
+const getAudit = (limit: number, executionId: string) =>
+  fetchApi<ControlAuditEntry[]>(
+    `/api/control/audit?limit=${limit}` +
+      (executionId ? `&executionId=${encodeURIComponent(executionId)}` : '')
+  );
 
 /** Who sent which control command, newest first. */
 export function ControlAuditPanel() {
   const poll = useFallbackPoll();
+  // ?execution=<id> shows the commands of one run (the run view links here)
+  const [params, setParams] = useSearchParams();
+  const execution = params.get('execution') ?? '';
+  const [limit, setLimit] = useState(PAGE);
   const audit = useQuery({
-    queryKey: ['control', 'audit'],
-    queryFn: getAudit,
+    queryKey: ['control', 'audit', execution, limit],
+    queryFn: () => getAudit(limit, execution),
     refetchInterval: poll,
+    placeholderData: (previous) => previous,
   });
   const keys = audit.data ? rowKeys(audit.data) : [];
 
@@ -58,6 +73,22 @@ export function ControlAuditPanel() {
       <h2 id="audit-heading" className="text-headline-md text-on-surface">
         Who did what
       </h2>
+      {execution && (
+        <p className="text-body-sm text-on-surface-variant flex items-center gap-2">
+          Commands of run <span className="text-code-sm">{execution}</span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              const next = new URLSearchParams(params);
+              next.delete('execution');
+              setParams(next, { replace: true });
+            }}
+          >
+            Show all
+          </Button>
+        </p>
+      )}
       {audit.error ? (
         <StateMessage
           tone="error"
@@ -110,6 +141,17 @@ export function ControlAuditPanel() {
             </TableBody>
           </Table>
         </TableFrame>
+      )}
+      {audit.data && audit.data.length >= limit && limit < MAX && (
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setLimit((n) => Math.min(n + PAGE, MAX))}
+          >
+            Show more
+          </Button>
+        </div>
       )}
     </section>
   );

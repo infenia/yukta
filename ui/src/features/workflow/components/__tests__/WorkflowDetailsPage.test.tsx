@@ -18,7 +18,7 @@ import {
   within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -86,6 +86,11 @@ beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
+/** Stands for the Control page: shows the query it was opened with. */
+function ControlSearch() {
+  return <output data-testid="control-search">{useLocation().search}</output>;
+}
+
 function renderPage(
   initialEntry = '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11'
 ) {
@@ -97,6 +102,7 @@ function renderPage(
             path="/sessions/:sessionId/workflow/:workflowId"
             element={<WorkflowDetailsPage />}
           />
+          <Route path="/control" element={<ControlSearch />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -298,6 +304,21 @@ describe('WorkflowDetailsPage', () => {
       await screen.findByRole('menuitem', { name: 'Hide versions' })
     );
     expect(screen.queryByText('0001-a')).not.toBeInTheDocument();
+  });
+
+  it('links from the run to its control commands', async () => {
+    renderPage();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Workflow actions' })
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitem', {
+        name: 'Control commands of this run',
+      })
+    );
+    expect(await screen.findByTestId('control-search')).toHaveTextContent(
+      /^\?execution=.+/
+    );
   });
 
   it('closes and reopens the progress panel', async () => {

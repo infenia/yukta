@@ -6,7 +6,10 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { renderWithProviders } from '@/test/utils/testUtils';
+import {
+  createTestQueryClient,
+  renderWithProviders,
+} from '@/test/utils/testUtils';
 import { PendingApprovals } from '../PendingApprovals';
 import type { PendingApproval } from '../../api/approvals';
 
@@ -25,11 +28,11 @@ let signalStatus = 200;
 const signals: string[] = [];
 
 const server = setupServer(
-  http.get('/api/sessions/s1/approvals', () =>
-    listFails
+  http.get('/api/sessions/s1/approvals', () => {
+    return listFails
       ? HttpResponse.json({ message: 'x' }, { status: 500 })
-      : ok(approvals)
-  ),
+      : ok(approvals);
+  }),
   http.post('/api/executions/:id/nodes/:node/signal', ({ params, request }) => {
     signals.push(`${params.id} ${params.node} ${new URL(request.url).search}`);
     if (signalStatus !== 200) {
@@ -117,5 +120,23 @@ describe('PendingApprovals', () => {
 
     expect(await screen.findByText('Node is not waiting')).toBeInTheDocument();
     expect(signals[0]).toContain('decision=reject');
+  });
+
+  it('polls while the run is going, and not when it has ended', async () => {
+    const interval = (live: boolean) => {
+      const queryClient = createTestQueryClient();
+      const view = renderWithProviders(
+        <PendingApprovals sessionId="s1" workflowId="wf" live={live} />,
+        { queryClient }
+      );
+      const query = queryClient.getQueryCache().find({
+        queryKey: ['approvals', 's1'],
+      });
+      const value = query?.observers[0].options.refetchInterval;
+      view.unmount();
+      return value;
+    };
+    expect(interval(true)).toBe(5000);
+    expect(interval(false)).toBe(false);
   });
 });
