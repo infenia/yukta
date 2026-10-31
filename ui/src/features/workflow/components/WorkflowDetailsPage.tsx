@@ -262,7 +262,11 @@ export function WorkflowDetailsPage() {
       )}
 
       {versionsOpen && (
-        <WorkflowVersionsPanel sessionId={sessionId} workflowId={workflowId} />
+        <WorkflowVersionsPanel
+          sessionId={sessionId}
+          workflowId={workflowId}
+          liveRun={live}
+        />
       )}
 
       <PendingApprovals sessionId={sessionId} workflowId={workflowId} />

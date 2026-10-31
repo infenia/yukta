@@ -10,7 +10,7 @@ import {
   afterAll,
   afterEach,
 } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -169,9 +169,9 @@ describe('WorkflowVersionsPanel', () => {
     expect(await screen.findByText('No such version')).toBeInTheDocument();
   });
 
-  it('does not roll back unless the user confirms', async () => {
+  it('asks first, with what the rollback changes, and rolls back only on confirm', async () => {
     versions = two;
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    diff = { ...noChange, addedNodes: ['audit'] };
     renderWithProviders(
       <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
     );
@@ -179,28 +179,73 @@ describe('WorkflowVersionsPanel', () => {
     await userEvent.click(
       (await screen.findAllByRole('button', { name: 'Roll back' }))[1]
     );
-
-    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('0001-a'));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Roll back to 0001-a?',
+    });
+    expect(await within(dialog).findByText('+ node audit')).toBeInTheDocument();
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Cancel' })
+    );
     expect(rolledBack).toEqual([]);
-  });
-
-  it('rolls back to a version, and shows why it could not', async () => {
-    versions = two;
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
-    renderWithProviders(
-      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
-    );
 
     await userEvent.click(
-      (await screen.findAllByRole('button', { name: 'Roll back' }))[1]
+      screen.getAllByRole('button', { name: 'Roll back' })[1]
+    );
+    await userEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', {
+        name: 'Roll back',
+      })
     );
     await waitFor(() => expect(rolledBack).toEqual(['0001-a']));
+  });
 
-    rollbackFails = true;
+  it('says when the version equals the current one, and why the diff failed', async () => {
+    versions = two;
+    renderWithProviders(
+      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
+    );
     await userEvent.click(
-      screen.getAllByRole('button', { name: 'Roll back' })[0]
+      (await screen.findAllByRole('button', { name: 'Roll back' }))[0]
+    );
+    expect(
+      await screen.findByText('Same as the current definition')
+    ).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+
+    diffFails = true;
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'Roll back' })[1]
+    );
+    expect(await screen.findByText('No such version')).toBeInTheDocument();
+  });
+
+  it('shows why a rollback failed', async () => {
+    versions = two;
+    rollbackFails = true;
+    renderWithProviders(
+      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
+    );
+    await userEvent.click(
+      (await screen.findAllByRole('button', { name: 'Roll back' }))[0]
+    );
+    await userEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', {
+        name: 'Roll back',
+      })
     );
     expect(await screen.findByText('Version gone')).toBeInTheDocument();
+  });
+
+  it('blocks rollback while a run is going', async () => {
+    versions = two;
+    renderWithProviders(
+      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" liveRun />
+    );
+    for (const button of await screen.findAllByRole('button', {
+      name: 'Roll back',
+    })) {
+      expect(button).toBeDisabled();
+    }
   });
 
   it('shows the note of a version, saves an edited one, and shows why it failed', async () => {
