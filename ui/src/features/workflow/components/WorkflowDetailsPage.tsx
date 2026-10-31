@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
 import {
   controlErrorMessage,
@@ -43,6 +43,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { getWorkflowProgress } from '../api/getWorkflowProgress';
 import type { TaskProgress } from '../types/workflow';
+import { NodeSheet } from './NodeSheet';
 import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
 import { BreakpointDialog } from './BreakpointDialog';
@@ -58,8 +59,22 @@ export function WorkflowDetailsPage() {
   const [deleting, setDeleting] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [stopping, setStopping] = useState<string | null>(null);
-  // Clicking a node on the canvas narrows the logs to it
-  const [logNode, setLogNode] = useState<string | null>(null);
+  // Clicking a node on the canvas opens its sheet; the node is in the URL so the view can be shared
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openNode = searchParams.get('node');
+  const setOpenNode = (nodeId: string | null) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (nodeId) {
+          next.set('node', nodeId);
+        } else {
+          next.delete('node');
+        }
+        return next;
+      },
+      { replace: true }
+    );
   const [view, setView] = useState<RunView>('graph');
 
   const graphQuery = useWorkflowGraph(sessionId, workflowId);
@@ -121,6 +136,7 @@ export function WorkflowDetailsPage() {
     return byNode;
   }, [progress]);
   const stages = useStageView(graph, tasksByNode);
+  const openGraphNode = graph?.nodes.find((n) => n.nodeId === openNode);
   const live = !isTerminalExecStatus(progress?.status);
   const [follow, setFollow] = useState(true);
   const [findQuery, setFindQuery] = useState('');
@@ -165,9 +181,9 @@ export function WorkflowDetailsPage() {
   );
 
   return (
-    // At least the screen's height (less the phone tab bar), so the logs dock at its bottom edge
+    // Exactly the screen's height (less the phone tab bar): the workspace scrolls inside, so the logs dock stays at the bottom edge
     <div
-      className="bg-background flex min-h-[calc(100dvh-var(--spacing-header)-4rem)] flex-1 flex-col sm:min-h-[calc(100dvh-var(--spacing-header))]"
+      className="bg-background flex h-[calc(100dvh-var(--spacing-header)-4rem)] flex-col sm:h-[calc(100dvh-var(--spacing-header))]"
       data-testid="workflow-details-page"
     >
       <WorkflowTitleBar
@@ -333,6 +349,19 @@ export function WorkflowDetailsPage() {
         />
       )}
 
+      {openGraphNode && (
+        <NodeSheet
+          node={openGraphNode}
+          task={tasksByNode[openGraphNode.nodeId]}
+          sessionId={sessionId}
+          workflowId={workflowId}
+          executionId={selectedExecutionId}
+          entries={logs.entries}
+          onCommand={onNodeCommand}
+          onClose={() => setOpenNode(null)}
+        />
+      )}
+
       {stopping && (
         <NodeStopDialog
           nodeId={stopping}
@@ -355,7 +384,7 @@ export function WorkflowDetailsPage() {
           panel beside both, so a 100-node run no longer stretches the page */}
       {/* The canvas nodes and the failure callout both open sub-workflow runs */}
       <SubWorkflowLinks value={subWorkflowLinks}>
-        <div className="flex min-h-112 flex-1">
+        <div className="flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="relative min-h-0 flex-1">
               {view === 'timeline' && (
@@ -369,7 +398,7 @@ export function WorkflowDetailsPage() {
                   graph={graph}
                   tasksByNode={tasksByNode}
                   stageView={stages.stageView}
-                  onNodeClick={setLogNode}
+                  onNodeClick={setOpenNode}
                   follow={follow && followable}
                   find={findQuery}
                 />
@@ -421,8 +450,6 @@ export function WorkflowDetailsPage() {
               entries={logs.entries}
               dropped={logs.dropped}
               isStreaming={isStreaming || logs.isStreaming}
-              node={logNode}
-              onClearNode={() => setLogNode(null)}
               progress={progress}
             />
           </div>

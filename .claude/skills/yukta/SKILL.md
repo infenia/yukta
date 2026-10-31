@@ -78,6 +78,10 @@ A fixer's prompt carries the failure in short (the L1 digest) and its session id
 `mcp__yukta__get_workflow_history` / `get_node_output` (tail, grep, page) for more, so it asks for detail instead of receiving it. It cannot
 start, control or change anything (a `VIEWER` key, plus a deny list in `examples/11-dogfood/scripts/_claude.sh`). `YUKTA_FIXER_MCP=off` disables it.
 
+## Pickup (scheduled issue hand-over)
+`yk pickup session` opens an interactive session that receives issues (several may be open; the schedule hands each idle one an issue); `yk pickup on|off|now|status` drives the schedule. An event
+`<channel source="yukta-pickup" ..>` means: use the `pickup` skill. Details in `examples/11-dogfood/README.md` ("Pickup session").
+
 ## Don'ts
 - Don't run `./gradlew`/`gradle`, `go` or `pnpm`/`npm`/`npx` directly, or start the Yukta dev server yourself (`./gradlew bootRun`
   to try the app you are changing is fine).

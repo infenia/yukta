@@ -90,6 +90,54 @@ describe('LogsPanel', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('shows the Logs and Events tabs underlined, and the level in its colour', async () => {
+    const user = userEvent.setup();
+    render(
+      <LogsPanel entries={entries} isStreaming={false} progress={progress} />
+    );
+    // no icon or title in the header: the heading is for screen readers only
+    expect(screen.getByRole('heading', { name: 'Execution logs' })).toHaveClass(
+      'sr-only'
+    );
+    expect(screen.getByRole('tab', { name: 'Logs' })).toHaveClass(
+      'border-primary'
+    );
+    expect(screen.getByRole('tab', { name: 'Events' })).toHaveClass(
+      'border-transparent'
+    );
+    await user.click(screen.getByRole('tab', { name: 'Events' }));
+    expect(screen.getByRole('tab', { name: 'Events' })).toHaveClass(
+      'border-primary'
+    );
+    await user.click(screen.getByRole('tab', { name: 'Logs' }));
+
+    // the level column takes its colour from the level, an unmarked line counts as INFO
+    const body = screen.getByTestId('logs-body');
+    const level = (text: string) =>
+      Array.from(body.querySelectorAll('span')).find(
+        (span) => span.textContent === text
+      );
+    expect(level('ERROR')).toHaveClass('text-log-error');
+    expect(level('WARN')).toHaveClass('text-log-warn');
+    expect(level('DEBUG')).toHaveClass('text-log-debug');
+    expect(level('INFO')).toHaveClass('text-log-info');
+  });
+
+  it('groups the log levels as one control with the chosen one raised', async () => {
+    const user = userEvent.setup();
+    render(<LogsPanel entries={entries} isStreaming={false} />);
+    const group = screen.getByRole('group', { name: 'Log level' });
+    expect(group).toHaveClass('bg-muted');
+    expect(screen.getByRole('button', { name: 'all' })).toHaveClass('bg-card');
+    await user.click(screen.getByRole('button', { name: 'error' }));
+    expect(screen.getByRole('button', { name: 'error' })).toHaveClass(
+      'bg-card'
+    );
+    expect(screen.getByRole('button', { name: 'all' })).not.toHaveClass(
+      'bg-card'
+    );
+  });
+
   it('virtualises long logs so only the visible window is in the DOM', () => {
     const many = Array.from({ length: 2000 }, (_, i) =>
       createMockLogEntry({ message: `line ${i}` })

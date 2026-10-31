@@ -79,9 +79,9 @@ describe('router', () => {
   });
 
   describe('route paths', () => {
-    it('should have 12 child routes', () => {
+    it('should have 13 child routes', () => {
       const rootRoute = router.routes[0];
-      expect(rootRoute.children?.length).toBe(12);
+      expect(rootRoute.children?.length).toBe(13);
     });
 
     it('should have correct number of parameterized routes', () => {
@@ -145,6 +145,7 @@ describe('router', () => {
       expect(await load('plugins')).toBe('PluginsPage');
       expect(await load('control')).toBe('ControlPage');
       expect(await load('runs')).toBe('RunsPage');
+      expect(await load('showcase/dashboard')).toBe('DashboardShowcase');
     });
   });
 

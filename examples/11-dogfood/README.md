@@ -33,12 +33,43 @@ Every run ends with `RESULT status=<S> failed_node=<stage|-> healed=<stage:model
 only on success. `yk watch <session> <execution>` follows a detached run and prints problems only. Run the smallest scope
 that covers your change.
 
-The Stop hook of the `yukta-dogfood` Claude Code mod (`examples/11-dogfood/mod`) asks Claude Code once, before it finishes with uncommitted code changes, to run `yk check`; it stays quiet when a `yk check` already passed on those changes or the changes were there at session start. `YUKTA_DOGFOOD=off` turns the mod's hooks off.
+The Stop hook of the `yukta-dogfood` Claude Code mod (`examples/11-dogfood/mod`) asks Claude Code once, before it finishes with uncommitted code changes, to run `yk check`; it stays quiet when a `yk check` already passed on those changes or the changes were there at session start. `YUKTA_DOGFOOD=off` turns the mod's hooks off. With agent teams on, its `TaskCompleted` hook also stops a teammate from completing a task while `yk check --no-heal` fails (`mod/README.md`, "Agent teams").
 
 Steering: `yk tree|pause|resume|stop|skip|retry|break|step|signals|approve|reject` (`stop` is a drain of up to 30 s; add `--tree` to reach the runs below). A foreground `yk` ends its run when it is interrupted or stopped (Ctrl-C, or Claude Code stopping a background task); `--detach` runs outlive their client.
 
 The other commands (`yk run issue|epic`, steering, the slash commands) are
 switched off while the loop is rebuilt; their pieces are in `backup/`, and `backup/README.md` says how to bring each back.
+
+## Pickup session (channel, research preview)
+`yk pickup session [--name N]` opens an interactive Claude Code session (default name `yukta-pickup`) that spawns the `yukta-pickup` channel
+(`channel/yukta-pickup.py`, stdlib Python). Open as many as you like, each in its own terminal or worktree. Each channel listens on a free
+`127.0.0.1` port (`YUKTA_PICKUP_PORT` fixes it) and registers itself in `$DEV_HOME/pickup/<name>.json` (name, port, pid), removing the entry
+when the session ends; a second session with a live name becomes `<name>-<pid>`. A POST to its `/issue` (header `X-Pickup-Token` from
+`pickup-token` in the dev state dir) becomes a `<channel source="yukta-pickup" issue=..>` event that starts a turn; Claude ends the issue
+with the `pickup_done` tool, which frees the channel (it also frees itself after 4 h). `GET /status` shows `busy`. A custom channel is not on
+the allowlist, so each session starts with `--dangerously-load-development-channels` and its dialog; `claude -p` ignores that flag, so the
+sessions must be interactive and stay open.
+
+`yk pickup on|off|now [--to N]|status` drives the schedule: workflow `pickup` (`SCHEDULE_TRIGGER`, every 30 min, `INTERVAL_MS` in
+`scripts/gen-pickup.py`) runs `scripts/pickup.sh tick`. A tick reads the registry (an entry whose pid is dead is deleted), asks each session
+for its `/status`, and hands the next issue to the **oldest idle session**: the first assigned, Ready issue by Priority (P0 first) with no open
+PR naming it and no `issue/<n>` branch on the remote. With several idle sessions and several such issues one tick hands one issue to each
+(`PICKUP handed=#<n> to=<name>`, one line per issue). It skips (`PICKUP skipped=<why>`, exit 0) when no session is registered, all are busy
+(`all busy (a,b)`), or nothing is eligible. `now` runs one tick at once; `now --to <name>` (or `YUKTA_PICKUP_ONLY`) hands only to that session.
+`yk pickup status` lists the sessions: name, port, idle or `busy with #n`. The schedule is one execution that lives as long as the server:
+`busy()` does not count it, so it never blocks a swap, and `server_up` starts it again after a swap when it was on (`pickup.exec` in the dev
+state dir). The dev server runs the `session.json` of `origin/main`, so `yk pickup on` finds the workflow only once this is merged. The skill
+that works an issue is `.claude/skills/pickup/SKILL.md`.
+
+**Which session gets the issue.** The oldest idle one, or the one you pin. A session counts as busy only while it holds an issue the channel
+handed over: one busy with your own work is still idle for the channel, and its event waits until its current turn ends (events queue). To
+keep a session out of pickup, do not open it with `yk pickup session`; to stop pickup altogether, `yk pickup off`. A manual `/pickup <n>`
+works in any session and does not touch the channel. Two sessions never take the same issue: the skill moves it to In progress, and the tick
+skips issues with a PR or an `issue/<n>` branch.
+
+**Safety.** The event carries only the number, title and URL; the skill reads the body with `gh` and treats it as untrusted. Only issues
+that are assigned to you and Ready on the project are handed over. There is no permission relay: the session keeps its own permission
+mode (`auto` recommended) and a prompt waits at the terminal. Never start it with `--dangerously-skip-permissions`.
 
 ## Prerequisites
 `git`, `jq`, `curl`, `flock`, `python3`, Java 25, Go (the CLI is built with the server). Optional: `opengrep`, `trivy`
@@ -122,12 +153,16 @@ a per-effort budget and time box. `YK_ADVISOR=sonnet` (experimental, off by defa
 | `scripts/_lib.sh` | server, session and watch helpers |
 | `scripts/test-heal.sh` | the end-to-end test of check and heal against a fake claude (`yk up` first; no API cost) |
 | `scripts/test-hooks.sh` | the Claude Code hooks |
+| `channel/yukta-pickup.py` | the `yukta-pickup` Claude Code channel: hands one GitHub issue at a time to an open session (`yk pickup session`) |
+| `scripts/pickup.sh`, `scripts/gen-pickup.py` | `tick` (hand the next assigned, Ready issue to the channel) and the generator of the `pickup` workflow in `session.json` |
+| `scripts/test-pickup.sh` | offline test of `tick` (real channel, fake `gh`) and of `busy()` ignoring the schedule |
+| `scripts/test-pickup-channel.sh` | offline test of that channel (handshake, event, token, busy, `pickup_done`) |
 | `scripts/test-yk.sh` | interrupt, detach and `--stages` of `yk` against the dev server (no cost) |
 | `eval/triage/` | the triage model evaluation |
 | `backup/` | the previous implementation, kept while the loop is rebuilt |
 
 ## Notes
-- Sessions: one per checkout and command (`check-<branch>-<hash of the path>`, suffix `-plan` for `yk check`, `-gradle` for `yk gradle`/`yk tool`); the library is applied to it on every run, and the project path travels in the start payload.
+- Sessions: one per checkout and command (`check-<branch>-<hash of the path>`, suffix `-plan` for `yk check`, `-gradle` for `yk gradle`/`yk tool`); the library is applied to it on every run, and the working directory travels in the start payload.
 - One healing `yk check` per checkout at a time (`.yukta-dev/check.lock`; the refusal names the execution that holds it). `yk gradle`, `yk tool` and `yk check --no-heal` do not edit the checkout, take no lock and queue on the server (`yk tree` shows QUEUED).
 - The previous README (issue and epic runs, heal analysis, the analyzers heal) is in git history before this change.
 

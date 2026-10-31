@@ -844,7 +844,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Check a project path
+         * Check a working directory
          * @description Says whether the path exists on the server and is a directory. Nothing else about the file system is returned.
          */
         post: operations["checkProjectPath"];
@@ -3043,7 +3043,7 @@ export interface components {
         };
         ProjectPathRequest: {
             /**
-             * @description Project path
+             * @description Working directory
              * @example /data/pipelines/main
              */
             projectPath: string;
@@ -3108,7 +3108,7 @@ export interface components {
              */
             name?: string;
             /**
-             * @description Project path
+             * @description Working directory
              * @example /data/pipelines/main
              */
             projectPath?: string;
@@ -3148,7 +3148,7 @@ export interface components {
              */
             name?: string;
             /**
-             * @description Project path
+             * @description Working directory
              * @example /data/pipelines/main
              */
             projectPath?: string;

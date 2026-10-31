@@ -28,7 +28,7 @@ class SessionDetailsTest {
   /** Test data: initiator field. */
   private static final String INITIATOR = "initiator";
 
-  /** Test data: project path field. */
+  /** Test data: working directory field. */
   private static final String PATH = "/path";
 
   /** Test data: tag1. */

@@ -19,7 +19,7 @@ import java.util.Map;
  * @param description a human-readable description of the session
  * @param initiator the initiator name
  * @param tags additional tags for the session
- * @param projectPath the project path
+ * @param projectPath the working directory
  * @param workflows map of workflow definitions (DAGs)
  */
 public record SessionConfigData(
