@@ -12,7 +12,7 @@ TERMINAL_STATUSES='^(SUCCESS|FAILURE|ERROR|STOPPED|CANCELLED|TIMED_OUT)$'
 # api METHOD PATH [JSON] -> prints the response body; fails on HTTP >= 400.
 api() {
   local out code body
-  local args=(-sS -X "$1" "$YUKTA_URL$2" -H 'Content-Type: application/json' -w $'\n%{http_code}')
+  local args=(-sS -m 60 -X "$1" "$YUKTA_URL$2" -H 'Content-Type: application/json' -w $'\n%{http_code}')
   [[ -n "${YUKTA_API_KEY:-}" ]] && args+=(-H "X-API-Key: $YUKTA_API_KEY")
   [[ $# -ge 3 ]] && args+=(--data-binary "$3")
   out=$(curl "${args[@]}") || { echo "cannot reach $YUKTA_URL (is the server running?)" >&2; return 1; }

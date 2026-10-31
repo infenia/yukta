@@ -17,9 +17,13 @@ if [ -z "$old" ] || [ "$old" = "$new" ]; then
   exit 0
 fi
 
-# Skip lines that talk about older releases ("alpha.2 and earlier ..."), and do not match inside a longer
-# version (alpha.2 inside alpha.20).
-grep -rlF -- "$old" docs README.md | xargs sed -i "/earlier/! s/${old//./\\.}\([^0-9]\|\$\)/$new\1/g"
+# Do not match inside a longer version (alpha.2 inside alpha.20). Lines about one specific release stay as
+# they are: "alpha.2 and earlier ...", the known-issue notes (#773),
+# the benchmark of "the released ..." server, and the changelog in docs/reference/releases.mdx (only its
+# "Current release" line moves).
+grep -rlF -- "$old" docs README.md | grep -v '^docs/reference/releases.mdx$' |
+  xargs sed -i "/earlier\|#773\|against the released/! s/${old//./\\.}\([^0-9]\|\$\)/$new\1/g"
+sed -i "s/^\(Current release: \*\*\`\)${old//./\\.}/\1$new/" docs/reference/releases.mdx
 branch="docs/install-$new"
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

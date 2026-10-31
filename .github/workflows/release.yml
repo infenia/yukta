@@ -87,7 +87,7 @@ jobs:
         include:
           - platform: linux-amd64
             runner: ubuntu-latest
-    timeout-minutes: 180   # records a PGO profile (instrumented build + examples), then builds
+    timeout-minutes: 120   # one native build, about 35 min
     permissions:
       contents: read
       id-token: write       # build provenance (keyless signing)
@@ -101,13 +101,17 @@ jobs:
       - name: Free disk space
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
 
-      # Builds inside the pinned Oracle GraalVM image, the same way the release machine does. It first
-      # records a PGO profile on this runner (release/pgo-profile.sh), so the profile matches the commit.
+      # Builds inside the pinned Oracle GraalVM image, the same way the release machine does. No PGO
+      # profile is recorded here: the instrumented build runs out of memory or hangs on the hosted runner
+      # (alpha.2, alpha.3), so the binary is -O3 with the profile Graal infers itself (GraalNN). To
+      # release with a recorded profile, record it with release/pgo-profile.sh on a machine with
+      # enough memory and rebuild with NATIVE_PGO_PROFILE=<file>, or use a larger runner here.
       # NATIVE_HEAP is lowered from 16g in case the hosted runner has less memory.
       - name: Native compile
+        timeout-minutes: 75   # alpha.2 built in about 30 min; a stall fails here, not after hours
         env:
           NATIVE_HEAP: 12g
-          NATIVE_PGO_REQUIRED: 1   # a release without a recorded profile is a different binary: fail
+          NATIVE_PGO: 0
         run: release/build-server.sh
 
       # Starts the binary, then runs the Quickstart workflow against it (release/smoke-test.sh), so a
