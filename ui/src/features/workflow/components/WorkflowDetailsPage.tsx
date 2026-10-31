@@ -190,6 +190,22 @@ export function WorkflowDetailsPage() {
         workflowId={workflowId}
         description={graph.description}
         status={executionStatus}
+        runGroup={
+          <>
+            <RunHistoryDropdown
+              executions={executions}
+              selectedExecutionId={selectedExecutionId}
+              onSelect={selectExecution}
+            />
+            <RunControls
+              sessionId={sessionId}
+              workflowId={workflowId}
+              executionId={selectedExecutionId}
+              status={executionStatus}
+              onStarted={selectExecution}
+            />
+          </>
+        }
         actions={
           <>
             {parent.data && (
@@ -206,18 +222,6 @@ export function WorkflowDetailsPage() {
                 Parent run
               </Link>
             )}
-            <RunHistoryDropdown
-              executions={executions}
-              selectedExecutionId={selectedExecutionId}
-              onSelect={selectExecution}
-            />
-            <RunControls
-              sessionId={sessionId}
-              workflowId={workflowId}
-              executionId={selectedExecutionId}
-              status={executionStatus}
-              onStarted={selectExecution}
-            />
             <Link
               to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
               className={buttonVariants({ variant: 'outline' })}
@@ -250,14 +254,14 @@ export function WorkflowDetailsPage() {
               onClick={() => setPanelOpen((value) => !value)}
               aria-pressed={panelOpen}
               aria-label="Workflow progress"
-              title="Show or hide the progress panel"
+              title={panelOpen ? 'Hide progress panel' : 'Show progress panel'}
               className={`${buttonVariants({ variant: 'outline', size: 'icon' })} transition-standard active:scale-95`}
             >
               <span
                 aria-hidden="true"
                 className="material-symbols-outlined text-base"
               >
-                right_panel_open
+                {panelOpen ? 'right_panel_close' : 'right_panel_open'}
               </span>
             </button>
             <DropdownMenu>

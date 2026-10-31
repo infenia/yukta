@@ -173,7 +173,7 @@ test.describe('Workflow editor layout', () => {
   test('should match screenshot - phone width', async ({ page }) => {
     await openEditor(page, 390, 844);
     await page.evaluate(() => document.fonts.ready);
-    await expect(page).toHaveScreenshot('workflow-editor-mobile.png', {
+    await expect(page).toHaveScreenshot('workflow-editor-mobile.webp', {
       fullPage: true,
       maxDiffPixels: 2000,
       threshold: 0.2,

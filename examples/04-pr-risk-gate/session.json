@@ -1,0 +1,314 @@
+{
+  "sessionId": "example-04-pr-risk-gate",
+  "name": "PR risk gate",
+  "description": "Score a pull request with fixed rules: auto-merge low-risk PRs, auto-block high-risk ones, send borderline PRs to a reviewer, and redact secrets before notifying.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": {
+    "example": "04-pr-risk-gate"
+  },
+  "workflows": {
+    "pr": {
+      "workflowId": "pr",
+      "description": "Validate, score, route (merge / block / human review), redact, notify",
+      "nodes": [
+        {
+          "nodeId": "pr",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "validate",
+          "type": "VALIDATE",
+          "config": {
+            "required": [
+              "prId",
+              "author",
+              "githubToken",
+              "linesChanged",
+              "sensitiveFiles",
+              "testsAdded",
+              "coverageDelta"
+            ],
+            "types": {
+              "prId": "string",
+              "author": "string",
+              "linesChanged": "number",
+              "sensitiveFiles": "number",
+              "testsAdded": "number",
+              "coverageDelta": "number"
+            }
+          }
+        },
+        {
+          "nodeId": "mark-invalid",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "prId": "payload.prId",
+              "author": "payload.author",
+              "decision": "'NEEDS_INFO'",
+              "decidedBy": "'validator'",
+              "reason": "'PR metadata is incomplete or has wrong field types'"
+            }
+          }
+        },
+        {
+          "nodeId": "score",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "score": "(payload.linesChanged <= 200 ? 40 : (payload.linesChanged <= 800 ? 20 : 0)) + (payload.sensitiveFiles == 0 ? 30 : (payload.sensitiveFiles <= 1 ? 15 : 0)) + (payload.testsAdded > 0 && payload.coverageDelta >= 0 ? 30 : (payload.testsAdded > 0 || payload.coverageDelta >= -1 ? 15 : 0))"
+            }
+          }
+        },
+        {
+          "nodeId": "route",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload.sensitiveFiles >= 3 || payload.score < 40": "block",
+              "payload.score >= 75": "merge",
+              "payload.score >= 40 && payload.score < 75": "review"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "auto-merge",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "decision": "'MERGED'",
+              "decidedBy": "'rules'",
+              "reason": "'risk score ' + payload.score + ' is at or above 75'"
+            }
+          }
+        },
+        {
+          "nodeId": "auto-block",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "decision": "'BLOCKED'",
+              "decidedBy": "'rules'",
+              "reason": "'risk score ' + payload.score + ' is below 40, or 3+ migrations/auth files changed'"
+            }
+          }
+        },
+        {
+          "nodeId": "reviewer",
+          "type": "WAIT_FOR_SIGNAL",
+          "config": {
+            "signal": "reviewer",
+            "timeoutSeconds": 86400,
+            "onTimeout": "CONTINUE",
+            "onReject": "FAIL",
+            "engine": {
+              "onError": "ROUTE"
+            }
+          }
+        },
+        {
+          "nodeId": "after-review",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "metadata['signal.decision'] == 'timeout'": "timed-out",
+              "metadata['signal.decision'] == 'decline'": "declined",
+              "metadata['signal.decision'] != 'timeout' && metadata['signal.decision'] != 'decline'": "approved"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "human-approve",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "decision": "'MERGED'",
+              "decidedBy": "'reviewer'",
+              "reason": "'borderline score ' + payload.score + ', approved by a reviewer'"
+            }
+          }
+        },
+        {
+          "nodeId": "human-decline",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "decision": "'BLOCKED'",
+              "decidedBy": "'reviewer'",
+              "reason": "'borderline score ' + payload.score + ', declined by a reviewer'"
+            }
+          }
+        },
+        {
+          "nodeId": "review-timeout",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "decision": "'ESCALATED'",
+              "decidedBy": "'timeout'",
+              "reason": "'no reviewer answer in time, escalate to the code owner'"
+            }
+          }
+        },
+        {
+          "nodeId": "redact",
+          "type": "CONTENT_FILTER",
+          "config": {
+            "mode": "EXCLUDE",
+            "paths": [
+              "githubToken",
+              "awsKey"
+            ]
+          }
+        },
+        {
+          "nodeId": "compose",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "text": "'PR ' + payload.prId + ': ' + payload.decision + ' by ' + payload.decidedBy + ' (' + payload.reason + ')'"
+            }
+          }
+        },
+        {
+          "nodeId": "notify",
+          "type": "FILE_WRITE",
+          "config": {
+            "baseDir": "/tmp/yukta-example-pr-risk-gate",
+            "path": "outbox.log",
+            "contentField": "text",
+            "append": true
+          }
+        },
+        {
+          "nodeId": "end",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        },
+        {
+          "nodeId": "rejected-stop",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "reviewer rejected the PR: pulled from the automated flow, nothing sent"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "pr",
+          "target": "validate"
+        },
+        {
+          "source": "validate",
+          "target": "score"
+        },
+        {
+          "source": "validate",
+          "target": "mark-invalid",
+          "sourcePort": "invalid"
+        },
+        {
+          "source": "score",
+          "target": "route"
+        },
+        {
+          "source": "route",
+          "target": "auto-merge",
+          "sourcePort": "merge"
+        },
+        {
+          "source": "route",
+          "target": "auto-block",
+          "sourcePort": "block"
+        },
+        {
+          "source": "route",
+          "target": "reviewer",
+          "sourcePort": "review"
+        },
+        {
+          "source": "reviewer",
+          "target": "after-review"
+        },
+        {
+          "source": "reviewer",
+          "target": "rejected-stop",
+          "sourcePort": "error"
+        },
+        {
+          "source": "after-review",
+          "target": "human-approve",
+          "sourcePort": "approved"
+        },
+        {
+          "source": "after-review",
+          "target": "review-timeout",
+          "sourcePort": "timed-out"
+        },
+        {
+          "source": "mark-invalid",
+          "target": "redact"
+        },
+        {
+          "source": "auto-merge",
+          "target": "redact"
+        },
+        {
+          "source": "auto-block",
+          "target": "redact"
+        },
+        {
+          "source": "human-approve",
+          "target": "redact"
+        },
+        {
+          "source": "review-timeout",
+          "target": "redact"
+        },
+        {
+          "source": "redact",
+          "target": "compose"
+        },
+        {
+          "source": "compose",
+          "target": "notify"
+        },
+        {
+          "source": "notify",
+          "target": "end"
+        },
+        {
+          "source": "after-review",
+          "target": "human-decline",
+          "sourcePort": "declined"
+        },
+        {
+          "source": "human-decline",
+          "target": "redact"
+        }
+      ]
+    }
+  }
+}

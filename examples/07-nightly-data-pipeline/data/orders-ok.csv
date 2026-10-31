@@ -1,9 +1,0 @@
-id,email,amount
-R1,ana@example.com,10.50
-R2,bo@example.com,99.00
-R3,cy@example.com,7
-R2,bo@example.com,99.00
-R4,not-an-email,5.00
-R5,ed@example.com,20.25
-R6,flo@example.com,3.10
-R7,gus@example.com,8

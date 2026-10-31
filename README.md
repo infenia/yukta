@@ -147,7 +147,7 @@ Browse them in the [plugin docs](https://yukta.infenia.com/plugins/overview), wi
 
 ### Examples
 
-[`examples/`](examples/README.md) has ready-to-run workflows, each with a config, a trigger and a test script. Ten are templates for a real pain point in a different domain: an agent that must not skip verification, release and loan approvals, returns and fraud, support triage, a nightly data pipeline, alert triage, content review, a multi-agent team and recruiting. The rest show the basics, an LLM chat agent, driving Yukta over MCP, and how Yukta checks its own code. Run them all against a local server with `examples/run-all.sh`.
+[`examples/`](examples/README.md) has ready-to-run workflows, each with a config, a trigger and a test script. Ten are templates for a real pain point in a different software domain: an agent that must not skip verification, release approval (DevOps), a PR risk gate, dependency-update triage, crash-report triage, an event data pipeline (data engineering), alert triage (SRE), model promotion (MLOps), security-finding triage (AppSec) and a multi-agent team. The rest show the basics, an LLM chat agent, driving Yukta over MCP, and how Yukta checks its own code. Run them all against a local server with `examples/run-all.sh`.
 
 ## Security
 
