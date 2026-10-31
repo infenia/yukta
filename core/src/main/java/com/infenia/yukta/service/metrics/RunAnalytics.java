@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
-import lombok.With;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -287,7 +286,6 @@ public class RunAnalytics {
    * @param p95Ms the workflow's usual p95 duration over the last day, or null when unknown
    * @param nodesTotal nodes in the run's graph, or null when unknown; filled in by the web layer
    */
-  @With
   public record LiveRun(
       String executionId,
       String sessionId,
@@ -297,7 +295,27 @@ public class RunAnalytics {
       int nodesDone,
       int nodesSeen,
       @Nullable Double p95Ms,
-      @Nullable Integer nodesTotal) {}
+      @Nullable Integer nodesTotal) {
+
+    /**
+     * Copy with the node total filled in.
+     *
+     * @param total nodes in the run's graph
+     * @return the copy
+     */
+    public LiveRun withNodesTotal(final int total) {
+      return new LiveRun(
+          executionId,
+          sessionId,
+          workflowId,
+          startedAt,
+          elapsedMs,
+          nodesDone,
+          nodesSeen,
+          p95Ms,
+          total);
+    }
+  }
 
   /**
    * Takes what the durable log remembers of the last day into the aggregates: finished runs with
