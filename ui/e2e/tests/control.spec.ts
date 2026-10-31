@@ -354,4 +354,26 @@ test.describe('Control page', () => {
     await page.keyboard.press('Escape');
     await expect(kiosk).toHaveCount(0);
   });
+
+  test('the dashboard and kiosk do not scroll sideways on a phone', async ({
+    page,
+  }) => {
+    await mockControlApi(page, []);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/control');
+    const overflow = () =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollWidth >
+          document.documentElement.clientWidth
+      );
+    await expect(page.getByTestId('mission-control')).toBeVisible();
+    expect(await overflow()).toBe(false);
+
+    await page.getByRole('button', { name: 'Kiosk' }).click();
+    const kiosk = page.getByTestId('kiosk');
+    await expect(kiosk).toBeVisible();
+    const sideways = await kiosk.evaluate((el) => el.scrollWidth > el.clientWidth);
+    expect(sideways).toBe(false);
+  });
 });
