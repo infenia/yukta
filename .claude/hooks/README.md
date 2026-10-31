@@ -1,3 +1,12 @@
+# Dogfood hooks: `yk-hook.py`
+
+Registered in `.claude/settings.json` (SessionStart, UserPromptSubmit, PreToolUse on Bash, Stop), so they run in every checkout, worktree
+and subagent without `/plugin install yukta-dogfood`. Before this, the enforcement lived only in the mod, and a machine without the mod
+installed had no hooks at all. The skill itself is always loaded through the `@.claude/skills/yukta/SKILL.md` import in `CLAUDE.md`.
+Pre-bash also catches `bash -c '...'`, `yarn|bun` and `node_modules/.bin/{tsc,vitest,eslint,prettier}`. With the mod installed, the context
+lines come from the mod only (no duplicates); the deny and the Stop nudge are idempotent. Off: `YUKTA_DOGFOOD=off`.
+Test: `python3 .claude/hooks/test_yk_hook.py`.
+
 # Keeping CLAUDE.md honest: a Stop hook and skill telemetry
 
 Both are opt-in and nothing here edits a CLAUDE.md. A CLAUDE.md or rule is reviewed like code: change it in a PR, with a reviewer.
