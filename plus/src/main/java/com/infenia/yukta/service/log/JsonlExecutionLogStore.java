@@ -12,7 +12,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -91,6 +94,13 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
             return thread;
           });
 
+  /**
+   * Owner of each run, so the auth filter reads one map entry instead of the file. Built on first
+   * use, kept current by {@link #write}, dropped by {@link #rewrite}; only touched on the writer
+   * thread.
+   */
+  private Map<String, RunHeader> headers;
+
   /** Events appended since the last compaction; only touched on the writer thread. */
   private int sinceCompaction;
 
@@ -163,6 +173,27 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   }
 
   @Override
+  public Optional<RunHeader> header(final String executionId) {
+    return onWriter(
+        () -> {
+          if (headers == null) {
+            headers = new HashMap<>();
+            for (final ExecutionLogEvent event : read()) {
+              index(event);
+            }
+          }
+          return Optional.ofNullable(headers.get(executionId));
+        },
+        Optional.empty());
+  }
+
+  private void index(final ExecutionLogEvent event) {
+    if (event.type() == ExecutionLogEvent.Type.RUN_STARTED) {
+      headers.put(event.executionId(), new RunHeader(event.sessionId(), event.workflowId()));
+    }
+  }
+
+  @Override
   public void replaceAll(final List<ExecutionLogEvent> events) {
     onWriter(
         () -> {
@@ -222,6 +253,9 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
           .addKeyValue("executionId", event.executionId())
           .setCause(e)
           .log("Could not append to the execution log");
+    }
+    if (headers != null) {
+      index(event);
     }
     sinceCompaction++;
     if (sinceCompaction >= compactAfter) {
@@ -285,6 +319,7 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   }
 
   private void rewrite(final List<ExecutionLogEvent> events) {
+    headers = null;
     try {
       Files.createDirectories(dir);
       final Path tmp = Files.createTempFile(dir, "executions", ".tmp");

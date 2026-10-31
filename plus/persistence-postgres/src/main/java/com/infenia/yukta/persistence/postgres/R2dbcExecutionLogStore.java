@@ -274,6 +274,45 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
     }
   }
 
+  /** Uses the {@code execution_id} index, so a lookup does not read the table. */
+  @Override
+  public List<ExecutionLogEvent> forExecution(final String executionId) {
+    return onWriter(
+        () ->
+            parse(
+                client
+                    .sql(
+                        "SELECT CAST(event AS text) AS event FROM execution_log"
+                            + " WHERE execution_id = :id ORDER BY seq")
+                    .bind("id", executionId)
+                    .map(row -> row.get("event", String.class))
+                    .all()
+                    .collectList()
+                    .block(STATEMENT_TIMEOUT)),
+        List.of());
+  }
+
+  @Override
+  public List<ExecutionLogEvent> ofType(
+      final ExecutionLogEvent.Type type, final java.time.Instant since) {
+    return onWriter(
+        () ->
+            parse(
+                    client
+                        .sql(
+                            "SELECT CAST(event AS text) AS event FROM execution_log"
+                                + " WHERE event->>'type' = :type ORDER BY seq")
+                        .bind("type", type.name())
+                        .map(row -> row.get("event", String.class))
+                        .all()
+                        .collectList()
+                        .block(STATEMENT_TIMEOUT))
+                .stream()
+                .filter(event -> event.timestamp().isAfter(since))
+                .toList(),
+        List.of());
+  }
+
   @Override
   public List<ExecutionLogEvent> readAll() {
     return onWriter(this::read, List.of());
@@ -475,14 +514,17 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   }
 
   private List<ExecutionLogEvent> read() {
-    final List<ExecutionLogEvent> events = new ArrayList<>();
-    final List<String> rows =
+    return parse(
         client
             .sql("SELECT CAST(event AS text) AS event FROM execution_log ORDER BY seq")
             .map(row -> row.get("event", String.class))
             .all()
             .collectList()
-            .block(STATEMENT_TIMEOUT);
+            .block(STATEMENT_TIMEOUT));
+  }
+
+  private List<ExecutionLogEvent> parse(final List<String> rows) {
+    final List<ExecutionLogEvent> events = new ArrayList<>();
     for (final String row : Objects.requireNonNullElse(rows, List.<String>of())) {
       try {
         events.add(mapper.readValue(row, ExecutionLogEvent.class));
