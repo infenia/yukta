@@ -4,6 +4,7 @@ package com.infenia.yukta;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import org.springframework.boot.SpringApplication;
@@ -33,11 +34,18 @@ public class YuktaApplication {
   /** Text printed for {@link #HELP_FLAG}. */
   private static final String HELP =
       """
-      Usage: yukta [--version] [--help] [--<spring.property>=value ...]
+      Usage: yukta [--version] [--help] [--mode=console|plain|daemon] [--plain]
+                   [--<spring.property>=value ...]
 
       Starts the Yukta server. Any other argument is a Spring Boot property.
 
+      Run modes (--mode, or YUKTA_MODE; --plain is --mode=plain):
+        console   interactive dashboard; the default on a terminal
+        plain     log lines on stdout; the default when not on a terminal
+        daemon    background process (managed by yukta start|stop|status)
+
       Environment variables:
+        YUKTA_MODE             run mode, as --mode
         YUKTA_API_KEY          API key required by the REST API
         YUKTA_SERVER_ADDRESS   address to bind (default: loopback)
         YUKTA_BOOTSTRAP_DIR    directory of workflows loaded at start\
@@ -61,6 +69,9 @@ public class YuktaApplication {
     if (isNativeImage() && !hasProfileArgument(args)) {
       System.setProperty("spring.profiles.active", "prod");
     }
+
+    final RunMode mode = RunMode.resolve(System.getenv(), RunMode.isTty(), args);
+    System.setProperty("yukta.run-mode", mode.name().toLowerCase(Locale.ROOT));
 
     final SpringApplication app = new SpringApplication(YuktaApplication.class);
     app.run(args);
