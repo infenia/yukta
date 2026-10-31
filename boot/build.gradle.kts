@@ -84,6 +84,8 @@ dependencies {
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.actuator)
+    // /actuator/prometheus for Grafana users; exposed only when "prometheus" is in management.endpoints.web.exposure.include
+    implementation(libs.micrometer.registry.prometheus)
     // OTLP export of traces and metrics; off until management.otlp.*.endpoint/url is set (application.yaml)
     implementation(libs.spring.boot.starter.opentelemetry)
 
