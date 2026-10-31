@@ -39,7 +39,7 @@ class RuleControlPlaneTest {
 
   private static ExecutionEvent node(final String status) {
     return new ExecutionEvent.NodeStatusChanged(
-        "e1", "wf", "n1", "HTTP_REQUEST", status, Map.of(), Instant.now());
+        "e1", "s", "wf", "n1", "HTTP_REQUEST", status, Map.of(), Instant.now());
   }
 
   @Test
@@ -83,7 +83,7 @@ class RuleControlPlaneTest {
   void review_denyRule_denied() {
     final var kill = new ExecutionControlCommand.StopWorkflowCommand("e1", "x", StopMode.KILL);
 
-    final var verdict = PLANE.review(new ControlRequest(kill, null)).block();
+    final var verdict = PLANE.review(new ControlRequest(kill, null, null, null)).block();
 
     assertThat(verdict.allowed()).isFalse();
     assertThat(verdict.reason()).isEqualTo("use DRAIN");

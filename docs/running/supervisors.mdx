@@ -31,6 +31,8 @@ All of them send commands through the same ordered, reviewed and audited pipelin
 - **React to events.** Receive every event (a node changed status, a workflow changed status, a command was applied or rejected, a log line was written) and answer with commands.
 - **Veto commands.** A **reviewer** can refuse any command, from a person or a program, before it runs. The first refusal wins, and a reviewer that errors refuses. The caller gets `403` and the log records the rejection.
 
+- **Limit what it watches.** A supervisor has a **scope**: all runs (the default), the runs of one session, or the runs of one workflow. It sees only the events of runs in its scope and is asked to review only their commands. A command that belongs to no run, such as changing the scheduler limits, is reviewed by global supervisors only. `GET /api/supervisors` reports each supervisor's `scope`, `scopeSessionId` and `scopeWorkflowId`.
+
 Commands sent by a supervisor go through the same ordered, reviewed, audited pipeline as everyone else's. They are logged and audited with the supervisor's id as the actor.
 
 ## The built-in rule supervisor

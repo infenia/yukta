@@ -17,6 +17,7 @@ import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
@@ -92,7 +93,7 @@ class SupervisorHostTest {
 
   private static ExecutionEvent failed(final String execution) {
     return new ExecutionEvent.NodeStatusChanged(
-        execution, "wf", "n", "echo", "FAILURE", null, Instant.now());
+        execution, "s", "wf", "n", "echo", "FAILURE", null, Instant.now());
   }
 
   private static Flux<ExecutionControlCommand> pauseOnFailure(final Flux<ExecutionEvent> events) {
@@ -100,6 +101,48 @@ class SupervisorHostTest {
         .ofType(ExecutionEvent.NodeStatusChanged.class)
         .filter(e -> "FAILURE".equals(e.status()))
         .map(e -> new ExecutionControlCommand.PauseWorkflowCommand(e.executionId()));
+  }
+
+  @Test
+  void start_scopedSupervisor_seesOnlyEventsOfItsScope() {
+    final List<String> seen = new CopyOnWriteArrayList<>();
+    final ExecutionSupervisor scoped =
+        new ExecutionSupervisor() {
+          @Override
+          public String id() {
+            return "scoped";
+          }
+
+          @Override
+          public SupervisorScope scope() {
+            return new SupervisorScope.Workflow("wf", "s");
+          }
+
+          @Override
+          public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+            return events.doOnNext(e -> seen.add(e.executionId())).thenMany(Flux.empty());
+          }
+        };
+    start(scoped, false, 10);
+
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              feed.publish(
+                  new ExecutionEvent.WorkflowStatusChanged(
+                      "other-session", "x", "wf", "RUNNING", Instant.now()));
+              feed.publish(
+                  new ExecutionEvent.WorkflowStatusChanged(
+                      "other-wf", "s", "y", "RUNNING", Instant.now()));
+              feed.publish(
+                  new ExecutionEvent.WorkflowStatusChanged(
+                      "mine", "s", "wf", "RUNNING", Instant.now()));
+              assertThat(seen).contains("mine");
+            });
+    assertThat(seen).doesNotContain("other-session", "other-wf");
+    assertThat(host.status().getFirst().scope()).isEqualTo("WORKFLOW");
+    assertThat(host.status().getFirst().scopeSessionId()).isEqualTo("s");
   }
 
   @Test
@@ -215,10 +258,10 @@ class SupervisorHostTest {
         10);
     final var own =
         new ExecutionEvent.ControlOutcome(
-            "e1", "PauseWorkflowCommand", "rules", true, null, Instant.now());
+            "e1", null, null, "PauseWorkflowCommand", "rules", true, null, Instant.now());
     final var other =
         new ExecutionEvent.ControlOutcome(
-            "e1", "PauseWorkflowCommand", "human", true, null, Instant.now());
+            "e1", null, null, "PauseWorkflowCommand", "human", true, null, Instant.now());
 
     await()
         .atMost(3, TimeUnit.SECONDS)
@@ -398,7 +441,19 @@ class SupervisorHostTest {
     assertThat(status.getFirst())
         .isEqualTo(
             new SupervisorInfo(
-                "rules", "SUPERVISOR", status.getFirst().type(), 0, true, 7, 3, 1, 2, 4));
+                "rules",
+                "SUPERVISOR",
+                status.getFirst().type(),
+                0,
+                true,
+                7,
+                3,
+                1,
+                2,
+                4,
+                "GLOBAL",
+                null,
+                null));
     assertThat(status.get(1).applied()).isZero();
     assertThat(status.getFirst().type()).contains("SupervisorHostTest");
     assertThat(status.get(1).type()).isEqualTo("NamedPlane");

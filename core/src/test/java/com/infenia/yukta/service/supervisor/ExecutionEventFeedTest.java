@@ -13,7 +13,7 @@ import reactor.test.StepVerifier;
 class ExecutionEventFeedTest {
 
   private static ExecutionEvent event(final String id) {
-    return new ExecutionEvent.WorkflowStatusChanged(id, "wf", "RUNNING", Instant.now());
+    return new ExecutionEvent.WorkflowStatusChanged(id, "s", "wf", "RUNNING", Instant.now());
   }
 
   @Test

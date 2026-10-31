@@ -20,7 +20,20 @@ class SupervisorsControllerTest {
   void list_wrapsTheStatusOfTheHost() {
     final SupervisorHost host = mock(SupervisorHost.class);
     final SupervisorInfo info =
-        new SupervisorInfo("rules", "SUPERVISOR", "RuleSupervisor", 0, false, 20, 3, 1, 0, 0);
+        new SupervisorInfo(
+            "rules",
+            "SUPERVISOR",
+            "RuleSupervisor",
+            0,
+            false,
+            20,
+            3,
+            1,
+            0,
+            0,
+            "GLOBAL",
+            null,
+            null);
     when(host.status()).thenReturn(List.of(info));
 
     StepVerifier.create(new SupervisorsController(host).list())

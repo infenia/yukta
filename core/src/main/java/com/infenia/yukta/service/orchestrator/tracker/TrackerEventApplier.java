@@ -121,6 +121,7 @@ final class TrackerEventApplier {
     eventFeed.publish(
         new ExecutionEvent.NodeStatusChanged(
             event.executionId(),
+            state.sessionId,
             state.workflowId,
             event.nodeId(),
             event.module(),
@@ -186,7 +187,7 @@ final class TrackerEventApplier {
     state.setStatus(event.status());
     eventFeed.publish(
         new ExecutionEvent.WorkflowStatusChanged(
-            event.executionId(), state.workflowId, event.status(), Instant.now()));
+            event.executionId(), state.sessionId, state.workflowId, event.status(), Instant.now()));
     touched.add(state);
     if (TaskStatus.isTerminalName(event.status())) {
       cleanup.accept(event.executionId());
@@ -232,9 +233,16 @@ final class TrackerEventApplier {
                         _ -> new LogLineClassifier())
                     .rate(unrated.line()));
     streams.feed(event);
+    final WorkflowState owner = states.apply(event.executionId());
     eventFeed.publish(
         new ExecutionEvent.LogLine(
-            event.executionId(), event.nodeId(), event.line(), event.level(), Instant.now()));
+            event.executionId(),
+            owner == null ? null : owner.sessionId,
+            owner == null ? null : owner.workflowId,
+            event.nodeId(),
+            event.line(),
+            event.level(),
+            Instant.now()));
     streams.emitLine(event);
   }
 }

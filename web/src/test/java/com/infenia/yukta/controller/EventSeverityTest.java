@@ -33,7 +33,7 @@ class EventSeverityTest {
   })
   void nodeStatus(final String status, final EventSeverity expected) {
     final var event =
-        new ExecutionEvent.NodeStatusChanged("e", "w", "n", "m", status, Map.of(), NOW);
+        new ExecutionEvent.NodeStatusChanged("e", "s", "w", "n", "m", status, Map.of(), NOW);
 
     assertThat(EventSeverity.of(event)).isEqualTo(expected);
   }
@@ -41,7 +41,7 @@ class EventSeverityTest {
   @ParameterizedTest
   @CsvSource({"RUNNING,INFO", "COMPLETED,INFO", "CANCELLED,WARN", "FAILURE,ERROR", "ABORTED,ERROR"})
   void workflowStatus(final String status, final EventSeverity expected) {
-    final var event = new ExecutionEvent.WorkflowStatusChanged("e", "w", status, NOW);
+    final var event = new ExecutionEvent.WorkflowStatusChanged("e", "s", "w", status, NOW);
 
     assertThat(EventSeverity.of(event)).isEqualTo(expected);
   }
@@ -49,7 +49,8 @@ class EventSeverityTest {
   @ParameterizedTest
   @CsvSource({"true,INFO", "false,WARN"})
   void controlOutcome(final boolean applied, final EventSeverity expected) {
-    final var event = new ExecutionEvent.ControlOutcome("e", "Pause", null, applied, null, NOW);
+    final var event =
+        new ExecutionEvent.ControlOutcome("e", null, null, "Pause", null, applied, null, NOW);
 
     assertThat(EventSeverity.of(event)).isEqualTo(expected);
   }
@@ -57,7 +58,8 @@ class EventSeverityTest {
   @ParameterizedTest
   @CsvSource({"DEBUG,INFO", "INFO,INFO", "WARN,WARN", "ERROR,ERROR"})
   void logLine_takesTheLevelItCarries(final LogLevel level, final EventSeverity expected) {
-    final var event = new ExecutionEvent.LogLine("e", "n", "any text at all", level, NOW);
+    final var event =
+        new ExecutionEvent.LogLine("e", "s", "wf", "n", "any text at all", level, NOW);
 
     assertThat(EventSeverity.of(event)).isEqualTo(expected);
   }
