@@ -35,6 +35,7 @@ import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import jakarta.annotation.PreDestroy;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -491,6 +492,16 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
               new AuditRecord(applied, target, command, actor, reason, Instant.now()));
           return Mono.empty();
         });
+  }
+
+  /**
+   * Cancels the runs that are still going when the application shuts down. The scheduler has
+   * already waited for them (its shutdown timeout); what is left would otherwise be abandoned
+   * running.
+   */
+  @PreDestroy
+  public void cancelRunningExecutions() {
+    starter.cancelAll();
   }
 
   @Override

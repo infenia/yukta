@@ -113,9 +113,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   @Override
   public Mono<Void> save(final String executionId, final String nodeId, final Message<?> message) {
-    return Mono.fromRunnable(() -> write(executionId, nodeId, message))
-        .subscribeOn(IO)
-        .then();
+    return Mono.fromRunnable(() -> write(executionId, nodeId, message)).subscribeOn(IO).then();
   }
 
   @Override
@@ -125,15 +123,12 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   @Override
   public Flux<Message<?>> getAll(final String executionId, final String nodeId) {
-    return Flux.defer(() -> Flux.fromIterable(read(executionId, nodeId)))
-        .subscribeOn(IO);
+    return Flux.defer(() -> Flux.fromIterable(read(executionId, nodeId))).subscribeOn(IO);
   }
 
   @Override
   public Mono<Void> markComplete(final String executionId, final String nodeId) {
-    return Mono.fromRunnable(() -> writeDone(executionId, nodeId))
-        .subscribeOn(IO)
-        .then();
+    return Mono.fromRunnable(() -> writeDone(executionId, nodeId)).subscribeOn(IO).then();
   }
 
   @Override

@@ -2360,6 +2360,31 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void cancelRunningExecutions_cancelsRunsThatAreStillGoing() {
+    final WorkflowDefinition definition =
+        new WorkflowDefinition("wf-live", "test workflow", List.of(), List.of());
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+    final java.util.concurrent.atomic.AtomicBoolean cancelled =
+        new java.util.concurrent.atomic.AtomicBoolean();
+    when(workflowDefinitionStore.find("sess-live", "wf-live")).thenReturn(Mono.just(definition));
+    when(preparedWorkflowCache.get(eq("sess-live"), eq("wf-live"), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
+    when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.just(preparedWorkflow));
+    when(orchestrator.execute(
+            eq("sess-live"), eq("wf-live"), anyString(), eq(preparedWorkflow), anyMap(), any()))
+        .thenReturn(Mono.<Void>never().doOnCancel(() -> cancelled.set(true)));
+
+    StepVerifier.create(gateway.startWorkflow("sess-live", "wf-live"))
+        .expectNextCount(1)
+        .verifyComplete();
+    assertThat(cancelled).isFalse();
+
+    gateway.cancelRunningExecutions();
+
+    assertThat(cancelled).isTrue();
+  }
+
+  @Test
   void startWorkflow_whileTheWorkflowIsBeingDeleted_isRefused() {
     when(preparedWorkflowCache.isDeleting("s-del", "w-del")).thenReturn(true);
 

@@ -15,6 +15,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 
 /**
@@ -46,6 +47,9 @@ class WorkflowStarter {
 
   /** Preparations in flight, so concurrent starts of one workflow prepare it once. */
   private final Map<PrepareKey, Mono<PreparedWorkflow>> preparing = new ConcurrentHashMap<>();
+
+  /** The subscription of every run started here and not yet ended, so shutdown can cancel them. */
+  private final Map<String, Disposable> live = new ConcurrentHashMap<>();
 
   /* default */ Mono<String> start(
       final String sessionId, final String workflowId, final Map<String, Object> payload) {
@@ -202,18 +206,30 @@ class WorkflowStarter {
               if (admission.refused()) {
                 return admission.permit().thenReturn(executionId);
               }
-              orchestrator
-                  .execute(sessionId, workflowId, executionId, prepared, payload, admission)
-                  .doOnError(
-                      err ->
-                          log.atError()
-                              .setCause(err)
-                              .addKeyValue("executionId", executionId)
-                              .log("Async workflow execution failed"))
-                  .onErrorComplete()
-                  .subscribe();
+              final Disposable run =
+                  orchestrator
+                      .execute(sessionId, workflowId, executionId, prepared, payload, admission)
+                      .doOnError(
+                          err ->
+                              log.atError()
+                                  .setCause(err)
+                                  .addKeyValue("executionId", executionId)
+                                  .log("Async workflow execution failed"))
+                      .onErrorComplete()
+                      .doFinally(_ -> live.remove(executionId))
+                      .subscribe();
+              live.put(executionId, run);
+              if (run.isDisposed()) {
+                live.remove(executionId); // ended before it was registered
+              }
               return Mono.just(executionId);
             });
+  }
+
+  /** Cancels every run started here that is still going (shutdown timeout, loss of leadership). */
+  /* default */ void cancelAll() {
+    live.values().forEach(Disposable::dispose);
+    live.clear();
   }
 
   /**
