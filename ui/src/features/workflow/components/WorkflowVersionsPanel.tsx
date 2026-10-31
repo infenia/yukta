@@ -130,7 +130,11 @@ export function WorkflowVersionsPanel({
                   liveRun ||
                   (goBack.isPending && goBack.variables === version.id)
                 }
-                title={liveRun ? 'Stop the running run first' : undefined}
+                title={
+                  liveRun
+                    ? 'A run of this workflow is still going. Stop it first'
+                    : undefined
+                }
                 onClick={() => setConfirming(version.id)}
               >
                 Roll back

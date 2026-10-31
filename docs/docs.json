@@ -102,6 +102,7 @@
             "group": "Run and control",
             "public": true,
             "pages": [
+              "running/run-modes",
               "running/run-controls",
               "running/admission-and-limits",
               "running/observability",
@@ -141,7 +142,8 @@
               "reference/glossary",
               "reference/licensing",
               "reference/limits-and-defaults",
-              "reference/status-values"
+              "reference/status-values",
+              "reference/client-parity"
             ]
           }
         ]

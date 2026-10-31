@@ -276,9 +276,7 @@ test.describe('Session List Page - Mocked API', () => {
 });
 
 test.describe('Session List Page - row actions', () => {
-  test('a row shows only a Delete icon button, no actions menu', async ({
-    page,
-  }) => {
+  test('a row has no Delete button and no actions menu', async ({ page }) => {
     await page.goto('/sessions');
     await expect(page.getByText('Build Pipeline')).toBeVisible();
 
@@ -286,8 +284,8 @@ test.describe('Session List Page - row actions', () => {
       page.getByRole('button', { name: 'Session actions' })
     ).toHaveCount(0);
     await expect(
-      page.getByRole('button', { name: 'Delete session session-1' })
-    ).toBeVisible();
+      page.getByRole('button', { name: /^Delete session / })
+    ).toHaveCount(0);
     await expect(
       page.locator('table .material-symbols-outlined', { hasText: 'more_vert' })
     ).toHaveCount(0);

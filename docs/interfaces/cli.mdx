@@ -229,9 +229,21 @@ Give the client a key with `--token` or `YUKTA_TOKEN` when the server requires o
 
 On failure the command prints `error: <message>` to standard error. An HTTP error includes the status code and the response body.
 
-## Not covered by the client
+## Other commands
 
-The client does not wrap every REST call. For recovering aborted runs, changing priority or scheduler limits, approval lists, version history and rollback, validation, the control audit, supervisors and workers, use the [REST API](/api/overview) or the [MCP server](/interfaces/mcp).
+| Command | What it does |
+|---|---|
+| `yukta-cli workflow executions recover <execution-id>` | Continue an aborted run as a new run |
+| `yukta-cli workflow executions priority <execution-id> <priority>` | Change the priority of a queued run |
+| `yukta-cli workflow executions search` | Search runs across sessions |
+| `yukta-cli session workflow versions\|diff\|rollback\|note <session-id> <workflow-id> …` | Saved versions of a workflow |
+| `yukta-cli session validate <json-or-file>` | Validate a workflow definition without saving it |
+| `yukta-cli session config <session-id>`, `session approvals <session-id>` | A session's configuration, and what its runs wait for |
+| `yukta-cli approvals list [--session ID]` | Pending approvals, across sessions or for one |
+| `yukta-cli controlbus audit` | Control commands sent, newest first |
+| `yukta-cli supervisors`, `yukta-cli workers` | Supervisors and remote workers |
+
+Run `yukta-cli <command> --help` for flags. Draining the server (`/api/admin/drain`), templates and metrics have no command; use the [REST API](/api/overview). See [Client parity](/reference/client-parity) for every task across the four clients.
 
 ## Next steps
 

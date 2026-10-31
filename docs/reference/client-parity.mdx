@@ -1,0 +1,92 @@
+---
+title: "Client parity: what REST, MCP, the CLI and the web UI can each do"
+sidebarTitle: "Client parity"
+description: "One table of every operator task against the four ways to reach the server: REST endpoint, MCP tool, yukta-cli command and web UI page, so you can pick the right client and spot gaps."
+keywords: ["client parity", "REST", "MCP", "CLI", "web UI", "feature matrix"]
+---
+
+<Info>
+  **In plain terms:** the same server can be driven four ways: raw HTTP (REST), an AI agent (MCP), a terminal (`yukta-cli`) and the browser (web UI). Not every way can do everything. This page shows which can do what, so you know where to go and where a gap is.
+</Info>
+
+Every client calls the [REST API](/api/overview); the others wrap it. A dash means the client has no entry point for that task, so use REST. The tables were checked against the controllers, `AppMcpTools`, the CLI commands and the UI routes when this page was written. When you add a feature to one client, add its row here.
+
+## Sessions and workflows
+
+| Task | REST | MCP | CLI | Web UI |
+|---|---|---|---|---|
+| List sessions | `GET /api/sessions`, `GET /api/sessions/summaries` | `list_sessions` | `session list`, `session summaries` | Sessions page |
+| Show a session | `GET /api/sessions/{id}` | `get_session_details` | `session get` | Session page |
+| Create or replace a session | `POST /api/sessions` | `create_session` | `session apply` | New session form, Import JSON, Templates |
+| Edit session name, description, tags | `POST /api/sessions` | `create_session` | `session apply` | Session page › Edit |
+| Export a session as JSON | `GET /api/sessions/{id}/config` | – | `session config` | Session page › Export JSON |
+| Delete a session or a workflow | `DELETE /api/sessions/{id}`, `DELETE …/workflows/{id}` | `delete_session`, `delete_workflow` | `session delete`, `session workflow delete` | Session page › Delete; workflow page › Delete |
+| Show a workflow and its graph | `GET …/workflows/{id}`, `…/graph` | `get_workflow_details` | `session workflow get`, `session workflow graph` | Workflow page |
+| Validate a draft | `POST /api/sessions/validate` | – | `session validate` | Editor › Validate |
+| Check a working directory | `POST /api/sessions/validate/project-path` | – | – | New session form |
+| Saved versions, changes since, notes, rollback | `…/versions`, `…/versions/diff`, `…/versions/note`, `…/rollback` | `list_workflow_versions`, `diff_workflow_versions`, `note_workflow_version`, `rollback_workflow` | `session workflow versions`, `diff`, `note`, `rollback` | Workflow page › ⋮ › Versions |
+| Start from a template | `GET /api/templates`, `GET /api/templates/{id}` | – | – | New session › Templates |
+| Plugin catalogue and usage | `GET /api/plugins`, `…/{type}`, `…/{type}/usage` | `list_plugins`, `get_plugin_details` | `plugin list`, `plugin get` | Plugins page |
+
+## Runs
+
+| Task | REST | MCP | CLI | Web UI |
+|---|---|---|---|---|
+| Start a run | `POST /api/workflow/start` | `start_workflow` | `workflow start` | Workflow page › Run |
+| Pause, resume, stop one run | `POST /api/executions/{id}/pause\|resume\|stop` | `control_workflow` | `workflow pause\|resume`, `workflow executions stop` | Run controls |
+| Stop all runs of a workflow (drain, cancel, kill) | `POST /api/workflow/{session}/{workflow}/stop` | `control_workflow` (`STOP_ALL`) | `workflow stop` | Run controls › Stop menu |
+| Restart a run, or from a node | `POST /api/executions/{id}/restart` | `control_workflow` | `workflow executions restart` | Run controls › Restart; node menu › Restart from here |
+| Recover an aborted run | `POST /api/executions/{id}/recover` | `control_workflow` (`RECOVER`) | `workflow executions recover` | Run controls › Recover |
+| Change the priority of a queued run | `POST /api/executions/{id}/priority` | – | `workflow executions priority` | Run controls › Priority |
+| Run status and history | `GET /api/executions/{id}`, `GET /api/workflow/{session}/history` | `get_workflow_status`, `get_workflow_history` | `workflow status`, `workflow history` | Workflow page, run history menu |
+| Runs started as sub-workflows | `GET /api/executions/{id}/tree` | `get_execution_tree` | `workflow tree` | Sub-workflow links, Parent run |
+| Search runs across sessions | `GET /api/executions`, `…/counts` | – | `workflow executions search` | Runs page, command palette |
+| Live status of a run | `GET /api/executions/{id}/status/stream` | – | `workflow status-stream` | Workflow page |
+| When each node ran | derived from the status | – | – | Workflow page › Timeline |
+| Results at the terminal nodes | `GET …/executions/{id}/results` (JSON or SSE) | `get_execution_result` | `result` | Progress panel › Result, results explorer |
+| Log lines, live and stored | `GET …/logs`, `…/logs/entries` | `get_execution_logs` | `logs` | Logs panel (filter, the server's raw lines, download) |
+| Copy an action as CLI, curl or MCP | – | – | – | Run and node menus › Copy as |
+
+## Nodes and approvals
+
+| Task | REST | MCP | CLI | Web UI |
+|---|---|---|---|---|
+| Pause, resume, stop, skip, unskip, step a node | `POST /api/executions/{id}/nodes/{node}/…` | `control_node` | `workflow node pause\|resume\|stop\|skip\|step` | Node menu |
+| Retry from a failed node | `POST …/nodes/{node}/retry` | `control_node` (`RETRY`) | `workflow node retry` | Node menu |
+| Set or clear a breakpoint | `POST`/`DELETE …/nodes/{node}/breakpoint` | `set_node_breakpoint`, `control_node` (`BREAKPOINT_CLEAR`) | `workflow node breakpoint` | Node menu › Breakpoint |
+| Answer a node that waits (approve, reject) | `POST …/nodes/{node}/signal` | `signal_node` | `workflow node signal` | Approvals bar, node menu |
+| List what waits for a decision | `GET /api/sessions/{id}/approvals`, `GET /api/approvals` | `list_pending_approvals` | `approvals list`, `session approvals` | Approvals bar, Overview |
+| Last output of a node | `GET …/nodes/{node}/output` | `get_node_output` | `logs --node` (log lines) | – (the node panel shows status, config, log lines and actions) |
+| Node details in one place | – | – | – | Node panel (click a node) |
+| Trigger a workflow from outside | `POST /hooks/{session}/{path}` | – | – | – (configured on a webhook trigger node) |
+
+## Control plane and server
+
+| Task | REST | MCP | CLI | Web UI |
+|---|---|---|---|---|
+| Scheduler limits and queue | `GET`/`POST /api/scheduler/limits` | `get_scheduler_limits`, `set_scheduler_limits` | `scheduler limits`, `scheduler limits set` | Control › Scheduler |
+| Drain the server | `GET`/`POST`/`DELETE /api/admin/drain` | – | – | – |
+| Workers | `GET /api/workers` | – | `workers` | Control › Workers |
+| Supervisors | `GET /api/supervisors` | – | `supervisors` | Control › Supervisors |
+| Control bus nodes and heartbeats | `GET /api/control/nodes`, `…/heartbeats`, `…/workflows/{id}/nodes` | `get_control_bus_status` | `controlbus nodes\|all-nodes\|heartbeat` | Control › Control bus |
+| Send a raw control-bus command | `POST /api/control/workflows/{id}/nodes/{node}/command` | – | `controlbus command` | Control › Control bus › Send command |
+| Who sent which command | `GET /api/control/audit` | – | `controlbus audit` | Control › Audit |
+| Live events of all runs | `GET /api/events/stream` | – | `controlbus watch` | Control › Activity |
+| Who am I, and what may I do | `GET /api/me` | `whoami` | `whoami` | Identity chip in the header |
+| Metrics time series | `GET /api/metrics/…` | – | – | Dashboard components only (`/showcase/dashboard`) |
+
+## Reading the gaps
+
+- **REST only, on purpose:** the webhook trigger is for outside systems, and draining the server is an operator action for a deployment script.
+- **Worth knowing:** MCP has no search, workers or supervisors view, and cannot change the priority of a queued run. The UI has no way to read a node's last output.
+- **Roles apply everywhere.** A key that may not do something gets `403` from REST, MCP and the CLI; the UI shows the control disabled with the role it needs. See [Security](/operations/security).
+
+## Related
+
+<Card title="REST API overview" icon="code" horizontal href="/api/overview">
+  Base path, authentication, response envelope, paging and stream conventions.
+</Card>
+
+<Card title="Command-line client" icon="terminal" horizontal href="/interfaces/cli">
+  Every `yukta-cli` command with its flags.
+</Card>

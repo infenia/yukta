@@ -11,7 +11,7 @@ describe('columns', () => {
   });
 
   it('should have correct number of columns', () => {
-    expect(columns).toHaveLength(7);
+    expect(columns).toHaveLength(6);
   });
 
   it('should have name column', () => {
@@ -54,10 +54,10 @@ describe('columns', () => {
     expect((countColumn as any).header).toBe('Workflows');
   });
 
-  it('should have actions column', () => {
-    const actionsColumn = columns.find((col) => (col as any).id === 'actions');
-    expect(actionsColumn).toBeDefined();
-    expect((actionsColumn as any).id).toBe('actions');
+  it('should have no actions column (a listing is read-only navigation)', () => {
+    expect(
+      columns.find((col) => (col as any).id === 'actions')
+    ).toBeUndefined();
   });
 
   it('should have cell renderers for custom columns', () => {
@@ -67,11 +67,9 @@ describe('columns', () => {
     const tagsColumn = columns.find(
       (col) => (col as any).accessorKey === 'tags'
     );
-    const actionsColumn = columns.find((col) => (col as any).id === 'actions');
 
     expect(nameColumn?.cell).toBeDefined();
     expect(tagsColumn?.cell).toBeDefined();
-    expect(actionsColumn?.cell).toBeDefined();
   });
 
   it('should include all required session fields as columns', () => {

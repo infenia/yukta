@@ -15,7 +15,8 @@ export class MockEventSource {
   static instances: MockEventSource[] = [];
 
   static latest(): MockEventSource {
-    const source = MockEventSource.instances[MockEventSource.instances.length - 1];
+    const source =
+      MockEventSource.instances[MockEventSource.instances.length - 1];
     if (!source) {
       throw new Error('No MockEventSource instance created yet');
     }
@@ -59,8 +60,15 @@ export class MockEventSource {
     this.onmessage?.(new MessageEvent('message', { data: payload }));
   }
 
-  /** Simulate a connection error. */
+  /** Simulate a fatal connection error: the browser gives up (readyState CLOSED). */
   emitError(): void {
+    this.readyState = MockEventSource.CLOSED;
+    this.onerror?.(new Event('error'));
+  }
+
+  /** Simulate a dropped connection the browser is retrying itself (readyState CONNECTING). */
+  emitDrop(): void {
+    this.readyState = MockEventSource.CONNECTING;
     this.onerror?.(new Event('error'));
   }
 

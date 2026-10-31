@@ -17,16 +17,19 @@ Use it to build and edit workflows without writing JSON by hand, to watch a run 
 
 | Address | Page |
 |---|---|
-| `/` | Session list |
-| `/sessions/new` | New session form |
+| `/` | Overview: what needs attention, recent failures and live activity across all sessions |
+| `/sessions` | Session list |
+| `/sessions/new` | New session form, with templates |
+| `/sessions/import` | Import a session from JSON |
 | `/sessions/{sessionId}` | Session details with its workflows |
-| `/sessions/{sessionId}/workflow/{workflowId}` | Live workflow graph, run controls, progress and logs |
+| `/sessions/{sessionId}/edit` | Edit a session's name, description and tags |
+| `/sessions/{sessionId}/workflow/{workflowId}` | Live workflow graph or timeline, run controls, progress and logs |
 | `/sessions/{sessionId}/workflow/{workflowId}/edit` | Workflow editor |
+| `/runs` | Search runs across all sessions (`/history` redirects here) |
 | `/plugins` | Plugin catalogue |
-| `/history` | Run history |
-| `/control` | Control bus, supervisors and audit |
+| `/control` | Scheduler, supervisors, workers, control bus, audit and live activity |
 
-A top bar links to Sessions, Plugins, History and Control, and has the theme toggle. A breadcrumb row below it shows where you are.
+A narrow rail on the left links to Overview, Sessions, Runs, Plugins and Control (a tab bar on a phone). The header has the search and jump palette (`⌘K`), the identity chip, and the theme toggle. A breadcrumb row below it shows where you are. For what each client can do, see [Client parity](/reference/client-parity).
 
 ## Sessions
 
@@ -76,6 +79,14 @@ The title bar shows the workflow and a chip with the status of the selected run:
 
 **Run History** in the breadcrumb row lists the runs of this workflow, newest first, with start time and status. The page shows the latest run until you pick another. The selection is kept in the address as `?exec=<id>`, so you can link to a run.
 
+### Graph or timeline
+
+A switch above the canvas changes the run between **Graph** and **Timeline**. The timeline draws one bar per node from its start to its end, so you can see what ran in parallel and where the time went.
+
+### Node details
+
+Selecting a node opens a panel on the right with its status and timing, its configuration (secrets masked), the log lines it wrote and the actions that fit its state. The page behind stays usable, so you can select another node without closing it. The node is kept in the address as `?node=<id>`.
+
 ### Run controls
 
 | Button | Available when |
@@ -85,6 +96,8 @@ The title bar shows the workflow and a chip with the status of the selected run:
 | **Resume** | The run is paused |
 | **Stop** | The run is live. A menu offers **Stop this run** and, for every active run of the workflow, **Drain**, **Cancel** or **Kill**. Each asks for confirmation |
 | **Restart** | The run has finished. Starts a new run with the original input |
+| **Recover** | The run was aborted by a server restart. Continues it as a new run; finished nodes are replayed from their saved results |
+| **Priority** | The run is queued. Changes where it waits |
 
 The [stop modes](/api/workflows#stop-all-runs-of-a-workflow) are the same as in the API. Errors from a control call appear next to the buttons.
 
@@ -98,7 +111,7 @@ The [stop modes](/api/workflows#stop-all-runs-of-a-workflow) are the same as in 
 
 ### Logs panel
 
-**Execution logs** at the bottom streams the run's log lines with timestamp, level and node, coloured by level. It has a filter box, an auto-scroll switch with **Jump to latest**, a line-wrap switch and a copy button. It keeps the newest 20,000 lines and says how many earlier ones are hidden.
+**Execution logs** at the bottom streams the run's log lines with timestamp, level and node, coloured by level. It has a filter box, an auto-scroll switch with **Jump to latest**, a copy button, and a menu for line wrap, the server's raw lines and downloads (the visible lines as `.log`, or all entries as `.jsonl`). It keeps the newest 20,000 lines and says how many earlier ones are hidden.
 
 ### Approvals
 
@@ -108,21 +121,31 @@ When a node of the workflow waits for a person, a bar above the graph says which
 
 **Versions** opens the saved versions of the workflow. For each one you can see what changed since then compared with the current definition, write a note about it, or **Roll back** to it after a confirmation. A rollback becomes a new version, so you can undo it. See [Validation and versions](/building/validation-and-versions).
 
-## Run history
+## Runs
 
-The History page lists recent runs of one session, newest first, up to the 50 most recent. Pick the session from the list at the top. Each row shows the execution id, workflow, status, start and end time. The execution id links to the workflow page with that run selected.
+The Runs page searches the runs of every session, newest first. Filter by session, workflow, status, text in the run id, and a time range; the chips above the table count runs by status. Each row links to the workflow page with that run selected. A session's own page also lists its recent runs.
 
 ## Plugin catalogue
 
 The Plugins page lists every plugin type grouped as triggers, processors and terminals, with a filter box. Select one to see its description, its output ports, a table of its options (name, type, whether it is required, and what it does), its usage notes and a preview of how it looks on the canvas. See [Plugins](/plugins/overview).
 
-## Control bus
+## Control
 
-The Control page, titled Control Bus, has three parts. All of them refresh every five seconds.
+The Control page has an **Overview** tab and an **Activity** tab. Activity is a live feed of events from all runs. Overview refreshes every five seconds and has these parts.
 
+- **Scheduler**: the execution limits, how many runs execute and wait, and **Edit** to change the limits (ADMIN).
+- **Workers**: the remote workers with their pools, plugin types and how much of their capacity is in use.
 - **Supervisors and control planes**: each running supervisor with its kind, review order, whether it is live or in dry run, its command rate limit, and how many commands it applied, refused, only recorded and dropped. See [Supervisors](/running/supervisors).
 - **Who did what**: the 50 newest control commands with time, actor, command, run and whether it was applied or refused and why. Commands sent without a named key show as `api`.
-- **Active nodes**: the nodes registered on the control bus. Enter a workflow id to narrow the list to that workflow and to show a **Heartbeat** button for each node.
+- **Active nodes**: the nodes registered on the control bus. Enter a workflow id to narrow the list to that workflow and to show a **Heartbeat** button for each node. **Send command** sends a raw command to a node (ADMIN).
+
+## Sessions: import, export, templates, delete
+
+**Import JSON** on the session list creates a session from a file or pasted JSON. **Export JSON** on a session's page downloads its configuration. **New session** can start from a template. **Edit** on a session's page changes its name, description and tags, and **Delete** asks you to type the id before it removes the session. Deleting a workflow works the same way. Controls your key's role cannot use are shown disabled, with the role they need.
+
+## Copy as
+
+The run controls and each node menu have a **Copy as** menu that gives the same action as a `yukta-cli` command, a `curl` call or an MCP tool call, ready to paste into a script.
 
 ## Theme
 
