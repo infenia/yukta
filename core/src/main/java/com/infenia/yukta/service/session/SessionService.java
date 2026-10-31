@@ -102,7 +102,7 @@ public class SessionService {
                         .remove(data.sessionId(), staleWorkflowId)
                         .doOnSuccess(
                             _ ->
-                                log.atInfo().log(
+                                log.atDebug().log(
                                     "Removed stale workflow: {} no longer present in config for"
                                         + " session: {}",
                                     staleWorkflowId,
@@ -134,7 +134,7 @@ public class SessionService {
             : Flux.fromIterable(data.workflows().values())
                 .doOnSubscribe(
                     _ ->
-                        log.atInfo().log(
+                        log.atDebug().log(
                             "Starting compilation of {} workflows for session: {}",
                             data.workflows().size(),
                             data.sessionId()))
@@ -163,7 +163,7 @@ public class SessionService {
     return validateAll
         .then(Mono.defer(() -> configService.applySessionConfig(data)))
         .doOnSubscribe(
-            _ -> log.atInfo().log("Applying configuration for session: {}", data.sessionId()))
+            _ -> log.atDebug().log("Applying configuration for session: {}", data.sessionId()))
         // A workflow that could not be removed fails the apply, after the rest of it has run: the
         // store
         // would otherwise differ from the declared config while the caller is told it worked.
@@ -171,7 +171,7 @@ public class SessionService {
         .then(applyRest)
         .doOnSuccess(
             _ ->
-                log.atInfo().log(
+                log.atDebug().log(
                     "Configuration applied successfully for session: {}", data.sessionId()))
         .doOnError(
             err ->
