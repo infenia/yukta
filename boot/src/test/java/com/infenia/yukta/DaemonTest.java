@@ -31,8 +31,8 @@ class DaemonTest {
 
   @Test
   void homeFollowsYuktaHomeThenXdgThenUserHome() {
-    assertThat(Daemon.homeFrom(Map.of("YUKTA_HOME", "/a"))).isEqualTo(Path.of("/a"));
-    assertThat(Daemon.homeFrom(Map.of("XDG_STATE_HOME", "/s"))).isEqualTo(Path.of("/s/yukta"));
+    assertThat(Daemon.homeFrom(Map.of("YUKTA_HOME", "a"))).isEqualTo(Path.of("a"));
+    assertThat(Daemon.homeFrom(Map.of("XDG_STATE_HOME", "s"))).isEqualTo(Path.of("s/yukta"));
     assertThat(Daemon.homeFrom(Map.of()).toString()).endsWith(".local/state/yukta");
   }
 

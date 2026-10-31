@@ -252,3 +252,38 @@ tasks.named("check") { dependsOn(verifyNettyVersion) }
 tasks.withType<org.springframework.boot.gradle.tasks.aot.ProcessAot>().configureEach {
     environment.keys.filter { it.startsWith("YUKTA_") || it.startsWith("SPRING_") }.forEach { environment.remove(it) }
 }
+
+// Run modes: the parts that need a real terminal, a spawned server or a native image are covered by
+// release/console-smoke.sh (nightly, native-smoke.yml), not by unit tests.
+coverageConfig {
+    exception(
+        "com.infenia.yukta.console.ConsoleRunner",
+        "Full-screen JLine loop on a real terminal; checked by release/console-smoke.sh on a pty",
+        mapOf("LINE" to 0.0, "BRANCH" to 0.0)
+    )
+    exception(
+        "com.infenia.yukta.console.ConsoleLogs",
+        "Swaps the root logback appender of the running process; checked by console-smoke.sh",
+        mapOf("LINE" to 0.1, "BRANCH" to 0.0)
+    )
+    exception(
+        "com.infenia.yukta.console.ConsoleView",
+        "Rendering is tested; the page layouts for runs, help and the log scroll edges are not yet",
+        mapOf("LINE" to 0.7, "BRANCH" to 0.5)
+    )
+    exception(
+        "com.infenia.yukta.Daemon",
+        "start/stop spawn and signal a real server process; checked by console-smoke.sh",
+        mapOf("LINE" to 0.4, "BRANCH" to 0.3)
+    )
+    exception(
+        "com.infenia.yukta.RunMode",
+        "isTty() reads the real terminal and /proc, which a test run does not have",
+        mapOf("LINE" to 0.8, "BRANCH" to 0.5)
+    )
+    exception(
+        "com.infenia.yukta.YuktaApplication",
+        "main() dispatches to the daemon commands and the console, which need a terminal or a process",
+        mapOf("LINE" to 0.6, "BRANCH" to 0.7)
+    )
+}
