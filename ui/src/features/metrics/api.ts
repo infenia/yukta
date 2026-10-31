@@ -3,13 +3,10 @@
 
 import { fetchApi } from '@/lib/apiClient';
 
-// ponytail: the endpoint shapes follow the plan in #1585 and are not served yet; adjust here
-// once that issue lands. Nothing else in the UI knows the URLs.
-
 export const RANGES = ['15m', '1h', '6h', '24h'] as const;
 export type Range = (typeof RANGES)[number];
 
-/** `global`, `session:<id>` or `workflow:<sessionId>/<workflowId>` */
+/** `global`, `session:<id>` or `workflow:<sessionId>/<workflowId>`; kept in the URL. */
 export type Scope = string;
 
 export interface MetricPoint {
@@ -18,22 +15,42 @@ export interface MetricPoint {
   v: number;
 }
 
+/**
+ * Every sampled value at one instant, as the server streams it. Keys look like
+ * `yukta.executions.rejected{reason=limit}|rate`; counters and timers carry a `|rate`, `|mean`,
+ * `|max` or `|p50|p95|p99` suffix (timers in milliseconds, rates per second).
+ */
 export interface MetricSample {
-  metric: string;
-  t: number;
-  v: number;
+  time: number;
+  values: Record<string, number>;
 }
 
-const query = (params: Record<string, string>) =>
-  new URLSearchParams(params).toString();
+interface SeriesResponse {
+  range: Range;
+  series: Record<string, { time: number; value: number }[]>;
+}
 
-export const getSeries = (metric: string, scope: Scope, range: Range) =>
-  fetchApi<MetricPoint[]>(
-    `/api/metrics/series?${query({ metric, scope, range })}`
+/**
+ * The history of every series whose key starts with `name` (a meter name selects all its tag
+ * variants), keyed by series key.
+ */
+export const getSeries = async (
+  name: string,
+  range: Range
+): Promise<Record<string, MetricPoint[]>> => {
+  const params = new URLSearchParams({ names: name, range });
+  const { series } = await fetchApi<SeriesResponse>(
+    `/api/metrics/series?${params}`
   );
+  return Object.fromEntries(
+    Object.entries(series).map(([key, points]) => [
+      key,
+      points.map((p) => ({ t: p.time, v: p.value })),
+    ])
+  );
+};
 
-export const getSnapshot = (scope: Scope) =>
-  fetchApi<Record<string, number>>(`/api/metrics/snapshot?${query({ scope })}`);
+export const getSnapshot = async (): Promise<Record<string, number>> =>
+  (await fetchApi<MetricSample>('/api/metrics/snapshot')).values;
 
-export const streamUrl = (scope: Scope) =>
-  `/api/metrics/stream?${query({ scope })}`;
+export const STREAM_URL = '/api/metrics/stream';

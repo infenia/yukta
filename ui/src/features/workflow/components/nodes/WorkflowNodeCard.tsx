@@ -245,6 +245,8 @@ export function WorkflowNodeCard({
             to={subWorkflowHref}
             aria-label={`Open sub-workflow ${node.subWorkflowId}`}
             title={`Open ${node.subWorkflowId}`}
+            // the canvas opens the node's sheet on a node click, which would undo this navigation
+            onClick={(event) => event.stopPropagation()}
             className="nodrag text-label-sm text-primary inline-flex items-center hover:underline"
           >
             Open

@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter, MemoryRouter } from 'react-router';
 import userEvent from '@testing-library/user-event';
-import AppHeader, { MobileNav } from '../AppHeader';
+import AppHeader, { MobileNav, Sidebar } from '../AppHeader';
 
 const renderWithRouter = (component: React.ReactElement) =>
   render(<BrowserRouter>{component}</BrowserRouter>);
@@ -47,6 +47,7 @@ describe('AppHeader', () => {
     render(
       <MemoryRouter initialEntries={[path]}>
         <AppHeader />
+        <Sidebar />
       </MemoryRouter>
     );
     const current = screen
@@ -60,6 +61,7 @@ describe('AppHeader', () => {
     render(
       <MemoryRouter initialEntries={['/pluginsx']}>
         <AppHeader />
+        <Sidebar />
       </MemoryRouter>
     );
     expect(screen.getByRole('link', { name: 'Plugins' })).not.toHaveAttribute(
@@ -68,7 +70,12 @@ describe('AppHeader', () => {
   });
 
   it('should show the active route as an accent pill', () => {
-    renderWithRouter(<AppHeader />);
+    renderWithRouter(
+      <>
+        <AppHeader />
+        <Sidebar />
+      </>
+    );
     const active = screen.getByRole('link', { name: /Overview/ });
     expect(active).toHaveAttribute('aria-current', 'page');
     expect(active).toHaveClass('rounded-lg', 'bg-accent', 'font-semibold');
@@ -89,15 +96,23 @@ describe('AppHeader', () => {
     expect(themeToggle).toBeInTheDocument();
   });
 
-  it('should link the primary sections', () => {
+  it('keeps only Overview in the header', () => {
     renderWithRouter(<AppHeader />);
+    const nav = screen.getByRole('navigation', { name: 'Home' });
+    expect(
+      Array.from(nav.querySelectorAll('a')).map((a) => a.pathname)
+    ).toEqual(['/']);
+  });
+
+  it('links Sessions, Runs, Plugins and Control from the sidebar', () => {
+    renderWithRouter(<Sidebar />);
     const nav = screen.getByRole('navigation', { name: 'Primary' });
+    expect(nav).toHaveClass('fixed', 'w-16', 'hidden', 'sm:flex');
     const links = Array.from(nav.querySelectorAll('a')).map((a) => [
       a.textContent?.replace(/^[a-z_]+/, ''),
       a.getAttribute('href'),
     ]);
     expect(links).toEqual([
-      ['Overview', '/'],
       ['Sessions', '/sessions'],
       ['Runs', '/runs'],
       ['Plugins', '/plugins'],
@@ -122,7 +137,7 @@ describe('AppHeader', () => {
     renderWithRouter(<AppHeader />);
     const order = [
       screen.getByRole('link', { name: /Yukta/ }),
-      screen.getByRole('navigation', { name: 'Primary' }),
+      screen.getByRole('navigation', { name: 'Home' }),
       screen.getByRole('button', { name: 'Search and jump to (⌘K)' }),
       screen.getByRole('button', { name: 'Toggle theme' }),
     ];
@@ -171,7 +186,12 @@ describe('AppHeader', () => {
   });
 
   it('shows every nav label, not only icons', () => {
-    renderWithRouter(<AppHeader />);
+    renderWithRouter(
+      <>
+        <AppHeader />
+        <Sidebar />
+      </>
+    );
     for (const label of [
       'Overview',
       'Sessions',

@@ -41,7 +41,7 @@ wait_done() {  # [SECONDS] -> STATUS, LOGS
     [[ $STATUS =~ $TERMINAL_STATUSES ]] && break
     sleep 1
   done
-  LOGS=$(curl -s -m 15 "$YUKTA_URL/api/sessions/$SID/executions/$EID/logs" | sed -n 's/^data://p' || true)
+  LOGS=$(curl -s -m 15 ${YUKTA_API_KEY:+-H "X-API-Key: $YUKTA_API_KEY"} "$YUKTA_URL/api/sessions/$SID/executions/$EID/logs" | sed -n 's/^data://p' || true)
 }
 wait_approval() {  # NODE
   local i
