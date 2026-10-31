@@ -562,7 +562,7 @@ test.describe('Workflow Details Page', () => {
       ).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
 
-      await expect(page).toHaveScreenshot('workflow-details-full-page.png', {
+      await expect(page).toHaveScreenshot('workflow-details-full-page.webp', {
         ...screenshotOptions.full,
         animations: 'disabled',
       });
@@ -584,7 +584,7 @@ test.describe('Workflow Details Page', () => {
       await page.evaluate(() => document.fonts.ready);
 
       await expect(page).toHaveScreenshot(
-        'workflow-details-full-page-dark.png',
+        'workflow-details-full-page-dark.webp',
         {
           ...screenshotOptions.full,
           animations: 'disabled',
@@ -598,7 +598,7 @@ test.describe('Workflow Details Page', () => {
       await page.evaluate(() => document.fonts.ready);
 
       await expect(page.getByTestId('progress-panel')).toHaveScreenshot(
-        'workflow-details-progress-panel.png',
+        'workflow-details-progress-panel.webp',
         screenshotOptions.partial
       );
     });
