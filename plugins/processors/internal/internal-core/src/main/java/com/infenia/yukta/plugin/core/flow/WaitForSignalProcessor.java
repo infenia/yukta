@@ -129,6 +129,11 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public boolean requiresControlPlane() {
+    return true;
+  }
+
+  @Override
   public String getType() {
     return "WAIT_FOR_SIGNAL";
   }
