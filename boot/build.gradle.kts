@@ -159,6 +159,9 @@ graalvmNative {
             buildArgs.add("--no-fallback")
             // System.console() must be the OS-backed provider (see RunMode.isTty)
             buildArgs.add("-Djdk.console=java.base")
+            // Netty frees direct buffers through a shared Arena on Java 25; without this, shutdown logs
+            // "Support for Arena.ofShared is not active"
+            buildArgs.add("-H:+SharedArenaSupport")
 
             // openai-java-core ships agent-recorded proxy/serialization metadata captured from its
             // own Gradle/ByteBuddy-based tests (classes absent here), so native-image warns

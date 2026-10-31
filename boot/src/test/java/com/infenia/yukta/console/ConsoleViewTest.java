@@ -33,6 +33,12 @@ class ConsoleViewTest {
   }
 
   @Test
+  void drawsForAnUnsizedTerminal() {
+    assertThat(view.render(snap, Duration.ZERO, 0, 0)).hasSize(24);
+    assertThat(view.render(snap, Duration.ZERO, 10, 1)).hasSize(5);
+  }
+
+  @Test
   void logPaneFiltersByLevelAndScrolls() {
     logs.add(Level.DEBUG, "dbg");
     logs.add(Level.INFO, "info-1");

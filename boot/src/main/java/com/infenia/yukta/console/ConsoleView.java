@@ -102,7 +102,10 @@ import java.util.List;
 
   /** The screen as {@code height} lines of at most {@code width} visible characters. */
   /* default */ List<String> render(
-      final Snapshot s, final Duration uptime, final int width, final int height) {
+      final Snapshot s, final Duration uptime, final int cols, final int rows) {
+    // a terminal can report no size (0x0) before it is sized: draw for 80x24 then
+    final int width = cols > 0 ? cols : 80;
+    final int height = Math.max(rows > 0 ? rows : 24, 5);
     final List<String> out = new ArrayList<>();
     out.add(
         BOLD
