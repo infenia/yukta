@@ -10,10 +10,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { StopMode } from '../api/executionControl';
 import { useCopyCommand } from '../hooks/useCopyCommand';
+import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { CopyAsMenu, type CopyChoice } from './CopyAsMenu';
 import { RunButton } from './RunButton';
 
@@ -117,10 +119,16 @@ export function RunControls({
   const control = useExecutionControl(sessionId, workflowId);
   const { status: copied, copy } = useCopyCommand();
   const [prioritizing, setPrioritizing] = useState(false);
+  // scope 'run' stops the run on screen; 'all' every active run of the workflow
   const [confirm, setConfirm] = useState<{
     label: string;
-    mode: StopMode | null;
+    scope: 'run' | 'all';
+    mode?: StopMode;
   } | null>(null);
+  const executions = useWorkflowExecutions(sessionId, workflowId);
+  const activeRuns = executions.data?.filter(
+    (run) => !isTerminalExecStatus(run.status)
+  ).length;
 
   const category = toExecStatusCategory(status);
   const live =
@@ -165,12 +173,13 @@ export function RunControls({
     );
 
   // The stop menu is only enabled for a live execution, so executionId is set here.
-  const doStop = (mode: StopMode | null) => {
-    if (mode) control.stopAll.mutate(mode);
+  const doStop = (choice: NonNullable<typeof confirm>) => {
+    if (choice.scope === 'all') control.stopAll.mutate(choice.mode as StopMode);
     else
       control.runAction.mutate({
         executionId: executionId as string,
         action: 'stop',
+        mode: choice.mode,
       });
     setConfirm(null);
   };
@@ -227,14 +236,33 @@ export function RunControls({
           </RequirePermission>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
-              onClick={() => setConfirm({ label: 'Stop this run', mode: null })}
+              onClick={() =>
+                setConfirm({ label: 'Stop this run', scope: 'run' })
+              }
             >
               Stop this run
             </DropdownMenuItem>
+            {(['CANCEL', 'KILL'] as const).map((mode) => (
+              <DropdownMenuItem
+                key={mode}
+                onClick={() =>
+                  setConfirm({
+                    label: `${mode === 'CANCEL' ? 'Cancel' : 'Kill'} this run`,
+                    scope: 'run',
+                    mode,
+                  })
+                }
+              >
+                {mode === 'CANCEL' ? 'Cancel' : 'Kill'} this run
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
             {(['DRAIN', 'CANCEL', 'KILL'] as const).map((mode) => (
               <DropdownMenuItem
                 key={mode}
-                onClick={() => setConfirm({ label: `${mode} all runs`, mode })}
+                onClick={() =>
+                  setConfirm({ label: `${mode} all runs`, scope: 'all', mode })
+                }
               >
                 {mode === 'DRAIN'
                   ? 'Drain'
@@ -316,6 +344,13 @@ export function RunControls({
       {confirm && (
         <Modal title={`${confirm.label}?`} onClose={() => setConfirm(null)}>
           <p className="text-body-md text-on-surface-variant mb-4">
+            {confirm.scope === 'all'
+              ? `This stops ${
+                  activeRuns === undefined
+                    ? 'every active run'
+                    : `${activeRuns} active ${activeRuns === 1 ? 'run' : 'runs'}`
+                } of this workflow, including runs started by other people or by a schedule. `
+              : 'This stops only the run on screen. '}
             This cannot be undone. A stopped run can only be restarted.
           </p>
           <div className="flex justify-end gap-2">
@@ -329,7 +364,7 @@ export function RunControls({
             <button
               type="button"
               className={BUTTON}
-              onClick={() => doStop(confirm.mode)}
+              onClick={() => doStop(confirm)}
             >
               Confirm
             </button>

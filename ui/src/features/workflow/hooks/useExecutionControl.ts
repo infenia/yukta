@@ -61,10 +61,15 @@ export function useExecutionControl(sessionId: string, workflowId: string) {
       mutationFn: ({
         executionId,
         action,
+        mode,
       }: {
         executionId: string;
         action: RunAction;
-      }) => runAction(executionId, action),
+        mode?: StopMode;
+      }) =>
+        mode
+          ? runAction(executionId, action, mode)
+          : runAction(executionId, action),
     }),
     priority: useMutation({
       onSuccess,
