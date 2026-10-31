@@ -11,6 +11,7 @@ import { SessionInfoPanel } from './SessionInfoPanel';
 import { SessionActions } from './SessionActions';
 import { WorkflowTable } from './WorkflowTable';
 import { RecentRuns } from './RecentRuns';
+import { ScopedSupervisors } from '@/features/control/supervisors/ScopedSupervisors';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -176,7 +177,7 @@ export function SessionDetailsPage() {
   }
 
   return (
-    <div className="bg-background flex flex-1 flex-col gap-0">
+    <div className="flex flex-1 flex-col gap-0 bg-background">
       <div>
         <SessionInfoPanel
           session={session}
@@ -204,6 +205,7 @@ export function SessionDetailsPage() {
           filter={workflowFilter}
           onFilterChange={setWorkflowFilter}
         />
+        <ScopedSupervisors sessionId={session.sessionId} />
         <RecentRuns sessionId={session.sessionId} />
       </div>
       {creating && (

@@ -243,4 +243,96 @@ test.describe('Control page', () => {
     await page.keyboard.press('ArrowUp');
     await expect.poll(() => posted).toBe('?maxConcurrent=5&maxPerWorkflow=0');
   });
+
+  test('shows an attached supervisor, switches its dry run and detaches it', async ({
+    page,
+  }) => {
+    await mockControlApi(page, []);
+    let dryRun = false;
+    let detached = false;
+    await page.route('**/api/supervisors', (route) =>
+      route.fulfill(
+        envelope(
+          '/supervisors',
+          detached
+            ? []
+            : [
+                {
+                  id: 'guard',
+                  kind: 'SUPERVISOR',
+                  type: 'RuleSupervisor',
+                  order: 0,
+                  dryRun,
+                  maxCommandsPerSecond: 20,
+                  applied: 3,
+                  rejected: 1,
+                  recorded: 0,
+                  rateLimited: 0,
+                  scope: 'SESSION',
+                  scopeSessionId: 's1',
+                  scopeWorkflowId: null,
+                },
+              ]
+        )
+      )
+    );
+    await page.route('**/api/supervisors/bindings', (route) =>
+      route.fulfill(
+        envelope(
+          '/bindings',
+          detached
+            ? []
+            : [
+                {
+                  id: 'guard',
+                  profileId: 'p',
+                  scope: 'session:s1',
+                  enabled: true,
+                },
+              ]
+        )
+      )
+    );
+    await page.route('**/api/supervisors/bindings/guard', (route) => {
+      detached = true;
+      return route.fulfill(envelope('/bindings/guard', null));
+    });
+    await page.route('**/api/supervisors/profiles', (route) =>
+      route.fulfill(
+        envelope('/profiles', [
+          { id: 'p', type: 'rule-supervisor', settings: {}, dryRun },
+        ])
+      )
+    );
+    await page.route('**/api/supervisors/profiles/p', (route) => {
+      dryRun = route.request().postDataJSON().dryRun;
+      return route.fulfill(envelope('/profiles/p', null));
+    });
+    await page.route('**/api/supervisors/decisions*', (route) =>
+      route.fulfill(
+        envelope('/decisions', [
+          {
+            time: new Date().toISOString(),
+            supervisorId: 'guard',
+            outcome: 'rejected',
+            command: 'PauseWorkflowCommand',
+            executionId: 'run-9',
+            reason: 'busy',
+          },
+        ])
+      )
+    );
+    await page.goto('/control');
+
+    const card = page.getByRole('article', { name: 'Supervisor guard' });
+    await expect(card).toContainText('Session s1');
+    await expect(page.getByText('PauseWorkflowCommand')).toBeVisible();
+
+    await card.getByRole('switch', { name: 'Dry run' }).click();
+    await expect.poll(() => dryRun).toBe(true);
+
+    await card.getByRole('button', { name: 'Detach' }).click();
+    await card.getByRole('button', { name: 'Confirm detach' }).click();
+    await expect(card).toHaveCount(0);
+  });
 });

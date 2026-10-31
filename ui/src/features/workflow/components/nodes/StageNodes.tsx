@@ -22,7 +22,7 @@ function StageStatus({ status }: { status: NodeUiStatus }) {
   return (
     <span
       className={cn(
-        'text-body-sm text-on-surface-variant inline-flex items-center gap-1.5',
+        'inline-flex items-center gap-1.5 text-body-sm text-on-surface-variant',
         status === 'failed' && 'text-error'
       )}
     >
@@ -45,7 +45,7 @@ export function StageNodeCard({ data }: NodeProps<StageFlowNode>) {
       data-testid={`stage-${stage}`}
       data-status={status}
       className={cn(
-        'bg-surface-container relative flex size-full flex-col rounded-xl border border-dashed px-3 py-2.5',
+        'relative flex size-full flex-col rounded-xl border border-dashed bg-surface-container px-3 py-2.5',
         status === 'failed' ? 'border-error' : 'border-outline'
       )}
     >
@@ -54,11 +54,11 @@ export function StageNodeCard({ data }: NodeProps<StageFlowNode>) {
       <div className="flex items-center gap-2">
         <span
           aria-hidden="true"
-          className="material-symbols-outlined text-on-surface-variant text-lg"
+          className="material-symbols-outlined text-lg text-on-surface-variant"
         >
           stacks
         </span>
-        <p className="text-label-md text-on-surface min-w-0 flex-1 truncate">
+        <p className="min-w-0 flex-1 truncate text-label-md text-on-surface">
           {stage}
         </p>
         <span className="text-body-sm text-muted-foreground tabular-nums">
@@ -88,12 +88,12 @@ export function StageFrame({ data }: NodeProps<StageFrameNode>) {
       data-testid={`stage-frame-${stage}`}
       data-status={status}
       className={cn(
-        'bg-muted/40 size-full rounded-2xl border border-dashed',
+        'size-full rounded-2xl border border-dashed bg-muted/40',
         status === 'failed' ? 'border-error' : 'border-outline-variant'
       )}
     >
       <div className="flex items-center gap-2 px-3 py-2">
-        <p className="text-label-md text-on-surface truncate">{stage}</p>
+        <p className="truncate text-label-md text-on-surface">{stage}</p>
         <span className="text-body-sm text-muted-foreground tabular-nums">
           {count} nodes
         </span>
@@ -102,7 +102,7 @@ export function StageFrame({ data }: NodeProps<StageFrameNode>) {
           type="button"
           // xyflow turns pointer events off on a frame that cannot be selected
           style={{ pointerEvents: 'auto' }}
-          className="nodrag text-label-sm text-primary ml-auto hover:underline"
+          className="nodrag ml-auto text-label-sm text-primary hover:underline"
           aria-label={`Collapse stage ${stage}`}
           onClick={() => onToggle?.(stage)}
         >
@@ -129,7 +129,7 @@ export function GroupingSwitch({
       role="radiogroup"
       aria-label="Canvas grouping"
       className={cn(
-        'border-border bg-surface shadow-card flex gap-0.5 rounded-lg border p-0.5',
+        'flex gap-0.5 rounded-lg border border-border bg-surface p-0.5 shadow-card',
         className
       )}
     >
@@ -146,7 +146,7 @@ export function GroupingSwitch({
           aria-checked={grouped === value}
           onClick={() => onChange(value)}
           className={cn(
-            'text-label-sm rounded-md px-2.5 py-1',
+            'rounded-md px-2.5 py-1 text-label-sm',
             grouped === value
               ? 'bg-muted text-on-surface'
               : 'text-on-surface-variant hover:text-on-surface'

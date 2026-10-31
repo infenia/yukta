@@ -78,9 +78,9 @@ export function LeaderboardPanel({
         emptyText="No nodes finished in this range"
         onRetry={() => void modules.refetch()}
       >
-        <table className="text-body-sm w-full">
+        <table className="w-full text-body-sm">
           <thead>
-            <tr className="text-overline text-left">
+            <tr className="text-left text-overline">
               <th scope="col">Plugin</th>
               <th scope="col" className="text-right">
                 Runs
@@ -95,17 +95,17 @@ export function LeaderboardPanel({
           </thead>
           <tbody>
             {(modules.data ?? []).map((m) => (
-              <tr key={m.module} className="border-border border-t">
+              <tr key={m.module} className="border-t border-border">
                 <th scope="row" className="text-left font-mono font-normal">
                   {m.module}
                 </th>
-                <td className="num text-right">{m.executions}</td>
+                <td className="text-right num">{m.executions}</td>
                 <td
-                  className={`num text-right ${m.failures > 0 ? 'text-destructive' : ''}`}
+                  className={`text-right num ${m.failures > 0 ? 'text-destructive' : ''}`}
                 >
                   {Math.round((m.failures / m.executions) * 100)}%
                 </td>
-                <td className="num text-right">{formatMs(m.avgMs)}</td>
+                <td className="text-right num">{formatMs(m.avgMs)}</td>
               </tr>
             ))}
           </tbody>
@@ -141,11 +141,11 @@ export function LiveRunsPanel({ live }: { live: boolean }) {
               <li
                 key={run.executionId}
                 data-slow={slow}
-                className={`border-border flex flex-col gap-1 rounded-lg border p-2 ${slow ? 'ring-warning ring-2' : ''}`}
+                className={`flex flex-col gap-1 rounded-lg border border-border p-2 ${slow ? 'ring-2 ring-warning' : ''}`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <Link
-                    className="text-label-md truncate underline"
+                    className="truncate text-label-md underline"
                     to={api`/sessions/${run.sessionId}/workflow/${run.workflowId}`}
                   >
                     {run.workflowId}

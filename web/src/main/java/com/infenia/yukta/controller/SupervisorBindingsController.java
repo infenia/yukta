@@ -147,7 +147,8 @@ public class SupervisorBindingsController {
   }
 
   /**
-   * Change a profile; bindings that use it restart with the new settings.
+   * Change a profile; bindings that use it restart with the new settings. A setting sent as {@code
+   * ***}, which is how a secret is shown, keeps the value that is stored.
    *
    * @param id the profile id
    * @param body the new profile; its id is ignored
@@ -158,7 +159,15 @@ public class SupervisorBindingsController {
   public Mono<ApiResponse<ProfileBody>> replaceProfile(
       @PathVariable final String id, @RequestBody final ProfileBody body) {
     return service
-        .saveProfile(profile(id, body))
+        .profiles()
+        .filter(existing -> existing.id().equals(id))
+        .next()
+        .map(existing -> keepHidden(body.settings(), existing.settings()))
+        .defaultIfEmpty(body.settings())
+        .flatMap(
+            settings ->
+                service.saveProfile(
+                    new SupervisorProfile(id, body.type(), settings, body.dryRun())))
         .map(saved -> ApiResponse.success(200, "Profile saved", view(saved)));
   }
 
@@ -260,6 +269,25 @@ public class SupervisorBindingsController {
   private static BindingBody view(final SupervisorBinding binding) {
     return new BindingBody(
         binding.id(), binding.profileId(), binding.scope().key(), binding.enabled());
+  }
+
+  /** Puts the stored value back where the incoming settings carry the hidden marker. */
+  @SuppressWarnings({"unchecked", "PMD.UseConcurrentHashMap"}) // a local map; a setting may be null
+  private static Map<String, Object> keepHidden(
+      final Map<String, Object> incoming, final Map<String, Object> stored) {
+    final Map<String, Object> out = new LinkedHashMap<>();
+    incoming.forEach(
+        (key, value) -> {
+          final Object before = stored.get(key);
+          if (HIDDEN.equals(value) && before != null) {
+            out.put(key, before);
+          } else if (value instanceof Map<?, ?> nested && before instanceof Map<?, ?> old) {
+            out.put(key, keepHidden((Map<String, Object>) nested, (Map<String, Object>) old));
+          } else {
+            out.put(key, value);
+          }
+        });
+    return out;
   }
 
   /** Replaces the values under secret-looking keys, at any depth. */

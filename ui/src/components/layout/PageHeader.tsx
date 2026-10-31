@@ -30,7 +30,7 @@ export function PageHeader({
         <div
           aria-hidden="true"
           data-testid="hero-backdrop"
-          className="hero-backdrop pointer-events-none absolute inset-x-0 top-0 -z-10 h-56"
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-56 hero-backdrop"
         />
       )}
       <div className="min-w-0">
@@ -38,14 +38,14 @@ export function PageHeader({
         {eyebrow && (
           <span
             data-testid="page-eyebrow"
-            className="border-border bg-card text-label-sm text-on-surface-variant mb-3 inline-flex items-center gap-2 rounded-full border px-3 py-1"
+            className="mb-3 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-label-sm text-on-surface-variant"
           >
             {eyebrow}
           </span>
         )}
         <h1 className="text-headline-lg text-on-surface">{title}</h1>
         {description && (
-          <p className="text-body-md text-on-surface-variant mt-1">
+          <p className="mt-1 text-body-md text-on-surface-variant">
             {description}
           </p>
         )}

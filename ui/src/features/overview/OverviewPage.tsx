@@ -92,7 +92,7 @@ function NeedsAttention({ poll }: { poll: number | false }) {
           >
             <StatusPill status={run.status} />
             <Link
-              className="text-body-md text-primary flex-1"
+              className="flex-1 text-body-md text-primary"
               to={runPath(run.sessionId, run.workflowId, run.executionId)}
             >
               {run.sessionId}/{run.workflowId}
@@ -140,7 +140,7 @@ function RecentFailures({ poll }: { poll: number | false }) {
           <li key={run.executionId} className="flex items-center gap-2">
             <StatusPill status={run.status} />
             <Link
-              className="text-body-md text-primary truncate"
+              className="truncate text-body-md text-primary"
               to={runPath(run.sessionId, run.workflowId, run.executionId)}
             >
               {run.sessionId}/{run.workflowId}
@@ -168,7 +168,7 @@ function LiveActivity() {
       {connected && last.length === 0 && <Empty>Waiting for events.</Empty>}
       <ul className="flex flex-col gap-1">
         {last.map((entry) => (
-          <li key={entry.seq} className="text-body-sm text-on-surface truncate">
+          <li key={entry.seq} className="truncate text-body-sm text-on-surface">
             {describe(entry)}
           </li>
         ))}

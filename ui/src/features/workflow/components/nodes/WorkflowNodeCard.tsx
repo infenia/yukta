@@ -121,7 +121,7 @@ export function WorkflowNodeCard({
       data-selected={selected ? 'true' : undefined}
       style={{ '--node-accent': accent } as React.CSSProperties}
       className={cn(
-        'yukta-node bg-surface relative flex size-full flex-col rounded-xl border border-t-[3px] border-t-(--node-accent) outline-none focus-visible:ring-2 focus-visible:ring-(--node-accent)',
+        'yukta-node relative flex size-full flex-col rounded-xl border border-t-[3px] border-t-(--node-accent) bg-surface outline-none focus-visible:ring-2 focus-visible:ring-(--node-accent)',
         STATUS_CARD_CLASSES[status]
       )}
     >
@@ -152,7 +152,7 @@ export function WorkflowNodeCard({
             data-testid="port-label"
             aria-hidden="true"
             style={{ top: outputHandleTop(index, outputPorts.length) }}
-            className="bg-surface text-body-sm text-on-surface-variant pointer-events-none absolute right-3 -translate-y-1/2 pl-1"
+            className="pointer-events-none absolute right-3 -translate-y-1/2 bg-surface pl-1 text-body-sm text-on-surface-variant"
           >
             {port}
           </span>
@@ -175,11 +175,11 @@ export function WorkflowNodeCard({
           </span>
         </span>
         <div className="min-w-0">
-          <p className="text-label-md text-on-surface truncate">
+          <p className="truncate text-label-md text-on-surface">
             {node.nodeId}
           </p>
           {showType && (
-            <p className="text-body-sm text-on-surface-variant truncate">
+            <p className="truncate text-body-sm text-on-surface-variant">
               {pluginLabel(node.type)}
             </p>
           )}
@@ -187,7 +187,7 @@ export function WorkflowNodeCard({
       </div>
 
       {node.description && !hideDescription && (
-        <p className="text-body-sm text-on-surface-variant line-clamp-2 px-3 pt-1.5">
+        <p className="line-clamp-2 px-3 pt-1.5 text-body-sm text-on-surface-variant">
           {node.description}
         </p>
       )}
@@ -196,7 +196,7 @@ export function WorkflowNodeCard({
         {!hideStatus && (
           <span
             className={cn(
-              'text-body-sm text-on-surface-variant inline-flex items-center gap-1.5',
+              'inline-flex items-center gap-1.5 text-body-sm text-on-surface-variant',
               status === 'failed' && 'text-error'
             )}
           >
@@ -215,7 +215,7 @@ export function WorkflowNodeCard({
             to={subWorkflowHref}
             aria-label={`Open sub-workflow ${node.subWorkflowId}`}
             title={`Open ${node.subWorkflowId}`}
-            className="nodrag text-label-sm text-primary inline-flex items-center hover:underline"
+            className="nodrag inline-flex items-center text-label-sm text-primary hover:underline"
           >
             Open
             <span
@@ -229,7 +229,7 @@ export function WorkflowNodeCard({
       </div>
       {percent !== null && (
         <div
-          className="bg-surface-container-high h-0.5 w-full"
+          className="h-0.5 w-full bg-surface-container-high"
           aria-hidden="true"
         >
           <div

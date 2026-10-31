@@ -34,7 +34,7 @@ function Tile({
   return (
     <Card className="gap-1.5 px-4 py-3.5">
       <dt className="text-overline">{label}</dt>
-      <dd className="text-on-surface text-2xl font-semibold tabular-nums">
+      <dd className="text-2xl font-semibold text-on-surface tabular-nums">
         {value}
       </dd>
       <dd className="text-body-sm text-on-surface-variant">{hint}</dd>
@@ -74,7 +74,7 @@ function EditDialog({
   return (
     <Modal title="Edit execution limits" onClose={onClose}>
       <div className="flex flex-col gap-3">
-        <label className="text-label-md text-on-surface flex flex-col gap-1">
+        <label className="flex flex-col gap-1 text-label-md text-on-surface">
           Max concurrent (0 is unlimited)
           <Input
             inputMode="numeric"
@@ -86,7 +86,7 @@ function EditDialog({
             }}
           />
         </label>
-        <label className="text-label-md text-on-surface flex flex-col gap-1">
+        <label className="flex flex-col gap-1 text-label-md text-on-surface">
           Max per workflow (0 is unlimited)
           <Input
             inputMode="numeric"

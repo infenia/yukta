@@ -123,7 +123,7 @@ export function NodeControlsMenu({
         <RequirePermission perm="controlRuns">
           <DropdownMenuTrigger
             aria-label={`Actions for ${nodeId}`}
-            className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center"
+            className="flex size-6 items-center justify-center text-on-surface-variant hover:text-on-surface"
           >
             <span className="material-symbols-outlined text-base">
               more_vert

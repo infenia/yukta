@@ -48,7 +48,7 @@ export function RecoverButton({
       />
       {confirming && (
         <Modal title="Recover this run?" onClose={() => setConfirming(false)}>
-          <p className="text-body-md text-on-surface-variant mb-4">
+          <p className="mb-4 text-body-md text-on-surface-variant">
             Continue this run as a new run? Finished nodes are replayed.
           </p>
           <div className="flex justify-end gap-2">

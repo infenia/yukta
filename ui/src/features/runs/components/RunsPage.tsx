@@ -138,9 +138,9 @@ function Runs() {
                 aria-pressed={active}
                 onClick={() => set(active ? { status: '', range: '' } : change)}
                 className={cn(
-                  'text-label-md inline-flex h-8 items-center gap-1.5 rounded-full border px-3',
+                  'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-label-md',
                   active
-                    ? 'bg-accent text-accent-foreground border-transparent'
+                    ? 'border-transparent bg-accent text-accent-foreground'
                     : 'border-border text-on-surface hover:bg-muted'
                 )}
               >
@@ -277,7 +277,7 @@ function Runs() {
                     </TableCell>
                     <TableCell
                       data-label="Run"
-                      className={cn(STACKED_CELL, 'text-code-sm py-3')}
+                      className={cn(STACKED_CELL, 'py-3 text-code-sm')}
                     >
                       <Link
                         className="text-primary"
@@ -296,7 +296,7 @@ function Runs() {
                         onClick={() =>
                           void navigator.clipboard.writeText(run.executionId)
                         }
-                        className="material-symbols-outlined text-on-surface-variant ml-1 align-middle text-sm"
+                        className="material-symbols-outlined ml-1 align-middle text-sm text-on-surface-variant"
                       >
                         content_copy
                       </button>
@@ -321,7 +321,7 @@ function Runs() {
                             aria-valuemin={0}
                             aria-valuemax={run.nodes.total}
                             aria-valuenow={run.nodes.done}
-                            className="bg-muted mr-2 inline-block h-1 w-16 overflow-hidden rounded-full align-middle"
+                            className="mr-2 inline-block h-1 w-16 overflow-hidden rounded-full bg-muted align-middle"
                           >
                             <span
                               className={cn(
@@ -342,7 +342,7 @@ function Runs() {
                           </span>
                           {run.nodes.done}/{run.nodes.total}
                           {run.nodes.failed && (
-                            <span className="text-error ml-2">
+                            <span className="ml-2 text-error">
                               failed at {run.nodes.failed}
                             </span>
                           )}
@@ -395,7 +395,7 @@ function Runs() {
               </TableBody>
             </Table>
           </TableFrame>
-          <div className="text-body-sm text-on-surface-variant flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 text-body-sm text-on-surface-variant">
             <span>
               {runs.data.length} run{runs.data.length === 1 ? '' : 's'}
               {RANGE_PHRASE[filters.range]}

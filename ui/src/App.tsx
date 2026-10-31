@@ -23,12 +23,12 @@ export default function App() {
   const showFooter = !/^\/sessions\/[^/]+\/workflow\/[^/]+\/?$/.test(pathname);
 
   return (
-    <div className="bg-background text-on-surface flex min-h-screen flex-col pb-16 sm:pb-0">
+    <div className="flex min-h-screen flex-col bg-background pb-16 text-on-surface sm:pb-0">
       <AppHeader />
       <ApiKeyPrompt />
       <main
         ref={mainRef}
-        className="mt-header relative isolate flex w-full flex-1 flex-col"
+        className="relative isolate mt-header flex w-full flex-1 flex-col"
       >
         <Outlet />
       </main>

@@ -29,7 +29,7 @@ import reactor.test.StepVerifier;
 
 /** Tests for the behaviour described by {@link SupervisorBindingsController}. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class SupervisorBindingsControllerTest {
 
   private final SupervisorService service = mock(SupervisorService.class);
@@ -41,6 +41,7 @@ class SupervisorBindingsControllerTest {
 
   @Test
   void nullSettingsAreAcceptedAndNotShown() {
+    when(service.profiles()).thenReturn(Flux.empty());
     when(service.saveProfile(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     StepVerifier.create(
@@ -110,6 +111,7 @@ class SupervisorBindingsControllerTest {
 
   @Test
   void replacingProfileUsesThePathId() {
+    when(service.profiles()).thenReturn(Flux.empty());
     when(service.saveProfile(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     StepVerifier.create(controller.replaceProfile("p", new ProfileBody("ignored", "t", null, true)))
@@ -189,5 +191,46 @@ class SupervisorBindingsControllerTest {
     StepVerifier.create(controller.decisions(null, -3)).expectNextCount(1).verifyComplete();
     verify(host).decisions(null, 500);
     verify(host).decisions(null, 1);
+  }
+
+  @Test
+  void hiddenSecretKeepsItsStoredValueWhenProfileIsSavedAgain() {
+    when(service.profiles())
+        .thenReturn(
+            Flux.just(
+                new SupervisorProfile(
+                    "p",
+                    "model-control-plane",
+                    Map.of(
+                        "apiKey", "sk-real", "model", "old", "nested", Map.of("token", "tk-real")),
+                    false)));
+    when(service.saveProfile(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+
+    StepVerifier.create(
+            controller.replaceProfile(
+                "p",
+                new ProfileBody(
+                    "p",
+                    "model-control-plane",
+                    Map.of(
+                        "apiKey", "***",
+                        "model", "new",
+                        "other", "***",
+                        "fresh", Map.of("a", 1),
+                        "nested", Map.of("token", "***", "plain", "x")),
+                    true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    final ArgumentCaptor<SupervisorProfile> saved =
+        ArgumentCaptor.forClass(SupervisorProfile.class);
+    verify(service).saveProfile(saved.capture());
+    assertThat(saved.getValue().settings())
+        .containsEntry("apiKey", "sk-real")
+        .containsEntry("model", "new")
+        .containsEntry("other", "***")
+        .containsEntry("fresh", Map.of("a", 1))
+        .containsEntry("nested", Map.of("token", "tk-real", "plain", "x"));
+    assertThat(saved.getValue().dryRun()).isTrue();
   }
 }

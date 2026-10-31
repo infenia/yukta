@@ -250,7 +250,7 @@ function Editor({
   return (
     <div className="flex flex-1 flex-col" data-testid="workflow-editor">
       <LeaveGuard dirty={dirty} leaving={leaving} />
-      <div className="border-border flex flex-wrap items-center gap-3 border-b px-4 py-3 sm:px-6">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 sm:px-6">
         <BreadcrumbNav className="basis-full" />
         <h1 className="text-headline-lg text-on-surface">
           Edit {workflow.workflowId}
@@ -268,11 +268,11 @@ function Editor({
             <>
               <span
                 role="status"
-                className="text-label-sm text-on-surface-variant inline-flex items-center gap-1.5"
+                className="inline-flex items-center gap-1.5 text-label-sm text-on-surface-variant"
               >
                 <span
                   aria-hidden="true"
-                  className="bg-warning size-2 rounded-full"
+                  className="size-2 rounded-full bg-warning"
                 />
                 Unsaved changes
               </span>
@@ -333,7 +333,7 @@ function Editor({
               {warning.message}
               <button
                 type="button"
-                className="text-primary font-semibold hover:underline"
+                className="font-semibold text-primary hover:underline"
                 onClick={() => {
                   // the warnings are about ports so far: start an edge from it
                   setSelected(warning.nodeId);
@@ -362,7 +362,7 @@ function Editor({
       <div className="flex flex-col lg:h-[clamp(28rem,calc(100dvh-14rem),56rem)] lg:flex-row">
         <aside
           aria-label="Nodes and edges"
-          className="border-border flex w-full shrink-0 flex-col gap-4 border-b p-4 lg:w-80 lg:overflow-y-auto lg:border-r lg:border-b-0"
+          className="flex w-full shrink-0 flex-col gap-4 border-b border-border p-4 lg:w-80 lg:overflow-y-auto lg:border-r lg:border-b-0"
         >
           <div role="tablist" aria-label="Outline" className="flex gap-1">
             {(
@@ -377,7 +377,7 @@ function Editor({
                 role="tab"
                 aria-selected={listTab === id}
                 onClick={() => setListTab(id)}
-                className={`text-label-md flex items-center gap-1.5 rounded-lg px-3 py-1 ${
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-label-md ${
                   listTab === id
                     ? 'bg-muted text-on-surface'
                     : 'text-on-surface-variant hover:bg-muted'
@@ -423,7 +423,7 @@ function Editor({
                 placeholder="Find node or plugin"
                 value={nodeQuery}
                 onChange={(event) => setNodeQuery(event.target.value)}
-                className="bg-muted text-body-md placeholder:text-muted-foreground focus-visible:ring-ring/40 h-8 rounded-full px-3 outline-none focus-visible:ring-2"
+                className="h-8 rounded-full bg-muted px-3 text-body-md outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
               />
 
               <ul className="flex flex-col gap-0.5" aria-label="Nodes">
@@ -445,7 +445,7 @@ function Editor({
                         stageOf(shown[index - 1] ?? { nodeId: '' }) !==
                           stageOf(n) && (
                           <p
-                            className="text-overline flex items-center gap-2 px-3 pt-3 pb-1"
+                            className="flex items-center gap-2 px-3 pt-3 pb-1 text-overline"
                             data-testid={`outline-stage-${stageOf(n)}`}
                           >
                             {stageOf(n)}
@@ -458,9 +458,9 @@ function Editor({
                         type="button"
                         aria-current={n.nodeId === selected}
                         onClick={() => setSelected(n.nodeId)}
-                        className={`text-body-md transition-standard flex w-full items-baseline gap-2 rounded-lg px-3 py-2 text-left ${
+                        className={`flex w-full items-baseline gap-2 rounded-lg px-3 py-2 text-left text-body-md transition-standard ${
                           n.nodeId === selected
-                            ? 'bg-accent text-accent-foreground font-semibold'
+                            ? 'bg-accent font-semibold text-accent-foreground'
                             : 'text-on-surface hover:bg-muted'
                         }`}
                       >
@@ -480,7 +480,7 @@ function Editor({
               <h2 className="sr-only">Edges</h2>
               <ul
                 aria-label="Edges"
-                className="text-body-md flex flex-col gap-1"
+                className="flex flex-col gap-1 text-body-md"
               >
                 {workflow.edges.map((e, index) => (
                   <li
@@ -494,7 +494,7 @@ function Editor({
                     <button
                       type="button"
                       aria-label={`Remove edge ${e.source} to ${e.target}`}
-                      className="text-body-sm text-error ml-auto"
+                      className="ml-auto text-body-sm text-error"
                       onClick={() =>
                         update({
                           edges: workflow.edges.filter((_, i) => i !== index),
@@ -599,7 +599,7 @@ function Editor({
 
         <aside
           aria-label="Node inspector"
-          className="border-border w-full shrink-0 border-t p-4 lg:w-96 lg:overflow-y-auto lg:border-t-0 lg:border-l"
+          className="w-full shrink-0 border-t border-border p-4 lg:w-96 lg:overflow-y-auto lg:border-t-0 lg:border-l"
         >
           {node ? (
             <JsonValidityContext.Provider value={reportJson}>

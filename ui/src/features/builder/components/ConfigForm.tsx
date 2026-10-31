@@ -97,7 +97,7 @@ function ListField({
           {items.map((item, index) => (
             <li
               key={index}
-              className="bg-muted text-code-sm flex items-center gap-1 rounded-full border px-2 py-0.5"
+              className="flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-code-sm"
             >
               {item}
               <button
@@ -131,7 +131,7 @@ function ListField({
       />
       <button
         type="button"
-        className="text-body-sm text-on-surface-variant self-start underline"
+        className="self-start text-body-sm text-on-surface-variant underline"
         onClick={() => setAsJson(true)}
       >
         Edit as JSON
@@ -255,7 +255,7 @@ export function ConfigForm({
         <div key={field.name} className="flex flex-col gap-1">
           <label
             htmlFor={`${scope}-${field.name}`}
-            className="text-label-sm text-on-surface font-semibold"
+            className="text-label-sm font-semibold text-on-surface"
           >
             {field.name}
             {field.required && <span className="text-error"> *</span>}

@@ -94,7 +94,7 @@ export function WorkflowVersionsPanel({
   return (
     <section
       aria-label="Workflow versions"
-      className="border-outline-variant bg-surface-container-low flex flex-col gap-2 border-b px-6 py-3"
+      className="flex flex-col gap-2 border-b border-outline-variant bg-surface-container-low px-6 py-3"
     >
       {(versions.error || goBack.error || writeNote.error) && (
         <InlineError
@@ -167,7 +167,7 @@ export function WorkflowVersionsPanel({
           {compared === version.id && diff.isLoading && (
             <p
               role="status"
-              className="text-body-sm text-on-surface-variant ml-4"
+              className="ml-4 text-body-sm text-on-surface-variant"
             >
               Loading changes…
             </p>
@@ -178,7 +178,7 @@ export function WorkflowVersionsPanel({
           {compared === version.id && diff.data && (
             <ul
               aria-live="polite"
-              className="text-code-sm text-on-surface-variant ml-4"
+              className="ml-4 text-code-sm text-on-surface-variant"
             >
               {changes(diff.data).length === 0 ? (
                 <li>Same as the current definition</li>
@@ -194,7 +194,7 @@ export function WorkflowVersionsPanel({
           title={`Roll back to ${confirming}?`}
           onClose={() => setConfirming(null)}
         >
-          <p className="text-body-md text-on-surface-variant mb-2">
+          <p className="mb-2 text-body-md text-on-surface-variant">
             This replaces the current definition. Changes since that version:
           </p>
           {confirmDiff.isLoading && (
@@ -206,7 +206,7 @@ export function WorkflowVersionsPanel({
             <InlineError message={controlErrorMessage(confirmDiff.error)} />
           )}
           {confirmDiff.data && (
-            <ul className="text-code-sm text-on-surface-variant mb-4">
+            <ul className="mb-4 text-code-sm text-on-surface-variant">
               {changes(confirmDiff.data).length === 0 ? (
                 <li>Same as the current definition</li>
               ) : (

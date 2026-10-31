@@ -34,12 +34,12 @@ export function TagEditor({
 
   return (
     <fieldset className="flex flex-col gap-1.5">
-      <legend className="text-label-md text-on-surface mb-1.5">Tags</legend>
-      <div className="bg-muted flex flex-wrap items-center gap-1.5 rounded-2xl px-2 py-1.5">
+      <legend className="mb-1.5 text-label-md text-on-surface">Tags</legend>
+      <div className="flex flex-wrap items-center gap-1.5 rounded-2xl bg-muted px-2 py-1.5">
         {rows.map((row, index) => (
           <span
             key={index}
-            className="border-border bg-card text-label-sm inline-flex h-6 items-center gap-1 rounded-full border pr-1 pl-2.5"
+            className="inline-flex h-6 items-center gap-1 rounded-full border border-border bg-card pr-1 pl-2.5 text-label-sm"
           >
             <button
               type="button"
@@ -55,7 +55,7 @@ export function TagEditor({
               type="button"
               aria-label={`Remove tag ${row.key}`}
               onClick={() => onChange(rows.filter((_, i) => i !== index))}
-              className="material-symbols-outlined text-on-surface-variant hover:text-on-surface text-sm"
+              className="material-symbols-outlined text-sm text-on-surface-variant hover:text-on-surface"
             >
               close
             </button>
@@ -76,7 +76,7 @@ export function TagEditor({
             }
           }}
           onBlur={add}
-          className="text-body-md placeholder:text-on-surface-variant min-w-32 flex-1 bg-transparent px-1 outline-none"
+          className="min-w-32 flex-1 bg-transparent px-1 text-body-md outline-none placeholder:text-on-surface-variant"
         />
       </div>
       {error && <span className="text-body-sm text-error">{error}</span>}

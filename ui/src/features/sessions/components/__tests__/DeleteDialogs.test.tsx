@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  afterEach,
+  vi,
+} from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
@@ -15,7 +23,10 @@ let busy = false;
 const refuse = (search: string) =>
   busy && search === ''
     ? HttpResponse.json(
-        { message: '1 run(s) are still active: run-1. Stop them first, or delete with force=true to cancel them.' },
+        {
+          message:
+            '1 run(s) are still active: run-1. Stop them first, or delete with force=true to cancel them.',
+        },
         { status: 409 }
       )
     : new HttpResponse(null, { status: 204 });
@@ -49,7 +60,15 @@ describe('delete dialogs', () => {
     const onClose = vi.fn();
     renderWithProviders(
       <Routes>
-        <Route path="*" element={<><Where /><DeleteSessionDialog sessionId="s1" onClose={onClose} /></>} />
+        <Route
+          path="*"
+          element={
+            <>
+              <Where />
+              <DeleteSessionDialog sessionId="s1" onClose={onClose} />
+            </>
+          }
+        />
       </Routes>
     );
     const user = userEvent.setup();
@@ -66,7 +85,19 @@ describe('delete dialogs', () => {
     window.history.pushState({}, '', '/sessions/s 1/workflow/wf');
     renderWithProviders(
       <Routes>
-        <Route path="*" element={<><Where /><DeleteWorkflowDialog sessionId="s 1" workflowId="wf" onClose={vi.fn()} /></>} />
+        <Route
+          path="*"
+          element={
+            <>
+              <Where />
+              <DeleteWorkflowDialog
+                sessionId="s 1"
+                workflowId="wf"
+                onClose={vi.fn()}
+              />
+            </>
+          }
+        />
       </Routes>
     );
     const user = userEvent.setup();
@@ -83,15 +114,32 @@ describe('delete dialogs', () => {
     const user = userEvent.setup();
     renderWithProviders(
       <Routes>
-        <Route path="*" element={<><Where /><DeleteSessionDialog sessionId="s1" onClose={vi.fn()} /></>} />
+        <Route
+          path="*"
+          element={
+            <>
+              <Where />
+              <DeleteSessionDialog sessionId="s1" onClose={vi.fn()} />
+            </>
+          }
+        />
       </Routes>
     );
     await user.type(screen.getByLabelText('Type s1 to confirm'), 's1');
     await user.click(screen.getByRole('button', { name: 'Delete' }));
-    expect(await screen.findByRole('link', { name: 'run-1' })).toHaveAttribute('href', '/runs?text=run-1');
-    await user.click(screen.getByRole('button', { name: 'Stop runs and delete' }));
-    await user.click(screen.getByRole('button', { name: 'Yes, stop runs and delete' }));
-    expect(await screen.findByRole('button', { name: 'Done' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'run-1' })).toHaveAttribute(
+      'href',
+      '/runs?text=run-1'
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Stop runs and delete' })
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Yes, stop runs and delete' })
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Done' })
+    ).toBeInTheDocument();
     expect(calls).toEqual(['session ', 'session ?force=true']);
   });
 
@@ -100,15 +148,33 @@ describe('delete dialogs', () => {
     const user = userEvent.setup();
     renderWithProviders(
       <Routes>
-        <Route path="*" element={<DeleteWorkflowDialog sessionId="s1" workflowId="wf" onClose={vi.fn()} />} />
+        <Route
+          path="*"
+          element={
+            <DeleteWorkflowDialog
+              sessionId="s1"
+              workflowId="wf"
+              onClose={vi.fn()}
+            />
+          }
+        />
       </Routes>
     );
     await user.type(screen.getByLabelText('Type wf to confirm'), 'wf');
     await user.click(screen.getByRole('button', { name: 'Delete' }));
-    expect(await screen.findByRole('link', { name: 'run-1' })).toHaveAttribute('href', '/runs?text=run-1');
-    await user.click(screen.getByRole('button', { name: 'Stop runs and delete' }));
-    await user.click(screen.getByRole('button', { name: 'Yes, stop runs and delete' }));
-    expect(await screen.findByRole('button', { name: 'Done' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'run-1' })).toHaveAttribute(
+      'href',
+      '/runs?text=run-1'
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Stop runs and delete' })
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Yes, stop runs and delete' })
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Done' })
+    ).toBeInTheDocument();
     expect(calls).toEqual(['workflow wf ', 'workflow wf ?force=true']);
   });
 });

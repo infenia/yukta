@@ -21,8 +21,8 @@ function SummaryRow({
       <span
         className={
           mono
-            ? 'text-code-sm text-on-surface truncate'
-            : 'text-label-sm text-on-surface font-semibold'
+            ? 'truncate text-code-sm text-on-surface'
+            : 'text-label-sm font-semibold text-on-surface'
         }
       >
         {value}
@@ -41,7 +41,7 @@ export function ExecutionSummaryBlock({
 }) {
   return (
     <Card className="p-4" data-testid="execution-summary">
-      <h3 className="text-overline mb-2">Execution summary</h3>
+      <h3 className="mb-2 text-overline">Execution summary</h3>
       <SummaryRow label="Execution ID" value={progress?.executionId ?? '—'} />
       <SummaryRow label="Session ID" value={progress?.sessionId ?? sessionId} />
       <SummaryRow

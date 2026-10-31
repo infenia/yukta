@@ -43,7 +43,7 @@ export function KpiTile({
   series?: number[];
 }) {
   return (
-    <div className="border-border bg-card flex min-w-0 flex-col gap-1 rounded-xl border p-4">
+    <div className="flex min-w-0 flex-col gap-1 rounded-xl border border-border bg-card p-4">
       <span className="text-label-md text-on-surface-variant">{label}</span>
       <div className="flex items-baseline gap-2">
         <span className="text-headline-md num text-on-surface">{value}</span>

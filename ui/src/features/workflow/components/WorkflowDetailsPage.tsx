@@ -47,6 +47,7 @@ import { NodeSheet } from './NodeSheet';
 import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
 import { BreakpointDialog } from './BreakpointDialog';
+import { ScopedSupervisors } from '@/features/control/supervisors/ScopedSupervisors';
 
 /** The workflow page: the run, its tasks and logs, and the controls. */
 
@@ -183,7 +184,7 @@ export function WorkflowDetailsPage() {
   return (
     // Exactly the screen's height (less the phone tab bar): the workspace scrolls inside, so the logs dock stays at the bottom edge
     <div
-      className="bg-background flex h-[calc(100dvh-var(--spacing-header)-4rem)] flex-col sm:h-[calc(100dvh-var(--spacing-header))]"
+      className="flex h-[calc(100dvh-var(--spacing-header)-4rem)] flex-col bg-background sm:h-[calc(100dvh-var(--spacing-header))]"
       data-testid="workflow-details-page"
     >
       <WorkflowTitleBar
@@ -317,6 +318,10 @@ export function WorkflowDetailsPage() {
         />
       )}
 
+      <div className="px-6 py-2">
+        <ScopedSupervisors sessionId={sessionId} workflowId={workflowId} />
+      </div>
+
       <PendingApprovals
         sessionId={sessionId}
         workflowId={workflowId}
@@ -417,7 +422,7 @@ export function WorkflowDetailsPage() {
                     placeholder="Find node"
                     value={findQuery}
                     onChange={(event) => setFindQuery(event.target.value)}
-                    className="border-border bg-surface text-body-md shadow-card placeholder:text-on-surface-variant focus-visible:ring-primary/40 pointer-events-auto h-8 w-60 rounded-full border px-3 outline-none focus-visible:ring-2"
+                    className="pointer-events-auto h-8 w-60 rounded-full border border-border bg-surface px-3 text-body-md shadow-card outline-none placeholder:text-on-surface-variant focus-visible:ring-2 focus-visible:ring-primary/40"
                   />
                   {stages.hasStages && (
                     <GroupingSwitch
@@ -432,7 +437,7 @@ export function WorkflowDetailsPage() {
                       aria-pressed={follow}
                       onClick={() => setFollow((value) => !value)}
                       className={cn(
-                        'border-border bg-surface text-label-sm shadow-card pointer-events-auto ml-auto rounded-lg border px-2.5 py-1',
+                        'pointer-events-auto ml-auto rounded-lg border border-border bg-surface px-2.5 py-1 text-label-sm shadow-card',
                         follow
                           ? 'bg-accent text-accent-foreground'
                           : 'text-on-surface-variant hover:text-on-surface'

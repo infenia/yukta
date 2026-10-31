@@ -22,13 +22,13 @@ function SheetContent({
 }: Dialog.Popup.Props) {
   return (
     <Dialog.Portal>
-      <Dialog.Backdrop className="bg-foreground/30 fixed inset-0 z-60" />
+      <Dialog.Backdrop className="fixed inset-0 z-60 bg-foreground/30" />
       <Dialog.Popup
         data-slot="sheet-content"
         finalFocus={finalFocus}
         className={cn(
-          'border-border bg-card shadow-raised fixed z-60 flex flex-col gap-3 overflow-y-auto border p-4 outline-none',
-          'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl sm:inset-x-auto sm:top-(--spacing-header) sm:right-0 sm:bottom-0 sm:max-h-none sm:w-105 sm:rounded-none sm:border-y-0 sm:border-r-0',
+          'fixed z-60 flex flex-col gap-3 overflow-y-auto border border-border bg-card p-4 shadow-raised outline-none',
+          'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl sm:inset-x-auto sm:top-header sm:right-0 sm:bottom-0 sm:max-h-none sm:w-105 sm:rounded-none sm:border-y-0 sm:border-r-0',
           className
         )}
         {...props}

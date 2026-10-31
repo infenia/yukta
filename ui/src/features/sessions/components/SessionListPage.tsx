@@ -146,13 +146,13 @@ export function SessionListPage() {
   );
 
   return (
-    <div className="bg-background flex flex-1 flex-col gap-0">
+    <div className="flex flex-1 flex-col gap-0 bg-background">
       <div className="relative isolate">
         {/* The docs hero backdrop, behind the header and filter bar only */}
         <div
           aria-hidden="true"
           data-testid="hero-backdrop"
-          className={`hero-backdrop pointer-events-none absolute inset-x-0 top-0 -z-10 ${isEmpty ? 'h-128' : 'h-56'}`}
+          className={`pointer-events-none absolute inset-x-0 top-0 -z-10 hero-backdrop ${isEmpty ? 'h-128' : 'h-56'}`}
         />
         <SessionsHeader
           actions={
@@ -183,14 +183,14 @@ export function SessionListPage() {
           >
             <span
               aria-hidden="true"
-              className="bg-accent text-accent-foreground shadow-card flex size-12 items-center justify-center rounded-xl"
+              className="flex size-12 items-center justify-center rounded-xl bg-accent text-accent-foreground shadow-card"
             >
               <span className="material-symbols-outlined">folder</span>
             </span>
-            <h2 className="text-headline-lg text-on-surface sm:text-display-01 text-balance">
+            <h2 className="text-headline-lg text-balance text-on-surface sm:text-display-01">
               No sessions yet
             </h2>
-            <p className="text-body-md text-on-surface-variant max-w-prose">
+            <p className="max-w-prose text-body-md text-on-surface-variant">
               A session groups the workflows of one project. Create one, then
               add workflows from the editor, the CLI or an AI agent over MCP.
             </p>
@@ -267,7 +267,7 @@ export function SessionListPage() {
                                   ? cell.column.columnDef.header
                                   : undefined
                               }
-                              className="max-sm:before:text-body-sm max-sm:before:text-muted-foreground px-4 max-sm:flex max-sm:items-center max-sm:gap-3 max-sm:py-0 max-sm:whitespace-normal max-sm:before:w-24 max-sm:before:shrink-0 max-sm:before:content-[attr(data-label)] max-sm:first:before:hidden max-sm:last:absolute max-sm:last:top-2 max-sm:last:right-1 max-sm:last:before:hidden"
+                              className="px-4 max-sm:flex max-sm:items-center max-sm:gap-3 max-sm:py-0 max-sm:whitespace-normal max-sm:before:w-24 max-sm:before:shrink-0 max-sm:before:text-body-sm max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)] max-sm:first:before:hidden max-sm:last:absolute max-sm:last:top-2 max-sm:last:right-1 max-sm:last:before:hidden"
                             >
                               {flexRender(
                                 cell.column.columnDef.cell,

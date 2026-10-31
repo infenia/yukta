@@ -32,7 +32,7 @@ function EdgeRow({
 }) {
   return (
     <li className="flex items-center gap-2">
-      <span className="text-code-sm min-w-0 flex-1 truncate">{other}</span>
+      <span className="min-w-0 flex-1 truncate text-code-sm">{other}</span>
       <span className="text-body-sm text-muted-foreground">
         {edge.sourcePort ?? 'default'}
       </span>
@@ -94,7 +94,7 @@ export function NodeInspector({
         <button
           type="button"
           onClick={onRemove}
-          className="text-label-sm text-error ml-auto font-semibold"
+          className="ml-auto text-label-sm font-semibold text-error"
         >
           Remove node
         </button>
@@ -103,7 +103,7 @@ export function NodeInspector({
       <div
         role="tablist"
         aria-label="Node"
-        className="border-border flex gap-4 border-b"
+        className="flex gap-4 border-b border-border"
       >
         {TABS.map(([key, label]) => (
           <button
@@ -112,10 +112,10 @@ export function NodeInspector({
             role="tab"
             aria-selected={tab === key}
             onClick={() => setTab(key)}
-            className={`text-label-md -mb-px border-b-2 py-2 ${
+            className={`-mb-px border-b-2 py-2 text-label-md ${
               tab === key
                 ? 'border-primary text-on-surface'
-                : 'text-on-surface-variant hover:text-on-surface border-transparent'
+                : 'border-transparent text-on-surface-variant hover:text-on-surface'
             }`}
           >
             {label}
@@ -128,7 +128,7 @@ export function NodeInspector({
           <div className="flex flex-col gap-1">
             <label
               htmlFor="node-group"
-              className="text-label-sm text-on-surface font-semibold"
+              className="text-label-sm font-semibold text-on-surface"
             >
               Stage
             </label>
@@ -158,7 +158,7 @@ export function NodeInspector({
             <div className="flex flex-col gap-1">
               <label
                 htmlFor="cfg-json"
-                className="text-label-sm text-on-surface font-semibold"
+                className="text-label-sm font-semibold text-on-surface"
               >
                 Configuration (JSON)
               </label>
@@ -204,7 +204,7 @@ export function NodeInspector({
             ] as const
           ).map(([title, list, end]) => (
             <section key={title}>
-              <h3 className="text-overline mb-1">
+              <h3 className="mb-1 text-overline">
                 {title} <span className="tabular-nums">{list.length}</span>
               </h3>
               {list.length === 0 ? (
@@ -226,7 +226,7 @@ export function NodeInspector({
           <button
             type="button"
             onClick={onAddEdge}
-            className="text-label-md text-primary self-start hover:underline"
+            className="self-start text-label-md text-primary hover:underline"
           >
             Add an edge from {node.nodeId}
           </button>
@@ -245,7 +245,7 @@ export function NodeInspector({
         <div className="flex flex-col gap-1">
           <label
             htmlFor="node-json"
-            className="text-label-sm text-on-surface font-semibold"
+            className="text-label-sm font-semibold text-on-surface"
           >
             The node&apos;s config, with its engine policy (JSON)
           </label>

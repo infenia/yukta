@@ -60,7 +60,7 @@ function PriorityDialog({
   return (
     <Modal title="Change priority" onClose={onClose}>
       <label
-        className="text-body-md text-on-surface mb-1 block"
+        className="mb-1 block text-body-md text-on-surface"
         htmlFor="run-priority"
       >
         Priority ({MIN_PRIORITY} to {MAX_PRIORITY}, higher runs first)
@@ -73,7 +73,7 @@ function PriorityDialog({
         max={MAX_PRIORITY}
         value={text}
         onChange={(event) => setText(event.target.value)}
-        className="border-border bg-background text-body-md mb-3 w-full rounded-lg border px-3 py-2"
+        className="mb-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-body-md"
       />
       <InlineError
         message={
@@ -198,7 +198,7 @@ export function RunControls({
       <div
         role="group"
         aria-label="Run controls"
-        className="border-border bg-card flex items-center gap-0.5 rounded-full border p-0.5"
+        className="flex items-center gap-0.5 rounded-full border border-border bg-card p-0.5"
       >
         <RequirePermission perm="controlRuns">
           {category === 'paused' ? (
@@ -343,7 +343,7 @@ export function RunControls({
       )}
       {confirm && (
         <Modal title={`${confirm.label}?`} onClose={() => setConfirm(null)}>
-          <p className="text-body-md text-on-surface-variant mb-4">
+          <p className="mb-4 text-body-md text-on-surface-variant">
             {confirm.scope === 'all'
               ? `This stops ${
                   activeRuns === undefined

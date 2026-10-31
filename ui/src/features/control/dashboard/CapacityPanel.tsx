@@ -105,7 +105,7 @@ export function CapacityPanel({ live }: { live: boolean }) {
                 max={max > 0 ? max : Math.max(1, data.running)}
                 tone={max > 0 && data.running >= max ? 'attention' : 'primary'}
               />
-              <dl className="text-body-sm text-on-surface-variant flex flex-col">
+              <dl className="flex flex-col text-body-sm text-on-surface-variant">
                 <dt>Running</dt>
                 <dd className="num text-on-surface">
                   {data.running} of {limitText(max)}
@@ -133,7 +133,7 @@ export function CapacityPanel({ live }: { live: boolean }) {
                 Limit: {limitText(knobValue)}
               </span>
             </div>
-            <label className="text-body-md flex items-center gap-2">
+            <label className="flex items-center gap-2 text-body-md">
               <input
                 type="checkbox"
                 role="switch"
@@ -151,12 +151,12 @@ export function CapacityPanel({ live }: { live: boolean }) {
             {rejected.length > 0 && (
               <ul
                 aria-label="Refused starts per minute"
-                className="text-body-sm flex flex-wrap gap-2"
+                className="flex flex-wrap gap-2 text-body-sm"
               >
                 {rejected.map((r) => (
                   <li
                     key={r.reason}
-                    className="bg-muted rounded-full px-2 py-0.5 tabular-nums"
+                    className="rounded-full bg-muted px-2 py-0.5 tabular-nums"
                   >
                     {r.reason}: {r.perMinute.toFixed(1)}/min
                   </li>

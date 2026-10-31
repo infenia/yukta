@@ -25,7 +25,7 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
           {row.original.sessionId}
         </div>
         {row.original.description && (
-          <div className="text-body-sm text-on-surface-variant mt-0.5 max-w-md truncate">
+          <div className="mt-0.5 max-w-md truncate text-body-sm text-on-surface-variant">
             {row.original.description}
           </div>
         )}
@@ -76,7 +76,7 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
           {tags.map((tag, index) => (
             <Badge
               key={`${tag}-${index}`}
-              className="bg-secondary-container text-label-sm text-on-surface px-2"
+              className="bg-secondary-container px-2 text-label-sm text-on-surface"
             >
               {tag}
             </Badge>
@@ -97,12 +97,12 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
           e.stopPropagation();
           void navigator.clipboard?.writeText(row.original.projectPath);
         }}
-        className="text-code-sm text-on-surface hover:bg-muted inline-flex max-w-full items-center gap-1 rounded-md px-1 py-0.5 text-left"
+        className="inline-flex max-w-full items-center gap-1 rounded-md px-1 py-0.5 text-left text-code-sm text-on-surface hover:bg-muted"
       >
         <span className="truncate">{row.getValue('projectPath')}</span>
         <span
           aria-hidden="true"
-          className="material-symbols-outlined text-muted-foreground text-sm"
+          className="material-symbols-outlined text-sm text-muted-foreground"
         >
           content_copy
         </span>

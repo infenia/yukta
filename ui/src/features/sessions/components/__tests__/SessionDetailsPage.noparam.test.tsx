@@ -24,7 +24,9 @@ describe('SessionDetailsPage without a session id in the route', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session not found|failed to load session details/i)).toBeDefined();
+      expect(
+        screen.getByText(/session not found|failed to load session details/i)
+      ).toBeDefined();
     });
   });
 });

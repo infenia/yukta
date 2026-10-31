@@ -52,7 +52,7 @@ function Toggle({
                 on ? chosen.filter((c) => c !== value) : [...chosen, value]
               )
             }
-            className={`text-label-sm rounded-lg border px-2 py-1 ${
+            className={`rounded-lg border px-2 py-1 text-label-sm ${
               on
                 ? 'border-primary bg-primary/10 text-primary'
                 : 'border-border text-on-surface-variant'
@@ -138,13 +138,13 @@ export function ActivityPanel() {
         </StateMessage>
       ) : (
         <ul
-          className="divide-border border-border bg-card max-h-128 divide-y overflow-y-auto rounded-xl border"
+          className="max-h-128 divide-y divide-border overflow-y-auto rounded-xl border border-border bg-card"
           data-testid="activity-list"
         >
           {rows.slice(0, VISIBLE_ROWS).map((e) => (
             <li
               key={e.seq}
-              className="text-code-sm flex flex-wrap gap-x-3 px-3 py-1.5"
+              className="flex flex-wrap gap-x-3 px-3 py-1.5 text-code-sm"
             >
               <span className="text-on-surface-variant">
                 {formatLogTimestamp(e.event.timestamp)}
@@ -160,7 +160,7 @@ export function ActivityPanel() {
                   {e.event.executionId.slice(0, 8)}
                 </Link>
               )}
-              <span className="text-on-surface min-w-0 wrap-break-word">
+              <span className="min-w-0 wrap-break-word text-on-surface">
                 {describe(e)}
               </span>
             </li>
