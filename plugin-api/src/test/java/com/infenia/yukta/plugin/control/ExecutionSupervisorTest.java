@@ -31,9 +31,10 @@ class ExecutionSupervisorTest {
   void defaults_orderIsZero_andEveryCommandIsAllowed() {
     final ExecutionSupervisor supervisor = new Observer();
     final ControlRequest request =
-        new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e"), null);
+        new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e"), null, null, null);
 
     assertThat(supervisor.order()).isZero();
+    assertThat(supervisor.scope()).isEqualTo(new SupervisorScope.Global());
     assertThat(supervisor.review(request).block()).isEqualTo(Decision.ALLOW);
   }
 
@@ -50,7 +51,7 @@ class ExecutionSupervisorTest {
     metadata.put("missing", null);
     final var event =
         new ExecutionEvent.NodeStatusChanged(
-            "e", "wf", "n", "m", "SUCCESS", metadata, Instant.now());
+            "e", "s", "wf", "n", "m", "SUCCESS", metadata, Instant.now());
 
     assertThat(event.metadata()).containsEntry("missing", null);
   }
@@ -60,12 +61,13 @@ class ExecutionSupervisorTest {
     final Map<String, Object> metadata = new HashMap<>(Map.of("k", "v"));
     final var event =
         new ExecutionEvent.NodeStatusChanged(
-            "e", "wf", "n", "m", "FAILURE", metadata, Instant.now());
+            "e", "s", "wf", "n", "m", "FAILURE", metadata, Instant.now());
     metadata.put("later", 1);
 
     assertThat(event.metadata()).containsOnlyKeys("k");
     final var withoutMetadata =
-        new ExecutionEvent.NodeStatusChanged("e", "wf", "n", "m", "FAILURE", null, Instant.now());
+        new ExecutionEvent.NodeStatusChanged(
+            "e", "s", "wf", "n", "m", "FAILURE", null, Instant.now());
     assertThat(withoutMetadata.metadata()).isEmpty();
   }
 
@@ -74,10 +76,10 @@ class ExecutionSupervisorTest {
     final Instant now = Instant.now();
     final List<ExecutionEvent> events =
         List.of(
-            new ExecutionEvent.WorkflowStatusChanged("e", "wf", "SUCCESS", now),
+            new ExecutionEvent.WorkflowStatusChanged("e", "s", "wf", "SUCCESS", now),
             new ExecutionEvent.ControlOutcome(
-                "e", "PauseWorkflowCommand", "rules", true, null, now),
-            new ExecutionEvent.LogLine("e", "n", "line", LogLevel.INFO, now));
+                "e", null, null, "PauseWorkflowCommand", "rules", true, null, now),
+            new ExecutionEvent.LogLine("e", "s", "wf", "n", "line", LogLevel.INFO, now));
 
     assertThat(events).allSatisfy(event -> assertThat(event.executionId()).isEqualTo("e"));
     assertThat(events).allSatisfy(event -> assertThat(event.timestamp()).isEqualTo(now));
@@ -88,6 +90,8 @@ class ExecutionSupervisorTest {
     final var missed = new ExecutionEvent.EventsMissed(3, Instant.now());
 
     assertThat(missed.executionId()).isEmpty();
+    assertThat(missed.sessionId()).isEmpty();
+    assertThat(missed.workflowId()).isEmpty();
     assertThat(missed.count()).isEqualTo(3);
   }
 

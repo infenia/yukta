@@ -63,7 +63,12 @@ public class ControlReviewer {
    */
   public Mono<Void> review(final ControlRequest request) {
     return Flux.fromStream(
-            () -> supervisors.stream().sorted(Comparator.comparingInt(ExecutionSupervisor::order)))
+            () ->
+                supervisors.stream()
+                    .filter(
+                        supervisor ->
+                            supervisor.scope().matches(request.sessionId(), request.workflowId()))
+                    .sorted(Comparator.comparingInt(ExecutionSupervisor::order)))
         .concatMap(
             supervisor ->
                 Mono.defer(() -> supervisor.review(request))

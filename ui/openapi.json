@@ -1,6 +1,49 @@
 {
   "components" : {
     "schemas" : {
+      "ApiResponseCatalog" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/Catalog",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseCounts" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -865,6 +908,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseMetricSample" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/MetricSample",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseNodeCommandResponse" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -999,6 +1085,49 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/SchedulerLimits",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseSeries" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/Series",
             "description" : "The response data"
           },
           "error" : {
@@ -1563,6 +1692,17 @@
         },
         "type" : "object"
       },
+      "Catalog" : {
+        "properties" : {
+          "series" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
       "ConfigRequest" : {
         "description" : "Request object for session configuration, supporting both initialization and runtime updates",
         "properties" : {
@@ -1931,6 +2071,22 @@
         "type" : "object"
       },
       "MessageObject" : { },
+      "MetricSample" : {
+        "properties" : {
+          "time" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "values" : {
+            "additionalProperties" : {
+              "format" : "double",
+              "type" : "number"
+            },
+            "type" : "object"
+          }
+        },
+        "type" : "object"
+      },
       "Node" : {
         "description" : "A single node in the workflow DAG",
         "properties" : {
@@ -2120,6 +2276,19 @@
         },
         "type" : "object"
       },
+      "Point" : {
+        "properties" : {
+          "time" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "value" : {
+            "format" : "double",
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
       "ProjectPathCheck" : {
         "properties" : {
           "directory" : {
@@ -2198,8 +2367,26 @@
         },
         "type" : "object"
       },
+      "Series" : {
+        "properties" : {
+          "range" : {
+            "type" : "string"
+          },
+          "series" : {
+            "additionalProperties" : {
+              "items" : {
+                "$ref" : "#/components/schemas/Point"
+              },
+              "type" : "array"
+            },
+            "type" : "object"
+          }
+        },
+        "type" : "object"
+      },
       "ServerSentEventEnvelope" : { },
       "ServerSentEventLogEntryResponse" : { },
+      "ServerSentEventMetricSample" : { },
       "ServerSentEventResultEvent" : { },
       "ServerSentEventString" : { },
       "ServerSentEventWorkflowProgress" : { },
@@ -2365,6 +2552,15 @@
           "rejected" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "scope" : {
+            "type" : "string"
+          },
+          "scopeSessionId" : {
+            "type" : "string"
+          },
+          "scopeWorkflowId" : {
+            "type" : "string"
           },
           "type" : {
             "type" : "string"
@@ -3310,7 +3506,7 @@
     "/api/events/stream" : {
       "get" : {
         "description" : "Live node and workflow status changes, control command outcomes and log lines of all executions, each with a severity (INFO, WARN, ERROR)",
-        "operationId" : "stream",
+        "operationId" : "stream_1",
         "parameters" : [ {
           "description" : "Only events of this execution",
           "in" : "query",
@@ -4396,6 +4592,113 @@
         },
         "summary" : "Who am I",
         "tags" : [ "Session API" ]
+      }
+    },
+    "/api/metrics/catalog" : {
+      "get" : {
+        "operationId" : "catalog",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCatalog"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List sampled metric series",
+        "tags" : [ "Metrics API" ]
+      }
+    },
+    "/api/metrics/series" : {
+      "get" : {
+        "description" : "Points of the named series over a range",
+        "operationId" : "series",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "names",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        }, {
+          "in" : "query",
+          "name" : "range",
+          "required" : false,
+          "schema" : {
+            "default" : "1h",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSeries"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Metric history",
+        "tags" : [ "Metrics API" ]
+      }
+    },
+    "/api/metrics/snapshot" : {
+      "get" : {
+        "operationId" : "snapshot",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMetricSample"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Newest metric sample",
+        "tags" : [ "Metrics API" ]
+      }
+    },
+    "/api/metrics/stream" : {
+      "get" : {
+        "operationId" : "stream",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Last-Event-ID",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/event-stream" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ServerSentEventMetricSample"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Stream metric samples",
+        "tags" : [ "Metrics API" ]
       }
     },
     "/api/plugins" : {
@@ -6374,6 +6677,9 @@
   }, {
     "description" : "Find runs across sessions",
     "name" : "Execution Search API"
+  }, {
+    "description" : "Recent history of server metrics",
+    "name" : "Metrics API"
   }, {
     "description" : "Check a working directory before creating a session",
     "name" : "Session API"

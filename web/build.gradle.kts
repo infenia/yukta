@@ -20,6 +20,7 @@ dependencies {
 
     testImplementation(libs.spring.boot.starter.webflux.test)
     testImplementation(libs.spring.boot.starter.validation.test)
+    testImplementation("io.micrometer:micrometer-core")
 }
 
 // Generated MapStruct mappers have uncoverable for-each loop branches (synthetic branches

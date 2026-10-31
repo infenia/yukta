@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.SupervisorScope;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +27,7 @@ import reactor.test.StepVerifier;
 class ControlReviewerTest {
 
   private static final ControlRequest REQUEST =
-      new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e1"), null);
+      new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e1"), null, null, null);
 
   @RequiredArgsConstructor
   private static final class Reviewer implements ExecutionSupervisor {
@@ -55,6 +56,71 @@ class ControlReviewerTest {
       asked.add(id);
       return answer.apply(request);
     }
+  }
+
+  private static ExecutionSupervisor scoped(
+      final String id, final SupervisorScope scope, final List<String> asked) {
+    return new ExecutionSupervisor() {
+      @Override
+      public String id() {
+        return id;
+      }
+
+      @Override
+      public SupervisorScope scope() {
+        return scope;
+      }
+
+      @Override
+      public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+        return Flux.empty();
+      }
+
+      @Override
+      public Mono<Decision> review(final ControlRequest request) {
+        asked.add(id);
+        return Mono.just(Decision.deny("no"));
+      }
+    };
+  }
+
+  @Test
+  void review_onlyAsksSupervisorsWhoseScopeCoversTheRun() {
+    final List<String> asked = new ArrayList<>();
+    final ControlReviewer reviewer =
+        new ControlReviewer(
+            providerOf(
+                scoped("sessionA", new SupervisorScope.Session("A"), asked),
+                scoped("sessionB", new SupervisorScope.Session("B"), asked),
+                scoped("wfOther", new SupervisorScope.Workflow("other", null), asked),
+                scoped("wfMine", new SupervisorScope.Workflow("w1", "A"), asked)));
+    final ControlRequest request =
+        new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e1"), null, "A", "w1");
+
+    StepVerifier.create(reviewer.review(request))
+        .expectError(ControlRejectedException.class)
+        .verify();
+
+    assertThat(asked).contains("sessionA").doesNotContain("sessionB", "wfOther");
+  }
+
+  @Test
+  void review_limitsCommandIsReviewedByGlobalSupervisorsOnly() {
+    final List<String> asked = new ArrayList<>();
+    final ControlReviewer reviewer =
+        new ControlReviewer(
+            providerOf(
+                scoped("sessionA", new SupervisorScope.Session("A"), asked),
+                scoped("global", new SupervisorScope.Global(), asked)));
+
+    StepVerifier.create(
+            reviewer.review(
+                new ControlRequest(
+                    new ExecutionControlCommand.SetLimitsCommand(1, 1), null, null, null)))
+        .expectError(ControlRejectedException.class)
+        .verify();
+
+    assertThat(asked).containsExactly("global");
   }
 
   @Test
@@ -126,13 +192,18 @@ class ControlReviewerTest {
             hungReviewer()
                 .review(
                     new ControlRequest(
-                        new ExecutionControlCommand.StopWorkflowCommand("e1", null, null), null)))
+                        new ExecutionControlCommand.StopWorkflowCommand("e1", null, null),
+                        null,
+                        null,
+                        null)))
         .verifyComplete();
     StepVerifier.create(
             hungReviewer()
                 .review(
                     new ControlRequest(
                         new ExecutionControlCommand.StopNodeCommand("e1", "n1", false, null),
+                        null,
+                        null,
                         null)))
         .verifyComplete();
   }
