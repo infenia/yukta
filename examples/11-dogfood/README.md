@@ -40,6 +40,14 @@ Steering: `yk tree|pause|resume|stop|skip|retry|break|step|signals|approve|rejec
 The other commands (`yk run issue|epic`, steering, the slash commands) are
 switched off while the loop is rebuilt; their pieces are in `backup/`, and `backup/README.md` says how to bring each back.
 
+## Pickup session (channel, research preview)
+`yk pickup session` opens an interactive Claude Code session named `yukta-pickup` that spawns the `yukta-pickup` channel
+(`channel/yukta-pickup.py`, stdlib Python). A POST to `127.0.0.1:8790/issue` (header `X-Pickup-Token` from `pickup-token` in the dev state dir;
+`YUKTA_PICKUP_PORT` changes the port) becomes a `<channel source="yukta-pickup" issue=..>` event that starts a turn; Claude ends the issue with
+the `pickup_done` tool, which frees the channel (it also frees itself after 4 h). `GET /status` shows `busy`. A custom channel is not on the
+allowlist, so the session starts with `--dangerously-load-development-channels` and its dialog; `claude -p` ignores that flag, so the session must
+be interactive and stay open. The schedule and the skill that work an issue are separate steps (#1604, #1605).
+
 ## Prerequisites
 `git`, `jq`, `curl`, `flock`, `python3`, Java 25, Go (the CLI is built with the server). Optional: `opengrep`, `trivy`
 (skipped when absent), `gh` + `cosign` for `yk up --release`, `mint` (docs links), `reuse`, `actionlint`, Ollama with the
@@ -122,6 +130,8 @@ a per-effort budget and time box. `YK_ADVISOR=sonnet` (experimental, off by defa
 | `scripts/_lib.sh` | server, session and watch helpers |
 | `scripts/test-heal.sh` | the end-to-end test of check and heal against a fake claude (`yk up` first; no API cost) |
 | `scripts/test-hooks.sh` | the Claude Code hooks |
+| `channel/yukta-pickup.py` | the `yukta-pickup` Claude Code channel: hands one GitHub issue at a time to an open session (`yk pickup session`) |
+| `scripts/test-pickup-channel.sh` | offline test of that channel (handshake, event, token, busy, `pickup_done`) |
 | `scripts/test-yk.sh` | interrupt, detach and `--stages` of `yk` against the dev server (no cost) |
 | `eval/triage/` | the triage model evaluation |
 | `backup/` | the previous implementation, kept while the loop is rebuilt |

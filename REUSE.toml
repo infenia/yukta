@@ -37,7 +37,7 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = ["claude-mods/**", ".claude-plugin/**", "examples/11-dogfood/mod/**", "examples/**/*.json", "examples/**/*.sh", "examples/**/*.jq", "examples/11-dogfood/scripts/*.py", "examples/11-dogfood/yk", "examples/11-dogfood/eval/**", "release/smoke-session.json", "config/mutation/baseline.json", "perf/baseline.json"]
+path = ["claude-mods/**", ".claude-plugin/**", "examples/11-dogfood/mod/**", "examples/11-dogfood/channel/**", "examples/**/*.json", "examples/**/*.sh", "examples/**/*.jq", "examples/11-dogfood/scripts/*.py", "examples/11-dogfood/yk", "examples/11-dogfood/eval/**", "release/smoke-session.json", "config/mutation/baseline.json", "perf/baseline.json"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"

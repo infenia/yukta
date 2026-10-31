@@ -15,6 +15,7 @@
 #   yk bench [--runs N] [--max-ratio R] [--check] [args]  the same Gradle work direct and through yk: wall times and ratio (exit 1 above R and +3 s)
 #   yk decision                              probe the optional decision model (decisions.json, YUKTA_DECISION_MODEL/_URL/off); yk status shows the same line
 #   yk tool [--detach] [-C dir] <cmd...>     run any other command once, e.g. -C ui pnpm lint | -C cli go test ./...
+#   yk pickup session                        open the interactive Claude Code session that receives issues through the yukta-pickup channel
 #
 # A run's last line is machine readable; exit 0 only on success:
 #   RESULT status=<S> failed_node=<node|-> healed=<stage:step,..|-> execution=<id> session=<id> wall=<s> cost=$<heal spend> bytes=<shown to you>
@@ -49,6 +50,23 @@ cmd_up() {
 
 cmd_down() {
   if ours; then server_stop; echo "stopped the dev server"; else echo "no dev server started by yk"; fi
+}
+
+# yk pickup session: the interactive Claude Code session that receives issues from the yukta-pickup channel (research preview: a custom
+# channel needs --dangerously-load-development-channels, whose dialog you accept at every start; -p ignores the flag). The channel server
+# is spawned by that session, not by the repo .mcp.json, so no other session fights for its port.
+cmd_pickup() {
+  case "${1:-}" in
+    session)
+      need claude; need jq
+      mkdir -p "$DEV_HOME"
+      [[ -s "$DEV_HOME/pickup-token" ]] || { (umask 077; head -c 24 /dev/urandom | base64 | tr -d '/+=\n' >"$DEV_HOME/pickup-token"); }
+      local cfg
+      cfg="$(jq -nc --arg s "$here/channel/yukta-pickup.py" '{mcpServers: {"yukta-pickup": {command: "python3", args: ["-I", $s]}}}')"
+      cd "$REPO_ROOT"
+      exec claude --name yukta-pickup --mcp-config "$cfg" --dangerously-load-development-channels server:yukta-pickup ;;
+    *) die "usage: yk pickup session" ;;
+  esac
 }
 
 # yk decision: probe the optional decision model (see decisions.json); 0 when it works
@@ -622,6 +640,7 @@ case "$cmd" in
   check) cmd_check "$@" ;;
   gradle) cmd_gradle "$@" ;;
   tool) cmd_tool "$@" ;;
+  pickup) cmd_pickup "$@" ;;
   plan) exec "$here/scripts/plan.sh" "$@" ;;
   advise) exec "$here/scripts/advise.sh" "$@" ;;
   heal) need python3; exec python3 -I "$here/scripts/heal-report.py" "$@" ;;
