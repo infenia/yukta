@@ -63,7 +63,10 @@ Omit `to` to compare with the current definition. The result lists a changed des
 ### Annotate a version
 
 ```http
-POST /api/sessions/{sessionId}/workflows/{workflowId}/versions/note?version={version}&note={text}
+POST /api/sessions/{sessionId}/workflows/{workflowId}/versions/note
+Content-Type: application/json
+
+{"version": "{version}", "note": "{text}"}
 ```
 
 ### List versions

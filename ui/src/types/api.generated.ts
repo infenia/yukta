@@ -1128,7 +1128,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Write or clear the note on a saved version */
+        /**
+         * Write or clear the note on a saved version
+         * @description Send {version, note} as the JSON body; a blank note clears it. The query parameters version and note still work but put the note in access logs and URL limits.
+         */
         post: operations["note"];
         delete?: never;
         options?: never;
@@ -3010,6 +3013,10 @@ export interface components {
              * @description Nodes in the run
              */
             total?: number;
+        };
+        NoteRequest: {
+            note?: string;
+            version?: string;
         };
         PendingApproval: {
             executionId?: string;
@@ -5038,10 +5045,10 @@ export interface operations {
     };
     note: {
         parameters: {
-            query: {
-                /** @description Version id from the list */
-                version: string;
-                /** @description The note; blank clears it */
+            query?: {
+                /** @description Version id from the list (deprecated: use the body) */
+                version?: string;
+                /** @description The note (deprecated: use the body) */
                 note?: string;
             };
             header?: never;
@@ -5053,7 +5060,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NoteRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
