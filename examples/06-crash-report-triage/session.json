@@ -1,0 +1,396 @@
+{
+  "sessionId": "example-crash-report-triage",
+  "name": "Crash report triage",
+  "description": "Drop repeated crash reports, auto-link known issues to their ticket, escalate new, regression and critical crashes to the owning team, and record every outcome.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": {
+    "example": "06-crash-report-triage"
+  },
+  "workflows": {
+    "intake": {
+      "workflowId": "intake",
+      "description": "Validate, drop repeats, hand new crash reports to the handler, log duplicates and rejects",
+      "nodes": [
+        {
+          "nodeId": "report",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "check-fields",
+          "type": "VALIDATE",
+          "config": {
+            "required": [
+              "reportId",
+              "service",
+              "exception",
+              "frame",
+              "message"
+            ],
+            "types": {
+              "reportId": "string",
+              "service": "string",
+              "exception": "string",
+              "frame": "string",
+              "message": "string"
+            }
+          }
+        },
+        {
+          "nodeId": "fingerprint",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "key": "payload.exception.toLowerCase().trim() + '|' + payload.frame.toLowerCase().trim()"
+            }
+          }
+        },
+        {
+          "nodeId": "seen-before",
+          "type": "KV_STORE",
+          "config": {
+            "op": "incr",
+            "namespace": "crash-fingerprints"
+          }
+        },
+        {
+          "nodeId": "is-repeat",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload.value > 1": "repeat",
+              "payload.value <= 1": "fresh"
+            }
+          }
+        },
+        {
+          "nodeId": "handle-report",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "handle",
+            "payload": {
+              "reportId": "${start.reportId}",
+              "service": "${start.service}",
+              "exception": "${start.exception}",
+              "frame": "${start.frame}",
+              "message": "${start.message}",
+              "knownTicket": "${start.knownTicket}"
+            }
+          }
+        },
+        {
+          "nodeId": "format-repeat",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "'outcomes.log'",
+              "content": "'DUPLICATE seen=' + payload.value + ' fingerprint=' + payload.key"
+            }
+          }
+        },
+        {
+          "nodeId": "format-invalid",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "'outcomes.log'",
+              "content": "'REJECTED invalid report (missing or wrong-typed fields)'"
+            }
+          }
+        },
+        {
+          "nodeId": "write-log",
+          "type": "FILE_WRITE",
+          "config": {
+            "baseDir": "/tmp/yukta-examples/crash-report-triage",
+            "path": "outcomes.log",
+            "append": true
+          }
+        },
+        {
+          "nodeId": "end",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        }
+      ],
+      "edges": [
+        {
+          "source": "report",
+          "target": "check-fields"
+        },
+        {
+          "source": "check-fields",
+          "target": "fingerprint"
+        },
+        {
+          "source": "check-fields",
+          "target": "format-invalid",
+          "sourcePort": "invalid"
+        },
+        {
+          "source": "fingerprint",
+          "target": "seen-before"
+        },
+        {
+          "source": "seen-before",
+          "target": "is-repeat"
+        },
+        {
+          "source": "is-repeat",
+          "target": "handle-report",
+          "sourcePort": "fresh"
+        },
+        {
+          "source": "is-repeat",
+          "target": "format-repeat",
+          "sourcePort": "repeat"
+        },
+        {
+          "source": "handle-report",
+          "target": "end"
+        },
+        {
+          "source": "format-repeat",
+          "target": "write-log"
+        },
+        {
+          "source": "format-invalid",
+          "target": "write-log"
+        },
+        {
+          "source": "write-log",
+          "target": "end"
+        }
+      ]
+    },
+    "handle": {
+      "workflowId": "handle",
+      "description": "Classify one crash report, auto-link known issues or escalate to the owning team, always record the outcome",
+      "nodes": [
+        {
+          "nodeId": "report",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "lower-text",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "text": "(payload.exception + ' ' + payload.message).toLowerCase()"
+            }
+          }
+        },
+        {
+          "nodeId": "classify",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "category": "payload.text.contains('regression') || payload.text.contains('after upgrade') ? 'regression' : (payload.text.contains('outofmemoryerror') || payload.text.contains('stackoverflowerror') || payload.text.contains('fatal') ? 'critical' : (payload.text.contains('sockettimeoutexception') || payload.text.contains('timed out') ? 'timeout' : (payload.text.contains('nullpointerexception') ? 'npe' : 'other')))"
+            }
+          }
+        },
+        {
+          "nodeId": "route",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "payload.category",
+            "cases": {
+              "timeout": "auto",
+              "npe": "auto"
+            },
+            "defaultPort": "human"
+          }
+        },
+        {
+          "nodeId": "draft-reply",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "reply": "payload.category == 'timeout' ? 'Auto-linked to known flaky-timeout ticket BUG-212. No action needed unless the rate rises.' : 'Auto-linked to tracked ticket ' + (payload['knownTicket'] == null ? 'UNKNOWN' : payload['knownTicket']) + '. Occurrence added.'"
+            }
+          }
+        },
+        {
+          "nodeId": "check-reply",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "!payload.reply.contains('UNKNOWN')": "ok",
+              "payload.reply.contains('UNKNOWN')": "unfit"
+            }
+          }
+        },
+        {
+          "nodeId": "mark-auto",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "outcome": "'auto_linked'",
+              "queue": "'none'"
+            }
+          }
+        },
+        {
+          "nodeId": "mark-human",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "outcome": "'escalated'",
+              "queue": "payload.category == 'regression' ? 'platform-oncall' : (payload.category == 'critical' ? 'sre-oncall' : 'triage')"
+            }
+          }
+        },
+        {
+          "nodeId": "fan-out",
+          "type": "RECIPIENT_LIST",
+          "config": {
+            "mode": "STATIC",
+            "recipients": [
+              "slack",
+              "email",
+              "record"
+            ],
+            "parallel": true
+          }
+        },
+        {
+          "nodeId": "notify-slack",
+          "type": "MAPPER",
+          "config": {
+            "mode": "TEMPLATE",
+            "mapping": "slack #{{payload.queue}}: report {{payload.reportId}} from {{payload.service}} needs an owner ({{payload.category}})"
+          }
+        },
+        {
+          "nodeId": "notify-email",
+          "type": "MAPPER",
+          "config": {
+            "mode": "TEMPLATE",
+            "mapping": "email {{payload.queue}}@example.com: report {{payload.reportId}}, {{payload.exception}} at {{payload.frame}}"
+          }
+        },
+        {
+          "nodeId": "format-outcome",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "path": "'outcomes.log'",
+              "content": "'report=' + payload.reportId + ' category=' + payload.category + ' outcome=' + payload.outcome + ' queue=' + payload.queue"
+            }
+          }
+        },
+        {
+          "nodeId": "write-outcome",
+          "type": "FILE_WRITE",
+          "config": {
+            "baseDir": "/tmp/yukta-examples/crash-report-triage",
+            "path": "outcomes.log",
+            "append": true
+          }
+        },
+        {
+          "nodeId": "end",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        }
+      ],
+      "edges": [
+        {
+          "source": "report",
+          "target": "lower-text"
+        },
+        {
+          "source": "lower-text",
+          "target": "classify"
+        },
+        {
+          "source": "classify",
+          "target": "route"
+        },
+        {
+          "source": "route",
+          "target": "draft-reply",
+          "sourcePort": "auto"
+        },
+        {
+          "source": "route",
+          "target": "mark-human",
+          "sourcePort": "human"
+        },
+        {
+          "source": "draft-reply",
+          "target": "check-reply"
+        },
+        {
+          "source": "check-reply",
+          "target": "mark-auto",
+          "sourcePort": "ok"
+        },
+        {
+          "source": "check-reply",
+          "target": "mark-human",
+          "sourcePort": "unfit"
+        },
+        {
+          "source": "mark-auto",
+          "target": "format-outcome"
+        },
+        {
+          "source": "mark-human",
+          "target": "fan-out"
+        },
+        {
+          "source": "fan-out",
+          "target": "notify-slack",
+          "sourcePort": "slack"
+        },
+        {
+          "source": "fan-out",
+          "target": "notify-email",
+          "sourcePort": "email"
+        },
+        {
+          "source": "fan-out",
+          "target": "format-outcome",
+          "sourcePort": "record"
+        },
+        {
+          "source": "notify-slack",
+          "target": "end"
+        },
+        {
+          "source": "notify-email",
+          "target": "end"
+        },
+        {
+          "source": "format-outcome",
+          "target": "write-outcome"
+        },
+        {
+          "source": "write-outcome",
+          "target": "end"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,7 @@
+event_id,user_id,event_type,ts
+E1,u-ana,page_view,2026-10-30T01:00:00Z
+E2,,click,yesterday
+E3,u-cy,purchase,2026-10-30
+E4,u-dee,teleport,2026-10-30T01:02:00Z
+E5,u-ed,signup,
+E6

@@ -1,0 +1,351 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.service.metrics;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
+import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Test;
+
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.AvoidInstantiatingObjectsInLoops"
+})
+class RunAnalyticsTest {
+
+  private static final Instant T0 = Instant.parse("2026-10-31T12:00:00Z");
+
+  private static final Duration HOUR = Duration.ofHours(1);
+
+  private static final String SUCCESS = "SUCCESS";
+
+  private static final String FAILURE = "FAILURE";
+
+  private static final List<String> ALL = List.of("runs.", "duration.", "queue.");
+
+  private final ExecutionEventFeed feed = new ExecutionEventFeed();
+
+  private final RunAnalytics analytics =
+      new RunAnalytics(feed, Clock.fixed(T0.plusSeconds(600), ZoneOffset.UTC));
+
+  private void run(
+      final String id,
+      final String session,
+      final String workflow,
+      final int startSecond,
+      final int durationMs,
+      final String status) {
+    final Instant start = T0.plusSeconds(startSecond);
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged(id, session, workflow, "RUNNING", start));
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged(
+            id, session, workflow, status, start.plusMillis(durationMs)));
+  }
+
+  private void node(
+      final String id,
+      final String module,
+      final int startMs,
+      final int endMs,
+      final String status) {
+    analytics.accept(
+        new ExecutionEvent.NodeStatusChanged(
+            id, "s1", "w1", module + startMs, module, "RUNNING", Map.of(), T0.plusMillis(startMs)));
+    analytics.accept(
+        new ExecutionEvent.NodeStatusChanged(
+            id, "s1", "w1", module + startMs, module, status, Map.of(), T0.plusMillis(endMs)));
+  }
+
+  @Test
+  void countsRunsByStatusAndTimesThem() {
+    run("a", "s1", "w1", 0, 1000, SUCCESS);
+    run("b", "s1", "w1", 10, 3000, FAILURE);
+    run("c", "s1", "w1", 20, 2000, "CANCELLED");
+
+    final Map<String, Double> snapshot = analytics.snapshot(RunAnalytics.GLOBAL);
+
+    assertThat(snapshot)
+        .containsEntry("runs.finished", 3.0)
+        .containsEntry("runs.failed", 1.0)
+        .containsEntry("runs.SUCCESS", 1.0)
+        .containsEntry("runs.CANCELLED", 1.0)
+        .containsEntry("duration.p95", 3000.0);
+    final var series = analytics.series(RunAnalytics.GLOBAL, ALL, HOUR);
+    assertThat(series.get("duration.p50"))
+        .extracting(MetricsSampler.Point::value)
+        .containsExactly(2000.0);
+    assertThat(series.get("runs.finished")).hasSize(1);
+  }
+
+  @Test
+  void neverStartedRunHasNoDuration() {
+    analytics.accept(new ExecutionEvent.WorkflowStatusChanged("q", "s1", "w1", "QUEUED", T0));
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged("q", "s1", "w1", "CANCELLED", T0.plusSeconds(1)));
+
+    assertThat(analytics.snapshot(RunAnalytics.GLOBAL))
+        .containsEntry("runs.CANCELLED", 1.0)
+        .doesNotContainKey("duration.p95");
+  }
+
+  @Test
+  void queueWaitIsTheTimeFromQueuedToRunning() {
+    analytics.accept(new ExecutionEvent.WorkflowStatusChanged("q", "s1", "w1", "QUEUED", T0));
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged("q", "s1", "w1", "RUNNING", T0.plusMillis(1500)));
+    // a second RUNNING for the same run does not count again
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged("q", "s1", "w1", "RUNNING", T0.plusMillis(2500)));
+
+    assertThat(analytics.series(RunAnalytics.GLOBAL, List.of("queue."), HOUR).get("queue.wait.p95"))
+        .extracting(MetricsSampler.Point::value)
+        .containsExactly(1500.0);
+  }
+
+  @Test
+  void scopesSeeOnlyTheirOwnRuns() {
+    run("a", "s1", "w1", 0, 1000, SUCCESS);
+    run("b", "s2", "w2", 5, 1000, FAILURE);
+
+    assertThat(analytics.snapshot("session:s1")).containsEntry("runs.finished", 1.0);
+    assertThat(analytics.snapshot("session:s1")).doesNotContainKey("runs.FAILURE");
+    assertThat(analytics.snapshot("workflow:w2")).containsEntry("runs.FAILURE", 1.0);
+    assertThat(analytics.snapshot("session:nope")).isEmpty();
+    assertThat(analytics.series("workflow:nope", ALL, HOUR)).isEmpty();
+    assertThat(analytics.heatmap("bogus", HOUR)).isEmpty();
+    assertThat(analytics.modules("bogus", HOUR)).isEmpty();
+  }
+
+  @Test
+  void sessionsAndWorkflowsBeyondTheLimitFoldIntoOther() {
+    for (int i = 0; i < 55; i++) {
+      run("r" + i, "s" + i, "w" + i, 0, 100, SUCCESS);
+    }
+    run("late", null, null, 0, 100, SUCCESS);
+
+    assertThat(analytics.snapshot("session:s0")).containsEntry("runs.finished", 1.0);
+    assertThat(analytics.snapshot("session:s54")).isEmpty();
+    // s50..s54 and the run without a session share "other"
+    assertThat(analytics.snapshot("session:other")).containsEntry("runs.finished", 6.0);
+    assertThat(analytics.snapshot("workflow:other")).containsEntry("runs.finished", 6.0);
+    assertThat(analytics.snapshot(RunAnalytics.GLOBAL)).containsEntry("runs.finished", 56.0);
+  }
+
+  @Test
+  void heatmapHasOneCellPerBusyMinute() {
+    run("a", "s1", "w1", 0, 1000, SUCCESS);
+    run("b", "s1", "w1", 5, 1000, FAILURE);
+    run("c", "s1", "w1", 130, 1000, SUCCESS);
+
+    final var cells = analytics.heatmap(RunAnalytics.GLOBAL, HOUR);
+
+    assertThat(cells).extracting(RunAnalytics.HeatCell::runs).containsExactly(2, 1);
+    assertThat(cells).extracting(RunAnalytics.HeatCell::failed).containsExactly(1, 0);
+    assertThat(cells.getFirst().failedRuns()).containsExactly("b");
+  }
+
+  @Test
+  void modulesAreRankedByExecutions() {
+    node("e1", "echo", 0, 100, SUCCESS);
+    node("e1", "echo", 200, 500, FAILURE);
+    node("e1", "http", 600, 900, SUCCESS);
+    // a repeated end of the same node is not counted twice
+    analytics.accept(
+        new ExecutionEvent.NodeStatusChanged(
+            "e1", "s1", "w1", "echo0", "echo", SUCCESS, Map.of(), T0.plusMillis(950)));
+
+    final var rows = analytics.modules(RunAnalytics.GLOBAL, HOUR);
+
+    assertThat(rows).extracting(RunAnalytics.ModuleRow::module).containsExactly("echo", "http");
+    assertThat(rows.getFirst().executions()).isEqualTo(2);
+    assertThat(rows.getFirst().failures()).isEqualTo(1);
+    assertThat(rows.getFirst().avgMs()).isEqualTo(200.0);
+    assertThat(analytics.modules("session:s1", HOUR)).hasSize(2);
+  }
+
+  @Test
+  void liveRunsShowProgressAndTheWorkflowBaseline() {
+    run("old", "s1", "w1", 0, 4000, SUCCESS);
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged(
+            "now", "s1", "w1", "RUNNING", T0.plusSeconds(500)));
+    analytics.accept(
+        new ExecutionEvent.NodeStatusChanged(
+            "now", "s1", "w1", "n1", "echo", "RUNNING", Map.of(), T0.plusSeconds(501)));
+    analytics.accept(
+        new ExecutionEvent.NodeStatusChanged(
+            "now", "s1", "w1", "n2", "echo", SUCCESS, Map.of(), T0.plusSeconds(502)));
+    analytics.accept(new ExecutionEvent.WorkflowStatusChanged("waiting", "s1", "w1", "QUEUED", T0));
+
+    final var live = analytics.liveRuns();
+
+    assertThat(live).hasSize(1);
+    assertThat(live.getFirst().executionId()).isEqualTo("now");
+    assertThat(live.getFirst().elapsedMs()).isEqualTo(100_000);
+    assertThat(live.getFirst().nodesDone()).isEqualTo(1);
+    assertThat(live.getFirst().nodesSeen()).isEqualTo(2);
+    assertThat(live.getFirst().p95Ms()).isEqualTo(4000.0);
+  }
+
+  @Test
+  void liveRunWithoutHistoryHasNoBaseline() {
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged(
+            "fresh", "s1", "w9", "RUNNING", T0.plusSeconds(1)));
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged(
+            "fresh2", "s1", "w1", "RUNNING", T0.plusSeconds(2)));
+    run("done", "s1", "w1", 0, 1000, SUCCESS);
+
+    assertThat(analytics.liveRuns())
+        .extracting(RunAnalytics.LiveRun::p95Ms)
+        .containsOnly(null, 1000.0);
+  }
+
+  @Test
+  void controlCommandsBecomeAnnotationsWithinTheirScope() {
+    analytics.accept(
+        new ExecutionEvent.ControlOutcome(
+            "a", "s1", "w1", "PauseWorkflowCommand", "guard", true, null, T0.plusSeconds(590)));
+    analytics.accept(
+        new ExecutionEvent.ControlOutcome(
+            "b", "s2", "w2", "StopWorkflowCommand", null, false, "no", T0.plusSeconds(595)));
+    analytics.accept(
+        new ExecutionEvent.ControlOutcome(
+            "c", null, null, "SetLimitsCommand", null, true, null, T0.plusSeconds(1)));
+
+    assertThat(analytics.annotations(RunAnalytics.GLOBAL, Duration.ofMinutes(1)))
+        .extracting(RunAnalytics.Annotation::command)
+        .containsExactly("PauseWorkflowCommand", "StopWorkflowCommand");
+    assertThat(analytics.annotations("session:s2", HOUR)).hasSize(1);
+    assertThat(analytics.annotations("workflow:w1", HOUR)).hasSize(1);
+    assertThat(analytics.annotations("workflow:none", HOUR)).isEmpty();
+  }
+
+  @Test
+  void memoryStaysBounded() {
+    // many runs in one minute: samples are capped, counts are not
+    for (int i = 0; i < 200; i++) {
+      run("r" + i, "s1", "w1", 0, i, SUCCESS);
+    }
+    for (int i = 0; i < 40; i++) {
+      run("f" + i, "s1", "w1", 0, 5, FAILURE);
+    }
+    assertThat(analytics.snapshot(RunAnalytics.GLOBAL))
+        .containsEntry("runs.finished", 240.0)
+        .containsEntry("duration.p95", 60.0);
+    // a run a day and a minute later drops the old minute
+    run("later", "s1", "w1", 25 * 3600, 10, SUCCESS);
+
+    assertThat(analytics.snapshot(RunAnalytics.GLOBAL)).isEmpty();
+  }
+
+  @Test
+  void otherEventsAreIgnoredAndTheFeedIsFollowed() {
+    analytics.accept(new ExecutionEvent.EventsMissed(3, T0));
+    analytics.accept(
+        new ExecutionEvent.LogLine(
+            "a", "s1", "w1", "n", "hi", com.infenia.yukta.plugin.core.LogLevel.INFO, T0));
+    analytics.start();
+    try {
+      await()
+          .atMost(3, TimeUnit.SECONDS)
+          .untilAsserted(
+              () -> {
+                feed.publish(
+                    new ExecutionEvent.WorkflowStatusChanged("x", "s1", "w1", "RUNNING", T0));
+                feed.publish(
+                    new ExecutionEvent.WorkflowStatusChanged(
+                        "x", "s1", "w1", SUCCESS, T0.plusMillis(10)));
+                assertThat(analytics.snapshot(RunAnalytics.GLOBAL)).containsKey("runs.SUCCESS");
+              });
+    } finally {
+      analytics.stop();
+    }
+    assertThat(analytics.liveRuns()).isEmpty();
+  }
+
+  @Test
+  void annotationsAndQueueWaitSamplesAreCapped() {
+    for (int i = 0; i < 501; i++) {
+      analytics.accept(
+          new ExecutionEvent.ControlOutcome(
+              "a" + i, "s1", "w1", "Pause", null, true, null, T0.plusSeconds(590)));
+    }
+    for (int i = 0; i < 70; i++) {
+      analytics.accept(new ExecutionEvent.WorkflowStatusChanged("q" + i, "s1", "w1", "QUEUED", T0));
+      analytics.accept(
+          new ExecutionEvent.WorkflowStatusChanged(
+              "q" + i, "s1", "w1", "RUNNING", T0.plusMillis(i)));
+    }
+
+    assertThat(analytics.annotations(RunAnalytics.GLOBAL, HOUR)).hasSize(500);
+    assertThat(analytics.series(RunAnalytics.GLOBAL, List.of("queue."), HOUR).get("queue.wait.p95"))
+        .extracting(MetricsSampler.Point::value)
+        .containsExactly(60.0);
+  }
+
+  @Test
+  void seriesNamesFilterWhatIsReturned() {
+    run("a", "s1", "w1", 0, 1000, SUCCESS);
+
+    assertThat(analytics.series(RunAnalytics.GLOBAL, List.of("duration."), HOUR))
+        .containsOnlyKeys("duration.p50", "duration.p95", "duration.p99");
+    assertThat(analytics.series(RunAnalytics.GLOBAL, List.of("nothing."), HOUR)).isEmpty();
+  }
+
+  @Test
+  void minutesWithoutEndedRunsAreNotHeatCellsAndNodeOdditiesAreTolerated() {
+    // a node that ends without ever running (zero duration), and one that only queues
+    analytics.accept(
+        new ExecutionEvent.NodeStatusChanged(
+            "e", "s1", "w1", "n", "echo", "SUCCESS", Map.of(), T0));
+    analytics.accept(
+        new ExecutionEvent.NodeStatusChanged("e", "s1", "w1", "m", "echo", "QUEUED", Map.of(), T0));
+
+    assertThat(analytics.heatmap(RunAnalytics.GLOBAL, HOUR)).isEmpty();
+    assertThat(analytics.modules(RunAnalytics.GLOBAL, HOUR).getFirst().avgMs()).isZero();
+  }
+
+  @Test
+  void workflowWithOnlyWaitsHasNoBaseline() {
+    analytics.accept(new ExecutionEvent.WorkflowStatusChanged("w", "s1", "w5", "QUEUED", T0));
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged("w", "s1", "w5", "RUNNING", T0.plusSeconds(1)));
+
+    assertThat(analytics.liveRuns())
+        .extracting(RunAnalytics.LiveRun::p95Ms)
+        .containsExactly((Double) null);
+  }
+
+  @Test
+  void followedRunsAreCapped() {
+    for (int i = 0; i <= 10_000; i++) {
+      analytics.accept(
+          new ExecutionEvent.WorkflowStatusChanged("r" + i, "s1", "w1", "RUNNING", T0));
+    }
+
+    final var live = analytics.liveRuns();
+
+    assertThat(live).hasSize(10_000);
+    assertThat(live).extracting(RunAnalytics.LiveRun::executionId).doesNotContain("r0");
+  }
+
+  @Test
+  void stopBeforeStartIsHarmless() {
+    new RunAnalytics(feed).stop();
+
+    assertThat(new RunAnalytics(feed).liveRuns()).isEmpty();
+  }
+}

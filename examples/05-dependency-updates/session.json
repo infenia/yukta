@@ -1,0 +1,154 @@
+{
+  "sessionId": "example-05-dependency-updates",
+  "name": "Dependency update triage",
+  "description": "Score a dependency bump request with fixed risk rules, auto-merge low-risk bumps, queue major or CVE-flagged ones for a maintainer, and notify without leaking registry tokens or internal fields.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": { "example": "05-dependency-updates" },
+  "workflows": {
+    "updates": {
+      "workflowId": "updates",
+      "description": "Validate, score update risk, auto-merge or review, changelog, notify",
+      "nodes": [
+        { "nodeId": "bump-request", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "validate",
+          "type": "VALIDATE",
+          "config": {
+            "required": ["requestId", "package", "ecosystem", "fromVersion", "toVersion", "bumpType", "hasCve", "testsPassed", "maintainerEmail"],
+            "types": { "requestId": "string", "package": "string", "ecosystem": "string", "fromVersion": "string", "toVersion": "string", "bumpType": "string", "hasCve": "boolean", "testsPassed": "boolean", "maintainerEmail": "string" }
+          }
+        },
+        {
+          "nodeId": "mark-invalid",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": { "requestId": "payload.requestId", "maintainerEmail": "payload.maintainerEmail", "decision": "'NEEDS_INFO'", "note": "'We could not read your bump request. Please fix the fields and resubmit it.'" }
+          }
+        },
+        {
+          "nodeId": "risk",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "riskScore": "(payload.bumpType == 'major' ? 40 : (payload.bumpType == 'minor' ? 10 : 0)) + (payload.hasCve ? 40 : 0) + (payload.testsPassed ? 0 : 30) + (payload.dependentsCount > 10 ? 15 : 0)"
+            }
+          }
+        },
+        {
+          "nodeId": "route",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload.riskScore < 30": "low",
+              "payload.riskScore >= 30": "high"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "auto-approve",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "dropOriginal": false, "mapping": { "decision": "'MERGE_APPROVED'", "decidedBy": "'rules'", "note": "'Auto-merged ' + payload.package + ' ' + payload.fromVersion + ' to ' + payload.toVersion + '.'" } }
+        },
+        {
+          "nodeId": "review-queue",
+          "type": "WAIT_FOR_SIGNAL",
+          "config": {
+            "signal": "review",
+            "timeoutSeconds": 86400,
+            "onTimeout": "CONTINUE",
+            "onReject": "FAIL",
+            "engine": { "onError": "ROUTE" }
+          }
+        },
+        {
+          "nodeId": "after-review",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "metadata['signal.decision'] == 'timeout'": "timed-out",
+              "metadata['signal.decision'] == 'deny'": "denied",
+              "metadata['signal.decision'] != 'timeout' && metadata['signal.decision'] != 'deny'": "approved"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "reviewer-approve",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "dropOriginal": false, "mapping": { "decision": "'MERGE_APPROVED'", "decidedBy": "'maintainer'", "note": "'A maintainer approved ' + payload.package + ' ' + payload.toVersion + '. Merging now.'" } }
+        },
+        {
+          "nodeId": "reviewer-deny",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "dropOriginal": false, "mapping": { "decision": "'MERGE_DENIED'", "decidedBy": "'maintainer'", "note": "'A maintainer declined this update. Reply to this message to discuss.'" } }
+        },
+        {
+          "nodeId": "review-timeout",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "dropOriginal": false, "mapping": { "decision": "'STILL_IN_REVIEW'", "decidedBy": "'timeout'", "note": "'This update still needs a maintainer. We will write again within 2 days.'" } }
+        },
+        {
+          "nodeId": "security-escalation",
+          "type": "OUTCOME_TERMINAL",
+          "config": { "outcome": "ESCALATE", "reason": "maintainer rejected the update: handed to the security team, no notification sent" }
+        },
+        {
+          "nodeId": "changelog-line",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "dropOriginal": false, "mapping": { "changelogLine": "'MERGE ' + payload.requestId + ' ' + payload.package + ' ' + payload.fromVersion + ' -> ' + payload.toVersion + ' token=****' + payload.registryToken.substring(4,10) + ' by=' + payload.decidedBy" } }
+        },
+        {
+          "nodeId": "changelog",
+          "type": "FILE_WRITE",
+          "config": { "baseDir": "/tmp/yukta-example-dependency-updates", "path": "changelog.log", "contentField": "changelogLine", "append": true }
+        },
+        {
+          "nodeId": "redact",
+          "type": "CONTENT_FILTER",
+          "config": { "mode": "EXCLUDE", "paths": ["registryToken", "riskScore", "decidedBy", "changelogLine", "dependentsCount", "daysSinceRelease", "testsPassed"] }
+        },
+        {
+          "nodeId": "compose",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "dropOriginal": false, "mapping": { "text": "'To ' + payload.maintainerEmail + ' | bump ' + payload.requestId + ' | ' + payload.decision + ' | ' + payload.note" } }
+        },
+        {
+          "nodeId": "notify-maintainer",
+          "type": "FILE_WRITE",
+          "config": { "baseDir": "/tmp/yukta-example-dependency-updates", "path": "outbox.log", "contentField": "text", "append": true }
+        },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "bump-request", "target": "validate" },
+        { "source": "validate", "target": "risk" },
+        { "source": "validate", "target": "mark-invalid", "sourcePort": "invalid" },
+        { "source": "risk", "target": "route" },
+        { "source": "route", "target": "auto-approve", "sourcePort": "low" },
+        { "source": "route", "target": "review-queue", "sourcePort": "high" },
+        { "source": "review-queue", "target": "after-review" },
+        { "source": "review-queue", "target": "security-escalation", "sourcePort": "error" },
+        { "source": "after-review", "target": "reviewer-approve", "sourcePort": "approved" },
+        { "source": "after-review", "target": "reviewer-deny", "sourcePort": "denied" },
+        { "source": "after-review", "target": "review-timeout", "sourcePort": "timed-out" },
+        { "source": "auto-approve", "target": "changelog-line" },
+        { "source": "reviewer-approve", "target": "changelog-line" },
+        { "source": "changelog-line", "target": "changelog" },
+        { "source": "changelog", "target": "redact" },
+        { "source": "mark-invalid", "target": "redact" },
+        { "source": "reviewer-deny", "target": "redact" },
+        { "source": "review-timeout", "target": "redact" },
+        { "source": "redact", "target": "compose" },
+        { "source": "compose", "target": "notify-maintainer" },
+        { "source": "notify-maintainer", "target": "end" }
+      ]
+    }
+  }
+}

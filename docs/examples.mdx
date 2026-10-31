@@ -5,7 +5,7 @@ description: "Fourteen ready-to-run example workflows. Ten are templates for a r
 keywords: ["examples", "sample workflows", "templates", "approval", "data pipeline", "agents"]
 ---
 
-Each example is a complete workflow for a job you probably recognise: an agent that must not skip verification, a deploy that needs approval, a nightly load that must reject bad rows. Find the one closest to yours, run it, then change it. The ten use-case examples are written to be copied: each README lists which nodes to change and which stand-in to swap for a model call.
+Each example is a complete workflow for a job you probably recognise: an agent that must not skip verification, a deploy that needs approval, a PR risk gate, a nightly event load that must reject bad rows. Find the one closest to yours, run it, then change it. The ten use-case examples are written to be copied: each README lists which nodes to change and which stand-in to swap for a model call.
 
 They run offline with fixed rules and no model, so you can try them anywhere. Every example is a folder in the repository's [`examples`](https://github.com/infenia/yukta/tree/main/examples) directory with a `session.json` and a `run.sh` that applies the session, starts the run, answers any approval itself and prints `PASS` or `FAIL`.
 
@@ -15,7 +15,7 @@ You need a running server, `curl`, `jq` and a copy of the repository.
 
 ```bash
 git clone https://github.com/infenia/yukta.git && cd yukta
-./examples/04-loan-approval/run.sh   # one example
+./examples/04-pr-risk-gate/run.sh   # one example
 ./examples/run-all.sh                # all of them
 ```
 
@@ -29,14 +29,14 @@ git clone https://github.com/infenia/yukta.git && cd yukta
 |---|---|---|
 | [02](https://github.com/infenia/yukta/tree/main/examples/02-agent-verification) | An AI coding agent skips tests and says "done" | Verification gates and a bounded fix loop before "done" exists |
 | [03](https://github.com/infenia/yukta/tree/main/examples/03-release-approval) | Production deploy that needs a person, then a check | Approval with a timeout, smoke check, rollback |
-| [04](https://github.com/infenia/yukta/tree/main/examples/04-loan-approval) | Approve clear cases, send borderline ones to a person | Rule scoring, human review, stripping sensitive fields |
-| [05](https://github.com/infenia/yukta/tree/main/examples/05-returns-fraud) | Refund returns without paying out fraud | Risk routing and a manual review queue |
-| [06](https://github.com/infenia/yukta/tree/main/examples/06-support-triage) | Too many tickets, and the same one twice | Classify, auto-reply, escalate, skip duplicates |
-| [07](https://github.com/infenia/yukta/tree/main/examples/07-nightly-data-pipeline) | A nightly load that lets bad rows through | Schedule, validate, dedupe, quarantine, fail above a limit |
+| [04](https://github.com/infenia/yukta/tree/main/examples/04-pr-risk-gate) | Merging risky PRs, or reviewing every trivial one | Risk scoring, reviewer gate, secrets stripped from messages |
+| [05](https://github.com/infenia/yukta/tree/main/examples/05-dependency-updates) | Dependency bumps that are either trivial or dangerous | Risk routing, maintainer review queue, changelog |
+| [06](https://github.com/infenia/yukta/tree/main/examples/06-crash-report-triage) | The same crash reported hundreds of times | Fingerprint, dedupe, auto-link known issues, escalate new ones |
+| [07](https://github.com/infenia/yukta/tree/main/examples/07-event-data-pipeline) | A nightly event load that lets bad rows into the warehouse | Schedule, validate, dedupe, quarantine, fail above a limit |
 | [08](https://github.com/infenia/yukta/tree/main/examples/08-alert-triage) | Alerts that need a restart before anyone is paged | Bounded auto-remediation, then page and incident record |
-| [12](https://github.com/infenia/yukta/tree/main/examples/12-content-review) | AI drafts that no one has checked | Rule check, editor review, revision limit, publish |
+| [12](https://github.com/infenia/yukta/tree/main/examples/12-model-promotion) | A retrained model promoted without a real check | Eval checks, reviewer gate, retrain limit, registry promotion |
 | [13](https://github.com/infenia/yukta/tree/main/examples/13-multi-agent) | Several agents with no one checking the result | Researcher, writer and independent verifier with a retry cap |
-| [14](https://github.com/infenia/yukta/tree/main/examples/14-recruiting) | Reviewing many applicants fairly | Batch scoring, protected fields removed, recruiter decides |
+| [14](https://github.com/infenia/yukta/tree/main/examples/14-security-findings) | Hundreds of scanner findings and nobody triaging them | Batch scoring, secrets redacted, engineer decides fix, accept or suppress |
 
 ## Building blocks and reference
 

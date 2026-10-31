@@ -1,6 +1,36 @@
 {
   "components" : {
     "schemas" : {
+      "Annotation" : {
+        "properties" : {
+          "actor" : {
+            "type" : "string"
+          },
+          "applied" : {
+            "type" : "boolean"
+          },
+          "command" : {
+            "type" : "string"
+          },
+          "executionId" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "sessionId" : {
+            "type" : "string"
+          },
+          "time" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseCatalog" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -130,6 +160,52 @@
         },
         "type" : "object"
       },
+      "ApiResponseListAnnotation" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/Annotation"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseListControlAuditEntry" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -222,6 +298,52 @@
         },
         "type" : "object"
       },
+      "ApiResponseListHeatCell" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/HeatCell"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseListHit" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -229,6 +351,98 @@
             "description" : "The response data",
             "items" : {
               "$ref" : "#/components/schemas/Hit"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseListLiveRun" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/LiveRun"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseListModuleRow" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/ModuleRow"
             },
             "type" : "array"
           },
@@ -1925,6 +2139,29 @@
         },
         "type" : "object"
       },
+      "HeatCell" : {
+        "properties" : {
+          "failed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "failedRuns" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "runs" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "time" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "HistoryFilter" : {
         "properties" : {
           "since" : {
@@ -2070,6 +2307,40 @@
         },
         "type" : "object"
       },
+      "LiveRun" : {
+        "properties" : {
+          "elapsedMs" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "executionId" : {
+            "type" : "string"
+          },
+          "nodesDone" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "nodesSeen" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "p95Ms" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "sessionId" : {
+            "type" : "string"
+          },
+          "startedAt" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "MessageObject" : { },
       "MetricSample" : {
         "properties" : {
@@ -2083,6 +2354,26 @@
               "type" : "number"
             },
             "type" : "object"
+          }
+        },
+        "type" : "object"
+      },
+      "ModuleRow" : {
+        "properties" : {
+          "avgMs" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "executions" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "failures" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "module" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -4594,6 +4885,43 @@
         "tags" : [ "Session API" ]
       }
     },
+    "/api/metrics/annotations" : {
+      "get" : {
+        "description" : "Control commands, applied or rejected",
+        "operationId" : "annotations",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "range",
+          "required" : false,
+          "schema" : {
+            "default" : "1h",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "scope",
+          "required" : false,
+          "schema" : {
+            "default" : "global",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListAnnotation"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Control annotations",
+        "tags" : [ "Metrics API" ]
+      }
+    },
     "/api/metrics/catalog" : {
       "get" : {
         "operationId" : "catalog",
@@ -4610,6 +4938,100 @@
           }
         },
         "summary" : "List sampled metric series",
+        "tags" : [ "Metrics API" ]
+      }
+    },
+    "/api/metrics/heatmap" : {
+      "get" : {
+        "description" : "Runs and failures per minute",
+        "operationId" : "heatmap",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "range",
+          "required" : false,
+          "schema" : {
+            "default" : "24h",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "scope",
+          "required" : false,
+          "schema" : {
+            "default" : "global",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListHeatCell"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Runs per minute",
+        "tags" : [ "Metrics API" ]
+      }
+    },
+    "/api/metrics/modules" : {
+      "get" : {
+        "description" : "Executions, failures, mean duration",
+        "operationId" : "modules",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "range",
+          "required" : false,
+          "schema" : {
+            "default" : "1h",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "scope",
+          "required" : false,
+          "schema" : {
+            "default" : "global",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListModuleRow"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Plugin leaderboard",
+        "tags" : [ "Metrics API" ]
+      }
+    },
+    "/api/metrics/runs/live" : {
+      "get" : {
+        "description" : "Running runs with progress and p95 baseline",
+        "operationId" : "liveRuns",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListLiveRun"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Live runs",
         "tags" : [ "Metrics API" ]
       }
     },
@@ -4635,6 +5057,14 @@
             "default" : "1h",
             "type" : "string"
           }
+        }, {
+          "in" : "query",
+          "name" : "scope",
+          "required" : false,
+          "schema" : {
+            "default" : "global",
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -4655,6 +5085,15 @@
     "/api/metrics/snapshot" : {
       "get" : {
         "operationId" : "snapshot",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "scope",
+          "required" : false,
+          "schema" : {
+            "default" : "global",
+            "type" : "string"
+          }
+        } ],
         "responses" : {
           "200" : {
             "content" : {

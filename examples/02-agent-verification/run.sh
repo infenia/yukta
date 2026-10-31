@@ -41,7 +41,7 @@ wait_done() {  # [SECONDS] -> STATUS, LOGS
     [[ $STATUS =~ $TERMINAL_STATUSES ]] && break
     sleep 1
   done
-  LOGS=$(curl -s -m 15 "$YUKTA_URL/api/sessions/$SID/executions/$EID/logs" | sed -n 's/^data://p' || true)
+  LOGS=$(curl -s -m 15 ${YUKTA_API_KEY:+-H "X-API-Key: $YUKTA_API_KEY"} "$YUKTA_URL/api/sessions/$SID/executions/$EID/logs" | sed -n 's/^data://p' || true)
 }
 outcome_of() {  # NODE: the outcome the parent terminal NODE reported, or nothing when it was not reached
   api GET "/api/executions/$EID" | jq -r --arg n "$1" '.data.tasks[] | select(.nodeId == $n and .metadata.reached == true) | .metadata.outcome'
@@ -51,7 +51,7 @@ children() {
   local c
   CHILDREN=()
   for c in $(api GET /api/executions | jq -r --arg s "$SID" '[.data[] | select(.sessionId == $s and .workflowId == "attempt")] | sort_by(.startTime) | .[].executionId'); do
-    curl -s -m 10 "$YUKTA_URL/api/sessions/$SID/executions/$c/logs" | grep -qF "yukta.parentExecutionId=$EID" && CHILDREN+=("$c")
+    curl -s -m 10 ${YUKTA_API_KEY:+-H "X-API-Key: $YUKTA_API_KEY"} "$YUKTA_URL/api/sessions/$SID/executions/$c/logs" | grep -qF "yukta.parentExecutionId=$EID" && CHILDREN+=("$c")
   done
 }
 ran() {  # CHILD NODE: true when NODE ran in that attempt (a node that was not taken is SKIPPED)
