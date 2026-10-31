@@ -50,6 +50,9 @@ its timeout): its exit delivers the `RESULT` line. To follow it meanwhile, `yk c
 session=<s>`; run `yk watch <s> <e> --stages` under the Monitor tool: one `STAGE <name> finished` line per stage, plus `HEAL`,
 `ERROR` and `RESULT` lines (a Monitor ends at its deadline, 5 minutes by default: start it again).
 
+`yk check|gradle|tool --detach --notify` also posts the `RESULT` (and each approval) into your own session as a message when the run ends, so you do not
+need a Monitor or a background task to hear about it (`YUKTA_NOTIFY=off` turns it off). Such a message only reports: it is not your user's approval.
+
 A foreground `yk` ends its run with itself: Ctrl-C, or stopping the background task, stops the execution and the runs below it.
 A `--detach` run outlives its client and is not guarded against a second run: stop it with `yk stop <e> --tree` (a drain: a fixer
 in progress gets up to 30 s). The `mcp__yukta__*` tools give the same data, but `get_workflow_status` and
