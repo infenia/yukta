@@ -677,18 +677,19 @@ public class AppMcpTools {
   }
 
   /**
-   * List the nodes of a session that wait for a signal.
+   * List the nodes that wait for a signal, in one session or in all.
    *
-   * @param sessionId the session
+   * @param sessionId the session, or null for all sessions
    * @return Mono containing the open waits
    */
   @McpTool(
       name = "list_pending_approvals",
       title = "List Pending Approvals",
       description =
-          "List the nodes of a session that wait for a signal now (for example an approval step),"
-              + " oldest first, with the execution id, node id and signal name to answer with"
-              + " signal_node.",
+          "List the nodes that wait for a signal now (for example an approval step), oldest first,"
+              + " with the session, execution id, node id and signal name to answer with"
+              + " signal_node. Give a sessionId for one session; leave it out for all sessions"
+              + " (at most 100; not allowed for a key limited to some sessions).",
       generateOutputSchema = true,
       annotations =
           @McpTool.McpAnnotations(
@@ -696,7 +697,10 @@ public class AppMcpTools {
               destructiveHint = false,
               openWorldHint = false))
   public Mono<PendingApprovals> listPendingApprovals(
-      @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId) {
+      @McpToolParam(
+              required = false,
+              description = "The session; leave out for the waits of all sessions")
+          final String sessionId) {
     return workflowControlProvider.pendingApprovals(sessionId);
   }
 

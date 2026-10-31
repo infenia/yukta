@@ -602,9 +602,28 @@ class WorkflowControlProviderTest {
                 org.assertj.core.api.Assertions.assertThat(result.approvals())
                     .containsExactly(approval))
         .verifyComplete();
-    StepVerifier.create(provider.pendingApprovals(" ")).verifyError(IllegalArgumentException.class);
-    StepVerifier.create(provider.pendingApprovals(null))
-        .verifyError(IllegalArgumentException.class);
+  }
+
+  @Test
+  void pendingApprovals_withoutAnySessionListsAllSessionsUpToTheLimit() {
+    final var approval =
+        new com.infenia.yukta.model.control.PendingApproval(
+            SESSION, EXECUTION, "wf", NODE, "approval", java.time.Instant.EPOCH);
+    when(controlBus.pendingApprovals(null))
+        .thenReturn(
+            reactor.core.publisher.Flux.range(0, WorkflowControlProvider.MAX_ALL_APPROVALS + 5)
+                .map(i -> approval));
+
+    for (final String none : new String[] {null, " "}) {
+      StepVerifier.create(provider.pendingApprovals(none))
+          .assertNext(
+              result -> {
+                org.assertj.core.api.Assertions.assertThat(result.sessionId()).isNull();
+                org.assertj.core.api.Assertions.assertThat(result.approvals())
+                    .hasSize(WorkflowControlProvider.MAX_ALL_APPROVALS);
+              })
+          .verifyComplete();
+    }
   }
 
   private static WorkflowExecutionSummary run(final String id, final String status) {

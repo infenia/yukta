@@ -26,6 +26,8 @@ const run = (status: string, executionId: string) => ({
 
 test.describe('Overview', () => {
   test.beforeEach(async ({ page }) => {
+    // 'since 3 minutes ago' must read the same in every run
+    await page.clock.setFixedTime(new Date('2026-07-26T14:23:23'));
     await page.route('**/api/executions/counts', (route) =>
       route.fulfill(envelope('/counts', { running: 2, queued: 1, failed: 1 }))
     );
@@ -48,7 +50,7 @@ test.describe('Overview', () => {
             workflowId: 'deploy',
             nodeId: 'gate',
             name: 'go',
-            since: new Date(Date.now() - 180_000).toISOString(),
+            since: '2026-07-26T14:20:23',
           },
         ])
       )
@@ -101,4 +103,29 @@ test.describe('Overview', () => {
     await page.goto('/?q=abc');
     await expect(page).toHaveURL(/\/sessions\?q=abc/);
   });
+
+  const screenshotOptions = { maxDiffPixels: 2000, threshold: 0.2 };
+
+  for (const [name, scheme, width] of [
+    ['light', 'light', 1280],
+    ['dark', 'dark', 1280],
+    ['phone', 'light', 390],
+  ] as const) {
+    test(`should match screenshot - ${name}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/');
+      await expect(
+        page.getByRole('region', { name: 'Needs attention' })
+      ).toContainText('gate');
+      await expect(
+        page.getByRole('region', { name: 'Recent failures' })
+      ).toContainText('payments/deploy');
+      await expect(page).toHaveScreenshot(`overview-${name}.png`, {
+        ...screenshotOptions,
+        // the event stream is empty in tests, so its panel text depends on timing
+        mask: [page.getByRole('region', { name: 'Live activity' })],
+      });
+    });
+  }
 });

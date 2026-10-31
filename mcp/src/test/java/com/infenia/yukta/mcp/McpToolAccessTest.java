@@ -27,6 +27,16 @@ class McpToolAccessTest {
   }
 
   @Test
+  void listingTheApprovalsOfAllSessionsIsNotForOneKeyLimitedToSomeSessions() {
+    // no sessionId means all sessions: only a key without a session limit may ask that
+    assertThat(McpToolAccess.permitted(key("VIEWER", null), "list_pending_approvals", null))
+        .isTrue();
+    assertThat(McpToolAccess.permitted(key("VIEWER", "a"), "list_pending_approvals", null))
+        .isFalse();
+    assertThat(McpToolAccess.permitted(key("VIEWER", "a"), "list_pending_approvals", "a")).isTrue();
+  }
+
+  @Test
   void rolesDecideWhichToolsMayBeCalled() {
     assertThat(McpToolAccess.permitted(key("VIEWER", null), "list_sessions", null)).isTrue();
     assertThat(McpToolAccess.permitted(key("VIEWER", null), "list_pending_approvals", "a"))

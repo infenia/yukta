@@ -29,6 +29,9 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.TooManyMethods"})
 public class WorkflowControlProvider {
 
+  /** Most waits listed when no session is given. */
+  public static final int MAX_ALL_APPROVALS = 100;
+
   /** Reason recorded for stop actions when the caller does not provide one. */
   private static final String DEFAULT_REASON = "Requested via MCP";
 
@@ -268,19 +271,17 @@ public class WorkflowControlProvider {
   }
 
   /**
-   * List the nodes of a session that wait for a signal.
+   * List the nodes that wait for a signal, in one session or in all.
    *
-   * @param sessionId the session
-   * @return Mono containing the open waits
+   * @param sessionId the session, or null or blank for all sessions
+   * @return Mono containing the open waits; at most {@link #MAX_ALL_APPROVALS} across sessions
    */
   public Mono<PendingApprovals> pendingApprovals(final String sessionId) {
-    if (sessionId == null || sessionId.isBlank()) {
-      return Mono.error(new IllegalArgumentException("sessionId is required."));
-    }
-    return controlBus
-        .pendingApprovals(sessionId)
+    final boolean all = sessionId == null || sessionId.isBlank();
+    final var waits = controlBus.pendingApprovals(all ? null : sessionId);
+    return (all ? waits.take(MAX_ALL_APPROVALS) : waits)
         .collectList()
-        .map(list -> new PendingApprovals(sessionId, list));
+        .map(list -> new PendingApprovals(all ? null : sessionId, list));
   }
 
   /**
