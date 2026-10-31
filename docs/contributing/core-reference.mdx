@@ -1063,6 +1063,7 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.allowed-hosts` · `yukta.allowed-origins` | loopback | [SEC-01](#sec-01-api-keys-roles-and-actors) | Host and Origin check while no key is set (web) |
 | `yukta.variables.allowed` · `YUKTA_VARIABLES_ALLOWED` | empty | [SEC-02](#sec-02-expressions-variables-and-secrets) | Extra readable `${env.X}` / `${sys.x}` names |
 | `yukta.var.*` · `YUKTA_VAR_*` | n/a | [SEC-02](#sec-02-expressions-variables-and-secrets) | Always-readable workflow variables |
+| `yukta.metrics.enabled` · `.interval` · `.fine-retention` · `.coarse-retention` · `.max-series` · `.allow-list` | on · 5s · 1h · 24h · 500 · `yukta.`, `llm.`, JVM/CPU prefixes | [OBS-04](#obs-04-metrics) | Metrics sampler: ring buffers behind `GET /api/metrics/{catalog,series,snapshot,stream}`; history is lost on restart |
 | `YUKTA_SECRET_<NAME>` | n/a | [SEC-02](#sec-02-expressions-variables-and-secrets) | Value behind `decrypted:name` |
 | `yukta.process.allowed-commands` · `yukta.process.allow-any` | empty · off | [SEC-03](#sec-03-execution-safety-limits) | Executables `PROCESS_EXECUTOR` may run (plugin) |
 | `yukta.script.timeout-ms` · `yukta.script.max-statements` | 10000 · 50000000 | [SEC-03](#sec-03-execution-safety-limits) | Script limits (plugin) |
