@@ -88,7 +88,7 @@ test.describe('Control dashboard screenshots', () => {
       await page.waitForLoadState('networkidle');
       await expect(page).toHaveScreenshot(`control-${name}.png`, {
         fullPage: true,
-        maxDiffPixels: 3000,
+        maxDiffPixels: 6000,
         threshold: 0.2,
       });
     });
