@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import type { SessionDraft } from '../types';
+import type { SessionDraft, TemplateDetail } from '../types';
 
 /** A session needs a workflow, so a new one starts with a trigger wired to a console terminal. */
 export function starterSession(
@@ -30,4 +30,19 @@ export function slugify(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
+}
+
+/** The session to create: the template's workflows (or the starter's) under the form's details. */
+export function newSession(
+  fields: Omit<SessionDraft, 'workflows' | 'tags'>,
+  tags: Record<string, string>,
+  template?: TemplateDetail
+): SessionDraft {
+  return {
+    ...fields,
+    tags,
+    workflows: template
+      ? template.session.workflows
+      : starterSession(fields).workflows,
+  };
 }

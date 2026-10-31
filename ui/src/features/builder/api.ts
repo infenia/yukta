@@ -2,7 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { api, fetchApi } from '@/lib/apiClient';
-import type { DraftWorkflow, SessionDraft, ValidationResult } from './types';
+import type {
+  DraftWorkflow,
+  SessionDraft,
+  TemplateDetail,
+  TemplateSummary,
+  ValidationResult,
+} from './types';
 
 /** The complete session (tag values and every workflow): saving replaces it, so nothing may be missing. */
 export function getSessionDraft(sessionId: string): Promise<SessionDraft> {
@@ -33,4 +39,12 @@ export function checkProjectPath(
     method: 'POST',
     body: JSON.stringify({ projectPath }),
   });
+}
+
+export function listTemplates(): Promise<TemplateSummary[]> {
+  return fetchApi<TemplateSummary[]>('/api/templates');
+}
+
+export function getTemplate(id: string): Promise<TemplateDetail> {
+  return fetchApi<TemplateDetail>(api`/api/templates/${id}`);
 }

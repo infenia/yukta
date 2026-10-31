@@ -42,6 +42,15 @@ const ok = (data: unknown) =>
   });
 
 const server = setupServer(
+  http.get('/api/templates', () =>
+    HttpResponse.json({
+      timestamp: 't',
+      status: 200,
+      message: 'ok',
+      data: [],
+      path: '/',
+    })
+  ),
   http.post('/api/sessions/validate/project-path', () =>
     HttpResponse.json({
       timestamp: 't',
@@ -201,6 +210,9 @@ describe('SessionFormPage in edit mode', () => {
         <Route path="sessions/new" element={<SessionFormPage />} />
         <Route path="*" element={<p>elsewhere</p>} />
       </Routes>
+    );
+    await user.click(
+      await screen.findByRole('button', { name: 'Start blank' })
     );
     await user.type(screen.getByLabelText('Session ID'), 'fresh');
     await user.type(screen.getByLabelText('Name'), 'n');
