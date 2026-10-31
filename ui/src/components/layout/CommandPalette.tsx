@@ -263,7 +263,7 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="bg-foreground/30 fixed inset-0 z-70 flex justify-center p-4 pt-[12vh]"
+      className="bg-overlay/50 fixed inset-0 z-70 flex justify-center p-4 pt-[12vh]"
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <div
