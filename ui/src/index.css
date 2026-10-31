@@ -120,6 +120,11 @@
   --border: oklch(0.32 0.02 262);
   --input: oklch(0.35 0.025 262);
   --ring: oklch(0.6 0.15 262);
+  --chart-1: oklch(0.72 0.15 262);
+  --chart-2: oklch(0.75 0.16 50);
+  --chart-3: oklch(0.68 0.05 262);
+  --chart-4: oklch(0.78 0.13 190);
+  --chart-5: oklch(0.62 0.15 280);
   --sidebar: oklch(0.2 0.02 262);
   --sidebar-foreground: oklch(0.97 0.005 262);
   --sidebar-primary: oklch(0.72 0.15 262);
@@ -284,6 +289,12 @@
 }
 
 /* Named typography utilities */
+/* Mono digits that keep their width, so a live value does not jitter */
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
 @utility text-display-01 {
   font-family: var(--font-sans);
   font-size: 42px;
