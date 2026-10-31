@@ -33,7 +33,7 @@ Every run ends with `RESULT status=<S> failed_node=<stage|-> healed=<stage:model
 only on success. `yk watch <session> <execution>` follows a detached run and prints problems only. Run the smallest scope
 that covers your change.
 
-The Stop hook of the `yukta-dogfood` Claude Code mod (`examples/11-dogfood/mod`) asks Claude Code once, before it finishes with uncommitted code changes, to run `yk check`; it stays quiet when a `yk check` already passed on those changes or the changes were there at session start. `YUKTA_DOGFOOD=off` turns the mod's hooks off.
+The Stop hook of the `yukta-dogfood` Claude Code mod (`examples/11-dogfood/mod`) asks Claude Code once, before it finishes with uncommitted code changes, to run `yk check`; it stays quiet when a `yk check` already passed on those changes or the changes were there at session start. `YUKTA_DOGFOOD=off` turns the mod's hooks off. With agent teams on, its `TaskCompleted` hook also stops a teammate from completing a task while `yk check --no-heal` fails (`mod/README.md`, "Agent teams").
 
 Steering: `yk tree|pause|resume|stop|skip|retry|break|step|signals|approve|reject` (`stop` is a drain of up to 30 s; add `--tree` to reach the runs below). A foreground `yk` ends its run when it is interrupted or stopped (Ctrl-C, or Claude Code stopping a background task); `--detach` runs outlive their client.
 
