@@ -1,15 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   Table,
   TableBody,
@@ -20,10 +12,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { StateMessage } from '@/components/common/StateMessage';
-import { RequirePermission } from '@/components/common/RequirePermission';
 import { StatusPill } from '@/features/workflow/components/StatusPill';
 import { RunButton } from '@/features/workflow/components/RunButton';
-import { DeleteWorkflowDialog } from './DeleteDialogs';
 import type { WorkflowSummary } from '../types/session';
 
 interface WorkflowTableProps {
@@ -33,60 +23,7 @@ interface WorkflowTableProps {
   onFilterChange: (filter: string) => void;
 }
 
-/** Edit and Delete for one workflow, out of the way of the row's link. */
-function WorkflowActionsMenu({
-  sessionId,
-  workflowId,
-}: {
-  sessionId: string;
-  workflowId: string;
-}) {
-  const navigate = useNavigate();
-  const [deleting, setDeleting] = useState(false);
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={(state) => (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Actions for workflow ${workflowId}`}
-            {...state}
-          >
-            <span className="material-symbols-outlined" aria-hidden="true">
-              more_vert
-            </span>
-          </Button>
-        )}
-      />
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem
-          onClick={() =>
-            navigate(
-              `/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`
-            )
-          }
-        >
-          Edit
-        </DropdownMenuItem>
-        <RequirePermission perm="deleteSessions">
-          <DropdownMenuItem onClick={() => setDeleting(true)}>
-            Delete workflow…
-          </DropdownMenuItem>
-        </RequirePermission>
-      </DropdownMenuContent>
-      {deleting && (
-        <DeleteWorkflowDialog
-          sessionId={sessionId}
-          workflowId={workflowId}
-          onClose={() => setDeleting(false)}
-        />
-      )}
-    </DropdownMenu>
-  );
-}
-
-/** The session's workflows as a dense table: ID and description, size, last run, actions. */
+/** The session's workflows as a dense table: ID and description, size, last run, Run. */
 export function WorkflowTable({
   sessionId,
   workflows,
@@ -185,10 +122,6 @@ export function WorkflowTable({
                             `/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflow.workflowId)}?exec=${encodeURIComponent(executionId)}`
                           )
                         }
-                      />
-                      <WorkflowActionsMenu
-                        sessionId={sessionId}
-                        workflowId={workflow.workflowId}
                       />
                     </div>
                   </TableCell>

@@ -8,7 +8,7 @@ import { Modal } from '@/components/common/Modal';
 import { useSessionDetails } from '../hooks/useSessionDetails';
 import { useSessionWorkflows } from '../hooks/useSessionWorkflows';
 import { SessionInfoPanel } from './SessionInfoPanel';
-import { SessionRowActionsMenu } from './SessionRowActionsMenu';
+import { SessionActions } from './SessionActions';
 import { WorkflowTable } from './WorkflowTable';
 import { RecentRuns } from './RecentRuns';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -194,7 +194,7 @@ export function SessionDetailsPage() {
                 sessionId={session.sessionId}
                 workflowIds={workflows.map((w) => w.workflowId)}
               />
-              <SessionRowActionsMenu session={session} showView={false} />
+              <SessionActions sessionId={session.sessionId} />
             </div>
           }
         />
