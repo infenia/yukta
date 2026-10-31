@@ -52,6 +52,11 @@ jobs:
       - name: Check the labels (labels.yml defines every label the automation applies)
         run: python3 .github/scripts/sync-labels.py --check
 
+      - name: Check the MCP skill names only tools, roles and arguments of the MCP docs
+        run: |
+          python3 skills/yukta-workflows/check.py
+          python3 skills/yukta-workflows/check_test.py
+
       - name: Check the docs site holds product docs only (backlog lives in GitHub issues)
         run: |
           if [ -e docs/internal ] || grep -rnE '\]\(/internal(/|#|\))' docs --include='*.mdx'; then

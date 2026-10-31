@@ -164,6 +164,27 @@ A rollback saves the restored definition as a new version, and runs that already
 
 For the options of a plugin, the [REST plugin endpoint](/api/catalogue#get-a-plugin) also returns the declared configuration schema.
 
+## Install the skill for your agent
+
+The tools above are enough for an agent that already knows Yukta. To give any agent the working knowledge (the first step, which role each tool needs, which actions to ask the user about, and recipes for creating, running, watching, debugging and steering), install the **`yukta-workflows`** skill from the Yukta repository, folder `skills/yukta-workflows` (one `SKILL.md`, plain Markdown with a `name` and `description`). It names only tools, roles and arguments of this page, and a check in the repository keeps it so.
+
+Connect the MCP server first (see [Connect a client](#connect-a-client)), then copy the folder to the place your agent reads skills from:
+
+| Agent | Where the folder goes |
+|---|---|
+| Claude Code | `.claude/skills/yukta-workflows/` in a project, or `~/.claude/skills/yukta-workflows/` for every project |
+| Gemini CLI | `~/.agents/skills/yukta-workflows/` (the folder it lists skills from) or `.gemini/skills/yukta-workflows/` in a trusted project |
+| Other agents that read `.agents/skills/` | `.agents/skills/yukta-workflows/` in a project or `~/.agents/skills/yukta-workflows/` |
+| An agent without skills | paste the body of `SKILL.md` into its instructions or rules file |
+
+For example, for Claude Code in the current project:
+
+```bash
+mkdir -p .claude/skills && cp -r skills/yukta-workflows .claude/skills/
+```
+
+The skill tells the agent to call `whoami` first and to ask you before it replaces or deletes a session, force-stops runs, rolls a workflow back, changes the scheduler limits or answers an approval. Give the agent a key with the lowest role that does its job: `VIEWER` to look and debug, `OPERATOR` to start and steer runs, `ADMIN` to create and delete sessions.
+
 ## Prompts
 
 Prompts are templates a client can offer to the user.
