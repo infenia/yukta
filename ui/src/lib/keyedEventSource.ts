@@ -13,18 +13,23 @@ export class KeyedEventSource {
   onerror: (() => void) | null = null;
   private readonly abort = new AbortController();
 
-  constructor(url: string) {
-    void this.run(url);
+  constructor(url: string, lastEventId?: string) {
+    void this.run(url, lastEventId);
   }
 
   close(): void {
     this.abort.abort();
   }
 
-  private async run(url: string): Promise<void> {
+  private async run(url: string, lastEventId?: string): Promise<void> {
     try {
       const response = await fetch(url, {
-        headers: { Accept: 'text/event-stream', ...authHeaders() },
+        headers: {
+          Accept: 'text/event-stream',
+          // resume after the last event seen, as a browser EventSource would
+          ...(lastEventId ? { 'Last-Event-ID': lastEventId } : {}),
+          ...authHeaders(),
+        },
         signal: this.abort.signal,
       });
       if (response.status === 401) {
@@ -34,7 +39,9 @@ export class KeyedEventSource {
         throw new Error(`stream failed: ${response.status}`);
       }
       this.onopen?.();
-      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+      const reader = response.body
+        .pipeThrough(new TextDecoderStream())
+        .getReader();
       let buffer = '';
       for (;;) {
         const { done, value } = await reader.read();
@@ -60,13 +67,25 @@ export class KeyedEventSource {
       .filter((line) => line.startsWith('data:'))
       .map((line) => line.slice(5).replace(/^ /, ''))
       .join('\n');
+    const id = frame
+      .split(/\r?\n/)
+      .find((line) => line.startsWith('id:'))
+      ?.slice(3)
+      .trim();
     if (data) {
-      this.onmessage?.(new MessageEvent('message', { data }));
+      this.onmessage?.(
+        new MessageEvent('message', { data, lastEventId: id ?? '' })
+      );
     }
   }
 }
 
 /** A keyed stream when an API key is set, the native EventSource otherwise. */
-export function openEventStream(url: string): EventSource | KeyedEventSource {
-  return getApiKey() ? new KeyedEventSource(url) : new EventSource(url);
+export function openEventStream(
+  url: string,
+  lastEventId?: string
+): EventSource | KeyedEventSource {
+  return getApiKey()
+    ? new KeyedEventSource(url, lastEventId)
+    : new EventSource(url);
 }
