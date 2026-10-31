@@ -165,7 +165,7 @@ export function WorkflowDetailsPage() {
   return (
     // At least the screen's height (less the phone tab bar), so the logs dock at its bottom edge
     <div
-      className="bg-background flex min-h-[calc(100dvh-var(--spacing-header)-4rem)] flex-1 flex-col sm:min-h-[calc(100dvh-var(--spacing-header))]"
+      className="bg-background flex min-h-[calc(100dvh-var(--spacing-header)-4rem)] flex-1 flex-col sm:min-h-[calc(100dvh-var(--spacing-header)-1px)]"
       data-testid="workflow-details-page"
     >
       <WorkflowTitleBar
