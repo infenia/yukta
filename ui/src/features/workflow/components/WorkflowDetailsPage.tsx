@@ -138,6 +138,15 @@ export function WorkflowDetailsPage() {
   const stages = useStageView(graph, tasksByNode);
   const openGraphNode = graph?.nodes.find((n) => n.nodeId === openNode);
   const live = !isTerminalExecStatus(progress?.status);
+  // Rollback is blocked while any run of this workflow is going, not only the one on screen: the
+  // shown run's live status comes from its stream, the others from the executions list
+  const anyRunLive =
+    live ||
+    executions.some(
+      (run) =>
+        run.executionId !== selectedExecutionId &&
+        !isTerminalExecStatus(run.status)
+    );
   const [follow, setFollow] = useState(true);
   const [findQuery, setFindQuery] = useState('');
   // only a run that is going has running nodes to follow
@@ -313,7 +322,7 @@ export function WorkflowDetailsPage() {
         <WorkflowVersionsPanel
           sessionId={sessionId}
           workflowId={workflowId}
-          liveRun={live}
+          liveRun={anyRunLive}
         />
       )}
 
