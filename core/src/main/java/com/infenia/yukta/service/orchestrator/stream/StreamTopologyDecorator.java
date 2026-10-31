@@ -401,11 +401,16 @@ public class StreamTopologyDecorator {
 
     return logStream.doOnNext(
         msg -> {
+          // nothing to echo (the plugin logged live) and nobody tracing: do not render the payload
+          final boolean echo = !loggedLive.getAsBoolean();
+          if (!echo && !log.isTraceEnabled()) {
+            return;
+          }
           final String payload = truncateForLog(String.valueOf(msg.payload()));
           log.atTrace().setMessage("Processing message payload: {}").addArgument(payload).log();
           // A blank payload (the output of a quiet command, an empty body) has nothing to echo, and
           // the tracker rejects blank lines, which would otherwise fail the node.
-          if (!payload.isBlank() && !loggedLive.getAsBoolean()) {
+          if (echo && !payload.isBlank()) {
             tracker.emitLogEvent(executionId, nodeId, payload);
           }
         });

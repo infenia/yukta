@@ -74,6 +74,24 @@ class ApiKeysTest {
     assertThat(refuses("sha256:")).contains("64 hexadecimal");
   }
 
+  @Test
+  void read_refusesTheSameSecretTwice() {
+    final var env =
+        new MockEnvironment()
+            .withProperty("yukta.api-key", "same-secret-same-secret-same-secret-1")
+            .withProperty("yukta.api-keys[0].name", "ops")
+            .withProperty("yukta.api-keys[0].key", "same-secret-same-secret-same-secret-1");
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApiKeys.read(env, null))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("ops");
+  }
+
+  @Test
+  void read_acceptsShortKeyButWarns() {
+    assertThat(ApiKeys.single("short").isEmpty()).isFalse();
+  }
+
   private static String refuses(final String bad) {
     final var env =
         new MockEnvironment()
