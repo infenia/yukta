@@ -23,14 +23,14 @@ export function Modal({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm">
+    <div className="bg-overlay/50 fixed inset-0 z-60 flex items-center justify-center p-4 backdrop-blur-sm">
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`max-h-[90vh] w-full overflow-auto rounded-2xl border border-border bg-card p-6 shadow-raised ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
+        className={`border-border bg-card shadow-raised max-h-[90vh] w-full overflow-auto rounded-2xl border p-6 ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
       >
-        <h2 className="mb-4 text-headline-md text-on-surface">{title}</h2>
+        <h2 className="text-headline-md text-on-surface mb-4">{title}</h2>
         {children}
       </div>
     </div>

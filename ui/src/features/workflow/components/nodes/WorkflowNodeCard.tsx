@@ -8,6 +8,11 @@ import { SubWorkflowLinks } from '../../hooks/useSubWorkflowLinks';
 import type { NodeProps } from '@xyflow/react';
 import { toNodeStatusLabel, toStatusDisplay } from '../../lib/statusMapper';
 import { cn } from '@/lib/utils';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { categoryAccent, categoryTint } from '../../lib/categoryAccent';
 import { pluginIcon, pluginLabel } from '../../lib/pluginIcons';
 import type { WorkflowFlowNode } from '../../lib/layout';
@@ -70,6 +75,9 @@ function outputHandleTop(index: number, count: number): string {
   return `${((index + 1) / (count + 1)) * 100}%`;
 }
 
+/** A description longer than this probably does not fit on the card's one line. */
+const LONG_DESCRIPTION = 32;
+
 const HANDLE_CLASSES =
   'size-2.5! border-2! border-(--node-accent)! bg-surface!';
 
@@ -121,7 +129,7 @@ export function WorkflowNodeCard({
       data-selected={selected ? 'true' : undefined}
       style={{ '--node-accent': accent } as React.CSSProperties}
       className={cn(
-        'yukta-node relative flex size-full flex-col rounded-xl border border-t-[3px] border-t-(--node-accent) bg-surface outline-none focus-visible:ring-2 focus-visible:ring-(--node-accent)',
+        'yukta-node bg-surface relative flex size-full flex-col rounded-xl border border-t-[3px] border-t-(--node-accent) outline-none focus-visible:ring-2 focus-visible:ring-(--node-accent)',
         STATUS_CARD_CLASSES[status]
       )}
     >
@@ -152,7 +160,7 @@ export function WorkflowNodeCard({
             data-testid="port-label"
             aria-hidden="true"
             style={{ top: outputHandleTop(index, outputPorts.length) }}
-            className="pointer-events-none absolute right-3 -translate-y-1/2 bg-surface pl-1 text-body-sm text-on-surface-variant"
+            className="bg-surface text-body-sm text-on-surface-variant pointer-events-none absolute right-3 -translate-y-1/2 pl-1"
           >
             {port}
           </span>
@@ -175,11 +183,11 @@ export function WorkflowNodeCard({
           </span>
         </span>
         <div className="min-w-0">
-          <p className="truncate text-label-md text-on-surface">
+          <p className="text-label-md text-on-surface truncate">
             {node.nodeId}
           </p>
           {showType && (
-            <p className="truncate text-body-sm text-on-surface-variant">
+            <p className="text-body-sm text-on-surface-variant truncate">
               {pluginLabel(node.type)}
             </p>
           )}
@@ -187,16 +195,38 @@ export function WorkflowNodeCard({
       </div>
 
       {node.description && !hideDescription && (
-        <p className="line-clamp-2 px-3 pt-1.5 text-body-sm text-on-surface-variant">
-          {node.description}
-        </p>
+        <div className="flex items-start gap-1 px-3 pt-1.5">
+          <p className="text-body-sm text-on-surface-variant min-w-0 flex-1 truncate">
+            {node.description}
+          </p>
+          {node.description.length > LONG_DESCRIPTION && (
+            <Popover>
+              <PopoverTrigger
+                aria-label={`Show the full description of ${node.nodeId}`}
+                className="nodrag text-on-surface-variant hover:text-on-surface -my-0.5 inline-flex shrink-0 items-center rounded"
+              >
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
+                >
+                  expand_more
+                </span>
+              </PopoverTrigger>
+              <PopoverContent className="nodrag nowheel">
+                <p className="text-body-sm text-on-surface whitespace-pre-line">
+                  {node.description}
+                </p>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
       )}
 
       <div className="mt-auto flex items-center justify-between px-3 pt-1 pb-2">
         {!hideStatus && (
           <span
             className={cn(
-              'inline-flex items-center gap-1.5 text-body-sm text-on-surface-variant',
+              'text-body-sm text-on-surface-variant inline-flex items-center gap-1.5',
               status === 'failed' && 'text-error'
             )}
           >
@@ -215,7 +245,9 @@ export function WorkflowNodeCard({
             to={subWorkflowHref}
             aria-label={`Open sub-workflow ${node.subWorkflowId}`}
             title={`Open ${node.subWorkflowId}`}
-            className="nodrag inline-flex items-center text-label-sm text-primary hover:underline"
+            // the canvas opens the node's sheet on a node click, which would undo this navigation
+            onClick={(event) => event.stopPropagation()}
+            className="nodrag text-label-sm text-primary inline-flex items-center hover:underline"
           >
             Open
             <span
@@ -229,7 +261,7 @@ export function WorkflowNodeCard({
       </div>
       {percent !== null && (
         <div
-          className="h-0.5 w-full bg-surface-container-high"
+          className="bg-surface-container-high h-0.5 w-full"
           aria-hidden="true"
         >
           <div

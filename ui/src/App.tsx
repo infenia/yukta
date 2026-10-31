@@ -3,7 +3,7 @@
 
 import { useEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router';
-import AppHeader, { MobileNav } from '@/components/layout/AppHeader';
+import AppHeader, { MobileNav, Sidebar } from '@/components/layout/AppHeader';
 import { CommandPalette } from '@/components/layout/CommandPalette';
 import ApiKeyPrompt from '@/components/common/ApiKeyPrompt';
 import AppFooter from '@/components/layout/AppFooter';
@@ -23,12 +23,13 @@ export default function App() {
   const showFooter = !/^\/sessions\/[^/]+\/workflow\/[^/]+\/?$/.test(pathname);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background pb-16 text-on-surface sm:pb-0">
+    <div className="bg-background text-on-surface flex min-h-screen flex-col pb-16 sm:pb-0 sm:pl-16">
       <AppHeader />
+      <Sidebar />
       <ApiKeyPrompt />
       <main
         ref={mainRef}
-        className="relative isolate mt-header flex w-full flex-1 flex-col"
+        className="mt-header relative isolate flex w-full flex-1 flex-col"
       >
         <Outlet />
       </main>

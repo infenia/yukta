@@ -88,7 +88,7 @@ function PluginDetail({ type }: { type: string }) {
           <h2 className="text-headline-lg text-on-surface">
             {pluginLabel(plugin.type)}
           </h2>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-md text-on-surface-variant">
+          <div className="text-body-md text-on-surface-variant mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="inline-flex items-center gap-2">
               <span
                 aria-hidden="true"
@@ -102,7 +102,7 @@ function PluginDetail({ type }: { type: string }) {
           </div>
         </header>
         {plugin.description && (
-          <p className="max-w-prose text-body-md text-on-surface">
+          <p className="text-body-md text-on-surface max-w-prose whitespace-pre-line">
             {plugin.description}
           </p>
         )}
@@ -130,7 +130,7 @@ function PluginDetail({ type }: { type: string }) {
             </span>
           )}
         </div>
-        <div role="tablist" className="flex gap-5 border-b border-border">
+        <div role="tablist" className="border-border flex gap-5 border-b">
           {tabs.map(({ key, label, count }) => (
             <button
               key={key}
@@ -139,15 +139,15 @@ function PluginDetail({ type }: { type: string }) {
               aria-selected={tab === key}
               onClick={() => setChosen(key)}
               className={cn(
-                '-mb-px border-b-2 py-2 text-label-md',
+                'text-label-md -mb-px border-b-2 py-2',
                 tab === key
                   ? 'border-primary text-on-surface'
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                  : 'text-on-surface-variant hover:text-on-surface border-transparent'
               )}
             >
               {label}
               {count !== undefined && (
-                <span className="ml-1.5 text-body-sm text-muted-foreground tabular-nums">
+                <span className="text-body-sm text-muted-foreground ml-1.5 tabular-nums">
                   {count}
                 </span>
               )}
@@ -181,7 +181,7 @@ function PluginDetail({ type }: { type: string }) {
                     <TableCell className="text-code-sm text-on-surface-variant">
                       {defaultText(field.defaultValue)}
                     </TableCell>
-                    <TableCell className="text-body-sm whitespace-normal text-on-surface-variant">
+                    <TableCell className="text-body-sm text-on-surface-variant whitespace-normal">
                       {field.description}
                     </TableCell>
                   </TableRow>
@@ -195,7 +195,7 @@ function PluginDetail({ type }: { type: string }) {
             <CodeBlock code={example} label="example" />
             {plugin.usagePattern && (
               <section>
-                <h3 className="mb-1.5 text-label-md text-on-surface">Usage</h3>
+                <h3 className="text-label-md text-on-surface mb-1.5">Usage</h3>
                 <CodeBlock code={plugin.usagePattern} label="usage" />
               </section>
             )}
@@ -236,7 +236,7 @@ function PluginDetail({ type }: { type: string }) {
           ))}
       </div>
       <section className="min-w-0 xl:sticky xl:top-18 xl:self-start">
-        <h3 className="mb-1.5 text-label-md text-on-surface">On the canvas</h3>
+        <h3 className="text-label-md text-on-surface mb-1.5">On the canvas</h3>
         <PluginCanvasPreview plugin={plugin} />
       </section>
     </article>
@@ -295,7 +295,7 @@ export function PluginsPage() {
             if (items.length === 0) return null;
             return (
               <section key={key}>
-                <h2 className="mb-1 flex items-center gap-2 text-label-md text-on-surface">
+                <h2 className="text-label-md text-on-surface mb-1 flex items-center gap-2">
                   <span
                     aria-hidden="true"
                     className="size-2 rounded-full"
@@ -314,14 +314,14 @@ export function PluginsPage() {
                         aria-current={p.type === selected}
                         onClick={() => setParams({ type: p.type })}
                         className={cn(
-                          'w-full rounded-lg px-3 py-1.5 text-left text-body-md transition-standard',
+                          'text-body-md transition-standard w-full rounded-lg px-3 py-1.5 text-left',
                           p.type === selected
-                            ? 'bg-accent font-semibold text-accent-foreground'
+                            ? 'bg-accent text-accent-foreground font-semibold'
                             : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
                         )}
                       >
                         <span className="block">{pluginLabel(p.type)}</span>
-                        <span className="block text-code-sm text-[11px] opacity-75">
+                        <span className="text-code-sm block text-[11px] opacity-75">
                           {p.type}
                         </span>
                       </button>
