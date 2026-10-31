@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { useState } from 'react';
 import { useSessionSummaries } from '@/features/sessions/hooks/useSessionSummaries';
 import { ScopeBar } from '@/features/metrics/ScopeBar';
 import { useDashboardParams, useMetricStream } from '@/features/metrics/hooks';
@@ -13,6 +14,7 @@ import {
 import { CapacityPanel } from './CapacityPanel';
 import { LatencyPanel, ThroughputPanel } from './ChartPanels';
 import { CommandStrip } from './CommandStrip';
+import { KioskView } from './KioskView';
 import { HeatPanel, LeaderboardPanel, LiveRunsPanel } from './RunPanels';
 
 /**
@@ -22,6 +24,7 @@ import { HeatPanel, LeaderboardPanel, LiveRunsPanel } from './RunPanels';
 export function DashboardView() {
   const { scope, range, live } = useDashboardParams();
   useMetricStream(live);
+  const [kiosk, setKiosk] = useState(false);
   const sessions = useSessionSummaries().data ?? [];
   const scopes = [
     { value: 'global', label: 'Global' },
@@ -36,7 +39,17 @@ export function DashboardView() {
   }
   return (
     <div className="flex flex-col gap-4" data-testid="mission-control">
-      <ScopeBar scopes={scopes} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <ScopeBar scopes={scopes} />
+        <button
+          type="button"
+          onClick={() => setKiosk(true)}
+          className="border-border text-label-md h-8 rounded-lg border px-2.5"
+        >
+          Kiosk
+        </button>
+      </div>
+      {kiosk && <KioskView onExit={() => setKiosk(false)} />}
       <CommandStrip scope={scope} live={live} />
       <div className="grid gap-4 lg:grid-cols-3">
         <CapacityPanel live={live} />

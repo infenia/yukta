@@ -23,7 +23,20 @@ export function PanelState({
   onRetry?: () => void;
   children: ReactNode;
 }) {
-  if (isPending) return <StateMessage compact tone="loading" title="Loading" />;
+  if (isPending) {
+    return (
+      <div role="status" aria-busy="true" className="flex flex-col gap-2 py-2">
+        <span className="sr-only">Loading</span>
+        {['w-full', 'w-4/5', 'w-3/5'].map((width) => (
+          <div
+            key={width}
+            aria-hidden="true"
+            className={`${width} h-4 rounded bg-muted motion-safe:animate-pulse`}
+          />
+        ))}
+      </div>
+    );
+  }
   if (error) {
     return (
       <StateMessage
