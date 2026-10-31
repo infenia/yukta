@@ -1,15 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { RequirePermission } from '@/components/common/RequirePermission';
-import { InlineError } from '@/components/common/InlineError';
-import { Modal } from '@/components/common/Modal';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { relativeTime } from '@/features/control/components/WorkersPanel.helpers';
 import { RecoverButton } from '@/features/workflow/components/RecoverButton';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { getLimits } from '@/features/control/api/scheduler';
@@ -25,10 +19,9 @@ import {
   searchExecutions,
 } from '@/features/runs/api/searchExecutions';
 import { runPath } from '@/features/runs/lib/runPath';
-import { sendDecision } from '@/features/workflow/api/approvals';
-import { controlErrorMessage } from '@/features/workflow/hooks/useExecutionControl';
 import { StatusPill } from '@/features/workflow/components/StatusPill';
-import { getAllApprovals, type SessionApproval } from './api';
+import { ApprovalRow } from '@/features/workflow/components/ApprovalRow';
+import { getAllApprovals } from './api';
 
 const NO_FILTERS = {
   session: '',
@@ -105,107 +98,6 @@ const Empty = ({ children }: { children: ReactNode }) => (
   <p className="text-body-sm text-on-surface-variant">{children}</p>
 );
 
-/** One approval: Approve at once, Reject after a confirm with an optional reason. */
-function ApprovalRow({ approval }: { approval: SessionApproval }) {
-  const queryClient = useQueryClient();
-  const [rejecting, setRejecting] = useState(false);
-  const [reason, setReason] = useState('');
-  const decide = useMutation({
-    mutationFn: (decision: 'approve' | 'reject') =>
-      sendDecision(
-        approval,
-        decision,
-        decision === 'reject' ? reason : undefined
-      ),
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: ['overview', 'approvals'] }),
-  });
-  const alreadyAnswered =
-    (decide.error as { status?: number } | null)?.status === 409;
-  return (
-    <li className="flex flex-wrap items-center gap-2">
-      <span className="text-body-md text-on-surface min-w-0 flex-1">
-        <Link
-          className="text-primary"
-          to={runPath(
-            approval.sessionId,
-            approval.workflowId,
-            approval.executionId
-          )}
-        >
-          {approval.sessionId}/{approval.workflowId}
-        </Link>{' '}
-        <span className="font-mono">{approval.nodeId}</span> waits for “
-        {approval.name}”{' '}
-        <span className="text-on-surface-variant">
-          since {relativeTime(approval.since).replace(/^in /, '')}
-        </span>
-      </span>
-      <RequirePermission perm="controlRuns">
-        <Button
-          size="sm"
-          disabled={decide.isPending}
-          onClick={() => decide.mutate('approve')}
-        >
-          Approve
-        </Button>
-      </RequirePermission>
-      <RequirePermission perm="controlRuns">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={decide.isPending}
-          onClick={() => setRejecting(true)}
-        >
-          Reject
-        </Button>
-      </RequirePermission>
-      {decide.error && (
-        <div className="basis-full">
-          <InlineError
-            message={
-              alreadyAnswered
-                ? 'Already answered.'
-                : controlErrorMessage(decide.error)
-            }
-          />
-        </div>
-      )}
-      {rejecting && (
-        <Modal
-          title="Reject this approval?"
-          onClose={() => setRejecting(false)}
-        >
-          <label
-            htmlFor="reject-reason"
-            className="text-label-md text-on-surface"
-          >
-            Reason (optional)
-          </label>
-          <Input
-            id="reject-reason"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-          />
-          <div className="mt-4 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setRejecting(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setRejecting(false);
-                decide.mutate('reject');
-              }}
-            >
-              Reject
-            </Button>
-          </div>
-        </Modal>
-      )}
-    </li>
-  );
-}
-
 /** Pending approvals of every session, answered in place, and aborted runs to recover. */
 function NeedsAttention({ poll }: { poll: number | false }) {
   const navigate = useNavigate();
@@ -228,10 +120,30 @@ function NeedsAttention({ poll }: { poll: number | false }) {
       )}
       <ul className="flex flex-col gap-2">
         {waiting.map((approval) => (
-          <ApprovalRow
+          <li
             key={`${approval.executionId}-${approval.nodeId}-${approval.name}`}
-            approval={approval}
-          />
+          >
+            <ApprovalRow
+              approval={approval}
+              queryKey={['overview', 'approvals']}
+              label={
+                <>
+                  <Link
+                    className="text-primary"
+                    to={runPath(
+                      approval.sessionId,
+                      approval.workflowId,
+                      approval.executionId
+                    )}
+                  >
+                    {approval.sessionId}/{approval.workflowId}
+                  </Link>{' '}
+                  <span className="font-mono">{approval.nodeId}</span> waits for
+                  “{approval.name}”
+                </>
+              }
+            />
+          </li>
         ))}
         {stopped.map((run) => (
           <li
