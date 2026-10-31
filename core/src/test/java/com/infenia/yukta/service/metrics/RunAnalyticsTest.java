@@ -566,4 +566,12 @@ class RunAnalyticsTest {
     assertThat(withoutLog.snapshot("session:s1")).doesNotContainKey("runs.finished");
     withoutLog.stop();
   }
+
+  @Test
+  void liveRunKeepsEveryFieldWhenTheNodeTotalIsFilledIn() {
+    final var run = new RunAnalytics.LiveRun("e", "s", "w", 1L, 2L, 3, 4, 5.0, null);
+
+    assertThat(run.withNodesTotal(9))
+        .isEqualTo(new RunAnalytics.LiveRun("e", "s", "w", 1L, 2L, 3, 4, 5.0, 9));
+  }
 }
