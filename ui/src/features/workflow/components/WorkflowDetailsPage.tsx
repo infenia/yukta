@@ -163,9 +163,9 @@ export function WorkflowDetailsPage() {
   );
 
   return (
-    // At least the screen's height (less the phone tab bar), so the logs dock at its bottom edge
+    // Exactly the screen's height (less the phone tab bar): the workspace scrolls inside, so the logs dock stays at the bottom edge
     <div
-      className="bg-background flex min-h-[calc(100dvh-var(--spacing-header)-4rem)] flex-1 flex-col sm:min-h-[calc(100dvh-var(--spacing-header)-1px)]"
+      className="bg-background flex h-[calc(100dvh-var(--spacing-header)-4rem)] flex-col sm:h-[calc(100dvh-var(--spacing-header))]"
       data-testid="workflow-details-page"
     >
       <WorkflowTitleBar
@@ -353,7 +353,7 @@ export function WorkflowDetailsPage() {
           panel beside both, so a 100-node run no longer stretches the page */}
       {/* The canvas nodes and the failure callout both open sub-workflow runs */}
       <SubWorkflowLinks value={subWorkflowLinks}>
-        <div className="flex min-h-112 flex-1">
+        <div className="flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="relative min-h-0 flex-1">
               <WorkflowCanvas
