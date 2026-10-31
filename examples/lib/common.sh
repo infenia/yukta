@@ -70,7 +70,7 @@ run_workflow() {
   done
 
   # The log stream closes itself once the execution is terminal; -m caps a stuck run.
-  logs=$(curl -s -m 15 "$YUKTA_URL/api/sessions/$sid/executions/$eid/logs" | sed -n 's/^data://p' || true)
+  logs=$(curl -s -m 15 ${YUKTA_API_KEY:+-H "X-API-Key: $YUKTA_API_KEY"} "$YUKTA_URL/api/sessions/$sid/executions/$eid/logs" | sed -n 's/^data://p' || true)
   echo "    logs:"
   sed 's/^/      /' <<<"$logs"
 

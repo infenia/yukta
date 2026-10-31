@@ -1,0 +1,1 @@
+{ "requestId": "BUMP-2001", "package": "lodash", "ecosystem": "npm", "fromVersion": "4.17.20", "toVersion": "4.17.21", "bumpType": "patch", "hasCve": false, "testsPassed": true, "dependentsCount": 3, "maintainerEmail": "maint@example.com", "registryToken": "npm_1b2c3dSECRET", "daysSinceRelease": 30 }

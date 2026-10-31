@@ -2,18 +2,26 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { Panel } from '@/components/dashboard/Tile';
 import { HeatStrip } from '@/components/dashboard/Strips';
 import { MeterBar } from '@/components/dashboard/Gauges';
 import { Button } from '@/components/ui/button';
 import { InlineError } from '@/components/common/InlineError';
+import { Modal } from '@/components/common/Modal';
+import { REQUIRED_ROLE, useMe } from '@/lib/identity';
 import { api } from '@/lib/apiClient';
 import {
   runAction,
   type RunAction,
 } from '@/features/workflow/api/executionControl';
-import type { Range, Scope } from '@/features/metrics/api';
+import {
+  GLOBAL,
+  type LiveRun,
+  type Range,
+  type Scope,
+} from '@/features/metrics/api';
 import { useHeatmap, useLiveRuns, useModules } from '@/features/metrics/hooks';
 import { PanelState } from './PanelState';
 import { useNow } from './useNow';
@@ -103,7 +111,10 @@ export function LeaderboardPanel({
                 <td
                   className={`text-right num ${m.failures > 0 ? 'text-destructive' : ''}`}
                 >
-                  {Math.round((m.failures / m.executions) * 100)}%
+                  {m.executions > 0
+                    ? Math.round((m.failures / m.executions) * 100)
+                    : 0}
+                  %
                 </td>
                 <td className="text-right num">{formatMs(m.avgMs)}</td>
               </tr>
@@ -116,8 +127,24 @@ export function LeaderboardPanel({
 }
 
 /** Runs in progress: nodes done, and the time so far against the workflow's usual p95. */
-export function LiveRunsPanel({ live }: { live: boolean }) {
+export function LiveRunsPanel({
+  scope,
+  live,
+}: {
+  scope: Scope;
+  live: boolean;
+}) {
   const runs = useLiveRuns(live);
+  const inScope = (run: LiveRun) =>
+    scope === GLOBAL ||
+    scope === `session:${run.sessionId}` ||
+    scope === `workflow:${run.workflowId}`;
+  const shown = (runs.data ?? []).filter(inScope);
+  const [stopping, setStopping] = useState<LiveRun | null>(null);
+  // Shown disabled, with the role it needs, to a key that may not control runs
+  const me = useMe();
+  const mayControl = !me || me.permissions.controlRuns;
+  const needs = mayControl ? undefined : `Needs ${REQUIRED_ROLE.controlRuns}`;
   const client = useQueryClient();
   const act = useMutation({
     mutationFn: ({ id, action }: { id: string; action: RunAction }) =>
@@ -130,12 +157,12 @@ export function LiveRunsPanel({ live }: { live: boolean }) {
       <PanelState
         isPending={runs.isPending}
         error={runs.error}
-        empty={(runs.data ?? []).length === 0}
+        empty={shown.length === 0}
         emptyText="No run is going"
         onRetry={() => void runs.refetch()}
       >
         <ul className="flex flex-col gap-2">
-          {(runs.data ?? []).map((run) => {
+          {shown.map((run) => {
             const slow = run.p95Ms !== null && run.elapsedMs > run.p95Ms;
             return (
               <li
@@ -168,9 +195,15 @@ export function LiveRunsPanel({ live }: { live: boolean }) {
                       key={action}
                       size="sm"
                       variant="outline"
-                      disabled={act.isPending}
+                      disabled={
+                        !mayControl ||
+                        (act.isPending && act.variables?.id === run.executionId)
+                      }
+                      title={needs}
                       onClick={() =>
-                        act.mutate({ id: run.executionId, action })
+                        action === 'stop'
+                          ? setStopping(run)
+                          : act.mutate({ id: run.executionId, action })
                       }
                       aria-label={`${action} ${run.workflowId} run ${run.executionId}`}
                     >
@@ -184,6 +217,29 @@ export function LiveRunsPanel({ live }: { live: boolean }) {
         </ul>
         {act.error && <InlineError message={act.error.message} />}
       </PanelState>
+      {stopping && (
+        <Modal
+          title={`Stop ${stopping.workflowId}?`}
+          onClose={() => setStopping(null)}
+        >
+          <p className="text-body-md text-on-surface-variant mb-4">
+            Run {stopping.executionId} ends now.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setStopping(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                act.mutate({ id: stopping.executionId, action: 'stop' });
+                setStopping(null);
+              }}
+            >
+              Stop run
+            </Button>
+          </div>
+        </Modal>
+      )}
     </Panel>
   );
 }

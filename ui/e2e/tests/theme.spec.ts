@@ -70,9 +70,7 @@ test.describe('Theme Switching', () => {
     await expect(page.locator('html')).toHaveClass(/dark/);
     // Color changes are CSS-transitioned; wait for it to settle before reading.
     await expect(async () => {
-      const color = await cell.evaluate(
-        (el) => window.getComputedStyle(el).color
-      );
+      const color = await cell.evaluate((el) => window.getComputedStyle(el).color);
       expect(color).not.toBe(lightColors.color);
     }).toPass({ timeout: 2000 });
 

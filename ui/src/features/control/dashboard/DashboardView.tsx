@@ -59,7 +59,7 @@ export function DashboardView() {
         <div className="lg:col-span-2">
           <LatencyPanel scope={scope} range={range} live={live} />
         </div>
-        <LiveRunsPanel live={live} />
+        <LiveRunsPanel scope={scope} live={live} />
         <div className="lg:col-span-3">
           <HeatPanel scope={scope} live={live} />
         </div>
