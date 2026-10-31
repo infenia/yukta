@@ -47,6 +47,9 @@ export const rollback = (
     { method: 'POST' }
   );
 
+/** The longest note the server takes. */
+export const MAX_NOTE = 1000;
+
 /** Writes the note of a version; an empty text clears it. */
 export const saveNote = (
   sessionId: string,
@@ -54,7 +57,8 @@ export const saveNote = (
   version: string,
   note: string
 ) =>
-  fetchApi<unknown>(
-    `${base(sessionId, workflowId)}/versions/note?version=${encodeURIComponent(version)}&note=${encodeURIComponent(note)}`,
-    { method: 'POST' }
-  );
+  // In the body, not the URL: notes would end up in access and proxy logs
+  fetchApi<unknown>(`${base(sessionId, workflowId)}/versions/note`, {
+    method: 'POST',
+    body: JSON.stringify({ version, note }),
+  });

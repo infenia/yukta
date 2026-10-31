@@ -16,7 +16,11 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import { WorkflowVersionsPanel } from '../WorkflowVersionsPanel';
-import type { WorkflowDiff, WorkflowVersion } from '../../api/versions';
+import {
+  MAX_NOTE,
+  type WorkflowDiff,
+  type WorkflowVersion,
+} from '../../api/versions';
 
 const ok = (data: unknown) =>
   HttpResponse.json({
@@ -57,9 +61,11 @@ const server = setupServer(
       ? HttpResponse.json({ message: 'No such version' }, { status: 404 })
       : ok(diff)
   ),
-  http.post(`${BASE}/versions/note`, ({ request }) => {
-    const query = new URL(request.url).searchParams;
-    noted.push(`${query.get('version')}=${query.get('note')}`);
+  http.post(`${BASE}/versions/note`, async ({ request }) => {
+    // the note travels in the body, never in the URL
+    expect(new URL(request.url).search).toBe('');
+    const body = (await request.json()) as { version: string; note: string };
+    noted.push(`${body.version}=${body.note}`);
     return noteFails
       ? HttpResponse.json({ message: 'No such version' }, { status: 404 })
       : ok({});
@@ -291,5 +297,16 @@ describe('WorkflowVersionsPanel', () => {
     );
 
     await waitFor(() => expect(noted).toEqual(['0001-a=']));
+  });
+
+  it('limits a note to what the server takes', async () => {
+    versions = two;
+    renderWithProviders(
+      <WorkflowVersionsPanel sessionId="s1" workflowId="wf" />
+    );
+    expect(await screen.findByLabelText('Note for 0001-a')).toHaveAttribute(
+      'maxlength',
+      String(MAX_NOTE)
+    );
   });
 });

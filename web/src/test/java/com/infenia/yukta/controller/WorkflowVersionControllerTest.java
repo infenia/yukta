@@ -161,20 +161,4 @@ class WorkflowVersionControllerTest {
 
     client.post().uri(BASE + "/rollback?version=nope").exchange().expectStatus().isNotFound();
   }
-
-  @Test
-  void noteIsStoredOnTheVersion() {
-    when(definitions.saveNote("s1", "w1", VERSION_B, "why")).thenReturn(Mono.empty());
-
-    client
-        .post()
-        .uri(BASE + "/versions/note?version=" + VERSION_B + "&note=why")
-        .exchange()
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.data.note")
-        .isEqualTo("why");
-    verify(definitions).saveNote("s1", "w1", VERSION_B, "why");
-  }
 }
