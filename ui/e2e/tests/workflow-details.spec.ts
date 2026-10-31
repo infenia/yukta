@@ -442,6 +442,64 @@ test.describe('Workflow Details Page', () => {
     await expect.poll(() => decision).toBe('approve');
   });
 
+  test('rolls back to a saved version after reviewing what it changes', async ({
+    page,
+    mockWorkflowApi,
+  }) => {
+    // rollback is blocked while the run on screen is going, so use a finished one
+    await mockWorkflowApi(page, {
+      progress: { ...defaultProgress, status: 'COMPLETED' },
+    });
+    const envelope = (path: string, data: unknown) => ({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        timestamp: '2026-07-26T14:23:23',
+        status: 200,
+        message: 'OK',
+        path,
+        data,
+      }),
+    });
+    await page.route(/\/workflows\/[^/]+\/versions$/, (route) =>
+      route.fulfill(
+        envelope('/versions', [
+          { id: 'v-0002', savedAt: '2026-07-25T10:00:00', note: null },
+        ])
+      )
+    );
+    await page.route(/\/versions\/diff\?/, (route) =>
+      route.fulfill(
+        envelope('/diff', {
+          descriptionChanged: false,
+          addedNodes: ['Audit_Log'],
+          removedNodes: [],
+          changedNodes: [],
+          addedEdges: [],
+          removedEdges: [],
+        })
+      )
+    );
+    let rolledBackTo: string | null = null;
+    await page.route(/\/rollback\?/, (route) => {
+      rolledBackTo = new URL(route.request().url()).searchParams.get('version');
+      return route.fulfill(envelope('/rollback', {}));
+    });
+    await page.goto(WORKFLOW_URL);
+
+    await page.getByRole('button', { name: 'Workflow actions' }).click();
+    await page.getByRole('menuitem', { name: 'Versions' }).click();
+    const versions = page.getByRole('region', { name: 'Workflow versions' });
+    await expect(versions).toContainText('v-0002');
+    await versions.getByRole('button', { name: 'Roll back' }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Roll back to v-0002?' });
+    await expect(dialog).toContainText('+ node Audit_Log');
+    await dialog.getByRole('button', { name: 'Roll back' }).click();
+    await expect.poll(() => rolledBackTo).toBe('v-0002');
+    await expect(dialog).toHaveCount(0);
+  });
+
   test('recovers an aborted run as a new run', async ({
     page,
     mockWorkflowApi,
