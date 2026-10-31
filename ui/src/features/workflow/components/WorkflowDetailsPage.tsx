@@ -251,7 +251,7 @@ export function WorkflowDetailsPage() {
               aria-pressed={panelOpen}
               aria-label="Workflow progress"
               title="Show or hide the progress panel"
-              className={buttonVariants({ variant: 'outline', size: 'icon' })}
+              className={`${buttonVariants({ variant: 'outline', size: 'icon' })} transition-standard active:scale-95`}
             >
               <span
                 aria-hidden="true"
