@@ -26,7 +26,10 @@ export function useEventSourceJson<T>(
 ): { status: EventSourceStatus } {
   // Connection events are recorded against the url they belong to; the visible status is
   // derived so switching urls resets to 'connecting'/'idle' without setState in effects.
-  const [connection, setConnection] = useState<{ url: string; status: EventSourceStatus }>({
+  const [connection, setConnection] = useState<{
+    url: string;
+    status: EventSourceStatus;
+  }>({
     url: '',
     status: 'connecting',
   });
@@ -47,15 +50,20 @@ export function useEventSourceJson<T>(
     let source: EventSource | KeyedEventSource | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let attempt = 0;
+    // the last event id seen, sent on a reopen so the server resumes instead of replaying
+    let lastEventId: string | undefined;
 
     const connect = () => {
-      const current = openEventStream(url);
+      const current = openEventStream(url, lastEventId);
       source = current;
       current.onopen = () => {
         attempt = 0;
         setConnection({ url, status: 'open' });
       };
       current.onmessage = (event: MessageEvent) => {
+        if (event.lastEventId) {
+          lastEventId = event.lastEventId;
+        }
         try {
           handlerRef.current(parseRef.current(event.data as string));
         } catch {
@@ -63,10 +71,23 @@ export function useEventSourceJson<T>(
         }
       };
       current.onerror = () => {
+        // A native EventSource that dropped is already reconnecting (readyState CONNECTING) and
+        // sends Last-Event-ID itself; closing it for a new one would replay the whole stream.
+        if (
+          reconnectRef.current &&
+          'readyState' in current &&
+          current.readyState === EventSource.CONNECTING
+        ) {
+          setConnection({ url, status: 'connecting' });
+          return;
+        }
         current.close();
         setConnection({ url, status: 'error' });
         if (reconnectRef.current) {
-          const delay = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS);
+          const delay = Math.min(
+            RECONNECT_BASE_MS * 2 ** attempt,
+            RECONNECT_MAX_MS
+          );
           attempt += 1;
           timer = setTimeout(connect, delay);
         }
