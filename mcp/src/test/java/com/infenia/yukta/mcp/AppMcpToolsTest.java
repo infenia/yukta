@@ -51,6 +51,7 @@ class AppMcpToolsTest {
   private SystemHealthProvider systemHealthProvider;
   private ResultProvider resultProvider;
   private com.infenia.yukta.mcp.provider.WorkflowVersionProvider workflowVersionProvider;
+  private com.infenia.yukta.mcp.provider.SupervisorProvider supervisorProvider;
 
   private com.infenia.yukta.mcp.provider.MetricsProvider metricsProvider;
 
@@ -64,7 +65,11 @@ class AppMcpToolsTest {
     systemHealthProvider = mock(SystemHealthProvider.class);
     resultProvider = mock(ResultProvider.class);
     workflowVersionProvider = mock(com.infenia.yukta.mcp.provider.WorkflowVersionProvider.class);
+<<<<<<< HEAD
     metricsProvider = mock(com.infenia.yukta.mcp.provider.MetricsProvider.class);
+=======
+    supervisorProvider = mock(com.infenia.yukta.mcp.provider.SupervisorProvider.class);
+>>>>>>> feat/supervisor-bindings
     mcpTools =
         new AppMcpTools(
             sessionInfoProvider,
@@ -75,7 +80,11 @@ class AppMcpToolsTest {
             systemHealthProvider,
             resultProvider,
             workflowVersionProvider,
+<<<<<<< HEAD
             metricsProvider);
+=======
+            supervisorProvider);
+>>>>>>> feat/supervisor-bindings
   }
 
   @Test
@@ -370,6 +379,7 @@ class AppMcpToolsTest {
   }
 
   @Test
+<<<<<<< HEAD
   void metricsSnapshotDelegatesToTheMetricsProvider() {
     final var snapshot =
         new com.infenia.yukta.mcp.dto.MetricsSnapshot("session:s1", 0, java.util.Map.of("a", 1.0));
@@ -378,5 +388,22 @@ class AppMcpToolsTest {
     StepVerifier.create(mcpTools.getMetricsSnapshot("session:s1"))
         .expectNext(snapshot)
         .verifyComplete();
+=======
+  void supervisorToolsDelegateToTheSupervisorProvider() {
+    final var listing =
+        new com.infenia.yukta.mcp.dto.SupervisorListing(List.of(), List.of(), List.of("t"));
+    final var binding =
+        new com.infenia.yukta.mcp.dto.SupervisorBindingInfo("b", "p", "global", true);
+    final var detached = new com.infenia.yukta.mcp.dto.SupervisorDetached("b", true);
+    when(supervisorProvider.list()).thenReturn(Mono.just(listing));
+    when(supervisorProvider.attach("p", "global", null, null)).thenReturn(Mono.just(binding));
+    when(supervisorProvider.detach("b")).thenReturn(Mono.just(detached));
+
+    StepVerifier.create(mcpTools.listSupervisors()).expectNext(listing).verifyComplete();
+    StepVerifier.create(mcpTools.attachSupervisor("p", "global", null, null))
+        .expectNext(binding)
+        .verifyComplete();
+    StepVerifier.create(mcpTools.detachSupervisor("b")).expectNext(detached).verifyComplete();
+>>>>>>> feat/supervisor-bindings
   }
 }

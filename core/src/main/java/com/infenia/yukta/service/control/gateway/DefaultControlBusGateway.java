@@ -585,6 +585,9 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
    * @param controlReviewer the reviewer, if supervisors are enabled
    */
   @Autowired(required = false)
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP2",
+      justification = "Spring injects the shared service, which is meant to be held")
   public void setReviewer(final ControlReviewer controlReviewer) {
     this.reviewer = controlReviewer;
   }

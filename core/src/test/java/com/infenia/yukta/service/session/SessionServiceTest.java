@@ -942,6 +942,23 @@ class SessionServiceTest {
   }
 
   @Test
+  void deleteSession_detachesTheSupervisorsOfTheSession() {
+    final com.infenia.yukta.service.supervisor.SupervisorService supervisors =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.SupervisorService.class);
+    when(supervisors.removeForSession("s")).thenReturn(Mono.empty());
+    sessionService.setSupervisors(supervisors);
+    when(configService.getSessionIds()).thenReturn(Flux.just("s"));
+    when(controlBus.getHistory("s")).thenReturn(Mono.just(List.of()));
+    when(workflowDefinitionStore.removeAll("s")).thenReturn(Mono.empty());
+    when(configService.removeSession("s")).thenReturn(Mono.empty());
+    when(controlBus.recordAdminAction(any(), any(), eq(true), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(sessionService.deleteSession("s", false)).verifyComplete();
+
+    verify(supervisors).removeForSession("s");
+  }
+
+  @Test
   void deleteSession_ofAnUnknownSessionIsNotFound_andActiveRunsBlockIt() {
     when(controlBus.recordAdminAction(any(), any(), eq(false), any())).thenReturn(Mono.empty());
     when(configService.getSessionIds()).thenReturn(Flux.just("t"));

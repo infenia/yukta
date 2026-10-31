@@ -1,6 +1,7 @@
 {
   "components" : {
     "schemas" : {
+<<<<<<< HEAD
       "Annotation" : {
         "properties" : {
           "actor" : {
@@ -36,6 +37,13 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/Catalog",
+=======
+      "ApiResponseBindingBody" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/BindingBody",
+>>>>>>> feat/supervisor-bindings
             "description" : "The response data"
           },
           "error" : {
@@ -160,13 +168,21 @@
         },
         "type" : "object"
       },
+<<<<<<< HEAD
       "ApiResponseListAnnotation" : {
+=======
+      "ApiResponseListBindingBody" : {
+>>>>>>> feat/supervisor-bindings
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
           "data" : {
             "description" : "The response data",
             "items" : {
+<<<<<<< HEAD
               "$ref" : "#/components/schemas/Annotation"
+=======
+              "$ref" : "#/components/schemas/BindingBody"
+>>>>>>> feat/supervisor-bindings
             },
             "type" : "array"
           },
@@ -574,6 +590,52 @@
         },
         "type" : "object"
       },
+      "ApiResponseListProfileBody" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/ProfileBody"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseListSessionListItem" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -627,6 +689,52 @@
             "description" : "The response data",
             "items" : {
               "type" : "string"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseListSupervisorDecision" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/SupervisorDecision"
             },
             "type" : "array"
           },
@@ -1213,6 +1321,49 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/NodeOutputSlice",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseProfileBody" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ProfileBody",
             "description" : "The response data"
           },
           "error" : {
@@ -1895,6 +2046,23 @@
         },
         "type" : "object"
       },
+      "BindingBody" : {
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "profileId" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Breakpoint" : {
         "properties" : {
           "equals" : {
@@ -2567,6 +2735,7 @@
         },
         "type" : "object"
       },
+<<<<<<< HEAD
       "Point" : {
         "properties" : {
           "time" : {
@@ -2576,6 +2745,22 @@
           "value" : {
             "format" : "double",
             "type" : "number"
+=======
+      "ProfileBody" : {
+        "properties" : {
+          "dryRun" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "settings" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "type" : {
+            "type" : "string"
+>>>>>>> feat/supervisor-bindings
           }
         },
         "type" : "object"
@@ -2805,6 +2990,30 @@
             "example" : 24,
             "format" : "int32",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "SupervisorDecision" : {
+        "properties" : {
+          "command" : {
+            "type" : "string"
+          },
+          "executionId" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "supervisorId" : {
+            "type" : "string"
+          },
+          "time" : {
+            "format" : "date-time",
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -6141,6 +6350,242 @@
         "tags" : [ "Supervisors API" ]
       }
     },
+    "/api/supervisors/bindings" : {
+      "get" : {
+        "operationId" : "bindings",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListBindingBody"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List supervisor bindings",
+        "tags" : [ "Supervisor bindings API" ]
+      },
+      "post" : {
+        "operationId" : "attach",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BindingBody"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseBindingBody"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Attach a supervisor",
+        "tags" : [ "Supervisor bindings API" ]
+      }
+    },
+    "/api/supervisors/bindings/{id}" : {
+      "delete" : {
+        "operationId" : "detach",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Detach a supervisor",
+        "tags" : [ "Supervisor bindings API" ]
+      }
+    },
+    "/api/supervisors/decisions" : {
+      "get" : {
+        "operationId" : "decisions",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "binding",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListSupervisorDecision"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Recent supervisor decisions",
+        "tags" : [ "Supervisor bindings API" ]
+      }
+    },
+    "/api/supervisors/profiles" : {
+      "get" : {
+        "operationId" : "profiles",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListProfileBody"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List supervisor profiles",
+        "tags" : [ "Supervisor bindings API" ]
+      },
+      "post" : {
+        "operationId" : "createProfile",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProfileBody"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProfileBody"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Create a supervisor profile",
+        "tags" : [ "Supervisor bindings API" ]
+      }
+    },
+    "/api/supervisors/profiles/{id}" : {
+      "delete" : {
+        "operationId" : "deleteProfile",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Delete a supervisor profile",
+        "tags" : [ "Supervisor bindings API" ]
+      },
+      "put" : {
+        "operationId" : "replaceProfile",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProfileBody"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProfileBody"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Replace a supervisor profile",
+        "tags" : [ "Supervisor bindings API" ]
+      }
+    },
+    "/api/supervisors/types" : {
+      "get" : {
+        "operationId" : "types",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListString"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List supervisor types",
+        "tags" : [ "Supervisor bindings API" ]
+      }
+    },
     "/api/templates" : {
       "get" : {
         "description" : "The bundled examples: id, title, a one-line summary and the plugin types used",
@@ -7155,6 +7600,9 @@
   }, {
     "description" : "Stream execution logs",
     "name" : "Execution Logs API"
+  }, {
+    "description" : "Attach supervisors to a scope at run time",
+    "name" : "Supervisor bindings API"
   }, {
     "description" : "Control commands and who sent them",
     "name" : "Control audit API"

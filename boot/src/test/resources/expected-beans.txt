@@ -23,6 +23,7 @@ com.infenia.yukta.controller.NodeOutputController
 com.infenia.yukta.controller.PluginController
 com.infenia.yukta.controller.ProjectPathController
 com.infenia.yukta.controller.SessionConfigController
+com.infenia.yukta.controller.SupervisorBindingsController
 com.infenia.yukta.controller.SupervisorsController
 com.infenia.yukta.controller.TemplateController
 com.infenia.yukta.controller.WebhookController
@@ -31,6 +32,9 @@ com.infenia.yukta.controller.WorkflowController
 com.infenia.yukta.controller.WorkflowDetailsController
 com.infenia.yukta.controller.WorkflowValidationController
 com.infenia.yukta.controller.WorkflowVersionController
+com.infenia.yukta.controlplane.composite.RulesFirstControlPlaneFactory
+com.infenia.yukta.controlplane.model.ModelControlPlaneFactory
+com.infenia.yukta.controlplane.rules.RuleControlPlaneFactory
 com.infenia.yukta.docs.ApiDocsCustomizer
 com.infenia.yukta.edition.EditionInfo
 com.infenia.yukta.exception.GlobalExceptionHandler
@@ -59,6 +63,7 @@ com.infenia.yukta.mcp.provider.MetricsProvider
 com.infenia.yukta.mcp.provider.PluginInfoProvider
 com.infenia.yukta.mcp.provider.ResultProvider
 com.infenia.yukta.mcp.provider.SessionInfoProvider
+com.infenia.yukta.mcp.provider.SupervisorProvider
 com.infenia.yukta.mcp.provider.SystemHealthProvider
 com.infenia.yukta.mcp.provider.WorkflowControlProvider
 com.infenia.yukta.mcp.provider.WorkflowExecutionProvider
@@ -174,9 +179,12 @@ com.infenia.yukta.service.session.store.SessionConfigStoreConfiguration
 com.infenia.yukta.service.store.CheckpointMetrics
 com.infenia.yukta.service.store.InMemoryNodeCheckpointStore
 com.infenia.yukta.service.streaming.DefaultStatusHistoryCache
+com.infenia.yukta.service.supervisor.AttachedSupervisors
 com.infenia.yukta.service.supervisor.ControlReviewer
 com.infenia.yukta.service.supervisor.ExecutionEventFeed
+com.infenia.yukta.service.supervisor.InMemorySupervisorStore
 com.infenia.yukta.service.supervisor.SupervisorHost
+com.infenia.yukta.service.supervisor.SupervisorService
 com.infenia.yukta.service.worker.RemoteNodes
 com.infenia.yukta.service.worker.WorkerRegistry
 com.infenia.yukta.service.workflow.ConfigRedactor
@@ -186,3 +194,4 @@ com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore
 com.infenia.yukta.service.workflow.store.PreparedWorkflowCache
 com.infenia.yukta.service.workflow.store.WorkflowDefinitionStoreConfiguration
 com.infenia.yukta.startup.InMemoryStateNotice
+com.infenia.yukta.supervisor.rules.RuleSupervisorFactory

@@ -14,6 +14,10 @@ import org.jspecify.annotations.Nullable;
  */
 public sealed interface SupervisorScope {
 
+  /** Message for a scope text that cannot be read. */
+  String BAD_SCOPE =
+      "Scope must be global, session:<id>, workflow:<id> or workflow:<sessionId>/<workflowId>";
+
   /** What kind of scope this is. */
   enum Kind {
     /** Every run. */
@@ -53,6 +57,57 @@ public sealed interface SupervisorScope {
    * @return true if a supervisor with this scope watches the run
    */
   boolean matches(@Nullable String runSessionId, @Nullable String runWorkflowId);
+
+  /**
+   * The text form of the scope, as {@link #parse} reads it: {@code global}, {@code session:<id>},
+   * {@code workflow:<id>} or {@code workflow:<sessionId>/<workflowId>}.
+   *
+   * @return the text
+   */
+  default String key() {
+    return switch (kind()) {
+      case GLOBAL -> "global";
+      case SESSION -> "session:" + sessionId();
+      case WORKFLOW ->
+          sessionId() == null
+              ? "workflow:" + workflowId()
+              : "workflow:" + sessionId() + "/" + workflowId();
+    };
+  }
+
+  /**
+   * Reads the text form written by {@link #key()}.
+   *
+   * @param text {@code global}, {@code session:<id>}, {@code workflow:<id>} or {@code
+   *     workflow:<sessionId>/<workflowId>}
+   * @return the scope
+   * @throws IllegalArgumentException if the text is none of these or an id is empty
+   */
+  static SupervisorScope parse(final String text) {
+    final String[] parts = (text == null ? "" : text.strip()).split(":", 2);
+    final String id = parts.length == 2 ? parts[1] : "";
+    return switch (parts[0]) {
+      case "global" -> new Global();
+      case "session" -> new Session(requireId(id));
+      case "workflow" -> workflowScope(requireId(id));
+      default -> throw new IllegalArgumentException(BAD_SCOPE);
+    };
+  }
+
+  private static String requireId(final String id) {
+    if (id.isBlank()) {
+      throw new IllegalArgumentException(BAD_SCOPE);
+    }
+    return id;
+  }
+
+  private static SupervisorScope workflowScope(final String id) {
+    final int slash = id.indexOf('/');
+    if (slash < 0) {
+      return new Workflow(id, null);
+    }
+    return new Workflow(requireId(id.substring(slash + 1)), requireId(id.substring(0, slash)));
+  }
 
   /** Every run, and the commands that belong to no run. */
   record Global() implements SupervisorScope {

@@ -11,6 +11,8 @@ import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
+import com.infenia.yukta.service.supervisor.InMemorySupervisorStore;
+import com.infenia.yukta.service.supervisor.SupervisorStore;
 import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -69,6 +71,17 @@ public class DefaultsAutoConfiguration {
       @Value("${yukta.restart.spill-dir:}") final String spillDir,
       final ObjectProvider<ObjectMapper> mapper) {
     return new InMemoryNodeCheckpointStore(messagesPerNode, bytesPerNode, spillDir, mapper);
+  }
+
+  /**
+   * Supervisor profiles and bindings in memory, unless another module keeps them.
+   *
+   * @return the store
+   */
+  @Bean
+  @ConditionalOnMissingBean(SupervisorStore.class)
+  public InMemorySupervisorStore inMemorySupervisorStore() {
+    return new InMemorySupervisorStore();
   }
 
   /**

@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.plugin.store.SessionHistoryStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.supervisor.SupervisorStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -169,5 +170,17 @@ public class PostgresPersistenceAutoConfiguration {
       final ObjectMapper mapper,
       @Value("${yukta.session-memory.ttl:#{null}}") final java.time.Duration ttl) {
     return new R2dbcSessionHistoryStore(client, mapper, ttl);
+  }
+
+  /**
+   * Supervisor profiles and bindings, so those attached at run time survive a restart.
+   *
+   * @param client runs the statements
+   * @param mapper reads and writes the settings as JSON
+   * @return the store
+   */
+  @Bean
+  public SupervisorStore supervisorStore(final DatabaseClient client, final ObjectMapper mapper) {
+    return new R2dbcSupervisorStore(client, mapper);
   }
 }
