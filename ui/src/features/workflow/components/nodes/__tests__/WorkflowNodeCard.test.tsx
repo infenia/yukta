@@ -2,7 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
+import { SubWorkflowLinks } from '../../../hooks/useSubWorkflowLinks';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { WorkflowNodeCard } from '../WorkflowNodeCard';
@@ -20,9 +23,15 @@ function renderCard(data: WorkflowNodeData, selected = false) {
     dragging: false,
   } as unknown as NodeProps<WorkflowFlowNode>;
   return render(
-    <ReactFlowProvider>
-      <WorkflowNodeCard {...props} />
-    </ReactFlowProvider>
+    <MemoryRouter>
+      <ReactFlowProvider>
+        <SubWorkflowLinks
+          value={new Map([['sub', '/sessions/s/workflow/fix']])}
+        >
+          <WorkflowNodeCard {...props} />
+        </SubWorkflowLinks>
+      </ReactFlowProvider>
+    </MemoryRouter>
   );
 }
 
@@ -255,5 +264,56 @@ describe('WorkflowNodeCard', () => {
     expect(
       screen.getByTestId('workflow-node-data-ingress')
     ).not.toHaveTextContent('%');
+  });
+
+  describe('description', () => {
+    const LONG =
+      'Runs the whole repair loop: it reads the failing check, patches the code, and runs the check again until it passes.';
+
+    it('shows a short description on one line, with no expand control', () => {
+      renderCard({
+        node: createMockGraphNode({ description: 'Ingest raw data' }),
+        status: 'pending',
+      });
+      expect(screen.getByText('Ingest raw data')).toHaveClass('truncate');
+      expect(
+        screen.queryByRole('button', { name: /full description/ })
+      ).not.toBeInTheDocument();
+    });
+
+    it('clamps a long description to one line and shows all of it from an expand control', async () => {
+      renderCard({
+        node: createMockGraphNode({ nodeId: 'repair', description: LONG }),
+        status: 'pending',
+      });
+      expect(screen.getByText(LONG)).toHaveClass('truncate');
+
+      await userEvent.click(
+        screen.getByRole('button', {
+          name: 'Show the full description of repair',
+        })
+      );
+      const full = await screen.findAllByText(LONG);
+      // the card's own line and the popover's copy
+      expect(full).toHaveLength(2);
+      expect(full[1]).toHaveClass('whitespace-pre-line');
+    });
+
+    it('keeps the Open link of a sub-workflow node next to a long description', () => {
+      renderCard({
+        node: createMockGraphNode({
+          nodeId: 'sub',
+          subWorkflowId: 'fix',
+          description: LONG,
+        }),
+        status: 'running',
+        task: createMockTask({ nodeId: 'sub', status: 'RUNNING' }),
+      });
+      const card = screen.getByTestId('workflow-node-sub');
+      const link = within(card).getByRole('link', {
+        name: 'Open sub-workflow fix',
+      });
+      expect(link).toHaveAttribute('href', '/sessions/s/workflow/fix');
+    });
   });
 });

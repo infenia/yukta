@@ -46,7 +46,8 @@ const FRAME_LABEL = 36;
 
 /** Uniform canvas node size. */
 export const DEFAULT_NODE_WIDTH = 240;
-export const DEFAULT_NODE_HEIGHT = 96;
+/** Room for a header, a one-line description, the status row and a progress bar. */
+export const DEFAULT_NODE_HEIGHT = 108;
 const NODE_SIZE = { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
 
 function resolveSourceHandle(
