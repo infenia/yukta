@@ -16,7 +16,7 @@ React SPA frontend with Vite, Tailwind CSS v4, and Gradle integration. The `ui` 
 # Terminal 1: Vite dev server (http://localhost:5173 with HMR)
 cd ui && pnpm dev
 
-# Terminal 2: Spring Boot backend (http://localhost:8080)
+# Terminal 2: Spring Boot backend (http://localhost:9858)
 ./gradlew :boot:bootRun
 ```
 

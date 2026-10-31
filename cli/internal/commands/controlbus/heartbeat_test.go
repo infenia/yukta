@@ -18,7 +18,7 @@ import (
 )
 
 func TestHeartbeatCmd_createsCommand(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := HeartbeatCmd(c)
 
 	if !strings.HasPrefix(cmd.Use, "heartbeat") {

@@ -69,7 +69,7 @@ jobs:
           [ -n "$jar" ] || { echo "::error::no boot jar was built"; exit 1; }
           nohup java -jar "$jar" > server.log 2>&1 &
           for _ in $(seq 1 60); do
-            curl -fsS http://127.0.0.1:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"' && exit 0
+            curl -fsS http://127.0.0.1:9858/actuator/health 2>/dev/null | grep -q '"status":"UP"' && exit 0
             sleep 2
           done
           echo "::error::the server never reported UP"

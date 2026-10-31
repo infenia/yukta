@@ -11,7 +11,7 @@ import (
 
 // TestSessionCmd_createsCommand_withCorrectUse tests that SessionCmd creates command with correct Use.
 func TestSessionCmd_createsCommand_withCorrectUse(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := SessionCmd(c)
 
 	if cmd.Use != "session" {
@@ -21,7 +21,7 @@ func TestSessionCmd_createsCommand_withCorrectUse(t *testing.T) {
 
 // TestSessionCmd_hasShortDescription tests that command has short description.
 func TestSessionCmd_hasShortDescription(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := SessionCmd(c)
 
 	if cmd.Short == "" {
@@ -35,7 +35,7 @@ func TestSessionCmd_hasShortDescription(t *testing.T) {
 
 // TestSessionCmd_hasLongDescription tests that command has long description.
 func TestSessionCmd_hasLongDescription(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := SessionCmd(c)
 
 	if cmd.Long == "" {
@@ -49,7 +49,7 @@ func TestSessionCmd_hasLongDescription(t *testing.T) {
 
 // TestSessionCmd_addsListSubcommand tests that list subcommand is registered.
 func TestSessionCmd_addsListSubcommand(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := SessionCmd(c)
 
 	found := false
@@ -66,7 +66,7 @@ func TestSessionCmd_addsListSubcommand(t *testing.T) {
 
 // TestSessionCmd_addsGetSubcommand tests that get subcommand is registered.
 func TestSessionCmd_addsGetSubcommand(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := SessionCmd(c)
 
 	found := false
@@ -83,7 +83,7 @@ func TestSessionCmd_addsGetSubcommand(t *testing.T) {
 
 // TestSessionCmd_addsWorkflowSubcommand tests that workflow subcommand is registered.
 func TestSessionCmd_addsWorkflowSubcommand(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := SessionCmd(c)
 
 	found := false
@@ -100,7 +100,7 @@ func TestSessionCmd_addsWorkflowSubcommand(t *testing.T) {
 
 // TestSessionCmd_subcommandCount tests that correct number of subcommands are registered.
 func TestSessionCmd_subcommandCount(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := SessionCmd(c)
 
 	count := len(cmd.Commands())
@@ -111,7 +111,7 @@ func TestSessionCmd_subcommandCount(t *testing.T) {
 
 // TestSessionCmd_noRunFunction tests that session command has no direct Run action.
 func TestSessionCmd_noRunFunction(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := SessionCmd(c)
 
 	// Session command is a group, so it shouldn't have a Run function
@@ -122,7 +122,7 @@ func TestSessionCmd_noRunFunction(t *testing.T) {
 
 // TestSessionCmd_clientNotNil tests that client is used to create subcommands.
 func TestSessionCmd_clientNotNil(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := SessionCmd(c)
 
 	// If client was nil, this would panic during command creation
@@ -133,7 +133,7 @@ func TestSessionCmd_clientNotNil(t *testing.T) {
 
 // TestSessionCmd_listHasCorrectUse tests that list subcommand has correct Use.
 func TestSessionCmd_listHasCorrectUse(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := SessionCmd(c)
 
 	found := false
@@ -150,7 +150,7 @@ func TestSessionCmd_listHasCorrectUse(t *testing.T) {
 
 // TestSessionCmd_getHasCorrectUse tests that get subcommand has correct Use.
 func TestSessionCmd_getHasCorrectUse(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := SessionCmd(c)
 
 	found := false
@@ -167,7 +167,7 @@ func TestSessionCmd_getHasCorrectUse(t *testing.T) {
 
 // TestSessionCmd_workflowHasCorrectUse tests that workflow subcommand has correct Use.
 func TestSessionCmd_workflowHasCorrectUse(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := SessionCmd(c)
 
 	found := false
@@ -184,7 +184,7 @@ func TestSessionCmd_workflowHasCorrectUse(t *testing.T) {
 
 // TestSessionCmd_addsApplySubcommand tests that apply subcommand is registered.
 func TestSessionCmd_addsApplySubcommand(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := SessionCmd(c)
 
 	found := false

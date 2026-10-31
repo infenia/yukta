@@ -2,17 +2,17 @@
 # Shared helpers for the Yukta examples. Source this file; do not run it directly.
 #
 # Environment:
-#   YUKTA_URL      server base URL (default http://localhost:8080)
+#   YUKTA_URL      server base URL (default http://localhost:9858)
 #   YUKTA_API_KEY  optional; sent as X-API-Key when set
 #   WAIT_SECONDS   how long run_workflow waits for a terminal status (default 60)
 
-YUKTA_URL="${YUKTA_URL:-http://localhost:8080}"
+YUKTA_URL="${YUKTA_URL:-http://localhost:9858}"
 TERMINAL_STATUSES='^(SUCCESS|FAILURE|ERROR|STOPPED|CANCELLED|TIMED_OUT)$'
 
 # api METHOD PATH [JSON] -> prints the response body; fails on HTTP >= 400.
 api() {
   local out code body
-  local args=(-sS -X "$1" "$YUKTA_URL$2" -H 'Content-Type: application/json' -w $'\n%{http_code}')
+  local args=(-sS -m 60 -X "$1" "$YUKTA_URL$2" -H 'Content-Type: application/json' -w $'\n%{http_code}')
   [[ -n "${YUKTA_API_KEY:-}" ]] && args+=(-H "X-API-Key: $YUKTA_API_KEY")
   [[ $# -ge 3 ]] && args+=(--data-binary "$3")
   out=$(curl "${args[@]}") || { echo "cannot reach $YUKTA_URL (is the server running?)" >&2; return 1; }

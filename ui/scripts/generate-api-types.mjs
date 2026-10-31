@@ -4,7 +4,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 // Generates src/types/api.generated.ts from the server's OpenAPI document (springdoc).
-//   pnpm run api:types                  fetch http://localhost:8080/v3/api-docs and rewrite the file
+//   pnpm run api:types                  fetch http://localhost:9858/v3/api-docs and rewrite the file
 //   pnpm run api:types -- <url|file>    use another spec location
 //   pnpm run api:types -- --check       fail when the committed file is stale (for CI)
 // Start the backend first: ./gradlew :boot:bootRun (the dev profile; prod switches /v3/api-docs off)
@@ -15,7 +15,7 @@ import openapiTS, { astToString } from 'openapi-typescript';
 const args = process.argv.slice(2);
 const check = args.includes('--check');
 const source =
-  args.find((a) => !a.startsWith('--')) ?? 'http://localhost:8080/v3/api-docs';
+  args.find((a) => !a.startsWith('--')) ?? 'http://localhost:9858/v3/api-docs';
 const target = path.resolve(
   import.meta.dirname,
   '../src/types/api.generated.ts'

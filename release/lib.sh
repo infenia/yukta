@@ -18,7 +18,7 @@ NFPM="github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.48.0"
 PLATFORMS=(linux-amd64)
 
 die() { echo "release: $*" >&2; exit 1; }
-log() { echo "==> $*" >&2; }
+log() { echo "==> $(date -u +%H:%M:%S) $*" >&2; }
 
 # 0.1.0, 0.1.0-rc.1 (a leading v is removed)
 normalize_version() { echo "${1#v}"; }

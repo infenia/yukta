@@ -18,8 +18,8 @@ services:
     volumes:
       - ${JAR:?set by run.sh}:/app/yukta.jar:ro   # the jar, or the native binary (BINARY=)
     ports:
-      - "127.0.0.1:${PORT:-8080}:8080"   # loopback only, so k6 may send the key over http
+      - "127.0.0.1:${PORT:-9858}:9858"   # loopback only, so k6 may send the key over http
     healthcheck:
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9858"]
       interval: 2s
       retries: 60

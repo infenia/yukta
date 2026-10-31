@@ -19,7 +19,7 @@ import (
 
 // TestRootCmd_createsCommand_withCorrectUse tests that RootCmd creates command with correct Use.
 func TestRootCmd_createsCommand_withCorrectUse(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 
 	if cmd.Use != "yukta-cli" {
@@ -29,7 +29,7 @@ func TestRootCmd_createsCommand_withCorrectUse(t *testing.T) {
 
 // TestRootCmd_hasShortDescription tests that command has short description.
 func TestRootCmd_hasShortDescription(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 
 	if cmd.Short == "" {
@@ -43,7 +43,7 @@ func TestRootCmd_hasShortDescription(t *testing.T) {
 
 // TestRootCmd_hasLongDescription tests that command has long description.
 func TestRootCmd_hasLongDescription(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 
 	if cmd.Long == "" {
@@ -57,7 +57,7 @@ func TestRootCmd_hasLongDescription(t *testing.T) {
 
 // TestRootCmd_setPersistentFlags_urlFlag tests that --url flag is set.
 func TestRootCmd_setPersistentFlags_urlFlag(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 
 	urlFlag := cmd.PersistentFlags().Lookup("url")
@@ -73,7 +73,7 @@ func TestRootCmd_setPersistentFlags_urlFlag(t *testing.T) {
 
 // TestRootCmd_setPersistentFlags_outputFlag tests that -o/--output flag is set.
 func TestRootCmd_setPersistentFlags_outputFlag(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 
 	outputFlag := cmd.PersistentFlags().Lookup("output")
@@ -99,7 +99,7 @@ func TestRootCmd_defaultURLFromEnv(t *testing.T) {
 	defer os.Setenv("YUKTA_SERVER_URL", oldEnv)
 
 	os.Setenv("YUKTA_SERVER_URL", "http://custom.example.com:9090")
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 
 	urlFlag := cmd.PersistentFlags().Lookup("url")
@@ -114,18 +114,18 @@ func TestRootCmd_defaultURLWithoutEnv(t *testing.T) {
 	defer os.Setenv("YUKTA_SERVER_URL", oldEnv)
 
 	os.Unsetenv("YUKTA_SERVER_URL")
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 
 	urlFlag := cmd.PersistentFlags().Lookup("url")
-	if urlFlag.Value.String() != "http://localhost:8080" {
+	if urlFlag.Value.String() != "http://localhost:9858" {
 		t.Errorf("expected default URL, got %q", urlFlag.Value.String())
 	}
 }
 
 // TestRootCmd_flagsBindToClient tests that --url, --token and --timeout are written straight to the client.
 func TestRootCmd_flagsBindToClient(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 
 	// Set the URL flag
@@ -150,7 +150,7 @@ func TestRootCmd_flagsBindToClient(t *testing.T) {
 
 // TestRootCmd_silencesUsageAfterParsing tests that usage is not printed for errors after parsing.
 func TestRootCmd_silencesUsageAfterParsing(t *testing.T) {
-	cmd := RootCmd(client.NewClient("http://localhost:8080"))
+	cmd := RootCmd(client.NewClient("http://localhost:9858"))
 	cmd.AddCommand(&cobra.Command{
 		Use:  "boom",
 		RunE: func(*cobra.Command, []string) error { return errors.New("server said no") },
@@ -192,7 +192,7 @@ func TestGetOutputFormat_returnsJSON(t *testing.T) {
 
 // TestOutputFormatFlagIntegration tests output format flag through command execution.
 func TestOutputFormatFlagIntegration(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 
 	// Create a test subcommand that uses GetOutputFormat
@@ -220,7 +220,7 @@ func TestOutputFormatFlagIntegration(t *testing.T) {
 
 // TestRootCmd_hasNoRunFunction tests that root command has no direct Run action.
 func TestRootCmd_hasNoRunFunction(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 
 	// Root command should have PersistentPreRunE but not Run
@@ -235,7 +235,7 @@ func TestRootCmd_withoutURL(t *testing.T) {
 	defer os.Setenv("YUKTA_SERVER_URL", oldEnv)
 	os.Unsetenv("YUKTA_SERVER_URL")
 
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 
 	cmd.SetArgs([]string{})
@@ -245,14 +245,14 @@ func TestRootCmd_withoutURL(t *testing.T) {
 	_ = cmd.Execute()
 
 	// Should use default from flag definition
-	if c.BaseURL != "http://localhost:8080" {
+	if c.BaseURL != "http://localhost:9858" {
 		t.Errorf("expected default URL to be set, got %q", c.BaseURL)
 	}
 }
 
 // TestURLFlagShorthand tests that --url flag has no shorthand.
 func TestURLFlagShorthand(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 
 	shorthand := cmd.PersistentFlags().ShorthandLookup("u")
@@ -263,7 +263,7 @@ func TestURLFlagShorthand(t *testing.T) {
 
 // TestOutputFlagShorthandIsO tests that output flag has -o shorthand.
 func TestOutputFlagShorthandIsO(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 
 	shorthand := cmd.PersistentFlags().ShorthandLookup("o")
@@ -380,7 +380,7 @@ func TestSetTestOutputFormat_affectsGlobalVariable(t *testing.T) {
 }
 
 func TestRootCmd_exposesVersion(t *testing.T) {
-	cmd := RootCmd(client.NewClient("http://localhost:8080"))
+	cmd := RootCmd(client.NewClient("http://localhost:9858"))
 	if cmd.Version != Version {
 		t.Errorf("Version = %q, want %q", cmd.Version, Version)
 	}
@@ -391,7 +391,7 @@ func TestRootCmd_tokenFileIsReadAndTrimmed(t *testing.T) {
 	if err := os.WriteFile(file, []byte("  from-file\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := RootCmd(c)
 	cmd.AddCommand(&cobra.Command{Use: "noop", Run: func(*cobra.Command, []string) {}})
 	cmd.SetArgs([]string{"--token-file", file, "--insecure-token", "noop"})
@@ -416,7 +416,7 @@ func TestRootCmd_streamLimitsFromEnv(t *testing.T) {
 	for _, tc := range cases {
 		t.Setenv("YUKTA_STREAM_IDLE", tc.idle)
 		t.Setenv("YUKTA_STREAM_RECONNECTS", tc.reconnects)
-		c := client.NewClient("http://localhost:8080")
+		c := client.NewClient("http://localhost:9858")
 		RootCmd(c)
 		if c.StreamIdle != tc.wantIdle || c.StreamReconnects != tc.wantReconnects {
 			t.Errorf("idle=%q reconnects=%q: got %v/%d, want %v/%d", tc.idle, tc.reconnects,
@@ -428,7 +428,7 @@ func TestRootCmd_streamLimitsFromEnv(t *testing.T) {
 func TestRootCmd_insecureTokenEnv(t *testing.T) {
 	for env, want := range map[string]bool{"1": true, "true": true, "0": false, "": false, "yes": false} {
 		t.Setenv("YUKTA_INSECURE_TOKEN", env)
-		c := client.NewClient("http://localhost:8080")
+		c := client.NewClient("http://localhost:9858")
 		RootCmd(c)
 		if c.AllowInsecureToken != want {
 			t.Errorf("YUKTA_INSECURE_TOKEN=%q: AllowInsecureToken = %v, want %v", env, c.AllowInsecureToken, want)
@@ -437,7 +437,7 @@ func TestRootCmd_insecureTokenEnv(t *testing.T) {
 }
 
 func TestRootCmd_missingTokenFileFails(t *testing.T) {
-	cmd := RootCmd(client.NewClient("http://localhost:8080"))
+	cmd := RootCmd(client.NewClient("http://localhost:9858"))
 	cmd.AddCommand(&cobra.Command{Use: "noop", Run: func(*cobra.Command, []string) {}})
 	cmd.SetArgs([]string{"--token-file", filepath.Join(t.TempDir(), "absent"), "noop"})
 	cmd.SetOut(io.Discard)
@@ -454,7 +454,7 @@ func TestVersionCmd_printsVersion(t *testing.T) {
 		"json":  "{\"version\":\"" + Version + "\"}\n",
 	} {
 		SetTestOutputFormat(format)
-		cmd := RootCmd(client.NewClient("http://localhost:8080"))
+		cmd := RootCmd(client.NewClient("http://localhost:9858"))
 		var out bytes.Buffer
 		cmd.SetOut(&out)
 		cmd.SetArgs([]string{"version", "-o", format})
@@ -474,7 +474,7 @@ func (failWriter) Write([]byte) (int, error) { return 0, errors.New("boom") }
 
 func TestVersionCmd_writeErrorIsReturned(t *testing.T) {
 	for _, format := range []string{"table", "json"} {
-		cmd := RootCmd(client.NewClient("http://localhost:8080"))
+		cmd := RootCmd(client.NewClient("http://localhost:9858"))
 		cmd.SetOut(failWriter{})
 		cmd.SetArgs([]string{"version", "-o", format})
 		if err := cmd.Execute(); err == nil {

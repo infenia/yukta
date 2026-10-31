@@ -7,7 +7,7 @@
 # of each module family are registered and that the MCP endpoint lists its tools. It catches what a
 # health check cannot, such as expressions failing in a native image.
 #
-# Usage: release/smoke-test.sh <base-url> [api-key]     e.g. release/smoke-test.sh http://127.0.0.1:8080 key
+# Usage: release/smoke-test.sh <base-url> [api-key]     e.g. release/smoke-test.sh http://127.0.0.1:9858 key
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 

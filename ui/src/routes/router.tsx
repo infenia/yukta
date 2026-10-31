@@ -110,6 +110,8 @@ const router = createBrowserRouter([
   },
 ]);
 
+export default router;
+
 /** The app's router, rendered once by main.tsx. */
 export function AppRouter() {
   return <RouterProvider router={router} />;

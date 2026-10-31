@@ -2,14 +2,14 @@
 
 **Use case:** an AI coding agent (Claude Code, or any MCP client) creates a workflow,
 starts it and reads the result without a human touching the REST API. Yukta exposes
-its tools at `http://localhost:8080/mcp` (streamable HTTP).
+its tools at `http://localhost:9858/mcp` (streamable HTTP).
 
 ## Connect an agent
 
 ```bash
-claude mcp add --transport http yukta http://localhost:8080/mcp
+claude mcp add --transport http yukta http://localhost:9858/mcp
 # with an API key configured on the server (yukta.mcp.api-key):
-claude mcp add --transport http yukta http://localhost:8080/mcp --header "Authorization: Bearer $YUKTA_API_KEY"
+claude mcp add --transport http yukta http://localhost:9858/mcp --header "Authorization: Bearer $YUKTA_API_KEY"
 ```
 
 Tools the agent gets: `create_session`, `start_workflow`, `get_workflow_status`,

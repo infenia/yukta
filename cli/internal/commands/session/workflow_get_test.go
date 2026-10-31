@@ -18,7 +18,7 @@ import (
 
 // TestWorkflowCmd_createsCommand_withCorrectUse tests that WorkflowCmd creates command with correct Use.
 func TestWorkflowCmd_createsCommand_withCorrectUse(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := WorkflowCmd(c)
 
 	if cmd.Use != "workflow" {
@@ -28,7 +28,7 @@ func TestWorkflowCmd_createsCommand_withCorrectUse(t *testing.T) {
 
 // TestWorkflowCmd_hasDescription tests that command has description.
 func TestWorkflowCmd_hasDescription(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := WorkflowCmd(c)
 
 	if cmd.Short == "" {
@@ -42,7 +42,7 @@ func TestWorkflowCmd_hasDescription(t *testing.T) {
 
 // TestWorkflowCmd_addsGetSubcommand tests that get subcommand is registered.
 func TestWorkflowCmd_addsGetSubcommand(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := WorkflowCmd(c)
 
 	found := false
@@ -59,7 +59,7 @@ func TestWorkflowCmd_addsGetSubcommand(t *testing.T) {
 
 // TestWorkflowCmd_noRunFunction tests that workflow command has no direct Run action.
 func TestWorkflowCmd_noRunFunction(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := WorkflowCmd(c)
 
 	if cmd.Run != nil {
@@ -69,7 +69,7 @@ func TestWorkflowCmd_noRunFunction(t *testing.T) {
 
 // TestWorkflowGetCmd_createsCommand_withCorrectUse tests that WorkflowGetCmd creates command with correct Use.
 func TestWorkflowGetCmd_createsCommand_withCorrectUse(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := WorkflowGetCmd(c)
 
 	if !strings.Contains(cmd.Use, "get") {
@@ -87,7 +87,7 @@ func TestWorkflowGetCmd_createsCommand_withCorrectUse(t *testing.T) {
 
 // TestWorkflowGetCmd_hasDescription tests that command has description.
 func TestWorkflowGetCmd_hasDescription(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := WorkflowGetCmd(c)
 
 	if cmd.Short == "" {
@@ -101,7 +101,7 @@ func TestWorkflowGetCmd_hasDescription(t *testing.T) {
 
 // TestWorkflowGetCmd_requiresExactlyTwoArgs tests that command requires exactly two arguments.
 func TestWorkflowGetCmd_requiresExactlyTwoArgs(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := WorkflowGetCmd(c)
 
 	if cmd.Args == nil {
@@ -265,7 +265,7 @@ func TestWorkflowGetCmd_complexWorkflow_formatsCorrectly(t *testing.T) {
 
 // TestWorkflowGetCmd_commandHasRunE tests that command has RunE handler.
 func TestWorkflowGetCmd_commandHasRunE(t *testing.T) {
-	c := client.NewClient("http://localhost:8080")
+	c := client.NewClient("http://localhost:9858")
 	cmd := WorkflowGetCmd(c)
 
 	if cmd.RunE == nil {

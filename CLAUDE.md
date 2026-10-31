@@ -40,7 +40,7 @@ yk check                    # the scoped, self-healing gate for your changes (yk
 yk tool -C cli go test ./...                      # Go (cli/)
 yk tool -C ui npx --no-install prettier --check .  # UI (ui/): pnpm/npx/node_modules/.bin commands
 
-# Run the application you are developing (not a build: stays direct; Swagger UI at http://localhost:8080/swagger-ui.html)
+# Run the application you are developing (not a build: stays direct; Swagger UI at http://localhost:9858/swagger-ui.html)
 ./gradlew bootRun
 ```
 

@@ -33,7 +33,7 @@ You need a terminal and `curl`.
       </Tab>
       <Tab title="Docker" icon="docker">
         ```bash
-        docker run --rm -p 127.0.0.1:8080:8080 \
+        docker run --rm -p 127.0.0.1:9858:9858 \
           -e YUKTA_API_KEY=change-me \
           ghcr.io/infenia/yukta:0.1.0-alpha.3
         ```
@@ -45,7 +45,7 @@ You need a terminal and `curl`.
     In a second terminal, check that it is up:
 
     ```bash
-    curl http://localhost:8080/actuator/health
+    curl http://localhost:9858/actuator/health
     ```
 
     ```json
@@ -95,14 +95,14 @@ You need a terminal and `curl`.
     Three nodes, one of each kind: the trigger receives your input, the mapper builds the greeting, and the terminal ends the path. Send it to the server:
 
     ```bash
-    curl -X POST http://localhost:8080/api/sessions \
+    curl -X POST http://localhost:9858/api/sessions \
       -H "Content-Type: application/json" -d @session.json
     ```
   </Step>
 
   <Step title="Start a run">
     ```bash
-    curl -X POST http://localhost:8080/api/workflow/start \
+    curl -X POST http://localhost:9858/api/workflow/start \
       -H "Content-Type: application/json" \
       -d '{"sessionId":"demo","workflowId":"greet","payload":{"name":"Ada"}}'
     ```
@@ -126,9 +126,9 @@ You need a terminal and `curl`.
 
   <Step title="Read the result">
     ```bash
-    curl http://localhost:8080/api/executions/$EXEC
+    curl http://localhost:9858/api/executions/$EXEC
     curl -H "Accept: application/json" \
-      http://localhost:8080/api/sessions/demo/executions/$EXEC/results
+      http://localhost:9858/api/sessions/demo/executions/$EXEC/results
     ```
 
     The first call returns the status, `SUCCESS` once every node has finished. The second returns what reached the terminal:

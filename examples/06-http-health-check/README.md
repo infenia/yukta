@@ -9,12 +9,12 @@ CONSTANT_SOURCE ──► HTTP_REQUEST (routeByStatus)
 ```
 
 Two workflows in one session show both routes:
-- `health-ok` probes `http://localhost:8080/api/plugins` (answers 200).
+- `health-ok` probes `http://localhost:9858/api/plugins` (answers 200).
 - `health-down` probes `http://127.0.0.1:9/health` (connection refused), so it takes the failure port.
 
 **Trigger**
 ```bash
-curl -X POST localhost:8080/api/workflow/start -H 'Content-Type: application/json' \
+curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
   -d '{"sessionId":"example-06-health-check","workflowId":"health-ok"}'
 ```
 

@@ -19,7 +19,7 @@ Two pre-configured environments are included:
 
 **Local Development** (`environments/local.bru`)
 ```
-base_url   = http://localhost:8080
+base_url   = http://localhost:9858
 sessionId  = session-001
 workflowId = workflow-001
 executionId = exec-001
@@ -63,7 +63,7 @@ To create or edit an environment:
 
 | Variable | Purpose | Auto-Set? | Example |
 |----------|---------|-----------|---------|
-| `base_url` | API base URL | No | http://localhost:8080 |
+| `base_url` | API base URL | No | http://localhost:9858 |
 | `sessionId` | Session identifier | No | session-001 |
 | `workflowId` | Workflow identifier | No | workflow-001 |
 | `executionId` | Execution identifier | Yes* | exec-12345 |
@@ -86,7 +86,7 @@ Bruno collections are now organized to match the backend controller structure fo
 ```
 bruno/
 ├── environments/
-│   ├── local.bru                         (pre-configured for localhost:8080)
+│   ├── local.bru                         (pre-configured for localhost:9858)
 │   └── production.bru                    (pre-configured for production)
 ├── SessionConfigController/              (4 requests)
 │   ├── List Sessions.bru
@@ -338,7 +338,7 @@ While using an environment:
 
 1. Select `local` environment (pre-configured)
 2. Run `./gradlew bootRun` to start Yukta
-3. Execute requests - all point to `http://localhost:8080`
+3. Execute requests - all point to `http://localhost:9858`
 
 ### Production Deployment
 
@@ -365,7 +365,7 @@ While using an environment:
 
 ## Related Resources
 
-- **Swagger UI**: `http://localhost:8080/swagger-ui.html`
+- **Swagger UI**: `http://localhost:9858/swagger-ui.html`
 - **Source Code**: `web/src/main/java/com/infenia/yukta/controller/`
   - SessionConfigController.java
   - WorkflowController.java
@@ -387,7 +387,7 @@ While using an environment:
 ## Getting Help
 
 1. **Environment Issues?** Check Variables tab (click Variables → see current values)
-2. **API Questions?** Check Swagger UI: `http://localhost:8080/swagger-ui.html`
+2. **API Questions?** Check Swagger UI: `http://localhost:9858/swagger-ui.html`
 3. **Request Failing?** Review the test assertions (click Test tab) for details
 4. **Connection Issues?** Verify Yukta is running: `./gradlew bootRun`
 

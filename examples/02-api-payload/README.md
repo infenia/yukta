@@ -8,7 +8,7 @@ API_TRIGGER ──► MAPPER (PROJECTION) ──► CONSOLE_TERMINAL
 
 **Trigger**
 ```bash
-curl -X POST localhost:8080/api/workflow/start -H 'Content-Type: application/json' \
+curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
   -d '{"sessionId":"example-02-api-payload","workflowId":"greet-user","payload":{"name":"Ada","priority":"high"}}'
 ```
 

@@ -382,7 +382,7 @@ main() {
   say ""
   [ "$do_server" = "0" ] || [ "$installed_server" = "1" ] ||
     say "Note: this release has no native server for $os/$arch yet. Run the server with Docker instead:
-  docker run --rm -p 127.0.0.1:8080:8080 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:$version"
+  docker run --rm -p 127.0.0.1:9858:9858 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:$version"
   say "  verified:   $verified${sig_note:+  [$sig_note]}"
   [ "$installed_server" = "0" ] || say "Installed: $dir/yukta (server) $version"
   [ "$do_cli" = "0" ] || say "Installed: $dir/yukta-cli (client) $version"
@@ -418,7 +418,7 @@ main() {
   fi
   say "${O}${B}Done!${Z} Yukta $version is ready (took $(($(date +%s) - t_start))s)."
   say "Next:"
-  [ "$installed_server" = "0" ] || say "  yukta                          # start the server on http://localhost:8080"
+  [ "$installed_server" = "0" ] || say "  yukta                          # start the server on http://localhost:9858"
   [ "$do_cli" = "0" ] || say "  yukta-cli session list         # talk to a running server"
   say "  https://yukta.infenia.com      # docs and first workflow"
 }

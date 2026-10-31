@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 server:
+  port: ${SERVER_PORT:9858}
   # Loopback by default so a fresh install is not reachable from the network. Set
   # YUKTA_SERVER_ADDRESS=0.0.0.0 (and yukta.api-key) to opt in to remote access.
   address: ${YUKTA_SERVER_ADDRESS:127.0.0.1}
