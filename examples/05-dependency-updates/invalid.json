@@ -1,0 +1,1 @@
+{ "requestId": "BUMP-2003", "package": "react", "ecosystem": "npm", "fromVersion": "18.2.0", "toVersion": 19, "bumpType": "minor", "hasCve": "maybe", "maintainerEmail": "maint@example.com" }

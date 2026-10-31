@@ -1,0 +1,212 @@
+{
+  "sessionId": "example-14-security-findings",
+  "name": "Security findings triage",
+  "description": "Scanner findings are validated, stripped of leaked secrets and scored by severity, reachability and exposure. An engineer fixes, accepts or suppresses; low ones are suppressed.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": { "example": "14-security-findings" },
+  "workflows": {
+    "batch": {
+      "workflowId": "batch",
+      "description": "Split a batch of scanner findings, triage each one, summarise the outcomes",
+      "nodes": [
+        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "validate-batch",
+          "type": "VALIDATE",
+          "config": { "required": ["scan", "findings"], "types": { "scan": "string", "findings": "array" } }
+        },
+        {
+          "nodeId": "bad-batch",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "mapping": { "path": "'summary.txt'", "content": "'BATCH REFUSED: needs scan and findings'" } }
+        },
+        { "nodeId": "split", "type": "SPLITTER", "config": { "itemsPath": "payload.findings" } },
+        {
+          "nodeId": "triage",
+          "type": "SUB_WORKFLOW",
+          "config": { "workflowId": "triage", "timeoutSeconds": 900, "concurrency": 1 }
+        },
+        {
+          "nodeId": "pick",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "id": "payload.results[0].id",
+              "decision": "payload.results[0].decision",
+              "score": "payload.results[0].score"
+            }
+          }
+        },
+        { "nodeId": "collect", "type": "AGGREGATE", "config": { "size": 100, "timeoutMs": 60000 } },
+        {
+          "nodeId": "summarise",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "path": "'summary.txt'",
+              "content": "'SUMMARY: ' + payload.count + ' findings, fix=' + payload.items.?[#this['decision'] == 'fix'].size() + ' accept=' + payload.items.?[#this['decision'] == 'accept'].size() + ' suppress=' + payload.items.?[#this['decision'] == 'suppress'].size() + ' invalid=' + payload.items.?[#this['decision'] == 'invalid'].size()"
+            }
+          }
+        },
+        { "nodeId": "write-summary", "type": "FILE_WRITE", "config": { "baseDir": "/tmp/yukta-examples/security-findings" } },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "trigger", "target": "validate-batch" },
+        { "source": "validate-batch", "target": "split" },
+        { "source": "validate-batch", "target": "bad-batch", "sourcePort": "invalid" },
+        { "source": "bad-batch", "target": "write-summary" },
+        { "source": "split", "target": "triage" },
+        { "source": "triage", "target": "pick" },
+        { "source": "pick", "target": "collect" },
+        { "source": "collect", "target": "summarise" },
+        { "source": "summarise", "target": "write-summary" },
+        { "source": "write-summary", "target": "end" }
+      ]
+    },
+    "triage": {
+      "workflowId": "triage",
+      "description": "One finding: validate, redact secret values, score, engineer decision, outcome",
+      "nodes": [
+        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "validate",
+          "type": "VALIDATE",
+          "config": { "required": ["id", "severity", "snippet"], "types": { "id": "string", "severity": "string", "snippet": "string", "reachable": "boolean", "exposed": "boolean" } }
+        },
+        {
+          "nodeId": "redact",
+          "type": "CONTENT_FILTER",
+          "config": {
+            "mode": "EXCLUDE",
+            "paths": ["matchedSecret", "rawLine", "committedBy", "authorEmail", "blame"]
+          }
+        },
+        {
+          "nodeId": "score",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": {
+              "severityPoints": "(payload.severity == 'critical' ? 100 : payload.severity == 'high' ? 70 : payload.severity == 'medium' ? 40 : 10)",
+              "reachFactor": "(payload.reachable == true ? 10 : 4)",
+              "exposureFactor": "(payload.exposed == true ? 10 : 6)",
+              "score": "(payload.severity == 'critical' ? 100 : payload.severity == 'high' ? 70 : payload.severity == 'medium' ? 40 : 10) * (payload.reachable == true ? 10 : 4) * (payload.exposed == true ? 10 : 6) / 100"
+            }
+          }
+        },
+        {
+          "nodeId": "band",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload.score >= 60": "strong",
+              "payload.score >= 30": "maybe",
+              "payload.score < 30": "weak"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "engineer",
+          "type": "WAIT_FOR_SIGNAL",
+          "config": { "signal": "decision", "timeoutSeconds": 900, "onTimeout": "CONTINUE", "onReject": "FAIL" }
+        },
+        {
+          "nodeId": "decide",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "metadata['signal.decision']",
+            "cases": { "fix": "fix", "accept-risk": "accept", "suppress": "suppress", "timeout": "fix" },
+            "defaultPort": "fix",
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "auto-suppress",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "dropOriginal": false, "mapping": { "reason": "'below the triage threshold, not reachable or exposed enough'" } }
+        },
+        {
+          "nodeId": "stamp-fix",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "id": "payload.id", "score": "payload.score", "decision": "'fix'",
+              "path": "'fixes.txt'",
+              "content": "'FIX ' + payload.id + ' (score ' + payload.score + '): open a ticket for the owning team'"
+            }
+          }
+        },
+        {
+          "nodeId": "stamp-accept",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "id": "payload.id", "score": "payload.score", "decision": "'accept'",
+              "path": "'accepted-risks.txt'",
+              "content": "'ACCEPT ' + payload.id + ' (score ' + payload.score + '): risk accepted, review in 90 days'"
+            }
+          }
+        },
+        {
+          "nodeId": "stamp-suppress",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "id": "payload.id", "score": "payload.score", "decision": "'suppress'",
+              "path": "'suppressions.txt'",
+              "content": "'SUPPRESS ' + payload.id + ' (score ' + payload.score + '): marked as not actionable'"
+            }
+          }
+        },
+        { "nodeId": "write-fix", "type": "FILE_WRITE", "config": { "baseDir": "/tmp/yukta-examples/security-findings", "append": true } },
+        { "nodeId": "write-accept", "type": "FILE_WRITE", "config": { "baseDir": "/tmp/yukta-examples/security-findings", "append": true } },
+        { "nodeId": "write-suppress", "type": "FILE_WRITE", "config": { "baseDir": "/tmp/yukta-examples/security-findings", "append": true } },
+        {
+          "nodeId": "stamp-invalid",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "mapping": { "id": "payload['id'] != null ? payload['id'] : 'unknown'", "score": "0", "decision": "'invalid'" } }
+        },
+        {
+          "nodeId": "result",
+          "type": "MAPPER",
+          "config": { "mode": "PROJECTION", "mapping": { "id": "payload.id", "decision": "payload.decision", "score": "payload.score" } }
+        },
+        { "nodeId": "done", "type": "OUTCOME_TERMINAL", "config": { "outcome": "SUCCESS", "reason": "finding handled" } }
+      ],
+      "edges": [
+        { "source": "trigger", "target": "validate" },
+        { "source": "validate", "target": "redact" },
+        { "source": "validate", "target": "stamp-invalid", "sourcePort": "invalid" },
+        { "source": "redact", "target": "score" },
+        { "source": "score", "target": "band" },
+        { "source": "band", "target": "engineer", "sourcePort": "strong" },
+        { "source": "band", "target": "engineer", "sourcePort": "maybe" },
+        { "source": "band", "target": "auto-suppress", "sourcePort": "weak" },
+        { "source": "auto-suppress", "target": "stamp-suppress" },
+        { "source": "engineer", "target": "decide" },
+        { "source": "decide", "target": "stamp-fix", "sourcePort": "fix" },
+        { "source": "decide", "target": "stamp-accept", "sourcePort": "accept" },
+        { "source": "decide", "target": "stamp-suppress", "sourcePort": "suppress" },
+        { "source": "stamp-fix", "target": "write-fix" },
+        { "source": "stamp-accept", "target": "write-accept" },
+        { "source": "stamp-suppress", "target": "write-suppress" },
+        { "source": "write-fix", "target": "result" },
+        { "source": "write-accept", "target": "result" },
+        { "source": "write-suppress", "target": "result" },
+        { "source": "stamp-invalid", "target": "result" },
+        { "source": "result", "target": "done" }
+      ]
+    }
+  }
+}
