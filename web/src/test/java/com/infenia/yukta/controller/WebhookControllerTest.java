@@ -15,6 +15,7 @@ import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowExecution;
 import com.infenia.yukta.plugin.store.SecretProvider;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowService;
 import java.nio.charset.StandardCharsets;
@@ -95,7 +96,16 @@ class WebhookControllerTest {
 
     verify(workflows)
         .validateAndStartWorkflow(
-            "s1", "wf", Map.of("body", BODY, "headers", Map.of("X-GitHub-Event", "push")), null);
+            "s1",
+            "wf",
+            Map.of(
+                "body",
+                BODY,
+                "headers",
+                Map.of("X-GitHub-Event", "push"),
+                ExecutionLogEvent.INITIATOR_KEY,
+                "webhook"),
+            null);
   }
 
   @Test
@@ -194,7 +204,16 @@ class WebhookControllerTest {
 
     verify(workflows)
         .validateAndStartWorkflow(
-            "s1", "wf", Map.of("body", BODY, "headers", Map.of("X-GitHub-Event", "push")), null);
+            "s1",
+            "wf",
+            Map.of(
+                "body",
+                BODY,
+                "headers",
+                Map.of("X-GitHub-Event", "push"),
+                ExecutionLogEvent.INITIATOR_KEY,
+                "webhook"),
+            null);
   }
 
   @Test
@@ -237,7 +256,10 @@ class WebhookControllerTest {
 
     verify(workflows)
         .validateAndStartWorkflow(
-            eq("s1"), eq("wf"), eq(Map.of("body", "", "headers", Map.of())), isNull());
+            eq("s1"),
+            eq("wf"),
+            eq(Map.of("body", "", "headers", Map.of(), ExecutionLogEvent.INITIATOR_KEY, "webhook")),
+            isNull());
   }
 
   @Test

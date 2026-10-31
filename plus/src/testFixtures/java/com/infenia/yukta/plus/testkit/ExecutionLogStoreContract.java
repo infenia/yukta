@@ -42,7 +42,7 @@ public abstract class ExecutionLogStoreContract {
   }
 
   @Test
-  void aRunStartKeepsWhoStartedIt() {
+  void runStartKeepsWhoStartedIt() {
     final ExecutionLogStore store = create();
     final ExecutionLogEvent started =
         ExecutionLogEvent.started(
