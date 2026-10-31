@@ -322,9 +322,11 @@ export function WorkflowDetailsPage() {
         />
       )}
 
-      <div className="px-6 py-2">
-        <ScopedSupervisors sessionId={sessionId} workflowId={workflowId} />
-      </div>
+      <ScopedSupervisors
+        sessionId={sessionId}
+        workflowId={workflowId}
+        className="mx-6 my-2"
+      />
 
       <PendingApprovals
         sessionId={sessionId}
