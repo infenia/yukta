@@ -263,6 +263,15 @@ describe('WorkflowDetailsPage', () => {
     );
   });
 
+  it('bounds the page to the screen so a large run scrolls inside its panels', async () => {
+    renderPage();
+    const page = await screen.findByTestId('workflow-details-page');
+
+    // jsdom has no layout: assert the bounded-height classes instead of measuring
+    expect(page.className).toMatch(/(^|\s)sm:h-\[calc\(100dvh/);
+    expect(page.className).not.toMatch(/min-h-\[calc/);
+  });
+
   it('keeps the run picker and the progress toggle in its own toolbar', async () => {
     renderPage();
     await screen.findByTestId('workflow-details-page');
