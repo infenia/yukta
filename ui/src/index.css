@@ -42,6 +42,7 @@
 :root {
   --background: oklch(0.99 0.003 262);
   --foreground: oklch(0.2 0.02 262);
+  --overlay: oklch(0.12 0.02 262); /* dialog scrim: dark in both themes */
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.2 0.02 262);
   --popover: oklch(1 0 0);
@@ -104,6 +105,7 @@
 .dark {
   --background: oklch(0.16 0.015 262);
   --foreground: oklch(0.97 0.005 262);
+  --overlay: oklch(0.12 0.02 262);
   --card: oklch(0.2 0.02 262);
   --card-foreground: oklch(0.97 0.005 262);
   --popover: oklch(0.2 0.02 262);
@@ -164,6 +166,7 @@
   /* shadcn names */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-overlay: var(--overlay);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);

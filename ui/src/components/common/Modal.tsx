@@ -23,7 +23,7 @@ export function Modal({
   }, [onClose]);
 
   return (
-    <div className="bg-foreground/40 fixed inset-0 z-60 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div className="bg-overlay/50 fixed inset-0 z-60 flex items-center justify-center p-4 backdrop-blur-sm">
       <div
         role="dialog"
         aria-modal="true"
