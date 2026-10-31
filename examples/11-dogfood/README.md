@@ -41,18 +41,35 @@ The other commands (`yk run issue|epic`, steering, the slash commands) are
 switched off while the loop is rebuilt; their pieces are in `backup/`, and `backup/README.md` says how to bring each back.
 
 ## Pickup session (channel, research preview)
-`yk pickup session` opens an interactive Claude Code session named `yukta-pickup` that spawns the `yukta-pickup` channel
-(`channel/yukta-pickup.py`, stdlib Python). A POST to `127.0.0.1:8790/issue` (header `X-Pickup-Token` from `pickup-token` in the dev state dir;
-`YUKTA_PICKUP_PORT` changes the port) becomes a `<channel source="yukta-pickup" issue=..>` event that starts a turn; Claude ends the issue with
-the `pickup_done` tool, which frees the channel (it also frees itself after 4 h). `GET /status` shows `busy`. A custom channel is not on the
-allowlist, so the session starts with `--dangerously-load-development-channels` and its dialog; `claude -p` ignores that flag, so the session must
-be interactive and stay open. 
-`yk pickup on|off|now|status` drives the schedule: workflow `pickup` (`SCHEDULE_TRIGGER`, every 30 min, `INTERVAL_MS` in `scripts/gen-pickup.py`) runs
-`scripts/pickup.sh tick`. A tick skips (one `PICKUP skipped=<why>` line, exit 0) when no channel answers, the channel is busy, or nothing
-assigned to you is Ready; otherwise it hands over the first issue by Priority (P0 first) that has no open PR naming it and no `issue/<n>`
-branch on the remote. `now` runs one tick at once. The schedule is one execution that lives as long as the server: `busy()` does not count it,
-so it never blocks a swap, and `server_up` starts it again after a swap when it was on (`pickup.exec` in the dev state dir). The dev server runs
-the `session.json` of `origin/main`, so `yk pickup on` finds the workflow only once this is merged. The skill that works an issue is #1605.
+`yk pickup session [--name N]` opens an interactive Claude Code session (default name `yukta-pickup`) that spawns the `yukta-pickup` channel
+(`channel/yukta-pickup.py`, stdlib Python). Open as many as you like, each in its own terminal or worktree. Each channel listens on a free
+`127.0.0.1` port (`YUKTA_PICKUP_PORT` fixes it) and registers itself in `$DEV_HOME/pickup/<name>.json` (name, port, pid), removing the entry
+when the session ends; a second session with a live name becomes `<name>-<pid>`. A POST to its `/issue` (header `X-Pickup-Token` from
+`pickup-token` in the dev state dir) becomes a `<channel source="yukta-pickup" issue=..>` event that starts a turn; Claude ends the issue
+with the `pickup_done` tool, which frees the channel (it also frees itself after 4 h). `GET /status` shows `busy`. A custom channel is not on
+the allowlist, so each session starts with `--dangerously-load-development-channels` and its dialog; `claude -p` ignores that flag, so the
+sessions must be interactive and stay open.
+
+`yk pickup on|off|now [--to N]|status` drives the schedule: workflow `pickup` (`SCHEDULE_TRIGGER`, every 30 min, `INTERVAL_MS` in
+`scripts/gen-pickup.py`) runs `scripts/pickup.sh tick`. A tick reads the registry (an entry whose pid is dead is deleted), asks each session
+for its `/status`, and hands the next issue to the **oldest idle session**: the first assigned, Ready issue by Priority (P0 first) with no open
+PR naming it and no `issue/<n>` branch on the remote. With several idle sessions and several such issues one tick hands one issue to each
+(`PICKUP handed=#<n> to=<name>`, one line per issue). It skips (`PICKUP skipped=<why>`, exit 0) when no session is registered, all are busy
+(`all busy (a,b)`), or nothing is eligible. `now` runs one tick at once; `now --to <name>` (or `YUKTA_PICKUP_ONLY`) hands only to that session.
+`yk pickup status` lists the sessions: name, port, idle or `busy with #n`. The schedule is one execution that lives as long as the server:
+`busy()` does not count it, so it never blocks a swap, and `server_up` starts it again after a swap when it was on (`pickup.exec` in the dev
+state dir). The dev server runs the `session.json` of `origin/main`, so `yk pickup on` finds the workflow only once this is merged. The skill
+that works an issue is `.claude/skills/pickup/SKILL.md`.
+
+**Which session gets the issue.** The oldest idle one, or the one you pin. A session counts as busy only while it holds an issue the channel
+handed over: one busy with your own work is still idle for the channel, and its event waits until its current turn ends (events queue). To
+keep a session out of pickup, do not open it with `yk pickup session`; to stop pickup altogether, `yk pickup off`. A manual `/pickup <n>`
+works in any session and does not touch the channel. Two sessions never take the same issue: the skill moves it to In progress, and the tick
+skips issues with a PR or an `issue/<n>` branch.
+
+**Safety.** The event carries only the number, title and URL; the skill reads the body with `gh` and treats it as untrusted. Only issues
+that are assigned to you and Ready on the project are handed over. There is no permission relay: the session keeps its own permission
+mode (`auto` recommended) and a prompt waits at the terminal. Never start it with `--dangerously-skip-permissions`.
 
 ## Prerequisites
 `git`, `jq`, `curl`, `flock`, `python3`, Java 25, Go (the CLI is built with the server). Optional: `opengrep`, `trivy`
