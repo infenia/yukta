@@ -110,3 +110,80 @@ test.describe('New session', () => {
     expect(Object.keys(saved.workflows ?? {})).toEqual(['hello']);
   });
 });
+
+test.describe('New session: choosing a start', () => {
+  const shot = { maxDiffPixels: 2000, threshold: 0.2 };
+
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/plugins', (route) =>
+      route.fulfill(
+        envelope('/plugins', [
+          { type: 'CONSTANT_SOURCE', category: 'TRIGGER' },
+          { type: 'CONSOLE_TERMINAL', category: 'TERMINAL' },
+        ])
+      )
+    );
+    await page.route('**/api/templates', (route) =>
+      route.fulfill(envelope('/templates', [template]))
+    );
+    await page.route('**/api/templates/01-hello-world', (route) =>
+      route.fulfill(
+        envelope('/templates/01-hello-world', {
+          ...template,
+          readme:
+            '# 01 — Hello world\n\n**Use case:** the smallest workflow, a `trigger` and a terminal.\n\n- one node\n- another node\n',
+          session: {
+            sessionId: 'example-01',
+            name: 'Hello world',
+            description: 'Smallest possible workflow',
+            initiator: 'examples',
+            projectPath: '/tmp',
+            tags: {},
+            workflows: {
+              hello: {
+                workflowId: 'hello',
+                description: 'Echo',
+                nodes: [
+                  { nodeId: 'start', type: 'CONSTANT_SOURCE', config: {} },
+                  { nodeId: 'end', type: 'CONSOLE_TERMINAL', config: {} },
+                ],
+                edges: [{ source: 'start', target: 'end', sourcePort: null }],
+              },
+            },
+          },
+        })
+      )
+    );
+  });
+
+  test('previews a template with its README and a canvas', async ({ page }) => {
+    await page.goto('/sessions/new');
+    await page.getByRole('button', { name: 'Preview' }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Hello world' });
+    await expect(
+      dialog.getByRole('heading', { name: '01 — Hello world' })
+    ).toBeVisible();
+    await expect(dialog.getByTestId('workflow-node-start')).toBeVisible();
+    await expect(dialog.getByTestId('workflow-node-end')).toBeVisible();
+  });
+
+  for (const [name, scheme, width] of [
+    ['light', 'light', 1280],
+    ['dark', 'dark', 1280],
+    ['phone', 'light', 390],
+  ] as const) {
+    test(`should match screenshot - gallery ${name}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto('/sessions/new');
+      await expect(
+        page.getByRole('button', { name: 'Use Hello world' })
+      ).toBeVisible();
+      await expect(page).toHaveScreenshot(
+        `session-new-gallery-${name}.png`,
+        shot
+      );
+    });
+  }
+});

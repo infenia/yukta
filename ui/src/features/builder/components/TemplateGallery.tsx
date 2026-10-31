@@ -6,8 +6,16 @@ import { Modal } from '@/components/common/Modal';
 import { InlineError } from '@/components/common/InlineError';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Markdown } from '@/components/common/Markdown';
+import { usePlugins } from '@/features/plugins/hooks/usePlugins';
+import { WorkflowCanvas } from '@/features/workflow/components/WorkflowCanvas';
+import {
+  categoryAccent,
+  categoryTint,
+} from '@/features/workflow/lib/categoryAccent';
 import { getTemplate, listTemplates } from '../api';
+import { toPreviewGraph } from './WorkflowEditorPage.helpers';
 import type { TemplateDetail, TemplateSummary } from '../types';
 
 /** Step 1 of a new session: a blank one, or one of the bundled examples. */
@@ -21,6 +29,13 @@ export function TemplateGallery({
     queryKey: ['templates'],
     queryFn: listTemplates,
   });
+  const plugins = usePlugins();
+  // the plugin category by type colours the chips and the nodes of the preview
+  const categories = useMemo(
+    () =>
+      Object.fromEntries((plugins.data ?? []).map((p) => [p.type, p.category])),
+    [plugins.data]
+  );
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<TemplateDetail | null>(null);
 
@@ -49,7 +64,11 @@ export function TemplateGallery({
         {t.pluginTypes.map((type) => (
           <li
             key={type}
-            className="bg-muted text-on-surface-variant rounded px-2 py-0.5 text-xs"
+            className="rounded px-2 py-0.5 text-xs"
+            style={{
+              background: categoryTint(categories[type] ?? null),
+              color: categoryAccent(categories[type] ?? null),
+            }}
           >
             {type}
           </li>
@@ -91,11 +110,9 @@ export function TemplateGallery({
         {templates.data?.map(card)}
       </ul>
       {preview && (
-        <Modal title={preview.title} onClose={() => setPreview(null)}>
-          {/* plain text: the README is never parsed as HTML */}
-          <pre className="text-body-sm max-h-96 overflow-auto whitespace-pre-wrap">
-            {preview.readme}
-          </pre>
+        <Modal wide title={preview.title} onClose={() => setPreview(null)}>
+          <TemplateCanvas template={preview} categories={categories} />
+          <Markdown source={preview.readme} />
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setPreview(null)}>
               Close
@@ -112,5 +129,55 @@ export function TemplateGallery({
         </Modal>
       )}
     </>
+  );
+}
+
+const NO_TASKS = {};
+
+/** The template's workflow on the read-only canvas; a switch when it has several. */
+function TemplateCanvas({
+  template,
+  categories,
+}: {
+  template: TemplateDetail;
+  categories: Record<string, string>;
+}) {
+  const workflows = Object.values(template.session.workflows);
+  const [chosen, setChosen] = useState(workflows[0]?.workflowId ?? '');
+  const workflow = workflows.find((w) => w.workflowId === chosen);
+  const graph = useMemo(
+    () => (workflow ? toPreviewGraph(workflow, categories, {}) : null),
+    [workflow, categories]
+  );
+  if (!graph) return null;
+  return (
+    <div className="mb-4 flex flex-col gap-2">
+      {workflows.length > 1 && (
+        <div role="tablist" aria-label="Workflows" className="flex gap-1">
+          {workflows.map((w) => (
+            <button
+              key={w.workflowId}
+              type="button"
+              role="tab"
+              aria-selected={w.workflowId === chosen}
+              onClick={() => setChosen(w.workflowId)}
+              className={`text-label-md rounded-lg px-3 py-1 ${
+                w.workflowId === chosen
+                  ? 'bg-muted text-on-surface'
+                  : 'text-on-surface-variant hover:bg-muted'
+              }`}
+            >
+              {w.workflowId}
+            </button>
+          ))}
+        </div>
+      )}
+      <div
+        data-testid="template-canvas"
+        className="border-border h-64 overflow-hidden rounded-xl border"
+      >
+        <WorkflowCanvas key={chosen} graph={graph} tasksByNode={NO_TASKS} />
+      </div>
+    </div>
   );
 }

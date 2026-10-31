@@ -8,10 +8,13 @@ export function Modal({
   title,
   onClose,
   children,
+  wide = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  /** For content that needs room, such as a canvas. */
+  wide?: boolean;
 }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
@@ -25,7 +28,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="border-border bg-card shadow-raised w-full max-w-lg rounded-2xl border p-6"
+        className={`border-border bg-card shadow-raised max-h-[90vh] w-full overflow-auto rounded-2xl border p-6 ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
       >
         <h2 className="text-headline-md text-on-surface mb-4">{title}</h2>
         {children}
