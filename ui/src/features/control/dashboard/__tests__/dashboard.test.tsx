@@ -16,6 +16,7 @@ import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
+import { setMe } from '@/lib/identity';
 import { installMockEventSource } from '@/test/mocks/MockEventSource';
 import { DashboardView } from '../DashboardView';
 
@@ -309,9 +310,75 @@ describe('the Mission Control dashboard', () => {
     await user.click(
       screen.getByRole('button', { name: 'stop wf-a run run-slow' })
     );
+    // stopping asks first
+    expect(actions).toEqual(['pause run-slow']);
+    await user.click(screen.getByRole('button', { name: 'Stop run' }));
     await waitFor(() =>
       expect(actions).toEqual(['pause run-slow', 'stop run-slow'])
     );
+  });
+
+  it('shows only the live runs of the chosen scope', async () => {
+    const run = (
+      executionId: string,
+      sessionId: string,
+      workflowId: string
+    ) => ({
+      executionId,
+      sessionId,
+      workflowId,
+      startedAt: now,
+      elapsedMs: 1000,
+      nodesDone: 0,
+      nodesSeen: 1,
+      p95Ms: null,
+    });
+    liveRuns = [run('r1', 's1', 'wf-a'), run('r2', 's2', 'wf-b')];
+    window.history.pushState({}, '', '/?scope=session:s1');
+    renderWithProviders(<DashboardView />);
+
+    expect(await screen.findByText('wf-a')).toBeInTheDocument();
+    expect(screen.queryByText('wf-b')).toBeNull();
+  });
+
+  it('shows the limit knob, the drain switch and the run buttons disabled to a viewer', async () => {
+    setMe({
+      authenticated: true,
+      keyName: 'v',
+      role: 'VIEWER',
+      sessions: null,
+      authEnabled: true,
+      permissions: {
+        startRuns: false,
+        controlRuns: false,
+        editSessions: false,
+        deleteSessions: false,
+        changeLimits: false,
+        sendCommands: false,
+      },
+    });
+    liveRuns = [
+      {
+        executionId: 'r1',
+        sessionId: 's1',
+        workflowId: 'wf-a',
+        startedAt: now,
+        elapsedMs: 1000,
+        nodesDone: 0,
+        nodesSeen: 1,
+        p95Ms: null,
+      },
+    ];
+    renderWithProviders(<DashboardView />);
+
+    expect(await screen.findByRole('switch', { name: /Drain/ })).toBeDisabled();
+    expect(
+      screen.getByRole('slider', { name: /Concurrent run limit/ })
+    ).toHaveAttribute('aria-disabled', 'true');
+    expect(
+      await screen.findByRole('button', { name: 'stop wf-a run r1' })
+    ).toBeDisabled();
+    setMe(null);
   });
 
   it('turns the limit with the keyboard, sends it, and puts it back when refused', async () => {
@@ -344,6 +411,9 @@ describe('the Mission Control dashboard', () => {
     expect(toggle).not.toBeChecked();
 
     await user.click(toggle);
+    // draining refuses every new start, so it asks first
+    expect(toggle).not.toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Drain' }));
     await waitFor(() => expect(toggle).toBeChecked());
 
     drainStatus = 403;
