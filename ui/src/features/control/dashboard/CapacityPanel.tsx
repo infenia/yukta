@@ -8,7 +8,10 @@ import { Knob } from '@/components/dashboard/Knob';
 import { Panel } from '@/components/dashboard/Tile';
 import { InlineError } from '@/components/common/InlineError';
 import { useMetricSnapshot } from '@/features/metrics/hooks';
+import { Modal } from '@/components/common/Modal';
+import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/apiClient';
+import { REQUIRED_ROLE, useMe } from '@/lib/identity';
 import { getDrain, setDrain, type DrainState } from '../api/drain';
 import {
   getLimits,
@@ -44,6 +47,11 @@ export function CapacityPanel({ live }: { live: boolean }) {
   });
   const snapshot = useMetricSnapshot().data;
   const [turning, setTurning] = useState<number | null>(null);
+  const [confirmDrain, setConfirmDrain] = useState(false);
+  // Shown disabled, with the role it needs, to a key that may not change the limits
+  const me = useMe();
+  const mayChange = !me || me.permissions.changeLimits;
+  const needs = mayChange ? undefined : `Needs ${REQUIRED_ROLE.changeLimits}`;
 
   // Both writes show the new value at once and put the old one back when the server refuses.
   const changeLimit = useMutation({
@@ -124,6 +132,8 @@ export function CapacityPanel({ live }: { live: boolean }) {
                 max={Math.max(KNOB_MAX, max)}
                 valueText={limitText(knobValue)}
                 onChange={setTurning}
+                disabled={!mayChange}
+                title={needs}
                 onCommit={(value) => {
                   setTurning(null);
                   if (value !== max) changeLimit.mutate(value);
@@ -138,8 +148,16 @@ export function CapacityPanel({ live }: { live: boolean }) {
                 type="checkbox"
                 role="switch"
                 checked={drain.data?.draining ?? false}
-                disabled={drain.isPending || toggleDrain.isPending}
-                onChange={(e) => toggleDrain.mutate(e.target.checked)}
+                disabled={
+                  !mayChange || drain.isPending || toggleDrain.isPending
+                }
+                title={needs}
+                // Ending a drain is safe; starting one refuses every new start, so it asks first
+                onChange={(e) =>
+                  e.target.checked
+                    ? setConfirmDrain(true)
+                    : toggleDrain.mutate(false)
+                }
               />
               Drain: refuse new starts
               {drain.data?.draining && (
@@ -173,6 +191,27 @@ export function CapacityPanel({ live }: { live: boolean }) {
           </div>
         )}
       </PanelState>
+      {confirmDrain && (
+        <Modal title="Drain the server?" onClose={() => setConfirmDrain(false)}>
+          <p className="text-body-md text-on-surface-variant mb-4">
+            New starts are refused until you end the drain. Runs already going
+            finish.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setConfirmDrain(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                toggleDrain.mutate(true);
+                setConfirmDrain(false);
+              }}
+            >
+              Drain
+            </Button>
+          </div>
+        </Modal>
+      )}
     </Panel>
   );
 }

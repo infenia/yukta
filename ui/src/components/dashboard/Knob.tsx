@@ -19,6 +19,8 @@ export function Knob({
   valueText,
   onChange,
   onCommit,
+  disabled = false,
+  title,
 }: {
   value: number;
   min: number;
@@ -28,6 +30,9 @@ export function Knob({
   valueText?: string;
   onChange: (value: number) => void;
   onCommit?: (value: number) => void;
+  /** Shown but not turnable, e.g. for a key whose role may not change what it sets. */
+  disabled?: boolean;
+  title?: string;
 }) {
   const drag = useRef<{ y: number; start: number } | null>(null);
   const snap = (v: number) =>
@@ -46,7 +51,7 @@ export function Knob({
       Home: min,
       End: max,
     };
-    if (e.key in next) {
+    if (!disabled && e.key in next) {
       e.preventDefault();
       const v = snap(next[e.key]);
       onChange(v);
@@ -54,7 +59,7 @@ export function Knob({
     }
   };
   const onPointerMove = (e: PointerEvent) => {
-    if (drag.current) {
+    if (!disabled && drag.current) {
       const { y, start } = drag.current;
       onChange(snap(start + ((y - e.clientY) / DRAG_RANGE_PX) * (max - min)));
     }
@@ -63,7 +68,9 @@ export function Knob({
   return (
     <div
       role="slider"
-      tabIndex={0}
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled || undefined}
+      title={title}
       aria-label={label}
       aria-valuemin={min}
       aria-valuemax={max}
@@ -72,6 +79,7 @@ export function Knob({
       aria-orientation="vertical"
       onKeyDown={onKeyDown}
       onPointerDown={(e) => {
+        if (disabled) return;
         e.currentTarget.setPointerCapture?.(e.pointerId);
         drag.current = { y: e.clientY, start: value };
       }}
@@ -82,7 +90,7 @@ export function Knob({
           onCommit?.(value);
         }
       }}
-      className="relative size-20 cursor-ns-resize touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className={`focus-visible:ring-primary/40 relative size-20 touch-none rounded-full outline-none focus-visible:ring-2 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-ns-resize'}`}
     >
       <svg viewBox="0 0 40 40" aria-hidden="true" className="size-full">
         <circle
