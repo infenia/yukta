@@ -1,0 +1,1 @@
+{ "returnId": "RET-2002", "orderId": "ORD-5502", "customerName": "Leo Park", "customerEmail": "leo@example.com", "cardLast4": "1111", "amount": 650, "reason": "not_received", "ordersLast365d": 8, "returnsLast365d": 6, "accountAgeDays": 20 }

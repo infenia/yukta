@@ -1,0 +1,6 @@
+{
+  "ticketId": "T-103",
+  "customer": "di@example.com",
+  "subject": "Charged twice",
+  "body": "My card was charged twice. I want a refund."
+}
