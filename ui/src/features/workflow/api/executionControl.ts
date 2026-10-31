@@ -45,11 +45,15 @@ export function stopWorkflow(
   );
 }
 
+/** `mode` only means something for `stop`: DRAIN (the server's default), CANCEL or KILL. */
 export function runAction(
   executionId: string,
-  action: RunAction
+  action: RunAction,
+  mode?: StopMode
 ): Promise<StartResponse> {
-  return post<StartResponse>(api`/api/executions/${executionId}/${action}`);
+  return post<StartResponse>(
+    `${api`/api/executions/${executionId}/${action}`}${mode ? `?mode=${mode}` : ''}`
+  );
 }
 
 /** Changes the priority of a QUEUED run; higher runs first. */

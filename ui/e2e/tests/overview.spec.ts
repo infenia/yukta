@@ -95,7 +95,7 @@ test.describe('Overview', () => {
   test('the session list is at /sessions, and old / queries go there', async ({
     page,
   }) => {
-    await page.route('**/api/sessions/summaries', (route) =>
+    await page.route('**/api/sessions/summaries*', (route) =>
       route.fulfill(envelope('/summaries', []))
     );
     await page.goto('/?q=abc');

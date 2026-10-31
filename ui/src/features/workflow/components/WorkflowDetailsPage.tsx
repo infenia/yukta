@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
 import {
   controlErrorMessage,
@@ -66,6 +66,7 @@ export function WorkflowDetailsPage() {
     () => executionsQuery.data ?? [],
     [executionsQuery.data]
   );
+  const navigate = useNavigate();
   const { selectedExecutionId, selectExecution } =
     useExecutionSelection(executions);
   const { progress, isStreaming } = useExecutionProgress(
@@ -203,7 +204,12 @@ export function WorkflowDetailsPage() {
               to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
               className={buttonVariants({ variant: 'outline' })}
             >
-              <span className="material-symbols-outlined text-base">edit</span>
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined text-base"
+              >
+                edit
+              </span>
               Edit
             </Link>
             <button
@@ -214,7 +220,10 @@ export function WorkflowDetailsPage() {
               title="Show or hide the progress panel"
               className={buttonVariants({ variant: 'outline', size: 'icon' })}
             >
-              <span className="material-symbols-outlined text-base">
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined text-base"
+              >
                 right_panel_open
               </span>
             </button>
@@ -242,6 +251,17 @@ export function WorkflowDetailsPage() {
                 >
                   {versionsOpen ? 'Hide versions' : 'Versions'}
                 </DropdownMenuItem>
+                {selectedExecutionId && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      void navigate(
+                        `/control?execution=${encodeURIComponent(selectedExecutionId)}`
+                      )
+                    }
+                  >
+                    Control commands of this run
+                  </DropdownMenuItem>
+                )}
                 <RequirePermission perm="deleteSessions">
                   <DropdownMenuItem onClick={() => setDeleting(true)}>
                     Delete workflow…
@@ -269,7 +289,11 @@ export function WorkflowDetailsPage() {
         />
       )}
 
-      <PendingApprovals sessionId={sessionId} workflowId={workflowId} />
+      <PendingApprovals
+        sessionId={sessionId}
+        workflowId={workflowId}
+        live={live}
+      />
 
       {nodeError && (
         <div className="px-6 py-2">

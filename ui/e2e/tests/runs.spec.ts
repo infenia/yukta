@@ -26,7 +26,7 @@ const run = (n: number, status: string) => ({
 
 test.describe('Runs page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/sessions/summaries', (route) =>
+    await page.route('**/api/sessions/summaries*', (route) =>
       route.fulfill(envelope('/summaries', []))
     );
     await page.route('**/api/executions?*', (route) => {
@@ -45,7 +45,11 @@ test.describe('Runs page', () => {
     });
   });
 
-  test('filters by status, loads more and opens a run', async ({ page }) => {
+  test('filters by status, loads more and opens a run', async ({
+    page,
+    mockWorkflowApi,
+  }) => {
+    await mockWorkflowApi(page);
     await page.goto('/runs');
     await expect(page.getByRole('link', { name: '0000abcd' })).toBeVisible();
 
@@ -63,7 +67,9 @@ test.describe('Runs page', () => {
     await expect(page).toHaveURL(/\/workflow\/wf-982-xk-11\?exec=0000abcd-run/);
   });
 
-  test('old /history links land on /runs with their query', async ({ page }) => {
+  test('old /history links land on /runs with their query', async ({
+    page,
+  }) => {
     await page.goto('/history?status=SUCCESS');
     await expect(page).toHaveURL(/\/runs\?status=SUCCESS/);
   });

@@ -32,6 +32,8 @@ const ok = (data: unknown) =>
     path: '/',
   });
 
+let runs: { executionId: string; status: string }[] = [];
+
 const server = setupServer(
   http.post('/api/workflow/start', () =>
     startStatus === 200
@@ -60,14 +62,16 @@ const server = setupServer(
           { status: recoverStatus }
         );
   }),
-  http.post('/api/executions/:id/:action', ({ params }) => {
-    calls.push(`${params.action} ${params.id}`);
+  http.get('/api/sessions/:sid/workflows/:wid/executions', () => ok(runs)),
+  http.post('/api/executions/:id/:action', ({ params, request }) => {
+    calls.push(`${params.action} ${params.id}${new URL(request.url).search}`);
     return ok({ executionId: 'restarted' });
   })
 );
 
 beforeAll(() => server.listen());
 afterEach(() => {
+  runs = [];
   calls.length = 0;
   startStatus = 200;
   priorityStatus = 200;
@@ -289,6 +293,74 @@ describe('RunControls', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Confirm' }));
     await waitFor(() => expect(calls).toEqual(['stop-all ?mode=KILL']));
+  });
+
+  it('stops only this run with the chosen mode', async () => {
+    const user = userEvent.setup();
+    setup('RUNNING');
+    for (const [item, expected] of [
+      ['Cancel this run', 'stop e1?mode=CANCEL'],
+      ['Kill this run', 'stop e1?mode=KILL'],
+    ]) {
+      await user.click(screen.getByRole('button', { name: /stop options/i }));
+      await user.click(await screen.findByRole('menuitem', { name: item }));
+      expect(screen.getByRole('dialog')).toHaveTextContent(
+        'stops only the run on screen'
+      );
+      await user.click(screen.getByRole('button', { name: 'Confirm' }));
+      await waitFor(() => expect(calls).toContain(expected));
+    }
+  });
+
+  it('names how many runs stopping all of them would hit', async () => {
+    runs = [
+      { executionId: 'a', status: 'RUNNING' },
+      { executionId: 'b', status: 'QUEUED' },
+      { executionId: 'c', status: 'SUCCESS' },
+    ];
+    const user = userEvent.setup();
+    setup('RUNNING');
+    await user.click(screen.getByRole('button', { name: /stop options/i }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Drain all runs' })
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('dialog')).toHaveTextContent(
+        'stops 2 active runs of this workflow'
+      )
+    );
+  });
+
+  it('says one run in the singular', async () => {
+    runs = [{ executionId: 'a', status: 'RUNNING' }];
+    const user = userEvent.setup();
+    setup('RUNNING');
+    await user.click(screen.getByRole('button', { name: /stop options/i }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Kill all runs' })
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('dialog')).toHaveTextContent(
+        'stops 1 active run of this workflow'
+      )
+    );
+  });
+
+  it('says every active run when the list could not be read', async () => {
+    server.use(
+      http.get('/api/sessions/:sid/workflows/:wid/executions', () =>
+        HttpResponse.json({ message: 'x' }, { status: 500 })
+      )
+    );
+    const user = userEvent.setup();
+    setup('RUNNING');
+    await user.click(screen.getByRole('button', { name: /stop options/i }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Cancel all runs' })
+    );
+    expect(await screen.findByRole('dialog')).toHaveTextContent(
+      'stops every active run of this workflow'
+    );
   });
 
   it('starts a run with a parsed payload and closes the dialog', async () => {

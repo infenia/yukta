@@ -8,26 +8,35 @@ import { ApprovalRow } from './ApprovalRow';
 interface Props {
   sessionId: string;
   workflowId: string;
+  /** The run on screen is going: only then can a step start to wait, so only then poll. */
+  live?: boolean;
 }
 
 /** Steps of this workflow that wait for a person to approve or reject. */
-export function PendingApprovals({ sessionId, workflowId }: Props) {
+export function PendingApprovals({
+  sessionId,
+  workflowId,
+  live = true,
+}: Props) {
   const key = ['approvals', sessionId];
   const approvals = useQuery({
     queryKey: key,
     queryFn: () => getPendingApprovals(sessionId),
-    refetchInterval: 5000,
+    refetchInterval: live ? 5000 : false,
   });
+
   const mine = (approvals.data ?? []).filter(
     (approval) => approval.workflowId === workflowId
   );
+  // The live region stays in the page so that the strip is announced when it appears
   if (mine.length === 0) {
-    return null;
+    return <div data-testid="approvals-live" aria-live="polite" />;
   }
 
   return (
     <section
       aria-label="Pending approvals"
+      aria-live="polite"
       className="border-outline-variant bg-surface-container-low flex flex-col gap-2 border-b px-6 py-3"
     >
       {mine.map((approval) => (
