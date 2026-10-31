@@ -17,7 +17,7 @@ test.describe('Deleting', () => {
       deleted.push(route.request().url());
       return route.fulfill({ status: 204 });
     });
-    await page.goto('/');
+    await page.goto('/sessions');
 
     await page.getByRole('button', { name: 'Session actions' }).first().click();
     await page.getByRole('menuitem', { name: 'Delete session…' }).click();
@@ -31,7 +31,7 @@ test.describe('Deleting', () => {
     await dialog.getByRole('button', { name: 'Done' }).click();
 
     expect(deleted).toHaveLength(1);
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/sessions$/);
   });
 
   test('deletes a workflow from its page, naming the runs that block it first', async ({

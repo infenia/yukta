@@ -12,7 +12,7 @@ import {
 
 test.describe('Session List Page - Mocked API', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/sessions');
     await waitForLoadingComplete(page);
   });
 
@@ -203,7 +203,7 @@ test.describe('Session List Page - Mocked API', () => {
         });
       });
 
-      const navigation = freshPage.goto('/', { waitUntil: 'commit' });
+      const navigation = freshPage.goto('/sessions', { waitUntil: 'commit' });
       await expect(freshPage.getByText('Loading sessions...')).toBeVisible();
       await navigation;
       await waitForLoadingComplete(freshPage);
@@ -290,7 +290,7 @@ test.describe('Session List Page - Export', () => {
         }),
       })
     );
-    await page.goto('/');
+    await page.goto('/sessions');
     await expect(page.getByText('Build Pipeline')).toBeVisible();
 
     await page.getByRole('button', { name: 'Session actions' }).first().click();
@@ -309,7 +309,7 @@ test.describe('Session List Page - Tag and Initiator filters', () => {
   test('filters by tag and initiator and keeps the choice in the URL', async ({
     page,
   }) => {
-    await page.goto('/');
+    await page.goto('/sessions');
     await expect(page.getByText('Build Pipeline')).toBeVisible();
 
     await page.getByRole('button', { name: /tag filter/i }).click();

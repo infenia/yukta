@@ -10,7 +10,7 @@ import {
   afterEach,
   beforeEach,
 } from 'vitest';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -49,6 +49,8 @@ const run = (status: string, executionId: string) => ({
 });
 
 const decisions: string[] = [];
+const reasons: (string | null)[] = [];
+let decisionStatus = 500;
 let approvals: unknown[] = [approval];
 let aborted: unknown[] = [run('ABORTED', 'ab-1')];
 let failures: unknown[] = [run('FAILURE', 'f-1')];
@@ -80,11 +82,14 @@ const server = setupServer(
     ok({ edition: 'PLUS', license: 'x', features: [], source: null })
   ),
   http.post('/api/executions/:id/nodes/:node/signal', ({ request }) => {
-    decisions.push(new URL(request.url).searchParams.get('decision') ?? '');
+    const params = new URL(request.url).searchParams;
+    decisions.push(params.get('decision') ?? '');
+    reasons.push(params.get('data'));
     return decisionFails
-      ? HttpResponse.json({ message: 'refused' }, { status: 409 })
+      ? HttpResponse.json({ message: 'refused' }, { status: decisionStatus })
       : ok(null);
-  })
+  }),
+  http.post('/api/executions/:id/recover', () => ok({ executionId: 'new-run' }))
 );
 
 beforeAll(() => server.listen());
@@ -95,6 +100,9 @@ afterEach(() => {
   aborted = [run('ABORTED', 'ab-1')];
   failures = [run('FAILURE', 'f-1')];
   decisionFails = false;
+  decisionStatus = 500;
+  reasons.length = 0;
+  window.history.pushState({}, '', '/');
 });
 afterAll(() => server.close());
 
@@ -119,12 +127,44 @@ describe('OverviewPage', () => {
     renderWithProviders(<OverviewPage />);
     await user.click(await screen.findByRole('button', { name: 'Approve' }));
     await waitFor(() => expect(decisions).toEqual(['approve']));
-    await user.click(await screen.findByRole('button', { name: 'Reject' }));
-    await waitFor(() => expect(decisions).toEqual(['approve', 'reject']));
-    expect(screen.getByText('open it to recover')).toBeInTheDocument();
     expect(
       await screen.findAllByRole('link', { name: 's1/deploy' })
     ).toHaveLength(3);
+  });
+
+  it('rejects only after a confirm, with the reason, and can be cancelled', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<OverviewPage />);
+    await user.click(await screen.findByRole('button', { name: 'Reject' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(decisions).toEqual([]);
+    await user.click(screen.getByRole('button', { name: 'Reject' }));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Reject' }));
+    await user.type(screen.getByLabelText('Reason (optional)'), 'too risky');
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Reject' }));
+    await waitFor(() => expect(decisions).toEqual(['reject']));
+    expect(reasons).toEqual(['too risky']);
+  });
+
+  it('recovers an aborted run and opens the new one', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<OverviewPage />);
+    await user.click(await screen.findByRole('button', { name: /Recover/ }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Recover' }));
+    await waitFor(() => expect(window.location.search).toBe('?exec=new-run'));
+  });
+
+  it('says a repeated decision was already answered', async () => {
+    decisionFails = true;
+    decisionStatus = 409;
+    const user = userEvent.setup();
+    renderWithProviders(<OverviewPage />);
+    await user.click(await screen.findByRole('button', { name: 'Approve' }));
+    expect(await screen.findByText('Already answered.')).toBeInTheDocument();
   });
 
   it('shows why a decision was refused', async () => {
