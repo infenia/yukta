@@ -13,9 +13,9 @@ Yukta includes a Model Context Protocol (MCP) server. An MCP client such as Clau
 
 Yukta works with AI agents in both directions: workflows can call out to agents and tools (see [AI and agents](/building/ai-and-agents)), and agents can drive Yukta through this MCP server. Use MCP when an agent drives Yukta. A person or a script is better served by the [REST API](/api/overview) or the [command-line client](/interfaces/cli), which cover the same operations plus a few more.
 
-<Warning>
-  The MCP tools fail on the native `0.1.0-alpha.2` server because of a build problem ([#773](https://github.com/infenia/yukta/issues/773)). The published Docker image runs the same native server, so it is affected too. The tools work when you run the server from source (`./gradlew bootRun`). Tool names, arguments and result fields may also change before v0.1.0.
-</Warning>
+<Note>
+  Tool names, arguments and result fields may change before v0.1.0.
+</Note>
 
 ## Endpoint and transport
 

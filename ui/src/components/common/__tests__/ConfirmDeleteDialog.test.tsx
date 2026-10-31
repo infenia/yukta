@@ -8,7 +8,8 @@ import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createTestQueryClient } from '@/test/utils/testUtils';
 import { ApiError } from '@/lib/apiClient';
-import { ConfirmDeleteDialog, activeRunIds } from '../ConfirmDeleteDialog';
+import { ConfirmDeleteDialog } from '../ConfirmDeleteDialog';
+import { activeRunIds } from '../ConfirmDeleteDialog.helpers';
 
 const BLOCKED =
   '2 run(s) are still active: e1, e2. Stop them first, or delete with force=true to cancel them.';
@@ -47,7 +48,9 @@ describe('ConfirmDeleteDialog', () => {
     const remove = vi.fn().mockResolvedValue(undefined);
     const { user, onDone } = setup(remove);
 
-    expect(screen.getByText(/removes the session/)).toHaveTextContent('It stays: the run history');
+    expect(screen.getByText(/removes the session/)).toHaveTextContent(
+      'It stays: the run history'
+    );
     const button = screen.getByRole('button', { name: 'Delete' });
     expect(button).toBeDisabled();
     await user.type(screen.getByLabelText('Type s1 to confirm'), 's');
@@ -70,27 +73,40 @@ describe('ConfirmDeleteDialog', () => {
     await user.type(screen.getByLabelText('Type s1 to confirm'), 's1');
     await user.click(screen.getByRole('button', { name: 'Delete' }));
 
-    expect(await screen.findByText('Runs are still active')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'e1' })).toHaveAttribute('href', '/runs?text=e1');
+    expect(
+      await screen.findByText('Runs are still active')
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'e1' })).toHaveAttribute(
+      'href',
+      '/runs?text=e1'
+    );
     expect(screen.getByRole('link', { name: 'e2' })).toBeInTheDocument();
     expect(remove).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole('button', { name: 'Stop runs and delete' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Stop runs and delete' })
+    );
     expect(remove).toHaveBeenCalledTimes(1);
-    await user.click(screen.getByRole('button', { name: 'Yes, stop runs and delete' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Yes, stop runs and delete' })
+    );
     expect(remove).toHaveBeenLastCalledWith(true);
     expect(await screen.findByText('Deleted s1.')).toBeInTheDocument();
   });
 
   it('shows the whole message when a 409 names no runs, and keeps the stop button gated on the id', async () => {
-    const remove = vi.fn().mockRejectedValue(new ApiError(409, 'Another conflict'));
+    const remove = vi
+      .fn()
+      .mockRejectedValue(new ApiError(409, 'Another conflict'));
     const { user } = setup(remove);
     await user.type(screen.getByLabelText('Type s1 to confirm'), 's1');
     await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     expect(await screen.findByText(/Another conflict/)).toBeInTheDocument();
     await user.clear(screen.getByLabelText('Type s1 to confirm'));
-    expect(screen.getByRole('button', { name: 'Stop runs and delete' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Stop runs and delete' })
+    ).toBeDisabled();
   });
 
   it('asks for an ADMIN key on a 403, shows other errors, and cancels', async () => {
@@ -101,7 +117,9 @@ describe('ConfirmDeleteDialog', () => {
     const { user, onClose } = setup(remove);
     await user.type(screen.getByLabelText('Type s1 to confirm'), 's1');
     await user.click(screen.getByRole('button', { name: 'Delete' }));
-    expect(await screen.findByText('Deleting needs an ADMIN key.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Deleting needs an ADMIN key.')
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Delete' }));
     expect(await screen.findByText('network down')).toBeInTheDocument();

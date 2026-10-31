@@ -48,8 +48,8 @@ describe('AppFooter', () => {
 
   it('should have correct container spacing', () => {
     const { container } = render(<AppFooter />);
-    const innerDiv = container.querySelector('[class*="px-spacing"]');
-    expect(innerDiv).toHaveClass('px-spacing-md', 'py-spacing-md');
+    const innerDiv = container.querySelector('[class*="p-spacing"]');
+    expect(innerDiv).toHaveClass('p-spacing-md');
   });
 
   it('should have text-center alignment', () => {

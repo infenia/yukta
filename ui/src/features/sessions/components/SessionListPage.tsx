@@ -25,11 +25,11 @@ import { StateMessage } from '@/components/common/StateMessage';
 import { useSessionSummaries } from '../hooks/useSessionSummaries';
 import { columns, type SessionRow } from './columns';
 import { SessionsHeader } from './SessionsHeader';
+import { SessionsFilterBar } from './SessionsFilterBar';
 import {
   filterSessions,
-  SessionsFilterBar,
   type SessionFilters,
-} from './SessionsFilterBar';
+} from './SessionsFilterBar.helpers';
 import { SessionsPaginationFooter } from './SessionsPaginationFooter';
 
 export function SessionListPage() {

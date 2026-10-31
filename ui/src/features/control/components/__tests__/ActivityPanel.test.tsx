@@ -23,7 +23,7 @@ import {
   installMockEventSource,
 } from '@/test/mocks/MockEventSource';
 import { ControlPage } from '../ControlPage';
-import { FALLBACK_POLL_MS, FLUSH_MS } from '../../context/ControlEvents';
+import { FALLBACK_POLL_MS, FLUSH_MS } from '../../context/ControlEventsContext';
 import {
   MAX_EVENTS,
   appendBounded,

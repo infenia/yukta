@@ -13,7 +13,6 @@ import { usePlugins } from '@/features/plugins/hooks/usePlugins';
 import { WorkflowCanvas } from '@/features/workflow/components/WorkflowCanvas';
 import { GroupingSwitch } from '@/features/workflow/components/nodes/StageNodes';
 import { groupNodes, stageOf } from '@/features/workflow/lib/groups';
-import type { WorkflowGraph } from '@/features/workflow/types/workflow';
 import { getSessionDraft, saveSession, validateWorkflow } from '../api';
 import type {
   DraftEdge,
@@ -22,11 +21,12 @@ import type {
   SessionDraft,
   ValidationResult,
 } from '../types';
-import { JsonValidityContext } from './ConfigForm';
+import { JsonValidityContext } from './ConfigForm.helpers';
 import { NodeInspector } from './NodeInspector';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Callout } from '@/components/common/Callout';
 import { NativeSelect } from '@/components/ui/native-select';
+import { toPreviewGraph } from './WorkflowEditorPage.helpers';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
 const PLUGIN_CATEGORIES = ['TRIGGER', 'PROCESSOR', 'TERMINAL'] as const;
@@ -34,31 +34,6 @@ const NO_TASKS = {};
 
 // fetchApi only throws Error subclasses
 const errorText = (error: unknown) => (error as Error).message;
-
-/** Draft nodes and edges shaped like the read-only graph so the existing canvas can preview them. */
-export function toPreviewGraph(
-  workflow: DraftWorkflow,
-  categories: Record<string, string>,
-  ports: Record<string, string[]>
-): WorkflowGraph {
-  return {
-    workflowId: workflow.workflowId,
-    description: workflow.description,
-    nodes: workflow.nodes.map((node) => ({
-      nodeId: node.nodeId,
-      type: node.type,
-      category:
-        (categories[node.type] as WorkflowGraph['nodes'][number]['category']) ??
-        null,
-      description: null,
-      uiDesign: null,
-      outputPorts: ports[node.nodeId] ?? ['default'],
-      group: node.group,
-    })),
-    edges: workflow.edges,
-    topologicalOrder: [],
-  };
-}
 
 function uniqueNodeId(type: string, nodes: DraftNode[]): string {
   const base = type.toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -271,7 +246,7 @@ function Editor({
     <div className="flex flex-1 flex-col" data-testid="workflow-editor">
       <div className="border-border flex flex-wrap items-center gap-3 border-b px-4 py-3 sm:px-6">
         <BreadcrumbNav className="basis-full" />
-        <h1 className="text-on-surface text-headline-lg">
+        <h1 className="text-headline-lg text-on-surface">
           Edit {workflow.workflowId}
         </h1>
         <Input
@@ -484,7 +459,7 @@ function Editor({
                         }`}
                       >
                         {n.nodeId}
-                        <span className="text-on-surface-variant text-code-sm">
+                        <span className="text-code-sm text-on-surface-variant">
                           {n.type}
                         </span>
                       </button>
@@ -513,7 +488,7 @@ function Editor({
                     <button
                       type="button"
                       aria-label={`Remove edge ${e.source} to ${e.target}`}
-                      className="text-error text-body-sm ml-auto"
+                      className="text-body-sm text-error ml-auto"
                       onClick={() =>
                         update({
                           edges: workflow.edges.filter((_, i) => i !== index),
@@ -577,7 +552,7 @@ function Editor({
                   Add edge
                 </button>
               </div>
-              <p className="text-on-surface-variant text-body-sm">
+              <p className="text-body-sm text-on-surface-variant">
                 Validate to list a node&apos;s ports for its configuration.
               </p>
             </div>

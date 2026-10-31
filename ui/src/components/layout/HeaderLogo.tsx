@@ -17,7 +17,7 @@ export default function HeaderLogo() {
     >
       {/* Yukta mark: public/favicon.svg is generated from public/logo.svg (pnpm run favicons) */}
       <img src="/favicon.svg" alt="" className="size-8 object-contain" />
-      <span className="text-on-surface text-headline-md">Yukta</span>
+      <span className="text-headline-md text-on-surface">Yukta</span>
     </Link>
   );
 }

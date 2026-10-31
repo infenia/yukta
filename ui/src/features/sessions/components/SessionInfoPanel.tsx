@@ -70,7 +70,7 @@ export function SessionInfoPanel({
               <Badge
                 key={tag}
                 variant="outline"
-                className="bg-secondary-container text-on-secondary-container text-label-sm"
+                className="bg-secondary-container text-label-sm text-on-secondary-container"
               >
                 {tag}
               </Badge>
@@ -81,17 +81,17 @@ export function SessionInfoPanel({
         <div className="space-y-1">
           <h3 className={label}>Initiator</h3>
           <div className="flex items-center gap-2">
-            <div className="bg-accent text-accent-foreground text-label-sm flex size-6 items-center justify-center rounded-full">
+            <div className="bg-accent text-label-sm text-accent-foreground flex size-6 items-center justify-center rounded-full">
               {initials}
             </div>
-            <p className="text-on-surface text-body-md">{session.initiator}</p>
+            <p className="text-body-md text-on-surface">{session.initiator}</p>
           </div>
         </div>
 
         {workflows && (
           <div className="space-y-1">
             <h3 className={label}>Workflows</h3>
-            <p className="text-on-surface text-body-md">
+            <p className="text-body-md text-on-surface">
               {workflows.count} · {workflows.nodes} nodes in all
             </p>
           </div>
@@ -102,7 +102,7 @@ export function SessionInfoPanel({
           <button
             onClick={handleCopyPath}
             aria-label={copied ? 'Project path copied' : 'Copy project path'}
-            className="group border-border bg-card shadow-card hover:border-ring transition-standard flex w-full items-center justify-between rounded-lg border p-2"
+            className="group border-border bg-card shadow-card transition-standard hover:border-ring flex w-full items-center justify-between rounded-lg border p-2"
           >
             <code className="text-code-sm text-on-surface truncate pr-4">
               {session.projectPath}

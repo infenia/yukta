@@ -1,7 +1,7 @@
 ---
-title: "Trigger plugins: API, schedule and constant sources"
+title: "Trigger plugins: API, webhook, schedule and constant sources"
 sidebarTitle: "Triggers"
-description: "API_TRIGGER, CONSTANT_SOURCE and SCHEDULE_TRIGGER: plugins that start a workflow from a request, a fixed value or a timer or cron schedule, with all options."
+description: "API_TRIGGER, WEBHOOK_TRIGGER, CONSTANT_SOURCE and SCHEDULE_TRIGGER: plugins that start a workflow from a request, a signed webhook, a fixed value or a timer or cron schedule, with all options."
 keywords: ["API_TRIGGER", "SCHEDULE_TRIGGER", "CONSTANT_SOURCE", "triggers"]
 ---
 
@@ -9,7 +9,7 @@ keywords: ["API_TRIGGER", "SCHEDULE_TRIGGER", "CONSTANT_SOURCE", "triggers"]
   **In plain terms:** a trigger answers "what starts this job?". Pick one: a request from another system (with its data), a fixed starting value for testing and batch jobs, or a timer or cron schedule.
 </Info>
 
-A trigger has no input. It produces the first message of an execution and sends it out on the `default` port. All three triggers are always part of the server.
+A trigger has no input. It produces the first message of an execution and sends it out on the `default` port. All four triggers are always part of the server.
 
 Every trigger node has an idle timeout of 30 seconds unless you set `timeoutSeconds` on the node. It matters only for a trigger that stays silent for a long time, which in practice means `SCHEDULE_TRIGGER`.
 
@@ -153,7 +153,7 @@ This node fires at 08:30 on weekdays, Berlin time. The longest gap is the weeken
 
 | Item | Value |
 |---|---|
-| Default node idle timeout | 30 seconds, for all three triggers |
+| Default node idle timeout | 30 seconds, for all four triggers |
 | Messages per start, `API_TRIGGER` and `CONSTANT_SOURCE` | 1 |
 | `SCHEDULE_TRIGGER` first message | after one `intervalMs`, or at the next cron time |
 | `SCHEDULE_TRIGGER` position after a restart | not kept; see [Scheduling](/building/scheduling) |

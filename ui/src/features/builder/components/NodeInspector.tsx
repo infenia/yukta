@@ -2,68 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { CodeBlock } from '@/components/common/CodeBlock';
-import type { ConfigField } from '@/features/plugins/types';
 import { usePlugin } from '@/features/plugins/hooks/usePlugins';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import type { DraftEdge, DraftNode } from '../types';
 import { ConfigForm, JsonField } from './ConfigForm';
 import { StateMessage } from '@/components/common/StateMessage';
-
-/** Engine-level failure policy, available on every node (core `NodePolicy`). */
-export const ENGINE_FIELDS: ConfigField[] = [
-  {
-    name: 'onError',
-    type: 'ENUM',
-    required: false,
-    defaultValue: 'FAIL',
-    options: ['FAIL', 'CONTINUE', 'ROUTE'],
-    description:
-      'What a failing message does (processors). ROUTE sends it to the error port.',
-  },
-  {
-    name: 'trigger',
-    type: 'ENUM',
-    required: false,
-    defaultValue: 'ALL_SUCCESS',
-    options: ['ALL_SUCCESS', 'ALL_DONE', 'ONE_SUCCESS'],
-    description: 'When a node with several parents starts.',
-  },
-  {
-    name: 'retry',
-    type: 'MAP',
-    required: false,
-    defaultValue: null,
-    options: [],
-    description:
-      '{"maxAttempts": 3, "backoffMs": 200, "maxBackoffMs": 5000} (processors).',
-  },
-  {
-    name: 'elementTimeoutMs',
-    type: 'NUMBER',
-    required: false,
-    defaultValue: null,
-    options: [],
-    description: 'Longest a processor may stay silent for one message.',
-  },
-  {
-    name: 'deadlineMs',
-    type: 'NUMBER',
-    required: false,
-    defaultValue: null,
-    options: [],
-    description: 'Longest the node may run in total.',
-  },
-  {
-    name: 'failureBudget',
-    type: 'MAP',
-    required: false,
-    defaultValue: null,
-    options: [],
-    description:
-      '{"maxFailures": 10, "windowMs": 60000}; needs onError CONTINUE or ROUTE.',
-  },
-];
+import { ENGINE_FIELDS } from './NodeInspector.helpers';
 
 type Config = Record<string, unknown>;
 
@@ -142,14 +87,14 @@ export function NodeInspector({
   return (
     <section className="flex flex-col gap-4" aria-label={`Node ${node.nodeId}`}>
       <header className="flex items-center gap-2">
-        <h2 className="text-on-surface text-headline-md">{node.nodeId}</h2>
-        <span className="text-on-surface-variant text-code-sm">
+        <h2 className="text-headline-md text-on-surface">{node.nodeId}</h2>
+        <span className="text-code-sm text-on-surface-variant">
           {node.type}
         </span>
         <button
           type="button"
           onClick={onRemove}
-          className="text-error text-label-sm ml-auto font-semibold"
+          className="text-label-sm text-error ml-auto font-semibold"
         >
           Remove node
         </button>
@@ -183,7 +128,7 @@ export function NodeInspector({
           <div className="flex flex-col gap-1">
             <label
               htmlFor="node-group"
-              className="text-on-surface text-label-sm font-semibold"
+              className="text-label-sm text-on-surface font-semibold"
             >
               Stage
             </label>
@@ -213,7 +158,7 @@ export function NodeInspector({
             <div className="flex flex-col gap-1">
               <label
                 htmlFor="cfg-json"
-                className="text-on-surface text-label-sm font-semibold"
+                className="text-label-sm text-on-surface font-semibold"
               >
                 Configuration (JSON)
               </label>
@@ -230,7 +175,7 @@ export function NodeInspector({
                 }
               />
               {plugin.data?.usagePattern && (
-                <details className="text-on-surface-variant text-body-sm">
+                <details className="text-body-sm text-on-surface-variant">
                   <summary className="cursor-pointer">Usage</summary>
                   <div className="mt-1">
                     <CodeBlock code={plugin.data.usagePattern} label="usage" />
@@ -281,7 +226,7 @@ export function NodeInspector({
           <button
             type="button"
             onClick={onAddEdge}
-            className="text-primary text-label-md self-start hover:underline"
+            className="text-label-md text-primary self-start hover:underline"
           >
             Add an edge from {node.nodeId}
           </button>
@@ -300,7 +245,7 @@ export function NodeInspector({
         <div className="flex flex-col gap-1">
           <label
             htmlFor="node-json"
-            className="text-on-surface text-label-sm font-semibold"
+            className="text-label-sm text-on-surface font-semibold"
           >
             The node&apos;s config, with its engine policy (JSON)
           </label>

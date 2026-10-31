@@ -7,7 +7,8 @@ import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
-import { SessionFormPage, slugify, starterSession } from '../SessionFormPage';
+import { SessionFormPage } from '../SessionFormPage';
+import { slugify, starterSession } from '../SessionFormPage.helpers';
 
 const posted: unknown[] = [];
 let failure: Response | null = null;

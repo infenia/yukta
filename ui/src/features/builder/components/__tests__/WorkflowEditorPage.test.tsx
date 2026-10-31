@@ -21,7 +21,8 @@ import {
   renderWithProviders,
 } from '@/test/utils/testUtils';
 import type { SessionDraft, ValidationResult } from '../../types';
-import { toPreviewGraph, WorkflowEditorPage } from '../WorkflowEditorPage';
+import { WorkflowEditorPage } from '../WorkflowEditorPage';
+import { toPreviewGraph } from '../WorkflowEditorPage.helpers';
 
 vi.mock('@/features/workflow/components/WorkflowCanvas', () => ({
   WorkflowCanvas: ({

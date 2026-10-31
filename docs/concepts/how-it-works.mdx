@@ -51,10 +51,10 @@ Whatever a node does, it is assembled into the same pipeline, in this order:
 | Stage | What it does |
 |---|---|
 | Merge parents | A join rule decides what a failed parent means when a node has several parents |
-| Edge buffer | Optional bounded buffer that drops messages instead of slowing the parents |
 | Valve | Implements pause, step, skip and breakpoints |
+| Clocks | Idle and deadline clocks. The idle clock starts when the node first gets work |
+| Edge buffer | Optional bounded buffer that drops messages instead of slowing the parents |
 | Plugin call | Runs the plugin with an attempt timeout, retries and error routing |
-| Clocks and status | Idle and deadline clocks; forward-only status |
 | Broadcast | Sends the output to every child; the slowest child sets the pace |
 
 Plugins hold only business logic. Back-pressure, retries, timeouts, pause and failure routing live in the engine once, around every node.

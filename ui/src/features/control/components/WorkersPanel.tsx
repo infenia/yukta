@@ -13,19 +13,10 @@ import {
 } from '@/components/ui/table';
 import { useEdition } from '@/features/edition/hooks/useEdition';
 import { useWorkers } from '../api/workers';
+import { relativeTime } from './WorkersPanel.helpers';
 
 /** Plugin types shown per worker before the rest collapse into "+n". */
 const VISIBLE_TYPES = 3;
-
-const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-
-/** "in 12 seconds" / "3 seconds ago" for a timestamp, in the largest fitting unit. */
-export function relativeTime(iso: string, now = Date.now()): string {
-  const seconds = Math.round((Date.parse(iso) - now) / 1000);
-  return Math.abs(seconds) < 60
-    ? relative.format(seconds, 'second')
-    : relative.format(Math.round(seconds / 60), 'minute');
-}
 
 function Chips({ values }: { values: string[] }) {
   const shown = values.slice(0, VISIBLE_TYPES);

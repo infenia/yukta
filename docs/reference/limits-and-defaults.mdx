@@ -14,7 +14,7 @@ This page collects the numbers that bound a Yukta server: fixed ceilings, defaul
 <Note>
   Storing state on disk (`yukta.session.store-type=file`) is part of the **Plus** edition (AGPL-3.0-only). Build it with `-Pyukta.edition=plus`; the Community build refuses these settings at start-up and keeps state in memory. See [Licensing and editions](/reference/licensing).
 
-  Yukta is in alpha (`0.1.0-alpha.2`), so defaults and limits may change before v0.1.0.
+  Yukta is in alpha (`0.1.0-alpha.3`), so defaults and limits may change before v0.1.0.
 </Note>
 
 ## Workflow graph
@@ -46,7 +46,7 @@ This page collects the numbers that bound a Yukta server: fixed ceilings, defaul
 | Idempotency window | 10 minutes | `yukta.start.idempotency-ttl` | [Admission and limits](/running/admission-and-limits) |
 | Idempotency keys kept | 100,000 | `yukta.start.idempotency-max-keys` | [Admission and limits](/running/admission-and-limits) |
 | Supervisor command rate | 20 per second | `yukta.supervisor.max-commands-per-second` | [Supervisors](/running/supervisors) |
-| Supervisor event buffer | 256 events, then events are dropped | Fixed | [Supervisors](/running/supervisors) |
+| Supervisor event buffer | 10,000 events, then events are dropped | `yukta.supervisor.buffer-size` | [Supervisors](/running/supervisors) |
 
 ## Time
 

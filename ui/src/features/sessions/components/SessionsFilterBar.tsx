@@ -7,36 +7,9 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { toStatusDisplay } from '@/features/workflow/lib/statusMapper';
 import type { SessionListItem } from '../types/session';
-
-/** The selected Tag (all must match) and Initiator (any may match) values. */
-export interface SessionFilters {
-  tags: string[];
-  initiators: string[];
-  /** Labels of the last run's status ("Failed", "Running"…), or "Not run". */
-  lastRuns: string[];
-}
-
-/** How the Last run filter names a session's last run. */
-export const lastRunLabel = (session: SessionListItem) =>
-  session.lastRun ? toStatusDisplay(session.lastRun.status).label : 'Not run';
-
-/**
- * Sessions that carry every selected tag, were started by one of the selected initiators, and
- * whose last run is one of the selected kinds.
- */
-export function filterSessions(
-  sessions: SessionListItem[],
-  { tags, initiators, lastRuns }: SessionFilters
-): SessionListItem[] {
-  return sessions.filter(
-    (session) =>
-      tags.every((tag) => session.tags.includes(tag)) &&
-      (initiators.length === 0 || initiators.includes(session.initiator)) &&
-      (lastRuns.length === 0 || lastRuns.includes(lastRunLabel(session)))
-  );
-}
+import { lastRunLabel } from './SessionsFilterBar.helpers';
+import type { SessionFilters } from './SessionsFilterBar.helpers';
 
 const distinct = (values: string[]) => [...new Set(values)].sort();
 
@@ -117,7 +90,7 @@ export function SessionsFilterBar({
 }: SessionsFilterBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 px-4 pb-4 sm:px-6">
-      <label className="relative flex max-w-[420px] min-w-[280px] flex-1 items-center">
+      <label className="relative flex max-w-105 min-w-70 flex-1 items-center">
         <span className="material-symbols-outlined text-on-surface-variant pointer-events-none absolute left-3 text-lg">
           search
         </span>

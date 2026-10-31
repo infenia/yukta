@@ -16,7 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { getHeartbeats, type BusNode } from '../api/controlBus';
-import { relativeTime } from './WorkersPanel';
+import { relativeTime } from './WorkersPanel.helpers';
 import { SendCommandDialog } from './SendCommandDialog';
 
 /** Every node on the control bus with the age of its last heartbeat, and a command to send it. */

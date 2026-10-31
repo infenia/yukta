@@ -43,7 +43,7 @@ The two backends:
 
 | Backend | How it works |
 |---|---|
-| `SYSTEMONE` | Calls Ollama's System One endpoint (`/v1/systemone`). It needs Ollama 0.35 or newer and a decision model. The probabilities are calibrated |
+| `SYSTEMONE` | Calls Ollama's System One endpoint (`/v1/systemone`). It needs an Ollama server that serves that endpoint, with a decision model loaded. The probabilities are calibrated |
 | `LLM` | Uses any chat model through the same model access as `LLM_CALL`, so the `yukta.llm.*` settings apply. The model is asked for JSON, and the probabilities are its own estimates and are not calibrated |
 
 The decision is written to `metadata[into]`. The payload is not changed. A model failure, a reply that is not valid, or a label that is not among the options fails the message. Use the node's `engine` policy (retry and error routing) to retry or send failures to a dead letter: see [Failure handling](/concepts/failure-handling).

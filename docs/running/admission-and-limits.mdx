@@ -83,7 +83,7 @@ POST /api/executions/{executionId}/priority
 |---|---|
 | Status | `QUEUED` while waiting |
 | Gauges | `yukta.executions.running`, `yukta.executions.queued` |
-| Refusal counter | `yukta.executions.rejected` with a `reason` tag: `shutdown`, `limit`, `queue_full`, `workflow_queue_full`, `queue_timeout`, `not_leader`, `rate_limit` |
+| Refusal counter | `yukta.executions.rejected` with a `reason` tag: `shutdown`, `limit`, `queue_full`, `workflow_queue_full`, `queue_timeout`, `not_leader`, `rate_limit`, `draining` |
 
 ## Shutdown
 

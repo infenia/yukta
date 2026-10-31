@@ -44,7 +44,7 @@ function FailureCallout({
   return (
     <Callout kind="danger" title={`${first} failed.`}>
       {reason && (
-        <p className="text-code-sm break-words">
+        <p className="text-code-sm wrap-break-word">
           {reason.length > REASON_CHARS
             ? `${reason.slice(0, REASON_CHARS)}…`
             : reason}

@@ -30,6 +30,7 @@ com.infenia.yukta.controller.WorkflowController
 com.infenia.yukta.controller.WorkflowDetailsController
 com.infenia.yukta.controller.WorkflowValidationController
 com.infenia.yukta.controller.WorkflowVersionController
+com.infenia.yukta.docs.ApiDocsCustomizer
 com.infenia.yukta.edition.EditionInfo
 com.infenia.yukta.exception.GlobalExceptionHandler
 com.infenia.yukta.filter.ApiKeyFilter

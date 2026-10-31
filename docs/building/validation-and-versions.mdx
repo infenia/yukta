@@ -46,7 +46,7 @@ Send one **workflow definition** (the object you would put under `workflows` in 
 
 ## Versions
 
-Each workflow keeps its newest 20 versions per session.
+Each workflow keeps its newest 20 versions.
 
 - Saving an **identical** definition adds no version.
 - Every execution records a content hash of the graph it used, carried by progress, history and the log.
@@ -82,7 +82,7 @@ This restores an earlier version as the current definition. Rollback is also ava
 
 ### Run a specific version
 
-Put `yukta.version` in the start payload to run a saved version without changing the current one. Such a run bypasses the prepared-workflow cache.
+Put `yukta.version` in the start payload to run a saved version without changing the current one.
 
 ```json
 {

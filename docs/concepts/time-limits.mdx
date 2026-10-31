@@ -29,6 +29,10 @@ The idle clock is the node's `timeoutSeconds`. When you do not set it, the plugi
 | `LLM_CALL` | Every attempt plus backoff |
 | `HTTP_REQUEST` | Its own timeout plus 5 s |
 | `WAIT_FOR_SIGNAL` | Its wait plus 30 s |
+| `CLASSIFY`, `GATE`, `SCORE`, `DEDUPE`, `ANOMALY`, `ASK` | Its timeout plus 5 s |
+| `SUB_WORKFLOW` | Its `timeoutSeconds` (default 300 s) plus 10 s |
+| `MCP_TOOL_CALL` | Its timeout plus a fixed margin, plus any approval wait |
+| `MCP_LIST_TOOLS` | Its timeout plus 5 s |
 | Others | 30 s |
 
 Triggers have no input, so they keep the default idle timeout unless the plugin declares another.

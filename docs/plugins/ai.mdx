@@ -105,7 +105,7 @@ A refused call fails the node like any other failed call. These settings apply t
 
 ### Timeout and concurrency
 
-Default timeout: `(timeout + 1) * (retries + 1) + 5` seconds plus the backoff, about 127 seconds with the defaults. Up to `concurrency` messages (default 16) are handled at once, with results emitted in order.
+Default timeout: `(timeout + 1) * (retries + 1) + 5` seconds plus the backoff between retries. With the defaults (no retries) that is 126 seconds. Up to `concurrency` messages (default 16) are handled at once, with results emitted in order.
 
 ```json
 {

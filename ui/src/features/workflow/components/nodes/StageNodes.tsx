@@ -129,7 +129,7 @@ export function GroupingSwitch({
       role="radiogroup"
       aria-label="Canvas grouping"
       className={cn(
-        'bg-surface border-border shadow-card flex gap-0.5 rounded-lg border p-0.5',
+        'border-border bg-surface shadow-card flex gap-0.5 rounded-lg border p-0.5',
         className
       )}
     >

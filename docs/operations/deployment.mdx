@@ -18,7 +18,7 @@ Yukta is one executable that holds the engine, the REST API, the MCP endpoint, t
 ## Install
 
 <Note>
-  **Alpha release `0.1.0-alpha.2`.** The first release covers Linux `amd64` only. Native servers for macOS, Windows and ARM Linux are not published yet; use Docker for those. The commands below pin `0.1.0-alpha.2` because GitHub's "latest" link skips prereleases; once a stable release exists they switch to `latest`. See [Releases](/reference/releases).
+  **Alpha release `0.1.0-alpha.3`.** Native servers cover Linux `amd64` only. Native servers for macOS, Windows and ARM Linux are not published yet; use Docker for those. The commands below pin `0.1.0-alpha.3` because GitHub's "latest" link skips prereleases; once a stable release exists they switch to `latest`. See [Releases](/reference/releases).
 </Note>
 
 Running the server with a JDK is the last option. Prefer one of these, in this order.
@@ -35,7 +35,7 @@ Running the server with a JDK is the last option. Prefer one of these, in this o
 ### Install script
 
 ```bash
-curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.2/install.sh | sh
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh
 ```
 
 The script is attached to every release, and `releases/download/vX.Y.Z/install.sh` installs exactly that version. Once a stable release exists, `releases/latest/download/install.sh` serves the newest stable one. It:
@@ -74,7 +74,7 @@ The unit waits up to 45 seconds when stopping, longer than the default [graceful
 
 ### Upgrade and roll back
 
-Pull the new image tag, or install the newer package or archive over the old one. With the install script, run it again: it prints the version it found and the one it installs, skips the download when you are already current, keeps the previous programs as `yukta.prev` and `yukta-cli.prev`, and warns when a running server must be restarted or another copy earlier on `PATH` hides the new one. `install.sh --check` reports whether a newer release exists without installing (exit status 1 when you are behind), and `--force` reinstalls the same version. When `cosign` is installed the script also verifies the Sigstore signature of `SHA256SUMS`; the output says whether it did. On Windows, `install.ps1` does the same, with `YUKTA_CHECK=1` and `YUKTA_FORCE=1`. Pin an exact version (`ghcr.io/infenia/yukta:0.1.0-alpha.2`) when you need repeatable deployments; `latest` only ever moves to a stable release, never to a release candidate. To roll back, install the previous version. Sessions kept in memory are lost on restart, so use [Persistence](/operations/persistence) if you need to keep them.
+Pull the new image tag, or install the newer package or archive over the old one. With the install script, run it again: it prints the version it found and the one it installs, skips the download when you are already current, keeps the previous programs as `yukta.prev` and `yukta-cli.prev`, and warns when a running server must be restarted or another copy earlier on `PATH` hides the new one. `install.sh --check` reports whether a newer release exists without installing (exit status 1 when you are behind), and `--force` reinstalls the same version. When `cosign` is installed the script also verifies the Sigstore signature of `SHA256SUMS`; the output says whether it did. On Windows, `install.ps1` does the same, with `YUKTA_CHECK=1` and `YUKTA_FORCE=1`. Pin an exact version (`ghcr.io/infenia/yukta:0.1.0-alpha.3`) when you need repeatable deployments; `latest` only ever moves to a stable release, never to a release candidate. To roll back, install the previous version. Sessions kept in memory are lost on restart, so use [Persistence](/operations/persistence) if you need to keep them.
 
 ## Run from source
 

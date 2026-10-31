@@ -17,7 +17,6 @@ import { useCopyCommand } from '../hooks/useCopyCommand';
 import { CopyAsMenu, type CopyChoice } from './CopyAsMenu';
 import { RunButton } from './RunButton';
 
-export { parsePayload } from './RunButton';
 import { RecoverButton } from './RecoverButton';
 import {
   controlErrorMessage,

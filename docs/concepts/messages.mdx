@@ -66,7 +66,7 @@ Node options can reference the incoming message with `${payload.field}` and `${m
 
 ## Fields that are carried only
 
-Messages also have optional header fields borrowed from classic messaging patterns: priority, expiration, reply-to, a format indicator, a retry counter and a control flag. They are carried along but the engine does not act on them: an expired message is delivered like any other, and reply-to does not route anything. Do not rely on them for behaviour. Execution priority is a different mechanism, set with `yukta.priority` in the start payload; see [Admission and limits](/running/admission-and-limits).
+Messages also have optional header fields borrowed from classic messaging patterns: priority, expiration, reply-to, a format indicator, a retry counter and a control flag. The engine acts on expiration only: a node drops an inbound message once its expiration time has passed. The other fields are carried along and do not change behaviour; reply-to does not route anything. Do not rely on them for routing. Execution priority is a different mechanism, set with `yukta.priority` in the start payload; see [Admission and limits](/running/admission-and-limits).
 
 ## Limits and defaults
 

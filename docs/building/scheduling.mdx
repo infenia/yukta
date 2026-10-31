@@ -137,7 +137,7 @@ When you need a schedule that survives restarts, or runs that are independent of
 |---|---|
 | REST | `POST /api/workflow/start` with `{"sessionId", "workflowId", "payload"}`. It answers `202` with the new `executionId`, `404` for an unknown session or workflow and `429` when the execution limit is reached. An optional `Idempotency-Key` header makes a retried start return the original execution |
 | CLI | `yukta-cli workflow start <session-id> <workflow-id> --payload '{"key": "value"}'`, or `--payload-file` to read the payload from a file |
-| MCP | The `start_workflow` tool with `sessionId` and `workflowId`. It does not take a payload, so use REST or the CLI for a workflow that needs one |
+| MCP | The `start_workflow` tool with `sessionId`, `workflowId` and an optional `idempotencyKey`. It does not take a payload, so use REST or the CLI for a workflow that needs one |
 
 The workflow for this mode begins with `API_TRIGGER`, which passes the payload of the start request into the graph, or with `CONSTANT_SOURCE` when it needs no input:
 
