@@ -41,6 +41,7 @@ spring-boot-starter-webflux = { group = "org.springframework.boot", name = "spri
 spring-boot-starter-webclient = { group = "org.springframework.boot", name = "spring-boot-starter-webclient" }
 spring-boot-starter-validation = { group = "org.springframework.boot", name = "spring-boot-starter-validation" }
 spring-boot-starter-actuator = { group = "org.springframework.boot", name = "spring-boot-starter-actuator" }
+micrometer-registry-prometheus = { group = "io.micrometer", name = "micrometer-registry-prometheus" }
 spring-boot-starter-opentelemetry = { group = "org.springframework.boot", name = "spring-boot-starter-opentelemetry" }
 spring-boot-configuration-processor = { group = "org.springframework.boot", name = "spring-boot-configuration-processor", version.ref = "springBoot" }
 jackson-databind = { group = "tools.jackson.core", name = "jackson-databind" }
