@@ -117,9 +117,13 @@ describe('OverviewPage', () => {
     expect(
       screen.getByRole('link', { name: /Workers online/ })
     ).toHaveTextContent('1');
+    const tile = screen.getByRole('link', { name: /Pending approvals/ });
+    expect(tile).toHaveTextContent('1');
+    // it jumps to the panel on this page
+    expect(tile).toHaveAttribute('href', '#ov-needs-attention-panel');
     expect(
-      screen.getByRole('link', { name: /Pending approvals/ })
-    ).toHaveTextContent('1');
+      screen.getByRole('region', { name: 'Needs attention' })
+    ).toHaveAttribute('id', 'ov-needs-attention-panel');
   });
 
   it('answers an approval and lists aborted runs and failures', async () => {

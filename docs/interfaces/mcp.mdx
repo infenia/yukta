@@ -112,7 +112,7 @@ Tools return structured JSON, except where noted. Every tool that takes an `exec
 | `get_scheduler_limits` | `VIEWER` | none | `maxConcurrent`, `maxPerWorkflow` (`0` is no limit), `running`, `queued` and `queueCapacity` |
 | `set_scheduler_limits` | `ADMIN` | `maxConcurrent`, `maxPerWorkflow` (`0` for no limit) | The limits as now in force, in the same shape |
 | `signal_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `signalName`, `decision`; optional `data` | The same result object |
-| `list_pending_approvals` | `VIEWER` | `sessionId` | `sessionId` and `approvals`: each with `executionId`, `workflowId`, `nodeId`, `name`, `since` |
+| `list_pending_approvals` | `VIEWER` | `sessionId` (optional: leave out for all sessions, at most 100, and not for a key limited to some sessions) | `sessionId` (absent for all sessions) and `approvals`: each with `sessionId`, `executionId`, `workflowId`, `nodeId`, `name`, `since` |
 
 **`control_workflow` actions**
 
