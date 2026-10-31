@@ -16,7 +16,6 @@ import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.NonBlockingReader;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.context.ApplicationListener;
@@ -27,11 +26,10 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The interactive console: a full-screen dashboard on the terminal, fed by the server's own REST
- * API. Runs only in run mode {@code console}; q stops the server. The terminal is restored on exit
- * and on any failure.
+ * API. Does nothing unless the run mode is {@code console}; q stops the server. The terminal is
+ * restored on exit and on any failure.
  */
 @Component
-@ConditionalOnProperty(name = "yukta.run-mode", havingValue = "console")
 @SuppressWarnings({
   "PMD.SystemPrintln",
   "PMD.AvoidCatchingGenericException",
@@ -50,6 +48,10 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
   @Override
   public void onApplicationEvent(final ApplicationReadyEvent event) {
     final ConfigurableApplicationContext ctx = event.getApplicationContext();
+    // checked here, not with @ConditionalOnProperty: Spring AOT would freeze that at build time
+    if (!"console".equals(ctx.getEnvironment().getProperty("yukta.run-mode"))) {
+      return;
+    }
     final String port = ctx.getEnvironment().getProperty("local.server.port", "9858");
     final String key = ctx.getEnvironment().getProperty("yukta.api-key", "");
     final String version =

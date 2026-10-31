@@ -57,12 +57,10 @@ public enum RunMode {
     // the java.base provider asks the OS directly (the default one is not in a native image)
     System.setProperty("jdk.console", "java.base");
     final var console = System.console();
-    return console != null ? console.isTerminal() : fdIsTerminal(0) && fdIsTerminal(1);
+    return (console != null && console.isTerminal()) || (fdIsTerminal(0) && fdIsTerminal(1));
   }
 
-  /**
-   * Linux fallback when the JDK gives no console (native image): whether the descriptor is a tty.
-   */
+  /** Linux fallback when the JDK does not say (native image): whether the descriptor is a tty. */
   private static boolean fdIsTerminal(final int fd) {
     try {
       final String target = Files.readSymbolicLink(Path.of("/proc/self/fd/" + fd)).toString();
