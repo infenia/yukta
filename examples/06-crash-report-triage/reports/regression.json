@@ -1,0 +1,8 @@
+{
+  "reportId": "R-104",
+  "service": "auth",
+  "exception": "java.lang.IllegalStateException",
+  "frame": "TokenVerifier.verify(TokenVerifier.java:133)",
+  "message": "Regression: signing key not found after upgrade to 4.2.0",
+  "version": "4.2.0"
+}

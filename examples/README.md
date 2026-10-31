@@ -37,14 +37,14 @@ by default (fixed rules, no model, no internet), so they run offline and in `run
 |---|---|---|---|
 | [02](02-agent-verification/) | AI-assisted development | An agent skips tests or verification and reports "done" | `LOOP_PREDICATE`, `SUB_WORKFLOW`, `PATCH_GUARD`, `BRANCH`, `OUTCOME_TERMINAL` |
 | [03](03-release-approval/) | Release / DevOps | Production deploy with a human approval, a smoke check and a rollback | `WAIT_FOR_SIGNAL`, `PROCESS_EXECUTOR`, `BRANCH`, `NOTIFY_TERMINAL` |
-| [04](04-loan-approval/) | Finance | Auto-approve clear cases, send borderline ones to an underwriter | `VALIDATE`, `MAPPER`, `BRANCH`, `WAIT_FOR_SIGNAL`, `CONTENT_FILTER` |
-| [05](05-returns-fraud/) | E-commerce | Refund low-risk returns, hold high-risk ones for review | `VALIDATE`, `MAPPER`, `BRANCH`, `WAIT_FOR_SIGNAL`, `FILE_WRITE` |
-| [06](06-support-triage/) | Customer support | Answer routine tickets, escalate disputes, skip duplicates | `KV_STORE`, `BRANCH`, `SUB_WORKFLOW`, `RECIPIENT_LIST` |
-| [07](07-nightly-data-pipeline/) | Data and analytics | Nightly load with validation, dedupe, quarantine and a bad-row limit | `SCHEDULE_TRIGGER`, `FILE_READ`, `SPLITTER`, `VALIDATE`, `AGGREGATE` |
-| [08](08-alert-triage/) | Operations / SRE | Try to fix an alert automatically, page a person if it persists | `LOOP_PREDICATE`, `PROCESS_EXECUTOR`, `NOTIFY_TERMINAL`, `WAIT_FOR_SIGNAL` |
-| [12](12-content-review/) | Content / marketing | A draft is checked, edited by a person, revised up to a limit, then published | `SUB_WORKFLOW`, `WAIT_FOR_SIGNAL`, `BRANCH`, `FILE_WRITE` |
+| [04](04-pr-risk-gate/) | Code review / app dev | Auto-merge low-risk PRs, block the worst, send borderline ones to a reviewer | `VALIDATE`, `MAPPER`, `BRANCH`, `WAIT_FOR_SIGNAL`, `CONTENT_FILTER` |
+| [05](05-dependency-updates/) | Supply chain | Auto-merge patch bumps, hold majors and CVE-flagged ones for a maintainer | `VALIDATE`, `MAPPER`, `BRANCH`, `WAIT_FOR_SIGNAL`, `FILE_WRITE` |
+| [06](06-crash-report-triage/) | Backend / observability | Link known crashes to their ticket, escalate new ones, skip duplicates | `KV_STORE`, `BRANCH`, `SUB_WORKFLOW`, `RECIPIENT_LIST` |
+| [07](07-event-data-pipeline/) | Data engineering | Nightly event-log load with validation, dedupe, quarantine and a bad-row limit | `SCHEDULE_TRIGGER`, `FILE_READ`, `SPLITTER`, `VALIDATE`, `AGGREGATE` |
+| [08](08-alert-triage/) | SRE / operations | Try to fix an alert automatically, page a person if it persists | `LOOP_PREDICATE`, `PROCESS_EXECUTOR`, `NOTIFY_TERMINAL`, `WAIT_FOR_SIGNAL` |
+| [12](12-model-promotion/) | MLOps | A model candidate is eval-checked, reviewed, retrained up to a limit, then promoted | `SUB_WORKFLOW`, `WAIT_FOR_SIGNAL`, `BRANCH`, `FILE_WRITE` |
 | [13](13-multi-agent/) | Multi-agent | Researcher, writer and independent verifier, with a retry cap and shared state | `SUB_WORKFLOW`, `LOOP_PREDICATE`, `KV_STORE`, `BRANCH` |
-| [14](14-recruiting/) | HR / recruiting | Score a batch of applicants; a recruiter decides without seeing protected fields | `SPLITTER`, `CONTENT_FILTER`, `WAIT_FOR_SIGNAL`, `AGGREGATE` |
+| [14](14-security-findings/) | AppSec | Score a batch of scanner findings; an engineer decides with secrets redacted | `SPLITTER`, `CONTENT_FILTER`, `WAIT_FOR_SIGNAL`, `AGGREGATE` |
 
 ### Building blocks and reference
 

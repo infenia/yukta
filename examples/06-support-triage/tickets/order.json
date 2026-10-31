@@ -1,7 +1,0 @@
-{
-  "ticketId": "T-101",
-  "customer": "bo@example.com",
-  "subject": "Delivery",
-  "body": "Where is my order? I need the tracking number.",
-  "orderId": "A-1042"
-}
