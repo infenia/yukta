@@ -269,9 +269,8 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                   .addKeyValue("nodeCount", workflowDefinition.nodes().size())
                   .addKeyValue("edgeCount", workflowDefinition.edges().size())
                   .log("Compiling and caching workflow");
-              return controlBusService.compileAndCacheWorkflow(sessionId, workflowDefinition);
+              return starter.compileAndCache(sessionId, workflowDefinition);
             })
-        .then(Mono.defer(() -> starter.dropCacheIfStale(sessionId, workflowDefinition)))
         .doOnSuccess(
             _ ->
                 log.atDebug()
