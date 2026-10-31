@@ -64,7 +64,7 @@ async function mockSessionsApi(
     sessions = defaultSessions,
   }: { status?: number; sessions?: SessionListItem[] }
 ): Promise<void> {
-  await page.route('**/api/sessions/summaries', (route) => {
+  await page.route('**/api/sessions/summaries*', (route) => {
     if (status !== 200) {
       return route.fulfill({
         status,
