@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
 
@@ -51,10 +54,21 @@ public enum RunMode {
   /** Whether stdin and stdout are both a terminal. */
   @SuppressWarnings("SystemConsoleNull") // still null when the JDK has no console (e.g. tests)
   /* default */ static boolean isTty() {
-    // the java.base provider asks the OS directly; the default one is not in a native image, where
-    // System.console() would be null even on a terminal
+    // the java.base provider asks the OS directly (the default one is not in a native image)
     System.setProperty("jdk.console", "java.base");
     final var console = System.console();
-    return console != null && console.isTerminal();
+    return console != null ? console.isTerminal() : fdIsTerminal(0) && fdIsTerminal(1);
+  }
+
+  /**
+   * Linux fallback when the JDK gives no console (native image): whether the descriptor is a tty.
+   */
+  private static boolean fdIsTerminal(final int fd) {
+    try {
+      final String target = Files.readSymbolicLink(Path.of("/proc/self/fd/" + fd)).toString();
+      return target.startsWith("/dev/pts/") || target.startsWith("/dev/tty");
+    } catch (IOException | UnsupportedOperationException | SecurityException e) {
+      return false;
+    }
   }
 }
