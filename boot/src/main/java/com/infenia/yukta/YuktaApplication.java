@@ -34,10 +34,17 @@ public class YuktaApplication {
   /** Text printed for {@link #HELP_FLAG}. */
   private static final String HELP =
       """
-      Usage: yukta [--version] [--help] [--mode=console|plain|daemon] [--plain]
+      Usage: yukta [start|stop|status|restart|logs [-f]] [--version] [--help] [--mode=console|plain|daemon] [--plain]
                    [--<spring.property>=value ...]
 
       Starts the Yukta server. Any other argument is a Spring Boot property.
+
+      Commands (background process; state in $YUKTA_HOME or $XDG_STATE_HOME/yukta):
+        start     run the server detached, wait until it is healthy
+        stop      drain, then SIGTERM, then SIGKILL after a timeout
+        status    running or not (exit 3), pid, URL, health
+        restart   stop, then start
+        logs [-f] show the last lines of the log, -f to follow
 
       Run modes (--mode, or YUKTA_MODE; --plain is --mode=plain):
         console   interactive dashboard; the default on a terminal
@@ -64,6 +71,10 @@ public class YuktaApplication {
       return;
     }
 
+    if (Daemon.handles(args)) {
+      System.exit(runDaemonCommand(args));
+    }
+
     Hooks.enableAutomaticContextPropagation();
 
     if (isNativeImage() && !hasProfileArgument(args)) {
@@ -75,6 +86,18 @@ public class YuktaApplication {
 
     final SpringApplication app = new SpringApplication(YuktaApplication.class);
     app.run(args);
+  }
+
+  private static int runDaemonCommand(final String... args) {
+    try {
+      return new Daemon(Daemon.homeFrom(System.getenv()), System.getenv(), System.out).run(args);
+    } catch (IOException e) {
+      System.err.println("yukta " + args[0] + " failed: " + e);
+      return 1;
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return 1;
+    }
   }
 
   /** Text for --version or --help, or null when the server should start. */

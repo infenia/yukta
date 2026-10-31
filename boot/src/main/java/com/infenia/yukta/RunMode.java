@@ -6,6 +6,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /** How the server presents itself: an interactive console, plain logs, or a background daemon. */
+@SuppressWarnings({"PMD.CyclomaticComplexity", "PMD.AvoidLiteralsInIfCondition"})
 public enum RunMode {
   /** Interactive dashboard; the default when stdin and stdout are a terminal. */
   CONSOLE,

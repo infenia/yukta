@@ -13,7 +13,7 @@ class RunModeTest {
   private static final Map<String, String> NO_ENV = Map.of();
 
   @Test
-  void defaultsToConsoleOnATerminalAndPlainOtherwise() {
+  void defaultsToConsoleOnTerminalElsePlain() {
     assertThat(RunMode.resolve(NO_ENV, true)).isEqualTo(RunMode.CONSOLE);
     assertThat(RunMode.resolve(NO_ENV, false)).isEqualTo(RunMode.PLAIN);
   }
