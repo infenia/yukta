@@ -158,11 +158,12 @@ public class DirectiveDispatcher {
    */
   private Mono<Void> audited(final ExecutionControlCommand command, final String actor) {
     final String name = command.getClass().getSimpleName();
+    final String[] run = owner(command);
     return reviewer
-        .review(new ControlRequest(command, actor))
+        .review(new ControlRequest(command, actor, run[0], run[1]))
         .then(Mono.defer(() -> dispatch(command)))
-        .doOnSuccess(_ -> outcome(command, name, actor, null))
-        .doOnError(error -> outcome(command, name, actor, error.getMessage()))
+        .doOnSuccess(_ -> outcome(command, run, name, actor, null))
+        .doOnError(error -> outcome(command, run, name, actor, error.getMessage()))
         .doOnSuccess(
             _ ->
                 ControlAudit.record(
@@ -186,7 +187,7 @@ public class DirectiveDispatcher {
   /** A command whose caller went away before it finished is neither applied nor lost. */
   private void cancelled(final ExecutionControlCommand command, final String actor) {
     final String name = command.getClass().getSimpleName();
-    outcome(command, name, actor, CANCELLED_REASON);
+    outcome(command, owner(command), name, actor, CANCELLED_REASON);
     ControlAudit.record(
         executionLog,
         auditSink,
@@ -194,14 +195,35 @@ public class DirectiveDispatcher {
             false, command.executionId(), name, actor, CANCELLED_REASON, Instant.now()));
   }
 
+  /** The session and workflow of the run a command addresses; nulls when the run is not known. */
+  private String[] owner(final ExecutionControlCommand command) {
+    return registry
+        .findByExecutionId(command.executionId())
+        .map(control -> new String[] {control.sessionId(), control.workflowId()})
+        .or(
+            () ->
+                archive
+                    .find(command.executionId())
+                    .map(run -> new String[] {run.sessionId(), run.workflowId()}))
+        .orElseGet(() -> new String[2]);
+  }
+
   private void outcome(
       final ExecutionControlCommand command,
+      final String[] run,
       final String name,
       final String actor,
       final String reason) {
     eventFeed.publish(
         new ExecutionEvent.ControlOutcome(
-            command.executionId(), name, actor, reason == null, reason, Instant.now()));
+            command.executionId(),
+            run[0],
+            run[1],
+            name,
+            actor,
+            reason == null,
+            reason,
+            Instant.now()));
   }
 
   /**

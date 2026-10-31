@@ -28,6 +28,20 @@ public sealed interface ExecutionEvent {
   String executionId();
 
   /**
+   * The session that owns the execution.
+   *
+   * @return the session id; empty for {@link EventsMissed}, {@code null} when the run is not known
+   */
+  @Nullable String sessionId();
+
+  /**
+   * The workflow the execution runs.
+   *
+   * @return the workflow id; empty for {@link EventsMissed}, {@code null} when the run is not known
+   */
+  @Nullable String workflowId();
+
+  /**
    * When the event happened.
    *
    * @return the time
@@ -38,6 +52,7 @@ public sealed interface ExecutionEvent {
    * A node changed status.
    *
    * @param executionId the execution
+   * @param sessionId the session that owns it
    * @param workflowId the workflow it runs
    * @param nodeId the node
    * @param module the node's plugin type
@@ -50,6 +65,7 @@ public sealed interface ExecutionEvent {
       justification = "the compact constructor stores an unmodifiable copy")
   record NodeStatusChanged(
       String executionId,
+      String sessionId,
       String workflowId,
       String nodeId,
       String module,
@@ -70,18 +86,21 @@ public sealed interface ExecutionEvent {
    * A workflow changed status.
    *
    * @param executionId the execution
+   * @param sessionId the session that owns it
    * @param workflowId the workflow it runs
    * @param status the new status, a {@code TaskStatus} name
    * @param timestamp when it happened
    */
   record WorkflowStatusChanged(
-      String executionId, String workflowId, String status, Instant timestamp)
+      String executionId, String sessionId, String workflowId, String status, Instant timestamp)
       implements ExecutionEvent {}
 
   /**
    * A control command was applied or rejected.
    *
    * @param executionId the execution the command addressed
+   * @param sessionId the session that owns it, or {@code null} when the run is not known
+   * @param workflowId the workflow it runs, or {@code null} likewise
    * @param command the command name, for example {@code PauseWorkflowCommand}
    * @param actor who sent it, or {@code null} when it came through the API
    * @param applied true if it was applied, false if it was rejected
@@ -90,6 +109,8 @@ public sealed interface ExecutionEvent {
    */
   record ControlOutcome(
       String executionId,
+      @Nullable String sessionId,
+      @Nullable String workflowId,
       String command,
       @Nullable String actor,
       boolean applied,
@@ -101,12 +122,21 @@ public sealed interface ExecutionEvent {
    * A node wrote a log line.
    *
    * @param executionId the execution
+   * @param sessionId the session that owns it, or {@code null} when the run is not known
+   * @param workflowId the workflow it runs, or {@code null} likewise
    * @param nodeId the node
    * @param line the line, a single line of text
    * @param level its level, as the plugin reported it or the engine rated it
    * @param timestamp when it happened
    */
-  record LogLine(String executionId, String nodeId, String line, LogLevel level, Instant timestamp)
+  record LogLine(
+      String executionId,
+      @Nullable String sessionId,
+      @Nullable String workflowId,
+      String nodeId,
+      String line,
+      LogLevel level,
+      Instant timestamp)
       implements ExecutionEvent {
 
     /** Rejects a missing level, so a line is never shown with a level nobody gave it. */
@@ -131,6 +161,26 @@ public sealed interface ExecutionEvent {
      */
     @Override
     public String executionId() {
+      return "";
+    }
+
+    /**
+     * A gap belongs to no session.
+     *
+     * @return an empty id
+     */
+    @Override
+    public String sessionId() {
+      return "";
+    }
+
+    /**
+     * A gap belongs to no workflow.
+     *
+     * @return an empty id
+     */
+    @Override
+    public String workflowId() {
       return "";
     }
   }

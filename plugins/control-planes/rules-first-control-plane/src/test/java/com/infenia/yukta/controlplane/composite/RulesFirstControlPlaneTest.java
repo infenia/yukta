@@ -39,11 +39,11 @@ class RulesFirstControlPlaneTest {
 
   private static final ExecutionEvent EVENT =
       new ExecutionEvent.NodeStatusChanged(
-          "e1", "wf", "n1", "HTTP_REQUEST", "FAILURE", Map.of(), Instant.now());
+          "e1", "s", "wf", "n1", "HTTP_REQUEST", "FAILURE", Map.of(), Instant.now());
 
   private static final ExecutionEvent OTHER =
       new ExecutionEvent.NodeStatusChanged(
-          "e1", "wf", "n1", "HTTP_REQUEST", "SUCCESS", Map.of(), Instant.now());
+          "e1", "s", "wf", "n1", "HTTP_REQUEST", "SUCCESS", Map.of(), Instant.now());
 
   /** A plugin that always answers the same and counts how often it was asked. */
   private static final class Fixed implements ControlPlanePlugin {
@@ -144,7 +144,9 @@ class RulesFirstControlPlaneTest {
     final Fixed model = answering(STOP, Source.MODEL);
 
     final Decision verdict =
-        new RulesFirstControlPlane(rules, model).review(new ControlRequest(STOP, null)).block();
+        new RulesFirstControlPlane(rules, model)
+            .review(new ControlRequest(STOP, null, null, null))
+            .block();
 
     assertThat(verdict.allowed()).isFalse();
   }

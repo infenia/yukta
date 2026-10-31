@@ -42,12 +42,12 @@ class EventsControllerTest {
   }
 
   private static ExecutionEvent workflow(final String executionId, final String status) {
-    return new ExecutionEvent.WorkflowStatusChanged(executionId, "wf", status, Instant.now());
+    return new ExecutionEvent.WorkflowStatusChanged(executionId, "s", "wf", status, Instant.now());
   }
 
   private static ExecutionEvent control(final String executionId) {
     return new ExecutionEvent.ControlOutcome(
-        executionId, "PauseWorkflowCommand", "rules", true, null, Instant.now());
+        executionId, null, null, "PauseWorkflowCommand", "rules", true, null, Instant.now());
   }
 
   private List<EventsController.Envelope> collect(

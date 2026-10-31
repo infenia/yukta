@@ -3382,6 +3382,9 @@ export interface components {
             recorded?: number;
             /** Format: int64 */
             rejected?: number;
+            scope?: string;
+            scopeSessionId?: string;
+            scopeWorkflowId?: string;
             type?: string;
         };
         TaskProgress: {
