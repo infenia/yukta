@@ -234,54 +234,12 @@ public class WorkflowValidator {
         .addKeyValue("edgeCount", def.edges().size())
         .log("Starting workflow validation");
 
-    final List<String> masked = ConfigRedactor.placeholders(def);
-    if (!masked.isEmpty()) {
-      return Mono.error(
-          new IllegalArgumentException(
-              "The definition holds the secret mask '"
-                  + ConfigRedactor.PLACEHOLDER
-                  + "' at "
-                  + String.join(", ", masked)
-                  + ". The read APIs mask literal secrets; replace each with the real value or a"
-                  + " decrypted:<key> reference before saving, or the stored secret would be"
-                  + " lost"));
+    final List<String> eager = findEagerProblems(def);
+    if (!eager.isEmpty()) {
+      return Mono.error(new IllegalArgumentException(eager.getFirst()));
     }
-
-    final List<String> literals = new ConfigRedactor(registry).literalSecrets(def);
-    if (!literals.isEmpty()) {
-      return Mono.error(
-          new IllegalArgumentException(
-              "A workflow definition must not hold secrets, but "
-                  + String.join(", ", literals)
-                  + " is a literal value. Store the secret as YUKTA_SECRET_<KEY> and write"
-                  + " decrypted:<key> (or a ${...} variable) here instead"));
-    }
-
-    final Optional<String> invalidPolicy = findInvalidPolicy(def);
-    if (invalidPolicy.isPresent()) {
-      return Mono.error(new IllegalArgumentException(invalidPolicy.get()));
-    }
-
-    final Optional<String> structural = findStructuralProblem(def);
-    if (structural.isPresent()) {
-      return Mono.error(new IllegalArgumentException(structural.get()));
-    }
-
-    final Set<String> targetIds =
-        def.edges().stream().map(WorkflowDefinition.Edge::target).collect(Collectors.toSet());
-    final Set<String> sourceIds =
-        def.edges().stream().map(WorkflowDefinition.Edge::source).collect(Collectors.toSet());
-
-    return validatePluginsRegistered(def)
-        .then(validateTriggerNodeExists(def))
-        .then(validateTerminalNodeExists(def))
-        .then(validateEntryPoints(def, targetIds))
-        .then(validateProcessors(def, sourceIds))
-        .then(validateEndpoints(def, sourceIds))
-        .then(validateNoCycles(def))
-        .then(validateNoOrphans())
-        .then(validateNodeContexts(def))
-        .then(validatePluginConfigs(def))
+    return Flux.concat(graphChecks(def))
+        .then()
         .doOnSuccess(
             _ ->
                 log.atInfo()
@@ -293,6 +251,78 @@ public class WorkflowValidator {
                     .setCause(e)
                     .addKeyValue("workflowId", def.workflowId())
                     .log("Workflow validation failed"));
+  }
+
+  /** A secret mask, a literal secret, a bad policy or a broken structure: all of them. */
+  private List<String> findEagerProblems(final WorkflowDefinition def) {
+    final List<String> problems = new ArrayList<>();
+    final List<String> masked = ConfigRedactor.placeholders(def);
+    if (!masked.isEmpty()) {
+      problems.add(
+          "The definition holds the secret mask '"
+              + ConfigRedactor.PLACEHOLDER
+              + "' at "
+              + String.join(", ", masked)
+              + ". The read APIs mask literal secrets; replace each with the real value or a"
+              + " decrypted:<key> reference before saving, or the stored secret would be"
+              + " lost");
+    }
+    final List<String> literals = new ConfigRedactor(registry).literalSecrets(def);
+    if (!literals.isEmpty()) {
+      problems.add(
+          "A workflow definition must not hold secrets, but "
+              + String.join(", ", literals)
+              + " is a literal value. Store the secret as YUKTA_SECRET_<KEY> and write"
+              + " decrypted:<key> (or a ${...} variable) here instead");
+    }
+    findInvalidPolicy(def).ifPresent(problems::add);
+    findStructuralProblem(def).ifPresent(problems::add);
+    return problems;
+  }
+
+  /** The checks of the graph, in the order they run. They assume the structure is sound. */
+  private List<Mono<Void>> graphChecks(final WorkflowDefinition def) {
+    final Set<String> targetIds =
+        def.edges().stream().map(WorkflowDefinition.Edge::target).collect(Collectors.toSet());
+    final Set<String> sourceIds =
+        def.edges().stream().map(WorkflowDefinition.Edge::source).collect(Collectors.toSet());
+    return List.of(
+        validatePluginsRegistered(def),
+        validateTriggerNodeExists(def),
+        validateTerminalNodeExists(def),
+        validateEntryPoints(def, targetIds),
+        validateProcessors(def, sourceIds),
+        validateEndpoints(def, sourceIds),
+        validateNoCycles(def),
+        validateNoOrphans(),
+        validateNodeContexts(def),
+        validatePluginConfigs(def));
+  }
+
+  /**
+   * Validates like {@link #validate} but reports every problem, not only the first, so an editor or
+   * an agent fixes them in one round trip. If the structure itself is broken (duplicate ids, edges
+   * to unknown nodes) the checks that assume it are skipped.
+   *
+   * @param def the workflow
+   * @return the problems, empty if the workflow is valid
+   */
+  public Mono<List<String>> validateAll(@NotNull @Valid final WorkflowDefinition def) {
+    final List<String> problems = findEagerProblems(def);
+    return findStructuralProblem(def).isPresent() ? Mono.just(problems) : checkGraph(def, problems);
+  }
+
+  private Mono<List<String>> checkGraph(final WorkflowDefinition def, final List<String> problems) {
+    return Flux.fromIterable(graphChecks(def))
+        .concatMap(
+            check ->
+                check.onErrorResume(
+                    IllegalArgumentException.class,
+                    e -> {
+                      problems.add(e.getMessage() != null ? e.getMessage() : e.toString());
+                      return Mono.empty();
+                    }))
+        .then(Mono.fromSupplier(() -> List.copyOf(problems)));
   }
 
   private Mono<Void> validatePluginsRegistered(final WorkflowDefinition def) {

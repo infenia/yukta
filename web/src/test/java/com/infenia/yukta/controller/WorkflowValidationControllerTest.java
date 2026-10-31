@@ -84,7 +84,7 @@ class WorkflowValidationControllerTest {
     final Plugin plugin = mock(Plugin.class);
     when(plugin.getOutputPorts(any())).thenReturn(List.of("a", "b"));
     when(pluginRegistry.get(BRANCH)).thenReturn(plugin);
-    when(workflowValidator.validate(any())).thenReturn(Mono.empty());
+    when(workflowValidator.validateAll(any())).thenReturn(Mono.just(List.of()));
 
     post(DRAFT)
         .expectStatus()
@@ -100,8 +100,7 @@ class WorkflowValidationControllerTest {
 
   @Test
   void testInvalidDraftReturnsTheProblemWithoutFailing() {
-    when(workflowValidator.validate(any()))
-        .thenReturn(Mono.error(new IllegalArgumentException("no trigger")));
+    when(workflowValidator.validateAll(any())).thenReturn(Mono.just(List.of("no trigger")));
 
     post(DRAFT)
         .expectStatus()
@@ -116,12 +115,27 @@ class WorkflowValidationControllerTest {
   }
 
   @Test
+  void testEveryProblemIsListed() {
+    when(workflowValidator.validateAll(any()))
+        .thenReturn(Mono.just(List.of("no trigger", "no terminal")));
+
+    post(DRAFT)
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.message")
+        .isEqualTo("no trigger")
+        .jsonPath("$.data.problems.length()")
+        .isEqualTo(2);
+  }
+
+  @Test
   void testDuplicateNodeIdIsReportedByValidatorNotServerError() {
     final Plugin plugin = mock(Plugin.class);
     when(plugin.getOutputPorts(any())).thenReturn(List.of("a"));
     when(pluginRegistry.get(BRANCH)).thenReturn(plugin);
-    when(workflowValidator.validate(any()))
-        .thenReturn(Mono.error(new IllegalArgumentException("Duplicate node id 'n1'")));
+    when(workflowValidator.validateAll(any()))
+        .thenReturn(Mono.just(List.of("Duplicate node id 'n1'")));
 
     post(DUPLICATE_IDS)
         .expectStatus()
@@ -138,7 +152,7 @@ class WorkflowValidationControllerTest {
     final Plugin plugin = mock(Plugin.class);
     when(plugin.getOutputPorts(any())).thenThrow(new IllegalStateException("config incomplete"));
     when(pluginRegistry.get(BRANCH)).thenReturn(plugin);
-    when(workflowValidator.validate(any())).thenReturn(Mono.empty());
+    when(workflowValidator.validateAll(any())).thenReturn(Mono.just(List.of()));
 
     post(DRAFT)
         .expectStatus()
@@ -151,22 +165,8 @@ class WorkflowValidationControllerTest {
   }
 
   @Test
-  void testFailureWithoutMessageStillSaysWhatFailed() {
-    when(workflowValidator.validate(any())).thenReturn(Mono.error(new IllegalArgumentException()));
-
-    post(DRAFT)
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath(VALID)
-        .isEqualTo(false)
-        .jsonPath("$.data.message")
-        .isEqualTo("java.lang.IllegalArgumentException");
-  }
-
-  @Test
   void testUnexpectedFailureReachesTheCentralHandlerWithoutItsText() {
-    when(workflowValidator.validate(any()))
+    when(workflowValidator.validateAll(any()))
         .thenReturn(Mono.error(new IllegalStateException("secret detail")));
 
     post(DRAFT)
@@ -181,7 +181,7 @@ class WorkflowValidationControllerTest {
     final Plugin routed = mock(Plugin.class);
     when(routed.getOutputPorts(any())).thenReturn(List.of("success", "failure", "error"));
     when(pluginRegistry.get(BRANCH)).thenReturn(routed);
-    when(workflowValidator.validate(any())).thenReturn(Mono.empty());
+    when(workflowValidator.validateAll(any())).thenReturn(Mono.just(List.of()));
 
     final String body =
         """
@@ -206,8 +206,7 @@ class WorkflowValidationControllerTest {
     when(single.getOutputPorts(any())).thenReturn(List.of("default"));
     when(pluginRegistry.get(BRANCH)).thenReturn(branch);
     when(pluginRegistry.get("ECHO")).thenReturn(single);
-    when(workflowValidator.validate(any()))
-        .thenReturn(Mono.error(new IllegalArgumentException("still invalid")));
+    when(workflowValidator.validateAll(any())).thenReturn(Mono.just(List.of("still invalid")));
 
     final String body =
         """

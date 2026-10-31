@@ -140,6 +140,25 @@ class WorkflowValidatorTest {
   }
 
   @Test
+  void testValidateAllReportsEveryProblemNotOnlyTheFirst() {
+    final var def =
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(node("a", "T")),
+            List.of(new WorkflowDefinition.Edge("a", "missing", null)));
+
+    org.assertj.core.api.Assertions.assertThat(validator.validateAll(def).block()).isNotEmpty();
+    org.assertj.core.api.Assertions.assertThat(
+            validator
+                .validateAll(
+                    new WorkflowDefinition(
+                        WORKFLOW_NAME, "d", List.of(node("a", "T"), node("a", "P")), List.of()))
+                .block())
+        .contains("Duplicate node id 'a'");
+  }
+
+  @Test
   void testDuplicateNodeIdRejected() {
     assertRejected(
         new WorkflowDefinition(
