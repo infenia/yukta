@@ -78,14 +78,16 @@ pieces (issue, epic, nav, steer, heal report) are in `backup/scripts/`.
 
 ## Scheduled pickup
 
-`yk pickup session` in the terminal that should receive issues (accept the development-channel dialog), then `yk pickup on`.
+`yk pickup session [--name N]` in each terminal that should receive issues (accept the development-channel dialog), then `yk pickup on`.
 `yk pickup status` shows the schedule, the channel and the last results; `yk pickup now` runs one round.
 
 | Symptom | Cause and fix |
 |---|---|
-| `PICKUP skipped=no channel` | no pickup session is open, or its channel lost the port: open `yk pickup session` |
+| `PICKUP skipped=no channel` | no pickup session is registered (`ls $DEV_HOME/pickup`): open `yk pickup session` |
 | `PICKUP skipped=busy with #n` for hours | the session never called `pickup_done` (it frees itself after 4 h): tell the session to report, or restart it |
-| `yk pickup session`: `another pickup session already owns :8790` | close the other session, or `lsof -i :8790` for a stale channel process |
+| `PICKUP skipped=all busy (a,b)` | every session holds an issue; wait, or open another `yk pickup session` |
+| a session you closed still shows in `yk pickup status` | it cannot: the entry goes with the session, and a dead pid is dropped by the next tick; `ls $DEV_HOME/pickup` |
+| one session never gets issues | it is not idle for the channel (busy flag), or it was opened without `yk pickup session`; `yk pickup now --to <name>` tests it |
 | `yk pickup on` cannot find workflow `pickup` | the dev server runs `origin/main`'s `session.json`; it appears after the pickup PR is merged and `yk up` swapped |
 | nothing is ever handed over | no issue is both assigned to you and Ready, or each has a PR or an `issue/<n>` branch |
 | the schedule vanished after a server swap | `yk pickup status`; the next `yk` call starts it again when it was on |
