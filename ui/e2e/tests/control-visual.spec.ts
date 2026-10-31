@@ -83,6 +83,9 @@ test.describe('Control dashboard screenshots', () => {
       await page.goto('/control');
       const strip = page.getByTestId('command-strip');
       await expect(strip).toContainText('1.8 s');
+      // The charts load lazily and show a skeleton of another height until they do
+      await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+      await page.waitForLoadState('networkidle');
       await expect(page).toHaveScreenshot(`control-${name}.png`, {
         fullPage: true,
         maxDiffPixels: 3000,
