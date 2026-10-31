@@ -174,7 +174,8 @@ public class SupervisorBindingsController {
         .flatMap(
             settings ->
                 service.saveProfile(
-                    new SupervisorProfile(id, required("type", body.type()), settings, body.dryRun())))
+                    new SupervisorProfile(
+                        id, required("type", body.type()), settings, body.dryRun())))
         .map(saved -> ApiResponse.success(200, "Profile saved", view(saved)));
   }
 
