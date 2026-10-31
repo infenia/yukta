@@ -17,7 +17,7 @@ const NON_TERMINAL = new Set(['PENDING', 'QUEUED', 'RUNNING']);
 function serverStatuses(): string[] {
   const source = readFileSync(TASK_STATUS, 'utf8');
   const body = source.slice(source.indexOf('public enum TaskStatus'));
-  return [...body.matchAll(/^ {2}([A-Z][A-Z_]*)[,;]/gm)].map((m) => m[1]!);
+  return [...body.matchAll(/^ {2}([A-Z][A-Z_]*)[,;]/gm)].map((m) => m[1] ?? '');
 }
 
 // Skipped when the UI is built without the rest of the repository
