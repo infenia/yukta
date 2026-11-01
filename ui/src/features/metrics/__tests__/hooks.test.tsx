@@ -135,6 +135,28 @@ describe('useMetricStream', () => {
     });
   });
 
+  it('leaves the series of a session scope to be read again, not streamed', () => {
+    const client = new QueryClient();
+    const now = Date.now();
+    const key = 'yukta.executions.rejected{reason=limit}|rate';
+    const scoped = [{ t: now - 60_000, v: 2 }];
+    client.setQueryData(
+      ['metrics', 'series', 'yukta.executions.rejected', '15m', 'session:s1'],
+      { [key]: scoped }
+    );
+    renderHook(() => useMetricStream(true), { wrapper: wrapperFor(client) });
+    act(() => handler({ time: now, values: { [key]: 3 } }));
+    expect(
+      client.getQueryData([
+        'metrics',
+        'series',
+        'yukta.executions.rejected',
+        '15m',
+        'session:s1',
+      ])
+    ).toEqual({ [key]: scoped });
+  });
+
   it('stays idle when paused', () => {
     renderHook(() => useMetricStream(false), {
       wrapper: wrapperFor(new QueryClient()),
