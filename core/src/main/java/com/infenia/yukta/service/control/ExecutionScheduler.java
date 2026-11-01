@@ -12,7 +12,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -43,6 +42,7 @@ import reactor.core.publisher.Sinks;
 @Component
 @SuppressWarnings({
   "PMD.AvoidSynchronizedStatement",
+  "PMD.CouplingBetweenObjects",
   "PMD.TooManyMethods",
   "PMD.CyclomaticComplexity"
 })
@@ -90,11 +90,10 @@ public class ExecutionScheduler implements SmartLifecycle {
   /**
    * Starts waiting for a slot: highest priority first, oldest first within a priority.
    *
-   * <p>ponytail: a plain list, so enqueue, the per-workflow count and the admit scan are O(n) under
-   * the lock. Fine at the default {@code queue-capacity=100}; above about 10k use a {@code
-   * TreeMap<priority, ArrayDeque>} plus a count per workflow.
+   * <p>Enqueue, removal and the per-workflow count are O(1) or O(log priorities). The admit scan is
+   * still linear in the waiters of the best priority that fits.
    */
-  private final List<Waiter> queue = new ArrayList<>();
+  private final WaitQueue queue = new WaitQueue();
 
   /** Running executions per workflow. */
   private final Map<String, Integer> runningPerKey = new ConcurrentHashMap<>();
@@ -305,7 +304,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       final Waiter waiter =
           new Waiter(
               key, executionId, new AtomicInteger(priority), Sinks.one(), new AtomicReference<>());
-      enqueue(waiter);
+      queue.add(waiter);
       final Mono<Permit> grant = waiter.grant().asMono().doOnCancel(() -> abandon(waiter));
       return new Admission(
           false,
@@ -470,25 +469,15 @@ public class ExecutionScheduler implements SmartLifecycle {
    */
   public boolean changePriority(final String executionId, final int priority) {
     synchronized (lock) {
-      for (final Waiter waiter : queue) {
-        if (executionId.equals(waiter.executionId())) {
-          queue.remove(waiter);
-          waiter.priority().set(priority);
-          enqueue(waiter);
-          return true;
-        }
+      final Waiter waiter = queue.byExecution(executionId);
+      if (waiter == null) {
+        return false;
       }
-      return false;
+      queue.remove(waiter);
+      waiter.priority().set(priority);
+      queue.add(waiter);
+      return true;
     }
-  }
-
-  /** Inserts a waiter after every waiter of higher or equal priority. */
-  private void enqueue(final Waiter waiter) {
-    int index = queue.size();
-    while (index > 0 && queue.get(index - 1).priority().get() < waiter.priority().get()) {
-      index--;
-    }
-    queue.add(index, waiter);
   }
 
   /**
@@ -578,9 +567,7 @@ public class ExecutionScheduler implements SmartLifecycle {
     if (queue.size() >= queueCapacity) {
       return RejectReason.QUEUE_FULL;
     }
-    if (workflowQueueCapacity > 0
-        && queue.stream().filter(waiter -> waiter.key().equals(key)).count()
-            >= workflowQueueCapacity) {
+    if (workflowQueueCapacity > 0 && queue.count(key) >= workflowQueueCapacity) {
       return RejectReason.WORKFLOW_QUEUE_FULL;
     }
     return null;
@@ -663,19 +650,23 @@ public class ExecutionScheduler implements SmartLifecycle {
   private Waiter nextToAdmit() {
     Waiter best = null;
     int bestRunning = 0;
-    for (final Waiter waiter : queue) {
-      if (!fits(waiter.key())) {
-        continue;
+    for (final var group : queue.groups()) {
+      for (final Waiter waiter : group) {
+        if (!fits(waiter.key())) {
+          continue;
+        }
+        final int running = runningPerSession.getOrDefault(sessionOf(waiter.key()), 0);
+        if (best == null || running < bestRunning) {
+          best = waiter;
+          bestRunning = running;
+        }
       }
-      final int running = runningPerSession.getOrDefault(sessionOf(waiter.key()), 0);
-      // the queue is ordered by priority, so a later waiter is never above the best so far
-      if (best == null
-          || (waiter.priority().get() == best.priority().get() && running < bestRunning)) {
-        best = waiter;
-        bestRunning = running;
+      // groups come highest priority first, so a lower one never beats a fit found here
+      if (best != null) {
+        return best;
       }
     }
-    return best;
+    return null;
   }
 
   /** Called when a waiting start is cancelled; gives back a slot it was granted in the meantime. */
@@ -686,7 +677,10 @@ public class ExecutionScheduler implements SmartLifecycle {
       }
     }
     // Granted between the cancel and now (or never granted, if shutdown refused it).
-    Optional.ofNullable(waiter.granted().get()).ifPresent(Permit::release);
+    final Permit granted = waiter.granted().get();
+    if (granted != null) {
+      granted.release();
+    }
   }
 
   @Override
@@ -713,12 +707,11 @@ public class ExecutionScheduler implements SmartLifecycle {
       signal = drained;
       closed = true;
       started = false;
-      queue.forEach(
+      queue.drain(
           waiter ->
               waiter
                   .grant()
                   .tryEmitError(new ExecutionRejectedException("The server is shutting down")));
-      queue.clear();
       idle = runningTotal == 0;
       if (!idle) {
         log.atInfo()
@@ -833,12 +826,4 @@ public class ExecutionScheduler implements SmartLifecycle {
       permit.subscribe(Permit::release, _ -> {});
     }
   }
-
-  /** A start waiting for a slot. */
-  private record Waiter(
-      String key,
-      @Nullable String executionId,
-      AtomicInteger priority,
-      Sinks.One<Permit> grant,
-      AtomicReference<Permit> granted) {}
 }

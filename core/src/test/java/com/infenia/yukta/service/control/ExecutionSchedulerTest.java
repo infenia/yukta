@@ -15,9 +15,11 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.reactivestreams.Subscription;
+import reactor.core.CoreSubscriber;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.test.StepVerifier;
 
@@ -391,6 +393,66 @@ class ExecutionSchedulerTest {
 
     assertThat(scheduler.queued()).isZero();
     assertThat(scheduler.running()).isEqualTo(1);
+  }
+
+  @Test
+  void refusedWaiterThatIsCancelledLater_hasNothingToGiveBack() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+    granted(scheduler.acquire("s", "w"));
+    final AtomicReference<Subscription> subscription = new AtomicReference<>();
+    final AtomicReference<Throwable> refusal = new AtomicReference<>();
+    scheduler
+        .acquire("s", "w")
+        .permit()
+        .subscribe(
+            // a core subscriber keeps the upstream subscription, so cancelling after the refusal
+            // still reaches the scheduler (a plain Subscriber would ignore it once terminated)
+            new CoreSubscriber<>() {
+              @Override
+              public void onSubscribe(final Subscription s) {
+                subscription.set(s);
+              }
+
+              @Override
+              public void onNext(final Permit permit) {
+                // never granted
+              }
+
+              @Override
+              public void onError(final Throwable t) {
+                refusal.set(t);
+              }
+
+              @Override
+              public void onComplete() {
+                // never granted
+              }
+            });
+
+    scheduler.stop(() -> {});
+    assertThat(refusal.get()).isInstanceOf(ExecutionRejectedException.class);
+    // the subscriber goes away after it was refused: there is no slot to give back
+    subscription.get().cancel();
+
+    assertThat(scheduler.queued()).isZero();
+    assertThat(scheduler.running()).isEqualTo(1);
+  }
+
+  @Test
+  void giveBack_releasesTheSlotOfAnAdmissionNobodyTookUp() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+    final Admission immediate = scheduler.acquire("s", "w");
+    assertThat(scheduler.running()).isEqualTo(1);
+    immediate.giveBack();
+    assertThat(scheduler.running()).isZero();
+
+    final Permit first = granted(scheduler.acquire("s", "w"));
+    final Admission waiting = scheduler.acquire("s", "w");
+    first.release();
+    assertThat(scheduler.running()).isEqualTo(1);
+    // granted while nobody listened: giving it back frees the slot again
+    waiting.giveBack();
+    assertThat(scheduler.running()).isZero();
   }
 
   @Test
