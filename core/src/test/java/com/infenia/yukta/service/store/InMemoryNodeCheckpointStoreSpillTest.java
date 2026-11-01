@@ -142,7 +142,8 @@ class InMemoryNodeCheckpointStoreSpillTest {
   @Test
   void staleSpillOfAnEarlierProcess_isRemovedAtStartup_otherFilesAreKept() throws IOException {
     Files.createDirectories(dir.resolve("e-old"));
-    Files.writeString(dir.resolve("e-old").resolve("n.jsonl"), "{}\n");
+    Files.writeString(
+        dir.resolve("e-old").resolve(FileNodeCheckpointStore.fileName("n") + ".jsonl"), "{}\n");
     Files.writeString(dir.resolve("keep.txt"), "x");
 
     store(1, dir.toString());
