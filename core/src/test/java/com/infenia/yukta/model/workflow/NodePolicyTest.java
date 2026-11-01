@@ -248,9 +248,11 @@ class NodePolicyTest {
 
   @Test
   void echoOutput_defaultsToTrue_isParsed_andIsValidated() {
-    assertThat(NodePolicy.echoOutput(null)).isTrue();
-    assertThat(NodePolicy.echoOutput(Map.of())).isTrue();
-    assertThat(NodePolicy.echoOutput(Map.of("engine", Map.of("echoOutput", false)))).isFalse();
+    assertThat(NodePolicy.echoOutput(null, true)).isTrue();
+    assertThat(NodePolicy.echoOutput(Map.of(), false)).isFalse();
+    assertThat(NodePolicy.echoOutput(Map.of("engine", Map.of("echoOutput", false)), true))
+        .isFalse();
+    assertThat(NodePolicy.echoOutput(Map.of("engine", Map.of("echoOutput", true)), false)).isTrue();
     assertThatThrownBy(() -> NodePolicy.from(Map.of("engine", Map.of("echoOutput", "no"))))
         .isInstanceOf(IllegalArgumentException.class);
   }

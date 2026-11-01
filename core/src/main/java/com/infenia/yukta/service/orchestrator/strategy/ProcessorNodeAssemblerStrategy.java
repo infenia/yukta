@@ -23,6 +23,7 @@ import com.infenia.yukta.service.orchestrator.stream.NodeTimeouts;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.workflow.ConfigRedactor;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -253,7 +254,10 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
         stream = stream.subscribeOn(virtualThreadScheduler);
       }
 
-      final boolean echoOutput = NodePolicy.echoOutput(node.config());
+      final boolean echoOutput =
+          NodePolicy.echoOutput(
+              node.config(),
+              !ConfigRedactor.hasSecretConfig(plugin.getConfigSchema(), node.config()));
       final Flux<Message<?>> built =
           StreamAssemblyHelper.buildStreamWithContext(
               node, stream, timeout, activity, tracker, context, plugin, activePluginRegistry);

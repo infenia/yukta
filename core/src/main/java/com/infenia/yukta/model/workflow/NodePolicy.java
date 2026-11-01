@@ -391,14 +391,16 @@ public record NodePolicy(
    * message is copied into the run log when the plugin did not log it live.
    *
    * @param config the node config, possibly empty
-   * @return true unless the node sets {@code echoOutput} to false
+   * @param defaultValue what a node that does not set it gets
+   * @return the node's setting, else {@code defaultValue}
    * @throws IllegalArgumentException if the value is not a boolean
    */
-  public static boolean echoOutput(@Nullable final Map<String, Object> config) {
+  public static boolean echoOutput(
+      @Nullable final Map<String, Object> config, final boolean defaultValue) {
     final Object raw = config == null ? null : config.get(CONFIG_KEY);
     final Object value = raw == null ? null : asMap(raw, CONFIG_KEY).get("echoOutput");
     if (value == null) {
-      return true;
+      return defaultValue;
     }
     if (value instanceof Boolean flag) {
       return flag;
@@ -443,7 +445,7 @@ public record NodePolicy(
                 : null);
     edgeBuffer(config);
     checkpoint(config);
-    echoOutput(config);
+    echoOutput(config, true);
     placement(config);
     if (policy.failureBudget() != null && policy.onError() == OnError.FAIL) {
       throw new IllegalArgumentException(

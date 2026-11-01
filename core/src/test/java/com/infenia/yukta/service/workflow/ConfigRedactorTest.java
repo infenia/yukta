@@ -162,4 +162,17 @@ class ConfigRedactorTest {
     assertThat(ConfigRedactor.placeholders(workflow("X", Map.of("tokens", List.of("ok", MASK)))))
         .containsExactly("n1.tokens.1");
   }
+
+  @Test
+  void hasSecretConfig_findsDeclaredFieldsAndSecretNamedKeysAtAnyDepth() {
+    final List<ConfigField> schema =
+        List.of(ConfigField.optional("pass", ConfigField.Type.SECRET, null, "secret"));
+    assertThat(ConfigRedactor.hasSecretConfig(schema, Map.of("pass", "decrypted:x"))).isTrue();
+    assertThat(ConfigRedactor.hasSecretConfig(List.of(), Map.of("apiKey", "decrypted:x"))).isTrue();
+    assertThat(
+            ConfigRedactor.hasSecretConfig(
+                List.of(), Map.of("headers", List.of(Map.of("Authorization", "${env.A}")))))
+        .isTrue();
+    assertThat(ConfigRedactor.hasSecretConfig(schema, Map.of("url", "http://x"))).isFalse();
+  }
 }
