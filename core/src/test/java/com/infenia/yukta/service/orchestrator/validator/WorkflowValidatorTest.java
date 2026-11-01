@@ -175,6 +175,53 @@ class WorkflowValidatorTest {
         .containsExactly("Plugin not found for type: " + UNKNOWN_ID);
   }
 
+  /** Stubs a trigger "T" and a processor "P" whose context check returns the given result. */
+  private void stubTriggerAndProcessor(final Mono<Void> processorContext) {
+    when(registry.get(TRIGGER_ID)).thenReturn(triggerPlugin);
+    when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
+    when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
+    when(triggerPlugin.validateConfig(any())).thenReturn(Mono.empty());
+    when(triggerPlugin.validateInContext(any(), any())).thenReturn(Mono.empty());
+    when(processorPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(processorPlugin.validateConfig(any())).thenReturn(Mono.empty());
+    when(processorPlugin.validateInContext(any(), any())).thenReturn(processorContext);
+  }
+
+  /** A trigger feeding a processor with no outgoing edge and no terminal anywhere. */
+  private static WorkflowDefinition triggerIntoProcessorWithoutTerminal() {
+    return new WorkflowDefinition(
+        WORKFLOW_NAME,
+        "d",
+        List.of(node("t", TRIGGER_ID), node("p", PROCESSOR_ID)),
+        List.of(new WorkflowDefinition.Edge("t", "p", DEFAULT_EDGE_LABEL)));
+  }
+
+  @Test
+  void testValidateAllRunsEveryGraphCheckWhenEveryPluginIsRegistered() {
+    stubTriggerAndProcessor(Mono.empty());
+
+    StepVerifier.create(validator.validateAll(triggerIntoProcessorWithoutTerminal()))
+        .assertNext(
+            problems ->
+                org.assertj.core.api.Assertions.assertThat(problems)
+                    .contains(
+                        "Workflow must contain at least one TERMINAL node",
+                        "Node p is an endpoint but not a TERMINAL"))
+        .verifyComplete();
+  }
+
+  @Test
+  void testValidateAllReportsProblemWithoutMessageByItsType() {
+    stubTriggerAndProcessor(Mono.error(new IllegalArgumentException()));
+
+    StepVerifier.create(validator.validateAll(triggerIntoProcessorWithoutTerminal()))
+        .assertNext(
+            problems ->
+                org.assertj.core.api.Assertions.assertThat(problems)
+                    .contains("java.lang.IllegalArgumentException"))
+        .verifyComplete();
+  }
+
   @Test
   void testDuplicateNodeIdRejected() {
     assertRejected(

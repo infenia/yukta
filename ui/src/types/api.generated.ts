@@ -4213,6 +4213,8 @@ export interface components {
             outputPorts?: {
                 [key: string]: string[];
             };
+            /** @description Every problem found; empty when valid */
+            problems?: string[];
             /** @description True when the workflow would be accepted */
             valid?: boolean;
             /** @description Problems that do not stop the workflow, for the editor to show */
