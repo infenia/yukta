@@ -5,6 +5,7 @@ package com.infenia.yukta;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
@@ -94,7 +95,7 @@ class PostgresPersistenceAcceptanceTest {
         .until(
             () -> {
               final var progress = tracker.getProgressByExecutionId(executionId);
-              return progress != null && "SUCCESS".equals(progress.status());
+              return progress != null && TaskStatus.SUCCESS == progress.status();
             });
 
     assertThat(definitions.find(session, "wf").block()).isNotNull();

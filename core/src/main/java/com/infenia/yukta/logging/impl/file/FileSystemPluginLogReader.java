@@ -163,15 +163,13 @@ public class FileSystemPluginLogReader implements PluginLogReader {
                           if (!entries.isEmpty()) {
                             final Instant startInstant = entries.getFirst().timestamp();
                             final Instant endInstant = entries.getLast().timestamp();
-                            final var startTime =
-                                ZonedDateTime.ofInstant(startInstant, ZoneId.systemDefault())
-                                    .toLocalDateTime();
-                            final var endTime =
-                                ZonedDateTime.ofInstant(endInstant, ZoneId.systemDefault())
-                                    .toLocalDateTime();
                             summaries.add(
                                 new ExecutionSummary(
-                                    executionId, sessionId, startTime, endTime, entries.size()));
+                                    executionId,
+                                    sessionId,
+                                    startInstant,
+                                    endInstant,
+                                    entries.size()));
                           }
                         });
               } catch (final IOException e) {

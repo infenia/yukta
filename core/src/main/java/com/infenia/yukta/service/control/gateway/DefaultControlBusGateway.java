@@ -456,14 +456,13 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
           if (progress == null) {
             return Mono.error(new NotFoundException("Execution not found: " + executionId));
           }
-          final String status =
+          final TaskStatus status =
               progress.tasks().stream()
                   .filter(task -> task.nodeId().equals(nodeId))
                   .map(TaskProgress::status)
                   .findFirst()
                   .orElseThrow(() -> new NotFoundException("Node not found: " + nodeId));
-          if (!TaskStatus.FAILURE.name().equals(status)
-              && !TaskStatus.TIMED_OUT.name().equals(status)) {
+          if (status != TaskStatus.FAILURE && status != TaskStatus.TIMED_OUT) {
             return Mono.error(
                 new IllegalArgumentException(
                     "Node "

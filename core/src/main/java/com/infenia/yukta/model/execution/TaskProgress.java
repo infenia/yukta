@@ -4,20 +4,17 @@ package com.infenia.yukta.model.execution;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
-import tools.jackson.databind.annotation.JsonSerialize;
 
 /** Represents the progress of a single node within a workflow DAG. */
 public record TaskProgress(
     String nodeId,
     String module,
-    String status,
-    @JsonSerialize(using = OffsetTimestampSerializer.class) @Schema(nullable = true)
-        @Nullable LocalDateTime startTime,
-    @JsonSerialize(using = OffsetTimestampSerializer.class) @Schema(nullable = true)
-        @Nullable LocalDateTime endTime,
+    TaskStatus status,
+    @Schema(nullable = true) @Nullable Instant startTime,
+    @Schema(nullable = true) @Nullable Instant endTime,
     Map<String, Object> metadata,
     @JsonInclude(JsonInclude.Include.NON_NULL) @Nullable Breakpoint breakpoint) {
 
@@ -42,9 +39,9 @@ public record TaskProgress(
   public TaskProgress(
       final String nodeId,
       final String module,
-      final String status,
-      final @Nullable LocalDateTime startTime,
-      final @Nullable LocalDateTime endTime,
+      final TaskStatus status,
+      final @Nullable Instant startTime,
+      final @Nullable Instant endTime,
       final Map<String, Object> metadata) {
     this(nodeId, module, status, startTime, endTime, metadata, null);
   }

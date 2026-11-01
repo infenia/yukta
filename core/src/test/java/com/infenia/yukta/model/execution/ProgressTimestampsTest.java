@@ -4,8 +4,8 @@ package com.infenia.yukta.model.execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
@@ -17,8 +17,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The start and end times of a run are server local times. They go out with the server's offset, so
- * a client in another time zone reads the right moment.
+ * The start and end times of a run are instants. They go out in UTC (a trailing {@code Z}) whatever
+ * the zone of the server, so a client in any zone reads the same moment.
  */
 @NoArgsConstructor
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
@@ -27,8 +27,7 @@ class ProgressTimestampsTest {
   /** Writes the DTOs the way the server does. */
   private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
-  /** A server local start time. */
-  private static final LocalDateTime START = LocalDateTime.of(2026, 10, 16, 4, 26, 14, 183_000_000);
+  private static final Instant START = Instant.parse("2026-10-15T22:56:14.183Z");
 
   /** The zone of the test JVM, restored after each test. */
   private TimeZone original;
@@ -49,44 +48,46 @@ class ProgressTimestampsTest {
   }
 
   @Test
-  void workflowProgressTimesCarryTheServersOffset() {
+  void workflowProgressTimesAreUtc() {
     final WorkflowProgress progress =
-        new WorkflowProgress("e", "s", "w", "SUCCESS", List.of(), START, START.plusSeconds(5));
+        new WorkflowProgress(
+            "e", "s", "w", TaskStatus.SUCCESS, List.of(), START, START.plus(Duration.ofSeconds(5)));
 
     final JsonNode node = json(progress);
 
-    assertThat(node.get("startTime").asString()).isEqualTo("2026-10-16T04:26:14.183+05:30");
-    assertThat(node.get("endTime").asString()).isEqualTo("2026-10-16T04:26:19.183+05:30");
-    assertThat(OffsetDateTime.parse(node.get("startTime").asString()).toInstant().toString())
-        .isEqualTo("2026-10-15T22:56:14.183Z");
+    assertThat(node.get("startTime").asString()).isEqualTo("2026-10-15T22:56:14.183Z");
+    assertThat(node.get("endTime").asString()).isEqualTo("2026-10-15T22:56:19.183Z");
+    assertThat(node.get("status").asString()).isEqualTo("SUCCESS");
   }
 
   @Test
   void missingEndTimeStaysNull() {
     final WorkflowProgress progress =
-        new WorkflowProgress("e", "s", "w", "RUNNING", List.of(), START, null);
+        new WorkflowProgress("e", "s", "w", TaskStatus.RUNNING, List.of(), START, null);
 
     assertThat(json(progress).get("endTime").isNull()).isTrue();
   }
 
   @Test
-  void taskProgressTimesCarryTheServersOffset() {
-    final TaskProgress task = new TaskProgress("n", "MAPPER", "RUNNING", START, null, Map.of());
+  void taskProgressTimesAreUtc() {
+    final TaskProgress task =
+        new TaskProgress("n", "MAPPER", TaskStatus.RUNNING, START, null, Map.of());
 
     final JsonNode node = json(task);
 
-    assertThat(node.get("startTime").asString()).endsWith("+05:30");
+    assertThat(node.get("startTime").asString()).endsWith("Z");
     assertThat(node.get("endTime").isNull()).isTrue();
   }
 
   @Test
-  void executionSummaryTimesCarryTheServersOffset() {
+  void executionSummaryTimesAreUtc() {
     final WorkflowExecutionSummary summary =
-        new WorkflowExecutionSummary("e", "w", "SUCCESS", START, START.plusMinutes(1));
+        new WorkflowExecutionSummary(
+            "e", "w", TaskStatus.SUCCESS, START, START.plus(Duration.ofMinutes(1)));
 
     final JsonNode node = json(summary);
 
-    assertThat(node.get("startTime").asString()).isEqualTo("2026-10-16T04:26:14.183+05:30");
-    assertThat(node.get("endTime").asString()).isEqualTo("2026-10-16T04:27:14.183+05:30");
+    assertThat(node.get("startTime").asString()).isEqualTo("2026-10-15T22:56:14.183Z");
+    assertThat(node.get("endTime").asString()).isEqualTo("2026-10-15T22:57:14.183Z");
   }
 }

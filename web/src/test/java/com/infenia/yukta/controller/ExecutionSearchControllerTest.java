@@ -5,10 +5,14 @@ package com.infenia.yukta.controller;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -20,7 +24,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.UnitTestShouldIncludeAssert", "PMD.AvoidDuplicateLiterals"})
 class ExecutionSearchControllerTest {
 
-  private static final LocalDateTime NOON = LocalDateTime.of(2026, 1, 2, 12, 0);
+  private static final Instant NOON = LocalDateTime.of(2026, 1, 2, 12, 0).toInstant(ZoneOffset.UTC);
 
   private final SessionService sessions = mock(SessionService.class);
   private final ControlBusGateway controlBus = mock(ControlBusGateway.class);
@@ -28,7 +32,7 @@ class ExecutionSearchControllerTest {
       WebTestClient.bindToController(new ExecutionSearchController(sessions, controlBus)).build();
 
   private static WorkflowExecutionSummary run(
-      final String runId, final String workflow, final String status, final LocalDateTime start) {
+      final String runId, final String workflow, final TaskStatus status, final Instant start) {
     return new WorkflowExecutionSummary(runId, workflow, status, start, null);
   }
 
@@ -38,14 +42,14 @@ class ExecutionSearchControllerTest {
         .thenReturn(
             Mono.just(
                 List.of(
-                    run("a1", "wf", "SUCCESS", NOON),
-                    run("a2", "wf", "FAILURE", NOON.minusDays(1)))));
+                    run("a1", "wf", TaskStatus.SUCCESS, NOON),
+                    run("a2", "wf", TaskStatus.FAILURE, NOON.minus(Duration.ofDays(1))))));
     when(controlBus.getHistory("s2"))
         .thenReturn(
             Mono.just(
                 List.of(
-                    run("b1", "other", "SUCCESS", NOON.plusHours(1)),
-                    run("b2", "wf", "QUEUED", null))));
+                    run("b1", "other", TaskStatus.SUCCESS, NOON.plus(Duration.ofHours(1))),
+                    run("b2", "wf", TaskStatus.QUEUED, null))));
   }
 
   @Test
@@ -100,7 +104,7 @@ class ExecutionSearchControllerTest {
   void workflowFilter_isAskedOfTheTrackerPerSession() {
     when(sessions.getSessionIds()).thenReturn(Flux.just("s1"));
     when(controlBus.getHistory("s1", "wf"))
-        .thenReturn(Mono.just(List.of(run("a1", "wf", "SUCCESS", NOON))));
+        .thenReturn(Mono.just(List.of(run("a1", "wf", TaskStatus.SUCCESS, NOON))));
 
     client
         .get()
@@ -121,12 +125,21 @@ class ExecutionSearchControllerTest {
             Mono.just(
                 List.of(
                     new WorkflowExecutionSummary(
-                        "a1", "wf", "SUCCESS", NOON, null, null, null, null, null, "yk check"),
+                        "a1",
+                        "wf",
+                        TaskStatus.SUCCESS,
+                        NOON,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "yk check"),
                     new WorkflowExecutionSummary(
                         "a2",
                         "wf",
-                        "SUCCESS",
-                        NOON.minusMinutes(1),
+                        TaskStatus.SUCCESS,
+                        NOON.minus(Duration.ofMinutes(1)),
                         null,
                         null,
                         null,
@@ -154,7 +167,7 @@ class ExecutionSearchControllerTest {
                     new WorkflowExecutionSummary(
                         "a1",
                         "wf",
-                        "FAILURE",
+                        TaskStatus.FAILURE,
                         NOON,
                         null,
                         null,
@@ -177,19 +190,22 @@ class ExecutionSearchControllerTest {
 
   @Test
   void countsRunningAndQueuedNow_andFailuresInTheWindow() {
-    final LocalDateTime now = LocalDateTime.now();
+    final Instant now = Instant.now();
     when(sessions.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
     when(controlBus.getHistory("s1"))
         .thenReturn(
             Mono.just(
                 List.of(
-                    run("r1", "wf", "RUNNING", now),
-                    run("f1", "wf", "FAILURE", now.minusHours(1)),
-                    run("f2", "wf", "FAILURE", now.minusHours(30)),
-                    run("f3", "wf", "FAILURE", null))));
+                    run("r1", "wf", TaskStatus.RUNNING, now),
+                    run("f1", "wf", TaskStatus.FAILURE, now.minus(Duration.ofHours(1))),
+                    run("f2", "wf", TaskStatus.FAILURE, now.minus(Duration.ofHours(30))),
+                    run("f3", "wf", TaskStatus.FAILURE, null))));
     when(controlBus.getHistory("s2"))
         .thenReturn(
-            Mono.just(List.of(run("q1", "wf", "QUEUED", null), run("e1", "wf", "ERROR", now))));
+            Mono.just(
+                List.of(
+                    run("q1", "wf", TaskStatus.QUEUED, null),
+                    run("e1", "wf", TaskStatus.ERROR, now))));
 
     client
         .get()

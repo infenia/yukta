@@ -687,7 +687,8 @@ class DefaultControlBusGatewayTest {
     when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
     when(taskTracker.getProgressByExecutionId(executionId))
         .thenReturn(
-            new WorkflowProgress(executionId, "sess", "wf", "RUNNING", List.of(), null, null));
+            new WorkflowProgress(
+                executionId, "sess", "wf", TaskStatus.RUNNING, List.of(), null, null));
     when(taskTracker.finishWorkflow(executionId, TaskStatus.STOPPED)).thenReturn(Mono.empty());
 
     StepVerifier.create(gateway.stopExecution(executionId, "stop"))
@@ -703,7 +704,8 @@ class DefaultControlBusGatewayTest {
     when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
     when(taskTracker.getProgressByExecutionId(executionId))
         .thenReturn(
-            new WorkflowProgress(executionId, "sess", "wf", "SUCCESS", List.of(), null, null));
+            new WorkflowProgress(
+                executionId, "sess", "wf", TaskStatus.SUCCESS, List.of(), null, null));
 
     StepVerifier.create(gateway.stopExecution(executionId, "stop"))
         .expectError(IllegalArgumentException.class)
@@ -1208,7 +1210,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-14";
     final WorkflowProgress progress =
-        new WorkflowProgress("exec", "sess", "wf", "status", List.of(), null, null);
+        new WorkflowProgress("exec", "sess", "wf", TaskStatus.RUNNING, List.of(), null, null);
     when(taskTracker.getStatusStream(executionId, true)).thenReturn(Flux.just(progress));
 
     // When
@@ -1846,7 +1848,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-watch";
     final WorkflowProgress progress =
-        new WorkflowProgress("exec", "sess", "wf", "status", List.of(), null, null);
+        new WorkflowProgress("exec", "sess", "wf", TaskStatus.RUNNING, List.of(), null, null);
     when(taskTracker.getStatusStream(executionId, true)).thenReturn(Flux.just(progress));
 
     // When
@@ -1878,7 +1880,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-progress";
     final WorkflowProgress progress = mock(WorkflowProgress.class);
-    when(progress.status()).thenReturn("RUNNING");
+    when(progress.status()).thenReturn(TaskStatus.RUNNING);
     when(progress.tasks()).thenReturn(List.of());
     when(taskTracker.getProgressByExecutionId(executionId)).thenReturn(progress);
 
@@ -2826,12 +2828,12 @@ class DefaultControlBusGatewayTest {
 
   // --- Breakpoint, retry, limits, priority ---
 
-  private WorkflowProgress progressWith(final String nodeId, final String status) {
+  private WorkflowProgress progressWith(final String nodeId, final TaskStatus status) {
     return new WorkflowProgress(
         "e1",
         "s",
         "w",
-        "FAILURE",
+        TaskStatus.FAILURE,
         List.of(
             new com.infenia.yukta.model.execution.TaskProgress(
                 nodeId, "m", status, null, null, Map.of())),
@@ -2865,7 +2867,8 @@ class DefaultControlBusGatewayTest {
 
   @Test
   void retryNode_ofFailedNode_restartsFromIt() {
-    when(taskTracker.getProgressByExecutionId("e1")).thenReturn(progressWith("n1", "FAILURE"));
+    when(taskTracker.getProgressByExecutionId("e1"))
+        .thenReturn(progressWith("n1", TaskStatus.FAILURE));
     when(executionControlRegistry.findByExecutionId("e1"))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
@@ -2886,7 +2889,8 @@ class DefaultControlBusGatewayTest {
 
   @Test
   void retryNode_ofTimedOutNode_restartsFromIt() {
-    when(taskTracker.getProgressByExecutionId("e1")).thenReturn(progressWith("n1", "TIMED_OUT"));
+    when(taskTracker.getProgressByExecutionId("e1"))
+        .thenReturn(progressWith("n1", TaskStatus.TIMED_OUT));
     when(executionControlRegistry.findByExecutionId("e1"))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
@@ -2907,7 +2911,8 @@ class DefaultControlBusGatewayTest {
 
   @Test
   void retryNode_ofNodeThatDidNotFail_unknownNodeOrExecution_isRefused() {
-    when(taskTracker.getProgressByExecutionId("e1")).thenReturn(progressWith("n1", "SUCCESS"));
+    when(taskTracker.getProgressByExecutionId("e1"))
+        .thenReturn(progressWith("n1", TaskStatus.SUCCESS));
     when(taskTracker.getProgressByExecutionId("nope")).thenReturn(null);
 
     StepVerifier.create(gateway.retryNode("e1", "n1"))

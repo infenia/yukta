@@ -3,13 +3,15 @@
 package com.infenia.yukta.controller;
 
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Predicate;
@@ -60,8 +62,8 @@ public class ExecutionSearchController {
       String executionId,
       String workflowId,
       String status,
-      LocalDateTime startTime,
-      LocalDateTime endTime,
+      Instant startTime,
+      Instant endTime,
       @Schema(nullable = true) WorkflowExecutionSummary.@Nullable Nodes nodes,
       @Schema(nullable = true) @Nullable String initiator) {}
 
@@ -126,7 +128,7 @@ public class ExecutionSearchController {
               + " started in the last `hours` (default 24)."
               + " The history of each session is bounded by yukta.execution-log.retained-runs.")
   public Mono<ApiResponse<Counts>> counts(@RequestParam(defaultValue = "24") final int hours) {
-    final LocalDateTime since = LocalDateTime.now().minusHours(Math.max(hours, 0));
+    final Instant since = Instant.now().minus(Math.max(hours, 0), ChronoUnit.HOURS);
     return sessions
         .getSessionIds()
         .concatMap(id -> controlBus.getHistory(id).flatMapIterable(history -> history))
@@ -137,12 +139,12 @@ public class ExecutionSearchController {
                     200,
                     "Executions counted",
                     new Counts(
-                        count(runs, run -> "RUNNING".equals(run.status())),
-                        count(runs, run -> "QUEUED".equals(run.status())),
+                        count(runs, run -> run.status() == TaskStatus.RUNNING),
+                        count(runs, run -> run.status() == TaskStatus.QUEUED),
                         count(
                             runs,
                             run ->
-                                "FAILURE".equals(run.status())
+                                run.status() == TaskStatus.FAILURE
                                     && run.startTime() != null
                                     && !run.startTime().isBefore(since)))));
   }
@@ -157,7 +159,7 @@ public class ExecutionSearchController {
         sessionId,
         run.executionId(),
         run.workflowId(),
-        run.status(),
+        run.status().name(),
         run.startTime(),
         run.endTime(),
         run.nodes(),

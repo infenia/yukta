@@ -16,8 +16,10 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.boot.context.properties.bind.BindHandler;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.bind.handler.NoUnboundElementsBindHandler;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
 
@@ -42,6 +44,9 @@ public final class ApiKeys {
 
   /** A SHA-256 digest in hex. */
   private static final Pattern HEX_DIGEST = Pattern.compile("[0-9a-f]{64}");
+
+  /** Written in {@code sessions} to say a key reaches every session. */
+  private static final String ALL_SESSIONS = "*";
 
   /** Name the single {@code yukta.api-key} goes by. */
   private static final String DEFAULT_NAME = "default";
@@ -117,7 +122,11 @@ public final class ApiKeys {
       final Environment environment, @Nullable final String extraKeyProperty) {
     final List<KeyEntry> entries =
         Binder.get(environment)
-            .bind("yukta.api-keys", Bindable.listOf(KeyEntry.class))
+            // a misspelt property (session: for sessions:) must not quietly widen a key's reach
+            .bind(
+                "yukta.api-keys",
+                Bindable.listOf(KeyEntry.class),
+                new NoUnboundElementsBindHandler(BindHandler.DEFAULT))
             .orElseGet(List::of);
     final List<Key> all = new ArrayList<>();
     add(all, DEFAULT_NAME, environment.getProperty("yukta.api-key"), ApiRole.ADMIN, Set.of(), null);
@@ -130,10 +139,26 @@ public final class ApiKeys {
           Objects.requireNonNullElse(entry.name(), "unnamed"),
           Objects.requireNonNull(entry.key(), "yukta.api-keys[].key is required"),
           Objects.requireNonNullElse(entry.role(), ApiRole.VIEWER),
-          Set.copyOf(entry.sessions()),
+          sessionsOf(entry),
           entry.expires());
     }
     return new ApiKeys(all, !entries.isEmpty());
+  }
+
+  /**
+   * The sessions of a key: {@code ["*"]} says all of them on purpose; none listed also means all.
+   */
+  private static Set<String> sessionsOf(final KeyEntry entry) {
+    if (entry.sessions().contains(ALL_SESSIONS)) {
+      return Set.of();
+    }
+    if (entry.sessions().isEmpty() && entry.role() != ApiRole.ADMIN) {
+      log.atWarn()
+          .addKeyValue("key", entry.name())
+          .log(
+              "This API key lists no sessions and so reaches every session; write sessions: ['*']");
+    }
+    return Set.copyOf(entry.sessions());
   }
 
   /**

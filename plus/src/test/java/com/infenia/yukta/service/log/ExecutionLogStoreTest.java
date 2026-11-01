@@ -313,4 +313,20 @@ class ExecutionLogStoreTest {
       store.close();
     }
   }
+
+  @Test
+  void jsonl_headerIndexFollowsAppendsAndRewrites() {
+    final JsonlExecutionLogStore store = jsonl();
+    store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
+    assertThat(store.header("e1")).contains(new ExecutionLogStore.RunHeader("s1", "w1"));
+    assertThat(store.header("missing")).isEmpty();
+
+    store.append(ExecutionLogEvent.started("e2", "s2", "w2", "v1"));
+    assertThat(store.header("e2")).contains(new ExecutionLogStore.RunHeader("s2", "w2"));
+
+    store.replaceAll(List.of(ExecutionLogEvent.started("e3", "s3", "w3", "v1")));
+    assertThat(store.header("e1")).isEmpty();
+    assertThat(store.header("e3")).contains(new ExecutionLogStore.RunHeader("s3", "w3"));
+    store.close();
+  }
 }

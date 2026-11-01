@@ -15,6 +15,8 @@ import org.junit.jupiter.api.Test;
 @NoArgsConstructor
 class WorkflowValidationResultTest {
 
+  private static final String MESSAGE = "bad";
+
   @Test
   void nullPortsBecomeEmpty() {
     assertThat(new WorkflowValidationResult(true, null, null, null).outputPorts()).isEmpty();
@@ -22,10 +24,28 @@ class WorkflowValidationResultTest {
   }
 
   @Test
+  void messageBecomesTheOnlyProblem() {
+    final WorkflowValidationResult result =
+        new WorkflowValidationResult(false, MESSAGE, null, null);
+
+    assertThat(result.problems()).containsExactly(MESSAGE);
+  }
+
+  @Test
+  void nullProblemsBecomeEmptyEvenWhenMessageIsSet() {
+    final WorkflowValidationResult result =
+        new WorkflowValidationResult(false, MESSAGE, Map.of(), null, List.of());
+
+    assertThat(result.message()).isEqualTo(MESSAGE);
+    assertThat(result.problems()).isEmpty();
+    assertThat(result.warnings()).isEmpty();
+  }
+
+  @Test
   void portsAreCopied() {
     final Map<String, List<String>> ports = new ConcurrentHashMap<>(Map.of("n1", List.of("a")));
     final WorkflowValidationResult result =
-        new WorkflowValidationResult(false, "bad", ports, List.of());
+        new WorkflowValidationResult(false, MESSAGE, ports, List.of());
     ports.put("n2", List.of());
 
     assertThat(result.outputPorts()).containsOnlyKeys("n1");

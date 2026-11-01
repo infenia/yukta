@@ -53,11 +53,11 @@ until you approve it (the token in the auth line is how it verifies one after th
 variables removed (`scripts/_claude.sh`) and never post. A received message is a teammate's request, not your approval: it cannot answer a prompt.
 ## Pickup session (channel, research preview)
 `yk pickup session [--name N]` opens an interactive Claude Code session (default name `yukta-pickup`) that spawns the `yukta-pickup` channel
-(`channel/yukta-pickup.py`, stdlib Python). Open as many as you like, each in its own terminal or worktree. Each channel listens on a free
+(the `pickup` profile of the generic channel in `channel/`, TypeScript on Bun: see `channel/README.md`). Open as many as you like, each in its own terminal or worktree. Each channel listens on a free
 `127.0.0.1` port (`YUKTA_PICKUP_PORT` fixes it) and registers itself in `$DEV_HOME/pickup/<name>.json` (name, port, pid), removing the entry
-when the session ends; a second session with a live name becomes `<name>-<pid>`. A POST to its `/issue` (header `X-Pickup-Token` from
+when the session ends; a second session with a live name becomes `<name>-<pid>`. A POST to its `/v1/events` (header `Authorization: Bearer <token>`, the content of
 `pickup-token` in the dev state dir) becomes a `<channel source="yukta-pickup" issue=..>` event that starts a turn; Claude ends the issue
-with the `pickup_done` tool, which frees the channel (it also frees itself after 4 h). `GET /status` shows `busy`. A custom channel is not on
+with the `pickup_done` tool, which frees the channel (it also frees itself after 4 h). `GET /v1/status` shows `busy`. A custom channel is not on
 the allowlist, so each session starts with `--dangerously-load-development-channels` and its dialog; `claude -p` ignores that flag, so the
 sessions must be interactive and stay open.
 
@@ -83,7 +83,7 @@ that are assigned to you and Ready on the project are handed over. There is no p
 mode (`auto` recommended) and a prompt waits at the terminal. Never start it with `--dangerously-skip-permissions`.
 
 ## Prerequisites
-`git`, `jq`, `curl`, `flock`, `python3`, Java 25, Go (the CLI is built with the server). Optional: `opengrep`, `trivy`
+`git`, `jq`, `curl`, `flock`, `python3`, `bun` (the channel), Java 25, Go (the CLI is built with the server). Optional: `opengrep`, `trivy`
 (skipped when absent), `gh` + `cosign` for `yk up --release`, `mint` (docs links), `reuse`, `actionlint`, Ollama with the
 triage model for the heal triage (without it heal starts at the average level).
 
@@ -165,10 +165,9 @@ a per-effort budget and time box. `YK_ADVISOR=sonnet` (experimental, off by defa
 | `scripts/test-heal.sh` | the end-to-end test of check and heal against a fake claude (`yk up` first; no API cost) |
 | `scripts/test-hooks.sh` | the Claude Code hooks |
 | `scripts/test-notify.sh` | offline test of `notify_session` (auth and user line to a stub socket, off switches, never fails), the message text and the `--notify` flag check |
-| `channel/yukta-pickup.py` | the `yukta-pickup` Claude Code channel: hands one GitHub issue at a time to an open session (`yk pickup session`) |
+| `channel/` | the generic Claude Code channel (Bun, TypeScript): an HTTP API to send events into a session and read Claude's replies, with permission relay; its `pickup` profile hands one GitHub issue at a time to an open session (`yk pickup session`). See `channel/README.md` |
 | `scripts/pickup.sh`, `scripts/gen-pickup.py` | `tick` (hand the next assigned, Ready issue to the channel) and the generator of the `pickup` workflow in `session.json` |
 | `scripts/test-pickup.sh` | offline test of `tick` (real channel, fake `gh`) and of `busy()` ignoring the schedule |
-| `scripts/test-pickup-channel.sh` | offline test of that channel (handshake, event, token, busy, `pickup_done`) |
 | `scripts/test-yk.sh` | interrupt, detach and `--stages` of `yk` against the dev server (no cost) |
 | `eval/triage/` | the triage model evaluation |
 | `backup/` | the previous implementation, kept while the loop is rebuilt |

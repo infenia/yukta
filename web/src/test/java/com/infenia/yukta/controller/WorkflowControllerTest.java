@@ -10,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowExecution;
@@ -24,7 +25,10 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowService;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -38,6 +42,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({
   "PMD.UnitTestShouldIncludeAssert",
   "PMD.AvoidDuplicateLiterals",
+  "PMD.ExcessiveImports",
   "PMD.TooManyStaticImports",
   "PMD.TooManyMethods"
 })
@@ -293,7 +298,7 @@ class WorkflowControllerTest {
   }
 
   private static WorkflowExecutionSummary run(final String id) {
-    return new WorkflowExecutionSummary(id, "wf", "SUCCESS", LocalDateTime.now(), null);
+    return new WorkflowExecutionSummary(id, "wf", TaskStatus.SUCCESS, Instant.now(), null);
   }
 
   @Test
@@ -327,15 +332,16 @@ class WorkflowControllerTest {
 
   @Test
   void testHistoryCanBeNarrowedByWorkflowStatusTextAndTime() {
-    final LocalDateTime t = LocalDateTime.of(2026, 1, 2, 12, 0);
+    final Instant t = LocalDateTime.of(2026, 1, 2, 12, 0).toInstant(ZoneOffset.UTC);
     final WorkflowExecutionSummary old =
-        new WorkflowExecutionSummary("alpha-1", "wf", "SUCCESS", t.minusDays(5), null);
+        new WorkflowExecutionSummary(
+            "alpha-1", "wf", TaskStatus.SUCCESS, t.minus(Duration.ofDays(5)), null);
     final WorkflowExecutionSummary failed =
-        new WorkflowExecutionSummary("beta-2", "wf", "FAILURE", t, null);
+        new WorkflowExecutionSummary("beta-2", "wf", TaskStatus.FAILURE, t, null);
     final WorkflowExecutionSummary other =
-        new WorkflowExecutionSummary("beta-3", "other", "SUCCESS", t, null);
+        new WorkflowExecutionSummary("beta-3", "other", TaskStatus.SUCCESS, t, null);
     final WorkflowExecutionSummary unstarted =
-        new WorkflowExecutionSummary("gamma-4", "wf", "QUEUED", null, null);
+        new WorkflowExecutionSummary("gamma-4", "wf", TaskStatus.QUEUED, null, null);
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config()));
     when(controlBus.getHistory("s1")).thenReturn(Mono.just(List.of(old, failed, other, unstarted)));
 
@@ -344,8 +350,8 @@ class WorkflowControllerTest {
           {"workflowId=other", "beta-3"},
           {"status=failure", "beta-2"},
           {"text=ALPHA", "alpha-1"},
-          {"since=2026-01-02T00:00:00", "beta-2"},
-          {"until=2026-01-01T00:00:00", "alpha-1"},
+          {"since=2026-01-02T00:00:00Z", "beta-2"},
+          {"until=2026-01-01T00:00:00Z", "alpha-1"},
         }) {
       client
           .get()

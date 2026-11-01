@@ -101,11 +101,9 @@ public class StartIdempotency implements SmartInitializingSingleton {
       return;
     }
     final Instant oldest = Instant.now().minus(ttl);
-    for (final ExecutionLogEvent event : log.readAll()) {
-      if (event.type() == ExecutionLogEvent.Type.IDEMPOTENCY_KEY
-          && event.timestamp().isAfter(oldest)) {
-        entries.put(event.status(), Mono.just(event.executionId()));
-      }
+    for (final ExecutionLogEvent event :
+        log.ofType(ExecutionLogEvent.Type.IDEMPOTENCY_KEY, oldest)) {
+      entries.put(event.status(), Mono.just(event.executionId()));
     }
   }
 
