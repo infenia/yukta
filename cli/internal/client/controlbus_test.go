@@ -300,3 +300,14 @@ func TestSendCommand_emptySessionID(t *testing.T) {
 		t.Fatalf("expected sessionID error, got %v", err)
 	}
 }
+
+func TestNodeCalls_emptySessionID(t *testing.T) {
+	c := NewClient("http://localhost:9858")
+
+	if _, err := c.GetActiveNodesInWorkflow("", "wf"); err == nil || !strings.Contains(err.Error(), "sessionID") {
+		t.Errorf("GetActiveNodesInWorkflow: expected sessionID error, got %v", err)
+	}
+	if _, err := c.GetLastHeartbeat("", "wf", "", "n"); err == nil || !strings.Contains(err.Error(), "sessionID") {
+		t.Errorf("GetLastHeartbeat: expected sessionID error, got %v", err)
+	}
+}
