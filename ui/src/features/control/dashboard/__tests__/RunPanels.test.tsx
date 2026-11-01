@@ -165,4 +165,14 @@ describe('LiveRunsPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
   });
+
+it('closes the stop confirmation with Escape', () => {
+  vi.mocked(useMe).mockReturnValue({ permissions: { controlRuns: true } } as never);
+  vi.mocked(useLiveRuns).mockReturnValue(q({ data: [run({ executionId: 'e1', workflowId: 'a' })] }));
+  renderWithProviders(<LiveRunsPanel scope="global" live />);
+  fireEvent.click(screen.getByRole('button', { name: 'stop a run e1' }));
+  expect(screen.getByText('Stop a?')).toBeInTheDocument();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.queryByText('Stop a?')).toBeNull();
+});
 });

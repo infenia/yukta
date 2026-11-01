@@ -151,4 +151,12 @@ describe('AiUsagePanel', () => {
     renderWithProviders(<AiUsagePanel scope="global" />);
     expect(screen.getByText('No model or tool calls yet')).toBeInTheDocument();
   });
+
+it('retries the AI usage when it fails to load', () => {
+  const refetch = vi.fn();
+  vi.mocked(useMetricSnapshot).mockReturnValue(q({ error: new Error('x'), refetch }));
+  renderWithProviders(<AiUsagePanel scope="global" />);
+  fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+  expect(refetch).toHaveBeenCalled();
+});
 });

@@ -115,4 +115,12 @@ describe('SupervisorCard', () => {
     card({ binding, profile, running });
     expect(screen.getByText('busy')).toBeInTheDocument();
   });
+
+  it('labels a session scope and names a card with nothing to show', () => {
+    const { unmount } = card({ running: { ...running, scope: 'SESSION', scopeSessionId: 's1' } as never });
+    expect(screen.getByText('Session s1')).toBeInTheDocument();
+    unmount();
+    card({});
+    expect(screen.getByRole('article')).toBeInTheDocument();
+  });
 });

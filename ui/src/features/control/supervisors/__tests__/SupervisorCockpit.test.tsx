@@ -142,4 +142,16 @@ describe('SupervisorCockpit', () => {
     renderWithProviders(<SupervisorCockpit />);
     expect(screen.getByText('No supervisor has decided anything yet')).toBeInTheDocument();
   });
+
+  it('retries the decisions and the profiles when they fail', () => {
+    const decisionsRefetch = vi.fn();
+    const profilesRefetch = vi.fn();
+    state.decisions = q({ error: { message: 'feed down' }, refetch: decisionsRefetch });
+    state.profiles = q({ error: { message: 'no profiles' }, refetch: profilesRefetch });
+    renderWithProviders(<SupervisorCockpit />);
+    fireEvent.click(screen.getAllByRole('button', { name: /retry/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /retry/i })[1]);
+    expect(decisionsRefetch).toHaveBeenCalled();
+    expect(profilesRefetch).toHaveBeenCalled();
+  });
 });

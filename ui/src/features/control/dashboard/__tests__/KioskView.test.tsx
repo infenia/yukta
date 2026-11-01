@@ -72,4 +72,11 @@ describe('KioskView', () => {
     act(() => vi.advanceTimersByTime(KIOSK_CYCLE_MS));
     expect(screen.getByText('latency')).toBeInTheDocument();
   });
+
+  it('ignores keys other than Escape', () => {
+    const onExit = vi.fn();
+    render(<KioskView onExit={onExit} />);
+    fireEvent.keyDown(window, { key: 'a' });
+    expect(onExit).not.toHaveBeenCalled();
+  });
 });

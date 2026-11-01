@@ -97,4 +97,15 @@ describe('LatencyPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
   });
+
+describe('ThroughputPanel failures', () => {
+  it('retries the runs when they fail to load', () => {
+    const refetch = vi.fn();
+    series.mockReturnValue({ isPending: false, error: new Error('x'), data: undefined, refetch } as never);
+    annotations.mockReturnValue(ok([]) as never);
+    renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(refetch).toHaveBeenCalled();
+  });
+});
 });
