@@ -126,4 +126,11 @@ describe('ThroughputPanel unknown mark', () => {
     fireEvent.click(screen.getByRole('button', { name: 'unknown-mark' }));
     expect(nav.to).not.toHaveBeenCalled();
   });
+
+  it('opens nothing before the marks have loaded', () => {
+    annotations.mockReturnValue(ok(undefined) as never);
+    renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
+    fireEvent.click(screen.getByRole('button', { name: 'unknown-mark' }));
+    expect(nav.to).not.toHaveBeenCalled();
+  });
 });
