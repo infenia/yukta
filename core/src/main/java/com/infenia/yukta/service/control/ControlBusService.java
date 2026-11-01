@@ -39,10 +39,7 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Service
-@SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.AvoidCatchingGenericException"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidCatchingGenericException"})
 public class ControlBusService {
 
   /** Metadata key of a control message that names the run it comes from. */
