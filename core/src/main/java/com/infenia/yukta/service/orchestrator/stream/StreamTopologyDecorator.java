@@ -8,15 +8,11 @@ import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
-import java.util.function.UnaryOperator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -39,12 +35,6 @@ import reactor.core.publisher.Mono;
 @Component
 @RequiredArgsConstructor
 public class StreamTopologyDecorator {
-
-  /** Most messages written to the checkpoint store in one call. */
-  private static final int CHECKPOINT_BATCH_SIZE = 64;
-
-  /** Longest, in milliseconds, a message waits for its batch to fill. */
-  private static final long CHECKPOINT_BATCH_WAIT_MILLIS = 20;
 
   /** Constant for single parent node. */
   private static final int SINGLE_PARENT = 1;
@@ -105,19 +95,20 @@ public class StreamTopologyDecorator {
         () -> {
           final AtomicInteger failed = new AtomicInteger();
           final AtomicReference<Throwable> firstError = new AtomicReference<>();
-          final List<Flux<Message<?>>> parentFluxes = new ArrayList<>(parentEdges.length);
-          for (final ParentEdgeInfo edge : parentEdges) {
-            parentFluxes.add(
-                routeEdge(
-                    streams,
-                    edge,
-                    error -> {
-                      if (oneSuccess) {
-                        failed.incrementAndGet();
-                        firstError.compareAndSet(null, error);
-                      }
-                    }));
-          }
+          final List<Flux<Message<?>>> parentFluxes =
+              List.of(parentEdges).stream()
+                  .map(
+                      edge ->
+                          routeEdge(
+                              streams,
+                              edge,
+                              error -> {
+                                if (oneSuccess) {
+                                  failed.incrementAndGet();
+                                  firstError.compareAndSet(null, error);
+                                }
+                              }))
+                  .toList();
           return mergeRouted(parentFluxes, oneSuccess, failed, firstError);
         });
   }
@@ -173,19 +164,14 @@ public class StreamTopologyDecorator {
         .log();
 
     final Flux<Message<?>> parent = streams[edge.parentIndex()];
-    // Siblings share the parent's message; a copy per edge keeps one branch's edits to the payload
-    // from showing up in another.
+    // Siblings share the parent's message, frozen once by the broadcast (payloads are immutable).
     Flux<Message<?>> stream =
         parent.transformDeferredContextual(
             (flux, ctx) ->
                 flux.map(
                     msg -> {
                       final Message<?> own =
-                          EngineOwned.reassert(
-                                  parent instanceof NodeBroadcast broadcast && broadcast.isShared()
-                                      ? PayloadCopy.copyOf(msg)
-                                      : msg)
-                              .withSourceNodeId(edge.sourceNodeId());
+                          EngineOwned.reassert(msg).withSourceNodeId(edge.sourceNodeId());
                       // The run's workflow id, so a plugin cannot claim another workflow's.
                       return ctx.hasKey(ExecutionContextBuilder.CTX_WORKFLOW_ID)
                           ? own.withWorkflowId(ctx.get(ExecutionContextBuilder.CTX_WORKFLOW_ID))
@@ -327,9 +313,13 @@ public class StreamTopologyDecorator {
 
     // publish() requests only what the slowest subscriber can take, so a slow child slows its
     // parent instead of overflowing a buffer. NodeBroadcast connects it once all edges subscribed.
+    // The edges are counted while the workflow is assembled, before the first message flows, so
+    // isShared() is final by the time the map below runs.
+    final AtomicReference<BooleanSupplier> shared = new AtomicReference<>();
     final NodeBroadcast broadcast =
         new NodeBroadcast(
             processedStream
+                .map(msg -> shared.get().getAsBoolean() ? PayloadFreeze.freezeOf(msg) : msg)
                 .doOnError(
                     err ->
                         log.atError()
@@ -340,6 +330,7 @@ public class StreamTopologyDecorator {
                 .publish(bufferSize),
             disposables);
     connectors.add(broadcast::connectIfUnobserved);
+    shared.set(broadcast::isShared);
     return broadcast;
   }
 
@@ -380,71 +371,7 @@ public class StreamTopologyDecorator {
         .addArgument(executionId)
         .addArgument(nodeId)
         .log();
-    // A store that cannot save a message must not fail the run, the same as one that cannot write
-    // the end marker. The node is then left unmarked, so a resume runs it again instead of
-    // trusting a partial output.
-    final AtomicBoolean saveFailed = new AtomicBoolean();
-    final UnaryOperator<Mono<Void>> tolerant =
-        save ->
-            save.onErrorResume(
-                error -> {
-                  saveFailed.set(true);
-                  log.atError()
-                      .addKeyValue("executionId", executionId)
-                      .addKeyValue("nodeId", nodeId)
-                      .setCause(error)
-                      .log("Could not save a checkpoint");
-                  return Mono.empty();
-                });
-    switch (checkpoint) {
-      case NONE -> saveFailed.set(true); // never marked complete: a resume runs the node again
-      case LAST -> {
-        final AtomicReference<Message<?>> last = new AtomicReference<>();
-        logStream =
-            logStream
-                .doOnNext(last::set)
-                .concatWith(
-                    Mono.defer(
-                            () ->
-                                last.get() == null
-                                    ? Mono.<Void>empty()
-                                    : tolerant.apply(
-                                        checkpointStore.save(executionId, nodeId, last.get())))
-                        .then(Mono.empty()));
-      }
-      default ->
-          // One write per batch instead of per message. A batch waits at most
-          // CHECKPOINT_BATCH_WAIT, so a quiet node still passes its messages on.
-          // ponytail: still on the stream thread; give it its own scheduler if stores stay slow.
-          logStream =
-              logStream
-                  .bufferTimeout(
-                      CHECKPOINT_BATCH_SIZE, Duration.ofMillis(CHECKPOINT_BATCH_WAIT_MILLIS), true)
-                  .concatMap(
-                      batch ->
-                          tolerant
-                              .apply(checkpointStore.saveAll(executionId, nodeId, batch))
-                              .thenMany(Flux.fromIterable(batch)));
-    }
-    // Only a node that completed normally is marked, and its completion goes on downstream once the
-    // marker is durable. A store that cannot write it must not fail the run.
-    logStream =
-        logStream.concatWith(
-            Mono.defer(
-                    () ->
-                        saveFailed.get()
-                            ? Mono.<Void>empty()
-                            : checkpointStore.markComplete(executionId, nodeId))
-                .onErrorResume(
-                    error -> {
-                      log.atError()
-                          .addKeyValue("executionId", executionId)
-                          .addKeyValue("nodeId", nodeId)
-                          .setCause(error)
-                          .log("Could not mark the node as complete");
-                      return Mono.empty();
-                    })
-                .then(Mono.empty()));
+    logStream = CheckpointStream.apply(checkpointStore, executionId, nodeId, logStream, checkpoint);
 
     return logStream.doOnNext(
         msg -> {

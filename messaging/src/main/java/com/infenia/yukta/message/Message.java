@@ -16,6 +16,12 @@ import java.util.Map;
  * DefaultMessage.from}, and the copy-path test in {@code DefaultMessageTest} fails if one is
  * missed.
  *
+ * <p>A payload is immutable once a node has emitted it: it is shared, not copied, between the nodes
+ * that read it. Where a node has several children the engine freezes its maps, lists and sets (they
+ * throw {@link UnsupportedOperationException} on a write); a plugin that wants to change its input
+ * builds a new value. Other payload types (records, POJOs, {@code byte[]}) are not frozen and must
+ * not be modified.
+ *
  * <p>Headers (the {@link #metadata()} values) should be JSON values (string, number, boolean, list
  * or map): a message sent to a remote worker is rebuilt from JSON, so other types arrive as plain
  * JSON values.

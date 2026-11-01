@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.orchestrator.stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -17,7 +18,6 @@ import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,7 +36,6 @@ import reactor.test.StepVerifier;
 /** Tests for StreamTopologyDecorator with message stream orchestration. */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@NoArgsConstructor
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.UseShortArrayInitializer"})
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator - ")
 class StreamTopologyDecoratorTest {
@@ -217,11 +216,10 @@ class StreamTopologyDecoratorTest {
 
   @Test
   @SuppressWarnings(UNCHECKED)
-  void testFanOutGivesEachEdgeItsOwnPayloadCopy() {
+  void testFanOutSharesThePayloadWithoutCopyingPerEdge() {
     final List<Object> shared = new ArrayList<>(List.of(DATA));
-    final List<Disposable> disposables = new ArrayList<>();
     final Flux<Message<?>> source = Flux.just(DefaultMessage.create(UUID.randomUUID(), shared));
-    final NodeBroadcast broadcast = new NodeBroadcast(source.publish(4), disposables);
+    final NodeBroadcast broadcast = new NodeBroadcast(source.publish(4), new ArrayList<>());
     final Flux<Message<?>>[] streams = new Flux[] {broadcast};
     final ParentEdgeInfo edge = new ParentEdgeInfo(0, NODE_1, null);
     final List<Message<?>> first = new ArrayList<>();
@@ -232,9 +230,7 @@ class StreamTopologyDecoratorTest {
     firstEdge.subscribe(first::add);
     secondEdge.subscribe(second::add);
 
-    ((List<Object>) first.get(0).payload()).add("edit");
-    assertThat((List<Object>) second.get(0).payload()).containsExactly(DATA);
-    assertThat(shared).containsExactly(DATA);
+    assertThat(first.get(0).payload()).isSameAs(shared).isSameAs(second.get(0).payload());
   }
 
   @Test
@@ -248,6 +244,42 @@ class StreamTopologyDecoratorTest {
     StepVerifier.create(decorator.applyEdgeRouting(streams, new ParentEdgeInfo(0, NODE_1, null)))
         .assertNext(m -> assertThat(m.payload()).isSameAs(shared))
         .verifyComplete();
+  }
+
+  @Test
+  @SuppressWarnings(UNCHECKED)
+  void testFanOutThroughBroadcastingFreezesThePayloadForEveryChild() {
+    final List<Object> items = new ArrayList<>(List.of(DATA));
+    final Flux<Message<?>> input = Flux.just(DefaultMessage.create(UUID.randomUUID(), items));
+    final List<Disposable> disposables = new ArrayList<>();
+    final List<Runnable> connectors = new ArrayList<>();
+    final Flux<Message<?>> output =
+        decorator.applyLoggingAndBroadcasting(EXEC_1, NODE_1, input, 1024, disposables, connectors);
+    final Flux<Message<?>>[] streams = new Flux[] {output};
+    final ParentEdgeInfo edge = new ParentEdgeInfo(0, NODE_1, null);
+    final List<Message<?>> first = new ArrayList<>();
+    final List<Message<?>> second = new ArrayList<>();
+
+    // Both children are registered before either subscribes, as the compiler does.
+    final Flux<Message<?>> firstEdge = decorator.applyEdgeRouting(streams, edge);
+    final Flux<Message<?>> secondEdge = decorator.applyEdgeRouting(streams, edge);
+    firstEdge.subscribe(first::add);
+    secondEdge.subscribe(second::add);
+
+    assertThat(first).hasSize(1);
+    assertThat(second).hasSize(1);
+    final List<Object> firstItems = (List<Object>) first.get(0).payload();
+    final List<Object> secondItems = (List<Object>) second.get(0).payload();
+    assertThat(firstItems).containsExactly(DATA);
+    assertThat(secondItems).containsExactly(DATA);
+    assertThatThrownBy(() -> firstItems.add("edit"))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(() -> secondItems.add("edit"))
+        .isInstanceOf(UnsupportedOperationException.class);
+    // The producer's own list is left mutable.
+    assertThat(items).containsExactly(DATA);
+
+    disposables.forEach(Disposable::dispose);
   }
 
   @Test
