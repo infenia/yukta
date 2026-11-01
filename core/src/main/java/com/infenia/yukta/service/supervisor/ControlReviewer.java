@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,12 @@ public class ControlReviewer {
 
   /** The supervisors attached at run time; set by Spring, empty without it. */
   private AttachedSupervisors attached = new AttachedSupervisors();
+
+  /** Finds the host, to record what a dry-run supervisor would have refused. */
+  private @Nullable ObjectProvider<SupervisorHost> hostLookup;
+
+  /** Whether every supervisor only records ({@code yukta.supervisor.dry-run}). */
+  private boolean dryRun;
 
   /** Longest a single supervisor may take to answer; a hung review must not block a run. */
   private final Duration timeout;
@@ -70,6 +77,21 @@ public class ControlReviewer {
   }
 
   /**
+   * Lets a dry-run supervisor's refusals be shown in the cockpit; looked up when needed, because
+   * the host depends on the dispatcher.
+   *
+   * @param host the host lookup
+   * @param dryRun the global dry-run flag
+   */
+  @Autowired
+  public void setDryRun(
+      final ObjectProvider<SupervisorHost> host,
+      @Value("${yukta.supervisor.dry-run:false}") final boolean dryRun) {
+    this.hostLookup = host;
+    this.dryRun = dryRun;
+  }
+
+  /**
    * Reviews a command in supervisor order, stopping at the first refusal.
    *
    * @param request the command and who sent it
@@ -101,10 +123,27 @@ public class ControlReviewer {
                               .log("Supervisor review failed");
                           return Mono.just(Decision.deny("review failed"));
                         })
+                    .map(decision -> dryRunned(supervisor, request, decision))
                     .filter(decision -> !decision.allowed())
                     .map(decision -> supervisor.id() + ": " + decision.reason()))
         .next()
         .flatMap(reason -> Mono.<Void>error(new ControlRejectedException(reason)));
+  }
+
+  /** A refusal from a dry-run supervisor is recorded, not enforced. */
+  private Decision dryRunned(
+      final ExecutionSupervisor supervisor, final ControlRequest request, final Decision decision) {
+    final boolean dry = dryRun || supervisor instanceof BoundSupervisor bound && bound.dryRun();
+    if (decision.allowed() || !dry) {
+      return decision;
+    }
+    if (hostLookup != null) {
+      final SupervisorHost host = hostLookup.getIfAvailable();
+      if (host != null) {
+        host.wouldHaveRefused(supervisor.id(), request.command(), decision.reason());
+      }
+    }
+    return Decision.ALLOW;
   }
 
   /** The answer when a supervisor times out: a stop is allowed, anything else refused. */

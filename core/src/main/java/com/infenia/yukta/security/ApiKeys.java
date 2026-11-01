@@ -7,12 +7,14 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
@@ -26,6 +28,7 @@ import org.springframework.http.HttpHeaders;
  * {@code sha256:<hex>} (the hash of the key), so the file need not hold the secret; listing several
  * keys at once lets a key be rotated without downtime.
  */
+@Slf4j
 public final class ApiKeys {
 
   /** The Authorization scheme prefix. */
@@ -33,6 +36,9 @@ public final class ApiKeys {
 
   /** Prefix of a key given as a hash. */
   private static final String HASH_PREFIX = "sha256:";
+
+  /** Plain-text keys shorter than this are reported at startup. */
+  private static final int MIN_KEY_LENGTH = 32;
 
   /** A SHA-256 digest in hex. */
   private static final Pattern HEX_DIGEST = Pattern.compile("[0-9a-f]{64}");
@@ -88,6 +94,14 @@ public final class ApiKeys {
   private record Key(String digest, Match match, @Nullable Instant expires) {}
 
   private ApiKeys(final List<Key> keys, final boolean named) {
+    // the same secret twice would give it whichever role comes last
+    final Set<String> digests = new HashSet<>();
+    for (final Key key : keys) {
+      if (!digests.add(key.digest())) {
+        throw new IllegalStateException(
+            "The API key '" + key.match().name() + "' is configured more than once");
+      }
+    }
     this.keys = List.copyOf(keys);
     this.namedKeys = named;
   }
@@ -143,6 +157,11 @@ public final class ApiKeys {
       @Nullable final Instant expires) {
     if (key == null || key.isBlank()) {
       return;
+    }
+    if (!key.startsWith(HASH_PREFIX) && key.length() < MIN_KEY_LENGTH) {
+      log.atWarn()
+          .addKeyValue("key", name)
+          .log("This API key is shorter than {} characters and easy to guess", MIN_KEY_LENGTH);
     }
     final String digest = key.startsWith(HASH_PREFIX) ? hashed(name, key) : sha256(key);
     all.add(new Key(digest, new Match(name, role, sessions), expires));

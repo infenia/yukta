@@ -3,12 +3,9 @@
 package com.infenia.yukta.service.orchestrator.stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.NodePolicy;
@@ -25,10 +22,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.slf4j.LoggerFactory;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
@@ -37,11 +37,7 @@ import reactor.test.StepVerifier;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.UseShortArrayInitializer",
-  "PMD.TooManyStaticImports"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseShortArrayInitializer"})
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator - ")
 class StreamTopologyDecoratorTest {
 
@@ -432,7 +428,8 @@ class StreamTopologyDecoratorTest {
         .assertNext(out -> assertThat(out.payload()).isEqualTo(""))
         .verifyComplete();
 
-    verify(tracker, never()).emitLogEvent(any(), any(), any());
+    Mockito.verify(tracker, Mockito.never())
+        .emitLogEvent(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
 
     disposables.forEach(Disposable::dispose);
   }
@@ -447,9 +444,35 @@ class StreamTopologyDecoratorTest {
             EXEC_1, NODE_1, Flux.just(msg), 1024, disposables, new ArrayList<>(), () -> true);
     StepVerifier.create(edge(output)).expectNextCount(1).verifyComplete();
 
-    verify(tracker, never()).emitLogEvent(any(), any(), any());
+    Mockito.verify(tracker, Mockito.never())
+        .emitLogEvent(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
 
     disposables.forEach(Disposable::dispose);
+  }
+
+  @Test
+  void testApplyLoggingAndBroadcastingSkipsEchoForLiveLoggedNodeEvenWhenTracing() {
+    final Logger logger = (Logger) LoggerFactory.getLogger(StreamTopologyDecorator.class);
+    final Level previous = logger.getLevel();
+    logger.setLevel(Level.TRACE);
+    try {
+      final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "already on screen");
+      final List<Disposable> disposables = new ArrayList<>();
+
+      final Flux<Message<?>> output =
+          decorator.applyLoggingAndBroadcasting(
+              EXEC_1, NODE_1, Flux.just(msg), 1024, disposables, new ArrayList<>(), () -> true);
+      StepVerifier.create(edge(output))
+          .assertNext(out -> assertThat(out.payload()).isEqualTo("already on screen"))
+          .verifyComplete();
+
+      Mockito.verify(tracker, Mockito.never())
+          .emitLogEvent(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+
+      disposables.forEach(Disposable::dispose);
+    } finally {
+      logger.setLevel(previous);
+    }
   }
 
   @Test
@@ -465,7 +488,8 @@ class StreamTopologyDecoratorTest {
     StepVerifier.create(edge(output)).expectNextCount(1).verifyComplete();
 
     final ArgumentCaptor<String> line = ArgumentCaptor.forClass(String.class);
-    verify(tracker, times(1)).emitLogEvent(eq(EXEC_1), eq(NODE_1), line.capture());
+    Mockito.verify(tracker, Mockito.times(1))
+        .emitLogEvent(ArgumentMatchers.eq(EXEC_1), ArgumentMatchers.eq(NODE_1), line.capture());
     assertThat(line.getValue()).startsWith("0123456789").contains("[truncated 17952 chars]");
     assertThat(line.getValue().length()).isLessThan(2_100);
     // the message itself is not altered

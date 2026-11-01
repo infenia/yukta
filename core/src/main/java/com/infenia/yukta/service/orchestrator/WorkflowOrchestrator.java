@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.NodeAssembler;
@@ -33,8 +36,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -102,7 +103,13 @@ public class WorkflowOrchestrator {
   private final ExecutionResultService resultService;
 
   /** Evicted from the archive while still running: their checkpoints go when they end. */
-  private final Set<String> clearWhenDone = ConcurrentHashMap.newKeySet();
+  private final Cache<String, Boolean> clearWhenDone =
+      Caffeine.newBuilder()
+          .maximumSize(10_000)
+          // a run whose cleanup never came is cleared when pushed out, so the entry cannot pile up
+          .removalListener(
+              (String id, Boolean _, RemovalCause cause) -> onPendingRemoved(id, cause))
+          .build();
 
   /**
    * Prepares a workflow for execution.
@@ -436,7 +443,7 @@ public class WorkflowOrchestrator {
 
   /** Drops the recorded outputs of an evicted run, or at its end if it is still running. */
   private void releaseCheckpoints(final String executionId) {
-    clearWhenDone.add(executionId);
+    clearWhenDone.put(executionId, Boolean.TRUE);
     if (executionControlRegistry.findByExecutionId(executionId).isEmpty()) {
       clearIfPending(executionId);
     }
@@ -449,8 +456,25 @@ public class WorkflowOrchestrator {
     }
   }
 
+  /**
+   * Clears the checkpoints of a run whose cleanup was still pending when the cache pushed it out.
+   * Removals that are not evictions (the cleanup ran) leave them alone.
+   *
+   * @param executionId the run
+   * @param cause why the entry left the cache
+   */
+  /* default */ void onPendingRemoved(final String executionId, final RemovalCause cause) {
+    if (cause.wasEvicted()) {
+      clearCheckpoints(executionId);
+    }
+  }
+
+  private void clearCheckpoints(final String executionId) {
+    checkpointStore.clear(executionId);
+  }
+
   private void clearIfPending(final String executionId) {
-    if (clearWhenDone.remove(executionId)) {
+    if (clearWhenDone.asMap().remove(executionId) != null) {
       checkpointStore.clear(executionId);
     }
   }

@@ -208,7 +208,6 @@ public class ExecutionScheduler implements SmartLifecycle {
    */
   public void assertCanAccept(final String sessionId, final String workflowId) {
     assertLeader();
-    assertStartRate(sessionId, workflowId);
     synchronized (lock) {
       final ExecutionRejectedException unavailable = unavailable();
       if (unavailable != null) {
@@ -229,6 +228,8 @@ public class ExecutionScheduler implements SmartLifecycle {
         }
       }
     }
+    // last, so a start that is refused for another reason does not use up a rate token
+    assertStartRate(sessionId, workflowId);
   }
 
   /**
@@ -691,6 +692,7 @@ public class ExecutionScheduler implements SmartLifecycle {
   @Override
   public void stop(final Runnable callback) {
     final Sinks.Empty<Void> signal;
+    final boolean idle;
     synchronized (lock) {
       signal = drained;
       closed = true;
@@ -701,14 +703,18 @@ public class ExecutionScheduler implements SmartLifecycle {
                   .grant()
                   .tryEmitError(new ExecutionRejectedException("The server is shutting down")));
       queue.clear();
-      if (runningTotal == 0) {
-        callback.run();
-        return;
+      idle = runningTotal == 0;
+      if (!idle) {
+        log.atInfo()
+            .addKeyValue("running", runningTotal)
+            .addKeyValue("timeout", shutdownTimeout)
+            .log("Waiting for running executions to finish");
       }
-      log.atInfo()
-          .addKeyValue("running", runningTotal)
-          .addKeyValue("timeout", shutdownTimeout)
-          .log("Waiting for running executions to finish");
+    }
+    // Spring's callback runs outside the lock
+    if (idle) {
+      callback.run();
+      return;
     }
     signal
         .asMono()
