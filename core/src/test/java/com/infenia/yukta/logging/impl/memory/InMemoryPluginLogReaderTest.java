@@ -9,9 +9,6 @@ import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.plugin.core.LogLevel;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -313,8 +310,7 @@ class InMemoryPluginLogReaderTest {
     final List<ExecutionSummary> actualSummaries = reader.listExecutions(SESSION_ID_456).block();
 
     // Then - startTime should be first entry's timestamp
-    final LocalDateTime expectedStartTime =
-        ZonedDateTime.ofInstant(firstTime, ZoneId.systemDefault()).toLocalDateTime();
+    final Instant expectedStartTime = firstTime;
     assertThat(actualSummaries).hasSize(1);
     assertThat(actualSummaries.getFirst().startTime()).isEqualTo(expectedStartTime);
   }
@@ -331,8 +327,7 @@ class InMemoryPluginLogReaderTest {
     final List<ExecutionSummary> actualSummaries = reader.listExecutions(SESSION_ID_456).block();
 
     // Then - endTime should be last entry's timestamp
-    final LocalDateTime expectedEndTime =
-        ZonedDateTime.ofInstant(secondTime, ZoneId.systemDefault()).toLocalDateTime();
+    final Instant expectedEndTime = secondTime;
     assertThat(actualSummaries).hasSize(1);
     assertThat(actualSummaries.getFirst().endTime()).isEqualTo(expectedEndTime);
   }

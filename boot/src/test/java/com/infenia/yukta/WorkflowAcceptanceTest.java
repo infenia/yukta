@@ -5,6 +5,7 @@ package com.infenia.yukta;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
@@ -37,7 +38,7 @@ import org.springframework.test.context.TestPropertySource;
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
 @TestPropertySource(properties = "yukta.stop.drain-timeout=2s")
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.TooManyMethods")
 @NoArgsConstructor
 @ExpectedErrorLog({
   "ERROR com.infenia.yukta.plugin.process.ProcessExecutorPlugin - ",
@@ -99,8 +100,8 @@ class WorkflowAcceptanceTest {
     return tracker.getProgressByExecutionId(executionId);
   }
 
-  private static boolean isTerminal(final String status) {
-    return !List.of("PENDING", "QUEUED", "RUNNING").contains(status);
+  private static boolean isTerminal(final TaskStatus status) {
+    return status.isTerminal();
   }
 
   @Test
@@ -109,8 +110,9 @@ class WorkflowAcceptanceTest {
 
     final WorkflowProgress progress = awaitTerminal(executionId);
 
-    assertThat(progress.status()).isEqualTo("SUCCESS");
-    assertThat(progress.tasks()).allSatisfy(task -> assertThat(task.status()).isEqualTo("SUCCESS"));
+    assertThat(progress.status()).isEqualTo(TaskStatus.SUCCESS);
+    assertThat(progress.tasks())
+        .allSatisfy(task -> assertThat(task.status()).isEqualTo(TaskStatus.SUCCESS));
     assertThat(executionLog.readAll())
         .filteredOn(event -> event.executionId().equals(executionId))
         .extracting(ExecutionLogEvent::type)
@@ -127,14 +129,14 @@ class WorkflowAcceptanceTest {
             () ->
                 tracker.getProgressByExecutionId(executionId).tasks().stream()
                     .anyMatch(
-                        task -> "p".equals(task.nodeId()) && "RUNNING".equals(task.status())));
+                        task -> "p".equals(task.nodeId()) && TaskStatus.RUNNING == task.status()));
     final String[] parts = key.split("/");
 
     gateway.stopWorkflow(parts[0], parts[1], "test", StopMode.CANCEL).block();
 
     final WorkflowProgress progress = awaitTerminal(executionId);
-    assertThat(progress.status()).isEqualTo("STOPPED");
-    assertThat(progress.tasks()).noneMatch(task -> "RUNNING".equals(task.status()));
+    assertThat(progress.status()).isEqualTo(TaskStatus.STOPPED);
+    assertThat(progress.tasks()).noneMatch(task -> TaskStatus.RUNNING == task.status());
     assertThat(executionLog.readAll())
         .filteredOn(event -> event.executionId().equals(executionId))
         .extracting(ExecutionLogEvent::type)
@@ -156,7 +158,7 @@ class WorkflowAcceptanceTest {
 
     final WorkflowProgress progress = awaitTerminal(start(define(flaky)));
 
-    assertThat(progress.status()).isEqualTo("SUCCESS");
+    assertThat(progress.status()).isEqualTo(TaskStatus.SUCCESS);
     assertThat(marker).exists();
   }
 
@@ -167,15 +169,15 @@ class WorkflowAcceptanceTest {
 
     final WorkflowProgress progress = awaitTerminal(start(define(failing)));
 
-    assertThat(progress.status()).isEqualTo("FAILURE");
-    assertThat(progress.tasks()).noneMatch(task -> "RUNNING".equals(task.status()));
+    assertThat(progress.status()).isEqualTo(TaskStatus.FAILURE);
+    assertThat(progress.tasks()).noneMatch(task -> TaskStatus.RUNNING == task.status());
     assertThat(progress.tasks())
         .filteredOn(task -> "p".equals(task.nodeId()))
-        .allMatch(task -> "FAILURE".equals(task.status()));
+        .allMatch(task -> TaskStatus.FAILURE == task.status());
     // only the node that failed reports FAILURE; the one behind it shows why it did not finish
     assertThat(progress.tasks())
         .filteredOn(task -> "end".equals(task.nodeId()))
-        .allMatch(task -> "UPSTREAM_FAILED".equals(task.status()));
+        .allMatch(task -> TaskStatus.UPSTREAM_FAILED == task.status());
   }
 
   @Test
@@ -186,7 +188,7 @@ class WorkflowAcceptanceTest {
     final String restarted = gateway.restartWorkflow(executionId).block();
 
     assertThat(restarted).isNotEqualTo(executionId);
-    assertThat(awaitTerminal(restarted).status()).isEqualTo("SUCCESS");
+    assertThat(awaitTerminal(restarted).status()).isEqualTo(TaskStatus.SUCCESS);
   }
 
   @Test
@@ -195,6 +197,6 @@ class WorkflowAcceptanceTest {
 
     final WorkflowProgress progress = awaitTerminal(start(key), Duration.ofSeconds(90));
 
-    assertThat(progress.status()).isEqualTo("SUCCESS");
+    assertThat(progress.status()).isEqualTo(TaskStatus.SUCCESS);
   }
 }
