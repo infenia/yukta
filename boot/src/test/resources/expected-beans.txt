@@ -133,8 +133,11 @@ com.infenia.yukta.service.control.directive.DirectiveDispatcher
 com.infenia.yukta.service.control.factory.ExecutionControlFactory
 com.infenia.yukta.service.control.gateway.DefaultControlBusGateway
 com.infenia.yukta.service.control.gateway.StartIdempotency
+com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor
 com.infenia.yukta.service.control.processor.DisableStepModeCommandProcessor
 com.infenia.yukta.service.control.processor.EnableStepModeCommandProcessor
+com.infenia.yukta.service.control.processor.EscalateInputCommandProcessor
+com.infenia.yukta.service.control.processor.InputSignalBridge
 com.infenia.yukta.service.control.processor.PauseNodeCommandProcessor
 com.infenia.yukta.service.control.processor.PauseWorkflowCommandProcessor
 com.infenia.yukta.service.control.processor.RestartCommandProcessor
@@ -149,9 +152,12 @@ com.infenia.yukta.service.control.processor.StopNodeCommandProcessor
 com.infenia.yukta.service.control.processor.StopWorkflowCommandProcessor
 com.infenia.yukta.service.control.store.ActivePluginRegistry
 com.infenia.yukta.service.control.store.InMemoryExecutionControlStore
+com.infenia.yukta.service.input.ActorResolver
+com.infenia.yukta.service.input.DefaultAnswerAuthorizer
 com.infenia.yukta.service.input.DefaultInputGateway
 com.infenia.yukta.service.input.InMemoryInputRequestStore
 com.infenia.yukta.service.input.InputBroker
+com.infenia.yukta.service.input.InputCommandGuard
 com.infenia.yukta.service.input.InputDeadlineSweeper
 com.infenia.yukta.service.leader.LeaderLoss
 com.infenia.yukta.service.leader.SingleServerLeader

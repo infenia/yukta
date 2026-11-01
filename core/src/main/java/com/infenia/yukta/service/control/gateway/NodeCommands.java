@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.gateway;
 
+import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.DisableStepModeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCommand;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
@@ -119,6 +121,16 @@ final class NodeCommands extends ControlDispatch {
                     buildCommand(
                         new SignalNodeCommand(executionId, nodeId, name, decision, data),
                         CONTROL_COMMAND_PRIORITY)));
+  }
+
+  /* default */ Mono<Void> answerInput(final AnswerInputCommand command) {
+    return Mono.fromSupplier(() -> findExecutionOrThrow(command.executionId()))
+        .flatMap(_ -> executeCommand(buildCommand(command, CONTROL_COMMAND_PRIORITY)));
+  }
+
+  /* default */ Mono<Void> escalateInput(final EscalateInputCommand command) {
+    return Mono.fromSupplier(() -> findExecutionOrThrow(command.executionId()))
+        .flatMap(_ -> executeCommand(buildCommand(command, CONTROL_COMMAND_PRIORITY)));
   }
 
   /* default */ Mono<Void> clearBreakpoint(final String executionId, final String nodeId) {

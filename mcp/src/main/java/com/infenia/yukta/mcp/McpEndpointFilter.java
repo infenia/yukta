@@ -195,7 +195,10 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
         checked(exchange, chain, match, legacy)
             .contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match));
     return authenticator.named()
-        ? next.contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name()))
+        ? next.contextWrite(
+            ctx ->
+                ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name())
+                    .put(ControlActor.KIND_KEY, ControlActor.Kind.KEY))
         : next;
   }
 
