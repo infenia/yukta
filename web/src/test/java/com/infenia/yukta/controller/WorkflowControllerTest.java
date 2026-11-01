@@ -42,6 +42,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({
   "PMD.UnitTestShouldIncludeAssert",
   "PMD.AvoidDuplicateLiterals",
+  "PMD.ExcessiveImports",
   "PMD.TooManyStaticImports",
   "PMD.TooManyMethods"
 })

@@ -38,6 +38,7 @@ import reactor.core.publisher.Mono;
 /** Tests for the behaviour described by {@link SessionConfigController}. */
 @NoArgsConstructor
 @SuppressWarnings({
+  "PMD.ExcessiveImports",
   "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert",
   "PMD.TooManyStaticImports"

@@ -127,7 +127,7 @@ class ExecutionControlControllerTest {
         .thenReturn(
             reactor.core.publisher.Flux.just(
                 new com.infenia.yukta.model.control.PendingApproval(
-                    "s1", "e1", "wf", "gate", "approve", java.time.Instant.EPOCH)));
+                    "s1", "e1", "wf", "gate", "approve", Instant.EPOCH)));
 
     client
         .get()
@@ -148,9 +148,9 @@ class ExecutionControlControllerTest {
         .thenReturn(
             reactor.core.publisher.Flux.just(
                 new com.infenia.yukta.model.control.PendingApproval(
-                    "s1", "e1", "wf", "gate", "approve", java.time.Instant.EPOCH),
+                    "s1", "e1", "wf", "gate", "approve", Instant.EPOCH),
                 new com.infenia.yukta.model.control.PendingApproval(
-                    "s2", "e2", "wf", "gate", "approve", java.time.Instant.EPOCH)));
+                    "s2", "e2", "wf", "gate", "approve", Instant.EPOCH)));
 
     client
         .get()
