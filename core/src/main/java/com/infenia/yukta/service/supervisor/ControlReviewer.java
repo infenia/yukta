@@ -112,13 +112,15 @@ public class ControlReviewer {
         .concatMap(
             supervisor ->
                 Mono.defer(() -> supervisor.review(request))
-                    .timeout(timeout, Mono.fromSupplier(() -> timedOut(supervisor, request)))
+                    .timeout(
+                        timeout,
+                        Mono.fromSupplier(() -> fallback(supervisor, request, "review timed out")))
                     .onErrorResume(
                         error -> {
                           log.atWarn()
                               .setCause(error)
                               .addKeyValue("supervisor", supervisor.id())
-                              .log("Supervisor review failed; refusing the command");
+                              .log("Supervisor review failed");
                           return Mono.just(Decision.deny("review failed"));
                         })
                     .map(decision -> dryRunned(supervisor, request, decision))
@@ -144,7 +146,9 @@ public class ControlReviewer {
     return Decision.ALLOW;
   }
 
-  private Decision timedOut(final ExecutionSupervisor supervisor, final ControlRequest request) {
+  /** The answer when a supervisor times out: a stop is allowed, anything else refused. */
+  private Decision fallback(
+      final ExecutionSupervisor supervisor, final ControlRequest request, final String why) {
     final boolean stop =
         request.command() instanceof ExecutionControlCommand.StopWorkflowCommand
             || request.command() instanceof ExecutionControlCommand.StopNodeCommand;
@@ -152,9 +156,8 @@ public class ControlReviewer {
         .addKeyValue("supervisor", supervisor.id())
         .addKeyValue("timeout", timeout)
         .log(
-            stop
-                ? "Supervisor review timed out; allowing the stop"
-                : "Supervisor review timed out; refusing the command");
-    return stop ? Decision.ALLOW : Decision.deny("review timed out");
+            stop ? "Supervisor: {}; allowing the stop" : "Supervisor: {}; refusing the command",
+            why);
+    return stop ? Decision.ALLOW : Decision.deny(why);
   }
 }

@@ -106,6 +106,7 @@
               "running/run-controls",
               "running/admission-and-limits",
               "running/observability",
+              "running/control-dashboard",
               "running/supervisors",
               "running/control-planes",
               "running/rule-files"

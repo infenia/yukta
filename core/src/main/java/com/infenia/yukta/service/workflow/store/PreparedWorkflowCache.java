@@ -33,6 +33,9 @@ public class PreparedWorkflowCache {
   /** Property key for workflow ID. */
   private static final String WORKFLOW_ID_KEY = "workflowId";
 
+  /** Most prepared workflows kept; the least recently used go first. */
+  private static final long MAX_ENTRIES = 1_000;
+
   /** The Caffeine cache for prepared workflows. */
   private final Cache<String, PreparedWorkflow> cache;
 
@@ -46,6 +49,8 @@ public class PreparedWorkflowCache {
     this.cache =
         Caffeine.newBuilder()
             .expireAfterAccess(ttlMs, TimeUnit.MILLISECONDS)
+            // ponytail: fixed cap; make it a setting if a server needs more
+            .maximumSize(MAX_ENTRIES)
             .recordStats()
             .removalListener(
                 (key, _, cause) ->

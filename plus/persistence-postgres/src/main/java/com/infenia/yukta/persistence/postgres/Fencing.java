@@ -86,6 +86,6 @@ final class Fencing {
    * @return a supplier of its current fencing number
    */
   /* default */ static LongSupplier tokenOf(final R2dbcLeaderElection election) {
-    return election::fencingToken;
+    return election::getFencingToken;
   }
 }

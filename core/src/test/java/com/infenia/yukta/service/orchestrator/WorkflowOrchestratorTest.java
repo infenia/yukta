@@ -477,8 +477,11 @@ class WorkflowOrchestratorTest {
     when(compiler.compileAssemblers(any(), any(), any(), any())).thenReturn(assemblers);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.empty());
-    when(compiler.executeTemplate(
-            anyString(), any(), eq(1), any(), anyString(), anyString(), anyList()))
+    // deferred: the safe stop may end the run before the template is ever subscribed
+    lenient()
+        .when(
+            compiler.executeTemplate(
+                anyString(), any(), eq(1), any(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.never());
 
     final Sinks.One<Void> safeStop = Sinks.one();

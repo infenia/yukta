@@ -190,38 +190,62 @@ class ControlReviewerTest {
     StepVerifier.create(reviewer.review(REQUEST)).verifyComplete();
   }
 
-  private static ControlReviewer hungReviewer() {
-    return new ControlReviewer(
-        providerOf(new Reviewer("hung", 0, _ -> Mono.never(), new ArrayList<>())),
-        Duration.ofMillis(50));
-  }
-
   @Test
   void review_hungSupervisor_refusesTheCommandAfterTheTimeout() {
-    StepVerifier.create(hungReviewer().review(REQUEST))
+    final ControlReviewer reviewer =
+        new ControlReviewer(
+            providerOf(new Reviewer("hung", 0, _ -> Mono.never(), new ArrayList<>())),
+            Duration.ofMillis(50));
+
+    StepVerifier.create(reviewer.review(REQUEST))
         .expectErrorMessage("hung: review timed out")
         .verify(Duration.ofSeconds(5));
   }
 
   @Test
   void review_hungSupervisor_stillLetsStopThrough() {
+    final ControlReviewer reviewer =
+        new ControlReviewer(
+            providerOf(new Reviewer("hung", 0, _ -> Mono.never(), new ArrayList<>())),
+            Duration.ofMillis(50));
+
     StepVerifier.create(
-            hungReviewer()
-                .review(
-                    new ControlRequest(
-                        new ExecutionControlCommand.StopWorkflowCommand("e1", null, null),
-                        null,
-                        null,
-                        null)))
+            reviewer.review(
+                new ControlRequest(
+                    new ExecutionControlCommand.StopWorkflowCommand("e1", null, null),
+                    null,
+                    null,
+                    null)))
         .verifyComplete();
     StepVerifier.create(
-            hungReviewer()
-                .review(
-                    new ControlRequest(
-                        new ExecutionControlCommand.StopNodeCommand("e1", "n1", false, null),
-                        null,
-                        null,
-                        null)))
+            reviewer.review(
+                new ControlRequest(
+                    new ExecutionControlCommand.StopNodeCommand("e1", "n1", false, null),
+                    null,
+                    null,
+                    null)))
         .verifyComplete();
+  }
+
+  @Test
+  void review_failingSupervisor_refusesStopToo() {
+    final ControlReviewer reviewer =
+        new ControlReviewer(
+            providerOf(
+                new Reviewer(
+                    "broken",
+                    0,
+                    _ -> Mono.error(new IllegalStateException("x")),
+                    new ArrayList<>())));
+
+    StepVerifier.create(
+            reviewer.review(
+                new ControlRequest(
+                    new ExecutionControlCommand.StopWorkflowCommand("e1", null, null),
+                    null,
+                    null,
+                    null)))
+        .expectErrorMessage("broken: review failed")
+        .verify();
   }
 }
