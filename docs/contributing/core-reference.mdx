@@ -662,7 +662,7 @@ An older channel beside run commands, carrying heartbeats, statistics and raw si
 
 **Status:** partial
 
-A plugin can ask for a decision or an input and wait for the answer. This phase holds the request, its deadline and its events; who may answer, the routes and the REST, MCP and UI surface come in later phases of the input requests epic (#1787).
+A plugin can ask for a decision or an input and wait for the answer. This phase holds the request, its deadline and its events, and decides who may answer or hand it up; the routes and the REST, MCP and UI surface come in later phases of the input requests epic (#1787).
 
 **Behaviour**
 
@@ -672,10 +672,14 @@ A plugin can ask for a decision or an input and wait for the answer. This phase 
 - The deadline is an absolute time. `InputDeadlineSweeper` looks every `yukta.input.sweep-interval`, on the leader only: `FAIL` and `ESCALATE` (until routes exist) fail the asker with `InputExpiredException`; `USE_DEFAULT` answers as `SYSTEM` with the default decision.
 - Cancelling the last waiting caller cancels the request (`node-cancelled`); the end of a run cancels its open requests (`run-ended`).
 - Requests are kept in memory (`InMemoryInputRequestStore`, bounded by `yukta.input.memory-max` finished requests). A durable store replaces it in a later phase.
+- `AnswerInputCommand` and `EscalateInputCommand` go through the control dispatcher (ordered per run, reviewed by the supervisors, audited). Their processors first check that this server leads (`NotLeaderException`, HTTP 503 on a standby), that the request exists (404) and belongs to the run the command names (409), then ask the `AnswerAuthorizer` (403 with the failed rule, `yukta.input.denied{rule}`), then check that the answer fits the request (422) before the broker takes it. A refused answer leaves the request open; an answer to a request that has ended, or whose `expectedVersion` moved, is a 409; a second answer to an answered request is accepted as a repeat.
+- The default rules, in order: `audience`, `tier` (until routes exist the targets are `supervisor:*` and `role:OPERATOR`), `risk` (answers only: `HIGH` only a human, a supervisor needs `canAnswer` and a `maxRisk` that reaches the request), `scope` (a supervisor's scope, a key's sessions) and `separation` (a supervisor cannot answer for a run whose start payload names it under `yukta.supervisor.id`). Escalating needs no right to answer. A bean of type `AnswerAuthorizer` replaces the rules.
+- The sender is read from the actor kind the caller authenticated as (`ControlActor.KIND_KEY`: `KEY`, `SUPERVISOR`, `TOKEN`), never from the shape of the actor string, so a key named like a supervisor gains none of its rights. A call with an actor but no kind, or with no identity where keys are required, has no rights.
+- A signal (`SignalNodeCommand`) for a node that waits on an open request whose context names the signal under `signal` is answered through the same rules, so a `HIGH` approval stays with humans; any other signal takes the older path. `pendingApprovals` lists those open `APPROVAL` requests with the signal waits.
 
 **Configure:** `yukta.input.default-ttl` · `yukta.input.max-ttl` · `yukta.input.max-open-per-execution` · `yukta.input.max-open-per-session` · `yukta.input.memory-max` · `yukta.input.sweep-interval` · `yukta.input.redact-keys`
 
-**Source:** `InputBroker` `InputRequestStore` `InMemoryInputRequestStore` `InputDeadlineSweeper` `DefaultInputGateway` `InputRedactor`
+**Source:** `InputBroker` `InputRequestStore` `InMemoryInputRequestStore` `InputDeadlineSweeper` `DefaultInputGateway` `InputRedactor` `AnswerAuthorizer` `DefaultAnswerAuthorizer` `ActorResolver` `InputCommandGuard` `AnswerShape` `SchemaSubset` `AnswerInputCommandProcessor` `EscalateInputCommandProcessor` `InputSignalBridge`
 
 **Limits:** A ttl above `yukta.input.max-ttl` is refused, not cut. The open-request limits are checked just before the request is stored, so a burst of parallel asks can pass them by a few. Open requests are lost when the server restarts.
 
@@ -1119,7 +1123,7 @@ All meters are Micrometer. Tags in braces.
 | `yukta.checkpoint.bytes` | gauge | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Node output held by the checkpoint store |
 | `yukta.checkpoint.errors` | counter | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | End markers that failed to write |
 | `yukta.plugin.events` `{plugin, outcome}` | counter | [EXT-01](#ext-01-plugin-contract-and-registry) | Counters a plugin reports through the metrics reporter |
-| `yukta.supervisor.commands` `{id, outcome}` | counter | [CTL-07](#ctl-07-supervisors) | Commands issued by supervisors |
+| `yukta.supervisor.commands` `{id, outcome}` | counter | [CTL-07](#ctl-07-supervisors) | Commands issued by supervisors (outcomes include `forbidden`: not in the supervisor's `allowedCommands`) |
 | `yukta.input.requests` `{kind, risk, outcome}` | counter | [CTL-09](#ctl-09-input-requests) | Input requests: asked, answered, defaulted, escalated, expired, cancelled |
 | `yukta.input.wait` `{tier}` | timer | [CTL-09](#ctl-09-input-requests) | Time from ask to the end of a request |
 | `yukta.input.open` | gauge | [CTL-09](#ctl-09-input-requests) | Input requests open or escalated now |

@@ -15,9 +15,13 @@ import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -43,14 +47,43 @@ public class SignalNodeCommandProcessor implements ControlSignalProcessor {
   /** Finds the plugin that serves a node. */
   private final ActivePluginRegistry plugins;
 
+  /** Answers an input request that stands for the signal, if there is one. */
+  @Nullable private ObjectProvider<InputSignalBridge> inputBridge;
+
   @Override
   public boolean canProcess(final ExecutionControlCommand command) {
     return command instanceof SignalNodeCommand;
   }
 
+  /**
+   * Lets the broker take a signal that answers an input request.
+   *
+   * @param provider the bridge, if the application has input requests
+   */
+  @Autowired(required = false)
+  public void setInputBridge(final ObjectProvider<InputSignalBridge> provider) {
+    this.inputBridge = provider;
+  }
+
   @Override
   public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
     final SignalNodeCommand signal = (SignalNodeCommand) command;
+    final ObjectProvider<InputSignalBridge> provider = inputBridge;
+    final InputSignalBridge bridge = provider == null ? null : provider.getIfAvailable();
+    if (bridge == null) {
+      return deliver(signal);
+    }
+    return bridge
+        .waitingFor(signal)
+        .map(Optional::of)
+        .defaultIfEmpty(Optional.empty())
+        .flatMap(
+            waiting ->
+                waiting.isPresent() ? bridge.answer(signal, waiting.get()) : deliver(signal));
+  }
+
+  /** The older path: the plugin of the node takes the signal while it waits for it. */
+  private Mono<WorkflowDirective> deliver(final SignalNodeCommand signal) {
     return Mono.defer(
         () -> {
           final ExecutionControl control =

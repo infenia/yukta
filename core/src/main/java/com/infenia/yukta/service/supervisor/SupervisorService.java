@@ -5,6 +5,7 @@ package com.infenia.yukta.service.supervisor;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
@@ -340,6 +341,12 @@ public class SupervisorService {
   private void validate(final SupervisorProfile profile) {
     SupervisorIds.validate(profile.id(), "profile id");
     factory(profile).validate(profile);
+    capabilities(profile);
+  }
+
+  /** What the profile lets its supervisor do; an unknown command name is refused. */
+  private SupervisorCapabilities capabilities(final SupervisorProfile profile) {
+    return SupervisorCapabilities.from(profile, factory(profile).defaultAllowedCommands());
   }
 
   private ExecutionSupervisor create(final SupervisorProfile profile) {
@@ -347,7 +354,8 @@ public class SupervisorService {
   }
 
   private void start(final SupervisorBinding binding, final SupervisorProfile profile) {
-    host.attach(new BoundSupervisor(binding, create(profile), profile.dryRun()));
+    host.attach(
+        new BoundSupervisor(binding, create(profile), profile.dryRun(), capabilities(profile)));
   }
 
   /** Records an attach or detach with the caller as actor. */

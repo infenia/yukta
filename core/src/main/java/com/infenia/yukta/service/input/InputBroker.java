@@ -55,11 +55,19 @@ import reactor.core.publisher.Sinks;
  */
 @Slf4j
 @Service
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.ExcessiveImports",
+  "PMD.CouplingBetweenObjects",
+  "PMD.GodClass"
+})
 public class InputBroker {
 
   /** The tier every request is in until routes exist. */
   public static final String DEFAULT_TIER = "default";
+
+  /** Key of the request context that names the signal a request stands for. */
+  public static final String SIGNAL_CONTEXT_KEY = "signal";
 
   /** Counter of requests by kind, risk and what became of them. */
   private static final String REQUESTS_METRIC = "yukta.input.requests";
@@ -87,6 +95,17 @@ public class InputBroker {
 
   /** Payload key of the reason. */
   private static final String PAYLOAD_REASON = "reason";
+
+  /** Payload key of the risk of the request. */
+  private static final String PAYLOAD_RISK = "risk";
+
+  /** Payload keys of who answered or handed a request up. */
+  private static final String PAYLOAD_RESPONDER_TYPE = "responderType";
+
+  private static final String PAYLOAD_RESPONDER_ID = "responderId";
+
+  /** Longest rationale or reason the log keeps, in characters. */
+  private static final int LOG_TEXT_MAX = 500;
 
   /** Where requests are kept. */
   private final InputRequestStore store;
@@ -231,6 +250,23 @@ public class InputBroker {
    */
   public Mono<InputRequest> escalate(
       final String requestId, final String reason, final @Nullable String advice) {
+    return escalate(requestId, reason, advice, null);
+  }
+
+  /**
+   * Hands a request up on behalf of a sender, who is recorded in the log.
+   *
+   * @param requestId the request
+   * @param reason why, for the event and the log
+   * @param advice text for whoever answers next, or {@code null}
+   * @param by who hands it up, or {@code null} when the system does
+   * @return the request: escalated if this call won, otherwise as it is now; empty if unknown
+   */
+  public Mono<InputRequest> escalate(
+      final String requestId,
+      final String reason,
+      final @Nullable String advice,
+      final @Nullable Responder by) {
     final String cleanReason = redactor.text(reason);
     final @Nullable String cleanAdvice = advice == null ? null : redactor.text(advice);
     return transition(
@@ -241,7 +277,7 @@ public class InputBroker {
         .doOnNext(
             change -> {
               if (change.applied()) {
-                escalated(change.request(), cleanReason);
+                escalated(change.request(), cleanReason, by);
               }
             })
         .map(Change::request);
@@ -521,9 +557,17 @@ public class InputBroker {
         .log("Input requested");
   }
 
-  private void escalated(final InputRequest request, final String reason) {
+  private void escalated(
+      final InputRequest request, final String reason, final @Nullable Responder by) {
     count(request, "escalated");
-    record(request, "INPUT_ESCALATED", Map.of(PAYLOAD_REASON, reason));
+    final Map<String, Object> facts = new ConcurrentHashMap<>();
+    facts.put(PAYLOAD_REASON, truncated(reason));
+    facts.put(PAYLOAD_RISK, request.spec().risk().name());
+    if (by != null) {
+      facts.put(PAYLOAD_RESPONDER_TYPE, by.type().name());
+      facts.put(PAYLOAD_RESPONDER_ID, by.id());
+    }
+    record(request, "INPUT_ESCALATED", facts);
     feed.publish(new ExecutionEvent.InputEscalated(request, reason, clock.instant()));
     logEnd(request, "Input escalated");
   }
@@ -531,13 +575,15 @@ public class InputBroker {
   private InputRequest answered(final InputRequest request, final InputResponse response) {
     final Responder responder = response.responder();
     finish(request, responder.type() == Responder.Type.SYSTEM ? "defaulted" : "answered");
-    record(
-        request,
-        "INPUT_ANSWERED",
-        Map.of(
-            "responderType", responder.type().name(),
-            "responderId", responder.id(),
-            "decision", response.decision()));
+    final Map<String, Object> facts = new ConcurrentHashMap<>();
+    facts.put(PAYLOAD_RESPONDER_TYPE, responder.type().name());
+    facts.put(PAYLOAD_RESPONDER_ID, responder.id());
+    facts.put("decision", response.decision());
+    facts.put(PAYLOAD_RISK, request.spec().risk().name());
+    if (response.rationale() != null) {
+      facts.put("rationale", truncated(redactor.text(response.rationale())));
+    }
+    record(request, "INPUT_ANSWERED", facts);
     feed.publish(
         new ExecutionEvent.InputAnswered(
             request.executionId(),
@@ -667,6 +713,11 @@ public class InputBroker {
         .addKeyValue(LOG_NODE_ID, request.nodeId())
         .addKeyValue("state", request.state())
         .log(message);
+  }
+
+  /** A text for the log, cut to what the log keeps. */
+  private static String truncated(final String text) {
+    return text.length() > LOG_TEXT_MAX ? text.substring(0, LOG_TEXT_MAX) : text;
   }
 
   /** The callers waiting for one request. */
