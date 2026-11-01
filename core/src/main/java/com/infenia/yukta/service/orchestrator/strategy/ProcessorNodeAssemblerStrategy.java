@@ -204,8 +204,9 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
               node);
       final Flux<Message<?>> safeInput =
           controlled.doOnNext(_ -> activity.touch()).onErrorMap(UpstreamFailure::mark);
-      final Flux<Message<?>> timedInput =
+      final Flux<Message<?>> retimedInput =
           NodeTimeouts.retimeOnFirstInput(safeInput, node, plugin, variableResolver, activity);
+      final Flux<Message<?>> timedInput = offloaded(retimedInput, processor.isBlocking());
 
       Flux<Message<?>> stream;
       final AtomicBoolean skipFlag = control.nodeSkipFlags().get(node.nodeId());
@@ -270,5 +271,13 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
           .addKeyValue("executionId", context.executionId())
           .log("Processor node stream assembled and registered");
     };
+  }
+
+  /**
+   * Hands each element of a blocking plugin's input to its own thread. The subscription alone does
+   * not do this, because each element still arrives on the parent's thread.
+   */
+  private Flux<Message<?>> offloaded(final Flux<Message<?>> input, final boolean blocking) {
+    return blocking ? input.publishOn(virtualThreadScheduler, 1) : input;
   }
 }

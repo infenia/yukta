@@ -60,6 +60,14 @@ const MATRIX_TONE: Record<MatrixState, Tone> = {
   unknown: 'neutral',
 };
 
+/** The marker's shape differs per state, so the state does not rest on colour alone. */
+const MATRIX_SHAPE: Record<MatrixState, string> = {
+  ok: 'rounded-full bg-current',
+  stale: 'rotate-45 bg-current',
+  down: 'rounded-sm bg-current',
+  unknown: 'rounded-full ring-2 ring-current',
+};
+
 /** A heartbeat grid: one dot per node; a healthy one pulses, a stale one turns amber, then red. */
 export function StatusMatrix({
   items,
@@ -76,7 +84,7 @@ export function StatusMatrix({
         >
           <span
             aria-hidden="true"
-            className={`size-2.5 rounded-full bg-current ${state === 'ok' ? 'motion-safe:animate-pulse' : ''}`}
+            className={`size-2.5 ${MATRIX_SHAPE[state]} ${state === 'ok' ? 'motion-safe:animate-pulse' : ''}`}
           />
           {label}
           <span className="sr-only">{state}</span>

@@ -10,6 +10,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
@@ -34,6 +35,7 @@ import reactor.core.publisher.Mono;
 
 /** Service for managing session lifecycle and configuration. */
 @Slf4j
+@SuppressWarnings("PMD.ExcessiveImports")
 @Service
 @Validated
 @RequiredArgsConstructor
@@ -56,6 +58,9 @@ public class SessionService {
 
   /** The prepared workflow cache for invalidating stale compiled workflows. */
   private final PreparedWorkflowCache preparedWorkflowCache;
+
+  /** Prepares (and so validates) every workflow before anything is saved. */
+  private final WorkflowPreparator preparator;
 
   /** Stale workflows removed at the same time. */
   private static final int REMOVAL_CONCURRENCY = 4;
@@ -152,8 +157,11 @@ public class SessionService {
                                         .log("Failed to compile workflow: {} for session: {}")))
                 .then();
     final Mono<Void> applyRest = cacheInvalidation.then(workflowCompilation);
-    return configService
-        .applySessionConfig(data)
+    // One bad workflow must not replace the stored good one: prepare all of them first.
+    final Mono<Void> validateAll =
+        Flux.fromIterable(data.workflows().values()).concatMap(preparator::prepareWorkflow).then();
+    return validateAll
+        .then(Mono.defer(() -> configService.applySessionConfig(data)))
         .doOnSubscribe(
             _ -> log.atInfo().log("Applying configuration for session: {}", data.sessionId()))
         // A workflow that could not be removed fails the apply, after the rest of it has run: the

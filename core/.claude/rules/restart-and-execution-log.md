@@ -26,7 +26,7 @@ Reference for the restart archive, checkpoints, resume and the execution log (an
 - Restart-from-node re-runs the node and its descendants and replays the recorded output of the
   nodes that feed them (`RestartPlan`); independent branches are left alone.
 - Set `yukta.restart.dir` to keep node outputs on disk (`FileNodeCheckpointStore`, one JSON line per
-  message, appended through one open channel per node until `markComplete`, no caps; payloads come back as plain JSON values). With it and `yukta.execution-log.dir`,
+  message, each message appended with a short-lived open, so open files do not grow with runs x nodes; no caps; payloads come back as plain JSON values). With it and `yukta.execution-log.dir`,
   `ExecutionResumer.resume(executionId)` continues a run that a restart aborted: the log holds the
   payload (`RUN_STARTED`); nodes that finished (a durable end marker, below) replay their
   recorded output, the rest run again. `NODE_FINISHED` log events are history only. A run resumes once (`RUN_RESUMED`) and only if its definition
