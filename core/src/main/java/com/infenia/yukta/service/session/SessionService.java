@@ -201,11 +201,13 @@ public class SessionService {
             Mono.error(
                 new NotFoundException(
                     "Workflow not found: " + workflowId + " in session " + sessionId)))
+        .doFirst(() -> preparedWorkflowCache.beginDelete(sessionId, workflowId))
         .then(Mono.defer(() -> clearActiveRuns(sessionId, workflowId, force)))
         .then(Mono.defer(() -> workflowDefinitionStore.remove(sessionId, workflowId)))
         .doOnSuccess(_ -> preparedWorkflowCache.invalidate(sessionId, workflowId))
         .then(Mono.defer(() -> audited(command, sessionId + "/" + workflowId)))
-        .onErrorResume(error -> auditedFailure(error, command, sessionId + "/" + workflowId));
+        .onErrorResume(error -> auditedFailure(error, command, sessionId + "/" + workflowId))
+        .doFinally(_ -> preparedWorkflowCache.endDelete(sessionId, workflowId));
   }
 
   /**
@@ -228,6 +230,7 @@ public class SessionService {
                 known
                     ? Mono.<Void>empty()
                     : Mono.error(new NotFoundException("Session not found: " + sessionId)))
+        .doFirst(() -> preparedWorkflowCache.beginDelete(sessionId, null))
         .then(Mono.defer(() -> clearActiveRuns(sessionId, null, force)))
         .then(Mono.defer(() -> workflowDefinitionStore.removeAll(sessionId)))
         .then(Mono.defer(() -> configService.removeSession(sessionId)))
@@ -236,7 +239,8 @@ public class SessionService {
                 () -> supervisors == null ? Mono.empty() : supervisors.removeForSession(sessionId)))
         .doOnSuccess(_ -> preparedWorkflowCache.invalidateAll(sessionId))
         .then(Mono.defer(() -> audited(command, sessionId)))
-        .onErrorResume(error -> auditedFailure(error, command, sessionId));
+        .onErrorResume(error -> auditedFailure(error, command, sessionId))
+        .doFinally(_ -> preparedWorkflowCache.endDelete(sessionId, null));
   }
 
   /** Records that the delete happened. */

@@ -91,14 +91,14 @@ class SubWorkflowRunnerTest {
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
         .assertNext(result -> assertThat(result.results()).isEmpty())
         .verifyComplete();
-    verify(cache).put("s", "child", prepared);
+    verify(cache).put(eq("s"), eq("child"), eq(prepared), any());
 
     final WorkflowDefinition newer = new WorkflowDefinition("child", "newer", List.of(), List.of());
     when(definitions.find("s", "child")).thenReturn(Mono.just(definition), Mono.just(newer));
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
         .expectNextCount(1)
         .verifyComplete();
-    verify(cache, org.mockito.Mockito.times(1)).put(any(), any(), any());
+    verify(cache, org.mockito.Mockito.times(1)).put(any(), any(), any(), any());
   }
 
   @Test

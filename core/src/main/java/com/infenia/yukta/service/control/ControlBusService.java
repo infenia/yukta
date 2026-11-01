@@ -280,7 +280,7 @@ public class ControlBusService {
                   .addArgument(workflowId)
                   .addArgument(sessionId)
                   .log("Caching prepared workflow: {} for session: {}");
-              preparedWorkflowCache.put(sessionId, workflowId, prepared);
+              preparedWorkflowCache.put(sessionId, workflowId, prepared, workflowDefinition);
             })
         .then();
   }

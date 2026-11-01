@@ -116,4 +116,24 @@ class SaveAndPrepareTest {
                 _ -> Mono.error(new IllegalStateException(UNKNOWN_TYPE))))
         .verifyErrorMessage(UNKNOWN_TYPE);
   }
+
+  @Test
+  void failedApplyDoesNotUndoConcurrentApply() throws Exception {
+    store.save(SESSION, definition("old")).block();
+    final reactor.core.publisher.Sinks.Empty<Void> gate = reactor.core.publisher.Sinks.empty();
+    final WorkflowDefinition second = definition("second");
+
+    SaveAndPrepare.run(
+            store,
+            SESSION,
+            definition("fails"),
+            _ -> gate.asMono().then(Mono.error(new IllegalStateException(UNKNOWN_TYPE))))
+        .onErrorResume(_ -> Mono.empty())
+        .subscribe();
+    final var done = SaveAndPrepare.run(store, SESSION, second, _ -> Mono.empty()).toFuture();
+    gate.tryEmitEmpty();
+    done.get(5, java.util.concurrent.TimeUnit.SECONDS);
+
+    assertThat(store.find(SESSION, WORKFLOW).block()).isEqualTo(second);
+  }
 }
