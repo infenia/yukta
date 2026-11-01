@@ -4,6 +4,7 @@ package com.infenia.yukta.service.streaming;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.validation.constraints.NotBlank;
@@ -15,7 +16,6 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -52,17 +52,27 @@ public class DefaultStatusHistoryCache implements StatusHistoryCache {
   }
 
   /**
+   * Create a cache from the settings.
+   *
+   * @param properties the {@code yukta.streaming} settings
+   */
+  @Autowired
+  public DefaultStatusHistoryCache(final YuktaProperties properties) {
+    this(
+        properties.streaming().statusHistoryTtlMinutes(),
+        properties.streaming().statusHistoryMaxPerRun(),
+        properties.streaming().statusHistoryMaxExecutions());
+  }
+
+  /**
    * Create a new cache with the configured TTL and bounds.
    *
    * @param ttlMinutes the time-to-live in minutes (must be > 0 and <= 30)
    * @param maxPerRun snapshots kept per execution (at least 1)
    * @param maxExecutions executions remembered (at least 1)
    */
-  @Autowired
   public DefaultStatusHistoryCache(
-      @Value("${yukta.streaming.status-history-ttl-minutes:5}") final int ttlMinutes,
-      @Value("${yukta.streaming.status-history-max-per-run:200}") final int maxPerRun,
-      @Value("${yukta.streaming.status-history-max-executions:1000}") final int maxExecutions) {
+      final int ttlMinutes, final int maxPerRun, final int maxExecutions) {
     if (ttlMinutes <= 0) {
       throw new IllegalArgumentException("TTL must be greater than 0 minutes");
     }

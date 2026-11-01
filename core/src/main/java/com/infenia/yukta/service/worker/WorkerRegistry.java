@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.worker;
 
+import com.infenia.yukta.config.YuktaProperties;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
@@ -13,7 +14,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -37,12 +37,21 @@ public class WorkerRegistry {
   /**
    * Creates the registry and its meters.
    *
-   * @param lease how long a heartbeat keeps a worker
+   * @param properties the {@code yukta.workers} settings: how long a heartbeat keeps a worker
    * @param meters where {@code yukta.workers} and {@code yukta.worker.slots} are registered
    */
   @Autowired
-  public WorkerRegistry(
-      @Value("${yukta.workers.lease:15s}") final Duration lease, final MeterRegistry meters) {
+  public WorkerRegistry(final YuktaProperties properties, final MeterRegistry meters) {
+    this(properties.workers().lease(), meters, Clock.systemUTC());
+  }
+
+  /**
+   * Creates the registry with an explicit lease.
+   *
+   * @param lease how long a heartbeat keeps a worker
+   * @param meters where the meters are registered
+   */
+  public WorkerRegistry(final Duration lease, final MeterRegistry meters) {
     this(lease, meters, Clock.systemUTC());
   }
 

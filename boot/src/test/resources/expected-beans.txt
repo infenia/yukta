@@ -7,6 +7,7 @@ com.infenia.yukta.config.MessageReflectionHints
 com.infenia.yukta.config.MetadataGuardCustomizer
 com.infenia.yukta.config.SessionConfigProperties
 com.infenia.yukta.config.SpaWebFluxConfig
+com.infenia.yukta.config.YuktaProperties
 com.infenia.yukta.console.ConsoleRunner
 com.infenia.yukta.controller.ControlAuditController
 com.infenia.yukta.controller.ControlBusController

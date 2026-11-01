@@ -42,7 +42,7 @@ Admission, command ordering and run state live in one server at a time. [High av
 | Idempotency keys | 100,000 keys for 10 minutes | `yukta.start.idempotency-*` |
 | Restartable executions | 10 | `yukta.restart.retained-executions` |
 | Checkpoints (memory store) | 200 messages and 4 MiB per node and execution | `yukta.restart.messages-per-node`, `bytes-per-node` |
-| Prepared workflows | Dropped after 10 minutes unused | `workflow.cache.ttl.ms` |
+| Prepared workflows | Dropped after 10 minutes unused | `yukta.cache.ttl` |
 
 Not bounded:
 

@@ -19,10 +19,12 @@ import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -87,6 +89,22 @@ class SupervisorHostTest {
         new SupervisorHost(
             providerOf(supervisor), feed, dispatcher, log, meters, dryRun, perSecond, bufferSize);
     host.start();
+  }
+
+  @Test
+  void settingsBuildTheHost_andItKnowsItsBuiltInSupervisors() {
+    host =
+        new SupervisorHost(
+            providerOf(supervisor("rules", SupervisorHostTest::pauseOnFailure)),
+            feed,
+            dispatcher,
+            log,
+            meters,
+            YuktaSettings.bind(Map.of("yukta.supervisor.buffer-size", "50")));
+    host.start();
+
+    assertThat(host.isBuiltIn("rules")).isTrue();
+    assertThat(host.isBuiltIn("unknown")).isFalse();
   }
 
   @Test

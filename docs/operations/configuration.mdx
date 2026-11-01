@@ -150,7 +150,7 @@ See [Persistence](/operations/persistence) and [Checkpoints and resume](/operati
 | `spring.r2dbc.username`, `spring.r2dbc.password` | none | Credentials for run-time access |
 | `spring.flyway.url` | none | PostgreSQL URL used for schema migrations, `jdbc:postgresql://host:5432/yukta` |
 | `spring.flyway.user`, `spring.flyway.password` | none | Credentials for migrations |
-| `workflow.cache.ttl.ms` | `600000` | How long an unused prepared workflow stays cached. The cache is rebuilt on demand |
+| `yukta.cache.ttl` | `10m` | How long an unused prepared workflow stays cached. The cache is rebuilt on demand |
 
 The PostgreSQL settings need a build with the PostgreSQL switch and the `postgres` profile. See [Persistence](/operations/persistence).
 
@@ -257,9 +257,9 @@ See [High availability](/operations/high-availability).
 
 | Setting | Default | Meaning and effect |
 |---|---|---|
-| `control.bus.batch.size` | `100` | Plugin-level control signals handled per batch |
-| `control.bus.batch.timeout.ms` | `50` | Longest wait to fill a batch |
-| `control.bus.buffer.size` | `256` | Buffer for plugin-level control signals |
+| `yukta.control-bus.batch-size` | `100` | Plugin-level control signals handled per batch |
+| `yukta.control-bus.batch-timeout` | `50ms` | Longest wait to fill a batch |
+| `yukta.control-bus.buffer-size` | `256` | Buffer for plugin-level control signals |
 
 ## Per-node engine options
 

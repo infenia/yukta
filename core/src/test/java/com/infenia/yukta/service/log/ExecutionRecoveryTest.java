@@ -9,6 +9,7 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -96,6 +97,22 @@ class ExecutionRecoveryTest {
     assertThat(store.readAll())
         .extracting(ExecutionLogEvent::executionId)
         .containsOnly("r3", "long");
+  }
+
+  @Test
+  void retainedRunsFromSettings_keepTheMostRecentRuns() {
+    finishedRun("r1", "SUCCESS");
+    finishedRun("r2", "SUCCESS");
+    finishedRun("r3", "SUCCESS");
+
+    new ExecutionRecovery(
+            store,
+            tracker,
+            YuktaSettings.bind(Map.of("yukta.execution-log.retained-runs", "2")),
+            new com.infenia.yukta.service.store.InMemoryNodeCheckpointStore())
+        .recover();
+
+    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsOnly("r2", "r3");
   }
 
   @Test

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -12,7 +13,6 @@ import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
-import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.util.SinkEmit;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.Nullable;
@@ -22,18 +22,17 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import reactor.core.Scannable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
-import reactor.util.concurrent.Queues;
 import reactor.util.retry.Retry;
 
 /**
@@ -79,18 +78,18 @@ public class ControlBusService {
   @SuppressWarnings("PMD.AvoidUsingVolatile")
   private volatile Function<ExecutionControlCommand, Mono<Void>> commandExecutor;
 
+  /** Default size of the control sink buffer. */
+  private static final int DEFAULT_BUFFER_SIZE = 256;
+
   /** Sink for emitting control messages. */
   private Sinks.Many<Message<?>> controlSink =
-      Sinks.many().multicast().onBackpressureBuffer(Queues.SMALL_BUFFER_SIZE, false);
+      Sinks.many().multicast().onBackpressureBuffer(DEFAULT_BUFFER_SIZE, false);
 
   /** First delay before the consumer resubscribes after a failure. */
   private static final Duration CONSUMER_RETRY_DELAY = Duration.ofMillis(100);
 
   /** Longest delay between resubscribe attempts. */
   private static final Duration CONSUMER_MAX_RETRY_DELAY = Duration.ofSeconds(5);
-
-  /** Set once the bus is shutting down, so the consumer is no longer resubscribed. */
-  private final AtomicBoolean stopped = new AtomicBoolean();
 
   /** Handler for retry logic when emitting fails. */
   private static final Sinks.EmitFailureHandler RETRY_HANDLER =
@@ -99,9 +98,35 @@ public class ControlBusService {
   /**
    * Constructor for ControlBusService.
    *
+   * @param properties the {@code yukta.control-bus} settings: batch size, timeout and buffer
+   * @param handlers the list of signal handlers for dispatching messages
+   * @param preparedWorkflowCache the cache for compiled workflow instances
+   * @param orchestrator the workflow orchestrator for compiling workflows
+   * @param activePluginRegistry the registry of plugin instances actively servicing nodes
+   */
+  @Autowired
+  public ControlBusService(
+      final YuktaProperties properties,
+      final List<ControlSignalHandler> handlers,
+      final PreparedWorkflowCache preparedWorkflowCache,
+      final WorkflowOrchestrator orchestrator,
+      final ActivePluginRegistry activePluginRegistry) {
+    this(
+        properties.controlBus().batchSize(),
+        (int) properties.controlBus().batchTimeout().toMillis(),
+        properties.controlBus().bufferSize(),
+        handlers,
+        preparedWorkflowCache,
+        orchestrator,
+        activePluginRegistry);
+  }
+
+  /**
+   * Constructor for ControlBusService with explicit bounds.
+   *
    * @param batchSize the number of messages to batch before processing
    * @param batchTimeoutMs the timeout in milliseconds for batching
-   * @param bufferSize the size of the control sink buffer (uses SMALL_BUFFER_SIZE if too small)
+   * @param bufferSize the size of the control sink buffer
    * @param handlers the list of signal handlers for dispatching messages
    * @param preparedWorkflowCache the cache for compiled workflow instances
    * @param orchestrator the workflow orchestrator for compiling workflows
@@ -109,16 +134,16 @@ public class ControlBusService {
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public ControlBusService(
-      @Value("${control.bus.batch.size:100}") final int batchSize,
-      @Value("${control.bus.batch.timeout.ms:50}") final int batchTimeoutMs,
-      @Value("${control.bus.buffer.size:256}") final int bufferSize,
+      final int batchSize,
+      final int batchTimeoutMs,
+      final int bufferSize,
       final List<ControlSignalHandler> handlers,
       final PreparedWorkflowCache preparedWorkflowCache,
       final WorkflowOrchestrator orchestrator,
       final ActivePluginRegistry activePluginRegistry) {
     this.batchSize = batchSize;
     this.batchTimeout = Duration.ofMillis(batchTimeoutMs);
-    this.bufferSize = Math.max(bufferSize, Queues.SMALL_BUFFER_SIZE);
+    this.bufferSize = Math.max(bufferSize, DEFAULT_BUFFER_SIZE);
     this.handlers = List.copyOf(handlers);
     this.preparedWorkflowCache = preparedWorkflowCache;
     this.orchestrator = orchestrator;
@@ -128,7 +153,7 @@ public class ControlBusService {
   /** Initialize the control sink and background event consumer. */
   @PostConstruct
   public void init() {
-    if (bufferSize == Queues.SMALL_BUFFER_SIZE) {
+    if (bufferSize == DEFAULT_BUFFER_SIZE) {
       log.atDebug().log("Initialized control sink with default buffer size");
     } else {
       controlSink = Sinks.many().multicast().onBackpressureBuffer(bufferSize, false);
@@ -162,7 +187,10 @@ public class ControlBusService {
         .retryWhen(
             Retry.backoff(Long.MAX_VALUE, CONSUMER_RETRY_DELAY)
                 .maxBackoff(CONSUMER_MAX_RETRY_DELAY)
-                .filter(_ -> !stopped.get())
+                .filter(
+                    _ ->
+                        !Boolean.TRUE.equals(
+                            controlSink.scanOrDefault(Scannable.Attr.TERMINATED, false)))
                 .doBeforeRetry(
                     signal ->
                         log.atError()
@@ -234,7 +262,7 @@ public class ControlBusService {
   /**
    * Compile and cache a workflow after it has already been persisted.
    *
-   * <p>Assumes the workflow definition is already in {@link WorkflowDefinitionStore}. Invalidates
+   * <p>Assumes the workflow definition is already in {@code WorkflowDefinitionStore}. Invalidates
    * any stale cache entries, compiles the workflow, and warms the cache.
    *
    * @param sessionId the session identifier
@@ -500,7 +528,6 @@ public class ControlBusService {
    * subscribers to close cleanly.
    */
   public void shutdown() {
-    stopped.set(true);
     controlSink.emitComplete(RETRY_HANDLER);
   }
 

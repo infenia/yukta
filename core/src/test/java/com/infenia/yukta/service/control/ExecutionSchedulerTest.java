@@ -10,7 +10,9 @@ import com.infenia.yukta.service.control.ExecutionScheduler.Admission;
 import com.infenia.yukta.service.control.ExecutionScheduler.OnLimit;
 import com.infenia.yukta.service.control.ExecutionScheduler.Permit;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
@@ -33,6 +35,16 @@ class ExecutionSchedulerTest {
 
   private static Permit granted(final Admission admission) {
     return admission.permit().block(Duration.ofSeconds(2));
+  }
+
+  @Test
+  void settingsSetTheGlobalLimit() {
+    final ExecutionScheduler fromSettings =
+        new ExecutionScheduler(YuktaSettings.bind(Map.of("yukta.execution.max-concurrent", "1")));
+
+    granted(fromSettings.acquire("s1", "w1"));
+
+    assertThat(fromSettings.running()).isEqualTo(1);
   }
 
   @Test
@@ -400,9 +412,9 @@ class ExecutionSchedulerTest {
 
   @Test
   void priorityIsReadFromThePayload() {
-    assertThat(ExecutionScheduler.priorityOf(java.util.Map.of(ExecutionScheduler.PRIORITY_KEY, 7)))
+    assertThat(ExecutionScheduler.priorityOf(Map.of(ExecutionScheduler.PRIORITY_KEY, 7)))
         .isEqualTo(7);
-    assertThat(ExecutionScheduler.priorityOf(java.util.Map.of("yukta.priority", "x"))).isZero();
+    assertThat(ExecutionScheduler.priorityOf(Map.of("yukta.priority", "x"))).isZero();
     assertThat(ExecutionScheduler.priorityOf(null)).isZero();
   }
 
