@@ -824,6 +824,14 @@ public class ExecutionScheduler implements SmartLifecycle {
     public Admission(final boolean immediate, final Mono<Permit> permit) {
       this(immediate, permit, false);
     }
+
+    /**
+     * Gives the slot back (or leaves the queue) when the run it was taken for cannot use it. Safe
+     * to call after the permit was released: a permit releases once.
+     */
+    public void giveBack() {
+      permit.subscribe(Permit::release, _ -> {});
+    }
   }
 
   /** A start waiting for a slot. */

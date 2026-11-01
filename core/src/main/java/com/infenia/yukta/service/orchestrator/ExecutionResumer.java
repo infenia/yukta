@@ -169,7 +169,7 @@ public class ExecutionResumer {
                 executionLog.append(ExecutionLogEvent.resumed(started, newId));
               } catch (RuntimeException e) {
                 // the slot was taken above; give it back or each such failure shrinks capacity
-                admission.permit().subscribe(ExecutionScheduler.Permit::release);
+                admission.giveBack();
                 throw e;
               }
               orchestrator
