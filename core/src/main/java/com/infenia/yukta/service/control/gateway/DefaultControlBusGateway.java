@@ -29,7 +29,7 @@ import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
@@ -50,7 +50,7 @@ import reactor.core.publisher.Mono;
  * Default implementation of the {@link ControlBusGateway}.
  *
  * <p>Delegates low-level plugin management and message operations to {@link ControlBusService}, and
- * high-level control commands and observability operations to {@link DefaultTaskTrackerService}.
+ * high-level control commands and observability operations to {@link TaskTrackerService}.
  */
 @Slf4j
 @Service
@@ -81,7 +81,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   private final ControlBusService controlBusService;
 
   /** The task tracker service for tracking execution tasks. */
-  private final DefaultTaskTrackerService taskTracker;
+  private final TaskTrackerService taskTracker;
 
   /** The execution control registry for managing active executions. */
   private final ExecutionControlRegistry executionControlRegistry;
@@ -122,7 +122,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DefaultControlBusGateway(
       final ControlBusService controlBusService,
-      final DefaultTaskTrackerService taskTracker,
+      final TaskTrackerService taskTracker,
       final ExecutionControlRegistry executionControlRegistry,
       final ExecutionArchive executionArchive,
       final WorkflowOrchestrator orchestrator,
