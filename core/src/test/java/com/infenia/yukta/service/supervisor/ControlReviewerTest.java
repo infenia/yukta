@@ -5,6 +5,8 @@ package com.infenia.yukta.service.supervisor;
 import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.plugin.control.ControlDecision;
+import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
@@ -26,11 +28,11 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 class ControlReviewerTest {
 
-  private static final ControlRequest REQUEST =
+  /* default */ static final ControlRequest REQUEST =
       new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e1"), null, null, null);
 
   @RequiredArgsConstructor
-  private static final class Reviewer implements ExecutionSupervisor {
+  /* default */ static final class Reviewer implements ExecutionSupervisor {
     private final String id;
     private final int order;
     private final Function<ControlRequest, Mono<Decision>> answer;
@@ -84,6 +86,24 @@ class ControlReviewerTest {
     };
   }
 
+  /** A control plane with a class name, as real ones have. */
+  /* default */ static final class NamedPlane implements ControlPlanePlugin {
+    @Override
+    public String id() {
+      return "plane";
+    }
+
+    @Override
+    public int order() {
+      return 5;
+    }
+
+    @Override
+    public Mono<ControlDecision> decide(final ExecutionEvent event) {
+      return Mono.just(ControlDecision.none(ControlDecision.Source.MODEL));
+    }
+  }
+
   @Test
   void review_onlyAsksSupervisorsWhoseScopeCoversTheRun() {
     final List<String> asked = new ArrayList<>();
@@ -124,11 +144,6 @@ class ControlReviewerTest {
   }
 
   @Test
-  void review_noSupervisors_allows() {
-    StepVerifier.create(new ControlReviewer(providerOf()).review(REQUEST)).verifyComplete();
-  }
-
-  @Test
   void review_firstDenialWins_laterSupervisorsNotAsked() {
     final List<String> asked = new ArrayList<>();
     final ControlReviewer reviewer =
@@ -166,6 +181,8 @@ class ControlReviewerTest {
 
   @Test
   void review_allAllow_completes() {
+    StepVerifier.create(new ControlReviewer(providerOf()).review(REQUEST)).verifyComplete();
+
     final ControlReviewer reviewer =
         new ControlReviewer(
             providerOf(new Reviewer("ok", 0, _ -> Mono.just(Decision.ALLOW), new ArrayList<>())));
@@ -173,38 +190,62 @@ class ControlReviewerTest {
     StepVerifier.create(reviewer.review(REQUEST)).verifyComplete();
   }
 
-  private static ControlReviewer hungReviewer() {
-    return new ControlReviewer(
-        providerOf(new Reviewer("hung", 0, _ -> Mono.never(), new ArrayList<>())),
-        Duration.ofMillis(50));
-  }
-
   @Test
   void review_hungSupervisor_refusesTheCommandAfterTheTimeout() {
-    StepVerifier.create(hungReviewer().review(REQUEST))
+    final ControlReviewer reviewer =
+        new ControlReviewer(
+            providerOf(new Reviewer("hung", 0, _ -> Mono.never(), new ArrayList<>())),
+            Duration.ofMillis(50));
+
+    StepVerifier.create(reviewer.review(REQUEST))
         .expectErrorMessage("hung: review timed out")
         .verify(Duration.ofSeconds(5));
   }
 
   @Test
   void review_hungSupervisor_stillLetsStopThrough() {
+    final ControlReviewer reviewer =
+        new ControlReviewer(
+            providerOf(new Reviewer("hung", 0, _ -> Mono.never(), new ArrayList<>())),
+            Duration.ofMillis(50));
+
     StepVerifier.create(
-            hungReviewer()
-                .review(
-                    new ControlRequest(
-                        new ExecutionControlCommand.StopWorkflowCommand("e1", null, null),
-                        null,
-                        null,
-                        null)))
+            reviewer.review(
+                new ControlRequest(
+                    new ExecutionControlCommand.StopWorkflowCommand("e1", null, null),
+                    null,
+                    null,
+                    null)))
         .verifyComplete();
     StepVerifier.create(
-            hungReviewer()
-                .review(
-                    new ControlRequest(
-                        new ExecutionControlCommand.StopNodeCommand("e1", "n1", false, null),
-                        null,
-                        null,
-                        null)))
+            reviewer.review(
+                new ControlRequest(
+                    new ExecutionControlCommand.StopNodeCommand("e1", "n1", false, null),
+                    null,
+                    null,
+                    null)))
         .verifyComplete();
+  }
+
+  @Test
+  void review_failingSupervisor_refusesStopToo() {
+    final ControlReviewer reviewer =
+        new ControlReviewer(
+            providerOf(
+                new Reviewer(
+                    "broken",
+                    0,
+                    _ -> Mono.error(new IllegalStateException("x")),
+                    new ArrayList<>())));
+
+    StepVerifier.create(
+            reviewer.review(
+                new ControlRequest(
+                    new ExecutionControlCommand.StopWorkflowCommand("e1", null, null),
+                    null,
+                    null,
+                    null)))
+        .expectErrorMessage("broken: review failed")
+        .verify();
   }
 }

@@ -263,9 +263,8 @@ export function SessionListPage() {
                             <TableCell
                               key={cell.id}
                               data-label={
-                                typeof cell.column.columnDef.header === 'string'
-                                  ? cell.column.columnDef.header
-                                  : undefined
+                                // every session column has a text header
+                                cell.column.columnDef.header as string
                               }
                               className="max-sm:before:text-body-sm max-sm:before:text-muted-foreground px-4 max-sm:flex max-sm:items-center max-sm:gap-3 max-sm:py-0 max-sm:whitespace-normal max-sm:before:w-24 max-sm:before:shrink-0 max-sm:before:content-[attr(data-label)] max-sm:first:before:hidden max-sm:last:absolute max-sm:last:top-2 max-sm:last:right-1 max-sm:last:before:hidden"
                             >

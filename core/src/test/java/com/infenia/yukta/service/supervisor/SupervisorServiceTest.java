@@ -24,6 +24,8 @@ import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -32,6 +34,7 @@ import org.mockito.ArgumentCaptor;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import reactor.test.scheduler.VirtualTimeScheduler;
 import reactor.util.context.Context;
 
 @SuppressWarnings({
@@ -189,6 +192,26 @@ class SupervisorServiceTest {
   }
 
   @Test
+  void attachRefusesTheIdOfConfiguredSupervisor() {
+    org.mockito.Mockito.when(host.isBuiltIn("rules")).thenReturn(true);
+    StepVerifier.create(service.saveProfile(profile("p"))).expectNextCount(1).verifyComplete();
+
+    StepVerifier.create(service.attach(binding("rules", "p", new SupervisorScope.Global(), true)))
+        .expectError(ConflictException.class)
+        .verify();
+  }
+
+  @Test
+  void restoreLogsAnUnreadableStoreInsteadOfDroppingTheError() {
+    final SupervisorStore broken = mock(SupervisorStore.class);
+    org.mockito.Mockito.when(broken.bindings())
+        .thenReturn(Flux.error(new IllegalStateException("no database")));
+    final SupervisorService failing = new SupervisorService(broken, List.of(factory), host, log);
+
+    org.assertj.core.api.Assertions.assertThatCode(failing::restore).doesNotThrowAnyException();
+  }
+
+  @Test
   void attachIsLimited() {
     StepVerifier.create(service.saveProfile(profile("p"))).expectNextCount(1).verifyComplete();
     for (int i = 0; i < SupervisorService.MAX_BINDINGS; i++) {
@@ -285,6 +308,24 @@ class SupervisorServiceTest {
         .atMost(3, TimeUnit.SECONDS)
         .untilAsserted(() -> verify(host, times(1)).attach(any(BoundSupervisor.class)));
     verify(host, never()).detach(anyString());
+  }
+
+  @Test
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.supervisor.SupervisorService - ")
+  void restoreGivesUpAfterFiveRetriesWhenTheStoreStaysDown() {
+    final SupervisorStore down = spy(new InMemorySupervisorStore());
+    doReturn(Flux.error(new IllegalStateException("store down"))).when(down).bindings();
+    final SupervisorService restoring = new SupervisorService(down, List.of(factory), host, log);
+    final VirtualTimeScheduler time = VirtualTimeScheduler.getOrSet();
+    try {
+      restoring.restore();
+      time.advanceTimeBy(Duration.ofMinutes(5));
+
+      verify(down, times(6)).bindings();
+      verify(host, never()).attach(any(BoundSupervisor.class));
+    } finally {
+      VirtualTimeScheduler.reset();
+    }
   }
 
   /** A service whose store refuses to save a binding, after a binding {@code b} was attached. */

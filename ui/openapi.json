@@ -3359,6 +3359,8 @@
             "items" : {
               "$ref" : "#/components/schemas/Edge"
             },
+            "maxItems" : 2000,
+            "minItems" : 0,
             "type" : "array"
           },
           "nodes" : {
@@ -3366,6 +3368,7 @@
             "items" : {
               "$ref" : "#/components/schemas/Node"
             },
+            "maxItems" : 500,
             "minItems" : 1,
             "type" : "array"
           },

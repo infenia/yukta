@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.workflow.store;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.service.control.CommandSequencer;
 import java.util.Optional;
 import java.util.function.Function;
 import lombok.experimental.UtilityClass;
@@ -16,6 +17,13 @@ import reactor.core.publisher.Mono;
 public class SaveAndPrepare {
 
   /**
+   * Applies for the same workflow run one after another, so a failed apply puts back the definition
+   * it replaced and not one that a concurrent apply saved in between. ponytail: within this server
+   * only; with several servers a compare-and-set on the stored version would be needed.
+   */
+  private static final CommandSequencer SEQUENCE = new CommandSequencer();
+
+  /**
    * Save the definition, then run {@code prepare} on it. If that fails the definition that was
    * current before is saved again (removed if there was none) and the failure is passed on; the
    * failed save stays in the list of versions.
@@ -27,6 +35,15 @@ public class SaveAndPrepare {
    * @return completes when the definition is saved and prepared
    */
   public static Mono<Void> run(
+      final WorkflowDefinitionStore store,
+      final String sessionId,
+      final WorkflowDefinition definition,
+      final Function<WorkflowDefinition, Mono<Void>> prepare) {
+    return SEQUENCE.sequence(
+        sessionId + "\0" + definition.workflowId(), apply(store, sessionId, definition, prepare));
+  }
+
+  private static Mono<Void> apply(
       final WorkflowDefinitionStore store,
       final String sessionId,
       final WorkflowDefinition definition,

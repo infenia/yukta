@@ -11,7 +11,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
-import tools.jackson.databind.ObjectMapper;
 
 /** Configuration for the application. */
 @Configuration
@@ -22,19 +21,11 @@ public class AppConfiguration {
   /** Upper bound on concurrently running virtual-thread tasks. */
   private static final int MAX_VIRTUAL_THREADS = 100_000;
 
+  /** Tasks that may wait for a virtual thread before further ones are refused. */
+  private static final int MAX_QUEUED_TASKS = 10_000;
+
   /** Seconds an idle virtual-thread worker is kept before being released. */
   private static final int VIRTUAL_THREAD_TTL_SECONDS = 60;
-
-  /**
-   * Provide an ObjectMapper bean if not already present.
-   *
-   * @return the ObjectMapper
-   */
-  @Bean
-  @ConditionalOnMissingBean
-  public ObjectMapper objectMapper() {
-    return new ObjectMapper();
-  }
 
   /**
    * Provide a Scheduler that runs each task on its own virtual thread.
@@ -49,7 +40,9 @@ public class AppConfiguration {
   public Scheduler virtualThreadScheduler() {
     return Schedulers.newBoundedElastic(
         MAX_VIRTUAL_THREADS,
-        Integer.MAX_VALUE,
+        // a finite queue: a flood of blocking calls is refused (RejectedExecutionException)
+        // instead of held in memory until the server runs out
+        MAX_QUEUED_TASKS,
         Thread.ofVirtual().name("yukta-virtual-", 0).factory(),
         VIRTUAL_THREAD_TTL_SECONDS);
   }

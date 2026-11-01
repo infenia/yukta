@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
 /** The live log and status streams of the executions a tracker follows. */
@@ -121,21 +122,9 @@ final class ExecutionStreams {
       return Flux.empty();
     }
 
+    // ends when the status stream ends (the terminal status), not when one more line arrives
     return sink.asFlux()
-        .takeUntil(
-            _ -> {
-              final WorkflowState state = states.apply(executionId);
-              if (state != null
-                  && TaskStatus.isTerminalName(state.status)
-                  && state.endTime != null) {
-                log.atDebug()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("status", state.status)
-                    .log("Workflow terminal status detected, terminating log stream");
-                return true;
-              }
-              return false;
-            })
+        .takeUntilOther(statusStream(executionId, false).then(Mono.just(true)))
         .doOnComplete(
             () -> log.atInfo().addKeyValue("executionId", executionId).log("Log stream completed"));
   }
@@ -194,7 +183,19 @@ final class ExecutionStreams {
       return Flux.empty();
     }
 
-    Flux<WorkflowProgress> statusFlux = sink.asFlux();
+    // merge subscribes to the live sink first, then looks at the state, so a terminal update
+    // is either seen live or found in the state: it cannot fall between the two
+    Flux<WorkflowProgress> statusFlux =
+        Flux.merge(
+            sink.asFlux(),
+            Flux.defer(
+                () -> {
+                  final WorkflowState state = states.apply(executionId);
+                  final WorkflowProgress progress = state == null ? null : progressOf.apply(state);
+                  return progress != null && isWorkflowTerminal(progress)
+                      ? Flux.just(progress)
+                      : Flux.<WorkflowProgress>empty();
+                }));
 
     if (includeHistory) {
       final List<WorkflowProgress> history = statusHistoryCache.get(executionId);

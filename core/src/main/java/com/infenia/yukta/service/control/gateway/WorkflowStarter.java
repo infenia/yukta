@@ -4,6 +4,7 @@ package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
@@ -14,6 +15,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 
 /**
@@ -46,6 +48,9 @@ class WorkflowStarter {
   /** Preparations in flight, so concurrent starts of one workflow prepare it once. */
   private final Map<PrepareKey, Mono<PreparedWorkflow>> preparing = new ConcurrentHashMap<>();
 
+  /** The subscription of every run started here and not yet ended, so shutdown can cancel them. */
+  private final Map<String, Disposable> live = new ConcurrentHashMap<>();
+
   /* default */ Mono<String> start(
       final String sessionId, final String workflowId, final Map<String, Object> payload) {
     return startOnce(sessionId, workflowId, payload);
@@ -70,11 +75,16 @@ class WorkflowStarter {
 
   private Mono<String> startOnce(
       final String sessionId, final String workflowId, final Map<String, Object> payload) {
-    log.atInfo()
+    log.atDebug()
         .addKeyValue("sessionId", sessionId)
         .addKeyValue("workflowId", workflowId)
         .log("Starting workflow execution");
 
+    if (cache.isDeleting(sessionId, workflowId)) {
+      return Mono.error(
+          new ConflictException(
+              "Workflow " + workflowId + " in session " + sessionId + " is being deleted"));
+    }
     final String pinned = pinnedVersion(payload);
     return (pinned == null
             ? definitions.find(sessionId, workflowId)
@@ -150,7 +160,7 @@ class WorkflowStarter {
                                   log.atDebug()
                                       .addKeyValue("executionId", executionId)
                                       .log("Workflow prepared and caching");
-                                  cache.put(sessionId, workflowId, prepared);
+                                  cache.put(sessionId, workflowId, prepared, def);
                                 })
                             .thenReturn(prepared))
                 .doFinally(_ -> preparing.remove(key))
@@ -174,7 +184,7 @@ class WorkflowStarter {
 
               // A run pinned to an older version must not take the current prepared workflow.
               final java.util.Optional<PreparedWorkflow> cached =
-                  useCache ? cache.get(sessionId, workflowId) : java.util.Optional.empty();
+                  useCache ? cache.get(sessionId, workflowId, def) : java.util.Optional.empty();
               if (cached.isPresent()) {
                 log.atDebug()
                     .addKeyValue("sessionId", sessionId)
@@ -196,18 +206,30 @@ class WorkflowStarter {
               if (admission.refused()) {
                 return admission.permit().thenReturn(executionId);
               }
-              orchestrator
-                  .execute(sessionId, workflowId, executionId, prepared, payload, admission)
-                  .doOnError(
-                      err ->
-                          log.atError()
-                              .setCause(err)
-                              .addKeyValue("executionId", executionId)
-                              .log("Async workflow execution failed"))
-                  .onErrorComplete()
-                  .subscribe();
+              final Disposable run =
+                  orchestrator
+                      .execute(sessionId, workflowId, executionId, prepared, payload, admission)
+                      .doOnError(
+                          err ->
+                              log.atError()
+                                  .setCause(err)
+                                  .addKeyValue("executionId", executionId)
+                                  .log("Async workflow execution failed"))
+                      .onErrorComplete()
+                      .doFinally(_ -> live.remove(executionId))
+                      .subscribe();
+              live.put(executionId, run);
+              if (run.isDisposed()) {
+                live.remove(executionId); // ended before it was registered
+              }
               return Mono.just(executionId);
             });
+  }
+
+  /** Cancels every run started here that is still going (shutdown timeout, loss of leadership). */
+  /* default */ void cancelAll() {
+    live.values().forEach(Disposable::dispose);
+    live.clear();
   }
 
   /**

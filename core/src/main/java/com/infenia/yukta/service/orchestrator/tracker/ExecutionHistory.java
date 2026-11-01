@@ -87,6 +87,7 @@ final class ExecutionHistory {
         .computeIfAbsent(sessionId, _ -> new ConcurrentHashMap<>())
         .put(executionId, state);
     executionIndex.put(executionId, state);
+    trim(state);
   }
 
   /** Forgets a session's history. */
@@ -94,11 +95,13 @@ final class ExecutionHistory {
     finishedBySession.remove(sessionId);
   }
 
-  /** Remembers a cleaned-up execution and drops the oldest ones beyond the per-session cap. */
+  /** Remembers a finished execution and drops the oldest ones beyond the per-session cap. */
   @SuppressWarnings("PMD.AvoidSynchronizedStatement")
   /* default */ void trim(final WorkflowState state) {
     final Map<String, WorkflowState> states = sessionStates.get(state.sessionId);
     if (states == null) {
+      // the session is already gone: leave nothing behind in the id index
+      executionIndex.remove(state.executionId);
       return;
     }
     final Deque<String> finished =
@@ -107,7 +110,9 @@ final class ExecutionHistory {
     synchronized (finished) {
       finished.addLast(state.executionId);
       while (finished.size() > MAX_FINISHED_PER_SESSION) {
-        states.remove(finished.removeFirst());
+        final String oldest = finished.removeFirst();
+        states.remove(oldest);
+        executionIndex.remove(oldest);
       }
     }
   }

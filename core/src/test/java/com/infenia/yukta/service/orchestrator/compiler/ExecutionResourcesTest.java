@@ -70,7 +70,7 @@ class ExecutionResourcesTest {
   }
 
   @Test
-  void throwingConnectorOrDisposableDoesNotStopTheRest() {
+  void failingConnectorFailsTheRun_andThrowingDisposableDoesNotStopTheRest() {
     when(configStore.getExecutionTimeout("s")).thenReturn(Mono.just(60L));
     final Disposable bad = mock(Disposable.class);
     org.mockito.Mockito.doThrow(new IllegalStateException("x")).when(bad).dispose();
@@ -83,7 +83,8 @@ class ExecutionResourcesTest {
 
     StepVerifier.create(
             run("s", List.of(Mono.empty()), connectors, new ArrayList<>(List.of(bad, good))))
-        .verifyComplete();
+        .expectErrorMessage("connector failed")
+        .verify();
 
     verify(good).dispose();
   }

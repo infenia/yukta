@@ -5,7 +5,6 @@ package com.infenia.yukta.model.workflow;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
@@ -30,10 +29,15 @@ public record WorkflowDefinition(
         @Size(max = 256, message = "Workflow description must be at most 256 characters")
         String description,
     @Schema(description = "Nodes in the workflow")
-        @NotEmpty(message = "Workflow must contain at least one node")
+        @NotNull(message = "Nodes list cannot be null")
+        @Size(
+            min = 1,
+            max = 500,
+            message = "Workflow must contain at least one node and at most 500 nodes")
         List<@Valid @NotNull(message = "Node cannot be null") Node> nodes,
     @Schema(description = "Edges connecting the nodes")
         @NotNull(message = "Edges list cannot be null")
+        @Size(max = 2000, message = "Workflow is too large: at most 2000 edges")
         List<@Valid @NotNull(message = "Edge cannot be null") Edge> edges) {
 
   /** Compact constructor to ensure immutability. */
