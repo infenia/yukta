@@ -166,6 +166,7 @@ com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler
 com.infenia.yukta.service.orchestrator.preparator.TopologicalSortService
 com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator
 com.infenia.yukta.service.orchestrator.strategy.ProcessorNodeAssemblerStrategy
+com.infenia.yukta.service.orchestrator.strategy.ReplayNodeAssembler
 com.infenia.yukta.service.orchestrator.strategy.TerminalNodeAssemblerStrategy
 com.infenia.yukta.service.orchestrator.strategy.TriggerNodeAssemblerStrategy
 com.infenia.yukta.service.orchestrator.stream.ConcurrencyGroups
