@@ -139,9 +139,8 @@ describe('ControlPage', () => {
 
     beatsFail = false;
     beats = [beat('a', 'n1', 'run-1')];
-    await userEvent
-      .setup()
-      .click(screen.getAllByRole('button', { name: 'Retry' }).at(-1)!);
+    const retries = screen.getAllByRole('button', { name: 'Retry' });
+    await userEvent.setup().click(retries[retries.length - 1]);
     expect(await screen.findByText('n1')).toBeInTheDocument();
   });
 
