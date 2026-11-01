@@ -3685,6 +3685,7 @@ export interface components {
         NodeHeartbeat: {
             executionId?: string;
             nodeId?: string;
+            sessionId?: string;
             /** Format: date-time */
             timestamp?: string;
             workflowId?: string;
@@ -4381,7 +4382,9 @@ export interface operations {
     };
     getActiveNodes: {
         parameters: {
-            query?: never;
+            query: {
+                sessionId: string;
+            };
             header?: never;
             path: {
                 workflowId: string;
@@ -4403,7 +4406,10 @@ export interface operations {
     };
     sendCommand: {
         parameters: {
-            query?: never;
+            query: {
+                sessionId: string;
+                executionId?: string;
+            };
             header?: never;
             path: {
                 workflowId: string;
@@ -4432,7 +4438,10 @@ export interface operations {
     };
     getLastHeartbeat: {
         parameters: {
-            query?: never;
+            query: {
+                sessionId: string;
+                executionId?: string;
+            };
             header?: never;
             path: {
                 workflowId: string;
