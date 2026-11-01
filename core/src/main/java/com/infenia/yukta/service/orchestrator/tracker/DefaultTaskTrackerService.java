@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.tracker;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.event.TaskStatusEvent;
 import com.infenia.yukta.event.TrackerEvent;
 import com.infenia.yukta.event.WorkflowLogEvent;
@@ -45,7 +46,6 @@ import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import reactor.core.Disposable;
@@ -106,14 +106,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * How long a session with no run going is kept after its last run started or ended; unset keeps
    * every session ({@code yukta.tracker.session-ttl}, for example {@code 24h}).
    */
-  @Value("${yukta.tracker.session-ttl:#{null}}")
   private @Nullable Duration sessionTtl;
 
   /** Periodically drops the sessions that have been idle past {@link #sessionTtl}. */
   private @Nullable Disposable sessionSweeper;
 
   /** Most sessions kept in memory; 0 keeps them all. Evicted history is served from the log. */
-  @Value("${yukta.tracker.max-sessions:0}")
   private int maxSessions;
 
   /** Map of execution ID to workflow state. */
@@ -154,9 +152,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    *     {@code yukta.node}
    * @param eventFeed receives what happens to every execution
    */
-  @Autowired
   public DefaultTaskTrackerService(
-      @Value("${yukta.tracker.cleanup-ttl:10m}") final Duration cleanupTtl,
+      final Duration cleanupTtl,
       final StatusHistoryCache statusHistoryCache,
       final ExecutionLogStore executionLog,
       final MeterRegistry meters,
@@ -186,6 +183,35 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
             streams,
             pendingLogs,
             this::scheduleCleanup);
+  }
+
+  /**
+   * Create the tracker from the {@code yukta.tracker} settings.
+   *
+   * @param properties the settings: cleanup TTL, session TTL and most sessions kept
+   * @param statusHistoryCache the cache for storing recent workflow progress updates
+   * @param executionLog durable log of run starts and ends
+   * @param meters registry for the node metrics
+   * @param observations registry for the node observations
+   * @param eventFeed receives what happens to every execution
+   */
+  @Autowired
+  public DefaultTaskTrackerService(
+      final YuktaProperties properties,
+      final StatusHistoryCache statusHistoryCache,
+      final ExecutionLogStore executionLog,
+      final MeterRegistry meters,
+      final ObservationRegistry observations,
+      final ExecutionEventFeed eventFeed) {
+    this(
+        properties.tracker().cleanupTtl(),
+        statusHistoryCache,
+        executionLog,
+        meters,
+        observations,
+        eventFeed);
+    this.sessionTtl = properties.tracker().sessionTtl();
+    this.maxSessions = properties.tracker().maxSessions();
   }
 
   /**

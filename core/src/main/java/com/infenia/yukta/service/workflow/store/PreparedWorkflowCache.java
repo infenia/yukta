@@ -5,6 +5,7 @@ package com.infenia.yukta.service.workflow.store;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import io.micrometer.core.instrument.Gauge;
@@ -16,7 +17,6 @@ import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -59,15 +59,23 @@ public class PreparedWorkflowCache {
   /**
    * Spring-managed constructor.
    *
-   * @param ttlMs TTL in milliseconds from application properties
-   * @param maxEntries most workflows kept ({@code workflow.cache.max-size})
+   * @param properties the {@code yukta.cache} settings: TTL and most workflows kept
    * @param meters where the {@code yukta.workflow.cache.size} gauge is registered
    */
   @Autowired
+  public PreparedWorkflowCache(final YuktaProperties properties, final MeterRegistry meters) {
+    this(properties.cache().ttl().toMillis(), properties.cache().maxSize(), meters);
+  }
+
+  /**
+   * Creates the cache with explicit bounds.
+   *
+   * @param ttlMs TTL in milliseconds
+   * @param maxEntries most workflows kept
+   * @param meters where the {@code yukta.workflow.cache.size} gauge is registered
+   */
   public PreparedWorkflowCache(
-      @Value("${workflow.cache.ttl.ms:600000}") final long ttlMs,
-      @Value("${workflow.cache.max-size:1000}") final long maxEntries,
-      final MeterRegistry meters) {
+      final long ttlMs, final long maxEntries, final MeterRegistry meters) {
     this.cache =
         Caffeine.newBuilder()
             .expireAfterAccess(ttlMs, TimeUnit.MILLISECONDS)

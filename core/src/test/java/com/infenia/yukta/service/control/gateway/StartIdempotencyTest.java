@@ -4,7 +4,10 @@ package com.infenia.yukta.service.control.gateway;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.NoArgsConstructor;
@@ -23,6 +26,31 @@ class StartIdempotencyTest {
 
   private Mono<String> start() {
     return Mono.fromSupplier(() -> "exec-" + starts.incrementAndGet());
+  }
+
+  @Test
+  void settingsBuildRegistryThatStartsKeyOnce() {
+    final StartIdempotency fromSettings =
+        new StartIdempotency(
+            YuktaSettings.bind(Map.of("yukta.start.idempotency-ttl", "1m")),
+            new InMemoryExecutionLogStore());
+
+    StepVerifier.create(fromSettings.once("s/w", "k1", this::start))
+        .expectNext("exec-1")
+        .verifyComplete();
+    assertThat(starts.get()).isEqualTo(1);
+  }
+
+  @Test
+  void rememberedExecutionThatIsNoLongerReusableIsReplacedByFreshStart() {
+    StepVerifier.create(idempotency.once("s/w", "k2", this::start))
+        .expectNext("exec-1")
+        .verifyComplete();
+
+    StepVerifier.create(idempotency.once("s/w", "k2", this::start, id -> false))
+        .expectNext("exec-2")
+        .verifyComplete();
+    assertThat(starts.get()).isEqualTo(2);
   }
 
   @Test
@@ -98,8 +126,7 @@ class StartIdempotencyTest {
 
   @Test
   void keys_surviveRestart_whenLogIsKept() {
-    final com.infenia.yukta.service.log.InMemoryExecutionLogStore log =
-        new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
+    final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     final StartIdempotency before = new StartIdempotency(Duration.ofMinutes(10), log);
     before.afterSingletonsInstantiated();
     assertThat(before.once("s/w", "k1", this::start).block()).isEqualTo("exec-1");
@@ -114,8 +141,7 @@ class StartIdempotencyTest {
 
   @Test
   void expiredKeys_areNotReloaded_andFailedStartIsNotLogged() {
-    final com.infenia.yukta.service.log.InMemoryExecutionLogStore log =
-        new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
+    final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     final StartIdempotency first = new StartIdempotency(Duration.ofMinutes(10), log);
     first
         .once("s/w", "failed", () -> Mono.<String>error(new IllegalStateException("no")))
@@ -143,11 +169,9 @@ class StartIdempotencyTest {
 
   @Test
   void otherLogEvents_areIgnoredWhenReloading() {
-    final com.infenia.yukta.service.log.InMemoryExecutionLogStore log =
-        new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
+    final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     log.append(
-        com.infenia.yukta.service.log.ExecutionLogEvent.started(
-            "e", "s", "w", "v", java.util.Map.of()));
+        com.infenia.yukta.service.log.ExecutionLogEvent.started("e", "s", "w", "v", Map.of()));
     final StartIdempotency reloaded = new StartIdempotency(Duration.ofMinutes(10), log);
     reloaded.afterSingletonsInstantiated();
 
@@ -172,10 +196,7 @@ class StartIdempotencyTest {
   @Test
   void springConstructor_readsTheLimitsFromConfiguration() {
     final StartIdempotency configured =
-        new StartIdempotency(
-            Duration.ofMinutes(1),
-            new com.infenia.yukta.service.log.InMemoryExecutionLogStore(),
-            10);
+        new StartIdempotency(Duration.ofMinutes(1), new InMemoryExecutionLogStore(), 10);
 
     configured.once("s/w", "k", this::start).block();
     configured.once("s/w", "k", this::start).block();

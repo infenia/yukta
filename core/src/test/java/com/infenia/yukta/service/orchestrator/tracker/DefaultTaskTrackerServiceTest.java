@@ -16,7 +16,9 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
+import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.lang.reflect.Field;
 import java.time.Duration;
@@ -60,6 +62,23 @@ class DefaultTaskTrackerServiceTest {
 
   /** Mock status history cache. */
   @Mock private StatusHistoryCache statusHistoryCache;
+
+  @Test
+  void settingsBuildTheTracker_thatStartsWorkflows() {
+    final DefaultTaskTrackerService fromSettings =
+        new DefaultTaskTrackerService(
+            YuktaSettings.bind(Map.of("yukta.tracker.cleanup-ttl", "30s")),
+            statusHistoryCache,
+            new InMemoryExecutionLogStore(),
+            new SimpleMeterRegistry(),
+            io.micrometer.observation.ObservationRegistry.create(),
+            new ExecutionEventFeed());
+    fromSettings.init();
+
+    StepVerifier.create(fromSettings.startWorkflow("e1", "s1", "w1", List.of("a")))
+        .verifyComplete();
+    assertThat(fromSettings.getProgress("s1", "e1")).isNotNull();
+  }
 
   @BeforeEach
   void setUp() {

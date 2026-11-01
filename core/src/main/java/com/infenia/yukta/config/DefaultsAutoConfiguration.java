@@ -15,10 +15,10 @@ import com.infenia.yukta.service.supervisor.InMemorySupervisorStore;
 import com.infenia.yukta.service.supervisor.SupervisorStore;
 import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 import tools.jackson.databind.ObjectMapper;
@@ -31,14 +31,14 @@ import tools.jackson.databind.ObjectMapper;
  * property conditions are kept, so the file and PostgreSQL stores behave as before.
  */
 @AutoConfiguration
+@EnableConfigurationProperties(YuktaProperties.class)
 @NoArgsConstructor
 public class DefaultsAutoConfiguration {
 
   /**
    * The execution log in memory, trimmed like the file log.
    *
-   * @param retainedRuns runs kept when the log is trimmed
-   * @param compactAfter appended events after which the log is trimmed
+   * @param properties the settings
    * @return the store
    */
   @Bean
@@ -46,18 +46,15 @@ public class DefaultsAutoConfiguration {
   @ConditionalOnExpression(
       "'${yukta.execution-log.dir:}'.isEmpty()"
           + " && !'postgres'.equals('${yukta.session.store-type:in-memory}')")
-  public InMemoryExecutionLogStore inMemoryExecutionLogStore(
-      @Value("${yukta.execution-log.retained-runs:500}") final int retainedRuns,
-      @Value("${yukta.execution-log.compact-after:10000}") final int compactAfter) {
-    return new InMemoryExecutionLogStore(retainedRuns, compactAfter);
+  public InMemoryExecutionLogStore inMemoryExecutionLogStore(final YuktaProperties properties) {
+    return new InMemoryExecutionLogStore(
+        properties.executionLog().retainedRuns(), properties.executionLog().compactAfter());
   }
 
   /**
    * The node checkpoints in memory, with optional spill to files.
    *
-   * @param messagesPerNode maximum number of messages kept per node and execution
-   * @param bytesPerNode maximum payload bytes kept per node and execution
-   * @param spillDir directory for output beyond the caps; empty to refuse such restarts
+   * @param properties the settings
    * @param mapper writes spilled messages
    * @return the store
    */
@@ -66,11 +63,10 @@ public class DefaultsAutoConfiguration {
   @ConditionalOnExpression(
       "'${yukta.restart.dir:}'.isEmpty() && !'postgres'.equals('${yukta.restart.store-type:}')")
   public InMemoryNodeCheckpointStore inMemoryNodeCheckpointStore(
-      @Value("${yukta.restart.messages-per-node:200}") final int messagesPerNode,
-      @Value("${yukta.restart.bytes-per-node:4194304}") final long bytesPerNode,
-      @Value("${yukta.restart.spill-dir:}") final String spillDir,
-      final ObjectProvider<ObjectMapper> mapper) {
-    return new InMemoryNodeCheckpointStore(messagesPerNode, bytesPerNode, spillDir, mapper);
+      final YuktaProperties properties, final ObjectProvider<ObjectMapper> mapper) {
+    final YuktaProperties.Restart restart = properties.restart();
+    return new InMemoryNodeCheckpointStore(
+        restart.messagesPerNode(), restart.bytesPerNode(), restart.spillDir(), mapper);
   }
 
   /**

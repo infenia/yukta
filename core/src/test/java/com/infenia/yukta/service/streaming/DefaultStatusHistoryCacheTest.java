@@ -7,8 +7,10 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
@@ -63,6 +65,19 @@ class DefaultStatusHistoryCacheTest {
 
   /** Default constructor. */
   /* package */ DefaultStatusHistoryCacheTest() {}
+
+  @Test
+  @DisplayName("settings cap the history per run")
+  void settings_capTheHistoryPerRun() {
+    final DefaultStatusHistoryCache capped =
+        new DefaultStatusHistoryCache(
+            YuktaSettings.bind(Map.of("yukta.streaming.status-history-max-per-run", "2")));
+    for (int i = 0; i < 5; i++) {
+      capped.put(EXEC_ID_1, createWorkflowProgress(EXEC_ID_1, STATUS_RUNNING));
+    }
+
+    assertThat(capped.get(EXEC_ID_1)).hasSize(2);
+  }
 
   @Test
   @DisplayName("history is capped per run and keeps the newest snapshot")

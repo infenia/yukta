@@ -14,7 +14,7 @@ import reactor.core.scheduler.Schedulers;
 
 /** Configuration for the application. */
 @Configuration
-@EnableConfigurationProperties(SessionConfigProperties.class)
+@EnableConfigurationProperties({SessionConfigProperties.class, YuktaProperties.class})
 @NoArgsConstructor
 public class AppConfiguration {
 
