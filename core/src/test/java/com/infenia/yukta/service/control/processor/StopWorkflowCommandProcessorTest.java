@@ -21,11 +21,11 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +54,16 @@ class StopWorkflowCommandProcessorTest {
   private ReactiveControlValve nodeValve;
   private ReactiveControlValve globalValve;
   private ExecutionControl control;
+
+  @Test
+  void drainTimeoutFromSettingsBuildsProcessorThatHandlesStops() {
+    final StopWorkflowCommandProcessor fromSettings =
+        new StopWorkflowCommandProcessor(
+            registry, tracker, YuktaSettings.bind(Map.of("yukta.stop.drain-timeout", "300ms")));
+
+    assertThat(fromSettings.canProcess(new StopWorkflowCommand(EXEC, "r"))).isTrue();
+    assertThat(fromSettings.canProcess(new PauseWorkflowCommand(EXEC))).isFalse();
+  }
 
   @BeforeEach
   void setUp() {
@@ -160,7 +170,7 @@ class StopWorkflowCommandProcessorTest {
     StepVerifier.create(processor.process(new StopWorkflowCommand(EXEC, "r"))).verifyComplete();
     assertThat(completed(safeStop)).isFalse();
 
-    await().atMost(5, TimeUnit.SECONDS).until(() -> completed(safeStop));
+    await().atMost(Duration.ofSeconds(5)).until(() -> completed(safeStop));
   }
 
   @Test

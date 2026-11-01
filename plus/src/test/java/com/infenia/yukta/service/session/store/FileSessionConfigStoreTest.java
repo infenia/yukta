@@ -269,15 +269,15 @@ class FileSessionConfigStoreTest {
 
     StepVerifier.create(configStore.getAllConfigs(sessionId))
         .expectNextMatches(
-            map ->
-                "Jules".equals(map.get("initiator"))
-                    && NOW.equals(map.get("initiatedTime"))
-                    && Map.of("k", "v").equals(map.get("tags"))
-                    && "Sample".equals(map.get("description"))
-                    && "/meta/path".equals(map.get("projectPath"))
-                    && map.containsKey("executionTimeout")
-                    && map.containsKey("fileLogDir")
-                    && map.containsKey("resultLogDir"))
+            c ->
+                "Jules".equals(c.initiator())
+                    && NOW.equals(c.initiatedTime())
+                    && Map.of("k", "v").equals(c.tags())
+                    && "Sample".equals(c.description())
+                    && "/meta/path".equals(c.projectPath())
+                    && c.executionTimeout() != null
+                    && c.fileLogDir() != null
+                    && c.resultLogDir() != null)
         .verifyComplete();
   }
 

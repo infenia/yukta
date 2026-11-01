@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -18,6 +19,28 @@ class ExecutionArchiveTest {
 
   private ArchivedExecution execution(final String executionId) {
     return new ArchivedExecution(executionId, "s", "w", prepared, "v", Map.of());
+  }
+
+  @Test
+  void archiveFromSettings_keepsTheConfiguredNumberOfExecutions() {
+    final ExecutionArchive archive =
+        new ExecutionArchive(YuktaSettings.bind(Map.of("yukta.restart.retained-executions", "2")));
+
+    assertThat(archive.put(execution("e1"))).isEmpty();
+    assertThat(archive.put(execution("e2"))).isEmpty();
+    assertThat(archive.put(execution("e3"))).containsExactly("e1");
+    assertThat(archive.find("e3")).isPresent();
+  }
+
+  @Test
+  void archiveFromDefaultSettings_keepsTen() {
+    final ExecutionArchive archive = new ExecutionArchive(YuktaSettings.bind(Map.of()));
+    for (int i = 0; i < 11; i++) {
+      archive.put(execution("e" + i));
+    }
+
+    assertThat(archive.find("e0")).isEmpty();
+    assertThat(archive.find("e10")).isPresent();
   }
 
   @Test

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.processor;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.plugin.control.ControlSignalProcessor;
@@ -17,7 +18,7 @@ import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -47,13 +48,28 @@ public class StopWorkflowCommandProcessor implements ControlSignalProcessor {
    *
    * @param registry the execution control registry
    * @param taskTracker reports the stopping state
+   * @param properties the {@code yukta.stop} settings: how long a drain may take
+   */
+  @Autowired
+  public StopWorkflowCommandProcessor(
+      final ExecutionControlRegistry registry,
+      final TaskTrackerService taskTracker,
+      final YuktaProperties properties) {
+    this(registry, taskTracker, properties.stop().drainTimeout());
+  }
+
+  /**
+   * Creates the processor.
+   *
+   * @param registry the execution control registry
+   * @param taskTracker reports the stopping state
    * @param drainTimeout how long a drain may take before falling back to a cancel
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public StopWorkflowCommandProcessor(
       final ExecutionControlRegistry registry,
       final TaskTrackerService taskTracker,
-      @Value("${yukta.stop.drain-timeout:30s}") final Duration drainTimeout) {
+      final Duration drainTimeout) {
     this.registry = registry;
     this.taskTracker = taskTracker;
     this.drainTimeout = drainTimeout;

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
@@ -14,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -43,13 +43,23 @@ public class ControlReviewer {
    * Create the reviewer.
    *
    * @param supervisors the registered supervisors
-   * @param timeout longest a supervisor may take to answer ({@code
-   *     yukta.supervisor.review-timeout})
+   * @param properties the settings; {@code yukta.supervisor.review-timeout} is the longest a
+   *     supervisor may take to answer
    */
   @Autowired
   public ControlReviewer(
-      final ObjectProvider<ExecutionSupervisor> supervisors,
-      @Value("${yukta.supervisor.review-timeout:5s}") final Duration timeout) {
+      final ObjectProvider<ExecutionSupervisor> supervisors, final YuktaProperties properties) {
+    this(supervisors, properties.supervisor().reviewTimeout());
+  }
+
+  /**
+   * Create the reviewer.
+   *
+   * @param supervisors the registered supervisors
+   * @param timeout longest a supervisor may take to answer
+   */
+  public ControlReviewer(
+      final ObjectProvider<ExecutionSupervisor> supervisors, final Duration timeout) {
     this.supervisors = supervisors;
     this.timeout = timeout;
   }
@@ -81,12 +91,22 @@ public class ControlReviewer {
    * the host depends on the dispatcher.
    *
    * @param host the host lookup
-   * @param dryRun the global dry-run flag
+   * @param properties the settings; {@code yukta.supervisor.dry-run} is the global flag
    */
   @Autowired
   public void setDryRun(
-      final ObjectProvider<SupervisorHost> host,
-      @Value("${yukta.supervisor.dry-run:false}") final boolean dryRun) {
+      final ObjectProvider<SupervisorHost> host, final YuktaProperties properties) {
+    this.hostLookup = host;
+    this.dryRun = properties.supervisor().dryRun();
+  }
+
+  /**
+   * Same as {@link #setDryRun(ObjectProvider, YuktaProperties)} with an explicit flag.
+   *
+   * @param host the host lookup
+   * @param dryRun the global dry-run flag
+   */
+  public void setDryRun(final ObjectProvider<SupervisorHost> host, final boolean dryRun) {
     this.hostLookup = host;
     this.dryRun = dryRun;
   }

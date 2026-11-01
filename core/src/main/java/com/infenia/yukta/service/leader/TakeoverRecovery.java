@@ -2,13 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.leader;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.service.log.ExecutionRecovery;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -40,6 +41,23 @@ public class TakeoverRecovery implements SmartInitializingSingleton {
    * @param election decides who is the leader
    * @param recovery recovers the log
    * @param resumer resumes aborted runs
+   * @param properties the {@code yukta.restart} settings: auto-resume
+   */
+  @Autowired
+  public TakeoverRecovery(
+      final LeaderElection election,
+      final ExecutionRecovery recovery,
+      final ExecutionResumer resumer,
+      final YuktaProperties properties) {
+    this(election, recovery, resumer, properties.restart().autoResume());
+  }
+
+  /**
+   * Creates the component.
+   *
+   * @param election decides who is the leader
+   * @param recovery recovers the log
+   * @param resumer resumes aborted runs
    * @param autoResume whether interrupted runs are resumed on their own
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2") // all three are shared Spring beans
@@ -47,7 +65,7 @@ public class TakeoverRecovery implements SmartInitializingSingleton {
       final LeaderElection election,
       final ExecutionRecovery recovery,
       final ExecutionResumer resumer,
-      @Value("${yukta.restart.auto-resume:false}") final boolean autoResume) {
+      final boolean autoResume) {
     this.election = election;
     this.recovery = recovery;
     this.resumer = resumer;

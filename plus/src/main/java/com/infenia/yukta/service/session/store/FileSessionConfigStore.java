@@ -5,6 +5,7 @@ package com.infenia.yukta.service.session.store;
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.model.session.SessionConfig;
 import com.infenia.yukta.model.session.SessionConfigData;
+import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.validation.ProjectPath;
 import com.infenia.yukta.validation.SessionId;
@@ -50,7 +51,6 @@ import tools.jackson.databind.ObjectMapper;
 @SuppressWarnings({
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports",
-  "PMD.UseConcurrentHashMap",
   "PMD.CompareObjectsWithEquals",
   "PMD.CouplingBetweenObjects"
 })
@@ -253,26 +253,12 @@ public class FileSessionConfigStore implements SessionConfigStore {
   }
 
   @Override
-  public Mono<Map<String, Object>> getAllConfigs(@SessionId final String sessionId) {
+  public Mono<SessionSnapshot> getAllConfigs(@SessionId final String sessionId) {
     return loadSessionConfig(sessionId)
         .flatMap(
             loadedConfig ->
                 Mono.zip(
-                    arr -> {
-                      final Map<String, Object> configs = new java.util.LinkedHashMap<>();
-                      configs.put("sessionId", sessionId);
-                      configs.put("projectPath", arr[0]);
-                      configs.put("executionTimeout", arr[1]);
-                      configs.put("fileLogDir", arr[2]);
-                      configs.put("resultLogDir", arr[3]);
-                      configs.put("initiator", arr[4]);
-                      configs.put("initiatedTime", arr[5]);
-                      configs.put("tags", arr[6]);
-                      configs.put("description", arr[7]);
-                      configs.put("name", loadedConfig.name());
-                      configs.put("workflows", arr[8]);
-                      return configs;
-                    },
+                    arr -> SessionSnapshot.fromValues(sessionId, loadedConfig.name(), arr),
                     getProjectPath(sessionId),
                     getExecutionTimeout(sessionId),
                     getFileLogDir(sessionId),

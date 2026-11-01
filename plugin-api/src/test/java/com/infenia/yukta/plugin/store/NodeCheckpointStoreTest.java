@@ -2,10 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.store;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.message.Message;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -66,5 +69,34 @@ class NodeCheckpointStoreTest {
     StepVerifier.create(store.markComplete("e", "n")).verifyComplete();
 
     org.junit.jupiter.api.Assertions.assertFalse(store.isFinished("e", "n"));
+  }
+
+  @Test
+  void saveAll_defaultsToSavingEachMessageInOrder() {
+    final List<Message<?>> saved = new ArrayList<>();
+    final NodeCheckpointStore store =
+        new NodeCheckpointStore() {
+          @Override
+          public Mono<Void> save(
+              final String executionId, final String nodeId, final Message<?> message) {
+            return Mono.fromRunnable(() -> saved.add(message));
+          }
+
+          @Override
+          public Mono<Message<?>> get(final String executionId, final String nodeId) {
+            return Mono.empty();
+          }
+
+          @Override
+          public void clear(final String executionId) {
+            // nothing recorded
+          }
+        };
+    final Message<?> first = mock(Message.class);
+    final Message<?> second = mock(Message.class);
+
+    StepVerifier.create(store.saveAll("e", "n", List.of(first, second))).verifyComplete();
+
+    assertEquals(List.of(first, second), saved);
   }
 }

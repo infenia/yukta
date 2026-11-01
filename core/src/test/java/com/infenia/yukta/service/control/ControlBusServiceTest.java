@@ -13,13 +13,13 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
-import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
-import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -34,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.slf4j.LoggerFactory;
+import reactor.core.Scannable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -69,8 +70,6 @@ class ControlBusServiceTest {
   private static final String SESSION_ID = "session-789";
   private static final String COMPOSITE_KEY = WORKFLOW_ID + "\0" + NODE_ID;
 
-  @Mock private PreparedWorkflowCache preparedWorkflowCache;
-  @Mock private WorkflowOrchestrator orchestrator;
   @Mock private ControlSignalHandler handler1;
   @Mock private ControlSignalHandler handler2;
   @Mock private Plugin plugin;
@@ -90,6 +89,45 @@ class ControlBusServiceTest {
             List.of(handler1, handler2),
             new ActivePluginRegistry(List.of(handler1, handler2)));
     controlBusService.init();
+  }
+
+  @Test
+  @DisplayName("a consumer failure resubscribes until the sink is terminated")
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.ControlBusService - ")
+  void consumerFailure_resubscribesUntilTheSinkIsTerminated() throws Exception {
+    final Sinks.Many<Message<?>> failing = mock(Sinks.Many.class);
+    when(failing.asFlux()).thenReturn(Flux.error(new IllegalStateException("consumer broke")));
+    when(failing.scanOrDefault(Scannable.Attr.TERMINATED, false)).thenReturn(false, true);
+    final ControlBusService bus =
+        new ControlBusService(
+            100,
+            50,
+            256,
+            List.of(handler1, handler2),
+            new ActivePluginRegistry(List.of(handler1, handler2)));
+    final Field sinkField = ControlBusService.class.getDeclaredField("controlSink");
+    sinkField.setAccessible(true);
+    sinkField.set(bus, failing);
+
+    bus.init();
+
+    verify(failing, timeout(5_000).times(2)).scanOrDefault(Scannable.Attr.TERMINATED, false);
+  }
+
+  @Test
+  @DisplayName("settings build a bus that accepts signals")
+  void settingsBuildBusThatAcceptsSignals() {
+    final ControlBusService fromSettings =
+        new ControlBusService(
+            YuktaSettings.bind(
+                Map.of(
+                    "yukta.control-bus.batch-size", "10",
+                    "yukta.control-bus.batch-timeout", "20ms")),
+            List.of(handler1, handler2),
+            new ActivePluginRegistry(List.of(handler1, handler2)));
+    fromSettings.init();
+
+    StepVerifier.create(fromSettings.emit(message)).expectComplete().verify(Duration.ofSeconds(2));
   }
 
   @Nested
