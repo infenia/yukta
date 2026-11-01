@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
@@ -39,6 +40,7 @@ public class ControlBusController {
    * Get all active nodes in a specific workflow that have emitted heartbeats.
    *
    * @param workflowId the workflow identifier
+   * @param sessionId the session that owns the workflow
    * @return list of active node IDs in the workflow
    */
   @GetMapping("/control/workflows/{workflowId}/nodes")
@@ -46,8 +48,9 @@ public class ControlBusController {
       summary = "Get active nodes in workflow",
       description =
           "Lists all nodes in a specific workflow currently registered on the Control Bus")
-  public Mono<ApiResponse<List<String>>> getActiveNodes(@PathVariable final String workflowId) {
-    return Mono.fromCallable(() -> controlBus.getActiveNodes(workflowId))
+  public Mono<ApiResponse<List<String>>> getActiveNodes(
+      @PathVariable final String workflowId, @RequestParam final String sessionId) {
+    return Mono.fromCallable(() -> controlBus.getActiveNodes(sessionId, workflowId))
         .map(nodes -> ApiResponse.success(200, "Active nodes retrieved", nodes));
   }
 
@@ -56,15 +59,22 @@ public class ControlBusController {
    *
    * @param workflowId the workflow identifier
    * @param nodeId the node identifier
+   * @param sessionId the session that owns the workflow
+   * @param executionId the run; may be left out when the session has one live run of the workflow
    * @return the last heartbeat message
    */
   @GetMapping("/control/workflows/{workflowId}/nodes/{nodeId}/heartbeat")
   @Operation(
       summary = "Get node heartbeat in workflow",
       description = "Retrieves the most recent heartbeat for a specific node in a workflow")
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<ApiResponse<Message<?>>> getLastHeartbeat(
-      @PathVariable final String workflowId, @PathVariable final String nodeId) {
-    return Mono.fromCallable(() -> controlBus.getLastHeartbeat(workflowId, nodeId))
+      @PathVariable final String workflowId,
+      @PathVariable final String nodeId,
+      @RequestParam final String sessionId,
+      @RequestParam(required = false) final String executionId) {
+    return Mono.fromCallable(
+            () -> controlBus.getLastHeartbeat(sessionId, workflowId, executionId, nodeId))
         .switchIfEmpty(
             Mono.error(() -> new ResourceNotFoundException("Heartbeat", workflowId + "/" + nodeId)))
         .map(hb -> ApiResponse.success(200, "Node heartbeat retrieved", hb));
@@ -90,6 +100,8 @@ public class ControlBusController {
    *
    * @param workflowId the workflow identifier
    * @param nodeId the target node identifier
+   * @param sessionId the session that owns the workflow
+   * @param executionId the run; may be left out when the session has one live run of the workflow
    * @param request the command payload
    * @return a Mono of the response API response
    */
@@ -97,9 +109,12 @@ public class ControlBusController {
   @Operation(
       summary = "Send command to node in workflow",
       description = "Sends an administrative command to a specific node in a workflow")
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<ApiResponse<NodeCommandResponse>> sendCommand(
       @PathVariable final String workflowId,
       @PathVariable final String nodeId,
+      @RequestParam final String sessionId,
+      @RequestParam(required = false) final String executionId,
       @Valid @RequestBody final NodeCommandRequest request) {
     final Message<?> command =
         DefaultMessage.create(null, request.payload())
@@ -107,7 +122,7 @@ public class ControlBusController {
             .withSourceNodeId("CONSOLE")
             .withWorkflowId(workflowId);
     return controlBus
-        .sendCommand(workflowId, nodeId, command)
+        .sendCommand(sessionId, workflowId, executionId, nodeId, command)
         .map(
             resp ->
                 ApiResponse.success(

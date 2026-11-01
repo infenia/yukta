@@ -23,6 +23,7 @@ import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.lang.reflect.Field;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -1008,7 +1009,7 @@ class DefaultTaskTrackerServiceTest {
 
     final WorkflowProgress progress1 = tracker.getProgress(sessionId, executionId);
     assertThat(progress1.tasks().getFirst().endTime()).isNotNull();
-    final java.time.Instant firstEndTime = progress1.tasks().getFirst().endTime();
+    final Instant firstEndTime = progress1.tasks().getFirst().endTime();
 
     // Emit another status (FAILURE) — should not change endTime
     tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.FAILURE, Map.of());
@@ -2487,7 +2488,7 @@ class DefaultTaskTrackerServiceTest {
         .until(
             () ->
                 tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime() != null);
-    final java.time.Instant firstStart =
+    final Instant firstStart =
         tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime();
     tracker.emitTaskStatusEvent(executionId, "node1", "mod", TaskStatus.RUNNING, Map.of());
     await()
@@ -2505,7 +2506,7 @@ class DefaultTaskTrackerServiceTest {
         .atMost(Duration.ofSeconds(5))
         .until(
             () -> tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime() != null);
-    final java.time.Instant firstEnd =
+    final Instant firstEnd =
         tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime();
     tracker.emitTaskStatusEvent(executionId, "node1", "mod", TaskStatus.FAILURE, Map.of());
     await()
@@ -3348,6 +3349,7 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.tracker.ExecutionCleanups - ")
   void sessionTtl_failingSweepIsLoggedAndTimerKeepsGoing() {
     final AtomicInteger sweeps = new AtomicInteger();
     final DefaultTaskTrackerService timed =
@@ -3362,6 +3364,29 @@ class DefaultTaskTrackerServiceTest {
     try {
       await().atMost(10, TimeUnit.SECONDS).until(() -> sweeps.get() >= 2);
       assertThat(sweeps.get()).as("the timer kept going after a failure").isGreaterThanOrEqualTo(2);
+    } finally {
+      timed.stopSessionSweeper();
+    }
+  }
+
+  @Test
+  @ExpectedErrorLog(
+      "ERROR com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService - ")
+  void sessionTtl_failingSessionSweepIsLoggedAndTimerKeepsGoing() {
+    // a long execution cleanup TTL keeps the execution sweep from ticking, so only the session
+    // sweep meets the broken clock
+    final DefaultTaskTrackerService timed =
+        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
+    final AtomicInteger sweeps = new AtomicInteger();
+    timed.setSessionTtl(Duration.ofSeconds(1));
+    timed.setClock(
+        () -> {
+          sweeps.incrementAndGet();
+          throw new IllegalStateException("clock broke");
+        });
+    timed.init();
+    try {
+      await().atMost(10, TimeUnit.SECONDS).until(() -> sweeps.get() >= 2);
     } finally {
       timed.stopSessionSweeper();
     }
@@ -3428,5 +3453,35 @@ class DefaultTaskTrackerServiceTest {
     assertThat(tracker.getHistory("i-sess").block())
         .singleElement()
         .satisfies(run -> assertThat(run.initiator()).isEqualTo("yk check"));
+  }
+
+  @Test
+  void testRestoreBringsFinishedRunBackIntoHistory() {
+    final Instant started = Instant.parse("2026-01-01T10:00:00Z");
+    final Instant ended = Instant.parse("2026-01-01T10:05:00Z");
+
+    tracker.restore(
+        "old-exec",
+        "old-sess",
+        "old-wf",
+        TaskStatus.FAILURE,
+        Map.of("a", TaskStatus.SUCCESS, "b", TaskStatus.FAILURE),
+        started,
+        ended,
+        "v1",
+        "yk check");
+
+    assertThat(tracker.getHistory("old-sess").block())
+        .singleElement()
+        .satisfies(
+            run -> {
+              assertThat(run.executionId()).isEqualTo("old-exec");
+              assertThat(run.workflowId()).isEqualTo("old-wf");
+              assertThat(run.status()).isEqualTo(TaskStatus.FAILURE);
+              assertThat(run.startTime()).isEqualTo(started);
+              assertThat(run.endTime()).isEqualTo(ended);
+              assertThat(run.initiator()).isEqualTo("yk check");
+              assertThat(run.nodes()).isEqualTo(new WorkflowExecutionSummary.Nodes(2, 2, "b"));
+            });
   }
 }

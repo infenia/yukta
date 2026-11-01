@@ -139,6 +139,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Applies queued events to the execution states. */
   private final TrackerEventApplier applier;
 
+  /** Finished runs waiting for their cleanup, and the sweep that runs them. */
+  private final ExecutionCleanups cleanups;
+
   /**
    * Create the tracker from the {@code yukta.tracker} settings.
    *
@@ -178,9 +181,11 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final ExecutionEventFeed eventFeed,
       final LongSupplier clock) {
     this.cleanupTtl = settings.cleanupTtl();
+    this.cleanups = new ExecutionCleanups(cleanupTtl);
     this.sessionTtl = settings.sessionTtl();
     this.maxSessions = settings.maxSessions();
     this.clock = clock;
+
     this.telemetry = new RunTelemetry(meters, observations);
     Gauge.builder(
             "yukta.tracker.queue.depth",
@@ -233,6 +238,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .subscribe(
             null,
             e -> log.atError().setCause(e).log("Tracker event consumer stopped unexpectedly"));
+    cleanups.startSweeper(() -> cleanups.drainDue(clock.getAsLong(), this::cleanupExecution));
     startSessionSweeper();
   }
 
@@ -267,6 +273,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   @PreDestroy
   public void stopSessionSweeper() {
     Optional.ofNullable(sessionSweeper).ifPresent(Disposable::dispose);
+    cleanups.stop();
   }
 
   /**
@@ -950,7 +957,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("executionId", executionId)
         .addKeyValue("delayMs", cleanupTtl.toMillis())
         .log("Scheduled execution cleanup");
-    Mono.delay(cleanupTtl).subscribe(_ -> cleanupExecution(executionId));
+    cleanups.schedule(executionId, clock.getAsLong());
   }
 
   private void cleanupExecution(final String executionId) {

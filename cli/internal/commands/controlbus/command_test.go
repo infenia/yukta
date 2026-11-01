@@ -56,6 +56,7 @@ func TestCommandCmd_executesSuccessfully_inlineJSON_tableFormat(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = w
 
+	_ = cmd.Flags().Set("session", "s1")
 	err := cmd.RunE(cmd, []string{"workflow-123", "node-1", `{"action":"pause"}`})
 
 	w.Close()
@@ -97,6 +98,7 @@ func TestCommandCmd_executesSuccessfully_inlineJSON_jsonFormat(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = w
 
+	_ = cmd.Flags().Set("session", "s1")
 	err := cmd.RunE(cmd, []string{"workflow-123", "node-1", `{"action":"pause"}`})
 
 	w.Close()
@@ -149,6 +151,7 @@ func TestCommandCmd_executesSuccessfully_fromFile(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = w
 
+	_ = cmd.Flags().Set("session", "s1")
 	err = cmd.RunE(cmd, []string{"workflow-123", "node-1", tmpFile.Name()})
 
 	w.Close()
@@ -171,6 +174,7 @@ func TestCommandCmd_invalidJSON(t *testing.T) {
 	c := client.NewClient("http://localhost:9858")
 	cmd := CommandCmd(c)
 
+	_ = cmd.Flags().Set("session", "s1")
 	err := cmd.RunE(cmd, []string{"workflow-123", "node-1", `{invalid json`})
 
 	if err == nil {
@@ -191,6 +195,7 @@ func TestCommandCmd_handlesApiError(t *testing.T) {
 	c := client.NewClient(server.URL)
 	cmd := CommandCmd(c)
 
+	_ = cmd.Flags().Set("session", "s1")
 	err := cmd.RunE(cmd, []string{"workflow-123", "nonexistent", `{"action":"pause"}`})
 
 	if err == nil {
@@ -221,6 +226,7 @@ func TestCommandCmd_emptyResponseMap(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = w
 
+	_ = cmd.Flags().Set("session", "s1")
 	err := cmd.RunE(cmd, []string{"workflow-123", "node-1", `{"action":"pause"}`})
 
 	w.Close()
@@ -258,6 +264,7 @@ func TestCommandCmd_multipleResponseFields_tableFormat(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = w
 
+	_ = cmd.Flags().Set("session", "s1")
 	err := cmd.RunE(cmd, []string{"workflow-123", "node-1", `{"action":"pause"}`})
 
 	w.Close()
@@ -301,6 +308,7 @@ func TestCommandCmd_formatCycleThroughAllPaths(t *testing.T) {
 		oldStdout := os.Stdout
 		os.Stdout = w
 
+		_ = cmd.Flags().Set("session", "s1")
 		err := cmd.RunE(cmd, []string{"wf-123", "node-x", `{"cmd":"test"}`})
 
 		w.Close()
@@ -344,6 +352,7 @@ func TestCommandCmd_responseSingleField(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = w
 
+	_ = cmd.Flags().Set("session", "s1")
 	err := cmd.RunE(cmd, []string{"wf", "node", `{"action":"test"}`})
 
 	w.Close()
@@ -468,6 +477,7 @@ func TestCommandCmd_fileReadError(t *testing.T) {
 	c := client.NewClient("http://localhost:9858")
 	cmd := CommandCmd(c)
 
+	_ = cmd.Flags().Set("session", "s1")
 	err = cmd.RunE(cmd, []string{"wf-123", "node-1", tmpFile.Name()})
 
 	if err == nil {

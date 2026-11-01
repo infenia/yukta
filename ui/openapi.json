@@ -2666,6 +2666,9 @@
           "nodeId" : {
             "type" : "string"
           },
+          "sessionId" : {
+            "type" : "string"
+          },
           "timestamp" : {
             "format" : "date-time",
             "type" : "string"
@@ -3967,6 +3970,13 @@
           "schema" : {
             "type" : "string"
           }
+        }, {
+          "in" : "query",
+          "name" : "sessionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -3999,6 +4009,20 @@
           "in" : "path",
           "name" : "nodeId",
           "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "sessionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "executionId",
+          "required" : false,
           "schema" : {
             "type" : "string"
           }
@@ -4054,6 +4078,20 @@
           "in" : "path",
           "name" : "nodeId",
           "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "sessionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "executionId",
+          "required" : false,
           "schema" : {
             "type" : "string"
           }
