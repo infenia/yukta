@@ -43,6 +43,12 @@ public record ExecutionLogEvent(
   /** Run id under which changes that belong to no run (scheduler limits) are recorded. */
   public static final String SCHEDULER = "scheduler";
 
+  /** Key of the new global limit in a {@code LIMITS_CHANGED} event. */
+  public static final String MAX_CONCURRENT = "maxConcurrent";
+
+  /** Key of the new per-workflow limit in a {@code LIMITS_CHANGED} event. */
+  public static final String MAX_PER_WORKFLOW = "maxPerWorkflow";
+
   /**
    * Keeps an immutable copy of the node statuses.
    *
@@ -79,12 +85,6 @@ public record ExecutionLogEvent(
     /** Scheduler limits were changed at run time; the numbers are in {@code nodeStatuses}. */
     LIMITS_CHANGED
   }
-
-  /** Key of the new global limit in a {@code LIMITS_CHANGED} event. */
-  public static final String MAX_CONCURRENT = "maxConcurrent";
-
-  /** Key of the new per-workflow limit in a {@code LIMITS_CHANGED} event. */
-  public static final String MAX_PER_WORKFLOW = "maxPerWorkflow";
 
   /**
    * The scheduler limits were changed at run time. The numbers ride in {@code nodeStatuses}, so a
