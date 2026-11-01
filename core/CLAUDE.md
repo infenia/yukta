@@ -56,6 +56,7 @@ The detailed reference that used to live here is in path-scoped rules: each load
 | Definition stores and versions | `core/.claude/rules/definitions-and-versions.md` | `service/workflow/**`, `service/session/**`, `model/session/**` |
 | Remote workers, high availability (leader lease) | `core/.claude/rules/workers-and-ha.md` | `service/worker/**`, `service/leader/**` |
 | Supervisors, `ControlReviewer`, the event feed | `core/.claude/rules/supervisors.md` | `service/supervisor/**`, `service/control/directive/**` |
+| Input requests, `InputBroker`, redaction | `core/.claude/rules/input-requests.md` | `service/input/**`, `service/redact/**` |
 | Tracker queue, execution results, validation limits, metrics | `core/.claude/rules/tracker-results-and-metrics.md` | `service/orchestrator/tracker`, `.../validator`, `service/result`, `service/streaming` |
 | PostgreSQL stores | `plus/.claude/rules/postgres-stores.md` | `plus/persistence-postgres/**` |
 | `SUB_WORKFLOW` | `plugins/.claude/rules/sub-workflows.md` | `plugins/processors/internal/**` |

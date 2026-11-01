@@ -6,6 +6,8 @@ import com.infenia.yukta.edition.EditionInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.security.ApiAuthenticator;
 import com.infenia.yukta.security.ApiKeyAuthenticator;
+import com.infenia.yukta.service.input.InMemoryInputRequestStore;
+import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
@@ -14,6 +16,7 @@ import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import com.infenia.yukta.service.supervisor.InMemorySupervisorStore;
 import com.infenia.yukta.service.supervisor.SupervisorStore;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
@@ -30,6 +33,7 @@ import tools.jackson.databind.ObjectMapper;
  * {@code @AutoConfiguration(before = DefaultsAutoConfiguration.class)} (or by being scanned). The
  * property conditions are kept, so the file and PostgreSQL stores behave as before.
  */
+@Slf4j
 @AutoConfiguration
 @EnableConfigurationProperties(YuktaProperties.class)
 @NoArgsConstructor
@@ -78,6 +82,20 @@ public class DefaultsAutoConfiguration {
   @ConditionalOnMissingBean(SupervisorStore.class)
   public InMemorySupervisorStore inMemorySupervisorStore() {
     return new InMemorySupervisorStore();
+  }
+
+  /**
+   * Input requests kept in memory: they are gone after a restart. A durable store replaces it.
+   *
+   * @param properties the {@code yukta.input} settings
+   * @return the store
+   */
+  @Bean
+  @ConditionalOnMissingBean(InputRequestStore.class)
+  public InMemoryInputRequestStore inMemoryInputRequestStore(final YuktaProperties properties) {
+    log.atInfo().log(
+        "Input requests are kept in memory: open requests are lost when the server restarts");
+    return new InMemoryInputRequestStore(properties.input().memoryMax());
   }
 
   /**

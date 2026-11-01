@@ -51,6 +51,9 @@ public record ExecutionLogEvent(
   /** Key of the new per-workflow limit in a {@code LIMITS_CHANGED} event. */
   public static final String MAX_PER_WORKFLOW = "maxPerWorkflow";
 
+  /** Payload key of what happened to an input request. */
+  public static final String INPUT_EVENT_KEY = "event";
+
   /** Payload keys of a control event: the command name, who sent it and why it was rejected. */
   public static final String COMMAND_KEY = "command";
 
@@ -94,7 +97,45 @@ public record ExecutionLogEvent(
     /** A start with an idempotency key succeeded; its status holds the scope and the key. */
     IDEMPOTENCY_KEY,
     /** Scheduler limits were changed at run time; the numbers are in {@code nodeStatuses}. */
-    LIMITS_CHANGED
+    LIMITS_CHANGED,
+    /**
+     * Something happened to an input request of the run; the payload holds {@code event} (one of
+     * {@code INPUT_REQUESTED}, {@code INPUT_ESCALATED}, {@code INPUT_ANSWERED}, {@code
+     * INPUT_EXPIRED}, {@code INPUT_CANCELLED}), the request id, the tier and, where it applies, the
+     * responder, the decision and the reason. Never the prompt or an answer text.
+     */
+    INPUT
+  }
+
+  /**
+   * Something happened to an input request. The payload is built by the broker and carries no
+   * prompt, context or answer text.
+   *
+   * @param executionId the run that asked
+   * @param sessionId the session of the run
+   * @param workflowId the workflow of the run
+   * @param nodeId the node that asked
+   * @param payload {@code event} and the facts of it
+   * @return the event
+   */
+  public static ExecutionLogEvent input(
+      final String executionId,
+      final String sessionId,
+      final String workflowId,
+      final String nodeId,
+      final Map<String, Object> payload) {
+    return new ExecutionLogEvent(
+        Type.INPUT,
+        executionId,
+        sessionId,
+        workflowId,
+        null,
+        null,
+        Map.of(),
+        nodeId,
+        payload,
+        Instant.now(),
+        null);
   }
 
   /**

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 class LogRetentionTest {
 
   private static final String NEWEST = "newest";
+  private static final String DONE = "done";
 
   private static ExecutionLogEvent change(final String status) {
     return ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, status, null);
@@ -49,8 +50,8 @@ class LogRetentionTest {
     final List<ExecutionLogEvent> events =
         List.of(
             open,
-            started("done", "s"),
-            finished("done", "s"),
+            started(DONE, "s"),
+            finished(DONE, "s"),
             aborting,
             ExecutionLogEvent.aborted(aborting),
             started(NEWEST, "s"),
@@ -129,5 +130,22 @@ class LogRetentionTest {
     assertThat(keep).doesNotContain("busy-29");
     // the global 20 newest (all busy) plus the quiet session's 2
     assertThat(keep).hasSize(22);
+  }
+
+  @Test
+  void trim_ignoresInputEntriesWhenDecidingWhichRunsAreOpen() {
+    final ExecutionLogEvent input =
+        ExecutionLogEvent.input(DONE, "s", "wf", "n", Map.of("event", "INPUT_REQUESTED"));
+    final List<ExecutionLogEvent> events =
+        List.of(
+            started(DONE, "s"),
+            input,
+            finished(DONE, "s"),
+            started(NEWEST, "s"),
+            ExecutionLogEvent.input(NEWEST, "s", "wf", "n", Map.of("event", "INPUT_REQUESTED")));
+
+    assertThat(LogRetention.trim(events, 1))
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly(NEWEST, NEWEST);
   }
 }

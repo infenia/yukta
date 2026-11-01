@@ -21,6 +21,7 @@ import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.QueueTimeoutException;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
@@ -40,6 +41,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Flux;
@@ -77,6 +80,9 @@ public class WorkflowOrchestrator {
 
   /** The execution control registry for managing workflow execution control. */
   private final ExecutionControlStore executionControlStore;
+
+  /** Cancels the input requests of a run that ends; looked up lazily to avoid a bean cycle. */
+  @Nullable private ObjectProvider<InputBroker> inputBroker;
 
   /** The execution control factory for creating execution control instances. */
   private final ExecutionControlFactory executionControlFactory;
@@ -497,6 +503,38 @@ public class WorkflowOrchestrator {
     checkpointStore.clear(executionId);
   }
 
+  /**
+   * Lets the broker cancel the input requests a run still has open when it ends. A failure here
+   * must not stop the cleanup.
+   */
+  private void cancelInputRequests(final String executionId) {
+    final ObjectProvider<InputBroker> provider = inputBroker;
+    final InputBroker broker = provider == null ? null : provider.getIfAvailable();
+    if (broker != null) {
+      broker
+          .cancelExecution(executionId, "run-ended")
+          .onErrorResume(
+              error -> {
+                log.atWarn()
+                    .setCause(error)
+                    .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                    .log("Could not cancel the input requests of the run");
+                return Mono.empty();
+              })
+          .subscribe();
+    }
+  }
+
+  /**
+   * Gives the orchestrator the input broker, so a run that ends cancels its open requests.
+   *
+   * @param broker the broker, looked up when a run ends
+   */
+  @Autowired
+  public void setInputBroker(final ObjectProvider<InputBroker> broker) {
+    this.inputBroker = broker;
+  }
+
   private void clearIfPending(final String executionId) {
     if (clearWhenDone.asMap().remove(executionId) != null) {
       checkpointStore.clear(executionId);
@@ -557,6 +595,7 @@ public class WorkflowOrchestrator {
           if (cleaned.compareAndSet(false, true)) {
             executionControlStore.remove(executionId);
             clearIfPending(executionId);
+            cancelInputRequests(executionId);
             // Ends the run: lets a pending drain deadline timer go instead of living on.
             control.safeStopSink().tryEmitEmpty();
             log.atDebug()

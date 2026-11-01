@@ -2,10 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.util;
 
-import java.util.Collection;
-import java.util.LinkedHashMap;
+import com.infenia.yukta.service.redact.SecretRedactor;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -16,35 +14,19 @@ import java.util.regex.Pattern;
 public final class LogSanitizer {
 
   /** What replaces a secret. */
-  public static final String REDACTED = "[REDACTED]";
+  public static final String REDACTED = SecretRedactor.REDACTED;
 
   /**
    * Patterns used when none are configured: bearer tokens, key=value secrets, common key shapes.
+   * The list is the server's one, kept in {@link SecretRedactor}.
    */
-  public static final List<String> DEFAULT_PATTERNS =
-      List.of(
-          "(?i)bearer\\s+[a-z0-9._~+/=-]{8,}",
-          // name (maybe quoted), = or :, then a quoted value (to its closing quote) or an unquoted
-          // one up to a delimiter or the next name=value, so several words are redacted whole
-          "(?i)[\"']?(?:api[_-]?key|secret|password|passwd|token|authorization)[\"']?\\s*[=:]\\s*"
-              + "(?:\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'"
-              + "|(?:(?!\\s+[\\w.-]+=)[^,;&}\\]\"'])+)",
-          "\\bsk-[A-Za-z0-9_-]{16,}",
-          "\\bgh[pousr]_[A-Za-z0-9]{20,}",
-          "\\bAKIA[0-9A-Z]{16}\\b");
-
-  /** Names of map entries whose value is a secret. */
-  private static final Pattern SECRET_KEY =
-      Pattern.compile("(?i)api[_-]?key|secret|password|passwd|token|authorization");
-
-  /** Deepest payload nesting {@link #redact(Object)} follows. */
-  private static final int MAX_DEPTH = 32;
+  public static final List<String> DEFAULT_PATTERNS = SecretRedactor.DEFAULT_PATTERNS;
 
   /** Line breaks and other control characters. */
   private static final Pattern CONTROL = Pattern.compile("\\p{Cntrl}+");
 
-  /** Compiled secret patterns. */
-  private final List<Pattern> secrets;
+  /** Replaces the secrets. */
+  private final SecretRedactor redactor;
 
   /** Longest line returned, in characters. */
   private final int maxLineChars;
@@ -56,9 +38,7 @@ public final class LogSanitizer {
    * @param maxLineChars longest line returned; 0 or less means no cut
    */
   public LogSanitizer(final List<String> patterns, final int maxLineChars) {
-    final List<String> source =
-        patterns == null || patterns.isEmpty() ? DEFAULT_PATTERNS : patterns;
-    this.secrets = source.stream().map(Pattern::compile).toList();
+    this.redactor = new SecretRedactor(patterns, List.of());
     this.maxLineChars = maxLineChars;
   }
 
@@ -85,38 +65,10 @@ public final class LogSanitizer {
    * @return a copy with the secrets replaced; other types are returned as they are
    */
   public Object redact(final Object value) {
-    return redact(value, 0);
-  }
-
-  private Object redact(final Object value, final int depth) {
-    return depth > MAX_DEPTH ? REDACTED : redactShallow(value, depth);
-  }
-
-  @SuppressWarnings("PMD.UseConcurrentHashMap") // a local copy, and its order is kept
-  private Object redactShallow(final Object value, final int depth) {
-    return switch (value) {
-      case String text -> redactText(text);
-      case Map<?, ?> map -> {
-        final Map<Object, Object> copy = new LinkedHashMap<>();
-        map.forEach(
-            (key, item) ->
-                copy.put(
-                    key,
-                    key != null && SECRET_KEY.matcher(key.toString()).find()
-                        ? REDACTED
-                        : redact(item, depth + 1)));
-        yield copy;
-      }
-      case Collection<?> items -> items.stream().map(item -> redact(item, depth + 1)).toList();
-      case null, default -> value;
-    };
+    return redactor.redact(value);
   }
 
   private String redactText(final String text) {
-    String result = text;
-    for (final Pattern secret : secrets) {
-      result = secret.matcher(result).replaceAll(REDACTED);
-    }
-    return result;
+    return redactor.redactText(text);
   }
 }

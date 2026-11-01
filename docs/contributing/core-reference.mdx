@@ -658,6 +658,27 @@ An older channel beside run commands, carrying heartbeats, statistics and raw si
 
 **Limits:** No code emits heartbeats or statistics through it today. Two sessions with equal workflow and node ids would share its state if one ever did (tracked as a latent item, see the [bug backlog](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Acore)).
 
+### CTL-09: Input requests
+
+**Status:** partial
+
+A plugin can ask for a decision or an input and wait for the answer. This phase holds the request, its deadline and its events; who may answer, the routes and the REST, MCP and UI surface come in later phases of the input requests epic (#1787).
+
+**Behaviour**
+
+- A plugin takes `InputGateway` (through an `ObjectProvider`) and calls `ask(spec)`. The run and node come from the Reactor context the engine writes, never from the plugin.
+- `InputBroker` redacts the prompt and context (`InputRedactor`: the shared secret patterns, `${env.X}` references and `yukta.input.redact-keys`), enforces the limits, stores the request, publishes `InputRequested` on the event feed and writes an `INPUT` execution log entry. An earlier answer to the same key is returned at once; an open request with the same key is shared by every caller.
+- Every change is a compare-and-set on the request version, so two answers at once produce one winner and the loser gets the current state. States: `OPEN`, `ESCALATED`, then one of `ANSWERED`, `EXPIRED`, `CANCELLED`.
+- The deadline is an absolute time. `InputDeadlineSweeper` looks every `yukta.input.sweep-interval`, on the leader only: `FAIL` and `ESCALATE` (until routes exist) fail the asker with `InputExpiredException`; `USE_DEFAULT` answers as `SYSTEM` with the default decision.
+- Cancelling the last waiting caller cancels the request (`node-cancelled`); the end of a run cancels its open requests (`run-ended`).
+- Requests are kept in memory (`InMemoryInputRequestStore`, bounded by `yukta.input.memory-max` finished requests). A durable store replaces it in a later phase.
+
+**Configure:** `yukta.input.default-ttl` · `yukta.input.max-ttl` · `yukta.input.max-open-per-execution` · `yukta.input.max-open-per-session` · `yukta.input.memory-max` · `yukta.input.sweep-interval` · `yukta.input.redact-keys`
+
+**Source:** `InputBroker` `InputRequestStore` `InMemoryInputRequestStore` `InputDeadlineSweeper` `DefaultInputGateway` `InputRedactor`
+
+**Limits:** A ttl above `yukta.input.max-ttl` is refused, not cut. The open-request limits are checked just before the request is stored, so a burst of parallel asks can pass them by a few. Open requests are lost when the server restarts.
+
 ## Observability
 
 Turning what happens in a run into ordered state, live streams, results and metrics.
@@ -1024,6 +1045,13 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.supervisor.max-commands-per-second` | 20 | [CTL-07](#ctl-07-supervisors) | Rate limit per supervisor |
 | `yukta.supervisor.dry-run` | false | [CTL-07](#ctl-07-supervisors) | Record supervisor commands without applying |
 | `yukta.supervisor.rules.file` | unset | [CTL-07](#ctl-07-supervisors) | Enable the rule supervisor (module: rule-supervisor) |
+| `yukta.input.default-ttl` | 1h | [CTL-09](#ctl-09-input-requests) | Lifetime of a request that does not say |
+| `yukta.input.max-ttl` | 24h | [CTL-09](#ctl-09-input-requests) | Longest lifetime a request may ask for |
+| `yukta.input.max-open-per-execution` | 5 | [CTL-09](#ctl-09-input-requests) | Open input requests of one run |
+| `yukta.input.max-open-per-session` | 50 | [CTL-09](#ctl-09-input-requests) | Open input requests of one session |
+| `yukta.input.memory-max` | 10000 | [CTL-09](#ctl-09-input-requests) | Finished requests the in-memory store keeps |
+| `yukta.input.sweep-interval` | 1s | [CTL-09](#ctl-09-input-requests) | How often requests past their deadline are ended |
+| `yukta.input.redact-keys` | none | [CTL-09](#ctl-09-input-requests) | Context keys whose value is replaced |
 | `yukta.tracker.max-sessions` | 0 (off) | [OBS-01](#obs-01-tracker-and-live-progress) | Evict the oldest session without a running run beyond this count |
 | `yukta.tracker.session-ttl` | unset (off) | [OBS-01](#obs-01-tracker-and-live-progress) | Drop a session with no running run once it has been idle this long |
 | `yukta.tracker.cleanup-ttl` | 10m | [OBS-01](#obs-01-tracker-and-live-progress) | How long execution data is kept after a terminal status |
@@ -1092,6 +1120,10 @@ All meters are Micrometer. Tags in braces.
 | `yukta.checkpoint.errors` | counter | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | End markers that failed to write |
 | `yukta.plugin.events` `{plugin, outcome}` | counter | [EXT-01](#ext-01-plugin-contract-and-registry) | Counters a plugin reports through the metrics reporter |
 | `yukta.supervisor.commands` `{id, outcome}` | counter | [CTL-07](#ctl-07-supervisors) | Commands issued by supervisors |
+| `yukta.input.requests` `{kind, risk, outcome}` | counter | [CTL-09](#ctl-09-input-requests) | Input requests: asked, answered, defaulted, escalated, expired, cancelled |
+| `yukta.input.wait` `{tier}` | timer | [CTL-09](#ctl-09-input-requests) | Time from ask to the end of a request |
+| `yukta.input.open` | gauge | [CTL-09](#ctl-09-input-requests) | Input requests open or escalated now |
+| `yukta.input.denied` `{rule}` | counter | [CTL-09](#ctl-09-input-requests) | Asks refused: ttl, open-per-execution, open-per-session |
 | `yukta.workers` · `yukta.worker.slots` | gauge | [SCL-01](#scl-01-remote-workers) | Connected workers and free slots |
 | `yukta.leader` | gauge | [SCL-02](#scl-02-active/standby-high-availability) | 1 on the leader |
 | `yukta.run` · `yukta.node` | observation | [OBS-05](#obs-05-tracing) | Run and node spans |

@@ -706,4 +706,17 @@ class RunAnalyticsTest {
     assertThat(run.withNodesTotal(9))
         .isEqualTo(new RunAnalytics.LiveRun("e", "s", "w", 1L, 2L, 3, 4, 5.0, 9));
   }
+
+  @Test
+  void seedingIgnoresInputEntries() {
+    final var started = ExecutionLogEvent.started("old", "s1", "w1", "v1");
+    final var input =
+        ExecutionLogEvent.input("old", "s1", "w1", "n1", Map.of("event", "INPUT_REQUESTED"));
+    final var other = new RunAnalytics(feed, Clock.fixed(T0.plusSeconds(600), ZoneOffset.UTC));
+
+    analytics.seed(List.of(started, input));
+    other.seed(List.of(started));
+
+    assertThat(analytics.snapshot("session:s1")).isEqualTo(other.snapshot("session:s1"));
+  }
 }
