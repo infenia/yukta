@@ -13,14 +13,17 @@ import com.infenia.yukta.service.input.InputTestSupport.MutableClock;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Mono;
 import reactor.test.scheduler.VirtualTimeScheduler;
 
 @NoArgsConstructor
@@ -100,5 +103,38 @@ class InputDeadlineSweeperTest {
     sweeper.stop();
 
     assertThat(sweeper.isRunning()).isFalse();
+  }
+
+  @Test
+  void startingTwiceKeepsOneTimer() {
+    sweeper.start();
+    sweeper.start();
+
+    assertThat(sweeper.isRunning()).isTrue();
+    sweeper.stop();
+    assertThat(sweeper.isRunning()).isFalse();
+  }
+
+  @Test
+  void springConstructorTakesTheIntervalFromTheSettings() {
+    final InputDeadlineSweeper fromSettings =
+        new InputDeadlineSweeper(broker, leader::get, YuktaSettings.bind(Map.of()));
+
+    assertThat(fromSettings.isRunning()).isFalse();
+  }
+
+  @Test
+  void failingSweepIsLoggedAndTheNextTickSweepsAgain() {
+    final InputBroker failing = org.mockito.Mockito.mock(InputBroker.class);
+    org.mockito.Mockito.when(failing.sweep())
+        .thenReturn(Mono.error(new IllegalStateException("store down")));
+    final InputDeadlineSweeper failingSweeper =
+        new InputDeadlineSweeper(failing, leader::get, Duration.ofSeconds(1), scheduler);
+
+    failingSweeper.start();
+    scheduler.advanceTimeBy(Duration.ofSeconds(2));
+    failingSweeper.stop();
+
+    org.mockito.Mockito.verify(failing, org.mockito.Mockito.times(2)).sweep();
   }
 }

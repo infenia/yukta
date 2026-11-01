@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.SequencedMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -484,11 +485,12 @@ public class InputBroker {
 
   private Mono<Void> expire(final InputRequest due) {
     final InputRequestSpec spec = due.spec();
-    if (spec.onTimeout() == TimeoutAction.USE_DEFAULT && spec.defaultDecision() != null) {
+    if (spec.onTimeout() == TimeoutAction.USE_DEFAULT) {
+      // the spec refuses USE_DEFAULT without a default decision
       final InputResponse response =
           new InputResponse(
               due.id(),
-              spec.defaultDecision(),
+              Objects.requireNonNull(spec.defaultDecision()),
               null,
               Map.of(),
               Responder.SYSTEM,
@@ -582,7 +584,10 @@ public class InputBroker {
     return settle(request);
   }
 
-  /** Tells the callers waiting for a request how it ended. */
+  /**
+   * Tells the callers waiting for a request how it ended. Only finished requests get here:
+   * answered, expired, or else cancelled.
+   */
   private Mono<Void> settle(final InputRequest request) {
     return switch (request.state()) {
       case ANSWERED ->
@@ -599,7 +604,7 @@ public class InputBroker {
                           sink.tryEmitError(
                               new InputExpiredException(
                                   request.id(), "Nobody answered before the deadline"))));
-      case CANCELLED ->
+      default ->
           Mono.fromRunnable(
               () ->
                   emit(
@@ -610,7 +615,6 @@ public class InputBroker {
                                   request.id(),
                                   "The request was cancelled: "
                                       + cancelReasons.getOrDefault(request.id(), "cancelled")))));
-      default -> Mono.empty();
     };
   }
 

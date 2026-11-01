@@ -26,6 +26,7 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -507,5 +508,110 @@ class InputBrokerTest {
 
     assertThat(meters.get("yukta.input.open").gauge().value()).isZero();
     assertThat(meters.get("yukta.input.wait").timer().count()).isEqualTo(1);
+  }
+
+  @Test
+  void findReturnsTheStoredRequestAndNothingForAnUnknownId() {
+    inputBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
+    final InputRequest request = onlyOpen();
+
+    assertThat(inputBroker.find(request.id()).block()).isEqualTo(request);
+    assertThat(inputBroker.find("missing").block()).isNull();
+  }
+
+  @Test
+  void springConstructorTakesTheLimitsFromTheSettings() {
+    final InputBroker fromSettings =
+        new InputBroker(
+            store, feed, log, meters, new InputRedactor(List.of()), YuktaSettings.bind(Map.of()));
+
+    fromSettings.ask(who("e1", "n1"), spec("k1")).subscribe();
+
+    assertThat(fromSettings.listOpen(null, null).collectList().block()).hasSize(1);
+  }
+
+  @Test
+  void lostRaceIsReadAgainAndThenApplied() {
+    final InMemoryInputRequestStore real = new InMemoryInputRequestStore(100);
+    final InputRequestStore racing = org.mockito.Mockito.spy(real);
+    final InputBroker racingBroker =
+        new InputBroker(racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
+    racingBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
+    final InputRequest request =
+        racingBroker.listOpen(null, null).collectList().blockOptional().orElseThrow().getFirst();
+    // the first compare-and-set loses, as if another caller had moved the request meanwhile
+    org.mockito.Mockito.doReturn(Mono.just(false))
+        .doCallRealMethod()
+        .when(racing)
+        .compareAndSet(
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyLong(),
+            org.mockito.ArgumentMatchers.any());
+
+    final InputRequest result =
+        racingBroker.answer(request.id(), null, answer(request, "ann")).block();
+
+    assertThat(result.state()).isEqualTo(InputState.ANSWERED);
+  }
+
+  @Test
+  void failingExpiryIsLoggedAndTheSweepGoesOn() {
+    final InputRequestStore failing = org.mockito.Mockito.mock(InputRequestStore.class);
+    final InputRequest open = inputBrokerOpenRequest();
+    org.mockito.Mockito.when(failing.dueBefore(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(Flux.just(open));
+    org.mockito.Mockito.when(failing.findById(open.id()))
+        .thenReturn(Mono.error(new IllegalStateException("store down")));
+    final InputBroker failingBroker =
+        new InputBroker(failing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
+
+    StepVerifier.create(failingBroker.sweep()).verifyComplete();
+  }
+
+  private InputRequest inputBrokerOpenRequest() {
+    inputBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
+    return onlyOpen();
+  }
+
+  @Test
+  void anAnswerAtTheCurrentVersionIsApplied() {
+    inputBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
+    final InputRequest request = onlyOpen();
+
+    final InputRequest result =
+        inputBroker.answer(request.id(), request.version(), answer(request, "ann")).block();
+
+    assertThat(result.state()).isEqualTo(InputState.ANSWERED);
+  }
+
+  @Test
+  void answeringThroughBrokerWithNobodyWaitingStillAnswersTheRequest() {
+    inputBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
+    final InputRequest request = onlyOpen();
+    // a second broker on the same store has no waiter for the request
+    final InputBroker other =
+        new InputBroker(store, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
+
+    final InputRequest result = other.answer(request.id(), null, answer(request, "ann")).block();
+
+    assertThat(result.state()).isEqualTo(InputState.ANSWERED);
+  }
+
+  @Test
+  void askThatLosesTheCreateRaceJoinsTheExistingRequestWithoutAnnouncingAnother() {
+    inputBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
+    final InputRequest existing = onlyOpen();
+    final InputRequestStore racing = org.mockito.Mockito.spy(store);
+    // another caller stored a request for the key an instant before this one
+    org.mockito.Mockito.doReturn(Mono.just(existing))
+        .when(racing)
+        .createIfAbsent(org.mockito.ArgumentMatchers.any());
+    final InputBroker loser =
+        new InputBroker(racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
+
+    loser.ask(who("e2", "n2"), spec("k2")).subscribe();
+
+    assertThat(events.stream().filter(ExecutionEvent.InputRequested.class::isInstance).count())
+        .isEqualTo(1L);
   }
 }

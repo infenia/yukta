@@ -9,6 +9,7 @@ import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"}) // nulls
 @NoArgsConstructor
 class SecretRedactorTest {
 
@@ -55,5 +56,50 @@ class SecretRedactorTest {
     }
 
     assertThat(redactor.redact(nested).toString()).contains(SecretRedactor.REDACTED);
+  }
+
+  @Test
+  void customPatternsReplaceTheDefaultsAndAnEmptyListKeepsThem() {
+    final SecretRedactor custom = new SecretRedactor(List.of("foo\\d+"), null);
+    final SecretRedactor empty = new SecretRedactor(List.of(), null);
+
+    assertThat(custom.redactText("foo123 and password=hunter2"))
+        .doesNotContain("foo123")
+        .contains("hunter2");
+    assertThat(empty.redactText("password=hunter2")).doesNotContain("hunter2");
+  }
+
+  @Test
+  void blankAndMissingExtraKeyNamesAreIgnored() {
+    final SecretRedactor withKeys =
+        new SecretRedactor(null, java.util.Arrays.asList("note", null, "  "));
+
+    assertThat(withKeys.redactMap(Map.of("note", "hide", "other", "keep")))
+        .containsEntry("note", SecretRedactor.REDACTED)
+        .containsEntry("other", "keep");
+  }
+
+  @Test
+  void nestedMapsWithOddKeysAndOtherValueTypesAreCopied() {
+    final Map<Object, Object> inner = new java.util.HashMap<>();
+    inner.put(null, "nullKey");
+    inner.put(7, "token=abc12345");
+    inner.put("count", 5);
+    inner.put("nothing", null);
+    final Map<String, Object> outer = new java.util.HashMap<>();
+    outer.put("inner", inner);
+    outer.put("flag", true);
+    outer.put("items", java.util.Set.of("plain"));
+
+    final Map<String, Object> cleaned = redactor.redactMap(outer);
+
+    assertThat(cleaned).containsEntry("flag", true);
+    assertThat(cleaned.get("items")).isEqualTo(List.of("plain"));
+    assertThat(cleaned.get("inner")).isInstanceOf(Map.class);
+    final Map<?, ?> copy = (Map<?, ?>) cleaned.get("inner");
+    assertThat(copy.get(null)).isEqualTo("nullKey");
+    assertThat(copy.get(7).toString()).doesNotContain("abc12345");
+    assertThat(copy.get("count")).isEqualTo(5);
+    assertThat(copy.containsKey("nothing")).isTrue();
   }
 }

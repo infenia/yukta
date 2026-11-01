@@ -7,6 +7,7 @@ import com.infenia.yukta.service.leader.LeaderElection;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.SmartLifecycle;
@@ -41,6 +42,9 @@ public class InputDeadlineSweeper implements SmartLifecycle {
 
   /** The running timer, or {@code null} when stopped. */
   private final AtomicReference<Disposable> timer = new AtomicReference<>();
+
+  /** Makes a second start wait for the first, so only one timer runs. */
+  private final ReentrantLock lock = new ReentrantLock();
 
   /**
    * Creates the sweeper.
@@ -77,25 +81,26 @@ public class InputDeadlineSweeper implements SmartLifecycle {
 
   @Override
   public void start() {
-    if (timer.get() == null) {
-      final Disposable started =
-          Flux.interval(interval, scheduler)
-              .filter(_ -> leader.isLeader())
-              // one look at a time: a slow look is not overtaken by the next tick
-              .concatMap(
-                  _ ->
-                      broker
-                          .sweep()
-                          .onErrorResume(
-                              error -> {
-                                log.atWarn().setCause(error).log("Input deadline sweep failed");
-                                return Mono.empty();
-                              }))
-              .subscribe();
-      if (!timer.compareAndSet(null, started)) {
-        // another start won the race: keep its timer only
-        started.dispose();
+    lock.lock();
+    try {
+      if (timer.get() == null) {
+        timer.set(
+            Flux.interval(interval, scheduler)
+                .filter(_ -> leader.isLeader())
+                // one look at a time: a slow look is not overtaken by the next tick
+                .concatMap(
+                    _ ->
+                        broker
+                            .sweep()
+                            .onErrorResume(
+                                error -> {
+                                  log.atWarn().setCause(error).log("Input deadline sweep failed");
+                                  return Mono.empty();
+                                }))
+                .subscribe());
       }
+    } finally {
+      lock.unlock();
     }
   }
 
