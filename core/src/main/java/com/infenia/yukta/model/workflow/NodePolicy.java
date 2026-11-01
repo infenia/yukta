@@ -106,6 +106,7 @@ public record NodePolicy(
           "concurrencyGroup",
           "failureBudget",
           "edgeBuffer",
+          "checkpoint",
           "placement");
 
   /** Options accepted in the {@code retry} object. */
@@ -291,6 +292,16 @@ public record NodePolicy(
    */
   public record Placement(String pool) {}
 
+  /** What a node writes to the checkpoint store. */
+  public enum Checkpoint {
+    /** Every message, written in batches (default): the node can be restarted from any message. */
+    ALL,
+    /** Only the last message: a restart replays the final output only. */
+    LAST,
+    /** Nothing: the node is never marked complete, so a resume runs it again. */
+    NONE
+  }
+
   /** What a full edge buffer does with the message that does not fit. */
   public enum Overflow {
     /** Drop the oldest waiting message. */
@@ -359,6 +370,22 @@ public record NodePolicy(
   }
 
   /**
+   * Reads the optional {@code engine.checkpoint} of a node config.
+   *
+   * @param config the node config, possibly empty
+   * @return the mode, {@link Checkpoint#ALL} when the node sets none
+   * @throws IllegalArgumentException if the value is not one of ALL, LAST, NONE
+   */
+  public static Checkpoint checkpoint(@Nullable final Map<String, Object> config) {
+    final Object raw = config == null ? null : config.get(CONFIG_KEY);
+    if (raw == null) {
+      return Checkpoint.ALL;
+    }
+    return parseEnum(
+        asMap(raw, CONFIG_KEY).get("checkpoint"), Checkpoint.class, "checkpoint", Checkpoint.ALL);
+  }
+
+  /**
    * Whether the plugin must be called once per message, which retry and onError need.
    *
    * @return true if retry, an element timeout or a non-default onError is set
@@ -394,6 +421,7 @@ public record NodePolicy(
                 ? parseBudget(asMap(engine.get("failureBudget"), "failureBudget"))
                 : null);
     edgeBuffer(config);
+    checkpoint(config);
     placement(config);
     if (policy.failureBudget() != null && policy.onError() == OnError.FAIL) {
       throw new IllegalArgumentException(

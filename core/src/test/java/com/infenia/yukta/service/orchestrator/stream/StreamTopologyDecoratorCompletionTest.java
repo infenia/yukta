@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,7 +31,7 @@ import reactor.test.StepVerifier;
 
 /** The end of a node is made durable once, after its output, before the completion goes on. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyStaticImports")
+@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.TooManyMethods"})
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator - ")
 class StreamTopologyDecoratorCompletionTest {
 
@@ -40,9 +41,17 @@ class StreamTopologyDecoratorCompletionTest {
   private final List<Disposable> disposables = new ArrayList<>();
 
   private Flux<Message<?>> decorate(final Flux<Message<?>> input) {
+    return decorateWith(com.infenia.yukta.model.workflow.NodePolicy.Checkpoint.ALL, input);
+  }
+
+  private Flux<Message<?>> decorateWith(
+      final com.infenia.yukta.model.workflow.NodePolicy.Checkpoint checkpoint,
+      final Flux<Message<?>> input) {
     when(store.save(anyString(), anyString(), any())).thenReturn(Mono.empty());
+    when(store.saveAll(anyString(), anyString(), any())).thenCallRealMethod();
     final Flux<Message<?>> output =
-        decorator.applyLoggingAndBroadcasting("e", "n", input, 16, disposables, new ArrayList<>());
+        decorator.applyLoggingAndBroadcasting(
+            "e", "n", input, 16, disposables, new ArrayList<>(), () -> false, checkpoint);
     return decorator.applyEdgeRouting(
         new Flux[] {output}, new com.infenia.yukta.model.workflow.ParentEdgeInfo(0, "n", null));
   }
@@ -62,7 +71,7 @@ class StreamTopologyDecoratorCompletionTest {
         .verifyComplete();
 
     final InOrder order = inOrder(store);
-    order.verify(store, org.mockito.Mockito.times(2)).save(anyString(), anyString(), any());
+    order.verify(store, times(2)).save(anyString(), anyString(), any());
     order.verify(store).markComplete("e", "n");
   }
 
@@ -104,6 +113,61 @@ class StreamTopologyDecoratorCompletionTest {
 
     StepVerifier.create(out).expectNextCount(2).verifyComplete();
 
+    verify(store, never()).markComplete(anyString(), anyString());
+  }
+
+  @Test
+  void lastCheckpoint_savesOnlyTheFinalMessage_andMarksTheNode() {
+    when(store.markComplete("e", "n")).thenReturn(Mono.empty());
+
+    StepVerifier.create(
+            decorateWith(
+                com.infenia.yukta.model.workflow.NodePolicy.Checkpoint.LAST,
+                Flux.just(message(), message())))
+        .expectNextCount(2)
+        .verifyComplete();
+
+    verify(store, times(1)).save(anyString(), anyString(), any());
+    verify(store, never()).saveAll(anyString(), anyString(), any());
+    verify(store).markComplete("e", "n");
+  }
+
+  @Test
+  void lastCheckpoint_withNoMessages_savesNothing_butMarksTheNode() {
+    when(store.markComplete("e", "n")).thenReturn(Mono.empty());
+
+    StepVerifier.create(
+            decorateWith(com.infenia.yukta.model.workflow.NodePolicy.Checkpoint.LAST, Flux.empty()))
+        .verifyComplete();
+
+    verify(store, never()).save(anyString(), anyString(), any());
+    verify(store).markComplete("e", "n");
+  }
+
+  @Test
+  void lastCheckpoint_thatCannotSave_leavesTheNodeUnmarked() {
+    final Flux<Message<?>> out =
+        decorateWith(
+            com.infenia.yukta.model.workflow.NodePolicy.Checkpoint.LAST, Flux.just(message()));
+    when(store.save(anyString(), anyString(), any()))
+        .thenReturn(Mono.error(new IllegalStateException("disk full")));
+
+    StepVerifier.create(out).expectNextCount(1).verifyComplete();
+
+    verify(store, never()).markComplete(anyString(), anyString());
+  }
+
+  @Test
+  void noneCheckpoint_writesNothing_andNodeIsNeverMarked() {
+    StepVerifier.create(
+            decorateWith(
+                com.infenia.yukta.model.workflow.NodePolicy.Checkpoint.NONE,
+                Flux.just(message(), message())))
+        .expectNextCount(2)
+        .verifyComplete();
+
+    verify(store, never()).save(anyString(), anyString(), any());
+    verify(store, never()).saveAll(anyString(), anyString(), any());
     verify(store, never()).markComplete(anyString(), anyString());
   }
 }
