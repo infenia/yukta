@@ -3,7 +3,6 @@
 package com.infenia.yukta.service.orchestrator.strategy;
 
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.message.channel.NodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannelProvider;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.NodeAssembler;
@@ -90,18 +89,20 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final int index,
       final int bufferSize,
       final ParentEdgeInfo... parentEdges) {
-    final TerminalPlugin terminal =
-        NodePlugins.forNode((TerminalPlugin) plugin, TerminalPlugin.class, node.config());
+    final NodePolicy policy = NodePolicy.from(node.config());
 
     log.atDebug()
         .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
         .addKeyValue(LOG_KEY_PARENT_EDGE_COUNT, parentEdges.length)
         .addKeyValue("pluginType", plugin.getClass().getSimpleName())
-        .addKeyValue("isBlocking", terminal.isBlocking())
+        .addKeyValue("isBlocking", plugin.isBlocking())
         .addKeyValue("timeoutMs", timeout.toMillis())
         .log("Creating terminal node assembler");
 
     return context -> {
+      // per-node state belongs to one run, so each run gets its own instance
+      final TerminalPlugin terminal =
+          NodePlugins.forNode((TerminalPlugin) plugin, TerminalPlugin.class, node.config());
       final var control = context.control();
       final AtomicLong received = new AtomicLong();
 
@@ -112,7 +113,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
       final Flux<Message<?>> mergedInput =
           streamTopologyDecorator.mergeParentStreams(
-              NodePolicy.from(node.config()).trigger(), context.streams(), parentEdges);
+              policy.trigger(), context.streams(), parentEdges);
 
       final Flux<Message<?>> safeInput =
           control.applyPreProcessingControls(node.nodeId(), mergedInput);
@@ -128,7 +129,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                   node.type(),
                   TaskStatus.RUNNING,
                   Collections.emptyMap()));
-      final Flux<Message<?>> inputToTerminal =
+      final Flux<Message<?>> guardedInput =
           activity
               .guard(
                   NodeTimeouts.retimeOnFirstInput(
@@ -138,7 +139,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                       variableResolver,
                       activity),
                   timeout,
-                  NodePolicy.from(node.config()).deadline(),
+                  policy.deadline(),
                   virtualThreadScheduler,
                   () -> control.isPaused(node.nodeId()))
               .transformDeferredContextual(
@@ -163,16 +164,20 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                     }
                     return published;
                   });
+      // subscribeOn moves only the subscription; a blocking terminal needs its elements moved too
+      final Flux<Message<?>> inputToTerminal =
+          terminal.isBlocking() ? guardedInput.publishOn(virtualThreadScheduler, 1) : guardedInput;
 
       log.atDebug()
           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
           .addKeyValue("executionId", context.executionId())
           .log("Consuming stream with terminal plugin");
 
-      final NodeMessageChannel channel = channelProvider.channelFor(node.nodeId(), node.config());
       Mono<Void> completion =
           terminal.consume(
-              channel.inbound(node.nodeId(), context.executionId(), inputToTerminal),
+              channelProvider
+                  .channelFor(node.nodeId(), node.config())
+                  .inbound(node.nodeId(), context.executionId(), inputToTerminal),
               node.config());
       // A long-running terminal tells the engine it is alive (see WorkflowContext.HEARTBEAT_KEY).
       final Runnable heartbeat = activity::touch;
@@ -185,7 +190,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
               activity.guard(
                   completion.flux(),
                   timeout,
-                  NodePolicy.from(node.config()).deadline(),
+                  policy.deadline(),
                   virtualThreadScheduler,
                   () -> control.isPaused(node.nodeId())));
       if (terminal.isBlocking()) {

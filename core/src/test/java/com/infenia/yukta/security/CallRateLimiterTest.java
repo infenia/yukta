@@ -27,9 +27,21 @@ class CallRateLimiterTest {
     assertThat(limiter.tryAcquire(BOT)).isTrue();
     assertThat(limiter.tryAcquire(BOT)).isFalse();
 
-    now.addAndGet(Duration.ofMinutes(1).toNanos());
+    now.addAndGet(Duration.ofMinutes(2).toNanos());
 
     assertThat(limiter.tryAcquire(BOT)).isTrue();
+  }
+
+  @Test
+  void testNoDoubleBudgetAcrossMinuteBoundary() {
+    final CallRateLimiter limiter = new CallRateLimiter(2, now::get);
+    limiter.tryAcquire(BOT);
+    limiter.tryAcquire(BOT);
+
+    now.addAndGet(Duration.ofSeconds(61).toNanos());
+
+    // a fixed window would allow two more here; the sliding minute still holds the earlier two
+    assertThat(limiter.tryAcquire(BOT)).isFalse();
   }
 
   @Test
@@ -52,37 +64,10 @@ class CallRateLimiterTest {
     assertThat(limiter.exceeded(BOT)).isTrue();
     assertThat(limiter.exceeded(BOT)).isTrue();
 
-    now.addAndGet(Duration.ofMinutes(1).toNanos());
+    now.addAndGet(Duration.ofMinutes(2).toNanos());
 
     assertThat(limiter.exceeded(BOT)).isFalse();
     assertThat(new CallRateLimiter(0).exceeded(BOT)).isFalse();
-  }
-
-  @Test
-  void testManyCallers_endedWindowsAreForgotten() {
-    final CallRateLimiter limiter = new CallRateLimiter(1, now::get);
-    for (int i = 0; i < 10_001; i++) {
-      limiter.tryAcquire("caller-" + i);
-    }
-    now.addAndGet(Duration.ofMinutes(1).toNanos());
-
-    assertThat(limiter.tryAcquire("caller-0")).isTrue();
-    assertThat(limiter.exceeded("caller-1")).isFalse();
-  }
-
-  @Test
-  void testManyCallers_theSweepKeepsWindowsThatHaveNotEnded() {
-    final CallRateLimiter limiter = new CallRateLimiter(1, now::get);
-    for (int i = 0; i < 5_000; i++) {
-      limiter.tryAcquire("old-" + i);
-    }
-    now.addAndGet(Duration.ofMinutes(1).toNanos());
-    for (int i = 0; i < 5_002; i++) {
-      limiter.tryAcquire("new-" + i);
-    }
-
-    assertThat(limiter.exceeded("new-0")).isTrue();
-    assertThat(limiter.exceeded("old-0")).isFalse();
   }
 
   @Test

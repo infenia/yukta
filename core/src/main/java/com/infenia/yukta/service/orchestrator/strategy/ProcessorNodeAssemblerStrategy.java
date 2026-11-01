@@ -111,10 +111,10 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final WorkflowNode node,
       final ProcessorPlugin processor,
       final NodeMessageChannel channel,
+      final NodePolicy policy,
       final String executionId,
       final NodeActivity activity,
       final FailureLedger ledger) {
-    final NodePolicy policy = NodePolicy.from(node.config());
     // prefetch 1: a paused node must not have 32 elements already past the gate
     return input ->
         input.concatMap(
@@ -167,19 +167,21 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final int index,
       final int bufferSize,
       final ParentEdgeInfo... parentEdges) {
-    final ProcessorPlugin processor =
-        NodePlugins.forNode((ProcessorPlugin) plugin, ProcessorPlugin.class, node.config());
+    final NodePolicy policy = NodePolicy.from(node.config());
 
     log.atDebug()
         .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
         .addKeyValue(LOG_KEY_PARENT_EDGE_COUNT, parentEdges.length)
         .addKeyValue("pluginType", plugin.getClass().getSimpleName())
-        .addKeyValue("isBlocking", processor.isBlocking())
+        .addKeyValue("isBlocking", plugin.isBlocking())
         .addKeyValue("timeoutMs", timeout.toMillis())
         .addKeyValue("bufferSize", bufferSize)
         .log("Creating processor node assembler");
 
     return context -> {
+      // per-node state belongs to one run, so each run gets its own instance
+      final ProcessorPlugin processor =
+          NodePlugins.forNode((ProcessorPlugin) plugin, ProcessorPlugin.class, node.config());
       final var control = context.control();
 
       log.atDebug()
@@ -189,12 +191,11 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
 
       final Flux<Message<?>> mergedInput =
           streamTopologyDecorator.mergeParentStreams(
-              NodePolicy.from(node.config()).trigger(), context.streams(), parentEdges);
+              policy.trigger(), context.streams(), parentEdges);
 
       // The idle clock starts when this node first gets work, not when the run starts.
       final NodeActivity activity = new NodeActivity();
-      final ConcurrencyGroups.Place place =
-          concurrencyGroups.place(NodePolicy.from(node.config()).concurrencyGroup());
+      final ConcurrencyGroups.Place place = concurrencyGroups.place(policy.concurrencyGroup());
       final Flux<Message<?>> controlled =
           gated(
               control.applyPreProcessingControls(node.nodeId(), mergedInput),
@@ -203,8 +204,9 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
               node);
       final Flux<Message<?>> safeInput =
           controlled.doOnNext(_ -> activity.touch()).onErrorMap(UpstreamFailure::mark);
-      final Flux<Message<?>> timedInput =
+      final Flux<Message<?>> retimedInput =
           NodeTimeouts.retimeOnFirstInput(safeInput, node, plugin, variableResolver, activity);
+      final Flux<Message<?>> timedInput = offloaded(retimedInput, processor.isBlocking());
 
       Flux<Message<?>> stream;
       final AtomicBoolean skipFlag = control.nodeSkipFlags().get(node.nodeId());
@@ -214,7 +216,6 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
           .log("Processing stream with processor plugin");
       final NodeMessageChannel channel = channelProvider.channelFor(node.nodeId(), node.config());
-      final NodePolicy policy = NodePolicy.from(node.config());
       final Flux<Message<?>> buffered =
           NodePolicies.edgeBuffered(
               NodePolicy.edgeBuffer(node.config()),
@@ -235,7 +236,7 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final Function<Flux<Message<?>>, Flux<Message<?>>> run =
           policy.perMessage()
               ? perMessageRun(
-                  node, processor, messageChannel, context.executionId(), activity, ledger)
+                  node, processor, messageChannel, policy, context.executionId(), activity, ledger)
               : input -> processor.process(input, node.config());
       final Flux<Message<?>> pluginOutput =
           skipFlag == null
@@ -270,5 +271,13 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
           .addKeyValue("executionId", context.executionId())
           .log("Processor node stream assembled and registered");
     };
+  }
+
+  /**
+   * Hands each element of a blocking plugin's input to its own thread. The subscription alone does
+   * not do this, because each element still arrives on the parent's thread.
+   */
+  private Flux<Message<?>> offloaded(final Flux<Message<?>> input, final boolean blocking) {
+    return blocking ? input.publishOn(virtualThreadScheduler, 1) : input;
   }
 }

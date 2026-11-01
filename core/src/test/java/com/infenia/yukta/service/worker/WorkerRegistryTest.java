@@ -74,6 +74,15 @@ class WorkerRegistryTest {
   }
 
   @Test
+  void expiredWorker_isNotFoundOrListedEvenBeforeItIsRemoved() {
+    registry.register(worker("w1", 2));
+    now.set(now.get().plusSeconds(16));
+
+    assertThat(registry.find("w1")).isEmpty();
+    assertThat(registry.list()).isEmpty();
+  }
+
+  @Test
   void expiredLease_isNotRenewedByHeartbeat() {
     registry.register(worker("w1", 2));
     now.set(now.get().plusSeconds(60));

@@ -14,13 +14,10 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.test.StepVerifier;
-import tools.jackson.databind.ObjectMapper;
 
 /** Tests for {@link AppConfiguration}. */
 @NoArgsConstructor
@@ -37,25 +34,11 @@ class AppConfigurationTest {
   void shouldProvideDefaultBeans() {
     this.contextRunner.run(
         context -> {
-          assertThat(context).hasSingleBean(ObjectMapper.class);
           assertThat(context).hasSingleBean(Scheduler.class);
           assertThat(context).hasSingleBean(ExecutionControlStore.class);
           assertThat(context.getBean(ExecutionControlStore.class))
               .isInstanceOf(InMemoryExecutionControlStore.class);
         });
-  }
-
-  @Test
-  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
-  void shouldNotOverrideExistingObjectMapper() {
-    this.contextRunner
-        .withUserConfiguration(CustomObjectMapperConfiguration.class)
-        .run(
-            context -> {
-              assertThat(context).hasSingleBean(ObjectMapper.class);
-              assertThat(context.getBean(ObjectMapper.class))
-                  .isSameAs(context.getBean("customObjectMapper"));
-            });
   }
 
   @Test
@@ -95,20 +78,6 @@ class AppConfigurationTest {
   void shouldRegisterSessionConfigProperties() {
     this.contextRunner.run(
         context -> assertThat(context).hasSingleBean(SessionConfigProperties.class));
-  }
-
-  /** Custom object mapper configuration for testing. */
-  @Configuration
-  /* package */ static class CustomObjectMapperConfiguration {
-    /**
-     * Creates a custom object mapper.
-     *
-     * @return the object mapper
-     */
-    @Bean
-    /* package */ ObjectMapper customObjectMapper() {
-      return new ObjectMapper();
-    }
   }
 
   @Test

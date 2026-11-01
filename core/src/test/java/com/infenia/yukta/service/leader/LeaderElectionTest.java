@@ -33,6 +33,7 @@ class LeaderElectionTest {
     assertThat(single.isLeader()).isTrue();
     assertThat(single.recoversOnTakeover()).isFalse();
     single.onTakeover(() -> {});
+    single.onLoss(() -> {});
     assertThat(new NotLeaderException().getMessage()).contains("standby");
   }
 

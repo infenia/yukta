@@ -27,7 +27,25 @@ public record TaskStatusEvent(
    * @param timestamp the event timestamp
    */
   public TaskStatusEvent {
-    metadata = (metadata == null) ? Map.of() : Map.copyOf(metadata);
+    // metadata values are never null: Map.copyOf and the state's concurrent map reject them
+    metadata =
+        (metadata == null)
+            ? Map.of()
+            : metadata.entrySet().stream()
+                .filter(e -> e.getValue() != null)
+                .collect(
+                    java.util.stream.Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  /**
+   * Returns a defensive copy of the task metadata so callers cannot mutate the event's state.
+   *
+   * @return an immutable copy of the metadata
+   */
+  @Override
+  public Map<String, Object> metadata() {
+    return Map.copyOf(metadata);
   }
 
   /**

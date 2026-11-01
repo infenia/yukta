@@ -29,12 +29,13 @@ import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import jakarta.annotation.PreDestroy;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +51,7 @@ import reactor.core.publisher.Mono;
  * Default implementation of the {@link ControlBusGateway}.
  *
  * <p>Delegates low-level plugin management and message operations to {@link ControlBusService}, and
- * high-level control commands and observability operations to {@link DefaultTaskTrackerService}.
+ * high-level control commands and observability operations to {@link TaskTrackerService}.
  */
 @Slf4j
 @Service
@@ -81,7 +82,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   private final ControlBusService controlBusService;
 
   /** The task tracker service for tracking execution tasks. */
-  private final DefaultTaskTrackerService taskTracker;
+  private final TaskTrackerService taskTracker;
 
   /** The execution control registry for managing active executions. */
   private final ExecutionControlRegistry executionControlRegistry;
@@ -122,7 +123,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DefaultControlBusGateway(
       final ControlBusService controlBusService,
-      final DefaultTaskTrackerService taskTracker,
+      final TaskTrackerService taskTracker,
       final ExecutionControlRegistry executionControlRegistry,
       final ExecutionArchive executionArchive,
       final WorkflowOrchestrator orchestrator,
@@ -188,7 +189,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public void registerPlugin(final String workflowId, final String nodeId, final Plugin plugin) {
-    log.atInfo()
+    log.atDebug()
         .addKeyValue("workflowId", workflowId)
         .addKeyValue("nodeId", nodeId)
         .addKeyValue("pluginType", plugin.getClass().getSimpleName())
@@ -202,7 +203,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public void unregisterPlugin(final String workflowId, final String nodeId) {
-    log.atInfo()
+    log.atDebug()
         .addKeyValue("workflowId", workflowId)
         .addKeyValue("nodeId", nodeId)
         .log("Unregistering plugin");
@@ -234,7 +235,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final String workflowId, final String nodeId, final Message<?> command) {
     return Mono.defer(
             () -> {
-              log.atInfo()
+              log.atDebug()
                   .addKeyValue("workflowId", workflowId)
                   .addKeyValue("nodeId", nodeId)
                   .log("Sending command to node");
@@ -262,7 +263,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final String sessionId, final WorkflowDefinition workflowDefinition) {
     return Mono.defer(
             () -> {
-              log.atInfo()
+              log.atDebug()
                   .addKeyValue("sessionId", sessionId)
                   .addKeyValue("workflowId", workflowDefinition.workflowId())
                   .addKeyValue("nodeCount", workflowDefinition.nodes().size())
@@ -273,7 +274,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         .then(Mono.defer(() -> starter.dropCacheIfStale(sessionId, workflowDefinition)))
         .doOnSuccess(
             _ ->
-                log.atInfo()
+                log.atDebug()
                     .addKeyValue("sessionId", sessionId)
                     .addKeyValue("workflowId", workflowDefinition.workflowId())
                     .log("Workflow compiled and cached successfully"))
@@ -320,7 +321,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                         new PauseWorkflowCommand(executionId),
                         ControlDispatch.CONTROL_COMMAND_PRIORITY)))
         .doOnSubscribe(
-            _ -> log.atInfo().addKeyValue("executionId", executionId).log("Pausing workflow"))
+            _ -> log.atDebug().addKeyValue("executionId", executionId).log("Pausing workflow"))
         .doOnSuccess(
             _ ->
                 log.atDebug()
@@ -344,7 +345,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                         new ResumeWorkflowCommand(executionId),
                         ControlDispatch.CONTROL_COMMAND_PRIORITY)))
         .doOnSubscribe(
-            _ -> log.atInfo().addKeyValue("executionId", executionId).log("Resuming workflow"))
+            _ -> log.atDebug().addKeyValue("executionId", executionId).log("Resuming workflow"))
         .doOnSuccess(
             _ ->
                 log.atDebug()
@@ -388,7 +389,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         .collectList()
         .doOnSubscribe(
             _ ->
-                log.atInfo()
+                log.atDebug()
                     .addKeyValue("sessionId", sessionId)
                     .addKeyValue("workflowId", workflowId)
                     .addKeyValue("reason", reason)
@@ -396,7 +397,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                     .log("Stopping all workflow executions"))
         .doOnSuccess(
             stoppedIds ->
-                log.atInfo()
+                log.atDebug()
                     .addKeyValue("sessionId", sessionId)
                     .addKeyValue("workflowId", workflowId)
                     .addKeyValue("count", stoppedIds.size())
@@ -428,14 +429,14 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                     .orElseGet(() -> queries.finishOrphan(executionId)))
         .doOnSubscribe(
             _ ->
-                log.atInfo()
+                log.atDebug()
                     .addKeyValue("executionId", executionId)
                     .addKeyValue("reason", reason)
                     .addKeyValue("mode", mode)
                     .log("Stopping specific execution"))
         .doOnSuccess(
             stoppedId ->
-                log.atInfo()
+                log.atDebug()
                     .addKeyValue("executionId", stoppedId)
                     .log("Execution stop command executed"))
         .doOnError(
@@ -491,6 +492,16 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
               new AuditRecord(applied, target, command, actor, reason, Instant.now()));
           return Mono.empty();
         });
+  }
+
+  /**
+   * Cancels the runs that are still going when the application shuts down. The scheduler has
+   * already waited for them (its shutdown timeout); what is left would otherwise be abandoned
+   * running.
+   */
+  @PreDestroy
+  public void cancelRunningExecutions() {
+    starter.cancelAll();
   }
 
   @Override

@@ -2223,7 +2223,8 @@ class DefaultControlBusGatewayTest {
     // loaded as "old"; by the time preparation is done the stored definition is "new"
     when(workflowDefinitionStore.find(sessionId, workflowId))
         .thenReturn(Mono.just(old), Mono.just(replaced));
-    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
     when(orchestrator.prepareWorkflow(old)).thenReturn(Mono.just(preparedWorkflow));
     when(orchestrator.execute(
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any()))
@@ -2233,7 +2234,7 @@ class DefaultControlBusGatewayTest {
         .expectNextCount(1)
         .verifyComplete();
 
-    verify(preparedWorkflowCache, never()).put(any(), any(), any());
+    verify(preparedWorkflowCache, never()).put(any(), any(), any(), any());
     verify(orchestrator)
         .execute(eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any());
   }
@@ -2259,8 +2260,9 @@ class DefaultControlBusGatewayTest {
         .expectNextCount(1)
         .verifyComplete();
 
-    verify(preparedWorkflowCache, never()).get(sessionId, workflowId);
-    verify(preparedWorkflowCache, never()).put(any(), any(), any());
+    verify(preparedWorkflowCache, never())
+        .get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class));
+    verify(preparedWorkflowCache, never()).put(any(), any(), any(), any());
   }
 
   @Test
@@ -2271,7 +2273,8 @@ class DefaultControlBusGatewayTest {
         new WorkflowDefinition(workflowId, "current", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(current));
-    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
     when(orchestrator.prepareWorkflow(current)).thenReturn(Mono.just(preparedWorkflow));
     when(orchestrator.execute(
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), any(), any()))
@@ -2298,7 +2301,8 @@ class DefaultControlBusGatewayTest {
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
-    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
     when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.just(preparedWorkflow));
     when(orchestrator.execute(
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any()))
@@ -2323,7 +2327,7 @@ class DefaultControlBusGatewayTest {
 
     // once to load the definition, once to check it is still current before caching
     verify(workflowDefinitionStore, times(2)).find(sessionId, workflowId);
-    verify(preparedWorkflowCache).put(eq(sessionId), eq(workflowId), any());
+    verify(preparedWorkflowCache).put(eq(sessionId), eq(workflowId), any(), any());
     verify(orchestrator).prepareWorkflow(definition);
     verify(orchestrator)
         .execute(eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any());
@@ -2339,7 +2343,8 @@ class DefaultControlBusGatewayTest {
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
-    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
     when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.just(preparedWorkflow));
     when(orchestrator.execute(
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), eq(payload), any()))
@@ -2352,6 +2357,40 @@ class DefaultControlBusGatewayTest {
     verify(orchestrator)
         .execute(
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), eq(payload), any());
+  }
+
+  @Test
+  void cancelRunningExecutions_cancelsRunsThatAreStillGoing() {
+    final WorkflowDefinition definition =
+        new WorkflowDefinition("wf-live", "test workflow", List.of(), List.of());
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+    final java.util.concurrent.atomic.AtomicBoolean cancelled =
+        new java.util.concurrent.atomic.AtomicBoolean();
+    when(workflowDefinitionStore.find("sess-live", "wf-live")).thenReturn(Mono.just(definition));
+    when(preparedWorkflowCache.get(eq("sess-live"), eq("wf-live"), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
+    when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.just(preparedWorkflow));
+    when(orchestrator.execute(
+            eq("sess-live"), eq("wf-live"), anyString(), eq(preparedWorkflow), anyMap(), any()))
+        .thenReturn(Mono.<Void>never().doOnCancel(() -> cancelled.set(true)));
+
+    StepVerifier.create(gateway.startWorkflow("sess-live", "wf-live"))
+        .expectNextCount(1)
+        .verifyComplete();
+    assertThat(cancelled).isFalse();
+
+    gateway.cancelRunningExecutions();
+
+    assertThat(cancelled).isTrue();
+  }
+
+  @Test
+  void startWorkflow_whileTheWorkflowIsBeingDeleted_isRefused() {
+    when(preparedWorkflowCache.isDeleting("s-del", "w-del")).thenReturn(true);
+
+    StepVerifier.create(gateway.startWorkflow("s-del", "w-del"))
+        .expectError(com.infenia.yukta.service.ConflictException.class)
+        .verify();
   }
 
   @Test
@@ -2387,7 +2426,7 @@ class DefaultControlBusGatewayTest {
     final PreparedWorkflow cachedPreparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
-    when(preparedWorkflowCache.get(sessionId, workflowId))
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
         .thenReturn(Optional.of(cachedPreparedWorkflow));
     when(orchestrator.execute(
             eq(sessionId),
@@ -2429,7 +2468,8 @@ class DefaultControlBusGatewayTest {
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
-    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
     when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.just(preparedWorkflow));
     when(orchestrator.execute(
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any()))
@@ -2448,7 +2488,7 @@ class DefaultControlBusGatewayTest {
     // Verify cache.put was called with the prepared workflow
     final ArgumentCaptor<PreparedWorkflow> cacheCaptor =
         ArgumentCaptor.forClass(PreparedWorkflow.class);
-    verify(preparedWorkflowCache).put(eq(sessionId), eq(workflowId), cacheCaptor.capture());
+    verify(preparedWorkflowCache).put(eq(sessionId), eq(workflowId), cacheCaptor.capture(), any());
     assertThat(cacheCaptor.getValue()).isEqualTo(preparedWorkflow);
   }
 
@@ -2462,7 +2502,8 @@ class DefaultControlBusGatewayTest {
     final RuntimeException testError = new RuntimeException("Prepare failed");
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
-    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
     when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.error(testError));
 
     // When
@@ -2483,7 +2524,8 @@ class DefaultControlBusGatewayTest {
     final RuntimeException testError = new RuntimeException("Execute failed");
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
-    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
     when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.just(preparedWorkflow));
     when(orchestrator.execute(
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any()))
@@ -2522,7 +2564,8 @@ class DefaultControlBusGatewayTest {
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
-    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
     when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.just(preparedWorkflow));
     when(orchestrator.execute(
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any()))
@@ -2551,7 +2594,7 @@ class DefaultControlBusGatewayTest {
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
-    when(preparedWorkflowCache.get(sessionId, workflowId))
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
         .thenReturn(Optional.of(preparedWorkflow));
     when(orchestrator.execute(
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any()))
@@ -2601,8 +2644,10 @@ class DefaultControlBusGatewayTest {
 
     when(workflowDefinitionStore.find(sessionId, workflowId1)).thenReturn(Mono.just(definition1));
     when(workflowDefinitionStore.find(sessionId, workflowId2)).thenReturn(Mono.just(definition2));
-    when(preparedWorkflowCache.get(sessionId, workflowId1)).thenReturn(Optional.empty());
-    when(preparedWorkflowCache.get(sessionId, workflowId2)).thenReturn(Optional.empty());
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId1), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId2), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
     when(orchestrator.prepareWorkflow(definition1)).thenReturn(Mono.just(preparedWorkflow1));
     when(orchestrator.prepareWorkflow(definition2)).thenReturn(Mono.just(preparedWorkflow2));
     when(orchestrator.execute(eq(sessionId), anyString(), anyString(), any(), anyMap(), any()))
@@ -2621,8 +2666,8 @@ class DefaultControlBusGatewayTest {
     assertThat(execId1).isNotEqualTo(execId2);
 
     // Verify both workflows were cached separately
-    verify(preparedWorkflowCache).put(sessionId, workflowId1, preparedWorkflow1);
-    verify(preparedWorkflowCache).put(sessionId, workflowId2, preparedWorkflow2);
+    verify(preparedWorkflowCache).put(eq(sessionId), eq(workflowId1), eq(preparedWorkflow1), any());
+    verify(preparedWorkflowCache).put(eq(sessionId), eq(workflowId2), eq(preparedWorkflow2), any());
   }
 
   @Test
@@ -2658,7 +2703,8 @@ class DefaultControlBusGatewayTest {
         new WorkflowDefinition(workflowId, "test workflow", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
-    when(preparedWorkflowCache.get(sessionId, workflowId)).thenReturn(Optional.empty());
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
     when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.just(preparedWorkflow));
     when(orchestrator.execute(
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any()))
@@ -2685,7 +2731,8 @@ class DefaultControlBusGatewayTest {
         new WorkflowDefinition("wf-race", "d", List.of(), List.of());
     final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
     when(workflowDefinitionStore.find("s", "wf-race")).thenReturn(Mono.just(definition));
-    when(preparedWorkflowCache.get("s", "wf-race")).thenReturn(Optional.empty());
+    when(preparedWorkflowCache.get(eq("s"), eq("wf-race"), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
     // Both starts pass the early check and wait on the same preparation before asking for a slot.
     final reactor.core.publisher.Sinks.One<PreparedWorkflow> preparing =
         reactor.core.publisher.Sinks.one();
@@ -2753,7 +2800,8 @@ class DefaultControlBusGatewayTest {
     final java.util.concurrent.atomic.AtomicInteger prepares =
         new java.util.concurrent.atomic.AtomicInteger();
     when(workflowDefinitionStore.find("s", "wf-shared")).thenReturn(Mono.just(definition));
-    when(preparedWorkflowCache.get("s", "wf-shared")).thenReturn(Optional.empty());
+    when(preparedWorkflowCache.get(eq("s"), eq("wf-shared"), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
     when(orchestrator.prepareWorkflow(definition))
         .thenReturn(
             Mono.defer(

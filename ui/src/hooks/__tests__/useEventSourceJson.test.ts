@@ -176,4 +176,16 @@ describe('useEventSourceJson', () => {
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledWith({ n: 1 });
   });
+
+  it('takes the last event id from a frame and keeps delivering', () => {
+    const handler = vi.fn();
+    renderHook(() => useEventSourceJson('/api/stream', handler));
+    act(() => MockEventSource.latest().open());
+    act(() =>
+      MockEventSource.latest().onmessage?.(
+        new MessageEvent('message', { data: '{"n":1}', lastEventId: '17' })
+      )
+    );
+    expect(handler).toHaveBeenCalledWith({ n: 1 });
+  });
 });

@@ -71,6 +71,8 @@ public class LogStoreSubscriber {
             entry ->
                 store
                     .write(entry)
+                    // the hot feed must not run the write on the publishing thread
+                    .subscribeOn(Schedulers.boundedElastic())
                     .onErrorResume(
                         error -> {
                           log.atWarn()

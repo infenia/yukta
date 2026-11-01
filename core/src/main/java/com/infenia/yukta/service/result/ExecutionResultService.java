@@ -29,7 +29,8 @@ public class ExecutionResultService {
    *
    * @param retainedEvents events kept per execution for replay
    * @param retention how long an execution's results stay available after they were last used
-   * @param maxExecutions how many executions are kept at most
+   * @param maxExecutions how many finished executions are kept at most (live ones are never
+   *     evicted)
    */
   public ExecutionResultService(
       @Value("${yukta.results.retained-events:1000}") final int retainedEvents,
@@ -37,7 +38,12 @@ public class ExecutionResultService {
       @Value("${yukta.results.max-executions:200}") final int maxExecutions) {
     this.retainedEvents = Math.max(1, retainedEvents);
     this.channels =
-        Caffeine.newBuilder().expireAfterAccess(retention).maximumSize(maxExecutions).build();
+        Caffeine.newBuilder()
+            .expireAfterAccess(retention)
+            // A live run weighs 0, so size eviction only ever takes finished runs.
+            .maximumWeight(maxExecutions)
+            .weigher((String id, ResultChannel channel) -> channel.finished() ? 1 : 0)
+            .build();
   }
 
   /**
@@ -69,7 +75,9 @@ public class ExecutionResultService {
    * @param status the execution's final status
    */
   public void complete(final String executionId, final String status) {
-    channel(executionId).finish(status);
+    final ResultChannel channel = channel(executionId);
+    channel.finish(status);
+    channels.put(executionId, channel); // re-weigh: now it counts toward the cap
   }
 
   /**

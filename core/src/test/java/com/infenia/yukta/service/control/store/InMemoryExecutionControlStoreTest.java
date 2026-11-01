@@ -237,4 +237,32 @@ class InMemoryExecutionControlStoreTest {
     final var found = store.findAllActiveByWorkflow("session-1", "workflow-1");
     assertThat(found).hasSize(1).contains(control1);
   }
+
+  @Test
+  void testFindAllReturnsEveryExecution() {
+    final ExecutionControl control1 = createControl("session-1", "workflow-1", "exec-1");
+    final ExecutionControl control2 = createControl("session-2", "workflow-2", "exec-2");
+
+    store.save(control1);
+    store.save(control2);
+
+    assertThat(store.findAll()).hasSize(2).contains(control1, control2);
+  }
+
+  @Test
+  void testFindAllEmpty() {
+    assertThat(store.findAll()).isEmpty();
+  }
+
+  @Test
+  void testFindAllIsSnapshot() {
+    final ExecutionControl control = createControl("session-1", "workflow-1", "exec-1");
+    store.save(control);
+
+    final var snapshot = store.findAll();
+    store.remove("exec-1");
+
+    assertThat(snapshot).containsExactly(control);
+    assertThat(store.findAll()).isEmpty();
+  }
 }
