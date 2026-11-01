@@ -14,7 +14,7 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -25,7 +25,7 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 class SkipNodeCommandProcessorTest {
 
-  private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
+  private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final SkipNodeCommandProcessor processor = new SkipNodeCommandProcessor(registry);
   private final ExecutionControl control = mock(ExecutionControl.class);
   private final PreparedWorkflow prepared = mock(PreparedWorkflow.class);

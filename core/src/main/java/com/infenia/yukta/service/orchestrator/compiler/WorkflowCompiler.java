@@ -14,7 +14,7 @@ import com.infenia.yukta.model.workflow.WorkflowEdge;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.model.workflow.WorkflowTemplate;
 import com.infenia.yukta.plugin.core.Plugin;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.strategy.NodeAssemblerStrategy;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
@@ -70,7 +70,7 @@ public class WorkflowCompiler {
   private final SessionConfigStore configService;
 
   /** The execution control registry for managing workflow execution control. */
-  private final ExecutionControlRegistry executionControlRegistry;
+  private final ExecutionControlStore executionControlStore;
 
   /** The list of node assembler strategies for compiling different node types. */
   private final List<NodeAssemblerStrategy> assemblerStrategies;
@@ -201,7 +201,7 @@ public class WorkflowCompiler {
     final List<Runnable> connectors = new ArrayList<>(nodeCount);
 
     final var control =
-        executionControlRegistry
+        executionControlStore
             .findByExecutionId(executionId)
             .orElseThrow(
                 () ->

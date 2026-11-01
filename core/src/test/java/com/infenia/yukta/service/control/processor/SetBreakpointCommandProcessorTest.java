@@ -13,7 +13,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCom
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
@@ -27,7 +27,7 @@ import reactor.test.StepVerifier;
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class SetBreakpointCommandProcessorTest {
 
-  private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
+  private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final TaskTrackerService taskTracker = mock(TaskTrackerService.class);
   private final SetBreakpointCommandProcessor processor =
       new SetBreakpointCommandProcessor(registry, taskTracker);

@@ -19,7 +19,7 @@ import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
@@ -54,9 +54,8 @@ class DirectiveDispatcherSupervisorTest {
 
   @BeforeEach
   void setUp() {
-    final ExecutionControlRegistry registry =
-        new ExecutionControlRegistry(new InMemoryExecutionControlStore());
-    registry.register(
+    final ExecutionControlStore registry = new InMemoryExecutionControlStore();
+    registry.save(
         new ExecutionControl(
             "s",
             "wf",

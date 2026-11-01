@@ -21,7 +21,7 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.Map;
@@ -43,7 +43,7 @@ import reactor.test.StepVerifier;
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.processor.RestartCommandProcessor - ")
 class RestartCommandProcessorTest {
 
-  private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
+  private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
   private ExecutionScheduler scheduler =
@@ -82,7 +82,7 @@ class RestartCommandProcessorTest {
 
     verify(orchestrator)
         .execute(eq("s1"), eq("w1"), eq("new-1"), eq(prepared), eq(Map.of("k", "v")), any());
-    verify(registry, never()).unregister(any());
+    verify(registry, never()).remove(any());
     verify(completionSink).completeRestartSuccess("new-1");
   }
 
@@ -98,7 +98,7 @@ class RestartCommandProcessorTest {
     StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
 
     assertThat(safeStop.asMono().toFuture()).isDone();
-    verify(registry).unregister("exec-1");
+    verify(registry).remove("exec-1");
     verify(completionSink).completeRestartSuccess("new-1");
   }
 

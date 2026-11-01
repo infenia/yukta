@@ -12,7 +12,7 @@ import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,7 +38,7 @@ public class SignalNodeCommandProcessor implements ControlSignalProcessor {
   private static final String QUEUED = "QUEUED";
 
   /** The execution control registry, to find the run and its workflow. */
-  private final ExecutionControlRegistry registry;
+  private final ExecutionControlStore registry;
 
   /** Finds the plugin that serves a node. */
   private final ActivePluginRegistry plugins;

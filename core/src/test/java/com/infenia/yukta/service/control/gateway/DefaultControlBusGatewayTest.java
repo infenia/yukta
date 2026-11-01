@@ -45,7 +45,7 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
@@ -92,7 +92,7 @@ class DefaultControlBusGatewayTest {
 
   @Mock private ControlBusService controlBusService;
   @Mock private DefaultTaskTrackerService taskTracker;
-  @Mock private ExecutionControlRegistry executionControlRegistry;
+  @Mock private ExecutionControlStore executionControlStore;
   @Mock private WorkflowOrchestrator orchestrator;
   @Mock private WorkflowDefinitionStore workflowDefinitionStore;
   @Mock private PreparedWorkflowCache preparedWorkflowCache;
@@ -107,7 +107,7 @@ class DefaultControlBusGatewayTest {
         new DefaultControlBusGateway(
             controlBusService,
             taskTracker,
-            executionControlRegistry,
+            executionControlStore,
             archive,
             orchestrator,
             workflowDefinitionStore,
@@ -253,7 +253,7 @@ class DefaultControlBusGatewayTest {
   private ExecutionControl stubNodeExists(final String executionId, final String nodeId) {
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.nodePauseValves()).thenReturn(Map.of(nodeId, mock(ReactiveControlValve.class)));
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     return control;
   }
 
@@ -261,7 +261,7 @@ class DefaultControlBusGatewayTest {
   private void stubNoNodes(final String executionId) {
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.nodePauseValves()).thenReturn(Map.of());
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.of(control));
   }
 
   // --- Execution Control Command Tests ---
@@ -271,7 +271,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-1";
     final ExecutionControl control = mock(ExecutionControl.class);
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -296,7 +296,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-2";
     final ExecutionControl control = mock(ExecutionControl.class);
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -317,7 +317,7 @@ class DefaultControlBusGatewayTest {
   void pauseWorkflow_executionNotFound_throwsIllegalArgumentException() {
     // Given
     final String executionId = "exec-pause-not-found";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
     final Mono<Void> result = gateway.pauseWorkflow(executionId);
@@ -337,7 +337,7 @@ class DefaultControlBusGatewayTest {
   void resumeWorkflow_executionNotFound_throwsIllegalArgumentException() {
     // Given
     final String executionId = "exec-resume-not-found";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
     final Mono<Void> result = gateway.resumeWorkflow(executionId);
@@ -404,7 +404,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-pause-node-not-found";
     final String nodeId = "node-x";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
     final Mono<Void> result = gateway.pauseNode(executionId, nodeId);
@@ -425,7 +425,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-resume-node-not-found";
     final String nodeId = "node-x";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
     final Mono<Void> result = gateway.resumeNode(executionId, nodeId);
@@ -502,9 +502,8 @@ class DefaultControlBusGatewayTest {
     final ExecutionControl control =
         new ExecutionControlFactory()
             .create("session-1", "workflow-1", executionId, prepared, Map.of());
-    final ExecutionControlRegistry realRegistry =
-        new ExecutionControlRegistry(new InMemoryExecutionControlStore());
-    realRegistry.register(control);
+    final ExecutionControlStore realRegistry = new InMemoryExecutionControlStore();
+    realRegistry.save(control);
     final DefaultControlBusGateway realGateway =
         new DefaultControlBusGateway(
             controlBusService,
@@ -598,7 +597,7 @@ class DefaultControlBusGatewayTest {
 
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
-    when(executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId))
+    when(executionControlStore.findAllActiveByWorkflow(sessionId, workflowId))
         .thenReturn(List.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
@@ -613,7 +612,7 @@ class DefaultControlBusGatewayTest {
             })
         .verifyComplete();
 
-    verify(executionControlRegistry).findAllActiveByWorkflow(sessionId, workflowId);
+    verify(executionControlStore).findAllActiveByWorkflow(sessionId, workflowId);
     verify(controlBusService).emit(any());
   }
 
@@ -623,7 +622,7 @@ class DefaultControlBusGatewayTest {
     final String sessionId = "sess-no-exec";
     final String workflowId = "wf-no-exec";
     final String reason = "stop";
-    when(executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId))
+    when(executionControlStore.findAllActiveByWorkflow(sessionId, workflowId))
         .thenReturn(List.of());
 
     // When
@@ -648,7 +647,7 @@ class DefaultControlBusGatewayTest {
 
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -659,7 +658,7 @@ class DefaultControlBusGatewayTest {
         .assertNext(stoppedId -> assertThat(stoppedId).isEqualTo(executionId))
         .verifyComplete();
 
-    verify(executionControlRegistry).findByExecutionId(executionId);
+    verify(executionControlStore).findByExecutionId(executionId);
     verify(controlBusService).emit(any());
   }
 
@@ -668,7 +667,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-not-found";
     final String reason = "stop";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
     final Mono<String> result = gateway.stopExecution(executionId, reason);
@@ -686,7 +685,7 @@ class DefaultControlBusGatewayTest {
   @Test
   void stopExecution_noHandleButTrackerStillRunning_finishesTheRunAsStopped() {
     final String executionId = "exec-orphan";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
     when(taskTracker.getProgressByExecutionId(executionId))
         .thenReturn(
             new WorkflowProgress(
@@ -703,7 +702,7 @@ class DefaultControlBusGatewayTest {
   @Test
   void stopExecution_noHandleAndTrackerAlreadyFinal_isNotFound() {
     final String executionId = "exec-done";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
     when(taskTracker.getProgressByExecutionId(executionId))
         .thenReturn(
             new WorkflowProgress(
@@ -720,7 +719,7 @@ class DefaultControlBusGatewayTest {
   void stopExecution_withMode_putsTheModeOnTheStopCommand() {
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn("exec-kill");
-    when(executionControlRegistry.findByExecutionId("exec-kill")).thenReturn(Optional.of(control));
+    when(executionControlStore.findByExecutionId("exec-kill")).thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     StepVerifier.create(gateway.stopExecution("exec-kill", "runaway", StopMode.KILL))
@@ -742,7 +741,7 @@ class DefaultControlBusGatewayTest {
 
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
-    when(executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId))
+    when(executionControlStore.findAllActiveByWorkflow(sessionId, workflowId))
         .thenReturn(List.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
@@ -782,7 +781,7 @@ class DefaultControlBusGatewayTest {
     final ExecutionControl control2 = mock(ExecutionControl.class);
     when(control2.executionId()).thenReturn(executionId2);
 
-    when(executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId))
+    when(executionControlStore.findAllActiveByWorkflow(sessionId, workflowId))
         .thenReturn(List.of(control1, control2));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
@@ -816,7 +815,7 @@ class DefaultControlBusGatewayTest {
 
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
-    when(executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId))
+    when(executionControlStore.findAllActiveByWorkflow(sessionId, workflowId))
         .thenReturn(List.of(control));
 
     final RuntimeException testError = new RuntimeException("Command execution failed");
@@ -839,7 +838,7 @@ class DefaultControlBusGatewayTest {
 
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
-    when(executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId))
+    when(executionControlStore.findAllActiveByWorkflow(sessionId, workflowId))
         .thenReturn(List.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
@@ -849,7 +848,7 @@ class DefaultControlBusGatewayTest {
     // Then
     StepVerifier.create(result).assertNext(ids -> assertThat(ids).isNotNull()).verifyComplete();
 
-    verify(executionControlRegistry).findAllActiveByWorkflow(sessionId, workflowId);
+    verify(executionControlStore).findAllActiveByWorkflow(sessionId, workflowId);
   }
 
   @Test
@@ -986,7 +985,7 @@ class DefaultControlBusGatewayTest {
   void restartWorkflow_processorCompletesSuccess_returnsRealNewExecutionId() {
     // Given
     final String executionId = "exec-12";
-    when(executionControlRegistry.findByExecutionId(executionId))
+    when(executionControlStore.findByExecutionId(executionId))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
@@ -1014,7 +1013,7 @@ class DefaultControlBusGatewayTest {
   @Test
   void restartWorkflow_repeatedWithinWindow_returnsFirstNewExecutionId() {
     final String executionId = "exec-14";
-    when(executionControlRegistry.findByExecutionId(executionId))
+    when(executionControlStore.findByExecutionId(executionId))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
@@ -1032,7 +1031,7 @@ class DefaultControlBusGatewayTest {
         .verifyComplete();
 
     // A repeat (the caller never saw the answer) must not restart again while the run is live.
-    when(executionControlRegistry.findByExecutionId(first.get()))
+    when(executionControlStore.findByExecutionId(first.get()))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     StepVerifier.create(gateway.restartWorkflow(executionId))
         .assertNext(id -> assertThat(id).isEqualTo(first.get()))
@@ -1043,7 +1042,7 @@ class DefaultControlBusGatewayTest {
   @Test
   void restartWorkflow_repeatedAfterNewRunFinished_startsAnotherRun() {
     final String executionId = "exec-15";
-    when(executionControlRegistry.findByExecutionId(executionId))
+    when(executionControlStore.findByExecutionId(executionId))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
@@ -1074,7 +1073,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-13";
     final String fromNodeId = "node-11";
-    when(executionControlRegistry.findByExecutionId(executionId))
+    when(executionControlStore.findByExecutionId(executionId))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
@@ -1109,7 +1108,7 @@ class DefaultControlBusGatewayTest {
     final String executionId = "exec-processor-fails";
     final RuntimeException notFound =
         new IllegalArgumentException("Execution not found: " + executionId);
-    when(executionControlRegistry.findByExecutionId(executionId))
+    when(executionControlStore.findByExecutionId(executionId))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
@@ -1133,7 +1132,7 @@ class DefaultControlBusGatewayTest {
   void restartWorkflow_processorNeverCompletes_timesOut() {
     // Given
     final String executionId = "exec-timeout";
-    when(executionControlRegistry.findByExecutionId(executionId))
+    when(executionControlStore.findByExecutionId(executionId))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
@@ -1155,7 +1154,7 @@ class DefaultControlBusGatewayTest {
     // short-circuits to Mono.empty() before ever invoking the restart processor when the
     // execution isn't found).
     final String executionId = "exec-not-found";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
     final Mono<String> result = gateway.restartWorkflow(executionId);
@@ -1175,7 +1174,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-not-found";
     final String fromNodeId = "node-1";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
     final Mono<String> result = gateway.restartFromNode(executionId, fromNodeId);
@@ -1380,7 +1379,7 @@ class DefaultControlBusGatewayTest {
                 new NodeHeartbeat("", "workflow-4", "gone", "node-14", Instant.EPOCH)));
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.sessionId()).thenReturn("s1");
-    when(executionControlRegistry.findByExecutionId("run-1")).thenReturn(Optional.of(control));
+    when(executionControlStore.findByExecutionId("run-1")).thenReturn(Optional.of(control));
 
     assertThat(gateway.getHeartbeats())
         .extracting(NodeHeartbeat::sessionId)
@@ -1438,7 +1437,7 @@ class DefaultControlBusGatewayTest {
     // by testing that control commands create proper messages
     final String executionId = "exec-build-cmd";
     final ExecutionControl control = mock(ExecutionControl.class);
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
@@ -1459,7 +1458,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-error";
     final ExecutionControl control = mock(ExecutionControl.class);
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
@@ -1475,7 +1474,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-error";
     final ExecutionControl control = mock(ExecutionControl.class);
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.of(control));
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.of(control));
     final RuntimeException testError = new RuntimeException("Emit failed");
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
@@ -1560,7 +1559,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-stop-execution-not-found";
     final String nodeId = "node-x";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
     final Mono<Void> result = gateway.stopNode(executionId, nodeId, false, "reason");
@@ -1618,7 +1617,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-skip-execution-not-found";
     final String nodeId = "node-x";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
     final Mono<Void> result = gateway.skipNode(executionId, nodeId, true);
@@ -1687,7 +1686,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-step-enable-not-found";
     final String nodeId = "node-x";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
     final Mono<Void> result = gateway.enableStepMode(executionId, nodeId);
@@ -1729,7 +1728,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-step-disable-not-found";
     final String nodeId = "node-x";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
     final Mono<Void> result = gateway.disableStepMode(executionId, nodeId);
@@ -1771,7 +1770,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-step-node-not-found";
     final String nodeId = "node-x";
-    when(executionControlRegistry.findByExecutionId(executionId)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
     final Mono<Void> result = gateway.stepNode(executionId, nodeId);
@@ -1813,7 +1812,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-error";
     final RuntimeException testError = new RuntimeException("Emit failed");
-    when(executionControlRegistry.findByExecutionId(executionId))
+    when(executionControlStore.findByExecutionId(executionId))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
@@ -1830,7 +1829,7 @@ class DefaultControlBusGatewayTest {
     final String executionId = "exec-error";
     final String fromNodeId = "node-error";
     final RuntimeException testError = new RuntimeException("Emit failed");
-    when(executionControlRegistry.findByExecutionId(executionId))
+    when(executionControlStore.findByExecutionId(executionId))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
@@ -2712,7 +2711,7 @@ class DefaultControlBusGatewayTest {
 
   @Test
   void restartWorkflow_ofAnExecutionThatIsNeitherLiveNorArchived_isRejected() {
-    when(executionControlRegistry.findByExecutionId("gone")).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId("gone")).thenReturn(Optional.empty());
 
     StepVerifier.create(gateway.restartWorkflow("gone"))
         .expectErrorMatches(e -> e.getMessage().contains("Execution not found: gone"))
@@ -2764,7 +2763,7 @@ class DefaultControlBusGatewayTest {
         new DefaultControlBusGateway(
             controlBusService,
             taskTracker,
-            executionControlRegistry,
+            executionControlStore,
             archive,
             orchestrator,
             workflowDefinitionStore,
@@ -2797,7 +2796,7 @@ class DefaultControlBusGatewayTest {
         new DefaultControlBusGateway(
             controlBusService,
             taskTracker,
-            executionControlRegistry,
+            executionControlStore,
             archive,
             orchestrator,
             workflowDefinitionStore,
@@ -2866,7 +2865,7 @@ class DefaultControlBusGatewayTest {
   void setBreakpoint_emitsCommand_andClearEmitsEmptyOne() {
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.nodePauseValves()).thenReturn(Map.of("n1", new ReactiveControlValve()));
-    when(executionControlRegistry.findByExecutionId("e1")).thenReturn(Optional.of(control));
+    when(executionControlStore.findByExecutionId("e1")).thenReturn(Optional.of(control));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     StepVerifier.create(gateway.addBreakpoint("e1", "n1", "payload.x", "1")).verifyComplete();
@@ -2888,7 +2887,7 @@ class DefaultControlBusGatewayTest {
   void retryNode_ofFailedNode_restartsFromIt() {
     when(taskTracker.getProgressByExecutionId("e1"))
         .thenReturn(progressWith("n1", TaskStatus.FAILURE));
-    when(executionControlRegistry.findByExecutionId("e1"))
+    when(executionControlStore.findByExecutionId("e1"))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
@@ -2910,7 +2909,7 @@ class DefaultControlBusGatewayTest {
   void retryNode_ofTimedOutNode_restartsFromIt() {
     when(taskTracker.getProgressByExecutionId("e1"))
         .thenReturn(progressWith("n1", TaskStatus.TIMED_OUT));
-    when(executionControlRegistry.findByExecutionId("e1"))
+    when(executionControlStore.findByExecutionId("e1"))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
@@ -2956,7 +2955,7 @@ class DefaultControlBusGatewayTest {
         new DefaultControlBusGateway(
             controlBusService,
             taskTracker,
-            executionControlRegistry,
+            executionControlStore,
             archive,
             orchestrator,
             workflowDefinitionStore,
@@ -2987,7 +2986,7 @@ class DefaultControlBusGatewayTest {
         new DefaultControlBusGateway(
             controlBusService,
             taskTracker,
-            executionControlRegistry,
+            executionControlStore,
             archive,
             orchestrator,
             workflowDefinitionStore,
@@ -3065,7 +3064,7 @@ class DefaultControlBusGatewayTest {
         new DefaultControlBusGateway(
             controlBusService,
             taskTracker,
-            executionControlRegistry,
+            executionControlStore,
             archive,
             orchestrator,
             workflowDefinitionStore,
@@ -3111,7 +3110,7 @@ class DefaultControlBusGatewayTest {
         new DefaultControlBusGateway(
             controlBusService,
             taskTracker,
-            executionControlRegistry,
+            executionControlStore,
             archive,
             orchestrator,
             workflowDefinitionStore,
@@ -3148,7 +3147,7 @@ class DefaultControlBusGatewayTest {
         new DefaultControlBusGateway(
             controlBusService,
             taskTracker,
-            executionControlRegistry,
+            executionControlStore,
             archive,
             orchestrator,
             workflowDefinitionStore,
@@ -3175,7 +3174,7 @@ class DefaultControlBusGatewayTest {
 
   @Test
   void nodeCall_inTheSessionWithoutLiveRun_isNotFound_evenIfAnotherSessionHasOne() {
-    when(executionControlRegistry.findAllActiveByWorkflow("s2", "build")).thenReturn(List.of());
+    when(executionControlStore.findAllActiveByWorkflow("s2", "build")).thenReturn(List.of());
 
     StepVerifier.create(
             gateway.sendCommand("s2", "build", null, "n", DefaultMessage.create(null, "x")))
@@ -3190,7 +3189,7 @@ class DefaultControlBusGatewayTest {
     final ExecutionControl b = mock(ExecutionControl.class);
     when(a.executionId()).thenReturn("run-a");
     when(b.executionId()).thenReturn("run-b");
-    when(executionControlRegistry.findAllActiveByWorkflow("s1", "build")).thenReturn(List.of(a, b));
+    when(executionControlStore.findAllActiveByWorkflow("s1", "build")).thenReturn(List.of(a, b));
     final Message<?> command = DefaultMessage.create(null, "x");
     when(controlBusService.sendCommand("build", "run-b", "n", command))
         .thenReturn(Mono.just(command));
@@ -3210,7 +3209,7 @@ class DefaultControlBusGatewayTest {
   private void liveRun(final String sessionId, final String workflowId, final String executionId) {
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.executionId()).thenReturn(executionId);
-    when(executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId))
+    when(executionControlStore.findAllActiveByWorkflow(sessionId, workflowId))
         .thenReturn(List.of(control));
   }
 }

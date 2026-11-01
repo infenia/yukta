@@ -13,7 +13,7 @@ import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import java.util.Map;
 import java.util.Optional;
@@ -46,7 +46,7 @@ import reactor.core.scheduler.Schedulers;
 public class RestartCommandProcessor implements ControlSignalProcessor {
 
   /** The execution control registry for accessing execution control state. */
-  private final ExecutionControlRegistry registry;
+  private final ExecutionControlStore registry;
 
   /** Keeps recent executions, running or finished, restartable. */
   private final ExecutionArchive archive;
@@ -141,7 +141,7 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
           running.ifPresent(
               control -> {
                 control.safeStopSink().tryEmitEmpty();
-                registry.unregister(control.executionId());
+                registry.remove(control.executionId());
               });
           start(archived, restart, admission);
           return Mono.empty();

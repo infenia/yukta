@@ -11,7 +11,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeComman
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
@@ -21,8 +21,8 @@ import reactor.core.publisher.Mono;
 final class NodeCommands extends ControlDispatch {
 
   /* default */ NodeCommands(
-      final ControlBusGateway gateway, final ExecutionControlRegistry executionControlRegistry) {
-    super(gateway, executionControlRegistry);
+      final ControlBusGateway gateway, final ExecutionControlStore executionControlStore) {
+    super(gateway, executionControlStore);
   }
 
   /* default */ Mono<Void> pauseNode(final String executionId, final String nodeId) {

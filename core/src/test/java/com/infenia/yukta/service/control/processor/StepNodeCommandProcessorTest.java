@@ -11,7 +11,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
@@ -30,7 +30,7 @@ import reactor.test.StepVerifier;
 class StepNodeCommandProcessorTest {
 
   /** Registry for execution control. */
-  @Mock private ExecutionControlRegistry registry;
+  @Mock private ExecutionControlStore registry;
 
   /** Task tracker service. */
   @Mock private TaskTrackerService taskTracker;

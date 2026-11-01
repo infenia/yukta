@@ -18,7 +18,7 @@ import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.model.workflow.WorkflowTemplate;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.strategy.NodeAssemblerStrategy;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
@@ -52,7 +52,7 @@ class WorkflowCompilerTest {
 
   @Mock private TaskTrackerService tracker;
   @Mock private SessionConfigStore configService;
-  @Mock private ExecutionControlRegistry executionControlRegistry;
+  @Mock private ExecutionControlStore executionControlStore;
   @Mock private NodeAssemblerStrategy assemblerStrategy;
   @Mock private Plugin plugin;
 
@@ -68,7 +68,7 @@ class WorkflowCompilerTest {
         new WorkflowCompiler(
             Schedulers.boundedElastic(),
             configService,
-            executionControlRegistry,
+            executionControlStore,
             List.of(assemblerStrategy));
   }
 
@@ -334,7 +334,7 @@ class WorkflowCompilerTest {
             any(), any(), any(), any(Integer.class), any(Integer.class)))
         .thenReturn(ctx -> {});
 
-    when(executionControlRegistry.findByExecutionId(EXECUTION_ID))
+    when(executionControlStore.findByExecutionId(EXECUTION_ID))
         .thenReturn(Optional.of(buildMinimalExecutionControl()));
     when(configService.getExecutionTimeout(SESSION_ID)).thenReturn(Mono.just(5L));
 
@@ -355,7 +355,7 @@ class WorkflowCompilerTest {
 
   @Test
   void executeTemplate_missingExecutionControl_throwsIllegalStateException() {
-    when(executionControlRegistry.findByExecutionId(EXECUTION_ID)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(EXECUTION_ID)).thenReturn(Optional.empty());
 
     final NodeAssembler[] assemblers = new NodeAssembler[0];
 
@@ -369,7 +369,7 @@ class WorkflowCompilerTest {
 
   @Test
   void executeTemplate_withNoNodes_completesSuccessfully() {
-    when(executionControlRegistry.findByExecutionId(EXECUTION_ID))
+    when(executionControlStore.findByExecutionId(EXECUTION_ID))
         .thenReturn(Optional.of(buildMinimalExecutionControl()));
     when(configService.getExecutionTimeout(SESSION_ID)).thenReturn(Mono.just(60L));
 
@@ -384,7 +384,7 @@ class WorkflowCompilerTest {
 
   @Test
   void executeTemplate_assemblersCalled_inOrder() {
-    when(executionControlRegistry.findByExecutionId(EXECUTION_ID))
+    when(executionControlStore.findByExecutionId(EXECUTION_ID))
         .thenReturn(Optional.of(buildMinimalExecutionControl()));
     when(configService.getExecutionTimeout(SESSION_ID)).thenReturn(Mono.just(60L));
 
@@ -404,7 +404,7 @@ class WorkflowCompilerTest {
 
   @Test
   void executeTemplate_doesNotEmitWorkflowStatus_orchestratorOwnsIt() {
-    when(executionControlRegistry.findByExecutionId(EXECUTION_ID))
+    when(executionControlStore.findByExecutionId(EXECUTION_ID))
         .thenReturn(Optional.of(buildMinimalExecutionControl()));
     when(configService.getExecutionTimeout(SESSION_ID)).thenReturn(Mono.just(60L));
 
@@ -421,7 +421,7 @@ class WorkflowCompilerTest {
 
   @Test
   void executeTemplate_payloadAvailableInReactorContext() {
-    when(executionControlRegistry.findByExecutionId(EXECUTION_ID))
+    when(executionControlStore.findByExecutionId(EXECUTION_ID))
         .thenReturn(Optional.of(buildMinimalExecutionControl()));
     when(configService.getExecutionTimeout(SESSION_ID)).thenReturn(Mono.just(60L));
 
