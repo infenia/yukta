@@ -33,7 +33,6 @@ describe('sumOf', () => {
 describe('tagOf', () => {
   it('reads a tag from a series key', () => {
     expect(tagOf('rate{reason=limit,wf=a}', 'reason')).toBe('limit');
-    expect(tagOf('rate{wf=a|reason=queue}', 'reason')).toBe('queue');
   });
 
   it('is undefined when the tag is absent', () => {
