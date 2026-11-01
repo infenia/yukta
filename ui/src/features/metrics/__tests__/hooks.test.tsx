@@ -19,6 +19,26 @@ vi.mock('@/hooks/useEventSourceJson', () => ({
   },
 }));
 
+describe('useDashboardParams defaults are not written back', () => {
+  it('drops the parameter when a value is set back to its default', () => {
+    const { result } = renderHook(() => useDashboardParams(), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <MemoryRouter initialEntries={['/?scope=session:s1&range=1d&live=0']}>
+          {children}
+        </MemoryRouter>
+      ),
+    });
+    act(() => result.current.setScope('global'));
+    act(() => result.current.setRange('1h'));
+    act(() => result.current.setLive(true));
+    expect(result.current).toMatchObject({
+      scope: 'global',
+      range: '1h',
+      live: true,
+    });
+  });
+});
+
 describe('useDashboardParams', () => {
   const wrap =
     (path: string) =>
