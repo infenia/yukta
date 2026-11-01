@@ -193,9 +193,7 @@ public class WorkflowValidator {
    * only builds a terminal from the type; a plugin that has only one of them is not accepted.
    */
   private static boolean isTerminal(final Plugin plugin) {
-    return plugin != null
-        && plugin.getCategory() == PluginCategory.TERMINAL
-        && plugin instanceof TerminalPlugin;
+    return plugin.getCategory() == PluginCategory.TERMINAL && plugin instanceof TerminalPlugin;
   }
 
   private Optional<String> entryPoint(
