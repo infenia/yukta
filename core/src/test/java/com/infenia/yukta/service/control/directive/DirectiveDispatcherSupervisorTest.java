@@ -26,14 +26,12 @@ import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
@@ -47,7 +45,7 @@ class DirectiveDispatcherSupervisorTest {
 
   private final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
   private final ExecutionEventFeed feed = new ExecutionEventFeed();
-  private final List<ExecutionEvent> events = new ArrayList<>();
+  private final List<ExecutionEvent> events = new java.util.concurrent.CopyOnWriteArrayList<>();
   private ControlSignalProcessor processor;
   private ExecutionSupervisor supervisor;
   private DirectiveDispatcher dispatcher;
@@ -105,6 +103,7 @@ class DirectiveDispatcherSupervisorTest {
               assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
               assertThat(entry.status()).contains("guard: maintenance window");
             });
+    org.awaitility.Awaitility.await().until(() -> !events.isEmpty());
     assertThat(events)
         .singleElement()
         .isInstanceOfSatisfying(
@@ -131,6 +130,7 @@ class DirectiveDispatcherSupervisorTest {
               assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_APPLIED);
               assertThat(entry.status()).isEqualTo("PauseWorkflowCommand [by rules]");
             });
+    org.awaitility.Awaitility.await().until(() -> !events.isEmpty());
     assertThat(events)
         .singleElement()
         .isInstanceOfSatisfying(
@@ -149,6 +149,6 @@ class DirectiveDispatcherSupervisorTest {
         .singleElement()
         .satisfies(e -> assertThat(e.status()).isEqualTo("PauseWorkflowCommand"));
     verify(supervisor).review(org.mockito.ArgumentMatchers.argThat(r -> r.actor() == null));
-    assertThat(Flux.fromIterable(events).count().block()).isEqualTo(1L);
+    org.awaitility.Awaitility.await().until(() -> events.size() == 1);
   }
 }

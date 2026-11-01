@@ -21,7 +21,8 @@ A supervisor implements `ExecutionSupervisor` (plugin-api) and is registered as 
   (`ControlReviewer`; first refusal wins in `order()`; an erroring reviewer refuses). The caller gets
   `ControlRejectedException` (HTTP 403) and the log gets `CONTROL_REJECTED`.
 - Commands sent by a supervisor are logged as `PauseWorkflowCommand [by <id>]`.
-- The feed delivers on the publisher's thread, so each supervisor gets its events through a
+- `ExecutionEventFeed.events()` gives every subscriber its own buffer (10 000, overflow counted in
+  `yukta.tracker.dropped{kind=feed}`) on `boundedElastic`, so none runs on the tracker's thread. On top of that each supervisor gets its events through a
   bounded buffer (256) on `boundedElastic`; a slow or blocking supervisor drops events (counted in
   `yukta.tracker.dropped{kind=supervisor}`) and never holds the tracker up.
 - The feed is exposed at `GET /api/events/stream` (SSE; filters `executionId`, `type`). External
