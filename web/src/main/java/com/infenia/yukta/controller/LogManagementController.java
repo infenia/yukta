@@ -8,7 +8,7 @@ import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.mapper.WorkflowMapper;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -50,7 +50,7 @@ public class LogManagementController {
   private final PluginLogStore logStore;
 
   /** The task tracker. */
-  private final DefaultTaskTrackerService taskTracker;
+  private final TaskTrackerService taskTracker;
 
   /** The workflow mapper. */
   private final WorkflowMapper workflowMapper;
