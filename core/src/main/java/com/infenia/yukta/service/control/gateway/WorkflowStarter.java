@@ -70,7 +70,7 @@ class WorkflowStarter {
 
   private Mono<String> startOnce(
       final String sessionId, final String workflowId, final Map<String, Object> payload) {
-    log.atInfo()
+    log.atDebug()
         .addKeyValue("sessionId", sessionId)
         .addKeyValue("workflowId", workflowId)
         .log("Starting workflow execution");

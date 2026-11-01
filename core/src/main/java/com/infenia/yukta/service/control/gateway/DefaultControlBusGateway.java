@@ -188,7 +188,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public void registerPlugin(final String workflowId, final String nodeId, final Plugin plugin) {
-    log.atInfo()
+    log.atDebug()
         .addKeyValue("workflowId", workflowId)
         .addKeyValue("nodeId", nodeId)
         .addKeyValue("pluginType", plugin.getClass().getSimpleName())
@@ -202,7 +202,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public void unregisterPlugin(final String workflowId, final String nodeId) {
-    log.atInfo()
+    log.atDebug()
         .addKeyValue("workflowId", workflowId)
         .addKeyValue("nodeId", nodeId)
         .log("Unregistering plugin");
@@ -234,7 +234,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final String workflowId, final String nodeId, final Message<?> command) {
     return Mono.defer(
             () -> {
-              log.atInfo()
+              log.atDebug()
                   .addKeyValue("workflowId", workflowId)
                   .addKeyValue("nodeId", nodeId)
                   .log("Sending command to node");
@@ -262,7 +262,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final String sessionId, final WorkflowDefinition workflowDefinition) {
     return Mono.defer(
             () -> {
-              log.atInfo()
+              log.atDebug()
                   .addKeyValue("sessionId", sessionId)
                   .addKeyValue("workflowId", workflowDefinition.workflowId())
                   .addKeyValue("nodeCount", workflowDefinition.nodes().size())
@@ -273,7 +273,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         .then(Mono.defer(() -> starter.dropCacheIfStale(sessionId, workflowDefinition)))
         .doOnSuccess(
             _ ->
-                log.atInfo()
+                log.atDebug()
                     .addKeyValue("sessionId", sessionId)
                     .addKeyValue("workflowId", workflowDefinition.workflowId())
                     .log("Workflow compiled and cached successfully"))
@@ -320,7 +320,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                         new PauseWorkflowCommand(executionId),
                         ControlDispatch.CONTROL_COMMAND_PRIORITY)))
         .doOnSubscribe(
-            _ -> log.atInfo().addKeyValue("executionId", executionId).log("Pausing workflow"))
+            _ -> log.atDebug().addKeyValue("executionId", executionId).log("Pausing workflow"))
         .doOnSuccess(
             _ ->
                 log.atDebug()
@@ -344,7 +344,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                         new ResumeWorkflowCommand(executionId),
                         ControlDispatch.CONTROL_COMMAND_PRIORITY)))
         .doOnSubscribe(
-            _ -> log.atInfo().addKeyValue("executionId", executionId).log("Resuming workflow"))
+            _ -> log.atDebug().addKeyValue("executionId", executionId).log("Resuming workflow"))
         .doOnSuccess(
             _ ->
                 log.atDebug()
@@ -388,7 +388,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         .collectList()
         .doOnSubscribe(
             _ ->
-                log.atInfo()
+                log.atDebug()
                     .addKeyValue("sessionId", sessionId)
                     .addKeyValue("workflowId", workflowId)
                     .addKeyValue("reason", reason)
@@ -396,7 +396,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                     .log("Stopping all workflow executions"))
         .doOnSuccess(
             stoppedIds ->
-                log.atInfo()
+                log.atDebug()
                     .addKeyValue("sessionId", sessionId)
                     .addKeyValue("workflowId", workflowId)
                     .addKeyValue("count", stoppedIds.size())
@@ -428,14 +428,14 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                     .orElseGet(() -> queries.finishOrphan(executionId)))
         .doOnSubscribe(
             _ ->
-                log.atInfo()
+                log.atDebug()
                     .addKeyValue("executionId", executionId)
                     .addKeyValue("reason", reason)
                     .addKeyValue("mode", mode)
                     .log("Stopping specific execution"))
         .doOnSuccess(
             stoppedId ->
-                log.atInfo()
+                log.atDebug()
                     .addKeyValue("executionId", stoppedId)
                     .log("Execution stop command executed"))
         .doOnError(
