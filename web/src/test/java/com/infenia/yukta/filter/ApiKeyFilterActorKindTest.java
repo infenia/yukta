@@ -40,7 +40,8 @@ class ApiKeyFilterActorKindTest {
         new MockEnvironment()
             .withProperty("yukta.api-keys[0].name", "ops")
             .withProperty("yukta.api-keys[0].key", "o-key")
-            .withProperty("yukta.api-keys[0].role", "OPERATOR"),
+            .withProperty("yukta.api-keys[0].role", "OPERATOR")
+            .withProperty("yukta.api-keys[0].sessions", "*"),
         "o-key");
 
     assertThat(kind.get()).isEqualTo(ControlActor.Kind.KEY);
