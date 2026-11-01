@@ -3375,15 +3375,15 @@ class DefaultTaskTrackerServiceTest {
   void sessionTtl_failingSessionSweepIsLoggedAndTimerKeepsGoing() {
     // a long execution cleanup TTL keeps the execution sweep from ticking, so only the session
     // sweep meets the broken clock
-    final DefaultTaskTrackerService timed =
-        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
     final AtomicInteger sweeps = new AtomicInteger();
-    timed.setSessionTtl(Duration.ofSeconds(1));
-    timed.setClock(
-        () -> {
-          sweeps.incrementAndGet();
-          throw new IllegalStateException("clock broke");
-        });
+    final DefaultTaskTrackerService timed =
+        TrackerFactory.tracker(
+            new YuktaProperties.Tracker(Duration.ofSeconds(1), 0, Duration.ofMinutes(10)),
+            statusHistoryCache,
+            () -> {
+              sweeps.incrementAndGet();
+              throw new IllegalStateException("clock broke");
+            });
     timed.init();
     try {
       await().atMost(10, TimeUnit.SECONDS).until(() -> sweeps.get() >= 2);
