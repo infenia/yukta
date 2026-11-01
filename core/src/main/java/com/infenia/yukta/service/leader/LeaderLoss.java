@@ -3,12 +3,14 @@
 package com.infenia.yukta.service.leader;
 
 import com.infenia.yukta.plugin.control.StopMode;
-import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.control.gateway.DefaultControlBusGateway;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Stops the live runs when this server loses the leader lease. The new leader aborts and may resume
@@ -27,7 +29,7 @@ public class LeaderLoss implements SmartInitializingSingleton {
   private final ExecutionControlStore registry;
 
   /** Stops a run. */
-  private final ControlBusGateway gateway;
+  private final DefaultControlBusGateway gateway;
 
   @Override
   public void afterSingletonsInstantiated() {
@@ -35,17 +37,18 @@ public class LeaderLoss implements SmartInitializingSingleton {
   }
 
   /* default */ void stopAll() {
-    registry
-        .findAll()
-        .forEach(
+    // The subscriptions are cancelled once the kills are done, so a kill still gets to record it.
+    Flux.fromIterable(registry.findAll())
+        .flatMap(
             control -> {
               log.atWarn()
                   .addKeyValue("executionId", control.executionId())
                   .log("Leader lease lost, stopping the run");
-              gateway
+              return gateway
                   .stopExecution(control.executionId(), "leader lease lost", StopMode.KILL)
-                  .onErrorResume(_ -> reactor.core.publisher.Mono.empty())
-                  .subscribe();
-            });
+                  .onErrorResume(_ -> Mono.empty());
+            })
+        .doFinally(_ -> gateway.cancelRunningExecutions())
+        .subscribe();
   }
 }
