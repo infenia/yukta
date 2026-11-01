@@ -214,7 +214,7 @@ class WorkflowOrchestratorTest {
         .verifyComplete();
 
     verify(broker, timeout(5000)).cancelExecution("exec-in", "run-ended");
-    verify(executionControlRegistry, timeout(5000)).unregister("exec-in");
+    verify(executionControlStore, timeout(5000)).remove("exec-in");
   }
 
   @Test
@@ -235,7 +235,7 @@ class WorkflowOrchestratorTest {
     StepVerifier.create(orchestrator.execute("s", "w", "exec-in2", prepared, Map.of()))
         .verifyComplete();
 
-    verify(executionControlRegistry, timeout(5000)).unregister("exec-in2");
+    verify(executionControlStore, timeout(5000)).remove("exec-in2");
   }
 
   @Test
