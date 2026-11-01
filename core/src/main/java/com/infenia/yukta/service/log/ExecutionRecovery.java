@@ -14,8 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,10 +31,6 @@ import org.springframework.stereotype.Component;
 @Component
 @SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.AvoidInstantiatingObjectsInLoops"})
 public class ExecutionRecovery implements SmartInitializingSingleton {
-
-  /** A limit change as the gateway logs it, with the actor suffix when there was one. */
-  private static final Pattern LIMITS =
-      Pattern.compile("SetLimits\\((\\d{1,9})(?:, (\\d{1,9}))?\\)(?: \\[by .*\\])?");
 
   /** The execution log. */
   private final ExecutionLogStore store;
@@ -203,19 +197,18 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
    */
   private void restoreLimits(final List<ExecutionLogEvent> schedulerEvents) {
     final ExecutionScheduler target = executionScheduler;
-    if (target != null) {
-      for (final ExecutionLogEvent event : schedulerEvents.reversed()) {
-        // Both numbers are 1 to 9 digits (see LIMITS), so parseInt cannot overflow.
-        final Matcher match = LIMITS.matcher(event.status());
-        if (event.type() == ExecutionLogEvent.Type.CONTROL_APPLIED && match.matches()) {
-          final int perWorkflow =
-              match.group(2) == null ? target.perWorkflowLimit() : Integer.parseInt(match.group(2));
-          target.setLimits(Integer.parseInt(match.group(1)), perWorkflow);
-          log.atInfo()
-              .addKeyValue("limits", event.status())
-              .log("Restored the limits changed at run time");
-          break;
-        }
+    if (target == null) {
+      return;
+    }
+    for (final ExecutionLogEvent event : schedulerEvents.reversed()) {
+      if (event.type() == ExecutionLogEvent.Type.LIMITS_CHANGED) {
+        target.setLimits(
+            Integer.parseInt(event.nodeStatuses().get(ExecutionLogEvent.MAX_CONCURRENT)),
+            Integer.parseInt(event.nodeStatuses().get(ExecutionLogEvent.MAX_PER_WORKFLOW)));
+        log.atInfo()
+            .addKeyValue("limits", event.nodeStatuses())
+            .log("Restored the limits changed at run time");
+        return;
       }
     }
   }

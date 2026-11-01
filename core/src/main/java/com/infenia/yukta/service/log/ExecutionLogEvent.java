@@ -75,7 +75,40 @@ public record ExecutionLogEvent(
     /** An aborted run was resumed; its status holds the id of the new run. */
     RUN_RESUMED,
     /** A start with an idempotency key succeeded; its status holds the scope and the key. */
-    IDEMPOTENCY_KEY
+    IDEMPOTENCY_KEY,
+    /** Scheduler limits were changed at run time; the numbers are in {@code nodeStatuses}. */
+    LIMITS_CHANGED
+  }
+
+  /** Key of the new global limit in a {@code LIMITS_CHANGED} event. */
+  public static final String MAX_CONCURRENT = "maxConcurrent";
+
+  /** Key of the new per-workflow limit in a {@code LIMITS_CHANGED} event. */
+  public static final String MAX_PER_WORKFLOW = "maxPerWorkflow";
+
+  /**
+   * The scheduler limits were changed at run time. The numbers ride in {@code nodeStatuses}, so a
+   * further limit is one more key and no store changes.
+   *
+   * @param maxConcurrent the new global limit
+   * @param maxPerWorkflow the new per-workflow limit
+   * @return the event
+   */
+  public static ExecutionLogEvent limitsChanged(final int maxConcurrent, final int maxPerWorkflow) {
+    return new ExecutionLogEvent(
+        Type.LIMITS_CHANGED,
+        SCHEDULER,
+        "",
+        "",
+        null,
+        null,
+        Map.of(
+            MAX_CONCURRENT, String.valueOf(maxConcurrent),
+            MAX_PER_WORKFLOW, String.valueOf(maxPerWorkflow)),
+        null,
+        null,
+        Instant.now(),
+        null);
   }
 
   /**
