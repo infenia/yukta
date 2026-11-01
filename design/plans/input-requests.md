@@ -2,7 +2,7 @@
 
 Design for letting a plugin ask a supervisor, a human or an external agent for input, and for letting supervisors work together: options considered, architecture, contracts, security, phases, risks and open decisions.
 
-Work on this plan is tracked in its Epic issue on the Yukta Roadmap project (search for `input requests plan`).
+Work on this plan is tracked in Epic #1787 on the Yukta Roadmap project.
 
 Status: **proposal, nothing is built.** Based on `origin/main` at e7e2fda49 (2026-11-01). Everything below was read from the code with git; nothing was built or run, so no behavior described as "today" has been re-tested for this plan.
 
@@ -18,7 +18,7 @@ The proposal adds one concept, the **input request**, and builds everything on t
 - A route policy of tiers (supervisors first, then a human or external agent) handles escalation. Waiting is the broker's job, never a supervisor's, so a supervisor that needs a human never blocks.
 - Supervisor coordination gets a conflict arbiter, composite supervisors and a workflow-backed supervisor that runs in an internal session.
 
-The first usable cut (phases 1 to 5) lets an agent ask, a supervisor or a person answer over REST and MCP, with every step authorised and audited. Escalation tiers, external responders, coordination and durability follow.
+The first usable cut (phases 1 to 5c) lets an agent ask, a supervisor or a person answer over REST and MCP, with every step authorised and audited. Escalation tiers, external responders, coordination and durability follow.
 
 Related, already built or planned: Epic "Mission Control dashboard and scoped supervisors" (profiles, bindings, scopes, supervisor cockpit UI). This plan reuses those profiles and bindings and extends the cockpit UI.
 
@@ -111,7 +111,7 @@ New package `com.infenia.yukta.plugin.input` in `plugin-api`. Records, per the c
 
 ```java
 public record InputRequestSpec(
-    String key,                       // idempotency key: hash(execution, node, message id, name)
+    String key,                       // idempotency key: hash(session, workflow, node, message id, name)
     Kind kind,                        // APPROVAL | CHOICE | TEXT | STRUCTURED | QUERY
     String prompt,                    // untrusted text, capped (default 4 KB)
     Map<String, Object> context,      // untrusted, redacted, capped (default 16 KB)
@@ -276,7 +276,7 @@ A supervisor implemented as a workflow in an internal session, with guard rails.
 - **Store interface** `InputRequestStore` in core, in-memory default through `DefaultsAutoConfiguration` with the existing in-memory notice. `R2dbcInputRequestStore` in `plus/persistence-postgres` with a Flyway migration (V7 is supervisors; take the next free number when you start). Add a contract test in `testFixtures` the way the other stores have one.
 - **Tables**: `input_request` (id, unique key, execution, session, workflow, node, kind, state, version, spec jsonb, tier, deadline, timestamps), `input_response`, `input_delivery` (outbox). Indexes on (state, deadline), (session, state), unique (key). Retention purge of terminal rows (`yukta.input.retention`).
 - **Deadlines are absolute times**, re-armed from the store on start and on leader change. Do not rely on an in-process `Mono.delay` alone.
-- **Resume**: the request key is deterministic, so a resumed run that asks again gets the stored answer at once. This replaces the ten-minute in-memory early-signal buffer. Open requests whose run cannot be resumed become CANCELLED with reason `run-ended`.
+- **Resume**: the request key is deterministic and does not contain the execution id (a recovered run gets a new one), so a resumed run that asks again gets the stored answer at once. Phase 0 confirms that message ids survive a recover. This replaces the ten-minute in-memory early-signal buffer. Open requests whose run cannot be resumed become CANCELLED with reason `run-ended`.
 - **High availability**: waiters live where the run lives. Follow `core/.claude/rules/workers-and-ha.md` and the leader lease; an answer that reaches a non-leader must be forwarded or rejected with a retryable error. Confirm the exact behavior before the durability phase.
 - **Editions**: in-memory broker, supervisors, webhook responder and REST in Community. Postgres store in Plus. Group, SSO and approval-chain policies belong in Enterprise, behind the `AnswerAuthorizer` SPI. Check `FeatureGate` for how a durable-only feature should report itself.
 
@@ -302,27 +302,30 @@ A supervisor implemented as a workflow in an internal session, with guard rails.
 
 ## Implementation plan
 
-Sizes are rough relative effort (S under 2 days, M about a week, L more), for planning only. Build, test and check through `yk gradle`, `yk tool` and `yk check`. Run the smallest scope per module, `yk gradle spotlessApply` once at the end, and use Conventional Commits. Each phase is its own PR and its own sub-issue of the Epic.
+Sizes are rough relative effort (S under 2 days, M about a week, L more), for planning only. Build, test and check through `yk gradle`, `yk tool` and `yk check`. Run the smallest scope per module, `yk gradle spotlessApply` once at the end, and use Conventional Commits. Each phase is its own PR and its own sub-issue of the Epic (phase 5 is three: 5a REST, MCP and CLI, 5b UI, 5c supervisor side and docs). The Epic is #1787 and the sub-issues are #1788 to #1800; they carry the detailed, per-file instructions.
 
-**Minimum usable cut: phases 1 to 5.** Agent asks, supervisor or person answers over REST and MCP, everything audited and authorised. Phases 6 to 9 add external delivery, coordination, workflow supervisors and durability. Phase 9 can move earlier if restarts during waits matter.
+**Minimum usable cut: phases 1 to 5c.** Agent asks, supervisor or person answers over REST and MCP, everything audited and authorised. Phases 6 to 9 add external delivery, coordination, workflow supervisors and durability. Phase 9 can move earlier if restarts during waits matter.
 
-| Phase | What | Size | Depends on |
+| Phase | What (issue) | Size | Depends on |
 |---|---|---|---|
-| 0 | Decisions, ADR and spike | S | none |
-| 1 | Contracts in `plugin-api` | M | 0 |
-| 2 | Broker, store, state machine | L | 1 |
-| 3 | Commands, authorisation, signal bridge | L | 2 |
-| 4 | Plugin integration | M | 3 |
-| 5 | REST, MCP, CLI, UI, docs, supervisor side | L | 3, 4 |
-| 6 | Routes, escalation, external responders | L | 5 |
-| 7 | Arbiter and composite supervisors | M | 1 (can run beside 2 to 5) |
-| 8 | Workflow-backed supervisor and internal session | L | 5, 7 |
-| 9 | Durable store and failover (Plus) | L | 2 (needs 6 for outbox) |
-| 10 | Hardening and release | M | all |
+| 0 | Decisions, ADR and spike (#1788) | S | none |
+| 1 | Contracts in `plugin-api` (#1789) | M | 0 |
+| 2 | Broker, store, state machine (#1790) | L | 1 |
+| 3 | Commands, authorisation, signal bridge (#1791) | L | 2 |
+| 4 | Plugin integration (#1792) | M | 3 |
+| 5a | REST, MCP, CLI (#1793) | M | 3 |
+| 5b | Inputs panel in the UI (#1794) | M | 5a |
+| 5c | Rule and model supervisors answer, docs (#1795) | M | 3 (4 for tests) |
+| 6 | Routes, escalation, external responders (#1796) | L | 5a, 5c |
+| 7 | Arbiter and composite supervisors (#1797) | M | 1 (can run beside 2 to 5) |
+| 8 | Workflow-backed supervisor and internal session (#1798) | L | 5a, 5c, 6, 7 |
+| 9 | Durable store and failover, Plus (#1799) | L | 2 (needs 6 for the outbox) |
+| 10 | Hardening and release (#1800) | M | 8, 9, 5b |
 
 ### Phase 0: decisions and spike (S)
 
 - Settle the decisions in the last section.
+- Confirm that message ids survive `recover` and checkpoint replay, because the request key is built from session, workflow, node, message id and name.
 - Confirm how `SubWorkflowGateway` and `ResultCollector` reach plugins (Reactor context), and where the node runner can bind identity.
 - List every consumer of `ExecutionEvent` and `ExecutionControlCommand` that switches over the sealed types.
 - Check that no entry point lets a caller set `ControlActor.CONTEXT_KEY`.
@@ -363,14 +366,14 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 - The engine node timeout must outlast the ttl, as `WAIT_FOR_SIGNAL` does today (+30 s).
 - Tests: plugin unit tests with a fake gateway; a workflow-level test with a branch on `input.decision`; checkpoint replay returns the stored answer.
 
-### Phase 5: REST, MCP, CLI, UI, docs, supervisor side (L)
+### Phase 5: REST, MCP, CLI, UI, docs, supervisor side (three sub-issues, L in total)
 
 - Controllers under `/api/executions/{e}/inputs/...` and `/api/sessions/{s}/inputs`; role and session-scope tests next to the existing signal endpoint tests.
 - MCP tools and `McpToolAccess` entries; CLI commands; UI Inputs panel; regenerate OpenAPI and TypeScript types.
 - Supervisor side: expose the new events to `RuleSupervisor` (`Fields`) and add an answer action to its rule format, so a rule can auto-approve LOW risk requests. Let `ModelControlPlane` return `AnswerInputCommand` in `ControlDecision`, and escalate when confidence is below the threshold.
 - Docs and the two rules files.
 - Tests: WebTestClient (OPERATOR, VIEWER, session-limited key, no key), UI vitest and Playwright with MSW, CLI Go tests, MCP contract tests.
-- Done when `yk check --full` is green. This ends the minimum cut.
+- Done when `yk check --full` is green for 5a, 5b and 5c. This ends the minimum cut.
 
 ### Phase 6: routes, escalation, external responders (L)
 
