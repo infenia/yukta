@@ -18,8 +18,11 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,8 +63,12 @@ public class WorkflowValidator {
     if (!eager.isEmpty()) {
       return Mono.error(new IllegalArgumentException(eager.getFirst()));
     }
-    return Flux.concat(graphChecks(def))
-        .then()
+    final List<String> graph = graphProblems(def);
+    final Mono<Void> checks =
+        graph.isEmpty()
+            ? Flux.concat(validateNodeContexts(def), validatePluginConfigs(def)).then()
+            : Mono.error(new IllegalArgumentException(graph.getFirst()));
+    return checks
         .doOnSuccess(
             _ ->
                 log.atInfo()
@@ -102,25 +109,6 @@ public class WorkflowValidator {
     return problems;
   }
 
-  /** The checks of the graph, in the order they run. They assume the structure is sound. */
-  private List<Mono<Void>> graphChecks(final WorkflowDefinition def) {
-    final Set<String> targetIds =
-        def.edges().stream().map(WorkflowDefinition.Edge::target).collect(Collectors.toSet());
-    final Set<String> sourceIds =
-        def.edges().stream().map(WorkflowDefinition.Edge::source).collect(Collectors.toSet());
-    return List.of(
-        validatePluginsRegistered(def),
-        validateTriggerNodeExists(def),
-        validateTerminalNodeExists(def),
-        validateEntryPoints(def, targetIds),
-        validateProcessors(def, sourceIds),
-        validateEndpoints(def, sourceIds),
-        validateNoCycles(def),
-        validateNoOrphans(),
-        validateNodeContexts(def),
-        validatePluginConfigs(def));
-  }
-
   /**
    * Validates like {@link #validate} but reports every problem, not only the first, so an editor or
    * an agent fixes them in one round trip. If the structure itself is broken (duplicate ids, edges
@@ -131,22 +119,14 @@ public class WorkflowValidator {
    */
   public Mono<List<String>> validateAll(@NotNull @Valid final WorkflowDefinition def) {
     final List<String> problems = findEagerProblems(def);
-    return StructuralRules.findStructuralProblem(def, registry).isPresent()
-        ? Mono.just(problems)
-        : checkGraph(def, problems);
-  }
-
-  /**
-   * Runs the graph checks and collects each failure. Every check after the plugin lookup assumes
-   * that each node has a registered plugin, so when one has none only the lookup runs.
-   */
-  private Mono<List<String>> checkGraph(final WorkflowDefinition def, final List<String> problems) {
-    final List<Mono<Void>> checks = graphChecks(def);
-    final boolean allRegistered =
-        def.nodes().stream().allMatch(node -> registry.get(node.type()) != null);
-    // The plugin lookup is the first check.
-    final List<Mono<Void>> run = allRegistered ? checks : List.of(checks.getFirst());
-    return Flux.fromIterable(run)
+    if (StructuralRules.findStructuralProblem(def, registry).isPresent()) {
+      return Mono.just(problems);
+    }
+    problems.addAll(graphProblems(def));
+    if (!allRegistered(def)) {
+      return Mono.just(problems);
+    }
+    return Flux.just(validateNodeContexts(def), validatePluginConfigs(def))
         .concatMap(
             check ->
                 check.onErrorResume(
@@ -158,48 +138,54 @@ public class WorkflowValidator {
         .then(Mono.fromSupplier(() -> List.copyOf(problems)));
   }
 
-  private Mono<Void> validatePluginsRegistered(final WorkflowDefinition def) {
-    return Flux.fromIterable(def.nodes())
-        .flatMap(
-            node -> {
-              final Plugin plugin = registry.get(node.type());
-              if (plugin == null) {
-                log.atWarn()
-                    .addKeyValue("nodeId", node.nodeId())
-                    .addKeyValue("pluginType", node.type())
-                    .log("Plugin not registered for node type");
-                return Mono.error(
-                    new IllegalArgumentException("Plugin not found for type: " + node.type()));
-              }
-              log.atDebug()
-                  .addKeyValue("nodeId", node.nodeId())
-                  .addKeyValue("pluginType", node.type())
-                  .log("Plugin found and registered");
-              return Mono.empty();
-            })
-        .then();
+  private boolean allRegistered(final WorkflowDefinition def) {
+    return def.nodes().stream().allMatch(node -> registry.get(node.type()) != null);
   }
 
-  private Mono<Void> validateTriggerNodeExists(final WorkflowDefinition def) {
-    final boolean hasTrigger =
-        def.nodes().stream()
-            .anyMatch(
-                node -> {
-                  final Plugin plugin = registry.get(node.type());
-                  return plugin instanceof TriggerPlugin;
-                });
-
-    if (!hasTrigger) {
-      log.atError()
-          .addKeyValue("workflowId", def.workflowId())
-          .log("Workflow has no TRIGGER nodes");
-      return Mono.error(
-          new IllegalArgumentException("Workflow must contain at least one TRIGGER node"));
+  /**
+   * The synchronous checks of the graph, in the order they run, each giving at most its first
+   * problem. Every check after the plugin lookup assumes each node has a registered plugin, so when
+   * one has none only the lookup is reported.
+   */
+  private List<String> graphProblems(final WorkflowDefinition def) {
+    final List<String> problems = new ArrayList<>();
+    if (!allRegistered(def)) {
+      def.nodes().stream()
+          .filter(node -> registry.get(node.type()) == null)
+          .findFirst()
+          .ifPresent(node -> problems.add("Plugin not found for type: " + node.type()));
+      return problems;
     }
-    log.atDebug()
-        .addKeyValue("workflowId", def.workflowId())
-        .log("Workflow contains at least one TRIGGER node");
-    return Mono.empty();
+    final Set<String> targetIds =
+        def.edges().stream().map(WorkflowDefinition.Edge::target).collect(Collectors.toSet());
+    final Set<String> sourceIds =
+        def.edges().stream().map(WorkflowDefinition.Edge::source).collect(Collectors.toSet());
+    final List<Optional<String>> checks =
+        List.of(
+            requireNode(def, plugin -> plugin instanceof TriggerPlugin, "TRIGGER"),
+            requireNode(def, WorkflowValidator::isTerminal, "TERMINAL"),
+            firstProblem(def, node -> entryPoint(node, targetIds)),
+            firstProblem(def, node -> processor(node, sourceIds)),
+            firstProblem(def, node -> endpoint(node, sourceIds)),
+            hasCycles(def)
+                ? Optional.of("Workflow DAG contains cycles")
+                : Optional.<String>empty());
+    checks.forEach(check -> check.ifPresent(problems::add));
+    return problems;
+  }
+
+  private Optional<String> firstProblem(
+      final WorkflowDefinition def,
+      final Function<WorkflowDefinition.Node, Optional<String>> check) {
+    return def.nodes().stream().map(check).flatMap(Optional::stream).findFirst();
+  }
+
+  private Optional<String> requireNode(
+      final WorkflowDefinition def, final Predicate<Plugin> wanted, final String category) {
+    final boolean found = def.nodes().stream().anyMatch(n -> wanted.test(registry.get(n.type())));
+    return found
+        ? Optional.empty()
+        : Optional.of("Workflow must contain at least one " + category + " node");
   }
 
   /**
@@ -212,127 +198,48 @@ public class WorkflowValidator {
         && plugin instanceof TerminalPlugin;
   }
 
-  private Mono<Void> validateTerminalNodeExists(final WorkflowDefinition def) {
-    final boolean hasTerminal =
-        def.nodes().stream()
-            .anyMatch(
-                node -> {
-                  final Plugin plugin = registry.get(node.type());
-                  return isTerminal(plugin);
-                });
-
-    if (!hasTerminal) {
-      log.atError()
-          .addKeyValue("workflowId", def.workflowId())
-          .log("Workflow has no TERMINAL nodes");
-      return Mono.error(
-          new IllegalArgumentException("Workflow must contain at least one TERMINAL node"));
-    }
-    log.atDebug()
-        .addKeyValue("workflowId", def.workflowId())
-        .log("Workflow contains at least one TERMINAL node");
-    return Mono.empty();
-  }
-
-  private Mono<Void> validateEntryPoints(
-      final WorkflowDefinition def, final Set<String> targetIds) {
-    return Flux.fromIterable(def.nodes())
-        .flatMap(
-            node -> {
-              final Plugin plugin = registry.get(node.type());
-              final boolean isEntryPoint = !targetIds.contains(node.nodeId());
-              final boolean canBeTrigger = plugin instanceof TriggerPlugin;
-              final boolean mustBeTrigger = plugin.getCategory() == PluginCategory.TRIGGER;
-
-              if (isEntryPoint && !canBeTrigger) {
-                log.atWarn()
-                    .addKeyValue("nodeId", node.nodeId())
-                    .addKeyValue("pluginType", node.type())
-                    .log("Entry point node is not a TRIGGER");
-                return Mono.error(
-                    new IllegalArgumentException(
-                        "Node " + node.nodeId() + " is an entry point but not a TRIGGER"));
-              }
-              if (!isEntryPoint && mustBeTrigger) {
-                log.atWarn()
-                    .addKeyValue("nodeId", node.nodeId())
-                    .log("TRIGGER node has incoming edges");
-                return Mono.error(
-                    new IllegalArgumentException(
-                        "Trigger node " + node.nodeId() + " cannot have incoming edges"));
-              }
-              return Mono.empty();
-            })
-        .then();
-  }
-
-  private Mono<Void> validateProcessors(final WorkflowDefinition def, final Set<String> sourceIds) {
-    return Flux.fromIterable(def.nodes())
-        .flatMap(
-            node -> {
-              final Plugin plugin = registry.get(node.type());
-              // Plugin is guaranteed non-null by validatePluginsRegistered (runs first)
-              final boolean isProcessor = plugin.getCategory() == PluginCategory.PROCESSOR;
-              final boolean hasOutgoing = sourceIds.contains(node.nodeId());
-
-              // A processor without incoming edges is already rejected by validateEntryPoints, so
-              // only the outgoing side is left to check here.
-              if (isProcessor && !hasOutgoing) {
-                log.atWarn()
-                    .addKeyValue("nodeId", node.nodeId())
-                    .addKeyValue("hasOutgoing", false)
-                    .log("PROCESSOR node missing required edges");
-                return Mono.error(
-                    new IllegalArgumentException(
-                        "Processor node "
-                            + node.nodeId()
-                            + " must have both incoming and outgoing edges"));
-              }
-              return Mono.empty();
-            })
-        .then();
-  }
-
-  private Mono<Void> validateEndpoints(final WorkflowDefinition def, final Set<String> sourceIds) {
-    return Flux.fromIterable(def.nodes())
-        .concatMap(node -> validateEndpointNode(node, sourceIds))
-        .then();
-  }
-
-  private Mono<Void> validateEndpointNode(
-      final WorkflowDefinition.Node node, final Set<String> sourceIds) {
+  private Optional<String> entryPoint(
+      final WorkflowDefinition.Node node, final Set<String> targets) {
     final Plugin plugin = registry.get(node.type());
-    // Plugin is guaranteed non-null by validatePluginsRegistered (runs first)
-    final boolean isEndpoint = !sourceIds.contains(node.nodeId());
-    final boolean isTerminal = isTerminal(plugin);
+    final boolean isEntryPoint = !targets.contains(node.nodeId());
+    if (isEntryPoint && !(plugin instanceof TriggerPlugin)) {
+      return Optional.of("Node " + node.nodeId() + " is an entry point but not a TRIGGER");
+    }
+    if (!isEntryPoint && plugin.getCategory() == PluginCategory.TRIGGER) {
+      return Optional.of("Trigger node " + node.nodeId() + " cannot have incoming edges");
+    }
+    return Optional.empty();
+  }
 
+  /** A processor without incoming edges is already rejected by {@link #entryPoint}. */
+  private Optional<String> processor(
+      final WorkflowDefinition.Node node, final Set<String> sources) {
+    final boolean noOutgoing = !sources.contains(node.nodeId());
+    return noOutgoing && registry.get(node.type()).getCategory() == PluginCategory.PROCESSOR
+        ? Optional.of(
+            "Processor node " + node.nodeId() + " must have both incoming and outgoing edges")
+        : Optional.empty();
+  }
+
+  private Optional<String> endpoint(final WorkflowDefinition.Node node, final Set<String> sources) {
+    final boolean isEndpoint = !sources.contains(node.nodeId());
+    final boolean isTerminal = isTerminal(registry.get(node.type()));
     if (isEndpoint && !isTerminal) {
-      log.atWarn()
-          .addKeyValue("nodeId", node.nodeId())
-          .addKeyValue("pluginType", node.type())
-          .log("Endpoint node is not a TERMINAL");
-      return Mono.error(
-          new IllegalArgumentException(
-              "Node " + node.nodeId() + " is an endpoint but not a TERMINAL"));
+      return Optional.of("Node " + node.nodeId() + " is an endpoint but not a TERMINAL");
     }
     if (!isEndpoint && isTerminal) {
-      log.atWarn().addKeyValue("nodeId", node.nodeId()).log("TERMINAL node has outgoing edges");
-      return Mono.error(
-          new IllegalArgumentException(
-              "Terminal node " + node.nodeId() + " cannot have outgoing edges"));
+      return Optional.of("Terminal node " + node.nodeId() + " cannot have outgoing edges");
     }
-    return Mono.empty();
+    return Optional.empty();
   }
 
   private Mono<Void> validateNodeContexts(final WorkflowDefinition def) {
     return Flux.fromIterable(def.nodes())
         .flatMap(
-            node -> {
-              final Plugin plugin = registry.get(node.type());
-              // Plugin is guaranteed non-null by validatePluginsRegistered (runs first)
-              final WorkflowContext context = buildContext(node.nodeId(), def);
-              return plugin.validateInContext(context, node.config());
-            })
+            node ->
+                registry
+                    .get(node.type())
+                    .validateInContext(buildContext(node.nodeId(), def), node.config()))
         .then();
   }
 
@@ -351,22 +258,6 @@ public class WorkflowValidator {
     }
 
     return new WorkflowContext(nodeId, outgoing, incoming);
-  }
-
-  private Mono<Void> validateNoCycles(final WorkflowDefinition def) {
-    if (hasCycles(def)) {
-      log.atError().addKeyValue("workflowId", def.workflowId()).log("Workflow DAG contains cycles");
-      return Mono.error(new IllegalArgumentException("Workflow DAG contains cycles"));
-    }
-    log.atDebug().addKeyValue("workflowId", def.workflowId()).log("Workflow DAG is acyclic");
-    return Mono.empty();
-  }
-
-  private Mono<Void> validateNoOrphans() {
-    // All nodes are guaranteed to be reachable from at least one trigger due to earlier
-    // validations (validateEntryPoints ensures no isolated non-trigger nodes can exist).
-    // Therefore, no separate orphan validation is needed.
-    return Mono.empty();
   }
 
   private Mono<Void> validatePluginConfigs(final WorkflowDefinition def) {
