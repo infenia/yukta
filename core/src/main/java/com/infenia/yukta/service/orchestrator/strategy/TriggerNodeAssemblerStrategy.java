@@ -68,18 +68,18 @@ public class TriggerNodeAssemblerStrategy implements NodeAssemblerStrategy {
       final int index,
       final int bufferSize,
       final ParentEdgeInfo... parentEdges) {
-    final TriggerPlugin trigger =
-        NodePlugins.forNode((TriggerPlugin) plugin, TriggerPlugin.class, node.config());
-
     log.atDebug()
         .addKeyValue("nodeId", node.nodeId())
         .addKeyValue("pluginType", plugin.getClass().getSimpleName())
-        .addKeyValue("isBlocking", trigger.isBlocking())
+        .addKeyValue("isBlocking", plugin.isBlocking())
         .addKeyValue("timeoutMs", timeout.toMillis())
         .addKeyValue("bufferSize", bufferSize)
         .log("Creating trigger node assembler");
 
     return context -> {
+      // per-node state belongs to one run, so each run gets its own instance
+      final TriggerPlugin trigger =
+          NodePlugins.forNode((TriggerPlugin) plugin, TriggerPlugin.class, node.config());
       final var control = context.control();
 
       log.atDebug()

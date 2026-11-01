@@ -14,6 +14,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.NodeAssembler;
@@ -476,8 +477,11 @@ class WorkflowOrchestratorTest {
     when(compiler.compileAssemblers(any(), any(), any(), any())).thenReturn(assemblers);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.empty());
-    when(compiler.executeTemplate(
-            anyString(), any(), eq(1), any(), anyString(), anyString(), anyList()))
+    // deferred: the safe stop may end the run before the template is ever subscribed
+    lenient()
+        .when(
+            compiler.executeTemplate(
+                anyString(), any(), eq(1), any(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.never());
 
     final Sinks.One<Void> safeStop = Sinks.one();
@@ -992,6 +996,36 @@ class WorkflowOrchestratorTest {
     doNothing().when(executionControlRegistry).unregister(executionId);
     when(executionControl.safeStopSink()).thenReturn(safeStop);
     lenient().when(executionControl.stopRequested()).thenReturn(new AtomicBoolean());
+  }
+
+  @Test
+  void restart_thatCannotBeginGivesBackItsSlotEvenWhenThatSlotHasFailed() {
+    final PreparedWorkflow prepared =
+        buildPreparedWorkflowFromNodes(
+            List.of(new WorkflowNode("trigger", "trigger-type", Map.of())));
+    final ExecutionScheduler.Admission failedSlot =
+        new ExecutionScheduler.Admission(
+            false, Mono.error(new IllegalStateException("slot gone")), false);
+
+    StepVerifier.create(
+            orchestrator.restartFromNode(
+                "s", "w", "prev", "new", prepared, "no-such-node", Map.of(), failedSlot))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void pendingCleanupOfAnEvictedRunClearsItsCheckpoints() {
+    orchestrator.onPendingRemoved("evicted-while-running", RemovalCause.SIZE);
+
+    verify(checkpointStore).clear("evicted-while-running");
+  }
+
+  @Test
+  void pendingCleanupThatWasNotAnEvictionLeavesCheckpointsAlone() {
+    orchestrator.onPendingRemoved("cleaned-up", RemovalCause.EXPLICIT);
+
+    verify(checkpointStore, never()).clear("cleaned-up");
   }
 
   private void setupRestartControl(

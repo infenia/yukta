@@ -280,7 +280,7 @@ public class ControlBusService {
                   .addArgument(workflowId)
                   .addArgument(sessionId)
                   .log("Caching prepared workflow: {} for session: {}");
-              preparedWorkflowCache.put(sessionId, workflowId, prepared);
+              preparedWorkflowCache.put(sessionId, workflowId, prepared, workflowDefinition);
             })
         .then();
   }
@@ -508,7 +508,11 @@ public class ControlBusService {
     log.atTrace().addArgument(batch.size()).log("Processing control signal batch of size: {}");
     final List<Message<?>> prioritized =
         batch.stream()
-            .sorted(Comparator.comparingInt((final Message<?> m) -> m.priority()).reversed())
+            .sorted(
+                Comparator.comparingInt((final Message<?> m) -> m.priority())
+                    .reversed()
+                    .thenComparing(
+                        Message::timestamp, Comparator.nullsFirst(Comparator.naturalOrder())))
             .toList();
 
     int handledCount = 0;

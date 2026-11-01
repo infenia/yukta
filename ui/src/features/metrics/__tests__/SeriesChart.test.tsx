@@ -15,11 +15,21 @@ vi.mock('recharts', () => {
     ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
       <div>{children}</div>
     ),
-    Tooltip: Stub('tooltip'),
+    // the formatters are what the chart shows, so run them with a sample value
+    Tooltip: (props: Record<string, unknown>) => (
+      <div data-testid="tooltip">
+        {String((props.labelFormatter as (t: number) => string)(0))}|
+        {String((props.formatter as (v: number, n: string) => unknown)(3, 'v'))}
+      </div>
+    ),
     AreaChart: Stub('area-chart'),
     Area: Stub('area'),
     CartesianGrid: Stub('grid'),
-    XAxis: Stub('x'),
+    XAxis: (props: Record<string, unknown>) => (
+      <div data-testid="x">
+        {String((props.tickFormatter as (t: number) => string)(0))}
+      </div>
+    ),
     YAxis: Stub('y'),
   };
 });
@@ -58,5 +68,20 @@ describe('SeriesChart', () => {
   it('renders with no points', () => {
     render(<SeriesChart points={[]} label="Empty" />);
     expect(screen.getByRole('img', { name: 'Empty' })).toBeInTheDocument();
+  });
+});
+
+describe('SeriesChart formatting', () => {
+  it('formats the time axis and the tooltip', () => {
+    render(
+      <SeriesChart
+        points={[{ t: 1000, v: 1 }]}
+        label="Runs per minute"
+      />
+    );
+    expect(screen.getByTestId('x').textContent).toMatch(/\d{2}:\d{2}/);
+    expect(screen.getByTestId('tooltip').textContent).toContain(
+      'Runs per minute'
+    );
   });
 });

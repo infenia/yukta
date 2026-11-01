@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -131,20 +132,10 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
    * @return the ids of the runs that were interrupted and are now marked aborted
    */
   public List<String> recover() {
-    final Map<String, List<ExecutionLogEvent>> byRun = new LinkedHashMap<>();
-    final List<ExecutionLogEvent> scheduler = new ArrayList<>();
-    for (final ExecutionLogEvent event : store.readAll()) {
-      if (ExecutionLogEvent.SCHEDULER.equals(event.executionId())) {
-        scheduler.add(event);
-      } else {
-        // Re-inserted on every event, so runs are ordered by their last activity: a long run
-        // that was still going is newer than the short ones that started after it.
-        final List<ExecutionLogEvent> run = byRun.remove(event.executionId());
-        final List<ExecutionLogEvent> events = run == null ? new ArrayList<>() : run;
-        events.add(event);
-        byRun.put(event.executionId(), events);
-      }
-    }
+    final List<ExecutionLogEvent> all = store.readAll();
+    final List<ExecutionLogEvent> scheduler =
+        all.stream().filter(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId())).toList();
+    final Map<String, List<ExecutionLogEvent>> byRun = byRun(all);
 
     restoreLimits(scheduler);
     // Changes that belong to no run are not runs: they stay, the newest few.
@@ -152,10 +143,23 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
         new ArrayList<>(
             scheduler.subList(Math.max(0, scheduler.size() - retainedRuns), scheduler.size()));
     final List<List<ExecutionLogEvent>> runs = new ArrayList<>(byRun.values());
-    final int skip = Math.max(0, runs.size() - retainedRuns);
-    runs.subList(0, skip).forEach(run -> checkpoints.clear(run.getFirst().executionId()));
+    final Set<String> keep =
+        LogRetention.keep(
+            new ArrayList<>(byRun.keySet()),
+            id -> {
+              final ExecutionLogEvent first =
+                  find(byRun.get(id), ExecutionLogEvent.Type.RUN_STARTED);
+              return first == null ? null : first.sessionId();
+            },
+            retainedRuns);
     final List<String> abortedIds = new ArrayList<>();
-    for (final List<ExecutionLogEvent> run : runs.subList(skip, runs.size())) {
+    int skip = 0;
+    for (final List<ExecutionLogEvent> run : runs) {
+      if (!keep.contains(run.getFirst().executionId())) {
+        checkpoints.clear(run.getFirst().executionId());
+        skip++;
+        continue;
+      }
       final ExecutionLogEvent started = find(run, ExecutionLogEvent.Type.RUN_STARTED);
       final ExecutionLogEvent ended = end(run);
       if (started != null && ended == null) {
@@ -173,6 +177,24 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
         .log("Recovered execution history");
     afterRecovery.accept(abortedIds);
     return abortedIds;
+  }
+
+  /**
+   * Groups the events of each run, ordered by the run's last activity: a run is re-inserted on
+   * every event, so a long run that was still going is newer than the short ones that started after
+   * it. Scheduler changes belong to no run and are left out.
+   */
+  private static Map<String, List<ExecutionLogEvent>> byRun(final List<ExecutionLogEvent> events) {
+    final Map<String, List<ExecutionLogEvent>> byRun = new LinkedHashMap<>();
+    for (final ExecutionLogEvent event : events) {
+      if (!ExecutionLogEvent.SCHEDULER.equals(event.executionId())) {
+        final List<ExecutionLogEvent> run = byRun.remove(event.executionId());
+        final List<ExecutionLogEvent> runEvents = run == null ? new ArrayList<>() : run;
+        runEvents.add(event);
+        byRun.put(event.executionId(), runEvents);
+      }
+    }
+    return byRun;
   }
 
   /**

@@ -95,6 +95,8 @@ public class WorkerRegistry {
             false,
             now,
             now.plus(leaseTime));
+    final Instant current = clock.instant();
+    workers.values().removeIf(old -> old.leaseUntil().isBefore(current));
     workers.put(info.workerId(), info);
     return info;
   }
@@ -169,17 +171,22 @@ public class WorkerRegistry {
    * @return the entry, or empty if it is not registered or missed its lease
    */
   public Optional<WorkerInfo> find(final String workerId) {
-    return list().stream().filter(info -> info.workerId().equals(workerId)).findFirst();
+    final Instant now = clock.instant();
+    return Optional.ofNullable(workers.get(workerId))
+        .filter(info -> !info.leaseUntil().isBefore(now));
   }
 
   /**
-   * The live workers; those that missed their lease are dropped first.
+   * The live workers; those that missed their lease are left out. Reading changes nothing, so a
+   * metrics scrape is harmless; the expired entries are dropped when a worker registers.
    *
    * @return the workers, ordered by id
    */
   public List<WorkerInfo> list() {
     final Instant now = clock.instant();
-    workers.values().removeIf(info -> info.leaseUntil().isBefore(now));
-    return workers.values().stream().sorted(Comparator.comparing(WorkerInfo::workerId)).toList();
+    return workers.values().stream()
+        .filter(info -> !info.leaseUntil().isBefore(now))
+        .sorted(Comparator.comparing(WorkerInfo::workerId))
+        .toList();
   }
 }

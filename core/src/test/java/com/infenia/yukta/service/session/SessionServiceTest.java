@@ -5,6 +5,7 @@ package com.infenia.yukta.service.session;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,6 +16,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
@@ -34,7 +36,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** Unit tests for SessionService. */
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports", "PMD.ExcessiveImports"})
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.session.SessionService - ")
@@ -66,6 +68,7 @@ class SessionServiceTest {
   @Mock private ControlBusGateway controlBus;
   @Mock private WorkflowDefinitionStore workflowDefinitionStore;
   @Mock private PreparedWorkflowCache preparedWorkflowCache;
+  @Mock private WorkflowPreparator preparator;
 
   @Captor private ArgumentCaptor<SessionConfigData> configDataCaptor;
   @Captor private ArgumentCaptor<WorkflowDefinition> workflowCaptor;
@@ -76,7 +79,21 @@ class SessionServiceTest {
   void setUp() {
     sessionService =
         new SessionService(
-            configService, controlBus, workflowDefinitionStore, preparedWorkflowCache);
+            configService, controlBus, workflowDefinitionStore, preparedWorkflowCache, preparator);
+    lenient().when(preparator.prepareWorkflow(any())).thenReturn(Mono.empty());
+  }
+
+  @Test
+  void applyConfig_invalidWorkflow_savesNothing() {
+    final WorkflowDefinition bad =
+        new WorkflowDefinition(TEST_WORKFLOW, DESC, List.of(), List.of());
+    final SessionConfigData data =
+        new SessionConfigData(SESSION_ID_1, "s", DESC, "i", Map.of(), PATH, Map.of("w1", bad));
+    when(preparator.prepareWorkflow(bad)).thenReturn(Mono.error(new IllegalStateException("bad")));
+
+    StepVerifier.create(sessionService.applyConfig(data)).expectError().verify();
+
+    org.mockito.Mockito.verifyNoInteractions(configService);
   }
 
   @Test

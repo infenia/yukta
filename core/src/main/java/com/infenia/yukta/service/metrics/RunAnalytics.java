@@ -12,10 +12,8 @@ import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -24,11 +22,17 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
+import reactor.core.publisher.BufferOverflowStrategy;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Per-minute aggregates of what happened to the runs, per session and per workflow, built from the
@@ -47,6 +51,7 @@ import reactor.core.Disposable;
 // All state is guarded by this one lock, so plain maps and method-level synchronization are right.
 @SuppressWarnings({
   "PMD.TooManyMethods",
+  "PMD.ExcessiveImports",
   "PMD.UseConcurrentHashMap",
   "PMD.AvoidSynchronizedAtMethodLevel",
   "PMD.AvoidInstantiatingObjectsInLoops",
@@ -65,6 +70,9 @@ public class RunAnalytics {
    * Duration samples kept per bucket; later runs of the same minute are counted but not sampled.
    */
   private static final int SAMPLES = 64;
+
+  /** A command as {@code ControlAudit} logs it: the name, and who sent it if known. */
+  private static final Pattern LOGGED_COMMAND = Pattern.compile("(.*?)(?: \\[by (.*)])?");
 
   /** Failed run ids kept per bucket. */
   private static final int FAILED_IDS = 20;
@@ -110,7 +118,7 @@ public class RunAnalytics {
       };
 
   /** Control commands, newest last. */
-  private final Deque<Annotation> controlLog = new ArrayDeque<>();
+  private final List<Annotation> controlLog = new ArrayList<>();
 
   /** The subscription to the feed. */
   private Disposable subscription;
@@ -153,13 +161,26 @@ public class RunAnalytics {
     this.logStore = store;
   }
 
-  /** Seeds from the execution log, then starts following the feed. */
+  /** Starts following the feed. */
   @PostConstruct
   /* default */ void start() {
+    // own thread and buffer: a dashboard query holding the lock must not stall the tracker
+    subscription =
+        feed.events()
+            .onBackpressureBuffer(10_000, _ -> {}, BufferOverflowStrategy.DROP_LATEST)
+            .publishOn(Schedulers.single())
+            .subscribe(this::accept);
+  }
+
+  /**
+   * Seeds from the execution log once the application is up, so the runs that recovery marked
+   * aborted are in it, and off the init thread, because reading the log can block.
+   */
+  @EventListener(ApplicationReadyEvent.class)
+  /* default */ void seedFromLog() {
     if (logStore != null) {
-      seed(logStore.readAll());
+      Schedulers.boundedElastic().schedule(() -> seed(logStore.readAll()));
     }
-    subscription = feed.events().subscribe(this::accept);
   }
 
   /** Stops following the feed. */
@@ -181,23 +202,42 @@ public class RunAnalytics {
     private final Map<String, double[]> modules = new TreeMap<>();
 
     private void addWait(final double wait) {
-      if (waitCount < SAMPLES) {
-        waits[waitCount] = wait;
-      }
       waitCount++;
+      reserve(waits, waitCount, wait);
     }
 
     private void addRun(final String executionId, final String status, final double ms) {
       byStatus.merge(status, 1, Integer::sum);
       if (ms >= 0) {
-        if (durationCount < SAMPLES) {
-          durations[durationCount] = ms;
-        }
         durationCount++;
+        reserve(durations, durationCount, ms);
       }
       if (FAILED.contains(status) && failedRuns.size() < FAILED_IDS) {
         failedRuns.add(executionId);
       }
+    }
+
+    /** Reservoir sampling: after {@code seen} values, each one is kept with equal chance. */
+    private static void reserve(final double[] sample, final int seen, final double value) {
+      if (seen <= SAMPLES) {
+        sample[seen - 1] = value;
+      } else {
+        final int slot = ThreadLocalRandom.current().nextInt(seen);
+        if (slot < SAMPLES) {
+          sample[slot] = value;
+        }
+      }
+    }
+
+    /** A copy to read without the lock; the failed runs and module rows are not needed for it. */
+    private Bucket copy() {
+      final Bucket c = new Bucket();
+      c.byStatus.putAll(byStatus);
+      System.arraycopy(durations, 0, c.durations, 0, SAMPLES);
+      c.durationCount = durationCount;
+      System.arraycopy(waits, 0, c.waits, 0, SAMPLES);
+      c.waitCount = waitCount;
+      return c;
     }
 
     private List<Double> sampledDurations() {
@@ -359,16 +399,19 @@ public class RunAnalytics {
       return;
     }
     final boolean applied = e.type() == ExecutionLogEvent.Type.CONTROL_APPLIED;
-    // a rejection is logged as "command: reason"
+    // logged as "<Command> [by <actor>]", and "<Command> [by <actor>]: <reason>" when rejected
     final String[] parts = status.split(": ", 2);
+    final var named = LOGGED_COMMAND.matcher(parts[0]);
+    final String command = named.matches() ? named.group(1) : parts[0];
+    final String actor = named.matches() ? named.group(2) : null;
     addAnnotation(
         new Annotation(
             e.timestamp().toEpochMilli(),
             e.executionId(),
             owner == null ? null : owner.sessionId(),
             owner == null ? null : owner.workflowId(),
-            parts[0],
-            null,
+            command,
+            actor,
             applied,
             applied || parts.length < 2 ? null : parts[1]));
   }
@@ -403,9 +446,9 @@ public class RunAnalytics {
   }
 
   private void addAnnotation(final Annotation annotation) {
-    controlLog.addLast(annotation);
+    controlLog.add(annotation);
     while (controlLog.size() > MAX_ANNOTATIONS) {
-      controlLog.removeFirst();
+      controlLog.remove(0);
     }
   }
 
@@ -502,34 +545,39 @@ public class RunAnalytics {
    * @param range how far back
    * @return series name to points
    */
-  public synchronized Map<String, List<MetricsSampler.Point>> series(
+  @SuppressWarnings("PMD.AvoidSynchronizedStatement")
+  public Map<String, List<MetricsSampler.Point>> series(
       final String scope, final List<String> names, final Duration range) {
     final Map<String, List<MetricsSampler.Point>> out = new TreeMap<>();
-    within(scope, range)
-        .forEach(
-            (minute, b) -> {
-              final Map<String, Double> values = new TreeMap<>();
-              if (!b.byStatus.isEmpty()) {
-                values.put(
-                    "runs.finished", (double) b.byStatus.values().stream().mapToInt(i -> i).sum());
-                b.byStatus.forEach((status, n) -> values.put("runs." + status, (double) n));
-              }
-              if (b.durationCount > 0) {
-                values.put("duration.p50", percentile(b.sampledDurations(), 0.5));
-                values.put("duration.p95", percentile(b.sampledDurations(), 0.95));
-                values.put("duration.p99", percentile(b.sampledDurations(), 0.99));
-              }
-              if (b.waitCount > 0) {
-                values.put("queue.wait.p95", percentile(b.sampledWaits(), 0.95));
-              }
-              values.forEach(
-                  (name, v) -> {
-                    if (names.stream().anyMatch(name::startsWith)) {
-                      out.computeIfAbsent(name, _ -> new ArrayList<>())
-                          .add(new MetricsSampler.Point(minute * MINUTE, v));
-                    }
-                  });
-            });
+    // copy under the lock, sort outside it: a chart over 24 h must not hold up the feed
+    final NavigableMap<Long, Bucket> copy = new TreeMap<>();
+    synchronized (this) {
+      within(scope, range).forEach((minute, b) -> copy.put(minute, b.copy()));
+    }
+    copy.forEach(
+        (minute, b) -> {
+          final Map<String, Double> values = new TreeMap<>();
+          if (!b.byStatus.isEmpty()) {
+            values.put(
+                "runs.finished", (double) b.byStatus.values().stream().mapToInt(i -> i).sum());
+            b.byStatus.forEach((status, n) -> values.put("runs." + status, (double) n));
+          }
+          if (b.durationCount > 0) {
+            values.put("duration.p50", percentile(b.sampledDurations(), 0.5));
+            values.put("duration.p95", percentile(b.sampledDurations(), 0.95));
+            values.put("duration.p99", percentile(b.sampledDurations(), 0.99));
+          }
+          if (b.waitCount > 0) {
+            values.put("queue.wait.p95", percentile(b.sampledWaits(), 0.95));
+          }
+          values.forEach(
+              (name, v) -> {
+                if (names.stream().anyMatch(name::startsWith)) {
+                  out.computeIfAbsent(name, _ -> new ArrayList<>())
+                      .add(new MetricsSampler.Point(minute * MINUTE, v));
+                }
+              });
+        });
     return out;
   }
 
@@ -540,12 +588,17 @@ public class RunAnalytics {
    * @param scope the scope
    * @return name to value; empty for an unknown scope or nothing in the hour
    */
-  public synchronized Map<String, Double> snapshot(final String scope) {
+  @SuppressWarnings("PMD.AvoidSynchronizedStatement")
+  public Map<String, Double> snapshot(final String scope) {
     final Map<String, Double> out = new TreeMap<>();
     final List<Double> durations = new ArrayList<>();
     double finished = 0;
     double failed = 0;
-    for (final Bucket b : within(scope, Duration.ofHours(1)).values()) {
+    final List<Bucket> copy;
+    synchronized (this) {
+      copy = within(scope, Duration.ofHours(1)).values().stream().map(Bucket::copy).toList();
+    }
+    for (final Bucket b : copy) {
       for (final Map.Entry<String, Integer> s : b.byStatus.entrySet()) {
         out.merge("runs." + s.getKey(), (double) s.getValue(), Double::sum);
         finished += s.getValue();

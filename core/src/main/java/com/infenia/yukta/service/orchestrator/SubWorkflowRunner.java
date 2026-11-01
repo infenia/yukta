@@ -132,7 +132,12 @@ public class SubWorkflowRunner implements SubWorkflowGateway {
                                                 .find(sessionId, workflowId)
                                                 .filter(definition::equals)
                                                 .doOnNext(
-                                                    _ -> cache.put(sessionId, workflowId, prepared))
+                                                    _ ->
+                                                        cache.put(
+                                                            sessionId,
+                                                            workflowId,
+                                                            prepared,
+                                                            definition))
                                                 .thenReturn(prepared)))));
   }
 }

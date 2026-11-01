@@ -52,6 +52,9 @@ public class R2dbcLeaderElection implements LeaderElection, SmartLifecycle {
   /** What to do on each takeover. */
   private final List<Runnable> takeovers = new CopyOnWriteArrayList<>();
 
+  /** What to do when the lease is lost. */
+  private final List<Runnable> losses = new CopyOnWriteArrayList<>();
+
   /** When (on this server's nanosecond clock) its leadership ends unless renewed. */
   private final AtomicLong validUntil = new AtomicLong();
 
@@ -106,13 +109,18 @@ public class R2dbcLeaderElection implements LeaderElection, SmartLifecycle {
     }
   }
 
+  @Override
+  public void onLoss(final Runnable action) {
+    losses.add(action);
+  }
+
   /**
    * The fencing number of the lease this server held last; it grows with every change of holder, so
    * a store can refuse writes from a server that lost the lease.
    *
    * @return the fencing number, 0 before this server was ever the leader
    */
-  public long fencingToken() {
+  public long getFencingToken() {
     return fencing.get();
   }
 
@@ -124,6 +132,13 @@ public class R2dbcLeaderElection implements LeaderElection, SmartLifecycle {
               .onBackpressureDrop()
               // ends the loop after abandon() without cancelling a statement that is in flight
               .takeWhile(_ -> running.get())
+              // a lease that ran out (database unreachable, long pause) is a loss too
+              .doOnNext(
+                  _ -> {
+                    if (wasLeader.get() && !isLeader()) {
+                      lost();
+                    }
+                  })
               // defer: an exception while the statement is being built must not end the loop
               .concatMap(
                   _ ->
@@ -190,6 +205,8 @@ public class R2dbcLeaderElection implements LeaderElection, SmartLifecycle {
     validUntil.set(sentAt + lease.toNanos());
     if (wasLeader.compareAndSet(false, true)) {
       log.atInfo().addKeyValue("fencing", fencingToken).log("This server is the leader");
+      // One lease period of grace: an old leader that is only paused stops its runs when it wakes
+      // up and finds the lease gone, and must not still be running them when they are resumed.
       Schedulers.boundedElastic()
           .schedule(
               () -> {
@@ -200,7 +217,9 @@ public class R2dbcLeaderElection implements LeaderElection, SmartLifecycle {
                     log.atError().setCause(e).log("A takeover action failed");
                   }
                 }
-              });
+              },
+              lease.toMillis(),
+              TimeUnit.MILLISECONDS);
     }
   }
 
@@ -208,6 +227,13 @@ public class R2dbcLeaderElection implements LeaderElection, SmartLifecycle {
     validUntil.set(0);
     if (wasLeader.compareAndSet(true, false)) {
       log.atWarn().log("This server lost the leader lease");
+      for (final Runnable action : losses) {
+        try {
+          action.run();
+        } catch (final RuntimeException e) {
+          log.atError().setCause(e).log("A leader-loss action failed");
+        }
+      }
     }
   }
 

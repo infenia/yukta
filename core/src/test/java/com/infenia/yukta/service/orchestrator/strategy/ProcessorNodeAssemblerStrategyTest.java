@@ -401,6 +401,42 @@ class ProcessorNodeAssemblerStrategyTest {
   }
 
   @Test
+  void createAssembler_blockingProcessor_runsEachMessageOffTheParentThread() {
+    final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "input");
+    final java.util.List<String> threads = new java.util.concurrent.CopyOnWriteArrayList<>();
+    final ProcessorPlugin processor = mock(ProcessorPlugin.class);
+    when(processor.process(any(), any()))
+        .thenAnswer(
+            call ->
+                ((Flux<Message<?>>) call.getArgument(0))
+                    .map(
+                        m -> {
+                          threads.add(Thread.currentThread().getName());
+                          return m;
+                        }));
+    when(processor.isBlocking()).thenReturn(true);
+
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "processor", Map.of());
+    // the parent emits on a parallel thread, as a hot broadcast would
+    final Flux<Message<?>> parentStream =
+        Flux.<Message<?>>just(msg).publishOn(Schedulers.parallel());
+    final AssemblyContext context = buildContextNoSkipFlag(NODE_ID, parentStream);
+
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(parentStream);
+    when(streamTopologyDecorator.applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any(), any()))
+        .thenAnswer(call -> call.getArgument(2));
+
+    strategy
+        .createAssembler(node, processor, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+    context.streams()[0].blockLast(Duration.ofSeconds(5));
+
+    assertThat(threads).isNotEmpty().noneMatch(name -> name.startsWith("parallel-"));
+  }
+
+  @Test
   void createAssembler_multipleParentEdges_mergesStreams() {
     final Message<?> msg1 = DefaultMessage.create(UUID.randomUUID(), "a");
     final Message<?> msg2 = DefaultMessage.create(UUID.randomUUID(), "b");

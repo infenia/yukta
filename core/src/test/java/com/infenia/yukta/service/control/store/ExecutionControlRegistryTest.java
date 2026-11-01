@@ -162,4 +162,22 @@ class ExecutionControlRegistryTest {
     registry.unregister("non-existent");
     assertThat(registry.findByExecutionId("non-existent")).isEmpty();
   }
+
+  @Test
+  void testFindAllReturnsEveryLiveExecution() {
+    final ExecutionControl control1 = createControl("session-1", "exec-1");
+    final ExecutionControl control2 = createControl("session-2", "exec-2");
+    registry.register(control1);
+    registry.register(control2);
+
+    assertThat(registry.findAll()).hasSize(2).contains(control1, control2);
+
+    registry.unregister("exec-1");
+    assertThat(registry.findAll()).containsExactly(control2);
+  }
+
+  @Test
+  void testFindAllEmpty() {
+    assertThat(registry.findAll()).isEmpty();
+  }
 }
