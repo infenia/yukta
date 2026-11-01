@@ -148,7 +148,6 @@ com.infenia.yukta.service.control.processor.StepNodeCommandProcessor
 com.infenia.yukta.service.control.processor.StopNodeCommandProcessor
 com.infenia.yukta.service.control.processor.StopWorkflowCommandProcessor
 com.infenia.yukta.service.control.store.ActivePluginRegistry
-com.infenia.yukta.service.control.store.ExecutionControlRegistry
 com.infenia.yukta.service.control.store.InMemoryExecutionControlStore
 com.infenia.yukta.service.leader.LeaderLoss
 com.infenia.yukta.service.leader.SingleServerLeader

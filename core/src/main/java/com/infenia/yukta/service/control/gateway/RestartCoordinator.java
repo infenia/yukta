@@ -6,7 +6,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeCommand;
 import com.infenia.yukta.service.archive.ExecutionArchive;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
@@ -34,10 +34,10 @@ final class RestartCoordinator extends ControlDispatch {
 
   /* default */ RestartCoordinator(
       final ControlBusGateway gateway,
-      final ExecutionControlRegistry executionControlRegistry,
+      final ExecutionControlStore executionControlStore,
       final ExecutionArchive executionArchive,
       final StartIdempotency idempotency) {
-    super(gateway, executionControlRegistry);
+    super(gateway, executionControlStore);
     this.executionArchive = executionArchive;
     this.idempotency = idempotency;
   }

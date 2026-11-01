@@ -20,7 +20,7 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.QueueTimeoutException;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
@@ -76,7 +76,7 @@ public class WorkflowOrchestrator {
   private final TaskTrackerService tracker;
 
   /** The execution control registry for managing workflow execution control. */
-  private final ExecutionControlRegistry executionControlRegistry;
+  private final ExecutionControlStore executionControlStore;
 
   /** The execution control factory for creating execution control instances. */
   private final ExecutionControlFactory executionControlFactory;
@@ -190,7 +190,7 @@ public class WorkflowOrchestrator {
               final ExecutionControl control =
                   executionControlFactory.create(
                       sessionId, workflowId, executionId, prepared, payload);
-              executionControlRegistry.register(control);
+              executionControlStore.save(control);
               log.atDebug()
                   .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
                   .log("Registered execution control");
@@ -371,7 +371,7 @@ public class WorkflowOrchestrator {
               final ExecutionControl control =
                   executionControlFactory.create(
                       sessionId, workflowId, newExecutionId, prepared, payload);
-              executionControlRegistry.register(control);
+              executionControlStore.save(control);
               archive(newExecutionId, sessionId, workflowId, prepared, payload);
               log.atDebug()
                   .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
@@ -465,7 +465,7 @@ public class WorkflowOrchestrator {
   /** Drops the recorded outputs of an evicted run, or at its end if it is still running. */
   private void releaseCheckpoints(final String executionId) {
     clearWhenDone.put(executionId, Boolean.TRUE);
-    if (executionControlRegistry.findByExecutionId(executionId).isEmpty()) {
+    if (executionControlStore.findByExecutionId(executionId).isEmpty()) {
       clearIfPending(executionId);
     }
   }
@@ -558,7 +558,7 @@ public class WorkflowOrchestrator {
     final Runnable cleanup =
         () -> {
           if (cleaned.compareAndSet(false, true)) {
-            executionControlRegistry.unregister(executionId);
+            executionControlStore.remove(executionId);
             clearIfPending(executionId);
             // Ends the run: lets a pending drain deadline timer go instead of living on.
             control.safeStopSink().tryEmitEmpty();

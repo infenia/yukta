@@ -9,7 +9,7 @@ import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +30,7 @@ import reactor.core.publisher.Mono;
 public class SkipNodeCommandProcessor implements ControlSignalProcessor {
 
   /** The execution control registry, to find the run and its node flags. */
-  private final ExecutionControlRegistry registry;
+  private final ExecutionControlStore registry;
 
   @Override
   public boolean canProcess(final ExecutionControlCommand command) {

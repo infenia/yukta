@@ -16,7 +16,7 @@ import com.infenia.yukta.service.control.CommandSequencer;
 import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
@@ -38,7 +38,7 @@ import reactor.core.publisher.Mono;
  * <p>On startup, registers itself with {@link ControlBusService} as the executor of execution
  * control commands. For each command it finds the matching {@link ControlSignalProcessor} (by
  * priority), obtains a {@link WorkflowDirective}, and applies it to the active execution found in
- * {@link ExecutionControlRegistry}. Commands for one execution are applied in the order they were
+ * {@link ExecutionControlStore}. Commands for one execution are applied in the order they were
  * sent, and the caller is told once a command has been applied or why it was rejected.
  */
 @Slf4j
@@ -50,7 +50,7 @@ public class DirectiveDispatcher {
   private final List<ControlSignalProcessor> processors;
 
   /** The execution control registry for managing active executions. */
-  private final ExecutionControlRegistry registry;
+  private final ExecutionControlStore registry;
 
   /** The control bus service for subscribing to control signals. */
   private final ControlBusService controlBusService;
@@ -90,7 +90,7 @@ public class DirectiveDispatcher {
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DirectiveDispatcher(
       final List<ControlSignalProcessor> processors,
-      final ExecutionControlRegistry registry,
+      final ExecutionControlStore registry,
       final ControlBusService controlBusService,
       final ExecutionArchive archive,
       final ExecutionLogStore executionLog,
@@ -289,7 +289,7 @@ public class DirectiveDispatcher {
       final ExecutionControl control, final WorkflowDirective.Stop directive) {
     return Mono.fromRunnable(
         () -> {
-          registry.unregister(control.executionId());
+          registry.remove(control.executionId());
           control.safeStopSink().tryEmitEmpty();
           log.atInfo().log(
               "Stopped execution {} for workflow {}: {}",

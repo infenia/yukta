@@ -18,7 +18,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowComm
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.testsupport.YuktaSettings;
@@ -44,7 +44,7 @@ class StopWorkflowCommandProcessorTest {
 
   private static final String EXEC = "exec-1";
 
-  private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
+  private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final TaskTrackerService tracker = mock(TaskTrackerService.class);
 
   private StopWorkflowCommandProcessor processor;

@@ -17,7 +17,7 @@ import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
@@ -45,7 +45,7 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 class DirectiveDispatcherTest {
 
-  private ExecutionControlRegistry registry;
+  private ExecutionControlStore registry;
   private ControlBusService controlBusService;
   private ControlSignalProcessor processor;
   private ExecutionArchive archive;
@@ -72,7 +72,7 @@ class DirectiveDispatcherTest {
 
   @BeforeEach
   void setUp() {
-    registry = new ExecutionControlRegistry(new InMemoryExecutionControlStore());
+    registry = new InMemoryExecutionControlStore();
     archive = new ExecutionArchive();
     controlBusService = mock(ControlBusService.class);
     processor = mock(ControlSignalProcessor.class);
@@ -100,7 +100,7 @@ class DirectiveDispatcherTest {
     final String executionId = "exec-1";
 
     final ExecutionControl control = createControl("session-1", "workflow-1", executionId);
-    registry.register(control);
+    registry.save(control);
 
     final ExecutionControlCommand command =
         new ExecutionControlCommand.StopNodeCommand(executionId, "node-1", false, "User requested");
@@ -147,7 +147,7 @@ class DirectiveDispatcherTest {
     final String executionId = "exec-1";
 
     final ExecutionControl control = createControl("session-1", "workflow-1", executionId);
-    registry.register(control);
+    registry.save(control);
 
     final ExecutionControlCommand command =
         new ExecutionControlCommand.StopNodeCommand(executionId, "node-1", false, null);
@@ -169,7 +169,7 @@ class DirectiveDispatcherTest {
     final String executionId = "exec-1";
 
     final ExecutionControl control = createControl("session-1", "workflow-1", executionId);
-    registry.register(control);
+    registry.save(control);
 
     final ControlSignalProcessor lowPriorityProcessor = mock(ControlSignalProcessor.class);
     final ControlSignalProcessor highPriorityProcessor = mock(ControlSignalProcessor.class);
@@ -210,7 +210,7 @@ class DirectiveDispatcherTest {
     final String executionId = "exec-1";
 
     final ExecutionControl control = createControl("session-1", "workflow-1", executionId);
-    registry.register(control);
+    registry.save(control);
 
     final ExecutionControlCommand command =
         new ExecutionControlCommand.StopNodeCommand(executionId, "node-1", false, "Test stop");
@@ -231,7 +231,7 @@ class DirectiveDispatcherTest {
     final String executionId = "exec-1";
 
     final ExecutionControl control = createControl("session-1", "workflow-1", executionId);
-    registry.register(control);
+    registry.save(control);
 
     final ExecutionControlCommand command =
         new ExecutionControlCommand.StopNodeCommand(executionId, "node-1", false, "User stop");
@@ -272,7 +272,7 @@ class DirectiveDispatcherTest {
   void dispatchOrdered_recordsAppliedAndRejectedCommandsOfKnownRuns() {
     final List<com.infenia.yukta.security.AuditRecord> sunk = new ArrayList<>();
     dispatcher.setAuditSink(sunk::add);
-    registry.register(createControl("s", "w", "exec-audit"));
+    registry.save(createControl("s", "w", "exec-audit"));
     final ExecutionControlCommand pause =
         new ExecutionControlCommand.PauseWorkflowCommand("exec-audit");
     final ExecutionControlCommand resume =
@@ -307,7 +307,7 @@ class DirectiveDispatcherTest {
 
   @Test
   void dispatchOrdered_cancelledCommandIsRecordedAsRejected() {
-    registry.register(createControl("s", "w", "exec-cancel"));
+    registry.save(createControl("s", "w", "exec-cancel"));
     final ExecutionControlCommand pause =
         new ExecutionControlCommand.PauseWorkflowCommand("exec-cancel");
     when(processor.canProcess(any())).thenReturn(true);
@@ -335,7 +335,7 @@ class DirectiveDispatcherTest {
 
   @Test
   void dispatchOrdered_completesOnlyAfterTheProcessorHasApplied_andPropagatesRejections() {
-    registry.register(createControl("s", "w", "exec-ack"));
+    registry.save(createControl("s", "w", "exec-ack"));
     final ExecutionControlCommand command =
         new ExecutionControlCommand.PauseWorkflowCommand("exec-ack");
     when(processor.canProcess(command)).thenReturn(true);
@@ -354,7 +354,7 @@ class DirectiveDispatcherTest {
 
   @Test
   void dispatchOrdered_appliesCommandsOfOneExecutionInSubmissionOrder() {
-    registry.register(createControl("s", "w", "exec-order"));
+    registry.save(createControl("s", "w", "exec-order"));
     final ExecutionControlCommand first =
         new ExecutionControlCommand.PauseWorkflowCommand("exec-order");
     final ExecutionControlCommand second =
@@ -450,7 +450,7 @@ class DirectiveDispatcherTest {
 
   @Test
   void dispatchOrdered_cancelledWaiterOfRunThatIsGone_isNotRecorded() {
-    registry.register(createControl("s", "w", "exec-gone"));
+    registry.save(createControl("s", "w", "exec-gone"));
     when(processor.canProcess(any())).thenReturn(true);
     when(processor.getPriority()).thenReturn(1);
     final ExecutionControlCommand running =
@@ -460,7 +460,7 @@ class DirectiveDispatcherTest {
     when(processor.process(running)).thenReturn(Mono.never());
     final var first = dispatcher.dispatchOrdered(running).subscribe();
     final var second = dispatcher.dispatchOrdered(waiting).subscribe();
-    registry.unregister("exec-gone");
+    registry.remove("exec-gone");
 
     second.dispose();
 
@@ -470,7 +470,7 @@ class DirectiveDispatcherTest {
 
   @Test
   void dispatchOrdered_cancelledCommandNamesItsActor() {
-    registry.register(createControl("s", "w", "exec-actor"));
+    registry.save(createControl("s", "w", "exec-actor"));
     final ExecutionControlCommand pause =
         new ExecutionControlCommand.PauseWorkflowCommand("exec-actor");
     when(processor.canProcess(any())).thenReturn(true);

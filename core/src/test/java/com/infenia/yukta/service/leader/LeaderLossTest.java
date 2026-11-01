@@ -11,7 +11,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.gateway.DefaultControlBusGateway;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -25,7 +25,7 @@ class LeaderLossTest {
   @Test
   void losingTheLease_killsEveryLiveRun() {
     final LeaderElection election = mock(LeaderElection.class);
-    final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
+    final ExecutionControlStore registry = mock(ExecutionControlStore.class);
     final DefaultControlBusGateway gateway = mock(DefaultControlBusGateway.class);
     final ExecutionControl run = mock(ExecutionControl.class);
     when(run.executionId()).thenReturn("e1");

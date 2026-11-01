@@ -4,7 +4,7 @@ package com.infenia.yukta.service.leader;
 
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.control.gateway.DefaultControlBusGateway;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;
@@ -26,7 +26,7 @@ public class LeaderLoss implements SmartInitializingSingleton {
   private final LeaderElection election;
 
   /** The live runs. */
-  private final ExecutionControlRegistry registry;
+  private final ExecutionControlStore registry;
 
   /** Stops a run. */
   private final DefaultControlBusGateway gateway;
