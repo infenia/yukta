@@ -48,7 +48,7 @@ vi.mock('@/components/dashboard/Knob', () => ({
       </span>
       <button onClick={() => onChange(7)}>turn</button>
       <button onClick={() => onCommit(7)}>commit-7</button>
-      <button onClick={() => onCommit(value)}>commit-same</button>
+      <button onClick={() => onCommit(4)}>commit-same</button>
     </div>
   ),
 }));
@@ -176,5 +176,14 @@ describe('CapacityPanel', () => {
     expect(screen.getByText('Drain the server?')).toBeInTheDocument();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByText('Drain the server?')).toBeNull();
+  });
+
+  it('shows a refusal that carries no message as nothing', async () => {
+    vi.mocked(setLimits).mockRejectedValueOnce({});
+    renderWithProviders(<CapacityPanel live={false} />);
+    await screen.findByRole('switch');
+    fireEvent.click(screen.getByRole('button', { name: 'commit-7' }));
+    await waitFor(() => expect(setLimits).toHaveBeenCalled());
+    expect(screen.queryByText('This needs an ADMIN key.')).toBeNull();
   });
 });

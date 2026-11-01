@@ -38,6 +38,7 @@ vi.mock('@/components/dashboard/Strips', () => ({
           {item.label}|{item.kind}
         </button>
       ))}
+      <button onClick={() => onSelect({ at: -1 })}>unknown-mark</button>
     </div>
   ),
 }));
@@ -98,6 +99,8 @@ describe('LatencyPanel', () => {
     expect(refetch).toHaveBeenCalled();
   });
 
+});
+
 describe('ThroughputPanel failures', () => {
   it('retries the runs when they fail to load', () => {
     const refetch = vi.fn();
@@ -108,4 +111,19 @@ describe('ThroughputPanel failures', () => {
     expect(refetch).toHaveBeenCalled();
   });
 });
+
+describe('ThroughputPanel unknown mark', () => {
+  beforeEach(() => {
+    nav.to.mockReset();
+    series.mockReturnValue(ok({ 'runs.finished{status=ok}': [] }));
+  });
+
+  it('opens nothing for a mark that is not in the list', () => {
+    annotations.mockReturnValue(
+      ok([{ time: 1, command: 'pause', applied: true, sessionId: 's1', workflowId: 'w1' }]) as never
+    );
+    renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
+    fireEvent.click(screen.getByRole('button', { name: 'unknown-mark' }));
+    expect(nav.to).not.toHaveBeenCalled();
+  });
 });

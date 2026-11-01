@@ -123,4 +123,11 @@ describe('SupervisorCard', () => {
     card({});
     expect(screen.getByRole('article')).toBeInTheDocument();
   });
+
+  it('shows nothing for a failure that has no message', () => {
+    state.attach.error = {} as never;
+    card({ binding, profile, running });
+    expect(screen.queryByText('This needs an ADMIN key.')).toBeNull();
+    state.attach.error = null;
+  });
 });
