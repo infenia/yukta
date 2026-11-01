@@ -62,10 +62,6 @@ public class WorkflowValidator {
    * endpoint exists and ids are unique.
    */
   private Optional<String> findStructuralProblem(final WorkflowDefinition def) {
-    if (def.nodes().size() > MAX_NODES || def.edges().size() > MAX_EDGES) {
-      return Optional.of(
-          "Workflow is too large: at most " + MAX_NODES + " nodes and " + MAX_EDGES + " edges");
-    }
     final Map<String, WorkflowDefinition.Node> nodes = new ConcurrentHashMap<>();
     for (final WorkflowDefinition.Node node : def.nodes()) {
       if (nodes.put(node.nodeId(), node) != null) {
@@ -233,6 +229,17 @@ public class WorkflowValidator {
         .addKeyValue("nodeCount", def.nodes().size())
         .addKeyValue("edgeCount", def.edges().size())
         .log("Starting workflow validation");
+
+    // the size cap comes first: the passes below walk every node and edge
+    if (def.nodes().size() > MAX_NODES || def.edges().size() > MAX_EDGES) {
+      return Mono.error(
+          new IllegalArgumentException(
+              "Workflow is too large: at most "
+                  + MAX_NODES
+                  + " nodes and "
+                  + MAX_EDGES
+                  + " edges"));
+    }
 
     final List<String> masked = ConfigRedactor.placeholders(def);
     if (!masked.isEmpty()) {

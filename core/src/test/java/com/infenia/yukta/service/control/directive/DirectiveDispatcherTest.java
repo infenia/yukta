@@ -118,11 +118,11 @@ class DirectiveDispatcherTest {
   }
 
   @Test
-  void dispatch_noActiveExecution_completesEmpty() {
-    verifyDispatchWithNoActiveExecutionCompletesEmpty();
+  void dispatch_noActiveExecution_isNotFound() {
+    verifyDispatchWithNoActiveExecutionIsNotFound();
   }
 
-  private void verifyDispatchWithNoActiveExecutionCompletesEmpty() {
+  private void verifyDispatchWithNoActiveExecutionIsNotFound() {
     final ExecutionControlCommand command =
         new ExecutionControlCommand.StopNodeCommand("exec-no-exist", "node-1", false, null);
 
@@ -130,7 +130,9 @@ class DirectiveDispatcherTest {
     when(processor.getPriority()).thenReturn(0);
 
     // When
-    StepVerifier.create(dispatcher.dispatch(command)).verifyComplete();
+    StepVerifier.create(dispatcher.dispatch(command))
+        .expectError(com.infenia.yukta.service.NotFoundException.class)
+        .verify();
 
     // Then
     verify(processor, never()).process(command);
@@ -385,7 +387,7 @@ class DirectiveDispatcherTest {
 
   @Test
   void testDispatchNoActiveExecution() {
-    verifyDispatchWithNoActiveExecutionCompletesEmpty();
+    verifyDispatchWithNoActiveExecutionIsNotFound();
   }
 
   @Test

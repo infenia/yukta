@@ -8,7 +8,9 @@ import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.logging.api.PluginLogStoreConfig;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
@@ -18,16 +20,18 @@ import reactor.core.scheduler.Schedulers;
 /**
  * In-memory implementation of PluginLogStore using Caffeine cache.
  *
- * <p>Stores logs per execution with automatic expiration based on configured retention period. All
- * write operations are scheduled on boundedElastic to avoid blocking. Thread-safe via Caffeine's
- * internal synchronization.
+ * <p>Stores logs per execution with automatic expiration based on configured retention period. Each
+ * execution keeps its newest lines only. Thread-safe via Caffeine's internal synchronization.
  */
 @Slf4j
 @SuppressWarnings("PMD.AvoidSynchronizedStatement")
 public class InMemoryPluginLogStore implements PluginLogStore {
 
+  /** Most lines kept for one execution. */
+  private static final int MAX_ENTRIES_PER_EXECUTION = 10_000;
+
   /** Caffeine cache storing log entries per execution ID. */
-  private final Cache<String, List<PluginLogEntry>> cache;
+  private final Cache<String, Deque<PluginLogEntry>> cache;
 
   /** Retention duration extracted from config. */
   private final Duration retention;
@@ -58,10 +62,14 @@ public class InMemoryPluginLogStore implements PluginLogStore {
             () -> {
               final String executionId = entry.executionId();
               // A plain list under its own lock: a copy-on-write list copied itself on every line.
-              final List<PluginLogEntry> entries =
-                  cache.asMap().computeIfAbsent(executionId, k -> new ArrayList<>());
+              final Deque<PluginLogEntry> entries =
+                  cache.asMap().computeIfAbsent(executionId, k -> new ArrayDeque<>());
               synchronized (entries) {
-                entries.add(entry);
+                // a chatty plugin keeps the newest lines; the oldest are dropped
+                if (entries.size() >= MAX_ENTRIES_PER_EXECUTION) {
+                  entries.removeFirst();
+                }
+                entries.addLast(entry);
               }
               log.atTrace()
                   .log(
@@ -70,13 +78,12 @@ public class InMemoryPluginLogStore implements PluginLogStore {
                       entry.logLevel(),
                       entry.message());
             })
-        .subscribeOn(Schedulers.boundedElastic())
         .then();
   }
 
   @Override
   public Flux<PluginLogEntry> readExecution(final String executionId) {
-    final List<PluginLogEntry> entries = cache.getIfPresent(executionId);
+    final Deque<PluginLogEntry> entries = cache.getIfPresent(executionId);
     final List<PluginLogEntry> copy = new ArrayList<>();
     if (entries != null) {
       synchronized (entries) {
