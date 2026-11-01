@@ -44,7 +44,7 @@ class ActivePluginRegistryTest {
   void register_thenLookup_returnsPlugin() {
     registry.register(WORKFLOW_ID, NODE_ID, plugin);
 
-    assertThat(registry.lookup(WORKFLOW_ID, NODE_ID)).containsSame(plugin);
+    assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).containsSame(plugin);
   }
 
   @Test
@@ -62,18 +62,6 @@ class ActivePluginRegistryTest {
   }
 
   @Test
-  @DisplayName("should find the node of any run when the run is not named")
-  void lookupWithoutRun_findsTheNodeOfAnyRun() {
-    registry.register(WORKFLOW_ID, "run-1", NODE_ID, plugin);
-
-    assertThat(registry.lookup(WORKFLOW_ID, NODE_ID)).containsSame(plugin);
-
-    registry.unregister(WORKFLOW_ID, "run-1", NODE_ID);
-
-    assertThat(registry.lookup(WORKFLOW_ID, NODE_ID)).isEmpty();
-  }
-
-  @Test
   @DisplayName("should refcount a registration of one run")
   void sameRunRegisteredTwice_isRefcounted() {
     registry.register(WORKFLOW_ID, "run-1", NODE_ID, plugin);
@@ -88,7 +76,7 @@ class ActivePluginRegistryTest {
   @Test
   @DisplayName("should return empty for a node that was never registered")
   void lookup_neverRegistered_returnsEmpty() {
-    assertThat(registry.lookup(WORKFLOW_ID, NODE_ID)).isEmpty();
+    assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).isEmpty();
   }
 
   @Test
@@ -98,7 +86,7 @@ class ActivePluginRegistryTest {
 
     registry.unregister(WORKFLOW_ID, NODE_ID);
 
-    assertThat(registry.lookup(WORKFLOW_ID, NODE_ID)).isEmpty();
+    assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).isEmpty();
     verify(handler1).removeNode(COMPOSITE_KEY);
     verify(handler2).removeNode(COMPOSITE_KEY);
   }
@@ -119,14 +107,14 @@ class ActivePluginRegistryTest {
     registry.register(WORKFLOW_ID, NODE_ID, plugin);
 
     registry.unregister(WORKFLOW_ID, NODE_ID);
-    assertThat(registry.lookup(WORKFLOW_ID, NODE_ID))
+    assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID))
         .as("plugin should still be reachable while one registration remains outstanding")
         .containsSame(plugin);
     verify(handler1, never()).removeNode(COMPOSITE_KEY);
     verify(handler2, never()).removeNode(COMPOSITE_KEY);
 
     registry.unregister(WORKFLOW_ID, NODE_ID);
-    assertThat(registry.lookup(WORKFLOW_ID, NODE_ID)).isEmpty();
+    assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).isEmpty();
     verify(handler1).removeNode(COMPOSITE_KEY);
     verify(handler2).removeNode(COMPOSITE_KEY);
   }
@@ -140,12 +128,12 @@ class ActivePluginRegistryTest {
     registry.register(WORKFLOW_ID, NODE_ID, plugin);
     registry.register(WORKFLOW_ID, altNodeId, altPlugin);
 
-    assertThat(registry.lookup(WORKFLOW_ID, NODE_ID)).containsSame(plugin);
-    assertThat(registry.lookup(WORKFLOW_ID, altNodeId)).containsSame(altPlugin);
+    assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).containsSame(plugin);
+    assertThat(registry.lookup(WORKFLOW_ID, null, altNodeId)).containsSame(altPlugin);
 
     registry.unregister(WORKFLOW_ID, NODE_ID);
 
-    assertThat(registry.lookup(WORKFLOW_ID, NODE_ID)).isEmpty();
-    assertThat(registry.lookup(WORKFLOW_ID, altNodeId)).containsSame(altPlugin);
+    assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).isEmpty();
+    assertThat(registry.lookup(WORKFLOW_ID, null, altNodeId)).containsSame(altPlugin);
   }
 }

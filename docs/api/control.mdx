@@ -29,10 +29,12 @@ All responses use the [envelope](/api/overview#response-envelope). An unknown ex
 | `DELETE /api/executions/{executionId}/nodes/{nodeId}/breakpoint` | Clear a breakpoint | `OPERATOR` |
 | `POST /api/executions/{executionId}/nodes/{nodeId}/signal` | Answer a waiting node | `OPERATOR` |
 | `GET /api/control/nodes` | List active nodes | `VIEWER` |
-| `GET /api/control/workflows/{workflowId}/nodes` | List active nodes of a workflow | `VIEWER` |
-| `GET /api/control/workflows/{workflowId}/nodes/{nodeId}/heartbeat` | Read a node's last heartbeat | `VIEWER` |
-| `POST /api/control/workflows/{workflowId}/nodes/{nodeId}/command` | Send a command to a node | `ADMIN` |
+| `GET /api/control/workflows/{workflowId}/nodes?sessionId=` | List active nodes of a workflow | `VIEWER` |
+| `GET /api/control/workflows/{workflowId}/nodes/{nodeId}/heartbeat?sessionId=&executionId=` | Read a node's last heartbeat | `VIEWER` |
+| `POST /api/control/workflows/{workflowId}/nodes/{nodeId}/command?sessionId=&executionId=` | Send a command to a node | `ADMIN` |
 | `GET /api/control/audit` | List control commands | `VIEWER` |
+
+`sessionId` is required on the three `/api/control/workflows/...` calls, because workflow ids are only unique within a session. Give `executionId` too when the session has several live runs of the workflow; without it such a call answers `409`, and `404` when the session has no live run of it.
 
 Every execution and node control call, except retry, returns `data.executionId`, the id of the execution it acted on. The deprecated `/api/workflow/{sessionId}/{executionId}/...` forms of these calls are listed under [deprecated aliases](/api/overview#deprecated-aliases).
 

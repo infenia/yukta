@@ -18,6 +18,9 @@ func TestGetActiveNodesInWorkflow_success(t *testing.T) {
 		if r.Method != "GET" {
 			t.Errorf("expected GET, got %s", r.Method)
 		}
+		if r.URL.Query().Get("sessionId") != "s1" {
+			t.Errorf("expected sessionId=s1, got %q", r.URL.RawQuery)
+		}
 		if r.URL.Path != "/api/control/workflows/workflow-123/nodes" {
 			t.Errorf("expected /api/control/workflows/workflow-123/nodes, got %s", r.URL.Path)
 		}
@@ -31,7 +34,7 @@ func TestGetActiveNodesInWorkflow_success(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	nodes, err := c.GetActiveNodesInWorkflow("workflow-123")
+	nodes, err := c.GetActiveNodesInWorkflow("s1", "workflow-123")
 
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -48,7 +51,7 @@ func TestGetActiveNodesInWorkflow_success(t *testing.T) {
 
 func TestGetActiveNodesInWorkflow_emptyWorkflowID(t *testing.T) {
 	c := NewClient("http://localhost:9858")
-	_, err := c.GetActiveNodesInWorkflow("")
+	_, err := c.GetActiveNodesInWorkflow("s1", "")
 
 	if err == nil {
 		t.Fatal("expected error for empty workflowID, got nil")
@@ -112,7 +115,7 @@ func TestGetLastHeartbeat_success(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	heartbeat, err := c.GetLastHeartbeat("workflow-123", "node-1")
+	heartbeat, err := c.GetLastHeartbeat("s1", "workflow-123", "", "node-1")
 
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -125,12 +128,12 @@ func TestGetLastHeartbeat_success(t *testing.T) {
 func TestGetLastHeartbeat_emptyIDs(t *testing.T) {
 	c := NewClient("http://localhost:9858")
 
-	_, err := c.GetLastHeartbeat("", "node-1")
+	_, err := c.GetLastHeartbeat("s1", "", "", "node-1")
 	if err == nil {
 		t.Error("expected error for empty workflowID, got nil")
 	}
 
-	_, err = c.GetLastHeartbeat("workflow-123", "")
+	_, err = c.GetLastHeartbeat("s1", "workflow-123", "", "")
 	if err == nil {
 		t.Error("expected error for empty nodeID, got nil")
 	}
@@ -160,7 +163,7 @@ func TestSendCommand_success(t *testing.T) {
 
 	c := NewClient(server.URL)
 	commandPayload := []byte(`{"action":"pause"}`)
-	result, err := c.SendCommand("workflow-123", "node-1", commandPayload)
+	result, err := c.SendCommand("s1", "workflow-123", "", "node-1", commandPayload)
 
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -172,7 +175,7 @@ func TestSendCommand_success(t *testing.T) {
 
 func TestSendCommand_emptyPayload(t *testing.T) {
 	c := NewClient("http://localhost:9858")
-	_, err := c.SendCommand("workflow-123", "node-1", []byte{})
+	_, err := c.SendCommand("s1", "workflow-123", "", "node-1", []byte{})
 
 	if err == nil {
 		t.Fatal("expected error for empty payload, got nil")
@@ -184,7 +187,7 @@ func TestSendCommand_emptyPayload(t *testing.T) {
 
 func TestSendCommand_emptyWorkflowID(t *testing.T) {
 	c := NewClient("http://localhost:9858")
-	_, err := c.SendCommand("", "node-1", []byte(`{"action":"pause"}`))
+	_, err := c.SendCommand("s1", "", "", "node-1", []byte(`{"action":"pause"}`))
 
 	if err == nil {
 		t.Fatal("expected error for empty workflowID, got nil")
@@ -196,7 +199,7 @@ func TestSendCommand_emptyWorkflowID(t *testing.T) {
 
 func TestSendCommand_emptyNodeID(t *testing.T) {
 	c := NewClient("http://localhost:9858")
-	_, err := c.SendCommand("workflow-123", "", []byte(`{"action":"pause"}`))
+	_, err := c.SendCommand("s1", "workflow-123", "", "", []byte(`{"action":"pause"}`))
 
 	if err == nil {
 		t.Fatal("expected error for empty nodeID, got nil")
@@ -214,7 +217,7 @@ func TestSendCommand_apiError(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	_, err := c.SendCommand("workflow-123", "nonexistent", []byte(`{"action":"pause"}`))
+	_, err := c.SendCommand("s1", "workflow-123", "", "nonexistent", []byte(`{"action":"pause"}`))
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -233,7 +236,7 @@ func TestGetActiveNodesInWorkflow_malformedJSON(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	_, err := c.GetActiveNodesInWorkflow("workflow-123")
+	_, err := c.GetActiveNodesInWorkflow("s1", "workflow-123")
 
 	if err == nil {
 		t.Fatal("expected error for malformed JSON, got nil")
@@ -267,12 +270,44 @@ func TestGetLastHeartbeat_malformedJSON(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	_, err := c.GetLastHeartbeat("workflow-123", "node-1")
+	_, err := c.GetLastHeartbeat("s1", "workflow-123", "", "node-1")
 
 	if err == nil {
 		t.Fatal("expected error for malformed JSON, got nil")
 	}
 	if !strings.Contains(err.Error(), "failed to unmarshal response") {
 		t.Errorf("expected unmarshal error, got: %v", err)
+	}
+}
+
+func TestGetLastHeartbeat_sendsSessionAndExecution(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.RawQuery; got != "executionId=run-1&sessionId=s1" {
+			t.Errorf("unexpected query %q", got)
+		}
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer server.Close()
+
+	if _, err := NewClient(server.URL).GetLastHeartbeat("s1", "wf", "run-1", "n"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSendCommand_emptySessionID(t *testing.T) {
+	_, err := NewClient("http://localhost:9858").SendCommand("", "wf", "", "n", []byte(`{}`))
+	if err == nil || !strings.Contains(err.Error(), "sessionID") {
+		t.Fatalf("expected sessionID error, got %v", err)
+	}
+}
+
+func TestNodeCalls_emptySessionID(t *testing.T) {
+	c := NewClient("http://localhost:9858")
+
+	if _, err := c.GetActiveNodesInWorkflow("", "wf"); err == nil || !strings.Contains(err.Error(), "sessionID") {
+		t.Errorf("GetActiveNodesInWorkflow: expected sessionID error, got %v", err)
+	}
+	if _, err := c.GetLastHeartbeat("", "wf", "", "n"); err == nil || !strings.Contains(err.Error(), "sessionID") {
+		t.Errorf("GetLastHeartbeat: expected sessionID error, got %v", err)
 	}
 }

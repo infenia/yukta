@@ -57,6 +57,7 @@ func TestHeartbeatCmd_executesSuccessfully_tableFormat(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = w
 
+	_ = cmd.Flags().Set("session", "s1")
 	err := cmd.RunE(cmd, []string{"workflow-123", "node-1"})
 
 	w.Close()
@@ -102,6 +103,7 @@ func TestHeartbeatCmd_executesSuccessfully_jsonFormat(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = w
 
+	_ = cmd.Flags().Set("session", "s1")
 	err := cmd.RunE(cmd, []string{"workflow-123", "node-1"})
 
 	w.Close()
@@ -130,6 +132,7 @@ func TestHeartbeatCmd_handlesApiError(t *testing.T) {
 	c := client.NewClient(server.URL)
 	cmd := HeartbeatCmd(c)
 
+	_ = cmd.Flags().Set("session", "s1")
 	err := cmd.RunE(cmd, []string{"workflow-123", "nonexistent"})
 
 	if err == nil {
