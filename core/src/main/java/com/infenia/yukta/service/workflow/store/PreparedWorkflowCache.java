@@ -7,6 +7,9 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.PreDestroy;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -35,8 +38,8 @@ public class PreparedWorkflowCache {
   /** Property key for workflow ID. */
   private static final String WORKFLOW_ID_KEY = "workflowId";
 
-  /** Most prepared workflows kept; the least recently used go first. */
-  private static final long MAX_ENTRIES = 1_000;
+  /** Default for most prepared workflows kept; the least recently used go first. */
+  private static final long DEFAULT_MAX_ENTRIES = 1_000;
 
   /** The Caffeine cache for prepared workflows. */
   private final Cache<String, Entry> cache;
@@ -45,17 +48,30 @@ public class PreparedWorkflowCache {
   private final java.util.Set<String> deleting = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
   /**
+   * Creates a cache with the default size limit and no shared meters.
+   *
+   * @param ttlMs TTL in milliseconds
+   */
+  public PreparedWorkflowCache(final long ttlMs) {
+    this(ttlMs, DEFAULT_MAX_ENTRIES, new SimpleMeterRegistry());
+  }
+
+  /**
    * Spring-managed constructor.
    *
    * @param ttlMs TTL in milliseconds from application properties
+   * @param maxEntries most workflows kept ({@code workflow.cache.max-size})
+   * @param meters where the {@code yukta.workflow.cache.size} gauge is registered
    */
   @Autowired
-  public PreparedWorkflowCache(@Value("${workflow.cache.ttl.ms:600000}") final long ttlMs) {
+  public PreparedWorkflowCache(
+      @Value("${workflow.cache.ttl.ms:600000}") final long ttlMs,
+      @Value("${workflow.cache.max-size:1000}") final long maxEntries,
+      final MeterRegistry meters) {
     this.cache =
         Caffeine.newBuilder()
             .expireAfterAccess(ttlMs, TimeUnit.MILLISECONDS)
-            // ponytail: fixed cap; make it a setting if a server needs more
-            .maximumSize(MAX_ENTRIES)
+            .maximumSize(maxEntries)
             .recordStats()
             .removalListener(
                 (key, _, cause) ->
@@ -64,6 +80,9 @@ public class PreparedWorkflowCache {
                         .addKeyValue("cause", cause)
                         .log("Evicted compiled workflow"))
             .build();
+    Gauge.builder("yukta.workflow.cache.size", cache, Cache::estimatedSize)
+        .description("Prepared workflows held in memory")
+        .register(meters);
     log.atInfo().addKeyValue("ttlMs", ttlMs).log("Initialized PreparedWorkflowCache with Caffeine");
   }
 

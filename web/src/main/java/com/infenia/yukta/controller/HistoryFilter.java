@@ -3,10 +3,9 @@
 package com.infenia.yukta.controller;
 
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Locale;
 import org.jspecify.annotations.Nullable;
-import org.springframework.format.annotation.DateTimeFormat;
 
 /**
  * Narrows a session's history: every field that is set must match.
@@ -21,8 +20,8 @@ public record HistoryFilter(
     @Nullable String workflowId,
     @Nullable String status,
     @Nullable String text,
-    @Nullable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime since,
-    @Nullable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime until) {
+    @Nullable Instant since,
+    @Nullable Instant until) {
 
   /**
    * Whether a run passes the filter.
@@ -32,7 +31,7 @@ public record HistoryFilter(
    */
   public boolean matches(final WorkflowExecutionSummary run) {
     return (workflowId == null || workflowId.equals(run.workflowId()))
-        && (status == null || status.equalsIgnoreCase(run.status()))
+        && (status == null || status.equalsIgnoreCase(run.status().name()))
         && (text == null
             || run.executionId().toLowerCase(Locale.ROOT).contains(text.toLowerCase(Locale.ROOT)))
         && (since == null || (run.startTime() != null && !run.startTime().isBefore(since)))

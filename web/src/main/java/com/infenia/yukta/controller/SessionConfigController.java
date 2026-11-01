@@ -311,7 +311,7 @@ public class SessionConfigController {
                                             def.nodes().size(),
                                             def.edges().size(),
                                             statuses.containsKey(def.workflowId())
-                                                ? statuses.get(def.workflowId()).status()
+                                                ? statuses.get(def.workflowId()).status().name()
                                                 : null))
                                 .toList()))
         .map(summaries -> ApiResponse.success(200, "Workflow summaries retrieved", summaries));

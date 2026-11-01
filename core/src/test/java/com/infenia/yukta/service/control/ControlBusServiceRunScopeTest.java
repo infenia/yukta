@@ -4,7 +4,6 @@ package com.infenia.yukta.service.control;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
@@ -15,8 +14,6 @@ import com.infenia.yukta.service.control.directive.ControlHeartbeatHandler;
 import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.directive.ControlStatisticsHandler;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
-import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
-import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.testsupport.Timing;
 import java.time.Duration;
 import java.util.List;
@@ -42,15 +39,7 @@ class ControlBusServiceRunScopeTest {
   void setUp() {
     final List<ControlSignalHandler> handlers =
         List.of(new ControlHeartbeatHandler(), new ControlStatisticsHandler());
-    service =
-        new ControlBusService(
-            100,
-            10,
-            256,
-            handlers,
-            mock(PreparedWorkflowCache.class),
-            mock(WorkflowOrchestrator.class),
-            new ActivePluginRegistry(handlers));
+    service = new ControlBusService(100, 10, 256, handlers, new ActivePluginRegistry(handlers));
     service.init();
   }
 

@@ -4,17 +4,12 @@ package com.infenia.yukta.service.control;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.control.NodeHeartbeat;
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
-import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
-import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
-import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.util.SinkEmit;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotBlank;
@@ -44,12 +39,7 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Service
-@SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.AvoidCatchingGenericException",
-  "PMD.ExcessiveImports",
-  "PMD.CouplingBetweenObjects"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidCatchingGenericException"})
 public class ControlBusService {
 
   /** Metadata key of a control message that names the run it comes from. */
@@ -66,12 +56,6 @@ public class ControlBusService {
 
   /** List of signal handlers for dispatching messages. */
   private final List<ControlSignalHandler> handlers;
-
-  /** Cache for compiled workflow instances. */
-  private final PreparedWorkflowCache preparedWorkflowCache;
-
-  /** Workflow orchestrator for compiling workflows. */
-  private final WorkflowOrchestrator orchestrator;
 
   /** Registry of plugin instances actively servicing workflow nodes. */
   private final ActivePluginRegistry activePluginRegistry;
@@ -104,25 +88,18 @@ public class ControlBusService {
    * @param batchTimeoutMs the timeout in milliseconds for batching
    * @param bufferSize the size of the control sink buffer (uses SMALL_BUFFER_SIZE if too small)
    * @param handlers the list of signal handlers for dispatching messages
-   * @param preparedWorkflowCache the cache for compiled workflow instances
-   * @param orchestrator the workflow orchestrator for compiling workflows
    * @param activePluginRegistry the registry of plugin instances actively servicing nodes
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public ControlBusService(
       @Value("${control.bus.batch.size:100}") final int batchSize,
       @Value("${control.bus.batch.timeout.ms:50}") final int batchTimeoutMs,
       @Value("${control.bus.buffer.size:256}") final int bufferSize,
       final List<ControlSignalHandler> handlers,
-      final PreparedWorkflowCache preparedWorkflowCache,
-      final WorkflowOrchestrator orchestrator,
       final ActivePluginRegistry activePluginRegistry) {
     this.batchSize = batchSize;
     this.batchTimeout = Duration.ofMillis(batchTimeoutMs);
     this.bufferSize = Math.max(bufferSize, Queues.SMALL_BUFFER_SIZE);
     this.handlers = List.copyOf(handlers);
-    this.preparedWorkflowCache = preparedWorkflowCache;
-    this.orchestrator = orchestrator;
     this.activePluginRegistry = activePluginRegistry;
   }
 
@@ -230,60 +207,6 @@ public class ControlBusService {
    */
   public Flux<Message<?>> getControlStream() {
     return controlSink.asFlux();
-  }
-
-  /**
-   * Compile and cache a workflow after it has already been persisted.
-   *
-   * <p>Assumes the workflow definition is already in {@link WorkflowDefinitionStore}. Invalidates
-   * any stale cache entries, compiles the workflow, and warms the cache.
-   *
-   * @param sessionId the session identifier
-   * @param workflowDefinition the workflow definition to compile and cache
-   * @return a Mono that completes when the workflow is compiled and cached
-   */
-  public Mono<Void> compileAndCacheWorkflow(
-      final String sessionId, final WorkflowDefinition workflowDefinition) {
-    final String workflowId = workflowDefinition.workflowId();
-    return Mono.fromRunnable(
-            () -> {
-              log.atDebug()
-                  .addArgument(workflowId)
-                  .addArgument(sessionId)
-                  .log("Invalidating cache for workflow: {} in session: {}");
-              preparedWorkflowCache.invalidate(sessionId, workflowId);
-            })
-        .then(
-            orchestrator
-                .prepareWorkflow(workflowDefinition)
-                .doOnSubscribe(
-                    _ ->
-                        log.atDebug()
-                            .addArgument(workflowId)
-                            .addArgument(sessionId)
-                            .log("Starting compilation of workflow: {} for session: {}"))
-                .doOnSuccess(
-                    prepared ->
-                        log.atDebug()
-                            .addArgument(workflowId)
-                            .addArgument(sessionId)
-                            .log("Successfully compiled workflow: {} for session: {}"))
-                .doOnError(
-                    err ->
-                        log.atError()
-                            .addArgument(workflowId)
-                            .addArgument(sessionId)
-                            .setCause(err)
-                            .log("Failed to compile workflow: {} for session: {}")))
-        .doOnNext(
-            prepared -> {
-              log.atDebug()
-                  .addArgument(workflowId)
-                  .addArgument(sessionId)
-                  .log("Caching prepared workflow: {} for session: {}");
-              preparedWorkflowCache.put(sessionId, workflowId, prepared, workflowDefinition);
-            })
-        .then();
   }
 
   /**

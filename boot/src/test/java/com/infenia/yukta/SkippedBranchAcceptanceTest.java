@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.execution.TaskProgress;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
@@ -82,21 +83,20 @@ class SkippedBranchAcceptanceTest {
         .until(
             () -> {
               final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-              return progress != null
-                  && !List.of("PENDING", "QUEUED", "RUNNING").contains(progress.status());
+              return progress != null && progress.status().isTerminal();
             });
     final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-    final Map<String, String> statuses =
+    final Map<String, TaskStatus> statuses =
         progress.tasks().stream()
             .collect(Collectors.toMap(TaskProgress::nodeId, TaskProgress::status));
 
-    assertThat(progress.status()).isEqualTo("SUCCESS");
+    assertThat(progress.status()).isEqualTo(TaskStatus.SUCCESS);
     // the trigger and the taken branch ran; the branch behind the untaken port never did
     assertThat(statuses)
-        .containsEntry("t", "SUCCESS")
-        .containsEntry("check", "SUCCESS")
-        .containsEntry("ok", "SUCCESS")
-        .containsEntry("repair", "SKIPPED")
-        .containsEntry("fixed", "SKIPPED");
+        .containsEntry("t", TaskStatus.SUCCESS)
+        .containsEntry("check", TaskStatus.SUCCESS)
+        .containsEntry("ok", TaskStatus.SUCCESS)
+        .containsEntry("repair", TaskStatus.SKIPPED)
+        .containsEntry("fixed", TaskStatus.SKIPPED);
   }
 }

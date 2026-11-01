@@ -85,6 +85,65 @@ class RunAnalyticsTest {
   }
 
   @Test
+  void seededControl_keepsCommandActorAndReason_typedOrFromTheText() {
+    final Instant at = T0.plusSeconds(500);
+    final var typed =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_REJECTED,
+            "typed",
+            "",
+            "",
+            null,
+            "PauseWorkflowCommand [by key:ops]: deny",
+            Map.of(),
+            null,
+            Map.of(
+                ExecutionLogEvent.COMMAND_KEY, "PauseWorkflowCommand",
+                ExecutionLogEvent.ACTOR_KEY, "key:ops",
+                ExecutionLogEvent.REASON_KEY, "deny"),
+            at,
+            null);
+    final var text =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_REJECTED,
+            "text",
+            "",
+            "",
+            null,
+            "StopWorkflowCommand [by key:bob]: busy",
+            Map.of(),
+            null,
+            null,
+            at,
+            null);
+    final var noActor =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_APPLIED,
+            "plain",
+            "",
+            "",
+            null,
+            "ResumeCommand",
+            Map.of(),
+            null,
+            Map.of(ExecutionLogEvent.COMMAND_KEY, "ResumeCommand"),
+            at,
+            null);
+
+    analytics.seed(List.of(typed, text, noActor));
+
+    assertThat(analytics.annotations(RunAnalytics.GLOBAL, HOUR))
+        .extracting(
+            RunAnalytics.Annotation::command,
+            RunAnalytics.Annotation::actor,
+            RunAnalytics.Annotation::reason)
+        .containsExactlyInAnyOrder(
+            org.assertj.core.groups.Tuple.tuple("PauseWorkflowCommand", "key:ops", "deny"),
+            org.assertj.core.groups.Tuple.tuple("StopWorkflowCommand", "key:bob", "busy"),
+            org.assertj.core.groups.Tuple.tuple("ResumeCommand", null, null));
+  }
+
+  @Test
   void countsRunsByStatusAndTimesThem() {
     run("a", "s1", "w1", 0, 1000, SUCCESS);
     run("b", "s1", "w1", 10, 3000, FAILURE);
@@ -570,14 +629,59 @@ class RunAnalyticsTest {
     when(provider.getIfAvailable()).thenReturn(store);
     final var withLog = new RunAnalytics(new ExecutionEventFeed(), provider);
     withLog.start();
-    assertThat(withLog.snapshot("session:s1")).containsEntry("runs.finished", 1.0);
+    withLog.seedFromLog();
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> assertThat(withLog.snapshot("session:s1")).containsEntry("runs.finished", 1.0));
     withLog.stop();
 
     when(provider.getIfAvailable()).thenReturn(null);
     final var withoutLog = new RunAnalytics(new ExecutionEventFeed(), provider);
     withoutLog.start();
+    withoutLog.seedFromLog();
     assertThat(withoutLog.snapshot("session:s1")).doesNotContainKey("runs.finished");
     withoutLog.stop();
+  }
+
+  @Test
+  void seededCommandWhoseNameSpansLinesKeepsItsWholeTextAndHasNoActor() {
+    final var started =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.RUN_STARTED,
+            "multi",
+            "s1",
+            "w1",
+            null,
+            null,
+            Map.of(),
+            null,
+            null,
+            T0.plusSeconds(10),
+            null);
+    final var applied =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_APPLIED,
+            "multi",
+            "s1",
+            "w1",
+            null,
+            "Pause\nnow",
+            Map.of(),
+            null,
+            null,
+            T0.plusSeconds(11),
+            null);
+
+    analytics.seed(List.of(started, applied));
+
+    assertThat(analytics.annotations(RunAnalytics.GLOBAL, Duration.ofDays(1)))
+        .singleElement()
+        .satisfies(
+            a -> {
+              assertThat(a.command()).isEqualTo("Pause\nnow");
+              assertThat(a.actor()).isNull();
+            });
   }
 
   @Test

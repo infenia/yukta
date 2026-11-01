@@ -5,6 +5,7 @@ package com.infenia.yukta.service.log;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
@@ -45,7 +46,7 @@ class ExecutionRecoveryTest {
                     .satisfies(
                         run -> {
                           assertThat(run.executionId()).isEqualTo("crashed");
-                          assertThat(run.status()).isEqualTo("ABORTED");
+                          assertThat(run.status()).isEqualTo(TaskStatus.ABORTED);
                           assertThat(run.endTime()).isNotNull();
                         }))
         .verifyComplete();
@@ -58,10 +59,10 @@ class ExecutionRecoveryTest {
     new ExecutionRecovery(store, tracker, 100).recover();
 
     final var progress = tracker.getProgress("s1", "done");
-    assertThat(progress.status()).isEqualTo("FAILURE");
+    assertThat(progress.status()).isEqualTo(TaskStatus.FAILURE);
     assertThat(progress.tasks())
         .singleElement()
-        .satisfies(t -> assertThat(t.status()).isEqualTo("FAILURE"));
+        .satisfies(t -> assertThat(t.status()).isEqualTo(TaskStatus.FAILURE));
     assertThat(progress.endTime()).isNotNull();
   }
 
@@ -142,7 +143,7 @@ class ExecutionRecoveryTest {
     live.init();
     StepVerifier.create(live.startWorkflow("e1", "s1", "w1", List.of("n1"))).verifyComplete();
 
-    live.emitWorkflowStatusEvent("e1", com.infenia.yukta.model.execution.TaskStatus.SUCCESS);
+    live.emitWorkflowStatusEvent("e1", TaskStatus.SUCCESS);
 
     org.awaitility.Awaitility.await()
         .atMost(5, java.util.concurrent.TimeUnit.SECONDS)
@@ -168,10 +169,8 @@ class ExecutionRecoveryTest {
             new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     live.init();
     StepVerifier.create(live.startWorkflow("e1", "s1", "w1", List.of("n1", "n2"))).verifyComplete();
-    live.emitTaskStatusEvent(
-        "e1", "n1", "m", com.infenia.yukta.model.execution.TaskStatus.RUNNING, Map.of());
-    live.emitTaskStatusEvent(
-        "e1", "n1", "m", com.infenia.yukta.model.execution.TaskStatus.SUCCESS, Map.of());
+    live.emitTaskStatusEvent("e1", "n1", "m", TaskStatus.RUNNING, Map.of());
+    live.emitTaskStatusEvent("e1", "n1", "m", TaskStatus.SUCCESS, Map.of());
 
     org.awaitility.Awaitility.await()
         .atMost(5, java.util.concurrent.TimeUnit.SECONDS)
@@ -228,14 +227,11 @@ class ExecutionRecoveryTest {
   }
 
   @Test
-  void newestAppliedLimitChange_isReappliedToTheScheduler() {
+  void newestLimitsChangedEvent_isReappliedToTheScheduler() {
     final ExecutionScheduler scheduler =
         new ExecutionScheduler(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
-    store.append(
-        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(1, 1)", null));
-    store.append(
-        ExecutionLogEvent.control(
-            true, ExecutionLogEvent.SCHEDULER, "SetLimits(4, 2) [by key:bob]", null));
+    store.append(ExecutionLogEvent.limitsChanged(1, 1));
+    store.append(ExecutionLogEvent.limitsChanged(4, 2));
     store.append(
         ExecutionLogEvent.control(
             false, ExecutionLogEvent.SCHEDULER, "SetLimits(7, 7)", "refused"));
@@ -252,56 +248,17 @@ class ExecutionRecoveryTest {
   }
 
   @Test
-  void legacySingleArgumentChange_keepsThePerWorkflowLimit() {
-    final ExecutionScheduler scheduler =
-        new ExecutionScheduler(9, 3, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
-    store.append(
-        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(2)", null));
-    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
-    recovery.setExecutionScheduler(scheduler);
-
-    recovery.recover();
-
-    assertThat(scheduler.perWorkflowLimit()).isEqualTo(3);
-    scheduler.acquire("s", "a");
-    scheduler.acquire("s", "b");
-    assertThat(scheduler.acquire("s", "c").refused()).isTrue();
-  }
-
-  @Test
-  void whenNoLimitChangeWasApplied_theSchedulerKeepsItsLimits() {
+  void auditTextAlone_doesNotChangeTheLimits() {
     final ExecutionScheduler scheduler =
         new ExecutionScheduler(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
     store.append(
-        ExecutionLogEvent.control(
-            false, ExecutionLogEvent.SCHEDULER, "SetLimits(8, 8)", "refused by a reviewer"));
+        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(3, 1)", null));
     final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
     recovery.setExecutionScheduler(scheduler);
 
     recovery.recover();
 
     assertThat(scheduler.perWorkflowLimit()).isEqualTo(9);
-  }
-
-  @Test
-  void onlyAppliedAndReadableLimitChanges_areReapplied() {
-    final ExecutionScheduler scheduler =
-        new ExecutionScheduler(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
-    store.append(
-        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(3, 1)", null));
-    store.append(
-        ExecutionLogEvent.control(
-            false, ExecutionLogEvent.SCHEDULER, "SetLimits(8, 8)", "refused by a reviewer"));
-    store.append(
-        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(garbled", null));
-    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
-    recovery.setExecutionScheduler(scheduler);
-
-    recovery.recover();
-
-    assertThat(scheduler.perWorkflowLimit()).isEqualTo(1);
-    scheduler.acquire("s", "w");
-    assertThat(scheduler.acquire("s", "w").refused()).isTrue();
   }
 
   @Test

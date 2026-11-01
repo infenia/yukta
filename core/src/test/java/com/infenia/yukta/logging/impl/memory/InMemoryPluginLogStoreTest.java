@@ -31,6 +31,9 @@ class InMemoryPluginLogStoreTest {
   /** Test session identifier. */
   private static final String SESSION_ID = "session-456";
 
+  /** Execution ID used by the character-cap test. */
+  private static final String EXEC_CAP = "exec-cap";
+
   /** Test processor identifier. */
   private static final String PROCESSOR_ID = "processor-1";
 
@@ -85,6 +88,66 @@ class InMemoryPluginLogStoreTest {
               assertThat(lines.getLast()).isEqualTo("line 10049");
             })
         .verifyComplete();
+  }
+
+  @Test
+  void testGlobalCharCapDropsTheOldestLinesOfTheExecutionBeingWritten() {
+    final InMemoryPluginLogStore small =
+        new InMemoryPluginLogStore(new PluginLogStoreConfig(), 100);
+    Flux.range(0, 10)
+        .concatMap(
+            i ->
+                small.write(
+                    new PluginLogEntry(
+                        EXEC_CAP,
+                        SESSION_ID,
+                        PROCESSOR_ID,
+                        PROCESSOR_NAME,
+                        LogStream.STDOUT,
+                        "0123456789" + i + "x".repeat(19),
+                        LogLevel.INFO,
+                        Instant.now(),
+                        null,
+                        null)))
+        .blockLast();
+
+    StepVerifier.create(small.readExecution(EXEC_CAP).count())
+        .assertNext(n -> assertThat(n).isLessThanOrEqualTo(3L))
+        .verifyComplete();
+    small.cleanup(EXEC_CAP).block();
+    StepVerifier.create(small.readExecution(EXEC_CAP)).verifyComplete();
+  }
+
+  @Test
+  void testLineLongerThanTheCharCapIsKeptAsTheOnlyLine() {
+    final InMemoryPluginLogStore small = new InMemoryPluginLogStore(new PluginLogStoreConfig(), 10);
+    final String executionId = "exec-oversize";
+    final String first = "a".repeat(50);
+    final String second = "b".repeat(50);
+    small
+        .write(logEntry(executionId, first))
+        .then(small.write(logEntry(executionId, second)))
+        .block();
+
+    // the cap is exceeded even by the newest line alone, so the oldest is dropped and the
+    // newest is still kept rather than emptying the execution
+    StepVerifier.create(small.readExecution(executionId).map(PluginLogEntry::message).collectList())
+        .assertNext(lines -> assertThat(lines).containsExactly(second))
+        .verifyComplete();
+  }
+
+  private static PluginLogEntry logEntry(final String executionId, final String message) {
+    return new PluginLogEntry(
+        executionId,
+        SESSION_ID,
+        PROCESSOR_ID,
+        PROCESSOR_NAME,
+        LogStream.STDOUT,
+        message,
+        LogLevel.INFO,
+        Instant.now(),
+        null,
+        null);
   }
 
   @Test

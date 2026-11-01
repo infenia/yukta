@@ -446,4 +446,23 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     assertThat(standby.readAll()).hasSize(1);
     standby.close();
   }
+
+  @Test
+  void lookupsByRunAndByType_useTheIndexedQueries() {
+    store.append(started("r1"));
+    store.append(started("r2"));
+    store.append(finished("r1"));
+
+    assertThat(store.forExecution("r1"))
+        .extracting(ExecutionLogEvent::type)
+        .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED);
+    assertThat(store.forExecution("unknown")).isEmpty();
+    assertThat(store.ofType(ExecutionLogEvent.Type.RUN_STARTED, java.time.Instant.EPOCH))
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly("r1", "r2");
+    assertThat(
+            store.ofType(
+                ExecutionLogEvent.Type.RUN_STARTED, java.time.Instant.now().plusSeconds(60)))
+        .isEmpty();
+  }
 }

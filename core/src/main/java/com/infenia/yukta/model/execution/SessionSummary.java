@@ -3,7 +3,7 @@
 package com.infenia.yukta.model.execution;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Map;
 
 /**
@@ -22,7 +22,7 @@ public record SessionSummary(
     @Schema(description = "The initiator of the session") String initiator,
     @Schema(description = "The time the session was initiated") String initiatedTime,
     @Schema(description = "The time of the most recent activity in the session")
-        LocalDateTime lastActiveTime,
+        Instant lastActiveTime,
     @Schema(description = "The session description") String description,
     @Schema(description = "The session tags") Map<String, String> tags) {
   /** Compact constructor. */

@@ -53,20 +53,16 @@ export function CapacityPanel({ live }: { live: boolean }) {
   const mayChange = !me || me.permissions.changeLimits;
   const needs = mayChange ? undefined : `Needs ${REQUIRED_ROLE.changeLimits}`;
 
-  // Both writes show the new value at once and put the old one back when the server refuses.
+  // Both writes show the new value at once; the refetch after each write shows the server's value, so a refusal is undone.
   const changeLimit = useMutation({
-    mutationFn: (max: number) =>
-      setLimits(max, limits.data?.maxPerWorkflow ?? 0),
-    onMutate: async (max) => {
+    mutationFn: ({ max, perWorkflow }: { max: number; perWorkflow: number }) =>
+      setLimits(max, perWorkflow),
+    onMutate: async ({ max }) => {
       await client.cancelQueries({ queryKey: LIMITS_KEY });
-      const before = client.getQueryData<SchedulerLimits>(LIMITS_KEY);
-      if (before) {
-        client.setQueryData(LIMITS_KEY, { ...before, maxConcurrent: max });
-      }
-      return { before };
-    },
-    onError: (_error, _max, context) => {
-      if (context?.before) client.setQueryData(LIMITS_KEY, context.before);
+      client.setQueryData<SchedulerLimits>(
+        LIMITS_KEY,
+        (old) => ({ ...old, maxConcurrent: max }) as SchedulerLimits
+      );
     },
     onSettled: () => client.invalidateQueries({ queryKey: LIMITS_KEY }),
   });
@@ -74,12 +70,10 @@ export function CapacityPanel({ live }: { live: boolean }) {
     mutationFn: setDrain,
     onMutate: async (on) => {
       await client.cancelQueries({ queryKey: DRAIN_KEY });
-      const before = client.getQueryData<DrainState>(DRAIN_KEY);
-      if (before) client.setQueryData(DRAIN_KEY, { ...before, draining: on });
-      return { before };
-    },
-    onError: (_error, _on, context) => {
-      if (context?.before) client.setQueryData(DRAIN_KEY, context.before);
+      client.setQueryData<DrainState>(
+        DRAIN_KEY,
+        (old) => ({ ...old, draining: on }) as DrainState
+      );
     },
     onSettled: () => client.invalidateQueries({ queryKey: DRAIN_KEY }),
   });
@@ -136,7 +130,11 @@ export function CapacityPanel({ live }: { live: boolean }) {
                 title={needs}
                 onCommit={(value) => {
                   setTurning(null);
-                  if (value !== max) changeLimit.mutate(value);
+                  if (value !== max)
+                    changeLimit.mutate({
+                      max: value,
+                      perWorkflow: data.maxPerWorkflow,
+                    });
                 }}
               />
               <span className="text-body-sm text-on-surface-variant">

@@ -282,10 +282,9 @@ public class ApiKeyFilter implements WebFilter {
     }
     return Mono.fromCallable(
             () ->
-                executionLog.readAll().stream()
-                    .filter(event -> executionId.equals(event.executionId()))
-                    .findFirst()
-                    .map(event -> match.reaches(event.sessionId()))
+                executionLog
+                    .header(executionId)
+                    .map(header -> match.reaches(header.sessionId()))
                     .orElse(false))
         .subscribeOn(Schedulers.boundedElastic());
   }

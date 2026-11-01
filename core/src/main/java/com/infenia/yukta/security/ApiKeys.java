@@ -7,15 +7,19 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.boot.context.properties.bind.BindHandler;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.bind.handler.NoUnboundElementsBindHandler;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
 
@@ -26,6 +30,7 @@ import org.springframework.http.HttpHeaders;
  * {@code sha256:<hex>} (the hash of the key), so the file need not hold the secret; listing several
  * keys at once lets a key be rotated without downtime.
  */
+@Slf4j
 public final class ApiKeys {
 
   /** The Authorization scheme prefix. */
@@ -34,8 +39,14 @@ public final class ApiKeys {
   /** Prefix of a key given as a hash. */
   private static final String HASH_PREFIX = "sha256:";
 
+  /** Plain-text keys shorter than this are reported at startup. */
+  private static final int MIN_KEY_LENGTH = 32;
+
   /** A SHA-256 digest in hex. */
   private static final Pattern HEX_DIGEST = Pattern.compile("[0-9a-f]{64}");
+
+  /** Written in {@code sessions} to say a key reaches every session. */
+  private static final String ALL_SESSIONS = "*";
 
   /** Name the single {@code yukta.api-key} goes by. */
   private static final String DEFAULT_NAME = "default";
@@ -88,6 +99,14 @@ public final class ApiKeys {
   private record Key(String digest, Match match, @Nullable Instant expires) {}
 
   private ApiKeys(final List<Key> keys, final boolean named) {
+    // the same secret twice would give it whichever role comes last
+    final Set<String> digests = new HashSet<>();
+    for (final Key key : keys) {
+      if (!digests.add(key.digest())) {
+        throw new IllegalStateException(
+            "The API key '" + key.match().name() + "' is configured more than once");
+      }
+    }
     this.keys = List.copyOf(keys);
     this.namedKeys = named;
   }
@@ -103,7 +122,11 @@ public final class ApiKeys {
       final Environment environment, @Nullable final String extraKeyProperty) {
     final List<KeyEntry> entries =
         Binder.get(environment)
-            .bind("yukta.api-keys", Bindable.listOf(KeyEntry.class))
+            // a misspelt property (session: for sessions:) must not quietly widen a key's reach
+            .bind(
+                "yukta.api-keys",
+                Bindable.listOf(KeyEntry.class),
+                new NoUnboundElementsBindHandler(BindHandler.DEFAULT))
             .orElseGet(List::of);
     final List<Key> all = new ArrayList<>();
     add(all, DEFAULT_NAME, environment.getProperty("yukta.api-key"), ApiRole.ADMIN, Set.of(), null);
@@ -116,10 +139,26 @@ public final class ApiKeys {
           Objects.requireNonNullElse(entry.name(), "unnamed"),
           Objects.requireNonNull(entry.key(), "yukta.api-keys[].key is required"),
           Objects.requireNonNullElse(entry.role(), ApiRole.VIEWER),
-          Set.copyOf(entry.sessions()),
+          sessionsOf(entry),
           entry.expires());
     }
     return new ApiKeys(all, !entries.isEmpty());
+  }
+
+  /**
+   * The sessions of a key: {@code ["*"]} says all of them on purpose; none listed also means all.
+   */
+  private static Set<String> sessionsOf(final KeyEntry entry) {
+    if (entry.sessions().contains(ALL_SESSIONS)) {
+      return Set.of();
+    }
+    if (entry.sessions().isEmpty() && entry.role() != ApiRole.ADMIN) {
+      log.atWarn()
+          .addKeyValue("key", entry.name())
+          .log(
+              "This API key lists no sessions and so reaches every session; write sessions: ['*']");
+    }
+    return Set.copyOf(entry.sessions());
   }
 
   /**
@@ -143,6 +182,11 @@ public final class ApiKeys {
       @Nullable final Instant expires) {
     if (key == null || key.isBlank()) {
       return;
+    }
+    if (!key.startsWith(HASH_PREFIX) && key.length() < MIN_KEY_LENGTH) {
+      log.atWarn()
+          .addKeyValue("key", name)
+          .log("This API key is shorter than {} characters and easy to guess", MIN_KEY_LENGTH);
     }
     final String digest = key.startsWith(HASH_PREFIX) ? hashed(name, key) : sha256(key);
     all.add(new Key(digest, new Match(name, role, sessions), expires));

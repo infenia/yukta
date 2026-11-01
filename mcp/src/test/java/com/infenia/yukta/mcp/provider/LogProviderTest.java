@@ -9,12 +9,11 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,13 +38,7 @@ class LogProviderTest {
     when(controlBus.getProgress(SESSION, EXECUTION))
         .thenReturn(
             new WorkflowProgress(
-                EXECUTION,
-                SESSION,
-                "wf-1",
-                "RUNNING",
-                List.of(),
-                LocalDateTime.now(ZoneId.systemDefault()),
-                null));
+                EXECUTION, SESSION, "wf-1", TaskStatus.RUNNING, List.of(), Instant.now(), null));
   }
 
   private PluginLogEntry entry(final String message) {

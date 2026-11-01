@@ -14,19 +14,23 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import jakarta.annotation.PostConstruct;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 /**
  * Creates, changes and removes supervisor profiles and attaches them to a scope at run time.
@@ -45,6 +49,9 @@ public class SupervisorService {
 
   /** Most bindings; each is a supervisor with its own subscription and metric tag. */
   public static final int MAX_BINDINGS = 50;
+
+  /** Attaches in progress, so the limit holds when several run at once. */
+  private final AtomicInteger attaching = new AtomicInteger();
 
   /** Where profiles and bindings are kept. */
   private final SupervisorStore store;
@@ -93,10 +100,12 @@ public class SupervisorService {
   }
 
   /** Starts the enabled bindings that were kept. */
-  @PostConstruct
+  @EventListener(ApplicationReadyEvent.class)
   /* default */ void restore() {
-    store
-        .bindings()
+    // not in @PostConstruct: the store may need its schema first, and an unreadable store is
+    // retried
+    Flux.defer(store::bindings)
+        .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
         .filter(SupervisorBinding::enabled)
         .concatMap(
             binding ->
@@ -113,7 +122,12 @@ public class SupervisorService {
                               .log("Could not restore the supervisor binding");
                           return Mono.empty();
                         }))
-        .subscribe();
+        .subscribe(
+            _ -> {},
+            error ->
+                log.atError()
+                    .setCause(error)
+                    .log("Could not read the supervisor bindings; none were restored"));
   }
 
   /**
@@ -142,7 +156,7 @@ public class SupervisorService {
    *     invalid settings
    */
   public Mono<SupervisorProfile> saveProfile(final SupervisorProfile profile) {
-    return Mono.fromRunnable(() -> create(profile))
+    return Mono.fromRunnable(() -> validate(profile))
         .then(store.saveProfile(profile))
         .then(
             store
@@ -195,6 +209,17 @@ public class SupervisorService {
    *     IllegalArgumentException} when the profile's settings no longer make a supervisor
    */
   public Mono<SupervisorBinding> attach(final SupervisorBinding binding) {
+    if (host.isBuiltIn(binding.id())) {
+      return Mono.error(
+          new ConflictException(
+              "A supervisor named '" + binding.id() + "' is already configured; pick another id"));
+    }
+    // counted before the store is read, so concurrent attaches cannot all pass the limit
+    attaching.incrementAndGet();
+    return attachChecked(binding).doFinally(_ -> attaching.decrementAndGet());
+  }
+
+  private Mono<SupervisorBinding> attachChecked(final SupervisorBinding binding) {
     return store
         .profiles()
         .filter(profile -> profile.id().equals(binding.profileId()))
@@ -209,7 +234,7 @@ public class SupervisorService {
                     .count()
                     .flatMap(
                         others ->
-                            others >= MAX_BINDINGS
+                            others + attaching.get() - 1 >= MAX_BINDINGS
                                 ? Mono.error(
                                     new ConflictException(
                                         "At most " + MAX_BINDINGS + " supervisors can be attached"))
@@ -285,13 +310,21 @@ public class SupervisorService {
         .then();
   }
 
-  private ExecutionSupervisor create(final SupervisorProfile profile) {
+  private SupervisorFactory factory(final SupervisorProfile profile) {
     final SupervisorFactory factory = factories.get(profile.type());
     if (factory == null) {
       throw new IllegalArgumentException(
           "Unknown supervisor type '" + profile.type() + "'; use one of " + types());
     }
-    return factory.create(profile);
+    return factory;
+  }
+
+  private void validate(final SupervisorProfile profile) {
+    factory(profile).validate(profile);
+  }
+
+  private ExecutionSupervisor create(final SupervisorProfile profile) {
+    return factory(profile).create(profile);
   }
 
   private void start(final SupervisorBinding binding, final SupervisorProfile profile) {

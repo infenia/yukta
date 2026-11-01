@@ -89,8 +89,6 @@ class ControlBusServiceTest {
             50,
             256,
             List.of(handler1, handler2),
-            preparedWorkflowCache,
-            orchestrator,
             new ActivePluginRegistry(List.of(handler1, handler2)));
     controlBusService.init();
   }
@@ -127,45 +125,6 @@ class ControlBusServiceTest {
       StepVerifier.create(controlBusService.emit(nullPayloadMessage))
           .expectComplete()
           .verify(Duration.ofSeconds(2));
-    }
-  }
-
-  @Nested
-  @DisplayName("compileAndCacheWorkflow")
-  @NoArgsConstructor
-  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.ControlBusService - ")
-  class CompileAndCacheWorkflowTests {
-
-    @Test
-    @DisplayName("should invalidate cache, compile, and cache workflow on success")
-    void compileAndCacheWorkflow_successfulCompilation_invalidatesAndCaches() {
-      when(workflowDefinition.workflowId()).thenReturn(WORKFLOW_ID);
-      when(orchestrator.prepareWorkflow(workflowDefinition))
-          .thenReturn(Mono.just(preparedWorkflow));
-
-      StepVerifier.create(controlBusService.compileAndCacheWorkflow(SESSION_ID, workflowDefinition))
-          .expectComplete()
-          .verify(Duration.ofSeconds(2));
-
-      verify(preparedWorkflowCache).invalidate(SESSION_ID, WORKFLOW_ID);
-      verify(orchestrator).prepareWorkflow(workflowDefinition);
-      verify(preparedWorkflowCache)
-          .put(eq(SESSION_ID), eq(WORKFLOW_ID), eq(preparedWorkflow), any());
-    }
-
-    @Test
-    @DisplayName("should propagate orchestrator error without caching")
-    void compileAndCacheWorkflow_orchestratorFails_emitsError() {
-      when(workflowDefinition.workflowId()).thenReturn(WORKFLOW_ID);
-      final RuntimeException error = new RuntimeException("Orchestration failed");
-      when(orchestrator.prepareWorkflow(workflowDefinition)).thenReturn(Mono.error(error));
-
-      StepVerifier.create(controlBusService.compileAndCacheWorkflow(SESSION_ID, workflowDefinition))
-          .expectErrorSatisfies(e -> assertThat(e).isSameAs(error))
-          .verify(Duration.ofSeconds(2));
-
-      verify(preparedWorkflowCache).invalidate(SESSION_ID, WORKFLOW_ID);
-      verify(preparedWorkflowCache, never()).put(any(), any(), any(), any());
     }
   }
 
@@ -496,14 +455,7 @@ class ControlBusServiceTest {
     @DisplayName("should complete control stream after shutdown")
     void shutdown_completesStream() {
       final ControlBusService shutdownService =
-          new ControlBusService(
-              100,
-              50,
-              256,
-              List.of(),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(100, 50, 256, List.of(), new ActivePluginRegistry(List.of()));
       shutdownService.init();
 
       shutdownService.shutdown();
@@ -524,14 +476,7 @@ class ControlBusServiceTest {
     @DisplayName("should resubscribe after a failure and give up once stopped")
     void consumerFailure_isRetriedUntilShutdown() throws Exception {
       final ControlBusService failing =
-          new ControlBusService(
-              100,
-              50,
-              256,
-              List.of(),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(100, 50, 256, List.of(), new ActivePluginRegistry(List.of()));
       failing.init();
       final Sinks.Many<?> sink =
           java.util.Objects.requireNonNull(
@@ -575,13 +520,7 @@ class ControlBusServiceTest {
     void init_customBufferSize_createsSink() {
       final ControlBusService customService =
           new ControlBusService(
-              100,
-              50,
-              512,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              100, 50, 512, List.of(handler1), new ActivePluginRegistry(List.of()));
 
       customService.init();
 
@@ -599,8 +538,6 @@ class ControlBusServiceTest {
               50,
               Queues.SMALL_BUFFER_SIZE,
               List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
               new ActivePluginRegistry(List.of()));
 
       defaultService.init();
@@ -614,14 +551,7 @@ class ControlBusServiceTest {
     @DisplayName("should enforce minimum buffer size when size is too small")
     void init_tinyBufferSize_enforcesMinium() {
       final ControlBusService minService =
-          new ControlBusService(
-              100,
-              50,
-              1,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(100, 50, 1, List.of(handler1), new ActivePluginRegistry(List.of()));
 
       minService.init();
 
@@ -634,13 +564,7 @@ class ControlBusServiceTest {
       final int customBatchTimeout = 75;
       final ControlBusService customTimeoutService =
           new ControlBusService(
-              100,
-              customBatchTimeout,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              100, customBatchTimeout, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
 
       customTimeoutService.init();
 
@@ -782,14 +706,7 @@ class ControlBusServiceTest {
     @SuppressWarnings("unchecked")
     void emit_sinkFull_failsTheCallerOnly() throws Exception {
       final ControlBusService svc =
-          new ControlBusService(
-              100,
-              50,
-              256,
-              List.of(),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(100, 50, 256, List.of(), new ActivePluginRegistry(List.of()));
       svc.init();
       final Sinks.Many<Message<?>> fullSink = mock(Sinks.Many.class);
       when(fullSink.tryEmitNext(any())).thenReturn(Sinks.EmitResult.FAIL_OVERFLOW);
@@ -811,14 +728,7 @@ class ControlBusServiceTest {
     @SuppressWarnings("unchecked")
     void emit_sinkThrowsRuntimeException_propagatesAsIllegalState() throws Exception {
       final ControlBusService svc =
-          new ControlBusService(
-              100,
-              50,
-              256,
-              List.of(),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(100, 50, 256, List.of(), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Sinks.Many<Message<?>> throwingSink = mock(Sinks.Many.class);
@@ -880,13 +790,7 @@ class ControlBusServiceTest {
 
       final ControlBusService svc =
           new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1, handler2),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              1, 10, 256, List.of(handler1, handler2), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Message<?> msg = makeMessage(payload, 0);
@@ -908,14 +812,7 @@ class ControlBusServiceTest {
       when(msg.priority()).thenReturn(0);
 
       final ControlBusService svc =
-          new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(1, 10, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       svc.emit(msg).subscribe();
@@ -935,14 +832,7 @@ class ControlBusServiceTest {
       when(msg.priority()).thenReturn(0);
 
       final ControlBusService svc =
-          new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(1, 10, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       svc.emit(msg).subscribe();
@@ -964,14 +854,7 @@ class ControlBusServiceTest {
       when(msg.priority()).thenReturn(0);
 
       final ControlBusService svc =
-          new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(1, 10, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       svc.emit(msg).subscribe();
@@ -1000,13 +883,7 @@ class ControlBusServiceTest {
 
       final ControlBusService svc =
           new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1, handler2),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              1, 10, 256, List.of(handler1, handler2), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Message<?> msg = makeMessage(payload, 0);
@@ -1026,13 +903,7 @@ class ControlBusServiceTest {
 
       final ControlBusService svc =
           new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1, handler2),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              1, 10, 256, List.of(handler1, handler2), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Message<?> msg = makeMessage(payload, 0);
@@ -1066,13 +937,7 @@ class ControlBusServiceTest {
 
       final ControlBusService svc =
           new ControlBusService(
-              2,
-              200,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              2, 200, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       svc.emit(lowMsg).subscribe();
@@ -1108,14 +973,7 @@ class ControlBusServiceTest {
           .handle(any(), any(), any());
 
       final ControlBusService svc =
-          new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(1, 10, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       svc.emit(msg1).subscribe();
@@ -1144,14 +1002,7 @@ class ControlBusServiceTest {
           .handle(any(), any(), any());
 
       final ControlBusService svc =
-          new ControlBusService(
-              1,
-              50,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(1, 50, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Message<?> msg = makeMessage(payload, 0);
@@ -1179,13 +1030,7 @@ class ControlBusServiceTest {
 
       final ControlBusService svc =
           new ControlBusService(
-              5,
-              100,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              5, 100, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       for (int i = 0; i < 5; i++) {
@@ -1216,13 +1061,7 @@ class ControlBusServiceTest {
 
       final ControlBusService svc =
           new ControlBusService(
-              3,
-              100,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              3, 100, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Message<?> msg1 = makeMessage(payload, 0);
@@ -1243,13 +1082,7 @@ class ControlBusServiceTest {
     void handleControlBatch_fatalStreamError_handled() throws Exception {
       final ControlBusService svc =
           new ControlBusService(
-              100,
-              50,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              100, 50, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Field sinkField = ControlBusService.class.getDeclaredField("controlSink");
@@ -1269,7 +1102,6 @@ class ControlBusServiceTest {
   @DisplayName("Logging branch coverage")
   @MockitoSettings(strictness = Strictness.LENIENT)
   @NoArgsConstructor
-  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.ControlBusService - ")
   class LoggingBranchTests {
 
     @Test
@@ -1305,14 +1137,7 @@ class ControlBusServiceTest {
           .handle(any(), any(), any());
 
       final ControlBusService svc =
-          new ControlBusService(
-              2,
-              50,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(2, 50, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       @SuppressWarnings("unchecked")
@@ -1341,14 +1166,7 @@ class ControlBusServiceTest {
     @SuppressWarnings("unchecked")
     void emit_sinkThrowsException_logsErrorAndPropagates() throws Exception {
       final ControlBusService svc =
-          new ControlBusService(
-              100,
-              50,
-              256,
-              List.of(),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(100, 50, 256, List.of(), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Sinks.Many<Message<?>> throwingSink = mock(Sinks.Many.class);
@@ -1364,20 +1182,6 @@ class ControlBusServiceTest {
       StepVerifier.create(svc.emit(testMessage))
           .expectErrorMatches(e -> e instanceof IllegalStateException)
           .verify(Duration.ofSeconds(2));
-    }
-
-    @Test
-    @DisplayName("compileAndCacheWorkflow with error should log appropriately")
-    void compileAndCacheWorkflow_withLoggingOnFailure_logsError() {
-      when(workflowDefinition.workflowId()).thenReturn(WORKFLOW_ID);
-      final RuntimeException testError = new RuntimeException("Compilation failed");
-      when(orchestrator.prepareWorkflow(workflowDefinition)).thenReturn(Mono.error(testError));
-
-      StepVerifier.create(controlBusService.compileAndCacheWorkflow(SESSION_ID, workflowDefinition))
-          .expectErrorSatisfies(e -> assertThat(e).isSameAs(testError))
-          .verify(Duration.ofSeconds(2));
-
-      verify(preparedWorkflowCache).invalidate(SESSION_ID, WORKFLOW_ID);
     }
   }
 

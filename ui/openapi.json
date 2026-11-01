@@ -3170,6 +3170,7 @@
             "type" : [ "string", "null" ]
           },
           "status" : {
+            "enum" : [ "PENDING", "QUEUED", "RUNNING", "SUCCESS", "FAILURE", "ERROR", "STOPPED", "CANCELLED", "TIMED_OUT", "SKIPPED", "UPSTREAM_FAILED", "ABORTED" ],
             "type" : "string"
           }
         },
@@ -3359,6 +3360,8 @@
             "items" : {
               "$ref" : "#/components/schemas/Edge"
             },
+            "maxItems" : 2000,
+            "minItems" : 0,
             "type" : "array"
           },
           "nodes" : {
@@ -3366,6 +3369,7 @@
             "items" : {
               "$ref" : "#/components/schemas/Node"
             },
+            "maxItems" : 500,
             "minItems" : 1,
             "type" : "array"
           },
@@ -3490,6 +3494,7 @@
           },
           "status" : {
             "description" : "The execution status",
+            "enum" : [ "PENDING", "QUEUED", "RUNNING", "SUCCESS", "FAILURE", "ERROR", "STOPPED", "CANCELLED", "TIMED_OUT", "SKIPPED", "UPSTREAM_FAILED", "ABORTED" ],
             "type" : "string"
           },
           "workflowId" : {
@@ -3627,6 +3632,7 @@
             "type" : "string"
           },
           "status" : {
+            "enum" : [ "PENDING", "QUEUED", "RUNNING", "SUCCESS", "FAILURE", "ERROR", "STOPPED", "CANCELLED", "TIMED_OUT", "SKIPPED", "UPSTREAM_FAILED", "ABORTED" ],
             "type" : "string"
           },
           "tasks" : {
@@ -3747,6 +3753,13 @@
             },
             "description" : "Output ports per node id, for the node's configuration",
             "type" : "object"
+          },
+          "problems" : {
+            "description" : "Every problem found; empty when valid",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           },
           "valid" : {
             "description" : "True when the workflow would be accepted",
