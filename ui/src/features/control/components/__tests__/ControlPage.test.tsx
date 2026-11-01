@@ -128,6 +128,23 @@ describe('ControlPage', () => {
     expect(await screen.findByText('n1')).toBeInTheDocument();
   });
 
+  it('retries from the nodes table too', async () => {
+    beatsFail = true;
+    renderWithProviders(<ControlPage />);
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('button', { name: 'Retry' }).length
+      ).toBeGreaterThan(1)
+    );
+
+    beatsFail = false;
+    beats = [beat('a', 'n1', 'run-1')];
+    await userEvent
+      .setup()
+      .click(screen.getAllByRole('button', { name: 'Retry' }).at(-1)!);
+    expect(await screen.findByText('n1')).toBeInTheDocument();
+  });
+
   it('lists every node of every run with its heartbeat age, in a fixed order', async () => {
     beats = [
       beat('b', 'other', ''),
