@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.session.store;
 
 import com.infenia.yukta.model.session.SessionConfigData;
+import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.validation.ProjectPath;
 import com.infenia.yukta.validation.SessionId;
 import jakarta.validation.Valid;
@@ -141,7 +142,7 @@ public interface SessionConfigStore {
    * @param sessionId the session identifier
    * @return Mono containing map of configurations
    */
-  Mono<Map<String, Object>> getAllConfigs(@SessionId String sessionId);
+  Mono<SessionSnapshot> getAllConfigs(@SessionId String sessionId);
 
   /**
    * Get all available session IDs.
