@@ -164,7 +164,7 @@ See [Security](/operations/security).
 | `yukta.api-keys[i].name` | `unnamed` | Name of a key. Appears in the audit as `key:<name>` |
 | `yukta.api-keys[i].key` | required | The key, as plain text or `sha256:<64 hex digits>` |
 | `yukta.api-keys[i].role` | `VIEWER` | `VIEWER`, `OPERATOR` or `ADMIN` |
-| `yukta.api-keys[i].sessions` | all sessions | Limit the key to these session ids |
+| `yukta.api-keys[i].sessions` | required unless `ADMIN` | Session ids the key may reach, or `*` for all. A `VIEWER` or `OPERATOR` key without it fails start-up |
 | `yukta.mcp.api-key` | unset | An extra `ADMIN` key that works only on `/mcp` |
 | `yukta.mcp.rate-limit-per-minute` | `600` | Requests per minute one caller (key) may make to `/mcp`; more get `429` with `Retry-After`. Not applied when no key is configured (loopback only), like `yukta.rate-limit-per-minute`. `0` turns the limit off |
 | `yukta.mcp.heavy-rate-limit-per-minute` | `60` | Costly tool calls per minute one caller may make: `start_workflow` and `get_execution_logs` with a `filterPattern` (a regex run over every line). More get `429` with `Retry-After` and add to the `yukta.mcp.heavy.refused` counter. Not applied when no key is configured. `0` turns it off |

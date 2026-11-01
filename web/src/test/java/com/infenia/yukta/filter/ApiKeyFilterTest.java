@@ -75,15 +75,18 @@ class ApiKeyFilterTest {
     return new MockEnvironment()
         .withProperty("yukta.api-keys[0].name", "viewer")
         .withProperty("yukta.api-keys[0].key", "v-key")
+        .withProperty("yukta.api-keys[0].sessions", "*")
         .withProperty("yukta.api-keys[0].role", "VIEWER")
         .withProperty("yukta.api-keys[1].name", "ops")
         .withProperty("yukta.api-keys[1].key", "o-key")
+        .withProperty("yukta.api-keys[1].sessions", "*")
         .withProperty("yukta.api-keys[1].role", "OPERATOR")
         .withProperty("yukta.api-keys[2].name", "root")
         .withProperty("yukta.api-keys[2].key", "a-key")
         .withProperty("yukta.api-keys[2].role", "ADMIN")
         .withProperty("yukta.api-keys[3].name", "unspecified")
-        .withProperty("yukta.api-keys[3].key", "u-key");
+        .withProperty("yukta.api-keys[3].key", "u-key")
+        .withProperty("yukta.api-keys[3].sessions", "*");
   }
 
   private HttpStatus statusOf(final String key, final MockServerHttpRequest.BaseBuilder<?> rq) {
