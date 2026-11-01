@@ -227,14 +227,11 @@ class ExecutionRecoveryTest {
   }
 
   @Test
-  void newestAppliedLimitChange_isReappliedToTheScheduler() {
+  void newestLimitsChangedEvent_isReappliedToTheScheduler() {
     final ExecutionScheduler scheduler =
         new ExecutionScheduler(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
-    store.append(
-        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(1, 1)", null));
-    store.append(
-        ExecutionLogEvent.control(
-            true, ExecutionLogEvent.SCHEDULER, "SetLimits(4, 2) [by key:bob]", null));
+    store.append(ExecutionLogEvent.limitsChanged(1, 1));
+    store.append(ExecutionLogEvent.limitsChanged(4, 2));
     store.append(
         ExecutionLogEvent.control(
             false, ExecutionLogEvent.SCHEDULER, "SetLimits(7, 7)", "refused"));
@@ -251,56 +248,17 @@ class ExecutionRecoveryTest {
   }
 
   @Test
-  void legacySingleArgumentChange_keepsThePerWorkflowLimit() {
-    final ExecutionScheduler scheduler =
-        new ExecutionScheduler(9, 3, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
-    store.append(
-        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(2)", null));
-    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
-    recovery.setExecutionScheduler(scheduler);
-
-    recovery.recover();
-
-    assertThat(scheduler.perWorkflowLimit()).isEqualTo(3);
-    scheduler.acquire("s", "a");
-    scheduler.acquire("s", "b");
-    assertThat(scheduler.acquire("s", "c").refused()).isTrue();
-  }
-
-  @Test
-  void whenNoLimitChangeWasApplied_theSchedulerKeepsItsLimits() {
+  void auditTextAlone_doesNotChangeTheLimits() {
     final ExecutionScheduler scheduler =
         new ExecutionScheduler(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
     store.append(
-        ExecutionLogEvent.control(
-            false, ExecutionLogEvent.SCHEDULER, "SetLimits(8, 8)", "refused by a reviewer"));
+        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(3, 1)", null));
     final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
     recovery.setExecutionScheduler(scheduler);
 
     recovery.recover();
 
     assertThat(scheduler.perWorkflowLimit()).isEqualTo(9);
-  }
-
-  @Test
-  void onlyAppliedAndReadableLimitChanges_areReapplied() {
-    final ExecutionScheduler scheduler =
-        new ExecutionScheduler(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
-    store.append(
-        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(3, 1)", null));
-    store.append(
-        ExecutionLogEvent.control(
-            false, ExecutionLogEvent.SCHEDULER, "SetLimits(8, 8)", "refused by a reviewer"));
-    store.append(
-        ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(garbled", null));
-    final ExecutionRecovery recovery = new ExecutionRecovery(store, tracker, 100);
-    recovery.setExecutionScheduler(scheduler);
-
-    recovery.recover();
-
-    assertThat(scheduler.perWorkflowLimit()).isEqualTo(1);
-    scheduler.acquire("s", "w");
-    assertThat(scheduler.acquire("s", "w").refused()).isTrue();
   }
 
   @Test

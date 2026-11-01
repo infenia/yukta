@@ -27,6 +27,7 @@ import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
@@ -515,6 +516,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         name,
         () -> {
           executionScheduler.setLimits(maxConcurrent, maxPerWorkflow);
+          executionLog.append(ExecutionLogEvent.limitsChanged(maxConcurrent, maxPerWorkflow));
           log.atInfo()
               .addKeyValue("maxConcurrent", maxConcurrent)
               .addKeyValue("maxPerWorkflow", maxPerWorkflow)

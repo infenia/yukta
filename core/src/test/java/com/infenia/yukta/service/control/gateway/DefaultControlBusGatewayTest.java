@@ -2990,13 +2990,15 @@ class DefaultControlBusGatewayTest {
 
     assertThat(waiting).isCompleted();
     assertThat(auditLog.readAll())
-        .singleElement()
-        .satisfies(
-            e -> {
-              assertThat(e.executionId())
-                  .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.SCHEDULER);
-              assertThat(e.status()).isEqualTo("SetLimits(2, 0)");
-            });
+        .hasSize(2)
+        .allSatisfy(
+            e ->
+                assertThat(e.executionId())
+                    .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.SCHEDULER));
+    assertThat(auditLog.readAll().get(0).nodeStatuses())
+        .containsEntry("maxConcurrent", "2")
+        .containsEntry("maxPerWorkflow", "0");
+    assertThat(auditLog.readAll().get(1).status()).isEqualTo("SetLimits(2, 0)");
   }
 
   @Test
