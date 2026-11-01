@@ -32,7 +32,7 @@ import reactor.test.StepVerifier;
 /** The end of a node is made durable once, after its output, before the completion goes on. */
 @NoArgsConstructor
 @SuppressWarnings({"PMD.TooManyStaticImports", "PMD.TooManyMethods"})
-@ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator - ")
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.stream.CheckpointStream - ")
 class StreamTopologyDecoratorCompletionTest {
 
   private final NodeCheckpointStore store = mock(NodeCheckpointStore.class);
