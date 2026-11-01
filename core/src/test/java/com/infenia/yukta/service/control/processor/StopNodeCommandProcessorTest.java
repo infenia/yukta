@@ -11,7 +11,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
@@ -29,7 +29,7 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LinguisticNaming"})
 class StopNodeCommandProcessorTest {
 
-  @Mock private ExecutionControlRegistry registry;
+  @Mock private ExecutionControlStore registry;
   @Mock private TaskTrackerService taskTracker;
   @Mock private ExecutionControl executionControl;
 

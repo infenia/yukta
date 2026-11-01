@@ -16,7 +16,7 @@ import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,7 +29,7 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 class SignalNodeCommandProcessorTest {
 
-  private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
+  private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final ActivePluginRegistry plugins = mock(ActivePluginRegistry.class);
   private final SignalNodeCommandProcessor processor =
       new SignalNodeCommandProcessor(registry, plugins);

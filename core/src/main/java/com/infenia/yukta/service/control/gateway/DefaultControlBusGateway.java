@@ -28,7 +28,7 @@ import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
@@ -91,7 +91,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   private final TaskTrackerService taskTracker;
 
   /** The execution control registry for managing active executions. */
-  private final ExecutionControlRegistry executionControlRegistry;
+  private final ExecutionControlStore executionControlStore;
 
   /** Finished executions that can still be restarted. */
   private final ExecutionArchive executionArchive;
@@ -116,7 +116,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
    *
    * @param controlBusService delivers the control commands
    * @param taskTracker tracks runs
-   * @param executionControlRegistry finds live runs
+   * @param executionControlStore finds live runs
    * @param executionArchive finished runs that can be restarted
    * @param orchestrator prepares and runs workflows
    * @param workflowDefinitionStore the stored definitions
@@ -130,7 +130,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   public DefaultControlBusGateway(
       final ControlBusService controlBusService,
       final TaskTrackerService taskTracker,
-      final ExecutionControlRegistry executionControlRegistry,
+      final ExecutionControlStore executionControlStore,
       final ExecutionArchive executionArchive,
       final WorkflowOrchestrator orchestrator,
       final WorkflowDefinitionStore workflowDefinitionStore,
@@ -140,14 +140,14 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final ExecutionLogStore executionLog) {
     this.controlBusService = controlBusService;
     this.taskTracker = taskTracker;
-    this.executionControlRegistry = executionControlRegistry;
+    this.executionControlStore = executionControlStore;
     this.executionArchive = executionArchive;
     this.executionScheduler = executionScheduler;
     this.executionLog = executionLog;
-    this.dispatch = new ControlDispatch(this, executionControlRegistry);
-    this.nodes = new NodeCommands(this, executionControlRegistry);
+    this.dispatch = new ControlDispatch(this, executionControlStore);
+    this.nodes = new NodeCommands(this, executionControlStore);
     this.restarts =
-        new RestartCoordinator(this, executionControlRegistry, executionArchive, startIdempotency);
+        new RestartCoordinator(this, executionControlStore, executionArchive, startIdempotency);
     this.queries = new ExecutionQueries(taskTracker, controlBusService);
     this.starter =
         new WorkflowStarter(
@@ -245,7 +245,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   private String resolveRun(
       final String sessionId, final String workflowId, @Nullable final String executionId) {
     final List<String> runs =
-        executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId).stream()
+        executionControlStore.findAllActiveByWorkflow(sessionId, workflowId).stream()
             .map(ExecutionControl::executionId)
             .filter(id -> executionId == null || executionId.equals(id))
             .toList();
@@ -410,7 +410,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     return Mono.fromCallable(
             () -> {
               final var allExecutions =
-                  executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId);
+                  executionControlStore.findAllActiveByWorkflow(sessionId, workflowId);
               if (allExecutions.isEmpty()) {
                 throw new IllegalArgumentException(
                     "No active execution found for session: "
@@ -461,7 +461,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final String executionId, final String reason, final StopMode mode) {
     return Mono.defer(
             () ->
-                executionControlRegistry
+                executionControlStore
                     .findByExecutionId(executionId)
                     .map(
                         control ->
@@ -584,7 +584,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   /** The review request for a command, with the session and workflow of its live run if any. */
   private ControlRequest request(final ExecutionControlCommand command, final String actor) {
-    return executionControlRegistry
+    return executionControlStore
         .findByExecutionId(command.executionId())
         .map(run -> new ControlRequest(command, actor, run.sessionId(), run.workflowId()))
         .orElseGet(() -> new ControlRequest(command, actor, null, null));
@@ -782,7 +782,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         .map(
             beat ->
                 new NodeHeartbeat(
-                    executionControlRegistry
+                    executionControlStore
                         .findByExecutionId(beat.executionId())
                         .map(ExecutionControl::sessionId)
                         .orElse(""),
@@ -797,7 +797,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   public List<String> getActiveNodes(final String sessionId, final String workflowId) {
     return queries.getActiveNodes(
         workflowId,
-        executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId).stream()
+        executionControlStore.findAllActiveByWorkflow(sessionId, workflowId).stream()
             .map(ExecutionControl::executionId)
             .toList());
   }

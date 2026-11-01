@@ -24,7 +24,7 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import com.infenia.yukta.testsupport.ErrorGuardExtension;
@@ -56,7 +56,7 @@ class RestartFromNodeCommandProcessorTest {
 
   private static final String EXEC = "exec-1";
 
-  private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
+  private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private ExecutionScheduler scheduler =
       new ExecutionScheduler(0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
@@ -143,7 +143,7 @@ class RestartFromNodeCommandProcessorTest {
     // only the node feeding the re-run part is replayed; the independent branch is left alone
     assertThat(outputs.getValue()).containsOnlyKeys("trigger");
     assertThat(outputs.getValue().get("trigger")).containsExactly(first, second);
-    verify(registry, never()).unregister(any());
+    verify(registry, never()).remove(any());
     verify(completionSink).completeRestartSuccess("new-1");
   }
 
@@ -189,7 +189,7 @@ class RestartFromNodeCommandProcessorTest {
         .verifyComplete();
 
     assertThat(safeStop.asMono().toFuture()).isDone();
-    verify(registry).unregister(EXEC);
+    verify(registry).remove(EXEC);
   }
 
   @Test
@@ -205,7 +205,7 @@ class RestartFromNodeCommandProcessorTest {
         .completeRestartFailure(
             eq("new-1"),
             org.mockito.ArgumentMatchers.argThat(e -> e.getMessage().contains("not finished")));
-    verify(registry, never()).unregister(any());
+    verify(registry, never()).remove(any());
     verify(orchestrator, never())
         .restartFromNode(any(), any(), any(), any(), any(), any(), any(), any());
   }

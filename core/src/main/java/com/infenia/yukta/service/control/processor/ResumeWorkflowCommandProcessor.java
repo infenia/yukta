@@ -9,7 +9,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCo
 import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +28,7 @@ import reactor.core.publisher.Mono;
 public class ResumeWorkflowCommandProcessor implements ControlSignalProcessor {
 
   /** The execution control registry for accessing execution control state. */
-  private final ExecutionControlRegistry registry;
+  private final ExecutionControlStore registry;
 
   /** The task tracker service for tracking task execution. */
   private final TaskTrackerService taskTracker;

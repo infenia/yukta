@@ -12,7 +12,7 @@ import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -35,7 +35,7 @@ import reactor.core.publisher.Mono;
 public class StopWorkflowCommandProcessor implements ControlSignalProcessor {
 
   /** The execution control registry for accessing execution control state. */
-  private final ExecutionControlRegistry registry;
+  private final ExecutionControlStore registry;
 
   /** Reports that the run is stopping. */
   private final TaskTrackerService taskTracker;
@@ -52,7 +52,7 @@ public class StopWorkflowCommandProcessor implements ControlSignalProcessor {
    */
   @Autowired
   public StopWorkflowCommandProcessor(
-      final ExecutionControlRegistry registry,
+      final ExecutionControlStore registry,
       final TaskTrackerService taskTracker,
       final YuktaProperties properties) {
     this(registry, taskTracker, properties.stop().drainTimeout());
@@ -67,7 +67,7 @@ public class StopWorkflowCommandProcessor implements ControlSignalProcessor {
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public StopWorkflowCommandProcessor(
-      final ExecutionControlRegistry registry,
+      final ExecutionControlStore registry,
       final TaskTrackerService taskTracker,
       final Duration drainTimeout) {
     this.registry = registry;

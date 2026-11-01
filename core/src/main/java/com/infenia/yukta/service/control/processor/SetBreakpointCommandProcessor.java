@@ -10,7 +10,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCom
 import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
@@ -33,7 +33,7 @@ import reactor.core.publisher.Mono;
 public class SetBreakpointCommandProcessor implements ControlSignalProcessor {
 
   /** The execution control registry, to find the run and its valves. */
-  private final ExecutionControlRegistry registry;
+  private final ExecutionControlStore registry;
 
   /** Reports the breakpoint in the run's progress. */
   private final TaskTrackerService taskTracker;
