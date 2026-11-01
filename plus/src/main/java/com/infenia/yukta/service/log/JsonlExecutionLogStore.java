@@ -12,12 +12,12 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -99,7 +99,10 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
    * use, kept current by {@link #write}, dropped by {@link #rewrite}; only touched on the writer
    * thread.
    */
-  private Map<String, RunHeader> headers;
+  private final Map<String, RunHeader> headers = new ConcurrentHashMap<>();
+
+  /** Whether {@link #headers} holds the log's runs; only touched on the writer thread. */
+  private boolean indexed;
 
   /** Events appended since the last compaction; only touched on the writer thread. */
   private int sinceCompaction;
@@ -176,11 +179,12 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   public Optional<RunHeader> header(final String executionId) {
     return onWriter(
         () -> {
-          if (headers == null) {
-            headers = new HashMap<>();
+          if (!indexed) {
+            headers.clear();
             for (final ExecutionLogEvent event : read()) {
               index(event);
             }
+            indexed = true;
           }
           return Optional.ofNullable(headers.get(executionId));
         },
@@ -254,7 +258,7 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
           .setCause(e)
           .log("Could not append to the execution log");
     }
-    if (headers != null) {
+    if (indexed) {
       index(event);
     }
     sinceCompaction++;
@@ -319,7 +323,8 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   }
 
   private void rewrite(final List<ExecutionLogEvent> events) {
-    headers = null;
+    headers.clear();
+    indexed = false;
     try {
       Files.createDirectories(dir);
       final Path tmp = Files.createTempFile(dir, "executions", ".tmp");

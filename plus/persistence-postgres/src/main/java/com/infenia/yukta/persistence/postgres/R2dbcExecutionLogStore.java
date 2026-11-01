@@ -46,7 +46,11 @@ import tools.jackson.databind.ObjectMapper;
  * reactive thread. Only after the retries fail are they counted as lost.
  */
 @Slf4j
-@SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.AvoidCatchingGenericException",
+  "PMD.TooManyMethods",
+  "PMD.CouplingBetweenObjects"
+})
 public class R2dbcExecutionLogStore implements ExecutionLogStore {
 
   /** Events that may wait for the writer. */
