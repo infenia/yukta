@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -42,6 +43,15 @@ public record ExecutionLogEvent(
 
   /** Run id under which changes that belong to no run (scheduler limits) are recorded. */
   public static final String SCHEDULER = "scheduler";
+
+  /** Payload keys of a control event: the command name, who sent it and why it was rejected. */
+  public static final String COMMAND_KEY = "command";
+
+  /** See {@link #COMMAND_KEY}. */
+  public static final String ACTOR_KEY = "actor";
+
+  /** See {@link #COMMAND_KEY}. */
+  public static final String REASON_KEY = "reason";
 
   /**
    * Keeps an immutable copy of the node statuses.
@@ -308,6 +318,49 @@ public record ExecutionLogEvent(
         null,
         null,
         Instant.now(),
+        null);
+  }
+
+  /**
+   * Like {@link #control(boolean, String, String, String)}, with the command, actor and reason also
+   * as fields of the payload, so readers need not take them out of the text.
+   *
+   * @param applied true if the command was applied, false if it was rejected
+   * @param executionId the run the command addressed
+   * @param logged the text shown in the status: the command, and who sent it if known
+   * @param command the command name alone
+   * @param actor who sent it, or null
+   * @param reason why it was rejected, or null
+   * @return the event
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public static ExecutionLogEvent control(
+      final boolean applied,
+      final String executionId,
+      final String logged,
+      final String command,
+      @Nullable final String actor,
+      @Nullable final String reason) {
+    final ExecutionLogEvent base = control(applied, executionId, logged, reason);
+    final Map<String, Object> payload = new ConcurrentHashMap<>();
+    payload.put(COMMAND_KEY, command);
+    if (actor != null) {
+      payload.put(ACTOR_KEY, actor);
+    }
+    if (!applied && reason != null) {
+      payload.put(REASON_KEY, reason);
+    }
+    return new ExecutionLogEvent(
+        base.type,
+        base.executionId,
+        base.sessionId,
+        base.workflowId,
+        null,
+        base.status,
+        Map.of(),
+        null,
+        payload,
+        base.timestamp,
         null);
   }
 
