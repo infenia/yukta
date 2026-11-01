@@ -69,14 +69,15 @@ cmd_pickup() {
           *) die "usage: yk pickup session [--name NAME]" ;;
         esac
       done
-      need claude; need jq
+      need claude; need jq; need bun
+      [[ -d "$here/channel/node_modules" ]] || (cd "$here/channel" && bun install --frozen-lockfile >&2) || die "could not install the channel dependencies (bun install in examples/11-dogfood/channel)"
       mkdir -p "$DEV_HOME"
       [[ -s "$DEV_HOME/pickup-token" ]] || { (umask 077; head -c 24 /dev/urandom | base64 | tr -d '/+=\n' >"$DEV_HOME/pickup-token"); }
       # the channel inherits only a filtered environment from claude, so what it needs goes in its config: where the token and the registry
-      # are, its name and, when you fixed one, its port (default: any free port; it registers itself, see channel/yukta-pickup.py)
+      # are, its name and, when you fixed one, its port (default: any free port; it registers itself, see channel/src/main.ts)
       local cfg
-      cfg="$(jq -nc --arg s "$here/channel/yukta-pickup.py" --arg h "$DEV_HOME" --arg n "$name" --arg p "${YUKTA_PICKUP_PORT:-}" \
-        '{mcpServers: {"yukta-pickup": {command: "python3", args: ["-I", $s], env: ({YUKTA_DEV_HOME: $h, YUKTA_PICKUP_NAME: $n} + (if $p == "" then {} else {YUKTA_PICKUP_PORT: $p} end))}}}')"
+      cfg="$(jq -nc --arg s "$here/channel/src/main.ts" --arg h "$DEV_HOME" --arg n "$name" --arg p "${YUKTA_PICKUP_PORT:-}" \
+        '{mcpServers: {"yukta-pickup": {command: "bun", args: ["run", $s], env: ({YUKTA_CHANNEL_PROFILE: "pickup", YUKTA_DEV_HOME: $h, YUKTA_PICKUP_NAME: $n} + (if $p == "" then {} else {YUKTA_PICKUP_PORT: $p} end))}}}')"
       cd "$REPO_ROOT"
       exec claude --name "$name" --mcp-config "$cfg" --dangerously-load-development-channels server:yukta-pickup ;;
     on)
@@ -104,8 +105,8 @@ cmd_pickup() {
         [[ -f "$f" ]] || continue
         IFS=$'\t' read -r name port pid < <(jq -r '[.name, .port, .pid] | @tsv' "$f" 2>/dev/null) || continue
         [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null || continue
-        if st="$(curl -fsS -m 3 "http://127.0.0.1:$port/status" 2>/dev/null)"; then
-          st="$(jq -r 'if .busy then "busy with #\(.issue), since \(.since | todate)" else "idle" end' <<<"$st")"
+        if st="$(curl -fsS -m 3 "http://127.0.0.1:$port/v1/status" 2>/dev/null)"; then
+          st="$(jq -r 'if .busy then "busy with #\(.meta.issue // .event_id), since \(.since | todate)" else "idle" end' <<<"$st")"
         else st="not answering"; fi
         echo "session: $name  :$port  $st"
         rows=$((rows + 1))

@@ -146,6 +146,7 @@ class KvStoreProcessorTest {
   @Test
   void metadataAndValidation() {
     assertThat(processor.getType()).isEqualTo("KV_STORE");
+    assertThat(processor.requiresControlPlane()).isTrue();
     assertThat(processor.describe().usagePattern()).contains(INCR);
     StepVerifier.create(processor.validateConfig(Map.of("op", GET))).verifyComplete();
     StepVerifier.create(processor.validateConfig(Map.of("op", "nope")))

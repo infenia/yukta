@@ -66,9 +66,14 @@ export function ProfileDialog({
   const saving = editing ? replace : create;
 
   const save = () => {
-    if (problem || 'error' in parsed) return;
+    // the Save button is disabled while there is a problem, so the settings parsed here
     saving.mutate(
-      { id: id.trim(), type: chosenType, settings: parsed.settings, dryRun },
+      {
+        id: id.trim(),
+        type: chosenType,
+        settings: (parsed as { settings: Record<string, unknown> }).settings,
+        dryRun,
+      },
       { onSuccess: onClose }
     );
   };

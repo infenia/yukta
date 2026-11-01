@@ -19,6 +19,26 @@ vi.mock('@/hooks/useEventSourceJson', () => ({
   },
 }));
 
+describe('useDashboardParams defaults are not written back', () => {
+  it('drops the parameter when a value is set back to its default', () => {
+    const { result } = renderHook(() => useDashboardParams(), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <MemoryRouter initialEntries={['/?scope=session:s1&range=1d&live=0']}>
+          {children}
+        </MemoryRouter>
+      ),
+    });
+    act(() => result.current.setScope('global'));
+    act(() => result.current.setRange('1h'));
+    act(() => result.current.setLive(true));
+    expect(result.current).toMatchObject({
+      scope: 'global',
+      range: '1h',
+      live: true,
+    });
+  });
+});
+
 describe('useDashboardParams', () => {
   const wrap =
     (path: string) =>
@@ -113,6 +133,28 @@ describe('useMetricStream', () => {
     ).toMatchObject({
       'yukta.executions.running': 4,
     });
+  });
+
+  it('leaves the series of a session scope to be read again, not streamed', () => {
+    const client = new QueryClient();
+    const now = Date.now();
+    const key = 'yukta.executions.rejected{reason=limit}|rate';
+    const scoped = [{ t: now - 60_000, v: 2 }];
+    client.setQueryData(
+      ['metrics', 'series', 'yukta.executions.rejected', '15m', 'session:s1'],
+      { [key]: scoped }
+    );
+    renderHook(() => useMetricStream(true), { wrapper: wrapperFor(client) });
+    act(() => handler({ time: now, values: { [key]: 3 } }));
+    expect(
+      client.getQueryData([
+        'metrics',
+        'series',
+        'yukta.executions.rejected',
+        '15m',
+        'session:s1',
+      ])
+    ).toEqual({ [key]: scoped });
   });
 
   it('stays idle when paused', () => {

@@ -10,7 +10,7 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.util.SignalWaits;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ControlBusService;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
@@ -22,13 +22,13 @@ import reactor.core.publisher.Mono;
 final class ExecutionQueries {
 
   /** The task tracker service for tracking execution tasks. */
-  private final DefaultTaskTrackerService taskTracker;
+  private final TaskTrackerService taskTracker;
 
   /** The control bus service for low-level plugin and message operations. */
   private final ControlBusService controlBusService;
 
   /* default */ ExecutionQueries(
-      final DefaultTaskTrackerService taskTracker, final ControlBusService controlBusService) {
+      final TaskTrackerService taskTracker, final ControlBusService controlBusService) {
     this.taskTracker = taskTracker;
     this.controlBusService = controlBusService;
   }
@@ -226,7 +226,7 @@ final class ExecutionQueries {
    */
   /* default */ Mono<String> finishOrphan(final String executionId) {
     final WorkflowProgress progress = taskTracker.getProgressByExecutionId(executionId);
-    final boolean orphan = progress != null && !TaskStatus.isTerminalName(progress.status());
+    final boolean orphan = progress != null && !progress.status().isTerminal();
     if (orphan) {
       log.atWarn().addKeyValue("executionId", executionId).log("Stopping orphaned execution");
     }

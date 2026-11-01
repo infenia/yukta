@@ -10,8 +10,7 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import com.infenia.yukta.util.SinkEmit;
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -19,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
 /** The live log and status streams of the executions a tracker follows. */
@@ -121,21 +121,9 @@ final class ExecutionStreams {
       return Flux.empty();
     }
 
+    // ends when the status stream ends (the terminal status), not when one more line arrives
     return sink.asFlux()
-        .takeUntil(
-            _ -> {
-              final WorkflowState state = states.apply(executionId);
-              if (state != null
-                  && TaskStatus.isTerminalName(state.status)
-                  && state.endTime != null) {
-                log.atDebug()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("status", state.status)
-                    .log("Workflow terminal status detected, terminating log stream");
-                return true;
-              }
-              return false;
-            })
+        .takeUntilOther(statusStream(executionId, false).then(Mono.just(true)))
         .doOnComplete(
             () -> log.atInfo().addKeyValue("executionId", executionId).log("Log stream completed"));
   }
@@ -166,7 +154,7 @@ final class ExecutionStreams {
                   event.line(),
                   Objects.requireNonNull(
                       event.level(), "the tracker rates a line before it is fed"),
-                  event.timestamp().atZone(ZoneId.systemDefault()).toInstant(),
+                  event.timestamp(),
                   null,
                   null);
             });
@@ -194,7 +182,19 @@ final class ExecutionStreams {
       return Flux.empty();
     }
 
-    Flux<WorkflowProgress> statusFlux = sink.asFlux();
+    // merge subscribes to the live sink first, then looks at the state, so a terminal update
+    // is either seen live or found in the state: it cannot fall between the two
+    Flux<WorkflowProgress> statusFlux =
+        Flux.merge(
+            sink.asFlux(),
+            Flux.defer(
+                () -> {
+                  final WorkflowState state = states.apply(executionId);
+                  final WorkflowProgress progress = state == null ? null : progressOf.apply(state);
+                  return progress != null && isWorkflowTerminal(progress)
+                      ? Flux.just(progress)
+                      : Flux.<WorkflowProgress>empty();
+                }));
 
     if (includeHistory) {
       final List<WorkflowProgress> history = statusHistoryCache.get(executionId);
@@ -226,9 +226,9 @@ final class ExecutionStreams {
 
   /** A workflow is over when its status is terminal and its end time is set. */
   private static boolean isWorkflowTerminal(final WorkflowProgress progress) {
-    final String status = progress.status();
-    final LocalDateTime endTime = progress.endTime();
-    if (TaskStatus.isTerminalName(status) && endTime != null) {
+    final TaskStatus status = progress.status();
+    final Instant endTime = progress.endTime();
+    if (status.isTerminal() && endTime != null) {
       log.atDebug()
           .addKeyValue("status", status)
           .addKeyValue("endTime", endTime)

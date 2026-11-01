@@ -4,6 +4,8 @@ package com.infenia.yukta.service.worker;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -133,5 +135,22 @@ public class RemoteProcessor implements ProcessorPlugin {
   @Override
   public boolean suppressOptimizationHint(final Map<String, Object> config) {
     return local.suppressOptimizationHint(config);
+  }
+
+  @Override
+  public PluginCategory getCategory() {
+    return local.getCategory();
+  }
+
+  @Override
+  public Mono<Message<?>> onControlSignal(final Message<?> signal) {
+    return local.onControlSignal(signal);
+  }
+
+  @Override
+  public Plugin forNode(final Map<String, Object> config) {
+    // the per-node state lives in the local plugin; only process() goes to the worker
+    final ProcessorPlugin perNode = (ProcessorPlugin) local.forNode(config);
+    return perNode.equals(local) ? this : new RemoteProcessor(perNode, executor, pool);
   }
 }

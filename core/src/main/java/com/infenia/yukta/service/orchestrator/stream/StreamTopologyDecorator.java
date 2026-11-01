@@ -47,24 +47,6 @@ public class StreamTopologyDecorator {
   /** The node checkpoint store for persisting node state. */
   private final NodeCheckpointStore checkpointStore;
 
-  /** Maximum number of payload characters echoed to the live log per message. */
-  private static final int MAX_LOG_PAYLOAD_SIZE = 2_048;
-
-  /**
-   * Bounds the payload echoed into the live log so large payloads are not copied once per node.
-   *
-   * @param payload the stringified payload
-   * @return the payload, cut to {@code MAX_LOG_PAYLOAD_SIZE} characters with a marker if longer
-   */
-  private static String truncateForLog(final String payload) {
-    return payload.length() <= MAX_LOG_PAYLOAD_SIZE
-        ? payload
-        : payload.substring(0, MAX_LOG_PAYLOAD_SIZE)
-            + "... [truncated "
-            + (payload.length() - MAX_LOG_PAYLOAD_SIZE)
-            + " chars]";
-  }
-
   /**
    * Merges parent node streams, applying edge-based routing and port filtering.
    *
@@ -401,11 +383,16 @@ public class StreamTopologyDecorator {
 
     return logStream.doOnNext(
         msg -> {
-          final String payload = truncateForLog(String.valueOf(msg.payload()));
+          // nothing to echo (the plugin logged live) and nobody tracing: do not render the payload
+          final boolean echo = !loggedLive.getAsBoolean();
+          if (!echo && !log.isTraceEnabled()) {
+            return;
+          }
+          final String payload = LivePayloadPreview.preview(msg.payload());
           log.atTrace().setMessage("Processing message payload: {}").addArgument(payload).log();
           // A blank payload (the output of a quiet command, an empty body) has nothing to echo, and
           // the tracker rejects blank lines, which would otherwise fail the node.
-          if (!payload.isBlank() && !loggedLive.getAsBoolean()) {
+          if (echo && !payload.isBlank()) {
             tracker.emitLogEvent(executionId, nodeId, payload);
           }
         });

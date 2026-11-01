@@ -11,6 +11,7 @@ import com.infenia.yukta.service.control.ExecutionScheduler.OnLimit;
 import com.infenia.yukta.service.control.ExecutionScheduler.Permit;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,20 @@ class ExecutionSchedulerTest {
 
   private static Permit granted(final Admission admission) {
     return admission.permit().block(Duration.ofSeconds(2));
+  }
+
+  @Test
+  void childRunsAreBoundedByTheChildLimit() {
+    final ExecutionScheduler scheduler = scheduler(0, 0, 0, ExecutionScheduler.OnLimit.REJECT);
+    org.springframework.test.util.ReflectionTestUtils.setField(scheduler, "maxChildren", 2);
+
+    final ExecutionScheduler.Admission first = scheduler.borrowed();
+    scheduler.borrowed();
+    assertThat(scheduler.borrowed().refused()).isTrue();
+    assertThat(scheduler.childrenAlive()).isEqualTo(2);
+
+    Objects.requireNonNull(first.permit().block()).release();
+    assertThat(scheduler.borrowed().refused()).isFalse();
   }
 
   @Test
@@ -140,6 +155,17 @@ class ExecutionSchedulerTest {
         .isInstanceOf(ExecutionRejectedException.class)
         .hasMessage("Too many starts of this workflow per minute");
     assertThat(scheduler.rejected(ExecutionScheduler.RejectReason.RATE_LIMIT)).isEqualTo(1);
+  }
+
+  @Test
+  void startRate_isPerSession_soTwoSessionsDoNotShareBucket() {
+    final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
+    scheduler.setMaxStartsPerMinute(1);
+
+    scheduler.assertCanAccept("s1", "build");
+
+    org.assertj.core.api.Assertions.assertThatCode(() -> scheduler.assertCanAccept("s2", "build"))
+        .doesNotThrowAnyException();
   }
 
   @Test

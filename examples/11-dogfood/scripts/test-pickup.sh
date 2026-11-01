@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Offline test of the scheduled pickup (no Claude, no server, no GitHub, about 15 s): pickup.sh tick against real channels
-# (channel/yukta-pickup.py, several at once, found through the registry) with a fake gh on PATH, and busy() ignoring the `pickup` schedule.
+# (channel/src/main.ts, several at once, found through the registry) with a fake gh on PATH, and busy() ignoring the `pickup` schedule.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fail() { echo "FAIL $*" >&2; exit 1; }
@@ -8,7 +8,7 @@ tmp="$(mktemp -d)"
 cleanup() { for p in "${PID[@]:-}" ${spid:-}; do [[ -z "$p" ]] || kill "$p" 2>/dev/null || true; done; rm -rf "$tmp"; }
 declare -A FD PID
 trap cleanup EXIT
-freeport() { python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])'; }
+freeport() { bun -e 'const s = Bun.listen({hostname: "127.0.0.1", port: 0, socket: {data() {}}}); console.log(s.port); s.stop(true)'; }
 
 # fake gh: answers from files in $FAKE_GH, the way gh prints JSON (the script pipes through jq itself)
 mkdir -p "$tmp/bin" "$tmp/gh"
@@ -28,11 +28,11 @@ mkdir -p "$tmp/home"; echo secret >"$tmp/home/pickup-token"
 echo '[]' >"$tmp/gh/prs.json"
 tick() { "$here/scripts/pickup.sh" tick; }
 
-# channels: each one is a real yukta-pickup.py with its own stdin fifo (to send pickup_done) and registry entry
+# channels: each one is a real channel (the pickup profile of channel/src/main.ts) with its own stdin fifo (to send pickup_done) and registry entry
 start_channel() {
   local name="$1"
   mkfifo "$tmp/in-$name"
-  YUKTA_PICKUP_NAME="$name" python3 -I "$here/channel/yukta-pickup.py" <"$tmp/in-$name" >"$tmp/out-$name" 2>"$tmp/err-$name" &
+  YUKTA_CHANNEL_PROFILE=pickup YUKTA_PICKUP_NAME="$name" bun run "$here/channel/src/main.ts" <"$tmp/in-$name" >"$tmp/out-$name" 2>"$tmp/err-$name" &
   PID[$name]=$!
   exec {fd}>"$tmp/in-$name"
   FD[$name]=$fd
@@ -106,30 +106,23 @@ out="$(tick)"; [[ "$out" == "PICKUP skipped=no channel"* ]] || fail "all closed:
 start_channel c
 mkdir -p "$tmp/home2"; echo wrong >"$tmp/home2/pickup-token"; ln -sfn "$tmp/home/pickup" "$tmp/home2/pickup"
 if out="$(YUKTA_DEV_HOME="$tmp/home2" tick 2>&1)"; then fail "a refused POST must fail: $out"; fi
-[[ "$out" == *"answered 403"* ]] || fail "403: $out"
+[[ "$out" == *"answered 401"* ]] || fail "401: $out"
 
 # 7. busy() does not count the pickup schedule (and counts anything else)
-cat >"$tmp/srv.py" <<'PY'
-import json, sys
-from http.server import BaseHTTPRequestHandler, HTTPServer
-rows = json.load(open(sys.argv[2]))
-class H(BaseHTTPRequestHandler):
-    def log_message(self, *a): pass
-    def do_GET(self):
-        d = json.dumps({"data": rows}).encode()
-        self.send_response(200); self.send_header("Content-Length", str(len(d))); self.end_headers(); self.wfile.write(d)
-HTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
-PY
+cat >"$tmp/srv.ts" <<'TS'
+const rows = JSON.parse(await Bun.file(Bun.argv[3]!).text())
+Bun.serve({ hostname: "127.0.0.1", port: Number(Bun.argv[2]), fetch: () => Response.json({ data: rows }) })
+TS
 sport="$(freeport)"
 echo '[{"workflowId":"pickup","status":"RUNNING","executionId":"p"},{"workflowId":"tool","status":"SUCCESS","executionId":"a"}]' >"$tmp/exec.json"
-python3 "$tmp/srv.py" "$sport" "$tmp/exec.json" &
+bun "$tmp/srv.ts" "$sport" "$tmp/exec.json" &
 spid=$!
 for _ in $(seq 50); do curl -fs "http://127.0.0.1:$sport/" >/dev/null 2>&1 && break; sleep 0.1; done
 n="$(YUKTA_DEV_PORT=$sport bash -c 'source "$1/scripts/_lib.sh"; busy' _ "$here")"
 [[ "$n" == 0 ]] || fail "only pickup running: busy must be 0, got $n"
 kill "$spid"; wait "$spid" 2>/dev/null || true
 echo '[{"workflowId":"pickup","status":"RUNNING","executionId":"p"},{"workflowId":"check","status":"RUNNING","executionId":"c"}]' >"$tmp/exec.json"
-python3 "$tmp/srv.py" "$sport" "$tmp/exec.json" &
+bun "$tmp/srv.ts" "$sport" "$tmp/exec.json" &
 spid=$!
 for _ in $(seq 50); do curl -fs "http://127.0.0.1:$sport/" >/dev/null 2>&1 && break; sleep 0.1; done
 n="$(YUKTA_DEV_PORT=$sport bash -c 'source "$1/scripts/_lib.sh"; busy' _ "$here")"

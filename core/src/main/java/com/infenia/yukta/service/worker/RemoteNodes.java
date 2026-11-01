@@ -6,7 +6,6 @@ import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
@@ -16,13 +15,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class RemoteNodes {
-
-  /**
-   * Plugin types that keep state in this process, so they cannot run on another machine yet (their
-   * state moves with the database backends of F7).
-   */
-  private static final Set<String> LOCAL_ONLY =
-      Set.of("SESSION_MEMORY", "KV_STORE", "WAIT_FOR_SIGNAL", "SUB_WORKFLOW");
 
   /** Runs calls on workers, if the workers module is part of the application. */
   private final ObjectProvider<RemoteNodeExecutor> executor;
@@ -54,7 +46,7 @@ public class RemoteNodes {
         throw new IllegalArgumentException(
             "engine.placement is only for processor nodes, but " + type + " is not one");
       }
-      if (LOCAL_ONLY.contains(type)) {
+      if (local.requiresControlPlane()) {
         throw new IllegalArgumentException(
             type + " keeps state on this server, so it cannot have engine.placement");
       }

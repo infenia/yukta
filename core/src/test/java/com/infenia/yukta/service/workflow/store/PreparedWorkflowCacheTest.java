@@ -48,6 +48,24 @@ class PreparedWorkflowCacheTest {
   }
 
   @Test
+  void sizeIsCapped_andReportedByGauge() {
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    final PreparedWorkflowCache small = new PreparedWorkflowCache(60_000L, 2, meters);
+    for (int i = 0; i < 50; i++) {
+      small.put(SESSION_1, "wf-" + i, mockPrepared());
+    }
+
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertThat(meters.get("yukta.workflow.cache.size").gauge().value())
+                    .isLessThanOrEqualTo(2.0));
+    assertThat(meters.get("yukta.workflow.cache.size").gauge().value()).isLessThanOrEqualTo(2.0);
+  }
+
+  @Test
   void putAndGetReturnsPreparedWorkflow() {
     final PreparedWorkflow prepared = mockPrepared();
     cache.put(SESSION_1, WORKFLOW_1, prepared);
@@ -207,5 +225,34 @@ class PreparedWorkflowCacheTest {
     final var stats = cache.getStats();
     assertThat(stats.hitCount()).isGreaterThan(0);
     assertThat(stats.missCount()).isGreaterThan(0);
+  }
+
+  @Test
+  void get_withDefinition_onlyReturnsAnEntryBuiltFromThatDefinition() {
+    final com.infenia.yukta.model.workflow.WorkflowDefinition built =
+        new com.infenia.yukta.model.workflow.WorkflowDefinition("w", "d", List.of(), List.of());
+    final com.infenia.yukta.model.workflow.WorkflowDefinition newer =
+        new com.infenia.yukta.model.workflow.WorkflowDefinition("w", "newer", List.of(), List.of());
+    final PreparedWorkflow prepared = mockPrepared();
+    cache.put(SESSION_1, WORKFLOW_1, prepared, built);
+
+    assertThat(cache.get(SESSION_1, WORKFLOW_1, built)).containsSame(prepared);
+    assertThat(cache.get(SESSION_1, WORKFLOW_1, newer)).isEmpty();
+  }
+
+  @Test
+  void isDeleting_coversTheSessionAndOneWorkflow() {
+    assertThat(cache.isDeleting(SESSION_1, WORKFLOW_1)).isFalse();
+
+    cache.beginDelete(SESSION_1, WORKFLOW_1);
+    assertThat(cache.isDeleting(SESSION_1, WORKFLOW_1)).isTrue();
+    assertThat(cache.isDeleting(SESSION_1, WORKFLOW_2)).isFalse();
+    cache.endDelete(SESSION_1, WORKFLOW_1);
+
+    cache.beginDelete(SESSION_1, null);
+    assertThat(cache.isDeleting(SESSION_1, WORKFLOW_2)).isTrue();
+    assertThat(cache.isDeleting(SESSION_2, WORKFLOW_2)).isFalse();
+    cache.endDelete(SESSION_1, null);
+    assertThat(cache.isDeleting(SESSION_1, WORKFLOW_2)).isFalse();
   }
 }

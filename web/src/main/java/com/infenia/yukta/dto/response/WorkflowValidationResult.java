@@ -12,6 +12,7 @@ import java.util.Map;
  * @param valid whether the workflow would be accepted for execution
  * @param message the first problem found, or {@code null} when valid
  * @param outputPorts the output ports of each node for its configuration, keyed by node id
+ * @param problems every problem found, empty when valid; {@code message} is the first
  * @param warnings what would run but probably not as meant, such as a port nothing reads
  */
 @Schema(description = "Result of validating a draft workflow without saving it")
@@ -20,6 +21,7 @@ public record WorkflowValidationResult(
     @Schema(description = "The first problem found; null when valid") String message,
     @Schema(description = "Output ports per node id, for the node's configuration")
         Map<String, List<String>> outputPorts,
+    @Schema(description = "Every problem found; empty when valid") List<String> problems,
     @Schema(description = "Problems that do not stop the workflow, for the editor to show")
         List<Warning> warnings) {
 
@@ -36,8 +38,18 @@ public record WorkflowValidationResult(
       @Schema(description = "The config field or output port it is about") String field,
       @Schema(description = "What is wrong") String message) {}
 
+  /** A result that lists no problems beyond {@code message}. */
+  public WorkflowValidationResult(
+      final boolean valid,
+      final String message,
+      final Map<String, List<String>> outputPorts,
+      final List<Warning> warnings) {
+    this(valid, message, outputPorts, message == null ? List.of() : List.of(message), warnings);
+  }
+
   /** Compact constructor to ensure immutability. */
   public WorkflowValidationResult {
+    problems = problems != null ? List.copyOf(problems) : List.of();
     outputPorts = outputPorts != null ? Map.copyOf(outputPorts) : Map.of();
     warnings = warnings != null ? List.copyOf(warnings) : List.of();
   }

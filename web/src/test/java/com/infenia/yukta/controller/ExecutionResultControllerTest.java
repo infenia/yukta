@@ -7,12 +7,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.result.ExecutionResultService;
 import com.infenia.yukta.service.result.ExecutionResults;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,9 +31,8 @@ class ExecutionResultControllerTest {
   private ExecutionResultService results;
   private WebTestClient client;
 
-  private static WorkflowProgress progress(final String status) {
-    return new WorkflowProgress(
-        "e1", "s1", "wf", status, List.of(), LocalDateTime.now(), null, null);
+  private static WorkflowProgress progress(final TaskStatus status) {
+    return new WorkflowProgress("e1", "s1", "wf", status, List.of(), Instant.now(), null, null);
   }
 
   @BeforeEach
@@ -65,7 +65,7 @@ class ExecutionResultControllerTest {
 
   @Test
   void finishedExecutionReplaysResultsThenEnds() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("SUCCESS"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress(TaskStatus.SUCCESS));
     results.publish("e1", "t1", "the-answer");
     results.nodeEnd("e1", "t1", "SUCCESS");
     results.complete("e1", "SUCCESS");
@@ -77,7 +77,7 @@ class ExecutionResultControllerTest {
 
   @Test
   void nodeFilterKeepsOnlyThatTerminalAndTheExecutionEnd() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("SUCCESS"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress(TaskStatus.SUCCESS));
     results.publish("e1", "t1", "from-one");
     results.publish("e1", "t2", "from-two");
     results.complete("e1", "SUCCESS");
@@ -89,7 +89,7 @@ class ExecutionResultControllerTest {
 
   @Test
   void lastEventIdSkipsWhatTheClientAlreadyHas() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("SUCCESS"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress(TaskStatus.SUCCESS));
     results.publish("e1", "t1", "first");
     results.publish("e1", "t1", "second");
     results.complete("e1", "SUCCESS");
@@ -101,14 +101,14 @@ class ExecutionResultControllerTest {
 
   @Test
   void evictedFinishedExecutionStreamsNothingInsteadOfHanging() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("SUCCESS"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress(TaskStatus.SUCCESS));
 
     assertThat(stream(URI, null)).doesNotContain("result");
   }
 
   @Test
   void runningExecutionStreamsWhatIsRecordedAndEndsWithTheExecution() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("RUNNING"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress(TaskStatus.RUNNING));
     results.publish("e1", "t1", "live-answer");
     results.complete("e1", "SUCCESS");
 
@@ -117,7 +117,7 @@ class ExecutionResultControllerTest {
 
   @Test
   void jsonReadReturnsWhatIsRecordedAndCursor() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("RUNNING"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress(TaskStatus.RUNNING));
     results.publish("e1", "t1", "partial");
 
     final ExecutionResults body =

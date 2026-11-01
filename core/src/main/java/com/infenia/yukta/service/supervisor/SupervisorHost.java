@@ -66,6 +66,9 @@ public class SupervisorHost {
   /** Counter of supervisor commands by outcome. */
   private static final String COMMANDS_METRIC = "yukta.supervisor.commands";
 
+  /** Outcome recorded for a command a dry-run supervisor would have refused. */
+  private static final String DRY_RUN = "dry-run";
+
   /** Key of the supervisor in log entries. */
   private static final String SUPERVISOR_KEY = "supervisor";
 
@@ -200,6 +203,29 @@ public class SupervisorHost {
     }
   }
 
+  /**
+   * Whether a supervisor configured as a bean has this id.
+   *
+   * @param id the id
+   * @return true if one has
+   */
+  public boolean isBuiltIn(final String id) {
+    return supervisors.stream().anyMatch(supervisor -> id.equals(supervisor.id()));
+  }
+
+  /**
+   * Records that a dry-run supervisor would have refused a command, so the cockpit shows it.
+   *
+   * @param supervisorId the supervisor or binding
+   * @param command the command it would have refused
+   * @param reason why
+   */
+  public void wouldHaveRefused(
+      final String supervisorId, final ExecutionControlCommand command, final String reason) {
+    count(supervisorId, DRY_RUN);
+    decided(supervisorId, DRY_RUN, command, reason);
+  }
+
   /** Stops every supervisor. */
   @PreDestroy
   public void stop() {
@@ -236,7 +262,7 @@ public class SupervisorHost {
                   maxCommandsPerSecond,
                   commands(supervisor.id(), "applied"),
                   commands(supervisor.id(), "rejected"),
-                  commands(supervisor.id(), "dry-run"),
+                  commands(supervisor.id(), DRY_RUN),
                   commands(supervisor.id(), "rate-limited"),
                   supervisor.scope().kind().name(),
                   supervisor.scope().sessionId(),
@@ -320,7 +346,7 @@ public class SupervisorHost {
     if (limit.tryAcquire()) {
       result =
           recordOnly
-              ? notApplied(supervisorId, "dry-run", command, "dry-run")
+              ? notApplied(supervisorId, DRY_RUN, command, DRY_RUN)
               : send(supervisorId, command);
     } else {
       result = notApplied(supervisorId, "rate-limited", command, "rate limit exceeded");

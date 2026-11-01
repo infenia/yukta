@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Writes the `pickup` workflow into session.json: a SCHEDULE_TRIGGER that ticks every INTERVAL_MS and runs `pickup.sh tick`, which hands
-the next assigned, Ready issue to the yukta-pickup channel (channel/yukta-pickup.py). One execution lives as long as the server (yk pickup on
+the next assigned, Ready issue to the yukta-pickup channel (channel/src/main.ts). One execution lives as long as the server (yk pickup on
 starts it, yk pickup off stops it, a server swap restarts it). A failing tick is reported and the schedule goes on.
 Edit INTERVAL_MS here, run this script, commit session.json."""
 import json, os

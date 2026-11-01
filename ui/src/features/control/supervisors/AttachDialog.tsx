@@ -49,9 +49,9 @@ export function AttachDialog({
         : null;
 
   const submit = () => {
-    if (problem || scope === null) return;
+    // the Attach button is disabled while there is a problem, so the scope is set here
     attach.mutate(
-      { profileId: chosenProfile, scope, enabled },
+      { profileId: chosenProfile, scope: scope as string, enabled },
       { onSuccess: onClose }
     );
   };

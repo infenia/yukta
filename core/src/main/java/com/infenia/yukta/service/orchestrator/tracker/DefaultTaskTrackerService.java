@@ -33,8 +33,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -274,7 +272,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   private void startSessionSweeper() {
     final Duration ttl = sessionTtl;
-    if (ttl == null || ttl.isZero() || ttl.isNegative()) {
+    if (sweepOff(ttl)) {
       return;
     }
     // often enough that a session leaves soon after its time is up, rarely enough to cost nothing
@@ -324,16 +322,18 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         () -> {
           final WorkflowState state =
               new WorkflowState(
-                  executionId,
-                  sessionId,
-                  workflowId,
-                  "RUNNING",
-                  nodeIds,
-                  LocalDateTime.now(ZoneId.systemDefault()));
+                  executionId, sessionId, workflowId, TaskStatus.RUNNING, nodeIds, Instant.now());
 
-          sessionStates
-              .computeIfAbsent(sessionId, _ -> new ConcurrentHashMap<>())
-              .put(executionId, state);
+          // one atomic step, so that evicting the session cannot remove the map between lookup and
+          // put
+          sessionStates.compute(
+              sessionId,
+              (_, runs) -> {
+                final Map<String, WorkflowState> map =
+                    Objects.requireNonNullElseGet(runs, ConcurrentHashMap::new);
+                map.put(executionId, state);
+                return map;
+              });
 
           executionIndex.put(executionId, state);
           sessionUsed.put(sessionId, clock.getAsLong());
@@ -415,7 +415,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("status", status)
         .addKeyValue("metadataSize", metadata.size())
         .log("Emitting task status event");
-    publish(TaskStatusEvent.create(executionId, nodeId, module, status.name(), metadata));
+    publish(TaskStatusEvent.create(executionId, nodeId, module, status, metadata));
   }
 
   @Override
@@ -546,7 +546,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("executionId", executionId)
         .addKeyValue("status", status)
         .log("Emitting workflow status event");
-    publish(WorkflowStatusEvent.create(executionId, status.name()));
+    publish(WorkflowStatusEvent.create(executionId, status));
   }
 
   /**
@@ -679,44 +679,13 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   @Override
   public WorkflowProgress getProgress(
       @SessionId final String sessionId, @NotBlank final String executionId) {
-    final Map<String, WorkflowState> states = sessionStates.get(sessionId);
-    WorkflowProgress progress = null;
-    if (states != null) {
-      final WorkflowState state = states.get(executionId);
-      if (state != null) {
-        progress =
-            new WorkflowProgress(
-                state.executionId,
-                state.sessionId,
-                state.workflowId,
-                state.status,
-                state.getTasks(),
-                state.startTime,
-                state.endTime,
-                state.controlState,
-                state.definitionVersion,
-                state.parentExecutionId,
-                state.rootExecutionId,
-                state.restartOf);
-      }
-    }
-    return progress;
+    return Optional.ofNullable(sessionStates.get(sessionId))
+        .map(states -> states.get(executionId))
+        .map(DefaultTaskTrackerService::toProgress)
+        .orElse(null);
   }
 
-  /**
-   * Get workflow progress by execution ID only (independent of session).
-   *
-   * <p>Used internally when only the execution ID is known, without session context.
-   *
-   * @param executionId the execution identifier
-   * @return the workflow progress, or null if not found
-   */
-  @Override
-  public WorkflowProgress getProgressByExecutionId(@NotBlank final String executionId) {
-    final WorkflowState state = executionIndex.get(executionId);
-    if (state == null) {
-      return null;
-    }
+  private static WorkflowProgress toProgress(final WorkflowState state) {
     return new WorkflowProgress(
         state.executionId,
         state.sessionId,
@@ -730,6 +699,21 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         state.parentExecutionId,
         state.rootExecutionId,
         state.restartOf);
+  }
+
+  /**
+   * Get workflow progress by execution ID only (independent of session).
+   *
+   * <p>Used internally when only the execution ID is known, without session context.
+   *
+   * @param executionId the execution identifier
+   * @return the workflow progress, or null if not found
+   */
+  @Override
+  public WorkflowProgress getProgressByExecutionId(@NotBlank final String executionId) {
+    return Optional.ofNullable(executionIndex.get(executionId))
+        .map(DefaultTaskTrackerService::toProgress)
+        .orElse(null);
   }
 
   /**
@@ -789,8 +773,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final String executionId,
       final String sessionId,
       final String workflowId,
-      final String status,
-      final Map<String, String> nodeStatuses,
+      final TaskStatus status,
+      final Map<String, TaskStatus> nodeStatuses,
       final Instant started,
       final Instant ended,
       final String definitionVersion,
@@ -856,7 +840,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   public void removeSession(@SessionId final String sessionId) {
     sessionUsed.remove(sessionId);
     history.forget(sessionId);
-    final Map<String, WorkflowState> states = sessionStates.remove(sessionId);
+    dropSession(sessionId, sessionStates.remove(sessionId));
+  }
+
+  private void dropSession(final String sessionId, final Map<String, WorkflowState> states) {
     if (states != null) {
       final int executionCount = states.size();
       states
@@ -866,7 +853,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
                 executionIndex.remove(execId);
                 streams.drop(execId);
               });
-      latestExecs.keySet().removeIf(key -> key.startsWith(sessionId + "\0"));
+      // by run, not by session: a run started again under this id since keeps its entry
+      latestExecs.values().removeIf(states::containsKey);
       log.atInfo()
           .addKeyValue("sessionId", sessionId)
           .addKeyValue("executionsRemoved", executionCount)
@@ -889,16 +877,35 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
           sessionStates.entrySet().stream()
               .filter(e -> !e.getKey().equals(current))
               .filter(
-                  e ->
-                      e.getValue().values().stream()
-                          .allMatch(state -> TaskStatus.isTerminalName(state.status)))
+                  e -> e.getValue().values().stream().allMatch(state -> state.status.isTerminal()))
               .map(Map.Entry::getKey)
               .min(Comparator.comparingLong(id -> sessionUsed.getOrDefault(id, 0L)))
               .orElse(null);
       if (oldest == null) {
         return;
       }
-      removeSession(oldest);
+      removeSessionIfIdle(oldest);
+    }
+  }
+
+  /**
+   * Removes a session only if none of its runs is going; the check and the removal are one step.
+   */
+  private void removeSessionIfIdle(final String sessionId) {
+    final Map<String, Map<String, WorkflowState>> removed = new ConcurrentHashMap<>();
+    sessionStates.computeIfPresent(
+        sessionId,
+        (_, runs) -> {
+          if (runs.values().stream().allMatch(state -> state.status.isTerminal())) {
+            removed.put(sessionId, runs);
+            return null;
+          }
+          return runs;
+        });
+    if (removed.containsKey(sessionId)) {
+      sessionUsed.remove(sessionId);
+      history.forget(sessionId);
+      dropSession(sessionId, removed.get(sessionId));
     }
   }
 
@@ -909,21 +916,17 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    */
   /* default */ void evictExpiredSessions() {
     final Duration ttl = sessionTtl;
-    if (ttl == null || ttl.isZero() || ttl.isNegative()) {
+    if (sweepOff(ttl)) {
       return;
     }
     final long now = clock.getAsLong();
     final long ttlNanos = ttl.toNanos();
-    sessionStates.entrySet().stream()
-        .filter(
-            entry ->
-                entry.getValue().values().stream()
-                    .allMatch(state -> TaskStatus.isTerminalName(state.status)))
+    // removeSessionIfIdle makes the check that a session has no run going, atomically with removal
+    sessionStates.keySet().stream()
         // a session nobody has touched since startup counts as used now, so it gets a full TTL
-        .filter(entry -> now - sessionUsed.computeIfAbsent(entry.getKey(), _ -> now) > ttlNanos)
-        .map(Map.Entry::getKey)
+        .filter(id -> now - sessionUsed.computeIfAbsent(id, _ -> now) > ttlNanos)
         .toList()
-        .forEach(this::removeSession);
+        .forEach(this::removeSessionIfIdle);
   }
 
   /* default */ void setMaxSessions(final int maxSessions) {
@@ -971,6 +974,11 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     return streams.statusStream(executionId, includeHistory);
   }
 
+  /** Whether the idle sweep is off: no session TTL is set, or it is not positive. */
+  private static boolean sweepOff(@Nullable final Duration ttl) {
+    return ttl == null || ttl.isZero() || ttl.isNegative();
+  }
+
   private WorkflowState findState(final String executionId) {
     return executionIndex.get(executionId);
   }
@@ -993,7 +1001,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     log.atDebug().addKeyValue("executionId", executionId).log("Cleaning up execution data");
     streams.close(executionId);
     applier.forget(executionId);
-    final WorkflowState state = executionIndex.remove(executionId);
+    // the run stays findable by id until the per-session cap pushes it out of history
+    final WorkflowState state = executionIndex.get(executionId);
     if (state != null) {
       history.trim(state);
     }

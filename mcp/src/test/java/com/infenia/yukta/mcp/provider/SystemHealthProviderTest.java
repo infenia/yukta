@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.mcp.dto.ExecutionRecord;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
@@ -18,8 +19,10 @@ import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
@@ -44,10 +47,9 @@ class SystemHealthProviderTest {
     provider = new SystemHealthProvider(registry, sessionService, controlBus);
   }
 
-  private WorkflowExecutionSummary execution(final String id, final String status) {
-    final LocalDateTime start = LocalDateTime.now(ZoneId.systemDefault()).minusMinutes(1);
-    final LocalDateTime end =
-        "RUNNING".equals(status) ? null : LocalDateTime.now(ZoneId.systemDefault());
+  private WorkflowExecutionSummary execution(final String id, final TaskStatus status) {
+    final Instant start = Instant.now().minus(Duration.ofMinutes(1));
+    final Instant end = status == TaskStatus.RUNNING ? null : Instant.now();
     return new WorkflowExecutionSummary(id, "wf-1", status, start, end);
   }
 
@@ -74,7 +76,9 @@ class SystemHealthProviderTest {
             Map.of("wf-1", wf1, "wf-2", wf2));
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config));
     when(controlBus.getHistory("s1"))
-        .thenReturn(Mono.just(List.of(execution("e1", "RUNNING"), execution("e2", "COMPLETED"))));
+        .thenReturn(
+            Mono.just(
+                List.of(execution("e1", TaskStatus.RUNNING), execution("e2", TaskStatus.SUCCESS))));
 
     StepVerifier.create(provider.getControlBusStatus(null))
         .assertNext(
@@ -146,7 +150,7 @@ class SystemHealthProviderTest {
 
   @Test
   void testRecentExecutionsAreNewestFirstAcrossSessions() {
-    final LocalDateTime base = LocalDateTime.of(2026, 1, 1, 12, 0);
+    final Instant base = LocalDateTime.of(2026, 1, 1, 12, 0).toInstant(ZoneOffset.UTC);
     final List<WorkflowExecutionSummary> s1History =
         IntStream.range(0, 12)
             .mapToObj(
@@ -154,9 +158,9 @@ class SystemHealthProviderTest {
                     new WorkflowExecutionSummary(
                         "s1-e" + i,
                         "wf-1",
-                        "COMPLETED",
-                        base.plusMinutes(2L * i),
-                        base.plusMinutes(2L * i + 1)))
+                        TaskStatus.SUCCESS,
+                        base.plus(Duration.ofMinutes(2L * i)),
+                        base.plus(Duration.ofMinutes(2L * i + 1))))
             .toList();
     final List<WorkflowExecutionSummary> s2History =
         IntStream.range(0, 12)
@@ -165,9 +169,9 @@ class SystemHealthProviderTest {
                     new WorkflowExecutionSummary(
                         "s2-e" + i,
                         "wf-2",
-                        "COMPLETED",
-                        base.plusMinutes(2L * i + 1),
-                        base.plusMinutes(2L * i + 2)))
+                        TaskStatus.SUCCESS,
+                        base.plus(Duration.ofMinutes(2L * i + 1)),
+                        base.plus(Duration.ofMinutes(2L * i + 2))))
             .toList();
     when(sessionService.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
     when(controlBus.getHistory("s1")).thenReturn(Mono.just(s1History));
@@ -215,7 +219,8 @@ class SystemHealthProviderTest {
   void testExecutionsFilterSkipsFailingHistory() {
     when(sessionService.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
     when(controlBus.getHistory("s1")).thenReturn(Mono.error(new IllegalStateException("boom")));
-    when(controlBus.getHistory("s2")).thenReturn(Mono.just(List.of(execution("e2", "COMPLETED"))));
+    when(controlBus.getHistory("s2"))
+        .thenReturn(Mono.just(List.of(execution("e2", TaskStatus.SUCCESS))));
 
     StepVerifier.create(provider.getControlBusStatus("executions"))
         .assertNext(
@@ -262,16 +267,16 @@ class SystemHealthProviderTest {
         .thenReturn(
             Mono.just(
                 List.of(
-                    execution("e1", "RUNNING"),
-                    execution("e2", "SUCCESS"),
-                    execution("e3", "TIMED_OUT"),
-                    execution("e4", "COMPLETED"),
-                    execution("e5", "PENDING"))));
+                    execution("e1", TaskStatus.RUNNING),
+                    execution("e2", TaskStatus.SUCCESS),
+                    execution("e3", TaskStatus.TIMED_OUT),
+                    execution("e4", TaskStatus.SUCCESS),
+                    execution("e5", TaskStatus.PENDING))));
 
     StepVerifier.create(provider.getControlBusStatus(null))
         .assertNext(
             status ->
-                // RUNNING and PENDING are active; SUCCESS, TIMED_OUT and legacy COMPLETED are not
+                // RUNNING and PENDING are active; SUCCESS, TIMED_OUT are not
                 assertThat(status.activeSessions().get(0).activeExecutions()).isEqualTo(2))
         .verifyComplete();
   }
@@ -292,11 +297,7 @@ class SystemHealthProviderTest {
                 List.of(
                     new WorkflowExecutionSummary("e1", "wf-1", null, null, null),
                     new WorkflowExecutionSummary(
-                        "e2",
-                        "wf-1",
-                        "SUCCESS",
-                        null,
-                        LocalDateTime.now(ZoneId.systemDefault())))));
+                        "e2", "wf-1", TaskStatus.SUCCESS, null, Instant.now()))));
 
     StepVerifier.create(provider.getControlBusStatus(null))
         .assertNext(

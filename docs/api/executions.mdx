@@ -44,7 +44,7 @@ Finds runs across all sessions, or in one session, newest first.
 | `workflowId` | Only runs of this workflow |
 | `status` | Only runs with this status, not case sensitive |
 | `text` | Only runs whose id contains this text, not case sensitive |
-| `since`, `until` | Only runs that started within this range, ISO date-time |
+| `since`, `until` | Only runs that started within this range, as ISO-8601 instants in UTC such as `2026-07-19T00:00:00Z` |
 
 **Response `data`**: an array of hits.
 
@@ -54,7 +54,7 @@ Finds runs across all sessions, or in one session, newest first.
 | `executionId` | string | The run id |
 | `workflowId` | string | The workflow |
 | `status` | string | The run status |
-| `startTime` | string | When it started, with the server's UTC offset, for example `2026-07-19T15:10:01.512+05:30` (`Z` when the server runs in UTC) |
+| `startTime` | string | When it started, in UTC, for example `2026-07-19T09:40:01.512Z` |
 | `endTime` | string | When it ended. Absent while it runs |
 | `nodes` | object | How far the run got: `done`, `total` and the first node that `failed`. Absent when not known |
 | `initiator` | string | Who or what started the run (see the `initiator` of [start](/api/workflows#start-a-workflow)). Absent for runs started before this was recorded and for runs that nothing named (a restart keeps the original run's initiator) |
@@ -62,7 +62,7 @@ Finds runs across all sessions, or in one session, newest first.
 The search reads each session's history, which keeps the newest `yukta.execution-log.retained-runs` runs (default `500`).
 
 ```http
-GET /api/executions?status=FAILURE&since=2026-07-19T00:00:00&limit=10
+GET /api/executions?status=FAILURE&since=2026-07-19T00:00:00Z&limit=10
 ```
 
 ```json
@@ -111,9 +111,9 @@ Returns a snapshot of the run: its status and a status for every node.
 | `tasks[].nodeId` | string | The node |
 | `tasks[].module` | string | The node's plugin type |
 | `tasks[].status` | string | The node status |
-| `tasks[].startTime`, `tasks[].endTime` | string | Node times, with the server's UTC offset. `null` until set |
+| `tasks[].startTime`, `tasks[].endTime` | string | Node times, in UTC. `null` until set |
 | `tasks[].metadata` | object | What the node reports, such as progress or the reason for a failure |
-| `startTime`, `endTime` | string | Run times, with the server's UTC offset. `endTime` is `null` while it runs |
+| `startTime`, `endTime` | string | Run times, in UTC. `endTime` is `null` while it runs |
 | `controlState` | string | The latest operator control state, such as `PAUSED`, or `null` |
 | `definitionVersion` | string | A hash of the workflow graph this run uses, or `null` |
 | `parentExecutionId` | string | The run that started this one as a [sub-workflow](/concepts/sub-workflows), or `null` |

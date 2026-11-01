@@ -3949,7 +3949,8 @@ export interface components {
             nodeId?: string;
             /** Format: date-time */
             startTime?: string | null;
-            status?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "QUEUED" | "RUNNING" | "SUCCESS" | "FAILURE" | "ERROR" | "STOPPED" | "CANCELLED" | "TIMED_OUT" | "SKIPPED" | "UPSTREAM_FAILED" | "ABORTED";
         };
         TemplateDetail: {
             id?: string;
@@ -4072,8 +4073,11 @@ export interface components {
              * @description The start time of the execution, with the server's UTC offset
              */
             startTime?: string;
-            /** @description The execution status */
-            status?: string;
+            /**
+             * @description The execution status
+             * @enum {string}
+             */
+            status?: "PENDING" | "QUEUED" | "RUNNING" | "SUCCESS" | "FAILURE" | "ERROR" | "STOPPED" | "CANCELLED" | "TIMED_OUT" | "SKIPPED" | "UPSTREAM_FAILED" | "ABORTED";
             /** @description The workflow identifier */
             workflowId?: string;
         };
@@ -4133,7 +4137,8 @@ export interface components {
             sessionId?: string;
             /** Format: date-time */
             startTime?: string;
-            status?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "QUEUED" | "RUNNING" | "SUCCESS" | "FAILURE" | "ERROR" | "STOPPED" | "CANCELLED" | "TIMED_OUT" | "SKIPPED" | "UPSTREAM_FAILED" | "ABORTED";
             tasks?: components["schemas"]["TaskProgress"][];
             workflowId?: string;
         };
@@ -4213,6 +4218,8 @@ export interface components {
             outputPorts?: {
                 [key: string]: string[];
             };
+            /** @description Every problem found; empty when valid */
+            problems?: string[];
             /** @description True when the workflow would be accepted */
             valid?: boolean;
             /** @description Problems that do not stop the workflow, for the editor to show */

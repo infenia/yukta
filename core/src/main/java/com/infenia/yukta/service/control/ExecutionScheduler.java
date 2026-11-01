@@ -87,7 +87,13 @@ public class ExecutionScheduler implements SmartLifecycle {
   /** Tells whether this server admits runs; a single server always does. */
   private LeaderElection election = new SingleServerLeader();
 
-  /** Starts waiting for a slot: highest priority first, oldest first within a priority. */
+  /**
+   * Starts waiting for a slot: highest priority first, oldest first within a priority.
+   *
+   * <p>ponytail: a plain list, so enqueue, the per-workflow count and the admit scan are O(n) under
+   * the lock. Fine at the default {@code queue-capacity=100}; above about 10k use a {@code
+   * TreeMap<priority, ArrayDeque>} plus a count per workflow.
+   */
   private final List<Waiter> queue = new ArrayList<>();
 
   /** Running executions per workflow. */
@@ -105,6 +111,13 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   /** Total running executions. */
   private int runningTotal;
+
+  /** Most child runs (sub-workflows) alive at once, apart from the slots; 0 means unlimited. */
+  @Value("${yukta.execution.max-concurrent-children:0}")
+  private int maxChildren;
+
+  /** Child runs alive now. */
+  private final AtomicInteger liveChildren = new AtomicInteger();
 
   /** True from the start of shutdown. */
   private boolean closed;
@@ -195,7 +208,6 @@ public class ExecutionScheduler implements SmartLifecycle {
    */
   public void assertCanAccept(final String sessionId, final String workflowId) {
     assertLeader();
-    assertStartRate(workflowId);
     synchronized (lock) {
       final ExecutionRejectedException unavailable = unavailable();
       if (unavailable != null) {
@@ -216,6 +228,8 @@ public class ExecutionScheduler implements SmartLifecycle {
         }
       }
     }
+    // last, so a start that is refused for another reason does not use up a rate token
+    assertStartRate(sessionId, workflowId);
   }
 
   /**
@@ -308,7 +322,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       final int priority,
       final String executionId) {
     assertLeader();
-    if (!startRate.tryAcquire(workflowId)) {
+    if (!startRate.tryAcquire(sessionId + "\0" + workflowId)) {
       return refused(
           refusal(RejectReason.RATE_LIMIT, "Too many starts of this workflow per minute"));
     }
@@ -363,14 +377,29 @@ public class ExecutionScheduler implements SmartLifecycle {
   }
 
   /**
-   * An admission that takes no slot: a child run uses the slot its parent already holds, so a
-   * parent that waits for its children cannot starve them. Children do not count toward the limits
-   * or the running gauge; they stay bounded by the parent node and the nesting depth.
+   * An admission for a child run. It takes no slot, so a parent that waits for its children cannot
+   * starve them, but with {@code yukta.execution.max-concurrent-children} set only that many may be
+   * alive at once; one more is refused (not queued: a queue of children that parents wait on can
+   * deadlock), and its sub-workflow node fails, which {@code engine.retry} or {@code onError} can
+   * handle.
    *
-   * @return an immediate admission whose permit releases nothing
+   * @return an immediate admission, or a refused one when the child limit is reached
    */
   public Admission borrowed() {
-    return new Admission(true, Mono.just(new Permit("")));
+    if (maxChildren > 0 && liveChildren.incrementAndGet() > maxChildren) {
+      liveChildren.decrementAndGet();
+      return refused(refusal(RejectReason.LIMIT, "Child run limit reached"));
+    }
+    return new Admission(true, Mono.just(new Permit("", maxChildren > 0)));
+  }
+
+  /**
+   * Child runs alive now (counted only when a child limit is set).
+   *
+   * @return the count
+   */
+  public int childrenAlive() {
+    return liveChildren.get();
   }
 
   /**
@@ -503,8 +532,9 @@ public class ExecutionScheduler implements SmartLifecycle {
     this.startRate = new CallRateLimiter(perMinute);
   }
 
-  private void assertStartRate(final String workflowId) {
-    if (!startRate.tryAcquire(workflowId)) {
+  private void assertStartRate(final String sessionId, final String workflowId) {
+    // workflow ids are per session, so the session is part of the key
+    if (!startRate.tryAcquire(sessionId + "\0" + workflowId)) {
       throw refusal(RejectReason.RATE_LIMIT, "Too many starts of this workflow per minute");
     }
   }
@@ -662,6 +692,7 @@ public class ExecutionScheduler implements SmartLifecycle {
   @Override
   public void stop(final Runnable callback) {
     final Sinks.Empty<Void> signal;
+    final boolean idle;
     synchronized (lock) {
       signal = drained;
       closed = true;
@@ -672,14 +703,18 @@ public class ExecutionScheduler implements SmartLifecycle {
                   .grant()
                   .tryEmitError(new ExecutionRejectedException("The server is shutting down")));
       queue.clear();
-      if (runningTotal == 0) {
-        callback.run();
-        return;
+      idle = runningTotal == 0;
+      if (!idle) {
+        log.atInfo()
+            .addKeyValue("running", runningTotal)
+            .addKeyValue("timeout", shutdownTimeout)
+            .log("Waiting for running executions to finish");
       }
-      log.atInfo()
-          .addKeyValue("running", runningTotal)
-          .addKeyValue("timeout", shutdownTimeout)
-          .log("Waiting for running executions to finish");
+    }
+    // Spring's callback runs outside the lock
+    if (idle) {
+      callback.run();
+      return;
     }
     signal
         .asMono()
@@ -731,14 +766,26 @@ public class ExecutionScheduler implements SmartLifecycle {
     /** Makes releasing idempotent. */
     private final AtomicBoolean released = new AtomicBoolean();
 
+    /** True for a counted child run. */
+    private final boolean child;
+
     private Permit(final String key) {
+      this(key, false);
+    }
+
+    private Permit(final String key, final boolean child) {
       this.key = key;
+      this.child = child;
     }
 
     /** Gives the slot back and admits the next waiting start that fits. */
     public void release() {
-      if (!key.isEmpty() && released.compareAndSet(false, true)) {
-        free(key);
+      if (released.compareAndSet(false, true)) {
+        if (child) {
+          liveChildren.decrementAndGet();
+        } else if (!key.isEmpty()) {
+          free(key);
+        }
       }
     }
   }
