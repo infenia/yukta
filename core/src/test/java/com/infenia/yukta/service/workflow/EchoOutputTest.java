@@ -27,7 +27,9 @@ class EchoOutputTest {
 
   @Test
   void nodeWithoutSecretsEchoesByDefault() {
-    assertThat(EchoOutput.enabled(plugin(), Map.of("url", "http://x"))).isTrue();
+    final Plugin plugin = plugin(ConfigField.optional("url", ConfigField.Type.STRING, null, "u"));
+    assertThat(EchoOutput.enabled(plugin, Map.of("url", "http://x", "args", List.of("a"))))
+        .isTrue();
   }
 
   @Test
