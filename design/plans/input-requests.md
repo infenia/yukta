@@ -181,7 +181,7 @@ If tier 0 had answered with enough confidence on a LOW or MEDIUM request, the br
 
 ### Compatibility with signals
 
-`WAIT_FOR_SIGNAL` and `requireApproval` become thin users of `InputGateway` (kind APPROVAL, risk HIGH, so only people answer, as today). `SignalNodeCommandProcessor` maps `(execution, node, name)` to the open request if there is one, and falls back to `SignalWaits` otherwise. `pendingApprovals` returns the union. `SignalWaits` is deprecated after one release and removed in the next.
+Decided (ADR 0001, D2): the signal API is replaced, not wrapped. `WAIT_FOR_SIGNAL` and `requireApproval` become users of `InputGateway` (kind APPROVAL, risk HIGH, so only people answer, as today) and `SignalWaits` is deleted in phase 4 with no fallback. The legacy clients keep working until the server removal through a bridge: `SignalNodeCommandProcessor` maps `(execution, node, name)` to the open request. Order: phase 4 (breaking), 5a new endpoints, 5b UI, 5c docs page, 5d clients, examples and docs move, 5e the server drops `SignalNodeCommand`, `/signal`, `signal_node`, `/approvals` and `list_pending_approvals`. Phases 4 and 5a to 5e ship in one release, because approvals must stay answerable until the new path exists.
 
 ## Security and authorisation
 
@@ -312,16 +312,19 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 | 0 | Decisions, ADR and spike (#1788) | S | none |
 | 1 | Contracts in `plugin-api` (#1789) | M | 0 |
 | 2 | Broker, store, state machine (#1790) | L | 1 |
-| 3 | Commands, authorisation, signal bridge (#1791) | L | 2 |
+| 3a | Validate supervisor ids and migrate stored ones (#1803) | S | 0 (ships first) |
+| 3 | Commands, authorisation, signal bridge (#1791) | L | 2, 3a |
 | 4 | Plugin integration (#1792) | M | 3 |
 | 5a | REST, MCP, CLI (#1793) | M | 3 |
 | 5b | Inputs panel in the UI (#1794) | M | 5a |
 | 5c | Rule and model supervisors answer, docs (#1795) | M | 3 (4 for tests) |
+| 5d | Move CLI, mod, examples and docs off the signal API (#1804) | M | 4, 5a, 5b, 5c |
+| 5e | Remove the legacy signal API from the server (#1805) | M | 5d |
 | 6 | Routes, escalation, external responders (#1796) | L | 5a, 5c |
 | 7 | Arbiter and composite supervisors (#1797) | M | 1 (can run beside 2 to 5) |
 | 8 | Workflow-backed supervisor and internal session (#1798) | L | 5a, 5c, 6, 7 |
 | 9 | Durable store and failover, Plus (#1799) | L | 2 (needs 6 for the outbox) |
-| 10 | Hardening and release (#1800) | M | 8, 9, 5b |
+| 10 | Hardening and release (#1800) | M | 8, 9, 5b, 5e |
 
 ### Phase 0: decisions and spike (S, done: see `design/decisions/0001-input-requests.md`)
 
@@ -355,7 +358,7 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 - `AnswerInputCommandProcessor` and `EscalateInputCommandProcessor` beside the other processors; register them like the rest.
 - `AnswerAuthorizer` (default implementation with the rules table above), replaceable bean.
 - Gateway methods `answerInput` and `escalateInput` on `ControlBusGateway` and `DefaultControlBusGateway`.
-- Bridge `SignalNodeCommandProcessor` and `pendingApprovals` to requests, with the `SignalWaits` fallback.
+- Bridge `SignalNodeCommandProcessor` and `pendingApprovals` to requests, with the `SignalWaits` fallback (the fallback goes in phase 4, the bridge in 5e).
 - Tests: authorisation matrix (actor type by risk by tier by scope), review veto, audit entries, a rejected answer leaves the request open, legacy `WAIT_FOR_SIGNAL` flows unchanged.
 - Done when existing signal and approval tests pass untouched and a supervisor-issued answer works end to end in an integration test.
 
@@ -408,7 +411,7 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 
 - Security review of the authorisation matrix and token flow (`/security-review` on the branch), OpenGrep run, fuzz of answer payloads.
 - Load check with 1,000 open requests and a burst of answers; confirm the sweeper cost.
-- Deprecate `SignalWaits`; release notes; migration note for custom plugins.
+- Verify that `SignalWaits` and the legacy signal API are gone (phases 4 and 5e), the release note with the migration table exists, and phases 4 and 5a to 5e shipped in one release.
 
 ## Test strategy
 
@@ -422,18 +425,21 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 
 ## Decisions
 
-Each has a recommended default so work can start before every decision is ratified. Record the outcome in the phase 0 ADR.
+Decided by Arun on 2026-11-01 in three rounds of questions; the full record, with the findings and the decisions that reading the code added (D9 to D17), is `design/decisions/0001-input-requests.md`.
 
-| Decision | Recommendation | Why |
+| Decision | Outcome | Note |
 |---|---|---|
-| Name of the concept | `InputRequest` | Covers approvals, choices, text and queries without sounding like only a permission step. |
-| Replace or wrap `SignalWaits` | Wrap, then deprecate | Existing flows and docs keep working during the move. |
-| Default risk for approvals | HIGH for `WAIT_FOR_SIGNAL` and tool approvals, MEDIUM for `ASK_INPUT` | Keeps today's human-only behavior; automation is opt-in. |
-| Can a supervisor ever answer HIGH risk | No, in the default authoriser | An automated reviewer approving the riskiest actions defeats the control. Enterprise can relax it. |
-| Where the durable store lives | Plus, with in-memory in Community | Matches the editions plan and the other stores. |
-| Token answers without an API key | Yes, phase 6, single use, never above the tier's declared type | Lets Slack or an external agent answer without handing out keys. |
-| Internal session mechanism | A session flag plus ADMIN-only creation | A naming convention is easy to bypass and easy to forget. |
-| Workflow supervisors in the first release | No, phase 8 | Needs the arbiter, the reserved capacity and the loop guards first. |
+| Name of the concept | `InputRequest` | recommended |
+| `SignalWaits` and the signal API | **Replaced in one go**, and the signal API is removed too (REST, MCP, CLI, `SignalNodeCommand`) | not the recommendation (wrap, deprecate, remove later); costs phases 5d and 5e and a breaking release |
+| Default risk for approvals | HIGH for `WAIT_FOR_SIGNAL` and tool approvals, MEDIUM for `ASK_INPUT` | recommended |
+| Can a supervisor ever answer HIGH risk | No, no per-session override | recommended |
+| Where the durable store lives | Plus (PostgreSQL), in-memory in Community | recommended |
+| Token answers without an API key | Yes, phase 6, single use | recommended |
+| Internal session mechanism | A session flag, ADMIN only | recommended |
+| Workflow supervisors | Phase 8, after the arbiter, reserved capacity and loop guards | recommended |
+| Supervisor ids | Validate every id and migrate stored ones (#1803, ships first) | not the recommendation (validate new, keep old) |
+| A resumed run and a cancelled request | Reopen the old request (Plus) | recommended |
+| Technical defaults (gateway bean, one `INPUT` log type, standby answers 503, `InputRedactor`, contract tests in the `plus` testkit) | Accepted as proposed | recommended |
 
 ### Verified in phase 0
 

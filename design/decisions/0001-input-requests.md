@@ -1,8 +1,8 @@
 # ADR 0001: Input requests and supervisor coordination
 
-- **Status:** proposed, adopted as the working default so phase 1 can start. Ratify or change a decision by commenting on #1788; a changed decision updates this file in the same PR that acts on it.
+- **Status:** accepted on 2026-11-01. D1 to D15 were put to Arun in three rounds of questions; the outcome and the new decisions D16 and D17 are below. A later change is recorded here in the PR that acts on it.
 - **Date:** 2026-11-01
-- **Prepared by:** Claude Code, at the request of Arun, from a read of `origin/main` at fe3c5a463 (nothing was built or run). No maintainer has signed off on the individual decisions yet; the "Decided by" column says so.
+- **Prepared by:** Claude Code, at the request of Arun, from a read of `origin/main` at fe3c5a463 (nothing was built or run). **Decided by:** Arun, 2026-11-01. Where Arun chose an option other than the recommended one, the row says so.
 - **Plan:** `design/plans/input-requests.md`. Epic #1787, this phase #1788.
 
 ## Decisions
@@ -11,26 +11,28 @@
 
 | # | Decision | Outcome | Decided by |
 |---|---|---|---|
-| D1 | Name of the concept | `InputRequest` | proposed, pending ratification |
-| D2 | `SignalWaits` | Wrap first (existing flows keep working), deprecate after one release, remove the release after | proposed |
-| D3 | Default risk | HIGH for `WAIT_FOR_SIGNAL` and tool approvals (today's human-only behavior), MEDIUM for `ASK_INPUT` | proposed |
-| D4 | Supervisor answering a HIGH risk request | Never, in the default `AnswerAuthorizer` | proposed |
-| D5 | Durable store | Plus (PostgreSQL); in-memory in Community | proposed |
-| D6 | One-time token answers without an API key | Yes, phase 6 only | proposed |
-| D7 | Internal session | A session flag plus ADMIN-only creation | proposed |
-| D8 | Workflow-backed supervisors | After the arbiter, reserved capacity and loop guards (phase 8) | proposed |
+| D1 | Name of the concept | `InputRequest` | Arun, 2026-11-01 (recommended option) |
+| D2 | `SignalWaits` and the signal API | **Not the recommendation (wrap, deprecate, remove later).** Decided: replace in one go. `SignalWaits` is deleted in phase 4 with no fallback, and the signal API (`SignalNodeCommand`, REST `/signal`, MCP `signal_node`, `/approvals`, `list_pending_approvals`, CLI `approvals`) is removed too. Order: phase 4 (breaking label), 5a new endpoints, 5b UI, 5c docs page, 5d clients, examples and docs move (#1804), 5e server removal (#1805); one release, because approvals must stay answerable until the new path exists | Arun, 2026-11-01 |
+| D3 | Default risk | HIGH for `WAIT_FOR_SIGNAL` and tool approvals (today's human-only behavior), MEDIUM for `ASK_INPUT` | Arun, 2026-11-01 (recommended option) |
+| D4 | Supervisor answering a HIGH risk request | Never, in the default `AnswerAuthorizer` | Arun, 2026-11-01 (recommended option) |
+| D5 | Durable store | Plus (PostgreSQL); in-memory in Community | Arun, 2026-11-01 (recommended option) |
+| D6 | One-time token answers without an API key | Yes, phase 6 only | Arun, 2026-11-01 (recommended option) |
+| D7 | Internal session | A session flag plus ADMIN-only creation | Arun, 2026-11-01 (recommended option) |
+| D8 | Workflow-backed supervisors | After the arbiter, reserved capacity and loop guards (phase 8) | Arun, 2026-11-01 (recommended option) |
 
-### Decisions that the code reading added (D9 to D15)
+### Decisions that the code reading added (D9 to D17)
 
 | # | Decision | Outcome | Why (finding) |
 |---|---|---|---|
 | D9 | How a plugin reaches the gateway | `InputGateway` is a **Spring bean** that plugins take through `ObjectProvider<InputGateway>`, like `SubWorkflowGateway`. Its `ask` reads session, workflow, execution and node from the Reactor context (`Mono.deferContextual`), so identity is still bound by the engine. No per-node gateway object, no `forNode` factory | F1 |
-| D10 | Typing the actor | Add `ControlActor.KIND_KEY` (`SUPERVISOR`, `KEY`, `TOKEN`) written next to the actor by every writer; the authoriser reads the kind and never infers it from a string prefix. Validate supervisor profile and binding ids (`[A-Za-z0-9._-]{1,64}`, no `:`) | F3 |
+| D10 | Typing the actor | Add `ControlActor.KIND_KEY` (`SUPERVISOR`, `KEY`, `TOKEN`) written next to the actor by every writer; the authoriser reads the kind and never infers it from a string prefix. **Validate every supervisor id (`[A-Za-z0-9._-]{1,64}`, no `:`) and migrate stored ids** (Arun chose this over "validate new, keep old"); it is its own issue, #1803, shipped before phase 3 | F3 |
 | D11 | Execution log types | One new type `INPUT` (data: event name, request id, tier, responder, decision); the five `INPUT_*` names of the plan become the `event` field. Commands already log as `CONTROL_APPLIED` and `CONTROL_REJECTED` | F8 |
 | D12 | Answer on a standby server | Reject with the existing `NotLeaderException` (HTTP 503), do not forward. There is no proxy in the HA design | F6 |
 | D13 | What the durable store is for | Not rehydrating live waiters (a failover aborts the leader's runs). It keeps answered requests for a resumed run, history, and lets a resumed run **reopen** a request that was cancelled as `run-ended`, so a person is not asked twice | F2, F6 |
 | D14 | Redaction | Add `InputRedactor` in core. `LogSanitizer` lives in `mcp` and `ConfigRedactor` is for definitions, so neither is usable from core as is; extract the pattern list into a shared core utility that `LogSanitizer` also uses | F9 |
 | D15 | Store contract tests | `InputRequestStoreContract` in `plus/src/testFixtures/.../testkit`, run for both the in-memory and the Postgres store from the `plus` test source set (core cannot depend on plus test fixtures) | F10 |
+| D16 | Order of the signal API removal | Legacy clients keep working through a bridge from `SignalNodeCommand` to an open input request until the server removal (#1805), which is gated on #1804 (clients, examples, docs moved). Phases 4 and 5a to 5e ship in one release | consequence of D2 |
+| D17 | Supervisor ids | Same as D10, tracked as #1803 (phase 3a). Ids already stored are renamed by a Postgres migration with a mapping table; a Spring bean supervisor with an invalid `id()` fails start-up | Arun, 2026-11-01 |
 
 ## Findings (the eleven checks of #1788)
 
@@ -83,10 +85,12 @@ Each finding says what was read. "Confirmed" means read in code; "inferred" mean
 - OpenAPI and types: `yk gradle :boot:test --tests "*OpenApiSnapshotTest" -Pyukta.openapi.update=true`, then `yk tool -C ui pnpm run api:types -- openapi.json` (`ui/CLAUDE.md:170`); the `ui` check fails when `ui/src/types/api.generated.ts` is stale. (`docs/api/openapi.json` is the second snapshot named in the plan; confirm the same task refreshes it.)
 - Mintlify navigation is `docs/docs.json` (`building/approvals-and-signals` at line 81, `running/supervisors` at line 110).
 
+Arun accepted D9, D11, D12, D14 and D15 as proposed (2026-11-01) and chose the recommended option for D13 (reopen the old request).
+
 ## Consequences for the sub-issues
-Each affected issue has a section "Changes from phase 0" appended: #1789 (gateway shape, actor kind constant), #1790 (gateway bean, redaction, log type, contract tests), #1791 (actor kind, id validation, processors by `canProcess`), #1792 (gateway through `ObjectProvider`), #1793 (SSE filter, reflection hints, regeneration commands), #1794 (real file names), #1796 and #1799 (HA behavior, reopen instead of rehydrate).
+Each affected issue has a section "Changes from phase 0" and "Changes from the decisions round" appended. New issues: #1803 (phase 3a, supervisor ids), #1804 (phase 5d, clients, examples and docs), #1805 (phase 5e, remove the legacy signal API). Phase 0 sections appended to: #1789 (gateway shape, actor kind constant), #1790 (gateway bean, redaction, log type, contract tests), #1791 (actor kind, id validation, processors by `canProcess`), #1792 (gateway through `ObjectProvider`), #1793 (SSE filter, reflection hints, regeneration commands), #1794 (real file names), #1796 and #1799 (HA behavior, reopen instead of rehydrate).
 
 ## Open points left for later phases
-- Confirm F2's suspected defect with a failing test and file it as a separate bug (not part of this Epic).
+- Confirm F2's suspected defect with a failing test and file it as a separate bug (not part of this Epic). Note that D2 deletes `WAIT_FOR_SIGNAL`'s `SignalWaits` use in phase 4; the checkpoint-store memory in `WaitForSignalProcessor` is revisited there.
 - Find or add the in-memory notice (F10) in phase 2.
 - Whether `docs/api/openapi.json` is refreshed by the same task (F11).
