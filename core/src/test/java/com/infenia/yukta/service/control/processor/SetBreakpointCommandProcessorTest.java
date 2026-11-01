@@ -9,7 +9,6 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.execution.TaskProgress;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
@@ -54,12 +53,6 @@ class SetBreakpointCommandProcessorTest {
   }
 
   @Test
-  void canProcess_onlyItsOwnCommand() {
-    assertThat(processor.canProcess(new SetBreakpointCommand("e", "n", null, null))).isTrue();
-    assertThat(processor.canProcess(new PauseWorkflowCommand("e"))).isFalse();
-  }
-
-  @Test
   void payloadPath_holdsNodeOnMatchingElementOnly() {
     set("payload.order.id", "42");
 
@@ -99,11 +92,6 @@ class SetBreakpointCommandProcessorTest {
     StepVerifier.create(processor.process(new SetBreakpointCommand("e1", "n1", "payload", "x")))
         .expectError(NotFoundException.class)
         .verify();
-  }
-
-  @Test
-  void priority_isTen() {
-    assertThat(processor.getPriority()).isEqualTo(10);
   }
 
   @Test

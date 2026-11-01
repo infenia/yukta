@@ -7,8 +7,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.execution.ControlState;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.DisableStepModeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
@@ -26,7 +24,6 @@ import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LinguisticNaming"})
 class EnableStepModeCommandProcessorTest {
 
   @Mock private ExecutionControlStore registry;
@@ -34,30 +31,6 @@ class EnableStepModeCommandProcessorTest {
   @Mock private ExecutionControl executionControl;
 
   @InjectMocks private EnableStepModeCommandProcessor processor;
-
-  @Test
-  void canProcess_enableStepModeCommand_returnsTrue() {
-    // Given
-    final ExecutionControlCommand command = new EnableStepModeCommand("exec-1", "node-1");
-
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isTrue();
-  }
-
-  @Test
-  void canProcess_otherCommand_returnsFalse() {
-    // Given
-    final ExecutionControlCommand command = new DisableStepModeCommand("exec-1", "node-1");
-
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isFalse();
-  }
 
   @Test
   void process_nodeFound_enablesValveStepModeAndEmitsEvent() {
@@ -118,14 +91,5 @@ class EnableStepModeCommandProcessorTest {
                     && e.getMessage()
                         .contains("Node not found or does not support step mode: " + nodeId))
         .verify();
-  }
-
-  @Test
-  void getPriority_returnsCorrectValue() {
-    // When
-    final int actualPriority = processor.getPriority();
-
-    // Then
-    assertThat(actualPriority).isEqualTo(10);
   }
 }

@@ -10,8 +10,7 @@ import java.util.Map;
  *
  * <p>Unlike observational signals (heartbeat, stats), a {@code ControlCommand} requests a
  * behavioral change: stop the workflow, restart it, or replay from a specific node. Commands are
- * emitted onto the Control Bus and routed through registered {@code ControlSignalProcessor}
- * implementations before producing a {@code WorkflowDirective}.
+ * emitted onto the Control Bus and run by the {@code CommandHandler}.
  *
  * @param type the kind of action being requested
  * @param workflowId the workflow to target

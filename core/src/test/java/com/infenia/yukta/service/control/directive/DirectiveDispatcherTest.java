@@ -10,10 +10,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
@@ -47,7 +45,7 @@ class DirectiveDispatcherTest {
 
   private ExecutionControlStore registry;
   private ControlBusService controlBusService;
-  private ControlSignalProcessor processor;
+  private CommandHandler processor;
   private ExecutionArchive archive;
 
   private final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
@@ -75,13 +73,13 @@ class DirectiveDispatcherTest {
     registry = new InMemoryExecutionControlStore();
     archive = new ExecutionArchive();
     controlBusService = mock(ControlBusService.class);
-    processor = mock(ControlSignalProcessor.class);
+    processor = mock(CommandHandler.class);
 
     when(controlBusService.getControlStream()).thenReturn(Flux.never());
 
     dispatcher =
         new DirectiveDispatcher(
-            List.of(processor),
+            processor,
             registry,
             controlBusService,
             archive,
@@ -105,16 +103,13 @@ class DirectiveDispatcherTest {
     final ExecutionControlCommand command =
         new ExecutionControlCommand.StopNodeCommand(executionId, "node-1", false, "User requested");
 
-    when(processor.canProcess(command)).thenReturn(true);
-    when(processor.getPriority()).thenReturn(0);
-    when(processor.process(command))
-        .thenReturn(Mono.just(new WorkflowDirective.Stop("User requested")));
+    when(processor.handle(command)).thenReturn(Mono.empty());
 
     // When
     StepVerifier.create(dispatcher.dispatch(command)).verifyComplete();
 
     // Then
-    verify(processor, times(1)).process(command);
+    verify(processor, times(1)).handle(command);
   }
 
   @Test
@@ -126,126 +121,13 @@ class DirectiveDispatcherTest {
     final ExecutionControlCommand command =
         new ExecutionControlCommand.StopNodeCommand("exec-no-exist", "node-1", false, null);
 
-    when(processor.canProcess(command)).thenReturn(true);
-    when(processor.getPriority()).thenReturn(0);
-
     // When
     StepVerifier.create(dispatcher.dispatch(command))
         .expectError(com.infenia.yukta.service.NotFoundException.class)
         .verify();
 
     // Then
-    verify(processor, never()).process(command);
-  }
-
-  @Test
-  void dispatch_processorNotFound_throwsIllegalArgumentException() {
-    verifyDispatchWithProcessorNotFoundThrowsIllegalArgumentException();
-  }
-
-  private void verifyDispatchWithProcessorNotFoundThrowsIllegalArgumentException() {
-    final String executionId = "exec-1";
-
-    final ExecutionControl control = createControl("session-1", "workflow-1", executionId);
-    registry.save(control);
-
-    final ExecutionControlCommand command =
-        new ExecutionControlCommand.StopNodeCommand(executionId, "node-1", false, null);
-
-    when(processor.canProcess(command)).thenReturn(false);
-
-    // When-Then
-    StepVerifier.create(dispatcher.dispatch(command))
-        .expectError(IllegalArgumentException.class)
-        .verify();
-  }
-
-  @Test
-  void dispatch_multipleProcessors_selectsByHighestPriority() {
-    verifyDispatchWithMultipleProcessorsSelectsByHighestPriority();
-  }
-
-  private void verifyDispatchWithMultipleProcessorsSelectsByHighestPriority() {
-    final String executionId = "exec-1";
-
-    final ExecutionControl control = createControl("session-1", "workflow-1", executionId);
-    registry.save(control);
-
-    final ControlSignalProcessor lowPriorityProcessor = mock(ControlSignalProcessor.class);
-    final ControlSignalProcessor highPriorityProcessor = mock(ControlSignalProcessor.class);
-
-    when(lowPriorityProcessor.canProcess(any())).thenReturn(true);
-    when(lowPriorityProcessor.getPriority()).thenReturn(0);
-
-    when(highPriorityProcessor.canProcess(any())).thenReturn(true);
-    when(highPriorityProcessor.getPriority()).thenReturn(10);
-
-    when(highPriorityProcessor.process(any()))
-        .thenReturn(Mono.just(new WorkflowDirective.Stop("test")));
-
-    final DirectiveDispatcher multiDispatcher =
-        new DirectiveDispatcher(
-            List.of(lowPriorityProcessor, highPriorityProcessor),
-            registry,
-            controlBusService,
-            archive,
-            log,
-            new ControlReviewer(
-                new StaticListableBeanFactory().getBeanProvider(ExecutionSupervisor.class)),
-            new ExecutionEventFeed());
-
-    final ExecutionControlCommand command =
-        new ExecutionControlCommand.StopNodeCommand(executionId, "node-1", false, "test");
-
-    // When
-    StepVerifier.create(multiDispatcher.dispatch(command)).verifyComplete();
-
-    // Then
-    verify(highPriorityProcessor, times(1)).process(command);
-    verify(lowPriorityProcessor, never()).process(command);
-  }
-
-  @Test
-  void applyDirective_stopDirective_callsApplyStop() {
-    final String executionId = "exec-1";
-
-    final ExecutionControl control = createControl("session-1", "workflow-1", executionId);
-    registry.save(control);
-
-    final ExecutionControlCommand command =
-        new ExecutionControlCommand.StopNodeCommand(executionId, "node-1", false, "Test stop");
-
-    when(processor.canProcess(command)).thenReturn(true);
-    when(processor.getPriority()).thenReturn(0);
-    when(processor.process(command)).thenReturn(Mono.just(new WorkflowDirective.Stop("Test stop")));
-
-    // When
-    StepVerifier.create(dispatcher.dispatch(command)).verifyComplete();
-
-    // Then - execution should be unregistered after stop
-    assertThat(registry.findByExecutionId(executionId)).isEmpty();
-  }
-
-  @Test
-  void applyStop_validExecution_unregistersAndEmitsEmpty() {
-    final String executionId = "exec-1";
-
-    final ExecutionControl control = createControl("session-1", "workflow-1", executionId);
-    registry.save(control);
-
-    final ExecutionControlCommand command =
-        new ExecutionControlCommand.StopNodeCommand(executionId, "node-1", false, "User stop");
-
-    when(processor.canProcess(command)).thenReturn(true);
-    when(processor.getPriority()).thenReturn(0);
-    when(processor.process(command)).thenReturn(Mono.just(new WorkflowDirective.Stop("User stop")));
-
-    // When
-    StepVerifier.create(dispatcher.dispatch(command)).verifyComplete();
-
-    // Then
-    // Verify execution was unregistered
-    assertThat(registry.findByExecutionId(executionId)).isEmpty();
+    verify(processor, never()).handle(command);
   }
 
   @Test
@@ -277,10 +159,8 @@ class DirectiveDispatcherTest {
         new ExecutionControlCommand.PauseWorkflowCommand("exec-audit");
     final ExecutionControlCommand resume =
         new ExecutionControlCommand.ResumeWorkflowCommand("exec-audit");
-    when(processor.canProcess(any())).thenReturn(true);
-    when(processor.getPriority()).thenReturn(1);
-    when(processor.process(pause)).thenReturn(Mono.empty());
-    when(processor.process(resume)).thenReturn(Mono.error(new IllegalStateException("not paused")));
+    when(processor.handle(pause)).thenReturn(Mono.empty());
+    when(processor.handle(resume)).thenReturn(Mono.error(new IllegalStateException("not paused")));
 
     StepVerifier.create(dispatcher.dispatchOrdered(pause)).verifyComplete();
     StepVerifier.create(dispatcher.dispatchOrdered(resume)).expectError().verify();
@@ -310,9 +190,7 @@ class DirectiveDispatcherTest {
     registry.save(createControl("s", "w", "exec-cancel"));
     final ExecutionControlCommand pause =
         new ExecutionControlCommand.PauseWorkflowCommand("exec-cancel");
-    when(processor.canProcess(any())).thenReturn(true);
-    when(processor.getPriority()).thenReturn(1);
-    when(processor.process(pause)).thenReturn(Mono.never());
+    when(processor.handle(pause)).thenReturn(Mono.never());
 
     dispatcher.dispatchOrdered(pause).subscribe().dispose();
 
@@ -338,10 +216,8 @@ class DirectiveDispatcherTest {
     registry.save(createControl("s", "w", "exec-ack"));
     final ExecutionControlCommand command =
         new ExecutionControlCommand.PauseWorkflowCommand("exec-ack");
-    when(processor.canProcess(command)).thenReturn(true);
-    when(processor.getPriority()).thenReturn(1);
     final AtomicBoolean applied = new AtomicBoolean();
-    when(processor.process(command))
+    when(processor.handle(command))
         .thenReturn(
             Mono.fromRunnable(() -> applied.set(true))
                 .then(Mono.error(new IllegalArgumentException("not pausable"))));
@@ -360,15 +236,13 @@ class DirectiveDispatcherTest {
     final ExecutionControlCommand second =
         new ExecutionControlCommand.ResumeWorkflowCommand("exec-order");
     final List<String> applied = new java.util.concurrent.CopyOnWriteArrayList<>();
-    when(processor.canProcess(any())).thenReturn(true);
-    when(processor.getPriority()).thenReturn(1);
     // the first command is slow; the second must still be applied after it
-    when(processor.process(first))
+    when(processor.handle(first))
         .thenReturn(
             Mono.delay(java.time.Duration.ofMillis(150))
                 .doOnNext(_ -> applied.add("pause"))
                 .then(Mono.empty()));
-    when(processor.process(second))
+    when(processor.handle(second))
         .thenReturn(Mono.fromRunnable(() -> applied.add("resume")).then(Mono.empty()));
 
     final Mono<Void> firstAck = dispatcher.dispatchOrdered(first);
@@ -391,16 +265,6 @@ class DirectiveDispatcherTest {
   }
 
   @Test
-  void testDispatchProcessorNotFound() {
-    verifyDispatchWithProcessorNotFoundThrowsIllegalArgumentException();
-  }
-
-  @Test
-  void testDispatchMultipleProcessorsPriority() {
-    verifyDispatchWithMultipleProcessorsSelectsByHighestPriority();
-  }
-
-  @Test
   void dispatchOrdered_restartOfFinishedArchivedExecution_reachesTheProcessor() {
     archive.put(
         new com.infenia.yukta.service.archive.ArchivedExecution(
@@ -412,13 +276,11 @@ class DirectiveDispatcherTest {
             Map.of()));
     final ExecutionControlCommand restart =
         new ExecutionControlCommand.RestartCommand("finished", "new-1");
-    when(processor.canProcess(restart)).thenReturn(true);
-    when(processor.getPriority()).thenReturn(1);
-    when(processor.process(restart)).thenReturn(Mono.empty());
+    when(processor.handle(restart)).thenReturn(Mono.empty());
 
     StepVerifier.create(dispatcher.dispatchOrdered(restart)).verifyComplete();
 
-    verify(processor).process(restart);
+    verify(processor).handle(restart);
   }
 
   @Test
@@ -451,13 +313,11 @@ class DirectiveDispatcherTest {
   @Test
   void dispatchOrdered_cancelledWaiterOfRunThatIsGone_isNotRecorded() {
     registry.save(createControl("s", "w", "exec-gone"));
-    when(processor.canProcess(any())).thenReturn(true);
-    when(processor.getPriority()).thenReturn(1);
     final ExecutionControlCommand running =
         new ExecutionControlCommand.PauseWorkflowCommand("exec-gone");
     final ExecutionControlCommand waiting =
         new ExecutionControlCommand.ResumeWorkflowCommand("exec-gone");
-    when(processor.process(running)).thenReturn(Mono.never());
+    when(processor.handle(running)).thenReturn(Mono.never());
     final var first = dispatcher.dispatchOrdered(running).subscribe();
     final var second = dispatcher.dispatchOrdered(waiting).subscribe();
     registry.remove("exec-gone");
@@ -473,9 +333,7 @@ class DirectiveDispatcherTest {
     registry.save(createControl("s", "w", "exec-actor"));
     final ExecutionControlCommand pause =
         new ExecutionControlCommand.PauseWorkflowCommand("exec-actor");
-    when(processor.canProcess(any())).thenReturn(true);
-    when(processor.getPriority()).thenReturn(1);
-    when(processor.process(pause)).thenReturn(Mono.never());
+    when(processor.handle(pause)).thenReturn(Mono.never());
 
     dispatcher
         .dispatchOrdered(pause)
