@@ -12,11 +12,15 @@ import { parseCommand, sendCommand } from '../api/controlBus';
 
 /** A JSON editor that sends one command to a control-bus node. */
 export function SendCommandDialog({
+  sessionId,
+  executionId,
   workflowId,
   nodeId,
   onClose,
   onSent,
 }: {
+  sessionId: string;
+  executionId: string;
   workflowId: string;
   nodeId: string;
   onClose: () => void;
@@ -26,7 +30,7 @@ export function SendCommandDialog({
   const [invalid, setInvalid] = useState<string | null>(null);
   const send = useMutation({
     mutationFn: (command: Record<string, unknown>) =>
-      sendCommand(workflowId, nodeId, command),
+      sendCommand(sessionId, executionId, workflowId, nodeId, command),
     onSuccess: (response) => onSent(response.payload),
   });
 
@@ -50,7 +54,7 @@ export function SendCommandDialog({
         <Callout kind="warning" compact>
           Commands go straight to the node; this is recorded in the audit log.
         </Callout>
-        <label className="flex flex-col gap-1 text-label-md text-on-surface">
+        <label className="text-label-md text-on-surface flex flex-col gap-1">
           Command (JSON object)
           <textarea
             value={text}

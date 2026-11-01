@@ -161,12 +161,14 @@ final class ExecutionQueries {
                     .log("Workflow execution history retrieved"));
   }
 
-  /* default */ Message<?> getLastHeartbeat(final String workflowId, final String nodeId) {
+  /* default */ Message<?> getLastHeartbeat(
+      final String workflowId, final String executionId, final String nodeId) {
     log.atDebug()
         .addKeyValue("workflowId", workflowId)
         .addKeyValue("nodeId", nodeId)
         .log("Fetching last heartbeat");
-    final Message<?> heartbeat = controlBusService.getLastHeartbeat(workflowId, nodeId);
+    final Message<?> heartbeat =
+        controlBusService.getLastHeartbeat(workflowId, executionId, nodeId);
     if (heartbeat != null) {
       log.atTrace()
           .addKeyValue("workflowId", workflowId)
@@ -181,12 +183,14 @@ final class ExecutionQueries {
     return heartbeat;
   }
 
-  /* default */ Message<?> getLastStatistics(final String workflowId, final String nodeId) {
+  /* default */ Message<?> getLastStatistics(
+      final String workflowId, final String executionId, final String nodeId) {
     log.atDebug()
         .addKeyValue("workflowId", workflowId)
         .addKeyValue("nodeId", nodeId)
         .log("Fetching last statistics");
-    final Message<?> statistics = controlBusService.getLastStatistics(workflowId, nodeId);
+    final Message<?> statistics =
+        controlBusService.getLastStatistics(workflowId, executionId, nodeId);
     if (statistics != null) {
       log.atTrace()
           .addKeyValue("workflowId", workflowId)
@@ -201,9 +205,10 @@ final class ExecutionQueries {
     return statistics;
   }
 
-  /* default */ List<String> getActiveNodes(final String workflowId) {
+  /* default */ List<String> getActiveNodes(
+      final String workflowId, final List<String> executionIds) {
     log.atDebug().addKeyValue("workflowId", workflowId).log("Fetching active nodes for workflow");
-    final List<String> activeNodes = controlBusService.getActiveNodes(workflowId);
+    final List<String> activeNodes = controlBusService.getActiveNodes(workflowId, executionIds);
     log.atDebug()
         .addKeyValue("workflowId", workflowId)
         .addKeyValue("activeNodeCount", activeNodes.size())

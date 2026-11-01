@@ -11,6 +11,8 @@ export interface BusNode {
 
 /** The last heartbeat of one node of one run (`executionId` is empty without a run). */
 export interface NodeHeartbeat extends BusNode {
+  /** The session that owns the run; empty when the run is no longer live. */
+  sessionId: string;
   executionId: string;
   timestamp: string;
 }
@@ -22,15 +24,20 @@ export const getHeartbeats = () =>
 /** The most keys the server accepts in a command. */
 export const MAX_COMMAND_KEYS = 100;
 
+/** Workflow ids are only unique within a session, so the call names the session and the run. */
 export const sendCommand = (
+  sessionId: string,
+  executionId: string,
   workflowId: string,
   nodeId: string,
   command: Record<string, unknown>
-) =>
-  fetchApi<{ payload: unknown }>(
-    api`/api/control/workflows/${workflowId}/nodes/${nodeId}/command`,
+) => {
+  const query = new URLSearchParams({ sessionId, executionId });
+  return fetchApi<{ payload: unknown }>(
+    `${api`/api/control/workflows/${workflowId}/nodes/${nodeId}/command`}?${query}`,
     { method: 'POST', body: JSON.stringify(command) }
   );
+};
 
 /** Why `text` cannot be sent as a command, or the command itself. */
 export function parseCommand(

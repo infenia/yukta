@@ -21,10 +21,12 @@ import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
+import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.control.ControlBusService;
+import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
@@ -66,6 +68,9 @@ import reactor.core.publisher.Mono;
   "PMD.ExcessivePublicCount"
 })
 public class DefaultControlBusGateway implements ControlBusGateway, RestartCompletionSink {
+
+  /** The number of live runs of a workflow in a session that addresses a call unambiguously. */
+  private static final int SINGLE_LIVE_RUN = 1;
 
   /** What the command-sending parts share. */
   private final ControlDispatch dispatch;
@@ -216,12 +221,49 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<Message<?>> sendCommand(
-      final String workflowId, final String nodeId, final Message<?> command) {
+      final String sessionId,
+      final String workflowId,
+      @Nullable final String executionId,
+      final String nodeId,
+      final Message<?> command) {
     return carriesSignal(command)
         ? Mono.error(
             new ControlRejectedException("Approvals and signals go through the signal command"))
-        : deliver(workflowId, nodeId, command);
+        : Mono.defer(
+            () ->
+                deliver(
+                    workflowId, resolveRun(sessionId, workflowId, executionId), nodeId, command));
+  }
+
+  /**
+   * The one live run a node-level call addresses. Workflow ids are only unique within a session,
+   * and node ids within a run, so the call must name the session and, when the session has several
+   * live runs of the workflow, the run.
+   */
+  private String resolveRun(
+      final String sessionId, final String workflowId, @Nullable final String executionId) {
+    final List<String> runs =
+        executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId).stream()
+            .map(ExecutionControl::executionId)
+            .filter(id -> executionId == null || executionId.equals(id))
+            .toList();
+    if (runs.isEmpty()) {
+      throw new NotFoundException(
+          "No live run of workflow " + workflowId + " in session " + sessionId);
+    }
+    if (runs.size() > SINGLE_LIVE_RUN) {
+      throw new ConflictException(
+          "Session "
+              + sessionId
+              + " has "
+              + runs.size()
+              + " live runs of workflow "
+              + workflowId
+              + "; name the executionId");
+    }
+    return runs.getFirst();
   }
 
   /**
@@ -233,14 +275,17 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   private Mono<Message<?>> deliver(
-      final String workflowId, final String nodeId, final Message<?> command) {
+      final String workflowId,
+      final String executionId,
+      final String nodeId,
+      final Message<?> command) {
     return Mono.defer(
             () -> {
               log.atDebug()
                   .addKeyValue("workflowId", workflowId)
                   .addKeyValue("nodeId", nodeId)
                   .log("Sending command to node");
-              return controlBusService.sendCommand(workflowId, nodeId, command);
+              return controlBusService.sendCommand(workflowId, executionId, nodeId, command);
             })
         .doOnSuccess(
             _ ->
@@ -710,23 +755,51 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
-  public Message<?> getLastHeartbeat(final String workflowId, final String nodeId) {
-    return queries.getLastHeartbeat(workflowId, nodeId);
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Message<?> getLastHeartbeat(
+      final String sessionId,
+      final String workflowId,
+      @Nullable final String executionId,
+      final String nodeId) {
+    return queries.getLastHeartbeat(
+        workflowId, resolveRun(sessionId, workflowId, executionId), nodeId);
   }
 
   @Override
-  public Message<?> getLastStatistics(final String workflowId, final String nodeId) {
-    return queries.getLastStatistics(workflowId, nodeId);
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Message<?> getLastStatistics(
+      final String sessionId,
+      final String workflowId,
+      @Nullable final String executionId,
+      final String nodeId) {
+    return queries.getLastStatistics(
+        workflowId, resolveRun(sessionId, workflowId, executionId), nodeId);
   }
 
   @Override
   public List<NodeHeartbeat> getHeartbeats() {
-    return controlBusService.getHeartbeats();
+    return controlBusService.getHeartbeats().stream()
+        .map(
+            beat ->
+                new NodeHeartbeat(
+                    executionControlRegistry
+                        .findByExecutionId(beat.executionId())
+                        .map(ExecutionControl::sessionId)
+                        .orElse(""),
+                    beat.workflowId(),
+                    beat.executionId(),
+                    beat.nodeId(),
+                    beat.timestamp()))
+        .toList();
   }
 
   @Override
-  public List<String> getActiveNodes(final String workflowId) {
-    return queries.getActiveNodes(workflowId);
+  public List<String> getActiveNodes(final String sessionId, final String workflowId) {
+    return queries.getActiveNodes(
+        workflowId,
+        executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId).stream()
+            .map(ExecutionControl::executionId)
+            .toList());
   }
 
   @Override

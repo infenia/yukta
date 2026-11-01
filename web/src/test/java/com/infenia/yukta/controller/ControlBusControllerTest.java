@@ -5,6 +5,7 @@ package com.infenia.yukta.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -78,7 +79,8 @@ class ControlBusControllerTest {
     when(controlBusGateway.getHeartbeats())
         .thenReturn(
             List.of(
-                new NodeHeartbeat("wf1", "run-1", NODE1, Instant.parse("2026-10-30T10:00:00Z"))));
+                new NodeHeartbeat(
+                    "s1", "wf1", "run-1", NODE1, Instant.parse("2026-10-30T10:00:00Z"))));
     final var result =
         webClient
             .get()
@@ -100,12 +102,12 @@ class ControlBusControllerTest {
   @Test
   void testGetLastHeartbeat() {
     final Message<?> healthBytes = DefaultMessage.create(null, "ok").withControl(true);
-    doReturn(healthBytes).when(controlBusGateway).getLastHeartbeat("wf1", "n1");
+    doReturn(healthBytes).when(controlBusGateway).getLastHeartbeat("s1", "wf1", null, "n1");
 
     final var result =
         webClient
             .get()
-            .uri("/api/control/workflows/wf1/nodes/n1/heartbeat")
+            .uri("/api/control/workflows/wf1/nodes/n1/heartbeat?sessionId=s1")
             .exchange()
             .expectStatus()
             .isOk()
@@ -118,12 +120,12 @@ class ControlBusControllerTest {
 
   @Test
   void testGetLastHeartbeatWithNoHeartbeatIsNotFound() {
-    doReturn(null).when(controlBusGateway).getLastHeartbeat("wf1", "n1");
+    doReturn(null).when(controlBusGateway).getLastHeartbeat("s1", "wf1", null, "n1");
 
     final var result =
         webClient
             .get()
-            .uri("/api/control/workflows/wf1/nodes/n1/heartbeat")
+            .uri("/api/control/workflows/wf1/nodes/n1/heartbeat?sessionId=s1")
             .exchange()
             .expectStatus()
             .isNotFound()
@@ -135,12 +137,13 @@ class ControlBusControllerTest {
   @Test
   void testSendCommand() {
     final Message<?> resp = DefaultMessage.create(null, "done");
-    when(controlBusGateway.sendCommand(eq("wf1"), eq("n1"), any())).thenReturn(Mono.just(resp));
+    when(controlBusGateway.sendCommand(eq("s1"), eq("wf1"), isNull(), eq("n1"), any()))
+        .thenReturn(Mono.just(resp));
 
     final var result =
         webClient
             .post()
-            .uri("/api/control/workflows/wf1/nodes/n1/command")
+            .uri("/api/control/workflows/wf1/nodes/n1/command?sessionId=s1")
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(Map.of("cmd", "reset"))
             .exchange()
@@ -160,7 +163,7 @@ class ControlBusControllerTest {
   void testEmptyCommandPayloadIsRejected() {
     webClient
         .post()
-        .uri("/api/control/workflows/wf1/nodes/n1/command")
+        .uri("/api/control/workflows/wf1/nodes/n1/command?sessionId=s1")
         .contentType(MediaType.APPLICATION_JSON)
         .bodyValue("{}")
         .exchange()
@@ -175,11 +178,11 @@ class ControlBusControllerTest {
 
   @Test
   void testGetActiveNodesInWorkflow() {
-    when(controlBusGateway.getActiveNodes("wf1")).thenReturn(List.of(NODE1, NODE2));
+    when(controlBusGateway.getActiveNodes("s1", "wf1")).thenReturn(List.of(NODE1, NODE2));
     final var result =
         webClient
             .get()
-            .uri("/api/control/workflows/wf1/nodes")
+            .uri("/api/control/workflows/wf1/nodes?sessionId=s1")
             .exchange()
             .expectStatus()
             .isOk()
