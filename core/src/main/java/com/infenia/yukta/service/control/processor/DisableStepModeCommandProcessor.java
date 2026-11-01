@@ -3,10 +3,7 @@
 package com.infenia.yukta.service.control.processor;
 
 import com.infenia.yukta.model.execution.ControlState;
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.DisableStepModeCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
@@ -26,7 +23,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DisableStepModeCommandProcessor implements ControlSignalProcessor {
+public class DisableStepModeCommandProcessor {
 
   /** The execution control registry for accessing execution control state. */
   private final ExecutionControlStore registry;
@@ -34,14 +31,8 @@ public class DisableStepModeCommandProcessor implements ControlSignalProcessor {
   /** The task tracker service for tracking task execution. */
   private final TaskTrackerService taskTracker;
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof DisableStepModeCommand;
-  }
-
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final DisableStepModeCommand disable = (DisableStepModeCommand) command;
+  /** Applies the command. */
+  public Mono<Void> process(final DisableStepModeCommand disable) {
     return Mono.fromRunnable(
         () -> {
           final ExecutionControl control =
@@ -66,10 +57,5 @@ public class DisableStepModeCommandProcessor implements ControlSignalProcessor {
               .addKeyValue("status", "STEP_MODE_DISABLED")
               .log("Disabled step mode");
         });
-  }
-
-  @Override
-  public int getPriority() {
-    return 10;
   }
 }

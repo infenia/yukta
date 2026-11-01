@@ -4,10 +4,7 @@ package com.infenia.yukta.service.control.processor;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.execution.TaskProgress;
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
@@ -30,7 +27,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class SetBreakpointCommandProcessor implements ControlSignalProcessor {
+public class SetBreakpointCommandProcessor {
 
   /** The execution control registry, to find the run and its valves. */
   private final ExecutionControlStore registry;
@@ -38,14 +35,8 @@ public class SetBreakpointCommandProcessor implements ControlSignalProcessor {
   /** Reports the breakpoint in the run's progress. */
   private final TaskTrackerService taskTracker;
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof SetBreakpointCommand;
-  }
-
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final SetBreakpointCommand breakpoint = (SetBreakpointCommand) command;
+  /** Applies the command. */
+  public Mono<Void> process(final SetBreakpointCommand breakpoint) {
     return Mono.fromRunnable(
         () -> {
           final ExecutionControl control =
@@ -100,10 +91,5 @@ public class SetBreakpointCommandProcessor implements ControlSignalProcessor {
 
   private static String text(final Object value) {
     return value == null ? null : String.valueOf(value);
-  }
-
-  @Override
-  public int getPriority() {
-    return 10;
   }
 }

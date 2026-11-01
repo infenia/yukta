@@ -105,7 +105,7 @@ A processor plugin called HTTP_REQUEST used in one workflow. Click a stage to se
 
 </Step>
 <Step title="Stopped">
-**What happens.** A StopWorkflowCommand (mode DRAIN, CANCEL or KILL) is turned into a Stop directive and applied. DRAIN stops the triggers and lets in-flight work finish; CANCEL and KILL cancel the streams at once, which a plugin sees as an ordinary Reactor cancel signal.
+**What happens.** A StopWorkflowCommand (mode DRAIN, CANCEL or KILL) is applied. DRAIN stops the triggers and lets in-flight work finish; CANCEL and KILL cancel the streams at once, which a plugin sees as an ordinary Reactor cancel signal.
 
 **Why it is built this way.** Cancel is the only stop signal a plugin sees, so cleanup belongs in doOnCancel or doFinally on the stream they return.
 
@@ -265,24 +265,6 @@ Defines every instruction an operator, API caller or supervisor can send to a li
 
 **Settings:** `StopMode DRAIN | CANCEL | KILL`, `ControlActor.CONTEXT_KEY = yukta.control.actor`
 
-### Command processing
-
-*ControlSignalProcessor*
-
-The extension point that turns a command into an action: the interface a processor implements, the priority rule, and the directive type a processor may return.
-
-- A ControlSignalProcessor answers canProcess(command) with true or false and implements process(command), which returns a Mono of a WorkflowDirective, an empty Mono, or an error. Spring beans of this type are collected by core's directive dispatcher.
-- When several processors accept a command, the one with the highest getPriority() handles it and the rest are skipped. The default is 0; the built-in processors use values from 10 to 20. To override a built-in, a custom processor must return more than that built-in's priority (above 20 beats all). Example: a processor with priority 30 that turns Restart into RestartFromNode for specific nodes.
-- A processor can act in two ways. It can do the work itself and return an empty Mono (this is what most built-ins do for pause, skip and so on). Or it can return a directive for the dispatcher to apply. The only directive today is Stop(reason), so only 'stop this run' can be handed back; everything else is done inside the processor.
-- Ordering and acknowledgement are core's job, not this interface's: core runs the commands of one run strictly one after another, tells the caller when the command was applied or rejected, and records it.
-
-- **Guarantees.** Exactly one processor handles each command (the highest priority among those that accept). The directive set is sealed, so the dispatcher's switch is exhaustive.
-- **State.** None.
-- **Ceiling.** No chain: a second processor cannot add audit around a first. If two accept at equal priority, the winner is the first one in Spring's bean list; the contract does not define that.
-- **On failure.** If no processor accepts a command, core fails the call with 'No processor registered for command'. A processor error becomes a rejection recorded in the log.
-
-**Settings:** `getPriority(), default 0; built-ins 10-20`, `WorkflowDirective.Stop(reason)`
-
 ### Supervisor SPI
 
 *supervise, review, decide*
@@ -415,7 +397,7 @@ A different failure: a plugin works for minutes without emitting anything and ne
 
 ### An operator stops a run
 
-A stop command travelling through review, processor and directive, and what it leaves behind in the event feed.
+A stop command travelling through review and the command handler, and what it leaves behind in the event feed.
 
 <Steps>
 <Step title="A command is built">
@@ -424,11 +406,8 @@ An API caller sends a stop. It becomes StopWorkflowCommand(executionId, reason, 
 <Step title="Supervisors review it">
 Core asks every ExecutionSupervisor, lowest order() first, to review the command. The first denial refuses it with HTTP 403 and the log records it. An erroring reviewer counts as a denial.
 </Step>
-<Step title="A processor handles it">
-Of the processors that accept this command, the one with the highest priority runs. The built-in stop processor returns a Stop directive.
-</Step>
-<Step title="The directive is applied">
-The dispatcher switches on the sealed directive: Stop unregisters the run and signals it to stop. DRAIN lets in-flight work finish; CANCEL and KILL cancel at once.
+<Step title="The command handler runs it">
+Core switches on the sealed command type and calls the stop processor. KILL unregisters the run and signals it to stop. DRAIN lets in-flight work finish; CANCEL cancels at once.
 </Step>
 <Step title="The outcome is an event">
 A ControlOutcome event (applied or rejected, by whom) goes onto the event feed and the log. Supervisors see it, except the supervisor that sent the command.
@@ -793,10 +772,9 @@ The smallest correct plugin and the rules that follow from the contract.
 | SpEL | Spring Expression Language, a small syntax for reading data and calling methods, such as payload.amount &gt; 100. | Used in filters, branches and mappings. |
 | Sandbox | A restricted environment where code cannot reach dangerous capabilities. | The expression helper blocks static calls, object creation and bean access. |
 | LRU cache | A cache that evicts the least recently used entry when full. | SpelUtils keeps 1000 parsed expressions. |
-| Sealed interface | A Java interface whose allowed implementations are listed in its declaration, so the compiler knows all of them. | Control commands and directives are sealed. |
+| Sealed interface | A Java interface whose allowed implementations are listed in its declaration, so the compiler knows all of them. | Control commands are sealed. |
 | Record | A compact Java class for immutable data. | Each command and event is a record. |
 | Control command | A typed instruction to a live run: pause, stop, skip, step, restart, breakpoint. | 13 of them in ExecutionControlCommand. |
-| Directive | An action a processor hands back for the dispatcher to apply. Only Stop exists. | Result of ControlSignalProcessor.process. |
 | Stop modes (DRAIN / CANCEL / KILL) | Gentle stop that lets work finish; immediate cancel; cancel and forget the run. | A null mode means DRAIN. |
 | Breakpoint | A hold on a node before the first element whose payload or metadata value equals a given text. | Stays set until cleared. |
 | Supervisor | A component that watches events from all runs and may emit commands and veto commands. | Rules, a model or your code. |

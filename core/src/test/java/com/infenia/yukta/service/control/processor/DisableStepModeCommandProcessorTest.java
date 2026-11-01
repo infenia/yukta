@@ -7,9 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.execution.ControlState;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.DisableStepModeCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
@@ -24,7 +22,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LinguisticNaming"})
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
 class DisableStepModeCommandProcessorTest {
@@ -34,30 +31,6 @@ class DisableStepModeCommandProcessorTest {
   @Mock private ExecutionControl executionControl;
 
   @InjectMocks private DisableStepModeCommandProcessor processor;
-
-  @Test
-  void canProcess_disableStepModeCommand_returnsTrue() {
-    // Given
-    final ExecutionControlCommand command = new DisableStepModeCommand("exec-1", "node-1");
-
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isTrue();
-  }
-
-  @Test
-  void canProcess_otherCommand_returnsFalse() {
-    // Given
-    final ExecutionControlCommand command = new EnableStepModeCommand("exec-1", "node-1");
-
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isFalse();
-  }
 
   @Test
   void process_nodeFound_clearsStepModeFlagAndEmitsEvent() {
@@ -119,14 +92,5 @@ class DisableStepModeCommandProcessorTest {
                     && e.getMessage()
                         .contains("Node not found or does not support step mode: " + nodeId))
         .verify();
-  }
-
-  @Test
-  void getPriority_returnsCorrectValue() {
-    // When
-    final int actualPriority = processor.getPriority();
-
-    // Then
-    assertThat(actualPriority).isEqualTo(10);
   }
 }
