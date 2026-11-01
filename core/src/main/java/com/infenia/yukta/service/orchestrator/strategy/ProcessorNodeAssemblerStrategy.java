@@ -23,6 +23,7 @@ import com.infenia.yukta.service.orchestrator.stream.NodeTimeouts;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.workflow.EchoOutput;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -264,7 +265,7 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
               bufferSize,
               context.disposables(),
               context.connectors(),
-              activity::hasLoggedLive,
+              EchoOutput.loggedLive(plugin, node.config(), activity::hasLoggedLive),
               NodePolicy.checkpoint(node.config()));
 
       log.atDebug()

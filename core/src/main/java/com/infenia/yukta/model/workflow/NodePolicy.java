@@ -107,6 +107,7 @@ public record NodePolicy(
           "failureBudget",
           "edgeBuffer",
           "checkpoint",
+          "echoOutput",
           "placement");
 
   /** Options accepted in the {@code retry} object. */
