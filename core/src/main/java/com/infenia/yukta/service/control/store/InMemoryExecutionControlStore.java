@@ -50,4 +50,9 @@ public final class InMemoryExecutionControlStore implements ExecutionControlStor
         .filter(c -> c.sessionId().equals(sessionId) && c.workflowId().equals(workflowId))
         .toList();
   }
+
+  @Override
+  public java.util.List<ExecutionControl> findAll() {
+    return java.util.List.copyOf(byExecutionId.values());
+  }
 }

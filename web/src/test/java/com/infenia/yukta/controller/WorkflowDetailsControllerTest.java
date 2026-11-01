@@ -8,12 +8,13 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.mapper.WorkflowMapper;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowGraphService;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -92,15 +93,15 @@ class WorkflowDetailsControllerTest {
 
   @Test
   void testExecutionsArePagedAndMissingWorkflowIs404() {
-    final var now = LocalDateTime.now();
+    final var now = Instant.now();
     when(sessionService.getSessionWorkflow("s1", "wf")).thenReturn(Mono.just(DEF));
     when(sessionService.getSessionWorkflow("s1", "no")).thenReturn(Mono.empty());
     when(controlBus.getHistory("s1", "wf"))
         .thenReturn(
             Mono.just(
                 List.of(
-                    new WorkflowExecutionSummary("e2", "wf", "SUCCESS", now, null),
-                    new WorkflowExecutionSummary("e1", "wf", "SUCCESS", now, null))));
+                    new WorkflowExecutionSummary("e2", "wf", TaskStatus.SUCCESS, now, null),
+                    new WorkflowExecutionSummary("e1", "wf", TaskStatus.SUCCESS, now, null))));
 
     client
         .get()

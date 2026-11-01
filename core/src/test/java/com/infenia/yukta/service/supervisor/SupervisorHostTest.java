@@ -12,8 +12,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ControlActor;
-import com.infenia.yukta.plugin.control.ControlDecision;
-import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
@@ -89,6 +87,30 @@ class SupervisorHostTest {
         new SupervisorHost(
             providerOf(supervisor), feed, dispatcher, log, meters, dryRun, perSecond, bufferSize);
     host.start();
+  }
+
+  @Test
+  void isBuiltIn_isTrueOnlyForSupervisorsConfiguredAsBeans() {
+    start(supervisor("rules", SupervisorHostTest::pauseOnFailure), false, 20);
+
+    assertThat(host.isBuiltIn("rules")).isTrue();
+    assertThat(host.isBuiltIn("attached-one")).isFalse();
+  }
+
+  @Test
+  void wouldHaveRefused_isRecordedAsDryRunDecisionAndCounted() {
+    start(supervisor("rules", SupervisorHostTest::pauseOnFailure), false, 20);
+    final ExecutionControlCommand pause = new ExecutionControlCommand.PauseWorkflowCommand("e1");
+
+    host.wouldHaveRefused("try-it", pause, "not allowed today");
+
+    assertThat(host.decisions("try-it", 10))
+        .singleElement()
+        .satisfies(
+            d -> {
+              assertThat(d.supervisorId()).isEqualTo("try-it");
+              assertThat(d.outcome()).isEqualTo("dry-run");
+            });
   }
 
   private static ExecutionEvent failed(final String execution) {
@@ -399,27 +421,9 @@ class SupervisorHostTest {
             });
   }
 
-  /** A control plane with a class name, as real ones have. */
-  private static final class NamedPlane implements ControlPlanePlugin {
-    @Override
-    public String id() {
-      return "plane";
-    }
-
-    @Override
-    public int order() {
-      return 5;
-    }
-
-    @Override
-    public Mono<ControlDecision> decide(final ExecutionEvent event) {
-      return Mono.just(ControlDecision.none(ControlDecision.Source.MODEL));
-    }
-  }
-
   @Test
   void status_describesEachSupervisorWithItsCommandCounts() {
-    final ControlPlanePlugin plane = new NamedPlane();
+    final var plane = new ControlReviewerTest.NamedPlane();
     final ExecutionSupervisor plain = supervisor("rules", SupervisorHostTest::pauseOnFailure);
     host =
         new SupervisorHost(

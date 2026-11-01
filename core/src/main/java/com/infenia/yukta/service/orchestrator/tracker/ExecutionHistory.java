@@ -6,11 +6,10 @@ import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,8 +23,8 @@ final class ExecutionHistory {
   /* default */ static final int MAX_FINISHED_PER_SESSION = 100;
 
   /** Statuses that mean a node failed, for the first failed node of a run. */
-  private static final Set<String> FAILED =
-      Set.of(TaskStatus.FAILURE.name(), TaskStatus.ERROR.name(), TaskStatus.TIMED_OUT.name());
+  private static final Set<TaskStatus> FAILED =
+      EnumSet.of(TaskStatus.FAILURE, TaskStatus.ERROR, TaskStatus.TIMED_OUT);
 
   /** Per session, execution IDs that were cleaned up, oldest first. */
   private final Map<String, Deque<String>> finishedBySession = new ConcurrentHashMap<>();
@@ -64,8 +63,8 @@ final class ExecutionHistory {
       final String executionId,
       final String sessionId,
       final String workflowId,
-      final String status,
-      final Map<String, String> nodeStatuses,
+      final TaskStatus status,
+      final Map<String, TaskStatus> nodeStatuses,
       final Instant started,
       final Instant ended,
       final String definitionVersion,
@@ -77,16 +76,17 @@ final class ExecutionHistory {
             workflowId,
             status,
             List.copyOf(nodeStatuses.keySet()),
-            LocalDateTime.ofInstant(started, ZoneId.systemDefault()));
+            started);
     nodeStatuses.forEach(
         (nodeId, nodeStatus) -> state.updateTask(nodeId, "", nodeStatus, Map.of()));
-    state.setEndTime(LocalDateTime.ofInstant(ended, ZoneId.systemDefault()));
+    state.setEndTime(ended);
     state.definitionVersion = definitionVersion;
     state.initiator = initiator;
     sessionStates
         .computeIfAbsent(sessionId, _ -> new ConcurrentHashMap<>())
         .put(executionId, state);
     executionIndex.put(executionId, state);
+    trim(state);
   }
 
   /** Forgets a session's history. */
@@ -94,11 +94,13 @@ final class ExecutionHistory {
     finishedBySession.remove(sessionId);
   }
 
-  /** Remembers a cleaned-up execution and drops the oldest ones beyond the per-session cap. */
+  /** Remembers a finished execution and drops the oldest ones beyond the per-session cap. */
   @SuppressWarnings("PMD.AvoidSynchronizedStatement")
   /* default */ void trim(final WorkflowState state) {
     final Map<String, WorkflowState> states = sessionStates.get(state.sessionId);
     if (states == null) {
+      // the session is already gone: leave nothing behind in the id index
+      executionIndex.remove(state.executionId);
       return;
     }
     final Deque<String> finished =
@@ -107,7 +109,9 @@ final class ExecutionHistory {
     synchronized (finished) {
       finished.addLast(state.executionId);
       while (finished.size() > MAX_FINISHED_PER_SESSION) {
-        states.remove(finished.removeFirst());
+        final String oldest = finished.removeFirst();
+        states.remove(oldest);
+        executionIndex.remove(oldest);
       }
     }
   }
@@ -132,7 +136,7 @@ final class ExecutionHistory {
     // The synchronized map copies its values under its own lock, so this is a consistent snapshot.
     final List<TaskProgress> tasks = List.copyOf(state.taskMap.values());
     return new WorkflowExecutionSummary.Nodes(
-        (int) tasks.stream().filter(t -> TaskStatus.isTerminalName(t.status())).count(),
+        (int) tasks.stream().filter(t -> t.status().isTerminal()).count(),
         tasks.size(),
         tasks.stream()
             .filter(t -> FAILED.contains(t.status()))

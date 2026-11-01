@@ -115,10 +115,8 @@ public class LogManagementController {
                     SseStreams.HEARTBEAT));
   }
 
-  private Flux<PluginLogEntry> entries(final String executionId, final String status) {
-    return TaskStatus.isTerminalName(status)
-        ? logStore.readExecution(executionId)
-        : historyThenLive(executionId);
+  private Flux<PluginLogEntry> entries(final String executionId, final TaskStatus status) {
+    return status.isTerminal() ? logStore.readExecution(executionId) : historyThenLive(executionId);
   }
 
   private Flux<PluginLogEntry> historyThenLive(final String executionId) {
@@ -168,7 +166,7 @@ public class LogManagementController {
   private Mono<Void> terminated(final String executionId) {
     return controlBus
         .watchExecution(executionId, true)
-        .filter(p -> TaskStatus.isTerminalName(p.status()) && p.endTime() != null)
+        .filter(p -> p.status().isTerminal() && p.endTime() != null)
         .next()
         .then();
   }

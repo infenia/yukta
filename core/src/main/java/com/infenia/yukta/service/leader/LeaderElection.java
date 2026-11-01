@@ -36,4 +36,13 @@ public interface LeaderElection {
   default void onTakeover(final Runnable action) {
     // a single server never takes over from anyone
   }
+
+  /**
+   * Registers what to do when this server stops being the leader (its lease ran out or was taken).
+   *
+   * @param action runs on each loss
+   */
+  default void onLoss(final Runnable action) {
+    // a single server never loses leadership
+  }
 }

@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.session;
 
-import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
@@ -10,6 +9,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
@@ -57,6 +57,9 @@ public class SessionService {
   /** The prepared workflow cache for invalidating stale compiled workflows. */
   private final PreparedWorkflowCache preparedWorkflowCache;
 
+  /** Prepares (and so validates) every workflow before anything is saved. */
+  private final WorkflowPreparator preparator;
+
   /** Stale workflows removed at the same time. */
   private static final int REMOVAL_CONCURRENCY = 4;
 
@@ -97,7 +100,7 @@ public class SessionService {
                         .remove(data.sessionId(), staleWorkflowId)
                         .doOnSuccess(
                             _ ->
-                                log.atInfo().log(
+                                log.atDebug().log(
                                     "Removed stale workflow: {} no longer present in config for"
                                         + " session: {}",
                                     staleWorkflowId,
@@ -129,7 +132,7 @@ public class SessionService {
             : Flux.fromIterable(data.workflows().values())
                 .doOnSubscribe(
                     _ ->
-                        log.atInfo().log(
+                        log.atDebug().log(
                             "Starting compilation of {} workflows for session: {}",
                             data.workflows().size(),
                             data.sessionId()))
@@ -152,10 +155,13 @@ public class SessionService {
                                         .log("Failed to compile workflow: {} for session: {}")))
                 .then();
     final Mono<Void> applyRest = cacheInvalidation.then(workflowCompilation);
-    return configService
-        .applySessionConfig(data)
+    // One bad workflow must not replace the stored good one: prepare all of them first.
+    final Mono<Void> validateAll =
+        Flux.fromIterable(data.workflows().values()).concatMap(preparator::prepareWorkflow).then();
+    return validateAll
+        .then(Mono.defer(() -> configService.applySessionConfig(data)))
         .doOnSubscribe(
-            _ -> log.atInfo().log("Applying configuration for session: {}", data.sessionId()))
+            _ -> log.atDebug().log("Applying configuration for session: {}", data.sessionId()))
         // A workflow that could not be removed fails the apply, after the rest of it has run: the
         // store
         // would otherwise differ from the declared config while the caller is told it worked.
@@ -163,7 +169,7 @@ public class SessionService {
         .then(applyRest)
         .doOnSuccess(
             _ ->
-                log.atInfo().log(
+                log.atDebug().log(
                     "Configuration applied successfully for session: {}", data.sessionId()))
         .doOnError(
             err ->
@@ -193,11 +199,13 @@ public class SessionService {
             Mono.error(
                 new NotFoundException(
                     "Workflow not found: " + workflowId + " in session " + sessionId)))
+        .doFirst(() -> preparedWorkflowCache.beginDelete(sessionId, workflowId))
         .then(Mono.defer(() -> clearActiveRuns(sessionId, workflowId, force)))
         .then(Mono.defer(() -> workflowDefinitionStore.remove(sessionId, workflowId)))
         .doOnSuccess(_ -> preparedWorkflowCache.invalidate(sessionId, workflowId))
         .then(Mono.defer(() -> audited(command, sessionId + "/" + workflowId)))
-        .onErrorResume(error -> auditedFailure(error, command, sessionId + "/" + workflowId));
+        .onErrorResume(error -> auditedFailure(error, command, sessionId + "/" + workflowId))
+        .doFinally(_ -> preparedWorkflowCache.endDelete(sessionId, workflowId));
   }
 
   /**
@@ -220,6 +228,7 @@ public class SessionService {
                 known
                     ? Mono.<Void>empty()
                     : Mono.error(new NotFoundException("Session not found: " + sessionId)))
+        .doFirst(() -> preparedWorkflowCache.beginDelete(sessionId, null))
         .then(Mono.defer(() -> clearActiveRuns(sessionId, null, force)))
         .then(Mono.defer(() -> workflowDefinitionStore.removeAll(sessionId)))
         .then(Mono.defer(() -> configService.removeSession(sessionId)))
@@ -228,7 +237,8 @@ public class SessionService {
                 () -> supervisors == null ? Mono.empty() : supervisors.removeForSession(sessionId)))
         .doOnSuccess(_ -> preparedWorkflowCache.invalidateAll(sessionId))
         .then(Mono.defer(() -> audited(command, sessionId)))
-        .onErrorResume(error -> auditedFailure(error, command, sessionId));
+        .onErrorResume(error -> auditedFailure(error, command, sessionId))
+        .doFinally(_ -> preparedWorkflowCache.endDelete(sessionId, null));
   }
 
   /** Records that the delete happened. */
@@ -294,7 +304,7 @@ public class SessionService {
         .map(
             history ->
                 history.stream()
-                    .filter(run -> !TaskStatus.isTerminalName(run.status()))
+                    .filter(run -> !run.status().isTerminal())
                     .filter(run -> workflowId == null || workflowId.equals(run.workflowId()))
                     .toList());
   }

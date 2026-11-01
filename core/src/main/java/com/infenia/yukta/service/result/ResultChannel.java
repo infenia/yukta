@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
@@ -25,6 +26,9 @@ final class ResultChannel {
 
   /** Keeps position numbers and the two copies in step when events arrive from several threads. */
   private final ReentrantLock lock = new ReentrantLock();
+
+  /** Set once the execution's end event is out. */
+  private final AtomicBoolean ended = new AtomicBoolean();
 
   /** Next event position. */
   private long sequence;
@@ -60,7 +64,12 @@ final class ResultChannel {
     }
   }
 
+  /* default */ boolean finished() {
+    return ended.get();
+  }
+
   /* default */ void finish(final String status) {
+    ended.set(true);
     emit(ResultEvent.Kind.EXECUTION_END, null, null, status);
     sink.tryEmitComplete();
   }

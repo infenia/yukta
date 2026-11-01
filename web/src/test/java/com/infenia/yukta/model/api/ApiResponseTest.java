@@ -4,7 +4,6 @@ package com.infenia.yukta.model.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.ZoneId;
 import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -47,14 +46,7 @@ class ApiResponseTest {
   @Test
   void testConstructorWithNullErrors() {
     final ApiResponse<String> resp =
-        new ApiResponse<>(
-            java.time.LocalDateTime.now(ZoneId.systemDefault()),
-            200,
-            "ok",
-            "data",
-            null,
-            null,
-            null);
+        new ApiResponse<>(java.time.Instant.now(), 200, "ok", "data", null, null, null);
     assertThat(resp.errors()).isNotNull().isEmpty();
   }
 }

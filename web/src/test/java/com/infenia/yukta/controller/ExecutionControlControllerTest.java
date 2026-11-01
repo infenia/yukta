@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.model.control.SchedulerLimits;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.NotFoundException;
@@ -18,7 +19,7 @@ import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +62,7 @@ class ExecutionControlControllerTest {
     tracker = mock(TaskTrackerService.class);
     final WorkflowProgress running =
         new WorkflowProgress(
-            "e1", "s1", "wf", "RUNNING", List.of(), LocalDateTime.now(), null, null);
+            "e1", "s1", "wf", TaskStatus.RUNNING, List.of(), Instant.now(), null, null);
     when(controlBus.getCurrentProgress("e1")).thenReturn(running);
     when(controlBus.getProgress("s1", "e1")).thenReturn(running);
     client =
@@ -82,11 +83,11 @@ class ExecutionControlControllerTest {
         .thenReturn(
             List.of(
                 new WorkflowExecutionSummary(
-                    "e1", "wf", "RUNNING", LocalDateTime.now(), null, null, "e1", null),
+                    "e1", "wf", TaskStatus.RUNNING, Instant.now(), null, null, "e1", null),
                 new WorkflowExecutionSummary(
-                    "c1", "child", "RUNNING", LocalDateTime.now(), null, "e1", "e1", null),
+                    "c1", "child", TaskStatus.RUNNING, Instant.now(), null, "e1", "e1", null),
                 new WorkflowExecutionSummary(
-                    "c2", "child", "SUCCESS", LocalDateTime.now(), null, "e1", "e1", null)));
+                    "c2", "child", TaskStatus.SUCCESS, Instant.now(), null, "e1", "e1", null)));
     when(controlBus.pauseWorkflow(any())).thenReturn(Mono.empty());
     when(controlBus.resumeWorkflow("e1")).thenReturn(Mono.empty());
     when(controlBus.resumeWorkflow("c1")).thenReturn(Mono.error(new IllegalStateException("gone")));
@@ -126,7 +127,7 @@ class ExecutionControlControllerTest {
         .thenReturn(
             reactor.core.publisher.Flux.just(
                 new com.infenia.yukta.model.control.PendingApproval(
-                    "s1", "e1", "wf", "gate", "approve", java.time.Instant.EPOCH)));
+                    "s1", "e1", "wf", "gate", "approve", Instant.EPOCH)));
 
     client
         .get()
@@ -147,9 +148,9 @@ class ExecutionControlControllerTest {
         .thenReturn(
             reactor.core.publisher.Flux.just(
                 new com.infenia.yukta.model.control.PendingApproval(
-                    "s1", "e1", "wf", "gate", "approve", java.time.Instant.EPOCH),
+                    "s1", "e1", "wf", "gate", "approve", Instant.EPOCH),
                 new com.infenia.yukta.model.control.PendingApproval(
-                    "s2", "e2", "wf", "gate", "approve", java.time.Instant.EPOCH)));
+                    "s2", "e2", "wf", "gate", "approve", Instant.EPOCH)));
 
     client
         .get()
