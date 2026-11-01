@@ -66,8 +66,7 @@ export function ProfileDialog({
   const saving = editing ? replace : create;
 
   const save = () => {
-    // no problem means the settings parsed: the problem check reports any error
-    if (problem) return;
+    // the Save button is disabled while there is a problem, so the settings parsed here
     saving.mutate(
       {
         id: id.trim(),
