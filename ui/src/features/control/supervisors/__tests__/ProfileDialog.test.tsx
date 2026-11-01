@@ -101,4 +101,28 @@ describe('ProfileDialog', () => {
     renderWithProviders(<ProfileDialog onClose={vi.fn()} />);
     expect(screen.getByText('exists')).toBeInTheDocument();
   });
+
+  it('asks for a type when there are none, and creates with the chosen one', () => {
+    state.types = [];
+    const { unmount } = renderWithProviders(<ProfileDialog onClose={vi.fn()} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Profile id' }), {
+      target: { value: 'guard' },
+    });
+    expect(screen.getByText('Choose a type.')).toBeInTheDocument();
+    unmount();
+
+    state.types = ['rule-supervisor', 'custom-x'];
+    renderWithProviders(<ProfileDialog onClose={vi.fn()} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Profile id' }), {
+      target: { value: 'guard' },
+    });
+    fireEvent.change(screen.getByLabelText('Type'), {
+      target: { value: 'custom-x' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save|create/i }));
+    expect(state.create.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'custom-x' }),
+      expect.any(Object)
+    );
+  });
 });

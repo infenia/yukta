@@ -143,4 +143,38 @@ describe('CapacityPanel', () => {
       await screen.findByText('This needs an ADMIN key.')
     ).toBeInTheDocument();
   });
+
+  it('shows a drain failure with its message and labels an idle drain', async () => {
+    vi.mocked(getDrain).mockResolvedValue({ draining: true, idle: true } as never);
+    vi.mocked(setDrain).mockRejectedValueOnce(new Error('drain refused'));
+    renderWithProviders(<CapacityPanel live={false} />);
+    expect(await screen.findByText('(idle)')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('switch'));
+    expect(await screen.findByText('drain refused')).toBeInTheDocument();
+  });
+
+  it('names a refused reason that carries no tag by its key', async () => {
+    vi.mocked(useMetricSnapshot).mockReturnValue({
+      data: { 'yukta.executions.rejected': 0.1 },
+    } as never);
+    renderWithProviders(<CapacityPanel live={false} />);
+    expect(
+      await screen.findByText('yukta.executions.rejected: 6.0/min')
+    ).toBeInTheDocument();
+  });
+
+  it('retries the limits when they fail to load', async () => {
+    vi.mocked(getLimits).mockRejectedValue(new Error('scheduler down'));
+    renderWithProviders(<CapacityPanel live={false} />);
+    fireEvent.click(await screen.findByRole('button', { name: /retry/i }));
+    await waitFor(() => expect(getLimits).toHaveBeenCalledTimes(2));
+  });
+
+  it('closes the drain confirmation with Escape', async () => {
+    renderWithProviders(<CapacityPanel live={false} />);
+    fireEvent.click(await screen.findByRole('switch'));
+    expect(screen.getByText('Drain the server?')).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByText('Drain the server?')).toBeNull();
+  });
 });

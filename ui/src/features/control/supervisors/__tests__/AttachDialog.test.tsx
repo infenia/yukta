@@ -106,4 +106,24 @@ describe('AttachDialog', () => {
     expect(onClose).toHaveBeenCalled();
     expect(state.mutate).not.toHaveBeenCalled();
   });
+
+  it('asks for a workflow id, types one and chooses a profile and the enabled switch', () => {
+    state.profiles = [profile, { id: 'other', type: 'rules' }];
+    renderWithProviders(<AttachDialog onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Profile'), {
+      target: { value: 'other' },
+    });
+    fireEvent.change(screen.getByLabelText('Applies to'), {
+      target: { value: 'workflow' },
+    });
+    expect(screen.getByText('Give the workflow id.')).toBeInTheDocument();
+    const input = screen.getByRole('textbox', { name: 'Workflow id' });
+    fireEvent.change(input, { target: { value: 'w9' } });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
+    expect(state.mutate).toHaveBeenCalledWith(
+      { profileId: 'other', scope: 'workflow:w9', enabled: false },
+      expect.any(Object)
+    );
+  });
 });
