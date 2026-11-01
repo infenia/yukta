@@ -11,6 +11,7 @@ import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @NoArgsConstructor
 class InputRedactorTest {
 
@@ -58,5 +59,17 @@ class InputRedactorTest {
         base.defaultDecision(),
         base.routeName(),
         base.requester());
+  }
+
+  @Test
+  void springConstructorTakesTheExtraKeysFromTheSettings() {
+    final InputRedactor fromSettings =
+        new InputRedactor(
+            com.infenia.yukta.testsupport.YuktaSettings.bind(
+                Map.of("yukta.input.redact-keys[0]", "customerNote")));
+
+    final InputRequestSpec clean = fromSettings.redact(withContext(Map.of("customerNote", "x")));
+
+    assertThat(clean.context()).containsEntry("customerNote", SecretRedactor.REDACTED);
   }
 }
