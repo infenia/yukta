@@ -41,6 +41,7 @@ class StreamTopologyDecoratorCompletionTest {
 
   private Flux<Message<?>> decorate(final Flux<Message<?>> input) {
     when(store.save(anyString(), anyString(), any())).thenReturn(Mono.empty());
+    when(store.saveAll(anyString(), anyString(), any())).thenCallRealMethod();
     final Flux<Message<?>> output =
         decorator.applyLoggingAndBroadcasting("e", "n", input, 16, disposables, new ArrayList<>());
     return decorator.applyEdgeRouting(

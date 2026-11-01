@@ -32,6 +32,8 @@ class StreamTopologyDecoratorConnectOrderTest {
 
   @Test
   void triggerIntoProcessorIntoTerminal_deliversTheMessageWhenConnectorsRunFirst() {
+    Mockito.when(store.saveAll(Mockito.anyString(), Mockito.anyString(), Mockito.any()))
+        .thenCallRealMethod();
     Mockito.when(store.save(Mockito.anyString(), Mockito.anyString(), Mockito.any()))
         .thenReturn(Mono.empty());
     Mockito.when(store.markComplete(Mockito.anyString(), Mockito.anyString()))
