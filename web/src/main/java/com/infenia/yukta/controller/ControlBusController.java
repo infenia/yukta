@@ -67,6 +67,7 @@ public class ControlBusController {
   @Operation(
       summary = "Get node heartbeat in workflow",
       description = "Retrieves the most recent heartbeat for a specific node in a workflow")
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<ApiResponse<Message<?>>> getLastHeartbeat(
       @PathVariable final String workflowId,
       @PathVariable final String nodeId,
@@ -108,6 +109,7 @@ public class ControlBusController {
   @Operation(
       summary = "Send command to node in workflow",
       description = "Sends an administrative command to a specific node in a workflow")
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<ApiResponse<NodeCommandResponse>> sendCommand(
       @PathVariable final String workflowId,
       @PathVariable final String nodeId,

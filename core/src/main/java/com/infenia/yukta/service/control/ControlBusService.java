@@ -47,7 +47,8 @@ import reactor.util.retry.Retry;
 @SuppressWarnings({
   "PMD.TooManyMethods",
   "PMD.AvoidCatchingGenericException",
-  "PMD.ExcessiveImports"
+  "PMD.ExcessiveImports",
+  "PMD.CouplingBetweenObjects"
 })
 public class ControlBusService {
 
@@ -402,16 +403,6 @@ public class ControlBusService {
   }
 
   /**
-   * Unregister a plugin from the control bus and clean up all state.
-   *
-   * @param workflowId the workflow identifier
-   * @param nodeId the node identifier
-   */
-  public void unregisterPlugin(@NotBlank final String workflowId, @NotBlank final String nodeId) {
-    activePluginRegistry.unregister(workflowId, nodeId);
-  }
-
-  /**
    * Register a plugin as servicing a node of a run.
    *
    * @param workflowId the workflow identifier
@@ -425,6 +416,16 @@ public class ControlBusService {
       @NotBlank final String nodeId,
       final Plugin plugin) {
     activePluginRegistry.register(workflowId, executionId, nodeId, plugin);
+  }
+
+  /**
+   * Unregister a plugin from the control bus and clean up all state.
+   *
+   * @param workflowId the workflow identifier
+   * @param nodeId the node identifier
+   */
+  public void unregisterPlugin(@NotBlank final String workflowId, @NotBlank final String nodeId) {
+    activePluginRegistry.unregister(workflowId, nodeId);
   }
 
   /**

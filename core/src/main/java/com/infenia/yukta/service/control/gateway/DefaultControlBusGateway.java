@@ -68,6 +68,9 @@ import reactor.core.publisher.Mono;
 })
 public class DefaultControlBusGateway implements ControlBusGateway, RestartCompletionSink {
 
+  /** The number of live runs of a workflow in a session that addresses a call unambiguously. */
+  private static final int SINGLE_LIVE_RUN = 1;
+
   /** What the command-sending parts share. */
   private final ControlDispatch dispatch;
 
@@ -217,6 +220,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<Message<?>> sendCommand(
       final String sessionId,
       final String workflowId,
@@ -248,7 +252,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       throw new NotFoundException(
           "No live run of workflow " + workflowId + " in session " + sessionId);
     }
-    if (runs.size() > 1) {
+    if (runs.size() > SINGLE_LIVE_RUN) {
       throw new ConflictException(
           "Session "
               + sessionId
@@ -751,6 +755,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Message<?> getLastHeartbeat(
       final String sessionId,
       final String workflowId,
@@ -761,6 +766,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Message<?> getLastStatistics(
       final String sessionId,
       final String workflowId,

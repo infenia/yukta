@@ -1369,7 +1369,7 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
-  void getHeartbeats_addsTheSessionOfALiveRun() {
+  void getHeartbeats_addsTheSessionOfTheLiveRun() {
     when(controlBusService.getHeartbeats())
         .thenReturn(
             List.of(
@@ -3166,7 +3166,7 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
-  void nodeCall_inASessionWithoutALiveRun_isNotFound_evenIfAnotherSessionHasOne() {
+  void nodeCall_inTheSessionWithoutLiveRun_isNotFound_evenIfAnotherSessionHasOne() {
     when(executionControlRegistry.findAllActiveByWorkflow("s2", "build")).thenReturn(List.of());
 
     StepVerifier.create(

@@ -31,7 +31,7 @@ import reactor.core.publisher.Mono;
  * <p>All control commands flow through a single channel ensuring consistent ordering, audit trails,
  * and no race conditions from multiple access paths.
  */
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseObjectForClearerAPI"})
 public interface ControlBusGateway {
 
   // --- Plugin & Message Management (Internal) ---
@@ -183,7 +183,6 @@ public interface ControlBusGateway {
    * @param equalsValue the text the value at {@code field} must equal
    * @return a Mono that completes when the breakpoint is set
    */
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   Mono<Void> addBreakpoint(String executionId, String nodeId, String field, String equalsValue);
 
   /**
@@ -198,7 +197,6 @@ public interface ControlBusGateway {
    * @return a Mono that completes when the node took the signal; errors with a conflict if the node
    *     is not waiting for it
    */
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   Mono<Void> signalNode(
       String executionId, String nodeId, String name, String decision, String data);
 
@@ -384,10 +382,7 @@ public interface ControlBusGateway {
    * @return a Mono that completes once recorded
    */
   Mono<Void> recordAdminAction(
-      String command,
-      String target,
-      boolean applied,
-      @org.jspecify.annotations.Nullable String reason);
+      String command, String target, boolean applied, @Nullable String reason);
 
   /**
    * The execution limits in force and how many slots are in use.
