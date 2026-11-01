@@ -13,8 +13,11 @@ import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ControlAudit;
+import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -66,6 +69,15 @@ public class SupervisorService {
   /** Records attach and detach. */
   private final ExecutionLogStore executionLog;
 
+  /** Bindings the last restore started. */
+  private final AtomicInteger restored = new AtomicInteger();
+
+  /** Bindings the last restore could not start. */
+  private final AtomicInteger restoreFailed = new AtomicInteger();
+
+  /** Tells whether this server is the leader; null on a single server. */
+  @Nullable private LeaderElection election;
+
   /** Receives every audit record besides the log, if a module provides one. */
   @Nullable private AuditSink auditSink;
 
@@ -100,9 +112,40 @@ public class SupervisorService {
     this.auditSink = sink;
   }
 
-  /** Starts the enabled bindings that were kept. */
+  /**
+   * Restores the bindings when this server becomes the leader later; a standby runs none.
+   *
+   * @param leaderElection the election
+   */
+  @Autowired(required = false)
+  public void setLeaderElection(final LeaderElection leaderElection) {
+    this.election = leaderElection;
+    leaderElection.onTakeover(this::restore);
+  }
+
+  /**
+   * Publishes how many bindings the last restore started and how many it could not.
+   *
+   * @param meters the registry
+   */
+  @Autowired(required = false)
+  public void setMeterRegistry(final MeterRegistry meters) {
+    Gauge.builder("yukta.supervisor.restored", restored, AtomicInteger::get)
+        .tag("result", "started")
+        .register(meters);
+    Gauge.builder("yukta.supervisor.restored", restoreFailed, AtomicInteger::get)
+        .tag("result", "failed")
+        .register(meters);
+  }
+
+  /** Starts the enabled bindings that were kept, on the leader only. */
   @EventListener(ApplicationReadyEvent.class)
   /* default */ void restore() {
+    if (election != null && !election.isLeader()) {
+      return;
+    }
+    restored.set(0);
+    restoreFailed.set(0);
     // not in @PostConstruct: the store may need its schema first, and an unreadable store is
     // retried
     Flux.defer(store::bindings)
@@ -116,8 +159,10 @@ public class SupervisorService {
                     .filter(profile -> profile.id().equals(binding.profileId()))
                     .next()
                     .doOnNext(profile -> start(binding, profile))
+                    .doOnNext(_ -> restored.incrementAndGet())
                     .onErrorResume(
                         error -> {
+                          restoreFailed.incrementAndGet();
                           log.atWarn()
                               .setCause(error)
                               .addKeyValue("binding", binding.id())
