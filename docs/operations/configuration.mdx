@@ -208,6 +208,22 @@ See [Security](/operations/security).
 | `yukta.llm.max-input-chars` | `0` (no limit) | Most characters of prompt in one call |
 | `yukta.llm.rate-limit.<provider>` | off | Requests per minute to a provider, across all nodes and runs |
 
+## Input requests
+
+A plugin can ask for a decision and wait for the answer; these settings bound the asking.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `yukta.input.default-ttl` | `1h` | How long a request lives when its spec does not say. Must not exceed `max-ttl` |
+| `yukta.input.max-ttl` | `24h` | The longest ttl a request may ask for; a longer one is refused |
+| `yukta.input.max-open-per-execution` | `5` | Open requests one run may have |
+| `yukta.input.max-open-per-session` | `50` | Open requests one session may have |
+| `yukta.input.memory-max` | `10000` | Finished requests the in-memory store keeps; the oldest are dropped first |
+| `yukta.input.sweep-interval` | `1s` | How often requests past their deadline are ended (leader only) |
+| `yukta.input.redact-keys` | none | Context keys whose value is replaced, besides names such as `password` and `token` |
+
+Requests are kept in memory and are lost when the server restarts.
+
 ## Supervisors and control planes
 
 See [Supervisors](/running/supervisors) and [Control planes](/running/control-planes).

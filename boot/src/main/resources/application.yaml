@@ -57,6 +57,16 @@ yukta:
     cleanup-ttl: 10m
   streaming:
     status-history-ttl-minutes: 5
+  # Input requests (a plugin asks for a decision and waits). The defaults are built in; set a key to
+  # change it.
+  #   input:
+  #     default-ttl: 1h                # lifetime of a request that does not say; at most max-ttl
+  #     max-ttl: 24h                   # a request asking for longer is refused
+  #     max-open-per-execution: 5
+  #     max-open-per-session: 50
+  #     memory-max: 10000              # finished requests the in-memory store keeps
+  #     sweep-interval: 1s             # how often requests past their deadline are ended (leader)
+  #     redact-keys: []                # context keys whose value is replaced, besides password, token...
   logs:
     store:
       backend: memory              # memory is the only store
