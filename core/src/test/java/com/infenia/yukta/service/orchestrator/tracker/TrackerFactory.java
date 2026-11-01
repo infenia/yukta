@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.tracker;
 
-import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
@@ -57,27 +56,21 @@ public final class TrackerFactory {
       final ObservationRegistry observations,
       final com.infenia.yukta.service.supervisor.ExecutionEventFeed feed) {
     return new DefaultTaskTrackerService(
-        new YuktaProperties.Tracker(null, 0, cleanupTtl),
-        cache,
-        log,
-        meters,
-        observations,
-        feed,
-        System::nanoTime);
+        new TrackerProperties(null, 0, cleanupTtl), cache, log, meters, observations, feed);
   }
 
   /** A tracker with the given session settings and a clock to move. */
   public static DefaultTaskTrackerService tracker(
-      final YuktaProperties.Tracker settings,
-      final StatusHistoryCache cache,
-      final LongSupplier clock) {
-    return new DefaultTaskTrackerService(
-        settings,
-        cache,
-        new InMemoryExecutionLogStore(),
-        new SimpleMeterRegistry(),
-        ObservationRegistry.NOOP,
-        new com.infenia.yukta.service.supervisor.ExecutionEventFeed(),
-        clock);
+      final TrackerProperties settings, final StatusHistoryCache cache, final LongSupplier clock) {
+    final DefaultTaskTrackerService tracker =
+        new DefaultTaskTrackerService(
+            settings,
+            cache,
+            new InMemoryExecutionLogStore(),
+            new SimpleMeterRegistry(),
+            ObservationRegistry.NOOP,
+            new com.infenia.yukta.service.supervisor.ExecutionEventFeed());
+    tracker.useClock(clock);
+    return tracker;
   }
 }
