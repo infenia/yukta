@@ -239,6 +239,7 @@ class NodePolicyTest {
   @Test
   void checkpoint_defaultsToAll_isParsed_andIsValidated() {
     assertThat(NodePolicy.checkpoint(Map.of())).isEqualTo(NodePolicy.Checkpoint.ALL);
+    assertThat(NodePolicy.checkpoint(null)).isEqualTo(NodePolicy.Checkpoint.ALL);
     assertThat(NodePolicy.checkpoint(Map.of("engine", Map.of("checkpoint", "LAST"))))
         .isEqualTo(NodePolicy.Checkpoint.LAST);
     assertThatThrownBy(() -> NodePolicy.from(Map.of("engine", Map.of("checkpoint", "some"))))
