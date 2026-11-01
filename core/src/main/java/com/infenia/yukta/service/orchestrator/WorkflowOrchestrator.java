@@ -323,43 +323,22 @@ public class WorkflowOrchestrator {
 
     final List<WorkflowNode> topologicalOrder = prepared.topologicalOrder();
     final int nodeCount = topologicalOrder.size();
+    // Nodes outside the re-run set do not run: the ones feeding it replay what they recorded, the
+    // rest stay silent, so independent branches are not executed again.
     final NodeAssembler[] assemblers;
     try {
       assemblers =
-          compiler.compileAssemblers(
-              prepared.edges(), prepared.parentsList(), prepared.pluginCache(), topologicalOrder);
+          compiler.compileRerunAssemblers(
+              prepared.edges(),
+              prepared.parentsList(),
+              prepared.pluginCache(),
+              topologicalOrder,
+              plan,
+              boundaryOutputs,
+              previousExecutionId);
     } catch (final RuntimeException e) {
       giveBack(admission);
       return Mono.error(e);
-    }
-
-    // Nodes outside the re-run set do not run: the ones feeding it replay what they recorded, the
-    // rest stay silent, so independent branches are not executed again.
-    for (int i = 0; i < nodeCount; i++) {
-      final String nodeId = topologicalOrder.get(i).nodeId();
-      final int idx = i;
-      if (plan.rerun().contains(nodeId)) {
-        continue;
-      }
-      if (plan.boundary().contains(nodeId)) {
-        final List<Message<?>> recorded = boundaryOutputs.getOrDefault(nodeId, List.of());
-        final WorkflowNode replayed = topologicalOrder.get(i);
-        // Report the replayed node as done, not left PENDING (which would end SKIPPED).
-        assemblers[idx] =
-            context ->
-                context.streams()[idx] =
-                    Flux.fromIterable(recorded)
-                        .doOnComplete(
-                            () ->
-                                tracker.emitTaskStatusEvent(
-                                    newExecutionId,
-                                    replayed.nodeId(),
-                                    replayed.type(),
-                                    TaskStatus.SUCCESS,
-                                    Map.of("replayedFrom", previousExecutionId)));
-      } else {
-        assemblers[idx] = context -> context.streams()[idx] = Flux.empty();
-      }
     }
 
     final List<String> nodeIds = topologicalOrder.stream().map(WorkflowNode::nodeId).toList();

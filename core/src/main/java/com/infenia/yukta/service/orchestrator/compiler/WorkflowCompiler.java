@@ -2,10 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.compiler;
 
-import static com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder.CTX_PAYLOAD;
-import static com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder.CTX_SESSION_ID;
-import static com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder.CTX_WORKFLOW_ID;
-
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.NodePolicy;
@@ -15,8 +11,11 @@ import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.model.workflow.WorkflowTemplate;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.orchestrator.RestartPlan;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
+import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
 import com.infenia.yukta.service.orchestrator.strategy.NodeAssemblerStrategy;
+import com.infenia.yukta.service.orchestrator.strategy.ReplayNodeAssembler;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -24,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiFunction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -75,6 +75,9 @@ public class WorkflowCompiler {
   /** The list of node assembler strategies for compiling different node types. */
   private final List<NodeAssemblerStrategy> assemblerStrategies;
 
+  /** Builds the assemblers of nodes that a restarted run does not run again. */
+  private final ReplayNodeAssembler replayAssembler;
+
   /**
    * Compiles a workflow template for high-performance execution.
    *
@@ -114,10 +117,10 @@ public class WorkflowCompiler {
                                 payload,
                                 nodeCount,
                                 assemblers,
-                                ctx.get(CTX_SESSION_ID),
-                                ctx.get(CTX_WORKFLOW_ID),
+                                ctx.get(ExecutionContextBuilder.CTX_SESSION_ID),
+                                ctx.get(ExecutionContextBuilder.CTX_WORKFLOW_ID),
                                 nodeIds))
-                    .contextWrite(c -> c.put(CTX_PAYLOAD, payload)));
+                    .contextWrite(c -> c.put(ExecutionContextBuilder.CTX_PAYLOAD, payload)));
   }
 
   /**
@@ -134,6 +137,58 @@ public class WorkflowCompiler {
       final Map<String, List<WorkflowNode>> parentsList,
       final Map<String, Plugin> pluginCache,
       final List<WorkflowNode> topologicalOrder) {
+    return compile(edges, parentsList, pluginCache, topologicalOrder, (_, _) -> null);
+  }
+
+  /**
+   * Builds the assemblers of a restarted or resumed run: the nodes of the plan run, the ones that
+   * feed them replay what they recorded, and the rest stay silent. Only the nodes that run get a
+   * plugin assembler.
+   *
+   * @param edges the workflow edges
+   * @param parentsList map of nodeId to parent nodes
+   * @param pluginCache map of nodeId to initialized plugin instances
+   * @param topologicalOrder list of nodes in topological order
+   * @param plan which nodes run again and which are replayed
+   * @param boundaryOutputs recorded output of the replayed nodes, by node id
+   * @param previousExecutionId the run the output was recorded in
+   * @return the node assembler array, indexed by topological position
+   */
+  public NodeAssembler[] compileRerunAssemblers(
+      final List<WorkflowEdge> edges,
+      final Map<String, List<WorkflowNode>> parentsList,
+      final Map<String, Plugin> pluginCache,
+      final List<WorkflowNode> topologicalOrder,
+      final RestartPlan plan,
+      final Map<String, List<Message<?>>> boundaryOutputs,
+      final String previousExecutionId) {
+    return compile(
+        edges,
+        parentsList,
+        pluginCache,
+        topologicalOrder,
+        (node, index) -> {
+          if (plan.rerun().contains(node.nodeId())) {
+            return null;
+          }
+          final int bufferSize = getBufferSize(node, pluginCache.get(node.nodeId()));
+          return plan.boundary().contains(node.nodeId())
+              ? replayAssembler.replay(
+                  node,
+                  index,
+                  bufferSize,
+                  boundaryOutputs.getOrDefault(node.nodeId(), List.of()),
+                  previousExecutionId)
+              : replayAssembler.silent(node, index, bufferSize);
+        });
+  }
+
+  private NodeAssembler[] compile(
+      final List<WorkflowEdge> edges,
+      final Map<String, List<WorkflowNode>> parentsList,
+      final Map<String, Plugin> pluginCache,
+      final List<WorkflowNode> topologicalOrder,
+      final BiFunction<WorkflowNode, Integer, NodeAssembler> replaced) {
 
     final int nodeCount = topologicalOrder.size();
     log.atDebug()
@@ -151,13 +206,16 @@ public class WorkflowCompiler {
     final NodeAssembler[] assemblers = new NodeAssembler[nodeCount];
     for (int i = 0; i < nodeCount; i++) {
       final WorkflowNode node = topologicalOrder.get(i);
+      final NodeAssembler other = replaced.apply(node, i);
       assemblers[i] =
-          createNodeAssembler(
-              inbound.getOrDefault(node.nodeId(), List.of()),
-              node,
-              parentsList,
-              pluginCache,
-              nodeToIndex);
+          other != null
+              ? other
+              : createNodeAssembler(
+                  inbound.getOrDefault(node.nodeId(), List.of()),
+                  node,
+                  parentsList,
+                  pluginCache,
+                  nodeToIndex);
     }
 
     log.atDebug()
