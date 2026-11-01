@@ -190,4 +190,12 @@ class ActorResolverTest {
         .assertNext(actor -> assertThat(actor.id()).isEqualTo("alice"))
         .verifyComplete();
   }
+
+  @Test
+  void supervisorOrTokenKindWithoutActorHasNoIdentity() {
+    assertThat(resolver.resolve(Context.of(ControlActor.KIND_KEY, ControlActor.Kind.SUPERVISOR)).type())
+        .isEqualTo(ActorInfo.Type.UNAUTHENTICATED);
+    assertThat(resolver.resolve(Context.of(ControlActor.KIND_KEY, ControlActor.Kind.TOKEN)).type())
+        .isEqualTo(ActorInfo.Type.UNAUTHENTICATED);
+  }
 }

@@ -3,6 +3,8 @@
 package com.infenia.yukta.service.control.processor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
@@ -25,6 +27,9 @@ import com.infenia.yukta.service.input.InputTestSupport;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import java.util.List;
 import java.util.Map;
+import com.infenia.yukta.service.input.InputBroker;
+import com.infenia.yukta.service.input.InputCommandGuard;
+import reactor.core.publisher.Mono;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
@@ -283,5 +288,23 @@ class AnswerInputCommandProcessorTest {
         .containsEntry("risk", "MEDIUM")
         .containsEntry("requestId", request.id());
     assertThat(entry.payload()).extractingByKey("rationale").asString().hasSize(500);
+  }
+
+  @Test
+  void requestThatVanishesAfterClearingIsNotFound() {
+    final InputCommandGuard guard = mock(InputCommandGuard.class);
+    final InputBroker broker = mock(InputBroker.class);
+    final InputRequest request = InputTestSupport.request("r1", InputTestSupport.spec("k"));
+    when(guard.clear("exec", "r1", false))
+        .thenReturn(
+            Mono.just(
+                new InputCommandGuard.Cleared(request, new Responder(Responder.Type.HUMAN, "op"))));
+    when(broker.answer(any(), any(), any())).thenReturn(Mono.empty());
+    final AnswerInputCommand withText =
+        new AnswerInputCommand("exec", "r1", null, "ok", "text", Map.of(), null, null);
+
+    StepVerifier.create(new AnswerInputCommandProcessor(guard, broker).process(withText))
+        .expectError(NotFoundException.class)
+        .verify();
   }
 }

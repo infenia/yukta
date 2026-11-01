@@ -3,6 +3,9 @@
 package com.infenia.yukta.service.control.processor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
 
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
@@ -22,6 +25,9 @@ import com.infenia.yukta.service.input.InputTestSupport;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import com.infenia.yukta.service.input.InputBroker;
+import com.infenia.yukta.service.input.InputCommandGuard;
+import reactor.core.publisher.Mono;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
@@ -126,6 +132,22 @@ class EscalateInputCommandProcessorTest {
   @Test
   void anUnknownRequestIsNotFound() {
     run(escalate("nope"), InputFlow.asKey("op", ApiRole.OPERATOR))
+        .expectError(NotFoundException.class)
+        .verify();
+  }
+
+  @Test
+  void requestThatVanishesAfterClearingIsNotFound() {
+    final InputCommandGuard guard = mock(InputCommandGuard.class);
+    final InputBroker broker = mock(InputBroker.class);
+    final InputRequest request = InputTestSupport.request("r1", InputTestSupport.spec("k"));
+    when(guard.clear("exec", "r1", true))
+        .thenReturn(
+            Mono.just(
+                new InputCommandGuard.Cleared(request, new Responder(Responder.Type.HUMAN, "op"))));
+    when(broker.escalate(any(), any(), any(), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(new EscalateInputCommandProcessor(guard, broker).process(escalate("r1")))
         .expectError(NotFoundException.class)
         .verify();
   }
