@@ -5,6 +5,8 @@ package com.infenia.yukta.service.supervisor;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -66,6 +68,34 @@ class ExecutionEventFeedTest {
     release.countDown();
     subscription.dispose();
     assertThat(finished).isTrue();
+  }
+
+  @Test
+  void events_overflow_dropsAndCounts() throws InterruptedException {
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    Metrics.addRegistry(meters);
+    final ExecutionEventFeed feed = new ExecutionEventFeed();
+    final CountDownLatch release = new CountDownLatch(1);
+    final Disposable subscription =
+        feed.events()
+            .subscribe(
+                e -> {
+                  try {
+                    release.await();
+                  } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                  }
+                });
+    try {
+      for (int i = 0; i < 11_000; i++) {
+        feed.publish(event("e" + i));
+      }
+      assertThat(meters.counter("yukta.tracker.dropped", "kind", "feed").count()).isPositive();
+    } finally {
+      release.countDown();
+      subscription.dispose();
+      Metrics.removeRegistry(meters);
+    }
   }
 
   @Test
