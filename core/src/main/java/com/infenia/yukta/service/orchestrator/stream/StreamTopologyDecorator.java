@@ -55,9 +55,6 @@ public class StreamTopologyDecorator {
   /** The node checkpoint store for persisting node state. */
   private final NodeCheckpointStore checkpointStore;
 
-  /** Maximum number of payload characters echoed to the live log per message. */
-  private static final int MAX_LOG_PAYLOAD_SIZE = 2_048;
-
   /**
    * Merges parent node streams, applying edge-based routing and port filtering.
    *
@@ -456,15 +453,7 @@ public class StreamTopologyDecorator {
           if (!echo && !log.isTraceEnabled()) {
             return;
           }
-          // Bounds the payload echoed into the live log so large payloads are not copied per node.
-          final String raw = String.valueOf(msg.payload());
-          final String payload =
-              raw.length() <= MAX_LOG_PAYLOAD_SIZE
-                  ? raw
-                  : raw.substring(0, MAX_LOG_PAYLOAD_SIZE)
-                      + "... [truncated "
-                      + (raw.length() - MAX_LOG_PAYLOAD_SIZE)
-                      + " chars]";
+          final String payload = LivePayloadPreview.preview(msg.payload());
           log.atTrace().setMessage("Processing message payload: {}").addArgument(payload).log();
           // A blank payload (the output of a quiet command, an empty body) has nothing to echo, and
           // the tracker rejects blank lines, which would otherwise fail the node.

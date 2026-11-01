@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -60,9 +61,9 @@ class SessionServiceTest {
   private static final String TEST_ENV = "env";
   private static final String EXEC1 = "exec1";
   private static final String EXEC2 = "exec2";
-  private static final String SUCCESS = "SUCCESS";
-  private static final String RUNNING = "RUNNING";
-  private static final String FAILURE = "FAILURE";
+  private static final TaskStatus SUCCESS = TaskStatus.SUCCESS;
+  private static final TaskStatus RUNNING = TaskStatus.RUNNING;
+  private static final TaskStatus FAILURE = TaskStatus.FAILURE;
 
   @Mock private SessionConfigStore configService;
   @Mock private ControlBusGateway controlBus;
@@ -802,7 +803,7 @@ class SessionServiceTest {
             result ->
                 result.size() == 1
                     && result.containsKey(WF1)
-                    && RUNNING.equals(result.get(WF1).status()))
+                    && result.get(WF1).status() == RUNNING)
         .verifyComplete();
 
     verify(controlBus).getHistory(sessionId);
@@ -854,15 +855,15 @@ class SessionServiceTest {
         .expectNextMatches(
             result ->
                 result.size() == 2
-                    && SUCCESS.equals(result.get(WF1).status())
-                    && FAILURE.equals(result.get(WF2).status()))
+                    && result.get(WF1).status() == SUCCESS
+                    && result.get(WF2).status() == FAILURE)
         .verifyComplete();
 
     verify(controlBus).getHistory(sessionId);
   }
 
   private static WorkflowExecutionSummary run(
-      final String runId, final String workflow, final String status) {
+      final String runId, final String workflow, final TaskStatus status) {
     return new WorkflowExecutionSummary(runId, workflow, status, null, null);
   }
 
@@ -902,8 +903,8 @@ class SessionServiceTest {
             Mono.just(
                 List.of(
                     run("e1", "w", RUNNING),
-                    run("e2", "w", "PAUSED"),
-                    run("e3", "w", "QUEUED"),
+                    run("e2", "w", TaskStatus.RUNNING),
+                    run("e3", "w", TaskStatus.QUEUED),
                     run("e4", "other", RUNNING),
                     run("e5", "w", SUCCESS))));
 
@@ -929,7 +930,7 @@ class SessionServiceTest {
     when(controlBus.getHistory("s"))
         .thenReturn(Mono.just(List.of(run("e1", "w", RUNNING))))
         .thenReturn(Mono.just(List.of(run("e1", "w", RUNNING))))
-        .thenReturn(Mono.just(List.of(run("e1", "w", "CANCELLED"))));
+        .thenReturn(Mono.just(List.of(run("e1", "w", TaskStatus.CANCELLED))));
     when(controlBus.stopWorkflow("s", "w", "Deleted", StopMode.CANCEL))
         .thenReturn(Mono.just(List.of("e1")));
     when(workflowDefinitionStore.remove("s", "w")).thenReturn(Mono.empty());

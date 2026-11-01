@@ -237,6 +237,15 @@ class WorkflowStarter {
    * definition is no longer {@code applied}, the cached entry is dropped so the next start prepares
    * anew.
    */
+  /* default */ Mono<Void> compileAndCache(
+      final String sessionId, final WorkflowDefinition definition) {
+    final String workflowId = definition.workflowId();
+    return Mono.fromRunnable(() -> cache.invalidate(sessionId, workflowId))
+        .then(orchestrator.prepareWorkflow(definition))
+        .doOnNext(prepared -> cache.put(sessionId, workflowId, prepared))
+        .then(Mono.defer(() -> dropCacheIfStale(sessionId, definition)));
+  }
+
   /* default */ Mono<Void> dropCacheIfStale(
       final String sessionId, final WorkflowDefinition applied) {
     return definitions

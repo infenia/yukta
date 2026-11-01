@@ -31,7 +31,7 @@ import reactor.test.StepVerifier;
 
 /** The end of a node is made durable once, after its output, before the completion goes on. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyStaticImports")
+@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.TooManyMethods"})
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator - ")
 class StreamTopologyDecoratorCompletionTest {
 
@@ -71,7 +71,7 @@ class StreamTopologyDecoratorCompletionTest {
         .verifyComplete();
 
     final InOrder order = inOrder(store);
-    order.verify(store, org.mockito.Mockito.times(2)).save(anyString(), anyString(), any());
+    order.verify(store, times(2)).save(anyString(), anyString(), any());
     order.verify(store).markComplete("e", "n");
   }
 

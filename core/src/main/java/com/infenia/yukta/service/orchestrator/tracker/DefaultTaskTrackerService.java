@@ -33,8 +33,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -324,12 +322,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         () -> {
           final WorkflowState state =
               new WorkflowState(
-                  executionId,
-                  sessionId,
-                  workflowId,
-                  "RUNNING",
-                  nodeIds,
-                  LocalDateTime.now(ZoneId.systemDefault()));
+                  executionId, sessionId, workflowId, TaskStatus.RUNNING, nodeIds, Instant.now());
 
           // one atomic step, so that evicting the session cannot remove the map between lookup and
           // put
@@ -422,7 +415,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("status", status)
         .addKeyValue("metadataSize", metadata.size())
         .log("Emitting task status event");
-    publish(TaskStatusEvent.create(executionId, nodeId, module, status.name(), metadata));
+    publish(TaskStatusEvent.create(executionId, nodeId, module, status, metadata));
   }
 
   @Override
@@ -553,7 +546,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("executionId", executionId)
         .addKeyValue("status", status)
         .log("Emitting workflow status event");
-    publish(WorkflowStatusEvent.create(executionId, status.name()));
+    publish(WorkflowStatusEvent.create(executionId, status));
   }
 
   /**
@@ -780,8 +773,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final String executionId,
       final String sessionId,
       final String workflowId,
-      final String status,
-      final Map<String, String> nodeStatuses,
+      final TaskStatus status,
+      final Map<String, TaskStatus> nodeStatuses,
       final Instant started,
       final Instant ended,
       final String definitionVersion,
@@ -884,9 +877,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
           sessionStates.entrySet().stream()
               .filter(e -> !e.getKey().equals(current))
               .filter(
-                  e ->
-                      e.getValue().values().stream()
-                          .allMatch(state -> TaskStatus.isTerminalName(state.status)))
+                  e -> e.getValue().values().stream().allMatch(state -> state.status.isTerminal()))
               .map(Map.Entry::getKey)
               .min(Comparator.comparingLong(id -> sessionUsed.getOrDefault(id, 0L)))
               .orElse(null);
@@ -905,7 +896,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     sessionStates.computeIfPresent(
         sessionId,
         (_, runs) -> {
-          if (runs.values().stream().allMatch(state -> TaskStatus.isTerminalName(state.status))) {
+          if (runs.values().stream().allMatch(state -> state.status.isTerminal())) {
             removed.put(sessionId, runs);
             return null;
           }

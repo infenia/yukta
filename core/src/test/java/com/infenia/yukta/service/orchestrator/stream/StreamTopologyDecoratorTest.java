@@ -499,6 +499,39 @@ class StreamTopologyDecoratorTest {
   }
 
   @Test
+  void testApplyLoggingAndBroadcastingDescribesBinaryAndHugeCollectionsInsteadOfPrintingThem() {
+    final List<Disposable> disposables = new ArrayList<>();
+    final List<Runnable> connectors = new ArrayList<>();
+    final List<Object> payloads =
+        List.of(
+            new byte[5_000_000],
+            java.util.stream.IntStream.range(0, 300).boxed().toList(),
+            java.util.stream.IntStream.range(0, 300)
+                .boxed()
+                .collect(java.util.stream.Collectors.toMap(i -> i, i -> i)));
+
+    for (final Object payload : payloads) {
+      final Flux<Message<?>> output =
+          decorator.applyLoggingAndBroadcasting(
+              EXEC_1,
+              NODE_1,
+              Flux.just(DefaultMessage.create(UUID.randomUUID(), payload)),
+              1024,
+              disposables,
+              connectors);
+      StepVerifier.create(edge(output)).expectNextCount(1).verifyComplete();
+    }
+
+    final ArgumentCaptor<String> lines = ArgumentCaptor.forClass(String.class);
+    Mockito.verify(tracker, Mockito.times(3))
+        .emitLogEvent(ArgumentMatchers.eq(EXEC_1), ArgumentMatchers.eq(NODE_1), lines.capture());
+    assertThat(lines.getAllValues().get(0)).isEqualTo("<5000000 bytes>");
+    assertThat(lines.getAllValues().get(1)).endsWith("of 300 elements");
+    assertThat(lines.getAllValues().get(2)).endsWith("of 300 entries");
+    disposables.forEach(Disposable::dispose);
+  }
+
+  @Test
   @SuppressWarnings(UNCHECKED)
   void edgeRouting_tolerateFailure_swallowsParentErrorAndCompletes() {
     final Flux<Message<?>>[] streams =
