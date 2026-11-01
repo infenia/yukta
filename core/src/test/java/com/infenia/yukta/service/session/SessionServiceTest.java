@@ -35,7 +35,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** Unit tests for SessionService. */
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports", "PMD.ExcessiveImports"})
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.session.SessionService - ")
@@ -56,22 +56,6 @@ class SessionServiceTest {
   private static final String CONFIG_PROJECT_PATH = "projectPath";
   private static final String CONFIG_WORKFLOWS = "workflows";
 
-  @SuppressWarnings("unchecked")
-  private static SessionSnapshot snapshot(final Map<String, Object> m) {
-    return new SessionSnapshot(
-        (String) m.get(CONFIG_SESSION_ID),
-        (String) m.get(CONFIG_NAME),
-        (String) m.get(CONFIG_DESCRIPTION),
-        (String) m.get(CONFIG_INITIATOR),
-        null,
-        (Map<String, String>) m.getOrDefault(CONFIG_TAGS, Map.of()),
-        (String) m.get(CONFIG_PROJECT_PATH),
-        null,
-        null,
-        null,
-        (Map<String, WorkflowDefinition>) m.getOrDefault(CONFIG_WORKFLOWS, Map.of()));
-  }
-
   private static final String TEST_WORKFLOW = "test-workflow";
   private static final String TEST_ENV = "env";
   private static final String EXEC1 = "exec1";
@@ -89,6 +73,22 @@ class SessionServiceTest {
   @Captor private ArgumentCaptor<WorkflowDefinition> workflowCaptor;
 
   private SessionService sessionService;
+
+  @SuppressWarnings("unchecked")
+  private static SessionSnapshot snapshot(final Map<String, Object> m) {
+    return new SessionSnapshot(
+        (String) m.get(CONFIG_SESSION_ID),
+        (String) m.get(CONFIG_NAME),
+        (String) m.get(CONFIG_DESCRIPTION),
+        (String) m.get(CONFIG_INITIATOR),
+        null,
+        (Map<String, String>) m.getOrDefault(CONFIG_TAGS, Map.of()),
+        (String) m.get(CONFIG_PROJECT_PATH),
+        null,
+        null,
+        null,
+        (Map<String, WorkflowDefinition>) m.getOrDefault(CONFIG_WORKFLOWS, Map.of()));
+  }
 
   @BeforeEach
   void setUp() {

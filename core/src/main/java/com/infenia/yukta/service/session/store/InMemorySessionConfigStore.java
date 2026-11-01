@@ -31,12 +31,7 @@ import reactor.core.publisher.Mono;
 @Component
 @Validated
 @RequiredArgsConstructor
-@SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.LinguisticNaming",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.UseConcurrentHashMap"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.LinguisticNaming", "PMD.AvoidDuplicateLiterals"})
 public class InMemorySessionConfigStore implements SessionConfigStore {
 
   /** The session configuration properties. */
@@ -286,7 +281,7 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
         ? Mono.zip(
             arr -> {
               final SessionSnapshot configs =
-                  SessionSnapshot.of(sessionId, sessions.get(sessionId).name(), arr);
+                  SessionSnapshot.fromValues(sessionId, sessions.get(sessionId).name(), arr);
               log.atDebug()
                   .addKeyValue("sessionId", sessionId)
                   .addKeyValue("workflows", configs.workflows().size())

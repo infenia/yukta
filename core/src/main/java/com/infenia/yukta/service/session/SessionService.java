@@ -38,6 +38,7 @@ import reactor.core.publisher.Mono;
 @Service
 @Validated
 @RequiredArgsConstructor
+@SuppressWarnings("PMD.ExcessiveImports")
 public class SessionService {
 
   /** How long a forced delete waits for cancelled runs to end. */

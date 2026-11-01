@@ -51,7 +51,6 @@ import tools.jackson.databind.ObjectMapper;
 @SuppressWarnings({
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports",
-  "PMD.UseConcurrentHashMap",
   "PMD.CompareObjectsWithEquals",
   "PMD.CouplingBetweenObjects"
 })
@@ -259,11 +258,7 @@ public class FileSessionConfigStore implements SessionConfigStore {
         .flatMap(
             loadedConfig ->
                 Mono.zip(
-                    arr -> {
-                      final SessionSnapshot configs =
-                          SessionSnapshot.of(sessionId, loadedConfig.name(), arr);
-                      return configs;
-                    },
+                    arr -> SessionSnapshot.fromValues(sessionId, loadedConfig.name(), arr),
                     getProjectPath(sessionId),
                     getExecutionTimeout(sessionId),
                     getFileLogDir(sessionId),

@@ -22,7 +22,7 @@ import tools.jackson.databind.ObjectMapper;
  * while they are still empty.
  */
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.LinguisticNaming"})
+@SuppressWarnings("PMD.LinguisticNaming")
 public class R2dbcSessionConfigStore implements SessionConfigStore {
 
   /** Tags as stored. */
@@ -185,10 +185,7 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
         .flatMap(
             name ->
                 Mono.zip(
-                    arr -> {
-                      final SessionSnapshot configs = SessionSnapshot.of(sessionId, name, arr);
-                      return configs;
-                    },
+                    arr -> SessionSnapshot.fromValues(sessionId, name, arr),
                     getProjectPath(sessionId),
                     getExecutionTimeout(sessionId),
                     getFileLogDir(sessionId),

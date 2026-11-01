@@ -3,6 +3,7 @@
 package com.infenia.yukta.model.session;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
 
 /**
@@ -20,7 +21,7 @@ import java.util.Map;
  * @param resultLogDir the results log directory
  * @param workflows the workflow definitions
  */
-@SuppressWarnings("PMD.UseObjectForClearerAPI")
+@SuppressFBWarnings("EI_EXPOSE_REP")
 public record SessionSnapshot(
     String sessionId,
     String name,
@@ -45,7 +46,8 @@ public record SessionSnapshot(
    * @return the record
    */
   @SuppressWarnings("unchecked")
-  public static SessionSnapshot of(final String sessionId, final String name, final Object[] v) {
+  public static SessionSnapshot fromValues(
+      final String sessionId, final String name, final Object... v) {
     return new SessionSnapshot(
         sessionId,
         name,
