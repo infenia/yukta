@@ -286,19 +286,6 @@ public class ControlBusService {
   }
 
   /**
-   * Get the last heartbeat for a node in a specific workflow: the newest one from any run of it.
-   *
-   * @param workflowId the workflow identifier
-   * @param nodeId the node identifier
-   * @return the last heartbeat message, or null
-   */
-  @Nullable
-  public Message<?> getLastHeartbeat(
-      @NotBlank final String workflowId, @NotBlank final String nodeId) {
-    return newest(workflowId, nodeId, ControlSignalHandler::getLastHeartbeat);
-  }
-
-  /**
    * Get the last heartbeat for a node of one run.
    *
    * @param workflowId the workflow identifier
@@ -331,24 +318,12 @@ public class ControlBusService {
                     .map(
                         beat ->
                             new NodeHeartbeat(
+                                "",
                                 ControlKey.workflowId(key),
                                 ControlKey.executionId(key),
                                 ControlKey.nodeId(key),
                                 beat.timestamp())))
         .toList();
-  }
-
-  /**
-   * Get the last statistics for a node in a specific workflow: the newest from any run of it.
-   *
-   * @param workflowId the workflow identifier
-   * @param nodeId the node identifier
-   * @return the last statistics message, or null
-   */
-  @Nullable
-  public Message<?> getLastStatistics(
-      @NotBlank final String workflowId, @NotBlank final String nodeId) {
-    return newest(workflowId, nodeId, ControlSignalHandler::getLastStatistics);
   }
 
   /**
@@ -380,24 +355,6 @@ public class ControlBusService {
         .orElse(null);
   }
 
-  /** The newest message of a node over every run that reported, and over reports without a run. */
-  @Nullable
-  private Message<?> newest(
-      final String workflowId,
-      final String nodeId,
-      final BiFunction<ControlSignalHandler, String, Message<?>> getter) {
-    return Stream.concat(
-            Stream.of(ControlKey.forNode(workflowId, null, nodeId)),
-            activeKeys().stream().filter(key -> ControlKey.isFor(key, workflowId, nodeId)))
-        .distinct()
-        .map(key -> read(key, getter))
-        .filter(Objects::nonNull)
-        .max(
-            Comparator.comparing(
-                Message::timestamp, Comparator.nullsFirst(Comparator.naturalOrder())))
-        .orElse(null);
-  }
-
   /** The keys every handler holds state for. */
   private List<String> activeKeys() {
     return handlers.stream()
@@ -407,14 +364,17 @@ public class ControlBusService {
   }
 
   /**
-   * List all node IDs in a specific workflow that have emitted heartbeats.
+   * List the node IDs of a workflow that have emitted heartbeats in the given runs.
    *
    * @param workflowId the workflow identifier
-   * @return list of node IDs scoped to the workflow, each once however many runs reported
+   * @param executionIds the runs to look at
+   * @return the node IDs, each once however many runs reported
    */
-  public List<String> getActiveNodes(@NotBlank final String workflowId) {
+  public List<String> getActiveNodes(
+      @NotBlank final String workflowId, final java.util.Collection<String> executionIds) {
     return activeKeys().stream()
         .filter(key -> ControlKey.isIn(key, workflowId))
+        .filter(key -> executionIds.contains(ControlKey.executionId(key)))
         .map(ControlKey::nodeId)
         .distinct()
         .toList();
@@ -452,16 +412,51 @@ public class ControlBusService {
   }
 
   /**
+   * Register a plugin as servicing a node of a run.
+   *
+   * @param workflowId the workflow identifier
+   * @param executionId the run
+   * @param nodeId the node identifier
+   * @param plugin the plugin instance
+   */
+  public void registerPlugin(
+      @NotBlank final String workflowId,
+      @NotBlank final String executionId,
+      @NotBlank final String nodeId,
+      final Plugin plugin) {
+    activePluginRegistry.register(workflowId, executionId, nodeId, plugin);
+  }
+
+  /**
+   * Release a node of a run registered with {@link #registerPlugin(String, String, String,
+   * Plugin)}.
+   *
+   * @param workflowId the workflow identifier
+   * @param executionId the run
+   * @param nodeId the node identifier
+   */
+  public void unregisterPlugin(
+      @NotBlank final String workflowId,
+      @NotBlank final String executionId,
+      @NotBlank final String nodeId) {
+    activePluginRegistry.unregister(workflowId, executionId, nodeId);
+  }
+
+  /**
    * Send a command to a specific node in a workflow and wait for response.
    *
    * @param workflowId the workflow identifier
+   * @param executionId the run the node belongs to
    * @param nodeId the target node identifier
    * @param command the command message
    * @return a Mono of the response message
    */
   public Mono<Message<?>> sendCommand(
-      @NotBlank final String workflowId, @NotBlank final String nodeId, final Message<?> command) {
-    final Plugin plugin = activePluginRegistry.lookup(workflowId, nodeId).orElse(null);
+      @NotBlank final String workflowId,
+      @NotBlank final String executionId,
+      @NotBlank final String nodeId,
+      final Message<?> command) {
+    final Plugin plugin = activePluginRegistry.lookup(workflowId, executionId, nodeId).orElse(null);
     if (plugin == null) {
       log.atWarn()
           .addArgument(nodeId)

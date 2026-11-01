@@ -11,6 +11,7 @@ import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.plugin.core.Plugin;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Mono;
 
 /**
@@ -64,12 +65,20 @@ public interface ControlBusGateway {
   /**
    * Send a command to a specific node in a workflow and wait for response.
    *
+   * @param sessionId the session that owns the workflow
    * @param workflowId the workflow identifier
+   * @param executionId the run, or null when the session has exactly one live run of the workflow
    * @param nodeId the target node identifier
    * @param command the command message
-   * @return a Mono of the response message
+   * @return a Mono of the response message; fails with {@code NotFoundException} if no run matches
+   *     and {@code ConflictException} if several do
    */
-  Mono<Message<?>> sendCommand(String workflowId, String nodeId, Message<?> command);
+  Mono<Message<?>> sendCommand(
+      String sessionId,
+      String workflowId,
+      @Nullable String executionId,
+      String nodeId,
+      Message<?> command);
 
   // --- Configuration & Preparation ---
 
@@ -484,30 +493,37 @@ public interface ControlBusGateway {
   // --- State Queries ---
 
   /**
-   * Get the last heartbeat for a node in a specific workflow.
+   * Get the last heartbeat for a node of a run.
    *
+   * @param sessionId the session that owns the workflow
    * @param workflowId the workflow identifier
+   * @param executionId the run, or null when the session has exactly one live run of the workflow
    * @param nodeId the node identifier
    * @return the last heartbeat message, or null if none
    */
-  Message<?> getLastHeartbeat(String workflowId, String nodeId);
+  @Nullable Message<?> getLastHeartbeat(
+      String sessionId, String workflowId, @Nullable String executionId, String nodeId);
 
   /**
-   * Get the last statistics message for a node in a specific workflow.
+   * Get the last statistics message for a node of a run.
    *
+   * @param sessionId the session that owns the workflow
    * @param workflowId the workflow identifier
+   * @param executionId the run, or null when the session has exactly one live run of the workflow
    * @param nodeId the node identifier
    * @return the last statistics message, or null if none
    */
-  Message<?> getLastStatistics(String workflowId, String nodeId);
+  @Nullable Message<?> getLastStatistics(
+      String sessionId, String workflowId, @Nullable String executionId, String nodeId);
 
   /**
-   * List all node IDs in a specific workflow that have emitted heartbeats.
+   * List the node IDs of a session's workflow that have emitted heartbeats, over its live runs.
    *
+   * @param sessionId the session that owns the workflow
    * @param workflowId the workflow identifier
-   * @return list of node IDs scoped to the workflow
+   * @return list of node IDs scoped to the session's workflow
    */
-  List<String> getActiveNodes(String workflowId);
+  List<String> getActiveNodes(String sessionId, String workflowId);
 
   /**
    * List all node IDs across all workflows that have emitted heartbeats.

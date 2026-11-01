@@ -28,6 +28,7 @@ const ok = (data: unknown) =>
   });
 
 const beat = (workflowId: string, nodeId: string, executionId: string) => ({
+  sessionId: 's1',
   workflowId,
   nodeId,
   executionId,
@@ -38,6 +39,7 @@ let beats: ReturnType<typeof beat>[] = [];
 let beatsFail = false;
 let commandStatus = 200;
 let commandBody: unknown;
+let commandQuery = '';
 let commandReply: unknown = { payload: { done: true } };
 
 const server = setupServer(
@@ -74,6 +76,7 @@ const server = setupServer(
     '/api/control/workflows/:wf/nodes/:node/command',
     async ({ request }) => {
       commandBody = await request.json();
+      commandQuery = new URL(request.url).search;
       return commandStatus === 200
         ? ok(commandReply)
         : HttpResponse.json({ message: 'denied' }, { status: commandStatus });
@@ -175,6 +178,7 @@ describe('ControlPage', () => {
 
     expect(await screen.findByText(/"done": true/)).toBeInTheDocument();
     expect(commandBody).toEqual({ action: 'flush' });
+    expect(commandQuery).toBe('?sessionId=s1&executionId=run-1');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'Find it in the audit log' })

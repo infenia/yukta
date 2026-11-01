@@ -55,6 +55,7 @@ func TestNodesCmd_executesSuccessfully_tableFormat(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = w
 
+	_ = cmd.Flags().Set("session", "s1")
 	err := cmd.RunE(cmd, []string{"workflow-123"})
 
 	w.Close()
@@ -98,6 +99,7 @@ func TestNodesCmd_executesSuccessfully_jsonFormat(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = w
 
+	_ = cmd.Flags().Set("session", "s1")
 	err := cmd.RunE(cmd, []string{"workflow-123"})
 
 	w.Close()
@@ -129,6 +131,7 @@ func TestNodesCmd_handlesApiError(t *testing.T) {
 	c := client.NewClient(server.URL)
 	cmd := NodesCmd(c)
 
+	_ = cmd.Flags().Set("session", "s1")
 	err := cmd.RunE(cmd, []string{"nonexistent"})
 
 	if err == nil {
