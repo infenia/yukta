@@ -5,11 +5,13 @@ package com.infenia.yukta.service.worker;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.NoArgsConstructor;
@@ -120,6 +122,18 @@ class WorkerRegistryTest {
     assertThat(registry.find("w1")).hasValueSatisfying(w -> assertThat(w.freeSlots()).isZero());
     assertThat(new WorkerRegistry(Duration.ofSeconds(1), new SimpleMeterRegistry()).list())
         .isEmpty();
+  }
+
+  @Test
+  void leaseFromSettingsRegistersWorkerThatCanBeFound() {
+    final WorkerRegistry fromSettings =
+        new WorkerRegistry(
+            YuktaSettings.bind(Map.of("yukta.workers.lease", "45s")), new SimpleMeterRegistry());
+
+    fromSettings.register(worker("w1", 2));
+
+    assertThat(fromSettings.find("w1"))
+        .hasValueSatisfying(w -> assertThat(w.freeSlots()).isEqualTo(2));
   }
 
   @Test

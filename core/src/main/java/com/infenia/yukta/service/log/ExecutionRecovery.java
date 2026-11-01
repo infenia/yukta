@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.log;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.ExecutionScheduler;
@@ -18,7 +19,6 @@ import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -59,15 +59,22 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
    *
    * @param store the execution log
    * @param tracker receives the restored runs
-   * @param retainedRuns number of most recent runs kept
+   * @param properties the {@code yukta.execution-log} settings: runs kept
    * @param checkpoints recorded outputs, cleared for runs that are dropped
    */
   @Autowired
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public ExecutionRecovery(
       final ExecutionLogStore store,
       final DefaultTaskTrackerService tracker,
-      @Value("${yukta.execution-log.retained-runs:500}") final int retainedRuns,
+      final YuktaProperties properties,
+      final NodeCheckpointStore checkpoints) {
+    this(store, tracker, properties.executionLog().retainedRuns(), checkpoints);
+  }
+
+  /* default */ ExecutionRecovery(
+      final ExecutionLogStore store,
+      final DefaultTaskTrackerService tracker,
+      final int retainedRuns,
       final NodeCheckpointStore checkpoints) {
     this.store = store;
     this.tracker = tracker;

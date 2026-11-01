@@ -5,6 +5,7 @@ package com.infenia.yukta.service.session;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
+import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
@@ -37,6 +38,7 @@ import reactor.core.publisher.Mono;
 @Service
 @Validated
 @RequiredArgsConstructor
+@SuppressWarnings("PMD.ExcessiveImports")
 public class SessionService {
 
   /** How long a forced delete waits for cancelled runs to end. */
@@ -354,22 +356,15 @@ public class SessionService {
                     .log("Failed to retrieve configuration for session: {}"));
   }
 
-  /**
-   * Map generic configuration map to SessionConfigResponse.
-   *
-   * @param config the configuration map from the store
-   * @return SessionConfigResponse with all fields extracted
-   */
-  @SuppressWarnings("unchecked")
-  private SessionConfigResponse mapToSessionConfigResponse(final Map<String, Object> config) {
+  private SessionConfigResponse mapToSessionConfigResponse(final SessionSnapshot config) {
     return new SessionConfigResponse(
-        (String) config.get("sessionId"),
-        (String) config.get("name"),
-        (String) config.get("description"),
-        (String) config.get("initiator"),
-        (Map<String, String>) config.getOrDefault("tags", Map.of()),
-        (String) config.get("projectPath"),
-        (Map<String, WorkflowDefinition>) config.getOrDefault("workflows", Map.of()));
+        config.sessionId(),
+        config.name(),
+        config.description(),
+        config.initiator(),
+        config.tags(),
+        config.projectPath(),
+        config.workflows());
   }
 
   /**

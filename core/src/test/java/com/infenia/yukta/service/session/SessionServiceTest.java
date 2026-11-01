@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigData;
+import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
@@ -57,6 +58,7 @@ class SessionServiceTest {
   private static final String CONFIG_TAGS = "tags";
   private static final String CONFIG_PROJECT_PATH = "projectPath";
   private static final String CONFIG_WORKFLOWS = "workflows";
+
   private static final String TEST_WORKFLOW = "test-workflow";
   private static final String TEST_ENV = "env";
   private static final String EXEC1 = "exec1";
@@ -75,6 +77,22 @@ class SessionServiceTest {
   @Captor private ArgumentCaptor<WorkflowDefinition> workflowCaptor;
 
   private SessionService sessionService;
+
+  @SuppressWarnings("unchecked")
+  private static SessionSnapshot snapshot(final Map<String, Object> m) {
+    return new SessionSnapshot(
+        (String) m.get(CONFIG_SESSION_ID),
+        (String) m.get(CONFIG_NAME),
+        (String) m.get(CONFIG_DESCRIPTION),
+        (String) m.get(CONFIG_INITIATOR),
+        null,
+        (Map<String, String>) m.getOrDefault(CONFIG_TAGS, Map.of()),
+        (String) m.get(CONFIG_PROJECT_PATH),
+        null,
+        null,
+        null,
+        (Map<String, WorkflowDefinition>) m.getOrDefault(CONFIG_WORKFLOWS, Map.of()));
+  }
 
   @BeforeEach
   void setUp() {
@@ -225,7 +243,7 @@ class SessionServiceTest {
             CONFIG_TAGS, Map.of(),
             CONFIG_PROJECT_PATH, PATH,
             CONFIG_WORKFLOWS, Map.of("w1", workflow));
-    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
+    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(snapshot(configMap)));
 
     // When & Then
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
@@ -460,7 +478,7 @@ class SessionServiceTest {
             PATH,
             CONFIG_WORKFLOWS,
             Map.of("w1", workflow1, "w2", workflow2));
-    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
+    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(snapshot(configMap)));
 
     // When & Then
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
@@ -484,7 +502,7 @@ class SessionServiceTest {
             CONFIG_TAGS, Map.of(TEST_ENV, "test", "team", "backend"),
             CONFIG_PROJECT_PATH, PATH,
             CONFIG_WORKFLOWS, Map.of());
-    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
+    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(snapshot(configMap)));
 
     // When & Then
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
@@ -507,7 +525,7 @@ class SessionServiceTest {
             CONFIG_INITIATOR, INITIATOR,
             CONFIG_PROJECT_PATH, PATH,
             CONFIG_WORKFLOWS, Map.of());
-    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
+    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(snapshot(configMap)));
 
     // When & Then
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
@@ -535,7 +553,7 @@ class SessionServiceTest {
             "/home/user/project",
             CONFIG_WORKFLOWS,
             Map.of("main", workflow));
-    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
+    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(snapshot(configMap)));
 
     // When & Then
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
@@ -564,7 +582,7 @@ class SessionServiceTest {
             CONFIG_TAGS, Map.of(),
             CONFIG_PROJECT_PATH, PATH,
             CONFIG_WORKFLOWS, Map.of("w1", workflow));
-    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
+    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(snapshot(configMap)));
 
     // When & Then: filter passes non-null config through
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
@@ -597,7 +615,7 @@ class SessionServiceTest {
             "/projects/test",
             CONFIG_WORKFLOWS,
             Map.of("workflow-a", workflow1, "workflow-b", workflow2));
-    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
+    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(snapshot(configMap)));
 
     // When & Then
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
@@ -652,8 +670,8 @@ class SessionServiceTest {
             "/path2",
             CONFIG_WORKFLOWS,
             Map.of());
-    when(configService.getAllConfigs("s1")).thenReturn(Mono.just(config1));
-    when(configService.getAllConfigs("s2")).thenReturn(Mono.just(config2));
+    when(configService.getAllConfigs("s1")).thenReturn(Mono.just(snapshot(config1)));
+    when(configService.getAllConfigs("s2")).thenReturn(Mono.just(snapshot(config2)));
 
     // When & Then
     StepVerifier.create(sessionService.getAllSessionConfigs())
@@ -693,7 +711,7 @@ class SessionServiceTest {
             PATH,
             CONFIG_WORKFLOWS,
             Map.of());
-    when(configService.getAllConfigs("s2")).thenReturn(Mono.just(config2));
+    when(configService.getAllConfigs("s2")).thenReturn(Mono.just(snapshot(config2)));
 
     // When & Then: s1 is skipped, s2 is returned
     StepVerifier.create(sessionService.getAllSessionConfigs())
@@ -715,7 +733,7 @@ class SessionServiceTest {
             CONFIG_TAGS, Map.of(),
             CONFIG_PROJECT_PATH, PATH,
             CONFIG_WORKFLOWS, Map.of());
-    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(configMap));
+    when(configService.getAllConfigs(sessionId)).thenReturn(Mono.just(snapshot(configMap)));
 
     // When & Then
     StepVerifier.create(sessionService.getSessionConfig(sessionId))

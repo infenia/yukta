@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
@@ -34,7 +35,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.BufferOverflowStrategy;
@@ -123,6 +123,35 @@ public class SupervisorHost {
    * @param dispatcher applies the commands
    * @param executionLog records commands that were not applied
    * @param meters registry for the command counter
+   * @param properties the {@code yukta.supervisor} settings
+   */
+  @Autowired
+  public SupervisorHost(
+      final ObjectProvider<ExecutionSupervisor> supervisors,
+      final ExecutionEventFeed feed,
+      final DirectiveDispatcher dispatcher,
+      final ExecutionLogStore executionLog,
+      final MeterRegistry meters,
+      final YuktaProperties properties) {
+    this(
+        supervisors,
+        feed,
+        dispatcher,
+        executionLog,
+        meters,
+        properties.supervisor().dryRun(),
+        properties.supervisor().maxCommandsPerSecond(),
+        properties.supervisor().bufferSize());
+  }
+
+  /**
+   * Creates the host with explicit limits.
+   *
+   * @param supervisors the supervisors to host
+   * @param feed the event feed
+   * @param dispatcher applies the commands
+   * @param executionLog the execution log
+   * @param meters registry for the command counter
    * @param dryRun only record commands instead of applying them
    * @param maxCommandsPerSecond most commands one supervisor may issue per second
    * @param bufferSize events a supervisor may have waiting before events are dropped for it
@@ -134,9 +163,9 @@ public class SupervisorHost {
       final DirectiveDispatcher dispatcher,
       final ExecutionLogStore executionLog,
       final MeterRegistry meters,
-      @Value("${yukta.supervisor.dry-run:false}") final boolean dryRun,
-      @Value("${yukta.supervisor.max-commands-per-second:20}") final int maxCommandsPerSecond,
-      @Value("${yukta.supervisor.buffer-size:10000}") final int bufferSize) {
+      final boolean dryRun,
+      final int maxCommandsPerSecond,
+      final int bufferSize) {
     this.bufferSize = bufferSize;
     this.supervisors = supervisors;
     this.feed = feed;

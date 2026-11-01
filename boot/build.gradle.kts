@@ -112,7 +112,7 @@ dependencies {
 tasks.withType<Test>().configureEach {
     providers.gradleProperty("yukta.persistence").orNull?.let { systemProperty("yukta.persistence", it) }
     providers.gradleProperty("yukta.edition").orNull?.let { systemProperty("yukta.edition", it) }
-    providers.gradleProperty("yukta.workers").orNull?.let { systemProperty("yukta.workers", it) }
+    providers.gradleProperty("yukta.workers").orNull?.let { systemProperty("yukta.build.workers", it) }
     // BoundaryFuzzAcceptanceTest: -PfuzzTries=<cases per entry point>, -PfuzzSeed=<number>|random (nightly)
     providers.gradleProperty("fuzzTries").orNull?.let { systemProperty("yukta.fuzz.tries", it) }
     providers.gradleProperty("fuzzSeed").orNull?.let { systemProperty("yukta.fuzz.seed", it) }

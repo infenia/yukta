@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.security.CallRateLimiter;
 import com.infenia.yukta.service.leader.LeaderElection;
@@ -21,7 +22,6 @@ import java.util.concurrent.atomic.LongAdder;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -113,7 +113,6 @@ public class ExecutionScheduler implements SmartLifecycle {
   private int runningTotal;
 
   /** Most child runs (sub-workflows) alive at once, apart from the slots; 0 means unlimited. */
-  @Value("${yukta.execution.max-concurrent-children:0}")
   private int maxChildren;
 
   /** Child runs alive now. */
@@ -140,16 +139,15 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @param maxPerSession per-session limit, 0 for none
    * @param workflowQueueCapacity how many starts of one workflow may wait, 0 for no extra limit
    */
-  @Autowired
   public ExecutionScheduler(
-      @Value("${yukta.execution.max-concurrent:0}") final int maxConcurrent,
-      @Value("${yukta.execution.max-concurrent-per-workflow:0}") final int maxPerWorkflow,
-      @Value("${yukta.execution.queue-capacity:100}") final int queueCapacity,
-      @Value("${yukta.execution.on-limit:QUEUE}") final OnLimit onLimit,
-      @Value("${yukta.execution.shutdown-timeout:30s}") final Duration shutdownTimeout,
-      @Value("${yukta.execution.queue-timeout:0}") final Duration queueTimeout,
-      @Value("${yukta.execution.max-concurrent-per-session:0}") final int maxPerSession,
-      @Value("${yukta.execution.queue-capacity-per-workflow:0}") final int workflowQueueCapacity) {
+      final int maxConcurrent,
+      final int maxPerWorkflow,
+      final int queueCapacity,
+      final OnLimit onLimit,
+      final Duration shutdownTimeout,
+      final Duration queueTimeout,
+      final int maxPerSession,
+      final int workflowQueueCapacity) {
     this.maxPerSession = Math.max(0, maxPerSession);
     this.workflowQueueCapacity = Math.max(0, workflowQueueCapacity);
     this.maxConcurrent = Math.max(0, maxConcurrent);
@@ -158,6 +156,26 @@ public class ExecutionScheduler implements SmartLifecycle {
     this.onLimit = onLimit;
     this.shutdownTimeout = shutdownTimeout;
     this.queueTimeout = queueTimeout;
+  }
+
+  /**
+   * Creates the scheduler from the {@code yukta.execution} settings.
+   *
+   * @param properties the settings
+   */
+  @Autowired
+  public ExecutionScheduler(final YuktaProperties properties) {
+    this(
+        properties.execution().maxConcurrent(),
+        properties.execution().maxConcurrentPerWorkflow(),
+        properties.execution().queueCapacity(),
+        properties.execution().onLimit(),
+        properties.execution().shutdownTimeout(),
+        properties.execution().queueTimeout(),
+        properties.execution().maxConcurrentPerSession(),
+        properties.execution().queueCapacityPerWorkflow());
+    this.maxChildren = properties.execution().maxConcurrentChildren();
+    this.startRate = new CallRateLimiter(properties.execution().maxStartsPerMinute());
   }
 
   /**
@@ -526,9 +544,7 @@ public class ExecutionScheduler implements SmartLifecycle {
    *
    * @param perMinute starts per workflow and minute, 0 for no limit
    */
-  @Autowired
-  public void setMaxStartsPerMinute(
-      @Value("${yukta.execution.max-starts-per-minute:0}") final int perMinute) {
+  public void setMaxStartsPerMinute(final int perMinute) {
     this.startRate = new CallRateLimiter(perMinute);
   }
 

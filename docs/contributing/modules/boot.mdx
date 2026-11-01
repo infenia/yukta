@@ -229,7 +229,7 @@ Serves the React app from the ui jar and makes client-side routes work.
 
 Writes down a handful of engine settings so they are visible and changeable without code.
 
-- control.bus.batch.size 100 and control.bus.batch.timeout.ms 50: the control bus collects up to 100 commands, or waits at most 50 ms, before processing a batch. control.bus.buffer.size 256 is its internal buffer. The code uses the same numbers as its built-in defaults.
+- yukta.control-bus.batch-size 100 and yukta.control-bus.batch-timeout 50ms (the old control.bus.* names still work for one release): the control bus collects up to 100 commands, or waits at most 50 ms, before processing a batch. yukta.control-bus.buffer-size 256 is its internal buffer. The code uses the same numbers as its built-in defaults.
 - yukta.tracker.cleanup-ttl 10m: how long a finished run's data stays in the tracker. yukta.streaming.status-history-ttl-minutes 5: how long recent progress is kept for late subscribers (the code accepts 1 to 30).
 - yukta.session.execution-timeout-seconds 3600, yukta.session.store-type in-memory, and the two sub-directory names file-log-sub-dir (modified-files) and result-log-sub-dir (results).
 - yukta.logs.store.backend memory with a 30-minute default retention (the comment says the maximum is 1440 minutes, 24 hours). Only the memory store is registered today, although the comment says memory | file.
@@ -240,7 +240,7 @@ Writes down a handful of engine settings so they are visible and changeable with
 - **Ceiling.** Because they are only defaults, a deployment that needs limits, a durable log or file stores must add keys of its own; boot does not provide a production profile for state.
 - **On failure.** A wrongly typed value stops start-up. A key that nothing reads, such as one left over after a rename, is silently ignored.
 
-**Settings:** `control.bus.batch.size / batch.timeout.ms / buffer.size`, `yukta.tracker.cleanup-ttl`, `yukta.streaming.status-history-ttl-minutes`, `yukta.session.*`, `yukta.logs.store.*`
+**Settings:** `yukta.control-bus.*`, `yukta.tracker.cleanup-ttl`, `yukta.streaming.status-history-ttl-minutes`, `yukta.session.*`, `yukta.logs.store.*`
 
 ### Management Surface
 

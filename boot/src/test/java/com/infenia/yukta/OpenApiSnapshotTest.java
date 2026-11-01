@@ -29,7 +29,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @DisabledIfSystemProperty(named = "yukta.edition", matches = ".+")
 @DisabledIfSystemProperty(named = "yukta.persistence", matches = ".+")
-@DisabledIfSystemProperty(named = "yukta.workers", matches = ".+")
+@DisabledIfSystemProperty(named = "yukta.build.workers", matches = ".+")
 @DisabledIfSystemProperty(named = "yukta.plugins", matches = ".+")
 @DisabledInAotMode
 @SpringBootTest(

@@ -5,6 +5,7 @@ package com.infenia.yukta.service.control.gateway;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Ticker;
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import java.time.Duration;
@@ -14,7 +15,6 @@ import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -43,15 +43,26 @@ public class StartIdempotency implements SmartInitializingSingleton {
   /**
    * Creates the registry.
    *
+   * @param properties the {@code yukta.start} settings: key lifetime and most keys remembered
+   * @param log the execution log, which keeps keys across a restart when it is on disk
+   */
+  @Autowired
+  public StartIdempotency(final YuktaProperties properties, final ExecutionLogStore log) {
+    this(
+        properties.start().idempotencyTtl(),
+        Ticker.systemTicker(),
+        log,
+        properties.start().idempotencyMaxKeys());
+  }
+
+  /**
+   * Creates the registry.
+   *
    * @param ttl how long a key remembers its execution
    * @param log the execution log, which keeps keys across a restart when it is on disk
    * @param maxKeys most keys remembered; a key evicted before its TTL lets a repeat start again
    */
-  @Autowired
-  public StartIdempotency(
-      @Value("${yukta.start.idempotency-ttl:10m}") final Duration ttl,
-      final ExecutionLogStore log,
-      @Value("${yukta.start.idempotency-max-keys:100000}") final long maxKeys) {
+  public StartIdempotency(final Duration ttl, final ExecutionLogStore log, final long maxKeys) {
     this(ttl, Ticker.systemTicker(), log, maxKeys);
   }
 
