@@ -91,10 +91,7 @@ public class ExecutionResumer {
   private Mono<String> doResume(final String executionId) {
     return Mono.defer(
         () -> {
-          final List<ExecutionLogEvent> events =
-              executionLog.readAll().stream()
-                  .filter(event -> event.executionId().equals(executionId))
-                  .toList();
+          final List<ExecutionLogEvent> events = executionLog.forExecution(executionId);
           final ExecutionLogEvent started = first(events, ExecutionLogEvent.Type.RUN_STARTED);
           if (started == null) {
             return Mono.error(new NotFoundException("Execution not found: " + executionId));
