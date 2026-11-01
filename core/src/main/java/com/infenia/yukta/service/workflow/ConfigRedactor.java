@@ -119,33 +119,6 @@ public class ConfigRedactor {
     return found;
   }
 
-  /**
-   * Tells whether a node config holds a credential, as a literal or as a reference: a field the
-   * plugin declares as secret, or a key at any depth whose name says it holds one.
-   *
-   * @param schema the config fields of the node's plugin
-   * @param config the node config
-   * @return true if the node handles a secret
-   */
-  public static boolean hasSecretConfig(
-      final List<ConfigField> schema, final Map<String, Object> config) {
-    final Set<String> declared =
-        schema.stream()
-            .filter(field -> field.type() == ConfigField.Type.SECRET)
-            .map(ConfigField::name)
-            .collect(Collectors.toSet());
-    return config.keySet().stream().anyMatch(declared::contains) || hasSecretKey(config);
-  }
-
-  private static boolean hasSecretKey(final Object value) {
-    if (value instanceof final Map<?, ?> map) {
-      return map.entrySet().stream()
-          .anyMatch(e -> isSecretName(String.valueOf(e.getKey())) || hasSecretKey(e.getValue()));
-    }
-    return value instanceof final List<?> list
-        && list.stream().anyMatch(ConfigRedactor::hasSecretKey);
-  }
-
   private static void collectLiterals(
       final String path, final Object value, final boolean secret, final List<String> found) {
     if (value instanceof final Map<?, ?> map) {
@@ -211,7 +184,7 @@ public class ConfigRedactor {
     }
   }
 
-  private static boolean isSecretName(final String key) {
+  /* default */ static boolean isSecretName(final String key) {
     return SECRET_NAME.matcher(key).matches();
   }
 
