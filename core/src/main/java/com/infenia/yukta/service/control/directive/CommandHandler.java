@@ -67,12 +67,17 @@ public class CommandHandler {
       case ExecutionControlCommand.StepNodeCommand c -> stepNode.process(c);
       case ExecutionControlCommand.SetBreakpointCommand c -> setBreakpoint.process(c);
       case ExecutionControlCommand.SignalNodeCommand c -> signalNode.process(c);
-      // Reviewed by supervisors like any command, but nothing runs for them here.
-      case ExecutionControlCommand.SetLimitsCommand _,
-          ExecutionControlCommand.SetPriorityCommand _,
-          ExecutionControlCommand.AnswerInputCommand _,
-          ExecutionControlCommand.EscalateInputCommand _ ->
-          Mono.error(new IllegalArgumentException("No processor registered for command"));
+      // Reviewed by supervisors like any command, but nothing runs for them here. Each one has its
+      // own arm: a combined arm compiles to a chain of type tests that has a branch no command can
+      // reach.
+      case ExecutionControlCommand.SetLimitsCommand _ -> noProcessor();
+      case ExecutionControlCommand.SetPriorityCommand _ -> noProcessor();
+      case ExecutionControlCommand.AnswerInputCommand _ -> noProcessor();
+      case ExecutionControlCommand.EscalateInputCommand _ -> noProcessor();
     };
+  }
+
+  private static Mono<Void> noProcessor() {
+    return Mono.error(new IllegalArgumentException("No processor registered for command"));
   }
 }
