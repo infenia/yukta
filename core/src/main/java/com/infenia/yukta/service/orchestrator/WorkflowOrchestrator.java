@@ -177,38 +177,41 @@ public class WorkflowOrchestrator {
 
     // Registering, archiving and logging the start happen on subscription: a Mono that is never
     // subscribed leaves no registered control and no checkpoints to clear behind it.
-    return Mono.defer(
-        () -> {
-          log.atInfo()
-              .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
-              .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-              .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-              .addKeyValue(LOG_KEY_NODE_COUNT, prepared.topologicalOrder().size())
-              .log("Starting workflow execution");
+    return releasing(
+        Mono.defer(
+            () -> {
+              log.atInfo()
+                  .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
+                  .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+                  .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                  .addKeyValue(LOG_KEY_NODE_COUNT, prepared.topologicalOrder().size())
+                  .log("Starting workflow execution");
 
-          final ExecutionControl control =
-              executionControlFactory.create(sessionId, workflowId, executionId, prepared, payload);
-          executionControlRegistry.register(control);
-          log.atDebug()
-              .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-              .log("Registered execution control");
+              final ExecutionControl control =
+                  executionControlFactory.create(
+                      sessionId, workflowId, executionId, prepared, payload);
+              executionControlRegistry.register(control);
+              log.atDebug()
+                  .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                  .log("Registered execution control");
 
-          archive(executionId, sessionId, workflowId, prepared, payload);
+              archive(executionId, sessionId, workflowId, prepared, payload);
 
-          final List<String> nodeIds =
-              prepared.topologicalOrder().stream().map(WorkflowNode::nodeId).toList();
+              final List<String> nodeIds =
+                  prepared.topologicalOrder().stream().map(WorkflowNode::nodeId).toList();
 
-          return runTracked(
-              control,
-              sessionId,
-              workflowId,
-              executionId,
-              nodeIds,
-              ExecutionScheduler.priorityOf(payload),
-              admission,
-              prepared.template().instantiate(executionId, payload),
-              new Origin("Workflow execution", null));
-        });
+              return runTracked(
+                  control,
+                  sessionId,
+                  workflowId,
+                  executionId,
+                  nodeIds,
+                  ExecutionScheduler.priorityOf(payload),
+                  admission,
+                  prepared.template().instantiate(executionId, payload),
+                  new Origin("Workflow execution", null));
+            }),
+        admission);
   }
 
   /**
@@ -362,57 +365,61 @@ public class WorkflowOrchestrator {
     final List<String> nodeIds = topologicalOrder.stream().map(WorkflowNode::nodeId).toList();
 
     // Registering and archiving happen on subscription, so an unsubscribed Mono leaks nothing.
-    return Mono.defer(
-        () -> {
-          final ExecutionControl control =
-              executionControlFactory.create(
-                  sessionId, workflowId, newExecutionId, prepared, payload);
-          executionControlRegistry.register(control);
-          archive(newExecutionId, sessionId, workflowId, prepared, payload);
-          log.atDebug()
-              .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
-              .log("Registered execution control for restarted workflow");
+    return releasing(
+        Mono.defer(
+            () -> {
+              final ExecutionControl control =
+                  executionControlFactory.create(
+                      sessionId, workflowId, newExecutionId, prepared, payload);
+              executionControlRegistry.register(control);
+              archive(newExecutionId, sessionId, workflowId, prepared, payload);
+              log.atDebug()
+                  .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
+                  .log("Registered execution control for restarted workflow");
 
-          // Record the replayed input under the new execution, so it can be restarted in turn.
-          final Mono<Void> recordReplayed =
-              Flux.fromIterable(boundaryOutputs.entrySet())
-                  .concatMap(
-                      entry ->
-                          Flux.fromIterable(entry.getValue())
-                              .concatMap(
-                                  message ->
-                                      checkpointStore.save(newExecutionId, entry.getKey(), message))
-                              // The replayed output is complete, so a resume of this run need not
-                              // run the node again.
-                              .then(
-                                  Mono.defer(
-                                          () ->
-                                              checkpointStore.markComplete(
-                                                  newExecutionId, entry.getKey()))
-                                      .onErrorResume(_ -> Mono.empty())))
-                  .then();
+              // Record the replayed input under the new execution, so it can be restarted in turn.
+              final Mono<Void> recordReplayed =
+                  Flux.fromIterable(boundaryOutputs.entrySet())
+                      .concatMap(
+                          entry ->
+                              Flux.fromIterable(entry.getValue())
+                                  .concatMap(
+                                      message ->
+                                          checkpointStore.save(
+                                              newExecutionId, entry.getKey(), message))
+                                  // The replayed output is complete, so a resume of this run need
+                                  // not
+                                  // run the node again.
+                                  .then(
+                                      Mono.defer(
+                                              () ->
+                                                  checkpointStore.markComplete(
+                                                      newExecutionId, entry.getKey()))
+                                          .onErrorResume(_ -> Mono.empty())))
+                      .then();
 
-          return runTracked(
-              control,
-              sessionId,
-              workflowId,
-              newExecutionId,
-              nodeIds,
-              ExecutionScheduler.priorityOf(payload),
-              admission,
-              recordReplayed.then(
-                  Mono.defer(
-                      () ->
-                          compiler.executeTemplate(
-                              newExecutionId,
-                              payload,
-                              nodeCount,
-                              assemblers,
-                              sessionId,
-                              workflowId,
-                              nodeIds))),
-              new Origin("RestartFromNode execution", previousExecutionId));
-        });
+              return runTracked(
+                  control,
+                  sessionId,
+                  workflowId,
+                  newExecutionId,
+                  nodeIds,
+                  ExecutionScheduler.priorityOf(payload),
+                  admission,
+                  recordReplayed.then(
+                      Mono.defer(
+                          () ->
+                              compiler.executeTemplate(
+                                  newExecutionId,
+                                  payload,
+                                  nodeCount,
+                                  assemblers,
+                                  sessionId,
+                                  workflowId,
+                                  nodeIds))),
+                  new Origin("RestartFromNode execution", previousExecutionId));
+            }),
+        admission);
   }
 
   /** Waits for an execution slot, showing the run as QUEUED while it has to wait. */
@@ -428,6 +435,7 @@ public class WorkflowOrchestrator {
               reserved != null
                   ? reserved
                   : scheduler.acquire(sessionId, workflowId, priority, executionId);
+          // A refused admission is always immediate, so its permit errors without a wait.
           if (admission.immediate()) {
             return admission.permit();
           }
@@ -465,8 +473,14 @@ public class WorkflowOrchestrator {
   /** A slot asked for in advance is released when the run fails before it could use it. */
   private static void giveBack(final ExecutionScheduler.@Nullable Admission reserved) {
     if (reserved != null) {
-      reserved.permit().subscribe(ExecutionScheduler.Permit::release, _ -> {});
+      reserved.giveBack();
     }
+  }
+
+  /** Gives the reserved slot back if the run fails or is cancelled at any point, once only. */
+  private static Mono<Void> releasing(
+      final Mono<Void> run, final ExecutionScheduler.@Nullable Admission reserved) {
+    return run.doOnError(_ -> giveBack(reserved)).doOnCancel(() -> giveBack(reserved));
   }
 
   /**
@@ -519,7 +533,6 @@ public class WorkflowOrchestrator {
     final Mono<Void> execution =
         tracker
             .startWorkflow(executionId, sessionId, workflowId, nodeIds)
-            .doOnError(_ -> giveBack(reserved))
             .doOnSuccess(
                 _ -> {
                   // a sub-workflow names its parent in its start payload (see SubWorkflowRunner)
