@@ -8,7 +8,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings({"PMD.UnnecessaryFullyQualifiedName", "PMD.UnusedLocalVariable"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.UnnecessaryFullyQualifiedName",
+  "PMD.UnusedLocalVariable",
+  "PMD.UseConcurrentHashMap"
+})
 class ExecutionControlCommandTest {
 
   @Test
@@ -23,6 +28,88 @@ class ExecutionControlCommandTest {
     assertThat(new ExecutionControlCommand.SetLimitsCommand(2, 1).executionId())
         .isEqualTo(ExecutionControlCommand.SCHEDULER);
     assertThat(new ExecutionControlCommand.SetPriorityCommand("e", 3).executionId()).isEqualTo("e");
+  }
+
+  @Test
+  void answerInputIsValidatedAndCopied() {
+    final java.util.Map<String, Object> data = new java.util.HashMap<>();
+    data.put("a", null);
+    final ExecutionControlCommand.AnswerInputCommand answer =
+        new ExecutionControlCommand.AnswerInputCommand(
+            "e", "r", 3L, "approve", "fine", data, "policy", 0.9);
+    data.put("b", 1);
+    assertThat(answer.data()).containsOnlyKeys("a");
+    assertThat(answer.executionId()).isEqualTo("e");
+    assertThat(
+            new ExecutionControlCommand.AnswerInputCommand(
+                    "e", "r", null, "approve", null, null, null, null)
+                .data())
+        .isEmpty();
+    assertThatThrownBy(
+            () ->
+                new ExecutionControlCommand.AnswerInputCommand(
+                    "e", " ", null, "approve", null, null, null, null))
+        .hasMessage("requestId must not be blank");
+    assertThatThrownBy(
+            () ->
+                new ExecutionControlCommand.AnswerInputCommand(
+                    " ", "r", null, "approve", null, null, null, null))
+        .hasMessage("executionId must not be blank");
+    assertThatThrownBy(
+            () ->
+                new ExecutionControlCommand.AnswerInputCommand(
+                    "e", "r", -1L, "approve", null, null, null, null))
+        .hasMessage("expectedVersion must not be negative");
+    assertThatThrownBy(
+            () ->
+                new ExecutionControlCommand.AnswerInputCommand(
+                    "e", "r", null, " ", null, null, null, null))
+        .hasMessage("decision must not be blank");
+    assertThatThrownBy(
+            () ->
+                new ExecutionControlCommand.AnswerInputCommand(
+                    "e", "r", null, "a", "x".repeat(9000), null, null, null))
+        .hasMessage("text is longer than 8192 bytes");
+    assertThatThrownBy(
+            () ->
+                new ExecutionControlCommand.AnswerInputCommand(
+                    "e",
+                    "r",
+                    null,
+                    "a",
+                    null,
+                    java.util.Map.of("k", "x".repeat(17_000)),
+                    null,
+                    null))
+        .hasMessage("data is longer than 16384 bytes");
+    assertThatThrownBy(
+            () ->
+                new ExecutionControlCommand.AnswerInputCommand(
+                    "e", "r", null, "a", null, null, "x".repeat(9000), null))
+        .hasMessage("rationale is longer than 8192 bytes");
+    assertThatThrownBy(
+            () ->
+                new ExecutionControlCommand.AnswerInputCommand(
+                    "e", "r", null, "a", null, null, null, 1.5))
+        .hasMessage("confidence must be between 0 and 1");
+  }
+
+  @Test
+  void escalateInputIsValidated() {
+    final ExecutionControlCommand.EscalateInputCommand escalate =
+        new ExecutionControlCommand.EscalateInputCommand("e", "r", "unsure", "approve, maybe");
+    assertThat(escalate.advice()).isEqualTo("approve, maybe");
+    assertThat(new ExecutionControlCommand.EscalateInputCommand("e", "r", "unsure", null).advice())
+        .isNull();
+    assertThatThrownBy(() -> new ExecutionControlCommand.EscalateInputCommand("e", "r", " ", null))
+        .hasMessage("reason must not be blank");
+    assertThatThrownBy(() -> new ExecutionControlCommand.EscalateInputCommand("e", " ", "x", null))
+        .hasMessage("requestId must not be blank");
+    assertThatThrownBy(() -> new ExecutionControlCommand.EscalateInputCommand(" ", "r", "x", null))
+        .hasMessage("executionId must not be blank");
+    assertThatThrownBy(
+            () -> new ExecutionControlCommand.EscalateInputCommand("e", "r", "x", "y".repeat(9000)))
+        .hasMessage("advice is longer than 8192 bytes");
   }
 
   @Test
@@ -47,6 +134,8 @@ class ExecutionControlCommandTest {
           case ExecutionControlCommand.SignalNodeCommand _ -> "signal";
           case ExecutionControlCommand.SetLimitsCommand c -> "limits-" + c.maxConcurrent();
           case ExecutionControlCommand.SetPriorityCommand c -> "priority-" + c.priority();
+          case ExecutionControlCommand.AnswerInputCommand c -> "answer-" + c.requestId();
+          case ExecutionControlCommand.EscalateInputCommand c -> "escalate-" + c.requestId();
         };
 
     assertThat(kind).isEqualTo("pause-node");

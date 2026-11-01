@@ -37,6 +37,11 @@ public enum EventSeverity {
       case ExecutionEvent.ControlOutcome control -> control.applied() ? INFO : WARN;
       case ExecutionEvent.LogLine log -> ofLevel(log.level());
       case ExecutionEvent.EventsMissed _ -> WARN;
+      case ExecutionEvent.InputRequested _ -> INFO;
+      case ExecutionEvent.InputAnswered _ -> INFO;
+      case ExecutionEvent.InputCancelled _ -> INFO;
+      case ExecutionEvent.InputEscalated _ -> WARN;
+      case ExecutionEvent.InputExpired _ -> WARN;
     };
   }
 

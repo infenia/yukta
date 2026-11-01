@@ -75,4 +75,62 @@ class EventSeverityTest {
   void parse_acceptsAnyCase(final String name, final EventSeverity expected) {
     assertThat(EventSeverity.parse(name)).isEqualTo(expected);
   }
+
+  @Test
+  void inputEvents_areRatedByHowMuchTheyNeedPeople() {
+    final var spec =
+        new com.infenia.yukta.plugin.input.InputRequestSpec(
+            "k",
+            com.infenia.yukta.plugin.input.InputKind.TEXT,
+            "p",
+            Map.of(),
+            java.util.List.of(),
+            null,
+            com.infenia.yukta.plugin.input.InputRisk.LOW,
+            com.infenia.yukta.plugin.input.Audience.CURRENT_TIER,
+            java.time.Duration.ofMinutes(1),
+            com.infenia.yukta.plugin.input.TimeoutAction.FAIL,
+            null,
+            null,
+            "X");
+    final var request =
+        new com.infenia.yukta.plugin.input.InputRequest(
+            "r",
+            "k",
+            "s",
+            "w",
+            "e",
+            "n",
+            spec,
+            com.infenia.yukta.plugin.input.InputState.OPEN,
+            0,
+            "t",
+            java.util.List.of(),
+            null,
+            null,
+            NOW,
+            NOW);
+
+    assertThat(EventSeverity.of(new ExecutionEvent.InputRequested(request, NOW)))
+        .isEqualTo(EventSeverity.INFO);
+    assertThat(
+            EventSeverity.of(
+                new ExecutionEvent.InputAnswered(
+                    "e",
+                    "s",
+                    "w",
+                    "r",
+                    com.infenia.yukta.plugin.input.Responder.SYSTEM,
+                    "approve",
+                    NOW)))
+        .isEqualTo(EventSeverity.INFO);
+    assertThat(
+            EventSeverity.of(
+                new ExecutionEvent.InputCancelled("e", "s", "w", "r", "run-ended", NOW)))
+        .isEqualTo(EventSeverity.INFO);
+    assertThat(EventSeverity.of(new ExecutionEvent.InputEscalated(request, "tier timeout", NOW)))
+        .isEqualTo(EventSeverity.WARN);
+    assertThat(EventSeverity.of(new ExecutionEvent.InputExpired("e", "s", "w", "r", NOW)))
+        .isEqualTo(EventSeverity.WARN);
+  }
 }

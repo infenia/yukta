@@ -29,7 +29,12 @@ import reactor.core.publisher.Flux;
   ExecutionEvent.WorkflowStatusChanged.class,
   ExecutionEvent.ControlOutcome.class,
   ExecutionEvent.LogLine.class,
-  ExecutionEvent.EventsMissed.class
+  ExecutionEvent.EventsMissed.class,
+  ExecutionEvent.InputRequested.class,
+  ExecutionEvent.InputEscalated.class,
+  ExecutionEvent.InputAnswered.class,
+  ExecutionEvent.InputExpired.class,
+  ExecutionEvent.InputCancelled.class
 })
 public class EventsController {
 
