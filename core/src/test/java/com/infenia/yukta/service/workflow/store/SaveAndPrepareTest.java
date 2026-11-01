@@ -118,7 +118,7 @@ class SaveAndPrepareTest {
   }
 
   @Test
-  void aFailedApply_doesNotUndoAConcurrentApply() throws Exception {
+  void failedApplyDoesNotUndoConcurrentApply() throws Exception {
     store.save(SESSION, definition("old")).block();
     final reactor.core.publisher.Sinks.Empty<Void> gate = reactor.core.publisher.Sinks.empty();
     final WorkflowDefinition second = definition("second");

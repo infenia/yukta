@@ -132,20 +132,10 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
    * @return the ids of the runs that were interrupted and are now marked aborted
    */
   public List<String> recover() {
-    final Map<String, List<ExecutionLogEvent>> byRun = new LinkedHashMap<>();
-    final List<ExecutionLogEvent> scheduler = new ArrayList<>();
-    for (final ExecutionLogEvent event : store.readAll()) {
-      if (ExecutionLogEvent.SCHEDULER.equals(event.executionId())) {
-        scheduler.add(event);
-      } else {
-        // Re-inserted on every event, so runs are ordered by their last activity: a long run
-        // that was still going is newer than the short ones that started after it.
-        final List<ExecutionLogEvent> run = byRun.remove(event.executionId());
-        final List<ExecutionLogEvent> events = run == null ? new ArrayList<>() : run;
-        events.add(event);
-        byRun.put(event.executionId(), events);
-      }
-    }
+    final List<ExecutionLogEvent> all = store.readAll();
+    final List<ExecutionLogEvent> scheduler =
+        all.stream().filter(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId())).toList();
+    final Map<String, List<ExecutionLogEvent>> byRun = byRun(all);
 
     restoreLimits(scheduler);
     // Changes that belong to no run are not runs: they stay, the newest few.
@@ -187,6 +177,24 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
         .log("Recovered execution history");
     afterRecovery.accept(abortedIds);
     return abortedIds;
+  }
+
+  /**
+   * Groups the events of each run, ordered by the run's last activity: a run is re-inserted on
+   * every event, so a long run that was still going is newer than the short ones that started after
+   * it. Scheduler changes belong to no run and are left out.
+   */
+  private static Map<String, List<ExecutionLogEvent>> byRun(final List<ExecutionLogEvent> events) {
+    final Map<String, List<ExecutionLogEvent>> byRun = new LinkedHashMap<>();
+    for (final ExecutionLogEvent event : events) {
+      if (!ExecutionLogEvent.SCHEDULER.equals(event.executionId())) {
+        final List<ExecutionLogEvent> run = byRun.remove(event.executionId());
+        final List<ExecutionLogEvent> runEvents = run == null ? new ArrayList<>() : run;
+        runEvents.add(event);
+        byRun.put(event.executionId(), runEvents);
+      }
+    }
+    return byRun;
   }
 
   /**
