@@ -14,9 +14,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +50,9 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   /** Suffix of the file holding a node's messages. */
   private static final String MESSAGES = ".jsonl";
+
+  /** Start of the first line of a messages file, which holds the encoded node id. */
+  private static final String HEADER = "#node ";
 
   /** Suffix of the marker left when a node's output could not be recorded completely. */
   private static final String INCOMPLETE = ".incomplete";
@@ -208,7 +214,8 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
     try (var paths = Files.walk(dir)) {
       for (final Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
         if (path.toString().endsWith(MESSAGES)) {
-          held.addAndGet(-Math.min(held.get(), Files.size(path)));
+          final long size = Files.size(path);
+          held.updateAndGet(h -> Math.max(0, h - size));
         }
         Files.deleteIfExists(path);
       }
@@ -224,10 +231,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   private void write(final String executionId, final String nodeId, final Message<?> message) {
     try {
-      final byte[] line =
-          (CheckpointJson.write(mapper, message) + "\n").getBytes(StandardCharsets.UTF_8);
-      // One write call per line on an O_APPEND channel: lines of concurrent writers stay whole.
-      final ByteBuffer buffer = ByteBuffer.wrap(line);
+      final String json = CheckpointJson.write(mapper, message) + "\n";
       if (cleared.contains(executionId)) {
         log.atDebug()
             .addKeyValue(EXECUTION_ID, executionId)
@@ -236,17 +240,26 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
         return;
       }
       Files.createDirectories(dir(executionId));
+      final long written;
       // Opened per message and closed at once: open descriptors must not grow with runs x nodes.
       try (var channel =
           FileChannel.open(
               file(executionId, nodeId, MESSAGES),
               StandardOpenOption.CREATE,
               StandardOpenOption.APPEND)) {
+        // The file name is a hash, so the first write leaves the id in a header line (a racing
+        // second header is harmless: readers skip every header).
+        final byte[] line =
+            ((channel.size() == 0 ? HEADER + encode(nodeId) + "\n" : "") + json)
+                .getBytes(StandardCharsets.UTF_8);
+        // One write call per line on an O_APPEND channel: lines of concurrent writers stay whole.
+        final ByteBuffer buffer = ByteBuffer.wrap(line);
+        written = line.length;
         while (buffer.hasRemaining()) {
           channel.write(buffer);
         }
       }
-      held.addAndGet(line.length);
+      held.addAndGet(written);
     } catch (final IOException | RuntimeException e) {
       log.atWarn()
           .addKeyValue(EXECUTION_ID, executionId)
@@ -274,7 +287,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
     try {
       final List<Message<?>> messages = new ArrayList<>();
       for (final String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
-        if (!line.isBlank()) {
+        if (!line.isBlank() && !line.startsWith(HEADER)) {
           messages.add(CheckpointJson.read(mapper, line));
         }
       }
@@ -292,7 +305,18 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   }
 
   private Path file(final String executionId, final String nodeId, final String suffix) {
-    return dir(executionId).resolve(encode(nodeId) + suffix);
+    return dir(executionId).resolve(fileName(nodeId) + suffix);
+  }
+
+  /** Hash of the id: a fixed length, and distinct on case-insensitive file systems (hex). */
+  /* default */ static String fileName(final String nodeId) {
+    try {
+      return HexFormat.of()
+          .formatHex(
+              MessageDigest.getInstance("SHA-256").digest(nodeId.getBytes(StandardCharsets.UTF_8)));
+    } catch (final NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   /** Ids come from user definitions, so they never become path segments as they are. */

@@ -105,7 +105,8 @@ class FileNodeCheckpointStoreTest {
   @Test
   void payloadTypeNamedInTheFile_isNotLoadedUnlessAllowed() throws IOException {
     store().save("e1", "n1", message(Map.of("k", 1))).block();
-    final Path file = dir.resolve("e-e1").resolve("n1.jsonl");
+    final Path file =
+        dir.resolve("e-e1").resolve(FileNodeCheckpointStore.fileName("n1") + ".jsonl");
     final String forged =
         Files.readString(file)
             .replaceAll(
@@ -117,7 +118,8 @@ class FileNodeCheckpointStoreTest {
   }
 
   private void forgeType(final String type) throws IOException {
-    final Path file = dir.resolve("e-e1").resolve("n1.jsonl");
+    final Path file =
+        dir.resolve("e-e1").resolve(FileNodeCheckpointStore.fileName("n1") + ".jsonl");
     Files.writeString(
         file,
         Files.readString(file)
@@ -136,7 +138,8 @@ class FileNodeCheckpointStoreTest {
   @Test
   void lineWithoutPayloadType_andNullPayload_areRead() throws IOException {
     store().save("e1", "n1", message(Map.of("k", 1))).block();
-    final Path file = dir.resolve("e-e1").resolve("n1.jsonl");
+    final Path file =
+        dir.resolve("e-e1").resolve(FileNodeCheckpointStore.fileName("n1") + ".jsonl");
     Files.writeString(file, Files.readString(file).replaceAll(",\"payloadType\":\"[^\"]*\"", ""));
     assertThat(store().get("e1", "n1").block().payload()).isEqualTo(Map.of("k", 1));
     assertThat(roundTrip(null).payload()).isNull();
@@ -181,6 +184,22 @@ class FileNodeCheckpointStoreTest {
     }
     assertThat(dir.getParent().resolve("evil.jsonl")).doesNotExist();
     StepVerifier.create(store.getAll("..", "../../evil")).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
+  void idsThatDifferOnlyInCase_orAreVeryLong_keepTheirOwnFiles() {
+    final FileNodeCheckpointStore store = store();
+    final String longId = "x".repeat(400);
+
+    store.save("e1", "A", message("upper")).block();
+    store.save("e1", "a", message("lower")).block();
+    store.save("e1", longId, message("long")).block();
+
+    assertThat(store.get("e1", "A").block().payload()).isEqualTo("upper");
+    assertThat(store.get("e1", "a").block().payload()).isEqualTo("lower");
+    assertThat(store.get("e1", longId).block().payload()).isEqualTo("long");
+    assertThat(FileNodeCheckpointStore.fileName("A"))
+        .isNotEqualToIgnoringCase(FileNodeCheckpointStore.fileName("a"));
   }
 
   @Test
@@ -236,7 +255,9 @@ class FileNodeCheckpointStoreTest {
 
   @Test
   void unreadableOutput_failsTheReplay() throws IOException {
-    Files.createDirectories(dir.resolve("e-e1").resolve("n1.jsonl")); // a directory, not a file
+    Files.createDirectories(
+        dir.resolve("e-e1")
+            .resolve(FileNodeCheckpointStore.fileName("n1") + ".jsonl")); // a directory, not a file
 
     StepVerifier.create(store().getAll("e1", "n1"))
         .expectError(java.io.UncheckedIOException.class)
@@ -247,7 +268,8 @@ class FileNodeCheckpointStoreTest {
   void tornLastLine_makesTheNodeIncomplete_soResumeRunsItAgain() throws IOException {
     final FileNodeCheckpointStore store = store();
     store.save("e1", "n1", message("a")).block();
-    final Path file = dir.resolve("e-e1").resolve("n1.jsonl");
+    final Path file =
+        dir.resolve("e-e1").resolve(FileNodeCheckpointStore.fileName("n1") + ".jsonl");
     Files.writeString(
         file,
         Files.readString(file) + "{\"id\":\"cut",
@@ -259,7 +281,8 @@ class FileNodeCheckpointStoreTest {
   @Test
   void emptyOutputFile_isComplete() throws IOException {
     Files.createDirectories(dir.resolve("e-e1"));
-    Files.createFile(dir.resolve("e-e1").resolve("n1.jsonl"));
+    Files.createFile(
+        dir.resolve("e-e1").resolve(FileNodeCheckpointStore.fileName("n1") + ".jsonl"));
 
     assertThat(store().isComplete("e1", "n1")).isTrue();
   }
@@ -267,7 +290,9 @@ class FileNodeCheckpointStoreTest {
   @Test
   void unparsableLine_failsTheReplayCleanly() throws IOException {
     Files.createDirectories(dir.resolve("e-e1"));
-    Files.writeString(dir.resolve("e-e1").resolve("n1.jsonl"), "not json\n");
+    Files.writeString(
+        dir.resolve("e-e1").resolve(FileNodeCheckpointStore.fileName("n1") + ".jsonl"),
+        "not json\n");
 
     StepVerifier.create(store().getAll("e1", "n1"))
         .expectErrorSatisfies(
@@ -280,7 +305,9 @@ class FileNodeCheckpointStoreTest {
 
   @Test
   void outputThatCannotBeInspected_countsAsIncomplete() throws IOException {
-    Files.createDirectories(dir.resolve("e-e1").resolve("n1.jsonl")); // a directory, not a file
+    Files.createDirectories(
+        dir.resolve("e-e1")
+            .resolve(FileNodeCheckpointStore.fileName("n1") + ".jsonl")); // a directory, not a file
 
     assertThat(store().isComplete("e1", "n1")).isFalse();
   }
@@ -289,7 +316,8 @@ class FileNodeCheckpointStoreTest {
   void blankLinesInTheOutputAreSkipped() throws IOException {
     final FileNodeCheckpointStore store = store();
     store.save("e1", "n1", message("a")).block();
-    final Path file = dir.resolve("e-e1").resolve("n1.jsonl");
+    final Path file =
+        dir.resolve("e-e1").resolve(FileNodeCheckpointStore.fileName("n1") + ".jsonl");
     Files.writeString(file, "\n" + Files.readString(file) + "\n");
 
     StepVerifier.create(store.getAll("e1", "n1"))
@@ -341,7 +369,8 @@ class FileNodeCheckpointStoreTest {
     final FileNodeCheckpointStore store = store();
     store.save("e1", "n1", message("a")).block();
     store.markComplete("e1", "n1").block();
-    final Path file = dir.resolve("e-e1").resolve("n1.jsonl");
+    final Path file =
+        dir.resolve("e-e1").resolve(FileNodeCheckpointStore.fileName("n1") + ".jsonl");
     Files.writeString(file, Files.readString(file) + "{\"id\":\"cut");
 
     assertThat(store.isFinished("e1", "n1")).isFalse();
