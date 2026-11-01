@@ -38,6 +38,7 @@ import reactor.core.publisher.Mono;
  * recorded.
  */
 @Component
+@SuppressWarnings("PMD.TooManyMethods")
 public final class WaitForSignalProcessor implements ProcessorPlugin {
 
   /** Action that fails the message. */

@@ -366,6 +366,7 @@ class SubWorkflowProcessorTest {
             () -> processor.validateConfig(Map.of("workflowId", "c", "payload", "text")).block())
         .isInstanceOf(IllegalArgumentException.class);
     assertThat(processor.getType()).isEqualTo("SUB_WORKFLOW");
+    assertThat(processor.requiresControlPlane()).isTrue();
     assertThat(processor.getDefaultTimeout(Map.of("workflowId", "c")))
         .isEqualTo(Duration.ofSeconds(310));
     assertThat(processor.describe().description()).contains("workflow");
