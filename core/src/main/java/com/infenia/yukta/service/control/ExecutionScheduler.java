@@ -42,6 +42,7 @@ import reactor.core.publisher.Sinks;
 @Component
 @SuppressWarnings({
   "PMD.AvoidSynchronizedStatement",
+  "PMD.CouplingBetweenObjects",
   "PMD.TooManyMethods",
   "PMD.CyclomaticComplexity"
 })
