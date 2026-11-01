@@ -10,21 +10,14 @@ import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -656,7 +649,7 @@ public class ExecutionScheduler implements SmartLifecycle {
   private Waiter nextToAdmit() {
     Waiter best = null;
     int bestRunning = 0;
-    for (final Collection<Waiter> group : queue.groups()) {
+    for (final var group : queue.groups()) {
       for (final Waiter waiter : group) {
         if (!fits(waiter.key())) {
           continue;
@@ -683,7 +676,10 @@ public class ExecutionScheduler implements SmartLifecycle {
       }
     }
     // Granted between the cancel and now (or never granted, if shutdown refused it).
-    Optional.ofNullable(waiter.granted().get()).ifPresent(Permit::release);
+    final Permit granted = waiter.granted().get();
+    if (granted != null) {
+      granted.release();
+    }
   }
 
   @Override
@@ -820,73 +816,13 @@ public class ExecutionScheduler implements SmartLifecycle {
     public Admission(final boolean immediate, final Mono<Permit> permit) {
       this(immediate, permit, false);
     }
-  }
 
-  /** Waiting starts by priority (highest first, oldest first within one); the lock guards it. */
-  private static final class WaitQueue {
-    private final Map<Integer, Set<Waiter>> byPriority = new TreeMap<>(Comparator.reverseOrder());
-    private final Map<String, Integer> perKey = new ConcurrentHashMap<>();
-    private final Map<String, Waiter> waitersById = new ConcurrentHashMap<>();
-    private int total;
-
-    private int size() {
-      return total;
-    }
-
-    private int count(final String key) {
-      return perKey.getOrDefault(key, 0);
-    }
-
-    @Nullable
-    private Waiter byExecution(final String executionId) {
-      return waitersById.get(executionId);
-    }
-
-    private Collection<Set<Waiter>> groups() {
-      return byPriority.values();
-    }
-
-    private void add(final Waiter waiter) {
-      byPriority.computeIfAbsent(waiter.priority().get(), _ -> new LinkedHashSet<>()).add(waiter);
-      perKey.merge(waiter.key(), 1, Integer::sum);
-      if (waiter.executionId() != null) {
-        waitersById.put(waiter.executionId(), waiter);
-      }
-      total++;
-    }
-
-    /** Removes a waiter; call before its priority changes. */
-    private boolean remove(final Waiter waiter) {
-      final int priority = waiter.priority().get();
-      final Set<Waiter> group = byPriority.get(priority);
-      if (group == null || !group.remove(waiter)) {
-        return false;
-      }
-      if (group.isEmpty()) {
-        byPriority.remove(priority);
-      }
-      perKey.computeIfPresent(waiter.key(), (_, count) -> count > 1 ? count - 1 : null);
-      if (waiter.executionId() != null) {
-        waitersById.remove(waiter.executionId(), waiter);
-      }
-      total--;
-      return true;
-    }
-
-    private void drain(final Consumer<Waiter> action) {
-      byPriority.values().forEach(group -> group.forEach(action));
-      byPriority.clear();
-      perKey.clear();
-      waitersById.clear();
-      total = 0;
+    /**
+     * Gives the slot back (or leaves the queue) when the run it was taken for cannot use it. Safe
+     * to call after the permit was released: a permit releases once.
+     */
+    public void giveBack() {
+      permit.subscribe(Permit::release, _ -> {});
     }
   }
-
-  /** A start waiting for a slot. */
-  private record Waiter(
-      String key,
-      @Nullable String executionId,
-      AtomicInteger priority,
-      Sinks.One<Permit> grant,
-      AtomicReference<Permit> granted) {}
 }
