@@ -12,6 +12,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -30,11 +31,29 @@ public class InMemoryPluginLogStore implements PluginLogStore {
   /** Most lines kept for one execution. */
   private static final int MAX_ENTRIES_PER_EXECUTION = 10_000;
 
+  /** Most characters of log text kept across all executions. */
+  private static final long MAX_CHARS = 64L * 1024 * 1024;
+
+  /** Characters of log text kept across all executions. */
+  private final long maxChars;
+
+  /** Characters held by all executions. */
+  private final AtomicLong held = new AtomicLong();
+
   /** Caffeine cache storing log entries per execution ID. */
-  private final Cache<String, Deque<PluginLogEntry>> cache;
+  private final Cache<String, Lines> cache;
 
   /** Retention duration extracted from config. */
   private final Duration retention;
+
+  /** The lines of one execution and the characters they hold; guarded by its own lock. */
+  private static final class Lines {
+    /** The lines, oldest first. */
+    private final Deque<PluginLogEntry> entries = new ArrayDeque<>();
+
+    /** Characters of message text held. */
+    private long chars;
+  }
 
   /**
    * Constructs an in-memory store with Caffeine cache.
@@ -44,15 +63,25 @@ public class InMemoryPluginLogStore implements PluginLogStore {
    * @param config the log store configuration
    */
   public InMemoryPluginLogStore(final PluginLogStoreConfig config) {
+    this(config, MAX_CHARS);
+  }
+
+  /* default */ InMemoryPluginLogStore(final PluginLogStoreConfig config, final long maxChars) {
+    this.maxChars = maxChars;
     final Duration effectiveRetention = config.getEffectiveRetention();
     this.retention = effectiveRetention;
 
     this.cache =
         Caffeine.newBuilder()
             .expireAfterWrite(effectiveRetention)
-            .removalListener(
-                (key, value, cause) ->
-                    log.debug("Log entry expired for execution: {} ({})", key, cause))
+            .<String, Lines>removalListener(
+                (key, lines, cause) -> {
+                  synchronized (lines) {
+                    held.addAndGet(-lines.chars);
+                    lines.chars = 0;
+                  }
+                  log.debug("Log entry expired for execution: {} ({})", key, cause);
+                })
             .build();
   }
 
@@ -61,15 +90,20 @@ public class InMemoryPluginLogStore implements PluginLogStore {
     return Mono.fromRunnable(
             () -> {
               final String executionId = entry.executionId();
-              // A plain list under its own lock: a copy-on-write list copied itself on every line.
-              final Deque<PluginLogEntry> entries =
-                  cache.asMap().computeIfAbsent(executionId, k -> new ArrayDeque<>());
-              synchronized (entries) {
+              // A plain deque under its own lock: a copy-on-write list copied itself on every line.
+              final Lines lines = cache.asMap().computeIfAbsent(executionId, k -> new Lines());
+              synchronized (lines) {
                 // a chatty plugin keeps the newest lines; the oldest are dropped
-                if (entries.size() >= MAX_ENTRIES_PER_EXECUTION) {
-                  entries.removeFirst();
+                if (lines.entries.size() >= MAX_ENTRIES_PER_EXECUTION) {
+                  drop(lines);
                 }
-                entries.addLast(entry);
+                lines.entries.addLast(entry);
+                lines.chars += entry.message().length();
+                held.addAndGet(entry.message().length());
+                // over the global cap, the execution being written to gives up its oldest lines
+                while (held.get() > maxChars && lines.entries.size() > 1) {
+                  drop(lines);
+                }
               }
               log.atTrace()
                   .log(
@@ -81,13 +115,19 @@ public class InMemoryPluginLogStore implements PluginLogStore {
         .then();
   }
 
+  private void drop(final Lines lines) {
+    final int size = lines.entries.removeFirst().message().length();
+    lines.chars -= size;
+    held.addAndGet(-size);
+  }
+
   @Override
   public Flux<PluginLogEntry> readExecution(final String executionId) {
-    final Deque<PluginLogEntry> entries = cache.getIfPresent(executionId);
+    final Lines lines = cache.getIfPresent(executionId);
     final List<PluginLogEntry> copy = new ArrayList<>();
-    if (entries != null) {
-      synchronized (entries) {
-        copy.addAll(entries);
+    if (lines != null) {
+      synchronized (lines) {
+        copy.addAll(lines.entries);
       }
     }
     return Flux.fromIterable(copy).subscribeOn(Schedulers.boundedElastic());

@@ -217,6 +217,17 @@ public class RunAnalytics {
       }
     }
 
+    /** A copy to read without the lock; the failed runs and module rows are not needed for it. */
+    private Bucket copy() {
+      final Bucket c = new Bucket();
+      c.byStatus.putAll(byStatus);
+      System.arraycopy(durations, 0, c.durations, 0, SAMPLES);
+      c.durationCount = durationCount;
+      System.arraycopy(waits, 0, c.waits, 0, SAMPLES);
+      c.waitCount = waitCount;
+      return c;
+    }
+
     private List<Double> sampledDurations() {
       return Arrays.stream(durations, 0, Math.min(durationCount, SAMPLES)).boxed().toList();
     }
@@ -519,34 +530,39 @@ public class RunAnalytics {
    * @param range how far back
    * @return series name to points
    */
-  public synchronized Map<String, List<MetricsSampler.Point>> series(
+  @SuppressWarnings("PMD.AvoidSynchronizedStatement")
+  public Map<String, List<MetricsSampler.Point>> series(
       final String scope, final List<String> names, final Duration range) {
     final Map<String, List<MetricsSampler.Point>> out = new TreeMap<>();
-    within(scope, range)
-        .forEach(
-            (minute, b) -> {
-              final Map<String, Double> values = new TreeMap<>();
-              if (!b.byStatus.isEmpty()) {
-                values.put(
-                    "runs.finished", (double) b.byStatus.values().stream().mapToInt(i -> i).sum());
-                b.byStatus.forEach((status, n) -> values.put("runs." + status, (double) n));
-              }
-              if (b.durationCount > 0) {
-                values.put("duration.p50", percentile(b.sampledDurations(), 0.5));
-                values.put("duration.p95", percentile(b.sampledDurations(), 0.95));
-                values.put("duration.p99", percentile(b.sampledDurations(), 0.99));
-              }
-              if (b.waitCount > 0) {
-                values.put("queue.wait.p95", percentile(b.sampledWaits(), 0.95));
-              }
-              values.forEach(
-                  (name, v) -> {
-                    if (names.stream().anyMatch(name::startsWith)) {
-                      out.computeIfAbsent(name, _ -> new ArrayList<>())
-                          .add(new MetricsSampler.Point(minute * MINUTE, v));
-                    }
-                  });
-            });
+    // copy under the lock, sort outside it: a chart over 24 h must not hold up the feed
+    final NavigableMap<Long, Bucket> copy = new TreeMap<>();
+    synchronized (this) {
+      within(scope, range).forEach((minute, b) -> copy.put(minute, b.copy()));
+    }
+    copy.forEach(
+        (minute, b) -> {
+          final Map<String, Double> values = new TreeMap<>();
+          if (!b.byStatus.isEmpty()) {
+            values.put(
+                "runs.finished", (double) b.byStatus.values().stream().mapToInt(i -> i).sum());
+            b.byStatus.forEach((status, n) -> values.put("runs." + status, (double) n));
+          }
+          if (b.durationCount > 0) {
+            values.put("duration.p50", percentile(b.sampledDurations(), 0.5));
+            values.put("duration.p95", percentile(b.sampledDurations(), 0.95));
+            values.put("duration.p99", percentile(b.sampledDurations(), 0.99));
+          }
+          if (b.waitCount > 0) {
+            values.put("queue.wait.p95", percentile(b.sampledWaits(), 0.95));
+          }
+          values.forEach(
+              (name, v) -> {
+                if (names.stream().anyMatch(name::startsWith)) {
+                  out.computeIfAbsent(name, _ -> new ArrayList<>())
+                      .add(new MetricsSampler.Point(minute * MINUTE, v));
+                }
+              });
+        });
     return out;
   }
 
@@ -557,12 +573,17 @@ public class RunAnalytics {
    * @param scope the scope
    * @return name to value; empty for an unknown scope or nothing in the hour
    */
-  public synchronized Map<String, Double> snapshot(final String scope) {
+  @SuppressWarnings("PMD.AvoidSynchronizedStatement")
+  public Map<String, Double> snapshot(final String scope) {
     final Map<String, Double> out = new TreeMap<>();
     final List<Double> durations = new ArrayList<>();
     double finished = 0;
     double failed = 0;
-    for (final Bucket b : within(scope, Duration.ofHours(1)).values()) {
+    final List<Bucket> copy;
+    synchronized (this) {
+      copy = within(scope, Duration.ofHours(1)).values().stream().map(Bucket::copy).toList();
+    }
+    for (final Bucket b : copy) {
       for (final Map.Entry<String, Integer> s : b.byStatus.entrySet()) {
         out.merge("runs." + s.getKey(), (double) s.getValue(), Double::sum);
         finished += s.getValue();

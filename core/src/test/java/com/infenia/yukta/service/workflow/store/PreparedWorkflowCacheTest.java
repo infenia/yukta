@@ -48,6 +48,24 @@ class PreparedWorkflowCacheTest {
   }
 
   @Test
+  void sizeIsCapped_andReportedByGauge() {
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    final PreparedWorkflowCache small = new PreparedWorkflowCache(60_000L, 2, meters);
+    for (int i = 0; i < 50; i++) {
+      small.put(SESSION_1, "wf-" + i, mockPrepared());
+    }
+
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertThat(meters.get("yukta.workflow.cache.size").gauge().value())
+                    .isLessThanOrEqualTo(2.0));
+    assertThat(meters.get("yukta.workflow.cache.size").gauge().value()).isLessThanOrEqualTo(2.0);
+  }
+
+  @Test
   void putAndGetReturnsPreparedWorkflow() {
     final PreparedWorkflow prepared = mockPrepared();
     cache.put(SESSION_1, WORKFLOW_1, prepared);
