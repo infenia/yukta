@@ -37,7 +37,7 @@ final class RunTelemetry {
   private final Map<String, Observation> runSpans = new ConcurrentHashMap<>();
 
   /** Observations of nodes that are running, by execution and node. */
-  private final Map<String, Observation> nodeSpans = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, Observation>> nodeSpans = new ConcurrentHashMap<>();
 
   /** When a run began waiting for a slot (System.nanoTime), by execution. */
   private final Map<String, Long> queuedAt = new ConcurrentHashMap<>();
@@ -92,20 +92,22 @@ final class RunTelemetry {
 
   /** Opens an observation when a node starts running and closes it when the node ends. */
   /* default */ void traceNode(final TaskStatusEvent event, final boolean terminal) {
-    final String key = event.executionId() + "\0" + event.nodeId();
     if (event.status() == TaskStatus.RUNNING) {
-      nodeSpans.computeIfAbsent(
-          key,
-          _ ->
-              Observation.createNotStarted("yukta.node", observations)
-                  .parentObservation(runSpans.get(event.executionId()))
-                  .contextualName("node " + event.nodeId())
-                  .lowCardinalityKeyValue(MODULE, String.valueOf(event.module()))
-                  .highCardinalityKeyValue("executionId", event.executionId())
-                  .highCardinalityKeyValue("nodeId", event.nodeId())
-                  .start());
+      nodeSpans
+          .computeIfAbsent(event.executionId(), _ -> new ConcurrentHashMap<>())
+          .computeIfAbsent(
+              event.nodeId(),
+              _ ->
+                  Observation.createNotStarted("yukta.node", observations)
+                      .parentObservation(runSpans.get(event.executionId()))
+                      .contextualName("node " + event.nodeId())
+                      .lowCardinalityKeyValue(MODULE, String.valueOf(event.module()))
+                      .highCardinalityKeyValue("executionId", event.executionId())
+                      .highCardinalityKeyValue("nodeId", event.nodeId())
+                      .start());
     } else if (terminal) {
-      final Observation span = nodeSpans.remove(key);
+      final Map<String, Observation> nodes = nodeSpans.get(event.executionId());
+      final Observation span = nodes == null ? null : nodes.remove(event.nodeId());
       if (span != null) {
         span.lowCardinalityKeyValue(STATUS, event.status().name());
         span.stop();
@@ -115,19 +117,16 @@ final class RunTelemetry {
 
   /** Stops observations of nodes that were finalized with the run instead of ending themselves. */
   private void closeNodeSpans(final String executionId) {
-    final String prefix = executionId + "\0";
-    nodeSpans
-        .keySet()
-        .removeIf(
-            key -> {
-              if (!key.startsWith(prefix)) {
-                return false;
-              }
-              final Observation span = nodeSpans.get(key);
-              span.lowCardinalityKeyValue(STATUS, TaskStatus.CANCELLED.name());
-              span.stop();
-              return true;
-            });
+    final Map<String, Observation> nodes = nodeSpans.remove(executionId);
+    if (nodes != null) {
+      nodes
+          .values()
+          .forEach(
+              span -> {
+                span.lowCardinalityKeyValue(STATUS, TaskStatus.CANCELLED.name());
+                span.stop();
+              });
+    }
   }
 
   /** Counts the node outcome by plugin and status, and times nodes that actually ran. */

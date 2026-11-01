@@ -61,7 +61,7 @@ final class TrackerEventApplier {
   private final Consumer<String> cleanup;
 
   /** Rates the log lines of each node, keyed by execution and node. */
-  private final Map<String, LogLineClassifier> classifiers = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, LogLineClassifier>> classifiers = new ConcurrentHashMap<>();
 
   /* default */ TrackerEventApplier(
       final Function<String, WorkflowState> states,
@@ -222,7 +222,7 @@ final class TrackerEventApplier {
 
   /** Drops what the applier keeps for an execution that was cleaned up. */
   /* default */ void forget(final String executionId) {
-    classifiers.keySet().removeIf(key -> key.startsWith(executionId + "\0"));
+    classifiers.remove(executionId);
   }
 
   private void applyLog(final WorkflowLogEvent unrated) {
@@ -233,9 +233,8 @@ final class TrackerEventApplier {
             ? unrated
             : unrated.withLevel(
                 classifiers
-                    .computeIfAbsent(
-                        unrated.executionId() + "\0" + unrated.nodeId(),
-                        _ -> new LogLineClassifier())
+                    .computeIfAbsent(unrated.executionId(), _ -> new ConcurrentHashMap<>())
+                    .computeIfAbsent(unrated.nodeId(), _ -> new LogLineClassifier())
                     .rate(unrated.line()));
     streams.feed(event);
     final WorkflowState owner = states.apply(event.executionId());
