@@ -107,6 +107,7 @@ public record NodePolicy(
           "failureBudget",
           "edgeBuffer",
           "checkpoint",
+          "echoOutput",
           "placement");
 
   /** Options accepted in the {@code retry} object. */
@@ -386,6 +387,26 @@ public record NodePolicy(
   }
 
   /**
+   * Reads the optional {@code engine.echoOutput} of a node config: whether the node's output
+   * message is copied into the run log when the plugin did not log it live.
+   *
+   * @param config the node config, possibly empty
+   * @return true unless the node sets {@code echoOutput} to false
+   * @throws IllegalArgumentException if the value is not a boolean
+   */
+  public static boolean echoOutput(@Nullable final Map<String, Object> config) {
+    final Object raw = config == null ? null : config.get(CONFIG_KEY);
+    final Object value = raw == null ? null : asMap(raw, CONFIG_KEY).get("echoOutput");
+    if (value == null) {
+      return true;
+    }
+    if (value instanceof Boolean flag) {
+      return flag;
+    }
+    throw new IllegalArgumentException("engine.echoOutput must be true or false");
+  }
+
+  /**
    * Whether the plugin must be called once per message, which retry and onError need.
    *
    * @return true if retry, an element timeout or a non-default onError is set
@@ -422,6 +443,7 @@ public record NodePolicy(
                 : null);
     edgeBuffer(config);
     checkpoint(config);
+    echoOutput(config);
     placement(config);
     if (policy.failureBudget() != null && policy.onError() == OnError.FAIL) {
       throw new IllegalArgumentException(

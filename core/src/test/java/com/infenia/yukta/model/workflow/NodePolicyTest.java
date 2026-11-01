@@ -247,6 +247,15 @@ class NodePolicyTest {
   }
 
   @Test
+  void echoOutput_defaultsToTrue_isParsed_andIsValidated() {
+    assertThat(NodePolicy.echoOutput(null)).isTrue();
+    assertThat(NodePolicy.echoOutput(Map.of())).isTrue();
+    assertThat(NodePolicy.echoOutput(Map.of("engine", Map.of("echoOutput", false)))).isFalse();
+    assertThatThrownBy(() -> NodePolicy.from(Map.of("engine", Map.of("echoOutput", "no"))))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
   void edgeBuffer_isParsed_defaultsToDropOldest_andIsValidated() {
     final Map<String, Object> config = Map.of("engine", Map.of("edgeBuffer", Map.of("size", 50)));
 

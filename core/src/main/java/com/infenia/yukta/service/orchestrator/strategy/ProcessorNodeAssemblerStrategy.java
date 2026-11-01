@@ -253,6 +253,7 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
         stream = stream.subscribeOn(virtualThreadScheduler);
       }
 
+      final boolean echoOutput = NodePolicy.echoOutput(node.config());
       final Flux<Message<?>> built =
           StreamAssemblyHelper.buildStreamWithContext(
               node, stream, timeout, activity, tracker, context, plugin, activePluginRegistry);
@@ -264,7 +265,7 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
               bufferSize,
               context.disposables(),
               context.connectors(),
-              activity::hasLoggedLive,
+              echoOutput ? activity::hasLoggedLive : () -> true,
               NodePolicy.checkpoint(node.config()));
 
       log.atDebug()
