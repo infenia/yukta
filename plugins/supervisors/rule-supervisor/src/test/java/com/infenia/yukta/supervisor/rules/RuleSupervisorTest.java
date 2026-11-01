@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.StopMode;
+import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.core.LogLevel;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -573,8 +574,6 @@ class RuleSupervisorTest {
 
   @Test
   void shippedIdFollowsTheSupervisorIdRule() {
-    org.assertj.core.api.Assertions.assertThat(
-            com.infenia.yukta.plugin.control.SupervisorIds.isValid(RuleSupervisor.SUPERVISOR_ID))
-        .isTrue();
+    assertThat(SupervisorIds.isValid(RuleSupervisor.SUPERVISOR_ID)).isTrue();
   }
 }

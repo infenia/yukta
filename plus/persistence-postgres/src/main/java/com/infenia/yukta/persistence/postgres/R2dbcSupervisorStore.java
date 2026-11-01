@@ -49,7 +49,12 @@ public class R2dbcSupervisorStore implements SupervisorStore {
   /** Warns once at start-up about every supervisor id that migration V8 renamed. */
   @EventListener(ApplicationReadyEvent.class)
   public void warnRenamedIds() {
-    client
+    renamedIdsWarning().subscribe();
+  }
+
+  /** Logs a warning per renamed id; a store that cannot be read is logged, never an error. */
+  /* default */ Mono<Void> renamedIdsWarning() {
+    return client
         .sql("SELECT kind, old_id, new_id FROM supervisor_id_migration ORDER BY kind, old_id")
         .map(
             row ->
@@ -59,14 +64,19 @@ public class R2dbcSupervisorStore implements SupervisorStore {
                   row.get("new_id", String.class)
                 })
         .all()
-        .subscribe(
+        .doOnNext(
             renamed ->
                 log.atWarn()
                     .addKeyValue("kind", renamed[0])
                     .addKeyValue("oldId", renamed[1])
                     .addKeyValue("newId", renamed[2])
-                    .log("A supervisor id broke the naming rule and was renamed by migration V8"),
-            error -> log.atWarn().setCause(error).log("Could not read the renamed supervisor ids"));
+                    .log("A supervisor id broke the naming rule and was renamed by migration V8"))
+        .then()
+        .onErrorResume(
+            error -> {
+              log.atWarn().setCause(error).log("Could not read the renamed supervisor ids");
+              return Mono.empty();
+            });
   }
 
   @Override

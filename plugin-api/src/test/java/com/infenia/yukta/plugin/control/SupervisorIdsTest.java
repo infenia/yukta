@@ -38,7 +38,14 @@ class SupervisorIdsTest {
   @Test
   void messageShowsControlCharactersEscaped() {
     assertThatThrownBy(() -> SupervisorIds.validate("a\nb"))
-        .hasMessageContaining("a\\u000ab")
+        .hasMessageContaining("a\\" + "u000ab")
         .hasMessageNotContaining("\n");
+  }
+
+  @Test
+  void messageCutsVeryLongIdShort() {
+    assertThatThrownBy(() -> SupervisorIds.validate("a:".repeat(100)))
+        .hasMessageContaining("a:".repeat(40) + "...'")
+        .hasMessageNotContaining("a:".repeat(41));
   }
 }

@@ -5,6 +5,7 @@ package com.infenia.yukta.persistence.postgres;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -30,23 +31,26 @@ class SupervisorIdMigrationTest extends PostgresTestSupport {
     return values;
   }
 
-  private static void profile(final Statement statement, final String id) throws SQLException {
-    statement.execute(
-        "INSERT INTO supervisor_profile (id, type, settings, dry_run)"
-            + " VALUES ('"
-            + id
-            + "', 'rule-supervisor', '{}', false)");
+  private static void profile(final Connection connection, final String id) throws SQLException {
+    try (PreparedStatement insert =
+        connection.prepareStatement(
+            "INSERT INTO supervisor_profile (id, type, settings, dry_run)"
+                + " VALUES (?, 'rule-supervisor', '{}', false)")) {
+      insert.setString(1, id);
+      insert.executeUpdate();
+    }
   }
 
-  private static void binding(final Statement statement, final String id, final String profile)
+  private static void binding(final Connection connection, final String id, final String profile)
       throws SQLException {
-    statement.execute(
-        "INSERT INTO supervisor_binding (id, profile_id, scope, enabled)"
-            + " VALUES ('"
-            + id
-            + "', '"
-            + profile
-            + "', 'global', true)");
+    try (PreparedStatement insert =
+        connection.prepareStatement(
+            "INSERT INTO supervisor_binding (id, profile_id, scope, enabled)"
+                + " VALUES (?, ?, 'global', true)")) {
+      insert.setString(1, id);
+      insert.setString(2, profile);
+      insert.executeUpdate();
+    }
   }
 
   @Test
@@ -61,14 +65,14 @@ class SupervisorIdMigrationTest extends PostgresTestSupport {
     try (Connection connection = jdbc();
         Statement statement = connection.createStatement()) {
       statement.execute("SET search_path TO " + SCHEMA);
-      profile(statement, "ok");
-      profile(statement, "a:b");
-      profile(statement, "a_b");
-      profile(statement, "key:admin");
-      profile(statement, longId);
-      binding(statement, "key:admin", "key:admin");
-      binding(statement, "fine", "a:b");
-      binding(statement, "two words", "ok");
+      profile(connection, "ok");
+      profile(connection, "a:b");
+      profile(connection, "a_b");
+      profile(connection, "key:admin");
+      profile(connection, longId);
+      binding(connection, "key:admin", "key:admin");
+      binding(connection, "fine", "a:b");
+      binding(connection, "two words", "ok");
     }
 
     assertThat(flywayFor(SCHEMA).load().migrate().success).isTrue();
@@ -89,9 +93,7 @@ class SupervisorIdMigrationTest extends PostgresTestSupport {
               column(
                   statement,
                   "SELECT new_id FROM supervisor_id_migration"
-                      + " WHERE kind = 'profile' AND old_id = '"
-                      + longId
-                      + "'"))
+                      + " WHERE kind = 'profile' AND length(old_id) = 100"))
           .containsExactly("x".repeat(64));
       // bindings follow their renamed profile, and keep a valid shape themselves
       assertThat(
