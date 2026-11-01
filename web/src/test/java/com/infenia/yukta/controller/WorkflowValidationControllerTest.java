@@ -31,6 +31,9 @@ class WorkflowValidationControllerTest {
 
   private static final String BRANCH = "BRANCH";
 
+  /** A problem message reported for a workflow without a trigger. */
+  private static final String NO_TRIGGER = "no trigger";
+
   /** A draft with one known and one unknown plugin type. */
   private static final String DRAFT =
       """
@@ -100,7 +103,7 @@ class WorkflowValidationControllerTest {
 
   @Test
   void testInvalidDraftReturnsTheProblemWithoutFailing() {
-    when(workflowValidator.validateAll(any())).thenReturn(Mono.just(List.of("no trigger")));
+    when(workflowValidator.validateAll(any())).thenReturn(Mono.just(List.of(NO_TRIGGER)));
 
     post(DRAFT)
         .expectStatus()
@@ -109,7 +112,7 @@ class WorkflowValidationControllerTest {
         .jsonPath(VALID)
         .isEqualTo(false)
         .jsonPath("$.data.message")
-        .isEqualTo("no trigger")
+        .isEqualTo(NO_TRIGGER)
         .jsonPath("$.data.outputPorts.length()")
         .isEqualTo(0);
   }
@@ -117,14 +120,14 @@ class WorkflowValidationControllerTest {
   @Test
   void testEveryProblemIsListed() {
     when(workflowValidator.validateAll(any()))
-        .thenReturn(Mono.just(List.of("no trigger", "no terminal")));
+        .thenReturn(Mono.just(List.of(NO_TRIGGER, "no terminal")));
 
     post(DRAFT)
         .expectStatus()
         .isOk()
         .expectBody()
         .jsonPath("$.data.message")
-        .isEqualTo("no trigger")
+        .isEqualTo(NO_TRIGGER)
         .jsonPath("$.data.problems.length()")
         .isEqualTo(2);
   }

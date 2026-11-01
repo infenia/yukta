@@ -159,6 +159,23 @@ class WorkflowValidatorTest {
   }
 
   @Test
+  void testValidateAllWithAnUnregisteredPluginReportsOnlyThatPlugin() {
+    // The checks after the plugin lookup assume every plugin is registered, so they must not run.
+    when(registry.get(TRIGGER_ID)).thenReturn(triggerPlugin);
+    when(registry.get(UNKNOWN_ID)).thenReturn(null);
+
+    final WorkflowDefinition def =
+        new WorkflowDefinition(
+            WORKFLOW_NAME,
+            "d",
+            List.of(node("t", TRIGGER_ID), node("unknown", UNKNOWN_ID)),
+            List.of(new WorkflowDefinition.Edge("t", "unknown", null)));
+
+    org.assertj.core.api.Assertions.assertThat(validator.validateAll(def).block())
+        .containsExactly("Plugin not found for type: " + UNKNOWN_ID);
+  }
+
+  @Test
   void testDuplicateNodeIdRejected() {
     assertRejected(
         new WorkflowDefinition(
