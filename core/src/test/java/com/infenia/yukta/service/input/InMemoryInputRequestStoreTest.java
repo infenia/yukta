@@ -55,6 +55,22 @@ class InMemoryInputRequestStoreTest {
   }
 
   @Test
+  void requestThatJustFinishedIsNotEvictedBeforeOlderFinishedOnes() {
+    final InMemoryInputRequestStore store = new InMemoryInputRequestStore(2);
+    for (final String id : List.of("a", "b", "c")) {
+      store.createIfAbsent(request(id, InputState.OPEN)).block();
+    }
+    // "a" was created first but finishes last
+    for (final String id : List.of("b", "c", "a")) {
+      store.compareAndSet(id, 0, request(id, InputState.CANCELLED, 1)).block();
+    }
+
+    assertThat(store.findById("b").block()).isNull();
+    assertThat(store.findById("c").block()).isNotNull();
+    assertThat(store.findById("a").block()).isNotNull();
+  }
+
+  @Test
   void openRequestsAreNeverEvicted() {
     final InMemoryInputRequestStore store = new InMemoryInputRequestStore(1);
     store.createIfAbsent(request("open", InputState.OPEN)).block();

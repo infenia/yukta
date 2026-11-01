@@ -22,6 +22,7 @@ import reactor.core.publisher.Mono;
  * requests (and their answers) are kept: the oldest finished request is evicted first. Requests
  * that are still open are never evicted.
  */
+@SuppressWarnings("PMD.TooManyMethods")
 public final class InMemoryInputRequestStore implements InputRequestStore {
 
   /** The smallest bound on finished requests that is accepted. */
@@ -106,7 +107,9 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
                       || !id.equals(next.id())) {
                     return false;
                   }
-                  requests.put(id, next);
+                  // putLast: a request that just finished is the newest finished one, whatever its
+                  // age, so the oldest finished request is the one evicted
+                  requests.putLast(id, next);
                   if (next.state().isTerminal()) {
                     // drops the oldest finished requests beyond the bound
                     final List<String> finished =

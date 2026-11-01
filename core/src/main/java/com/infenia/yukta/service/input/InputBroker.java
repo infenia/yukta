@@ -150,7 +150,6 @@ public class InputBroker {
    * @param limits the limits
    * @param clock the time
    */
-  @SuppressWarnings("PMD.ExcessiveParameterList")
   @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public InputBroker(
       final InputRequestStore store,

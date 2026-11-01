@@ -149,6 +149,10 @@ com.infenia.yukta.service.control.processor.StopNodeCommandProcessor
 com.infenia.yukta.service.control.processor.StopWorkflowCommandProcessor
 com.infenia.yukta.service.control.store.ActivePluginRegistry
 com.infenia.yukta.service.control.store.InMemoryExecutionControlStore
+com.infenia.yukta.service.input.DefaultInputGateway
+com.infenia.yukta.service.input.InMemoryInputRequestStore
+com.infenia.yukta.service.input.InputBroker
+com.infenia.yukta.service.input.InputDeadlineSweeper
 com.infenia.yukta.service.leader.LeaderLoss
 com.infenia.yukta.service.leader.SingleServerLeader
 com.infenia.yukta.service.leader.TakeoverRecovery
@@ -175,6 +179,7 @@ com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService
 com.infenia.yukta.service.orchestrator.tracker.MicrometerPluginMetricsReporter
 com.infenia.yukta.service.orchestrator.validator.WorkflowValidator
 com.infenia.yukta.service.plugin.PluginRegistry
+com.infenia.yukta.service.redact.InputRedactor
 com.infenia.yukta.service.result.ExecutionResultService
 com.infenia.yukta.service.session.SessionService
 com.infenia.yukta.service.session.store.InMemorySessionConfigStore
