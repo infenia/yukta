@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.mapper.SessionMapper;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -20,7 +21,10 @@ import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.ActiveRunsException;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.ConfigRedactor;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -192,11 +196,14 @@ class SessionConfigControllerTest {
     for (final String id : List.of("a", "b", "c")) {
       when(sessionService.getSessionConfig(id)).thenReturn(Mono.just(config(id)));
     }
-    final LocalDateTime noon = LocalDateTime.of(2026, 10, 30, 12, 0);
+    final Instant noon = LocalDateTime.of(2026, 10, 30, 12, 0).toInstant(ZoneOffset.UTC);
     when(controlBus.getHistory("a"))
         .thenReturn(
             Mono.just(
-                List.of(run("old", noon.minusHours(1)), run("new", noon), run("queued", null))));
+                List.of(
+                    run("old", noon.minus(Duration.ofHours(1))),
+                    run("new", noon),
+                    run("queued", null))));
     when(controlBus.getHistory("b")).thenReturn(Mono.error(new IllegalStateException("down")));
 
     client
@@ -218,8 +225,8 @@ class SessionConfigControllerTest {
         .doesNotExist();
   }
 
-  private static WorkflowExecutionSummary run(final String id, final LocalDateTime start) {
-    return new WorkflowExecutionSummary(id, "wf", "SUCCESS", start, null);
+  private static WorkflowExecutionSummary run(final String id, final Instant start) {
+    return new WorkflowExecutionSummary(id, "wf", TaskStatus.SUCCESS, start, null);
   }
 
   @Test
@@ -257,7 +264,7 @@ class SessionConfigControllerTest {
                 Map.of(
                     "wf",
                     new WorkflowExecutionSummary(
-                        "e1", "wf", "SUCCESS", LocalDateTime.now(), null))));
+                        "e1", "wf", TaskStatus.SUCCESS, Instant.now(), null))));
     when(sessionService.getSessionConfig(NOPE)).thenReturn(Mono.empty());
 
     client

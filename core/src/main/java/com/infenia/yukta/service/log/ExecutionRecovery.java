@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.log;
 
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.leader.LeaderElection;
@@ -227,13 +228,19 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
           started.executionId(),
           started.sessionId(),
           started.workflowId(),
-          ended.status(),
-          ended.nodeStatuses(),
+          TaskStatus.valueOf(ended.status()),
+          statuses(ended.nodeStatuses()),
           started.timestamp(),
           ended.timestamp(),
           started.definitionVersion(),
           started.initiator());
     }
+  }
+
+  private static Map<String, TaskStatus> statuses(final Map<String, String> names) {
+    final Map<String, TaskStatus> statuses = new LinkedHashMap<>();
+    names.forEach((nodeId, name) -> statuses.put(nodeId, TaskStatus.valueOf(name)));
+    return statuses;
   }
 
   private static Map<String, String> finishedNodes(final List<ExecutionLogEvent> run) {

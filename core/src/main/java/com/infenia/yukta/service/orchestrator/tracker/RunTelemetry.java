@@ -9,7 +9,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -62,13 +62,13 @@ final class RunTelemetry {
   /** Notes the run status: times the wait in the queue, and the run itself once it ended. */
   /* default */ void runStatus(
       final String executionId,
-      final String status,
+      final TaskStatus status,
       final boolean terminal,
-      final LocalDateTime started,
-      final LocalDateTime ended) {
-    if (TaskStatus.QUEUED.name().equals(status)) {
+      final Instant started,
+      final Instant ended) {
+    if (status == TaskStatus.QUEUED) {
       queuedAt.put(executionId, System.nanoTime());
-    } else if (TaskStatus.RUNNING.name().equals(status)) {
+    } else if (status == TaskStatus.RUNNING) {
       final Long since = queuedAt.remove(executionId);
       if (since != null) {
         meters
@@ -80,11 +80,11 @@ final class RunTelemetry {
       queuedAt.remove(executionId);
       closeNodeSpans(executionId);
       meters
-          .timer("yukta.execution.duration", STATUS, status)
+          .timer("yukta.execution.duration", STATUS, status.name())
           .record(Duration.between(started, ended));
       final Observation run = runSpans.remove(executionId);
       if (run != null) {
-        run.lowCardinalityKeyValue(STATUS, status);
+        run.lowCardinalityKeyValue(STATUS, status.name());
         run.stop();
       }
     }
@@ -93,7 +93,7 @@ final class RunTelemetry {
   /** Opens an observation when a node starts running and closes it when the node ends. */
   /* default */ void traceNode(final TaskStatusEvent event, final boolean terminal) {
     final String key = event.executionId() + "\0" + event.nodeId();
-    if (TaskStatus.RUNNING.name().equals(event.status())) {
+    if (event.status() == TaskStatus.RUNNING) {
       nodeSpans.computeIfAbsent(
           key,
           _ ->
@@ -107,7 +107,7 @@ final class RunTelemetry {
     } else if (terminal) {
       final Observation span = nodeSpans.remove(key);
       if (span != null) {
-        span.lowCardinalityKeyValue(STATUS, event.status());
+        span.lowCardinalityKeyValue(STATUS, event.status().name());
         span.stop();
       }
     }
@@ -136,7 +136,7 @@ final class RunTelemetry {
       return;
     }
     meters
-        .counter("yukta.node.executions", MODULE, task.module(), STATUS, task.status())
+        .counter("yukta.node.executions", MODULE, task.module(), STATUS, task.status().name())
         .increment();
     if (task.startTime() != null && task.endTime() != null) {
       meters

@@ -10,11 +10,11 @@ import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.model.execution.TaskProgress;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -54,7 +54,7 @@ class NodeOutputControllerTest {
     when(controlBus.getCurrentProgress("e1"))
         .thenReturn(
             new WorkflowProgress(
-                "e1", "s1", "wf", "SUCCESS", List.of(task), LocalDateTime.now(), null, null));
+                "e1", "s1", "wf", TaskStatus.SUCCESS, List.of(task), Instant.now(), null, null));
     when(logStore.readExecution("e1"))
         .thenReturn(
             Flux.just(

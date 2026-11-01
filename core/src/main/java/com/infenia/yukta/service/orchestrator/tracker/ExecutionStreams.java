@@ -10,8 +10,7 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import com.infenia.yukta.util.SinkEmit;
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -155,7 +154,7 @@ final class ExecutionStreams {
                   event.line(),
                   Objects.requireNonNull(
                       event.level(), "the tracker rates a line before it is fed"),
-                  event.timestamp().atZone(ZoneId.systemDefault()).toInstant(),
+                  event.timestamp(),
                   null,
                   null);
             });
@@ -227,9 +226,9 @@ final class ExecutionStreams {
 
   /** A workflow is over when its status is terminal and its end time is set. */
   private static boolean isWorkflowTerminal(final WorkflowProgress progress) {
-    final String status = progress.status();
-    final LocalDateTime endTime = progress.endTime();
-    if (TaskStatus.isTerminalName(status) && endTime != null) {
+    final TaskStatus status = progress.status();
+    final Instant endTime = progress.endTime();
+    if (status.isTerminal() && endTime != null) {
       log.atDebug()
           .addKeyValue("status", status)
           .addKeyValue("endTime", endTime)

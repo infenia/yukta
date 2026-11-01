@@ -226,7 +226,7 @@ final class ExecutionQueries {
    */
   /* default */ Mono<String> finishOrphan(final String executionId) {
     final WorkflowProgress progress = taskTracker.getProgressByExecutionId(executionId);
-    final boolean orphan = progress != null && !TaskStatus.isTerminalName(progress.status());
+    final boolean orphan = progress != null && !progress.status().isTerminal();
     if (orphan) {
       log.atWarn().addKeyValue("executionId", executionId).log("Stopping orphaned execution");
     }

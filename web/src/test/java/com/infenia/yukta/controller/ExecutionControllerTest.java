@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.StopMode;
@@ -18,7 +19,7 @@ import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,9 +48,8 @@ class ExecutionControllerTest {
   /** The client. */
   private WebTestClient client;
 
-  private static WorkflowProgress progress(final String session, final String status) {
-    return new WorkflowProgress(
-        "e1", session, "wf", status, List.of(), LocalDateTime.now(), null, null);
+  private static WorkflowProgress progress(final String session, final TaskStatus status) {
+    return new WorkflowProgress("e1", session, "wf", status, List.of(), Instant.now(), null, null);
   }
 
   @BeforeEach
@@ -69,13 +69,13 @@ class ExecutionControllerTest {
     final List<WorkflowExecutionSummary> tree =
         List.of(
             new WorkflowExecutionSummary(
-                "e1", "wf", "RUNNING", LocalDateTime.now(), null, null, "e1", null),
+                "e1", "wf", TaskStatus.RUNNING, Instant.now(), null, null, "e1", null),
             new WorkflowExecutionSummary(
-                "c1", "child", "PAUSED", LocalDateTime.now(), null, "e1", "e1", null));
+                "c1", "child", TaskStatus.RUNNING, Instant.now(), null, "e1", "e1", null));
     when(tracker.getTree("e1")).thenReturn(tree);
     when(controlBus.stopExecution(any(), any(), any()))
         .thenAnswer(call -> Mono.just(call.getArgument(0)));
-    when(controlBus.getCurrentProgress("e1")).thenReturn(progress("s1", "RUNNING"));
+    when(controlBus.getCurrentProgress("e1")).thenReturn(progress("s1", TaskStatus.RUNNING));
 
     client.post().uri("/api/executions/e1/stop?tree=true").exchange().expectStatus().isOk();
     client
@@ -176,7 +176,7 @@ class ExecutionControllerTest {
 
   @Test
   void testStatusByExecutionOnly() {
-    when(controlBus.getCurrentProgress("e1")).thenReturn(progress("s1", "RUNNING"));
+    when(controlBus.getCurrentProgress("e1")).thenReturn(progress("s1", TaskStatus.RUNNING));
 
     client
         .get()
@@ -191,7 +191,7 @@ class ExecutionControllerTest {
 
   @Test
   void testLegacyStatusChecksSessionOwnership() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", "RUNNING"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", TaskStatus.RUNNING));
 
     client.get().uri("/api/workflow/s1/status/e1").exchange().expectStatus().isOk();
     client.get().uri("/api/workflow/other/status/e1").exchange().expectStatus().isNotFound();
@@ -199,7 +199,7 @@ class ExecutionControllerTest {
 
   @Test
   void statusWithSessionQueryChecksOwnership() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", "COMPLETED"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", TaskStatus.SUCCESS));
 
     client.get().uri("/api/executions/e1?sessionId=s1").exchange().expectStatus().isOk();
     client.get().uri("/api/executions/e1?sessionId=other").exchange().expectStatus().isNotFound();
@@ -207,9 +207,10 @@ class ExecutionControllerTest {
 
   @Test
   void testStatusStreamCarriesEventIdsAndRejectsForeignSession() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", "RUNNING"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", TaskStatus.RUNNING));
     when(controlBus.watchExecution("e1", true))
-        .thenReturn(Flux.just(progress("s1", "RUNNING"), progress("s1", "SUCCESS")));
+        .thenReturn(
+            Flux.just(progress("s1", TaskStatus.RUNNING), progress("s1", TaskStatus.SUCCESS)));
 
     final List<String> events =
         client
@@ -232,9 +233,10 @@ class ExecutionControllerTest {
 
   @Test
   void testStatusStreamIgnoresLastEventId() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", "RUNNING"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", TaskStatus.RUNNING));
     when(controlBus.watchExecution("e1", false))
-        .thenReturn(Flux.just(progress("s1", "RUNNING"), progress("s1", "SUCCESS")));
+        .thenReturn(
+            Flux.just(progress("s1", TaskStatus.RUNNING), progress("s1", TaskStatus.SUCCESS)));
 
     final String body =
         String.join(

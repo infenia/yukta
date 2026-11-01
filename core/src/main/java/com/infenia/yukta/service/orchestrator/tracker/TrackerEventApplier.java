@@ -13,6 +13,7 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 /** Applies tracker events to the state of the executions, in the order they were emitted. */
@@ -125,20 +127,19 @@ final class TrackerEventApplier {
             state.workflowId,
             event.nodeId(),
             event.module(),
-            event.status(),
+            event.status().name(),
             event.metadata(),
             Instant.now()));
     final TaskProgress task = state.taskMap.get(event.nodeId());
     // An event the state refused (a late RUNNING for an ended node) must not open a span that
     // nothing will ever close.
-    if (task != null
-        && (TaskStatus.isTerminalName(event.status()) || task.status().equals(event.status()))) {
-      telemetry.traceNode(event, TaskStatus.isTerminalName(event.status()));
+    if (task != null && (event.status().isTerminal() || task.status() == event.status())) {
+      telemetry.traceNode(event, event.status().isTerminal());
     }
-    if (TaskStatus.isTerminalName(event.status())) {
+    if (event.status().isTerminal()) {
       telemetry.nodeEnded(task);
     }
-    if (TaskStatus.SUCCESS.name().equals(event.status())) {
+    if (event.status() == TaskStatus.SUCCESS) {
       appendToLog(
           ExecutionLogEvent.nodeFinished(
               state.executionId, state.sessionId, state.workflowId, event.nodeId()),
@@ -155,7 +156,7 @@ final class TrackerEventApplier {
           .log("Received workflow status event for unknown execution");
       return;
     }
-    if (TaskStatus.isTerminalName(state.status)) {
+    if (state.status.isTerminal()) {
       // The run has ended: a second end (a stop racing a cancel, say) must not finalize it again
       // or write a second end to the log.
       log.atDebug()
@@ -165,7 +166,7 @@ final class TrackerEventApplier {
           .log("Ignored workflow status event for a run that has ended");
       return;
     }
-    final boolean terminal = TaskStatus.isTerminalName(event.status());
+    final boolean terminal = event.status().isTerminal();
     if (terminal) {
       // Every node event before this one is already applied, so what is still open is final.
       state.finalizeTasks(event.status());
@@ -179,17 +180,21 @@ final class TrackerEventApplier {
               state.executionId,
               state.sessionId,
               state.workflowId,
-              event.status(),
-              state.nodeStatuses()),
+              event.status().name(),
+              nodeStatusNames(state)),
           LOG_APPEND_RUN,
           "Could not record the end of the run in the execution log");
     }
     state.setStatus(event.status());
     eventFeed.publish(
         new ExecutionEvent.WorkflowStatusChanged(
-            event.executionId(), state.sessionId, state.workflowId, event.status(), Instant.now()));
+            event.executionId(),
+            state.sessionId,
+            state.workflowId,
+            event.status().name(),
+            Instant.now()));
     touched.add(state);
-    if (TaskStatus.isTerminalName(event.status())) {
+    if (event.status().isTerminal()) {
       cleanup.accept(event.executionId());
       log.atDebug()
           .addKeyValue("executionId", event.executionId())
@@ -244,5 +249,12 @@ final class TrackerEventApplier {
             event.level(),
             Instant.now()));
     streams.emitLine(event);
+  }
+
+  private static Map<String, String> nodeStatusNames(final WorkflowState state) {
+    return state.nodeStatuses().entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey, e -> e.getValue().name(), (a, b) -> b, LinkedHashMap::new));
   }
 }

@@ -5,8 +5,7 @@ package com.infenia.yukta.model.execution;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -19,7 +18,7 @@ class SessionSummaryTest {
 
   @Test
   void shouldCreateSessionSummaryWithAllFields() {
-    final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+    final Instant now = Instant.now();
     final Map<String, String> tags = Map.of("env", "prod");
     final SessionSummary summary =
         new SessionSummary("s1", "user1", "2026-03-10T10:00:00Z", now, "desc", tags);
@@ -53,7 +52,7 @@ class SessionSummaryTest {
 
   @Test
   void testEqualsAndHashCode() {
-    final LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+    final Instant now = Instant.now();
     final Map<String, String> tags = Map.of("a", "b");
     final SessionSummary s1 = new SessionSummary("id", "init", "time", now, "desc", tags);
     final SessionSummary s2 = new SessionSummary("id", "init", "time", now, "desc", tags);

@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.session;
 
-import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
@@ -35,7 +34,6 @@ import reactor.core.publisher.Mono;
 
 /** Service for managing session lifecycle and configuration. */
 @Slf4j
-@SuppressWarnings("PMD.ExcessiveImports")
 @Service
 @Validated
 @RequiredArgsConstructor
@@ -306,7 +304,7 @@ public class SessionService {
         .map(
             history ->
                 history.stream()
-                    .filter(run -> !TaskStatus.isTerminalName(run.status()))
+                    .filter(run -> !run.status().isTerminal())
                     .filter(run -> workflowId == null || workflowId.equals(run.workflowId()))
                     .toList());
   }
