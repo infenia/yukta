@@ -340,7 +340,20 @@ public class WorkflowOrchestrator {
       }
       if (plan.boundary().contains(nodeId)) {
         final List<Message<?>> recorded = boundaryOutputs.getOrDefault(nodeId, List.of());
-        assemblers[idx] = context -> context.streams()[idx] = Flux.fromIterable(recorded);
+        final WorkflowNode replayed = topologicalOrder.get(i);
+        // Report the replayed node as done, not left PENDING (which would end SKIPPED).
+        assemblers[idx] =
+            context ->
+                context.streams()[idx] =
+                    Flux.fromIterable(recorded)
+                        .doOnComplete(
+                            () ->
+                                tracker.emitTaskStatusEvent(
+                                    newExecutionId,
+                                    replayed.nodeId(),
+                                    replayed.type(),
+                                    TaskStatus.SUCCESS,
+                                    Map.of("replayedFrom", previousExecutionId)));
       } else {
         assemblers[idx] = context -> context.streams()[idx] = Flux.empty();
       }
