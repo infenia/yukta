@@ -310,10 +310,15 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   /** Hash of the id: a fixed length, and distinct on case-insensitive file systems (hex). */
   /* default */ static String fileName(final String nodeId) {
+    return hash("SHA-256", nodeId);
+  }
+
+  /** The hex of the hash of a text; every JVM has SHA-256, so that name never fails. */
+  /* default */ static String hash(final String algorithm, final String text) {
     try {
       return HexFormat.of()
           .formatHex(
-              MessageDigest.getInstance("SHA-256").digest(nodeId.getBytes(StandardCharsets.UTF_8)));
+              MessageDigest.getInstance(algorithm).digest(text.getBytes(StandardCharsets.UTF_8)));
     } catch (final NoSuchAlgorithmException e) {
       throw new IllegalStateException(e);
     }

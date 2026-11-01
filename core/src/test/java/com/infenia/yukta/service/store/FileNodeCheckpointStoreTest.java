@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.store;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
@@ -200,6 +201,12 @@ class FileNodeCheckpointStoreTest {
     assertThat(store.get("e1", longId).block().payload()).isEqualTo("long");
     assertThat(FileNodeCheckpointStore.fileName("A"))
         .isNotEqualToIgnoringCase(FileNodeCheckpointStore.fileName("a"));
+  }
+
+  @Test
+  void unknownHashAlgorithm_failsLoudly() {
+    assertThatThrownBy(() -> FileNodeCheckpointStore.hash("NOPE", "x"))
+        .isInstanceOf(IllegalStateException.class);
   }
 
   @Test
