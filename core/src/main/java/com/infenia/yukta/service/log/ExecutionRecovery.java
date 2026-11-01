@@ -7,7 +7,7 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.leader.LeaderElection;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
@@ -37,7 +37,7 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
   private final ExecutionLogStore store;
 
   /** Receives the restored runs. */
-  private final DefaultTaskTrackerService tracker;
+  private final TaskTrackerService tracker;
 
   /** Number of most recent runs kept in the log and restored. */
   private final int retainedRuns;
@@ -65,7 +65,7 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
   @Autowired
   public ExecutionRecovery(
       final ExecutionLogStore store,
-      final DefaultTaskTrackerService tracker,
+      final TaskTrackerService tracker,
       final YuktaProperties properties,
       final NodeCheckpointStore checkpoints) {
     this(store, tracker, properties.executionLog().retainedRuns(), checkpoints);
@@ -73,7 +73,7 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
 
   /* default */ ExecutionRecovery(
       final ExecutionLogStore store,
-      final DefaultTaskTrackerService tracker,
+      final TaskTrackerService tracker,
       final int retainedRuns,
       final NodeCheckpointStore checkpoints) {
     this.store = store;
@@ -83,9 +83,7 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
   }
 
   /* default */ ExecutionRecovery(
-      final ExecutionLogStore store,
-      final DefaultTaskTrackerService tracker,
-      final int retainedRuns) {
+      final ExecutionLogStore store, final TaskTrackerService tracker, final int retainedRuns) {
     this(store, tracker, retainedRuns, new InMemoryNodeCheckpointStore());
   }
 
