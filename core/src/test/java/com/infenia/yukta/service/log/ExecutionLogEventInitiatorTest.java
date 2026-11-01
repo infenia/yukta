@@ -71,7 +71,7 @@ class ExecutionLogEventInitiatorTest {
   }
 
   @Test
-  void externalPayloadCannotNameAParentRun() {
+  void externalPayloadCannotNameParentRun() {
     final var payload =
         ExecutionLogEvent.withInitiator(Map.of("yukta.parentExecutionId", "victim", "a", 1), "k");
 
