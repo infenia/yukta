@@ -6,6 +6,7 @@ import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorBinding;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
+import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
@@ -41,7 +42,7 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Service
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports"})
 public class SupervisorService {
 
   /** Run id under which attaching and detaching is recorded. */
@@ -211,7 +212,7 @@ public class SupervisorService {
    */
   public Mono<SupervisorBinding> attach(final SupervisorBinding binding) {
     try {
-      com.infenia.yukta.plugin.control.SupervisorIds.validate(binding.id(), "binding id");
+      SupervisorIds.validate(binding.id(), "binding id");
     } catch (IllegalArgumentException e) {
       return Mono.error(e);
     }
@@ -327,7 +328,7 @@ public class SupervisorService {
 
   /** A stored binding with a bad id is skipped with a warning; the migration renames such ids. */
   private static boolean validStoredId(final SupervisorBinding binding) {
-    final boolean valid = com.infenia.yukta.plugin.control.SupervisorIds.isValid(binding.id());
+    final boolean valid = SupervisorIds.isValid(binding.id());
     if (!valid) {
       log.atWarn()
           .addKeyValue("binding", binding.id())
@@ -337,7 +338,7 @@ public class SupervisorService {
   }
 
   private void validate(final SupervisorProfile profile) {
-    com.infenia.yukta.plugin.control.SupervisorIds.validate(profile.id(), "profile id");
+    SupervisorIds.validate(profile.id(), "profile id");
     factory(profile).validate(profile);
   }
 
