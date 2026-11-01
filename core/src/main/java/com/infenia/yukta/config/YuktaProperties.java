@@ -8,7 +8,6 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
-import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
@@ -26,7 +25,6 @@ import org.springframework.validation.annotation.Validated;
  * @param streaming the status history of live streams
  * @param supervisor supervisor hosting
  * @param stop draining stop
- * @param tracker the task tracker
  * @param start start idempotency
  * @param results results kept for retrieval
  * @param workers remote worker registry
@@ -42,7 +40,6 @@ public record YuktaProperties(
     @Valid @DefaultValue Streaming streaming,
     @Valid @DefaultValue Supervisor supervisor,
     @Valid @DefaultValue Stop stop,
-    @Valid @DefaultValue Tracker tracker,
     @Valid @DefaultValue Start start,
     @Valid @DefaultValue Results results,
     @Valid @DefaultValue Workers workers,
@@ -133,18 +130,6 @@ public record YuktaProperties(
    * @param drainTimeout how long a drain may take before falling back to a cancel
    */
   public record Stop(@NotNull @DefaultValue("30s") Duration drainTimeout) {}
-
-  /**
-   * The task tracker.
-   *
-   * @param sessionTtl how long an idle session is kept; unset keeps every session
-   * @param maxSessions most sessions kept in memory, 0 for all
-   * @param cleanupTtl how long execution data is kept after its terminal status
-   */
-  public record Tracker(
-      @Nullable Duration sessionTtl,
-      @Min(0) @DefaultValue("0") int maxSessions,
-      @NotNull @DefaultValue("10m") Duration cleanupTtl) {}
 
   /**
    * Start idempotency.
