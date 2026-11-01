@@ -570,4 +570,11 @@ class RuleSupervisorTest {
 
     assertThat(run(rules, failure, failure, failure)).isEmpty();
   }
+
+  @Test
+  void shippedIdFollowsTheSupervisorIdRule() {
+    org.assertj.core.api.Assertions.assertThat(
+            com.infenia.yukta.plugin.control.SupervisorIds.isValid(RuleSupervisor.SUPERVISOR_ID))
+        .isTrue();
+  }
 }

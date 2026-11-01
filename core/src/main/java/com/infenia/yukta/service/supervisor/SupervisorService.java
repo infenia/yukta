@@ -107,6 +107,7 @@ public class SupervisorService {
     Flux.defer(store::bindings)
         .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
         .filter(SupervisorBinding::enabled)
+        .filter(SupervisorService::validStoredId)
         .concatMap(
             binding ->
                 store
@@ -152,12 +153,12 @@ public class SupervisorService {
    * Creates or replaces a profile. Bindings that use it are restarted with the new settings.
    *
    * @param profile the profile
-   * @return the saved profile; errors with {@link IllegalArgumentException} for an unknown type or
-   *     invalid settings
+   * @return the saved profile; errors with {@link IllegalArgumentException} for an invalid id, an
+   *     unknown type or invalid settings
    */
   public Mono<SupervisorProfile> saveProfile(final SupervisorProfile profile) {
     return Mono.fromRunnable(() -> validate(profile))
-        .then(store.saveProfile(profile))
+        .then(Mono.defer(() -> store.saveProfile(profile)))
         .then(
             store
                 .bindings()
@@ -209,6 +210,11 @@ public class SupervisorService {
    *     IllegalArgumentException} when the profile's settings no longer make a supervisor
    */
   public Mono<SupervisorBinding> attach(final SupervisorBinding binding) {
+    try {
+      com.infenia.yukta.plugin.control.SupervisorIds.validate(binding.id(), "binding id");
+    } catch (IllegalArgumentException e) {
+      return Mono.error(e);
+    }
     if (host.isBuiltIn(binding.id())) {
       return Mono.error(
           new ConflictException(
@@ -319,7 +325,19 @@ public class SupervisorService {
     return factory;
   }
 
+  /** A stored binding with a bad id is skipped with a warning; the migration renames such ids. */
+  private static boolean validStoredId(final SupervisorBinding binding) {
+    final boolean valid = com.infenia.yukta.plugin.control.SupervisorIds.isValid(binding.id());
+    if (!valid) {
+      log.atWarn()
+          .addKeyValue("binding", binding.id())
+          .log("Skipped a supervisor binding whose id breaks the naming rule");
+    }
+    return valid;
+  }
+
   private void validate(final SupervisorProfile profile) {
+    com.infenia.yukta.plugin.control.SupervisorIds.validate(profile.id(), "profile id");
     factory(profile).validate(profile);
   }
 

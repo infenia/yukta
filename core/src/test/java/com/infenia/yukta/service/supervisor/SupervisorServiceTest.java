@@ -404,4 +404,55 @@ class SupervisorServiceTest {
         .expectErrorMessage("db")
         .verify();
   }
+
+  @Test
+  void savingProfileWithBadIdIsRefusedAndStoresNothing() {
+    StepVerifier.create(service.saveProfile(profile("key:admin")))
+        .expectErrorSatisfies(
+            e ->
+                assertThat(e)
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("profile id")
+                    .hasMessageContaining("key:admin"))
+        .verify();
+
+    StepVerifier.create(store.profiles()).verifyComplete();
+  }
+
+  @Test
+  void attachingBindingWithBadIdIsRefusedAndStoresNothing() {
+    StepVerifier.create(service.saveProfile(profile("p"))).expectNextCount(1).verifyComplete();
+
+    StepVerifier.create(service.attach(binding("a b", "p", new SupervisorScope.Global(), true)))
+        .expectErrorSatisfies(
+            e ->
+                assertThat(e)
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("binding id"))
+        .verify();
+
+    StepVerifier.create(store.bindings()).verifyComplete();
+    verify(host, never()).attach(any(BoundSupervisor.class));
+  }
+
+  @Test
+  void validIdIsAccepted() {
+    StepVerifier.create(service.saveProfile(profile("My.profile_1-x")))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void restoreSkipsStoredBindingWhoseIdBreaksRule() {
+    StepVerifier.create(store.saveProfile(profile("p"))).verifyComplete();
+    StepVerifier.create(
+            store.saveBinding(binding("key:admin", "p", new SupervisorScope.Global(), true)))
+        .verifyComplete();
+    StepVerifier.create(store.saveBinding(binding("good", "p", new SupervisorScope.Global(), true)))
+        .verifyComplete();
+
+    service.restore();
+
+    verify(host, times(1)).attach(any(BoundSupervisor.class));
+  }
 }

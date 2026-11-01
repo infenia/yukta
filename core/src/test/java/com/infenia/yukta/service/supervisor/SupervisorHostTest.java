@@ -4,6 +4,7 @@ package com.infenia.yukta.service.supervisor;
 
 import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -479,5 +480,24 @@ class SupervisorHostTest {
     assertThat(status.get(1).applied()).isZero();
     assertThat(status.getFirst().type()).contains("SupervisorHostTest");
     assertThat(status.get(1).type()).isEqualTo("NamedPlane");
+  }
+
+  @Test
+  void startFailsForBeanSupervisorWhoseIdBreaksRule() {
+    host =
+        new SupervisorHost(
+            providerOf(supervisor("key:admin", SupervisorHostTest::pauseOnFailure)),
+            feed,
+            dispatcher,
+            log,
+            meters,
+            false,
+            20,
+            100);
+
+    assertThatThrownBy(host::start)
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("key:admin")
+        .hasMessageContaining("SupervisorHostTest");
   }
 }
