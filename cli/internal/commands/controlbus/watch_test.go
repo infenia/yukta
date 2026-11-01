@@ -253,6 +253,13 @@ func TestFormatEvent(t *testing.T) {
 	}{
 		{client.ExecutionEvent{Type: client.EventControlOutcome, Command: "Stop", Applied: &yes}, "CONTROL Stop applied=true"},
 		{client.ExecutionEvent{Type: client.EventControlOutcome, Command: "Stop"}, "CONTROL Stop applied=false"},
+		{client.ExecutionEvent{Type: client.EventInputRequested}, "INPUT requested"},
+		{inputEvent(client.EventInputRequested), "INPUT requested by ask (APPROVAL, HIGH risk)"},
+		{client.ExecutionEvent{Type: client.EventInputEscalated}, "INPUT escalated"},
+		{inputEvent(client.EventInputEscalated), "INPUT of ask escalated to ops"},
+		{client.ExecutionEvent{Type: client.EventInputAnswered, Decision: "approve"}, "INPUT answered: approve"},
+		{client.ExecutionEvent{Type: client.EventInputExpired}, "INPUT expired"},
+		{client.ExecutionEvent{Type: client.EventInputCancelled, Reason: "run-ended"}, "INPUT cancelled: run-ended"},
 		{client.ExecutionEvent{Type: "Other"}, "OTHER"},
 	} {
 		if got := formatEvent(tt.event); got != tt.want {
@@ -263,3 +270,19 @@ func TestFormatEvent(t *testing.T) {
 
 // feedEnded: the mock feed closes after its events, which watch reports as an error.
 func feedEnded(err error) bool { return strings.Contains(err.Error(), "ended unexpectedly") }
+
+// inputEvent is an input event that carries a request snapshot, as the server sends it.
+func inputEvent(kind string) client.ExecutionEvent {
+	e := client.ExecutionEvent{Type: kind}
+	e.Request = &struct {
+		NodeID string `json:"nodeId"`
+		Tier   string `json:"tier"`
+		Spec   struct {
+			Kind string `json:"kind"`
+			Risk string `json:"risk"`
+		} `json:"spec"`
+	}{NodeID: "ask", Tier: "ops"}
+	e.Request.Spec.Kind = "APPROVAL"
+	e.Request.Spec.Risk = "HIGH"
+	return e
+}

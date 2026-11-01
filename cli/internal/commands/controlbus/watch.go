@@ -112,7 +112,8 @@ Press Ctrl-C to stop watching at any time.`,
 
 	cmd.Flags().StringVar(&executionID, "execution", "", "Only events of this execution")
 	cmd.Flags().StringVar(&eventType, "type", "",
-		"Only events of this kind: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome or LogLine")
+		"Only events of this kind: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome, LogLine,\n"+
+			"InputRequested, InputEscalated, InputAnswered, InputExpired or InputCancelled")
 	cmd.Flags().BoolVar(&untilDone, "until-done", false, "Exit when the execution has ended (needs --execution)")
 	cmd.Flags().BoolVar(&tree, "tree", true,
 		"With --execution, also watch the runs it starts as sub-workflows, at any depth")
@@ -367,6 +368,23 @@ func formatEvent(e client.ExecutionEvent) string {
 		return line
 	case client.EventLogLine:
 		return fmt.Sprintf("LOG %s: %s", e.NodeID, e.Line)
+	case client.EventInputRequested:
+		if e.Request == nil {
+			return "INPUT requested"
+		}
+		return fmt.Sprintf("INPUT requested by %s (%s, %s risk)",
+			e.Request.NodeID, e.Request.Spec.Kind, e.Request.Spec.Risk)
+	case client.EventInputEscalated:
+		if e.Request == nil {
+			return "INPUT escalated"
+		}
+		return fmt.Sprintf("INPUT of %s escalated to %s", e.Request.NodeID, e.Request.Tier)
+	case client.EventInputAnswered:
+		return "INPUT answered: " + e.Decision
+	case client.EventInputExpired:
+		return "INPUT expired"
+	case client.EventInputCancelled:
+		return "INPUT cancelled: " + e.Reason
 	default:
 		return strings.ToUpper(e.Type)
 	}

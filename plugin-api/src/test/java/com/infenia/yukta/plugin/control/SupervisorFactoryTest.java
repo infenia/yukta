@@ -40,4 +40,9 @@ class SupervisorFactoryTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("bad settings");
   }
+
+  @Test
+  void defaultAllowedCommands_isUnrestrictedUntilFactoryNarrowsIt() {
+    org.assertj.core.api.Assertions.assertThat(factory.defaultAllowedCommands()).isNull();
+  }
 }

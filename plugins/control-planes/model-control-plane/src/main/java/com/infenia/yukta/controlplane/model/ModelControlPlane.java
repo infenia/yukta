@@ -197,6 +197,27 @@ public final class ModelControlPlane implements ControlPlanePlugin {
                   + (outcome.actor() == null ? "." : ", sent by " + outcome.actor() + ".");
           case ExecutionEvent.EventsMissed missed ->
               missed.count() + " events were missed because the supervisor fell behind.";
+          // An input request's prompt and context are written by an agent and are untrusted:
+          // they are left out of this prompt until they can be passed as delimited data.
+          case ExecutionEvent.InputRequested requested ->
+              "Step "
+                  + requested.request().nodeId()
+                  + " asked for input of kind "
+                  + requested.request().spec().kind()
+                  + " with risk "
+                  + requested.request().spec().risk()
+                  + ".";
+          case ExecutionEvent.InputEscalated escalated ->
+              "The input request of step "
+                  + escalated.request().nodeId()
+                  + " was handed to the tier "
+                  + escalated.request().tier()
+                  + ".";
+          case ExecutionEvent.InputAnswered answered ->
+              "An input request was answered with the decision " + answered.decision() + ".";
+          case ExecutionEvent.InputExpired _ -> "An input request expired unanswered.";
+          case ExecutionEvent.InputCancelled cancelled ->
+              "An input request was cancelled: " + cancelled.reason() + ".";
         };
     return StateText.truncate(text);
   }

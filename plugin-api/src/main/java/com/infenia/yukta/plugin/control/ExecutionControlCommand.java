@@ -2,7 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.control;
 
+import com.infenia.yukta.plugin.input.InputLimits;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.Nullable;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Marker interface for execution control commands.
@@ -36,7 +41,9 @@ public sealed interface ExecutionControlCommand
         ExecutionControlCommand.SetBreakpointCommand,
         ExecutionControlCommand.SignalNodeCommand,
         ExecutionControlCommand.SetLimitsCommand,
-        ExecutionControlCommand.SetPriorityCommand {
+        ExecutionControlCommand.SetPriorityCommand,
+        ExecutionControlCommand.AnswerInputCommand,
+        ExecutionControlCommand.EscalateInputCommand {
 
   /** Execution id the commands that belong to no run carry. */
   String SCHEDULER = "scheduler";
@@ -282,4 +289,91 @@ public sealed interface ExecutionControlCommand
    * @param priority the new priority, higher first
    */
   record SetPriorityCommand(String executionId, int priority) implements ExecutionControlCommand {}
+
+  /**
+   * Answers an input request that a plugin of the run is waiting on. It passes the same ordering,
+   * review and audit as every other command, and the engine checks that the sender may answer this
+   * request before it takes the answer.
+   *
+   * @param executionId the run that asked
+   * @param requestId the request to answer
+   * @param expectedVersion the version of the request the sender saw, or {@code null} to answer
+   *     whatever version is current; a stale version is refused
+   * @param decision what was decided: an option id, or any short decision for an approval
+   * @param text free text that goes with the decision
+   * @param data structured data that goes with the decision
+   * @param rationale why, when the sender says
+   * @param confidence how sure the sender is, from 0 to 1, when it says
+   */
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP",
+      justification = "the compact constructor stores an unmodifiable copy")
+  record AnswerInputCommand(
+      String executionId,
+      String requestId,
+      @Nullable Long expectedVersion,
+      String decision,
+      @Nullable String text,
+      Map<String, Object> data,
+      @Nullable String rationale,
+      @Nullable Double confidence)
+      implements ExecutionControlCommand {
+
+    /**
+     * Checks the answer and keeps an immutable copy of the data.
+     *
+     * @param executionId the run that asked
+     * @param requestId the request to answer
+     * @param expectedVersion the version the sender saw, or {@code null}
+     * @param decision what was decided
+     * @param text free text, or {@code null}
+     * @param data structured data
+     * @param rationale why, or {@code null}
+     * @param confidence from 0 to 1, or {@code null}
+     */
+    public AnswerInputCommand {
+      InputLimits.requireId("executionId", executionId);
+      InputLimits.requireId("requestId", requestId);
+      if (expectedVersion != null && expectedVersion < 0) {
+        throw new IllegalArgumentException("expectedVersion must not be negative");
+      }
+      InputLimits.requireId("decision", decision);
+      InputLimits.optionalText("text", text, InputLimits.TEXT_MAX_BYTES);
+      // Map.copyOf rejects null values, and answer data may hold them
+      data = data == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(data));
+      InputLimits.requireWithin("data", data, InputLimits.DATA_MAX_BYTES);
+      InputLimits.optionalText("rationale", rationale, InputLimits.TEXT_MAX_BYTES);
+      InputLimits.requireConfidence(confidence);
+    }
+  }
+
+  /**
+   * Hands an input request up to the next tier of its route, with advice for whoever answers there.
+   * Anyone who may see the request in its current tier can escalate it; it needs no right to
+   * answer.
+   *
+   * @param executionId the run that asked
+   * @param requestId the request to hand up
+   * @param reason why it is handed up
+   * @param advice what the sender suggests, for the next tier, or {@code null}
+   */
+  record EscalateInputCommand(
+      String executionId, String requestId, String reason, @Nullable String advice)
+      implements ExecutionControlCommand {
+
+    /**
+     * Checks the parts.
+     *
+     * @param executionId the run that asked
+     * @param requestId the request to hand up
+     * @param reason why it is handed up
+     * @param advice what the sender suggests, or {@code null}
+     */
+    public EscalateInputCommand {
+      InputLimits.requireId("executionId", executionId);
+      InputLimits.requireId("requestId", requestId);
+      InputLimits.requireText("reason", reason, InputLimits.TEXT_MAX_BYTES);
+      InputLimits.optionalText("advice", advice, InputLimits.TEXT_MAX_BYTES);
+    }
+  }
 }

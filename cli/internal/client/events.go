@@ -16,6 +16,11 @@ const (
 	EventWorkflowStatusChanged = "WorkflowStatusChanged"
 	EventControlOutcome        = "ControlOutcome"
 	EventLogLine               = "LogLine"
+	EventInputRequested        = "InputRequested"
+	EventInputEscalated        = "InputEscalated"
+	EventInputAnswered         = "InputAnswered"
+	EventInputExpired          = "InputExpired"
+	EventInputCancelled        = "InputCancelled"
 )
 
 // ExecutionEvent is one control-bus event. Which fields are set depends on Type:
@@ -32,6 +37,18 @@ type ExecutionEvent struct {
 	Applied     *bool  `json:"applied,omitempty"`
 	Reason      string `json:"reason,omitempty"`
 	Line        string `json:"line,omitempty"`
+	// RequestID and Decision are set on the input events; Request is the snapshot an
+	// InputRequested or InputEscalated event carries (the prompt is not shown by watch).
+	RequestID string `json:"requestId,omitempty"`
+	Decision  string `json:"decision,omitempty"`
+	Request   *struct {
+		NodeID string `json:"nodeId"`
+		Tier   string `json:"tier"`
+		Spec   struct {
+			Kind string `json:"kind"`
+			Risk string `json:"risk"`
+		} `json:"spec"`
+	} `json:"request,omitempty"`
 	// Severity is INFO, WARN or ERROR, set by the server on the envelope.
 	Severity string `json:"severity,omitempty"`
 	// Metadata is what a node reported; a failed node's reason is under "error".
