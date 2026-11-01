@@ -193,7 +193,10 @@ class ActorResolverTest {
 
   @Test
   void supervisorOrTokenKindWithoutActorHasNoIdentity() {
-    assertThat(resolver.resolve(Context.of(ControlActor.KIND_KEY, ControlActor.Kind.SUPERVISOR)).type())
+    assertThat(
+            resolver
+                .resolve(Context.of(ControlActor.KIND_KEY, ControlActor.Kind.SUPERVISOR))
+                .type())
         .isEqualTo(ActorInfo.Type.UNAUTHENTICATED);
     assertThat(resolver.resolve(Context.of(ControlActor.KIND_KEY, ControlActor.Kind.TOKEN)).type())
         .isEqualTo(ActorInfo.Type.UNAUTHENTICATED);
