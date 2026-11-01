@@ -420,6 +420,21 @@ class RunAnalyticsTest {
   }
 
   @Test
+  void activeRunSurvivesNewerRuns() {
+    for (int i = 0; i < 10_000; i++) {
+      analytics.accept(
+          new ExecutionEvent.WorkflowStatusChanged("r" + i, "s1", "w1", "RUNNING", T0));
+    }
+    analytics.accept(new ExecutionEvent.WorkflowStatusChanged("r0", "s1", "w1", "RUNNING", T0));
+    analytics.accept(new ExecutionEvent.WorkflowStatusChanged("rx", "s1", "w1", "RUNNING", T0));
+
+    assertThat(analytics.liveRuns())
+        .extracting(RunAnalytics.LiveRun::executionId)
+        .contains("r0")
+        .doesNotContain("r1");
+  }
+
+  @Test
   void stopBeforeStartIsHarmless() {
     new RunAnalytics(feed).stop();
 

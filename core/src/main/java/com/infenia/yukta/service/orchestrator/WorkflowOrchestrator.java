@@ -201,21 +201,23 @@ public class WorkflowOrchestrator {
                   .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
                   .log("Registered execution control");
 
-              archive(executionId, sessionId, workflowId, prepared, payload);
-
               final List<String> nodeIds =
                   prepared.topologicalOrder().stream().map(WorkflowNode::nodeId).toList();
 
-              return runTracked(
-                  control,
-                  sessionId,
-                  workflowId,
-                  executionId,
-                  nodeIds,
-                  ExecutionScheduler.priorityOf(payload),
-                  admission,
-                  prepared.template().instantiate(executionId, payload),
-                  new Origin("Workflow execution", null));
+              // Subscribed together: tracking starts on this thread while the archive I/O runs
+              // elsewhere.
+              return Mono.when(
+                  archive(executionId, sessionId, workflowId, prepared, payload),
+                  runTracked(
+                      control,
+                      sessionId,
+                      workflowId,
+                      executionId,
+                      nodeIds,
+                      ExecutionScheduler.priorityOf(payload),
+                      admission,
+                      prepared.template().instantiate(executionId, payload),
+                      new Origin("Workflow execution", null)));
             }),
         admission);
   }
@@ -357,7 +359,6 @@ public class WorkflowOrchestrator {
                   executionControlFactory.create(
                       sessionId, workflowId, newExecutionId, prepared, payload);
               executionControlStore.save(control);
-              archive(newExecutionId, sessionId, workflowId, prepared, payload);
               log.atDebug()
                   .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
                   .log("Registered execution control for restarted workflow");
@@ -383,26 +384,28 @@ public class WorkflowOrchestrator {
                                           .onErrorResume(_ -> Mono.empty())))
                       .then();
 
-              return runTracked(
-                  control,
-                  sessionId,
-                  workflowId,
-                  newExecutionId,
-                  nodeIds,
-                  ExecutionScheduler.priorityOf(payload),
-                  admission,
-                  recordReplayed.then(
-                      Mono.defer(
-                          () ->
-                              compiler.executeTemplate(
-                                  newExecutionId,
-                                  payload,
-                                  nodeCount,
-                                  assemblers,
-                                  sessionId,
-                                  workflowId,
-                                  nodeIds))),
-                  new Origin("RestartFromNode execution", previousExecutionId));
+              return Mono.when(
+                  archive(newExecutionId, sessionId, workflowId, prepared, payload),
+                  runTracked(
+                      control,
+                      sessionId,
+                      workflowId,
+                      newExecutionId,
+                      nodeIds,
+                      ExecutionScheduler.priorityOf(payload),
+                      admission,
+                      recordReplayed.then(
+                          Mono.defer(
+                              () ->
+                                  compiler.executeTemplate(
+                                      newExecutionId,
+                                      payload,
+                                      nodeCount,
+                                      assemblers,
+                                      sessionId,
+                                      workflowId,
+                                      nodeIds))),
+                      new Origin("RestartFromNode execution", previousExecutionId)));
             }),
         admission);
   }
@@ -431,8 +434,23 @@ public class WorkflowOrchestrator {
         });
   }
 
-  /** Remembers an execution so it can be restarted, and frees what older ones recorded. */
-  private void archive(
+  /**
+   * Remembers an execution so it can be restarted, and frees what older ones recorded. The log
+   * append and the checkpoint clearing are file or database I/O, so they run on {@code
+   * boundedElastic}, not on the subscriber's (event loop) thread.
+   */
+  private Mono<Void> archive(
+      final String executionId,
+      final String sessionId,
+      final String workflowId,
+      final PreparedWorkflow prepared,
+      final Map<String, Object> payload) {
+    return Mono.<Void>fromRunnable(
+            () -> archiveBlocking(executionId, sessionId, workflowId, prepared, payload))
+        .subscribeOn(Schedulers.boundedElastic());
+  }
+
+  private void archiveBlocking(
       final String executionId,
       final String sessionId,
       final String workflowId,
