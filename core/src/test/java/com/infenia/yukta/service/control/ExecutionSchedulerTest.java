@@ -50,6 +50,20 @@ class ExecutionSchedulerTest {
   }
 
   @Test
+  void givingBackAnAdmissionFreesItsSlotOnceAndLeavesTheQueue() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 5, ExecutionScheduler.OnLimit.QUEUE);
+    final Admission first = scheduler.acquire("s1", "w1");
+    final Admission waiting = scheduler.acquire("s1", "w1");
+
+    first.giveBack();
+    first.giveBack();
+    assertThat(scheduler.running()).isEqualTo(1); // the waiting one took the freed slot
+
+    waiting.giveBack();
+    assertThat(scheduler.running()).isZero();
+  }
+
+  @Test
   void childRunsAreBoundedByTheChildLimit() {
     final ExecutionScheduler scheduler = scheduler(0, 0, 0, ExecutionScheduler.OnLimit.REJECT);
     org.springframework.test.util.ReflectionTestUtils.setField(scheduler, "maxChildren", 2);

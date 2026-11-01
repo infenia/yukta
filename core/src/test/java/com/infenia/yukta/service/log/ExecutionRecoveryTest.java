@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TrackerFactory;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
@@ -23,7 +24,7 @@ class ExecutionRecoveryTest {
 
   private final InMemoryExecutionLogStore store = new InMemoryExecutionLogStore();
   private final DefaultTaskTrackerService tracker =
-      new DefaultTaskTrackerService(Duration.ofMinutes(10), mock(StatusHistoryCache.class));
+      TrackerFactory.tracker(Duration.ofMinutes(10), mock(StatusHistoryCache.class));
 
   private void finishedRun(final String executionId, final String status) {
     store.append(ExecutionLogEvent.started(executionId, "s1", "w1", "v1"));
@@ -152,7 +153,7 @@ class ExecutionRecoveryTest {
   void trackerRecordsRunEndsInTheLog() {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     final DefaultTaskTrackerService live =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofMinutes(10),
             mock(StatusHistoryCache.class),
             log,
@@ -179,7 +180,7 @@ class ExecutionRecoveryTest {
   void trackerLogsEachSuccessfulNode_andAbortedRunsKeepThem() {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     final DefaultTaskTrackerService live =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofMinutes(10),
             mock(StatusHistoryCache.class),
             log,

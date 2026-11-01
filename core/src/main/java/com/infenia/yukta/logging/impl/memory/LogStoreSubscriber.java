@@ -3,7 +3,7 @@
 package com.infenia.yukta.logging.impl.memory;
 
 import com.infenia.yukta.logging.api.PluginLogStore;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +14,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
 /**
- * Non-blocking subscriber to log events from DefaultTaskTrackerService.
+ * Non-blocking subscriber to log events from TaskTrackerService.
  *
  * <p>Subscribes once to the tracker's log sink at startup and writes each log entry to the
  * PluginLogStore asynchronously on boundedElastic scheduler. Designed to be transparent to
@@ -29,7 +29,7 @@ public class LogStoreSubscriber {
   private final PluginLogStore store;
 
   /** The source of log events. */
-  private final DefaultTaskTrackerService taskTracker;
+  private final TaskTrackerService taskTracker;
 
   /** The subscription to the log event stream. */
   private Disposable subscription;
