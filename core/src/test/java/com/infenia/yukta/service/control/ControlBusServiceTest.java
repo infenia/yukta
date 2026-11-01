@@ -357,6 +357,15 @@ class ControlBusServiceTest {
   class UnregisterPluginTests {
 
     @Test
+    @DisplayName("should release a registration made outside any run")
+    void unregisterPlugin_withoutRun_notifiesHandlersWithTheRunlessKey() {
+      controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
+      controlBusService.unregisterPlugin(WORKFLOW_ID, NODE_ID);
+
+      verify(handler1).removeNode(WORKFLOW_ID + "\0" + NODE_ID);
+    }
+
+    @Test
     @DisplayName("should remove plugin and notify all handlers")
     void unregisterPlugin_cleansUp() {
       controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
