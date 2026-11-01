@@ -10,7 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.control.gateway.DefaultControlBusGateway;
 import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
 import java.util.List;
 import lombok.NoArgsConstructor;
@@ -26,7 +26,7 @@ class LeaderLossTest {
   void losingTheLease_killsEveryLiveRun() {
     final LeaderElection election = mock(LeaderElection.class);
     final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
-    final ControlBusGateway gateway = mock(ControlBusGateway.class);
+    final DefaultControlBusGateway gateway = mock(DefaultControlBusGateway.class);
     final ExecutionControl run = mock(ExecutionControl.class);
     when(run.executionId()).thenReturn("e1");
     when(registry.findAll()).thenReturn(List.of(run));
@@ -39,5 +39,6 @@ class LeaderLossTest {
     hook.getValue().run();
 
     verify(gateway).stopExecution(eq("e1"), any(), eq(StopMode.KILL));
+    verify(gateway).cancelRunningExecutions();
   }
 }
