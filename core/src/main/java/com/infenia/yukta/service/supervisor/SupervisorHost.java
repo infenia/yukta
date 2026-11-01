@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
@@ -179,7 +180,26 @@ public class SupervisorHost {
   /** Starts every supervisor. */
   @PostConstruct
   public void start() {
-    supervisors.stream().forEach(supervisor -> subscriptions.add(launch(supervisor, dryRun)));
+    supervisors.stream()
+        .forEach(
+            supervisor -> {
+              checkBeanId(supervisor);
+              subscriptions.add(launch(supervisor, dryRun));
+            });
+  }
+
+  /** Fails start-up for a bean supervisor whose id breaks the naming rule. */
+  private static void checkBeanId(final ExecutionSupervisor supervisor) {
+    try {
+      SupervisorIds.validate(supervisor.id(), "id");
+    } catch (IllegalArgumentException e) {
+      throw new IllegalStateException(
+          "The supervisor bean "
+              + supervisor.getClass().getName()
+              + " has an invalid id: "
+              + e.getMessage(),
+          e);
+    }
   }
 
   /**
