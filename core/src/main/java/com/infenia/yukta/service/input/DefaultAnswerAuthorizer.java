@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.input;
 
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
+import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputForbiddenException;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRisk;
@@ -25,6 +26,7 @@ import reactor.core.publisher.Mono;
  * changes this. A supervisor answers only when its profile says {@code canAnswer} and its {@code
  * maxRisk} reaches the request's risk.
  */
+@SuppressWarnings("PMD.TooManyMethods")
 public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
 
   /** Who the implicit route of a request names until routes exist. */
@@ -124,8 +126,8 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
   }
 
   private void checkSupervisorScope(final InputRequest request, final ActorInfo actor) {
-    if (actor.scope() == null
-        || !actor.scope().matches(request.sessionId(), request.workflowId())) {
+    final SupervisorScope scope = actor.scope();
+    if (scope == null || !scope.matches(request.sessionId(), request.workflowId())) {
       throw deny(request, RULE_SCOPE, actor, "does not watch the run of the request");
     }
   }

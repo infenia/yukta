@@ -49,7 +49,6 @@ public class AnswerInputCommandProcessor implements ControlSignalProcessor {
    * @param broker takes the answer
    */
   @Autowired
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public AnswerInputCommandProcessor(final InputCommandGuard guard, final InputBroker broker) {
     this(guard, broker, Clock.systemUTC());
   }

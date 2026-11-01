@@ -5,6 +5,7 @@ package com.infenia.yukta.service.input;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.security.ApiRole;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
@@ -22,6 +23,9 @@ import org.jspecify.annotations.Nullable;
  * @param capabilities what a supervisor may do, or {@code null}
  * @param scope the runs a supervisor watches, or {@code null}
  */
+@SuppressFBWarnings(
+    value = "EI_EXPOSE_REP",
+    justification = "the compact constructor stores an immutable copy")
 public record ActorInfo(
     Type type,
     String id,

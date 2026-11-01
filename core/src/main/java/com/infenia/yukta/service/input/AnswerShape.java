@@ -63,7 +63,8 @@ public class AnswerShape {
   }
 
   private static void requireText(final InputRequest request, final AnswerInputCommand answer) {
-    if (answer.text() == null || answer.text().isBlank()) {
+    final String text = answer.text();
+    if (text == null || text.isBlank()) {
       throw new InputRejectedException(request.id(), "A text request needs a text answer");
     }
   }

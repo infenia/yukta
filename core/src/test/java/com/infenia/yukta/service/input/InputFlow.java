@@ -20,6 +20,7 @@ import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.leader.LeaderElection;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.service.supervisor.AttachedSupervisors;
@@ -27,6 +28,7 @@ import com.infenia.yukta.service.supervisor.BoundSupervisor;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -37,6 +39,7 @@ import reactor.util.context.Context;
  * A real broker with the real authoriser, resolver and guard around it, for tests that send
  * commands to the answer and escalate processors and read what happened.
  */
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
 public final class InputFlow {
 
   /** The store. */
@@ -107,6 +110,23 @@ public final class InputFlow {
    */
   public InputRequest onlyOpen() {
     return broker.listOpen(null, null).blockFirst();
+  }
+
+  /**
+   * The first execution log entry of an input event.
+   *
+   * @param event the event, for example {@code INPUT_ANSWERED}
+   * @return the entry
+   */
+  public ExecutionLogEvent logged(final String event) {
+    return log.readAll().stream()
+        .filter(
+            entry -> {
+              final Map<String, Object> payload = entry.payload();
+              return payload != null && event.equals(payload.get("event"));
+            })
+        .findFirst()
+        .orElseThrow();
   }
 
   /**

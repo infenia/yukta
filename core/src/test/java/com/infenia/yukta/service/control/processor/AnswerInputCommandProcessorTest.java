@@ -276,16 +276,12 @@ class AnswerInputCommandProcessorTest {
 
     run(wordy, OPERATOR).verifyComplete();
 
-    final var entry =
-        flow.log.readAll().stream()
-            .filter(e -> "INPUT_ANSWERED".equals(e.payload().get("event")))
-            .findFirst()
-            .orElseThrow();
+    final var entry = flow.logged("INPUT_ANSWERED");
     assertThat(entry.payload())
         .containsEntry("responderType", "HUMAN")
         .containsEntry("responderId", "op")
         .containsEntry("risk", "MEDIUM")
         .containsEntry("requestId", request.id());
-    assertThat((String) entry.payload().get("rationale")).hasSize(500);
+    assertThat(entry.payload()).extractingByKey("rationale").asString().hasSize(500);
   }
 }

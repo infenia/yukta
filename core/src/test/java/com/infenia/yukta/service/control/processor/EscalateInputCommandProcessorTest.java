@@ -67,11 +67,7 @@ class EscalateInputCommandProcessorTest {
     final InputRequest now = flow.current(request.id());
     assertThat(now.state()).isEqualTo(InputState.ESCALATED);
     assertThat(now.advice()).isEqualTo("looks risky");
-    final var entry =
-        flow.log.readAll().stream()
-            .filter(e -> "INPUT_ESCALATED".equals(e.payload().get("event")))
-            .findFirst()
-            .orElseThrow();
+    final var entry = flow.logged("INPUT_ESCALATED");
     assertThat(entry.payload())
         .containsEntry("responderType", "SUPERVISOR")
         .containsEntry("responderId", "guard")

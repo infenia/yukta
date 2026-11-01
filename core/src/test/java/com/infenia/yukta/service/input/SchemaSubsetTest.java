@@ -96,7 +96,7 @@ class SchemaSubsetTest {
   }
 
   @Test
-  void nullIsATypeToo() {
+  void nullIsTypeToo() {
     final String schema = "{\"properties\":{\"z\":{\"type\":\"null\"}}}";
 
     assertThat(SchemaSubset.violations(schema, Collections.singletonMap("z", null))).isEmpty();
@@ -105,7 +105,7 @@ class SchemaSubsetTest {
   }
 
   @Test
-  void aValueOfTheWrongTypeIsNotCheckedAgainstTheRest() {
+  void valueOfTheWrongTypeIsNotCheckedAgainstTheRest() {
     assertThat(
             SchemaSubset.violations(
                 "{\"properties\":{\"a\":{\"type\":\"object\",\"required\":[\"x\"]}}}",
