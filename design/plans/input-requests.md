@@ -73,7 +73,7 @@ flowchart LR
 
 | Component | Module | Responsibility |
 |---|---|---|
-| `InputGateway` | plugin-api | What a plugin sees: `Mono<InputResponse> ask(InputRequestSpec)`. Placed in the Reactor context by the node runner, the way `ResultCollector` is, with execution, session and node already bound. |
+| `InputGateway` | plugin-api | What a plugin sees: `Mono<InputResponse> ask(InputRequestSpec)`. A Spring bean that plugins take through `ObjectProvider`, like `SubWorkflowGateway`. It reads session, workflow, execution and node from the Reactor context the engine writes, so a plugin never passes them (ADR 0001, D9). |
 | `InputBroker` | core `service/input` | Create (idempotent by key), enforce caps, state machine, deadlines and tier timers, publish events, complete the waiting `Mono`. |
 | `InputRequestStore` | core interface, plus R2DBC impl | Requests, responses, deliveries (outbox). In-memory default. |
 | `AnswerInputCommandProcessor` | core `control/processor` | Handles the new commands like the other processors. Calls `AnswerAuthorizer`, then the broker. |
@@ -121,7 +121,9 @@ public record InputRequestSpec(
     Audience audience,                // who may answer, see Security
     Duration ttl,                     // capped by yukta.input.max-ttl
     TimeoutAction onTimeout,          // FAIL | USE_DEFAULT | ESCALATE
-    @Nullable String defaultDecision) {}
+    @Nullable String defaultDecision,
+    @Nullable String routeName,       // a named route (phase 6); null = default route
+    String requester) {}              // informational plugin type label, never used for authorisation
 
 public record InputResponse(
     String requestId, String decision, @Nullable String text,
@@ -129,8 +131,7 @@ public record InputResponse(
     @Nullable String rationale, @Nullable Double confidence, Instant answeredAt) {}
 
 public interface InputGateway {
-  String CONTEXT_KEY = "yukta.input.gateway";
-  Mono<InputResponse> ask(InputRequestSpec spec);   // errors: InputExpired, InputCancelled, InputRejected
+  Mono<InputResponse> ask(InputRequestSpec spec);   // identity comes from the Reactor context (InputIdentity)   // errors: InputExpired, InputCancelled, InputRejected
 }
 ```
 
@@ -180,7 +181,7 @@ If tier 0 had answered with enough confidence on a LOW or MEDIUM request, the br
 
 ### Compatibility with signals
 
-`WAIT_FOR_SIGNAL` and `requireApproval` become thin users of `InputGateway` (kind APPROVAL, risk HIGH, so only people answer, as today). `SignalNodeCommandProcessor` maps `(execution, node, name)` to the open request if there is one, and falls back to `SignalWaits` otherwise. `pendingApprovals` returns the union. `SignalWaits` is deprecated after one release and removed in the next.
+Decided (ADR 0001, D2): the signal API is replaced, not wrapped. `WAIT_FOR_SIGNAL` and `requireApproval` become users of `InputGateway` (kind APPROVAL, risk HIGH, so only people answer, as today) and `SignalWaits` is deleted in phase 4 with no fallback. The legacy clients keep working until the server removal through a bridge: `SignalNodeCommandProcessor` maps `(execution, node, name)` to the open request. Order: phase 4 (breaking), 5a new endpoints, 5b UI, 5c docs page, 5d clients, examples and docs move, 5e the server drops `SignalNodeCommand`, `/signal`, `signal_node`, `/approvals` and `list_pending_approvals`. Phases 4 and 5a to 5e ship in one release, because approvals must stay answerable until the new path exists.
 
 ## Security and authorisation
 
@@ -205,7 +206,7 @@ If tier 0 had answered with enough confidence on a LOW or MEDIUM request, the br
 | Threat | Control |
 |---|---|
 | Plugin forges which run or node is asking | The gateway is bound per node by the engine; the spec has no execution or node field. |
-| Actor spoofing (a key named like a supervisor) | Actors keep their prefixes: supervisors are plain ids set by the host through the Reactor context, keys are `key:<name>`. Confirm no REST or MCP input can set `ControlActor.CONTEXT_KEY`. |
+| Actor spoofing (a key named like a supervisor) | The authoriser types actors by a `ControlActor.KIND_KEY` written next to the actor, never by string prefix, and supervisor ids are validated (no `:`). Phase 0 confirmed that only the supervisor host and the two key filters write the actor (ADR 0001, D10). |
 | Confused deputy (supervisor approves beyond its authority) | Risk ceiling, tier check, `allowedCommands`, and review by other supervisors. The broker re-checks; the supervisor is not trusted to behave. |
 | Prompt injection through `prompt` and `context` into a model supervisor | Pass them as a delimited data block, never into the system prompt. Accept only schema-valid output with a decision from the option list. Confidence threshold; below it the supervisor escalates. HIGH risk never auto-answers. |
 | Secrets and personal data leaking in context | Redact before storing, before the event, and before any outbound delivery. Reuse an existing redaction helper if one exists, otherwise add one with tests. |
@@ -276,8 +277,8 @@ A supervisor implemented as a workflow in an internal session, with guard rails.
 - **Store interface** `InputRequestStore` in core, in-memory default through `DefaultsAutoConfiguration` with the existing in-memory notice. `R2dbcInputRequestStore` in `plus/persistence-postgres` with a Flyway migration (V7 is supervisors; take the next free number when you start). Add a contract test in `testFixtures` the way the other stores have one.
 - **Tables**: `input_request` (id, unique key, execution, session, workflow, node, kind, state, version, spec jsonb, tier, deadline, timestamps), `input_response`, `input_delivery` (outbox). Indexes on (state, deadline), (session, state), unique (key). Retention purge of terminal rows (`yukta.input.retention`).
 - **Deadlines are absolute times**, re-armed from the store on start and on leader change. Do not rely on an in-process `Mono.delay` alone.
-- **Resume**: the request key is deterministic and does not contain the execution id (a recovered run gets a new one), so a resumed run that asks again gets the stored answer at once. Phase 0 confirms that message ids survive a recover. This replaces the ten-minute in-memory early-signal buffer. Open requests whose run cannot be resumed become CANCELLED with reason `run-ended`.
-- **High availability**: waiters live where the run lives. Follow `core/.claude/rules/workers-and-ha.md` and the leader lease; an answer that reaches a non-leader must be forwarded or rejected with a retryable error. Confirm the exact behavior before the durability phase.
+- **Resume**: the request key is deterministic and does not contain the execution id (a resume starts a new one), so a resumed run that asks again gets the stored answer at once. Message ids survive a resume only for input replayed from a finished node; a node that runs again produces new ids and asks again (phase 0, F2). This replaces the ten-minute in-memory early-signal buffer. Open requests whose run ended become CANCELLED with reason `run-ended`; a resumed run that asks the same key **reopens** such a request (keeping tier, advice and votes) while its deadline has not passed, so a person is not asked twice.
+- **High availability**: waiters live on the leader's JVM. A standby refuses with `NotLeaderException` (HTTP 503) and there is no proxy, so an answer on a standby gets the same 503. The sweeper and the delivery worker run only while `LeaderElection.isLeader()`. After a failover the old leader's runs are `ABORTED`, so open requests are cancelled, not rehydrated.
 - **Editions**: in-memory broker, supervisors, webhook responder and REST in Community. Postgres store in Plus. Group, SSO and approval-chain policies belong in Enterprise, behind the `AnswerAuthorizer` SPI. Check `FeatureGate` for how a durable-only feature should report itself.
 
 ## APIs, tools and UI
@@ -311,18 +312,21 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 | 0 | Decisions, ADR and spike (#1788) | S | none |
 | 1 | Contracts in `plugin-api` (#1789) | M | 0 |
 | 2 | Broker, store, state machine (#1790) | L | 1 |
-| 3 | Commands, authorisation, signal bridge (#1791) | L | 2 |
+| 3a | Validate supervisor ids and migrate stored ones (#1803) | S | 0 (ships first) |
+| 3 | Commands, authorisation, signal bridge (#1791) | L | 2, 3a |
 | 4 | Plugin integration (#1792) | M | 3 |
 | 5a | REST, MCP, CLI (#1793) | M | 3 |
 | 5b | Inputs panel in the UI (#1794) | M | 5a |
 | 5c | Rule and model supervisors answer, docs (#1795) | M | 3 (4 for tests) |
+| 5d | Move CLI, mod, examples and docs off the signal API (#1804) | M | 4, 5a, 5b, 5c |
+| 5e | Remove the legacy signal API from the server (#1805) | M | 5d |
 | 6 | Routes, escalation, external responders (#1796) | L | 5a, 5c |
 | 7 | Arbiter and composite supervisors (#1797) | M | 1 (can run beside 2 to 5) |
 | 8 | Workflow-backed supervisor and internal session (#1798) | L | 5a, 5c, 6, 7 |
 | 9 | Durable store and failover, Plus (#1799) | L | 2 (needs 6 for the outbox) |
-| 10 | Hardening and release (#1800) | M | 8, 9, 5b |
+| 10 | Hardening and release (#1800) | M | 8, 9, 5b, 5e |
 
-### Phase 0: decisions and spike (S)
+### Phase 0: decisions and spike (S, done: see `design/decisions/0001-input-requests.md`)
 
 - Settle the decisions in the last section.
 - Confirm that message ids survive `recover` and checkpoint replay, because the request key is built from session, workflow, node, message id and name.
@@ -354,7 +358,7 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 - `AnswerInputCommandProcessor` and `EscalateInputCommandProcessor` beside the other processors; register them like the rest.
 - `AnswerAuthorizer` (default implementation with the rules table above), replaceable bean.
 - Gateway methods `answerInput` and `escalateInput` on `ControlBusGateway` and `DefaultControlBusGateway`.
-- Bridge `SignalNodeCommandProcessor` and `pendingApprovals` to requests, with the `SignalWaits` fallback.
+- Bridge `SignalNodeCommandProcessor` and `pendingApprovals` to requests, with the `SignalWaits` fallback (the fallback goes in phase 4, the bridge in 5e).
 - Tests: authorisation matrix (actor type by risk by tier by scope), review veto, audit entries, a rejected answer leaves the request open, legacy `WAIT_FOR_SIGNAL` flows unchanged.
 - Done when existing signal and approval tests pass untouched and a supervisor-issued answer works end to end in an integration test.
 
@@ -399,7 +403,7 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 ### Phase 9: durable store and failover, Plus (L)
 
 - `R2dbcInputRequestStore`, migration, contract test shared with the in-memory store.
-- Deadline and tier timer rehydration on start and leader change; outbox redelivery; retention job.
+- Cancel open requests of aborted runs on recovery; reopen a `run-ended` request when a resumed run asks the same key; re-arm tier and overall deadlines from the stored absolute times for reopened requests; outbox redelivery; retention job. Waiters are not rehydrated (a failover aborts the leader's runs).
 - Answer routing on non-leader nodes; document edition behavior and the in-memory warning.
 - Tests: restart in the middle of a wait (Testcontainers, as the other Postgres stores do), leader switch, a resumed run reuses the stored answer, retention.
 
@@ -407,7 +411,7 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 
 - Security review of the authorisation matrix and token flow (`/security-review` on the branch), OpenGrep run, fuzz of answer payloads.
 - Load check with 1,000 open requests and a burst of answers; confirm the sweeper cost.
-- Deprecate `SignalWaits`; release notes; migration note for custom plugins.
+- Verify that `SignalWaits` and the legacy signal API are gone (phases 4 and 5e), the release note with the migration table exists, and phases 4 and 5a to 5e shipped in one release.
 
 ## Test strategy
 
@@ -421,22 +425,28 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 
 ## Decisions
 
-Each has a recommended default so work can start before every decision is ratified. Record the outcome in the phase 0 ADR.
+Decided by Arun on 2026-11-01 in three rounds of questions; the full record, with the findings and the decisions that reading the code added (D9 to D17), is `design/decisions/0001-input-requests.md`.
 
-| Decision | Recommendation | Why |
+| Decision | Outcome | Note |
 |---|---|---|
-| Name of the concept | `InputRequest` | Covers approvals, choices, text and queries without sounding like only a permission step. |
-| Replace or wrap `SignalWaits` | Wrap, then deprecate | Existing flows and docs keep working during the move. |
-| Default risk for approvals | HIGH for `WAIT_FOR_SIGNAL` and tool approvals, MEDIUM for `ASK_INPUT` | Keeps today's human-only behavior; automation is opt-in. |
-| Can a supervisor ever answer HIGH risk | No, in the default authoriser | An automated reviewer approving the riskiest actions defeats the control. Enterprise can relax it. |
-| Where the durable store lives | Plus, with in-memory in Community | Matches the editions plan and the other stores. |
-| Token answers without an API key | Yes, phase 6, single use, never above the tier's declared type | Lets Slack or an external agent answer without handing out keys. |
-| Internal session mechanism | A session flag plus ADMIN-only creation | A naming convention is easy to bypass and easy to forget. |
-| Workflow supervisors in the first release | No, phase 8 | Needs the arbiter, the reserved capacity and the loop guards first. |
+| Name of the concept | `InputRequest` | recommended |
+| `SignalWaits` and the signal API | **Replaced in one go**, and the signal API is removed too (REST, MCP, CLI, `SignalNodeCommand`) | not the recommendation (wrap, deprecate, remove later); costs phases 5d and 5e and a breaking release |
+| Default risk for approvals | HIGH for `WAIT_FOR_SIGNAL` and tool approvals, MEDIUM for `ASK_INPUT` | recommended |
+| Can a supervisor ever answer HIGH risk | No, no per-session override | recommended |
+| Where the durable store lives | Plus (PostgreSQL), in-memory in Community | recommended |
+| Token answers without an API key | Yes, phase 6, single use | recommended |
+| Internal session mechanism | A session flag, ADMIN only | recommended |
+| Workflow supervisors | Phase 8, after the arbiter, reserved capacity and loop guards | recommended |
+| Supervisor ids | Validate every id and migrate stored ones (#1803, ships first) | not the recommendation (validate new, keep old) |
+| A resumed run and a cancelled request | Reopen the old request (Plus) | recommended |
+| Technical defaults (gateway bean, one `INPUT` log type, standby answers 503, `InputRedactor`, contract tests in the `plus` testkit) | Accepted as proposed | recommended |
 
-### Read from the code, to re-check when work starts
+### Verified in phase 0
 
-- That the node runner provides gateways to plugins through the Reactor context (the docs say so for `ResultCollector`; the runner itself was not read).
-- That nothing external can set `ControlActor.CONTEXT_KEY`.
-- The next free Flyway number, the HA forwarding behavior, and whether a redaction helper already exists.
-- How `FeatureGate` reports a Plus-only feature.
+The eleven checks of #1788 are answered, with file and line, in `design/decisions/0001-input-requests.md` (findings F1 to F11, decisions D1 to D15). The ones that changed this plan:
+
+- The gateway is a Spring bean that reads identity from the Reactor context, not an object placed in the context (F1, D9).
+- A resume starts a new execution id and replays only finished boundary nodes, so message-id keys match only for replayed input, and Community (in-memory) remembers nothing across a restart (F2).
+- Supervisor ids are not validated and the actor is a plain string, so the authoriser types actors by a new `ControlActor.KIND_KEY` and supervisor ids are validated (F3, D10).
+- A standby answers 503 and a failover aborts runs, so the durable store reopens requests instead of rehydrating waiters (F6, D12, D13).
+- One new execution log type `INPUT`, a core `InputRedactor`, Flyway V8, store contract tests in the `plus` testkit (F8, F9, F10, D11, D14, D15).
