@@ -44,6 +44,7 @@ Retries, error routing and time limits are not plugin features. They are applied
 | `trigger` | Nodes with several parents | Join rule; see [Nodes, edges and ports](/concepts/nodes-edges-ports) |
 | `elementTimeoutMs`, `deadlineMs` | Processors, any node | Time limits; see [Time limits](/concepts/time-limits) |
 | `edgeBuffer` | Any node with a processor | Drop instead of slowing producers; see [Delivery and back-pressure](/concepts/delivery-and-backpressure) |
+| `echoOutput` | Processors | `false` keeps the node's output message out of the run log (a plugin that did not log live has its output logged, cut to 2 KB). The default is `true`, but `false` for a node with secret config (a field the plugin declares secret, or a key named like password, token, api key, authorization or credential); set `true` to log it anyway |
 | `stallAfterMs` | Processors and triggers | Logs one `NodeStalled` warning when a running node shows no activity for this long. It does not fail or pause the node. Off by default |
 | `concurrencyGroup` | Processors | Joins a named group; at most `yukta.concurrency.groups.<name>` of its nodes run at once, the others wait as `QUEUED` |
 | `placement` | Processors | Run on a remote worker pool; see [Remote workers](/operations/remote-workers) |

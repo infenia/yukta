@@ -31,7 +31,6 @@ import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
-import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
@@ -47,7 +46,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
@@ -340,7 +338,8 @@ class WorkflowOrchestratorTest {
     final PreparedWorkflow prepared = buildPreparedWorkflowFromNodes(List.of(trigger, processor));
 
     final NodeAssembler[] assemblers = new NodeAssembler[] {ctx -> {}, ctx -> {}};
-    when(compiler.compileAssemblers(any(), any(), any(), any())).thenReturn(assemblers);
+    when(compiler.compileRerunAssemblers(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(assemblers);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.empty());
     when(compiler.executeTemplate(
@@ -355,7 +354,7 @@ class WorkflowOrchestratorTest {
                 sessionId, workflowId, prevExecId, newExecId, prepared, "processor", Map.of()))
         .verifyComplete();
 
-    verify(compiler).compileAssemblers(any(), any(), any(), any());
+    verify(compiler).compileRerunAssemblers(any(), any(), any(), any(), any(), any(), any());
     verify(compiler)
         .executeTemplate(
             eq(newExecId), any(), eq(2), any(), eq(sessionId), eq(workflowId), anyList());
@@ -365,7 +364,7 @@ class WorkflowOrchestratorTest {
   }
 
   @Test
-  void restartFromNode_withCheckpointForParent_replacesPreRestartAssemblerWithCheckpointReplay() {
+  void restartFromNode_withCheckpointForParent_recordsTheReplayedOutputAsFinished() {
     final String sessionId = "sess-checkpoint";
     final String workflowId = "wf-checkpoint";
     final String prevExecId = "exec-cp-prev";
@@ -377,7 +376,8 @@ class WorkflowOrchestratorTest {
     final PreparedWorkflow prepared = buildPreparedWorkflowFromNodes(List.of(trigger, processor));
 
     final NodeAssembler[] assemblers = new NodeAssembler[] {ctx -> {}, ctx -> {}};
-    when(compiler.compileAssemblers(any(), any(), any(), any())).thenReturn(assemblers);
+    when(compiler.compileRerunAssemblers(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(assemblers);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.empty());
     when(compiler.executeTemplate(
@@ -402,17 +402,9 @@ class WorkflowOrchestratorTest {
                 Map.of("trigger", List.of(checkpoint))))
         .verifyComplete();
 
-    verify(compiler).compileAssemblers(any(), any(), any(), any());
+    verify(compiler).compileRerunAssemblers(any(), any(), any(), any(), any(), any(), any());
     // the replayed output is recorded as finished, so resuming this run does not repeat the node
     verify(checkpointStore).markComplete(newExecId, "trigger");
-
-    // the pre-restart assembler now replays the parent's checkpoint
-    final AssemblyContext context = org.mockito.Mockito.mock(AssemblyContext.class);
-    @SuppressWarnings("unchecked")
-    final Flux<Message<?>>[] streams = new Flux[2];
-    when(context.streams()).thenReturn(streams);
-    assemblers[0].assemble(context);
-    StepVerifier.create(streams[0]).expectNext(checkpoint).verifyComplete();
   }
 
   @Test
@@ -426,7 +418,8 @@ class WorkflowOrchestratorTest {
     final PreparedWorkflow prepared = buildPreparedWorkflowFromNodes(List.of(node));
 
     final NodeAssembler[] assemblers = new NodeAssembler[] {ctx -> {}};
-    when(compiler.compileAssemblers(any(), any(), any(), any())).thenReturn(assemblers);
+    when(compiler.compileRerunAssemblers(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(assemblers);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.empty());
     when(compiler.executeTemplate(
@@ -474,7 +467,8 @@ class WorkflowOrchestratorTest {
     final PreparedWorkflow prepared = buildPreparedWorkflowFromNodes(List.of(node));
 
     final NodeAssembler[] assemblers = new NodeAssembler[] {ctx -> {}};
-    when(compiler.compileAssemblers(any(), any(), any(), any())).thenReturn(assemblers);
+    when(compiler.compileRerunAssemblers(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(assemblers);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.empty());
     // deferred: the safe stop may end the run before the template is ever subscribed
@@ -514,7 +508,8 @@ class WorkflowOrchestratorTest {
         buildPreparedWorkflowFromNodes(List.of(trigger, processor, terminal));
 
     final NodeAssembler[] assemblers = new NodeAssembler[] {ctx -> {}, ctx -> {}, ctx -> {}};
-    when(compiler.compileAssemblers(any(), any(), any(), any())).thenReturn(assemblers);
+    when(compiler.compileRerunAssemblers(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(assemblers);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.empty());
     when(compiler.executeTemplate(
@@ -531,18 +526,10 @@ class WorkflowOrchestratorTest {
                 sessionId, workflowId, prevExecId, newExecId, prepared, "terminal", Map.of()))
         .verifyComplete();
 
-    verify(compiler).compileAssemblers(any(), any(), any(), any());
+    verify(compiler).compileRerunAssemblers(any(), any(), any(), any(), any(), any(), any());
     verify(compiler)
         .executeTemplate(
             eq(newExecId), any(), eq(3), any(), eq(sessionId), eq(workflowId), anyList());
-
-    // without a checkpoint the bypassed nodes emit nothing
-    final AssemblyContext context = org.mockito.Mockito.mock(AssemblyContext.class);
-    @SuppressWarnings("unchecked")
-    final Flux<Message<?>>[] streams = new Flux[3];
-    when(context.streams()).thenReturn(streams);
-    assemblers[0].assemble(context);
-    StepVerifier.create(streams[0]).verifyComplete();
   }
 
   @Test
@@ -562,7 +549,8 @@ class WorkflowOrchestratorTest {
 
     final NodeAssembler kept = ctx -> {};
     final NodeAssembler[] assemblers = new NodeAssembler[] {ctx -> {}, kept, ctx -> {}};
-    when(compiler.compileAssemblers(any(), any(), any(), any())).thenReturn(assemblers);
+    when(compiler.compileRerunAssemblers(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(assemblers);
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.empty());
     when(compiler.executeTemplate(
@@ -580,14 +568,6 @@ class WorkflowOrchestratorTest {
         .verifyComplete();
 
     assertThat(assemblers[1]).isSameAs(kept);
-    final AssemblyContext context = org.mockito.Mockito.mock(AssemblyContext.class);
-    @SuppressWarnings("unchecked")
-    final Flux<Message<?>>[] streams = new Flux[3];
-    when(context.streams()).thenReturn(streams);
-    assemblers[0].assemble(context);
-    assemblers[2].assemble(context);
-    StepVerifier.create(streams[0]).expectNext(recorded).verifyComplete();
-    StepVerifier.create(streams[2]).verifyComplete();
     // the replayed input is recorded under the new execution so it can be restarted in turn
     verify(checkpointStore).save("new", "t1", recorded);
     assertThat(executionArchive.find("new")).isPresent();
@@ -1047,7 +1027,7 @@ class WorkflowOrchestratorTest {
   void restartFromNode_graphThatCannotBeCompiled_givesTheReservedSlotBack() {
     final WorkflowNode trigger = new WorkflowNode("trigger", "trigger-type", Map.of());
     final PreparedWorkflow prepared = buildPreparedWorkflowFromNodes(List.of(trigger));
-    when(compiler.compileAssemblers(any(), any(), any(), any()))
+    when(compiler.compileRerunAssemblers(any(), any(), any(), any(), any(), any(), any()))
         .thenThrow(new IllegalStateException("cannot compile"));
     final ExecutionScheduler limited =
         new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);

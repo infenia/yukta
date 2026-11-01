@@ -23,6 +23,7 @@ import com.infenia.yukta.service.orchestrator.stream.NodeTimeouts;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.workflow.EchoOutput;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -143,6 +144,9 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
    * Lets elements skip the plugin while the node's skip flag is set. The decision is taken once per
    * element, when it arrives, so a skip applies from the next element on; an element the plugin
    * already has finishes normally. Skipped elements go straight to the output.
+   *
+   * <p>Output order is not preserved across a skip or unskip: a skipped element is emitted at once,
+   * so it can overtake earlier elements the plugin is still processing.
    */
   private static Flux<Message<?>> bypassWhileSkipped(
       final Flux<Message<?>> input,
@@ -264,7 +268,7 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
               bufferSize,
               context.disposables(),
               context.connectors(),
-              activity::hasLoggedLive,
+              EchoOutput.loggedLive(plugin, node.config(), activity::hasLoggedLive),
               NodePolicy.checkpoint(node.config()));
 
       log.atDebug()
