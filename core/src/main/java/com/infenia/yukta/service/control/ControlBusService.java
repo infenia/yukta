@@ -10,7 +10,6 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.util.SinkEmit;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotBlank;
@@ -42,8 +41,7 @@ import reactor.util.retry.Retry;
 @Service
 @SuppressWarnings({
   "PMD.TooManyMethods",
-  "PMD.AvoidCatchingGenericException",
-  "PMD.ExcessiveImports"
+  "PMD.AvoidCatchingGenericException"
 })
 public class ControlBusService {
 
@@ -95,7 +93,6 @@ public class ControlBusService {
    * @param handlers the list of signal handlers for dispatching messages
    * @param activePluginRegistry the registry of plugin instances actively servicing nodes
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public ControlBusService(
       @Value("${control.bus.batch.size:100}") final int batchSize,
       @Value("${control.bus.batch.timeout.ms:50}") final int batchTimeoutMs,
