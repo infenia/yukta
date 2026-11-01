@@ -3751,6 +3751,13 @@
             "description" : "Output ports per node id, for the node's configuration",
             "type" : "object"
           },
+          "problems" : {
+            "description" : "Every problem found; empty when valid",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "valid" : {
             "description" : "True when the workflow would be accepted",
             "type" : "boolean"
