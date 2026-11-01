@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.tracker;
 
+import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
@@ -15,6 +16,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -346,4 +348,36 @@ public interface TaskTrackerService {
       @NotBlank @Size(max = 16_384) String line,
       boolean stderr,
       @Nullable LogLevel level);
+
+  /**
+   * Every log line any run emits, live.
+   *
+   * @return flux of plugin log entries
+   */
+  Flux<PluginLogEntry> getLogFlux();
+
+  /**
+   * Puts a run that ended before this server started back into history, with who started it.
+   *
+   * @param executionId the execution identifier
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param status final workflow status
+   * @param nodeStatuses final status of each node
+   * @param started when it started
+   * @param ended when it ended
+   * @param definitionVersion content hash of the graph the run used, or null if not recorded
+   * @param initiator who or what started the run, or null if not recorded
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  void restore(
+      String executionId,
+      String sessionId,
+      String workflowId,
+      TaskStatus status,
+      Map<String, TaskStatus> nodeStatuses,
+      Instant started,
+      Instant ended,
+      @Nullable String definitionVersion,
+      @Nullable String initiator);
 }

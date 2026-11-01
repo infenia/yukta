@@ -5,6 +5,7 @@ package com.infenia.yukta.service.orchestrator.tracker;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.event.TaskStatusEvent;
 import com.infenia.yukta.event.WorkflowStatusEvent;
 import com.infenia.yukta.logging.api.LogStream;
@@ -31,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.NoArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -82,7 +84,7 @@ class DefaultTaskTrackerServiceTest {
 
   @BeforeEach
   void setUp() {
-    tracker = new DefaultTaskTrackerService(Duration.ofMillis(200), statusHistoryCache);
+    tracker = TrackerFactory.tracker(Duration.ofMillis(200), statusHistoryCache);
     tracker.init();
   }
 
@@ -94,7 +96,7 @@ class DefaultTaskTrackerServiceTest {
         .when(broken)
         .append(org.mockito.ArgumentMatchers.any());
     final DefaultTaskTrackerService failing =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofSeconds(30), statusHistoryCache, broken, new SimpleMeterRegistry());
     failing.init();
     StepVerifier.create(failing.startWorkflow("b-exec", "b-sess", "b-wf", List.of("a")))
@@ -123,7 +125,7 @@ class DefaultTaskTrackerServiceTest {
         .append(org.mockito.ArgumentMatchers.any());
     final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     final DefaultTaskTrackerService failing =
-        new DefaultTaskTrackerService(Duration.ofSeconds(30), statusHistoryCache, broken, meters);
+        TrackerFactory.tracker(Duration.ofSeconds(30), statusHistoryCache, broken, meters);
     failing.init();
     StepVerifier.create(failing.startWorkflow("n-exec", "n-sess", "n-wf", List.of("a")))
         .verifyComplete();
@@ -151,7 +153,7 @@ class DefaultTaskTrackerServiceTest {
   void testQueueDepthIsReportedByGauge() {
     final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     final DefaultTaskTrackerService unconsumed =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofSeconds(30), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
 
     // init() was not called, so nobody consumes the queue and events stay counted
@@ -284,7 +286,7 @@ class DefaultTaskTrackerServiceTest {
               }
             });
     final DefaultTaskTrackerService traced =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofMillis(200),
             statusHistoryCache,
             new InMemoryExecutionLogStore(),
@@ -321,7 +323,7 @@ class DefaultTaskTrackerServiceTest {
               }
             });
     final DefaultTaskTrackerService traced =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofSeconds(30),
             statusHistoryCache,
             new InMemoryExecutionLogStore(),
@@ -350,7 +352,7 @@ class DefaultTaskTrackerServiceTest {
   void testNodeMetricsCountOutcomesAndTimeRunNodes() {
     final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     final DefaultTaskTrackerService metered =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofMillis(200), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
     metered.init();
     StepVerifier.create(metered.startWorkflow("m-exec", "m-sess", "m-wf", List.of("a", "b")))
@@ -381,7 +383,7 @@ class DefaultTaskTrackerServiceTest {
   void testLogBurstIsDroppedAndCounted_andStateEventsAreNeverLost() {
     final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     final DefaultTaskTrackerService burst =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofMillis(200), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
     StepVerifier.create(burst.startWorkflow("b-exec", "b-sess", "b-wf", List.of("n")))
         .verifyComplete();
@@ -416,7 +418,7 @@ class DefaultTaskTrackerServiceTest {
   void testEventsAfterTheSinkEndsAreCountedNotThrown() {
     final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     final DefaultTaskTrackerService ended =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofMillis(200), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
     final Sinks.Many<?> sink =
         (Sinks.Many<?>)
@@ -540,7 +542,7 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void statusStream_afterTerminalUpdate_completesWithoutWaitingForCleanup() {
     final DefaultTaskTrackerService slow =
-        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
+        TrackerFactory.tracker(Duration.ofMinutes(10), statusHistoryCache);
     slow.init();
     StepVerifier.create(slow.startWorkflow("late-1", "sess-late", "wf", List.of("n1")))
         .verifyComplete();
@@ -1027,7 +1029,7 @@ class DefaultTaskTrackerServiceTest {
   void testAutoCleanupWithShortTtl() throws Exception {
     // Create a tracker with very short TTL
     final DefaultTaskTrackerService shortTtlTracker =
-        new DefaultTaskTrackerService(Duration.ofMillis(150), statusHistoryCache);
+        TrackerFactory.tracker(Duration.ofMillis(150), statusHistoryCache);
     shortTtlTracker.init();
 
     final String sessionId = "sess-short-ttl";
@@ -1065,7 +1067,7 @@ class DefaultTaskTrackerServiceTest {
   private void verifyInitTaskStatusErrorHandler()
       throws NoSuchFieldException, IllegalAccessException, InterruptedException {
     final DefaultTaskTrackerService trackerWithError =
-        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
+        TrackerFactory.tracker(Duration.ofMinutes(10), statusHistoryCache);
 
     // Replace executionIndex with a map that throws on get()
     final Field executionIndexField =
@@ -1102,7 +1104,7 @@ class DefaultTaskTrackerServiceTest {
   private void verifyInitWorkflowStatusErrorHandler()
       throws NoSuchFieldException, IllegalAccessException, InterruptedException {
     final DefaultTaskTrackerService trackerWithError =
-        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
+        TrackerFactory.tracker(Duration.ofMinutes(10), statusHistoryCache);
 
     // Replace executionIndex with a map that throws on get()
     final Field executionIndexField =
@@ -1136,7 +1138,7 @@ class DefaultTaskTrackerServiceTest {
   private void verifyInitLogErrorHandler()
       throws NoSuchFieldException, IllegalAccessException, InterruptedException {
     final DefaultTaskTrackerService trackerWithError =
-        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
+        TrackerFactory.tracker(Duration.ofMinutes(10), statusHistoryCache);
 
     // Replace logSinks with a map that throws on get()
     final Field logSinksField = ExecutionStreams.class.getDeclaredField("logSinks");
@@ -2229,7 +2231,7 @@ class DefaultTaskTrackerServiceTest {
   void testNotifyStatusChangeWhenStateIsNullAfterCleanup() {
     // Create a workflow with short TTL
     final DefaultTaskTrackerService shortTtlTracker =
-        new DefaultTaskTrackerService(Duration.ofMillis(100), statusHistoryCache);
+        TrackerFactory.tracker(Duration.ofMillis(100), statusHistoryCache);
     shortTtlTracker.init();
 
     final String sessionId = "sess-cleanup-state-null";
@@ -2819,7 +2821,7 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void testGetLogStreamAutoTerminatesOnWorkflowTerminalStatus() {
     final DefaultTaskTrackerService longTtlTracker =
-        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
+        TrackerFactory.tracker(Duration.ofMinutes(10), statusHistoryCache);
     longTtlTracker.init();
 
     final String sessionId = "sess-log-terminal";
@@ -2854,7 +2856,7 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void testGetStatusStreamAutoTerminatesOnTerminalProgress() {
     final DefaultTaskTrackerService longTtlTracker =
-        new DefaultTaskTrackerService(Duration.ofMinutes(10), statusHistoryCache);
+        TrackerFactory.tracker(Duration.ofMinutes(10), statusHistoryCache);
     longTtlTracker.init();
 
     final String sessionId = "sess-status-terminal-full";
@@ -3014,7 +3016,7 @@ class DefaultTaskTrackerServiceTest {
               }
             });
     final DefaultTaskTrackerService traced =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofMillis(200),
             statusHistoryCache,
             new InMemoryExecutionLogStore(),
@@ -3039,7 +3041,7 @@ class DefaultTaskTrackerServiceTest {
   void testRunDurationQueueWaitAndRetriesAreMeasured() {
     final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     final DefaultTaskTrackerService metered =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofMillis(200), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
     metered.init();
     StepVerifier.create(metered.startWorkflow("q-exec", "q-sess", "q-wf", List.of("a")))
@@ -3188,7 +3190,7 @@ class DefaultTaskTrackerServiceTest {
 
   @Test
   void maxSessions_evictsTheOldestFinishedSession_butNeverOneThatIsRunning() {
-    tracker.setMaxSessions(2);
+    tracker = withSessions(2);
     StepVerifier.create(tracker.startWorkflow("e1", "s1", "w", List.of("a"))).verifyComplete();
     tracker.emitWorkflowStatusEvent("e1", TaskStatus.SUCCESS);
     StepVerifier.create(tracker.startWorkflow("e2", "s2", "w", List.of("a"))).verifyComplete();
@@ -3203,7 +3205,7 @@ class DefaultTaskTrackerServiceTest {
 
   @Test
   void maxSessions_keepsEverySessionThatStillHasRunningRun() {
-    tracker.setMaxSessions(1);
+    tracker = withSessions(1);
     StepVerifier.create(tracker.startWorkflow("e1", "s1", "w", List.of("a"))).verifyComplete();
     StepVerifier.create(tracker.startWorkflow("e2", "s2", "w", List.of("a"))).verifyComplete();
 
@@ -3213,9 +3215,28 @@ class DefaultTaskTrackerServiceTest {
   /** A finished session, a clock to move and the TTL in force. */
   private AtomicLong ttlClock(final Duration ttl) {
     final AtomicLong now = new AtomicLong(1_000_000_000L);
-    tracker.setClock(now::get);
-    tracker.setSessionTtl(ttl);
+    tracker = clocked(ttl, now);
     return now;
+  }
+
+  private DefaultTaskTrackerService withSessions(final int max) {
+    final DefaultTaskTrackerService t =
+        TrackerFactory.tracker(
+            new YuktaProperties.Tracker(null, max, Duration.ofMillis(200)),
+            statusHistoryCache,
+            System::nanoTime);
+    t.init();
+    return t;
+  }
+
+  private DefaultTaskTrackerService clocked(final @Nullable Duration ttl, final AtomicLong now) {
+    final DefaultTaskTrackerService t =
+        TrackerFactory.tracker(
+            new YuktaProperties.Tracker(ttl, 0, Duration.ofMillis(200)),
+            statusHistoryCache,
+            now::get);
+    t.init();
+    return t;
   }
 
   private void finishRun(final String execution, final String session) {
@@ -3272,8 +3293,10 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void sessionTtl_timerDropsIdleSessionsWithoutAnyCall() {
     final DefaultTaskTrackerService timed =
-        new DefaultTaskTrackerService(Duration.ofMillis(200), statusHistoryCache);
-    timed.setSessionTtl(Duration.ofSeconds(1));
+        TrackerFactory.tracker(
+            new YuktaProperties.Tracker(Duration.ofSeconds(1), 0, Duration.ofMillis(200)),
+            statusHistoryCache,
+            System::nanoTime);
     timed.init();
     try {
       StepVerifier.create(timed.startWorkflow("e1", "s1", "w", List.of("a"))).verifyComplete();
@@ -3293,14 +3316,15 @@ class DefaultTaskTrackerServiceTest {
     tracker.evictExpiredSessions();
     assertThat(tracker.getActiveSessions()).contains("s1");
 
-    tracker.setSessionTtl(Duration.ofSeconds(-5));
+    tracker.stopSessionSweeper();
+    tracker = clocked(Duration.ofSeconds(-5), now);
+    finishRun("e2", "s2");
+    now.addAndGet(Duration.ofDays(1).toNanos());
     tracker.evictExpiredSessions();
-    assertThat(tracker.getActiveSessions()).contains("s1");
+    assertThat(tracker.getActiveSessions()).contains("s2");
 
     for (final Duration off : List.of(Duration.ZERO, Duration.ofSeconds(-5))) {
-      final DefaultTaskTrackerService idle =
-          new DefaultTaskTrackerService(Duration.ofMillis(200), statusHistoryCache);
-      idle.setSessionTtl(off);
+      final DefaultTaskTrackerService idle = clocked(off, new AtomicLong());
       idle.init();
       idle.stopSessionSweeper();
     }
@@ -3325,15 +3349,15 @@ class DefaultTaskTrackerServiceTest {
 
   @Test
   void sessionTtl_failingSweepIsLoggedAndTimerKeepsGoing() {
-    final DefaultTaskTrackerService timed =
-        new DefaultTaskTrackerService(Duration.ofMillis(200), statusHistoryCache);
     final AtomicInteger sweeps = new AtomicInteger();
-    timed.setSessionTtl(Duration.ofSeconds(1));
-    timed.setClock(
-        () -> {
-          sweeps.incrementAndGet();
-          throw new IllegalStateException("clock broke");
-        });
+    final DefaultTaskTrackerService timed =
+        TrackerFactory.tracker(
+            new YuktaProperties.Tracker(Duration.ofSeconds(1), 0, Duration.ofMillis(200)),
+            statusHistoryCache,
+            () -> {
+              sweeps.incrementAndGet();
+              throw new IllegalStateException("clock broke");
+            });
     timed.init();
     try {
       await().atMost(10, TimeUnit.SECONDS).until(() -> sweeps.get() >= 2);
@@ -3345,7 +3369,7 @@ class DefaultTaskTrackerServiceTest {
 
   @Test
   void maxSessions_picksTheOldestOfSeveralFinishedSessions() {
-    tracker.setMaxSessions(2);
+    tracker = withSessions(2);
     finishRun("e1", "s1");
     finishRun("e2", "s2");
 
@@ -3357,7 +3381,7 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void sessionTtl_isOffByDefault() {
     final AtomicLong now = new AtomicLong(1_000_000_000L);
-    tracker.setClock(now::get);
+    tracker = clocked(null, now);
     finishRun("e1", "s1");
 
     now.addAndGet(Duration.ofDays(100).toNanos());
@@ -3370,7 +3394,7 @@ class DefaultTaskTrackerServiceTest {
   void testEdgeDropsAreCounted() {
     final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     final DefaultTaskTrackerService counting =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofSeconds(30), statusHistoryCache, new InMemoryExecutionLogStore(), meters);
 
     counting.recordEdgeDropped("HTTP_REQUEST", "n1");
