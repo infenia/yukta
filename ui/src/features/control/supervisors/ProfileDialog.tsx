@@ -66,9 +66,15 @@ export function ProfileDialog({
   const saving = editing ? replace : create;
 
   const save = () => {
-    if (problem || 'error' in parsed) return;
+    // no problem means the settings parsed: the problem check reports any error
+    if (problem) return;
     saving.mutate(
-      { id: id.trim(), type: chosenType, settings: parsed.settings, dryRun },
+      {
+        id: id.trim(),
+        type: chosenType,
+        settings: (parsed as { settings: Record<string, unknown> }).settings,
+        dryRun,
+      },
       { onSuccess: onClose }
     );
   };
