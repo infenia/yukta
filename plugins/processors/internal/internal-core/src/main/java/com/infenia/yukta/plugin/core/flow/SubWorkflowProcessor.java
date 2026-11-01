@@ -116,6 +116,11 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public boolean requiresControlPlane() {
+    return true;
+  }
+
+  @Override
   public String getType() {
     return "SUB_WORKFLOW";
   }

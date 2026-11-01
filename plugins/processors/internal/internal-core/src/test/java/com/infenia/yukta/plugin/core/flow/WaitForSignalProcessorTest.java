@@ -132,6 +132,7 @@ class WaitForSignalProcessorTest {
   @Test
   void typeAndDescription() {
     assertThat(processor.getType()).isEqualTo("WAIT_FOR_SIGNAL");
+    assertThat(processor.requiresControlPlane()).isTrue();
     assertThat(processor.describe().description()).contains("signal");
     assertThat(processor.getConfigSchema()).extracting("name").contains("signal");
   }
