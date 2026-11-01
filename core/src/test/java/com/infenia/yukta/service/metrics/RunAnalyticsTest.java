@@ -570,14 +570,59 @@ class RunAnalyticsTest {
     when(provider.getIfAvailable()).thenReturn(store);
     final var withLog = new RunAnalytics(new ExecutionEventFeed(), provider);
     withLog.start();
-    assertThat(withLog.snapshot("session:s1")).containsEntry("runs.finished", 1.0);
+    withLog.seedFromLog();
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> assertThat(withLog.snapshot("session:s1")).containsEntry("runs.finished", 1.0));
     withLog.stop();
 
     when(provider.getIfAvailable()).thenReturn(null);
     final var withoutLog = new RunAnalytics(new ExecutionEventFeed(), provider);
     withoutLog.start();
+    withoutLog.seedFromLog();
     assertThat(withoutLog.snapshot("session:s1")).doesNotContainKey("runs.finished");
     withoutLog.stop();
+  }
+
+  @Test
+  void seededCommandWhoseNameSpansLinesKeepsItsWholeTextAndHasNoActor() {
+    final var started =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.RUN_STARTED,
+            "multi",
+            "s1",
+            "w1",
+            null,
+            null,
+            Map.of(),
+            null,
+            null,
+            T0.plusSeconds(10),
+            null);
+    final var applied =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_APPLIED,
+            "multi",
+            "s1",
+            "w1",
+            null,
+            "Pause\nnow",
+            Map.of(),
+            null,
+            null,
+            T0.plusSeconds(11),
+            null);
+
+    analytics.seed(List.of(started, applied));
+
+    assertThat(analytics.annotations(RunAnalytics.GLOBAL, Duration.ofDays(1)))
+        .singleElement()
+        .satisfies(
+            a -> {
+              assertThat(a.command()).isEqualTo("Pause\nnow");
+              assertThat(a.actor()).isNull();
+            });
   }
 
   @Test

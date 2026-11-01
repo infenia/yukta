@@ -12,10 +12,8 @@ import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -25,9 +23,12 @@ import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.BufferOverflowStrategy;
@@ -69,6 +70,9 @@ public class RunAnalytics {
    * Duration samples kept per bucket; later runs of the same minute are counted but not sampled.
    */
   private static final int SAMPLES = 64;
+
+  /** A command as {@code ControlAudit} logs it: the name, and who sent it if known. */
+  private static final Pattern LOGGED_COMMAND = Pattern.compile("(.*?)(?: \\[by (.*)])?");
 
   /** Failed run ids kept per bucket. */
   private static final int FAILED_IDS = 20;
@@ -114,7 +118,7 @@ public class RunAnalytics {
       };
 
   /** Control commands, newest last. */
-  private final Deque<Annotation> controlLog = new ArrayDeque<>();
+  private final List<Annotation> controlLog = new ArrayList<>();
 
   /** The subscription to the feed. */
   private Disposable subscription;
@@ -157,18 +161,26 @@ public class RunAnalytics {
     this.logStore = store;
   }
 
-  /** Seeds from the execution log, then starts following the feed. */
+  /** Starts following the feed. */
   @PostConstruct
   /* default */ void start() {
-    if (logStore != null) {
-      seed(logStore.readAll());
-    }
     // own thread and buffer: a dashboard query holding the lock must not stall the tracker
     subscription =
         feed.events()
             .onBackpressureBuffer(10_000, _ -> {}, BufferOverflowStrategy.DROP_LATEST)
             .publishOn(Schedulers.single())
             .subscribe(this::accept);
+  }
+
+  /**
+   * Seeds from the execution log once the application is up, so the runs that recovery marked
+   * aborted are in it, and off the init thread, because reading the log can block.
+   */
+  @EventListener(ApplicationReadyEvent.class)
+  /* default */ void seedFromLog() {
+    if (logStore != null) {
+      Schedulers.boundedElastic().schedule(() -> seed(logStore.readAll()));
+    }
   }
 
   /** Stops following the feed. */
@@ -387,16 +399,19 @@ public class RunAnalytics {
       return;
     }
     final boolean applied = e.type() == ExecutionLogEvent.Type.CONTROL_APPLIED;
-    // a rejection is logged as "command: reason"
+    // logged as "<Command> [by <actor>]", and "<Command> [by <actor>]: <reason>" when rejected
     final String[] parts = status.split(": ", 2);
+    final var named = LOGGED_COMMAND.matcher(parts[0]);
+    final String command = named.matches() ? named.group(1) : parts[0];
+    final String actor = named.matches() ? named.group(2) : null;
     addAnnotation(
         new Annotation(
             e.timestamp().toEpochMilli(),
             e.executionId(),
             owner == null ? null : owner.sessionId(),
             owner == null ? null : owner.workflowId(),
-            parts[0],
-            null,
+            command,
+            actor,
             applied,
             applied || parts.length < 2 ? null : parts[1]));
   }
@@ -431,9 +446,9 @@ public class RunAnalytics {
   }
 
   private void addAnnotation(final Annotation annotation) {
-    controlLog.addLast(annotation);
+    controlLog.add(annotation);
     while (controlLog.size() > MAX_ANNOTATIONS) {
-      controlLog.removeFirst();
+      controlLog.remove(0);
     }
   }
 

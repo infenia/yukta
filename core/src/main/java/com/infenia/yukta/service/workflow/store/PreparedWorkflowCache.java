@@ -9,10 +9,12 @@ import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import jakarta.annotation.PreDestroy;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -40,7 +42,10 @@ public class PreparedWorkflowCache {
   private static final long DEFAULT_MAX_ENTRIES = 1_000;
 
   /** The Caffeine cache for prepared workflows. */
-  private final Cache<String, PreparedWorkflow> cache;
+  private final Cache<String, Entry> cache;
+
+  /** Sessions ({@code id}) and workflows ({@code id\0workflow}) that are being deleted. */
+  private final java.util.Set<String> deleting = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
   /**
    * Creates a cache with the default size limit and no shared meters.
@@ -94,7 +99,8 @@ public class PreparedWorkflowCache {
   }
 
   /**
-   * Store a compiled workflow in the cache.
+   * Store a compiled workflow whose definition is not known; a start that checks the definition
+   * will not use it.
    *
    * @param sessionId the session identifier
    * @param workflowId the workflow identifier
@@ -102,9 +108,25 @@ public class PreparedWorkflowCache {
    */
   public void put(
       final String sessionId, final String workflowId, final PreparedWorkflow prepared) {
+    put(sessionId, workflowId, prepared, null);
+  }
+
+  /**
+   * Store a compiled workflow in the cache.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param prepared the compiled workflow
+   * @param definition the definition it was built from, or null if not known
+   */
+  public void put(
+      final String sessionId,
+      final String workflowId,
+      final PreparedWorkflow prepared,
+      @Nullable final WorkflowDefinition definition) {
     final String compositeKey = key(sessionId, workflowId);
     final boolean isReplacement = cache.getIfPresent(compositeKey) != null;
-    cache.put(compositeKey, prepared);
+    cache.put(compositeKey, new Entry(definition, prepared));
     log.atDebug()
         .addKeyValue(SESSION_ID_KEY, sessionId)
         .addKeyValue(WORKFLOW_ID_KEY, workflowId)
@@ -121,7 +143,7 @@ public class PreparedWorkflowCache {
    */
   public Optional<PreparedWorkflow> get(final String sessionId, final String workflowId) {
     final Optional<PreparedWorkflow> result =
-        Optional.ofNullable(cache.getIfPresent(key(sessionId, workflowId)));
+        Optional.ofNullable(cache.getIfPresent(key(sessionId, workflowId))).map(Entry::prepared);
     if (result.isEmpty()) {
       log.atDebug()
           .addKeyValue(SESSION_ID_KEY, sessionId)
@@ -134,6 +156,54 @@ public class PreparedWorkflowCache {
           .log("Cache hit: retrieved compiled workflow");
     }
     return result;
+  }
+
+  /**
+   * Retrieve a compiled workflow only if it was built from {@code definition}: a start that loaded
+   * a newer definition while an apply was in progress must not run the older graph.
+   *
+   * @param sessionId the session identifier
+   * @param workflowId the workflow identifier
+   * @param definition the definition the caller is about to run
+   * @return the cached workflow, or empty if absent, evicted or built from another definition
+   */
+  public Optional<PreparedWorkflow> get(
+      final String sessionId, final String workflowId, final WorkflowDefinition definition) {
+    return Optional.ofNullable(cache.getIfPresent(key(sessionId, workflowId)))
+        .filter(entry -> definition.equals(entry.definition()))
+        .map(Entry::prepared);
+  }
+
+  /**
+   * Marks a session (or one of its workflows) as being deleted, so starts are refused until {@link
+   * #endDelete}.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow, or null for the whole session
+   */
+  public void beginDelete(final String sessionId, @Nullable final String workflowId) {
+    deleting.add(workflowId == null ? sessionId : key(sessionId, workflowId));
+  }
+
+  /**
+   * Ends {@link #beginDelete}.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow, or null for the whole session
+   */
+  public void endDelete(final String sessionId, @Nullable final String workflowId) {
+    deleting.remove(workflowId == null ? sessionId : key(sessionId, workflowId));
+  }
+
+  /**
+   * Whether the workflow, or its session, is being deleted.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @return true if a delete is in progress
+   */
+  public boolean isDeleting(final String sessionId, final String workflowId) {
+    return deleting.contains(sessionId) || deleting.contains(key(sessionId, workflowId));
   }
 
   /**
@@ -187,4 +257,7 @@ public class PreparedWorkflowCache {
   private static String key(final String sessionId, final String workflowId) {
     return sessionId + COMPOSITE_KEY_SEPARATOR + workflowId;
   }
+
+  /** A prepared workflow and the definition it was built from (null when not known). */
+  private record Entry(@Nullable WorkflowDefinition definition, PreparedWorkflow prepared) {}
 }
