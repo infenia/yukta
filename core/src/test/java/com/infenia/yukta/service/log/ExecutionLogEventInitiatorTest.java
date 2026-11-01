@@ -73,8 +73,11 @@ class ExecutionLogEventInitiatorTest {
   @Test
   void externalPayloadCannotNameParentRun() {
     final var payload =
-        ExecutionLogEvent.withInitiator(Map.of("yukta.parentExecutionId", "victim", "a", 1), "k");
+        ExecutionLogEvent.withInitiator(
+            Map.of("yukta.parentExecutionId", "victim", "yukta.depth", 0, "a", 1), "k");
 
-    assertThat(payload).doesNotContainKey("yukta.parentExecutionId").containsEntry("a", 1);
+    assertThat(payload)
+        .doesNotContainKeys("yukta.parentExecutionId", "yukta.depth")
+        .containsEntry("a", 1);
   }
 }
