@@ -27,6 +27,7 @@ class ApiKeysTest {
     assertThat(match.reaches("any")).isTrue();
     assertThat(ApiKeys.single("k").named()).isFalse();
     assertThat(ApiKeys.single("k").find("other")).isNull();
+    assertThat(ApiKeys.single("short").isEmpty()).isFalse();
   }
 
   @Test
@@ -69,9 +70,28 @@ class ApiKeysTest {
 
   @Test
   void read_refusesMalformedDigest() {
-    assertThat(refuses("sha256:abc")).contains("'h'");
-    assertThat(refuses("sha256:" + "z".repeat(64))).contains("64 hexadecimal");
-    assertThat(refuses("sha256:")).contains("64 hexadecimal");
+    final var tooShort =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "h")
+            .withProperty("yukta.api-keys[0].key", "sha256:abc");
+    final var nonHex =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "h")
+            .withProperty("yukta.api-keys[0].key", "sha256:" + "z".repeat(64));
+    final var empty =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "h")
+            .withProperty("yukta.api-keys[0].key", "sha256:");
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApiKeys.read(tooShort, null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("'h'");
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApiKeys.read(nonHex, null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("64 hexadecimal");
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApiKeys.read(empty, null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("64 hexadecimal");
   }
 
   @Test
@@ -85,21 +105,6 @@ class ApiKeysTest {
     org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApiKeys.read(env, null))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("ops");
-  }
-
-  @Test
-  void read_acceptsShortKeyButWarns() {
-    assertThat(ApiKeys.single("short").isEmpty()).isFalse();
-  }
-
-  private static String refuses(final String bad) {
-    final var env =
-        new MockEnvironment()
-            .withProperty("yukta.api-keys[0].name", "h")
-            .withProperty("yukta.api-keys[0].key", bad);
-    return org.assertj.core.api.Assertions.catchThrowableOfType(
-            IllegalArgumentException.class, () -> ApiKeys.read(env, null))
-        .getMessage();
   }
 
   @Test

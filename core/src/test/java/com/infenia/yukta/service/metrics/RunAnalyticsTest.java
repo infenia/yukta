@@ -85,6 +85,65 @@ class RunAnalyticsTest {
   }
 
   @Test
+  void seededControl_keepsCommandActorAndReason_typedOrFromTheText() {
+    final Instant at = T0.plusSeconds(500);
+    final var typed =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_REJECTED,
+            "typed",
+            "",
+            "",
+            null,
+            "PauseWorkflowCommand [by key:ops]: deny",
+            Map.of(),
+            null,
+            Map.of(
+                ExecutionLogEvent.COMMAND_KEY, "PauseWorkflowCommand",
+                ExecutionLogEvent.ACTOR_KEY, "key:ops",
+                ExecutionLogEvent.REASON_KEY, "deny"),
+            at,
+            null);
+    final var text =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_REJECTED,
+            "text",
+            "",
+            "",
+            null,
+            "StopWorkflowCommand [by key:bob]: busy",
+            Map.of(),
+            null,
+            null,
+            at,
+            null);
+    final var noActor =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_APPLIED,
+            "plain",
+            "",
+            "",
+            null,
+            "ResumeCommand",
+            Map.of(),
+            null,
+            Map.of(ExecutionLogEvent.COMMAND_KEY, "ResumeCommand"),
+            at,
+            null);
+
+    analytics.seed(List.of(typed, text, noActor));
+
+    assertThat(analytics.annotations(RunAnalytics.GLOBAL, HOUR))
+        .extracting(
+            RunAnalytics.Annotation::command,
+            RunAnalytics.Annotation::actor,
+            RunAnalytics.Annotation::reason)
+        .containsExactlyInAnyOrder(
+            org.assertj.core.groups.Tuple.tuple("PauseWorkflowCommand", "key:ops", "deny"),
+            org.assertj.core.groups.Tuple.tuple("StopWorkflowCommand", "key:bob", "busy"),
+            org.assertj.core.groups.Tuple.tuple("ResumeCommand", null, null));
+  }
+
+  @Test
   void countsRunsByStatusAndTimesThem() {
     run("a", "s1", "w1", 0, 1000, SUCCESS);
     run("b", "s1", "w1", 10, 3000, FAILURE);

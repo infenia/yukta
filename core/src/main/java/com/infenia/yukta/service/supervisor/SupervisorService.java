@@ -320,9 +320,7 @@ public class SupervisorService {
   }
 
   private void validate(final SupervisorProfile profile) {
-    // ponytail: still builds one to validate; add SupervisorFactory.validate when a factory opens
-    // a connection in create()
-    create(profile);
+    factory(profile).validate(profile);
   }
 
   private ExecutionSupervisor create(final SupervisorProfile profile) {

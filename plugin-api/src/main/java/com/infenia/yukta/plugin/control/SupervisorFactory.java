@@ -25,4 +25,16 @@ public interface SupervisorFactory {
    *     caller, so it must not repeat a secret
    */
   ExecutionSupervisor create(SupervisorProfile profile);
+
+  /**
+   * Checks a profile without keeping anything. The default makes a supervisor and drops it, which
+   * is right while {@link #create} only reads settings; override it when {@code create} opens a
+   * client or a connection, so that saving a profile does not leak one.
+   *
+   * @param profile the profile
+   * @throws IllegalArgumentException if the settings are invalid
+   */
+  default void validate(final SupervisorProfile profile) {
+    create(profile);
+  }
 }
