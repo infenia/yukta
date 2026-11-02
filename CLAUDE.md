@@ -22,7 +22,7 @@ This is a multi-module Gradle monorepo. Launch Claude from the specific package 
 - **`messaging`**: Shared messaging abstractions.
 - **`plugin-api`**: Abstraction interfaces for Yukta plugins.
 - **`plugins`**: Implementations of Processors, Triggers, and Terminals.
-- **`ui`**: JTE templates and Tailwind CSS frontend.
+- **`ui`**: React SPA (Vite, Tailwind CSS) built into a static JAR for `boot`.
 - **`web`**: REST controllers and web-layer mapping.
 
 ## Global Commands
@@ -114,4 +114,4 @@ The yukta skill is imported so it is always loaded (also after /compact and in s
 @.claude/rules/coding-standards.md
 @.claude/rules/git-workflow.md
 
-IMPORTANT: When applicable, prefer using intellij-index MCP tools for code navigation and refactoring.
+IMPORTANT: Navigate code with the `codebase-memory` MCP tools first (see `.claude/CLAUDE.md`); when the IDE is open, the intellij-index MCP tools are fine for refactoring.
