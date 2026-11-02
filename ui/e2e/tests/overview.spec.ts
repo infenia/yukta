@@ -41,16 +41,17 @@ test.describe('Overview', () => {
         )
       )
     );
-    await page.route('**/api/approvals?*', (route) =>
+    await page.route('**/api/inputs?*', (route) =>
       route.fulfill(
-        envelope('/approvals', [
+        envelope('/inputs', [
           {
             sessionId: 'payments',
             executionId: 'exec-1',
             workflowId: 'deploy',
             nodeId: 'gate',
-            name: 'go',
-            since: '2026-07-26T14:20:23',
+            id: 'r1',
+            prompt: 'go',
+            createdAt: '2026-07-26T14:20:23',
           },
         ])
       )

@@ -141,7 +141,6 @@ com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor
 com.infenia.yukta.service.control.processor.DisableStepModeCommandProcessor
 com.infenia.yukta.service.control.processor.EnableStepModeCommandProcessor
 com.infenia.yukta.service.control.processor.EscalateInputCommandProcessor
-com.infenia.yukta.service.control.processor.InputSignalBridge
 com.infenia.yukta.service.control.processor.PauseNodeCommandProcessor
 com.infenia.yukta.service.control.processor.PauseWorkflowCommandProcessor
 com.infenia.yukta.service.control.processor.RestartCommandProcessor
@@ -149,7 +148,6 @@ com.infenia.yukta.service.control.processor.RestartFromNodeCommandProcessor
 com.infenia.yukta.service.control.processor.ResumeNodeCommandProcessor
 com.infenia.yukta.service.control.processor.ResumeWorkflowCommandProcessor
 com.infenia.yukta.service.control.processor.SetBreakpointCommandProcessor
-com.infenia.yukta.service.control.processor.SignalNodeCommandProcessor
 com.infenia.yukta.service.control.processor.SkipNodeCommandProcessor
 com.infenia.yukta.service.control.processor.StepNodeCommandProcessor
 com.infenia.yukta.service.control.processor.StopNodeCommandProcessor

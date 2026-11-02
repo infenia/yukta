@@ -9,7 +9,6 @@ import com.infenia.yukta.mcp.dto.ExecutionResultView;
 import com.infenia.yukta.mcp.dto.MetricsSnapshot;
 import com.infenia.yukta.mcp.dto.NodeControlAction;
 import com.infenia.yukta.mcp.dto.NodeOutputResult;
-import com.infenia.yukta.mcp.dto.PendingApprovals;
 import com.infenia.yukta.mcp.dto.PendingInputs;
 import com.infenia.yukta.mcp.dto.PluginCreationGuide;
 import com.infenia.yukta.mcp.dto.PluginDetails;
@@ -758,73 +757,6 @@ public class AppMcpTools {
           final String equalsValue) {
     return workflowControlProvider.addBreakpoint(
         sessionId, executionId, nodeId, field, equalsValue);
-  }
-
-  /**
-   * Send a signal to a node that waits for one.
-   *
-   * @param sessionId the session that owns the execution
-   * @param executionId the unique identifier of the workflow execution
-   * @param nodeId the unique identifier of the waiting node
-   * @param signalName the signal the node waits for
-   * @param decision what was decided, for example approve or reject
-   * @param data optional text that goes with the decision
-   * @return Mono containing the action result
-   */
-  @McpTool(
-      name = "signal_node",
-      title = "Signal Node",
-      description =
-          "Send a named signal to a node that waits for one (a WAIT_FOR_SIGNAL approval step): "
-              + "decision approve lets its message through, reject fails or drops it, any other "
-              + "value is passed on as signal.decision. Fails if the node is not waiting.",
-      generateOutputSchema = true,
-      annotations =
-          @McpTool.McpAnnotations(
-              readOnlyHint = false,
-              destructiveHint = false,
-              openWorldHint = false))
-  public Mono<ControlActionResult> signalNode(
-      @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
-      @McpToolParam(required = true, description = EXECUTION_ID_DESC) final String executionId,
-      @McpToolParam(required = true, description = "The unique identifier of the waiting node")
-          final String nodeId,
-      @McpToolParam(required = true, description = "The signal the node waits for")
-          final String signalName,
-      @McpToolParam(required = true, description = "The decision, e.g. approve or reject")
-          final String decision,
-      @McpToolParam(required = false, description = "Optional text that goes with the decision")
-          final String data) {
-    return workflowControlProvider.signalNode(
-        sessionId, executionId, nodeId, signalName, decision, data);
-  }
-
-  /**
-   * List the nodes that wait for a signal, in one session or in all.
-   *
-   * @param sessionId the session, or null for all sessions
-   * @return Mono containing the open waits
-   */
-  @McpTool(
-      name = "list_pending_approvals",
-      title = "List Pending Approvals",
-      description =
-          "List the nodes that wait for a signal now (for example an approval step), oldest first,"
-              + " with the session, execution id, node id and signal name to answer with"
-              + " signal_node. Give a sessionId for one session; leave it out for all sessions"
-              + " (at most 100; not allowed for a key limited to some sessions).",
-      generateOutputSchema = true,
-      annotations =
-          @McpTool.McpAnnotations(
-              readOnlyHint = true,
-              destructiveHint = false,
-              openWorldHint = false))
-  public Mono<PendingApprovals> listPendingApprovals(
-      @McpToolParam(
-              required = false,
-              description = "The session; leave out for the waits of all sessions")
-          final String sessionId) {
-    return workflowControlProvider.pendingApprovals(sessionId);
   }
 
   /**

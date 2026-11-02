@@ -9,7 +9,6 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCom
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
@@ -106,21 +105,6 @@ final class NodeCommands extends ControlDispatch {
   /* default */ Mono<Void> addBreakpoint(
       final String executionId, final String nodeId, final String field, final String equalsValue) {
     return breakpoint(executionId, nodeId, field, equalsValue);
-  }
-
-  /* default */ Mono<Void> signalNode(
-      final String executionId,
-      final String nodeId,
-      final String name,
-      final String decision,
-      final String data) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new SignalNodeCommand(executionId, nodeId, name, decision, data),
-                        CONTROL_COMMAND_PRIORITY)));
   }
 
   /* default */ Mono<Void> answerInput(final AnswerInputCommand command) {

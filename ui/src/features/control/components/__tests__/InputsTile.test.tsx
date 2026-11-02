@@ -10,7 +10,7 @@ import { InputsTile } from '../InputsTile';
 
 let items: unknown[] = [];
 const server = setupServer(
-  http.get('/api/approvals', () =>
+  http.get('/api/inputs', () =>
     HttpResponse.json({
       timestamp: 't',
       status: 200,
@@ -26,8 +26,8 @@ afterAll(() => server.close());
 describe('InputsTile', () => {
   it('counts the inputs that wait and links to the list', async () => {
     items = [
-      { since: new Date(Date.now() - 600_000).toISOString() },
-      { since: new Date(Date.now() - 60_000).toISOString() },
+      { createdAt: new Date(Date.now() - 600_000).toISOString() },
+      { createdAt: new Date(Date.now() - 60_000).toISOString() },
     ];
     renderWithProviders(<InputsTile />);
     const link = screen.getByRole('link', { name: 'Inputs' });

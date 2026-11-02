@@ -54,8 +54,6 @@ Every client calls the [REST API](/api/overview); the others wrap it. A dash mea
 | Pause, resume, stop, skip, unskip, step a node | `POST /api/executions/{id}/nodes/{node}/…` | `control_node` | `workflow node pause\|resume\|stop\|skip\|step` | Node menu |
 | Retry from a failed node | `POST …/nodes/{node}/retry` | `control_node` (`RETRY`) | `workflow node retry` | Node menu |
 | Set or clear a breakpoint | `POST`/`DELETE …/nodes/{node}/breakpoint` | `set_node_breakpoint`, `control_node` (`BREAKPOINT_CLEAR`) | `workflow node breakpoint` | Node menu › Breakpoint |
-| Answer a node that waits (approve, reject), legacy | `POST …/nodes/{node}/signal` | `signal_node` | – | Approvals bar, node menu |
-| List what waits for a decision | `GET /api/sessions/{id}/approvals`, `GET /api/approvals` | `list_pending_approvals` | – | Approvals bar, Overview |
 | List or read input requests | `GET /api/sessions/{id}/inputs`, `GET /api/executions/{id}/inputs/{request}` | `list_pending_inputs` | `inputs list`, `inputs show` | – (Inputs panel planned, #1794) |
 | Answer or escalate an input request | `POST /api/executions/{id}/inputs/{request}/answer\|escalate` | `answer_input`, `escalate_input` | `inputs answer`, `inputs escalate` | – (#1794) |
 | Last output of a node | `GET …/nodes/{node}/output` | `get_node_output` | `logs --node` (log lines) | – (the node panel shows status, config, log lines and actions) |

@@ -24,7 +24,6 @@ class McpToolAccess {
           Map.entry("list_sessions", ApiRole.VIEWER),
           Map.entry("get_execution_logs", ApiRole.VIEWER),
           Map.entry("get_execution_result", ApiRole.VIEWER),
-          Map.entry("list_pending_approvals", ApiRole.VIEWER),
           Map.entry("list_workflow_versions", ApiRole.VIEWER),
           Map.entry("diff_workflow_versions", ApiRole.VIEWER),
           Map.entry("rollback_workflow", ApiRole.OPERATOR),
@@ -47,7 +46,6 @@ class McpToolAccess {
           Map.entry("control_workflow", ApiRole.OPERATOR),
           Map.entry("control_node", ApiRole.OPERATOR),
           Map.entry("set_node_breakpoint", ApiRole.OPERATOR),
-          Map.entry("signal_node", ApiRole.OPERATOR),
           Map.entry("list_pending_inputs", ApiRole.VIEWER),
           Map.entry("answer_input", ApiRole.OPERATOR),
           Map.entry("escalate_input", ApiRole.OPERATOR));

@@ -230,7 +230,15 @@ class CorePluginsAcceptanceTest {
     assertThat(tracker.getProgressByExecutionId(executionId).status())
         .isEqualTo(TaskStatus.RUNNING);
 
-    gateway.signalNode(executionId, "w", "approve", "approve", "go").block(PluginWorkflows.WAIT);
+    await()
+        .atMost(PluginWorkflows.WAIT)
+        .until(
+            () -> broker.listOpen(null, executionId).hasElements().blockOptional().orElse(false));
+    final var request =
+        java.util.Objects.requireNonNull(broker.listOpen(null, executionId).blockFirst());
+    gateway
+        .answerInput(executionId, request.id(), null, "approve", "go", null, null, null)
+        .block(PluginWorkflows.WAIT);
 
     await()
         .atMost(PluginWorkflows.WAIT)

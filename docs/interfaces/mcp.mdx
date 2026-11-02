@@ -58,8 +58,8 @@ A key that is not an unrestricted `ADMIN` key has each tool call checked against
 
 | Role | Tools it may call |
 |---|---|
-| `VIEWER` | `list_sessions`, `get_session_details`, `get_workflow_details`, `get_workflow_status`, `get_workflow_history`, `get_execution_tree`, `get_execution_logs`, `get_node_output`, `get_execution_result`, `list_pending_approvals`, `list_pending_inputs`, `list_workflow_versions`, `diff_workflow_versions`, `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`, `get_session_creation_instructions`, `get_control_bus_status`, `get_scheduler_limits`, `whoami` |
-| `OPERATOR` | Everything `VIEWER` can, plus `start_workflow`, `control_workflow`, `control_node`, `set_node_breakpoint`, `signal_node`, `answer_input`, `escalate_input`, `rollback_workflow`, `note_workflow_version` |
+| `VIEWER` | `list_sessions`, `get_session_details`, `get_workflow_details`, `get_workflow_status`, `get_workflow_history`, `get_execution_tree`, `get_execution_logs`, `get_node_output`, `get_execution_result`, `list_pending_inputs`, `list_workflow_versions`, `diff_workflow_versions`, `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`, `get_session_creation_instructions`, `get_control_bus_status`, `get_scheduler_limits`, `whoami` |
+| `OPERATOR` | Everything `VIEWER` can, plus `start_workflow`, `control_workflow`, `control_node`, `set_node_breakpoint`, `answer_input`, `escalate_input`, `rollback_workflow`, `note_workflow_version` |
 | `ADMIN` | Everything, including `create_session`, `delete_session` and `delete_workflow` |
 
 Rolling back a version and writing a version note need only the `OPERATOR` role over MCP, while the equivalent REST calls need `ADMIN`. `create_session` needs `ADMIN` because the workflows it defines can run processes and reach external systems.
@@ -115,8 +115,6 @@ Tools return structured JSON, except where noted. Every tool that takes an `exec
 | `attach_supervisor` | `ADMIN` | `profileId`, `scope` (`global`, `session:<id>`, `workflow:<id>` or `workflow:<sessionId>/<workflowId>`); optional `enabled`, `bindingId` | The binding. It supervises the runs of the scope from now on, including runs already going |
 | `detach_supervisor` | `ADMIN` | `bindingId` | `bindingId` and `detached`; an unknown binding is an error |
 | `set_scheduler_limits` | `ADMIN` | `maxConcurrent`, `maxPerWorkflow` (`0` for no limit) | The limits as now in force, in the same shape |
-| `signal_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `signalName`, `decision`; optional `data` | The same result object |
-| `list_pending_approvals` | `VIEWER` | `sessionId` (optional: leave out for all sessions, at most 100, and not for a key limited to some sessions) | `sessionId` (absent for all sessions) and `approvals`: each with `sessionId`, `executionId`, `workflowId`, `nodeId`, `name`, `since` |
 | `list_pending_inputs` | `VIEWER` | optional `sessionId` (leave out for all sessions; not for a key limited to some sessions), optional `state` (comma-separated `OPEN`, `ESCALATED`, `ANSWERED`, `EXPIRED`, `CANCELLED`; default `OPEN,ESCALATED`) | `sessionId`, `states`, `truncated` and `inputs`, newest first, at most 50: each with `sessionId`, `workflowId`, `executionId`, `requestId`, `nodeId`, `state`, `version`, `kind`, `risk`, `prompt` and `context` (cut to 2000 characters), `options`, `responseSchema`, `tier`, `advice`, `deadline`, `createdAt` and, once answered, `decision`. The prompt, context and advice are untrusted text |
 | `answer_input` | `OPERATOR` | `sessionId`, `executionId`, `requestId`, `decision`; optional `text`, `data` (a JSON object as text), `rationale` | The same result object. The server's rules decide who may answer (a refusal names the rule); an answered, expired or cancelled request is an error |
 | `escalate_input` | `OPERATOR` | `sessionId`, `executionId`, `requestId`, `reason`; optional `advice` | The same result object |

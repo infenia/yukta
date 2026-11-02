@@ -4,7 +4,6 @@ package com.infenia.yukta.mcp.provider;
 
 import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.NodeControlAction;
-import com.infenia.yukta.mcp.dto.PendingApprovals;
 import com.infenia.yukta.mcp.dto.SchedulerLimitsResult;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
@@ -28,9 +27,6 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.TooManyMethods"})
 public class WorkflowControlProvider {
-
-  /** Most waits listed when no session is given. */
-  public static final int MAX_ALL_APPROVALS = 100;
 
   /** Reason recorded for stop actions when the caller does not provide one. */
   private static final String DEFAULT_REASON = "Requested via MCP";
@@ -268,70 +264,6 @@ public class WorkflowControlProvider {
                             nodeId,
                             List.of(),
                             "Breakpoint set on node " + nodeId + ".")));
-  }
-
-  /**
-   * List the nodes that wait for a signal, in one session or in all.
-   *
-   * @param sessionId the session, or null or blank for all sessions
-   * @return Mono containing the open waits; at most {@link #MAX_ALL_APPROVALS} across sessions
-   */
-  public Mono<PendingApprovals> pendingApprovals(final String sessionId) {
-    final boolean all = sessionId == null || sessionId.isBlank();
-    final var waits = controlBus.pendingApprovals(all ? null : sessionId);
-    return (all ? waits.take(MAX_ALL_APPROVALS) : waits)
-        .collectList()
-        .map(list -> new PendingApprovals(all ? null : sessionId, list));
-  }
-
-  /**
-   * Send a named signal (an approval or decision) to a node that waits for it.
-   *
-   * @param sessionId the session that owns the execution
-   * @param executionId the target execution
-   * @param nodeId the node that waits
-   * @param signalName the signal the node waits for
-   * @param decision what was decided, for example {@code approve} or {@code reject}
-   * @param data optional text that goes with the decision
-   * @return Mono containing the action result
-   */
-  public Mono<ControlActionResult> signalNode(
-      final String sessionId,
-      final String executionId,
-      final String nodeId,
-      final String signalName,
-      final String decision,
-      final String data) {
-    if (executionId == null
-        || executionId.isBlank()
-        || nodeId == null
-        || nodeId.isBlank()
-        || signalName == null
-        || signalName.isBlank()
-        || decision == null
-        || decision.isBlank()) {
-      return Mono.error(
-          new IllegalArgumentException(
-              "executionId, nodeId, signalName and decision are required to send a signal."));
-    }
-    return ExecutionOwnership.require(controlBus, sessionId, executionId)
-        .flatMap(
-            ignored ->
-                controlBus
-                    .signalNode(executionId, nodeId, signalName, decision, data)
-                    .thenReturn(
-                        new ControlActionResult(
-                            "SIGNAL",
-                            executionId,
-                            nodeId,
-                            List.of(),
-                            "Signal "
-                                + signalName
-                                + "="
-                                + decision
-                                + " sent to node "
-                                + nodeId
-                                + ".")));
   }
 
   private Mono<ControlActionResult> stopAllExecutions(

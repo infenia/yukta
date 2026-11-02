@@ -4,7 +4,6 @@ package com.infenia.yukta.controller;
 
 import com.infenia.yukta.dto.response.WorkflowStartResponse;
 import com.infenia.yukta.model.api.ApiResponse;
-import com.infenia.yukta.model.control.PendingApproval;
 import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.TreeControl;
@@ -13,7 +12,6 @@ import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
@@ -37,12 +35,6 @@ import reactor.core.publisher.Mono;
 @Tag(name = "Execution Control API", description = "Pause, resume, step and stop nodes")
 @SuppressWarnings("PMD.TooManyMethods")
 public class ExecutionControlController {
-
-  /** Most approvals returned. */
-  private static final int MAX_APPROVALS = 1000;
-
-  /** Approvals returned when no limit is given. */
-  private static final int DEFAULT_APPROVALS = 100;
 
   /** Session ID parameter description. */
   private static final String SESSION_ID = "Session ID";
@@ -324,65 +316,6 @@ public class ExecutionControlController {
         executionId,
         "Breakpoint accepted",
         () -> controlBus.addBreakpoint(executionId, nodeId, field, equalsValue));
-  }
-
-  /** Send a signal (an approval or decision) to a node that waits for one. */
-  @PostMapping("/executions/{executionId}/nodes/{nodeId}/signal")
-  @Operation(
-      summary = "Send a signal to a waiting node",
-      description =
-          "Releases or rejects a node that waits for the named signal, for example a"
-              + " WAIT_FOR_SIGNAL approval step. Answers 409 if the node is not waiting for it.")
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
-  public Mono<ApiResponse<WorkflowStartResponse>> signalNode(
-      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
-      @Parameter(description = NODE_ID) @PathVariable final String nodeId,
-      @Parameter(description = "Name of the signal the node waits for") @RequestParam
-          final String name,
-      @Parameter(description = "Decision, for example approve or reject") @RequestParam
-          final String decision,
-      @Parameter(description = "Optional text that goes with the decision")
-          @RequestParam(required = false)
-          final String data) {
-    return signal(
-        null,
-        executionId,
-        "Signal accepted",
-        () -> controlBus.signalNode(executionId, nodeId, name, decision, data));
-  }
-
-  /** List the nodes of a session that wait for a signal. */
-  @GetMapping("/sessions/{sessionId}/approvals")
-  @Operation(
-      summary = "List pending approvals",
-      description =
-          "Lists the nodes of the session that wait for a signal now (for example WAIT_FOR_SIGNAL"
-              + " approval steps), oldest first. Answer one with the signal endpoint of its"
-              + " execution.")
-  public Mono<ApiResponse<List<PendingApproval>>> pendingApprovals(
-      @Parameter(description = SESSION_ID) @PathVariable final String sessionId) {
-    return controlBus
-        .pendingApprovals(sessionId)
-        .collectList()
-        .map(list -> ApiResponse.success(200, "Pending approvals retrieved", list));
-  }
-
-  /** List the nodes of every session that wait for a signal. */
-  @GetMapping("/approvals")
-  @Operation(
-      summary = "List pending approvals across sessions",
-      description =
-          "Lists the nodes of all sessions that wait for a signal now, oldest first (at most"
-              + " limit, default 100, up to 1000), each with its session, execution, node, signal"
-              + " name and waiting-since.")
-  public Mono<ApiResponse<List<PendingApproval>>> allPendingApprovals(
-      @RequestParam(required = false) final Integer limit) {
-    final int max = limit == null ? DEFAULT_APPROVALS : Math.clamp(limit, 1, MAX_APPROVALS);
-    return controlBus
-        .pendingApprovals(null)
-        .take(max)
-        .collectList()
-        .map(list -> ApiResponse.success(200, "Pending approvals retrieved", list));
   }
 
   /** Clear a node's breakpoint. */

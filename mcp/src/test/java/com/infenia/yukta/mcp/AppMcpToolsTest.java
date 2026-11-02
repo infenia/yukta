@@ -243,25 +243,6 @@ class AppMcpToolsTest {
   }
 
   @Test
-  void testSignalNode() {
-    var result = new ControlActionResult("SIGNAL", "e1", "n1", List.of(), "ok");
-    when(workflowControlProvider.signalNode("s1", "e1", "n1", "approval", "approve", "fine"))
-        .thenReturn(Mono.just(result));
-
-    StepVerifier.create(mcpTools.signalNode("s1", "e1", "n1", "approval", "approve", "fine"))
-        .expectNext(result)
-        .verifyComplete();
-  }
-
-  @Test
-  void testListPendingApprovals() {
-    var result = new com.infenia.yukta.mcp.dto.PendingApprovals("s1", List.of());
-    when(workflowControlProvider.pendingApprovals("s1")).thenReturn(Mono.just(result));
-
-    StepVerifier.create(mcpTools.listPendingApprovals("s1")).expectNext(result).verifyComplete();
-  }
-
-  @Test
   void testWorkflowVersionToolsDelegateToTheProvider() {
     var versions = new com.infenia.yukta.mcp.dto.WorkflowVersions("s1", "w1", List.of());
     var diff =

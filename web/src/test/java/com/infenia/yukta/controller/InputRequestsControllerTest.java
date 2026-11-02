@@ -267,6 +267,25 @@ class InputRequestsControllerTest {
   }
 
   @Test
+  void listAcrossSessions_showsTheWaitingRequestsAndHonoursTheLimit_notForLimitedKeys() {
+    get(open, null, "/api/inputs")
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.length()")
+        .isEqualTo(3);
+    get(open, null, "/api/inputs?limit=1")
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.length()")
+        .isEqualTo(1)
+        .jsonPath("$.data[0].id")
+        .isEqualTo("r9");
+    get(keyed, "t-key", "/api/inputs").expectStatus().isForbidden();
+  }
+
+  @Test
   void listFiltersByStateWorkflowAndRun_andPages() {
     get(open, null, "/api/sessions/s1/inputs?state=answered,expired&workflowId=wf&executionId=e1")
         .expectStatus()

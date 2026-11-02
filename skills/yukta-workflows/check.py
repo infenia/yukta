@@ -20,7 +20,7 @@ ROLES = {"VIEWER", "OPERATOR", "ADMIN"}
 TICK = re.compile(r"`([^`]+)`")
 # a row of a tool table: | `tool` | `ROLE` | arguments | ...
 ROW = re.compile(r"^\|\s*`([a-z]+(?:_[a-z]+)+|whoami)`\s*\|\s*`(VIEWER|OPERATOR|ADMIN)`\s*\|([^|]*)\|")
-CONFIRM = ["create_session", "delete_session", "delete_workflow", "STOP_ALL", "rollback_workflow", "set_scheduler_limits", "signal_node", "force"]
+CONFIRM = ["create_session", "delete_session", "delete_workflow", "STOP_ALL", "rollback_workflow", "set_scheduler_limits", "answer_input", "force"]
 FORBIDDEN = [
     (re.compile(r"/(home|Users|media|mnt)/\w"), "a personal path"),
     (re.compile(r"\b(yk|\./gradlew|gradlew|pnpm)\b"), "a repo-only command"),

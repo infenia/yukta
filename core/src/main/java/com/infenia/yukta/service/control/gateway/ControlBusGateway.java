@@ -186,21 +186,6 @@ public interface ControlBusGateway {
   Mono<Void> addBreakpoint(String executionId, String nodeId, String field, String equalsValue);
 
   /**
-   * Send a named signal (an approval, a decision) to a node that waits for it. The command is
-   * reviewed, ordered and audited like every other control command.
-   *
-   * @param executionId the execution to target
-   * @param nodeId the node that waits
-   * @param name the signal the node waits for
-   * @param decision what was decided, such as {@code approve} or {@code reject}
-   * @param data optional text that goes along with the decision
-   * @return a Mono that completes when the node took the signal; errors with a conflict if the node
-   *     is not waiting for it
-   */
-  Mono<Void> signalNode(
-      String executionId, String nodeId, String name, String decision, String data);
-
-  /**
    * Answers an input request that a node of the run waits on. The answer passes the same ordering,
    * review and audit as every command, and the engine checks that the caller may answer it.
    *
@@ -478,15 +463,6 @@ public interface ControlBusGateway {
    * @return the current progress, or null if execution not found
    */
   com.infenia.yukta.model.execution.WorkflowProgress getCurrentProgress(String executionId);
-
-  /**
-   * The nodes of a session that wait for a signal (an approval or decision) now, oldest first.
-   *
-   * @param sessionId the session, or null for the waits of every session
-   * @return one entry per open wait
-   */
-  reactor.core.publisher.Flux<com.infenia.yukta.model.control.PendingApproval> pendingApprovals(
-      String sessionId);
 
   /**
    * Get the progress of an execution within a session.

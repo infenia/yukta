@@ -21,7 +21,7 @@ import {
 } from '@/features/runs/api/searchExecutions';
 import { runPath } from '@/features/runs/lib/runPath';
 import { StatusPill } from '@/features/workflow/components/StatusPill';
-import { getAllApprovals } from './api';
+import { getOpenInputs } from './api';
 
 const NO_FILTERS = {
   session: '',
@@ -41,8 +41,8 @@ const Empty = ({ children }: { children: ReactNode }) => (
 function NeedsAttention({ poll }: { poll: number | false }) {
   const navigate = useNavigate();
   const approvals = useQuery({
-    queryKey: ['overview', 'approvals'],
-    queryFn: () => getAllApprovals(),
+    queryKey: ['overview', 'inputs'],
+    queryFn: () => getOpenInputs(),
     refetchInterval: poll,
   });
   const aborted = useQuery({
@@ -58,22 +58,20 @@ function NeedsAttention({ poll }: { poll: number | false }) {
         <Empty>Nothing is waiting for you.</Empty>
       )}
       <ul className="flex flex-col gap-2">
-        {waiting.map((approval) => (
-          <li
-            key={`${approval.executionId}-${approval.nodeId}-${approval.name}`}
-          >
+        {waiting.map((input) => (
+          <li key={input.id}>
             <Link
               className="text-body-md text-primary"
               to={runPath(
-                approval.sessionId,
-                approval.workflowId,
-                approval.executionId
+                input.sessionId,
+                input.workflowId,
+                input.executionId
               )}
             >
-              {approval.sessionId}/{approval.workflowId}
+              {input.sessionId}/{input.workflowId}
             </Link>{' '}
-            <span className="font-mono">{approval.nodeId}</span> waits for “
-            {approval.name}”: open the run to answer
+            <span className="font-mono">{input.nodeId}</span> asks “
+            {input.prompt.slice(0, 80)}”: open the run to answer
           </li>
         ))}
         {stopped.map((run) => (
@@ -179,8 +177,8 @@ function Tiles({ poll }: { poll: number | false }) {
     queryFn: getLimits,
   });
   const approvals = useQuery({
-    queryKey: ['overview', 'approvals'],
-    queryFn: () => getAllApprovals(),
+    queryKey: ['overview', 'inputs'],
+    queryFn: () => getOpenInputs(),
     refetchInterval: poll,
   });
   const workers = useWorkers();

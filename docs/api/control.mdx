@@ -27,7 +27,6 @@ All responses use the [envelope](/api/overview#response-envelope). An unknown ex
 | `POST /api/executions/{executionId}/nodes/{nodeId}/retry` | Retry a failed node | `OPERATOR` |
 | `POST /api/executions/{executionId}/nodes/{nodeId}/breakpoint` | Set a breakpoint | `OPERATOR` |
 | `DELETE /api/executions/{executionId}/nodes/{nodeId}/breakpoint` | Clear a breakpoint | `OPERATOR` |
-| `POST /api/executions/{executionId}/nodes/{nodeId}/signal` | Answer a waiting node (deprecated, use [input requests](/building/input-requests)) | `OPERATOR` |
 | `GET /api/control/nodes` | List active nodes | `VIEWER` |
 | `GET /api/control/workflows/{workflowId}/nodes?sessionId=` | List active nodes of a workflow | `VIEWER` |
 | `GET /api/control/workflows/{workflowId}/nodes/{nodeId}/heartbeat?sessionId=&executionId=` | Read a node's last heartbeat | `VIEWER` |
@@ -139,27 +138,6 @@ A breakpoint holds a node before the first element whose field equals a value. R
 POST /api/executions/550e8400-e29b-41d4-a716-446655440000/nodes/deploy/breakpoint?field=payload.status&equals=error
 ```
 
-## Send a signal to a node
-
-`POST /api/executions/{executionId}/nodes/{nodeId}/signal`
-
-<Warning>
-  Deprecated: use input requests (`POST /api/executions/{executionId}/inputs/{requestId}/answer`). This endpoint is removed in the same release. See [Moving off the signal API](/building/input-requests#moving-off-the-signal-api).
-</Warning>
-
-Releases or rejects a node that waits for a named signal, such as a `WAIT_FOR_SIGNAL` approval step. Find waiting nodes with the [pending approvals list](/api/executions#list-pending-approvals). See [Input requests](/building/input-requests).
-
-| Query parameter | Required | Meaning |
-|---|---|---|
-| `name` | yes | The signal the node waits for |
-| `decision` | yes | The decision, for example `approve` or `reject` |
-| `data` | no | Text that goes with the decision |
-
-**Errors**: `409` if the node is not waiting for that signal, `404` if the run or node is unknown.
-
-```http
-POST /api/executions/550e8400-e29b-41d4-a716-446655440000/nodes/approve/signal?name=release-approval&decision=approve&data=ship+it
-```
 
 ## Control states
 

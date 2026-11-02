@@ -172,7 +172,6 @@ public class Fields {
       case ExecutionControlCommand.StepNodeCommand step -> step.nodeId();
       case ExecutionControlCommand.RestartFromNodeCommand restart -> restart.fromNodeId();
       case ExecutionControlCommand.SetBreakpointCommand breakpoint -> breakpoint.nodeId();
-      case ExecutionControlCommand.SignalNodeCommand signal -> signal.nodeId();
       default -> null;
     };
   }

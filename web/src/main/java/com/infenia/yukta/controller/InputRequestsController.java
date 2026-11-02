@@ -50,6 +50,12 @@ public class InputRequestsController {
   /** Request ID parameter description. */
   private static final String REQUEST_ID = "Input request ID";
 
+  /** Most open requests listed across sessions. */
+  private static final int MAX_OPEN = 1000;
+
+  /** Open requests listed across sessions when no limit is given. */
+  private static final int DEFAULT_OPEN = 100;
+
   /** Reads the requests. */
   private final InputRequestQueries queries;
 
@@ -95,6 +101,26 @@ public class InputRequestsController {
                   .collectList()
                   .map(items -> Pagination.respond(items, page.next(), "Input requests retrieved"));
             });
+  }
+
+  /** Lists the input requests that wait in every session. */
+  @GetMapping("/inputs")
+  @Operation(
+      summary = "List open input requests across sessions",
+      description =
+          "The input requests of all sessions that wait for an answer (OPEN and ESCALATED),"
+              + " newest first, at most limit (default 100, up to 1000).")
+  public Mono<ApiResponse<List<InputRequestView>>> listOpenInputs(
+      @Parameter(description = "Most requests returned (default 100, at most 1000)")
+          @RequestParam(required = false)
+          final Integer limit) {
+    final int max = limit == null ? DEFAULT_OPEN : Math.clamp(limit, 1, MAX_OPEN);
+    return queries
+        .list(null, null, null, InputRequestQueries.states(null))
+        .take(max)
+        .concatMap(this::view)
+        .collectList()
+        .map(items -> ApiResponse.success(200, "Input requests retrieved", items));
   }
 
   /** Reads one input request of a run. */
