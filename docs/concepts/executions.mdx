@@ -25,12 +25,12 @@ POST /api/workflow/start
 
 The response is `202 Accepted` with `data.executionId`. The id is handed out only after the scheduler has granted a slot, so a refused start never gets one. If your client retries after a network failure, send an `Idempotency-Key` header: a repeat with the same key, session and workflow within ten minutes returns the first execution id instead of starting a second run.
 
-Two keys in the start payload are reserved:
+Two start `options` are for `ADMIN` keys only (others get `403`):
 
-| Key | Effect |
+| Option | Effect |
 |---|---|
-| `yukta.version` | Run a saved version of the workflow instead of the current one |
-| `yukta.priority` | Queue priority when the server is at its limit; a number, higher first, default `0` |
+| `version` | Run a saved version of the workflow instead of the current one |
+| `priority` | Queue priority when the server is at its limit; a number, higher first, default `0` |
 
 ## Status model
 

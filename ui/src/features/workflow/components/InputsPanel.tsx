@@ -46,16 +46,25 @@ export function InputsPanel({
   live?: boolean;
 }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>('open');
-  const inputs = useQuery({
-    queryKey: ['inputs', sessionId, workflowId, tab],
+  const query = (name: (typeof TABS)[number]) => ({
+    queryKey: ['inputs', sessionId, workflowId, name],
     queryFn: () =>
       listInputs(sessionId, {
         workflowId,
-        state: tab === 'open' ? OPEN_STATES : HISTORY_STATES,
+        state: name === 'open' ? OPEN_STATES : HISTORY_STATES,
       }),
-    refetchInterval: live ? 5000 : false,
+    refetchInterval: live ? (5000 as const) : (false as const),
   });
+  const openInputs = useQuery(query('open'));
+  const history = useQuery(query('history'));
+  const inputs = tab === 'open' ? openInputs : history;
   const items = inputs.data ?? [];
+  // Nothing has been asked in this workflow: show no panel, so a run without inputs keeps its
+  // screen to itself. Once it has shown a request it stays, to say when they are all answered.
+  const [seen, setSeen] = useState(false);
+  const any = (openInputs.data?.length ?? 0) + (history.data?.length ?? 0) > 0;
+  if (any && !seen) setSeen(true);
+  if (!any && !seen && !openInputs.isError && !history.isError) return null;
 
   return (
     <section

@@ -15,9 +15,11 @@ export interface Supervisor {
   rejected: number;
   recorded: number;
   rateLimited: number;
-  scope: 'GLOBAL' | 'SESSION' | 'WORKFLOW';
+  scope: 'GLOBAL' | 'SESSION' | 'WORKFLOW' | 'SECTION';
   scopeSessionId: string | null;
   scopeWorkflowId: string | null;
+  /** The node selectors of a `SECTION` scope (node ids and `<prefix>.*`), otherwise null. */
+  scopeNodes?: string[] | null;
 }
 
 /** A reusable supervisor setup. Values under secret-looking keys come back as `***`. */
@@ -28,7 +30,10 @@ export interface SupervisorProfile {
   dryRun: boolean;
 }
 
-/** A profile attached to a scope: `global`, `session:<id>`, `workflow:<id>` or `workflow:<s>/<w>`. */
+/**
+ * A profile attached to a scope: `global`, `session:<id>`, `workflow:<id>`, `workflow:<s>/<w>`, or a
+ * section of a workflow, `workflow:<s>/<w>//<selector>,<selector>`.
+ */
 export interface SupervisorBinding {
   id: string;
   profileId: string;
@@ -40,7 +45,13 @@ export interface SupervisorBinding {
 export interface Decision {
   time: string;
   supervisorId: string;
-  outcome: 'applied' | 'rejected' | 'dry-run' | 'rate-limited';
+  outcome:
+    | 'applied'
+    | 'rejected'
+    | 'dry-run'
+    | 'rate-limited'
+    | 'forbidden'
+    | 'out-of-scope';
   command: string;
   executionId: string;
   reason: string | null;
@@ -77,6 +88,9 @@ export const attach = (
 export const detach = (id: string) =>
   fetchApi<unknown>(`${BASE}${api`/bindings/${id}`}`, { method: 'DELETE' });
 
+/** Separates the workflow from the node selectors in a section scope. */
+const SECTION = '//';
+
 /** A scope as a person reads it. */
 export function scopeLabel(scope: string): string {
   if (scope === 'global') return 'Global';
@@ -84,12 +98,20 @@ export function scopeLabel(scope: string): string {
     scope.split(':')[0],
     scope.slice(scope.indexOf(':') + 1),
   ];
-  return kind === 'session' ? `Session ${rest}` : `Workflow ${rest}`;
+  if (kind === 'session') return `Session ${rest}`;
+  const at = rest.indexOf(SECTION);
+  return at < 0
+    ? `Workflow ${rest}`
+    : `Section ${rest.slice(0, at)}: ${rest
+        .slice(at + SECTION.length)
+        .split(',')
+        .join(', ')}`;
 }
 
 /**
  * Whether a binding's scope covers a session, and a workflow of it when given: a global scope
- * covers everything, `workflow:<id>` any session's workflow of that id.
+ * covers everything, `workflow:<id>` any session's workflow of that id. A section counts for the
+ * workflow it is part of.
  */
 export function scopeApplies(
   scope: string,
@@ -103,22 +125,43 @@ export function scopeApplies(
   ];
   if (kind === 'session') return rest === sessionId;
   if (kind !== 'workflow' || workflowId === undefined) return false;
-  const [s, w] = rest.includes('/') ? rest.split('/') : [undefined, rest];
+  const ids = rest.split(SECTION)[0];
+  const [s, w] = ids.includes('/') ? ids.split('/') : [undefined, ids];
   return w === workflowId && (s === undefined || s === sessionId);
 }
 
-/** The scope text for a kind and its ids, or null when an id is missing. */
+/**
+ * The node selectors typed as text: separated by commas or spaces, blanks dropped. A selector is a
+ * node id or `<prefix>.*`.
+ */
+export function parseSelectors(text: string): string[] {
+  return text
+    .split(/[\s,]+/)
+    .map((selector) => selector.trim())
+    .filter((selector) => selector !== '');
+}
+
+/**
+ * The scope text for a kind and its ids, or null when an id is missing. A section also needs at
+ * least one node selector.
+ */
 export function buildScope(
-  kind: 'global' | 'session' | 'workflow',
+  kind: 'global' | 'session' | 'workflow' | 'section',
   sessionId: string,
-  workflowId: string
+  workflowId: string,
+  nodes = ''
 ): string | null {
   if (kind === 'global') return 'global';
   if (kind === 'session') return sessionId ? `session:${sessionId}` : null;
   if (!workflowId) return null;
-  return sessionId
+  const workflow = sessionId
     ? `workflow:${sessionId}/${workflowId}`
     : `workflow:${workflowId}`;
+  if (kind === 'workflow') return workflow;
+  const selectors = parseSelectors(nodes);
+  return selectors.length === 0
+    ? null
+    : `${workflow}${SECTION}${selectors.join(',')}`;
 }
 
 /** Why `text` is not a settings object, or the object. */

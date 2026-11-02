@@ -128,9 +128,10 @@ describe('VitalsPanel', () => {
       })
     );
     renderWithProviders(<VitalsPanel />);
-    expect(screen.getByText('Heap 100 of 400 MB')).toBeInTheDocument();
-    expect(screen.getByText('CPU 25%')).toBeInTheDocument();
-    expect(screen.getByText('Threads 120')).toBeInTheDocument();
+    expect(screen.getByText('Heap 25%, 100 of 400 MB')).toBeInTheDocument();
+    expect(screen.getByText('Heap · 100 of 400 MB')).toBeInTheDocument();
+    expect(screen.getByText('CPU 25%, process')).toBeInTheDocument();
+    expect(screen.getByText('Threads 120, live')).toBeInTheDocument();
     expect(screen.getByText('42 ms')).toBeInTheDocument();
     expect(screen.getByText('30.0')).toBeInTheDocument();
   });
@@ -170,12 +171,13 @@ describe('AiUsagePanel', () => {
     expect(screen.getByText('60')).toBeInTheDocument();
   });
 
-  it('explains that usage is server-wide outside the global scope', () => {
-    vi.mocked(useMetricSnapshot).mockReturnValue(q({ data: {} }));
+  it('says the usage is the whole server outside the global scope', () => {
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({ data: { 'llm.tokens{provider=A}|rate': 1 } })
+    );
     renderWithProviders(<AiUsagePanel scope="session:s1" />);
-    expect(
-      screen.getByText('AI usage is server-wide; choose the global scope')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Whole server')).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /A/ })).toBeInTheDocument();
   });
 
   it('says so when there was no model or tool call', () => {

@@ -92,6 +92,27 @@ Prints the id of the new execution. Takes no session id.`,
 		},
 	}))
 
+	var sigName, sigDecision, sigData string
+	signalCmd := commands.Action(commands.ActionSpec[client.WorkflowStartResponse]{
+		Use:   "signal <execution-id> <node-id>",
+		Short: "Send a signal to a waiting node",
+		Long: `Release or reject a node that waits for a named signal, for example a WAIT_FOR_SIGNAL
+approval step. Fails with HTTP 409 if the node is not waiting for it. Takes no session id.`,
+		Args: cobra.ExactArgs(2),
+		Run: func(a []string) (client.WorkflowStartResponse, error) {
+			return c.SignalNode(a[0], a[1], sigName, sigDecision, sigData)
+		},
+		Msg: func(_ client.WorkflowStartResponse, a []string) string {
+			return fmt.Sprintf("Signal %s=%s sent to node %s", sigName, sigDecision, a[1])
+		},
+	})
+	signalCmd.Flags().StringVar(&sigName, "name", "", "Name of the signal the node waits for")
+	signalCmd.Flags().StringVar(&sigDecision, "decision", "", "Decision, for example approve or reject")
+	signalCmd.Flags().StringVar(&sigData, "data", "", "Optional text that goes with the decision")
+	_ = signalCmd.MarkFlagRequired("name")
+	_ = signalCmd.MarkFlagRequired("decision")
+	cmd.AddCommand(signalCmd)
+
 	var bpField, bpEquals string
 	var bpClear bool
 	breakpoint := commands.Action(commands.ActionSpec[client.WorkflowStartResponse]{

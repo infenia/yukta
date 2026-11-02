@@ -142,7 +142,7 @@ Tools return structured JSON, except where noted. Every tool that takes an `exec
 | `RETRY` | Restart from a node that failed, as a new run; its id is in `resultExecutionIds` |
 | `BREAKPOINT_CLEAR` | Remove the node's breakpoint |
 
-`set_node_breakpoint` holds a node when a payload field equals a value, such as `field=payload.status` and `equalsValue=error`. See [Input requests](/building/input-requests) and [Run controls](/running/run-controls).
+`set_node_breakpoint` holds a node when a payload field equals a value, such as `field=payload.status` and `equalsValue=error`. `signal_node` answers a node that waits for a signal, such as an approval step: `decision` `approve` lets the message through, `reject` fails or drops it, and any other value is passed on to the workflow. It fails when the node is not waiting. See [Approvals and signals](/building/approvals-and-signals) and [Run controls](/running/run-controls).
 
 ### Versions
 

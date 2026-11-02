@@ -72,7 +72,7 @@ dropped and its notes would be lost.
   registry, `body` from the payload) and `notify-*` for `NOTIFY_TERMINAL` (Slack webhook) fed by a
   MAPPER that sets `text`. The files go to `/tmp/yukta-examples/model-promotion`; change `baseDir`
   (it is not variable-resolved).
-- **Approver:** the reviewer can answer from the web UI, the CLI or MCP (`answer_input`, `list_pending_inputs`).
+- **Approver:** the reviewer can answer from the web UI, the CLI or MCP (`signal_node`, `list_pending_approvals`).
 
 ## Trigger
 
@@ -83,10 +83,10 @@ curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/jso
   -d '{"sessionId":"example-12-model-promotion","workflowId":"review","payload":{"name":"churn-model","version":"v7","accuracy":0.93,"latencyMs":120,"biasGap":0.03}}'
 
 # what is waiting for the reviewer (the execution id is the round's, not the parent's)
-curl localhost:9858/api/sessions/example-12-model-promotion/inputs
+curl localhost:9858/api/sessions/example-12-model-promotion/approvals
 
 # answer: approve | retrain (with notes) | reject
-curl -X POST localhost:9858/api/executions/<executionId>/inputs/<requestId>/answer -H 'Content-Type: application/json' -d '{"decision":"retrain","text":"rebalance the training set"}'
+curl -X POST "localhost:9858/api/executions/<executionId>/nodes/reviewer/signal?name=promote&decision=retrain&data=rebalance%20the%20training%20set"
 ```
 
 ## Run

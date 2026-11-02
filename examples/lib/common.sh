@@ -25,15 +25,6 @@ api() {
   printf '%s' "$body"
 }
 
-# answer_input EXECUTION NODE DECISION [TEXT]: answer the open input request of NODE (what a person or a supervisor does).
-answer_input() {
-  local id
-  id=$(api GET "/api/sessions/$SID/inputs" | jq -r --arg e "$1" --arg n "$2" '[.data[] | select(.executionId == $e and .nodeId == $n)][0].id // empty')
-  [[ -n "$id" ]] || { echo "    no open input request at $2" >&2; return 1; }
-  api POST "/api/executions/$1/inputs/$id/answer" \
-    "$(jq -nc --arg d "$3" --arg t "${4:-}" '{decision: $d} + (if $t == "" then {} else {text: $t} end)')" >/dev/null
-}
-
 # require_server: fails fast with a clear message when the server is down.
 require_server() {
   api GET /api/plugins >/dev/null || exit 2

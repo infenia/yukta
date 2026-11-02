@@ -7,6 +7,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.StartOptions;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
@@ -26,9 +27,6 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class WorkflowStarter {
-
-  /** Start payload key that pins a run to a saved version of the workflow. */
-  /* default */ static final String PIN_KEY = "yukta.version";
 
   /** The stored workflow definitions. */
   private final WorkflowDefinitionStore definitions;
@@ -69,7 +67,7 @@ class WorkflowStarter {
 
   /** The version a start asks for with the payload key {@code yukta.version}, or null. */
   private static String pinnedVersion(final Map<String, Object> payload) {
-    final Object version = payload == null ? null : payload.get(PIN_KEY);
+    final Object version = payload == null ? null : payload.get(StartOptions.VERSION_KEY);
     return version instanceof final String text && !text.isBlank() ? text : null;
   }
 

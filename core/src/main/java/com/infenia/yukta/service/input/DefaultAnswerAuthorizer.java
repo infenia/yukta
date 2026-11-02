@@ -127,8 +127,9 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
 
   private void checkSupervisorScope(final InputRequest request, final ActorInfo actor) {
     final SupervisorScope scope = actor.scope();
-    if (scope == null || !scope.matches(request.sessionId(), request.workflowId())) {
-      throw deny(request, RULE_SCOPE, actor, "does not watch the run of the request");
+    if (scope == null
+        || !scope.matches(request.sessionId(), request.workflowId(), request.nodeId())) {
+      throw deny(request, RULE_SCOPE, actor, "does not watch the run or node of the request");
     }
   }
 

@@ -62,6 +62,23 @@ func (c *Client) RetryNode(executionID, nodeID string) (WorkflowStartResponse, e
 	return c.executionCall("POST", apiPath("/api/executions/%s/nodes/%s/retry", executionID, nodeID))
 }
 
+// SignalNode hands a named signal (an approval or decision) to a node that waits for it.
+// data is optional.
+func (c *Client) SignalNode(executionID, nodeID, name, decision, data string) (WorkflowStartResponse, error) {
+	if executionID == "" || nodeID == "" {
+		return WorkflowStartResponse{}, fmt.Errorf("executionID and nodeID cannot be empty")
+	}
+	if name == "" || decision == "" {
+		return WorkflowStartResponse{}, fmt.Errorf("signal name and decision cannot be empty")
+	}
+	params := url.Values{"name": {name}, "decision": {decision}}
+	if data != "" {
+		params.Set("data", data)
+	}
+	return c.executionCall("POST",
+		apiPath("/api/executions/%s/nodes/%s/signal", executionID, nodeID)+"?"+params.Encode())
+}
+
 // SetBreakpoint holds a node before the first element whose field equals the given text.
 func (c *Client) SetBreakpoint(executionID, nodeID, field, equals string) (WorkflowStartResponse, error) {
 	if executionID == "" || nodeID == "" {

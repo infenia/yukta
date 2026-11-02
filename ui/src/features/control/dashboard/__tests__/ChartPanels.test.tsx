@@ -66,7 +66,7 @@ describe('ThroughputPanel', () => {
     expect(screen.getByText('stop (refused)|danger')).toBeInTheDocument();
   });
 
-  it('opens the workflow of a mark that has one', () => {
+  it('opens the workflow of a mark that has one, and the audit otherwise', () => {
     annotations.mockReturnValue(
       ok([
         {
@@ -82,8 +82,9 @@ describe('ThroughputPanel', () => {
     renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
     fireEvent.click(screen.getByText(/pause/));
     expect(nav.to).toHaveBeenCalledWith('/sessions/s1/workflow/w1');
+    // a command that names no run leads to the control audit
     fireEvent.click(screen.getByText(/stop/));
-    expect(nav.to).toHaveBeenCalledTimes(1);
+    expect(nav.to).toHaveBeenLastCalledWith('/control?tab=audit');
   });
 });
 

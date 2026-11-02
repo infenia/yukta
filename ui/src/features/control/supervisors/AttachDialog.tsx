@@ -12,16 +12,18 @@ import { useSessionSummaries } from '@/features/sessions/hooks/useSessionSummari
 import { buildScope } from '../api/supervisors';
 import { useAttach, useProfiles } from './useSupervisorData';
 
-type Kind = 'global' | 'session' | 'workflow';
+type Kind = 'global' | 'session' | 'workflow' | 'section';
 
 /** Where the supervisor applies when the dialog opens; the page that opens it knows. */
 export interface ScopePreset {
   kind: Kind;
   sessionId?: string;
   workflowId?: string;
+  /** Node selectors for a section, separated by commas. */
+  nodes?: string;
 }
 
-/** Attaches a profile to a scope: everything, one session, or one workflow. */
+/** Attaches a profile to a scope: everything, one session, one workflow or a section of one. */
 export function AttachDialog({
   preset,
   onClose,
@@ -36,17 +38,12 @@ export function AttachDialog({
   const [kind, setKind] = useState<Kind>(preset?.kind ?? 'global');
   const [sessionId, setSessionId] = useState(preset?.sessionId ?? '');
   const [workflowId, setWorkflowId] = useState(preset?.workflowId ?? '');
+  const [nodes, setNodes] = useState(preset?.nodes ?? '');
   const [enabled, setEnabled] = useState(true);
   const chosenProfile = profileId || profiles[0]?.id || '';
-  const scope = buildScope(kind, sessionId, workflowId);
+  const scope = buildScope(kind, sessionId, workflowId, nodes);
   const problem =
-    chosenProfile === ''
-      ? 'Create a profile first.'
-      : scope === null
-        ? kind === 'session'
-          ? 'Choose a session.'
-          : 'Give the workflow id.'
-        : null;
+    chosenProfile === '' ? 'Create a profile first.' : scopeProblem(scope, kind, workflowId);
 
   const submit = () => {
     // the Attach button is disabled while there is a problem, so the scope is set here
@@ -87,18 +84,19 @@ export function AttachDialog({
             <option value="global">Every run</option>
             <option value="session">One session</option>
             <option value="workflow">One workflow</option>
+            <option value="section">A section of a workflow</option>
           </NativeSelect>
         </label>
         {kind !== 'global' && (
-          <label className="text-label-md text-on-surface flex flex-col gap-1">
-            {kind === 'workflow' ? 'Session (optional)' : 'Session'}
+          <label className="flex flex-col gap-1 text-label-md text-on-surface">
+            {kind === 'session' ? 'Session' : 'Session (optional)'}
             <NativeSelect
               aria-label="Session"
               value={sessionId}
               onChange={(e) => setSessionId(e.target.value)}
             >
               <option value="">
-                {kind === 'workflow' ? 'Any session' : 'Choose a session'}
+                {kind === 'session' ? 'Choose a session' : 'Any session'}
               </option>
               {sessions.map((s) => (
                 <option key={s.sessionId} value={s.sessionId}>
@@ -108,8 +106,8 @@ export function AttachDialog({
             </NativeSelect>
           </label>
         )}
-        {kind === 'workflow' && (
-          <label className="text-label-md text-on-surface flex flex-col gap-1">
+        {(kind === 'workflow' || kind === 'section') && (
+          <label className="flex flex-col gap-1 text-label-md text-on-surface">
             Workflow id
             <Input
               value={workflowId}
@@ -117,7 +115,23 @@ export function AttachDialog({
             />
           </label>
         )}
-        <label className="text-body-md flex items-center gap-2">
+        {kind === 'section' && (
+          <label className="flex flex-col gap-1 text-label-md text-on-surface">
+            Nodes
+            <Input
+              aria-label="Nodes"
+              value={nodes}
+              placeholder="build.*, publish"
+              onChange={(e) => setNodes(e.target.value)}
+            />
+            <span className="text-body-sm text-on-surface-variant">
+              Node ids, or a prefix such as build.* for every node whose id
+              starts with build. It sees and acts on these nodes only, never
+              on the whole run.
+            </span>
+          </label>
+        )}
+        <label className="flex items-center gap-2 text-body-md">
           <input
             type="checkbox"
             checked={enabled}
@@ -153,4 +167,15 @@ export function AttachDialog({
       </div>
     </Modal>
   );
+}
+
+/** What is missing for the scope, or null when it is complete. */
+function scopeProblem(
+  scope: string | null,
+  kind: Kind,
+  workflowId: string
+): string | null {
+  if (scope !== null) return null;
+  if (kind === 'session') return 'Choose a session.';
+  return workflowId ? 'Give at least one node.' : 'Give the workflow id.';
 }

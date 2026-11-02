@@ -33,7 +33,7 @@ export function KioskView({ onExit }: { onExit: () => void }) {
     <div key="health" className="grid gap-4 lg:grid-cols-3">
       <CapacityPanel live={live} />
       <BusPanel live={live} />
-      <WorkerSlotsPanel />
+      <WorkerSlotsPanel live={live} />
       <div className="lg:col-span-2">
         <HeatPanel scope={scope} live={live} />
       </div>

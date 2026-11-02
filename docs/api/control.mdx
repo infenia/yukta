@@ -171,7 +171,7 @@ Returns the most recent heartbeat message of a node, as a message object in `dat
 
 `POST /api/control/workflows/{workflowId}/nodes/{nodeId}/command`
 
-Sends an administrative command to a node through the control bus and returns the node's answer. The body is a bare JSON object with 1 to 100 entries. Which commands a node understands depends on its plugin. Approval signals cannot be sent this way and are refused with `403`; use the signal endpoint.
+Sends an administrative command to a node through the control bus and returns the node's answer. The body is a bare JSON object with 1 to 100 entries. Which commands a node understands depends on its plugin. Answers to input requests cannot be sent this way and are refused with `403`; use the [input requests](/building/input-requests).
 
 **Response `data`**: `payload`, what the node answered.
 

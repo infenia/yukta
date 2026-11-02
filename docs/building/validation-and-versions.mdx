@@ -85,13 +85,14 @@ This restores an earlier version as the current definition. Rollback is also ava
 
 ### Run a specific version
 
-Put `yukta.version` in the start payload to run a saved version without changing the current one.
+Set `options.version` in the start request (ADMIN keys only) to run a saved version without changing the current one.
 
 ```json
 {
   "sessionId": "demo",
   "workflowId": "greet",
-  "payload": { "name": "Ada", "yukta.version": "a1b2c3" }
+  "payload": { "name": "Ada" },
+  "options": { "version": "a1b2c3" }
 }
 ```
 

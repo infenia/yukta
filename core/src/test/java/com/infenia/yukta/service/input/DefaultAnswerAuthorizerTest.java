@@ -109,6 +109,20 @@ class DefaultAnswerAuthorizerTest {
             supervisor(true, InputRisk.MEDIUM, new SupervisorScope.Session("session")),
             InputRisk.LOW,
             null),
+        Arguments.of(
+            "supervisor of the asking node's section",
+            supervisor(
+                true, InputRisk.MEDIUM, SupervisorScope.parse("workflow:session/workflow//node")),
+            InputRisk.LOW,
+            null),
+        Arguments.of(
+            "supervisor of another section",
+            supervisor(
+                true,
+                InputRisk.MEDIUM,
+                SupervisorScope.parse("workflow:session/workflow//other.*")),
+            InputRisk.LOW,
+            "scope"),
         Arguments.of("unauthenticated", ActorInfo.unauthenticated(), InputRisk.LOW, "audience"),
         Arguments.of(
             "external is no default target", ActorInfo.external("t"), InputRisk.LOW, "audience"));

@@ -26,6 +26,7 @@ func TestVersionApprovalAndValidateCommands(t *testing.T) {
 		args []string
 		want string
 	}{
+		{[]string{"approvals", "s1"}, "GET /api/sessions/s1/approvals "},
 		{[]string{"validate", `{"id":"w"}`}, `POST /api/sessions/validate {"id":"w"}`},
 		{[]string{"workflow", "versions", "s1", "w1"}, "GET /api/sessions/s1/workflows/w1/versions "},
 		{[]string{"workflow", "diff", "s1", "w1", "--from", "2"}, "GET /api/sessions/s1/workflows/w1/versions/diff?from=2 "},

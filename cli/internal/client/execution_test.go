@@ -60,6 +60,35 @@ func TestRetryNode(t *testing.T) {
 	}
 }
 
+func TestSignalNode(t *testing.T) {
+	var method, path, query string
+	server := callServer(t, `{"executionId":"e1"}`, &method, &path, &query)
+	defer server.Close()
+
+	if _, err := NewClient(server.URL).SignalNode("e1", "n1", "approval", "approve", "ok then"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if method != "POST" || path != "/api/executions/e1/nodes/n1/signal" {
+		t.Errorf("request = %s %s", method, path)
+	}
+	if query != "data=ok+then&decision=approve&name=approval" {
+		t.Errorf("query = %q", query)
+	}
+}
+
+func TestSignalNode_validation(t *testing.T) {
+	c := NewClient("http://localhost")
+	if _, err := c.SignalNode("", "n", "a", "b", ""); err == nil {
+		t.Error("expected error for empty execution")
+	}
+	if _, err := c.SignalNode("e", "n", "", "b", ""); err == nil {
+		t.Error("expected error for empty name")
+	}
+	if _, err := c.SignalNode("e", "n", "a", "", ""); err == nil {
+		t.Error("expected error for empty decision")
+	}
+}
+
 func TestBreakpoint(t *testing.T) {
 	var method, path, query string
 	server := callServer(t, `{"executionId":"e1"}`, &method, &path, &query)

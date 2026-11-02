@@ -47,6 +47,7 @@ public class SupervisorProvider {
                                     s.scope(),
                                     s.scopeSessionId(),
                                     s.scopeWorkflowId(),
+                                    s.scopeNodes(),
                                     s.dryRun(),
                                     s.applied(),
                                     s.rejected()))
@@ -59,8 +60,9 @@ public class SupervisorProvider {
    * Attaches a profile to a scope.
    *
    * @param profileId an existing profile
-   * @param scope {@code global}, {@code session:<id>}, {@code workflow:<id>} or {@code
-   *     workflow:<sessionId>/<workflowId>}
+   * @param scope {@code global}, {@code session:<id>}, {@code workflow:<id>}, {@code
+   *     workflow:<sessionId>/<workflowId>} or a section {@code workflow:<sessionId>/<workflowId>//
+   *     <selector>,<selector>}
    * @param enabled whether it runs; null means yes
    * @param bindingId the binding id; null or blank generates one
    * @return the binding
