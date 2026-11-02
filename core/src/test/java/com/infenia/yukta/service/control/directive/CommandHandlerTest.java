@@ -87,13 +87,32 @@ class CommandHandlerTest {
   }
 
   @Test
+  void handle_answerInputCommand_routesToAnswerInputProcessor() {
+    final AnswerInputCommand command =
+        new AnswerInputCommand(
+            EXECUTION_ID, "request-1", null, "approve", "yes", Map.of(), null, null);
+    when(fixture.answerInput.process(any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(fixture.handler.handle(command)).verifyComplete();
+
+    verify(fixture.answerInput).process(command);
+  }
+
+  @Test
+  void handle_escalateInputCommand_routesToEscalateInputProcessor() {
+    final EscalateInputCommand command =
+        new EscalateInputCommand(EXECUTION_ID, "request-1", "needs a manager", null);
+    when(fixture.escalateInput.process(any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(fixture.handler.handle(command)).verifyComplete();
+
+    verify(fixture.escalateInput).process(command);
+  }
+
+  @Test
   void handle_commandsWithoutProcessor_areAllRejected() {
     final ExecutionControlCommand[] commands = {
-      new SetLimitsCommand(1, 1),
-      new SetPriorityCommand(EXECUTION_ID, 5),
-      new AnswerInputCommand(
-          EXECUTION_ID, "request-1", null, "approve", null, Map.of(), null, null),
-      new EscalateInputCommand(EXECUTION_ID, "request-1", "needs a second look", null)
+      new SetLimitsCommand(1, 1), new SetPriorityCommand(EXECUTION_ID, 5)
     };
 
     for (final ExecutionControlCommand command : commands) {

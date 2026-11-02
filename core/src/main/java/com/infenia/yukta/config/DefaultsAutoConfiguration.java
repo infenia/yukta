@@ -6,6 +6,10 @@ import com.infenia.yukta.edition.EditionInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.security.ApiAuthenticator;
 import com.infenia.yukta.security.ApiKeyAuthenticator;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
+import com.infenia.yukta.service.input.AnswerAuthorizer;
+import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
 import com.infenia.yukta.service.input.InMemoryInputRequestStore;
 import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.leader.LeaderElection;
@@ -15,6 +19,8 @@ import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import com.infenia.yukta.service.supervisor.InMemorySupervisorStore;
 import com.infenia.yukta.service.supervisor.SupervisorStore;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -96,6 +102,23 @@ public class DefaultsAutoConfiguration {
     log.atInfo().log(
         "Input requests are kept in memory: open requests are lost when the server restarts");
     return new InMemoryInputRequestStore(properties.input().memoryMax());
+  }
+
+  /**
+   * The rules for who may answer or hand up an input request. A bean of your own replaces them.
+   *
+   * @param runs finds the start payload of a run
+   * @param meters counts denied answers
+   * @return the default rules
+   */
+  @Bean
+  @ConditionalOnMissingBean(AnswerAuthorizer.class)
+  public DefaultAnswerAuthorizer defaultAnswerAuthorizer(
+      final ObjectProvider<ExecutionControlStore> runs,
+      final ObjectProvider<MeterRegistry> meters) {
+    return new DefaultAnswerAuthorizer(
+        runs.getIfAvailable(InMemoryExecutionControlStore::new),
+        meters.getIfAvailable(SimpleMeterRegistry::new));
   }
 
   /**
