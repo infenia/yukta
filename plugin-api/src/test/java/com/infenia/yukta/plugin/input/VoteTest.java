@@ -18,7 +18,7 @@ class VoteTest {
   private static final Instant AT = Instant.parse("2026-11-02T10:00:00Z");
 
   @Test
-  void aVoteKeepsWhoVotedWhatAndHowSure() {
+  void voteKeepsWhoVotedWhatAndHowSure() {
     final Vote vote = new Vote("watch", "approve", 0.9, AT);
     assertThat(vote.voter()).isEqualTo("watch");
     assertThat(vote.decision()).isEqualTo("approve");
@@ -27,7 +27,7 @@ class VoteTest {
   }
 
   @Test
-  void aVoteRefusesWhatIsMissingOrOutOfRange() {
+  void voteRefusesWhatIsMissingOrOutOfRange() {
     assertThatThrownBy(() -> new Vote(" ", "approve", null, AT))
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> new Vote("watch", " ", null, AT))
@@ -39,7 +39,7 @@ class VoteTest {
   }
 
   @Test
-  void aRequestKeepsItsVotesAsACopyAndAcceptsNone() {
+  void requestKeepsItsVotesAsCopyAndAcceptsNone() {
     final InputRequestSpec spec = InputFixtures.spec();
     final Vote vote = new Vote("watch", "approve", null, AT);
     final List<Vote> votes = new java.util.ArrayList<>(List.of(vote));
