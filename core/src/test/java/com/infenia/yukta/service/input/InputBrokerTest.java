@@ -124,6 +124,7 @@ class InputBrokerTest {
 
     assertThat(first).hasSize(1);
     assertThat(second).containsExactlyElementsOf(first);
+    // the feed delivers on its own thread, so wait for the event
     org.awaitility.Awaitility.await()
         .untilAsserted(
             () ->
@@ -168,6 +169,7 @@ class InputBrokerTest {
     assertThat(results).hasSize(50);
     assertThat(results).allMatch(r -> r.state() == InputState.ANSWERED);
     assertThat(results.stream().map(InputRequest::version).distinct()).hasSize(1);
+    // the feed delivers on its own thread, so wait for the event
     org.awaitility.Awaitility.await()
         .untilAsserted(
             () ->
@@ -329,6 +331,7 @@ class InputBrokerTest {
     clock.advance(Duration.ofSeconds(2));
     inputBroker.sweep().block();
     assertThat(failures).singleElement().isInstanceOf(InputExpiredException.class);
+    // the feed delivers on its own thread, so wait for the event
     org.awaitility.Awaitility.await()
         .untilAsserted(
             () ->
@@ -637,6 +640,7 @@ class InputBrokerTest {
 
     loser.ask(who("e2", "n2"), spec("k2")).subscribe();
 
+    // the feed delivers on its own thread, so wait for the event instead of racing it
     org.awaitility.Awaitility.await()
         .until(() -> events.stream().anyMatch(ExecutionEvent.InputRequested.class::isInstance));
     assertThat(events.stream().filter(ExecutionEvent.InputRequested.class::isInstance).count())
