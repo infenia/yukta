@@ -254,11 +254,13 @@ func TestFormatEvent(t *testing.T) {
 		{client.ExecutionEvent{Type: client.EventControlOutcome, Command: "Stop", Applied: &yes}, "CONTROL Stop applied=true"},
 		{client.ExecutionEvent{Type: client.EventControlOutcome, Command: "Stop"}, "CONTROL Stop applied=false"},
 		{client.ExecutionEvent{Type: client.EventInputRequested}, "INPUT requested"},
-		{inputEvent(client.EventInputRequested), "INPUT requested by ask (APPROVAL, HIGH risk)"},
+		{inputEvent(client.EventInputRequested), "INPUT requested by ask (APPROVAL, HIGH risk) request=r1"},
 		{client.ExecutionEvent{Type: client.EventInputEscalated}, "INPUT escalated"},
-		{inputEvent(client.EventInputEscalated), "INPUT of ask escalated to ops"},
+		{inputEvent(client.EventInputEscalated), "INPUT of ask escalated to ops request=r1"},
 		{client.ExecutionEvent{Type: client.EventInputAnswered, Decision: "approve"}, "INPUT answered: approve"},
 		{client.ExecutionEvent{Type: client.EventInputExpired}, "INPUT expired"},
+		{client.ExecutionEvent{Type: client.EventInputExpired, RequestID: "r2"}, "INPUT expired request=r2"},
+		{client.ExecutionEvent{Type: client.EventInputAnswered, Decision: "ok", RequestID: "r3"}, "INPUT answered: ok request=r3"},
 		{client.ExecutionEvent{Type: client.EventInputCancelled, Reason: "run-ended"}, "INPUT cancelled: run-ended"},
 		{client.ExecutionEvent{Type: "Other"}, "OTHER"},
 	} {
@@ -275,13 +277,14 @@ func feedEnded(err error) bool { return strings.Contains(err.Error(), "ended une
 func inputEvent(kind string) client.ExecutionEvent {
 	e := client.ExecutionEvent{Type: kind}
 	e.Request = &struct {
+		ID     string `json:"id"`
 		NodeID string `json:"nodeId"`
 		Tier   string `json:"tier"`
 		Spec   struct {
 			Kind string `json:"kind"`
 			Risk string `json:"risk"`
 		} `json:"spec"`
-	}{NodeID: "ask", Tier: "ops"}
+	}{ID: "r1", NodeID: "ask", Tier: "ops"}
 	e.Request.Spec.Kind = "APPROVAL"
 	e.Request.Spec.Risk = "HIGH"
 	return e

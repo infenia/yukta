@@ -6,10 +6,12 @@ import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.infenia.yukta.filter.RequestTracingFilter;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.plugin.input.InputForbiddenException;
+import com.infenia.yukta.plugin.input.InputLimitException;
 import com.infenia.yukta.plugin.input.InputRejectedException;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
+import com.infenia.yukta.service.input.InputAnsweredException;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import jakarta.validation.ConstraintViolationException;
@@ -269,7 +271,49 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   @ExceptionHandler(InputForbiddenException.class)
   public ResponseEntity<ApiResponse<Object>> handleInputForbidden(
       final InputForbiddenException exception, final ServerHttpRequest request) {
-    return buildErrorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), request);
+    return buildErrorResponse(
+        HttpStatus.FORBIDDEN,
+        exception.getMessage(),
+        request,
+        List.of(new ApiResponse.FieldError("rule", exception.rule())));
+  }
+
+  /**
+   * Handles an answer or escalation of a request that is already answered as a conflict; the errors
+   * carry the stored decision and who gave it, never its text or data.
+   *
+   * @param exception the exception
+   * @param request the request
+   * @return the 409 response
+   */
+  @ExceptionHandler(InputAnsweredException.class)
+  public ResponseEntity<ApiResponse<Object>> handleInputAnswered(
+      final InputAnsweredException exception, final ServerHttpRequest request) {
+    final String decision = exception.decision();
+    final String responder = exception.responder();
+    return buildErrorResponse(
+        HttpStatus.CONFLICT,
+        exception.getMessage(),
+        request,
+        decision == null || responder == null
+            ? List.of()
+            : List.of(
+                new ApiResponse.FieldError("decision", decision),
+                new ApiResponse.FieldError("responder", responder)));
+  }
+
+  /**
+   * Handles a request refused by the input limits (open requests per run or session, ttl) as too
+   * many requests.
+   *
+   * @param exception the exception
+   * @param request the request
+   * @return the 429 response
+   */
+  @ExceptionHandler(InputLimitException.class)
+  public ResponseEntity<ApiResponse<Object>> handleInputLimit(
+      final InputLimitException exception, final ServerHttpRequest request) {
+    return buildErrorResponse(HttpStatus.TOO_MANY_REQUESTS, exception.getMessage(), request);
   }
 
   /**
@@ -397,6 +441,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   private ResponseEntity<ApiResponse<Object>> buildErrorResponse(
       final HttpStatus status, final String message, final ServerHttpRequest request) {
+    return buildErrorResponse(status, message, request, List.of());
+  }
+
+  private ResponseEntity<ApiResponse<Object>> buildErrorResponse(
+      final HttpStatus status,
+      final String message,
+      final ServerHttpRequest request,
+      final List<ApiResponse.FieldError> errors) {
     final String path = getRequestPath(request);
     // Server errors never echo exception text; the request ID lets support find the logged cause.
     final String body =
@@ -404,7 +456,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             ? "An unexpected error occurred. Reference: " + requestId(request)
             : message;
     final ApiResponse<Object> errorResponse =
-        ApiResponse.error(status.value(), status.getReasonPhrase(), body, path, List.of());
+        ApiResponse.error(status.value(), status.getReasonPhrase(), body, path, errors);
     return ResponseEntity.status(status).body(errorResponse);
   }
 

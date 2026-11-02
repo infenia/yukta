@@ -149,6 +149,8 @@ class InMemoryInputRequestStoreTest {
     assertThat(store.listOpen("s1", "e2").map(InputRequest::id).collectList().block())
         .containsExactly("b");
     assertThat(store.listOpen("s2", "e1").collectList().block()).isEmpty();
+    assertThat(store.list("s1", "e1").map(InputRequest::id).collectList().block())
+        .containsExactly("a", "d");
   }
 
   @Test

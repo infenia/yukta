@@ -197,7 +197,7 @@ export interface paths {
         };
         /**
          * Stream execution events
-         * @description Live node and workflow status changes, control command outcomes and log lines of all executions, each with a severity (INFO, WARN, ERROR)
+         * @description Live node and workflow status changes, control command outcomes, log lines and input request changes of all executions, each with a severity (INFO, WARN, ERROR). type takes a comma-separated list of kinds; an unknown kind is a 400 that lists the valid ones.
          */
         get: operations["stream_1"];
         put?: never;
@@ -262,6 +262,66 @@ export interface paths {
         get: operations["getWorkflowStatus"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/executions/{executionId}/inputs/{requestId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an input request
+         * @description The request with its options, risk, tier, deadline, advice and, once answered, the answer. 404 when the run has no such request.
+         */
+        get: operations["getInput"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/executions/{executionId}/inputs/{requestId}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer an input request
+         * @description Answers a request that waits, as a control command (ordered, reviewed and audited like the others). 403 when the rules do not let the caller answer it (the message names the rule), 409 when it is already answered (with the stored decision and responder), expired, cancelled or changed since expectedVersion, 422 when the answer does not fit the request, 503 on a standby server.
+         */
+        post: operations["answerInput"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/executions/{executionId}/inputs/{requestId}/escalate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Escalate an input request
+         * @description Hands a request that waits up to the next tier with a reason and optional advice, as a control command. Errors as for answering.
+         */
+        post: operations["escalateInput"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1121,6 +1181,26 @@ export interface paths {
          * @description Returns what the terminal nodes received so far; complete is true once the execution ended. The stdout and stderr fields of the payloads are left out unless named in include (stdout, stderr or stdout,stderr); fetch again to drill down. Answers 404 for an unknown execution or one of another session.
          */
         get: operations["streamResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/{sessionId}/inputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List input requests
+         * @description The input requests of the session, newest first, by default those that wait for an answer (state=OPEN,ESCALATED). state takes a comma-separated list of OPEN, ESCALATED, ANSWERED, EXPIRED and CANCELLED; an unknown state is a 400. Finished requests are kept up to yukta.input.memory-max. Paged with limit and cursor (X-Next-Cursor header).
+         */
+        get: operations["listInputs"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2018,6 +2098,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseInputRequestView: {
+            /** @description The response data */
+            data?: components["schemas"]["InputRequestView"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListAnnotation: {
             /** @description The response data */
             data?: components["schemas"]["Annotation"][];
@@ -2186,6 +2299,39 @@ export interface components {
         ApiResponseListHit: {
             /** @description The response data */
             data?: components["schemas"]["Hit"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListInputRequestView: {
+            /** @description The response data */
+            data?: components["schemas"]["InputRequestView"][];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -3442,6 +3588,10 @@ export interface components {
              */
             timestamp?: string;
         };
+        Audience: {
+            currentTier?: boolean;
+            selectors?: string[];
+        };
         BindingBody: {
             enabled?: boolean;
             id?: string;
@@ -3595,6 +3745,91 @@ export interface components {
             /** Format: date-time */
             startTime?: string;
             status?: string;
+            workflowId?: string;
+        };
+        /** @description The answer to an input request */
+        InputAnswerRequest: {
+            /** @description Structured data that goes with the decision */
+            data?: {
+                [key: string]: unknown;
+            };
+            /**
+             * @description An option id, or a decision such as approve or reject
+             * @example ok
+             */
+            decision: string;
+            /**
+             * Format: int64
+             * @description The version of the request the caller saw
+             */
+            expectedVersion?: number;
+            /** @description Why; recorded in the execution log */
+            rationale?: string;
+            /** @description Free text that goes with the decision */
+            text?: string;
+        };
+        InputAnswerView: {
+            /** Format: date-time */
+            answeredAt?: string;
+            /** Format: double */
+            confidence?: number;
+            data?: {
+                [key: string]: unknown;
+            };
+            decision?: string;
+            rationale?: string;
+            responderId?: string;
+            responderType?: string;
+            text?: string;
+        };
+        /** @description Hands an input request up to the next tier */
+        InputEscalateRequest: {
+            /** @description What the caller suggests to whoever answers next */
+            advice?: string;
+            /**
+             * @description Why it is handed up
+             * @example Needs a person who owns the budget
+             */
+            reason: string;
+        };
+        InputOptionView: {
+            id?: string;
+            label?: string;
+        };
+        /** @description An input request of a node and, once answered, its answer */
+        InputRequestView: {
+            advice?: string;
+            answer?: components["schemas"]["InputAnswerView"];
+            audience?: components["schemas"]["Audience"];
+            context?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            deadline?: string;
+            defaultDecision?: string;
+            executionId?: string;
+            id?: string;
+            /** @enum {string} */
+            kind?: "APPROVAL" | "CHOICE" | "TEXT" | "STRUCTURED" | "QUERY";
+            nodeId?: string;
+            /** @enum {string} */
+            onTimeout?: "FAIL" | "USE_DEFAULT" | "ESCALATE";
+            options?: components["schemas"]["InputOptionView"][];
+            prompt?: string;
+            requester?: string;
+            responseSchema?: string;
+            /** @enum {string} */
+            risk?: "LOW" | "MEDIUM" | "HIGH";
+            sessionId?: string;
+            /** @enum {string} */
+            state?: "OPEN" | "ESCALATED" | "ANSWERED" | "EXPIRED" | "CANCELLED";
+            tier?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+            /** Format: int64 */
+            version?: number;
             workflowId?: string;
         };
         JsonNode: {
@@ -4489,7 +4724,7 @@ export interface operations {
                 executionId?: string;
                 /** @description With executionId, also the events of the sub-workflow runs it started, at any depth */
                 tree?: boolean;
-                /** @description Only events of this kind */
+                /** @description Only events of these kinds, comma-separated: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome, LogLine, EventsMissed, InputRequested, InputEscalated, InputAnswered, InputExpired, InputCancelled */
                 type?: string;
                 /** @description Only events of this severity or above: INFO, WARN or ERROR */
                 severity?: string;
@@ -4579,6 +4814,89 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseWorkflowProgress"];
+                };
+            };
+        };
+    };
+    getInput: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+                /** @description Input request ID */
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInputRequestView"];
+                };
+            };
+        };
+    };
+    answerInput: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+                /** @description Input request ID */
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InputAnswerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInputRequestView"];
+                };
+            };
+        };
+    };
+    escalateInput: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+                /** @description Input request ID */
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InputEscalateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInputRequestView"];
                 };
             };
         };
@@ -5777,6 +6095,40 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ExecutionResults"];
                     "text/event-stream": components["schemas"]["ServerSentEventResultEvent"][];
+                };
+            };
+        };
+    };
+    listInputs: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated states, default OPEN,ESCALATED */
+                state?: string;
+                /** @description Only this workflow */
+                workflowId?: string;
+                /** @description Only this run */
+                executionId?: string;
+                /** @description Page size (default 500, at most 1000) */
+                limit?: number;
+                /** @description Id of the last request of the previous page */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Session ID */
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListInputRequestView"];
                 };
             };
         };

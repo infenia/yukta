@@ -36,6 +36,44 @@ class McpToolAccessTest {
   }
 
   @Test
+  void viewerListsInputsButOnlyOperatorAnswersOrEscalates() {
+    assertThat(McpToolAccess.permitted(key("VIEWER", null), "list_pending_inputs", null)).isTrue();
+    assertThat(McpToolAccess.permitted(key("VIEWER", "a"), "list_pending_inputs", null)).isFalse();
+    assertThat(McpToolAccess.permitted(key("VIEWER", "a"), "list_pending_inputs", "a")).isTrue();
+    for (final String write : List.of("answer_input", "escalate_input")) {
+      assertThat(McpToolAccess.permitted(key("VIEWER", null), write, "a")).isFalse();
+      assertThat(McpToolAccess.permitted(key("OPERATOR", null), write, "a")).isTrue();
+      assertThat(McpToolAccess.permitted(key("ADMIN", null), write, "a")).isTrue();
+      assertThat(McpToolAccess.permitted(key("OPERATOR", "a"), write, "a")).isTrue();
+      assertThat(McpToolAccess.permitted(key("OPERATOR", "a"), write, "b")).isFalse();
+      assertThat(McpToolAccess.permitted(key("OPERATOR", "a"), write, null)).isFalse();
+    }
+  }
+
+  @Test
+  void aViewerBodyMayListInputsButNotAnswerThem() {
+    final String list =
+        "{\"method\":\"tools/call\",\"params\":{\"name\":\"list_pending_inputs\","
+            + "\"arguments\":{\"sessionId\":\"a\"}}}";
+    final String answer =
+        "{\"method\":\"tools/call\",\"params\":{\"name\":\"answer_input\","
+            + "\"arguments\":{\"sessionId\":\"a\",\"executionId\":\"e\","
+            + "\"requestId\":\"r\",\"decision\":\"ok\"}}}";
+    assertThat(
+            McpToolAccess.permitted(
+                key("VIEWER", null), list.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+        .isTrue();
+    assertThat(
+            McpToolAccess.permitted(
+                key("VIEWER", null), answer.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+        .isFalse();
+    assertThat(
+            McpToolAccess.permitted(
+                key("OPERATOR", null), answer.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+        .isTrue();
+  }
+
+  @Test
   void rolesDecideWhichToolsMayBeCalled() {
     assertThat(McpToolAccess.permitted(key("VIEWER", null), "list_sessions", null)).isTrue();
     assertThat(McpToolAccess.permitted(key("VIEWER", null), "list_pending_approvals", "a"))

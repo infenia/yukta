@@ -81,6 +81,15 @@ public interface InputRequestStore {
   Flux<InputRequest> listOpen(@Nullable String sessionId, @Nullable String executionId);
 
   /**
+   * Lists every request the store still keeps, open or finished.
+   *
+   * @param sessionId only this session, or {@code null} for all
+   * @param executionId only this run, or {@code null} for all
+   * @return the requests, in no particular order
+   */
+  Flux<InputRequest> list(@Nullable String sessionId, @Nullable String executionId);
+
+  /**
    * Lists the requests past their deadline.
    *
    * @param now the time to compare with
