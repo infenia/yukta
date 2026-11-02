@@ -56,6 +56,10 @@ class SmallTypesTest {
     assertThat(expired).hasMessage("no answer");
     assertThat(new InputCancelledException("r2", "run ended").requestId()).isEqualTo("r2");
     assertThat(new InputRejectedException("r3", "no").requestId()).isEqualTo("r3");
+    final InputForbiddenException forbidden = new InputForbiddenException("r4", "risk", "no");
+    assertThat(forbidden.requestId()).isEqualTo("r4");
+    assertThat(forbidden.rule()).isEqualTo("risk");
+    assertThat(forbidden).hasMessage("no");
     assertThat(new InputLimitException("k", "too many").requestId()).isEqualTo("k");
   }
 }

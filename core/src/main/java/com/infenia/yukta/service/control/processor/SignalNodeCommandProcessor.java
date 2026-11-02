@@ -12,9 +12,13 @@ import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -40,8 +44,37 @@ public class SignalNodeCommandProcessor {
   /** Finds the plugin that serves a node. */
   private final ActivePluginRegistry plugins;
 
-  /** Applies the command. */
+  /** Answers an input request that stands for the signal, if there is one. */
+  @Nullable private ObjectProvider<InputSignalBridge> inputBridge;
+
+  /**
+   * Lets the broker take a signal that answers an input request.
+   *
+   * @param provider the bridge, if the application has input requests
+   */
+  @Autowired(required = false)
+  public void setInputBridge(final ObjectProvider<InputSignalBridge> provider) {
+    this.inputBridge = provider;
+  }
+
+  /** Applies the command: an open input request of the node takes it, else the plugin does. */
   public Mono<Void> process(final SignalNodeCommand signal) {
+    final ObjectProvider<InputSignalBridge> provider = inputBridge;
+    final InputSignalBridge bridge = provider == null ? null : provider.getIfAvailable();
+    if (bridge == null) {
+      return deliver(signal);
+    }
+    return bridge
+        .waitingFor(signal)
+        .map(Optional::of)
+        .defaultIfEmpty(Optional.empty())
+        .flatMap(
+            waiting ->
+                waiting.isPresent() ? bridge.answer(signal, waiting.get()) : deliver(signal));
+  }
+
+  /** The older path: the plugin of the node takes the signal while it waits for it. */
+  private Mono<Void> deliver(final SignalNodeCommand signal) {
     return Mono.defer(
         () -> {
           final ExecutionControl control =

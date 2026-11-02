@@ -81,6 +81,8 @@ Gateway commands for a live run (`ControlBusGateway`). REST: `POST /api/executio
   `SetPriority(n)`, rejected if the run is not waiting.
 
 ### Signals and approval steps
+A signal for a node that waits on an open input request (context `signal` = the name) is answered through the input authoriser instead (`InputSignalBridge`; see `input-requests.md`); `pendingApprovals` also lists open `APPROVAL` requests. `AnswerInputCommand` and `EscalateInputCommand` are ordinary control commands (`ControlBusGateway.answerInput` / `escalateInput`); a raw `sendCommand` payload that carries `requestId` is refused like one that carries a signal.
+
 `SignalNodeCommand` (REST `POST /api/executions/{id}/nodes/{node}/signal?name=&decision=&data=`, MCP
 `signal_node`, gateway `signalNode`) hands a named signal to the plugin of a node through the same
 review, ordering and audit as other commands (`SignalNodeCommandProcessor`). The plugin must answer

@@ -4,7 +4,9 @@ Design for letting a plugin ask a supervisor, a human or an external agent for i
 
 Work on this plan is tracked in Epic #1787 on the Yukta Roadmap project.
 
-Status: **proposal, nothing is built.** Based on `origin/main` at e7e2fda49 (2026-11-01). Everything below was read from the code with git; nothing was built or run, so no behavior described as "today" has been re-tested for this plan.
+Status (2026-11-02): **phases 0, 1, 2 and 3a are merged** (ADR 0001, the `plugin.input` contracts and events, the broker with the in-memory store and sweeper, supervisor id validation); phase 3 onward is a proposal. The "today" statements below were read from the code with git at `origin/main` e7e2fda49 (2026-11-01) and re-checked for the supervision model at e34775048 (2026-11-02); nothing was built or run for this plan, so none of it has been re-tested.
+
+The section "Supervision model: sections, approval and rank" (2026-11-02) answers a review question: can several supervisors share, split or stack the supervision of a workflow, with approval and hierarchy between them? It adds two issues, #1855 (section scope and scope enforcement) and #1856 (review that requires approval), and changes phases 6, 7 and 8. Its decisions (D18 to D23) are **proposed, not yet confirmed**.
 
 ## Summary
 
@@ -38,6 +40,10 @@ Related, already built or planned: Epic "Mission Control dashboard and scoped su
 | Status of another execution | PARTIAL | Core has `ExecutionQueries`; MCP has status tools; `SubWorkflowGateway` runs children of the same session | No read-only gateway for plugins; cross-session access is undefined. |
 | Supervisors cooperate | PARTIAL | Parallel and independent on the feed; sequential review, first denial wins; `RulesFirstControlPlane` chains two | No conflict resolution, loop guard, quorum or generic composition. |
 | Supervisor as a workflow | MISSING | Factories: rule, rule/model/rules-first control plane | No workflow-backed type, no internal session, no recursion guard. |
+| Supervisor owns a part of a workflow | MISSING | `SupervisorScope` is `Global`, `Session` or `Workflow`; `ControlRequest` has no node; `WorkflowDefinition.Node.group` is display only | No section scope, no node in review or event matching (#1855). |
+| A scope limits what a supervisor may do | MISSING | `SupervisorHost.apply` and `send` pass any command to `dispatchOrdered`; scope only filters the events a supervisor sees and the reviews it gets | A session or workflow supervisor can act on any run (#1855). |
+| An operation needs approval before it runs | MISSING | `Decision` is allow or deny; `ControlReviewer` has a 5 s timeout | No third outcome, no parked command (#1856). |
+| Hierarchy between supervisors | MISSING | Scopes nest, bindings do not relate; the phase 8 guard sends requests from supervisor workflows to humans only | No cover relation, no ownership of holds, no escalation to a higher supervisor. |
 
 ## Architecture
 
@@ -214,12 +220,12 @@ Decided (ADR 0001, D2): the signal API is replaced, not wrapped. `WAIT_FOR_SIGNA
 | Forged or replayed external answer | One-time token: HMAC over (request id, tier, expiry) with a server secret, single use, bound to one tier. Recorded actor is `token:<tier>`. Optional mTLS or API key on top. |
 | Stale or misdirected answer | Answers address a request id and may carry `expectedVersion`. Terminal states are immutable. |
 | Request spam by a looping agent | Caps per execution (default 5 open), per session (50), and an ask rate through `CallRateLimiter`. A cap breach fails the ask with a clear error and a metric. |
-| Supervisor and run deadlock (a supervisor workflow asks, a supervisor must answer) | Requests raised inside a supervisor workflow route only to human tiers. See Supervisor coordination. |
+| Supervisor and run deadlock (a supervisor workflow asks, a supervisor must answer) | Requests raised inside a supervisor workflow route only to human tiers and to supervisors that strictly cover the binding's scope (rank, never equal or narrower). See Supervisor coordination. |
 | No audit of who decided what | Every command is already audited; add the request id, responder type, risk and rationale to the execution log entries. |
 
 ## Routing and escalation
 
-A **route** is an ordered list of tiers. It is read from the request spec, then node config, then session config, then `yukta.input.route`.
+A **route** is an ordered list of tiers. It is read from the request spec (`routeName`, which the `ASK_INPUT` and `WAIT_FOR_SIGNAL` node config sets with `route`, so a node, and therefore a section by convention, picks its route), then session config (`input.route`), then `yukta.input.routes.default`, then the built-in default. This is the order of #1796; an earlier version of this plan also listed a separate "node config" step, which is the `routeName` the node writes into the spec. A responder `supervisor:*` means the bound supervisors whose scope matches the request's session, workflow **and node** (see the supervision model). `supervisor:above` means the supervisors whose scope strictly covers the scope of the asker (see Rank).
 
 ```yaml
 route:
@@ -238,17 +244,53 @@ route:
 - **Delivery** is an outbox row per (request, tier), sent at least once with backoff. Responders must be idempotent by request id.
 - **External agents** that cannot be called can pull: SSE `/api/events/stream?type=InputRequested`, MCP `list_pending_inputs`, then `answer_input`. The Claude Code channel under `examples/11-dogfood/channel` is one such transport and needs no core change.
 - **Supervisors** influence a route without owning it. `EscalateInputCommand` adds advice ("approve, because the deploy matches policy X") that the next tier sees.
-- **Quorum** turns answers from supervisors in a tier into votes. The broker resolves when the quorum agrees and escalates on disagreement.
+- **Quorum** turns answers from supervisors in a tier into votes. The broker resolves when the quorum agrees and escalates on disagreement. The eligible supervisors are counted **per request**: those whose scope matches the request's session, workflow and node, so a section request counts only its section's supervisors.
+
+## Supervision model: sections, approval and rank
+
+Picture a production line. A supervisor watches a line, or a station on it. Several can work at once, in sequence, or one above another. This section says how the design supports that, scenario by scenario, and what had to be added. The facts come from `SupervisorScope`, `ControlRequest`, `ControlReviewer` and `SupervisorHost` on `origin/main`.
+
+| Scenario | How it is done | Issue |
+|---|---|---|
+| Several supervisors in parallel on the same scope | Each reads the feed on its own; reviews all apply; conflicting commands go through the arbiter | #1797 |
+| In sequence (first opinion wins, others are fallback) | Composite `CHAIN`; for input requests, route tiers | #1797, #1796 |
+| Together, by vote | Composite `QUORUM`; for input requests, a tier with `QUORUM` or `UNANIMOUS` | #1797, #1796 |
+| One section to one supervisor, another section to another | **Section scope**: a binding for `workflow:<s>/<w>#build.*` and another for `#deploy.*` | #1855 |
+| A section shared by several supervisors, or a section inside a workflow that also has an owner | Overlapping bindings: all matching supervisors review, the arbiter coordinates commands | #1855, #1797 |
+| An operation needs a second opinion first | **Review requires approval**: the command is parked and an `APPROVAL` input request goes through the route | #1856 |
+| Sequential approval, parallel approval | Route tiers (sequence) and quorum (parallel) on that request | #1856, #1796 |
+| A lower supervisor defers to a higher one | **Rank** by strict cover: `supervisor:above`; ownership of holds | #1796, #1797, #1798 |
+
+### Sections (#1855)
+
+- A section is a set of node selectors (exact ids and `prefix.*`) inside one workflow, written as the scope text `workflow:<sessionId>/<workflowId>#sel,sel`. It is stored in the existing scope text column, so there is no migration. The selector rule is the UI's default grouping (the part before the first dot); an explicit `Node.group` is display only and is not used (D18).
+- Matching gets the node: `SupervisorScope.matches(session, workflow, node)`, `ControlRequest.nodeId` (from the command), `ExecutionEvent.nodeId()`. Workflow-wide items (workflow events, `Pause/Resume/StopWorkflowCommand`, priority, restart) are **not** seen by section supervisors, so a section owner cannot hold up or veto a whole run (D19).
+- `SupervisorScope.covers(other)` defines "scope X contains scope Y". Strict cover is a strict partial order, so it has no cycles. Composite validation, ownership of holds and escalation all use it.
+- **A scope must limit what a supervisor does, not only what it sees.** Today `SupervisorHost.apply` sends whatever a supervisor emits. #1855 refuses a command whose target is outside the scope (`outcome=out-of-scope`), and allows commands without a run (`SetLimitsCommand`) only for `Global`. Without this, several owners cannot be trusted to stay in their parts (D20).
+
+### Approval of operations (#1856)
+
+- `Decision` gets a third outcome, `requireApproval(reason, need)`. `ControlReviewer` aggregates: a denial beats a need for approval; several needs merge into one request.
+- The dispatcher parks the command, raises an `APPROVAL` request with a server-bound identity, and returns `202 AWAITING_APPROVAL` to the caller. On approval it re-dispatches the original command with the original actor; the supervisors that asked are marked satisfied for that request, every other supervisor still reviews. On rejection, expiry or run end the command is dropped and logged.
+- A person can always stop a run: a human stop is never parked. The proposer cannot answer its own request (separation). HIGH risk is human only, as everywhere else (D21).
+- Waiting stays the broker's job. The review path never waits, so the 5 s review timeout and the "supervisors stay stateless" principle hold.
+
+### Rank and hierarchy (#1796, #1797, #1798)
+
+- Rank is **strict cover**: supervisor A is above supervisor B when A's scope strictly covers B's. Global is above session, session above workflow, workflow above section. Equal or unrelated scopes are not ranked. No new field and no stored hierarchy (D22).
+- **Escalation up**: the responder selector `supervisor:above` (#1796) targets the bound supervisors whose scope strictly covers the asker's. A section supervisor escalates to the workflow supervisor, then to the global one, then to a human tier. Because strict cover has no cycles, this cannot deadlock.
+- **Workflow-backed supervisors** (#1798): the old guard "a request raised inside a supervisor workflow goes to human tiers only" is replaced by "to human tiers and to supervisors that strictly cover the binding's scope, never to the supervisor itself or to an equal or narrower one".
+- **Ownership of holds** (#1797): the arbiter remembers who paused a target and with which scope. A resume from another supervisor is accepted only if its scope covers the pauser's scope (or it is the same supervisor, or a human). Otherwise `outcome=not-owner`. The owner is kept in memory; after a restart a hold has no owner and anyone in scope may resume it. In one arbiter window, a pause from a covering scope beats a resume from a narrower one; for equal or unrelated scopes `order()` decides (D23).
 
 ## Supervisor coordination
 
-Today supervisors run in parallel and never see each other. Three additions, none of which changes the `ExecutionSupervisor` contract.
+Today supervisors run in parallel and never see each other. Three additions, none of which changes the `ExecutionSupervisor` contract. They rest on the supervision model above (sections, approval, rank).
 
 ### 1. Command arbiter (parallel supervisors)
 
 A step between `SupervisorHost.send` and the dispatcher. Per execution it looks at a short window (default 2 s) and applies:
 
-- Precedence: stop beats pause beats the rest. Opposite commands from different supervisors (pause and resume) are decided by `order()`.
+- Precedence: stop beats pause beats the rest. Opposite commands from different supervisors (pause and resume): the one from the covering scope wins (a workflow supervisor's pause beats a section supervisor's resume); between equal or unrelated scopes `order()` decides. Only the owner of a hold, a supervisor that covers the owner, or a human may lift it (see Rank).
 - Duplicate commands coalesce into one.
 - Flap guard: more than N state flips on one target in M seconds blocks that target for the offending supervisors and emits a `SupervisorFlapping` event.
 - Every decision is recorded in the existing decision list, so conflicts are visible in `GET /api/supervisors`.
@@ -259,7 +301,7 @@ A `SupervisorFactory` of type `composite`. Settings: `mode` (`CHAIN`, `PARALLEL`
 
 - `CHAIN` generalises `RulesFirstControlPlane`: the first child with an opinion wins, later ones are the fallback.
 - `review` defaults to all children must allow.
-- Validation at save time: children exist, no cycles, depth at most 3, each child scope inside the composite scope. The factory needs a `SupervisorResolver` bean to look profiles up.
+- Validation at save time: children exist, no cycles, depth at most 3, each child scope covered by the composite scope (`SupervisorScope.covers`). The factory needs a `SupervisorResolver` bean to look profiles up.
 
 ### 3. Workflow-backed supervisor
 
@@ -269,7 +311,7 @@ A supervisor implemented as a workflow in an internal session, with guard rails.
 - Per matching event the host starts a run with the event or request as payload and an idempotency key derived from the event. The child result maps through the existing `OUTCOME_TERMINAL` outcomes: SUCCESS yields commands from the result (validated against `allowedCommands`), ESCALATE becomes `EscalateInputCommand`, RETRY re-runs once, FAILED is "no opinion" plus a metric.
 - It must be a core-internal runner. Do not widen `SubWorkflowGateway`, which is deliberately same-session and public.
 - **Internal session**: a session flag `internal=true`, created by ADMIN only (workflows can run processes and SQL). Hidden from default lists. Its runs are excluded from the supervisor event feed unless a binding opts in, so a supervisor workflow cannot trigger itself.
-- **Recursion and deadlock**: the payload carries `yukta.supervisor.depth` (reuse the existing `yukta.depth` nesting limit). An input request raised inside a supervisor workflow routes only to human tiers, never to supervisors.
+- **Recursion and deadlock**: the payload carries `yukta.supervisor.depth` (reuse the existing `yukta.depth` nesting limit). An input request raised inside a supervisor workflow routes only to human tiers and to supervisors that strictly cover the binding's scope, never to the supervisor itself or to an equal or narrower one.
 - **Capacity**: supervisor runs get reserved slots that do not count toward `yukta.execution.max-concurrent` (the way `borrowed()` works for children). Otherwise a saturated server, the very case a resource supervisor must handle, would starve its own supervisor.
 
 ## Durability, cluster and editions
@@ -309,10 +351,10 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 
 | Phase | What (issue) | Size | Depends on |
 |---|---|---|---|
-| 0 | Decisions, ADR and spike (#1788) | S | none |
-| 1 | Contracts in `plugin-api` (#1789) | M | 0 |
-| 2 | Broker, store, state machine (#1790) | L | 1 |
-| 3a | Validate supervisor ids and migrate stored ones (#1803) | S | 0 (ships first) |
+| 0 | Decisions, ADR and spike (#1788, merged) | S | none |
+| 1 | Contracts in `plugin-api` (#1789, merged) | M | 0 |
+| 2 | Broker, store, state machine (#1790, merged) | L | 1 |
+| 3a | Validate supervisor ids and migrate stored ones (#1803, merged) | S | 0 (ships first) |
 | 3 | Commands, authorisation, signal bridge (#1791) | L | 2, 3a |
 | 4 | Plugin integration (#1792) | M | 3 |
 | 5a | REST, MCP, CLI (#1793) | M | 3 |
@@ -321,8 +363,10 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 | 5d | Move CLI, mod, examples and docs off the signal API (#1804) | M | 4, 5a, 5b, 5c |
 | 5e | Remove the legacy signal API from the server (#1805) | M | 5d |
 | 6 | Routes, escalation, external responders (#1796) | L | 5a, 5c |
-| 7 | Arbiter and composite supervisors (#1797) | M | 1 (can run beside 2 to 5) |
-| 8 | Workflow-backed supervisor and internal session (#1798) | L | 5a, 5c, 6, 7 |
+| 7 | Arbiter and composite supervisors (#1797) | M | 1, 7a (can run beside 2 to 5) |
+| 7a | Section scope and scope enforcement (#1855, under Epic #1584) | M | none (can start now; ships before 6 and 7) |
+| 7b | Supervisor review can require approval (#1856) | M | 3, better with 6 |
+| 8 | Workflow-backed supervisor and internal session (#1798) | L | 5a, 5c, 6, 7, 7a |
 | 9 | Durable store and failover, Plus (#1799) | L | 2 (needs 6 for the outbox) |
 | 10 | Hardening and release (#1800) | M | 8, 9, 5b, 5e |
 
@@ -387,7 +431,22 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 - QUORUM and UNANIMOUS modes.
 - Tests: virtual-time tier progression, token replay, expired token, egress denied, quorum disagreement escalates, delivery retry and idempotency.
 
+### Phase 7a: section scope and scope enforcement (M, #1855)
+
+- `SupervisorScope.Section`, `matches(session, workflow, node)`, `covers`; `ControlRequest.nodeId`, `ExecutionEvent.nodeId()`, `ExecutionControlCommand.nodeId()`.
+- Node-aware review and event filtering; refuse commands outside the supervisor's scope (`out-of-scope`); attach, status, REST, MCP, cockpit dialog, docs.
+- Tests: scope table (`parse`, `matches`, `covers`), reviewer and host with two sections, out-of-scope outcomes, store round trip.
+- Done when two supervisors can own two sections of one workflow and neither can act on the other's nodes.
+
+### Phase 7b: supervisor review can require approval (M, #1856)
+
+- `Decision.requireApproval`, reviewer aggregation, parked commands raised as `APPROVAL` requests with a server-bound identity, `202 AWAITING_APPROVAL`, re-dispatch with the original actor, human stops exempt, separation rule in `AnswerAuthorizer`, rule-supervisor action.
+- Tests: aggregation table, approval, rejection, expiry, run end, forged approval marker, authoriser matrix, WebTestClient `202`.
+- Done when a rule can gate a stop on a workflow and a person approves it on the Inputs panel.
+
 ### Phase 7: arbiter and composite supervisors (M)
+
+- Added by the supervision model: hold ownership and covering-scope precedence in the arbiter, composite scope containment through `covers` (see Rank).
 
 - `CommandArbiter` between `SupervisorHost.send` and the dispatcher; precedence, coalescing, flap guard; decisions into the existing decision list and metrics.
 - `CompositeSupervisor` and factory with save-time validation, `SupervisorResolver`. Re-express `RulesFirstControlPlane` as a chain (keep its type name for compatibility).
@@ -395,6 +454,7 @@ Sizes are rough relative effort (S under 2 days, M about a week, L more), for pl
 
 ### Phase 8: workflow-backed supervisor and internal session (L)
 
+- Guard change from the supervision model: a request raised in a supervisor workflow routes to human tiers and to strictly covering supervisors only.
 - `internal` flag on the session model, ADMIN-only creation, list filtering, feed exclusion, UI under System.
 - Core-internal workflow runner with idempotent start, reserved capacity, depth guard, result mapping and `allowedCommands` enforcement.
 - Factory type `workflow`; an example workflow in `examples/` that answers LOW risk requests after reading status through the Yukta MCP with a VIEWER key (the same pattern the dogfood fixer uses).
@@ -440,6 +500,17 @@ Decided by Arun on 2026-11-01 in three rounds of questions; the full record, wit
 | Supervisor ids | Validate every id and migrate stored ones (#1803, ships first) | not the recommendation (validate new, keep old) |
 | A resumed run and a cancelled request | Reopen the old request (Plus) | recommended |
 | Technical defaults (gateway bean, one `INPUT` log type, standby answers 503, `InputRedactor`, contract tests in the `plus` testkit) | Accepted as proposed | recommended |
+
+### Proposed on 2026-11-02 (supervision model), to confirm
+
+| Decision | Proposal | Alternative |
+|---|---|---|
+| D18 Naming a section | Selectors (node ids and `prefix.*`) in the binding's scope text; `Node.group` not used | Resolve `group` from the workflow definition (lookup, goes stale) |
+| D19 Workflow-wide items | Not reviewed by section supervisors; workflow, session and global ones do | Every section owner must allow a workflow-wide command |
+| D20 Scope limits actions | A command outside the scope is refused (`out-of-scope`); `SetLimitsCommand` only for `Global` | Keep today's behavior (a scope only filters what is seen) |
+| D21 Gated commands | Park the command, raise an `APPROVAL` request, `202`, re-dispatch with the original actor; human stops never parked; proposer cannot approve | Deny only (today) |
+| D22 Hierarchy | Strict cover of scopes, no stored rank field; `supervisor:above` | An explicit `escalatesTo` or rank field on the binding, checked for cycles |
+| D23 Holds | The arbiter records the owner of a pause; only the owner, a covering scope or a human lifts it; in memory | No ownership (any supervisor in scope may resume) |
 
 ### Verified in phase 0
 

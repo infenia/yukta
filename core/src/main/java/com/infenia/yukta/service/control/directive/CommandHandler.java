@@ -3,8 +3,10 @@
 package com.infenia.yukta.service.control.directive;
 
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
+import com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor;
 import com.infenia.yukta.service.control.processor.DisableStepModeCommandProcessor;
 import com.infenia.yukta.service.control.processor.EnableStepModeCommandProcessor;
+import com.infenia.yukta.service.control.processor.EscalateInputCommandProcessor;
 import com.infenia.yukta.service.control.processor.PauseNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.PauseWorkflowCommandProcessor;
 import com.infenia.yukta.service.control.processor.RestartCommandProcessor;
@@ -44,6 +46,8 @@ public class CommandHandler {
   private final StepNodeCommandProcessor stepNode;
   private final SetBreakpointCommandProcessor setBreakpoint;
   private final SignalNodeCommandProcessor signalNode;
+  private final AnswerInputCommandProcessor answerInput;
+  private final EscalateInputCommandProcessor escalateInput;
 
   /**
    * Runs one command.
@@ -72,8 +76,8 @@ public class CommandHandler {
       // reach.
       case ExecutionControlCommand.SetLimitsCommand _ -> noProcessor();
       case ExecutionControlCommand.SetPriorityCommand _ -> noProcessor();
-      case ExecutionControlCommand.AnswerInputCommand _ -> noProcessor();
-      case ExecutionControlCommand.EscalateInputCommand _ -> noProcessor();
+      case ExecutionControlCommand.AnswerInputCommand c -> answerInput.process(c);
+      case ExecutionControlCommand.EscalateInputCommand c -> escalateInput.process(c);
     };
   }
 

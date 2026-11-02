@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.tracker;
 
-import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.event.TaskStatusEvent;
 import com.infenia.yukta.event.TrackerEvent;
 import com.infenia.yukta.event.WorkflowLogEvent;
@@ -43,7 +42,7 @@ import java.util.function.LongSupplier;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import reactor.core.Disposable;
@@ -57,6 +56,7 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Service
 @Validated
+@EnableConfigurationProperties(TrackerProperties.class)
 @SuppressWarnings({
   "PMD.GodClass",
   "PMD.ExcessiveImports",
@@ -98,7 +98,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   private final Map<String, Long> sessionUsed = new ConcurrentHashMap<>();
 
   /** Clock for {@link #sessionUsed}, in nanoseconds; replaced in tests. */
-  private final LongSupplier clock;
+  private LongSupplier clock = System::nanoTime;
 
   /**
    * How long a session with no run going is kept after its last run started or ended; unset keeps
@@ -145,7 +145,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /**
    * Create the tracker from the {@code yukta.tracker} settings.
    *
-   * @param properties the settings: cleanup TTL, session TTL and most sessions kept
+   * @param settings the settings: cleanup TTL, session TTL and most sessions kept
    * @param statusHistoryCache the cache for storing recent workflow progress updates
    * @param executionLog durable log of run starts and ends
    * @param meters registry for the node metrics
@@ -153,38 +153,17 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    *     {@code yukta.node}
    * @param eventFeed receives what happens to every execution
    */
-  @Autowired
   public DefaultTaskTrackerService(
-      final YuktaProperties properties,
+      final TrackerProperties settings,
       final StatusHistoryCache statusHistoryCache,
       final ExecutionLogStore executionLog,
       final MeterRegistry meters,
       final ObservationRegistry observations,
       final ExecutionEventFeed eventFeed) {
-    this(
-        properties.tracker(),
-        statusHistoryCache,
-        executionLog,
-        meters,
-        observations,
-        eventFeed,
-        System::nanoTime);
-  }
-
-  /** As the public constructor, with the clock of the session times (nanoseconds) given. */
-  /* default */ DefaultTaskTrackerService(
-      final YuktaProperties.Tracker settings,
-      final StatusHistoryCache statusHistoryCache,
-      final ExecutionLogStore executionLog,
-      final MeterRegistry meters,
-      final ObservationRegistry observations,
-      final ExecutionEventFeed eventFeed,
-      final LongSupplier clock) {
     this.cleanupTtl = settings.cleanupTtl();
     this.cleanups = new ExecutionCleanups(cleanupTtl);
     this.sessionTtl = settings.sessionTtl();
     this.maxSessions = settings.maxSessions();
-    this.clock = clock;
 
     this.telemetry = new RunTelemetry(meters, observations);
     Gauge.builder(
@@ -209,6 +188,11 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
             streams,
             pendingLogs,
             this::scheduleCleanup);
+  }
+
+  /** Replace the clock of the session times (nanoseconds); call before {@link #init()}. */
+  /* default */ void useClock(final LongSupplier sessionClock) {
+    this.clock = sessionClock;
   }
 
   /** Initialize background event consumers. */
