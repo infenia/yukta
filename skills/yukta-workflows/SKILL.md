@@ -47,8 +47,9 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 | `control_workflow` | `OPERATOR` | `sessionId`, `action`, `executionId`, `workflowId`, `fromNodeId`, optional `reason`, `tree`, `mode` |
 | `control_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `action`, optional `immediate`, `reason` |
 | `set_node_breakpoint` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `field`, `equalsValue` |
-| `signal_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `signalName`, `decision`, optional `data` |
-| `list_pending_approvals` | `VIEWER` | optional `sessionId` |
+| `list_pending_inputs` | `VIEWER` | optional `sessionId`, `state` |
+| `answer_input` | `OPERATOR` | `sessionId`, `executionId`, `requestId`, `decision`, optional `text`, `data`, `rationale` |
+| `escalate_input` | `OPERATOR` | `sessionId`, `executionId`, `requestId`, `reason`, optional `advice` |
 | `get_scheduler_limits` | `VIEWER` | none |
 | `get_metrics_snapshot` | `VIEWER` | optional `scope` |
 | `list_supervisors` | `VIEWER` | none |
@@ -70,8 +71,8 @@ Stop and get an explicit yes, naming what will happen, before any of these:
 - `delete_session` and `delete_workflow`, and any call with `force` set (it cancels active runs).
 - `control_workflow` with `STOP_ALL` (stops every active run of a workflow), and any stop with `mode` `KILL` or `CANCEL`.
 - `rollback_workflow` (replaces the current definition) and `set_scheduler_limits` (changes the server for everyone).
-- `signal_node` with `decision` `approve` or `reject`, and anything else that answers an approval: that is the user's decision, never yours.
-  Show what waits (`list_pending_approvals`) and let the user choose.
+- `answer_input` with `decision` `approve` or `reject`, and anything else that answers an approval: that is the user's decision, never yours.
+  Show what waits (`list_pending_inputs`) and let the user choose.
 
 Never put credentials, keys or tokens in a workflow you create or in a message; ask the user how the server keeps secrets.
 
@@ -114,7 +115,7 @@ Never put credentials, keys or tokens in a workflow you create or in a message; 
 | Retry from a node that failed | `control_node` with `action` `RETRY` and the `nodeId`; the new run's id is in `resultExecutionIds` |
 | Pause, step or skip one node | `control_node` with `PAUSE`, `RESUME`, `STOP`, `STEP_ENABLE`, `STEP_DISABLE`, `STEP`, `SKIP`, `UNSKIP` or `BREAKPOINT_CLEAR` |
 | Hold a node when a field has a value | `set_node_breakpoint` with `field` (such as `payload.status`) and `equalsValue` |
-| See what waits for an answer | `list_pending_approvals` (leave `sessionId` out for all of them); answering is the user's call (`signal_node`) |
+| See what waits for an answer | `list_pending_inputs` (leave `sessionId` out for all of them); answering is the user's call (`answer_input`) |
 | Look at or go back to an older definition | `list_workflow_versions`, `diff_workflow_versions`, and (ask first) `rollback_workflow`; `note_workflow_version` labels one |
 | Server load | `get_scheduler_limits`, `get_control_bus_status`; `set_scheduler_limits` only after asking |
 

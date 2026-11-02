@@ -45,9 +45,11 @@ A rule file is a JSON document with a `rules` list. Each rule is either a **reac
 |---|---|
 | `id` | Names the rule in logs and errors |
 | `when` | The events that trigger a reaction |
-| `then` | The command to send when triggered, or the answer or escalation of an input request |
+| `then` | The command to send when triggered |
 | `deny` | A command to refuse. A rule has either `when` and `then`, or `deny`, or `requireApproval` |
 | `requireApproval` | A command to hold until someone approves it |
+| `then` | The command to send when triggered, or the answer or escalation of an input request |
+| `deny` | A command to refuse. A rule has either `when` and `then`, or `deny` |
 
 ## `when`: which events
 

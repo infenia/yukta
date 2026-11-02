@@ -10,13 +10,8 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
-import com.infenia.yukta.plugin.input.Audience;
-import com.infenia.yukta.plugin.input.InputKind;
-import com.infenia.yukta.plugin.input.InputRequest;
-import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
@@ -24,8 +19,6 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
-import com.infenia.yukta.service.input.InputBroker;
-import com.infenia.yukta.service.input.InputTestSupport;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
@@ -33,14 +26,11 @@ import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.beans.factory.ObjectProvider;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -59,8 +49,6 @@ class DefaultControlBusGatewayInputTest {
 
   private final ExecutionControlStore store = mock(ExecutionControlStore.class);
 
-  private final InputBroker broker = mock(InputBroker.class);
-
   private final DefaultControlBusGateway gateway =
       new DefaultControlBusGateway(
           controlBusService,
@@ -75,31 +63,10 @@ class DefaultControlBusGatewayInputTest {
           new StartIdempotency(Duration.ofMinutes(10)),
           new InMemoryExecutionLogStore());
 
-  @SuppressWarnings("unchecked")
-  private void withBroker() {
-    final ObjectProvider<InputBroker> provider = mock(ObjectProvider.class);
-    when(provider.getIfAvailable()).thenReturn(broker);
-    gateway.setInputBroker(provider);
-  }
-
   private void runExists(final String executionId) {
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.nodePauseValves()).thenReturn(Map.of("n", mock(ReactiveControlValve.class)));
     when(store.findByExecutionId(executionId)).thenReturn(Optional.of(control));
-  }
-
-  private static InputRequest approval(
-      final String id, final String key, final Map<String, Object> context) {
-    return InputTestSupport.request(
-        id,
-        InputTestSupport.spec(
-            key,
-            InputKind.APPROVAL,
-            InputRisk.LOW,
-            Audience.CURRENT_TIER,
-            List.of(),
-            null,
-            context));
   }
 
   @Test
@@ -152,39 +119,5 @@ class DefaultControlBusGatewayInputTest {
     StepVerifier.create(gateway.sendCommand("s", "wf", null, "n", raw))
         .expectError(ControlRejectedException.class)
         .verify();
-  }
-
-  @Test
-  void pendingApprovalsListsOnlyApprovalRequestsNamedBySignal() {
-    withBroker();
-    final WorkflowProgress progress = mock(WorkflowProgress.class);
-    when(progress.sessionId()).thenReturn("session");
-    when(progress.workflowId()).thenReturn("workflow");
-    when(taskTracker.getProgressByExecutionId("exec")).thenReturn(progress);
-    final InputRequest named =
-        approval("r1", "key-1", Map.of(InputBroker.SIGNAL_CONTEXT_KEY, "gate"));
-    final InputRequest unnamed = approval("r2", "key-2", Map.of());
-    final InputRequest text = InputTestSupport.request("r3", InputTestSupport.spec("key-3"));
-    when(broker.listOpen("session", null)).thenReturn(Flux.just(named, unnamed, text));
-
-    StepVerifier.create(gateway.pendingApprovals("session"))
-        // only the request named by its signal; an unnamed one has no signal to answer it
-        .assertNext(
-            approval -> {
-              assertThat(approval.name()).isEqualTo("gate");
-              assertThat(approval.sessionId()).isEqualTo("session");
-              assertThat(approval.workflowId()).isEqualTo("workflow");
-              assertThat(approval.since()).isEqualTo(named.createdAt());
-            })
-        .verifyComplete();
-  }
-
-  @Test
-  void withoutBrokerNothingIsListed() {
-    @SuppressWarnings("unchecked")
-    final ObjectProvider<InputBroker> none = mock(ObjectProvider.class);
-    gateway.setInputBroker(none);
-
-    StepVerifier.create(gateway.pendingApprovals("session-none")).verifyComplete();
   }
 }

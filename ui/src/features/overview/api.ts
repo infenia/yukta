@@ -2,13 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { fetchApi } from '@/lib/apiClient';
-import type { PendingApproval } from '@/features/workflow/api/approvals';
+import type { InputRequest } from '@/features/workflow/api/inputs';
 
-/** A pending approval of any session. */
-export interface SessionApproval extends PendingApproval {
-  sessionId: string;
-}
-
-/** The oldest `limit` nodes that wait for a signal, across all sessions the key may see. */
-export const getAllApprovals = (limit = 50) =>
-  fetchApi<SessionApproval[]>(`/api/approvals?limit=${limit}`);
+/** The newest `limit` input requests that wait for an answer, across all sessions the key may see. */
+export const getOpenInputs = (limit = 50) =>
+  fetchApi<InputRequest[]>(`/api/inputs?limit=${limit}`);

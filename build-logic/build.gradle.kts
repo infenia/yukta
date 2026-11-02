@@ -32,6 +32,9 @@ dependencies {
     implementation("app.cash.licensee:licensee-gradle-plugin:${libs.versions.licensee.get()}")
     implementation("org.gradle:test-retry-gradle-plugin:${libs.versions.testRetry.get()}")
     implementation("info.solidsoft.gradle.pitest:gradle-pitest-plugin:${libs.versions.pitestPlugin.get()}")
+    // plexus-utils 4 moved its XML classes (XmlPullParserException, Xpp3Dom) to plexus-xml; Licensee's
+    // Maven 3 model builder still needs them. The 3.x line is the Maven 3 one (4.x needs the Maven 4 API).
+    implementation("org.codehaus.plexus:plexus-xml:3.1.0")
 
     // Build-time transitives of the plugins above with published CVEs (Dependabot); same minor line
     constraints {
@@ -39,7 +42,7 @@ dependencies {
         implementation("com.fasterxml.jackson.core:jackson-databind:2.22.4")
         implementation("tools.jackson.core:jackson-core:3.2.4")
         implementation("tools.jackson.core:jackson-databind:3.2.4")
-        implementation("org.codehaus.plexus:plexus-utils:3.6.1")
+        implementation("org.codehaus.plexus:plexus-utils:4.1.0")
         // GHSA-xxph-c9ww-hj94: Guava <= 33.7.1 deserialization allocates without bound
         implementation("com.google.guava:guava:33.7.2-jre")
     }

@@ -74,10 +74,7 @@ describe('SeriesChart', () => {
 describe('SeriesChart formatting', () => {
   it('formats the time axis and the tooltip', () => {
     render(
-      <SeriesChart
-        points={[{ t: 1000, v: 1 }]}
-        label="Runs per minute"
-      />
+      <SeriesChart points={[{ t: 1000, v: 1 }]} label="Runs per minute" />
     );
     expect(screen.getByTestId('x').textContent).toMatch(/\d{2}:\d{2}/);
     expect(screen.getByTestId('tooltip').textContent).toContain(

@@ -27,7 +27,6 @@ All responses use the [envelope](/api/overview#response-envelope). An unknown ex
 | `POST /api/executions/{executionId}/nodes/{nodeId}/retry` | Retry a failed node | `OPERATOR` |
 | `POST /api/executions/{executionId}/nodes/{nodeId}/breakpoint` | Set a breakpoint | `OPERATOR` |
 | `DELETE /api/executions/{executionId}/nodes/{nodeId}/breakpoint` | Clear a breakpoint | `OPERATOR` |
-| `POST /api/executions/{executionId}/nodes/{nodeId}/signal` | Answer a waiting node | `OPERATOR` |
 | `GET /api/control/nodes` | List active nodes | `VIEWER` |
 | `GET /api/control/workflows/{workflowId}/nodes?sessionId=` | List active nodes of a workflow | `VIEWER` |
 | `GET /api/control/workflows/{workflowId}/nodes/{nodeId}/heartbeat?sessionId=&executionId=` | Read a node's last heartbeat | `VIEWER` |
@@ -139,23 +138,6 @@ A breakpoint holds a node before the first element whose field equals a value. R
 POST /api/executions/550e8400-e29b-41d4-a716-446655440000/nodes/deploy/breakpoint?field=payload.status&equals=error
 ```
 
-## Send a signal to a node
-
-`POST /api/executions/{executionId}/nodes/{nodeId}/signal`
-
-Releases or rejects a node that waits for a named signal, such as a `WAIT_FOR_SIGNAL` approval step. Find waiting nodes with the [pending approvals list](/api/executions#list-pending-approvals). See [Approvals and signals](/building/approvals-and-signals).
-
-| Query parameter | Required | Meaning |
-|---|---|---|
-| `name` | yes | The signal the node waits for |
-| `decision` | yes | The decision, for example `approve` or `reject` |
-| `data` | no | Text that goes with the decision |
-
-**Errors**: `409` if the node is not waiting for that signal, `404` if the run or node is unknown.
-
-```http
-POST /api/executions/550e8400-e29b-41d4-a716-446655440000/nodes/approve/signal?name=release-approval&decision=approve&data=ship+it
-```
 
 ## Control states
 
@@ -189,7 +171,7 @@ Returns the most recent heartbeat message of a node, as a message object in `dat
 
 `POST /api/control/workflows/{workflowId}/nodes/{nodeId}/command`
 
-Sends an administrative command to a node through the control bus and returns the node's answer. The body is a bare JSON object with 1 to 100 entries. Which commands a node understands depends on its plugin. Approval signals cannot be sent this way and are refused with `403`; use the signal endpoint.
+Sends an administrative command to a node through the control bus and returns the node's answer. The body is a bare JSON object with 1 to 100 entries. Which commands a node understands depends on its plugin. Answers to input requests cannot be sent this way and are refused with `403`; use the [input requests](/building/input-requests).
 
 **Response `data`**: `payload`, what the node answered.
 

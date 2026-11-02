@@ -358,14 +358,14 @@ export const test = base.extend<TestFixtures>({
       );
     await quiet(/\/api\/(edition|me)$/, 404);
     await quiet(/\/api\/plugins$/, 200, []);
-    await quiet(/\/api\/approvals(\?|$)/, 200, []);
+    await quiet(/\/api\/inputs(\?|$)/, 200, []);
     await quiet(/\/api\/workers$/, 200, []);
     await quiet(/\/api\/supervisors$/, 200, []);
     await quiet(/\/api\/supervisors\/(profiles|bindings)$/, 200, []);
     await quiet(/\/api\/supervisors\/decisions(\?|$)/, 200, []);
     await quiet(/\/api\/supervisors\/types$/, 200, ['rule-supervisor']);
     await quiet(/\/api\/control\/heartbeats$/, 200, []);
-    await quiet(/\/api\/sessions\/[^/]+\/approvals$/, 200, []);
+    await quiet(/\/api\/sessions\/[^/]+\/inputs(\?|$)/, 200, []);
     await quiet(/\/api\/sessions\/[^/]+\/workflows\/[^/]+\/versions/, 200, []);
     await quiet(/\/api\/control\/audit/, 200, []);
     // The Control dashboard's endpoints, empty. mockMetricsApi (utils.ts) fills them with data.

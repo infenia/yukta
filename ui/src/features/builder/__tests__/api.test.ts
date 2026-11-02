@@ -8,7 +8,13 @@ import { getSessionDraft, saveSession, validateWorkflow } from '../api';
 import type { SessionDraft } from '../types';
 
 const ok = (data: unknown) =>
-  HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data, path: '/' });
+  HttpResponse.json({
+    timestamp: 't',
+    status: 200,
+    message: 'ok',
+    data,
+    path: '/',
+  });
 
 const session: SessionDraft = {
   sessionId: 's 1',
@@ -22,7 +28,9 @@ const session: SessionDraft = {
 const bodies: unknown[] = [];
 
 const server = setupServer(
-  http.get('/api/sessions/:sid/config', ({ params }) => ok({ ...session, sessionId: params.sid })),
+  http.get('/api/sessions/:sid/config', ({ params }) =>
+    ok({ ...session, sessionId: params.sid })
+  ),
   http.post('/api/sessions/validate', async ({ request }) => {
     bodies.push(await request.json());
     return ok({ valid: true, message: null, outputPorts: { n1: ['a'] } });
@@ -45,7 +53,12 @@ describe('builder api', () => {
 
   it('saves the session and validates a draft workflow', async () => {
     await saveSession(session);
-    const workflow = { workflowId: 'wf', description: 'd', nodes: [], edges: [] };
+    const workflow = {
+      workflowId: 'wf',
+      description: 'd',
+      nodes: [],
+      edges: [],
+    };
     const result = await validateWorkflow(workflow);
 
     expect(result.outputPorts).toEqual({ n1: ['a'] });

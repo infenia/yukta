@@ -61,6 +61,7 @@ let modules: unknown[] = [];
 let liveRuns: unknown[] = [];
 let marks: unknown[] = [];
 let actions: string[] = [];
+let approvals: unknown[] = [];
 
 const server = setupServer(
   http.get('/api/scheduler/limits', () => ok(limits)),
@@ -114,8 +115,18 @@ const server = setupServer(
     ])
   ),
   http.get('/api/sessions/summaries', () =>
-    ok([{ sessionId: 's1', name: 'Alpha' }])
+    ok([
+      {
+        sessionId: 's1',
+        name: 'Alpha',
+        lastRun: { executionId: 'x', workflowId: 'wf-last', status: 'SUCCESS' },
+      },
+    ])
   ),
+  http.get('/api/sessions/:id', ({ params }) =>
+    ok({ sessionId: String(params.id), name: 'Alpha', workflowIds: ['wf-own'] })
+  ),
+  http.get('/api/inputs', () => ok(approvals)),
   http.get('/api/metrics/snapshot', ({ request }) =>
     metricsFail
       ? HttpResponse.json({ message: 'down' }, { status: 500 })
@@ -124,7 +135,9 @@ const server = setupServer(
           values: {
             'runs.finished': 120,
             'duration.p95': 1800,
-            'llm.tokens{direction=in}|rate': 2,
+            'llm.tokens{direction=input,provider=OPENAI}|rate': 2,
+            'llm.tokens{direction=output,provider=OPENAI}|rate': 1,
+            'yukta.mcp.heavy.refused|rate': 0.1,
             'yukta.executions.rejected{reason=queue_full}|rate': 0.05,
             'jvm.memory.used{area=heap,id=Eden}': 50e6,
             'jvm.memory.max{area=heap,id=Eden}': 100e6,
@@ -144,8 +157,20 @@ const server = setupServer(
             'runs.SUCCESS': [{ time: minute, value: 3 }],
           }
         : names.startsWith('duration')
-          ? { 'duration.p95': [{ time: minute, value: 1800 }] }
-          : {},
+          ? {
+              'duration.p95': [
+                { time: minute - 60_000, value: 1000 },
+                { time: minute, value: 1800 },
+              ],
+            }
+          : names.startsWith('llm.cost')
+            ? {
+                'llm.cost{provider=OPENAI}|rate': [
+                  { time: minute - 10_000, value: 0 },
+                  { time: minute, value: 0.05 },
+                ],
+              }
+            : {},
     });
   }),
   http.get('/api/metrics/heatmap', () => ok(heat)),
@@ -174,6 +199,7 @@ afterEach(() => {
   liveRuns = [];
   marks = [];
   actions = [];
+  approvals = [];
 });
 afterAll(() => server.close());
 
@@ -193,7 +219,9 @@ describe('the Mission Control dashboard', () => {
     expect(within(strip).getAllByText('95%').length).toBeGreaterThan(0); // 19 of 20 in 24 h
     expect(within(strip).getByText('3 / 1')).toBeInTheDocument();
     expect(within(strip).getByText('6 / 8')).toBeInTheDocument();
-    expect(within(strip).getByText('120')).toBeInTheDocument(); // 2 tokens/s
+    expect(within(strip).getByText('+80%')).toBeInTheDocument(); // p95 1000 to 1800
+    expect(within(strip).getByText('0.50')).toBeInTheDocument(); // 0.05/s for 10 s
+    expect(within(strip).getByText('0')).toBeInTheDocument(); // no approvals
   });
 
   it('draws the throughput and latency charts from the series', async () => {
@@ -440,5 +468,115 @@ describe('the Mission Control dashboard', () => {
     expect(
       await screen.findByRole('option', { name: 'Session Alpha' })
     ).toBeInTheDocument();
+  });
+  it('counts the approvals waiting in the chosen scope and links to where they are answered', async () => {
+    const wait = (sessionId: string, workflowId: string, nodeId: string) => ({
+      sessionId,
+      workflowId,
+      nodeId,
+      executionId: 'e',
+      name: 'approve',
+      since: 't',
+    });
+    approvals = [wait('s1', 'wf-a', 'n1'), wait('s2', 'wf-b', 'n2')];
+    window.history.pushState({}, '', '/?scope=session:s1');
+    renderWithProviders(<DashboardView />);
+
+    const tile = await screen.findByRole('link', {
+      name: /Approvals waiting: 1\./,
+    });
+    expect(tile).toHaveAttribute('href', '/');
+  });
+
+  it('lists sessions and workflows in the scope filter and keeps the choice in the URL', async () => {
+    window.history.pushState({}, '', '/?scope=session:s1');
+    renderWithProviders(<DashboardView />);
+    const user = userEvent.setup();
+
+    // the chosen session's workflows and each session's last run
+    const own = await screen.findByRole('option', { name: 'Workflow wf-own' });
+    expect(
+      screen.getByRole('option', { name: 'Workflow wf-last' })
+    ).toBeInTheDocument();
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Scope' }),
+      own
+    );
+    await waitFor(() =>
+      expect(window.location.search).toContain('scope=workflow%3Awf-own')
+    );
+  });
+
+  it('shows model use per provider and the refused heavy calls', async () => {
+    renderWithProviders(<DashboardView />);
+
+    const panel = (
+      await screen.findByRole('heading', { name: 'AI usage' })
+    ).closest('section') as HTMLElement;
+    const row = await within(panel).findByRole('row', { name: /OPENAI/ });
+    expect(within(row).getByText('120')).toBeInTheDocument(); // 2 tokens/s in
+    expect(within(row).getByText('60')).toBeInTheDocument(); // 1 token/s out
+    expect(within(panel).getByText('6.00')).toBeInTheDocument(); // refused/min
+  });
+
+  it('says the AI usage is the whole server in a scoped view', async () => {
+    window.history.pushState({}, '', '/?scope=workflow:wf');
+    renderWithProviders(<DashboardView />);
+
+    const panel = (
+      await screen.findByRole('heading', { name: 'AI usage' })
+    ).closest('section') as HTMLElement;
+    expect(within(panel).getByText('Whole server')).toBeInTheDocument();
+  });
+
+  it('resumes a live run from its row and links to that run', async () => {
+    liveRuns = [
+      {
+        executionId: 'r1',
+        sessionId: 's1',
+        workflowId: 'wf-a',
+        startedAt: now,
+        elapsedMs: 1000,
+        nodesDone: 0,
+        nodesSeen: 1,
+        p95Ms: null,
+      },
+    ];
+    renderWithProviders(<DashboardView />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByRole('link', { name: 'wf-a' })).toHaveAttribute(
+      'href',
+      '/sessions/s1/workflow/wf-a?exec=r1'
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'resume wf-a run r1' })
+    );
+    await waitFor(() => expect(actions).toEqual(['resume r1']));
+  });
+
+  it('opens the audit for a marked command that names no run', async () => {
+    marks = [
+      {
+        time: now - 60_000,
+        executionId: '',
+        sessionId: null,
+        workflowId: null,
+        command: 'SetLimitsCommand',
+        actor: 'ops',
+        applied: false,
+        reason: 'forbidden',
+      },
+    ];
+    renderWithProviders(<DashboardView />);
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'SetLimitsCommand by ops (refused: forbidden)',
+      })
+    );
+    await waitFor(() => expect(window.location.search).toBe('?tab=audit'));
+    expect(window.location.pathname).toBe('/control');
   });
 });

@@ -405,7 +405,9 @@ test.describe('Workflow Details Page', () => {
     expect(overflow).toBeLessThanOrEqual(0);
   });
 
-  test('approves a step that waits for a decision', async ({ page }) => {
+  test('answers an input request that waits for a decision', async ({
+    page,
+  }) => {
     const envelope = (path: string, data: unknown) => ({
       status: 200,
       contentType: 'application/json',
@@ -417,32 +419,53 @@ test.describe('Workflow Details Page', () => {
         data,
       }),
     });
-    await page.route('**/api/sessions/*/approvals', (route) =>
+    let pending = true;
+    await page.route('**/api/sessions/*/inputs*', (route) =>
       route.fulfill(
-        envelope('/approvals', [
-          {
-            executionId: 'exec-091-qp-55',
-            workflowId: 'wf-982-xk-11',
-            nodeId: 'Sink_Storage',
-            name: 'release',
-            since: '2026-07-26T14:20:00',
-          },
-        ])
+        envelope(
+          '/inputs',
+          pending
+            ? [
+                {
+                  id: 'req-1',
+                  sessionId: 'sess',
+                  workflowId: 'wf-982-xk-11',
+                  executionId: 'exec-091-qp-55',
+                  nodeId: 'Sink_Storage',
+                  state: 'OPEN',
+                  version: 1,
+                  kind: 'APPROVAL',
+                  prompt: 'Release to production?',
+                  context: {},
+                  options: [],
+                  responseSchema: null,
+                  risk: 'LOW',
+                  tier: 'operator',
+                  advice: null,
+                  deadline: null,
+                  createdAt: '2026-07-26T14:20:00',
+                  updatedAt: '2026-07-26T14:20:00',
+                  answer: null,
+                },
+              ]
+            : []
+        )
       )
     );
     let decision: string | null = null;
-    await page.route('**/api/executions/*/nodes/*/signal*', (route) => {
-      decision = new URL(route.request().url()).searchParams.get('decision');
-      return route.fulfill(
-        envelope('/signal', { executionId: 'exec-091-qp-55' })
-      );
+    await page.route('**/api/executions/*/inputs/*/answer', (route) => {
+      decision = (route.request().postDataJSON() as { decision: string })
+        .decision;
+      pending = false;
+      return route.fulfill(envelope('/answer', {}));
     });
     await page.goto(WORKFLOW_URL);
 
-    const strip = page.getByRole('region', { name: 'Pending approvals' });
-    await expect(strip).toContainText('Sink_Storage');
-    await strip.getByRole('button', { name: 'Approve' }).click();
+    const panel = page.getByRole('region', { name: 'Inputs' });
+    await expect(panel).toContainText('Release to production?');
+    await panel.getByRole('button', { name: 'Approve' }).click();
     await expect.poll(() => decision).toBe('approve');
+    await expect(panel).toContainText('No input requests are waiting.');
   });
 
   test('rolls back to a saved version after reviewing what it changes', async ({

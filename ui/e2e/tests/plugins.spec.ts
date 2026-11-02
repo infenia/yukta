@@ -34,7 +34,13 @@ const details: Record<string, object> = {
 const envelope = (path: string, data: unknown) => ({
   status: 200,
   contentType: 'application/json',
-  body: JSON.stringify({ timestamp: new Date().toISOString(), status: 200, message: 'OK', path, data }),
+  body: JSON.stringify({
+    timestamp: new Date().toISOString(),
+    status: 200,
+    message: 'OK',
+    path,
+    data,
+  }),
 });
 
 async function mockPluginsApi(page: Page) {
@@ -50,7 +56,9 @@ async function mockPluginsApi(page: Page) {
     )
   );
   await page.route('**/api/plugins/*', (route) => {
-    const type = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop() ?? '');
+    const type = decodeURIComponent(
+      new URL(route.request().url()).pathname.split('/').pop() ?? ''
+    );
     return route.fulfill(envelope(`/api/plugins/${type}`, details[type]));
   });
 }
@@ -64,9 +72,15 @@ test.describe('Plugins page', () => {
     await page.getByRole('link', { name: 'Plugins' }).click();
 
     await expect(page).toHaveURL(/\/plugins$/);
-    await expect(page.getByRole('heading', { name: 'OneShotTrigger', level: 2 })).toBeVisible();
-    await expect(page.getByText('Fires once when the workflow starts')).toBeVisible();
-    await expect(page.getByTestId('workflow-node-OneShotTrigger')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'OneShotTrigger', level: 2 })
+    ).toBeVisible();
+    await expect(
+      page.getByText('Fires once when the workflow starts')
+    ).toBeVisible();
+    await expect(
+      page.getByTestId('workflow-node-OneShotTrigger')
+    ).toBeVisible();
   });
 
   test('groups plugins by category', async ({ page }) => {
@@ -75,11 +89,15 @@ test.describe('Plugins page', () => {
 
     const nav = page.getByRole('navigation', { name: 'Plugins' });
     await expect(nav.getByRole('heading', { name: 'Triggers' })).toBeVisible();
-    await expect(nav.getByRole('heading', { name: 'Processors' })).toBeVisible();
+    await expect(
+      nav.getByRole('heading', { name: 'Processors' })
+    ).toBeVisible();
     await expect(nav.getByRole('heading', { name: 'Terminals' })).toBeVisible();
   });
 
-  test('selecting a plugin updates details, URL and preview', async ({ page }) => {
+  test('selecting a plugin updates details, URL and preview', async ({
+    page,
+  }) => {
     await mockPluginsApi(page);
     await page.goto('/plugins');
 
@@ -90,14 +108,20 @@ test.describe('Plugins page', () => {
     await expect(page.getByText('success, failure')).toBeVisible();
     await page.getByRole('tab', { name: 'Example' }).click();
     await expect(page.getByText('command: echo hi')).toBeVisible();
-    await expect(page.getByTestId('workflow-node-ShellProcessor')).toBeVisible();
+    await expect(
+      page.getByTestId('workflow-node-ShellProcessor')
+    ).toBeVisible();
   });
 
-  test('deep link selects the plugin and terminal shows no output ports', async ({ page }) => {
+  test('deep link selects the plugin and terminal shows no output ports', async ({
+    page,
+  }) => {
     await mockPluginsApi(page);
     await page.goto('/plugins?type=FileSink');
 
-    await expect(page.getByRole('heading', { name: 'FileSink', level: 2 })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'FileSink', level: 2 })
+    ).toBeVisible();
     await expect(page.getByText('None (terminal)')).toBeVisible();
     await expect(page.getByTestId('workflow-node-FileSink')).toBeVisible();
   });
@@ -108,17 +132,25 @@ test.describe('Plugins page', () => {
 
     await page.getByLabel('Filter plugins').fill('shell');
 
-    await expect(page.getByRole('button', { name: 'ShellProcessor' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'ShellProcessor' })
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: 'FileSink' })).toHaveCount(0);
   });
 
   test('shows an error when the plugin list fails', async ({ page }) => {
     await page.route('**/api/plugins', (route) =>
-      route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"boom"}' })
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: '{"message":"boom"}',
+      })
     );
     await page.goto('/plugins');
 
     // toContainText: the alert also holds its (aria-hidden) icon glyph name
-    await expect(page.getByRole('alert')).toContainText('Failed to load plugins.');
+    await expect(page.getByRole('alert')).toContainText(
+      'Failed to load plugins.'
+    );
   });
 });

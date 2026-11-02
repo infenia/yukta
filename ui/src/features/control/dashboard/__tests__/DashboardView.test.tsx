@@ -21,6 +21,10 @@ vi.mock('@/features/metrics/ScopeBar', () => ({
 vi.mock('@/features/metrics/hooks', () => ({
   useDashboardParams: () => ({ scope: 'global', range: '1h', live: true }),
   useMetricStream: vi.fn(),
+  useLiveRuns: () => ({ data: [] }),
+}));
+vi.mock('@/features/sessions/hooks/useSessionDetails', () => ({
+  useSessionDetails: () => ({ data: undefined }),
 }));
 vi.mock('../KioskView', () => ({
   KioskView: ({ onExit }: { onExit: () => void }) => (

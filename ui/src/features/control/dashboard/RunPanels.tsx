@@ -16,18 +16,24 @@ import {
   runAction,
   type RunAction,
 } from '@/features/workflow/api/executionControl';
-import {
-  GLOBAL,
-  type LiveRun,
-  type Range,
-  type Scope,
-} from '@/features/metrics/api';
+import { type LiveRun, type Range, type Scope } from '@/features/metrics/api';
 import { useHeatmap, useLiveRuns, useModules } from '@/features/metrics/hooks';
+import { inScope } from './scopes';
 import { PanelState } from './PanelState';
 import { useNow } from './useNow';
 import { formatMs } from './format';
 
 const MINUTE = 60_000;
+
+/**
+ * The run-level commands of a live row. Stepping is per node (a node in step mode lets one
+ * element through), so it lives in the run view the workflow name links to.
+ */
+const RUN_ACTIONS: [RunAction, string][] = [
+  ['pause', 'Pause'],
+  ['resume', 'Resume'],
+  ['stop', 'Stop'],
+];
 const DAY_MINUTES = 24 * 60;
 
 /** One cell per minute of the last 24 hours, brighter with more runs and red with failures. */
@@ -86,9 +92,9 @@ export function LeaderboardPanel({
         emptyText="No nodes finished in this range"
         onRetry={() => void modules.refetch()}
       >
-        <table className="w-full text-body-sm">
+        <table className="text-body-sm w-full">
           <thead>
-            <tr className="text-left text-overline">
+            <tr className="text-overline text-left">
               <th scope="col">Plugin</th>
               <th scope="col" className="text-right">
                 Runs
@@ -103,20 +109,20 @@ export function LeaderboardPanel({
           </thead>
           <tbody>
             {(modules.data ?? []).map((m) => (
-              <tr key={m.module} className="border-t border-border">
+              <tr key={m.module} className="border-border border-t">
                 <th scope="row" className="text-left font-mono font-normal">
                   {m.module}
                 </th>
-                <td className="text-right num">{m.executions}</td>
+                <td className="num text-right">{m.executions}</td>
                 <td
-                  className={`text-right num ${m.failures > 0 ? 'text-destructive' : ''}`}
+                  className={`num text-right ${m.failures > 0 ? 'text-destructive' : ''}`}
                 >
                   {m.executions > 0
                     ? Math.round((m.failures / m.executions) * 100)
                     : 0}
                   %
                 </td>
-                <td className="text-right num">{formatMs(m.avgMs)}</td>
+                <td className="num text-right">{formatMs(m.avgMs)}</td>
               </tr>
             ))}
           </tbody>
@@ -135,11 +141,7 @@ export function LiveRunsPanel({
   live: boolean;
 }) {
   const runs = useLiveRuns(live);
-  const inScope = (run: LiveRun) =>
-    scope === GLOBAL ||
-    scope === `session:${run.sessionId}` ||
-    scope === `workflow:${run.workflowId}`;
-  const shown = (runs.data ?? []).filter(inScope);
+  const shown = (runs.data ?? []).filter((run) => inScope(scope, run));
   const [stopping, setStopping] = useState<LiveRun | null>(null);
   // Shown disabled, with the role it needs, to a key that may not control runs
   const me = useMe();
@@ -168,12 +170,12 @@ export function LiveRunsPanel({
               <li
                 key={run.executionId}
                 data-slow={slow}
-                className={`flex flex-col gap-1 rounded-lg border border-border p-2 ${slow ? 'ring-2 ring-warning' : ''}`}
+                className={`border-border flex flex-col gap-1 rounded-lg border p-2 ${slow ? 'ring-warning ring-2' : ''}`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <Link
-                    className="truncate text-label-md underline"
-                    to={api`/sessions/${run.sessionId}/workflow/${run.workflowId}`}
+                    className="text-label-md truncate underline"
+                    to={`${api`/sessions/${run.sessionId}/workflow/${run.workflowId}`}?exec=${encodeURIComponent(run.executionId)}`}
                   >
                     {run.workflowId}
                   </Link>
@@ -189,8 +191,8 @@ export function LiveRunsPanel({
                   max={Math.max(1, run.nodesSeen)}
                   tone={slow ? 'warning' : 'primary'}
                 />
-                <div className="flex gap-2">
-                  {(['pause', 'stop'] as const).map((action) => (
+                <div className="flex flex-wrap gap-2">
+                  {RUN_ACTIONS.map(([action, text]) => (
                     <Button
                       key={action}
                       size="sm"
@@ -207,7 +209,7 @@ export function LiveRunsPanel({
                       }
                       aria-label={`${action} ${run.workflowId} run ${run.executionId}`}
                     >
-                      {action === 'pause' ? 'Pause' : 'Stop'}
+                      {text}
                     </Button>
                   ))}
                 </div>

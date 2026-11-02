@@ -20,7 +20,11 @@ const setup = (props: Partial<Parameters<typeof Knob>[0]> = {}) => {
       {...props}
     />
   );
-  return { slider: screen.getByRole('slider', { name: 'Limit' }), onChange, onCommit };
+  return {
+    slider: screen.getByRole('slider', { name: 'Limit' }),
+    onChange,
+    onCommit,
+  };
 };
 
 describe('Knob keyboard', () => {

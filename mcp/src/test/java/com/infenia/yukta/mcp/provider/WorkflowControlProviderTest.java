@@ -165,47 +165,6 @@ class WorkflowControlProviderTest {
   }
 
   @Test
-  void testSignalSendsTheDecisionToTheNode() {
-    when(controlBus.signalNode(EXECUTION, NODE, "approval", "approve", "ok"))
-        .thenReturn(Mono.empty());
-
-    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, NODE, "approval", "approve", "ok"))
-        .assertNext(
-            result ->
-                org.assertj.core.api.Assertions.assertThat(result.action()).isEqualTo("SIGNAL"))
-        .verifyComplete();
-    verify(controlBus).signalNode(EXECUTION, NODE, "approval", "approve", "ok");
-  }
-
-  @Test
-  void testSignalRequiresItsArguments() {
-    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, NODE, "approval", " ", null))
-        .expectError(IllegalArgumentException.class)
-        .verify();
-    StepVerifier.create(provider.signalNode(SESSION, null, NODE, "approval", "approve", null))
-        .expectError(IllegalArgumentException.class)
-        .verify();
-    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, " ", "approval", "approve", null))
-        .expectError(IllegalArgumentException.class)
-        .verify();
-    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, NODE, null, "approve", null))
-        .expectError(IllegalArgumentException.class)
-        .verify();
-    StepVerifier.create(provider.signalNode(SESSION, " ", NODE, "approval", "approve", null))
-        .expectError(IllegalArgumentException.class)
-        .verify();
-    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, null, "approval", "approve", null))
-        .expectError(IllegalArgumentException.class)
-        .verify();
-    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, NODE, " ", "approve", null))
-        .expectError(IllegalArgumentException.class)
-        .verify();
-    StepVerifier.create(provider.signalNode(SESSION, EXECUTION, NODE, "approval", null, null))
-        .expectError(IllegalArgumentException.class)
-        .verify();
-  }
-
-  @Test
   void testRecoverReturnsNewExecutionId() {
     when(resumer.resume(EXECUTION)).thenReturn(Mono.just("exec-9"));
 
@@ -580,44 +539,6 @@ class WorkflowControlProviderTest {
         org.springframework.test.util.ReflectionTestUtils.invokeMethod(
             provider, "executeOtherNodeAction", NodeControlAction.RETRY, EXECUTION, NODE);
     StepVerifier.create(result).expectError(IllegalStateException.class).verify();
-  }
-
-  @Test
-  void pendingApprovals_listsTheOpenWaitsOfTheSession() {
-    final var approval =
-        new com.infenia.yukta.model.control.PendingApproval(
-            SESSION, EXECUTION, "wf", NODE, "approval", java.time.Instant.EPOCH);
-    when(controlBus.pendingApprovals(SESSION))
-        .thenReturn(reactor.core.publisher.Flux.just(approval));
-
-    StepVerifier.create(provider.pendingApprovals(SESSION))
-        .assertNext(
-            result ->
-                org.assertj.core.api.Assertions.assertThat(result.approvals())
-                    .containsExactly(approval))
-        .verifyComplete();
-  }
-
-  @Test
-  void pendingApprovals_withoutAnySessionListsAllSessionsUpToTheLimit() {
-    final var approval =
-        new com.infenia.yukta.model.control.PendingApproval(
-            SESSION, EXECUTION, "wf", NODE, "approval", java.time.Instant.EPOCH);
-    when(controlBus.pendingApprovals(null))
-        .thenReturn(
-            reactor.core.publisher.Flux.range(0, WorkflowControlProvider.MAX_ALL_APPROVALS + 5)
-                .map(i -> approval));
-
-    for (final String none : new String[] {null, " "}) {
-      StepVerifier.create(provider.pendingApprovals(none))
-          .assertNext(
-              result -> {
-                org.assertj.core.api.Assertions.assertThat(result.sessionId()).isNull();
-                org.assertj.core.api.Assertions.assertThat(result.approvals())
-                    .hasSize(WorkflowControlProvider.MAX_ALL_APPROVALS);
-              })
-          .verifyComplete();
-    }
   }
 
   private static WorkflowExecutionSummary run(final String id, final TaskStatus status) {

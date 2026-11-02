@@ -32,12 +32,13 @@ const ok = (data: unknown) =>
   });
 
 const approval = {
+  id: 'r1',
+  prompt: 'go',
   sessionId: 's1',
   executionId: 'exec-1234-5678',
   workflowId: 'deploy',
   nodeId: 'gate',
-  name: 'go',
-  since: '2026-01-01T00:00:00Z',
+  createdAt: '2026-01-01T00:00:00Z',
 };
 const run = (status: string, executionId: string) => ({
   sessionId: 's1',
@@ -48,16 +49,12 @@ const run = (status: string, executionId: string) => ({
   endTime: null,
 });
 
-const decisions: string[] = [];
-const reasons: (string | null)[] = [];
-let decisionStatus = 500;
 let approvals: unknown[] = [approval];
 let aborted: unknown[] = [run('ABORTED', 'ab-1')];
 let failures: unknown[] = [run('FAILURE', 'f-1')];
-let decisionFails = false;
 
 const server = setupServer(
-  http.get('/api/approvals', () => ok(approvals)),
+  http.get('/api/inputs', () => ok(approvals)),
   http.get('/api/executions/counts', () =>
     ok({ running: 2, queued: 1, failed: 3 })
   ),
@@ -81,27 +78,15 @@ const server = setupServer(
   http.get('/api/edition', () =>
     ok({ edition: 'PLUS', license: 'x', features: [], source: null })
   ),
-  http.post('/api/executions/:id/nodes/:node/signal', ({ request }) => {
-    const params = new URL(request.url).searchParams;
-    decisions.push(params.get('decision') ?? '');
-    reasons.push(params.get('data'));
-    return decisionFails
-      ? HttpResponse.json({ message: 'refused' }, { status: decisionStatus })
-      : ok(null);
-  }),
   http.post('/api/executions/:id/recover', () => ok({ executionId: 'new-run' }))
 );
 
 beforeAll(() => server.listen());
 beforeEach(() => installMockEventSource());
 afterEach(() => {
-  decisions.length = 0;
   approvals = [approval];
   aborted = [run('ABORTED', 'ab-1')];
   failures = [run('FAILURE', 'f-1')];
-  decisionFails = false;
-  decisionStatus = 500;
-  reasons.length = 0;
   window.history.pushState({}, '', '/');
 });
 afterAll(() => server.close());
@@ -117,7 +102,7 @@ describe('OverviewPage', () => {
     expect(
       screen.getByRole('link', { name: /Workers online/ })
     ).toHaveTextContent('1');
-    const tile = screen.getByRole('link', { name: /Pending approvals/ });
+    const tile = screen.getByRole('link', { name: /Inputs waiting/ });
     expect(tile).toHaveTextContent('1');
     // it jumps to the panel on this page
     expect(tile).toHaveAttribute('href', '#ov-needs-attention-panel');
@@ -126,31 +111,12 @@ describe('OverviewPage', () => {
     ).toHaveAttribute('id', 'ov-needs-attention-panel');
   });
 
-  it('answers an approval and lists aborted runs and failures', async () => {
-    const user = userEvent.setup();
+  it('links a waiting input to its run and lists aborted runs and failures', async () => {
     renderWithProviders(<OverviewPage />);
-    await user.click(await screen.findByRole('button', { name: 'Approve' }));
-    await waitFor(() => expect(decisions).toEqual(['approve']));
-    expect(
-      await screen.findAllByRole('link', { name: 's1/deploy' })
-    ).toHaveLength(3);
-  });
-
-  it('rejects only after a confirm, with the reason, and can be cancelled', async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<OverviewPage />);
-    await user.click(await screen.findByRole('button', { name: 'Reject' }));
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(decisions).toEqual([]);
-    await user.click(screen.getByRole('button', { name: 'Reject' }));
-    await user.keyboard('{Escape}');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Reject' }));
-    await user.type(screen.getByLabelText('Reason (optional)'), 'too risky');
-    const dialog = screen.getByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: 'Reject' }));
-    await waitFor(() => expect(decisions).toEqual(['reject']));
-    expect(reasons).toEqual(['too risky']);
+    await waitFor(() =>
+      expect(screen.getAllByRole('link', { name: 's1/deploy' })).toHaveLength(3)
+    );
+    expect(screen.getByText(/open the run to answer/)).toBeInTheDocument();
   });
 
   it('recovers an aborted run and opens the new one', async () => {
@@ -160,23 +126,6 @@ describe('OverviewPage', () => {
     const dialog = screen.getByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: 'Recover' }));
     await waitFor(() => expect(window.location.search).toBe('?exec=new-run'));
-  });
-
-  it('says a repeated decision was already answered', async () => {
-    decisionFails = true;
-    decisionStatus = 409;
-    const user = userEvent.setup();
-    renderWithProviders(<OverviewPage />);
-    await user.click(await screen.findByRole('button', { name: 'Approve' }));
-    expect(await screen.findByText('Already answered.')).toBeInTheDocument();
-  });
-
-  it('shows why a decision was refused', async () => {
-    decisionFails = true;
-    const user = userEvent.setup();
-    renderWithProviders(<OverviewPage />);
-    await user.click(await screen.findByRole('button', { name: 'Approve' }));
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
   });
 
   it('says so when nothing needs attention or failed, and without a limit', async () => {

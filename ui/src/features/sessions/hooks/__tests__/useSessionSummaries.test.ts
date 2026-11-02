@@ -3,14 +3,25 @@
 
 import React from 'react';
 import type { ReactNode } from 'react';
-import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  afterEach,
+  beforeEach,
+} from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { useSessionSummaries } from '../useSessionSummaries';
 import { createMockSessions } from '@/test/factories/sessionFactory';
-import { createTestQueryClient, createTestWrapper } from '@/test/utils/testUtils';
+import {
+  createTestQueryClient,
+  createTestWrapper,
+} from '@/test/utils/testUtils';
 
 const mockSessions = createMockSessions(1);
 
@@ -75,14 +86,18 @@ describe('useSessionSummaries', () => {
   });
 
   it('should cache results on second call', async () => {
-    const { result: result1 } = renderHook(() => useSessionSummaries(), { wrapper });
+    const { result: result1 } = renderHook(() => useSessionSummaries(), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result1.current.isLoading).toBe(false);
     });
     const data1 = result1.current.data;
 
-    const { result: result2 } = renderHook(() => useSessionSummaries(), { wrapper });
+    const { result: result2 } = renderHook(() => useSessionSummaries(), {
+      wrapper,
+    });
     expect(result2.current.isLoading).toBe(false);
     expect(result2.current.data).toEqual(data1);
   });

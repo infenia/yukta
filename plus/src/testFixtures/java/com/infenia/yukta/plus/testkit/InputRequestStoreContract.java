@@ -202,6 +202,23 @@ public abstract class InputRequestStoreContract {
   }
 
   @Test
+  void everyKeptRequestIsListedByRunAndSessionWhateverItsState() {
+    final InputRequestStore store = create();
+    store.createIfAbsent(request("r1", "k1", "s1", "e1")).block();
+    store.createIfAbsent(request("r2", "k2", "s2", "e2")).block();
+    final InputRequest done = request("r3", "k3", "s1", "e1");
+    store.createIfAbsent(done).block();
+    store.compareAndSet("r3", 0, next(done, InputState.ANSWERED)).block();
+
+    assertThat(ids(store.list(null, null).collectList().block()))
+        .containsExactlyInAnyOrder("r1", "r2", "r3");
+    assertThat(ids(store.list("s1", null).collectList().block()))
+        .containsExactlyInAnyOrder("r1", "r3");
+    assertThat(ids(store.list(null, "e2").collectList().block())).containsExactly("r2");
+    assertThat(ids(store.list("s2", "e1").collectList().block())).isEmpty();
+  }
+
+  @Test
   void dueRequestsAreThoseNonTerminalAtOrPastTheirDeadline() {
     final InputRequestStore store = create();
     store.createIfAbsent(request("past", "k1", "s", "e", InputState.OPEN, 0, T0, T0)).block();

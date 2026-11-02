@@ -20,7 +20,9 @@ describe('ApiKeyPrompt', () => {
     const submit = screen.getByRole('button', { name: 'Use key' });
     expect(submit).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText('API key'), { target: { value: ' secret ' } });
+    fireEvent.change(screen.getByLabelText('API key'), {
+      target: { value: ' secret ' },
+    });
     fireEvent.click(submit);
 
     expect(getApiKey()).toBe('secret');

@@ -61,9 +61,9 @@ describe('ProfileDialog', () => {
       target: { value: '{not json' },
     });
     expect(
-      screen.getByRole('textbox', { name: /Settings/ }).getAttribute(
-        'aria-invalid'
-      )
+      screen
+        .getByRole('textbox', { name: /Settings/ })
+        .getAttribute('aria-invalid')
     ).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: /save|create/i }));
     expect(state.create.mutate).not.toHaveBeenCalled();
@@ -74,9 +74,7 @@ describe('ProfileDialog', () => {
     state.replace.mutate.mockImplementation(
       (_vars, opts: { onSuccess: () => void }) => opts.onSuccess()
     );
-    renderWithProviders(
-      <ProfileDialog profile={existing} onClose={onClose} />
-    );
+    renderWithProviders(<ProfileDialog profile={existing} onClose={onClose} />);
     expect(screen.getByRole('textbox', { name: 'Profile id' })).toBeDisabled();
     expect(screen.getByRole('option', { name: 'legacy-type' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /save|update/i }));
@@ -104,7 +102,9 @@ describe('ProfileDialog', () => {
 
   it('asks for a type when there are none, and creates with the chosen one', () => {
     state.types = [];
-    const { unmount } = renderWithProviders(<ProfileDialog onClose={vi.fn()} />);
+    const { unmount } = renderWithProviders(
+      <ProfileDialog onClose={vi.fn()} />
+    );
     fireEvent.change(screen.getByRole('textbox', { name: 'Profile id' }), {
       target: { value: 'guard' },
     });

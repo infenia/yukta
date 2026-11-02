@@ -7,7 +7,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 )
+
+// separator joins a query parameter to a path that may already carry a query.
+func separator(path string) string {
+	if strings.Contains(path, "?") {
+		return "&"
+	}
+	return "?"
+}
 
 // nextCursorHeader announces a further page of a list endpoint.
 const nextCursorHeader = "X-Next-Cursor"
@@ -23,7 +32,7 @@ func (c *Client) getPages(path string) ([]json.RawMessage, error) {
 	for page := 0; page < maxPages; page++ {
 		pagePath := path
 		if cursor != "" {
-			pagePath += "?cursor=" + url.QueryEscape(cursor)
+			pagePath += separator(path) + "cursor=" + url.QueryEscape(cursor)
 		}
 		req, err := c.newRequest("GET", pagePath)
 		if err != nil {

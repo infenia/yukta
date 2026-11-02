@@ -289,7 +289,7 @@ describe('ActivityPanel', () => {
 describe('the control panels follow the stream instead of polling', () => {
   it('refetches on a ControlOutcome, and polls only slowly while the stream is down', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    renderOverview();
+    renderActivity('?tab=audit');
     await vi.waitFor(() => expect(auditCalls).toBe(1));
 
     act(() => stream().open());
@@ -300,7 +300,6 @@ describe('the control panels follow the stream instead of polling', () => {
 
     act(() => stream().emit(outcome));
     await vi.waitFor(() => expect(auditCalls).toBe(2));
-    expect(supervisorCalls).toBe(2);
 
     act(() => stream().emit(node('a', 'RUNNING')));
     await act(async () => {
@@ -313,9 +312,14 @@ describe('the control panels follow the stream instead of polling', () => {
       await vi.advanceTimersByTimeAsync(FALLBACK_POLL_MS + 1000);
     });
     expect(auditCalls).toBeGreaterThanOrEqual(3);
+    // advances about 40 s of fake time; on a loaded machine with coverage that takes more than 5 s
+  }, 20_000);
+
+  it('refetches the supervisors of the overview on a ControlOutcome', async () => {
+    renderActivity('');
+    await vi.waitFor(() => expect(supervisorCalls).toBe(1));
+    act(() => stream().open());
+    act(() => stream().emit(outcome));
+    await vi.waitFor(() => expect(supervisorCalls).toBe(2));
   });
 });
-
-function renderOverview() {
-  return renderActivity('');
-}

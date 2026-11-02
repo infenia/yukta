@@ -18,6 +18,7 @@ com.infenia.yukta.controller.ExecutionControlController
 com.infenia.yukta.controller.ExecutionController
 com.infenia.yukta.controller.ExecutionResultController
 com.infenia.yukta.controller.ExecutionSearchController
+com.infenia.yukta.controller.InputRequestsController
 com.infenia.yukta.controller.LogManagementController
 com.infenia.yukta.controller.MeController
 com.infenia.yukta.controller.MetricsController
@@ -60,6 +61,7 @@ com.infenia.yukta.mcp.McpDtoReflectionHints
 com.infenia.yukta.mcp.McpEndpointFilter
 com.infenia.yukta.mcp.McpErrorAdvice
 com.infenia.yukta.mcp.McpErrorFilter
+com.infenia.yukta.mcp.provider.InputProvider
 com.infenia.yukta.mcp.provider.LogProvider
 com.infenia.yukta.mcp.provider.MetricsProvider
 com.infenia.yukta.mcp.provider.PluginInfoProvider
@@ -140,7 +142,6 @@ com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor
 com.infenia.yukta.service.control.processor.DisableStepModeCommandProcessor
 com.infenia.yukta.service.control.processor.EnableStepModeCommandProcessor
 com.infenia.yukta.service.control.processor.EscalateInputCommandProcessor
-com.infenia.yukta.service.control.processor.InputSignalBridge
 com.infenia.yukta.service.control.processor.PauseNodeCommandProcessor
 com.infenia.yukta.service.control.processor.PauseWorkflowCommandProcessor
 com.infenia.yukta.service.control.processor.RestartCommandProcessor
@@ -148,7 +149,6 @@ com.infenia.yukta.service.control.processor.RestartFromNodeCommandProcessor
 com.infenia.yukta.service.control.processor.ResumeNodeCommandProcessor
 com.infenia.yukta.service.control.processor.ResumeWorkflowCommandProcessor
 com.infenia.yukta.service.control.processor.SetBreakpointCommandProcessor
-com.infenia.yukta.service.control.processor.SignalNodeCommandProcessor
 com.infenia.yukta.service.control.processor.SkipNodeCommandProcessor
 com.infenia.yukta.service.control.processor.StepNodeCommandProcessor
 com.infenia.yukta.service.control.processor.StopNodeCommandProcessor
@@ -162,6 +162,7 @@ com.infenia.yukta.service.input.InMemoryInputRequestStore
 com.infenia.yukta.service.input.InputBroker
 com.infenia.yukta.service.input.InputCommandGuard
 com.infenia.yukta.service.input.InputDeadlineSweeper
+com.infenia.yukta.service.input.InputRequestQueries
 com.infenia.yukta.service.input.route.RouteResolver
 com.infenia.yukta.service.leader.LeaderLoss
 com.infenia.yukta.service.leader.SingleServerLeader

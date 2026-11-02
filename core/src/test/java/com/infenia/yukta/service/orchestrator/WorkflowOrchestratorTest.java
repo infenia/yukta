@@ -823,6 +823,8 @@ class WorkflowOrchestratorTest {
         .thenReturn(java.util.Optional.of(executionControl));
 
     small.execute("s", "w", "e1", prepared, Map.of()).subscribe();
+    // e1 starts on another thread: e2 must register after it, or e1 is never evicted
+    org.awaitility.Awaitility.await().until(() -> e1Body.currentSubscriberCount() > 0);
     StepVerifier.create(small.execute("s", "w", "e2", prepared, Map.of())).verifyComplete();
 
     // e1 fell out of the archive while still running: its checkpoints must stay.

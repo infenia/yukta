@@ -4,7 +4,7 @@ paths:
   - "src/**/model/control/**"
 ---
 
-# Execution limits, idempotent starts, control audit, signals
+# Execution limits, idempotent starts, control audit, approval steps
 
 Reference for the scheduler, `Idempotency-Key`, control commands, stop modes and signals. Moved from `core/CLAUDE.md`.
 
@@ -81,15 +81,8 @@ Gateway commands for a live run (`ControlBusGateway`). REST: `POST /api/executio
 - `changePriority(execution, priority)`: moves a start that is `QUEUED`; recorded in the run log as
   `SetPriority(n)`, rejected if the run is not waiting.
 
-### Signals and approval steps
-`AnswerInputCommand` and `EscalateInputCommand` are ordinary control commands (`ControlBusGateway.answerInput` / `escalateInput`); a raw `sendCommand` payload that carries `requestId` is refused like one that carries a signal.
-
-`SignalNodeCommand` (REST `POST /api/executions/{id}/nodes/{node}/signal?name=&decision=&data=`, MCP
-`signal_node`, gateway `signalNode`) answers the open input request that a node holds for the signal
-(context `signal` = the name) through the same review, ordering and audit as other commands
-(`SignalNodeCommandProcessor`, `InputSignalBridge`); a node with no such request gives HTTP 409 and an
-unknown run 404. `SignalWaits` no longer exists. `GET /api/sessions/{s}/approvals`, MCP `list_pending_approvals` and the "pending approvals" strip of
-the workflow page list the open `APPROVAL` requests (oldest first).
+### Approval steps and input requests
+`AnswerInputCommand` and `EscalateInputCommand` are ordinary control commands (`ControlBusGateway.answerInput` / `escalateInput`); a raw `sendCommand` payload that carries `decision`, `executionId` or `requestId` is refused, so an answer cannot skip the reviewer and the audit. The signal API (`SignalNodeCommand`, `signal_node`, `/signal`, `/approvals`, `list_pending_approvals`) was removed in #1805; open requests are listed with `GET /api/sessions/{s}/inputs` and `list_pending_inputs`.
 `WAIT_FOR_SIGNAL` (internal-core) asks a HIGH risk `APPROVAL` request per message and holds it until it is answered (`signal`, `timeoutSeconds` default 3600, `onTimeout`,
 `onReject`) and tags it with `signal.name/decision/data`; the engine timeout for the node is the wait
 plus 30 s. An answer is recorded in the run's checkpoint store as a message of the
