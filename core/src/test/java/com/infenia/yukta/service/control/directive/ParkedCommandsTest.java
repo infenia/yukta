@@ -36,6 +36,9 @@ import com.infenia.yukta.service.input.CommandProposals;
 import com.infenia.yukta.service.input.InMemoryInputRequestStore;
 import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.input.InputTestSupport;
+import com.infenia.yukta.service.input.route.InputRoute;
+import com.infenia.yukta.service.input.route.RouteResolver;
+import com.infenia.yukta.service.input.route.Tier;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;
@@ -126,7 +129,18 @@ class ParkedCommandsTest {
             meters,
             new InputRedactor(List.of()),
             InputTestSupport.limits(),
-            clock);
+            clock,
+            new RouteResolver(
+                Map.of(
+                    "ops",
+                    new InputRoute(
+                        "ops",
+                        List.of(
+                            new Tier(
+                                "ops", List.of("role:OPERATOR"), null, null, 0, 0, null, null)),
+                        null)),
+                null),
+            null);
     registry.save(
         new ExecutionControl(
             "s",

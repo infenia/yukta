@@ -104,7 +104,14 @@ public class InputTestSupport {
   /** The default limits. */
   public static YuktaProperties.Input limits() {
     return new YuktaProperties.Input(
-        Duration.ofHours(1), Duration.ofHours(24), 5, 50, 100, Duration.ofSeconds(1), List.of());
+        Duration.ofHours(1),
+        Duration.ofHours(24),
+        5,
+        50,
+        100,
+        Duration.ofSeconds(1),
+        List.of(),
+        Map.of());
   }
 
   /** A clock a test moves by hand. */

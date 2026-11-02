@@ -26,7 +26,7 @@ public record Audience(List<String> selectors) {
   private static final Pattern SELECTOR =
       Pattern.compile(
           "supervisor:(\\*|[A-Za-z0-9._-]{1,64})|role:(OPERATOR|ADMIN)|key:\\S{1,128}"
-              + "|external:[A-Za-z0-9._-]{1,64}");
+              + "|external:[A-Za-z0-9._-]{1,64}(:[A-Za-z0-9._-]{1,64})?");
 
   /**
    * The audience that defers to the current tier. Declared after the fields the constructor reads,
@@ -51,7 +51,7 @@ public record Audience(List<String> selectors) {
             "Not an audience selector: '"
                 + selector
                 + "'; use supervisor:<id>, supervisor:*, role:OPERATOR, role:ADMIN, key:<name> or"
-                + " external:<tier>");
+                + " external:<responder>[:<name>]");
       }
     }
     selectors = List.copyOf(selectors);

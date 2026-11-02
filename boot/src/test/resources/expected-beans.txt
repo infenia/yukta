@@ -163,6 +163,7 @@ com.infenia.yukta.service.input.InputBroker
 com.infenia.yukta.service.input.InputCommandGuard
 com.infenia.yukta.service.input.InputDeadlineSweeper
 com.infenia.yukta.service.input.InputRequestQueries
+com.infenia.yukta.service.input.route.RouteResolver
 com.infenia.yukta.service.leader.LeaderLoss
 com.infenia.yukta.service.leader.SingleServerLeader
 com.infenia.yukta.service.leader.TakeoverRecovery
@@ -199,6 +200,7 @@ com.infenia.yukta.service.store.CheckpointMetrics
 com.infenia.yukta.service.store.InMemoryNodeCheckpointStore
 com.infenia.yukta.service.streaming.DefaultStatusHistoryCache
 com.infenia.yukta.service.supervisor.AttachedSupervisors
+com.infenia.yukta.service.supervisor.AttachedSupervisorsDirectory
 com.infenia.yukta.service.supervisor.ControlReviewer
 com.infenia.yukta.service.supervisor.ExecutionEventFeed
 com.infenia.yukta.service.supervisor.InMemorySupervisorStore
