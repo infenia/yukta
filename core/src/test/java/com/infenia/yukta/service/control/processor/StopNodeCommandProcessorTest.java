@@ -2,13 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.processor;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.execution.ControlState;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
@@ -26,7 +23,6 @@ import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LinguisticNaming"})
 class StopNodeCommandProcessorTest {
 
   @Mock private ExecutionControlStore registry;
@@ -34,30 +30,6 @@ class StopNodeCommandProcessorTest {
   @Mock private ExecutionControl executionControl;
 
   @InjectMocks private StopNodeCommandProcessor processor;
-
-  @Test
-  void canProcess_stopNodeCommand_returnsTrue() {
-    // Given
-    final ExecutionControlCommand command = new StopNodeCommand("exec-1", "node-1", false, null);
-
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isTrue();
-  }
-
-  @Test
-  void canProcess_otherCommand_returnsFalse() {
-    // Given
-    final ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
-
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isFalse();
-  }
 
   @Test
   void process_immediateStop_usesImmediateStopSinkAndEmitsEvent() {
@@ -155,14 +127,5 @@ class StopNodeCommandProcessorTest {
                 e instanceof IllegalArgumentException
                     && e.getMessage().contains("Node not found or not stoppable: " + nodeId))
         .verify();
-  }
-
-  @Test
-  void getPriority_returnsCorrectValue() {
-    // When
-    final int actualPriority = processor.getPriority();
-
-    // Then
-    assertThat(actualPriority).isEqualTo(15);
   }
 }

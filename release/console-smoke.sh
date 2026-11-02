@@ -28,7 +28,7 @@ set -e
 echo "daemon: start, status, stop ok"
 
 SERVER_PORT=19860 python3 -I - "$bin" <<'PY'
-import os, pty, re, select, sys, time
+import fcntl, os, pty, re, select, signal, struct, sys, termios, time
 
 pid, fd = pty.fork()
 if pid == 0:
@@ -46,10 +46,22 @@ def pump(until, seconds):
             except OSError:
                 return
 
-pump(lambda: b"health UP" in buf, 60)
-if b"health UP" not in buf:
-    text = re.sub(rb"\x1b\[[0-9;?]*[a-zA-Z]", b"", buf).decode(errors="replace")
+def plain():
+    return re.sub(rb"\x1b\[[0-9;?$]*[a-zA-Z]", b"", buf)  # the dashboard is styled: match the text
+
+pump(lambda: b"health UP" in plain(), 60)
+if b"health UP" not in plain():
+    text = plain().decode(errors="replace")
     sys.exit("console smoke: no dashboard on the terminal:\n" + text[:1200])
+# keys (normal and application keypad arrows, PgUp, Home) and a resize must not break the loop
+for seq in (b"\x1b[B", b"\x1bOA", b"\x1b[5~", b"\x1b[H", b"?"):
+    os.write(fd, seq)
+    pump(lambda: False, 0.4)
+if b"quit the server" not in plain():
+    sys.exit("console smoke: ? did not show the help page")
+fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 30, 100, 0, 0))
+os.kill(pid, signal.SIGWINCH)
+pump(lambda: False, 1.0)
 os.write(fd, b"q")
 end = time.time() + 60
 while time.time() < end:

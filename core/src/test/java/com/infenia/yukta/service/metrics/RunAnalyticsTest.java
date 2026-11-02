@@ -420,6 +420,21 @@ class RunAnalyticsTest {
   }
 
   @Test
+  void activeRunSurvivesNewerRuns() {
+    for (int i = 0; i < 10_000; i++) {
+      analytics.accept(
+          new ExecutionEvent.WorkflowStatusChanged("r" + i, "s1", "w1", "RUNNING", T0));
+    }
+    analytics.accept(new ExecutionEvent.WorkflowStatusChanged("r0", "s1", "w1", "RUNNING", T0));
+    analytics.accept(new ExecutionEvent.WorkflowStatusChanged("rx", "s1", "w1", "RUNNING", T0));
+
+    assertThat(analytics.liveRuns())
+        .extracting(RunAnalytics.LiveRun::executionId)
+        .contains("r0")
+        .doesNotContain("r1");
+  }
+
+  @Test
   void stopBeforeStartIsHarmless() {
     new RunAnalytics(feed).stop();
 
@@ -690,5 +705,18 @@ class RunAnalyticsTest {
 
     assertThat(run.withNodesTotal(9))
         .isEqualTo(new RunAnalytics.LiveRun("e", "s", "w", 1L, 2L, 3, 4, 5.0, 9));
+  }
+
+  @Test
+  void seedingIgnoresInputEntries() {
+    final var started = ExecutionLogEvent.started("old", "s1", "w1", "v1");
+    final var input =
+        ExecutionLogEvent.input("old", "s1", "w1", "n1", Map.of("event", "INPUT_REQUESTED"));
+    final var other = new RunAnalytics(feed, Clock.fixed(T0.plusSeconds(600), ZoneOffset.UTC));
+
+    analytics.seed(List.of(started, input));
+    other.seed(List.of(started));
+
+    assertThat(analytics.snapshot("session:s1")).isEqualTo(other.snapshot("session:s1"));
   }
 }

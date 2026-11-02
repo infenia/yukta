@@ -168,7 +168,8 @@ class McpEndpointFilterTest {
         new org.springframework.mock.env.MockEnvironment()
             .withProperty("yukta.api-keys[0].key", "k")
             .withProperty("yukta.api-keys[0].role", role);
-    return sessions == null ? env : env.withProperty("yukta.api-keys[0].sessions", sessions);
+    // null: every session, written out as a non-admin key must
+    return env.withProperty("yukta.api-keys[0].sessions", sessions == null ? "*" : sessions);
   }
 
   private String call(

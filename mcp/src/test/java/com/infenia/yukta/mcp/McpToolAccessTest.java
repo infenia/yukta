@@ -19,10 +19,9 @@ class McpToolAccessTest {
     final var env =
         new MockEnvironment()
             .withProperty("yukta.api-keys[0].key", "k")
-            .withProperty("yukta.api-keys[0].role", role);
-    if (sessions != null) {
-      env.withProperty("yukta.api-keys[0].sessions", sessions);
-    }
+            .withProperty("yukta.api-keys[0].role", role)
+            // null: every session, written out as a non-admin key must
+            .withProperty("yukta.api-keys[0].sessions", sessions == null ? "*" : sessions);
     return ApiKeys.read(env, null).find("k");
   }
 

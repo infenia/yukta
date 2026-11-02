@@ -4,10 +4,7 @@ package com.infenia.yukta.service.control.processor;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
@@ -29,7 +26,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class SignalNodeCommandProcessor implements ControlSignalProcessor {
+public class SignalNodeCommandProcessor {
 
   /** Answer of a plugin that took the signal. */
   private static final String ACCEPTED = "ACCEPTED";
@@ -43,14 +40,8 @@ public class SignalNodeCommandProcessor implements ControlSignalProcessor {
   /** Finds the plugin that serves a node. */
   private final ActivePluginRegistry plugins;
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof SignalNodeCommand;
-  }
-
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final SignalNodeCommand signal = (SignalNodeCommand) command;
+  /** Applies the command. */
+  public Mono<Void> process(final SignalNodeCommand signal) {
     return Mono.defer(
         () -> {
           final ExecutionControl control =
@@ -91,7 +82,7 @@ public class SignalNodeCommandProcessor implements ControlSignalProcessor {
                           .addKeyValue("nodeId", signal.nodeId())
                           .addKeyValue("signal", signal.name())
                           .log("Signal delivered"))
-              .then(Mono.<WorkflowDirective>empty());
+              .then(Mono.<Void>empty());
         });
   }
 }

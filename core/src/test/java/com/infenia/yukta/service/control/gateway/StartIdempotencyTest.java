@@ -3,7 +3,9 @@
 package com.infenia.yukta.service.control.gateway;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
+import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
@@ -170,8 +172,7 @@ class StartIdempotencyTest {
   @Test
   void otherLogEvents_areIgnoredWhenReloading() {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
-    log.append(
-        com.infenia.yukta.service.log.ExecutionLogEvent.started("e", "s", "w", "v", Map.of()));
+    log.append(ExecutionLogEvent.started("e", "s", "w", "v", Map.of()));
     final StartIdempotency reloaded = new StartIdempotency(Duration.ofMinutes(10), log);
     reloaded.afterSingletonsInstantiated();
 
@@ -202,5 +203,18 @@ class StartIdempotencyTest {
     configured.once("s/w", "k", this::start).block();
 
     assertThat(starts).hasValue(1);
+  }
+
+  @Test
+  void inputEntriesInTheLogAreNotTakenForIdempotencyKeys() {
+    final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
+    log.append(ExecutionLogEvent.idempotencyKey("exec-0", "s/w\0k1"));
+    log.append(
+        ExecutionLogEvent.input(
+            "exec-0", "s", "w", "n", Map.of("event", "INPUT_REQUESTED", "requestId", "q1")));
+    final StartIdempotency reloaded = new StartIdempotency(Duration.ofMinutes(10), log);
+
+    assertThatCode(reloaded::afterSingletonsInstantiated).doesNotThrowAnyException();
+    assertThat(starts.get()).isZero();
   }
 }
