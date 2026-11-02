@@ -124,4 +124,39 @@ class FieldsInputEventsTest {
         .containsEntry("reason", "run-ended")
         .containsEntry("workflowId", "wf");
   }
+
+  @Test
+  void requestedEventExposesPromptContextOptionsAndWhoAsked() {
+    final Map<String, Object> fields =
+        Fields.eventFields(InputEvents.requested(InputRisk.LOW, Map.of("environment", "staging")));
+
+    assertThat(fields)
+        .containsEntry("sessionId", "s")
+        .containsEntry("prompt", "Deploy build 42?")
+        .containsEntry("context", Map.of("environment", "staging"))
+        .containsEntry("options", List.of("approve", "reject"))
+        .containsEntry("requesterType", "ASK_INPUT")
+        .containsEntry("advice", "ask a person");
+  }
+
+  @Test
+  void conditionsReadTheContextByDotOrIndex() {
+    final Map<String, Object> fields =
+        Fields.eventFields(InputEvents.requested(InputRisk.LOW, Map.of("environment", "staging")));
+
+    assertThat(
+            Conditions.holds(
+                Conditions.parse("r", "context.environment == 'staging' and risk == 'LOW'"),
+                fields))
+        .isTrue();
+    assertThat(Conditions.holds(Conditions.parse("r", "context['team'] == null"), fields)).isTrue();
+  }
+
+  @Test
+  void otherEventsCarryTheirSession() {
+    assertThat(
+            Fields.eventFields(
+                new ExecutionEvent.WorkflowStatusChanged("e1", "s9", "wf", "RUNNING", NOW)))
+        .containsEntry("sessionId", "s9");
+  }
 }

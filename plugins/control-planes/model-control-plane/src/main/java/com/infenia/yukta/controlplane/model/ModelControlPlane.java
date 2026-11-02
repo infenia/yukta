@@ -9,12 +9,14 @@ import com.infenia.yukta.plugin.control.ControlDecision.Source;
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.decision.Answer;
 import com.infenia.yukta.plugin.decision.DecisionModel;
 import com.infenia.yukta.plugin.decision.ModelSpec;
 import com.infenia.yukta.plugin.decision.Question;
 import com.infenia.yukta.plugin.decision.StateText;
+import com.infenia.yukta.plugin.input.InputRisk;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +42,12 @@ import reactor.core.publisher.Mono;
  * answer, a failing or slow model and an unreadable reply all count as no opinion, so the model can
  * never hold up the bus. {@code max-calls-per-minute} caps the model calls: events beyond it get no
  * opinion at once. By default it can only pause; a stop has to be configured.
+ *
+ * <p>Input requests ({@code InputRequested}, {@code InputEscalated}, when listed in {@code events})
+ * are judged differently, by {@link InputAdvisor}: the request goes to the model only as delimited,
+ * untrusted data ({@link InputPrompt}); a confident answer within the profile's {@code maxRisk}
+ * becomes an answer, anything else an escalation with the model's advice. It never answers a
+ * request of risk {@code HIGH}.
  */
 @Slf4j
 @Component
@@ -52,7 +60,14 @@ public final class ModelControlPlane implements ControlPlanePlugin {
   public static final String PLUGIN_ID = "model-control-plane";
 
   /** Metric name of the counts this plugin reports. */
-  private static final String METRIC = "model_control_plane";
+  /* default */ static final String METRIC = "model_control_plane";
+
+  /**
+   * What a model control plane configured by properties may do: every command, but never answer an
+   * input request (only one made from a profile can be granted that); it escalates with advice.
+   */
+  public static final SupervisorCapabilities PROPERTY_CAPABILITIES =
+      new SupervisorCapabilities(null, false, InputRisk.LOW);
 
   /** Name of the one question asked. */
   private static final String QUESTION = "action";
@@ -81,6 +96,9 @@ public final class ModelControlPlane implements ControlPlanePlugin {
   /** Counts how often the model gave no usable answer. */
   private final PluginMetricsReporter metrics;
 
+  /** Judges input requests. */
+  private final InputAdvisor inputs;
+
   /**
    * Creates the plugin.
    *
@@ -89,6 +107,21 @@ public final class ModelControlPlane implements ControlPlanePlugin {
    */
   public ModelControlPlane(final DecisionModel model, final ModelPlaneSettings settings) {
     this(model, settings, PluginMetricsReporter.NOOP);
+  }
+
+  /**
+   * Creates the plugin for a profile, with what the profile allows.
+   *
+   * @param model asks the model
+   * @param settings the configuration
+   * @param capabilities what the profile allows; {@code canAnswer} and {@code maxRisk} decide
+   *     whether it answers input requests or only advises
+   */
+  public ModelControlPlane(
+      final DecisionModel model,
+      final ModelPlaneSettings settings,
+      final SupervisorCapabilities capabilities) {
+    this(model, settings, PluginMetricsReporter.NOOP, capabilities);
   }
 
   /**
@@ -112,6 +145,14 @@ public final class ModelControlPlane implements ControlPlanePlugin {
       final DecisionModel model,
       final ModelPlaneSettings settings,
       final PluginMetricsReporter metrics) {
+    this(model, settings, metrics, PROPERTY_CAPABILITIES);
+  }
+
+  /* default */ ModelControlPlane(
+      final DecisionModel model,
+      final ModelPlaneSettings settings,
+      final PluginMetricsReporter metrics,
+      final SupervisorCapabilities capabilities) {
     this.metrics = metrics;
     this.model = model;
     this.settings = settings;
@@ -128,6 +169,9 @@ public final class ModelControlPlane implements ControlPlanePlugin {
     final Map<String, String> criteria = new LinkedHashMap<>();
     settings.options().forEach((key, option) -> criteria.put(key, option.description()));
     this.question = new Question.Choice(settings.instructions(), criteria);
+    this.inputs =
+        new InputAdvisor(
+            model, spec, settings.minConfidence(), capabilities, metrics, decisionTimeout());
   }
 
   @Override
@@ -157,21 +201,38 @@ public final class ModelControlPlane implements ControlPlanePlugin {
 
   @Override
   public Mono<ControlDecision> decide(final ExecutionEvent event) {
-    return settings.events().contains(event.getClass().getSimpleName()) && withinLimit()
-        ? model
-            .answer(spec, describe(event), Map.of(QUESTION, question))
-            .map(answers -> toDecision(event, answers.get(QUESTION)))
-            .onErrorResume(
-                e -> {
-                  log.atWarn().setCause(e).log("Decision model unavailable; no opinion");
-                  metrics.increment(PLUGIN_ID, METRIC, "model_error");
-                  return Mono.just(ControlDecision.none(Source.MODEL));
-                })
-        : Mono.just(ControlDecision.none(Source.MODEL));
+    final boolean asked =
+        settings.events().contains(event.getClass().getSimpleName()) && withinLimit();
+    return switch (event) {
+      case ExecutionEvent.InputRequested requested when asked ->
+          inputs.decide(requested.request(), null);
+      case ExecutionEvent.InputEscalated escalated when asked ->
+          inputs.decide(escalated.request(), escalated.reason());
+      default -> asked ? ask(event) : Mono.just(ControlDecision.none(Source.MODEL));
+    };
   }
 
-  /** Plain words work better than JSON for a small model. */
-  private static String describe(final ExecutionEvent event) {
+  private Mono<ControlDecision> ask(final ExecutionEvent event) {
+    return model
+        .answer(spec, describe(event), Map.of(QUESTION, question))
+        .map(answers -> toDecision(event, answers.get(QUESTION)))
+        .onErrorResume(
+            e -> {
+              log.atWarn().setCause(e).log("Decision model unavailable; no opinion");
+              metrics.increment(PLUGIN_ID, METRIC, "model_error");
+              return Mono.just(ControlDecision.none(Source.MODEL));
+            });
+  }
+
+  /**
+   * Describes an event in plain words, which work better than JSON for a small model. Input
+   * requests and escalations are judged by {@link InputAdvisor} instead; their lines here leave the
+   * request's text out.
+   *
+   * @param event the event
+   * @return the description, cut to the model's limit
+   */
+  /* default */ static String describe(final ExecutionEvent event) {
     final String text =
         switch (event) {
           case ExecutionEvent.NodeStatusChanged node ->

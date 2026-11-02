@@ -200,6 +200,7 @@ class RulesFirstControlPlaneTest {
                     null,
                     Duration.ofSeconds(1),
                     0.6,
+                    0.8,
                     null,
                     null,
                     null,
