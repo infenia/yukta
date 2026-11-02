@@ -48,7 +48,7 @@ class AskInputProcessorTest {
   private static Map<String, Object> config(final Object... pairs) {
     final Map<String, Object> config = new HashMap<>();
     config.put("prompt", "Deploy?");
-    for (int i = 0; i < pairs.length; i += 2) {
+    for (int i = 0; i + 1 < pairs.length; i += 2) {
       config.put((String) pairs[i], pairs[i + 1]);
     }
     return config;

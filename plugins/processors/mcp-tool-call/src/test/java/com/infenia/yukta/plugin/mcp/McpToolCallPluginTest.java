@@ -258,6 +258,33 @@ class McpToolCallPluginTest {
   }
 
   @Test
+  void askForInput_unansweredUnderDefaultFailureModeEmitsFailureMessage() {
+    when(inputGateway.ask(any()))
+        .thenReturn(Mono.error(new InputExpiredException("r1", "expired")));
+    when(resolver.resolve(any(), any()))
+        .thenAnswer(inv -> Mono.justOrEmpty(inv.<Object>getArgument(0)));
+
+    final var results =
+        plugin
+            .process(
+                Flux.just(input()),
+                config(
+                    "tool",
+                    "ask_for_input",
+                    "allowAskInput",
+                    true,
+                    "arguments",
+                    Map.of("prompt", "Proceed?")))
+            .contextWrite(NODE)
+            .collectList()
+            .block();
+
+    assertThat(results).hasSize(1);
+    assertThat(String.valueOf(results.getFirst().payload())).contains("success=false");
+    verify(gateway, org.mockito.Mockito.never()).call(any(), any());
+  }
+
+  @Test
   void askForInput_isOffUnlessAllowed() {
     when(gateway.call(any(), any())).thenReturn(Mono.just(success()));
     StepVerifier.create(

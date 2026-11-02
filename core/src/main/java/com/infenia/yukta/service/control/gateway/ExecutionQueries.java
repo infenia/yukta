@@ -115,7 +115,10 @@ final class ExecutionQueries {
         .distinct(wait -> wait.executionId() + '\0' + wait.nodeId() + '\0' + wait.name());
   }
 
-  /** The open requests of kind {@code APPROVAL}, in the shape of a signal wait. */
+  /**
+   * The open requests of kind {@code APPROVAL} that name a signal: the signal endpoint can answer
+   * only those, so an unnamed one would be listed with an answer that is refused.
+   */
   private Flux<PendingApproval> approvalRequests(final String sessionId) {
     final ObjectProvider<InputBroker> provider = inputBroker;
     final InputBroker broker = provider == null ? null : provider.getIfAvailable();
@@ -124,6 +127,7 @@ final class ExecutionQueries {
         : broker
             .listOpen(sessionId, null)
             .filter(request -> request.spec().kind() == InputKind.APPROVAL)
+            .filter(request -> request.spec().context().containsKey(InputBroker.SIGNAL_CONTEXT_KEY))
             .map(
                 request ->
                     new PendingApproval(
@@ -132,10 +136,7 @@ final class ExecutionQueries {
                         request.workflowId(),
                         request.nodeId(),
                         String.valueOf(
-                            request
-                                .spec()
-                                .context()
-                                .getOrDefault(InputBroker.SIGNAL_CONTEXT_KEY, request.key())),
+                            request.spec().context().get(InputBroker.SIGNAL_CONTEXT_KEY)),
                         request.createdAt()));
   }
 

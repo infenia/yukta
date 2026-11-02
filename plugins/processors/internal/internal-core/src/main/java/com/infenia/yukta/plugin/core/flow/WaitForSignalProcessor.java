@@ -117,15 +117,16 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
     return new PluginDescriptor(
         "Waits for a named signal (approval, decision) before a message goes on.",
         """
-        Configure with:
-        - signal: name of the signal to wait for (required).
-        - timeoutSeconds: longest wait, default 3600.
-        - onTimeout: FAIL (default) or CONTINUE (message goes on with signal.decision=timeout).
-        - onReject: FAIL (default) or CONTINUE (message is dropped) for a 'reject' decision.
-        Any other decision lets the message through; read it from metadata signal.decision to branch.
-        The wait is an input request (kind APPROVAL, risk HIGH): it is listed with the pending
-        inputs and answered with the input answer command (REST, MCP, CLI, UI) by a person, as
-        HIGH risk requests are human-only. The older signal command still answers it for now.
+              Configure with:
+              - signal: name of the signal to wait for (required).
+              - timeoutSeconds: longest wait, default 3600. Must not exceed yukta.input.max-ttl (default 24h):
+        a longer wait is refused at runtime with an input limit error.
+              - onTimeout: FAIL (default) or CONTINUE (message goes on with signal.decision=timeout).
+              - onReject: FAIL (default) or CONTINUE (message is dropped) for a 'reject' decision.
+              Any other decision lets the message through; read it from metadata signal.decision to branch.
+              The wait is an input request (kind APPROVAL, risk HIGH): it is listed with the pending
+              inputs and answered with the input answer command (REST, MCP, CLI, UI) by a person, as
+              HIGH risk requests are human-only. The older signal command still answers it for now.
         """,
         Optional.empty());
   }

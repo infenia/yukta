@@ -282,7 +282,7 @@ Holds each message until a named signal arrives. Use it for approvals and for wa
 | Option | Type | Default | Meaning |
 |---|---|---|---|
 | `signal` | string | none, required | The name of the signal to wait for |
-| `timeoutSeconds` | number | `3600` | Longest wait per message |
+| `timeoutSeconds` | number | `3600` | Longest wait per message. Must not exceed `yukta.input.max-ttl` (default 24h); a longer wait is refused at runtime |
 | `onTimeout` | `FAIL` or `CONTINUE` | `FAIL` | `FAIL` fails the node. `CONTINUE` releases the message with the decision `timeout` |
 | `onReject` | `FAIL` or `CONTINUE` | `FAIL` | What a `reject` decision does: `FAIL` fails the node, `CONTINUE` drops the message |
 

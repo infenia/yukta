@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.model.control.PendingApproval;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
@@ -156,7 +155,7 @@ class DefaultControlBusGatewayInputTest {
   }
 
   @Test
-  void pendingApprovalsAlsoListsOpenApprovalRequestsOnce() {
+  void pendingApprovalsListsOnlyApprovalRequestsNamedBySignal() {
     withBroker();
     final WorkflowProgress progress = mock(WorkflowProgress.class);
     when(progress.sessionId()).thenReturn("session");
@@ -169,14 +168,13 @@ class DefaultControlBusGatewayInputTest {
     when(broker.listOpen("session", null)).thenReturn(Flux.just(named, unnamed, text));
 
     StepVerifier.create(gateway.pendingApprovals("session"))
-        // the request named by its signal, then the one without a signal name
-        .assertNext(approval -> assertThat(approval.name()).isEqualTo("gate"))
+        // only the request named by its signal; an unnamed one has no signal to answer it
         .assertNext(
             approval -> {
-              assertThat(approval).extracting(PendingApproval::name).isEqualTo("key-2");
+              assertThat(approval.name()).isEqualTo("gate");
               assertThat(approval.sessionId()).isEqualTo("session");
               assertThat(approval.workflowId()).isEqualTo("workflow");
-              assertThat(approval.since()).isEqualTo(unnamed.createdAt());
+              assertThat(approval.since()).isEqualTo(named.createdAt());
             })
         .verifyComplete();
   }

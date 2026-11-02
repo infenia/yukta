@@ -440,7 +440,10 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
         .addKeyValue("outcome", tag)
         .addKeyValue("latencyMs", millis)
         .log("MCP tool call finished");
-    if (result.isError() && failureMode == FailureMode.ERROR) {
+    // a refused or unanswered question is a tool error the model can react to, not a node failure
+    if (result.isError()
+        && failureMode == FailureMode.ERROR
+        && !AskInputTool.serves(config, outcome.tool())) {
       return Flux.error(
           new WorkflowExecutionException(
               "MCP tool " + outcome.tool() + " failed: " + result.error()));

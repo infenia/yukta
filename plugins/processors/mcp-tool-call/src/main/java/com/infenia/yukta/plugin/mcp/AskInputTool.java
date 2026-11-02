@@ -169,11 +169,12 @@ class AskInputTool {
     final InputRequestSpec spec;
     try {
       final InputIdentity who = InputIdentity.from(ctx);
+      spec = spec(config, who, messageId, arguments);
+      // count only a valid question, so that a malformed call does not use up an ask
       if (!countAsk(who, maxAsks(config))) {
         return Mono.just(
             failure("The node already asked " + maxAsks(config) + " questions in this run"));
       }
-      spec = spec(config, who, messageId, arguments);
     } catch (IllegalArgumentException e) {
       return Mono.just(failure(e.getMessage()));
     } catch (IllegalStateException e) {

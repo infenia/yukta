@@ -11,7 +11,11 @@ import com.infenia.yukta.plugin.input.InputKind;
 import com.infenia.yukta.plugin.input.InputRequestSpec;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.input.TimeoutAction;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -120,6 +124,25 @@ class ToolApproval {
                     : Mono.<Void>empty());
   }
 
+  /**
+   * The key part that tells the calls of one message apart. Hashes the raw tool and arguments, so
+   * an approval covers only the call it was asked for; a replay of the same call still matches.
+   *
+   * @param call the call about to be made
+   * @return the hex SHA-256 of the tool and arguments
+   */
+  private static String digest(final McpCallSpec call) {
+    try {
+      return HexFormat.of()
+          .formatHex(
+              MessageDigest.getInstance("SHA-256")
+                  .digest(
+                      (call.tool() + '\0' + call.arguments()).getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 is not available", e);
+    }
+  }
+
   private static InputRequestSpec spec(
       final ContextView ctx,
       final String messageId,
@@ -131,7 +154,8 @@ class ToolApproval {
     final String arguments =
         InputAsk.clean(String.valueOf(call.arguments()), ARGUMENTS_SHOWN_BYTES);
     return new InputRequestSpec(
-        InputKeys.of(who.sessionId(), who.workflowId(), who.nodeId(), messageId, name),
+        InputKeys.of(
+            who.sessionId(), who.workflowId(), who.nodeId(), messageId, name + ':' + digest(call)),
         InputKind.APPROVAL,
         "Tool '" + tool + "' wants to run with " + arguments + ". Approve or reject.",
         Map.of(InputAsk.SIGNAL_CONTEXT_KEY, name, "tool", tool, "arguments", arguments),
