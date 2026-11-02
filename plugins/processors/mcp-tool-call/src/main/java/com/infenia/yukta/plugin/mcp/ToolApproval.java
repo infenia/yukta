@@ -11,11 +11,7 @@ import com.infenia.yukta.plugin.input.InputKind;
 import com.infenia.yukta.plugin.input.InputRequestSpec;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.input.TimeoutAction;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -132,15 +128,7 @@ class ToolApproval {
    * @return the hex SHA-256 of the tool and arguments
    */
   private static String digest(final McpCallSpec call) {
-    try {
-      return HexFormat.of()
-          .formatHex(
-              MessageDigest.getInstance("SHA-256")
-                  .digest(
-                      (call.tool() + '\0' + call.arguments()).getBytes(StandardCharsets.UTF_8)));
-    } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException("SHA-256 is not available", e);
-    }
+    return InputKeys.digest(call.tool() + '\0' + call.arguments());
   }
 
   private static InputRequestSpec spec(
