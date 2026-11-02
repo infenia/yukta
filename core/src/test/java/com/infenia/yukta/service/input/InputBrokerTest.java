@@ -263,12 +263,15 @@ class InputBrokerTest {
 
     assertThat(store.findById(request.id()).blockOptional().orElseThrow().state())
         .isEqualTo(InputState.CANCELLED);
-    assertThat(events.stream().filter(ExecutionEvent.InputCancelled.class::isInstance))
-        .singleElement()
-        .satisfies(
-            e ->
-                assertThat(((ExecutionEvent.InputCancelled) e).reason())
-                    .isEqualTo("node-cancelled"));
+    org.awaitility.Awaitility.await()
+        .untilAsserted(
+            () ->
+                assertThat(events.stream().filter(ExecutionEvent.InputCancelled.class::isInstance))
+                    .singleElement()
+                    .satisfies(
+                        e ->
+                            assertThat(((ExecutionEvent.InputCancelled) e).reason())
+                                .isEqualTo("node-cancelled")));
   }
 
   @Test
@@ -295,7 +298,11 @@ class InputBrokerTest {
     assertThat(inputBroker.listOpen(null, null).collectList().block())
         .singleElement()
         .satisfies(r -> assertThat(r.executionId()).isEqualTo("e2"));
-    assertThat(events.stream().filter(ExecutionEvent.InputCancelled.class::isInstance)).hasSize(1);
+    org.awaitility.Awaitility.await()
+        .untilAsserted(
+            () ->
+                assertThat(events.stream().filter(ExecutionEvent.InputCancelled.class::isInstance))
+                    .hasSize(1));
   }
 
   @Test
