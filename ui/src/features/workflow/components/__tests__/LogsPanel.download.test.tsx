@@ -6,6 +6,7 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LogsPanel } from '../LogsPanel';
 import { createMockLogEntry } from '@/test/factories/workflowFactory';
+import { useJsdomViewport } from '@/test/jsdomViewport';
 import {
   installMockEventSource,
   MockEventSource,
@@ -104,6 +105,8 @@ describe('LogsPanel downloads', () => {
 });
 
 describe('LogsPanel raw mode', () => {
+  useJsdomViewport();
+
   it('cannot switch to raw without an execution', async () => {
     const user = userEvent.setup();
     render(panel({ executionId: null }));
