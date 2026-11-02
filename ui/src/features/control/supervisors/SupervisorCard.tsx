@@ -165,7 +165,10 @@ export function SupervisorCard({
 function scopeOfRunning(running?: Supervisor): string {
   if (!running || running.scope === 'GLOBAL') return 'global';
   if (running.scope === 'SESSION') return `session:${running.scopeSessionId}`;
-  return running.scopeSessionId
+  const workflow = running.scopeSessionId
     ? `workflow:${running.scopeSessionId}/${running.scopeWorkflowId}`
     : `workflow:${running.scopeWorkflowId}`;
+  return running.scope === 'SECTION'
+    ? `${workflow}//${(running.scopeNodes ?? []).join(',')}`
+    : workflow;
 }

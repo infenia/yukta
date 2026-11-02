@@ -5,7 +5,9 @@ package com.infenia.yukta.supervisor.rules;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.input.InputOption;
 import com.infenia.yukta.plugin.input.InputRequest;
+import com.infenia.yukta.plugin.input.InputRequestSpec;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.experimental.UtilityClass;
@@ -49,6 +51,7 @@ public class Fields {
   public static Map<String, Object> eventFields(final ExecutionEvent event) {
     final Map<String, Object> fields = new HashMap<>();
     fields.put("executionId", event.executionId());
+    fields.put("sessionId", event.sessionId());
     fields.put(NODE_ID, null);
     fields.put(STATUS, null);
     fields.put(MODULE, null);
@@ -109,18 +112,29 @@ public class Fields {
     return fields;
   }
 
-  /** The fields of an event that carries a request: what rules match on to answer or escalate. */
+  /**
+   * The fields of an event that carries a request: what rules match on to answer or escalate. The
+   * prompt and context were written by the asking plugin, often an AI agent, and are already
+   * redacted; a rule may compare them but should not trust them.
+   */
   private static void inputFields(
       final Map<String, Object> fields, final InputRequest request, final String status) {
+    final InputRequestSpec spec = request.spec();
     fields.put(WORKFLOW_ID, request.workflowId());
     fields.put(NODE_ID, request.nodeId());
+    fields.put("sessionId", request.sessionId());
     fields.put(STATUS, status);
     fields.put(REQUEST_ID, request.id());
-    fields.put("kind", request.spec().kind().name());
-    fields.put("risk", request.spec().risk().name());
+    fields.put("kind", spec.kind().name());
+    fields.put("risk", spec.risk().name());
     fields.put("state", request.state().name());
     fields.put("tier", request.tier());
-    fields.put("requester", request.spec().requester());
+    fields.put("requester", spec.requester());
+    fields.put("requesterType", spec.requester());
+    fields.put("prompt", spec.prompt());
+    fields.put("context", spec.context());
+    fields.put("options", spec.options().stream().map(InputOption::id).toList());
+    fields.put("advice", request.advice());
   }
 
   /**

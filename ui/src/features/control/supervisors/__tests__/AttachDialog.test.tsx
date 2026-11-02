@@ -126,4 +126,45 @@ describe('AttachDialog', () => {
       expect.any(Object)
     );
   });
+
+  it('builds a section scope from the workflow id and the node selectors', () => {
+    renderWithProviders(<AttachDialog onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Applies to'), {
+      target: { value: 'section' },
+    });
+    expect(screen.getByText('Give the workflow id.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Session'), {
+      target: { value: 's1' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Workflow id' }), {
+      target: { value: 'release' },
+    });
+    expect(screen.getByText('Give at least one node.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Nodes'), {
+      target: { value: 'build.*, publish' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
+    expect(state.mutate).toHaveBeenCalledWith(
+      {
+        profileId: 'guard',
+        scope: 'workflow:s1/release//build.*,publish',
+        enabled: true,
+      },
+      expect.any(Object)
+    );
+  });
+
+  it('opens on a section preset', () => {
+    renderWithProviders(
+      <AttachDialog
+        preset={{ kind: 'section', workflowId: 'w1', nodes: 'deploy.*' }}
+        onClose={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
+    expect(state.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'workflow:w1//deploy.*' }),
+      expect.any(Object)
+    );
+  });
 });

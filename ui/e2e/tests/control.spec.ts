@@ -16,6 +16,8 @@ const envelope = (path: string, data: unknown) => ({
   }),
 });
 
+const ok = (data: unknown) => envelope('/api', data);
+
 async function mockControlApi(
   page: Page,
   workers: unknown[],
@@ -378,5 +380,148 @@ test.describe('Control page', () => {
       (el) => el.scrollWidth > el.clientWidth
     );
     expect(sideways).toBe(false);
+  });
+
+  test('keeps the control audit in its own tab', async ({ page }) => {
+    await mockControlApi(page, []);
+    await page.goto('/control');
+    await expect(page.getByTestId('mission-control')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Who did what' })
+    ).toHaveCount(0);
+
+    await page.getByRole('tab', { name: 'audit' }).click();
+    await expect(page).toHaveURL(/tab=audit/);
+    await expect(
+      page.getByRole('heading', { name: 'Who did what' })
+    ).toBeVisible();
+    await expect(page.getByTestId('mission-control')).toHaveCount(0);
+  });
+
+  test('narrows every panel to a workflow chosen in the scope filter', async ({
+    page,
+  }) => {
+    await mockControlApi(page, []);
+    await page.route('**/api/sessions/summaries*', (route) =>
+      route.fulfill(
+        ok([
+          {
+            sessionId: 's1',
+            name: 'Alpha',
+            description: '',
+            initiator: '',
+            tags: [],
+            projectPath: '',
+            workflowCount: 1,
+            lastRun: {
+              executionId: 'e1',
+              workflowId: 'wf-nightly',
+              status: 'SUCCESS',
+              startTime: null,
+              endTime: null,
+            },
+          },
+        ])
+      )
+    );
+    await page.goto('/control');
+
+    const scope = page.getByRole('combobox', { name: 'Scope' });
+    await expect(
+      scope.getByRole('option', { name: 'Workflow wf-nightly' })
+    ).toBeAttached();
+    const heatmap = page.waitForRequest(
+      (r) =>
+        r.url().includes('/api/metrics/heatmap') &&
+        new URL(r.url()).searchParams.get('scope') === 'workflow:wf-nightly'
+    );
+    const modules = page.waitForRequest(
+      (r) =>
+        r.url().includes('/api/metrics/modules') &&
+        new URL(r.url()).searchParams.get('scope') === 'workflow:wf-nightly'
+    );
+    await scope.selectOption('workflow:wf-nightly');
+
+    await expect(page).toHaveURL(/scope=workflow%3Awf-nightly/);
+    await heatmap;
+    await modules;
+    await page.reload();
+    await expect(scope).toHaveValue('workflow:wf-nightly');
+  });
+
+  test('shows the approvals waiting and the model use per provider', async ({
+    page,
+  }) => {
+    await mockControlApi(page, []);
+    const waiting = (nodeId: string) => ({
+      sessionId: 's1',
+      workflowId: 'wf',
+      executionId: 'e1',
+      nodeId,
+      name: 'approve',
+      since: new Date().toISOString(),
+    });
+    await page.route(/\/api\/approvals(\?|$)/, (route) =>
+      route.fulfill(ok([waiting('gate-1'), waiting('gate-2')]))
+    );
+    await page.route('**/api/metrics/snapshot*', (route) =>
+      route.fulfill(
+        ok({
+          time: Date.now(),
+          values: {
+            'llm.tokens{direction=input,provider=OPENAI}|rate': 2,
+            'llm.tokens{direction=output,provider=OPENAI}|rate': 1,
+            'llm.cost{provider=OPENAI}|rate': 0.001,
+            'yukta.mcp.heavy.refused|rate': 0.1,
+          },
+        })
+      )
+    );
+    await page.goto('/control');
+
+    const approvals = page.getByRole('link', {
+      name: /Approvals waiting: 2\./,
+    });
+    await expect(approvals).toBeVisible();
+    const ai = page.getByRole('region', { name: 'AI usage' });
+    const openai = ai.getByRole('row', { name: /OPENAI/ });
+    await expect(openai).toContainText('120');
+    await expect(openai).toContainText('60');
+    await expect(openai).toContainText('3.60');
+    await expect(ai).toContainText('Refused heavy calls / min');
+
+    // answered on the overview page
+    await expect(approvals).toHaveAttribute('href', '/');
+  });
+
+  test('resumes a live run from the dashboard', async ({ page }) => {
+    await mockControlApi(page, []);
+    await page.route('**/api/metrics/runs/live', (route) =>
+      route.fulfill(
+        ok([
+          {
+            executionId: 'run-7',
+            sessionId: 's1',
+            workflowId: 'wf-held',
+            startedAt: Date.now() - 5000,
+            elapsedMs: 5000,
+            nodesDone: 2,
+            nodesSeen: 3,
+            p95Ms: null,
+          },
+        ])
+      )
+    );
+    let resumed = '';
+    await page.route('**/api/executions/*/resume', (route) => {
+      resumed = new URL(route.request().url()).pathname;
+      return route.fulfill(ok({ executionId: 'run-7' }));
+    });
+    await page.goto('/control');
+
+    await page
+      .getByRole('button', { name: 'resume wf-held run run-7' })
+      .click();
+    await expect.poll(() => resumed).toBe('/api/executions/run-7/resume');
   });
 });

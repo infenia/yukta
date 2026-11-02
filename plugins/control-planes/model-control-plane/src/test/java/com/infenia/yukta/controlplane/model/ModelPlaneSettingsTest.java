@@ -49,6 +49,7 @@ class ModelPlaneSettingsTest {
         null,
         Duration.ofSeconds(2),
         0.6,
+        0.8,
         instructions,
         options,
         events,
@@ -141,7 +142,24 @@ class ModelPlaneSettingsTest {
 
     assertThat(settings.timeout()).isEqualTo(Duration.ofSeconds(2));
     assertThat(settings.minProbability()).isEqualTo(0.6);
+    assertThat(settings.minConfidence()).isEqualTo(0.8);
     assertThat(settings.options()).containsOnlyKeys("continue", "pause");
+  }
+
+  @Test
+  void minConfidenceMustBeProbability() {
+    assertThat(ModelPlaneBinder.bind(Map.of("name", "m", "min-confidence", 0.95)).minConfidence())
+        .isEqualTo(0.95);
+    assertThat(ModelPlaneBinder.bind(Map.of("name", "m", "min-confidence", 0)).minConfidence())
+        .isZero();
+    assertThat(ModelPlaneBinder.bind(Map.of("name", "m", "minConfidence", 1)).minConfidence())
+        .isEqualTo(1.0);
+    assertThatThrownBy(() -> ModelPlaneBinder.bind(Map.of("name", "m", "min-confidence", 1.5)))
+        .hasMessage("min-confidence must be between 0 and 1");
+    assertThatThrownBy(() -> ModelPlaneBinder.bind(Map.of("name", "m", "min-confidence", -0.1)))
+        .hasMessage("min-confidence must be between 0 and 1");
+    assertThatThrownBy(() -> ModelPlaneBinder.bind(Map.of("name", "m", "min-confidence", "NaN")))
+        .hasMessage("min-confidence must be between 0 and 1");
   }
 
   @Test

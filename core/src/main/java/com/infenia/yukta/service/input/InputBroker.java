@@ -4,6 +4,7 @@ package com.infenia.yukta.service.input;
 
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.input.InputAsk;
 import com.infenia.yukta.plugin.input.InputCancelledException;
 import com.infenia.yukta.plugin.input.InputExpiredException;
 import com.infenia.yukta.plugin.input.InputIdentity;
@@ -68,7 +69,7 @@ public class InputBroker {
   public static final String DEFAULT_TIER = "default";
 
   /** Key of the request context that names the signal a request stands for. */
-  public static final String SIGNAL_CONTEXT_KEY = "signal";
+  public static final String SIGNAL_CONTEXT_KEY = InputAsk.SIGNAL_CONTEXT_KEY;
 
   /** Counter of requests by kind, risk and what became of them. */
   private static final String REQUESTS_METRIC = "yukta.input.requests";
@@ -594,7 +595,8 @@ public class InputBroker {
             request.id(),
             responder,
             response.decision(),
-            clock.instant()));
+            clock.instant(),
+            request.nodeId()));
     logEnd(request, "Input answered");
     settle(request).subscribe();
     return request;
@@ -609,7 +611,8 @@ public class InputBroker {
             request.sessionId(),
             request.workflowId(),
             request.id(),
-            clock.instant()));
+            clock.instant(),
+            request.nodeId()));
     logEnd(request, "Input expired");
     return settle(request);
   }
@@ -624,7 +627,8 @@ public class InputBroker {
             request.workflowId(),
             request.id(),
             reason,
-            clock.instant()));
+            clock.instant(),
+            request.nodeId()));
     logEnd(request, "Input cancelled");
     cancelReasons.put(request.id(), reason);
     return settle(request);

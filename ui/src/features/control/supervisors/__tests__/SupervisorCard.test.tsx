@@ -97,6 +97,29 @@ describe('SupervisorCard', () => {
     expect(screen.getByText('Workflow w1')).toBeInTheDocument();
   });
 
+  it('labels a section scope with its nodes', () => {
+    const { unmount } = card({
+      running: {
+        ...running,
+        scope: 'SECTION',
+        scopeWorkflowId: 'w1',
+        scopeNodes: ['build.*', 'publish'],
+      } as never,
+    });
+    expect(screen.getByText('Section s1/w1: build.*, publish')).toBeInTheDocument();
+    unmount();
+    card({
+      running: {
+        ...running,
+        scope: 'SECTION',
+        scopeSessionId: null,
+        scopeWorkflowId: 'w1',
+        scopeNodes: null,
+      } as never,
+    });
+    expect(screen.getByText(/^Section w1/)).toBeInTheDocument();
+  });
+
   it('marks a disabled binding and toggles enabled and dry run', () => {
     card({ binding: { ...binding, enabled: false }, profile, running });
     expect(screen.getByText('Disabled')).toBeInTheDocument();

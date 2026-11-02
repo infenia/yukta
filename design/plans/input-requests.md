@@ -255,7 +255,7 @@ Picture a production line. A supervisor watches a line, or a station on it. Seve
 | Several supervisors in parallel on the same scope | Each reads the feed on its own; reviews all apply; conflicting commands go through the arbiter | #1797 |
 | In sequence (first opinion wins, others are fallback) | Composite `CHAIN`; for input requests, route tiers | #1797, #1796 |
 | Together, by vote | Composite `QUORUM`; for input requests, a tier with `QUORUM` or `UNANIMOUS` | #1797, #1796 |
-| One section to one supervisor, another section to another | **Section scope**: a binding for `workflow:<s>/<w>#build.*` and another for `#deploy.*` | #1855 |
+| One section to one supervisor, another section to another | **Section scope**: a binding for `workflow:<s>/<w>//build.*` and another for `//deploy.*` | #1855 |
 | A section shared by several supervisors, or a section inside a workflow that also has an owner | Overlapping bindings: all matching supervisors review, the arbiter coordinates commands | #1855, #1797 |
 | An operation needs a second opinion first | **Review requires approval**: the command is parked and an `APPROVAL` input request goes through the route | #1856 |
 | Sequential approval, parallel approval | Route tiers (sequence) and quorum (parallel) on that request | #1856, #1796 |
@@ -263,7 +263,7 @@ Picture a production line. A supervisor watches a line, or a station on it. Seve
 
 ### Sections (#1855)
 
-- A section is a set of node selectors (exact ids and `prefix.*`) inside one workflow, written as the scope text `workflow:<sessionId>/<workflowId>#sel,sel`. It is stored in the existing scope text column, so there is no migration. The selector rule is the UI's default grouping (the part before the first dot); an explicit `Node.group` is display only and is not used (D18).
+- A section is a set of node selectors (exact ids and `prefix.*`) inside one workflow, written as the scope text `workflow:<sessionId>/<workflowId>//sel,sel` (`//`, not `#` as first proposed: session and workflow ids may contain `#` but never `/`; changed in #1855). It is stored in the existing scope text column, so there is no migration. The selector rule is the UI's default grouping (the part before the first dot); an explicit `Node.group` is display only and is not used (D18).
 - Matching gets the node: `SupervisorScope.matches(session, workflow, node)`, `ControlRequest.nodeId` (from the command), `ExecutionEvent.nodeId()`. Workflow-wide items (workflow events, `Pause/Resume/StopWorkflowCommand`, priority, restart) are **not** seen by section supervisors, so a section owner cannot hold up or veto a whole run (D19).
 - `SupervisorScope.covers(other)` defines "scope X contains scope Y". Strict cover is a strict partial order, so it has no cycles. Composite validation, ownership of holds and escalation all use it.
 - **A scope must limit what a supervisor does, not only what it sees.** Today `SupervisorHost.apply` sends whatever a supervisor emits. #1855 refuses a command whose target is outside the scope (`outcome=out-of-scope`), and allows commands without a run (`SetLimitsCommand`) only for `Global`. Without this, several owners cannot be trusted to stay in their parts (D20).

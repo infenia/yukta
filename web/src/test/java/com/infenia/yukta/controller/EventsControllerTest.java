@@ -241,7 +241,7 @@ class EventsControllerTest {
             .stream(null, false, type, null)
                 .mapNotNull(ServerSentEvent::data)
                 .map(EventsController.Envelope::type)
-                .take(Duration.ofMillis(1500))
+                .take(Duration.ofMillis(3000))
                 .collectList()
                 .toFuture();
     final Instant now = Instant.now();
@@ -253,8 +253,9 @@ class EventsControllerTest {
                 "e1", "s", "wf", "r1", new Responder(Responder.Type.HUMAN, "ann"), "ok", now),
             new ExecutionEvent.InputExpired("e1", "s", "wf", "r1", now),
             new ExecutionEvent.InputCancelled("e1", "s", "wf", "r1", "run-ended", now))
-        // the feed subscribes each reader on another thread: give it time before publishing
-        .delaySubscription(Duration.ofMillis(400))
+        // the feed subscribes each reader on another thread: give it time before publishing (a
+        // loaded CI runner needs a full second)
+        .delaySubscription(Duration.ofMillis(1000))
         .publishOn(Schedulers.single())
         .subscribe(feed::publish);
     return received.join();

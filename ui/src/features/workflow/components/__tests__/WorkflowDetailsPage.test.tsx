@@ -486,7 +486,7 @@ describe('WorkflowDetailsPage', () => {
       })
     );
     expect(await screen.findByTestId('control-search')).toHaveTextContent(
-      /^\?execution=.+/
+      /^\?tab=audit&execution=.+/
     );
   });
 

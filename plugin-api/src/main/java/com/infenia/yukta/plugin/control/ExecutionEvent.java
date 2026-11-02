@@ -44,6 +44,16 @@ public sealed interface ExecutionEvent {
   @Nullable String workflowId();
 
   /**
+   * The node the event is about. A {@code SECTION} supervisor sees only the events of its nodes; an
+   * event about the whole run names no node.
+   *
+   * @return the node id, or {@code null} when the event is about the whole run or no run
+   */
+  default @Nullable String nodeId() {
+    return null;
+  }
+
+  /**
    * When the event happened.
    *
    * @return the time
@@ -108,6 +118,7 @@ public sealed interface ExecutionEvent {
    * @param applied true if it was applied, false if it was rejected
    * @param reason why it was rejected, otherwise {@code null}
    * @param timestamp when it happened
+   * @param nodeId the node the command acted on, or {@code null} for a command on the whole run
    */
   record ControlOutcome(
       String executionId,
@@ -117,8 +128,34 @@ public sealed interface ExecutionEvent {
       @Nullable String actor,
       boolean applied,
       @Nullable String reason,
-      Instant timestamp)
-      implements ExecutionEvent {}
+      Instant timestamp,
+      @Nullable String nodeId)
+      implements ExecutionEvent {
+
+    /**
+     * The outcome of a command on the whole run.
+     *
+     * @param executionId the execution the command addressed
+     * @param sessionId the session that owns it, or {@code null}
+     * @param workflowId the workflow it runs, or {@code null}
+     * @param command the command name
+     * @param actor who sent it, or {@code null}
+     * @param applied true if it was applied
+     * @param reason why it was rejected, otherwise {@code null}
+     * @param timestamp when it happened
+     */
+    public ControlOutcome(
+        final String executionId,
+        final @Nullable String sessionId,
+        final @Nullable String workflowId,
+        final String command,
+        final @Nullable String actor,
+        final boolean applied,
+        final @Nullable String reason,
+        final Instant timestamp) {
+      this(executionId, sessionId, workflowId, command, actor, applied, reason, timestamp, null);
+    }
+  }
 
   /**
    * A node wrote a log line.
@@ -221,6 +258,11 @@ public sealed interface ExecutionEvent {
     public String workflowId() {
       return request.workflowId();
     }
+
+    @Override
+    public String nodeId() {
+      return request.nodeId();
+    }
   }
 
   /**
@@ -260,6 +302,11 @@ public sealed interface ExecutionEvent {
     public String workflowId() {
       return request.workflowId();
     }
+
+    @Override
+    public String nodeId() {
+      return request.nodeId();
+    }
   }
 
   /**
@@ -273,6 +320,7 @@ public sealed interface ExecutionEvent {
    * @param responder who answered
    * @param decision what was decided
    * @param timestamp when it was answered
+   * @param nodeId the node that asked, or {@code null} when not known
    */
   record InputAnswered(
       String executionId,
@@ -281,8 +329,32 @@ public sealed interface ExecutionEvent {
       String requestId,
       Responder responder,
       String decision,
-      Instant timestamp)
-      implements ExecutionEvent {}
+      Instant timestamp,
+      @Nullable String nodeId)
+      implements ExecutionEvent {
+
+    /**
+     * An answer whose node is not known.
+     *
+     * @param executionId the run that asked
+     * @param sessionId the session of the run
+     * @param workflowId the workflow of the run
+     * @param requestId the request
+     * @param responder who answered
+     * @param decision what was decided
+     * @param timestamp when it was answered
+     */
+    public InputAnswered(
+        final String executionId,
+        final @Nullable String sessionId,
+        final @Nullable String workflowId,
+        final String requestId,
+        final Responder responder,
+        final String decision,
+        final Instant timestamp) {
+      this(executionId, sessionId, workflowId, requestId, responder, decision, timestamp, null);
+    }
+  }
 
   /**
    * An input request expired without an answer.
@@ -292,14 +364,35 @@ public sealed interface ExecutionEvent {
    * @param workflowId the workflow of the run
    * @param requestId the request
    * @param timestamp when it expired
+   * @param nodeId the node that asked, or {@code null} when not known
    */
   record InputExpired(
       String executionId,
       @Nullable String sessionId,
       @Nullable String workflowId,
       String requestId,
-      Instant timestamp)
-      implements ExecutionEvent {}
+      Instant timestamp,
+      @Nullable String nodeId)
+      implements ExecutionEvent {
+
+    /**
+     * An expiry whose node is not known.
+     *
+     * @param executionId the run that asked
+     * @param sessionId the session of the run
+     * @param workflowId the workflow of the run
+     * @param requestId the request
+     * @param timestamp when it expired
+     */
+    public InputExpired(
+        final String executionId,
+        final @Nullable String sessionId,
+        final @Nullable String workflowId,
+        final String requestId,
+        final Instant timestamp) {
+      this(executionId, sessionId, workflowId, requestId, timestamp, null);
+    }
+  }
 
   /**
    * An input request was cancelled, for example because its run ended.
@@ -310,6 +403,7 @@ public sealed interface ExecutionEvent {
    * @param requestId the request
    * @param reason why, such as {@code run-ended} or {@code node-cancelled}
    * @param timestamp when it was cancelled
+   * @param nodeId the node that asked, or {@code null} when not known
    */
   record InputCancelled(
       String executionId,
@@ -317,6 +411,28 @@ public sealed interface ExecutionEvent {
       @Nullable String workflowId,
       String requestId,
       String reason,
-      Instant timestamp)
-      implements ExecutionEvent {}
+      Instant timestamp,
+      @Nullable String nodeId)
+      implements ExecutionEvent {
+
+    /**
+     * A cancellation whose node is not known.
+     *
+     * @param executionId the run that asked
+     * @param sessionId the session of the run
+     * @param workflowId the workflow of the run
+     * @param requestId the request
+     * @param reason why
+     * @param timestamp when it was cancelled
+     */
+    public InputCancelled(
+        final String executionId,
+        final @Nullable String sessionId,
+        final @Nullable String workflowId,
+        final String requestId,
+        final String reason,
+        final Instant timestamp) {
+      this(executionId, sessionId, workflowId, requestId, reason, timestamp, null);
+    }
+  }
 }

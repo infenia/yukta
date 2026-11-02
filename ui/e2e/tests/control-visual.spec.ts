@@ -71,6 +71,8 @@ async function mockControlPage(page: Page) {
 }
 
 test.describe('Control dashboard screenshots', () => {
+  // the chart's time labels follow the zone; CI runs in UTC
+  test.use({ timezoneId: 'UTC' });
   for (const [name, scheme, width] of [
     ['light', 'light', 1280],
     ['dark', 'dark', 1280],
@@ -88,6 +90,8 @@ test.describe('Control dashboard screenshots', () => {
       await page.waitForLoadState('networkidle');
       await expect(page).toHaveScreenshot(`control-${name}.png`, {
         fullPage: true,
+        // chart axes carry the wall-clock time and wrap by font metrics
+        mask: [page.locator('.recharts-wrapper')],
         maxDiffPixels: 6000,
         threshold: 0.2,
       });

@@ -289,7 +289,7 @@ export function WorkflowDetailsPage() {
                   <DropdownMenuItem
                     onClick={() =>
                       void navigate(
-                        `/control?execution=${encodeURIComponent(selectedExecutionId)}`
+                        `/control?tab=audit&execution=${encodeURIComponent(selectedExecutionId)}`
                       )
                     }
                   >

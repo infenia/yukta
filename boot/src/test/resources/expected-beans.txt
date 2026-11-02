@@ -76,6 +76,7 @@ com.infenia.yukta.message.channel.DirectNodeMessageChannelConfiguration
 com.infenia.yukta.message.channel.DirectNodeMessageChannelProvider
 com.infenia.yukta.plugin.core.filter.FilterProcessor
 com.infenia.yukta.plugin.core.filter.ValidateProcessor
+com.infenia.yukta.plugin.core.flow.AskInputProcessor
 com.infenia.yukta.plugin.core.flow.DelayProcessor
 com.infenia.yukta.plugin.core.flow.KvStoreProcessor
 com.infenia.yukta.plugin.core.flow.LoopPredicateProcessor

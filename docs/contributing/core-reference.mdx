@@ -599,14 +599,14 @@ Hands a named signal (for example `approve`) to the plugin of a node, through th
 
 **Behaviour**
 
-- The plugin must answer `ACCEPTED` or `QUEUED`. A node of a live run that is not waiting yet keeps the signal for **ten minutes** (at most 100, `QUEUED`); a signal for a node that is not registered gives HTTP 409.
-- Waits of all plugins share `SignalWaits.shared()`, so one list of open approvals (oldest first) serves REST, MCP and the workflow page.
+- The signal answers the open input request of the node that carries its name; a signal that arrives before the request exists is not kept (HTTP 409).
+- Waits are input requests (`InputGateway`): `WAIT_FOR_SIGNAL` and `requireApproval` ask a `HIGH` risk `APPROVAL`, whose context carries the signal name, so this command (and `answer_input`) answers it and one list of open approvals (oldest first) serves REST, MCP and the workflow page. A node with no open request for the signal gives HTTP 409. `SignalWaits` is gone.
 - `WAIT_FOR_SIGNAL` holds each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, `onTimeout`, `onReject`) and tags it with `signal.name/decision/data`.
 - An answer is recorded in the checkpoint store as a message of pseudo node `signal:<node>` (a timeout is not), so a resumed run reuses it for the same message id instead of waiting again.
 
 **Surface:** REST `POST /api/executions/{id}/nodes/{node}/signal?name=&decision=&data=`, `GET /api/sessions/{s}/approvals`. MCP `signal_node`, `list_pending_approvals`.
 
-**Source:** `SignalNodeCommandProcessor` `SignalWaits` `PendingApproval`
+**Source:** `SignalNodeCommandProcessor` `InputSignalBridge` `PendingApproval`
 
 **Limits:** The wait itself is in memory: after a restart a message produced again waits for a new signal, and a pending approval is invisible until its node waits again. Live waits are lost on HA takeover.
 
@@ -635,12 +635,14 @@ Programs that watch every run and steer it: a rule engine, an AI agent or your o
 - A bean implements `ExecutionSupervisor`: `supervise(Flux<ExecutionEvent>)` receives the global event feed and returns `ExecutionControlCommand`s. `SupervisorHost` subscribes each supervisor once and applies commands with the supervisor id as actor (logged as `PauseWorkflowCommand [by <id>]`).
 - **Isolation:** failures resubscribe with backoff; commands are limited to `yukta.supervisor.max-commands-per-second` (20); `yukta.supervisor.dry-run=true` records without applying; a supervisor never sees the outcome of its own commands; events arrive through a bounded buffer (256) on `boundedElastic`, and a slow supervisor drops events (`yukta.tracker.dropped{kind=supervisor}`) instead of holding the tracker.
 - **No JVM code needed:** the feed is also an SSE stream, `GET /api/events/stream` (filters `executionId`, `type`); external agents steer through REST or MCP.
-- `GET /api/supervisors` reports kind (`CONTROL_PLANE` \| `SUPERVISOR`), order, dry-run flag and command counts.
+- `GET /api/supervisors` reports kind (`CONTROL_PLANE` \| `SUPERVISOR`), order, dry-run flag, command counts and scope (`scope`, `scopeSessionId`, `scopeWorkflowId`, `scopeNodes`).
+- **Scopes** (`SupervisorScope`: `Global`, `Session`, `Workflow`, `Section`): a scope filters the events a supervisor sees (`matches(session, workflow, event.nodeId())`), the commands it reviews (`ControlRequest.nodeId`) and the commands it may send. A `Section` (`workflow:[<s>/]<w>//<selector>,...`; a selector is a node id or `<prefix>.*`, 1 to 50) matches only items that name one of its nodes, never a workflow-wide event or command. `covers` and `strictlyCovers` order scopes (global, session, workflow, section); strict cover has no cycles.
+- **Scope enforcement:** `SupervisorHost` resolves a command's target with `DirectiveDispatcher.target` (session and workflow of the live or archived run; the command's node, or the node of the input request for an answer or escalation) and sends it only when the supervisor's scope matches; otherwise `outcome=out-of-scope`, before the rate limit and also in dry-run. A command that belongs to no run is in scope for `Global` only.
 - Reference implementation: `plugins/supervisors/rule-supervisor` (JSON rules + SpEL).
 
 **Configure:** `yukta.supervisor.max-commands-per-second` · `yukta.supervisor.dry-run` · `yukta.supervisor.rules.file`
 
-**Source:** `SupervisorHost` `ExecutionEventFeed` `SupervisorInfo` `ExecutionSupervisor`
+**Source:** `SupervisorHost` `ExecutionEventFeed` `SupervisorInfo` `ExecutionSupervisor` `SupervisorScope` `CommandTarget`
 
 **Limits:** Event delivery is best effort. Commands are rate limited but a supervisor can still react to the state changes it causes.
 
@@ -1123,7 +1125,7 @@ All meters are Micrometer. Tags in braces.
 | `yukta.checkpoint.bytes` | gauge | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Node output held by the checkpoint store |
 | `yukta.checkpoint.errors` | counter | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | End markers that failed to write |
 | `yukta.plugin.events` `{plugin, outcome}` | counter | [EXT-01](#ext-01-plugin-contract-and-registry) | Counters a plugin reports through the metrics reporter |
-| `yukta.supervisor.commands` `{id, outcome}` | counter | [CTL-07](#ctl-07-supervisors) | Commands issued by supervisors (outcomes include `forbidden`: not in the supervisor's `allowedCommands`) |
+| `yukta.supervisor.commands` `{id, outcome}` | counter | [CTL-07](#ctl-07-supervisors) | Commands issued by supervisors (outcomes include `forbidden`: not in the supervisor's `allowedCommands`; `out-of-scope`: the target is outside the supervisor's scope) |
 | `yukta.input.requests` `{kind, risk, outcome}` | counter | [CTL-09](#ctl-09-input-requests) | Input requests: asked, answered, defaulted, escalated, expired, cancelled |
 | `yukta.input.wait` `{tier}` | timer | [CTL-09](#ctl-09-input-requests) | Time from ask to the end of a request |
 | `yukta.input.open` | gauge | [CTL-09](#ctl-09-input-requests) | Input requests open or escalated now |
