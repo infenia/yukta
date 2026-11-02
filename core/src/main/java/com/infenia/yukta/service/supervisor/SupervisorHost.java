@@ -52,7 +52,9 @@ import reactor.util.retry.Retry;
  *
  * <p>A supervisor cannot harm the executions: its failures are logged and retried with a backoff,
  * its commands are rate limited, and with {@code yukta.supervisor.dry-run=true} they are only
- * recorded.
+ * recorded. It acts only within its scope: a command for another run, for a node outside its
+ * section, for a whole run from a section supervisor, or for no run from a supervisor that is not
+ * global is not sent ({@code outcome=out-of-scope}).
  */
 @Slf4j
 @Component
@@ -70,6 +72,9 @@ public class SupervisorHost {
 
   /** Outcome recorded for a command a dry-run supervisor would have refused. */
   private static final String DRY_RUN = "dry-run";
+
+  /** Outcome recorded for a command whose target is outside the supervisor's scope. */
+  private static final String OUT_OF_SCOPE = "out-of-scope";
 
   /** Key of the supervisor in log entries. */
   private static final String SUPERVISOR_KEY = "supervisor";
@@ -353,7 +358,8 @@ public class SupervisorHost {
                     .log("Supervisor failed; restarting"))
         .retryWhen(
             Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1)).maxBackoff(Duration.ofMinutes(1)))
-        .concatMap(command -> apply(supervisorId, command, limit, recordOnly, allowed))
+        .concatMap(
+            command -> apply(supervisorId, supervisor.scope(), command, limit, recordOnly, allowed))
         .subscribeOn(Schedulers.boundedElastic())
         .subscribe();
   }
@@ -394,6 +400,7 @@ public class SupervisorHost {
 
   private Mono<Void> apply(
       final String supervisorId,
+      final SupervisorScope scope,
       final ExecutionControlCommand command,
       final RateLimit limit,
       final boolean recordOnly,
@@ -407,13 +414,52 @@ public class SupervisorHost {
               "forbidden",
               command,
               command.getClass().getSimpleName() + " is not in allowedCommands of this supervisor");
-    } else if (limit.tryAcquire()) {
-      result =
-          recordOnly
-              ? notApplied(supervisorId, DRY_RUN, command, DRY_RUN)
-              : send(supervisorId, command);
     } else {
+      // out of scope is dropped before the rate limit too, and in dry-run, so the record is the
+      // same either way
+      result =
+          inScope(scope, command)
+              .flatMap(
+                  inside ->
+                      inside
+                          ? limited(supervisorId, command, limit, recordOnly)
+                          : notApplied(
+                              supervisorId,
+                              OUT_OF_SCOPE,
+                              command,
+                              "target outside scope " + scope.key()));
+    }
+    return result;
+  }
+
+  /**
+   * Whether a command acts within a scope: on a run, and for a section on a node, that the scope
+   * matches. A command that belongs to no run is within a global scope only, and one on a whole run
+   * is never within a section. A target that cannot be read counts as outside.
+   */
+  private Mono<Boolean> inScope(
+      final SupervisorScope scope, final ExecutionControlCommand command) {
+    return scope instanceof SupervisorScope.Global
+        ? Mono.just(true)
+        : dispatcher
+            .target(command)
+            .map(target -> scope.matches(target.sessionId(), target.workflowId(), target.nodeId()))
+            .onErrorReturn(false);
+  }
+
+  /** Applies a command in scope, or records it in dry-run or over the rate limit. */
+  private Mono<Void> limited(
+      final String supervisorId,
+      final ExecutionControlCommand command,
+      final RateLimit limit,
+      final boolean recordOnly) {
+    final Mono<Void> result;
+    if (!limit.tryAcquire()) {
       result = notApplied(supervisorId, "rate-limited", command, "rate limit exceeded");
+    } else if (recordOnly) {
+      result = notApplied(supervisorId, DRY_RUN, command, DRY_RUN);
+    } else {
+      result = send(supervisorId, command);
     }
     return result;
   }
