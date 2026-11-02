@@ -125,7 +125,37 @@ public record YuktaProperties(
       @DefaultValue("false") boolean dryRun,
       @Min(1) @DefaultValue("20") int maxCommandsPerSecond,
       @Min(1) @DefaultValue("10000") int bufferSize,
-      @NotNull @DefaultValue("5s") Duration reviewTimeout) {}
+      @NotNull @DefaultValue("5s") Duration reviewTimeout,
+      @Valid @NotNull @DefaultValue Arbiter arbiter) {}
+
+  /**
+   * How commands of supervisors that act on the same target are ordered.
+   *
+   * @param window how long conflicting commands wait for each other; zero turns the arbiter off
+   * @param flapPeriod the period in which turn-arounds are counted
+   * @param flapLimit most turn-arounds of one target by one supervisor in the period
+   * @param flapCooldown how long a supervisor over the limit is blocked
+   */
+  public record Arbiter(
+      @NotNull @DefaultValue("500ms") Duration window,
+      @NotNull @DefaultValue("60s") Duration flapPeriod,
+      @Min(1) @DefaultValue("4") int flapLimit,
+      @NotNull @DefaultValue("5m") Duration flapCooldown) {
+
+    /** Checks that the window is not negative and the other durations are positive. */
+    public Arbiter {
+      if (window.isNegative()) {
+        throw new IllegalArgumentException("yukta.supervisor.arbiter.window must not be negative");
+      }
+      if (flapPeriod.isZero() || flapPeriod.isNegative()) {
+        throw new IllegalArgumentException("yukta.supervisor.arbiter.flap-period must be positive");
+      }
+      if (flapCooldown.isZero() || flapCooldown.isNegative()) {
+        throw new IllegalArgumentException(
+            "yukta.supervisor.arbiter.flap-cooldown must be positive");
+      }
+    }
+  }
 
   /**
    * Input requests: what a plugin may ask, how long a request waits and how many are kept.

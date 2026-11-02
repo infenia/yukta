@@ -25,6 +25,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
@@ -122,6 +123,9 @@ public class SupervisorHost {
   /** The supervisors attached at run time. */
   private AttachedSupervisors attachedSupervisors = new AttachedSupervisors();
 
+  /** Orders the conflicting commands of supervisors. */
+  private final CommandArbiter arbiter;
+
   /**
    * Creates the host.
    *
@@ -148,7 +152,8 @@ public class SupervisorHost {
         meters,
         properties.supervisor().dryRun(),
         properties.supervisor().maxCommandsPerSecond(),
-        properties.supervisor().bufferSize());
+        properties.supervisor().bufferSize(),
+        new CommandArbiter(properties.supervisor().arbiter()));
   }
 
   /**
@@ -173,6 +178,43 @@ public class SupervisorHost {
       final boolean dryRun,
       final int maxCommandsPerSecond,
       final int bufferSize) {
+    this(
+        supervisors,
+        feed,
+        dispatcher,
+        executionLog,
+        meters,
+        dryRun,
+        maxCommandsPerSecond,
+        bufferSize,
+        CommandArbiter.disabled());
+  }
+
+  /**
+   * Creates the host with an arbiter for the commands of its supervisors.
+   *
+   * @param supervisors the supervisors to host
+   * @param feed the event feed
+   * @param dispatcher sends their commands
+   * @param executionLog records what happened to their commands
+   * @param meters registry for the metrics
+   * @param dryRun whether commands are only recorded
+   * @param maxCommandsPerSecond the command rate limit of one supervisor
+   * @param bufferSize events a supervisor may have waiting
+   * @param arbiter orders conflicting commands
+   */
+  @SuppressFBWarnings("EI_EXPOSE_REP2")
+  public SupervisorHost(
+      final ObjectProvider<ExecutionSupervisor> supervisors,
+      final ExecutionEventFeed feed,
+      final DirectiveDispatcher dispatcher,
+      final ExecutionLogStore executionLog,
+      final MeterRegistry meters,
+      final boolean dryRun,
+      final int maxCommandsPerSecond,
+      final int bufferSize,
+      final CommandArbiter arbiter) {
+    this.arbiter = arbiter;
     this.bufferSize = bufferSize;
     this.supervisors = supervisors;
     this.feed = feed;
@@ -359,7 +401,15 @@ public class SupervisorHost {
         .retryWhen(
             Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1)).maxBackoff(Duration.ofMinutes(1)))
         .concatMap(
-            command -> apply(supervisorId, supervisor.scope(), command, limit, recordOnly, allowed))
+            command ->
+                apply(
+                    supervisorId,
+                    supervisor.order(),
+                    supervisor.scope(),
+                    command,
+                    limit,
+                    recordOnly,
+                    allowed))
         .subscribeOn(Schedulers.boundedElastic())
         .subscribe();
   }
@@ -400,6 +450,7 @@ public class SupervisorHost {
 
   private Mono<Void> apply(
       final String supervisorId,
+      final int order,
       final SupervisorScope scope,
       final ExecutionControlCommand command,
       final RateLimit limit,
@@ -422,7 +473,7 @@ public class SupervisorHost {
               .flatMap(
                   inside ->
                       inside
-                          ? limited(supervisorId, command, limit, recordOnly)
+                          ? arbitrated(supervisorId, order, command, limit, recordOnly)
                           : notApplied(
                               supervisorId,
                               OUT_OF_SCOPE,
@@ -445,6 +496,26 @@ public class SupervisorHost {
             .target(command)
             .map(target -> scope.matches(target.sessionId(), target.workflowId(), target.nodeId()))
             .onErrorReturn(false);
+  }
+
+  /** Lets the arbiter decide a command that can conflict, then applies it or records why not. */
+  private Mono<Void> arbitrated(
+      final String supervisorId,
+      final int order,
+      final ExecutionControlCommand command,
+      final RateLimit limit,
+      final boolean recordOnly) {
+    return arbiter
+        .submit(supervisorId, order, command)
+        .flatMap(
+            decision ->
+                decision.verdict() == CommandArbiter.Verdict.SEND
+                    ? limited(supervisorId, command, limit, recordOnly)
+                    : notApplied(
+                        supervisorId,
+                        decision.verdict().name().toLowerCase(Locale.ROOT).replace('_', '-'),
+                        command,
+                        decision.reason()));
   }
 
   /** Applies a command in scope, or records it in dry-run or over the rate limit. */
