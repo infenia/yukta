@@ -31,9 +31,39 @@ All of them send commands through the same ordered, reviewed and audited pipelin
 - **React to events.** Receive every event (a node changed status, a workflow changed status, a command was applied or rejected, a log line was written) and answer with commands.
 - **Veto commands.** A **reviewer** can refuse any command, from a person or a program, before it runs. The first refusal wins, and a reviewer that errors refuses. The caller gets `403` and the log records the rejection.
 
-- **Limit what it watches.** A supervisor has a **scope**: all runs (the default), the runs of one session, or the runs of one workflow. It sees only the events of runs in its scope and is asked to review only their commands. A command that belongs to no run, such as changing the scheduler limits, is reviewed by global supervisors only. `GET /api/supervisors` reports each supervisor's `scope`, `scopeSessionId` and `scopeWorkflowId`.
+- **Limit what it watches and does.** A supervisor has a **scope** (see [Scopes](#scopes)): all runs (the default), the runs of one session, the runs of one workflow, or a section (some nodes) of one workflow. It sees only the events in its scope, is asked to review only the commands in it, and may send only commands in it. `GET /api/supervisors` reports each supervisor's `scope`, `scopeSessionId`, `scopeWorkflowId` and, for a section, `scopeNodes`.
 
 Commands sent by a supervisor go through the same ordered, reviewed, audited pipeline as everyone else's. They are logged and audited with the supervisor's id as the actor.
+
+## Scopes
+
+| Scope | Text | Sees and reviews | May send |
+|---|---|---|---|
+| Global | `global` | Everything, including commands that belong to no run (scheduler limits) | Any command |
+| Session | `session:<id>` | The runs of the session | Commands for runs of the session |
+| Workflow | `workflow:<id>` or `workflow:<sessionId>/<workflowId>` | The runs of the workflow (in any session, or in that session) | Commands for those runs |
+| Section | `workflow:[<sessionId>/]<workflowId>//<selector>,<selector>` | The events and node commands of the selected nodes of those runs | Node commands for the selected nodes |
+
+- **Sections.** A selector is a node id (exact) or `<prefix>.*`, every node whose id starts with `<prefix>.` (`build.*` takes `build.compile` and `build.test.unit`, not `build` or `builder.x`). This is the rule the UI uses to group nodes that have no explicit `group`; an explicit `group` is not a selector. A section has 1 to 50 selectors, each at most 256 characters and without a comma. Session and workflow ids cannot contain `/`, so the first `//` always starts the selectors.
+- **Workflow-wide items are not a section's.** A section supervisor does not see workflow status events, does not review workflow commands (pause, resume or stop the workflow, priority, restart, also restart from a node) and may not send them. The workflow, session and global supervisors of the run do. So a section owner can never hold up or stop a whole run.
+- **Input requests** belong to the node that asked: a section supervisor sees, reviews and may answer (with `canAnswer`) the requests of its nodes.
+- **Overlap is allowed.** Two sections, or a section and a workflow binding, may take the same node. All of them see its events and review its commands; the first refusal wins, as always.
+- **Out of scope is refused.** A command a supervisor sends for a run, a node or no run outside its scope is not sent. It is counted in `yukta.supervisor.commands{outcome=out-of-scope}`, listed in the decisions with the reason `target outside scope <scope>`, and recorded as rejected in the control audit. The check also runs in dry-run, so the record is the same. This applies to bindings made before sections existed: a session or workflow binding could act on any run before, and now acts only within its scope, as the scope always meant. Global bindings and supervisors configured as beans are global and unaffected.
+
+### Two supervisors on two stages
+
+A release workflow `release` in session `s1` builds (`build.compile`, `build.test`) and then deploys (`deploy.staging`, `deploy.prod`). One profile watches the build, another the deploy, and a third the whole workflow:
+
+```bash
+curl -X POST http://localhost:9858/api/supervisors/bindings -H 'Content-Type: application/json' \
+  -d '{"id":"build-guard","profileId":"build-rules","scope":"workflow:s1/release//build.*"}'
+curl -X POST http://localhost:9858/api/supervisors/bindings -H 'Content-Type: application/json' \
+  -d '{"id":"deploy-guard","profileId":"deploy-model","scope":"workflow:s1/release//deploy.*"}'
+curl -X POST http://localhost:9858/api/supervisors/bindings -H 'Content-Type: application/json' \
+  -d '{"id":"release-guard","profileId":"release-rules","scope":"workflow:s1/release"}'
+```
+
+`build-guard` sees only the build nodes and may pause, skip or step them; a `PauseNodeCommand` it sends for `deploy.prod` is refused as `out-of-scope`. A person pausing `deploy.prod` is reviewed by `deploy-guard` and `release-guard`; a person stopping the whole run is reviewed by `release-guard` only.
 
 ## The built-in rule supervisor
 
@@ -51,13 +81,13 @@ Besides the supervisors configured at startup, you can create **profiles** and *
 
 - A **profile** names a supervisor type (`GET /api/supervisors/types`), its settings and whether its commands are only recorded (`dryRun`). For `rule-supervisor` the settings are the rules file: `{"rules": [...]}`.
 - Profile and binding ids (and the id of a supervisor configured as a bean) match `[A-Za-z0-9._-]{1,64}`: no `:` and no whitespace, so an id never looks like an actor such as `key:admin` in the audit log. A bad id is refused with 400 and the rule in the message; a bean supervisor with a bad `id()` stops the server from starting. With PostgreSQL, stored ids that broke the rule are renamed by migration V8 (bad characters become `_`, a collision gets `-2`, `-3`, ...). The table `supervisor_id_migration` maps old to new, and the server logs one warning per renamed id at startup. Entries already in the execution log keep the old actor string.
-- A **binding** attaches a profile to a scope: `global`, `session:<id>`, `workflow:<id>` or `workflow:<sessionId>/<workflowId>`. `POST /api/supervisors/bindings` starts it at once; `DELETE /api/supervisors/bindings/{id}` stops it, and deleting a session removes the bindings limited to it.
+- A **binding** attaches a profile to a scope: `global`, `session:<id>`, `workflow:<id>`, `workflow:<sessionId>/<workflowId>`, or a section such as `workflow:<sessionId>/<workflowId>//build.*,publish` (see [Scopes](#scopes)). For several scopes, make several bindings of the same profile. `POST /api/supervisors/bindings` starts it at once; `DELETE /api/supervisors/bindings/{id}` stops it, and deleting a session removes the bindings limited to it.
 - A profile's settings can limit and empower its supervisor: `allowedCommands` (a list of command names such as `PauseWorkflowCommand`; a command outside it is dropped and counted as `forbidden`; leave it out for no limit), `canAnswer` (default `false`: may it answer input requests) and `maxRisk` (`LOW`, `MEDIUM` or `HIGH`, default `LOW`). A request of risk `HIGH` can only be answered by a person, whatever these say; a supervisor can still hand any request up.
 - Changing a profile (`PUT /api/supervisors/profiles/{id}`) restarts the supervisors that use it. A profile that a binding uses cannot be deleted.
 - An attached supervisor sees events and reviews commands from the moment it is attached, so a run that is already going is supervised from there, not from its start.
 - At most 50 bindings. Attaching and detaching are recorded in the execution log under the run id `supervisors`, with the caller as actor. Values under settings keys that look like secrets (`key`, `secret`, `token`, `password`) are shown as `***`.
 - Reading needs a viewer key; creating, changing and removing needs an admin key. Profiles and bindings are kept in memory and are gone after a restart, unless the server uses PostgreSQL (`yukta.session.store-type=postgres`), which keeps them in the tables `supervisor_profile` and `supervisor_binding`; an enabled binding then starts again at startup. The settings are stored as given, a model API key included.
-- `GET /api/supervisors/decisions?binding=&limit=` lists what became of the newest commands supervisors emitted since startup (`applied`, `rejected`, `dry-run`, `rate-limited`), newest first, at most 500 are kept.
+- `GET /api/supervisors/decisions?binding=&limit=` lists what became of the newest commands supervisors emitted since startup (`applied`, `rejected`, `dry-run`, `rate-limited`, `forbidden`, `out-of-scope`), newest first, at most 500 are kept.
 - The MCP tools `list_supervisors`, `attach_supervisor` and `detach_supervisor` do the same for agents; profiles are created through the REST API.
 
 ## Safety
@@ -70,6 +100,7 @@ A supervisor can never hold up an execution:
 | Rate limit | At most `yukta.supervisor.max-commands-per-second` commands (default `20`) |
 | Dry run | `yukta.supervisor.dry-run=true` records commands without applying them |
 | No feedback loop | A supervisor never sees the outcome of its own commands |
+| Scope | A command outside the supervisor's scope is refused (`out-of-scope`) |
 | Slow consumers | Events reach a supervisor through a buffer (`yukta.supervisor.buffer-size`, default 10,000). Only when it overflows are events dropped (counted in `yukta.tracker.dropped` with `kind=supervisor`) instead of slowing the engine, and the supervisor then receives an `EventsMissed` event with the count |
 
 Event delivery is best effort, but a gap is never silent: a rule that must not miss a case should treat `EventsMissed` (rule field `status=EVENTS_MISSED`, `missed` = count) as a reason to check the execution log or fail safe (for example pause). The notice arrives with the next event after the gap. Commands are rate limited, but a supervisor can still react to the state changes its own commands cause.
