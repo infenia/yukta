@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Use case: production release with a human approval gate, a smoke check and automatic rollback.
 # This script installs release.sh (the stand-in for your real commands) and plays the approver:
-# it waits for the pending approval, then sends the signal.
+# it waits for the pending approval, then answers the input request.
 # Needs a server that allows `sh` (yukta.process.allowed-commands=sh, or YUKTA_PROCESS_ALLOW_ANY=true).
 set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
@@ -46,12 +46,12 @@ wait_done() {  # [SECONDS] -> STATUS, LOGS
 wait_approval() {  # NODE
   local i
   for ((i = 0; i < 40; i++)); do
-    api GET "/api/sessions/$SID/approvals" | jq -e --arg e "$EID" --arg n "$1" '.data[] | select(.executionId == $e and .nodeId == $n)' >/dev/null && return 0
+    api GET "/api/sessions/$SID/inputs" | jq -e --arg e "$EID" --arg n "$1" '.data[] | select(.executionId == $e and .nodeId == $n)' >/dev/null && return 0
     sleep 1
   done
   echo "    FAIL: node $1 never started waiting"; exit 1
 }
-signal() { api POST "/api/executions/$EID/nodes/$1/signal?name=$2&decision=$3" >/dev/null; }  # NODE NAME DECISION
+signal() { answer_input "$EID" "$1" "$3"; }  # NODE NAME DECISION (NAME is the request name, unused)
 outcome_of() {  # NODE: the outcome the terminal NODE reported, empty when it was not reached
   api GET "/api/executions/$EID" | jq -r --arg n "$1" '.data.tasks[] | select(.nodeId == $n and .metadata.reached == true) | .metadata.outcome'
 }

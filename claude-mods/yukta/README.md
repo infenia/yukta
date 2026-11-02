@@ -2,7 +2,7 @@
 
 A live view of your Yukta server inside Claude Code.
 
-- `/yukta` opens a pane: running executions (Stop) and pending approvals (Approve / Reject)
+- `/yukta` opens a pane: running executions (Stop) and pending approval requests (Approve / Reject)
 - toasts when a run ends or waits for approval
 - a band above the prompt while an approval waits
 - the Yukta MCP server (`mcp__plugin_yukta_yukta__*` tools)

@@ -170,11 +170,6 @@ func (c *Client) ValidateWorkflow(definitionJSON []byte) (any, error) {
 	return c.dataCall("POST", "/api/sessions/validate", definitionJSON)
 }
 
-// GetPendingApprovals lists the approvals a session's runs wait for.
-func (c *Client) GetPendingApprovals(sessionID string) (any, error) {
-	return c.getData(apiPath("/api/sessions/%s/approvals", sessionID))
-}
-
 // GetWorkflowVersions lists the saved versions of a workflow.
 func (c *Client) GetWorkflowVersions(sessionID, workflowID string) (any, error) {
 	return c.getData(apiPath("/api/sessions/%s/workflows/%s/versions", sessionID, workflowID))
