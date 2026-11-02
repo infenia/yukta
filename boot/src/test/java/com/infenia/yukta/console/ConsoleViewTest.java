@@ -2,11 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.console;
 
+import static com.infenia.yukta.console.ConsoleScreens.screen;
+import static com.infenia.yukta.console.ConsoleScreens.text;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import ch.qos.logback.classic.Level;
 import java.time.Duration;
 import java.util.List;
+import org.jline.utils.AttributedString;
+import org.jline.utils.AttributedStyle;
 import org.junit.jupiter.api.Test;
 
 class ConsoleViewTest {
@@ -21,23 +25,24 @@ class ConsoleViewTest {
           3,
           List.of(new ConsoleView.Run("build", "RUNNING", "2026-01-01 10:00", "me")));
 
-  private List<String> screen() {
-    return view.render(snap, Duration.ofSeconds(65), 80, 20);
-  }
-
   @Test
   void showsHeaderCountsAndRuns() {
-    final String all = String.join("\n", screen());
+    final String all = text(screen(view, snap));
     assertThat(all).contains("Yukta 1.2", "up 0h01m05s", "health UP", "running 2", "build");
-    assertThat(screen()).hasSize(20);
+    assertThat(screen(view, snap)).hasSize(20);
   }
 
   @Test
   void colorsOnlyWhenWanted() {
     final var colored = new ConsoleView("1.2", "http://h:1", logs, true);
-    assertThat(String.join("", colored.render(snap, Duration.ZERO, 80, 20)))
-        .contains("\033[32mUP", "\033[31m3");
-    assertThat(String.join("", screen())).doesNotContain("\033");
+    final String ansi =
+        String.join(
+            "",
+            colored.render(snap, Duration.ZERO, 80, 20).stream()
+                .map(AttributedString::toAnsi)
+                .toList());
+    assertThat(ansi).contains("\033[32mUP", "\033[31m3");
+    assertThat(screen(view, snap)).allSatisfy(l -> assertThat(l.toAnsi()).doesNotContain("\033"));
   }
 
   @Test
@@ -61,10 +66,10 @@ class ConsoleViewTest {
     logs.add(Level.INFO, "info-1");
     logs.add(Level.WARN, "warn-1");
     view.onKey("l");
-    final String info = String.join("\n", screen());
+    final String info = text(screen(view, snap));
     assertThat(info).contains("info-1", "warn-1").doesNotContain("dbg");
     view.onKey("f"); // INFO -> WARN
-    assertThat(String.join("\n", screen())).contains("warn-1").doesNotContain("info-1");
+    assertThat(text(screen(view, snap))).contains("warn-1").doesNotContain("info-1");
   }
 
   @Test
@@ -91,7 +96,29 @@ class ConsoleViewTest {
   }
 
   @Test
-  void clipIgnoresEscapeSequences() {
-    assertThat(ConsoleView.clip("\033[31mabcdef\033[0m", 3)).startsWith("\033[31mabc\033[0m");
+  void clipCountsColumnsNotCharacters() {
+    final var red = new AttributedString("abcdef", AttributedStyle.DEFAULT.foreground(1));
+    assertThat(ConsoleView.clip(red, 3).toString()).isEqualTo("abc");
+    // a wide character takes two columns
+    assertThat(ConsoleView.clip(new AttributedString("你好a"), 3).toString()).isEqualTo("你");
+  }
+
+  @Test
+  void escapeSequencesInLogsAreDropped() {
+    logs.add(Level.INFO, "\033[2Jclear\tme");
+    view.onKey("l");
+    assertThat(text(screen(view, snap))).contains("clear me").doesNotContain("\033");
+  }
+
+  @Test
+  void homeAndEndMoveTheLogView() {
+    for (int i = 0; i < 50; i++) {
+      logs.add(Level.INFO, "n" + i);
+    }
+    view.onKey("l");
+    view.onKey("HOME");
+    assertThat(text(screen(view, snap))).contains("n0").doesNotContain("n49");
+    view.onKey("END");
+    assertThat(text(screen(view, snap))).contains("n49");
   }
 }
