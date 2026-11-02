@@ -54,4 +54,25 @@ class ToolSpecsTest {
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> ToolSpecs.validate(5)).isInstanceOf(IllegalArgumentException.class);
   }
+
+  @Test
+  void askInput_isAddedOnlyWhenAllowed_andOnlyOnce() {
+    final List<ToolSpec> own = ToolSpecs.parse(List.of(Map.of("name", "weather")));
+    assertThat(ToolSpecs.withAskInput(Map.of(), own)).isEqualTo(own);
+    assertThat(ToolSpecs.withAskInput(Map.of("allowAskInput", false), own)).isEqualTo(own);
+    assertThat(ToolSpecs.withAskInput(Map.of("allowAskInput", true), own))
+        .extracting(ToolSpec::name)
+        .containsExactly("weather", "ask_for_input");
+    final List<ToolSpec> already = List.of(ToolSpecs.askInput());
+    assertThat(ToolSpecs.withAskInput(Map.of("allowAskInput", true), already)).hasSize(1);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void askInputSchemaOffersOnlyWhatTheModelMaySet() {
+    final var properties =
+        (Map<String, Object>) ToolSpecs.askInput().inputSchema().get("properties");
+    assertThat(properties.keySet()).containsExactlyInAnyOrder("prompt", "kind", "options", "risk");
+    assertThat(ToolSpecs.askInput().description()).contains("not an instruction");
+  }
 }

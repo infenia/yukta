@@ -81,19 +81,17 @@ Gateway commands for a live run (`ControlBusGateway`). REST: `POST /api/executio
   `SetPriority(n)`, rejected if the run is not waiting.
 
 ### Signals and approval steps
-A signal for a node that waits on an open input request (context `signal` = the name) is answered through the input authoriser instead (`InputSignalBridge`; see `input-requests.md`); `pendingApprovals` also lists open `APPROVAL` requests. `AnswerInputCommand` and `EscalateInputCommand` are ordinary control commands (`ControlBusGateway.answerInput` / `escalateInput`); a raw `sendCommand` payload that carries `requestId` is refused like one that carries a signal.
+`AnswerInputCommand` and `EscalateInputCommand` are ordinary control commands (`ControlBusGateway.answerInput` / `escalateInput`); a raw `sendCommand` payload that carries `requestId` is refused like one that carries a signal.
 
 `SignalNodeCommand` (REST `POST /api/executions/{id}/nodes/{node}/signal?name=&decision=&data=`, MCP
-`signal_node`, gateway `signalNode`) hands a named signal to the plugin of a node through the same
-review, ordering and audit as other commands (`SignalNodeCommandProcessor`). The plugin must answer
-`ACCEPTED` or `QUEUED`; a node of a live run that is not waiting for it yet keeps the signal for ten
-minutes (at most 100, `QUEUED`) and the wait that begins takes it at once (a second signal on the same key within 5 s of an accepted one is a double submit and gets `NOT_WAITING`), while a signal for a node
-that is not registered gives HTTP 409. The waits of all plugins share one `SignalWaits.shared()`, so
-`GET /api/sessions/{s}/approvals`, MCP `list_pending_approvals` and the "pending approvals" strip of
-the workflow page list the open ones (oldest first); answering goes through the signal endpoint.
-`WAIT_FOR_SIGNAL` (internal-core) holds each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, `onTimeout`,
+`signal_node`, gateway `signalNode`) answers the open input request that a node holds for the signal
+(context `signal` = the name) through the same review, ordering and audit as other commands
+(`SignalNodeCommandProcessor`, `InputSignalBridge`); a node with no such request gives HTTP 409 and an
+unknown run 404. `SignalWaits` no longer exists. `GET /api/sessions/{s}/approvals`, MCP `list_pending_approvals` and the "pending approvals" strip of
+the workflow page list the open `APPROVAL` requests (oldest first).
+`WAIT_FOR_SIGNAL` (internal-core) asks a HIGH risk `APPROVAL` request per message and holds it until it is answered (`signal`, `timeoutSeconds` default 3600, `onTimeout`,
 `onReject`) and tags it with `signal.name/decision/data`; the engine timeout for the node is the wait
-plus 30 s. The wait is in memory, but an answer is recorded in the run's checkpoint store as a message of the
+plus 30 s. An answer is recorded in the run's checkpoint store as a message of the
 pseudo node `signal:<node>` (payload `{messageId, name, decision, data}`, a timeout is not recorded), so a resumed run
 reuses it for the same message id instead of waiting again; that needs a file or PostgreSQL store and a message that
 was replayed from a finished parent.

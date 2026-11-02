@@ -2,9 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState } from 'react';
+import { useSessionDetails } from '@/features/sessions/hooks/useSessionDetails';
 import { useSessionSummaries } from '@/features/sessions/hooks/useSessionSummaries';
 import { ScopeBar } from '@/features/metrics/ScopeBar';
-import { useDashboardParams, useMetricStream } from '@/features/metrics/hooks';
+import {
+  useDashboardParams,
+  useLiveRuns,
+  useMetricStream,
+} from '@/features/metrics/hooks';
+import { scopeOptions, sessionOf } from './scopes';
 import {
   AiUsagePanel,
   BusPanel,
@@ -26,17 +32,17 @@ export function DashboardView() {
   useMetricStream(live);
   const [kiosk, setKiosk] = useState(false);
   const sessions = useSessionSummaries().data ?? [];
-  const scopes = [
-    { value: 'global', label: 'Global' },
-    ...sessions.map((s) => ({
-      value: `session:${s.sessionId}`,
-      label: `Session ${s.name || s.sessionId}`,
-    })),
-  ];
-  // a scope from the URL that is not a known session (a workflow, say) still shows as chosen
-  if (!scopes.some((s) => s.value === scope)) {
-    scopes.push({ value: scope, label: scope });
-  }
+  const chosenSession = useSessionDetails(sessionOf(scope)).data;
+  const running = useLiveRuns(live).data ?? [];
+  const scopes = scopeOptions({
+    sessions,
+    workflowIds: [
+      ...(chosenSession?.workflowIds ?? []),
+      ...sessions.map((s) => s.lastRun?.workflowId),
+      ...running.map((r) => r.workflowId),
+    ],
+    current: scope,
+  });
   return (
     <div className="flex flex-col gap-4" data-testid="mission-control">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -65,9 +71,11 @@ export function DashboardView() {
         </div>
         <LeaderboardPanel scope={scope} range={range} live={live} />
         <BusPanel live={live} />
-        <WorkerSlotsPanel />
+        <WorkerSlotsPanel live={live} />
         <VitalsPanel />
-        <AiUsagePanel scope={scope} />
+        <div className="lg:col-span-2">
+          <AiUsagePanel scope={scope} />
+        </div>
       </div>
     </div>
   );

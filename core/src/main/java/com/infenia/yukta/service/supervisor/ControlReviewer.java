@@ -127,7 +127,10 @@ public class ControlReviewer {
                 Stream.concat(supervisors.stream(), attached.stream())
                     .filter(
                         supervisor ->
-                            supervisor.scope().matches(request.sessionId(), request.workflowId()))
+                            supervisor
+                                .scope()
+                                .matches(
+                                    request.sessionId(), request.workflowId(), request.nodeId()))
                     .sorted(Comparator.comparingInt(ExecutionSupervisor::order)))
         .concatMap(
             supervisor ->

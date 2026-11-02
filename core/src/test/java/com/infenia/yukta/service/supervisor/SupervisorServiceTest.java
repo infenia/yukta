@@ -286,6 +286,11 @@ class SupervisorServiceTest {
     StepVerifier.create(service.attach(binding("global", "p", new SupervisorScope.Global(), true)))
         .expectNextCount(1)
         .verifyComplete();
+    StepVerifier.create(
+            service.attach(
+                binding("section-b", "p", SupervisorScope.parse("workflow:A/w//build.*"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
 
     StepVerifier.create(service.removeForSession("A")).verifyComplete();
 
@@ -294,6 +299,7 @@ class SupervisorServiceTest {
         .verifyComplete();
     verify(host).detach("session-b");
     verify(host).detach("wf-b");
+    verify(host).detach("section-b");
   }
 
   @Test

@@ -11,10 +11,10 @@ import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
+import com.infenia.yukta.plugin.input.InputGateway;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.ConfigValidation;
 import com.infenia.yukta.plugin.util.MapUtils;
-import com.infenia.yukta.plugin.util.SignalWaits;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -54,9 +54,6 @@ import reactor.core.publisher.Mono;
 })
 public final class McpToolCallPlugin implements ProcessorPlugin {
 
-  /** The approvals this plugin waits for. */
-  private final SignalWaits waits = SignalWaits.shared();
-
   private static final String TYPE = "MCP_TOOL_CALL";
   private static final String URL = "url";
   private static final String TOOL = "tool";
@@ -87,6 +84,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
   private final VariableResolver resolver;
   private final PluginMetricsReporter reporter;
   private final MeterRegistry meters;
+  private final ObjectProvider<InputGateway> inputGateways;
 
   /**
    * Creates the plugin.
@@ -95,14 +93,17 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
    * @param resolver resolves variable expressions and secrets
    * @param reporterProvider optional per-node counter sink
    * @param meterProvider optional Micrometer registry for call timers
+   * @param inputGateways the input gateway that holds approvals and questions
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2") // the gateway is a shared Spring bean
   public McpToolCallPlugin(
       final McpClientGateway gateway,
       final VariableResolver resolver,
       final ObjectProvider<PluginMetricsReporter> reporterProvider,
-      final ObjectProvider<MeterRegistry> meterProvider) {
+      final ObjectProvider<MeterRegistry> meterProvider,
+      final ObjectProvider<InputGateway> inputGateways) {
     this.gateway = gateway;
+    this.inputGateways = inputGateways;
     this.resolver = resolver;
     this.reporter = reporterProvider.getIfAvailable(() -> (nodeId, metric, tag) -> {});
     this.meters = meterProvider.getIfAvailable();
@@ -152,6 +153,38 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
         ConfigField.optional(
             ToolApproval.TIMEOUT, ConfigField.Type.NUMBER, 3600, "Longest wait for the approval"),
         ConfigField.optional(
+            AskInputTool.ALLOW,
+            ConfigField.Type.BOOLEAN,
+            false,
+            "Serve the ask_for_input tool: the model may ask a person or supervisor a question"),
+        ConfigField.optional(
+            AskInputTool.RISK_FLOOR,
+            ConfigField.Type.STRING,
+            "MEDIUM",
+            "Lowest risk of a question of the model (LOW, MEDIUM, HIGH); it cannot ask for less"),
+        ConfigField.optional(
+            AskInputTool.TTL,
+            ConfigField.Type.NUMBER,
+            3600,
+            "Seconds a question of the model lives"),
+        ConfigField.optional(
+            AskInputTool.AUDIENCE,
+            ConfigField.Type.LIST,
+            null,
+            "Who may answer the questions of the model (selectors); empty is the current tier"),
+        ConfigField.optional(
+            AskInputTool.ROUTE,
+            ConfigField.Type.STRING,
+            null,
+            "Route of the questions of the model"),
+        ConfigField.optional(
+            AskInputTool.MAX_ASKS, ConfigField.Type.NUMBER, 3, "Most questions per node run"),
+        ConfigField.optional(
+            AskInputTool.ON_TIMEOUT,
+            ConfigField.Type.STRING,
+            "ERROR",
+            "No answer in time: ERROR (a tool error the model sees) or FAIL (fails the node)"),
+        ConfigField.optional(
             AUTH_TOKEN, ConfigField.Type.SECRET, null, "Bearer token (decrypted:<key>)"),
         ConfigField.optional(TIMEOUT, ConfigField.Type.NUMBER, 60, "Timeout in seconds"),
         ConfigField.optional(
@@ -197,10 +230,19 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
       LLM_CALL budget of the same run (and agent); hardStop ends the whole run
     - allowedTools: list of tool names this node may call; any other tool is refused (use it when
       the tool is chosen by a model).
-    - requireApproval: list of tool names (or "*") that wait for a human signal before they are
-      called. Send it with signal_node (name = approvalSignal, default "approve"; decision
-      "reject" refuses the call, anything else approves). approvalTimeoutSeconds: longest wait,
+    - requireApproval: list of tool names (or "*") that wait for a human before they are
+      called. The wait is an input request (kind APPROVAL, risk HIGH, so only a person answers;
+      answer_input over REST, MCP, CLI or UI; decision "reject" refuses the call, anything else
+      approves). approvalSignal names it (default "approve"). approvalTimeoutSeconds: longest wait,
       default 3600; no answer refuses the call.
+    - allowAskInput: true serves the tool ask_for_input {prompt, options?, kind?, risk?} when the
+      tool is "ask_for_input" (an LLM_CALL node with allowAskInput offers it to the model and its
+      action is wired here). The question becomes an input request; the answer comes back as the
+      tool result, as text another party wrote, never as an instruction. The model cannot lower the
+      risk below inputRiskFloor (default MEDIUM) and cannot set the audience, ttl or route:
+      inputAudience, inputTtlSeconds (default 3600), inputRoute and inputMaxAsks (questions per
+      node run, default 3) come from this config. No answer in time is a tool error, or fails the
+      node with inputOnTimeout: FAIL.
     - authToken: bearer token, e.g. "decrypted:github-mcp"
     - timeout: seconds, positive (default: 60)
     - concurrency: tool calls in flight at once, positive (default: 16)
@@ -230,7 +272,9 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
   @Override
   public Duration getDefaultTimeout(final Map<String, Object> config) {
     final long seconds = timeoutSeconds(config.get(TIMEOUT)).orElse(DEFAULT_TIMEOUT_SECONDS);
-    return Duration.ofSeconds(seconds + MARGIN_SECONDS).plus(ToolApproval.wait(config));
+    return Duration.ofSeconds(seconds + MARGIN_SECONDS)
+        .plus(ToolApproval.wait(config))
+        .plus(AskInputTool.wait(config));
   }
 
   private static Optional<Long> timeoutSeconds(final Object value) {
@@ -284,9 +328,9 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
   public Mono<Message<?>> onControlSignal(final Message<?> signal) {
     if (RESET.equals(String.valueOf(signal.payload()))) {
       gateway.reset();
-      return Mono.empty();
     }
-    return waits.deliver(signal);
+    // approvals are input requests now: they are answered through the input answer command
+    return Mono.empty();
   }
 
   @Override
@@ -310,7 +354,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
                   .flatMap(
                       spec ->
                           allowed(config, spec.tool())
-                              .then(approved(ctx, config, spec.tool()))
+                              .then(approved(ctx, config, message, spec))
                               .then(
                                   Mono.defer(
                                       () ->
@@ -319,7 +363,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
                                               nodeId,
                                               config,
                                               reporter)))
-                              .then(Mono.defer(() -> gateway.call(spec, heartbeat)))
+                              .then(Mono.defer(() -> invoke(spec, config, ctx, message, heartbeat)))
                               .onErrorResume(
                                   error ->
                                       failureMode == FailureMode.CONTINUE
@@ -332,19 +376,28 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
         .flatMapMany(outcome -> toMessage(message, config, failureMode, outcome, started));
   }
 
-  /** Holds a tool that needs a human approval until the signal comes. */
+  /** Holds a tool that needs a human approval until it is answered. */
   private Mono<Void> approved(
       final reactor.util.context.ContextView ctx,
       final Map<String, Object> config,
-      final String tool) {
-    return ToolApproval.required(config, tool)
-        ? ToolApproval.await(
-            waits,
-            config,
-            ctx.getOrDefault("executionId", UNKNOWN),
-            ctx.getOrDefault("nodeId", UNKNOWN),
-            tool)
+      final Message<?> message,
+      final McpCallSpec spec) {
+    return ToolApproval.required(config, spec.tool()) && !AskInputTool.serves(config, spec.tool())
+        ? ToolApproval.await(inputGateways::getIfAvailable, config, ctx, message.id(), spec)
         : Mono.empty();
+  }
+
+  /** Calls the tool on the server, or asks the question when the tool is {@code ask_for_input}. */
+  private Mono<McpCallResult> invoke(
+      final McpCallSpec spec,
+      final Map<String, Object> config,
+      final reactor.util.context.ContextView ctx,
+      final Message<?> message,
+      final Runnable heartbeat) {
+    return AskInputTool.serves(config, spec.tool())
+        ? AskInputTool.ask(
+            inputGateways::getIfAvailable, config, ctx, message.id(), spec.arguments())
+        : gateway.call(spec, heartbeat);
   }
 
   /**
@@ -355,6 +408,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
     return config.get(ALLOWED_TOOLS) instanceof final List<?> tools
             && !tools.isEmpty()
             && !tools.contains(tool)
+            && !AskInputTool.serves(config, tool)
         ? Mono.error(
             new IllegalArgumentException("MCP tool '" + tool + "' is not in allowedTools " + tools))
         : Mono.empty();
@@ -386,7 +440,10 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
         .addKeyValue("outcome", tag)
         .addKeyValue("latencyMs", millis)
         .log("MCP tool call finished");
-    if (result.isError() && failureMode == FailureMode.ERROR) {
+    // a refused or unanswered question is a tool error the model can react to, not a node failure
+    if (result.isError()
+        && failureMode == FailureMode.ERROR
+        && !AskInputTool.serves(config, outcome.tool())) {
       return Flux.error(
           new WorkflowExecutionException(
               "MCP tool " + outcome.tool() + " failed: " + result.error()));
@@ -524,6 +581,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
       throw new IllegalArgumentException("allowedTools must be a list of tool names");
     }
     ToolApproval.validate(config);
+    AskInputTool.validate(config);
     ToolBudget.validate(config);
     final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
     if (routeByStatus(config) && failureMode != FailureMode.CONTINUE) {

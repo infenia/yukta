@@ -1400,7 +1400,10 @@ export interface paths {
         /** List supervisor bindings */
         get: operations["bindings"];
         put?: never;
-        /** Attach a supervisor */
+        /**
+         * Attach a supervisor
+         * @description Attach a profile to a scope. A section scope (workflow:<s>/<w>//build.*,deploy) watches only those nodes and no workflow-wide event or command.
+         */
         post: operations["attach"];
         delete?: never;
         options?: never;
@@ -3596,6 +3599,10 @@ export interface components {
             enabled?: boolean;
             id?: string;
             profileId?: string;
+            /**
+             * @description global, session:<id>, workflow:<id>, workflow:<sessionId>/<workflowId>, or a section of a workflow: a workflow form, then // and node selectors separated by commas (a node id or <prefix>.*, 1 to 50). The supervisor sees, reviews and may send commands only within its scope.
+             * @example workflow:s1/release//build.*,publish
+             */
             scope?: string;
         };
         Breakpoint: {
@@ -4144,6 +4151,12 @@ export interface components {
              */
             workflowCount?: number;
         };
+        StartOptions: {
+            empty?: boolean;
+            /** Format: int32 */
+            priority?: number;
+            version?: string;
+        };
         SupervisorDecision: {
             command?: string;
             executionId?: string;
@@ -4170,6 +4183,7 @@ export interface components {
             /** Format: int64 */
             rejected?: number;
             scope?: string;
+            scopeNodes?: string[];
             scopeSessionId?: string;
             scopeWorkflowId?: string;
             type?: string;
@@ -4385,6 +4399,8 @@ export interface components {
              * @example yk check
              */
             initiator?: string;
+            /** @description Optional queue priority (higher first) and saved workflow version to run. Answers 403 unless the key has the ADMIN role. */
+            options?: components["schemas"]["StartOptions"];
             /** @description Optional trigger payload passed to the workflow's trigger node */
             payload?: {
                 [key: string]: unknown;
