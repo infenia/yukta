@@ -23,6 +23,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { WorkflowDetailsPage } from '../WorkflowDetailsPage';
+import { useJsdomViewport } from '@/test/jsdomViewport';
 import { createTestQueryClient, must } from '@/test/utils/testUtils';
 import {
   createMockExecution,
@@ -110,6 +111,8 @@ function renderPage(
 }
 
 describe('WorkflowDetailsPage', () => {
+  useJsdomViewport();
+
   beforeEach(() => {
     installMockEventSource();
     executionsPayload = () => [
