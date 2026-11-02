@@ -13,14 +13,18 @@ keywords: ["dashboard", "control", "metrics", "kiosk", "supervisors", "prometheu
 
 | Panel | What it shows |
 |---|---|
-| Command strip | Runs per minute, failure rate, p95 duration and live runs, for the chosen scope |
-| Capacity | Concurrent run limit (0 is unlimited) with a knob, and the drain switch |
-| Throughput, latency | Time series for the chosen range (`5m` to `24h`); restarts and limit changes show as annotations |
-| Live runs | Runs in progress, slowest first |
-| Heatmap, leaderboard | Busiest and slowest modules |
-| Bus, worker slots, vitals, AI usage | Control-bus health, connected workers, JVM numbers and model usage |
+| Command strip | Runs per minute and p95 duration with their 1 h trend and change, success rate over 24 h, approvals waiting (opens the overview, where they are answered), running and waiting runs, worker slots in use, and model spend over the last hour |
+| Capacity | Running against the limit, the concurrent run limit (0 is unlimited) as a knob, the drain switch and refused starts per reason. A refused change is put back. |
+| Throughput, latency | Finished runs by status and the p50/p95/p99 duration and queue wait for the chosen range (`15m` to `24h`). Control commands are marked under the chart: a click opens the run they steered, or the control audit for one that names no run, such as a limit change |
+| Live runs | Runs in progress: nodes done, time so far against the workflow's usual p95 (outlined when slower), and pause, resume and stop. Stepping is per node, in the run view the name links to |
+| Runs, last 24 hours | One cell per minute, darker with more runs and red with failures |
+| Plugins | Each plugin type's runs, failure share and mean duration |
+| Control bus, workers, system | Heartbeat age per node (green, amber, red), slots in use per worker, heap, CPU and threads, the longest GC pause and dropped events |
+| AI usage | Tokens in and out and spend per provider, MCP tool calls, failed calls and refused heavy calls. These meters are server-wide, so a scoped view says so |
 
-The scope, range and live/paused state are kept in the URL (`?scope=session:<id>&range=1h&live=0`), so a view can be shared. Metrics are sampled in memory since startup and come from `GET /api/metrics/series` and `GET /api/metrics/snapshot`; see [Observability](/running/observability).
+The **Scope** filter lists the whole server, every session and the workflows the page knows of (the chosen session's, each session's last run and the runs going now); every panel except capacity, system and AI usage follows it. The scope, range and live/paused state are kept in the URL (`?scope=workflow:<id>&range=6h&live=0`), so a view can be shared. Metrics are sampled in memory since startup and come from `GET /api/metrics/series` and `GET /api/metrics/snapshot`; see [Observability](/running/observability).
+
+The **Activity** tab is the live event feed and the **Audit** tab lists every control command with who sent it (`/control?tab=audit`).
 
 ## Kiosk mode
 

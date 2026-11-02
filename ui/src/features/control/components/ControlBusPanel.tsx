@@ -3,6 +3,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -117,9 +118,12 @@ export function ControlBusPanel() {
         <div className="flex flex-col gap-1">
           <p className="text-body-sm text-on-surface-variant">
             Response.{' '}
-            <a href="#audit-heading" className="text-primary hover:underline">
+            <Link
+              to="/control?tab=audit"
+              className="text-primary hover:underline"
+            >
               Find it in the audit log
-            </a>
+            </Link>
           </p>
           <CodeBlock
             code={JSON.stringify(response, null, 2)}
