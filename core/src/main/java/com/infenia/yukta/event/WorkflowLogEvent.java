@@ -3,8 +3,7 @@
 package com.infenia.yukta.event;
 
 import com.infenia.yukta.plugin.core.LogLevel;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -21,7 +20,7 @@ public record WorkflowLogEvent(
     String executionId,
     String nodeId,
     String line,
-    LocalDateTime timestamp,
+    Instant timestamp,
     boolean stderr,
     @Nullable LogLevel level)
     implements TrackerEvent {
@@ -39,7 +38,7 @@ public record WorkflowLogEvent(
       final String executionId,
       final String nodeId,
       final String line,
-      final LocalDateTime timestamp,
+      final Instant timestamp,
       final boolean stderr) {
     this(executionId, nodeId, line, timestamp, stderr, null);
   }
@@ -53,10 +52,7 @@ public record WorkflowLogEvent(
    * @param timestamp when the line was emitted
    */
   public WorkflowLogEvent(
-      final String executionId,
-      final String nodeId,
-      final String line,
-      final LocalDateTime timestamp) {
+      final String executionId, final String nodeId, final String line, final Instant timestamp) {
     this(executionId, nodeId, line, timestamp, false);
   }
 
@@ -70,8 +66,7 @@ public record WorkflowLogEvent(
    */
   public static WorkflowLogEvent create(
       final String executionId, final String nodeId, final String line) {
-    return new WorkflowLogEvent(
-        executionId, nodeId, line, LocalDateTime.now(ZoneId.systemDefault()));
+    return new WorkflowLogEvent(executionId, nodeId, line, Instant.now());
   }
 
   /**
@@ -90,8 +85,7 @@ public record WorkflowLogEvent(
       final String line,
       final boolean stderr,
       @Nullable final LogLevel level) {
-    return new WorkflowLogEvent(
-        executionId, nodeId, line, LocalDateTime.now(ZoneId.systemDefault()), stderr, level);
+    return new WorkflowLogEvent(executionId, nodeId, line, Instant.now(), stderr, level);
   }
 
   /**

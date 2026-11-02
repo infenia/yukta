@@ -2,19 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.control.NodeHeartbeat;
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
-import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
-import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
-import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.util.SinkEmit;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotBlank;
@@ -22,18 +18,17 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import reactor.core.Scannable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
-import reactor.util.concurrent.Queues;
 import reactor.util.retry.Retry;
 
 /**
@@ -44,11 +39,7 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Service
-@SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.AvoidCatchingGenericException",
-  "PMD.ExcessiveImports"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidCatchingGenericException"})
 public class ControlBusService {
 
   /** Metadata key of a control message that names the run it comes from. */
@@ -66,12 +57,6 @@ public class ControlBusService {
   /** List of signal handlers for dispatching messages. */
   private final List<ControlSignalHandler> handlers;
 
-  /** Cache for compiled workflow instances. */
-  private final PreparedWorkflowCache preparedWorkflowCache;
-
-  /** Workflow orchestrator for compiling workflows. */
-  private final WorkflowOrchestrator orchestrator;
-
   /** Registry of plugin instances actively servicing workflow nodes. */
   private final ActivePluginRegistry activePluginRegistry;
 
@@ -79,18 +64,18 @@ public class ControlBusService {
   @SuppressWarnings("PMD.AvoidUsingVolatile")
   private volatile Function<ExecutionControlCommand, Mono<Void>> commandExecutor;
 
+  /** Default size of the control sink buffer. */
+  private static final int DEFAULT_BUFFER_SIZE = 256;
+
   /** Sink for emitting control messages. */
   private Sinks.Many<Message<?>> controlSink =
-      Sinks.many().multicast().onBackpressureBuffer(Queues.SMALL_BUFFER_SIZE, false);
+      Sinks.many().multicast().onBackpressureBuffer(DEFAULT_BUFFER_SIZE, false);
 
   /** First delay before the consumer resubscribes after a failure. */
   private static final Duration CONSUMER_RETRY_DELAY = Duration.ofMillis(100);
 
   /** Longest delay between resubscribe attempts. */
   private static final Duration CONSUMER_MAX_RETRY_DELAY = Duration.ofSeconds(5);
-
-  /** Set once the bus is shutting down, so the consumer is no longer resubscribed. */
-  private final AtomicBoolean stopped = new AtomicBoolean();
 
   /** Handler for retry logic when emitting fails. */
   private static final Sinks.EmitFailureHandler RETRY_HANDLER =
@@ -99,36 +84,49 @@ public class ControlBusService {
   /**
    * Constructor for ControlBusService.
    *
-   * @param batchSize the number of messages to batch before processing
-   * @param batchTimeoutMs the timeout in milliseconds for batching
-   * @param bufferSize the size of the control sink buffer (uses SMALL_BUFFER_SIZE if too small)
+   * @param properties the {@code yukta.control-bus} settings: batch size, timeout and buffer
    * @param handlers the list of signal handlers for dispatching messages
-   * @param preparedWorkflowCache the cache for compiled workflow instances
-   * @param orchestrator the workflow orchestrator for compiling workflows
    * @param activePluginRegistry the registry of plugin instances actively servicing nodes
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
+  @Autowired
   public ControlBusService(
-      @Value("${control.bus.batch.size:100}") final int batchSize,
-      @Value("${control.bus.batch.timeout.ms:50}") final int batchTimeoutMs,
-      @Value("${control.bus.buffer.size:256}") final int bufferSize,
+      final YuktaProperties properties,
       final List<ControlSignalHandler> handlers,
-      final PreparedWorkflowCache preparedWorkflowCache,
-      final WorkflowOrchestrator orchestrator,
+      final ActivePluginRegistry activePluginRegistry) {
+    this(
+        properties.controlBus().batchSize(),
+        (int) properties.controlBus().batchTimeout().toMillis(),
+        properties.controlBus().bufferSize(),
+        handlers,
+        activePluginRegistry);
+  }
+
+  /**
+   * Constructor for ControlBusService with explicit bounds.
+   *
+   * @param batchSize the number of messages to batch before processing
+   * @param batchTimeoutMs the timeout in milliseconds for batching
+   * @param bufferSize the size of the control sink buffer
+   * @param handlers the list of signal handlers for dispatching messages
+   * @param activePluginRegistry the registry of plugin instances actively servicing nodes
+   */
+  public ControlBusService(
+      final int batchSize,
+      final int batchTimeoutMs,
+      final int bufferSize,
+      final List<ControlSignalHandler> handlers,
       final ActivePluginRegistry activePluginRegistry) {
     this.batchSize = batchSize;
     this.batchTimeout = Duration.ofMillis(batchTimeoutMs);
-    this.bufferSize = Math.max(bufferSize, Queues.SMALL_BUFFER_SIZE);
+    this.bufferSize = Math.max(bufferSize, DEFAULT_BUFFER_SIZE);
     this.handlers = List.copyOf(handlers);
-    this.preparedWorkflowCache = preparedWorkflowCache;
-    this.orchestrator = orchestrator;
     this.activePluginRegistry = activePluginRegistry;
   }
 
   /** Initialize the control sink and background event consumer. */
   @PostConstruct
   public void init() {
-    if (bufferSize == Queues.SMALL_BUFFER_SIZE) {
+    if (bufferSize == DEFAULT_BUFFER_SIZE) {
       log.atDebug().log("Initialized control sink with default buffer size");
     } else {
       controlSink = Sinks.many().multicast().onBackpressureBuffer(bufferSize, false);
@@ -162,7 +160,10 @@ public class ControlBusService {
         .retryWhen(
             Retry.backoff(Long.MAX_VALUE, CONSUMER_RETRY_DELAY)
                 .maxBackoff(CONSUMER_MAX_RETRY_DELAY)
-                .filter(_ -> !stopped.get())
+                .filter(
+                    _ ->
+                        !Boolean.TRUE.equals(
+                            controlSink.scanOrDefault(Scannable.Attr.TERMINATED, false)))
                 .doBeforeRetry(
                     signal ->
                         log.atError()
@@ -232,73 +233,6 @@ public class ControlBusService {
   }
 
   /**
-   * Compile and cache a workflow after it has already been persisted.
-   *
-   * <p>Assumes the workflow definition is already in {@link WorkflowDefinitionStore}. Invalidates
-   * any stale cache entries, compiles the workflow, and warms the cache.
-   *
-   * @param sessionId the session identifier
-   * @param workflowDefinition the workflow definition to compile and cache
-   * @return a Mono that completes when the workflow is compiled and cached
-   */
-  public Mono<Void> compileAndCacheWorkflow(
-      final String sessionId, final WorkflowDefinition workflowDefinition) {
-    final String workflowId = workflowDefinition.workflowId();
-    return Mono.fromRunnable(
-            () -> {
-              log.atDebug()
-                  .addArgument(workflowId)
-                  .addArgument(sessionId)
-                  .log("Invalidating cache for workflow: {} in session: {}");
-              preparedWorkflowCache.invalidate(sessionId, workflowId);
-            })
-        .then(
-            orchestrator
-                .prepareWorkflow(workflowDefinition)
-                .doOnSubscribe(
-                    _ ->
-                        log.atDebug()
-                            .addArgument(workflowId)
-                            .addArgument(sessionId)
-                            .log("Starting compilation of workflow: {} for session: {}"))
-                .doOnSuccess(
-                    prepared ->
-                        log.atDebug()
-                            .addArgument(workflowId)
-                            .addArgument(sessionId)
-                            .log("Successfully compiled workflow: {} for session: {}"))
-                .doOnError(
-                    err ->
-                        log.atError()
-                            .addArgument(workflowId)
-                            .addArgument(sessionId)
-                            .setCause(err)
-                            .log("Failed to compile workflow: {} for session: {}")))
-        .doOnNext(
-            prepared -> {
-              log.atDebug()
-                  .addArgument(workflowId)
-                  .addArgument(sessionId)
-                  .log("Caching prepared workflow: {} for session: {}");
-              preparedWorkflowCache.put(sessionId, workflowId, prepared, workflowDefinition);
-            })
-        .then();
-  }
-
-  /**
-   * Get the last heartbeat for a node in a specific workflow: the newest one from any run of it.
-   *
-   * @param workflowId the workflow identifier
-   * @param nodeId the node identifier
-   * @return the last heartbeat message, or null
-   */
-  @Nullable
-  public Message<?> getLastHeartbeat(
-      @NotBlank final String workflowId, @NotBlank final String nodeId) {
-    return newest(workflowId, nodeId, ControlSignalHandler::getLastHeartbeat);
-  }
-
-  /**
    * Get the last heartbeat for a node of one run.
    *
    * @param workflowId the workflow identifier
@@ -331,24 +265,12 @@ public class ControlBusService {
                     .map(
                         beat ->
                             new NodeHeartbeat(
+                                "",
                                 ControlKey.workflowId(key),
                                 ControlKey.executionId(key),
                                 ControlKey.nodeId(key),
                                 beat.timestamp())))
         .toList();
-  }
-
-  /**
-   * Get the last statistics for a node in a specific workflow: the newest from any run of it.
-   *
-   * @param workflowId the workflow identifier
-   * @param nodeId the node identifier
-   * @return the last statistics message, or null
-   */
-  @Nullable
-  public Message<?> getLastStatistics(
-      @NotBlank final String workflowId, @NotBlank final String nodeId) {
-    return newest(workflowId, nodeId, ControlSignalHandler::getLastStatistics);
   }
 
   /**
@@ -380,24 +302,6 @@ public class ControlBusService {
         .orElse(null);
   }
 
-  /** The newest message of a node over every run that reported, and over reports without a run. */
-  @Nullable
-  private Message<?> newest(
-      final String workflowId,
-      final String nodeId,
-      final BiFunction<ControlSignalHandler, String, Message<?>> getter) {
-    return Stream.concat(
-            Stream.of(ControlKey.forNode(workflowId, null, nodeId)),
-            activeKeys().stream().filter(key -> ControlKey.isFor(key, workflowId, nodeId)))
-        .distinct()
-        .map(key -> read(key, getter))
-        .filter(Objects::nonNull)
-        .max(
-            Comparator.comparing(
-                Message::timestamp, Comparator.nullsFirst(Comparator.naturalOrder())))
-        .orElse(null);
-  }
-
   /** The keys every handler holds state for. */
   private List<String> activeKeys() {
     return handlers.stream()
@@ -407,14 +311,17 @@ public class ControlBusService {
   }
 
   /**
-   * List all node IDs in a specific workflow that have emitted heartbeats.
+   * List the node IDs of a workflow that have emitted heartbeats in the given runs.
    *
    * @param workflowId the workflow identifier
-   * @return list of node IDs scoped to the workflow, each once however many runs reported
+   * @param executionIds the runs to look at
+   * @return the node IDs, each once however many runs reported
    */
-  public List<String> getActiveNodes(@NotBlank final String workflowId) {
+  public List<String> getActiveNodes(
+      @NotBlank final String workflowId, final java.util.Collection<String> executionIds) {
     return activeKeys().stream()
         .filter(key -> ControlKey.isIn(key, workflowId))
+        .filter(key -> executionIds.contains(ControlKey.executionId(key)))
         .map(ControlKey::nodeId)
         .distinct()
         .toList();
@@ -442,6 +349,22 @@ public class ControlBusService {
   }
 
   /**
+   * Register a plugin as servicing a node of a run.
+   *
+   * @param workflowId the workflow identifier
+   * @param executionId the run
+   * @param nodeId the node identifier
+   * @param plugin the plugin instance
+   */
+  public void registerPlugin(
+      @NotBlank final String workflowId,
+      @NotBlank final String executionId,
+      @NotBlank final String nodeId,
+      final Plugin plugin) {
+    activePluginRegistry.register(workflowId, executionId, nodeId, plugin);
+  }
+
+  /**
    * Unregister a plugin from the control bus and clean up all state.
    *
    * @param workflowId the workflow identifier
@@ -452,16 +375,35 @@ public class ControlBusService {
   }
 
   /**
+   * Release a node of a run registered with {@link #registerPlugin(String, String, String,
+   * Plugin)}.
+   *
+   * @param workflowId the workflow identifier
+   * @param executionId the run
+   * @param nodeId the node identifier
+   */
+  public void unregisterPlugin(
+      @NotBlank final String workflowId,
+      @NotBlank final String executionId,
+      @NotBlank final String nodeId) {
+    activePluginRegistry.unregister(workflowId, executionId, nodeId);
+  }
+
+  /**
    * Send a command to a specific node in a workflow and wait for response.
    *
    * @param workflowId the workflow identifier
+   * @param executionId the run the node belongs to
    * @param nodeId the target node identifier
    * @param command the command message
    * @return a Mono of the response message
    */
   public Mono<Message<?>> sendCommand(
-      @NotBlank final String workflowId, @NotBlank final String nodeId, final Message<?> command) {
-    final Plugin plugin = activePluginRegistry.lookup(workflowId, nodeId).orElse(null);
+      @NotBlank final String workflowId,
+      @NotBlank final String executionId,
+      @NotBlank final String nodeId,
+      final Message<?> command) {
+    final Plugin plugin = activePluginRegistry.lookup(workflowId, executionId, nodeId).orElse(null);
     if (plugin == null) {
       log.atWarn()
           .addArgument(nodeId)
@@ -500,7 +442,6 @@ public class ControlBusService {
    * subscribers to close cleanly.
    */
   public void shutdown() {
-    stopped.set(true);
     controlSink.emitComplete(RETRY_HANDLER);
   }
 

@@ -8,9 +8,7 @@ import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
@@ -46,24 +44,6 @@ public class StreamTopologyDecorator {
 
   /** The node checkpoint store for persisting node state. */
   private final NodeCheckpointStore checkpointStore;
-
-  /** Maximum number of payload characters echoed to the live log per message. */
-  private static final int MAX_LOG_PAYLOAD_SIZE = 2_048;
-
-  /**
-   * Bounds the payload echoed into the live log so large payloads are not copied once per node.
-   *
-   * @param payload the stringified payload
-   * @return the payload, cut to {@code MAX_LOG_PAYLOAD_SIZE} characters with a marker if longer
-   */
-  private static String truncateForLog(final String payload) {
-    return payload.length() <= MAX_LOG_PAYLOAD_SIZE
-        ? payload
-        : payload.substring(0, MAX_LOG_PAYLOAD_SIZE)
-            + "... [truncated "
-            + (payload.length() - MAX_LOG_PAYLOAD_SIZE)
-            + " chars]";
-  }
 
   /**
    * Merges parent node streams, applying edge-based routing and port filtering.
@@ -106,26 +86,29 @@ public class StreamTopologyDecorator {
     // runs. Counting per subscription would let a connector drain a node whose child has not
     // subscribed yet.
     for (final ParentEdgeInfo edge : parentEdges) {
-      registerSubscriber(streams, edge);
+      if (streams[edge.parentIndex()] instanceof NodeBroadcast broadcast) {
+        broadcast.expectSubscriber();
+      }
     }
     // The failure counts belong to one subscription, so a resubscription starts from zero.
     return Flux.defer(
         () -> {
           final AtomicInteger failed = new AtomicInteger();
           final AtomicReference<Throwable> firstError = new AtomicReference<>();
-          final List<Flux<Message<?>>> parentFluxes = new ArrayList<>(parentEdges.length);
-          for (final ParentEdgeInfo edge : parentEdges) {
-            parentFluxes.add(
-                routeEdge(
-                    streams,
-                    edge,
-                    error -> {
-                      if (oneSuccess) {
-                        failed.incrementAndGet();
-                        firstError.compareAndSet(null, error);
-                      }
-                    }));
-          }
+          final List<Flux<Message<?>>> parentFluxes =
+              List.of(parentEdges).stream()
+                  .map(
+                      edge ->
+                          routeEdge(
+                              streams,
+                              edge,
+                              error -> {
+                                if (oneSuccess) {
+                                  failed.incrementAndGet();
+                                  firstError.compareAndSet(null, error);
+                                }
+                              }))
+                  .toList();
           return mergeRouted(parentFluxes, oneSuccess, failed, firstError);
         });
   }
@@ -162,16 +145,11 @@ public class StreamTopologyDecorator {
    */
   public Flux<Message<?>> applyEdgeRouting(
       final Flux<Message<?>>[] streams, final ParentEdgeInfo edge) {
-    registerSubscriber(streams, edge);
-    return routeEdge(streams, edge, _ -> {});
-  }
-
-  /** Counts the edge as a future subscriber of its parent's shared output. */
-  private static void registerSubscriber(
-      final Flux<Message<?>>[] streams, final ParentEdgeInfo edge) {
+    // Counts the edge as a future subscriber of its parent's shared output.
     if (streams[edge.parentIndex()] instanceof NodeBroadcast broadcast) {
       broadcast.expectSubscriber();
     }
+    return routeEdge(streams, edge, _ -> {});
   }
 
   private Flux<Message<?>> routeEdge(
@@ -186,19 +164,14 @@ public class StreamTopologyDecorator {
         .log();
 
     final Flux<Message<?>> parent = streams[edge.parentIndex()];
-    // Siblings share the parent's message; a copy per edge keeps one branch's edits to the payload
-    // from showing up in another.
+    // Siblings share the parent's message, frozen once by the broadcast (payloads are immutable).
     Flux<Message<?>> stream =
         parent.transformDeferredContextual(
             (flux, ctx) ->
                 flux.map(
                     msg -> {
                       final Message<?> own =
-                          EngineOwned.reassert(
-                                  parent instanceof NodeBroadcast broadcast && broadcast.isShared()
-                                      ? PayloadCopy.copyOf(msg)
-                                      : msg)
-                              .withSourceNodeId(edge.sourceNodeId());
+                          EngineOwned.reassert(msg).withSourceNodeId(edge.sourceNodeId());
                       // The run's workflow id, so a plugin cannot claim another workflow's.
                       return ctx.hasKey(ExecutionContextBuilder.CTX_WORKFLOW_ID)
                           ? own.withWorkflowId(ctx.get(ExecutionContextBuilder.CTX_WORKFLOW_ID))
@@ -294,6 +267,39 @@ public class StreamTopologyDecorator {
       final List<Disposable> disposables,
       final List<Runnable> connectors,
       final BooleanSupplier loggedLive) {
+    return applyLoggingAndBroadcasting(
+        executionId,
+        nodeId,
+        stream,
+        bufferSize,
+        disposables,
+        connectors,
+        loggedLive,
+        NodePolicy.Checkpoint.ALL);
+  }
+
+  /**
+   * Like the overload with {@code loggedLive}, with the node's {@code engine.checkpoint} mode.
+   *
+   * @param executionId the execution identifier
+   * @param nodeId the node identifier
+   * @param stream the incoming message stream
+   * @param bufferSize prefetch used by the shared upstream subscription
+   * @param disposables lifecycle management for subscriptions
+   * @param connectors deferred subscription tasks (executed during assembly finalization)
+   * @param loggedLive tells whether the node has written its output to the log live
+   * @param checkpoint what the node writes to the checkpoint store
+   * @return shared Flux for downstream consumption; connected by the registered connector
+   */
+  public Flux<Message<?>> applyLoggingAndBroadcasting(
+      final String executionId,
+      final String nodeId,
+      final Flux<Message<?>> stream,
+      final int bufferSize,
+      final List<Disposable> disposables,
+      final List<Runnable> connectors,
+      final BooleanSupplier loggedLive,
+      final NodePolicy.Checkpoint checkpoint) {
     log.atDebug()
         .setMessage("Applying logging and broadcasting - execution: {}, node: {}, buffer size: {}")
         .addArgument(executionId)
@@ -303,13 +309,17 @@ public class StreamTopologyDecorator {
 
     final Flux<Message<?>> historiedStream = stream.map(msg -> msg.withAddedHistory(nodeId));
     final Flux<Message<?>> processedStream =
-        getMessageFlux(executionId, nodeId, historiedStream, loggedLive);
+        getMessageFlux(executionId, nodeId, historiedStream, loggedLive, checkpoint);
 
     // publish() requests only what the slowest subscriber can take, so a slow child slows its
     // parent instead of overflowing a buffer. NodeBroadcast connects it once all edges subscribed.
+    // The edges are counted while the workflow is assembled, before the first message flows, so
+    // isShared() is final by the time the map below runs.
+    final AtomicReference<BooleanSupplier> shared = new AtomicReference<>();
     final NodeBroadcast broadcast =
         new NodeBroadcast(
             processedStream
+                .map(msg -> shared.get().getAsBoolean() ? PayloadFreeze.freezeOf(msg) : msg)
                 .doOnError(
                     err ->
                         log.atError()
@@ -320,6 +330,7 @@ public class StreamTopologyDecorator {
                 .publish(bufferSize),
             disposables);
     connectors.add(broadcast::connectIfUnobserved);
+    shared.set(broadcast::isShared);
     return broadcast;
   }
 
@@ -343,7 +354,8 @@ public class StreamTopologyDecorator {
       final String executionId,
       final String nodeId,
       final Flux<Message<?>> stream,
-      final BooleanSupplier loggedLive) {
+      final BooleanSupplier loggedLive,
+      final NodePolicy.Checkpoint checkpoint) {
     log.atDebug()
         .setMessage("Building message flux for execution: {}, node: {}")
         .addArgument(executionId)
@@ -359,45 +371,7 @@ public class StreamTopologyDecorator {
         .addArgument(executionId)
         .addArgument(nodeId)
         .log();
-    // A store that cannot save a message must not fail the run, the same as one that cannot write
-    // the end marker. The node is then left unmarked, so a resume runs it again instead of
-    // trusting a partial output.
-    final AtomicBoolean saveFailed = new AtomicBoolean();
-    logStream =
-        logStream.concatMap(
-            msg ->
-                checkpointStore
-                    .save(executionId, nodeId, msg)
-                    .onErrorResume(
-                        error -> {
-                          saveFailed.set(true);
-                          log.atError()
-                              .addKeyValue("executionId", executionId)
-                              .addKeyValue("nodeId", nodeId)
-                              .setCause(error)
-                              .log("Could not save a checkpoint");
-                          return Mono.empty();
-                        })
-                    .thenReturn(msg));
-    // Only a node that completed normally is marked, and its completion goes on downstream once the
-    // marker is durable. A store that cannot write it must not fail the run.
-    logStream =
-        logStream.concatWith(
-            Mono.defer(
-                    () ->
-                        saveFailed.get()
-                            ? Mono.<Void>empty()
-                            : checkpointStore.markComplete(executionId, nodeId))
-                .onErrorResume(
-                    error -> {
-                      log.atError()
-                          .addKeyValue("executionId", executionId)
-                          .addKeyValue("nodeId", nodeId)
-                          .setCause(error)
-                          .log("Could not mark the node as complete");
-                      return Mono.empty();
-                    })
-                .then(Mono.empty()));
+    logStream = CheckpointStream.apply(checkpointStore, executionId, nodeId, logStream, checkpoint);
 
     return logStream.doOnNext(
         msg -> {
@@ -406,7 +380,7 @@ public class StreamTopologyDecorator {
           if (!echo && !log.isTraceEnabled()) {
             return;
           }
-          final String payload = truncateForLog(String.valueOf(msg.payload()));
+          final String payload = LivePayloadPreview.preview(msg.payload());
           log.atTrace().setMessage("Processing message payload: {}").addArgument(payload).log();
           // A blank payload (the output of a quiet command, an empty body) has nothing to echo, and
           // the tracker rejects blank lines, which would otherwise fail the node.

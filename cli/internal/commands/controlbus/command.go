@@ -18,8 +18,9 @@ import (
 // It sends a command to a specific node in a workflow.
 // The command payload can be provided as either a file path or inline JSON.
 func CommandCmd(c *client.Client) *cobra.Command {
-	return &cobra.Command{
-		Use:   "command <workflow-id> <node-id> <json-or-file>",
+	var session, execution string
+	cmd := &cobra.Command{
+		Use:   "command --session ID [--execution ID] <workflow-id> <node-id> <json-or-file>",
 		Short: "Send command to a node",
 		Long: `Send a command to a specific node in a workflow.
 
@@ -27,7 +28,10 @@ The command payload can be provided in two ways:
   1. As a file path (e.g., command.json)
   2. As an inline JSON string (e.g., '{"action":"pause"}')
 
-The command will automatically detect whether the input is a file or JSON string.`,
+The command will automatically detect whether the input is a file or JSON string.
+
+Workflow ids are only unique within a session, so --session is required. Name the run with
+--execution when the session has several live runs of the workflow.`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			workflowID := args[0]
@@ -47,7 +51,7 @@ The command will automatically detect whether the input is a file or JSON string
 			}
 
 			// Send the command to the server
-			response, err := c.SendCommand(workflowID, nodeID, commandPayload)
+			response, err := c.SendCommand(session, workflowID, execution, nodeID, commandPayload)
 			if err != nil {
 				return fmt.Errorf("failed to send command: %w", err)
 			}
@@ -55,6 +59,15 @@ The command will automatically detect whether the input is a file or JSON string
 			return formatAndPrintResponse(response)
 		},
 	}
+	addNodeFlags(cmd, &session, &execution)
+	return cmd
+}
+
+// addNodeFlags adds the flags that say which session and run a node-level call addresses.
+func addNodeFlags(cmd *cobra.Command, session, execution *string) {
+	cmd.Flags().StringVar(session, "session", "", "Session that owns the workflow (required)")
+	cmd.Flags().StringVar(execution, "execution", "", "Run; needed only when the session has several live runs of the workflow")
+	_ = cmd.MarkFlagRequired("session")
 }
 
 // formatAndPrintResponse formats and prints the command response based on the output format.

@@ -18,8 +18,10 @@ import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.model.workflow.WorkflowTemplate;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.orchestrator.RestartPlan;
 import com.infenia.yukta.service.orchestrator.strategy.NodeAssemblerStrategy;
+import com.infenia.yukta.service.orchestrator.strategy.ReplayNodeAssembler;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import java.time.Duration;
@@ -52,9 +54,10 @@ class WorkflowCompilerTest {
 
   @Mock private TaskTrackerService tracker;
   @Mock private SessionConfigStore configService;
-  @Mock private ExecutionControlRegistry executionControlRegistry;
+  @Mock private ExecutionControlStore executionControlStore;
   @Mock private NodeAssemblerStrategy assemblerStrategy;
   @Mock private Plugin plugin;
+  @Mock private ReplayNodeAssembler replayAssembler;
 
   private WorkflowCompiler compiler;
 
@@ -68,8 +71,48 @@ class WorkflowCompilerTest {
         new WorkflowCompiler(
             Schedulers.boundedElastic(),
             configService,
-            executionControlRegistry,
-            List.of(assemblerStrategy));
+            executionControlStore,
+            List.of(assemblerStrategy),
+            replayAssembler);
+  }
+
+  @Test
+  void compileRerunAssemblersPlansReplayAndSilentNodes() {
+    final WorkflowNode a = new WorkflowNode("a", "t", Map.of());
+    final WorkflowNode b = new WorkflowNode("b", "t", Map.of());
+    final WorkflowNode c = new WorkflowNode("c", "t", Map.of());
+    final WorkflowNode d = new WorkflowNode("d", "t", Map.of());
+    final Map<String, List<WorkflowNode>> parents =
+        Map.of("a", List.of(), "b", List.of(a), "c", List.of(b), "d", List.of());
+    final Map<String, Plugin> plugins = new HashMap<>();
+    for (final String id : List.of("a", "b", "c", "d")) {
+      plugins.put(id, plugin);
+    }
+    final NodeAssembler real = ctx -> {};
+    final NodeAssembler replayed = ctx -> {};
+    final NodeAssembler silent = ctx -> {};
+    when(assemblerStrategy.supports(any(), eq(true))).thenReturn(true);
+    when(assemblerStrategy.createAssembler(any(), any(), any(), eq(2), any(Integer.class), any()))
+        .thenReturn(real);
+    when(replayAssembler.replay(eq(b), eq(1), any(Integer.class), any(), eq("prev")))
+        .thenReturn(replayed);
+    when(replayAssembler.silent(any(), any(Integer.class), any(Integer.class))).thenReturn(silent);
+    when(plugin.getDefaultBufferSize()).thenReturn(8);
+
+    final NodeAssembler[] assemblers =
+        compiler.compileRerunAssemblers(
+            List.of(new WorkflowEdge("a", "b", null), new WorkflowEdge("b", "c", null)),
+            parents,
+            plugins,
+            List.of(a, b, c, d),
+            new RestartPlan(java.util.Set.of("c"), java.util.Set.of("b")),
+            Map.of(),
+            "prev");
+
+    assertThat(assemblers[0]).isSameAs(silent);
+    assertThat(assemblers[1]).isSameAs(replayed);
+    assertThat(assemblers[2]).isSameAs(real);
+    assertThat(assemblers[3]).isSameAs(silent);
   }
 
   // ── compileAssemblers ──────────────────────────────────────────────────────
@@ -334,7 +377,7 @@ class WorkflowCompilerTest {
             any(), any(), any(), any(Integer.class), any(Integer.class)))
         .thenReturn(ctx -> {});
 
-    when(executionControlRegistry.findByExecutionId(EXECUTION_ID))
+    when(executionControlStore.findByExecutionId(EXECUTION_ID))
         .thenReturn(Optional.of(buildMinimalExecutionControl()));
     when(configService.getExecutionTimeout(SESSION_ID)).thenReturn(Mono.just(5L));
 
@@ -355,7 +398,7 @@ class WorkflowCompilerTest {
 
   @Test
   void executeTemplate_missingExecutionControl_throwsIllegalStateException() {
-    when(executionControlRegistry.findByExecutionId(EXECUTION_ID)).thenReturn(Optional.empty());
+    when(executionControlStore.findByExecutionId(EXECUTION_ID)).thenReturn(Optional.empty());
 
     final NodeAssembler[] assemblers = new NodeAssembler[0];
 
@@ -369,7 +412,7 @@ class WorkflowCompilerTest {
 
   @Test
   void executeTemplate_withNoNodes_completesSuccessfully() {
-    when(executionControlRegistry.findByExecutionId(EXECUTION_ID))
+    when(executionControlStore.findByExecutionId(EXECUTION_ID))
         .thenReturn(Optional.of(buildMinimalExecutionControl()));
     when(configService.getExecutionTimeout(SESSION_ID)).thenReturn(Mono.just(60L));
 
@@ -384,7 +427,7 @@ class WorkflowCompilerTest {
 
   @Test
   void executeTemplate_assemblersCalled_inOrder() {
-    when(executionControlRegistry.findByExecutionId(EXECUTION_ID))
+    when(executionControlStore.findByExecutionId(EXECUTION_ID))
         .thenReturn(Optional.of(buildMinimalExecutionControl()));
     when(configService.getExecutionTimeout(SESSION_ID)).thenReturn(Mono.just(60L));
 
@@ -404,7 +447,7 @@ class WorkflowCompilerTest {
 
   @Test
   void executeTemplate_doesNotEmitWorkflowStatus_orchestratorOwnsIt() {
-    when(executionControlRegistry.findByExecutionId(EXECUTION_ID))
+    when(executionControlStore.findByExecutionId(EXECUTION_ID))
         .thenReturn(Optional.of(buildMinimalExecutionControl()));
     when(configService.getExecutionTimeout(SESSION_ID)).thenReturn(Mono.just(60L));
 
@@ -421,7 +464,7 @@ class WorkflowCompilerTest {
 
   @Test
   void executeTemplate_payloadAvailableInReactorContext() {
-    when(executionControlRegistry.findByExecutionId(EXECUTION_ID))
+    when(executionControlStore.findByExecutionId(EXECUTION_ID))
         .thenReturn(Optional.of(buildMinimalExecutionControl()));
     when(configService.getExecutionTimeout(SESSION_ID)).thenReturn(Mono.just(60L));
 

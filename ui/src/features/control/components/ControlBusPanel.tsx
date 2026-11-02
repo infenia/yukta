@@ -15,13 +15,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { getHeartbeats, type BusNode } from '../api/controlBus';
+import { getHeartbeats, type NodeHeartbeat } from '../api/controlBus';
 import { relativeTime } from './WorkersPanel.helpers';
 import { SendCommandDialog } from './SendCommandDialog';
 
 /** Every node on the control bus with the age of its last heartbeat, and a command to send it. */
 export function ControlBusPanel() {
-  const [target, setTarget] = useState<BusNode | null>(null);
+  const [target, setTarget] = useState<NodeHeartbeat | null>(null);
   const [response, setResponse] = useState<unknown>(undefined);
   const beats = useQuery({
     queryKey: ['control', 'heartbeats'],
@@ -99,6 +99,7 @@ export function ControlBusPanel() {
                     type="button"
                     variant="outline"
                     aria-label={`Send command to ${beat.nodeId}`}
+                    disabled={!beat.sessionId}
                     onClick={() => {
                       setResponse(undefined);
                       setTarget(beat);
@@ -128,6 +129,8 @@ export function ControlBusPanel() {
       )}
       {target && (
         <SendCommandDialog
+          sessionId={target.sessionId}
+          executionId={target.executionId}
           workflowId={target.workflowId}
           nodeId={target.nodeId}
           onClose={() => setTarget(null)}

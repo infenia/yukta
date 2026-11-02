@@ -11,7 +11,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ControlActor;
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
 import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
@@ -19,7 +18,7 @@ import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
@@ -48,15 +47,14 @@ class DirectiveDispatcherSupervisorTest {
   private final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
   private final ExecutionEventFeed feed = new ExecutionEventFeed();
   private final List<ExecutionEvent> events = new ArrayList<>();
-  private ControlSignalProcessor processor;
+  private CommandHandler processor;
   private ExecutionSupervisor supervisor;
   private DirectiveDispatcher dispatcher;
 
   @BeforeEach
   void setUp() {
-    final ExecutionControlRegistry registry =
-        new ExecutionControlRegistry(new InMemoryExecutionControlStore());
-    registry.register(
+    final ExecutionControlStore registry = new InMemoryExecutionControlStore();
+    registry.save(
         new ExecutionControl(
             "s",
             "wf",
@@ -70,9 +68,8 @@ class DirectiveDispatcherSupervisorTest {
             Map.of(),
             Map.of(),
             new AtomicBoolean()));
-    processor = mock(ControlSignalProcessor.class);
-    when(processor.canProcess(any())).thenReturn(true);
-    when(processor.process(any())).thenReturn(Mono.empty());
+    processor = mock(CommandHandler.class);
+    when(processor.handle(any())).thenReturn(Mono.empty());
     supervisor = mock(ExecutionSupervisor.class);
     when(supervisor.scope())
         .thenReturn(new com.infenia.yukta.plugin.control.SupervisorScope.Global());
@@ -80,7 +77,7 @@ class DirectiveDispatcherSupervisorTest {
     when(supervisor.review(any())).thenReturn(Mono.just(Decision.ALLOW));
     dispatcher =
         new DirectiveDispatcher(
-            List.of(processor),
+            processor,
             registry,
             mock(ControlBusService.class),
             new ExecutionArchive(),
@@ -98,7 +95,7 @@ class DirectiveDispatcherSupervisorTest {
         .expectError(ControlRejectedException.class)
         .verify();
 
-    verify(processor, never()).process(any());
+    verify(processor, never()).handle(any());
     assertThat(log.readAll())
         .singleElement()
         .satisfies(

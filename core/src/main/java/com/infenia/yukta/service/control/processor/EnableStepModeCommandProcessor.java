@@ -3,13 +3,10 @@
 package com.infenia.yukta.service.control.processor;
 
 import com.infenia.yukta.model.execution.ControlState;
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import lombok.RequiredArgsConstructor;
@@ -26,22 +23,16 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class EnableStepModeCommandProcessor implements ControlSignalProcessor {
+public class EnableStepModeCommandProcessor {
 
   /** The execution control registry for accessing execution control state. */
-  private final ExecutionControlRegistry registry;
+  private final ExecutionControlStore registry;
 
   /** The task tracker service for tracking task execution. */
   private final TaskTrackerService taskTracker;
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof EnableStepModeCommand;
-  }
-
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final EnableStepModeCommand enable = (EnableStepModeCommand) command;
+  /** Applies the command. */
+  public Mono<Void> process(final EnableStepModeCommand enable) {
     return Mono.fromRunnable(
         () -> {
           final ExecutionControl control =
@@ -66,10 +57,5 @@ public class EnableStepModeCommandProcessor implements ControlSignalProcessor {
               .addKeyValue("status", "STEP_MODE_ENABLED")
               .log("Enabled step mode");
         });
-  }
-
-  @Override
-  public int getPriority() {
-    return 10;
   }
 }

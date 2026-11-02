@@ -11,8 +11,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.archive.ArchivedExecution;
@@ -21,7 +19,7 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.Map;
@@ -35,15 +33,13 @@ import reactor.test.StepVerifier;
 
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.LinguisticNaming",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyStaticImports",
-  "PMD.TooManyMethods"
 })
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.processor.RestartCommandProcessor - ")
 class RestartCommandProcessorTest {
 
-  private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
+  private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
   private ExecutionScheduler scheduler =
@@ -62,18 +58,6 @@ class RestartCommandProcessorTest {
   }
 
   @Test
-  void canProcess_restartCommand_returnsTrue() {
-    final ExecutionControlCommand command = new RestartCommand("exec-1", "new-1");
-
-    assertThat(processor.canProcess(command)).isTrue();
-  }
-
-  @Test
-  void canProcess_otherCommand_returnsFalse() {
-    assertThat(processor.canProcess(new PauseWorkflowCommand("exec-1"))).isFalse();
-  }
-
-  @Test
   void finishedExecution_isRestartedWithItsOriginalGraphAndPayload() {
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
     when(orchestrator.execute(any(), any(), any(), any(), any(), any())).thenReturn(Mono.never());
@@ -82,7 +66,7 @@ class RestartCommandProcessorTest {
 
     verify(orchestrator)
         .execute(eq("s1"), eq("w1"), eq("new-1"), eq(prepared), eq(Map.of("k", "v")), any());
-    verify(registry, never()).unregister(any());
+    verify(registry, never()).remove(any());
     verify(completionSink).completeRestartSuccess("new-1");
   }
 
@@ -98,7 +82,7 @@ class RestartCommandProcessorTest {
     StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
 
     assertThat(safeStop.asMono().toFuture()).isDone();
-    verify(registry).unregister("exec-1");
+    verify(registry).remove("exec-1");
     verify(completionSink).completeRestartSuccess("new-1");
   }
 
@@ -192,10 +176,5 @@ class RestartCommandProcessorTest {
     verify(completionSink).completeRestartFailure(eq("new-2"), any(ConflictException.class));
     StepVerifier.create(first).verifyComplete();
     verify(completionSink).completeRestartSuccess("new-1");
-  }
-
-  @Test
-  void getPriority_returnsCorrectValue() {
-    assertThat(processor.getPriority()).isEqualTo(20);
   }
 }

@@ -7,7 +7,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
@@ -25,12 +25,12 @@ class ControlDispatch {
   private final ControlBusGateway gateway;
 
   /** Finds live runs. */
-  private final ExecutionControlRegistry executionControlRegistry;
+  private final ExecutionControlStore executionControlStore;
 
   /* default */ ControlDispatch(
-      final ControlBusGateway gateway, final ExecutionControlRegistry executionControlRegistry) {
+      final ControlBusGateway gateway, final ExecutionControlStore executionControlStore) {
     this.gateway = gateway;
-    this.executionControlRegistry = executionControlRegistry;
+    this.executionControlStore = executionControlStore;
   }
 
   /* default */ static <T extends ExecutionControlCommand> Message<T> buildCommand(
@@ -47,13 +47,13 @@ class ControlDispatch {
   }
 
   /* default */ ExecutionControl findExecutionOrThrow(final String executionId) {
-    return executionControlRegistry
+    return executionControlStore
         .findByExecutionId(executionId)
         .orElseThrow(() -> new NotFoundException("Execution not found: " + executionId));
   }
 
   /* default */ boolean isLive(final String executionId) {
-    return executionControlRegistry.findByExecutionId(executionId).isPresent();
+    return executionControlStore.findByExecutionId(executionId).isPresent();
   }
 
   /* default */ ExecutionControl requireNodeControl(final String executionId, final String nodeId) {

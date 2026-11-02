@@ -85,6 +85,65 @@ class RunAnalyticsTest {
   }
 
   @Test
+  void seededControl_keepsCommandActorAndReason_typedOrFromTheText() {
+    final Instant at = T0.plusSeconds(500);
+    final var typed =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_REJECTED,
+            "typed",
+            "",
+            "",
+            null,
+            "PauseWorkflowCommand [by key:ops]: deny",
+            Map.of(),
+            null,
+            Map.of(
+                ExecutionLogEvent.COMMAND_KEY, "PauseWorkflowCommand",
+                ExecutionLogEvent.ACTOR_KEY, "key:ops",
+                ExecutionLogEvent.REASON_KEY, "deny"),
+            at,
+            null);
+    final var text =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_REJECTED,
+            "text",
+            "",
+            "",
+            null,
+            "StopWorkflowCommand [by key:bob]: busy",
+            Map.of(),
+            null,
+            null,
+            at,
+            null);
+    final var noActor =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.CONTROL_APPLIED,
+            "plain",
+            "",
+            "",
+            null,
+            "ResumeCommand",
+            Map.of(),
+            null,
+            Map.of(ExecutionLogEvent.COMMAND_KEY, "ResumeCommand"),
+            at,
+            null);
+
+    analytics.seed(List.of(typed, text, noActor));
+
+    assertThat(analytics.annotations(RunAnalytics.GLOBAL, HOUR))
+        .extracting(
+            RunAnalytics.Annotation::command,
+            RunAnalytics.Annotation::actor,
+            RunAnalytics.Annotation::reason)
+        .containsExactlyInAnyOrder(
+            org.assertj.core.groups.Tuple.tuple("PauseWorkflowCommand", "key:ops", "deny"),
+            org.assertj.core.groups.Tuple.tuple("StopWorkflowCommand", "key:bob", "busy"),
+            org.assertj.core.groups.Tuple.tuple("ResumeCommand", null, null));
+  }
+
+  @Test
   void countsRunsByStatusAndTimesThem() {
     run("a", "s1", "w1", 0, 1000, SUCCESS);
     run("b", "s1", "w1", 10, 3000, FAILURE);
@@ -361,6 +420,21 @@ class RunAnalyticsTest {
   }
 
   @Test
+  void activeRunSurvivesNewerRuns() {
+    for (int i = 0; i < 10_000; i++) {
+      analytics.accept(
+          new ExecutionEvent.WorkflowStatusChanged("r" + i, "s1", "w1", "RUNNING", T0));
+    }
+    analytics.accept(new ExecutionEvent.WorkflowStatusChanged("r0", "s1", "w1", "RUNNING", T0));
+    analytics.accept(new ExecutionEvent.WorkflowStatusChanged("rx", "s1", "w1", "RUNNING", T0));
+
+    assertThat(analytics.liveRuns())
+        .extracting(RunAnalytics.LiveRun::executionId)
+        .contains("r0")
+        .doesNotContain("r1");
+  }
+
+  @Test
   void stopBeforeStartIsHarmless() {
     new RunAnalytics(feed).stop();
 
@@ -631,5 +705,18 @@ class RunAnalyticsTest {
 
     assertThat(run.withNodesTotal(9))
         .isEqualTo(new RunAnalytics.LiveRun("e", "s", "w", 1L, 2L, 3, 4, 5.0, 9));
+  }
+
+  @Test
+  void seedingIgnoresInputEntries() {
+    final var started = ExecutionLogEvent.started("old", "s1", "w1", "v1");
+    final var input =
+        ExecutionLogEvent.input("old", "s1", "w1", "n1", Map.of("event", "INPUT_REQUESTED"));
+    final var other = new RunAnalytics(feed, Clock.fixed(T0.plusSeconds(600), ZoneOffset.UTC));
+
+    analytics.seed(List.of(started, input));
+    other.seed(List.of(started));
+
+    assertThat(analytics.snapshot("session:s1")).isEqualTo(other.snapshot("session:s1"));
   }
 }

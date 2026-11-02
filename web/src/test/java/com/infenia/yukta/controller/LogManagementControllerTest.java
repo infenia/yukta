@@ -11,12 +11,12 @@ import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.mapper.WorkflowMapper;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -53,9 +53,8 @@ class LogManagementControllerTest {
         "e1", "s1", "p1", "Plugin", LogStream.STDOUT, message, LogLevel.INFO, at, null, Map.of());
   }
 
-  private static WorkflowProgress progress(final String status) {
-    return new WorkflowProgress(
-        "e1", "s1", "wf", status, List.of(), LocalDateTime.now(), null, null);
+  private static WorkflowProgress progress(final TaskStatus status) {
+    return new WorkflowProgress("e1", "s1", "wf", status, List.of(), Instant.now(), null, null);
   }
 
   @BeforeEach
@@ -92,7 +91,7 @@ class LogManagementControllerTest {
 
   @Test
   void testFinishedExecutionStreamsStoredHistoryWithIds() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("SUCCESS"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress(TaskStatus.SUCCESS));
     final Instant now = Instant.now();
     when(logStore.readExecution("e1")).thenReturn(Flux.just(entry("one", now), entry("two", now)));
 
@@ -103,7 +102,7 @@ class LogManagementControllerTest {
 
   @Test
   void testLastEventIdResumesAfterTheLastSeenLine() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("SUCCESS"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress(TaskStatus.SUCCESS));
     final Instant now = Instant.now();
     when(logStore.readExecution("e1"))
         .thenReturn(Flux.just(entry("one", now), entry("two", now), entry("three", now)));
@@ -128,7 +127,7 @@ class LogManagementControllerTest {
 
   @Test
   void testRunningExecutionGetsHistoryThenLiveWithoutDuplicatesOrGaps() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("RUNNING"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress(TaskStatus.RUNNING));
     final Sinks.Many<PluginLogEntry> live = Sinks.many().multicast().directBestEffort();
     when(tracker.getLogFlux()).thenReturn(live.asFlux());
     final Sinks.Many<WorkflowProgress> status = Sinks.many().multicast().directBestEffort();
@@ -155,18 +154,11 @@ class LogManagementControllerTest {
             .getResponseBody();
     final var collected = result.collectList().toFuture();
     live.tryEmitNext(entry("fresh", Instant.now().plusSeconds(5)));
-    status.tryEmitNext(progress("RUNNING"));
-    status.tryEmitNext(progress("SUCCESS"));
+    status.tryEmitNext(progress(TaskStatus.RUNNING));
+    status.tryEmitNext(progress(TaskStatus.SUCCESS));
     status.tryEmitNext(
         new WorkflowProgress(
-            "e1",
-            "s1",
-            "wf",
-            "SUCCESS",
-            List.of(),
-            LocalDateTime.now(),
-            LocalDateTime.now(),
-            null));
+            "e1", "s1", "wf", TaskStatus.SUCCESS, List.of(), Instant.now(), Instant.now(), null));
 
     final String body = String.join("\n", collected.join());
     assertThat(body).contains("old").contains("fresh");
@@ -175,7 +167,7 @@ class LogManagementControllerTest {
 
   private String logsWithLiveEntries(
       final java.util.function.Consumer<Sinks.Many<PluginLogEntry>> afterSubscribe) {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("RUNNING"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress(TaskStatus.RUNNING));
     final Sinks.Many<PluginLogEntry> live = Sinks.many().multicast().directBestEffort();
     when(tracker.getLogFlux()).thenReturn(live.asFlux());
     final Sinks.Many<WorkflowProgress> status = Sinks.many().multicast().directBestEffort();
@@ -197,14 +189,7 @@ class LogManagementControllerTest {
     afterSubscribe.accept(live);
     status.tryEmitNext(
         new WorkflowProgress(
-            "e1",
-            "s1",
-            "wf",
-            "SUCCESS",
-            List.of(),
-            LocalDateTime.now(),
-            LocalDateTime.now(),
-            null));
+            "e1", "s1", "wf", TaskStatus.SUCCESS, List.of(), Instant.now(), Instant.now(), null));
     return String.join("\n", collected.join());
   }
 
@@ -246,7 +231,7 @@ class LogManagementControllerTest {
 
   @Test
   void testStructuredEntries() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("FAILURE"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress(TaskStatus.FAILURE));
     when(logStore.readExecution("e1")).thenReturn(Flux.just(entry("boom", Instant.now())));
 
     assertThat(lines("/api/sessions/s1/executions/e1/logs/entries")).contains("boom");
@@ -254,7 +239,7 @@ class LogManagementControllerTest {
 
   @Test
   void testRepeatedLineAfterTheSnapshotIsNotSuppressedAndCancelDisposesLiveFeed() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("RUNNING"));
+    when(controlBus.getProgress("s1", "e1")).thenReturn(progress(TaskStatus.RUNNING));
     final Sinks.Many<PluginLogEntry> live = Sinks.many().replay().all();
     when(tracker.getLogFlux()).thenReturn(live.asFlux());
     when(controlBus.watchExecution("e1", true)).thenReturn(Flux.never());

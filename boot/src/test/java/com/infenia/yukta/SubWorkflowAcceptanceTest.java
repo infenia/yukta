@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.execution.TaskProgress;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
@@ -78,8 +79,7 @@ class SubWorkflowAcceptanceTest {
         .until(
             () -> {
               final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-              return progress != null
-                  && !List.of("PENDING", "QUEUED", "RUNNING").contains(progress.status());
+              return progress != null && progress.status().isTerminal();
             });
     return tracker.getProgressByExecutionId(executionId);
   }
@@ -128,8 +128,8 @@ class SubWorkflowAcceptanceTest {
     final WorkflowProgress bad =
         awaitTerminal(gateway.startWorkflow(session, "bad-parent").block());
 
-    assertThat(good.status()).isEqualTo("SUCCESS");
-    assertThat(bad.status()).isEqualTo("FAILURE");
+    assertThat(good.status()).isEqualTo(TaskStatus.SUCCESS);
+    assertThat(bad.status()).isEqualTo(TaskStatus.FAILURE);
   }
 
   /** A parent whose SUB_WORKFLOW routes on how the child ended, into one terminal per port. */
@@ -150,12 +150,12 @@ class SubWorkflowAcceptanceTest {
         .block();
   }
 
-  private static String statusOf(final WorkflowProgress progress, final String nodeId) {
+  private static TaskStatus statusOf(final WorkflowProgress progress, final String nodeId) {
     return progress.tasks().stream()
         .filter(task -> task.nodeId().equals(nodeId))
         .map(TaskProgress::status)
         .findFirst()
-        .orElse("missing");
+        .orElse(null);
   }
 
   @Test
@@ -187,12 +187,12 @@ class SubWorkflowAcceptanceTest {
     final WorkflowProgress failed =
         awaitTerminal(gateway.startWorkflow(session, "parent-of-failing").block());
 
-    assertThat(escalated.status()).isEqualTo("SUCCESS");
-    assertThat(statusOf(escalated, "on-escalate")).isEqualTo("SUCCESS");
-    assertThat(statusOf(escalated, "on-success")).isNotEqualTo("SUCCESS");
-    assertThat(failed.status()).isEqualTo("SUCCESS");
-    assertThat(statusOf(failed, "on-failure")).isEqualTo("SUCCESS");
-    assertThat(statusOf(failed, "on-success")).isNotEqualTo("SUCCESS");
+    assertThat(escalated.status()).isEqualTo(TaskStatus.SUCCESS);
+    assertThat(statusOf(escalated, "on-escalate")).isEqualTo(TaskStatus.SUCCESS);
+    assertThat(statusOf(escalated, "on-success")).isNotEqualTo(TaskStatus.SUCCESS);
+    assertThat(failed.status()).isEqualTo(TaskStatus.SUCCESS);
+    assertThat(statusOf(failed, "on-failure")).isEqualTo(TaskStatus.SUCCESS);
+    assertThat(statusOf(failed, "on-success")).isNotEqualTo(TaskStatus.SUCCESS);
   }
 
   @Test
@@ -253,7 +253,7 @@ class SubWorkflowAcceptanceTest {
     final WorkflowProgress parent =
         awaitTerminal(
             gateway.startWorkflow(session, "parent", Map.of("root", "/from/parent")).block());
-    assertThat(parent.status()).isEqualTo("SUCCESS");
+    assertThat(parent.status()).isEqualTo(TaskStatus.SUCCESS);
     assertThat(executionLog.readAll())
         .filteredOn(
             event ->
@@ -288,8 +288,8 @@ class SubWorkflowAcceptanceTest {
     assertThat(tracker.getProgressByExecutionId(parent).controlState()).isEqualTo("PAUSED");
 
     treeControl.apply(parent, true, gateway::resumeWorkflow).block(WAIT);
-    assertThat(awaitTerminal(parent).status()).isEqualTo("SUCCESS");
-    assertThat(tracker.getProgressByExecutionId(child).status()).isEqualTo("SUCCESS");
+    assertThat(awaitTerminal(parent).status()).isEqualTo(TaskStatus.SUCCESS);
+    assertThat(tracker.getProgressByExecutionId(child).status()).isEqualTo(TaskStatus.SUCCESS);
   }
 
   @Test

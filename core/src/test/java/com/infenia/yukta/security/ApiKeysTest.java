@@ -27,6 +27,7 @@ class ApiKeysTest {
     assertThat(match.reaches("any")).isTrue();
     assertThat(ApiKeys.single("k").named()).isFalse();
     assertThat(ApiKeys.single("k").find("other")).isNull();
+    assertThat(ApiKeys.single("short").isEmpty()).isFalse();
   }
 
   @Test
@@ -36,6 +37,7 @@ class ApiKeysTest {
             .withProperty("yukta.api-key", "rest")
             .withProperty("yukta.mcp.api-key", "mcp")
             .withProperty("yukta.api-keys[0].key", "bare")
+            .withProperty("yukta.api-keys[0].sessions", "*")
             .withProperty("yukta.api-keys[1].name", "team")
             .withProperty("yukta.api-keys[1].key", SECRET_HASH)
             .withProperty("yukta.api-keys[1].role", "OPERATOR")
@@ -69,9 +71,31 @@ class ApiKeysTest {
 
   @Test
   void read_refusesMalformedDigest() {
-    assertThat(refuses("sha256:abc")).contains("'h'");
-    assertThat(refuses("sha256:" + "z".repeat(64))).contains("64 hexadecimal");
-    assertThat(refuses("sha256:")).contains("64 hexadecimal");
+    final var tooShort =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "h")
+            .withProperty("yukta.api-keys[0].key", "sha256:abc")
+            .withProperty("yukta.api-keys[0].sessions", "*");
+    final var nonHex =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "h")
+            .withProperty("yukta.api-keys[0].key", "sha256:" + "z".repeat(64))
+            .withProperty("yukta.api-keys[0].sessions", "*");
+    final var empty =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "h")
+            .withProperty("yukta.api-keys[0].key", "sha256:")
+            .withProperty("yukta.api-keys[0].sessions", "*");
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApiKeys.read(tooShort, null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("'h'");
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApiKeys.read(nonHex, null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("64 hexadecimal");
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApiKeys.read(empty, null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("64 hexadecimal");
   }
 
   @Test
@@ -80,26 +104,12 @@ class ApiKeysTest {
         new MockEnvironment()
             .withProperty("yukta.api-key", "same-secret-same-secret-same-secret-1")
             .withProperty("yukta.api-keys[0].name", "ops")
-            .withProperty("yukta.api-keys[0].key", "same-secret-same-secret-same-secret-1");
+            .withProperty("yukta.api-keys[0].key", "same-secret-same-secret-same-secret-1")
+            .withProperty("yukta.api-keys[0].sessions", "*");
 
     org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApiKeys.read(env, null))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("ops");
-  }
-
-  @Test
-  void read_acceptsShortKeyButWarns() {
-    assertThat(ApiKeys.single("short").isEmpty()).isFalse();
-  }
-
-  private static String refuses(final String bad) {
-    final var env =
-        new MockEnvironment()
-            .withProperty("yukta.api-keys[0].name", "h")
-            .withProperty("yukta.api-keys[0].key", bad);
-    return org.assertj.core.api.Assertions.catchThrowableOfType(
-            IllegalArgumentException.class, () -> ApiKeys.read(env, null))
-        .getMessage();
   }
 
   @Test
@@ -136,12 +146,15 @@ class ApiKeysTest {
             new MockEnvironment()
                 .withProperty("yukta.api-keys[0].name", "old")
                 .withProperty("yukta.api-keys[0].key", "old-key")
+                .withProperty("yukta.api-keys[0].sessions", "*")
                 .withProperty("yukta.api-keys[0].expires", "2020-01-01T00:00:00Z")
                 .withProperty("yukta.api-keys[1].name", "new")
                 .withProperty("yukta.api-keys[1].key", "new-key")
+                .withProperty("yukta.api-keys[1].sessions", "*")
                 .withProperty("yukta.api-keys[1].expires", "2999-01-01T00:00:00Z")
                 .withProperty("yukta.api-keys[2].name", "forever")
-                .withProperty("yukta.api-keys[2].key", "forever-key"),
+                .withProperty("yukta.api-keys[2].key", "forever-key")
+                .withProperty("yukta.api-keys[2].sessions", "*"),
             null);
 
     assertThat(keys.find("old-key")).isNull();

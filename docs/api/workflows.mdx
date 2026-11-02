@@ -89,8 +89,8 @@ Returns run summaries of this workflow, newest first. An empty list means the wo
 | `executionId` | string | The run id |
 | `workflowId` | string | The workflow id |
 | `status` | string | The run status, see [Status values](/reference/status-values) |
-| `startTime` | string | When the run started, with the server's UTC offset (for example `+05:30`, or `Z`) |
-| `endTime` | string | When it ended, with the server's UTC offset. Absent while it runs |
+| `startTime` | string | When the run started, in UTC (ISO-8601, ending in `Z`) |
+| `endTime` | string | When it ended, in UTC. Absent while it runs |
 
 ## List saved versions
 
@@ -275,7 +275,7 @@ Returns the runs of every workflow in the session, newest first. It takes `limit
 | `workflowId` | Only runs of this workflow |
 | `status` | Only runs with this status, not case sensitive |
 | `text` | Only runs whose id contains this text, not case sensitive |
-| `since` | Only runs that started at or after this time, ISO date-time such as `2026-07-19T00:00:00` |
+| `since` | Only runs that started at or after this time, an ISO-8601 instant in UTC such as `2026-07-19T00:00:00Z` |
 | `until` | Only runs that started at or before this time |
 
 **Response `data`**: run summaries, as in the per-workflow list. How many runs the history keeps is set by `yukta.execution-log.retained-runs` (default `500`).

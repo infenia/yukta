@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.supervisor;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import lombok.NoArgsConstructor;
@@ -47,5 +48,15 @@ public class AttachedSupervisors {
    */
   public Stream<BoundSupervisor> stream() {
     return attached.values().stream();
+  }
+
+  /**
+   * The supervisor attached under a binding id.
+   *
+   * @param bindingId the binding id
+   * @return the supervisor, or empty if none is attached under it
+   */
+  public Optional<BoundSupervisor> find(final String bindingId) {
+    return Optional.ofNullable(attached.get(bindingId));
   }
 }

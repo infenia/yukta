@@ -14,6 +14,8 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
@@ -21,12 +23,16 @@ import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
+import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.control.ControlBusService;
+import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.input.InputBroker;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
@@ -41,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
@@ -66,6 +73,9 @@ import reactor.core.publisher.Mono;
 })
 public class DefaultControlBusGateway implements ControlBusGateway, RestartCompletionSink {
 
+  /** The number of live runs of a workflow in a session that addresses a call unambiguously. */
+  private static final int SINGLE_LIVE_RUN = 1;
+
   /** What the command-sending parts share. */
   private final ControlDispatch dispatch;
 
@@ -85,7 +95,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   private final TaskTrackerService taskTracker;
 
   /** The execution control registry for managing active executions. */
-  private final ExecutionControlRegistry executionControlRegistry;
+  private final ExecutionControlStore executionControlStore;
 
   /** Finished executions that can still be restarted. */
   private final ExecutionArchive executionArchive;
@@ -110,7 +120,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
    *
    * @param controlBusService delivers the control commands
    * @param taskTracker tracks runs
-   * @param executionControlRegistry finds live runs
+   * @param executionControlStore finds live runs
    * @param executionArchive finished runs that can be restarted
    * @param orchestrator prepares and runs workflows
    * @param workflowDefinitionStore the stored definitions
@@ -124,7 +134,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   public DefaultControlBusGateway(
       final ControlBusService controlBusService,
       final TaskTrackerService taskTracker,
-      final ExecutionControlRegistry executionControlRegistry,
+      final ExecutionControlStore executionControlStore,
       final ExecutionArchive executionArchive,
       final WorkflowOrchestrator orchestrator,
       final WorkflowDefinitionStore workflowDefinitionStore,
@@ -134,14 +144,14 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final ExecutionLogStore executionLog) {
     this.controlBusService = controlBusService;
     this.taskTracker = taskTracker;
-    this.executionControlRegistry = executionControlRegistry;
+    this.executionControlStore = executionControlStore;
     this.executionArchive = executionArchive;
     this.executionScheduler = executionScheduler;
     this.executionLog = executionLog;
-    this.dispatch = new ControlDispatch(this, executionControlRegistry);
-    this.nodes = new NodeCommands(this, executionControlRegistry);
+    this.dispatch = new ControlDispatch(this, executionControlStore);
+    this.nodes = new NodeCommands(this, executionControlStore);
     this.restarts =
-        new RestartCoordinator(this, executionControlRegistry, executionArchive, startIdempotency);
+        new RestartCoordinator(this, executionControlStore, executionArchive, startIdempotency);
     this.queries = new ExecutionQueries(taskTracker, controlBusService);
     this.starter =
         new WorkflowStarter(
@@ -215,12 +225,49 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<Message<?>> sendCommand(
-      final String workflowId, final String nodeId, final Message<?> command) {
+      final String sessionId,
+      final String workflowId,
+      @Nullable final String executionId,
+      final String nodeId,
+      final Message<?> command) {
     return carriesSignal(command)
         ? Mono.error(
             new ControlRejectedException("Approvals and signals go through the signal command"))
-        : deliver(workflowId, nodeId, command);
+        : Mono.defer(
+            () ->
+                deliver(
+                    workflowId, resolveRun(sessionId, workflowId, executionId), nodeId, command));
+  }
+
+  /**
+   * The one live run a node-level call addresses. Workflow ids are only unique within a session,
+   * and node ids within a run, so the call must name the session and, when the session has several
+   * live runs of the workflow, the run.
+   */
+  private String resolveRun(
+      final String sessionId, final String workflowId, @Nullable final String executionId) {
+    final List<String> runs =
+        executionControlStore.findAllActiveByWorkflow(sessionId, workflowId).stream()
+            .map(ExecutionControl::executionId)
+            .filter(id -> executionId == null || executionId.equals(id))
+            .toList();
+    if (runs.isEmpty()) {
+      throw new NotFoundException(
+          "No live run of workflow " + workflowId + " in session " + sessionId);
+    }
+    if (runs.size() > SINGLE_LIVE_RUN) {
+      throw new ConflictException(
+          "Session "
+              + sessionId
+              + " has "
+              + runs.size()
+              + " live runs of workflow "
+              + workflowId
+              + "; name the executionId");
+    }
+    return runs.getFirst();
   }
 
   /**
@@ -228,18 +275,23 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
    */
   private static boolean carriesSignal(final Message<?> command) {
     return command.payload() instanceof Map<?, ?> body
-        && (body.containsKey("decision") || body.containsKey("executionId"));
+        && (body.containsKey("decision")
+            || body.containsKey("executionId")
+            || body.containsKey("requestId"));
   }
 
   private Mono<Message<?>> deliver(
-      final String workflowId, final String nodeId, final Message<?> command) {
+      final String workflowId,
+      final String executionId,
+      final String nodeId,
+      final Message<?> command) {
     return Mono.defer(
             () -> {
               log.atDebug()
                   .addKeyValue("workflowId", workflowId)
                   .addKeyValue("nodeId", nodeId)
                   .log("Sending command to node");
-              return controlBusService.sendCommand(workflowId, nodeId, command);
+              return controlBusService.sendCommand(workflowId, executionId, nodeId, command);
             })
         .doOnSuccess(
             _ ->
@@ -269,9 +321,8 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                   .addKeyValue("nodeCount", workflowDefinition.nodes().size())
                   .addKeyValue("edgeCount", workflowDefinition.edges().size())
                   .log("Compiling and caching workflow");
-              return controlBusService.compileAndCacheWorkflow(sessionId, workflowDefinition);
+              return starter.compileAndCache(sessionId, workflowDefinition);
             })
-        .then(Mono.defer(() -> starter.dropCacheIfStale(sessionId, workflowDefinition)))
         .doOnSuccess(
             _ ->
                 log.atDebug()
@@ -365,7 +416,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     return Mono.fromCallable(
             () -> {
               final var allExecutions =
-                  executionControlRegistry.findAllActiveByWorkflow(sessionId, workflowId);
+                  executionControlStore.findAllActiveByWorkflow(sessionId, workflowId);
               if (allExecutions.isEmpty()) {
                 throw new IllegalArgumentException(
                     "No active execution found for session: "
@@ -416,7 +467,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final String executionId, final String reason, final StopMode mode) {
     return Mono.defer(
             () ->
-                executionControlRegistry
+                executionControlStore
                     .findByExecutionId(executionId)
                     .map(
                         control ->
@@ -455,14 +506,13 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
           if (progress == null) {
             return Mono.error(new NotFoundException("Execution not found: " + executionId));
           }
-          final String status =
+          final TaskStatus status =
               progress.tasks().stream()
                   .filter(task -> task.nodeId().equals(nodeId))
                   .map(TaskProgress::status)
                   .findFirst()
                   .orElseThrow(() -> new NotFoundException("Node not found: " + nodeId));
-          if (!TaskStatus.FAILURE.name().equals(status)
-              && !TaskStatus.TIMED_OUT.name().equals(status)) {
+          if (status != TaskStatus.FAILURE && status != TaskStatus.TIMED_OUT) {
             return Mono.error(
                 new IllegalArgumentException(
                     "Node "
@@ -517,6 +567,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         name,
         () -> {
           executionScheduler.setLimits(maxConcurrent, maxPerWorkflow);
+          executionLog.append(ExecutionLogEvent.limitsChanged(maxConcurrent, maxPerWorkflow));
           log.atInfo()
               .addKeyValue("maxConcurrent", maxConcurrent)
               .addKeyValue("maxPerWorkflow", maxPerWorkflow)
@@ -539,7 +590,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   /** The review request for a command, with the session and workflow of its live run if any. */
   private ControlRequest request(final ExecutionControlCommand command, final String actor) {
-    return executionControlRegistry
+    return executionControlStore
         .findByExecutionId(command.executionId())
         .map(run -> new ControlRequest(command, actor, run.sessionId(), run.workflowId()))
         .orElseGet(() -> new ControlRequest(command, actor, null, null));
@@ -637,6 +688,42 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     return nodes.signalNode(executionId, nodeId, name, decision, data);
   }
 
+  /**
+   * Lets the pending approvals include the open input requests.
+   *
+   * @param broker the broker, if the application has input requests
+   */
+  @Autowired(required = false)
+  public void setInputBroker(final ObjectProvider<InputBroker> broker) {
+    queries.setInputBroker(broker);
+  }
+
+  @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> answerInput(
+      final String executionId,
+      final String requestId,
+      @Nullable final Long expectedVersion,
+      final String decision,
+      @Nullable final String text,
+      @Nullable final Map<String, Object> data,
+      @Nullable final String rationale,
+      @Nullable final Double confidence) {
+    return nodes.answerInput(
+        new AnswerInputCommand(
+            executionId, requestId, expectedVersion, decision, text, data, rationale, confidence));
+  }
+
+  @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> escalateInput(
+      final String executionId,
+      final String requestId,
+      final String reason,
+      @Nullable final String advice) {
+    return nodes.escalateInput(new EscalateInputCommand(executionId, requestId, reason, advice));
+  }
+
   @Override
   public Mono<Void> clearBreakpoint(final String executionId, final String nodeId) {
     return nodes.clearBreakpoint(executionId, nodeId);
@@ -710,23 +797,51 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
-  public Message<?> getLastHeartbeat(final String workflowId, final String nodeId) {
-    return queries.getLastHeartbeat(workflowId, nodeId);
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Message<?> getLastHeartbeat(
+      final String sessionId,
+      final String workflowId,
+      @Nullable final String executionId,
+      final String nodeId) {
+    return queries.getLastHeartbeat(
+        workflowId, resolveRun(sessionId, workflowId, executionId), nodeId);
   }
 
   @Override
-  public Message<?> getLastStatistics(final String workflowId, final String nodeId) {
-    return queries.getLastStatistics(workflowId, nodeId);
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Message<?> getLastStatistics(
+      final String sessionId,
+      final String workflowId,
+      @Nullable final String executionId,
+      final String nodeId) {
+    return queries.getLastStatistics(
+        workflowId, resolveRun(sessionId, workflowId, executionId), nodeId);
   }
 
   @Override
   public List<NodeHeartbeat> getHeartbeats() {
-    return controlBusService.getHeartbeats();
+    return controlBusService.getHeartbeats().stream()
+        .map(
+            beat ->
+                new NodeHeartbeat(
+                    executionControlStore
+                        .findByExecutionId(beat.executionId())
+                        .map(ExecutionControl::sessionId)
+                        .orElse(""),
+                    beat.workflowId(),
+                    beat.executionId(),
+                    beat.nodeId(),
+                    beat.timestamp()))
+        .toList();
   }
 
   @Override
-  public List<String> getActiveNodes(final String workflowId) {
-    return queries.getActiveNodes(workflowId);
+  public List<String> getActiveNodes(final String sessionId, final String workflowId) {
+    return queries.getActiveNodes(
+        workflowId,
+        executionControlStore.findAllActiveByWorkflow(sessionId, workflowId).stream()
+            .map(ExecutionControl::executionId)
+            .toList());
   }
 
   @Override

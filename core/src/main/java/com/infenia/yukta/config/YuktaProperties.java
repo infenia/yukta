@@ -1,0 +1,225 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.config;
+
+import com.infenia.yukta.service.control.ExecutionScheduler.OnLimit;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import java.time.Duration;
+import java.util.List;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.validation.annotation.Validated;
+
+/**
+ * The settings of the core module under {@code yukta.*}. A value out of range stops start-up with
+ * the name of the setting, and the property names appear in the IDE through the generated
+ * configuration metadata. The old {@code control.bus.*} and {@code workflow.cache.*} names are
+ * mapped to {@code yukta.control-bus.*} and {@code yukta.cache.*} by {@link LegacyPropertyAliases},
+ * for one release.
+ *
+ * @param execution run limits and queueing
+ * @param executionLog the in-memory execution log
+ * @param restart checkpoints kept for restarts
+ * @param streaming the status history of live streams
+ * @param supervisor supervisor hosting
+ * @param input input requests: limits, deadlines and the in-memory store
+ * @param stop draining stop
+ * @param start start idempotency
+ * @param results results kept for retrieval
+ * @param workers remote worker registry
+ * @param controlBus the plugin-level control bus
+ * @param cache the prepared workflow cache
+ */
+@Validated
+@ConfigurationProperties(prefix = "yukta")
+public record YuktaProperties(
+    @Valid @DefaultValue Execution execution,
+    @Valid @DefaultValue ExecutionLog executionLog,
+    @Valid @DefaultValue Restart restart,
+    @Valid @DefaultValue Streaming streaming,
+    @Valid @DefaultValue Supervisor supervisor,
+    @Valid @DefaultValue Input input,
+    @Valid @DefaultValue Stop stop,
+    @Valid @DefaultValue Start start,
+    @Valid @DefaultValue Results results,
+    @Valid @DefaultValue Workers workers,
+    @Valid @DefaultValue ControlBus controlBus,
+    @Valid @DefaultValue Cache cache) {
+
+  /**
+   * Run limits; 0 means no limit.
+   *
+   * @param maxConcurrent global limit
+   * @param maxConcurrentChildren child runs (sub-workflows) alive at once, apart from the slots
+   * @param maxConcurrentPerWorkflow per-workflow limit
+   * @param maxConcurrentPerSession per-session limit
+   * @param queueCapacity how many starts may wait
+   * @param queueCapacityPerWorkflow how many starts of one workflow may wait
+   * @param onLimit what to do with a start that does not fit
+   * @param shutdownTimeout how long running executions are given on shutdown
+   * @param queueTimeout longest a start may wait for a slot, zero for no limit
+   * @param maxStartsPerMinute starts per workflow and minute
+   */
+  public record Execution(
+      @Min(0) @DefaultValue("0") int maxConcurrent,
+      @Min(0) @DefaultValue("0") int maxConcurrentChildren,
+      @Min(0) @DefaultValue("0") int maxConcurrentPerWorkflow,
+      @Min(0) @DefaultValue("0") int maxConcurrentPerSession,
+      @Min(0) @DefaultValue("100") int queueCapacity,
+      @Min(0) @DefaultValue("0") int queueCapacityPerWorkflow,
+      @NotNull @DefaultValue("QUEUE") OnLimit onLimit,
+      @NotNull @DefaultValue("30s") Duration shutdownTimeout,
+      @NotNull @DefaultValue("0") Duration queueTimeout,
+      @Min(0) @DefaultValue("0") int maxStartsPerMinute) {}
+
+  /**
+   * The in-memory execution log.
+   *
+   * @param retainedRuns runs kept when the log is trimmed
+   * @param compactAfter appended events after which the log is trimmed
+   */
+  public record ExecutionLog(
+      @Min(1) @DefaultValue("500") int retainedRuns,
+      @Min(1) @DefaultValue("10000") int compactAfter) {}
+
+  /**
+   * Checkpoints kept for restarts.
+   *
+   * @param messagesPerNode messages kept per node and execution
+   * @param bytesPerNode payload bytes kept per node and execution
+   * @param spillDir directory for output beyond the caps; empty to refuse such restarts
+   * @param autoResume whether interrupted runs are resumed on their own
+   * @param retainedExecutions executions whose outputs are kept
+   */
+  public record Restart(
+      @Min(1) @DefaultValue("200") int messagesPerNode,
+      @Min(1) @DefaultValue("4194304") long bytesPerNode,
+      @DefaultValue("") String spillDir,
+      @DefaultValue("false") boolean autoResume,
+      @Min(1) @DefaultValue("10") int retainedExecutions) {}
+
+  /**
+   * The status history of live streams.
+   *
+   * @param statusHistoryTtlMinutes minutes a snapshot is kept (1 to 30)
+   * @param statusHistoryMaxPerRun snapshots kept per execution
+   * @param statusHistoryMaxExecutions executions remembered
+   */
+  public record Streaming(
+      @Min(1) @Max(30) @DefaultValue("5") int statusHistoryTtlMinutes,
+      @Min(1) @DefaultValue("200") int statusHistoryMaxPerRun,
+      @Min(1) @DefaultValue("1000") int statusHistoryMaxExecutions) {}
+
+  /**
+   * Supervisor hosting.
+   *
+   * @param dryRun only record commands instead of applying them
+   * @param maxCommandsPerSecond most commands one supervisor may issue per second
+   * @param bufferSize events a supervisor may have waiting before events are dropped for it
+   * @param reviewTimeout longest a supervisor may take to answer a review
+   */
+  public record Supervisor(
+      @DefaultValue("false") boolean dryRun,
+      @Min(1) @DefaultValue("20") int maxCommandsPerSecond,
+      @Min(1) @DefaultValue("10000") int bufferSize,
+      @NotNull @DefaultValue("5s") Duration reviewTimeout) {}
+
+  /**
+   * Input requests: what a plugin may ask, how long a request waits and how many are kept.
+   *
+   * @param defaultTtl how long a request lives when its spec does not say; at most {@code maxTtl}
+   * @param maxTtl the longest a request may live; a longer ttl is cut to it
+   * @param maxOpenPerExecution most open requests one run may have
+   * @param maxOpenPerSession most open requests one session may have
+   * @param memoryMax most finished requests the in-memory store keeps, oldest evicted first
+   * @param sweepInterval how often the sweeper looks for requests past their deadline
+   * @param redactKeys context keys whose value is replaced, besides the built-in secret names
+   */
+  public record Input(
+      @NotNull @DefaultValue("1h") Duration defaultTtl,
+      @NotNull @DefaultValue("24h") Duration maxTtl,
+      @Min(1) @DefaultValue("5") int maxOpenPerExecution,
+      @Min(1) @DefaultValue("50") int maxOpenPerSession,
+      @Min(1) @DefaultValue("10000") int memoryMax,
+      @NotNull @DefaultValue("1s") Duration sweepInterval,
+      @NotNull @DefaultValue List<String> redactKeys) {
+
+    /** Checks that the durations are positive and that the default ttl fits the maximum. */
+    public Input {
+      requirePositive("yukta.input.default-ttl", defaultTtl);
+      requirePositive("yukta.input.max-ttl", maxTtl);
+      requirePositive("yukta.input.sweep-interval", sweepInterval);
+      if (maxTtl.compareTo(defaultTtl) < 0) {
+        throw new IllegalArgumentException(
+            "yukta.input.max-ttl must not be shorter than yukta.input.default-ttl");
+      }
+      redactKeys = List.copyOf(redactKeys);
+    }
+
+    private static void requirePositive(final String name, final Duration value) {
+      if (value.isZero() || value.isNegative()) {
+        throw new IllegalArgumentException(name + " must be positive");
+      }
+    }
+  }
+
+  /**
+   * Draining stop.
+   *
+   * @param drainTimeout how long a drain may take before falling back to a cancel
+   */
+  public record Stop(@NotNull @DefaultValue("30s") Duration drainTimeout) {}
+
+  /**
+   * Start idempotency.
+   *
+   * @param idempotencyTtl how long a key remembers its execution
+   * @param idempotencyMaxKeys most keys remembered
+   */
+  public record Start(
+      @NotNull @DefaultValue("10m") Duration idempotencyTtl,
+      @Min(1) @DefaultValue("100000") long idempotencyMaxKeys) {}
+
+  /**
+   * Results kept for retrieval.
+   *
+   * @param retainedEvents events kept per execution for replay
+   * @param retention how long results stay after they were last used
+   * @param maxExecutions finished executions kept at most
+   */
+  public record Results(
+      @Min(1) @DefaultValue("1000") int retainedEvents,
+      @NotNull @DefaultValue("1h") Duration retention,
+      @Min(1) @DefaultValue("200") int maxExecutions) {}
+
+  /**
+   * The remote worker registry.
+   *
+   * @param lease how long a heartbeat keeps a worker
+   */
+  public record Workers(@NotNull @DefaultValue("15s") Duration lease) {}
+
+  /**
+   * The plugin-level control bus.
+   *
+   * @param batchSize signals handled per batch
+   * @param batchTimeout longest wait to fill a batch
+   * @param bufferSize buffer for signals
+   */
+  public record ControlBus(
+      @Min(1) @DefaultValue("100") int batchSize,
+      @NotNull @DefaultValue("50ms") Duration batchTimeout,
+      @Min(1) @DefaultValue("256") int bufferSize) {}
+
+  /**
+   * The prepared workflow cache.
+   *
+   * @param ttl how long an unused prepared workflow stays cached
+   * @param maxSize most workflows kept
+   */
+  public record Cache(
+      @NotNull @DefaultValue("10m") Duration ttl, @Min(1) @DefaultValue("1000") long maxSize) {}
+}

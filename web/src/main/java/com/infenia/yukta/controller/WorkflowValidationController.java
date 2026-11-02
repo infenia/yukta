@@ -48,7 +48,7 @@ public class WorkflowValidationController {
    * Validate a draft workflow.
    *
    * @param request the draft workflow
-   * @return whether it would be accepted, the first problem, and each node's output ports
+   * @return whether it would be accepted, every problem, and each node's output ports
    */
   @PostMapping
   @Operation(
@@ -71,18 +71,15 @@ public class WorkflowValidationController {
                     (first, second) -> first));
     final List<WorkflowValidationResult.Warning> warnings = unreadPorts(definition, ports);
     return workflowValidator
-        .validate(definition)
-        .thenReturn(new WorkflowValidationResult(true, null, ports, warnings))
-        // only the validator's own verdict is a result; anything else is for the central handler
-        .onErrorResume(
-            IllegalArgumentException.class,
-            e ->
-                Mono.just(
-                    new WorkflowValidationResult(
-                        false,
-                        e.getMessage() != null ? e.getMessage() : e.toString(),
-                        ports,
-                        warnings)))
+        .validateAll(definition)
+        .map(
+            problems ->
+                new WorkflowValidationResult(
+                    problems.isEmpty(),
+                    problems.isEmpty() ? null : problems.getFirst(),
+                    ports,
+                    problems,
+                    warnings))
         .map(result -> ApiResponse.success(200, "Workflow validated", result));
   }
 

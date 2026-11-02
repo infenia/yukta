@@ -74,4 +74,21 @@ public abstract class ExecutionLogStoreContract {
 
     assertThat(store.readAll()).containsExactly(second);
   }
+
+  @Test
+  void queriesByRunHeaderAndType() {
+    final ExecutionLogStore store = create();
+    store.append(ExecutionLogEvent.started("a", "s1", "w1", "v"));
+    store.append(ExecutionLogEvent.started("b", "s2", "w2", "v"));
+    store.append(ExecutionLogEvent.finished("a", "s1", "w1", "SUCCESS", Map.of()));
+
+    assertThat(store.forExecution("a"))
+        .extracting(ExecutionLogEvent::type)
+        .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED);
+    assertThat(store.header("b")).contains(new ExecutionLogStore.RunHeader("s2", "w2"));
+    assertThat(store.header("nope")).isEmpty();
+    assertThat(store.ofType(ExecutionLogEvent.Type.RUN_FINISHED, java.time.Instant.EPOCH))
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly("a");
+  }
 }

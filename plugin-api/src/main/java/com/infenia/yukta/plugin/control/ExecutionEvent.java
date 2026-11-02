@@ -3,6 +3,8 @@
 package com.infenia.yukta.plugin.control;
 
 import com.infenia.yukta.plugin.core.LogLevel;
+import com.infenia.yukta.plugin.input.InputRequest;
+import com.infenia.yukta.plugin.input.Responder;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.Collections;
@@ -184,4 +186,137 @@ public sealed interface ExecutionEvent {
       return "";
     }
   }
+
+  /**
+   * A plugin of a run asked for input. The request is the redacted snapshot. Supervisors that may
+   * answer it see this event and answer with an {@code AnswerInputCommand}.
+   *
+   * @param request the request as it is now
+   * @param timestamp when it was asked
+   */
+  record InputRequested(InputRequest request, Instant timestamp) implements ExecutionEvent {
+
+    /**
+     * Checks the parts.
+     *
+     * @param request the request
+     * @param timestamp when it was asked
+     */
+    public InputRequested {
+      Objects.requireNonNull(request, "request");
+      Objects.requireNonNull(timestamp, "timestamp");
+    }
+
+    @Override
+    public String executionId() {
+      return request.executionId();
+    }
+
+    @Override
+    public String sessionId() {
+      return request.sessionId();
+    }
+
+    @Override
+    public String workflowId() {
+      return request.workflowId();
+    }
+  }
+
+  /**
+   * An input request was handed up to the next tier.
+   *
+   * @param request the request as it is now, with its new tier and targets
+   * @param reason why it was handed up, such as {@code tier timeout} or the sender's reason
+   * @param timestamp when it moved
+   */
+  record InputEscalated(InputRequest request, String reason, Instant timestamp)
+      implements ExecutionEvent {
+
+    /**
+     * Checks the parts.
+     *
+     * @param request the request
+     * @param reason why it was handed up
+     * @param timestamp when it moved
+     */
+    public InputEscalated {
+      Objects.requireNonNull(request, "request");
+      Objects.requireNonNull(reason, "reason");
+      Objects.requireNonNull(timestamp, "timestamp");
+    }
+
+    @Override
+    public String executionId() {
+      return request.executionId();
+    }
+
+    @Override
+    public String sessionId() {
+      return request.sessionId();
+    }
+
+    @Override
+    public String workflowId() {
+      return request.workflowId();
+    }
+  }
+
+  /**
+   * An input request was answered. The feed reaches every supervisor in scope and the event stream,
+   * so the answer's text and data are not in it, only who decided what.
+   *
+   * @param executionId the run that asked
+   * @param sessionId the session of the run
+   * @param workflowId the workflow of the run
+   * @param requestId the request
+   * @param responder who answered
+   * @param decision what was decided
+   * @param timestamp when it was answered
+   */
+  record InputAnswered(
+      String executionId,
+      @Nullable String sessionId,
+      @Nullable String workflowId,
+      String requestId,
+      Responder responder,
+      String decision,
+      Instant timestamp)
+      implements ExecutionEvent {}
+
+  /**
+   * An input request expired without an answer.
+   *
+   * @param executionId the run that asked
+   * @param sessionId the session of the run
+   * @param workflowId the workflow of the run
+   * @param requestId the request
+   * @param timestamp when it expired
+   */
+  record InputExpired(
+      String executionId,
+      @Nullable String sessionId,
+      @Nullable String workflowId,
+      String requestId,
+      Instant timestamp)
+      implements ExecutionEvent {}
+
+  /**
+   * An input request was cancelled, for example because its run ended.
+   *
+   * @param executionId the run that asked
+   * @param sessionId the session of the run
+   * @param workflowId the workflow of the run
+   * @param requestId the request
+   * @param reason why, such as {@code run-ended} or {@code node-cancelled}
+   * @param timestamp when it was cancelled
+   */
+  record InputCancelled(
+      String executionId,
+      @Nullable String sessionId,
+      @Nullable String workflowId,
+      String requestId,
+      String reason,
+      Instant timestamp)
+      implements ExecutionEvent {}
 }

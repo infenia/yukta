@@ -5,15 +5,20 @@ package com.infenia.yukta.service.supervisor;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
+import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ControlAudit;
+import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -41,7 +46,7 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Service
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports"})
 public class SupervisorService {
 
   /** Run id under which attaching and detaching is recorded. */
@@ -64,6 +69,15 @@ public class SupervisorService {
 
   /** Records attach and detach. */
   private final ExecutionLogStore executionLog;
+
+  /** Bindings the last restore started. */
+  private final AtomicInteger restored = new AtomicInteger();
+
+  /** Bindings the last restore could not start. */
+  private final AtomicInteger restoreFailed = new AtomicInteger();
+
+  /** Tells whether this server is the leader; null on a single server. */
+  @Nullable private LeaderElection election;
 
   /** Receives every audit record besides the log, if a module provides one. */
   @Nullable private AuditSink auditSink;
@@ -99,14 +113,46 @@ public class SupervisorService {
     this.auditSink = sink;
   }
 
-  /** Starts the enabled bindings that were kept. */
+  /**
+   * Restores the bindings when this server becomes the leader later; a standby runs none.
+   *
+   * @param leaderElection the election
+   */
+  @Autowired(required = false)
+  public void setLeaderElection(final LeaderElection leaderElection) {
+    this.election = leaderElection;
+    leaderElection.onTakeover(this::restore);
+  }
+
+  /**
+   * Publishes how many bindings the last restore started and how many it could not.
+   *
+   * @param meters the registry
+   */
+  @Autowired(required = false)
+  public void setMeterRegistry(final MeterRegistry meters) {
+    Gauge.builder("yukta.supervisor.restored", restored, AtomicInteger::get)
+        .tag("result", "started")
+        .register(meters);
+    Gauge.builder("yukta.supervisor.restored", restoreFailed, AtomicInteger::get)
+        .tag("result", "failed")
+        .register(meters);
+  }
+
+  /** Starts the enabled bindings that were kept, on the leader only. */
   @EventListener(ApplicationReadyEvent.class)
   /* default */ void restore() {
+    if (election != null && !election.isLeader()) {
+      return;
+    }
+    restored.set(0);
+    restoreFailed.set(0);
     // not in @PostConstruct: the store may need its schema first, and an unreadable store is
     // retried
     Flux.defer(store::bindings)
         .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
         .filter(SupervisorBinding::enabled)
+        .filter(SupervisorService::validStoredId)
         .concatMap(
             binding ->
                 store
@@ -114,8 +160,10 @@ public class SupervisorService {
                     .filter(profile -> profile.id().equals(binding.profileId()))
                     .next()
                     .doOnNext(profile -> start(binding, profile))
+                    .doOnNext(_ -> restored.incrementAndGet())
                     .onErrorResume(
                         error -> {
+                          restoreFailed.incrementAndGet();
                           log.atWarn()
                               .setCause(error)
                               .addKeyValue("binding", binding.id())
@@ -152,12 +200,12 @@ public class SupervisorService {
    * Creates or replaces a profile. Bindings that use it are restarted with the new settings.
    *
    * @param profile the profile
-   * @return the saved profile; errors with {@link IllegalArgumentException} for an unknown type or
-   *     invalid settings
+   * @return the saved profile; errors with {@link IllegalArgumentException} for an invalid id, an
+   *     unknown type or invalid settings
    */
   public Mono<SupervisorProfile> saveProfile(final SupervisorProfile profile) {
     return Mono.fromRunnable(() -> validate(profile))
-        .then(store.saveProfile(profile))
+        .then(Mono.defer(() -> store.saveProfile(profile)))
         .then(
             store
                 .bindings()
@@ -209,6 +257,11 @@ public class SupervisorService {
    *     IllegalArgumentException} when the profile's settings no longer make a supervisor
    */
   public Mono<SupervisorBinding> attach(final SupervisorBinding binding) {
+    try {
+      SupervisorIds.validate(binding.id(), "binding id");
+    } catch (IllegalArgumentException e) {
+      return Mono.error(e);
+    }
     if (host.isBuiltIn(binding.id())) {
       return Mono.error(
           new ConflictException(
@@ -319,10 +372,26 @@ public class SupervisorService {
     return factory;
   }
 
+  /** A stored binding with a bad id is skipped with a warning; the migration renames such ids. */
+  private static boolean validStoredId(final SupervisorBinding binding) {
+    final boolean valid = SupervisorIds.isValid(binding.id());
+    if (!valid) {
+      log.atWarn()
+          .addKeyValue("binding", binding.id())
+          .log("Skipped a supervisor binding whose id breaks the naming rule");
+    }
+    return valid;
+  }
+
   private void validate(final SupervisorProfile profile) {
-    // ponytail: still builds one to validate; add SupervisorFactory.validate when a factory opens
-    // a connection in create()
-    create(profile);
+    SupervisorIds.validate(profile.id(), "profile id");
+    factory(profile).validate(profile);
+    capabilities(profile);
+  }
+
+  /** What the profile lets its supervisor do; an unknown command name is refused. */
+  private SupervisorCapabilities capabilities(final SupervisorProfile profile) {
+    return SupervisorCapabilities.from(profile, factory(profile).defaultAllowedCommands());
   }
 
   private ExecutionSupervisor create(final SupervisorProfile profile) {
@@ -330,7 +399,8 @@ public class SupervisorService {
   }
 
   private void start(final SupervisorBinding binding, final SupervisorProfile profile) {
-    host.attach(new BoundSupervisor(binding, create(profile), profile.dryRun()));
+    host.attach(
+        new BoundSupervisor(binding, create(profile), profile.dryRun(), capabilities(profile)));
   }
 
   /** Records an attach or detach with the caller as actor. */

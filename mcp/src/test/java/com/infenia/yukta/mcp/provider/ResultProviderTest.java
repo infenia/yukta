@@ -6,11 +6,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.result.ExecutionResultService;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -34,7 +35,7 @@ class ResultProviderTest {
     when(controlBus.getProgress("s1", "e1"))
         .thenReturn(
             new WorkflowProgress(
-                "e1", "s1", "wf", "RUNNING", List.of(), LocalDateTime.now(), null, null));
+                "e1", "s1", "wf", TaskStatus.RUNNING, List.of(), Instant.now(), null, null));
   }
 
   @Test

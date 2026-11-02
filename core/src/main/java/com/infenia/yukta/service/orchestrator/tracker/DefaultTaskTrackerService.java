@@ -14,7 +14,6 @@ import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.log.ExecutionLogStore;
-import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import com.infenia.yukta.util.SinkEmit;
@@ -23,7 +22,6 @@ import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -33,8 +31,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -46,8 +42,7 @@ import java.util.function.LongSupplier;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import reactor.core.Disposable;
@@ -61,6 +56,7 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Service
 @Validated
+@EnableConfigurationProperties(TrackerProperties.class)
 @SuppressWarnings({
   "PMD.GodClass",
   "PMD.ExcessiveImports",
@@ -108,15 +104,13 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * How long a session with no run going is kept after its last run started or ended; unset keeps
    * every session ({@code yukta.tracker.session-ttl}, for example {@code 24h}).
    */
-  @Value("${yukta.tracker.session-ttl:#{null}}")
-  private @Nullable Duration sessionTtl;
+  private final @Nullable Duration sessionTtl;
 
   /** Periodically drops the sessions that have been idle past {@link #sessionTtl}. */
   private @Nullable Disposable sessionSweeper;
 
   /** Most sessions kept in memory; 0 keeps them all. Evicted history is served from the log. */
-  @Value("${yukta.tracker.max-sessions:0}")
-  private int maxSessions;
+  private final int maxSessions;
 
   /** Map of execution ID to workflow state. */
   private final Map<String, WorkflowState> executionIndex = new ConcurrentHashMap<>();
@@ -145,10 +139,13 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Applies queued events to the execution states. */
   private final TrackerEventApplier applier;
 
+  /** Finished runs waiting for their cleanup, and the sweep that runs them. */
+  private final ExecutionCleanups cleanups;
+
   /**
-   * Create a new DefaultTaskTrackerService with configurable cleanup TTL.
+   * Create the tracker from the {@code yukta.tracker} settings.
    *
-   * @param cleanupTtl the time to live for execution data after terminal status
+   * @param settings the settings: cleanup TTL, session TTL and most sessions kept
    * @param statusHistoryCache the cache for storing recent workflow progress updates
    * @param executionLog durable log of run starts and ends
    * @param meters registry for the node metrics
@@ -156,15 +153,18 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    *     {@code yukta.node}
    * @param eventFeed receives what happens to every execution
    */
-  @Autowired
   public DefaultTaskTrackerService(
-      @Value("${yukta.tracker.cleanup-ttl:10m}") final Duration cleanupTtl,
+      final TrackerProperties settings,
       final StatusHistoryCache statusHistoryCache,
       final ExecutionLogStore executionLog,
       final MeterRegistry meters,
       final ObservationRegistry observations,
       final ExecutionEventFeed eventFeed) {
-    this.cleanupTtl = cleanupTtl;
+    this.cleanupTtl = settings.cleanupTtl();
+    this.cleanups = new ExecutionCleanups(cleanupTtl);
+    this.sessionTtl = settings.sessionTtl();
+    this.maxSessions = settings.maxSessions();
+
     this.telemetry = new RunTelemetry(meters, observations);
     Gauge.builder(
             "yukta.tracker.queue.depth",
@@ -190,56 +190,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
             this::scheduleCleanup);
   }
 
-  /**
-   * Create a tracker whose events nobody listens to.
-   *
-   * @param cleanupTtl the time to live for execution data after terminal status
-   * @param statusHistoryCache the cache for storing recent workflow progress updates
-   * @param executionLog durable log of run starts and ends
-   * @param meters registry for the node metrics
-   * @param observations registry for the node observations
-   */
-  public DefaultTaskTrackerService(
-      final Duration cleanupTtl,
-      final StatusHistoryCache statusHistoryCache,
-      final ExecutionLogStore executionLog,
-      final MeterRegistry meters,
-      final ObservationRegistry observations) {
-    this(
-        cleanupTtl,
-        statusHistoryCache,
-        executionLog,
-        meters,
-        observations,
-        new ExecutionEventFeed());
-  }
-
-  /**
-   * Create a tracker without node observations.
-   *
-   * @param cleanupTtl the time to live for execution data after terminal status
-   * @param statusHistoryCache the cache for storing recent workflow progress updates
-   * @param executionLog durable log of run starts and ends
-   * @param meters registry for the node metrics
-   */
-  public DefaultTaskTrackerService(
-      final Duration cleanupTtl,
-      final StatusHistoryCache statusHistoryCache,
-      final ExecutionLogStore executionLog,
-      final MeterRegistry meters) {
-    this(cleanupTtl, statusHistoryCache, executionLog, meters, ObservationRegistry.NOOP);
-  }
-
-  /**
-   * Create a tracker that keeps its execution log in memory.
-   *
-   * @param cleanupTtl the time to live for execution data after terminal status
-   * @param statusHistoryCache the cache for storing recent workflow progress updates
-   */
-  public DefaultTaskTrackerService(
-      final Duration cleanupTtl, final StatusHistoryCache statusHistoryCache) {
-    this(
-        cleanupTtl, statusHistoryCache, new InMemoryExecutionLogStore(), new SimpleMeterRegistry());
+  /** Replace the clock of the session times (nanoseconds); call before {@link #init()}. */
+  /* default */ void useClock(final LongSupplier sessionClock) {
+    this.clock = sessionClock;
   }
 
   /** Initialize background event consumers. */
@@ -269,6 +222,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .subscribe(
             null,
             e -> log.atError().setCause(e).log("Tracker event consumer stopped unexpectedly"));
+    cleanups.startSweeper(() -> cleanups.drainDue(clock.getAsLong(), this::cleanupExecution));
     startSessionSweeper();
   }
 
@@ -303,6 +257,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   @PreDestroy
   public void stopSessionSweeper() {
     Optional.ofNullable(sessionSweeper).ifPresent(Disposable::dispose);
+    cleanups.stop();
   }
 
   /**
@@ -324,12 +279,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         () -> {
           final WorkflowState state =
               new WorkflowState(
-                  executionId,
-                  sessionId,
-                  workflowId,
-                  "RUNNING",
-                  nodeIds,
-                  LocalDateTime.now(ZoneId.systemDefault()));
+                  executionId, sessionId, workflowId, TaskStatus.RUNNING, nodeIds, Instant.now());
 
           // one atomic step, so that evicting the session cannot remove the map between lookup and
           // put
@@ -422,7 +372,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("status", status)
         .addKeyValue("metadataSize", metadata.size())
         .log("Emitting task status event");
-    publish(TaskStatusEvent.create(executionId, nodeId, module, status.name(), metadata));
+    publish(TaskStatusEvent.create(executionId, nodeId, module, status, metadata));
   }
 
   @Override
@@ -553,7 +503,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("executionId", executionId)
         .addKeyValue("status", status)
         .log("Emitting workflow status event");
-    publish(WorkflowStatusEvent.create(executionId, status.name()));
+    publish(WorkflowStatusEvent.create(executionId, status));
   }
 
   /**
@@ -758,6 +708,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    *
    * @return flux of plugin log entries
    */
+  @Override
   public Flux<PluginLogEntry> getLogFlux() {
     return streams.logFlux();
   }
@@ -775,13 +726,14 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
    * @param definitionVersion content hash of the graph the run used, or null if not recorded
    * @param initiator who or what started the run, or null if not recorded
    */
+  @Override
   @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public void restore(
       final String executionId,
       final String sessionId,
       final String workflowId,
-      final String status,
-      final Map<String, String> nodeStatuses,
+      final TaskStatus status,
+      final Map<String, TaskStatus> nodeStatuses,
       final Instant started,
       final Instant ended,
       final String definitionVersion,
@@ -884,9 +836,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
           sessionStates.entrySet().stream()
               .filter(e -> !e.getKey().equals(current))
               .filter(
-                  e ->
-                      e.getValue().values().stream()
-                          .allMatch(state -> TaskStatus.isTerminalName(state.status)))
+                  e -> e.getValue().values().stream().allMatch(state -> state.status.isTerminal()))
               .map(Map.Entry::getKey)
               .min(Comparator.comparingLong(id -> sessionUsed.getOrDefault(id, 0L)))
               .orElse(null);
@@ -905,7 +855,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     sessionStates.computeIfPresent(
         sessionId,
         (_, runs) -> {
-          if (runs.values().stream().allMatch(state -> TaskStatus.isTerminalName(state.status))) {
+          if (runs.values().stream().allMatch(state -> state.status.isTerminal())) {
             removed.put(sessionId, runs);
             return null;
           }
@@ -936,18 +886,6 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .filter(id -> now - sessionUsed.computeIfAbsent(id, _ -> now) > ttlNanos)
         .toList()
         .forEach(this::removeSessionIfIdle);
-  }
-
-  /* default */ void setMaxSessions(final int maxSessions) {
-    this.maxSessions = maxSessions;
-  }
-
-  /* default */ void setSessionTtl(final Duration ttl) {
-    this.sessionTtl = ttl;
-  }
-
-  /* default */ void setClock(final LongSupplier clock) {
-    this.clock = clock;
   }
 
   /** Applies a batch of events strictly in the order in which they were emitted. */
@@ -1003,7 +941,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("executionId", executionId)
         .addKeyValue("delayMs", cleanupTtl.toMillis())
         .log("Scheduled execution cleanup");
-    Mono.delay(cleanupTtl).subscribe(_ -> cleanupExecution(executionId));
+    cleanups.schedule(executionId, clock.getAsLong());
   }
 
   private void cleanupExecution(final String executionId) {

@@ -25,7 +25,7 @@ import org.springframework.test.context.aot.DisabledInAotMode;
       "spring.rsocket.server.port=0"
     })
 @DisabledInAotMode
-@EnabledIfSystemProperty(named = "yukta.workers", matches = "true")
+@EnabledIfSystemProperty(named = "yukta.build.workers", matches = "true")
 @NoArgsConstructor
 class WorkersControlPlaneAcceptanceTest {
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.archive;
 
+import com.infenia.yukta.config.YuktaProperties;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -9,7 +10,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -38,10 +38,19 @@ public class ExecutionArchive {
   /**
    * Creates an archive with the configured size.
    *
-   * @param retained number of executions kept
+   * @param properties the {@code yukta.restart} settings: executions kept
    */
   @Autowired
-  public ExecutionArchive(@Value("${yukta.restart.retained-executions:10}") final int retained) {
+  public ExecutionArchive(final YuktaProperties properties) {
+    this(properties.restart().retainedExecutions());
+  }
+
+  /**
+   * Creates an archive of the given size.
+   *
+   * @param retained number of executions kept
+   */
+  public ExecutionArchive(final int retained) {
     this.retained = Math.max(1, retained);
   }
 

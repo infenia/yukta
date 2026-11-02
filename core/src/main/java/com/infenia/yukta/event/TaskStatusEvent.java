@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.event;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import com.infenia.yukta.model.execution.TaskStatus;
+import java.time.Instant;
 import java.util.Map;
 
 /** Event representing a change in task status. */
@@ -11,9 +11,9 @@ public record TaskStatusEvent(
     String executionId,
     String nodeId,
     String module,
-    String status,
+    TaskStatus status,
     Map<String, Object> metadata,
-    LocalDateTime timestamp)
+    Instant timestamp)
     implements TrackerEvent {
 
   /**
@@ -58,14 +58,12 @@ public record TaskStatusEvent(
    * @param metadata the task metadata
    * @return a new TaskStatusEvent
    */
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public static TaskStatusEvent create(
       final String executionId,
       final String nodeId,
       final String module,
-      final String status,
+      final TaskStatus status,
       final Map<String, Object> metadata) {
-    return new TaskStatusEvent(
-        executionId, nodeId, module, status, metadata, LocalDateTime.now(ZoneId.systemDefault()));
+    return new TaskStatusEvent(executionId, nodeId, module, status, metadata, Instant.now());
   }
 }

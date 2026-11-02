@@ -9,11 +9,10 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.execution.TaskProgress;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
@@ -27,7 +26,7 @@ import reactor.test.StepVerifier;
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class SetBreakpointCommandProcessorTest {
 
-  private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
+  private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final TaskTrackerService taskTracker = mock(TaskTrackerService.class);
   private final SetBreakpointCommandProcessor processor =
       new SetBreakpointCommandProcessor(registry, taskTracker);
@@ -51,12 +50,6 @@ class SetBreakpointCommandProcessorTest {
     final boolean paused = valve.isPaused();
     valve.resume();
     return paused;
-  }
-
-  @Test
-  void canProcess_onlyItsOwnCommand() {
-    assertThat(processor.canProcess(new SetBreakpointCommand("e", "n", null, null))).isTrue();
-    assertThat(processor.canProcess(new PauseWorkflowCommand("e"))).isFalse();
   }
 
   @Test
@@ -99,11 +92,6 @@ class SetBreakpointCommandProcessorTest {
     StepVerifier.create(processor.process(new SetBreakpointCommand("e1", "n1", "payload", "x")))
         .expectError(NotFoundException.class)
         .verify();
-  }
-
-  @Test
-  void priority_isTen() {
-    assertThat(processor.getPriority()).isEqualTo(10);
   }
 
   @Test

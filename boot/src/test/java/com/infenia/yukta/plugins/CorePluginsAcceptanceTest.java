@@ -6,6 +6,7 @@ import static com.infenia.yukta.plugins.PluginWorkflows.node;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
@@ -224,13 +225,14 @@ class CorePluginsAcceptanceTest {
         .until(
             () ->
                 tracker.getProgressByExecutionId(executionId).tasks().stream()
-                    .anyMatch(t -> "w".equals(t.nodeId()) && "RUNNING".equals(t.status())));
-    assertThat(tracker.getProgressByExecutionId(executionId).status()).isEqualTo("RUNNING");
+                    .anyMatch(t -> "w".equals(t.nodeId()) && TaskStatus.RUNNING == t.status()));
+    assertThat(tracker.getProgressByExecutionId(executionId).status())
+        .isEqualTo(TaskStatus.RUNNING);
 
     gateway.signalNode(executionId, "w", "approve", "approve", "go").block(PluginWorkflows.WAIT);
 
     await()
         .atMost(PluginWorkflows.WAIT)
-        .until(() -> "SUCCESS".equals(tracker.getProgressByExecutionId(executionId).status()));
+        .until(() -> TaskStatus.SUCCESS == tracker.getProgressByExecutionId(executionId).status());
   }
 }

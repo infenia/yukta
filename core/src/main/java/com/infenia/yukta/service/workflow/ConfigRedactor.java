@@ -184,7 +184,7 @@ public class ConfigRedactor {
     }
   }
 
-  private static boolean isSecretName(final String key) {
+  /* default */ static boolean isSecretName(final String key) {
     return SECRET_NAME.matcher(key).matches();
   }
 

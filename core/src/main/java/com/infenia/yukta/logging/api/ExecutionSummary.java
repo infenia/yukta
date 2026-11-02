@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.logging.api;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * Metadata summary for a plugin execution.
@@ -14,8 +14,4 @@ import java.time.LocalDateTime;
  * @param entryCount number of log entries
  */
 public record ExecutionSummary(
-    String executionId,
-    String sessionId,
-    LocalDateTime startTime,
-    LocalDateTime endTime,
-    long entryCount) {}
+    String executionId, String sessionId, Instant startTime, Instant endTime, long entryCount) {}

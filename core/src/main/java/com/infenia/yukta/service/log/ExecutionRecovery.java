@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.log;
 
+import com.infenia.yukta.config.YuktaProperties;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.leader.LeaderElection;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
@@ -14,12 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -34,15 +33,11 @@ import org.springframework.stereotype.Component;
 @SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.AvoidInstantiatingObjectsInLoops"})
 public class ExecutionRecovery implements SmartInitializingSingleton {
 
-  /** A limit change as the gateway logs it, with the actor suffix when there was one. */
-  private static final Pattern LIMITS =
-      Pattern.compile("SetLimits\\((\\d{1,9})(?:, (\\d{1,9}))?\\)(?: \\[by .*\\])?");
-
   /** The execution log. */
   private final ExecutionLogStore store;
 
   /** Receives the restored runs. */
-  private final DefaultTaskTrackerService tracker;
+  private final TaskTrackerService tracker;
 
   /** Number of most recent runs kept in the log and restored. */
   private final int retainedRuns;
@@ -64,15 +59,22 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
    *
    * @param store the execution log
    * @param tracker receives the restored runs
-   * @param retainedRuns number of most recent runs kept
+   * @param properties the {@code yukta.execution-log} settings: runs kept
    * @param checkpoints recorded outputs, cleared for runs that are dropped
    */
   @Autowired
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public ExecutionRecovery(
       final ExecutionLogStore store,
-      final DefaultTaskTrackerService tracker,
-      @Value("${yukta.execution-log.retained-runs:500}") final int retainedRuns,
+      final TaskTrackerService tracker,
+      final YuktaProperties properties,
+      final NodeCheckpointStore checkpoints) {
+    this(store, tracker, properties.executionLog().retainedRuns(), checkpoints);
+  }
+
+  /* default */ ExecutionRecovery(
+      final ExecutionLogStore store,
+      final TaskTrackerService tracker,
+      final int retainedRuns,
       final NodeCheckpointStore checkpoints) {
     this.store = store;
     this.tracker = tracker;
@@ -81,9 +83,7 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
   }
 
   /* default */ ExecutionRecovery(
-      final ExecutionLogStore store,
-      final DefaultTaskTrackerService tracker,
-      final int retainedRuns) {
+      final ExecutionLogStore store, final TaskTrackerService tracker, final int retainedRuns) {
     this(store, tracker, retainedRuns, new InMemoryNodeCheckpointStore());
   }
 
@@ -203,19 +203,18 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
    */
   private void restoreLimits(final List<ExecutionLogEvent> schedulerEvents) {
     final ExecutionScheduler target = executionScheduler;
-    if (target != null) {
-      for (final ExecutionLogEvent event : schedulerEvents.reversed()) {
-        // Both numbers are 1 to 9 digits (see LIMITS), so parseInt cannot overflow.
-        final Matcher match = LIMITS.matcher(event.status());
-        if (event.type() == ExecutionLogEvent.Type.CONTROL_APPLIED && match.matches()) {
-          final int perWorkflow =
-              match.group(2) == null ? target.perWorkflowLimit() : Integer.parseInt(match.group(2));
-          target.setLimits(Integer.parseInt(match.group(1)), perWorkflow);
-          log.atInfo()
-              .addKeyValue("limits", event.status())
-              .log("Restored the limits changed at run time");
-          break;
-        }
+    if (target == null) {
+      return;
+    }
+    for (final ExecutionLogEvent event : schedulerEvents.reversed()) {
+      if (event.type() == ExecutionLogEvent.Type.LIMITS_CHANGED) {
+        target.setLimits(
+            Integer.parseInt(event.nodeStatuses().get(ExecutionLogEvent.MAX_CONCURRENT)),
+            Integer.parseInt(event.nodeStatuses().get(ExecutionLogEvent.MAX_PER_WORKFLOW)));
+        log.atInfo()
+            .addKeyValue("limits", event.nodeStatuses())
+            .log("Restored the limits changed at run time");
+        return;
       }
     }
   }
@@ -227,13 +226,19 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
           started.executionId(),
           started.sessionId(),
           started.workflowId(),
-          ended.status(),
-          ended.nodeStatuses(),
+          TaskStatus.valueOf(ended.status()),
+          statuses(ended.nodeStatuses()),
           started.timestamp(),
           ended.timestamp(),
           started.definitionVersion(),
           started.initiator());
     }
+  }
+
+  private static Map<String, TaskStatus> statuses(final Map<String, String> names) {
+    final Map<String, TaskStatus> statuses = new LinkedHashMap<>();
+    names.forEach((nodeId, name) -> statuses.put(nodeId, TaskStatus.valueOf(name)));
+    return statuses;
   }
 
   private static Map<String, String> finishedNodes(final List<ExecutionLogEvent> run) {

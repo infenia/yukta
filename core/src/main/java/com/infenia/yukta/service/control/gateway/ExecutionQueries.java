@@ -7,12 +7,16 @@ import com.infenia.yukta.model.control.PendingApproval;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.plugin.input.InputKind;
 import com.infenia.yukta.plugin.util.SignalWaits;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ControlBusService;
+import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -26,6 +30,9 @@ final class ExecutionQueries {
 
   /** The control bus service for low-level plugin and message operations. */
   private final ControlBusService controlBusService;
+
+  /** The broker, so open approval requests are listed with the signal waits; set when present. */
+  @Nullable private ObjectProvider<InputBroker> inputBroker;
 
   /* default */ ExecutionQueries(
       final TaskTrackerService taskTracker, final ControlBusService controlBusService) {
@@ -95,7 +102,21 @@ final class ExecutionQueries {
     return taskTracker.getProgress(sessionId, executionId);
   }
 
+  /**
+   * Lets the pending approvals include the open input requests.
+   *
+   * @param broker the broker, if the application has input requests
+   */
+  /* default */ void setInputBroker(final ObjectProvider<InputBroker> broker) {
+    this.inputBroker = broker;
+  }
+
   /* default */ Flux<PendingApproval> pendingApprovals(final String sessionId) {
+    return Flux.concat(signalWaits(sessionId), approvalRequests(sessionId))
+        .distinct(wait -> wait.executionId() + '\0' + wait.nodeId() + '\0' + wait.name());
+  }
+
+  private Flux<PendingApproval> signalWaits(final String sessionId) {
     return Flux.fromIterable(SignalWaits.shared().pending())
         .concatMap(
             wait -> {
@@ -113,6 +134,30 @@ final class ExecutionQueries {
                           wait.since()))
                   : Mono.<PendingApproval>empty();
             });
+  }
+
+  /** The open requests of kind {@code APPROVAL}, in the shape of a signal wait. */
+  private Flux<PendingApproval> approvalRequests(final String sessionId) {
+    final ObjectProvider<InputBroker> provider = inputBroker;
+    final InputBroker broker = provider == null ? null : provider.getIfAvailable();
+    return broker == null
+        ? Flux.empty()
+        : broker
+            .listOpen(sessionId, null)
+            .filter(request -> request.spec().kind() == InputKind.APPROVAL)
+            .map(
+                request ->
+                    new PendingApproval(
+                        request.sessionId(),
+                        request.executionId(),
+                        request.workflowId(),
+                        request.nodeId(),
+                        String.valueOf(
+                            request
+                                .spec()
+                                .context()
+                                .getOrDefault(InputBroker.SIGNAL_CONTEXT_KEY, request.key())),
+                        request.createdAt()));
   }
 
   /* default */ WorkflowProgress getCurrentProgress(final String executionId) {
@@ -161,12 +206,14 @@ final class ExecutionQueries {
                     .log("Workflow execution history retrieved"));
   }
 
-  /* default */ Message<?> getLastHeartbeat(final String workflowId, final String nodeId) {
+  /* default */ Message<?> getLastHeartbeat(
+      final String workflowId, final String executionId, final String nodeId) {
     log.atDebug()
         .addKeyValue("workflowId", workflowId)
         .addKeyValue("nodeId", nodeId)
         .log("Fetching last heartbeat");
-    final Message<?> heartbeat = controlBusService.getLastHeartbeat(workflowId, nodeId);
+    final Message<?> heartbeat =
+        controlBusService.getLastHeartbeat(workflowId, executionId, nodeId);
     if (heartbeat != null) {
       log.atTrace()
           .addKeyValue("workflowId", workflowId)
@@ -181,12 +228,14 @@ final class ExecutionQueries {
     return heartbeat;
   }
 
-  /* default */ Message<?> getLastStatistics(final String workflowId, final String nodeId) {
+  /* default */ Message<?> getLastStatistics(
+      final String workflowId, final String executionId, final String nodeId) {
     log.atDebug()
         .addKeyValue("workflowId", workflowId)
         .addKeyValue("nodeId", nodeId)
         .log("Fetching last statistics");
-    final Message<?> statistics = controlBusService.getLastStatistics(workflowId, nodeId);
+    final Message<?> statistics =
+        controlBusService.getLastStatistics(workflowId, executionId, nodeId);
     if (statistics != null) {
       log.atTrace()
           .addKeyValue("workflowId", workflowId)
@@ -201,9 +250,10 @@ final class ExecutionQueries {
     return statistics;
   }
 
-  /* default */ List<String> getActiveNodes(final String workflowId) {
+  /* default */ List<String> getActiveNodes(
+      final String workflowId, final List<String> executionIds) {
     log.atDebug().addKeyValue("workflowId", workflowId).log("Fetching active nodes for workflow");
-    final List<String> activeNodes = controlBusService.getActiveNodes(workflowId);
+    final List<String> activeNodes = controlBusService.getActiveNodes(workflowId, executionIds);
     log.atDebug()
         .addKeyValue("workflowId", workflowId)
         .addKeyValue("activeNodeCount", activeNodes.size())
@@ -226,7 +276,7 @@ final class ExecutionQueries {
    */
   /* default */ Mono<String> finishOrphan(final String executionId) {
     final WorkflowProgress progress = taskTracker.getProgressByExecutionId(executionId);
-    final boolean orphan = progress != null && !TaskStatus.isTerminalName(progress.status());
+    final boolean orphan = progress != null && !progress.status().isTerminal();
     if (orphan) {
       log.atWarn().addKeyValue("executionId", executionId).log("Stopping orphaned execution");
     }

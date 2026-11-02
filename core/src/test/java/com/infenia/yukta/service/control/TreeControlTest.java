@@ -7,9 +7,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import lombok.NoArgsConstructor;
@@ -27,9 +28,9 @@ class TreeControlTest {
   private static final String TOP = "top";
   private static final String BROKEN = "broken";
 
-  private static WorkflowExecutionSummary run(final String executionId, final String status) {
+  private static WorkflowExecutionSummary run(final String executionId, final TaskStatus status) {
     return new WorkflowExecutionSummary(
-        executionId, "wf", status, LocalDateTime.now(), null, TOP, TOP, null);
+        executionId, "wf", status, Instant.now(), null, TOP, TOP, null);
   }
 
   private Mono<Void> record(final String executionId) {
@@ -52,12 +53,12 @@ class TreeControlTest {
     when(tracker.getTree(TOP))
         .thenReturn(
             List.of(
-                run(TOP, "RUNNING"),
-                run("child", "RUNNING"),
-                run(BROKEN, "PAUSED"),
-                run("queued", "QUEUED"),
-                run("pending", "PENDING"),
-                run("done", "SUCCESS")));
+                run(TOP, TaskStatus.RUNNING),
+                run("child", TaskStatus.RUNNING),
+                run(BROKEN, TaskStatus.RUNNING),
+                run("queued", TaskStatus.QUEUED),
+                run("pending", TaskStatus.PENDING),
+                run("done", TaskStatus.SUCCESS)));
 
     StepVerifier.create(control.apply(TOP, true, this::record)).verifyComplete();
 

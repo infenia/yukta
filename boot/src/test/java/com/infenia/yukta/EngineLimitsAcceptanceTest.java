@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.execution.TaskProgress;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
@@ -62,7 +63,7 @@ class EngineLimitsAcceptanceTest {
   }
 
   private static boolean unfinished(final WorkflowProgress progress) {
-    return progress == null || List.of("PENDING", "QUEUED", "RUNNING").contains(progress.status());
+    return progress == null || !progress.status().isTerminal();
   }
 
   @Test
@@ -80,7 +81,8 @@ class EngineLimitsAcceptanceTest {
     await().atMost(WAIT).until(() -> !unfinished(tracker.getProgressByExecutionId(executionId)));
     subscription.dispose();
 
-    assertThat(tracker.getProgressByExecutionId(executionId).status()).isEqualTo("SUCCESS");
+    assertThat(tracker.getProgressByExecutionId(executionId).status())
+        .isEqualTo(TaskStatus.SUCCESS);
     assertThat(warnings)
         .singleElement()
         .satisfies(
@@ -105,19 +107,19 @@ class EngineLimitsAcceptanceTest {
     do {
       progress = tracker.getProgressByExecutionId(executionId);
       if (progress != null) {
-        final List<String> states =
+        final List<TaskStatus> states =
             progress.tasks().stream()
                 .filter(task -> List.of("a", "b", "c").contains(task.nodeId()))
                 .map(TaskProgress::status)
                 .toList();
         mostRunning =
-            Math.max(mostRunning, (int) states.stream().filter("RUNNING"::equals).count());
-        sawQueued |= states.contains("QUEUED");
+            Math.max(mostRunning, (int) states.stream().filter(TaskStatus.RUNNING::equals).count());
+        sawQueued |= states.contains(TaskStatus.QUEUED);
       }
       await().pollDelay(Duration.ofMillis(20)).until(() -> true);
     } while (unfinished(progress) && System.nanoTime() < deadline);
 
-    assertThat(progress.status()).isEqualTo("SUCCESS");
+    assertThat(progress.status()).isEqualTo(TaskStatus.SUCCESS);
     assertThat(mostRunning).isEqualTo(2);
     assertThat(sawQueued).isTrue();
   }

@@ -5,8 +5,7 @@ package com.infenia.yukta.model.api;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -27,7 +26,7 @@ import java.util.List;
         "Unified API response wrapper for both success and error responses. Success responses"
             + " include data field; error responses include error, path, and errors fields.")
 public record ApiResponse<T>(
-    @Schema(description = "The time the response was generated") LocalDateTime timestamp,
+    @Schema(description = "The time the response was generated") Instant timestamp,
     @Schema(description = "The HTTP status code", example = "200") int status,
     @Schema(description = "A human-readable message", example = "Operation successful")
         String message,
@@ -66,8 +65,7 @@ public record ApiResponse<T>(
    * @return a successful ApiResponse
    */
   public static <T> ApiResponse<T> success(final int status, final String message, final T data) {
-    return new ApiResponse<>(
-        LocalDateTime.now(ZoneId.systemDefault()), status, message, data, null, null, null);
+    return new ApiResponse<>(Instant.now(), status, message, data, null, null, null);
   }
 
   /**
@@ -88,7 +86,7 @@ public record ApiResponse<T>(
       final String path,
       final List<FieldError> errors) {
     return new ApiResponse<>(
-        LocalDateTime.now(ZoneId.systemDefault()),
+        Instant.now(),
         status,
         message,
         null,

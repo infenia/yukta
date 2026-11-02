@@ -4,9 +4,10 @@ package com.infenia.yukta.service.result;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.infenia.yukta.config.YuktaProperties;
 import java.time.Duration;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -27,15 +28,25 @@ public class ExecutionResultService {
   /**
    * Creates the service.
    *
+   * @param properties the {@code yukta.results} settings; live executions are never evicted
+   */
+  @Autowired
+  public ExecutionResultService(final YuktaProperties properties) {
+    this(
+        properties.results().retainedEvents(),
+        properties.results().retention(),
+        properties.results().maxExecutions());
+  }
+
+  /**
+   * Creates the service.
+   *
    * @param retainedEvents events kept per execution for replay
    * @param retention how long an execution's results stay available after they were last used
-   * @param maxExecutions how many finished executions are kept at most (live ones are never
-   *     evicted)
+   * @param maxExecutions how many finished executions are kept at most
    */
   public ExecutionResultService(
-      @Value("${yukta.results.retained-events:1000}") final int retainedEvents,
-      @Value("${yukta.results.retention:1h}") final Duration retention,
-      @Value("${yukta.results.max-executions:200}") final int maxExecutions) {
+      final int retainedEvents, final Duration retention, final int maxExecutions) {
     this.retainedEvents = Math.max(1, retainedEvents);
     this.channels =
         Caffeine.newBuilder()

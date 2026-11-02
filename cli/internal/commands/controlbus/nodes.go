@@ -15,15 +15,16 @@ import (
 // NodesCmd creates and returns the "controlbus nodes" subcommand.
 // It retrieves and displays active nodes in a specific workflow.
 func NodesCmd(c *client.Client) *cobra.Command {
-	return &cobra.Command{
-		Use:   "nodes <workflow-id>",
+	var session string
+	cmd := &cobra.Command{
+		Use:   "nodes --session ID <workflow-id>",
 		Short: "Get active nodes in a workflow",
 		Long:  "Retrieve and display all active nodes in a specific workflow.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			workflowID := args[0]
 
-			nodes, err := c.GetActiveNodesInWorkflow(workflowID)
+			nodes, err := c.GetActiveNodesInWorkflow(session, workflowID)
 			if err != nil {
 				return fmt.Errorf("failed to get active nodes: %w", err)
 			}
@@ -47,4 +48,7 @@ func NodesCmd(c *client.Client) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&session, "session", "", "Session that owns the workflow (required)")
+	_ = cmd.MarkFlagRequired("session")
+	return cmd
 }

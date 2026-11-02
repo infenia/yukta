@@ -3,9 +3,8 @@
 package com.infenia.yukta.model.execution;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import org.jspecify.annotations.Nullable;
-import tools.jackson.databind.annotation.JsonSerialize;
 
 /**
  * Summary of a workflow execution.
@@ -24,16 +23,14 @@ import tools.jackson.databind.annotation.JsonSerialize;
 public record WorkflowExecutionSummary(
     @Schema(description = "The unique execution identifier") String executionId,
     @Schema(description = "The workflow identifier") String workflowId,
-    @Schema(description = "The execution status") String status,
+    @Schema(description = "The execution status") TaskStatus status,
     @Schema(description = "The start time of the execution, with the server's UTC offset")
-        @JsonSerialize(using = OffsetTimestampSerializer.class)
-        LocalDateTime startTime,
+        Instant startTime,
     @Schema(
             description = "The end time of the execution, with the server's UTC offset",
             requiredMode = Schema.RequiredMode.NOT_REQUIRED,
             nullable = true)
-        @JsonSerialize(using = OffsetTimestampSerializer.class)
-        @Nullable LocalDateTime endTime,
+        @Nullable Instant endTime,
     @Schema(
             description = "The run that started this one as a sub-workflow, if any",
             requiredMode = Schema.RequiredMode.NOT_REQUIRED,
@@ -66,9 +63,9 @@ public record WorkflowExecutionSummary(
   public WorkflowExecutionSummary(
       final String executionId,
       final String workflowId,
-      final String status,
-      final LocalDateTime startTime,
-      final LocalDateTime endTime,
+      final TaskStatus status,
+      final Instant startTime,
+      final Instant endTime,
       final String parentExecutionId,
       final String rootExecutionId,
       final String restartOf,
@@ -101,9 +98,9 @@ public record WorkflowExecutionSummary(
   public WorkflowExecutionSummary(
       final String executionId,
       final String workflowId,
-      final String status,
-      final LocalDateTime startTime,
-      final LocalDateTime endTime,
+      final TaskStatus status,
+      final Instant startTime,
+      final Instant endTime,
       final String parentExecutionId,
       final String rootExecutionId,
       final String restartOf) {
@@ -131,9 +128,9 @@ public record WorkflowExecutionSummary(
   public WorkflowExecutionSummary(
       final String executionId,
       final String workflowId,
-      final String status,
-      final LocalDateTime startTime,
-      final LocalDateTime endTime) {
+      final TaskStatus status,
+      final Instant startTime,
+      final Instant endTime) {
     this(executionId, workflowId, status, startTime, endTime, null, null, null, null);
   }
 

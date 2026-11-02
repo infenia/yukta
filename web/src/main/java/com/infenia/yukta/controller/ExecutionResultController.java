@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
-import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.service.result.ExecutionResultService;
 import com.infenia.yukta.service.result.ExecutionResults;
 import com.infenia.yukta.service.result.ResultEvent;
@@ -68,7 +67,7 @@ public class ExecutionResultController {
             progress -> {
               // A finished run that was evicted (or never had a terminal) has nothing to replay.
               final boolean nothingToReplay =
-                  TaskStatus.isTerminalName(progress.status()) && !results.has(executionId);
+                  progress.status().isTerminal() && !results.has(executionId);
               final Flux<ResultEvent> events =
                   nothingToReplay
                       ? Flux.empty()

@@ -265,4 +265,18 @@ class InMemoryExecutionControlStoreTest {
     assertThat(snapshot).containsExactly(control);
     assertThat(store.findAll()).isEmpty();
   }
+
+  @Test
+  void testWorkflowIndexFollowsSaveAndRemove() {
+    store.save(createControl("s", "w", "e1"));
+    store.save(createControl("s", "w", "e2"));
+    store.save(createControl("s", "other", "e3"));
+    assertThat(store.findAllActiveByWorkflow("s", "w")).hasSize(2);
+
+    store.remove("e1");
+    store.remove("e2");
+    assertThat(store.findAllActiveByWorkflow("s", "w")).isEmpty();
+    assertThat(store.findActiveByWorkflow("s", "w")).isEmpty();
+    assertThat(store.findActiveByWorkflow("s", "other")).isPresent();
+  }
 }

@@ -7,14 +7,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -25,7 +23,7 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 class SkipNodeCommandProcessorTest {
 
-  private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
+  private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final SkipNodeCommandProcessor processor = new SkipNodeCommandProcessor(registry);
   private final ExecutionControl control = mock(ExecutionControl.class);
   private final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
@@ -36,18 +34,6 @@ class SkipNodeCommandProcessorTest {
     when(control.nodeSkipFlags()).thenReturn(Map.of("n1", flag));
     when(control.prepared()).thenReturn(prepared);
     when(prepared.pluginCache()).thenReturn(Map.of("n1", plugin));
-  }
-
-  @Test
-  void canProcess_skipNodeCommand_returnsTrue() {
-    assertThat(processor.canProcess(new SkipNodeCommand("e1", "n1", true))).isTrue();
-  }
-
-  @Test
-  void canProcess_otherCommand_returnsFalse() {
-    final ExecutionControlCommand command = new PauseWorkflowCommand("e1");
-
-    assertThat(processor.canProcess(command)).isFalse();
   }
 
   @Test
@@ -85,10 +71,5 @@ class SkipNodeCommandProcessorTest {
     StepVerifier.create(processor.process(new SkipNodeCommand("e1", "ghost", true)))
         .expectError(NotFoundException.class)
         .verify();
-  }
-
-  @Test
-  void priority_isTen() {
-    assertThat(processor.getPriority()).isEqualTo(10);
   }
 }

@@ -5,7 +5,6 @@ package com.infenia.yukta.service.control;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.List;
-import java.util.Set;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,9 +21,6 @@ import reactor.core.publisher.Mono;
 @Component
 @RequiredArgsConstructor
 public class TreeControl {
-
-  /** Statuses of a run that has not ended yet. */
-  private static final Set<String> UNFINISHED = Set.of("PENDING", "QUEUED", "RUNNING", "PAUSED");
 
   /** Knows the runs of a tree. */
   private final TaskTrackerService tracker;
@@ -64,7 +60,7 @@ public class TreeControl {
   private List<String> below(final String executionId) {
     return tracker.getTree(executionId).stream()
         .filter(run -> !run.executionId().equals(executionId))
-        .filter(run -> UNFINISHED.contains(run.status()))
+        .filter(run -> !run.status().isTerminal())
         .map(WorkflowExecutionSummary::executionId)
         .toList();
   }

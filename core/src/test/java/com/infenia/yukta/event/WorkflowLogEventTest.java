@@ -5,8 +5,9 @@ package com.infenia.yukta.event;
 import static org.assertj.core.api.Assertions.*;
 
 import com.infenia.yukta.plugin.core.LogLevel;
+import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
@@ -58,7 +59,7 @@ class WorkflowLogEventTest {
 
   @Test
   void constructor_allFieldsProvided_createsRecord() {
-    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Instant timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0).toInstant(ZoneOffset.UTC);
     final WorkflowLogEvent event = new WorkflowLogEvent("exec2", "node-002", "line 2", timestamp);
 
     assertThat(event.executionId()).isEqualTo("exec2");
@@ -68,7 +69,7 @@ class WorkflowLogEventTest {
 
   @Test
   void equals_identicalFieldValues_returnsTrue() {
-    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Instant timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0).toInstant(ZoneOffset.UTC);
     final WorkflowLogEvent event1 =
         new WorkflowLogEvent("exec1", "node-001", "log line", timestamp);
     final WorkflowLogEvent event2 =
@@ -79,7 +80,7 @@ class WorkflowLogEventTest {
 
   @Test
   void equals_differentExecutionId_returnsFalse() {
-    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Instant timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0).toInstant(ZoneOffset.UTC);
     final WorkflowLogEvent event1 =
         new WorkflowLogEvent("exec1", "node-001", "log line", timestamp);
     final WorkflowLogEvent event2 =
@@ -90,7 +91,7 @@ class WorkflowLogEventTest {
 
   @Test
   void equals_differentLine_returnsFalse() {
-    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Instant timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0).toInstant(ZoneOffset.UTC);
     final WorkflowLogEvent event1 = new WorkflowLogEvent("exec1", "node-001", "line 1", timestamp);
     final WorkflowLogEvent event2 = new WorkflowLogEvent("exec1", "node-001", "line 2", timestamp);
 
@@ -99,8 +100,8 @@ class WorkflowLogEventTest {
 
   @Test
   void equals_differentTimestamp_returnsFalse() {
-    final LocalDateTime timestamp1 = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
-    final LocalDateTime timestamp2 = LocalDateTime.of(2026, 6, 21, 10, 30, 1);
+    final Instant timestamp1 = LocalDateTime.of(2026, 6, 21, 10, 30, 0).toInstant(ZoneOffset.UTC);
+    final Instant timestamp2 = LocalDateTime.of(2026, 6, 21, 10, 30, 1).toInstant(ZoneOffset.UTC);
     final WorkflowLogEvent event1 =
         new WorkflowLogEvent("exec1", "node-001", "log line", timestamp1);
     final WorkflowLogEvent event2 =
@@ -111,7 +112,7 @@ class WorkflowLogEventTest {
 
   @Test
   void hashCode_identicalFieldValues_returnsSameHash() {
-    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Instant timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0).toInstant(ZoneOffset.UTC);
     final WorkflowLogEvent event1 =
         new WorkflowLogEvent("exec1", "node-001", "log line", timestamp);
     final WorkflowLogEvent event2 =
@@ -122,7 +123,7 @@ class WorkflowLogEventTest {
 
   @Test
   void hashCode_differentValues_likelyDifferentHash() {
-    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Instant timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0).toInstant(ZoneOffset.UTC);
     final WorkflowLogEvent event1 =
         new WorkflowLogEvent("exec1", "node-001", "log line", timestamp);
     final WorkflowLogEvent event2 =
@@ -133,7 +134,7 @@ class WorkflowLogEventTest {
 
   @Test
   void toString_containsFieldValues() {
-    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Instant timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0).toInstant(ZoneOffset.UTC);
     final WorkflowLogEvent event = new WorkflowLogEvent("exec1", "node-001", "test log", timestamp);
 
     final String toString = event.toString();
@@ -167,9 +168,9 @@ class WorkflowLogEventTest {
 
   @Test
   void create_timestampIsApproximatelyNow() {
-    final LocalDateTime before = LocalDateTime.now(ZoneId.systemDefault());
+    final Instant before = Instant.now();
     final WorkflowLogEvent event = WorkflowLogEvent.create("exec1", "node-001", "log message");
-    final LocalDateTime after = LocalDateTime.now(ZoneId.systemDefault());
+    final Instant after = Instant.now();
 
     assertThat(event.timestamp())
         .isAfterOrEqualTo(before.minusSeconds(1))
@@ -178,13 +179,13 @@ class WorkflowLogEventTest {
 
   @Test
   void record_accessorsReturnCorrectTypes() {
-    final LocalDateTime timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0);
+    final Instant timestamp = LocalDateTime.of(2026, 6, 21, 10, 30, 0).toInstant(ZoneOffset.UTC);
     final WorkflowLogEvent event = new WorkflowLogEvent("exec1", "node-001", "line", timestamp);
 
     assertThat(event.executionId()).isInstanceOf(String.class);
     assertThat(event.nodeId()).isInstanceOf(String.class);
     assertThat(event.line()).isInstanceOf(String.class);
-    assertThat(event.timestamp()).isInstanceOf(LocalDateTime.class);
+    assertThat(event.timestamp()).isInstanceOf(Instant.class);
   }
 
   @Test

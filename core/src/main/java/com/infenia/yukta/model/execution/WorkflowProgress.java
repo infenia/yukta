@@ -3,21 +3,19 @@
 package com.infenia.yukta.model.execution;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
-import tools.jackson.databind.annotation.JsonSerialize;
 
 /** Represents the progress of a workflow. */
 public record WorkflowProgress(
     String executionId,
     String sessionId,
     String workflowId,
-    String status,
+    TaskStatus status,
     List<TaskProgress> tasks,
-    @JsonSerialize(using = OffsetTimestampSerializer.class) LocalDateTime startTime,
-    @JsonSerialize(using = OffsetTimestampSerializer.class) @Schema(nullable = true)
-        @Nullable LocalDateTime endTime,
+    Instant startTime,
+    @Schema(nullable = true) @Nullable Instant endTime,
     @Schema(nullable = true) @Nullable String controlState,
     @Schema(nullable = true) @Nullable String definitionVersion,
     @Schema(nullable = true) @Nullable String parentExecutionId,
@@ -61,10 +59,10 @@ public record WorkflowProgress(
       final String executionId,
       final String sessionId,
       final String workflowId,
-      final String status,
+      final TaskStatus status,
       final List<TaskProgress> tasks,
-      final LocalDateTime startTime,
-      final LocalDateTime endTime,
+      final Instant startTime,
+      final Instant endTime,
       final String controlState,
       final String definitionVersion) {
     this(
@@ -97,10 +95,10 @@ public record WorkflowProgress(
       final String executionId,
       final String sessionId,
       final String workflowId,
-      final String status,
+      final TaskStatus status,
       final List<TaskProgress> tasks,
-      final LocalDateTime startTime,
-      final LocalDateTime endTime) {
+      final Instant startTime,
+      final Instant endTime) {
     this(executionId, sessionId, workflowId, status, tasks, startTime, endTime, null, null);
   }
 
@@ -120,10 +118,10 @@ public record WorkflowProgress(
       final String executionId,
       final String sessionId,
       final String workflowId,
-      final String status,
+      final TaskStatus status,
       final List<TaskProgress> tasks,
-      final LocalDateTime startTime,
-      final LocalDateTime endTime,
+      final Instant startTime,
+      final Instant endTime,
       final String controlState) {
     this(executionId, sessionId, workflowId, status, tasks, startTime, endTime, controlState, null);
   }

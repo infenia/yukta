@@ -213,4 +213,14 @@ public interface Plugin {
   default boolean suppressOptimizationHint(Map<String, Object> config) {
     return false;
   }
+
+  /**
+   * Indicates that this plugin keeps state in the server process (or calls back into it), so a node
+   * of this type cannot be placed on a worker. A plugin with such state overrides it.
+   *
+   * @return true if the node must run on the control plane, false otherwise (default)
+   */
+  default boolean requiresControlPlane() {
+    return false;
+  }
 }

@@ -18,6 +18,14 @@ export interface ActivityEvent {
     reason?: string | null;
     line?: string;
     count?: number;
+    /** The input events: the request snapshot (InputRequested, InputEscalated) or its id. */
+    request?: {
+      nodeId: string;
+      tier: string;
+      spec: { kind: string; risk: string };
+    };
+    requestId?: string;
+    decision?: string;
   };
 }
 
@@ -35,6 +43,11 @@ export const EVENT_TYPES = [
   'ControlOutcome',
   'LogLine',
   'EventsMissed',
+  'InputRequested',
+  'InputEscalated',
+  'InputAnswered',
+  'InputExpired',
+  'InputCancelled',
 ] as const;
 export const SEVERITIES = ['INFO', 'WARN', 'ERROR'] as const;
 
@@ -50,6 +63,16 @@ export function describe(e: ActivityEvent): string {
       return `${event.command} ${event.applied ? 'applied' : `refused: ${event.reason}`}`;
     case 'LogLine':
       return `${event.nodeId}: ${event.line}`;
+    case 'InputRequested':
+      return `${event.request?.nodeId} asked for input (${event.request?.spec.kind}, ${event.request?.spec.risk} risk)`;
+    case 'InputEscalated':
+      return `input of ${event.request?.nodeId} escalated to ${event.request?.tier}`;
+    case 'InputAnswered':
+      return `input answered: ${event.decision}`;
+    case 'InputExpired':
+      return 'input request expired';
+    case 'InputCancelled':
+      return `input request cancelled: ${event.reason}`;
     default:
       return `${event.count} events missed`;
   }

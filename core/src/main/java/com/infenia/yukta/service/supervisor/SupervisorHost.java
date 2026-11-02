@@ -2,11 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.SupervisorCapabilities;
+import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
@@ -34,7 +37,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.BufferOverflowStrategy;
@@ -123,6 +125,35 @@ public class SupervisorHost {
    * @param dispatcher applies the commands
    * @param executionLog records commands that were not applied
    * @param meters registry for the command counter
+   * @param properties the {@code yukta.supervisor} settings
+   */
+  @Autowired
+  public SupervisorHost(
+      final ObjectProvider<ExecutionSupervisor> supervisors,
+      final ExecutionEventFeed feed,
+      final DirectiveDispatcher dispatcher,
+      final ExecutionLogStore executionLog,
+      final MeterRegistry meters,
+      final YuktaProperties properties) {
+    this(
+        supervisors,
+        feed,
+        dispatcher,
+        executionLog,
+        meters,
+        properties.supervisor().dryRun(),
+        properties.supervisor().maxCommandsPerSecond(),
+        properties.supervisor().bufferSize());
+  }
+
+  /**
+   * Creates the host with explicit limits.
+   *
+   * @param supervisors the supervisors to host
+   * @param feed the event feed
+   * @param dispatcher applies the commands
+   * @param executionLog the execution log
+   * @param meters registry for the command counter
    * @param dryRun only record commands instead of applying them
    * @param maxCommandsPerSecond most commands one supervisor may issue per second
    * @param bufferSize events a supervisor may have waiting before events are dropped for it
@@ -134,9 +165,9 @@ public class SupervisorHost {
       final DirectiveDispatcher dispatcher,
       final ExecutionLogStore executionLog,
       final MeterRegistry meters,
-      @Value("${yukta.supervisor.dry-run:false}") final boolean dryRun,
-      @Value("${yukta.supervisor.max-commands-per-second:20}") final int maxCommandsPerSecond,
-      @Value("${yukta.supervisor.buffer-size:10000}") final int bufferSize) {
+      final boolean dryRun,
+      final int maxCommandsPerSecond,
+      final int bufferSize) {
     this.bufferSize = bufferSize;
     this.supervisors = supervisors;
     this.feed = feed;
@@ -150,7 +181,26 @@ public class SupervisorHost {
   /** Starts every supervisor. */
   @PostConstruct
   public void start() {
-    supervisors.stream().forEach(supervisor -> subscriptions.add(launch(supervisor, dryRun)));
+    supervisors.stream()
+        .forEach(
+            supervisor -> {
+              checkBeanId(supervisor);
+              subscriptions.add(launch(supervisor, dryRun));
+            });
+  }
+
+  /** Fails start-up for a bean supervisor whose id breaks the naming rule. */
+  private static void checkBeanId(final ExecutionSupervisor supervisor) {
+    try {
+      SupervisorIds.validate(supervisor.id(), "id");
+    } catch (IllegalArgumentException e) {
+      throw new IllegalStateException(
+          "The supervisor bean "
+              + supervisor.getClass().getName()
+              + " has an invalid id: "
+              + e.getMessage(),
+          e);
+    }
   }
 
   /**
@@ -285,6 +335,8 @@ public class SupervisorHost {
   private Disposable launch(final ExecutionSupervisor supervisor, final boolean recordOnly) {
     final String supervisorId = supervisor.id();
     final RateLimit limit = new RateLimit(maxCommandsPerSecond);
+    final SupervisorCapabilities allowed =
+        supervisor instanceof BoundSupervisor bound ? bound.capabilities() : null;
     log.atInfo()
         .addKeyValue(SUPERVISOR_KEY, supervisorId)
         .addKeyValue("dryRun", recordOnly)
@@ -298,7 +350,7 @@ public class SupervisorHost {
                     .log("Supervisor failed; restarting"))
         .retryWhen(
             Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1)).maxBackoff(Duration.ofMinutes(1)))
-        .concatMap(command -> apply(supervisorId, command, limit, recordOnly))
+        .concatMap(command -> apply(supervisorId, command, limit, recordOnly, allowed))
         .subscribeOn(Schedulers.boundedElastic())
         .subscribe();
   }
@@ -341,9 +393,18 @@ public class SupervisorHost {
       final String supervisorId,
       final ExecutionControlCommand command,
       final RateLimit limit,
-      final boolean recordOnly) {
+      final boolean recordOnly,
+      final @Nullable SupervisorCapabilities allowed) {
     final Mono<Void> result;
-    if (limit.tryAcquire()) {
+    if (allowed != null && !allowed.allows(command)) {
+      // dropped before the rate limit: a command the supervisor may not send costs it nothing
+      result =
+          notApplied(
+              supervisorId,
+              "forbidden",
+              command,
+              command.getClass().getSimpleName() + " is not in allowedCommands of this supervisor");
+    } else if (limit.tryAcquire()) {
       result =
           recordOnly
               ? notApplied(supervisorId, DRY_RUN, command, DRY_RUN)
@@ -357,7 +418,12 @@ public class SupervisorHost {
   private Mono<Void> send(final String supervisorId, final ExecutionControlCommand command) {
     return dispatcher
         .dispatchOrdered(command)
-        .contextWrite(Context.of(ControlActor.CONTEXT_KEY, supervisorId))
+        .contextWrite(
+            Context.of(
+                ControlActor.CONTEXT_KEY,
+                supervisorId,
+                ControlActor.KIND_KEY,
+                ControlActor.Kind.SUPERVISOR))
         .doOnSuccess(
             _ -> {
               count(supervisorId, "applied");

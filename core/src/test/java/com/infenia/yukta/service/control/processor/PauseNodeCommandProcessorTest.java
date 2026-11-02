@@ -2,16 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.processor;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.execution.ControlState;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseNodeCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
@@ -26,39 +23,14 @@ import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
-@SuppressWarnings("PMD.LinguisticNaming")
 class PauseNodeCommandProcessorTest {
 
-  @Mock private ExecutionControlRegistry registry;
+  @Mock private ExecutionControlStore registry;
   @Mock private TaskTrackerService taskTracker;
   @Mock private ExecutionControl executionControl;
   @Mock private ReactiveControlValve nodePauseValve;
 
   @InjectMocks private PauseNodeCommandProcessor processor;
-
-  @Test
-  void canProcess_pauseNodeCommand_returnsTrue() {
-    // Given
-    final ExecutionControlCommand command = new PauseNodeCommand("exec-1", "node-1");
-
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isTrue();
-  }
-
-  @Test
-  void canProcess_otherCommand_returnsFalse() {
-    // Given
-    final ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
-
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isFalse();
-  }
 
   @Test
   void process_nodeFound_pausesNodeValveAndEmitsEvent() {
@@ -116,14 +88,5 @@ class PauseNodeCommandProcessorTest {
                 e instanceof IllegalArgumentException
                     && e.getMessage().contains("Node not found or not pausable: " + nodeId))
         .verify();
-  }
-
-  @Test
-  void getPriority_returnsCorrectValue() {
-    // When
-    final int actualPriority = processor.getPriority();
-
-    // Then
-    assertThat(actualPriority).isEqualTo(10);
   }
 }

@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.execution.TaskProgress;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
@@ -18,6 +19,7 @@ import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -67,7 +69,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 class DagPropertyAcceptanceTest {
 
   private static final Duration WAIT = Duration.ofSeconds(30);
-  private static final Set<String> RUNNING = Set.of("PENDING", "QUEUED", "RUNNING");
+  private static final Set<TaskStatus> RUNNING =
+      EnumSet.of(TaskStatus.PENDING, TaskStatus.QUEUED, TaskStatus.RUNNING);
 
   @Autowired private ControlBusGateway gateway;
   @Autowired private WorkflowDefinitionStore definitions;
@@ -260,14 +263,14 @@ class DagPropertyAcceptanceTest {
 
       assertThat(progress.status())
           .as("run status of %s", dag)
-          .isEqualTo(dag.failing().isEmpty() ? "SUCCESS" : "FAILURE");
+          .isEqualTo(dag.failing().isEmpty() ? TaskStatus.SUCCESS : TaskStatus.FAILURE);
       final Map<String, Set<String>> expected = allowedStatuses(dag);
       final Map<String, TaskProgress> tasks = new HashMap<>();
       progress.tasks().forEach(task -> tasks.put(task.nodeId(), task));
       assertThat(tasks.keySet()).as("nodes reported for %s", dag).isEqualTo(expected.keySet());
       expected.forEach(
           (id, statuses) ->
-              assertThat(tasks.get(id).status())
+              assertThat(tasks.get(id).status().name())
                   .as("status of %s in %s", id, dag)
                   .isIn(statuses.toArray()));
       // A failing run ends early (the first failing terminal cancels the rest), so order only holds
@@ -302,12 +305,13 @@ class DagPropertyAcceptanceTest {
                   tracker.getProgressByExecutionId(executionId).tasks().stream()
                       .anyMatch(
                           task ->
-                              slowNode.equals(task.nodeId()) && "RUNNING".equals(task.status())));
+                              slowNode.equals(task.nodeId())
+                                  && TaskStatus.RUNNING == task.status()));
 
       gateway.stopWorkflow(session, workflowId, "property", StopMode.CANCEL).block();
 
       final WorkflowProgress progress = awaitTerminal(executionId);
-      assertThat(progress.status()).as("run status of %s", dag).isEqualTo("STOPPED");
+      assertThat(progress.status()).as("run status of %s", dag).isEqualTo(TaskStatus.STOPPED);
       assertThat(progress.tasks())
           .as("nodes still running after the stop of %s", dag)
           .noneMatch(task -> RUNNING.contains(task.status()));

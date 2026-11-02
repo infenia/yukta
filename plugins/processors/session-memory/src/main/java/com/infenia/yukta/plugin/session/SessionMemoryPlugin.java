@@ -86,6 +86,11 @@ public class SessionMemoryPlugin implements ProcessorPlugin {
   }
 
   @Override
+  public boolean requiresControlPlane() {
+    return true;
+  }
+
+  @Override
   public String getType() {
     return TYPE;
   }

@@ -15,8 +15,6 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.model.workflow.WorkflowTemplate;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeCommand;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
@@ -24,7 +22,7 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import com.infenia.yukta.testsupport.ErrorGuardExtension;
@@ -44,7 +42,6 @@ import reactor.test.StepVerifier;
 
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.LinguisticNaming",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyStaticImports",
   "PMD.TooManyMethods",
@@ -56,7 +53,7 @@ class RestartFromNodeCommandProcessorTest {
 
   private static final String EXEC = "exec-1";
 
-  private final ExecutionControlRegistry registry = mock(ExecutionControlRegistry.class);
+  private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private ExecutionScheduler scheduler =
       new ExecutionScheduler(0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
@@ -111,18 +108,6 @@ class RestartFromNodeCommandProcessorTest {
   }
 
   @Test
-  void canProcess_restartFromNodeCommand_returnsTrue() {
-    final ExecutionControlCommand command = new RestartFromNodeCommand(EXEC, "mid", "new-1");
-
-    assertThat(processor.canProcess(command)).isTrue();
-  }
-
-  @Test
-  void canProcess_otherCommand_returnsFalse() {
-    assertThat(processor.canProcess(new PauseWorkflowCommand(EXEC))).isFalse();
-  }
-
-  @Test
   void finishedExecution_replaysAllRecordedMessagesOfTheBoundaryNodeInOrder() {
     final Message<?> first = message("a");
     final Message<?> second = message("b");
@@ -143,7 +128,7 @@ class RestartFromNodeCommandProcessorTest {
     // only the node feeding the re-run part is replayed; the independent branch is left alone
     assertThat(outputs.getValue()).containsOnlyKeys("trigger");
     assertThat(outputs.getValue().get("trigger")).containsExactly(first, second);
-    verify(registry, never()).unregister(any());
+    verify(registry, never()).remove(any());
     verify(completionSink).completeRestartSuccess("new-1");
   }
 
@@ -189,7 +174,7 @@ class RestartFromNodeCommandProcessorTest {
         .verifyComplete();
 
     assertThat(safeStop.asMono().toFuture()).isDone();
-    verify(registry).unregister(EXEC);
+    verify(registry).remove(EXEC);
   }
 
   @Test
@@ -205,7 +190,7 @@ class RestartFromNodeCommandProcessorTest {
         .completeRestartFailure(
             eq("new-1"),
             org.mockito.ArgumentMatchers.argThat(e -> e.getMessage().contains("not finished")));
-    verify(registry, never()).unregister(any());
+    verify(registry, never()).remove(any());
     verify(orchestrator, never())
         .restartFromNode(any(), any(), any(), any(), any(), any(), any(), any());
   }
@@ -257,10 +242,5 @@ class RestartFromNodeCommandProcessorTest {
     verify(completionSink, never()).completeRestartFailure(any(), any());
     // the failure is logged on another thread: wait, or the error lands in the next test
     ErrorGuardExtension.awaitLogged("Restarted execution from node failed", Duration.ofSeconds(2));
-  }
-
-  @Test
-  void getPriority_returnsCorrectValue() {
-    assertThat(processor.getPriority()).isEqualTo(20);
   }
 }

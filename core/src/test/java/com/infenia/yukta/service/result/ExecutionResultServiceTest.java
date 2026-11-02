@@ -5,8 +5,10 @@ package com.infenia.yukta.service.result;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.service.result.ResultEvent.Kind;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
@@ -17,6 +19,17 @@ class ExecutionResultServiceTest {
 
   private static ExecutionResultService service(final int retained) {
     return new ExecutionResultService(retained, Duration.ofMinutes(5), 10);
+  }
+
+  @Test
+  void settingsBuildTheServiceThatKeepsPublishedExecution() {
+    final ExecutionResultService fromSettings =
+        new ExecutionResultService(YuktaSettings.bind(Map.of("yukta.results.max-executions", "5")));
+    assertThat(fromSettings.has("e1")).isFalse();
+
+    fromSettings.publish("e1", "n1", "payload");
+
+    assertThat(fromSettings.has("e1")).isTrue();
   }
 
   @Test

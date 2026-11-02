@@ -33,7 +33,13 @@ public class ControlAudit {
     final String logged =
         entry.actor() == null ? entry.command() : entry.command() + " [by " + entry.actor() + "]";
     executionLog.append(
-        ExecutionLogEvent.control(entry.applied(), entry.executionId(), logged, entry.reason()));
+        ExecutionLogEvent.control(
+            entry.applied(),
+            entry.executionId(),
+            logged,
+            entry.command(),
+            entry.actor(),
+            entry.reason()));
     if (sink != null) {
       try {
         sink.record(entry);

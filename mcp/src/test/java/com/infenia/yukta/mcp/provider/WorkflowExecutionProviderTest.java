@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.mcp.dto.WorkflowStartResult;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -23,8 +24,7 @@ import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.ConfigRedactor;
 import com.infenia.yukta.service.workflow.WorkflowService;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -195,13 +195,7 @@ class WorkflowExecutionProviderTest {
   void testGetWorkflowStatusReturnsProgressSnapshot() {
     WorkflowProgress progress =
         new WorkflowProgress(
-            "e1",
-            "sess-1",
-            "w1",
-            "RUNNING",
-            List.of(),
-            LocalDateTime.now(ZoneId.systemDefault()),
-            null);
+            "e1", "sess-1", "w1", TaskStatus.RUNNING, List.of(), Instant.now(), null);
     when(controlBus.getProgress("sess-1", "e1")).thenReturn(progress);
 
     StepVerifier.create(provider.getWorkflowStatus("sess-1", "e1"))
@@ -236,12 +230,7 @@ class WorkflowExecutionProviderTest {
   @Test
   void testGetWorkflowHistory() {
     WorkflowExecutionSummary summary =
-        new WorkflowExecutionSummary(
-            "e1",
-            "w1",
-            "COMPLETED",
-            LocalDateTime.now(ZoneId.systemDefault()),
-            LocalDateTime.now(ZoneId.systemDefault()));
+        new WorkflowExecutionSummary("e1", "w1", TaskStatus.SUCCESS, Instant.now(), Instant.now());
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
             "sess-1", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of());

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # pickup.sh tick: one round of the scheduled pickup (workflow `pickup`, `yk pickup now`). Hands issues to the yukta-pickup channels
-# (channel/yukta-pickup.py) of the open `yk pickup session`s, one issue per idle session:
-#   1. sessions: the registry $DEV_HOME/pickup/*.json (a dead pid is dropped); each must answer GET /status and be idle
+# (channel/src/main.ts, pickup profile) of the open `yk pickup session`s, one issue per idle session:
+#   1. sessions: the registry $DEV_HOME/pickup/*.json (a dead pid is dropped); each must answer GET /v1/status and be idle
 #                                                           -> else "PICKUP skipped=<why>"
 #   2. issues: assigned to the user AND Ready on the project, no open PR naming it, no issue/<n> branch, top Priority first (P0 first)
-#   3. POST /issue with the token to the first idle session  -> "PICKUP handed=#<n> to=<name>" (one line per issue handed)
+#   3. POST /v1/events with the token to the first idle session  -> "PICKUP handed=#<n> to=<name>" (one line per issue handed)
 # Exit 0 for every skip; non-zero only for a real error (gh not signed in, an answer that is not JSON, a refused POST).
 # Env: YUKTA_PICKUP_ONLY (hand only to the session of that name), YUKTA_PICKUP_REPO (infenia/yukta), YUKTA_PICKUP_PROJECT (5),
 # YUKTA_PICKUP_OWNER (infenia), YUKTA_DEV_HOME.
@@ -31,7 +31,7 @@ sessions() {
     [[ "$pid" =~ ^[0-9]+$ && "$port" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null || { rm -f "$f"; continue; }
     [[ -z "$ONLY" || "$name" == "$ONLY" ]] || continue
     n=$((n + 1))
-    if st="$(curl -fsS -m 5 "http://127.0.0.1:$port/status" 2>/dev/null)" && jq -e '.busy == false' <<<"$st" >/dev/null 2>&1; then
+    if st="$(curl -fsS -m 5 "http://127.0.0.1:$port/v1/status" 2>/dev/null)" && jq -e '.busy == false' <<<"$st" >/dev/null 2>&1; then
       idle+=("$name $port")
     else
       busy_names+=("$name")
@@ -72,11 +72,11 @@ tick() {
     fi
     ref="$(gh api "repos/$REPO/git/matching-refs/heads/issue/$n")" || fail "gh api matching-refs"
     jq -e 'length > 0' <<<"$ref" >/dev/null 2>&1 && continue
-    body="$(jq -nc --argjson n "$n" --arg t "$title" --arg u "$url" '{number: $n, title: $t, url: $u}')"
+    body="$(jq -nc --argjson n "$n" --arg t "$title" --arg u "$url" '{content: "Pick up issue #\($n): \($t)\n\($u)", meta: {issue: ($n | tostring), url: $u, title: $t}}')"
     # the first idle session that takes it; one that answers busy meanwhile is out for this round
     while ((${#idle[@]} > 0)); do
       read -r name port <<<"${idle[0]}"
-      code="$(curl -sS -m 10 -o /dev/null -w '%{http_code}' -X POST -H "X-Pickup-Token: $(cat "$DEV_HOME/pickup-token")" -d "$body" "http://127.0.0.1:$port/issue")" \
+      code="$(curl -sS -m 10 -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $(cat "$DEV_HOME/pickup-token")" -d "$body" "http://127.0.0.1:$port/v1/events")" \
         || fail "POST to $name (:$port) failed"
       idle=("${idle[@]:1}")
       case "$code" in

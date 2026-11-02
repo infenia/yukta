@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.log;
 
+import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -43,6 +45,24 @@ public record ExecutionLogEvent(
   /** Run id under which changes that belong to no run (scheduler limits) are recorded. */
   public static final String SCHEDULER = "scheduler";
 
+  /** Key of the new global limit in a {@code LIMITS_CHANGED} event. */
+  public static final String MAX_CONCURRENT = "maxConcurrent";
+
+  /** Key of the new per-workflow limit in a {@code LIMITS_CHANGED} event. */
+  public static final String MAX_PER_WORKFLOW = "maxPerWorkflow";
+
+  /** Payload key of what happened to an input request. */
+  public static final String INPUT_EVENT_KEY = "event";
+
+  /** Payload keys of a control event: the command name, who sent it and why it was rejected. */
+  public static final String COMMAND_KEY = "command";
+
+  /** See {@link #COMMAND_KEY}. */
+  public static final String ACTOR_KEY = "actor";
+
+  /** See {@link #COMMAND_KEY}. */
+  public static final String REASON_KEY = "reason";
+
   /**
    * Keeps an immutable copy of the node statuses.
    *
@@ -75,7 +95,72 @@ public record ExecutionLogEvent(
     /** An aborted run was resumed; its status holds the id of the new run. */
     RUN_RESUMED,
     /** A start with an idempotency key succeeded; its status holds the scope and the key. */
-    IDEMPOTENCY_KEY
+    IDEMPOTENCY_KEY,
+    /** Scheduler limits were changed at run time; the numbers are in {@code nodeStatuses}. */
+    LIMITS_CHANGED,
+    /**
+     * Something happened to an input request of the run; the payload holds {@code event} (one of
+     * {@code INPUT_REQUESTED}, {@code INPUT_ESCALATED}, {@code INPUT_ANSWERED}, {@code
+     * INPUT_EXPIRED}, {@code INPUT_CANCELLED}), the request id, the tier and, where it applies, the
+     * responder, the decision and the reason. Never the prompt or an answer text.
+     */
+    INPUT
+  }
+
+  /**
+   * Something happened to an input request. The payload is built by the broker and carries no
+   * prompt, context or answer text.
+   *
+   * @param executionId the run that asked
+   * @param sessionId the session of the run
+   * @param workflowId the workflow of the run
+   * @param nodeId the node that asked
+   * @param payload {@code event} and the facts of it
+   * @return the event
+   */
+  public static ExecutionLogEvent input(
+      final String executionId,
+      final String sessionId,
+      final String workflowId,
+      final String nodeId,
+      final Map<String, Object> payload) {
+    return new ExecutionLogEvent(
+        Type.INPUT,
+        executionId,
+        sessionId,
+        workflowId,
+        null,
+        null,
+        Map.of(),
+        nodeId,
+        payload,
+        Instant.now(),
+        null);
+  }
+
+  /**
+   * The scheduler limits were changed at run time. The numbers ride in {@code nodeStatuses}, so a
+   * further limit is one more key and no store changes.
+   *
+   * @param maxConcurrent the new global limit
+   * @param maxPerWorkflow the new per-workflow limit
+   * @return the event
+   */
+  public static ExecutionLogEvent limitsChanged(final int maxConcurrent, final int maxPerWorkflow) {
+    return new ExecutionLogEvent(
+        Type.LIMITS_CHANGED,
+        SCHEDULER,
+        "",
+        "",
+        null,
+        null,
+        Map.of(
+            MAX_CONCURRENT, String.valueOf(maxConcurrent),
+            MAX_PER_WORKFLOW, String.valueOf(maxPerWorkflow)),
+        null,
+        null,
+        Instant.now(),
+        null);
   }
 
   /**
@@ -127,7 +212,9 @@ public record ExecutionLogEvent(
 
   /**
    * The payload with the initiator under its reserved key. A caller's own value of that key is
-   * dropped, so a run's initiator cannot be forged through the payload.
+   * dropped, so a run's initiator cannot be forged through the payload. The parent-run and depth
+   * keys are dropped too: only a sub-workflow node may name a parent, and it does not pass through
+   * here, so an external caller cannot attach a run to another run's tree.
    *
    * @param payload the trigger payload
    * @param initiator who or what starts the run, or null if not known
@@ -137,6 +224,8 @@ public record ExecutionLogEvent(
       final Map<String, Object> payload, @Nullable final String initiator) {
     final var copy = new HashMap<>(payload);
     copy.remove(INITIATOR_KEY);
+    copy.remove(SubWorkflowGateway.PARENT_KEY);
+    copy.remove(SubWorkflowGateway.DEPTH_KEY);
     if (initiator != null && !initiator.isBlank()) {
       copy.put(INITIATOR_KEY, initiator);
     }
@@ -308,6 +397,49 @@ public record ExecutionLogEvent(
         null,
         null,
         Instant.now(),
+        null);
+  }
+
+  /**
+   * Like {@link #control(boolean, String, String, String)}, with the command, actor and reason also
+   * as fields of the payload, so readers need not take them out of the text.
+   *
+   * @param applied true if the command was applied, false if it was rejected
+   * @param executionId the run the command addressed
+   * @param logged the text shown in the status: the command, and who sent it if known
+   * @param command the command name alone
+   * @param actor who sent it, or null
+   * @param reason why it was rejected, or null
+   * @return the event
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public static ExecutionLogEvent control(
+      final boolean applied,
+      final String executionId,
+      final String logged,
+      final String command,
+      @Nullable final String actor,
+      @Nullable final String reason) {
+    final ExecutionLogEvent base = control(applied, executionId, logged, reason);
+    final Map<String, Object> payload = new ConcurrentHashMap<>();
+    payload.put(COMMAND_KEY, command);
+    if (actor != null) {
+      payload.put(ACTOR_KEY, actor);
+    }
+    if (!applied && reason != null) {
+      payload.put(REASON_KEY, reason);
+    }
+    return new ExecutionLogEvent(
+        base.type,
+        base.executionId,
+        base.sessionId,
+        base.workflowId,
+        null,
+        base.status,
+        Map.of(),
+        null,
+        payload,
+        base.timestamp,
         null);
   }
 

@@ -4,20 +4,21 @@ package com.infenia.yukta.service.control.processor;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -29,7 +30,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class SignalNodeCommandProcessor implements ControlSignalProcessor {
+public class SignalNodeCommandProcessor {
 
   /** Answer of a plugin that took the signal. */
   private static final String ACCEPTED = "ACCEPTED";
@@ -38,19 +39,42 @@ public class SignalNodeCommandProcessor implements ControlSignalProcessor {
   private static final String QUEUED = "QUEUED";
 
   /** The execution control registry, to find the run and its workflow. */
-  private final ExecutionControlRegistry registry;
+  private final ExecutionControlStore registry;
 
   /** Finds the plugin that serves a node. */
   private final ActivePluginRegistry plugins;
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof SignalNodeCommand;
+  /** Answers an input request that stands for the signal, if there is one. */
+  @Nullable private ObjectProvider<InputSignalBridge> inputBridge;
+
+  /**
+   * Lets the broker take a signal that answers an input request.
+   *
+   * @param provider the bridge, if the application has input requests
+   */
+  @Autowired(required = false)
+  public void setInputBridge(final ObjectProvider<InputSignalBridge> provider) {
+    this.inputBridge = provider;
   }
 
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final SignalNodeCommand signal = (SignalNodeCommand) command;
+  /** Applies the command: an open input request of the node takes it, else the plugin does. */
+  public Mono<Void> process(final SignalNodeCommand signal) {
+    final ObjectProvider<InputSignalBridge> provider = inputBridge;
+    final InputSignalBridge bridge = provider == null ? null : provider.getIfAvailable();
+    if (bridge == null) {
+      return deliver(signal);
+    }
+    return bridge
+        .waitingFor(signal)
+        .map(Optional::of)
+        .defaultIfEmpty(Optional.empty())
+        .flatMap(
+            waiting ->
+                waiting.isPresent() ? bridge.answer(signal, waiting.get()) : deliver(signal));
+  }
+
+  /** The older path: the plugin of the node takes the signal while it waits for it. */
+  private Mono<Void> deliver(final SignalNodeCommand signal) {
     return Mono.defer(
         () -> {
           final ExecutionControl control =
@@ -91,7 +115,7 @@ public class SignalNodeCommandProcessor implements ControlSignalProcessor {
                           .addKeyValue("nodeId", signal.nodeId())
                           .addKeyValue("signal", signal.name())
                           .log("Signal delivered"))
-              .then(Mono.<WorkflowDirective>empty());
+              .then(Mono.<Void>empty());
         });
   }
 }

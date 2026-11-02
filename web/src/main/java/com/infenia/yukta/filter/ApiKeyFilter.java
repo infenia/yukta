@@ -218,7 +218,10 @@ public class ApiKeyFilter implements WebFilter {
     final Mono<Void> next =
         chain.filter(exchange).contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match));
     return authenticator.named()
-        ? next.contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name()))
+        ? next.contextWrite(
+            ctx ->
+                ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name())
+                    .put(ControlActor.KIND_KEY, ControlActor.Kind.KEY))
         : next;
   }
 
@@ -282,10 +285,9 @@ public class ApiKeyFilter implements WebFilter {
     }
     return Mono.fromCallable(
             () ->
-                executionLog.readAll().stream()
-                    .filter(event -> executionId.equals(event.executionId()))
-                    .findFirst()
-                    .map(event -> match.reaches(event.sessionId()))
+                executionLog
+                    .header(executionId)
+                    .map(header -> match.reaches(header.sessionId()))
                     .orElse(false))
         .subscribeOn(Schedulers.boundedElastic());
   }

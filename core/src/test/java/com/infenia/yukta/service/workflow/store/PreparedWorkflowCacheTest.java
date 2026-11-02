@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +34,9 @@ class PreparedWorkflowCacheTest {
   /** Workflow 2 ID. */
   private static final String WORKFLOW_2 = "wf2";
 
+  /** Name of the gauge that reports the cache size. */
+  private static final String SIZE_GAUGE = "yukta.workflow.cache.size";
+
   /** The cache under test. */
   private PreparedWorkflowCache cache;
 
@@ -59,10 +63,25 @@ class PreparedWorkflowCacheTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .untilAsserted(
-            () ->
-                assertThat(meters.get("yukta.workflow.cache.size").gauge().value())
-                    .isLessThanOrEqualTo(2.0));
-    assertThat(meters.get("yukta.workflow.cache.size").gauge().value()).isLessThanOrEqualTo(2.0);
+            () -> assertThat(meters.get(SIZE_GAUGE).gauge().value()).isLessThanOrEqualTo(2.0));
+    assertThat(meters.get(SIZE_GAUGE).gauge().value()).isLessThanOrEqualTo(2.0);
+  }
+
+  @Test
+  void settingsCapTheCacheSize_andReportItToTheGauge() {
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    final PreparedWorkflowCache capped =
+        new PreparedWorkflowCache(YuktaSettings.bind(Map.of("yukta.cache.max-size", "2")), meters);
+    for (int i = 0; i < 50; i++) {
+      capped.put(SESSION_1, "wf-" + i, mockPrepared());
+    }
+
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () -> assertThat(meters.get(SIZE_GAUGE).gauge().value()).isLessThanOrEqualTo(2.0));
+    assertThat(meters.get(SIZE_GAUGE).gauge().value()).isLessThanOrEqualTo(2.0);
   }
 
   @Test

@@ -116,9 +116,11 @@ class RemoteNodesTest {
     assertThatThrownBy(() -> nodes(executor).place("T", PLACED, mock(TriggerPlugin.class)))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("only for processor nodes");
+    when(local.requiresControlPlane()).thenReturn(true);
     assertThatThrownBy(() -> nodes(executor).place("KV_STORE", PLACED, local))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("keeps state on this server");
+    when(local.requiresControlPlane()).thenReturn(false);
     assertThatThrownBy(() -> nodes(null).place("T", PLACED, local))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("-Pyukta.workers=true");

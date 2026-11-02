@@ -38,6 +38,7 @@ import reactor.core.publisher.Mono;
  * recorded.
  */
 @Component
+@SuppressWarnings("PMD.TooManyMethods")
 public final class WaitForSignalProcessor implements ProcessorPlugin {
 
   /** Action that fails the message. */
@@ -126,6 +127,11 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
             TIMEOUT_SECONDS, ConfigField.Type.NUMBER, DEFAULT_TIMEOUT_SECONDS, "Longest wait"),
         ConfigField.choice(ON_TIMEOUT, false, FAIL, "Action on timeout", FAIL, CONTINUE),
         ConfigField.choice(ON_REJECT, false, FAIL, "Action on a reject decision", FAIL, CONTINUE));
+  }
+
+  @Override
+  public boolean requiresControlPlane() {
+    return true;
   }
 
   @Override

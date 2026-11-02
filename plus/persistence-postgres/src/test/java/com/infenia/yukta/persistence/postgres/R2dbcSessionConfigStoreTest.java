@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.model.session.SessionConfigData;
+import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import java.util.List;
 import java.util.Map;
@@ -86,20 +87,19 @@ class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
                 Map.of("w1", workflow())))
         .block();
 
-    final Map<String, Object> all = store.getAllConfigs("s1").block();
+    final SessionSnapshot all = store.getAllConfigs("s1").block();
 
-    assertThat(all)
-        .containsEntry("sessionId", "s1")
-        .containsEntry("projectPath", "/p")
-        .containsEntry("initiator", "alice")
-        .containsEntry("description", "desc")
-        .containsEntry("name", "name")
-        .containsEntry("tags", Map.of("team", "core"))
-        .containsEntry("executionTimeout", 3600L)
-        .containsEntry("fileLogDir", "/data/modified-files")
-        .containsEntry("resultLogDir", "/data/results");
-    assertThat(all.get("initiatedTime")).asString().isNotBlank();
-    assertThat(all.get("workflows")).isEqualTo(Map.of("w1", workflow()));
+    assertThat(all.sessionId()).isEqualTo("s1");
+    assertThat(all.projectPath()).isEqualTo("/p");
+    assertThat(all.initiator()).isEqualTo("alice");
+    assertThat(all.description()).isEqualTo("desc");
+    assertThat(all.name()).isEqualTo("name");
+    assertThat(all.tags()).isEqualTo(Map.of("team", "core"));
+    assertThat(all.executionTimeout()).isEqualTo(3600L);
+    assertThat(all.fileLogDir()).isEqualTo("/data/modified-files");
+    assertThat(all.resultLogDir()).isEqualTo("/data/results");
+    assertThat(all.initiatedTime()).isNotBlank();
+    assertThat(all.workflows()).isEqualTo(Map.of("w1", workflow()));
     assertThat(store.getSessionIds().collectList().block()).containsExactly("s1");
 
     // applying again replaces the configuration

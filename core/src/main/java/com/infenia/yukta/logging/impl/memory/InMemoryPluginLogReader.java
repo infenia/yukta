@@ -5,9 +5,6 @@ package com.infenia.yukta.logging.impl.memory;
 import com.infenia.yukta.logging.api.ExecutionSummary;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogReader;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -71,14 +68,12 @@ public class InMemoryPluginLogReader implements PluginLogReader {
                           final List<PluginLogEntry> entries = entry.getValue();
                           final PluginLogEntry first = entries.getFirst();
                           final PluginLogEntry last = entries.getLast();
-                          final LocalDateTime startTime =
-                              ZonedDateTime.ofInstant(first.timestamp(), ZoneId.systemDefault())
-                                  .toLocalDateTime();
-                          final LocalDateTime endTime =
-                              ZonedDateTime.ofInstant(last.timestamp(), ZoneId.systemDefault())
-                                  .toLocalDateTime();
                           return new ExecutionSummary(
-                              entry.getKey(), sessionId, startTime, endTime, entries.size());
+                              entry.getKey(),
+                              sessionId,
+                              first.timestamp(),
+                              last.timestamp(),
+                              entries.size());
                         })
                     .sorted((a, b) -> b.startTime().compareTo(a.startTime()))
                     .collect(Collectors.toList()))

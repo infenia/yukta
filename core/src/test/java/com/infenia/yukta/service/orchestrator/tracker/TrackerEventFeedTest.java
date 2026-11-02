@@ -31,7 +31,7 @@ class TrackerEventFeedTest {
   void events_nodeWorkflowAndLogChanges_arePublishedWithWorkflowId() {
     final ExecutionEventFeed feed = new ExecutionEventFeed();
     final DefaultTaskTrackerService tracker =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofSeconds(5),
             mock(StatusHistoryCache.class),
             new InMemoryExecutionLogStore(),
@@ -72,7 +72,7 @@ class TrackerEventFeedTest {
   void secondEndOfRun_isIgnored() {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     final DefaultTaskTrackerService tracker =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofSeconds(5),
             mock(StatusHistoryCache.class),
             log,
@@ -99,7 +99,7 @@ class TrackerEventFeedTest {
   void pausingRun_publishesNothingToTheFeed_soSupervisorNeverSeesItsOwnPause() {
     final ExecutionEventFeed feed = new ExecutionEventFeed();
     final DefaultTaskTrackerService tracker =
-        new DefaultTaskTrackerService(
+        TrackerFactory.tracker(
             Duration.ofSeconds(5),
             mock(StatusHistoryCache.class),
             new InMemoryExecutionLogStore(),

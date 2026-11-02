@@ -74,8 +74,8 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
   /** Map of execution ID to node ID to recorded output. */
   private final Map<String, Map<String, Recorded>> store = new ConcurrentHashMap<>();
 
-  /** Nodes that ended normally, as "execution\0node". */
-  private final Set<String> finished = ConcurrentHashMap.newKeySet();
+  /** Nodes that ended normally, by execution. */
+  private final Map<String, Set<String>> finished = new ConcurrentHashMap<>();
 
   /** Bytes held across all executions. */
   private final AtomicLong held = new AtomicLong();
@@ -301,17 +301,20 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
 
   @Override
   public Mono<Void> markComplete(final String executionId, final String nodeId) {
-    return Mono.fromRunnable(() -> finished.add(executionId + "\0" + nodeId));
+    return Mono.fromRunnable(
+        () ->
+            finished.computeIfAbsent(executionId, _ -> ConcurrentHashMap.newKeySet()).add(nodeId));
   }
 
   @Override
   public boolean isFinished(final String executionId, final String nodeId) {
-    return finished.contains(executionId + "\0" + nodeId) && isComplete(executionId, nodeId);
+    return finished.getOrDefault(executionId, Set.of()).contains(nodeId)
+        && isComplete(executionId, nodeId);
   }
 
   @Override
   public void clear(final String executionId) {
-    finished.removeIf(key -> key.startsWith(executionId + "\0"));
+    finished.remove(executionId);
     if (spill != null) {
       spill.clear(executionId);
     }

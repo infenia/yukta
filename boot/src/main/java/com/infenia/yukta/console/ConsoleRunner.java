@@ -3,7 +3,6 @@
 package com.infenia.yukta.console;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -12,8 +11,17 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.jline.keymap.BindingReader;
+import org.jline.keymap.KeyMap;
+import org.jline.terminal.Attributes;
+import org.jline.terminal.MouseEvent;
+import org.jline.terminal.Size;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
+import org.jline.utils.AttributedString;
+import org.jline.utils.Display;
+import org.jline.utils.InfoCmp.Capability;
 import org.jline.utils.NonBlockingReader;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -36,14 +44,13 @@ import tools.jackson.databind.json.JsonMapper;
   "PMD.DoNotTerminateVM",
   "PMD.CloseResource",
   "PMD.ConfusingTernary",
-  "PMD.AvoidLiteralsInIfCondition",
-  "PMD.AvoidInstantiatingObjectsInLoops"
+  "PMD.AvoidLiteralsInIfCondition"
 })
 public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent> {
 
   private static final JsonMapper JSON = JsonMapper.builder().build();
   private static final HttpClient HTTP = HttpClient.newHttpClient();
-  private static final int TICK_MS = 500;
+  private static final int TICK_MS = 100;
 
   @Override
   public void onApplicationEvent(final ApplicationReadyEvent event) {
@@ -89,72 +96,135 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
     Instant lastPoll = Instant.EPOCH;
     try (Terminal term = TerminalBuilder.builder().system(true).build()) {
       final var saved = term.enterRawMode();
-      final PrintWriter w = term.writer();
       // the terminal is put back even if the JVM is killed
-      final Thread restore = new Thread(() -> w.print("\033[?25h\033[?1049l"));
+      final Thread restore = new Thread(() -> leave(term));
       Runtime.getRuntime().addShutdownHook(restore);
-      w.print("\033[?1049h\033[?25l");
+      term.puts(Capability.enter_ca_mode);
+      term.puts(Capability.cursor_invisible);
+      term.puts(Capability.keypad_xmit);
+      final boolean graphemes =
+          term.supportsGraphemeClusterMode() && term.setGraphemeClusterMode(true, false);
+      boolean mouse = term.hasMouseSupport() && term.trackMouse(Terminal.MouseTracking.Normal);
+      term.flush();
+      final AtomicBoolean dirty = new AtomicBoolean(true);
+      term.handle(Terminal.Signal.WINCH, sig -> dirty.set(true));
+      final Display display = new Display(term, true);
+      final KeyMap<String> keys = keys(term);
+      final BindingReader reader = new BindingReader(term.reader());
       try {
-        final NonBlockingReader in = term.reader();
+        Size size = term.getSize();
+        display.resize(size.getRows(), size.getColumns());
         while (!view.quit()) {
           if (Duration.between(lastPoll, Instant.now()).toMillis() >= 1000) {
             snap = poll(base, key, view.wantsManyRuns() ? 50 : 8);
             lastPoll = Instant.now();
           }
-          final var size = term.getSize();
-          final List<String> lines =
+          if (dirty.getAndSet(false)) {
+            size = term.getSize();
+            display.resize(size.getRows(), size.getColumns());
+            display.clear();
+          }
+          final List<AttributedString> lines =
               view.render(
                   snap,
                   Duration.between(started, Instant.now()),
                   size.getColumns(),
                   size.getRows());
-          final StringBuilder sb = new StringBuilder("\033[H");
-          for (final String l : lines) {
-            sb.append(l).append("\033[K\r\n");
-          }
-          w.print(sb.toString().replaceAll("\r\n$", "") + "\033[J");
-          w.flush();
-          final String k = key(in);
-          if (k != null) {
+          term.beginSynchronizedUpdate();
+          display.update(lines, 0);
+          term.endSynchronizedUpdate();
+          term.flush();
+          final String k = key(term, reader, keys);
+          if ("m".equals(k) && term.hasMouseSupport()) {
+            mouse = toggleMouse(term, mouse);
+          } else if (k != null) {
             view.onKey(k);
           }
         }
       } finally {
         Runtime.getRuntime().removeShutdownHook(restore);
-        w.print("\033[?25h\033[?1049l");
-        w.flush();
-        term.setAttributes(saved);
-        ConsoleLogs.restore();
+        restore(term, graphemes, mouse, saved);
       }
     }
   }
 
-  /** Waits up to one tick for a key; null on timeout. */
-  private static String key(final NonBlockingReader in) throws IOException {
-    final int c = in.read(TICK_MS);
-    if (c < 0) {
-      return null;
-    }
-    if (c != 27) {
-      return String.valueOf((char) c);
-    }
-    if (in.peek(50) != '[') {
-      return null;
-    }
-    in.read();
-    return switch (in.read(50)) {
-      case 'A' -> "UP";
-      case 'B' -> "DOWN";
-      case '5' -> skipTilde(in, "PGUP");
-      case '6' -> skipTilde(in, "PGDN");
-      default -> null;
-    };
+  private static boolean toggleMouse(final Terminal term, final boolean mouse) {
+    return term.trackMouse(mouse ? Terminal.MouseTracking.Off : Terminal.MouseTracking.Normal)
+        != mouse;
   }
 
-  private static String skipTilde(final NonBlockingReader in, final String name)
+  private static void restore(
+      final Terminal term, final boolean graphemes, final boolean mouse, final Attributes saved) {
+    if (graphemes) {
+      term.setGraphemeClusterMode(false, false);
+    }
+    if (mouse) {
+      term.trackMouse(Terminal.MouseTracking.Off);
+    }
+    leave(term);
+    term.setAttributes(saved);
+    ConsoleLogs.restore();
+  }
+
+  private static void leave(final Terminal term) {
+    term.puts(Capability.keypad_local);
+    term.puts(Capability.cursor_normal);
+    term.puts(Capability.exit_ca_mode);
+    term.flush();
+  }
+
+  /** The keys the console reacts to, by name (see {@link ConsoleView#onKey}). */
+  private static KeyMap<String> keys(final Terminal term) {
+    final KeyMap<String> map = new KeyMap<>();
+    for (final String c : List.of("q", "l", "r", "?", "f", "G", "m")) {
+      map.bind(c, c);
+    }
+    // both the normal ([A) and the application keypad (OA) forms, plus what terminfo says
+    bindKey(map, "UP", term, Capability.key_up, "\033[A", "\033OA");
+    bindKey(map, "DOWN", term, Capability.key_down, "\033[B", "\033OB");
+    bindKey(map, "PGUP", term, Capability.key_ppage, "\033[5~");
+    bindKey(map, "PGDN", term, Capability.key_npage, "\033[6~");
+    bindKey(map, "HOME", term, Capability.key_home, "\033[H", "\033OH", "\033[1~");
+    bindKey(map, "END", term, Capability.key_end, "\033[F", "\033OF", "\033[4~");
+    if (term.hasMouseSupport()) {
+      map.bind("MOUSE", KeyMap.key(term, Capability.key_mouse));
+    }
+    map.setNomatch("");
+    map.setUnicode("");
+    return map;
+  }
+
+  private static void bindKey(
+      final KeyMap<String> map,
+      final String name,
+      final Terminal term,
+      final Capability cap,
+      final String... fixed) {
+    final String terminfo = KeyMap.key(term, cap);
+    if (terminfo != null) {
+      map.bind(name, terminfo);
+    }
+    for (final String f : fixed) {
+      map.bind(name, f);
+    }
+  }
+
+  /** Waits up to one tick for a key; null on timeout or for a key the console ignores. */
+  private static String key(
+      final Terminal term, final BindingReader reader, final KeyMap<String> keys)
       throws IOException {
-    in.read(50);
-    return name;
+    if (term.reader().peek(TICK_MS) == NonBlockingReader.READ_EXPIRED) {
+      return null;
+    }
+    final String name = reader.readBinding(keys);
+    if ("MOUSE".equals(name)) {
+      final MouseEvent e = term.readMouseEvent();
+      if (e.getType() == MouseEvent.Type.Wheel) {
+        return e.getButton() == MouseEvent.Button.WheelUp ? "UP" : "DOWN";
+      }
+      return null;
+    }
+    return name == null || name.isEmpty() ? null : name;
   }
 
   private static ConsoleView.Snapshot poll(final String base, final String key, final int limit) {

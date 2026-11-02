@@ -237,6 +237,16 @@ class NodePolicyTest {
   }
 
   @Test
+  void checkpoint_defaultsToAll_isParsed_andIsValidated() {
+    assertThat(NodePolicy.checkpoint(Map.of())).isEqualTo(NodePolicy.Checkpoint.ALL);
+    assertThat(NodePolicy.checkpoint(null)).isEqualTo(NodePolicy.Checkpoint.ALL);
+    assertThat(NodePolicy.checkpoint(Map.of("engine", Map.of("checkpoint", "LAST"))))
+        .isEqualTo(NodePolicy.Checkpoint.LAST);
+    assertThatThrownBy(() -> NodePolicy.from(Map.of("engine", Map.of("checkpoint", "some"))))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
   void edgeBuffer_isParsed_defaultsToDropOldest_andIsValidated() {
     final Map<String, Object> config = Map.of("engine", Map.of("edgeBuffer", Map.of("size", 50)));
 

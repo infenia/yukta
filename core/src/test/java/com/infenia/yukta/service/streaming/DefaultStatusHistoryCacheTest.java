@@ -5,10 +5,12 @@ package com.infenia.yukta.service.streaming;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import com.infenia.yukta.testsupport.YuktaSettings;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
@@ -29,16 +31,16 @@ class DefaultStatusHistoryCacheTest {
   private static final String EXEC_CONCURRENT = "exec-concurrent";
 
   /** Status constant for running state. */
-  private static final String STATUS_RUNNING = "RUNNING";
+  private static final TaskStatus STATUS_RUNNING = TaskStatus.RUNNING;
 
   /** Status constant for pending state. */
-  private static final String STATUS_PENDING = "PENDING";
+  private static final TaskStatus STATUS_PENDING = TaskStatus.PENDING;
 
   /** Status constant for completed state. */
-  private static final String STATUS_COMPLETED = "COMPLETED";
+  private static final TaskStatus STATUS_COMPLETED = TaskStatus.SUCCESS;
 
   /** Status constant for failed state. */
-  private static final String STATUS_FAILED = "FAILED";
+  private static final TaskStatus STATUS_FAILED = TaskStatus.FAILURE;
 
   /** Default cache TTL in minutes. */
   private static final int CACHE_TTL_MINUTES = 5;
@@ -63,6 +65,19 @@ class DefaultStatusHistoryCacheTest {
 
   /** Default constructor. */
   /* package */ DefaultStatusHistoryCacheTest() {}
+
+  @Test
+  @DisplayName("settings cap the history per run")
+  void settings_capTheHistoryPerRun() {
+    final DefaultStatusHistoryCache capped =
+        new DefaultStatusHistoryCache(
+            YuktaSettings.bind(Map.of("yukta.streaming.status-history-max-per-run", "2")));
+    for (int i = 0; i < 5; i++) {
+      capped.put(EXEC_ID_1, createWorkflowProgress(EXEC_ID_1, STATUS_RUNNING));
+    }
+
+    assertThat(capped.get(EXEC_ID_1)).hasSize(2);
+  }
 
   @Test
   @DisplayName("history is capped per run and keeps the newest snapshot")
@@ -241,7 +256,6 @@ class DefaultStatusHistoryCacheTest {
 
     final Thread[] threads = new Thread[NUM_THREADS];
     for (int i = 0; i < NUM_THREADS; i++) {
-      final int threadIndex = i;
       threads[i] =
           new Thread(
               () -> {
@@ -249,8 +263,7 @@ class DefaultStatusHistoryCacheTest {
                   startLatch.await();
                   for (int j = 0; j < UPDATES_PER_THREAD; j++) {
                     final WorkflowProgress progress =
-                        createWorkflowProgress(
-                            executionId, STATUS_RUNNING + "_" + threadIndex + "_" + j);
+                        createWorkflowProgress(executionId, STATUS_RUNNING);
                     cache.put(executionId, progress);
                   }
                 } catch (final InterruptedException e) {
@@ -290,15 +303,10 @@ class DefaultStatusHistoryCacheTest {
     assertThat(retrieved).hasSize(1);
   }
 
-  private WorkflowProgress createWorkflowProgress(final String executionId, final String status) {
+  private WorkflowProgress createWorkflowProgress(
+      final String executionId, final TaskStatus status) {
     return new WorkflowProgress(
-        executionId,
-        "session-1",
-        "workflow-1",
-        status,
-        List.of(),
-        LocalDateTime.now(ZoneId.systemDefault()),
-        null);
+        executionId, "session-1", "workflow-1", status, List.of(), Instant.now(), null);
   }
 
   @Test

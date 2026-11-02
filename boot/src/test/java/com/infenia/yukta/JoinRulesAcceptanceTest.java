@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.execution.TaskProgress;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
@@ -71,12 +72,12 @@ class JoinRulesAcceptanceTest {
         .block();
   }
 
-  private static String statusOf(final WorkflowProgress progress, final String nodeId) {
+  private static TaskStatus statusOf(final WorkflowProgress progress, final String nodeId) {
     return progress.tasks().stream()
         .filter(task -> task.nodeId().equals(nodeId))
         .map(TaskProgress::status)
         .findFirst()
-        .orElse("missing");
+        .orElse(null);
   }
 
   @Test
@@ -90,16 +91,15 @@ class JoinRulesAcceptanceTest {
         .until(
             () -> {
               final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-              return progress != null
-                  && !List.of("PENDING", "QUEUED", "RUNNING").contains(progress.status());
+              return progress != null && progress.status().isTerminal();
             });
     final WorkflowProgress run = tracker.getProgressByExecutionId(executionId);
 
-    assertThat(statusOf(run, "bad")).isEqualTo("FAILURE");
-    assertThat(statusOf(run, "good")).isEqualTo("SUCCESS");
-    assertThat(statusOf(run, "join")).isEqualTo("SUCCESS");
-    assertThat(statusOf(run, "end")).isEqualTo("SUCCESS");
-    assertThat(run.status()).isEqualTo("SUCCESS");
+    assertThat(statusOf(run, "bad")).isEqualTo(TaskStatus.FAILURE);
+    assertThat(statusOf(run, "good")).isEqualTo(TaskStatus.SUCCESS);
+    assertThat(statusOf(run, "join")).isEqualTo(TaskStatus.SUCCESS);
+    assertThat(statusOf(run, "end")).isEqualTo(TaskStatus.SUCCESS);
+    assertThat(run.status()).isEqualTo(TaskStatus.SUCCESS);
   }
 
   @Test

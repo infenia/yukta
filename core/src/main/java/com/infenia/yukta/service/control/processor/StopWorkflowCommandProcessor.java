@@ -2,22 +2,20 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.processor;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import com.infenia.yukta.plugin.control.StopMode;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -31,10 +29,10 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-public class StopWorkflowCommandProcessor implements ControlSignalProcessor {
+public class StopWorkflowCommandProcessor {
 
   /** The execution control registry for accessing execution control state. */
-  private final ExecutionControlRegistry registry;
+  private final ExecutionControlStore registry;
 
   /** Reports that the run is stopping. */
   private final TaskTrackerService taskTracker;
@@ -47,26 +45,35 @@ public class StopWorkflowCommandProcessor implements ControlSignalProcessor {
    *
    * @param registry the execution control registry
    * @param taskTracker reports the stopping state
+   * @param properties the {@code yukta.stop} settings: how long a drain may take
+   */
+  @Autowired
+  public StopWorkflowCommandProcessor(
+      final ExecutionControlStore registry,
+      final TaskTrackerService taskTracker,
+      final YuktaProperties properties) {
+    this(registry, taskTracker, properties.stop().drainTimeout());
+  }
+
+  /**
+   * Creates the processor.
+   *
+   * @param registry the execution control registry
+   * @param taskTracker reports the stopping state
    * @param drainTimeout how long a drain may take before falling back to a cancel
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public StopWorkflowCommandProcessor(
-      final ExecutionControlRegistry registry,
+      final ExecutionControlStore registry,
       final TaskTrackerService taskTracker,
-      @Value("${yukta.stop.drain-timeout:30s}") final Duration drainTimeout) {
+      final Duration drainTimeout) {
     this.registry = registry;
     this.taskTracker = taskTracker;
     this.drainTimeout = drainTimeout;
   }
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof StopWorkflowCommand;
-  }
-
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final StopWorkflowCommand stop = (StopWorkflowCommand) command;
+  /** Applies the command. */
+  public Mono<Void> process(final StopWorkflowCommand stop) {
     return Mono.defer(
         () -> {
           final ExecutionControl control =
@@ -83,7 +90,14 @@ public class StopWorkflowCommandProcessor implements ControlSignalProcessor {
               .log("Stopping workflow");
 
           if (stop.mode() == StopMode.KILL) {
-            return Mono.just(new WorkflowDirective.Stop(String.valueOf(stop.reason())));
+            registry.remove(control.executionId());
+            control.safeStopSink().tryEmitEmpty();
+            log.atInfo().log(
+                "Stopped execution {} for workflow {}: {}",
+                control.executionId(),
+                control.workflowId(),
+                stop.reason());
+            return Mono.empty();
           }
           if (stop.mode() == StopMode.DRAIN && drain(control)) {
             taskTracker.emitControlStateEvent(stop.executionId(), ControlState.STOPPING);
@@ -130,10 +144,5 @@ public class StopWorkflowCommandProcessor implements ControlSignalProcessor {
     if (parents.isEmpty() && sink != null) {
       sink.tryEmitEmpty();
     }
-  }
-
-  @Override
-  public int getPriority() {
-    return 20;
   }
 }

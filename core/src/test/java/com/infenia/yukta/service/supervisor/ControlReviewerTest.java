@@ -13,13 +13,16 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -27,6 +30,8 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({"PMD.ShortMethodName", "PMD.AvoidFieldNameMatchingMethodName"})
 @NoArgsConstructor
 class ControlReviewerTest {
+
+  private static final String SESSION_A = "sessionA";
 
   /* default */ static final ControlRequest REQUEST =
       new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e1"), null, null, null);
@@ -60,30 +65,32 @@ class ControlReviewerTest {
     }
   }
 
-  private static ExecutionSupervisor scoped(
-      final String id, final SupervisorScope scope, final List<String> asked) {
-    return new ExecutionSupervisor() {
-      @Override
-      public String id() {
-        return id;
-      }
+  @RequiredArgsConstructor
+  /* default */ static final class Scoped implements ExecutionSupervisor {
+    private final String id;
+    private final SupervisorScope scope;
+    private final List<String> asked;
 
-      @Override
-      public SupervisorScope scope() {
-        return scope;
-      }
+    @Override
+    public String id() {
+      return id;
+    }
 
-      @Override
-      public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
-        return Flux.empty();
-      }
+    @Override
+    public SupervisorScope scope() {
+      return scope;
+    }
 
-      @Override
-      public Mono<Decision> review(final ControlRequest request) {
-        asked.add(id);
-        return Mono.just(Decision.deny("no"));
-      }
-    };
+    @Override
+    public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+      return Flux.empty();
+    }
+
+    @Override
+    public Mono<Decision> review(final ControlRequest request) {
+      asked.add(id);
+      return Mono.just(Decision.deny("no"));
+    }
   }
 
   /** A control plane with a class name, as real ones have. */
@@ -105,15 +112,43 @@ class ControlReviewerTest {
   }
 
   @Test
+  void settingsBuildReviewerThatStillRefusesWhenNotDryRun() {
+    final ControlReviewer reviewer =
+        new ControlReviewer(
+            providerOf(new Scoped(SESSION_A, new SupervisorScope.Session("A"), new ArrayList<>())),
+            YuktaSettings.bind(Map.of("yukta.supervisor.review-timeout", "2s")));
+    final ControlRequest request =
+        new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e1"), null, "A", "w1");
+
+    StepVerifier.create(reviewer.review(request))
+        .expectError(ControlRejectedException.class)
+        .verify();
+  }
+
+  @Test
+  void dryRunFromSettingsLetsRefusedRunThrough() {
+    final ControlReviewer reviewer =
+        new ControlReviewer(
+            providerOf(new Scoped(SESSION_A, new SupervisorScope.Session("A"), new ArrayList<>())));
+    reviewer.setDryRun(
+        new StaticListableBeanFactory().getBeanProvider(SupervisorHost.class),
+        YuktaSettings.bind(Map.of("yukta.supervisor.dry-run", "true")));
+    final ControlRequest request =
+        new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e1"), null, "A", "w1");
+
+    StepVerifier.create(reviewer.review(request)).verifyComplete();
+  }
+
+  @Test
   void review_onlyAsksSupervisorsWhoseScopeCoversTheRun() {
     final List<String> asked = new ArrayList<>();
     final ControlReviewer reviewer =
         new ControlReviewer(
             providerOf(
-                scoped("sessionA", new SupervisorScope.Session("A"), asked),
-                scoped("sessionB", new SupervisorScope.Session("B"), asked),
-                scoped("wfOther", new SupervisorScope.Workflow("other", null), asked),
-                scoped("wfMine", new SupervisorScope.Workflow("w1", "A"), asked)));
+                new Scoped(SESSION_A, new SupervisorScope.Session("A"), asked),
+                new Scoped("sessionB", new SupervisorScope.Session("B"), asked),
+                new Scoped("wfOther", new SupervisorScope.Workflow("other", null), asked),
+                new Scoped("wfMine", new SupervisorScope.Workflow("w1", "A"), asked)));
     final ControlRequest request =
         new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e1"), null, "A", "w1");
 
@@ -121,7 +156,7 @@ class ControlReviewerTest {
         .expectError(ControlRejectedException.class)
         .verify();
 
-    assertThat(asked).contains("sessionA").doesNotContain("sessionB", "wfOther");
+    assertThat(asked).contains(SESSION_A).doesNotContain("sessionB", "wfOther");
   }
 
   @Test
@@ -130,8 +165,8 @@ class ControlReviewerTest {
     final ControlReviewer reviewer =
         new ControlReviewer(
             providerOf(
-                scoped("sessionA", new SupervisorScope.Session("A"), asked),
-                scoped("global", new SupervisorScope.Global(), asked)));
+                new Scoped(SESSION_A, new SupervisorScope.Session("A"), asked),
+                new Scoped("global", new SupervisorScope.Global(), asked)));
 
     StepVerifier.create(
             reviewer.review(

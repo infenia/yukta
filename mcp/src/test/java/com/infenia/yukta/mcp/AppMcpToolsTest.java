@@ -30,6 +30,7 @@ import com.infenia.yukta.mcp.provider.SessionInfoProvider;
 import com.infenia.yukta.mcp.provider.SystemHealthProvider;
 import com.infenia.yukta.mcp.provider.WorkflowControlProvider;
 import com.infenia.yukta.mcp.provider.WorkflowExecutionProvider;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.session.SessionConfigData;
@@ -204,7 +205,7 @@ class AppMcpToolsTest {
   void testGetExecutionTree() {
     final var run =
         new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
-            "e1", "wf", "RUNNING", null, null);
+            "e1", "wf", TaskStatus.RUNNING, null, null);
     when(workflowControlProvider.getExecutionTree("s1", "e1")).thenReturn(Mono.just(List.of(run)));
 
     StepVerifier.create(mcpTools.getExecutionTree("s1", "e1"))

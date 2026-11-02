@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.model.session.SessionConfigData;
+import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.lang.reflect.InvocationTargetException;
@@ -195,16 +196,16 @@ class InMemorySessionConfigStoreTest {
    * @param map the config map to validate
    * @return true if all conditions are met
    */
-  private static boolean matchesAllConfigsData(final Map<String, ?> map) {
-    return "Jules".equals(map.get(INITIATOR))
-        && "now".equals(map.get("initiatedTime"))
-        && Map.of("k", "v").equals(map.get("tags"))
-        && "Sample".equals(map.get(DESCRIPTION))
-        && "/meta/path".equals(map.get("projectPath"))
-        && map.containsKey("executionTimeout")
-        && map.containsKey("fileLogDir")
-        && map.containsKey("resultLogDir")
-        && map.containsKey("workflows");
+  private static boolean matchesAllConfigsData(final SessionSnapshot c) {
+    return "Jules".equals(c.initiator())
+        && "now".equals(c.initiatedTime())
+        && Map.of("k", "v").equals(c.tags())
+        && "Sample".equals(c.description())
+        && "/meta/path".equals(c.projectPath())
+        && c.executionTimeout() != null
+        && c.fileLogDir() != null
+        && c.resultLogDir() != null
+        && c.workflows() != null;
   }
 
   @Test
@@ -304,28 +305,28 @@ class InMemorySessionConfigStoreTest {
     when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
     configService.setInitiator(sessionId, "initiator").block();
     StepVerifier.create(configService.getAllConfigs(sessionId))
-        .expectNextMatches(map -> "initiator".equals(map.get(INITIATOR)))
+        .expectNextMatches(c -> "initiator".equals(c.initiator()))
         .verifyComplete();
 
     final String sessionId2 = "test-session2";
     when(workflowDefinitionStore.findAll(sessionId2)).thenReturn(Mono.just(Map.of()));
     configService.setInitiatedTime(sessionId2, "2026-01-01").block();
     StepVerifier.create(configService.getAllConfigs(sessionId2))
-        .expectNextMatches(map -> "2026-01-01".equals(map.get("initiatedTime")))
+        .expectNextMatches(c -> "2026-01-01".equals(c.initiatedTime()))
         .verifyComplete();
 
     final String sessionId3 = "test-session3";
     when(workflowDefinitionStore.findAll(sessionId3)).thenReturn(Mono.just(Map.of()));
     configService.setTags(sessionId3, Map.of("tag1", "val1")).block();
     StepVerifier.create(configService.getAllConfigs(sessionId3))
-        .expectNextMatches(map -> Map.of("tag1", "val1").equals(map.get("tags")))
+        .expectNextMatches(c -> Map.of("tag1", "val1").equals(c.tags()))
         .verifyComplete();
 
     final String sessionId4 = "test-session4";
     when(workflowDefinitionStore.findAll(sessionId4)).thenReturn(Mono.just(Map.of()));
     configService.setDescription(sessionId4, DESC).block();
     StepVerifier.create(configService.getAllConfigs(sessionId4))
-        .expectNextMatches(map -> DESC.equals(map.get(DESCRIPTION)))
+        .expectNextMatches(c -> DESC.equals(c.description()))
         .verifyComplete();
   }
 

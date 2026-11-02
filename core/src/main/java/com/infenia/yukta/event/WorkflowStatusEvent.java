@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.event;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import com.infenia.yukta.model.execution.TaskStatus;
+import java.time.Instant;
 
 /** Event representing a change in workflow status. */
-public record WorkflowStatusEvent(String executionId, String status, LocalDateTime timestamp)
+public record WorkflowStatusEvent(String executionId, TaskStatus status, Instant timestamp)
     implements TrackerEvent {
   /**
    * Creates a new WorkflowStatusEvent with the current timestamp.
@@ -15,7 +15,7 @@ public record WorkflowStatusEvent(String executionId, String status, LocalDateTi
    * @param status the new status
    * @return a new WorkflowStatusEvent
    */
-  public static WorkflowStatusEvent create(final String executionId, final String status) {
-    return new WorkflowStatusEvent(executionId, status, LocalDateTime.now(ZoneId.systemDefault()));
+  public static WorkflowStatusEvent create(final String executionId, final TaskStatus status) {
+    return new WorkflowStatusEvent(executionId, status, Instant.now());
   }
 }

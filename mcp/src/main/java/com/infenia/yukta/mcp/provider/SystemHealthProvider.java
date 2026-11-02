@@ -33,10 +33,6 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.CouplingBetweenObjects", "PMD.TooManyMethods"})
 public class SystemHealthProvider {
 
-  /** Legacy status names that also mean an execution no longer runs. */
-  private static final Set<String> LEGACY_TERMINAL_STATUSES =
-      Set.of("COMPLETED", "FAILED", "WORKFLOW_STOPPED");
-
   /** Sessions read in parallel when aggregating the status. */
   private static final int SESSION_CONCURRENCY = 8;
 
@@ -189,10 +185,8 @@ public class SystemHealthProvider {
     return (int) history.stream().filter(s -> !isTerminal(s.status())).count();
   }
 
-  private static boolean isTerminal(final String status) {
-    // Set.of(...).contains(null) throws; an execution with no status is still counted as active
-    return status != null
-        && (TaskStatus.isTerminalName(status) || LEGACY_TERMINAL_STATUSES.contains(status));
+  private static boolean isTerminal(final TaskStatus status) {
+    return status != null && status.isTerminal();
   }
 
   private ExecutionRecord toExecutionRecord(
@@ -203,7 +197,8 @@ public class SystemHealthProvider {
             : summary.startTime() == null
                 ? "unknown"
                 : Duration.between(summary.startTime(), summary.endTime()).toMillis() + "ms";
-    return new ExecutionRecord(sessionId, summary.executionId(), summary.status(), duration);
+    return new ExecutionRecord(
+        sessionId, summary.executionId(), String.valueOf(summary.status()), duration);
   }
 
   private List<PluginRegistryEntry> buildPluginRegistryInfo() {

@@ -108,9 +108,9 @@ public class RunAnalytics {
   /** Minute buckets by scope. */
   private final Map<String, NavigableMap<Long, Bucket>> scopes = new HashMap<>();
 
-  /** Runs that have not ended. */
+  /** Runs that have not ended; access-ordered, so the one idle longest is evicted first. */
   private final Map<String, RunState> live =
-      new LinkedHashMap<>() {
+      new LinkedHashMap<>(16, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(final Map.Entry<String, RunState> eldest) {
           return size() > MAX_LIVE;
@@ -399,21 +399,44 @@ public class RunAnalytics {
       return;
     }
     final boolean applied = e.type() == ExecutionLogEvent.Type.CONTROL_APPLIED;
-    // logged as "<Command> [by <actor>]", and "<Command> [by <actor>]: <reason>" when rejected
+    final Map<String, Object> payload = e.payload();
+    final Map<String, Object> fields = payload == null ? Map.of() : payload;
+    // older logs only have the text "<Command> [by <actor>]", and ": <reason>" when rejected
     final String[] parts = status.split(": ", 2);
     final var named = LOGGED_COMMAND.matcher(parts[0]);
-    final String command = named.matches() ? named.group(1) : parts[0];
-    final String actor = named.matches() ? named.group(2) : null;
     addAnnotation(
         new Annotation(
             e.timestamp().toEpochMilli(),
             e.executionId(),
             owner == null ? null : owner.sessionId(),
             owner == null ? null : owner.workflowId(),
-            command,
-            actor,
+            commandOf(fields, parts[0], named),
+            actorOf(fields, named),
             applied,
-            applied || parts.length < 2 ? null : parts[1]));
+            applied ? null : reasonOf(fields, parts)));
+  }
+
+  private static String commandOf(
+      final Map<String, Object> fields, final String head, final java.util.regex.Matcher named) {
+    if (fields.get(ExecutionLogEvent.COMMAND_KEY) instanceof String typed) {
+      return typed;
+    }
+    return named.matches() ? named.group(1) : head;
+  }
+
+  private static String actorOf(
+      final Map<String, Object> fields, final java.util.regex.Matcher named) {
+    if (fields.containsKey(ExecutionLogEvent.COMMAND_KEY)) {
+      return (String) fields.get(ExecutionLogEvent.ACTOR_KEY);
+    }
+    return named.matches() ? named.group(2) : null;
+  }
+
+  private static String reasonOf(final Map<String, Object> fields, final String... parts) {
+    if (fields.containsKey(ExecutionLogEvent.COMMAND_KEY)) {
+      return (String) fields.get(ExecutionLogEvent.REASON_KEY);
+    }
+    return parts.length < 2 ? null : parts[1];
   }
 
   /**

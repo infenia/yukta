@@ -5,10 +5,12 @@ package com.infenia.yukta.persistence.postgres;
 import com.infenia.yukta.plugin.control.SupervisorBinding;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import io.r2dbc.spi.ConnectionFactories;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
@@ -71,5 +73,32 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
                 new SupervisorBinding("b", "ghost", new SupervisorScope.Global(), true)))
         .expectError()
         .verify();
+  }
+
+  @Test
+  void renamedIdsAreReadWithoutFailing() {
+    db.sql(
+            "INSERT INTO supervisor_id_migration (kind, old_id, new_id) VALUES ('profile', 'a:b',"
+                + " 'a_b')")
+        .fetch()
+        .rowsUpdated()
+        .block();
+    try {
+      StepVerifier.create(store.renamedIdsWarning()).verifyComplete();
+      store.warnRenamedIds();
+    } finally {
+      db.sql("DELETE FROM supervisor_id_migration").fetch().rowsUpdated().block();
+    }
+  }
+
+  @Test
+  void anUnreadableMappingTableIsLoggedNotRaised() {
+    final R2dbcSupervisorStore broken =
+        new R2dbcSupervisorStore(
+            DatabaseClient.create(
+                ConnectionFactories.get("r2dbc:postgresql://u:p@127.0.0.1:1/none")),
+            new ObjectMapper());
+
+    StepVerifier.create(broken.renamedIdsWarning()).verifyComplete();
   }
 }

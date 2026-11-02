@@ -156,6 +156,24 @@ describe('activity helpers', () => {
     expect(describeEvent(e('EventsMissed', { count: 3 }))).toBe(
       '3 events missed'
     );
+    const request = {
+      nodeId: 'ask',
+      tier: 'ops',
+      spec: { kind: 'APPROVAL', risk: 'HIGH' },
+    };
+    expect(describeEvent(e('InputRequested', { request }))).toBe(
+      'ask asked for input (APPROVAL, HIGH risk)'
+    );
+    expect(describeEvent(e('InputEscalated', { request }))).toBe(
+      'input of ask escalated to ops'
+    );
+    expect(describeEvent(e('InputAnswered', { decision: 'approve' }))).toBe(
+      'input answered: approve'
+    );
+    expect(describeEvent(e('InputExpired', {}))).toBe('input request expired');
+    expect(describeEvent(e('InputCancelled', { reason: 'run-ended' }))).toBe(
+      'input request cancelled: run-ended'
+    );
   });
 
   it('keeps at most the newest events and counts what it dropped', () => {

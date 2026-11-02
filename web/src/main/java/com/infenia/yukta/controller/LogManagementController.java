@@ -8,7 +8,7 @@ import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.mapper.WorkflowMapper;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -50,7 +50,7 @@ public class LogManagementController {
   private final PluginLogStore logStore;
 
   /** The task tracker. */
-  private final DefaultTaskTrackerService taskTracker;
+  private final TaskTrackerService taskTracker;
 
   /** The workflow mapper. */
   private final WorkflowMapper workflowMapper;
@@ -115,10 +115,8 @@ public class LogManagementController {
                     SseStreams.HEARTBEAT));
   }
 
-  private Flux<PluginLogEntry> entries(final String executionId, final String status) {
-    return TaskStatus.isTerminalName(status)
-        ? logStore.readExecution(executionId)
-        : historyThenLive(executionId);
+  private Flux<PluginLogEntry> entries(final String executionId, final TaskStatus status) {
+    return status.isTerminal() ? logStore.readExecution(executionId) : historyThenLive(executionId);
   }
 
   private Flux<PluginLogEntry> historyThenLive(final String executionId) {
@@ -168,7 +166,7 @@ public class LogManagementController {
   private Mono<Void> terminated(final String executionId) {
     return controlBus
         .watchExecution(executionId, true)
-        .filter(p -> TaskStatus.isTerminalName(p.status()) && p.endTime() != null)
+        .filter(p -> p.status().isTerminal() && p.endTime() != null)
         .next()
         .then();
   }

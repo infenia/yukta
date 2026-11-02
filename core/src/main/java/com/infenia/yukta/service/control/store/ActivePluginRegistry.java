@@ -29,8 +29,8 @@ import org.springframework.validation.annotation.Validated;
  * refcounted: the map entry is removed, and the handlers notified, only when the last outstanding
  * registration for a key is released.
  *
- * <p>Registering without an execution id is for a caller that has no run; looking up without one
- * finds the node of any run.
+ * <p>Registering without an execution id is for a caller that has no run; a lookup always names the
+ * run, so it can never reach the node of another run or session.
  *
  * <p>Extracted as a standalone bean (rather than living on {@code ControlBusService}) so that the
  * orchestrator's node-assembler strategies can depend on it directly without a circular dependency
@@ -94,24 +94,6 @@ public class ActivePluginRegistry {
         .addArgument(executionId)
         .addArgument(plugin.getClass().getSimpleName())
         .log("Registered plugin {} for node: {} in workflow: {}, run: {}");
-  }
-
-  /**
-   * Look up the plugin instance registered for a workflow node in any run.
-   *
-   * @param workflowId the workflow identifier
-   * @param nodeId the node identifier
-   * @return an Optional containing the registered plugin, or empty if none is registered
-   */
-  public Optional<Plugin> lookup(@NotBlank final String workflowId, @NotBlank final String nodeId) {
-    return Optional.ofNullable(activePlugins.get(ControlKey.forNode(workflowId, null, nodeId)))
-        .or(
-            () ->
-                activePlugins.entrySet().stream()
-                    .filter(entry -> ControlKey.isFor(entry.getKey(), workflowId, nodeId))
-                    .map(Map.Entry::getValue)
-                    .findFirst())
-        .map(Registration::plugin);
   }
 
   /**

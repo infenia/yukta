@@ -110,6 +110,11 @@ public final class KvStoreProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public boolean requiresControlPlane() {
+    return true;
+  }
+
+  @Override
   public String getType() {
     return "KV_STORE";
   }

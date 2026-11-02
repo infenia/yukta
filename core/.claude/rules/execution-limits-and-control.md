@@ -30,9 +30,9 @@ Reference for the scheduler, `Idempotency-Key`, control commands, stop modes and
 - Waiting starts are admitted by priority: a start payload key `yukta.priority` (number, higher
   first, default 0), then arrival order. `ExecutionScheduler.setLimits` changes the limits at run time; through the gateway
   (`changeLimits`) the change is recorded in the log under run id `scheduler` (the newest
-  `retained-runs` of them are kept). On startup `ExecutionRecovery` re-applies the newest applied
-  `SetLimits(max, perWorkflow)` entry (a legacy `SetLimits(max)` keeps the per-workflow limit), so the
-  log wins over the configuration from then on.
+  `retained-runs` of them are kept). On startup `ExecutionRecovery` re-applies the newest typed
+  `LIMITS_CHANGED` event (`maxConcurrent`, `maxPerWorkflow` in its `nodeStatuses`; the audit text is not parsed, and logs
+  from before it restore nothing), so the log wins over the configuration from then on.
 - Concurrent starts of a workflow that is not prepared yet share one preparation (per definition
   content). A prepared workflow is cached only if its definition is still the stored one.
 - A start asks the scheduler for its slot after the workflow is prepared and before the execution id
@@ -81,6 +81,8 @@ Gateway commands for a live run (`ControlBusGateway`). REST: `POST /api/executio
   `SetPriority(n)`, rejected if the run is not waiting.
 
 ### Signals and approval steps
+A signal for a node that waits on an open input request (context `signal` = the name) is answered through the input authoriser instead (`InputSignalBridge`; see `input-requests.md`); `pendingApprovals` also lists open `APPROVAL` requests. `AnswerInputCommand` and `EscalateInputCommand` are ordinary control commands (`ControlBusGateway.answerInput` / `escalateInput`); a raw `sendCommand` payload that carries `requestId` is refused like one that carries a signal.
+
 `SignalNodeCommand` (REST `POST /api/executions/{id}/nodes/{node}/signal?name=&decision=&data=`, MCP
 `signal_node`, gateway `signalNode`) hands a named signal to the plugin of a node through the same
 review, ordering and audit as other commands (`SignalNodeCommandProcessor`). The plugin must answer

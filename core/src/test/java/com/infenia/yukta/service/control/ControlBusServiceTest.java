@@ -13,13 +13,13 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
-import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
-import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -34,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.slf4j.LoggerFactory;
+import reactor.core.Scannable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -67,10 +68,9 @@ class ControlBusServiceTest {
   private static final String WORKFLOW_ID = "workflow-123";
   private static final String NODE_ID = "node-456";
   private static final String SESSION_ID = "session-789";
-  private static final String COMPOSITE_KEY = WORKFLOW_ID + "\0" + NODE_ID;
+  private static final String EXEC_ID = "run-1";
+  private static final String COMPOSITE_KEY = WORKFLOW_ID + "\0" + EXEC_ID + "\0" + NODE_ID;
 
-  @Mock private PreparedWorkflowCache preparedWorkflowCache;
-  @Mock private WorkflowOrchestrator orchestrator;
   @Mock private ControlSignalHandler handler1;
   @Mock private ControlSignalHandler handler2;
   @Mock private Plugin plugin;
@@ -88,10 +88,47 @@ class ControlBusServiceTest {
             50,
             256,
             List.of(handler1, handler2),
-            preparedWorkflowCache,
-            orchestrator,
             new ActivePluginRegistry(List.of(handler1, handler2)));
     controlBusService.init();
+  }
+
+  @Test
+  @DisplayName("a consumer failure resubscribes until the sink is terminated")
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.ControlBusService - ")
+  void consumerFailure_resubscribesUntilTheSinkIsTerminated() throws Exception {
+    final Sinks.Many<Message<?>> failing = mock(Sinks.Many.class);
+    when(failing.asFlux()).thenReturn(Flux.error(new IllegalStateException("consumer broke")));
+    when(failing.scanOrDefault(Scannable.Attr.TERMINATED, false)).thenReturn(false, true);
+    final ControlBusService bus =
+        new ControlBusService(
+            100,
+            50,
+            256,
+            List.of(handler1, handler2),
+            new ActivePluginRegistry(List.of(handler1, handler2)));
+    final Field sinkField = ControlBusService.class.getDeclaredField("controlSink");
+    sinkField.setAccessible(true);
+    sinkField.set(bus, failing);
+
+    bus.init();
+
+    verify(failing, timeout(5_000).times(2)).scanOrDefault(Scannable.Attr.TERMINATED, false);
+  }
+
+  @Test
+  @DisplayName("settings build a bus that accepts signals")
+  void settingsBuildBusThatAcceptsSignals() {
+    final ControlBusService fromSettings =
+        new ControlBusService(
+            YuktaSettings.bind(
+                Map.of(
+                    "yukta.control-bus.batch-size", "10",
+                    "yukta.control-bus.batch-timeout", "20ms")),
+            List.of(handler1, handler2),
+            new ActivePluginRegistry(List.of(handler1, handler2)));
+    fromSettings.init();
+
+    StepVerifier.create(fromSettings.emit(message)).expectComplete().verify(Duration.ofSeconds(2));
   }
 
   @Nested
@@ -130,45 +167,6 @@ class ControlBusServiceTest {
   }
 
   @Nested
-  @DisplayName("compileAndCacheWorkflow")
-  @NoArgsConstructor
-  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.ControlBusService - ")
-  class CompileAndCacheWorkflowTests {
-
-    @Test
-    @DisplayName("should invalidate cache, compile, and cache workflow on success")
-    void compileAndCacheWorkflow_successfulCompilation_invalidatesAndCaches() {
-      when(workflowDefinition.workflowId()).thenReturn(WORKFLOW_ID);
-      when(orchestrator.prepareWorkflow(workflowDefinition))
-          .thenReturn(Mono.just(preparedWorkflow));
-
-      StepVerifier.create(controlBusService.compileAndCacheWorkflow(SESSION_ID, workflowDefinition))
-          .expectComplete()
-          .verify(Duration.ofSeconds(2));
-
-      verify(preparedWorkflowCache).invalidate(SESSION_ID, WORKFLOW_ID);
-      verify(orchestrator).prepareWorkflow(workflowDefinition);
-      verify(preparedWorkflowCache)
-          .put(eq(SESSION_ID), eq(WORKFLOW_ID), eq(preparedWorkflow), any());
-    }
-
-    @Test
-    @DisplayName("should propagate orchestrator error without caching")
-    void compileAndCacheWorkflow_orchestratorFails_emitsError() {
-      when(workflowDefinition.workflowId()).thenReturn(WORKFLOW_ID);
-      final RuntimeException error = new RuntimeException("Orchestration failed");
-      when(orchestrator.prepareWorkflow(workflowDefinition)).thenReturn(Mono.error(error));
-
-      StepVerifier.create(controlBusService.compileAndCacheWorkflow(SESSION_ID, workflowDefinition))
-          .expectErrorSatisfies(e -> assertThat(e).isSameAs(error))
-          .verify(Duration.ofSeconds(2));
-
-      verify(preparedWorkflowCache).invalidate(SESSION_ID, WORKFLOW_ID);
-      verify(preparedWorkflowCache, never()).put(any(), any(), any(), any());
-    }
-  }
-
-  @Nested
   @DisplayName("getLastHeartbeat")
   @NoArgsConstructor
   class GetLastHeartbeatTests {
@@ -178,7 +176,7 @@ class ControlBusServiceTest {
     void getLastHeartbeat_foundInFirstHandler_returnsMessage() {
       doReturn(message).when(handler1).getLastHeartbeat(COMPOSITE_KEY);
 
-      final Message<?> result = controlBusService.getLastHeartbeat(WORKFLOW_ID, NODE_ID);
+      final Message<?> result = controlBusService.getLastHeartbeat(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
       assertThat(result).isSameAs(message);
       verify(handler1).getLastHeartbeat(COMPOSITE_KEY);
@@ -190,7 +188,7 @@ class ControlBusServiceTest {
       when(handler1.getLastHeartbeat(COMPOSITE_KEY)).thenReturn(null);
       doReturn(message).when(handler2).getLastHeartbeat(COMPOSITE_KEY);
 
-      final Message<?> result = controlBusService.getLastHeartbeat(WORKFLOW_ID, NODE_ID);
+      final Message<?> result = controlBusService.getLastHeartbeat(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
       assertThat(result).isSameAs(message);
       verify(handler1).getLastHeartbeat(COMPOSITE_KEY);
@@ -203,7 +201,7 @@ class ControlBusServiceTest {
       when(handler1.getLastHeartbeat(COMPOSITE_KEY)).thenReturn(null);
       when(handler2.getLastHeartbeat(COMPOSITE_KEY)).thenReturn(null);
 
-      final Message<?> result = controlBusService.getLastHeartbeat(WORKFLOW_ID, NODE_ID);
+      final Message<?> result = controlBusService.getLastHeartbeat(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
       assertThat(result).isNull();
     }
@@ -219,7 +217,7 @@ class ControlBusServiceTest {
     void getLastStatistics_foundInFirstHandler_returnsMessage() {
       doReturn(message).when(handler1).getLastStatistics(COMPOSITE_KEY);
 
-      final Message<?> result = controlBusService.getLastStatistics(WORKFLOW_ID, NODE_ID);
+      final Message<?> result = controlBusService.getLastStatistics(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
       assertThat(result).isSameAs(message);
       verify(handler1).getLastStatistics(COMPOSITE_KEY);
@@ -231,7 +229,7 @@ class ControlBusServiceTest {
       when(handler1.getLastStatistics(COMPOSITE_KEY)).thenReturn(null);
       doReturn(message).when(handler2).getLastStatistics(COMPOSITE_KEY);
 
-      final Message<?> result = controlBusService.getLastStatistics(WORKFLOW_ID, NODE_ID);
+      final Message<?> result = controlBusService.getLastStatistics(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
       assertThat(result).isSameAs(message);
       verify(handler1).getLastStatistics(COMPOSITE_KEY);
@@ -244,7 +242,7 @@ class ControlBusServiceTest {
       when(handler1.getLastStatistics(COMPOSITE_KEY)).thenReturn(null);
       when(handler2.getLastStatistics(COMPOSITE_KEY)).thenReturn(null);
 
-      final Message<?> result = controlBusService.getLastStatistics(WORKFLOW_ID, NODE_ID);
+      final Message<?> result = controlBusService.getLastStatistics(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
       assertThat(result).isNull();
     }
@@ -258,13 +256,13 @@ class ControlBusServiceTest {
     @Test
     @DisplayName("should return node IDs filtered by workflow ID")
     void getActiveNodes_withWorkflowId_returnsFiltered() {
-      final String otherWorkflowKey = "other-workflow\0other-node";
+      final String otherWorkflowKey = "other-workflow\0" + EXEC_ID + "\0other-node";
       final List<String> allKeys =
-          List.of(COMPOSITE_KEY, WORKFLOW_ID + "\0" + "another-node", otherWorkflowKey);
+          List.of(COMPOSITE_KEY, WORKFLOW_ID + "\0" + EXEC_ID + "\0another-node", otherWorkflowKey);
 
       when(handler1.getActiveNodes()).thenReturn(allKeys);
 
-      final List<String> result = controlBusService.getActiveNodes(WORKFLOW_ID);
+      final List<String> result = controlBusService.getActiveNodes(WORKFLOW_ID, List.of(EXEC_ID));
 
       assertThat(result).containsExactly(NODE_ID, "another-node");
     }
@@ -274,7 +272,7 @@ class ControlBusServiceTest {
     void getActiveNodes_noMatchingNodes_returnsEmptyList() {
       when(handler1.getActiveNodes()).thenReturn(List.of("other-workflow\0node"));
 
-      final List<String> result = controlBusService.getActiveNodes(WORKFLOW_ID);
+      final List<String> result = controlBusService.getActiveNodes(WORKFLOW_ID, List.of(EXEC_ID));
 
       assertThat(result).isEmpty();
     }
@@ -285,7 +283,7 @@ class ControlBusServiceTest {
       when(handler1.getActiveNodes()).thenReturn(List.of());
       when(handler2.getActiveNodes()).thenReturn(List.of());
 
-      final List<String> result = controlBusService.getActiveNodes(WORKFLOW_ID);
+      final List<String> result = controlBusService.getActiveNodes(WORKFLOW_ID, List.of(EXEC_ID));
 
       assertThat(result).isEmpty();
     }
@@ -324,9 +322,9 @@ class ControlBusServiceTest {
     void registerPlugin_storesAndRetrievable() {
       doReturn(Mono.just(message)).when(plugin).onControlSignal(message);
 
-      controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
+      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
 
-      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, NODE_ID, message))
+      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectNext(message)
           .verifyComplete();
 
@@ -341,10 +339,10 @@ class ControlBusServiceTest {
 
       doReturn(Mono.just(message)).when(plugin).onControlSignal(message);
 
-      controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
-      controlBusService.registerPlugin(WORKFLOW_ID, altNodeId, altPlugin);
+      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, altNodeId, altPlugin);
 
-      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, NODE_ID, message))
+      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectNext(message)
           .verifyComplete();
     }
@@ -356,10 +354,19 @@ class ControlBusServiceTest {
   class UnregisterPluginTests {
 
     @Test
-    @DisplayName("should remove plugin and notify all handlers")
-    void unregisterPlugin_cleansUp() {
+    @DisplayName("should release a registration made outside any run")
+    void unregisterPlugin_withoutRun_notifiesHandlersWithTheRunlessKey() {
       controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
       controlBusService.unregisterPlugin(WORKFLOW_ID, NODE_ID);
+
+      verify(handler1).removeNode(WORKFLOW_ID + "\0" + NODE_ID);
+    }
+
+    @Test
+    @DisplayName("should remove plugin and notify all handlers")
+    void unregisterPlugin_cleansUp() {
+      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      controlBusService.unregisterPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
       verify(handler1).removeNode(COMPOSITE_KEY);
       verify(handler2).removeNode(COMPOSITE_KEY);
@@ -368,10 +375,10 @@ class ControlBusServiceTest {
     @Test
     @DisplayName("should prevent unregistered plugin from receiving commands")
     void unregisterPlugin_preventsFurtherCalls() {
-      controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
-      controlBusService.unregisterPlugin(WORKFLOW_ID, NODE_ID);
+      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      controlBusService.unregisterPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
-      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, NODE_ID, message))
+      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectErrorMatches(
               e ->
                   e instanceof IllegalArgumentException
@@ -382,7 +389,7 @@ class ControlBusServiceTest {
     @Test
     @DisplayName("should not notify handlers when unregistering a never-registered node")
     void unregisterPlugin_nonExistent_doesNotNotifyHandlers() {
-      controlBusService.unregisterPlugin(WORKFLOW_ID, NODE_ID);
+      controlBusService.unregisterPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
       verify(handler1, never()).removeNode(any());
       verify(handler2, never()).removeNode(any());
@@ -394,22 +401,22 @@ class ControlBusServiceTest {
       doReturn(Mono.just(message)).when(plugin).onControlSignal(message);
 
       // Two concurrent "executions" register the same shared plugin instance for the same key.
-      controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
-      controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
+      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
 
       // First execution finishes and releases its registration; the second is still active.
-      controlBusService.unregisterPlugin(WORKFLOW_ID, NODE_ID);
+      controlBusService.unregisterPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID);
       verify(handler1, never()).removeNode(COMPOSITE_KEY);
       verify(handler2, never()).removeNode(COMPOSITE_KEY);
-      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, NODE_ID, message))
+      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectNext(message)
           .verifyComplete();
 
       // Second execution finishes; now the registration is fully released.
-      controlBusService.unregisterPlugin(WORKFLOW_ID, NODE_ID);
+      controlBusService.unregisterPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID);
       verify(handler1).removeNode(COMPOSITE_KEY);
       verify(handler2).removeNode(COMPOSITE_KEY);
-      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, NODE_ID, message))
+      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectErrorMatches(
               e ->
                   e instanceof IllegalArgumentException
@@ -428,9 +435,9 @@ class ControlBusServiceTest {
     @DisplayName("should delegate to registered plugin")
     void sendCommand_pluginRegistered_delegatesToPlugin() {
       doReturn(Mono.just(message)).when(plugin).onControlSignal(message);
-      controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
+      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
 
-      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, NODE_ID, message))
+      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectNext(message)
           .verifyComplete();
 
@@ -440,7 +447,7 @@ class ControlBusServiceTest {
     @Test
     @DisplayName("should return error when plugin not registered")
     void sendCommand_noPlugin_returnsError() {
-      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, NODE_ID, message))
+      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectErrorMatches(
               e ->
                   e instanceof IllegalArgumentException
@@ -453,9 +460,9 @@ class ControlBusServiceTest {
     void sendCommand_pluginErrors_propagatesError() {
       final RuntimeException error = new RuntimeException("Plugin failed");
       when(plugin.onControlSignal(message)).thenReturn(Mono.error(error));
-      controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
+      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
 
-      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, NODE_ID, message))
+      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectErrorSatisfies(e -> assertThat(e).isSameAs(error))
           .verify(Duration.ofSeconds(2));
     }
@@ -466,9 +473,10 @@ class ControlBusServiceTest {
       final Message<?> nullPayloadMessage = mock(Message.class);
       when(nullPayloadMessage.payload()).thenReturn(null);
       when(plugin.onControlSignal(nullPayloadMessage)).thenReturn(Mono.just(nullPayloadMessage));
-      controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
+      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
 
-      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, NODE_ID, nullPayloadMessage))
+      StepVerifier.create(
+              controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, nullPayloadMessage))
           .expectNext(nullPayloadMessage)
           .verifyComplete();
 
@@ -485,14 +493,7 @@ class ControlBusServiceTest {
     @DisplayName("should complete control stream after shutdown")
     void shutdown_completesStream() {
       final ControlBusService shutdownService =
-          new ControlBusService(
-              100,
-              50,
-              256,
-              List.of(),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(100, 50, 256, List.of(), new ActivePluginRegistry(List.of()));
       shutdownService.init();
 
       shutdownService.shutdown();
@@ -513,14 +514,7 @@ class ControlBusServiceTest {
     @DisplayName("should resubscribe after a failure and give up once stopped")
     void consumerFailure_isRetriedUntilShutdown() throws Exception {
       final ControlBusService failing =
-          new ControlBusService(
-              100,
-              50,
-              256,
-              List.of(),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(100, 50, 256, List.of(), new ActivePluginRegistry(List.of()));
       failing.init();
       final Sinks.Many<?> sink =
           java.util.Objects.requireNonNull(
@@ -546,9 +540,9 @@ class ControlBusServiceTest {
       final Message<?> command = mock(Message.class);
       when(command.payload()).thenReturn("a command");
       when(plugin.onControlSignal(command)).thenReturn(Mono.just(command));
-      controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
+      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
 
-      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, NODE_ID, command))
+      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, command))
           .expectNext(command)
           .verifyComplete();
     }
@@ -564,13 +558,7 @@ class ControlBusServiceTest {
     void init_customBufferSize_createsSink() {
       final ControlBusService customService =
           new ControlBusService(
-              100,
-              50,
-              512,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              100, 50, 512, List.of(handler1), new ActivePluginRegistry(List.of()));
 
       customService.init();
 
@@ -588,8 +576,6 @@ class ControlBusServiceTest {
               50,
               Queues.SMALL_BUFFER_SIZE,
               List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
               new ActivePluginRegistry(List.of()));
 
       defaultService.init();
@@ -603,14 +589,7 @@ class ControlBusServiceTest {
     @DisplayName("should enforce minimum buffer size when size is too small")
     void init_tinyBufferSize_enforcesMinium() {
       final ControlBusService minService =
-          new ControlBusService(
-              100,
-              50,
-              1,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(100, 50, 1, List.of(handler1), new ActivePluginRegistry(List.of()));
 
       minService.init();
 
@@ -623,13 +602,7 @@ class ControlBusServiceTest {
       final int customBatchTimeout = 75;
       final ControlBusService customTimeoutService =
           new ControlBusService(
-              100,
-              customBatchTimeout,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              100, customBatchTimeout, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
 
       customTimeoutService.init();
 
@@ -649,22 +622,23 @@ class ControlBusServiceTest {
     void compositeKey_formatCorrect() {
       doReturn(message).when(handler1).getLastHeartbeat(COMPOSITE_KEY);
 
-      controlBusService.getLastHeartbeat(WORKFLOW_ID, NODE_ID);
+      controlBusService.getLastHeartbeat(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
-      verify(handler1).getLastHeartbeat(WORKFLOW_ID + "\0" + NODE_ID);
+      verify(handler1).getLastHeartbeat(WORKFLOW_ID + "\0" + EXEC_ID + "\0" + NODE_ID);
     }
 
     @Test
     @DisplayName("should treat different node IDs as independent")
     void compositeKey_differentNodeIds_independent() {
       final String altNodeId = "different-node";
-      final String altKey = WORKFLOW_ID + "\0" + altNodeId;
+      final String altKey = WORKFLOW_ID + "\0" + EXEC_ID + "\0" + altNodeId;
 
       doReturn(message).when(handler1).getLastHeartbeat(COMPOSITE_KEY);
       doReturn(null).when(handler1).getLastHeartbeat(altKey);
 
-      final Message<?> result1 = controlBusService.getLastHeartbeat(WORKFLOW_ID, NODE_ID);
-      final Message<?> result2 = controlBusService.getLastHeartbeat(WORKFLOW_ID, altNodeId);
+      final Message<?> result1 = controlBusService.getLastHeartbeat(WORKFLOW_ID, EXEC_ID, NODE_ID);
+      final Message<?> result2 =
+          controlBusService.getLastHeartbeat(WORKFLOW_ID, EXEC_ID, altNodeId);
 
       assertThat(result1).isSameAs(message);
       assertThat(result2).isNull();
@@ -681,13 +655,13 @@ class ControlBusServiceTest {
     void fullLifecycle_registerUseUnregister() {
       doReturn(Mono.just(message)).when(plugin).onControlSignal(message);
 
-      controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
-      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, NODE_ID, message))
+      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectNext(message)
           .verifyComplete();
 
-      controlBusService.unregisterPlugin(WORKFLOW_ID, NODE_ID);
-      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, NODE_ID, message))
+      controlBusService.unregisterPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID);
+      StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectError(IllegalArgumentException.class)
           .verify(Duration.ofSeconds(2));
     }
@@ -702,8 +676,9 @@ class ControlBusServiceTest {
       when(handler1.getLastStatistics(COMPOSITE_KEY)).thenReturn(null);
       doReturn(statsMsg).when(handler2).getLastStatistics(COMPOSITE_KEY);
 
-      final Message<?> heartbeat = controlBusService.getLastHeartbeat(WORKFLOW_ID, NODE_ID);
-      final Message<?> stats = controlBusService.getLastStatistics(WORKFLOW_ID, NODE_ID);
+      final Message<?> heartbeat =
+          controlBusService.getLastHeartbeat(WORKFLOW_ID, EXEC_ID, NODE_ID);
+      final Message<?> stats = controlBusService.getLastStatistics(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
       assertThat(heartbeat).isSameAs(heartbeatMsg);
       assertThat(stats).isSameAs(statsMsg);
@@ -713,14 +688,15 @@ class ControlBusServiceTest {
     @DisplayName("should manage multiple workflows independently")
     void multipleWorkflows_independent() {
       final String altWorkflowId = "workflow-alt";
-      final String altCompositeKey = altWorkflowId + "\0" + NODE_ID;
+      final String altCompositeKey = altWorkflowId + "\0" + EXEC_ID + "\0" + NODE_ID;
       final Message<?> altMessage = mock(Message.class);
 
       doReturn(message).when(handler1).getLastHeartbeat(COMPOSITE_KEY);
       doReturn(altMessage).when(handler1).getLastHeartbeat(altCompositeKey);
 
-      final Message<?> result1 = controlBusService.getLastHeartbeat(WORKFLOW_ID, NODE_ID);
-      final Message<?> result2 = controlBusService.getLastHeartbeat(altWorkflowId, NODE_ID);
+      final Message<?> result1 = controlBusService.getLastHeartbeat(WORKFLOW_ID, EXEC_ID, NODE_ID);
+      final Message<?> result2 =
+          controlBusService.getLastHeartbeat(altWorkflowId, EXEC_ID, NODE_ID);
 
       assertThat(result1).isSameAs(message);
       assertThat(result2).isSameAs(altMessage);
@@ -768,14 +744,7 @@ class ControlBusServiceTest {
     @SuppressWarnings("unchecked")
     void emit_sinkFull_failsTheCallerOnly() throws Exception {
       final ControlBusService svc =
-          new ControlBusService(
-              100,
-              50,
-              256,
-              List.of(),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(100, 50, 256, List.of(), new ActivePluginRegistry(List.of()));
       svc.init();
       final Sinks.Many<Message<?>> fullSink = mock(Sinks.Many.class);
       when(fullSink.tryEmitNext(any())).thenReturn(Sinks.EmitResult.FAIL_OVERFLOW);
@@ -797,14 +766,7 @@ class ControlBusServiceTest {
     @SuppressWarnings("unchecked")
     void emit_sinkThrowsRuntimeException_propagatesAsIllegalState() throws Exception {
       final ControlBusService svc =
-          new ControlBusService(
-              100,
-              50,
-              256,
-              List.of(),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(100, 50, 256, List.of(), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Sinks.Many<Message<?>> throwingSink = mock(Sinks.Many.class);
@@ -835,6 +797,7 @@ class ControlBusServiceTest {
       final Message<?> msg = mock(Message.class);
       when(msg.workflowId()).thenReturn(ControlBusServiceTest.WORKFLOW_ID);
       when(msg.sourceNodeId()).thenReturn(ControlBusServiceTest.NODE_ID);
+      doReturn(java.util.Map.of("executionId", ControlBusServiceTest.EXEC_ID)).when(msg).metadata();
       doReturn(payload).when(msg).payload();
       when(msg.priority()).thenReturn(priority);
       return msg;
@@ -865,13 +828,7 @@ class ControlBusServiceTest {
 
       final ControlBusService svc =
           new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1, handler2),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              1, 10, 256, List.of(handler1, handler2), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Message<?> msg = makeMessage(payload, 0);
@@ -893,14 +850,7 @@ class ControlBusServiceTest {
       when(msg.priority()).thenReturn(0);
 
       final ControlBusService svc =
-          new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(1, 10, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       svc.emit(msg).subscribe();
@@ -920,14 +870,7 @@ class ControlBusServiceTest {
       when(msg.priority()).thenReturn(0);
 
       final ControlBusService svc =
-          new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(1, 10, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       svc.emit(msg).subscribe();
@@ -949,14 +892,7 @@ class ControlBusServiceTest {
       when(msg.priority()).thenReturn(0);
 
       final ControlBusService svc =
-          new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(1, 10, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       svc.emit(msg).subscribe();
@@ -985,13 +921,7 @@ class ControlBusServiceTest {
 
       final ControlBusService svc =
           new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1, handler2),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              1, 10, 256, List.of(handler1, handler2), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Message<?> msg = makeMessage(payload, 0);
@@ -1011,13 +941,7 @@ class ControlBusServiceTest {
 
       final ControlBusService svc =
           new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1, handler2),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              1, 10, 256, List.of(handler1, handler2), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Message<?> msg = makeMessage(payload, 0);
@@ -1051,13 +975,7 @@ class ControlBusServiceTest {
 
       final ControlBusService svc =
           new ControlBusService(
-              2,
-              200,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              2, 200, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       svc.emit(lowMsg).subscribe();
@@ -1093,14 +1011,7 @@ class ControlBusServiceTest {
           .handle(any(), any(), any());
 
       final ControlBusService svc =
-          new ControlBusService(
-              1,
-              10,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(1, 10, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       svc.emit(msg1).subscribe();
@@ -1129,14 +1040,7 @@ class ControlBusServiceTest {
           .handle(any(), any(), any());
 
       final ControlBusService svc =
-          new ControlBusService(
-              1,
-              50,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(1, 50, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Message<?> msg = makeMessage(payload, 0);
@@ -1144,7 +1048,7 @@ class ControlBusServiceTest {
 
       final boolean processed = latch.await(3, TimeUnit.SECONDS);
       assertThat(processed).isTrue();
-      verify(handler1).handle(WORKFLOW_ID + "\0" + NODE_ID, msg, payload);
+      verify(handler1).handle(COMPOSITE_KEY, msg, payload);
     }
 
     @Test
@@ -1164,13 +1068,7 @@ class ControlBusServiceTest {
 
       final ControlBusService svc =
           new ControlBusService(
-              5,
-              100,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              5, 100, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       for (int i = 0; i < 5; i++) {
@@ -1201,13 +1099,7 @@ class ControlBusServiceTest {
 
       final ControlBusService svc =
           new ControlBusService(
-              3,
-              100,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              3, 100, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Message<?> msg1 = makeMessage(payload, 0);
@@ -1228,13 +1120,7 @@ class ControlBusServiceTest {
     void handleControlBatch_fatalStreamError_handled() throws Exception {
       final ControlBusService svc =
           new ControlBusService(
-              100,
-              50,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+              100, 50, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Field sinkField = ControlBusService.class.getDeclaredField("controlSink");
@@ -1254,7 +1140,6 @@ class ControlBusServiceTest {
   @DisplayName("Logging branch coverage")
   @MockitoSettings(strictness = Strictness.LENIENT)
   @NoArgsConstructor
-  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.ControlBusService - ")
   class LoggingBranchTests {
 
     @Test
@@ -1290,14 +1175,7 @@ class ControlBusServiceTest {
           .handle(any(), any(), any());
 
       final ControlBusService svc =
-          new ControlBusService(
-              2,
-              50,
-              256,
-              List.of(handler1),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(2, 50, 256, List.of(handler1), new ActivePluginRegistry(List.of()));
       svc.init();
 
       @SuppressWarnings("unchecked")
@@ -1326,14 +1204,7 @@ class ControlBusServiceTest {
     @SuppressWarnings("unchecked")
     void emit_sinkThrowsException_logsErrorAndPropagates() throws Exception {
       final ControlBusService svc =
-          new ControlBusService(
-              100,
-              50,
-              256,
-              List.of(),
-              preparedWorkflowCache,
-              orchestrator,
-              new ActivePluginRegistry(List.of()));
+          new ControlBusService(100, 50, 256, List.of(), new ActivePluginRegistry(List.of()));
       svc.init();
 
       final Sinks.Many<Message<?>> throwingSink = mock(Sinks.Many.class);
@@ -1349,20 +1220,6 @@ class ControlBusServiceTest {
       StepVerifier.create(svc.emit(testMessage))
           .expectErrorMatches(e -> e instanceof IllegalStateException)
           .verify(Duration.ofSeconds(2));
-    }
-
-    @Test
-    @DisplayName("compileAndCacheWorkflow with error should log appropriately")
-    void compileAndCacheWorkflow_withLoggingOnFailure_logsError() {
-      when(workflowDefinition.workflowId()).thenReturn(WORKFLOW_ID);
-      final RuntimeException testError = new RuntimeException("Compilation failed");
-      when(orchestrator.prepareWorkflow(workflowDefinition)).thenReturn(Mono.error(testError));
-
-      StepVerifier.create(controlBusService.compileAndCacheWorkflow(SESSION_ID, workflowDefinition))
-          .expectErrorSatisfies(e -> assertThat(e).isSameAs(testError))
-          .verify(Duration.ofSeconds(2));
-
-      verify(preparedWorkflowCache).invalidate(SESSION_ID, WORKFLOW_ID);
     }
   }
 

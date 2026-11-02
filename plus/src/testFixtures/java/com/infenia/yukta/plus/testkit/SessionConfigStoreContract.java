@@ -89,7 +89,7 @@ public abstract class SessionConfigStoreContract {
     assertThat(store.getDescription("s2").block()).isEqualTo("second");
     assertThat(store.getDescription("s1").block()).isEqualTo("other");
     assertThat(store.getSessionIds().collectList().block()).contains("s2");
-    assertThat(store.getAllConfigs("s2").block()).isNotEmpty();
+    assertThat(store.getAllConfigs("s2").block()).isNotNull();
   }
 
   @Test

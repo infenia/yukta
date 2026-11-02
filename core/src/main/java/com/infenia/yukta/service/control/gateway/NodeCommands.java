@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.gateway;
 
+import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.DisableStepModeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCommand;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
@@ -11,7 +13,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeComman
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
-import com.infenia.yukta.service.control.store.ExecutionControlRegistry;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
@@ -21,8 +23,8 @@ import reactor.core.publisher.Mono;
 final class NodeCommands extends ControlDispatch {
 
   /* default */ NodeCommands(
-      final ControlBusGateway gateway, final ExecutionControlRegistry executionControlRegistry) {
-    super(gateway, executionControlRegistry);
+      final ControlBusGateway gateway, final ExecutionControlStore executionControlStore) {
+    super(gateway, executionControlStore);
   }
 
   /* default */ Mono<Void> pauseNode(final String executionId, final String nodeId) {
@@ -119,6 +121,16 @@ final class NodeCommands extends ControlDispatch {
                     buildCommand(
                         new SignalNodeCommand(executionId, nodeId, name, decision, data),
                         CONTROL_COMMAND_PRIORITY)));
+  }
+
+  /* default */ Mono<Void> answerInput(final AnswerInputCommand command) {
+    return Mono.fromSupplier(() -> findExecutionOrThrow(command.executionId()))
+        .flatMap(_ -> executeCommand(buildCommand(command, CONTROL_COMMAND_PRIORITY)));
+  }
+
+  /* default */ Mono<Void> escalateInput(final EscalateInputCommand command) {
+    return Mono.fromSupplier(() -> findExecutionOrThrow(command.executionId()))
+        .flatMap(_ -> executeCommand(buildCommand(command, CONTROL_COMMAND_PRIORITY)));
   }
 
   /* default */ Mono<Void> clearBreakpoint(final String executionId, final String nodeId) {

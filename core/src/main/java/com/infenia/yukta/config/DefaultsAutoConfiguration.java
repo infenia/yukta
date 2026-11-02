@@ -6,6 +6,12 @@ import com.infenia.yukta.edition.EditionInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.security.ApiAuthenticator;
 import com.infenia.yukta.security.ApiKeyAuthenticator;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
+import com.infenia.yukta.service.input.AnswerAuthorizer;
+import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
+import com.infenia.yukta.service.input.InMemoryInputRequestStore;
+import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
@@ -13,12 +19,15 @@ import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import com.infenia.yukta.service.supervisor.InMemorySupervisorStore;
 import com.infenia.yukta.service.supervisor.SupervisorStore;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 import tools.jackson.databind.ObjectMapper;
@@ -30,15 +39,16 @@ import tools.jackson.databind.ObjectMapper;
  * {@code @AutoConfiguration(before = DefaultsAutoConfiguration.class)} (or by being scanned). The
  * property conditions are kept, so the file and PostgreSQL stores behave as before.
  */
+@Slf4j
 @AutoConfiguration
+@EnableConfigurationProperties(YuktaProperties.class)
 @NoArgsConstructor
 public class DefaultsAutoConfiguration {
 
   /**
    * The execution log in memory, trimmed like the file log.
    *
-   * @param retainedRuns runs kept when the log is trimmed
-   * @param compactAfter appended events after which the log is trimmed
+   * @param properties the settings
    * @return the store
    */
   @Bean
@@ -46,18 +56,15 @@ public class DefaultsAutoConfiguration {
   @ConditionalOnExpression(
       "'${yukta.execution-log.dir:}'.isEmpty()"
           + " && !'postgres'.equals('${yukta.session.store-type:in-memory}')")
-  public InMemoryExecutionLogStore inMemoryExecutionLogStore(
-      @Value("${yukta.execution-log.retained-runs:500}") final int retainedRuns,
-      @Value("${yukta.execution-log.compact-after:10000}") final int compactAfter) {
-    return new InMemoryExecutionLogStore(retainedRuns, compactAfter);
+  public InMemoryExecutionLogStore inMemoryExecutionLogStore(final YuktaProperties properties) {
+    return new InMemoryExecutionLogStore(
+        properties.executionLog().retainedRuns(), properties.executionLog().compactAfter());
   }
 
   /**
    * The node checkpoints in memory, with optional spill to files.
    *
-   * @param messagesPerNode maximum number of messages kept per node and execution
-   * @param bytesPerNode maximum payload bytes kept per node and execution
-   * @param spillDir directory for output beyond the caps; empty to refuse such restarts
+   * @param properties the settings
    * @param mapper writes spilled messages
    * @return the store
    */
@@ -66,11 +73,10 @@ public class DefaultsAutoConfiguration {
   @ConditionalOnExpression(
       "'${yukta.restart.dir:}'.isEmpty() && !'postgres'.equals('${yukta.restart.store-type:}')")
   public InMemoryNodeCheckpointStore inMemoryNodeCheckpointStore(
-      @Value("${yukta.restart.messages-per-node:200}") final int messagesPerNode,
-      @Value("${yukta.restart.bytes-per-node:4194304}") final long bytesPerNode,
-      @Value("${yukta.restart.spill-dir:}") final String spillDir,
-      final ObjectProvider<ObjectMapper> mapper) {
-    return new InMemoryNodeCheckpointStore(messagesPerNode, bytesPerNode, spillDir, mapper);
+      final YuktaProperties properties, final ObjectProvider<ObjectMapper> mapper) {
+    final YuktaProperties.Restart restart = properties.restart();
+    return new InMemoryNodeCheckpointStore(
+        restart.messagesPerNode(), restart.bytesPerNode(), restart.spillDir(), mapper);
   }
 
   /**
@@ -82,6 +88,37 @@ public class DefaultsAutoConfiguration {
   @ConditionalOnMissingBean(SupervisorStore.class)
   public InMemorySupervisorStore inMemorySupervisorStore() {
     return new InMemorySupervisorStore();
+  }
+
+  /**
+   * Input requests kept in memory: they are gone after a restart. A durable store replaces it.
+   *
+   * @param properties the {@code yukta.input} settings
+   * @return the store
+   */
+  @Bean
+  @ConditionalOnMissingBean(InputRequestStore.class)
+  public InMemoryInputRequestStore inMemoryInputRequestStore(final YuktaProperties properties) {
+    log.atInfo().log(
+        "Input requests are kept in memory: open requests are lost when the server restarts");
+    return new InMemoryInputRequestStore(properties.input().memoryMax());
+  }
+
+  /**
+   * The rules for who may answer or hand up an input request. A bean of your own replaces them.
+   *
+   * @param runs finds the start payload of a run
+   * @param meters counts denied answers
+   * @return the default rules
+   */
+  @Bean
+  @ConditionalOnMissingBean(AnswerAuthorizer.class)
+  public DefaultAnswerAuthorizer defaultAnswerAuthorizer(
+      final ObjectProvider<ExecutionControlStore> runs,
+      final ObjectProvider<MeterRegistry> meters) {
+    return new DefaultAnswerAuthorizer(
+        runs.getIfAvailable(InMemoryExecutionControlStore::new),
+        meters.getIfAvailable(SimpleMeterRegistry::new));
   }
 
   /**

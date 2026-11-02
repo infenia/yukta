@@ -10,12 +10,16 @@ import com.infenia.yukta.service.control.ExecutionScheduler.Admission;
 import com.infenia.yukta.service.control.ExecutionScheduler.OnLimit;
 import com.infenia.yukta.service.control.ExecutionScheduler.Permit;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.reactivestreams.Subscription;
+import reactor.core.CoreSubscriber;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.test.StepVerifier;
 
@@ -33,6 +37,30 @@ class ExecutionSchedulerTest {
 
   private static Permit granted(final Admission admission) {
     return admission.permit().block(Duration.ofSeconds(2));
+  }
+
+  @Test
+  void settingsSetTheGlobalLimit() {
+    final ExecutionScheduler fromSettings =
+        new ExecutionScheduler(YuktaSettings.bind(Map.of("yukta.execution.max-concurrent", "1")));
+
+    granted(fromSettings.acquire("s1", "w1"));
+
+    assertThat(fromSettings.running()).isEqualTo(1);
+  }
+
+  @Test
+  void givingBackAnAdmissionFreesItsSlotOnceAndLeavesTheQueue() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 5, ExecutionScheduler.OnLimit.QUEUE);
+    final Admission first = scheduler.acquire("s1", "w1");
+    final Admission waiting = scheduler.acquire("s1", "w1");
+
+    first.giveBack();
+    first.giveBack();
+    assertThat(scheduler.running()).isEqualTo(1); // the waiting one took the freed slot
+
+    waiting.giveBack();
+    assertThat(scheduler.running()).isZero();
   }
 
   @Test
@@ -368,6 +396,66 @@ class ExecutionSchedulerTest {
   }
 
   @Test
+  void refusedWaiterThatIsCancelledLater_hasNothingToGiveBack() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+    granted(scheduler.acquire("s", "w"));
+    final AtomicReference<Subscription> subscription = new AtomicReference<>();
+    final AtomicReference<Throwable> refusal = new AtomicReference<>();
+    scheduler
+        .acquire("s", "w")
+        .permit()
+        .subscribe(
+            // a core subscriber keeps the upstream subscription, so cancelling after the refusal
+            // still reaches the scheduler (a plain Subscriber would ignore it once terminated)
+            new CoreSubscriber<>() {
+              @Override
+              public void onSubscribe(final Subscription s) {
+                subscription.set(s);
+              }
+
+              @Override
+              public void onNext(final Permit permit) {
+                // never granted
+              }
+
+              @Override
+              public void onError(final Throwable t) {
+                refusal.set(t);
+              }
+
+              @Override
+              public void onComplete() {
+                // never granted
+              }
+            });
+
+    scheduler.stop(() -> {});
+    assertThat(refusal.get()).isInstanceOf(ExecutionRejectedException.class);
+    // the subscriber goes away after it was refused: there is no slot to give back
+    subscription.get().cancel();
+
+    assertThat(scheduler.queued()).isZero();
+    assertThat(scheduler.running()).isEqualTo(1);
+  }
+
+  @Test
+  void giveBack_releasesTheSlotOfAnAdmissionNobodyTookUp() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
+    final Admission immediate = scheduler.acquire("s", "w");
+    assertThat(scheduler.running()).isEqualTo(1);
+    immediate.giveBack();
+    assertThat(scheduler.running()).isZero();
+
+    final Permit first = granted(scheduler.acquire("s", "w"));
+    final Admission waiting = scheduler.acquire("s", "w");
+    first.release();
+    assertThat(scheduler.running()).isEqualTo(1);
+    // granted while nobody listened: giving it back frees the slot again
+    waiting.giveBack();
+    assertThat(scheduler.running()).isZero();
+  }
+
+  @Test
   void higherPriorityWaitingStartIsAdmittedFirst() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
     final Permit first = granted(scheduler.acquire("s", "w0"));
@@ -400,9 +488,9 @@ class ExecutionSchedulerTest {
 
   @Test
   void priorityIsReadFromThePayload() {
-    assertThat(ExecutionScheduler.priorityOf(java.util.Map.of(ExecutionScheduler.PRIORITY_KEY, 7)))
+    assertThat(ExecutionScheduler.priorityOf(Map.of(ExecutionScheduler.PRIORITY_KEY, 7)))
         .isEqualTo(7);
-    assertThat(ExecutionScheduler.priorityOf(java.util.Map.of("yukta.priority", "x"))).isZero();
+    assertThat(ExecutionScheduler.priorityOf(Map.of("yukta.priority", "x"))).isZero();
     assertThat(ExecutionScheduler.priorityOf(null)).isZero();
   }
 

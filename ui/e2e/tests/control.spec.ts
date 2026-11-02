@@ -83,6 +83,7 @@ test.describe('Control page', () => {
       [
         {
           workflowId: 'wf-1',
+          sessionId: 'sess-1',
           executionId: 'exec-1111-aaaa',
           nodeId: 'ingest',
           timestamp: new Date().toISOString(),
@@ -91,7 +92,7 @@ test.describe('Control page', () => {
     );
     let sent: unknown;
     await page.route(
-      '**/api/control/workflows/wf-1/nodes/ingest/command',
+      '**/api/control/workflows/wf-1/nodes/ingest/command**',
       (route) => {
         sent = route.request().postDataJSON();
         return route.fulfill(

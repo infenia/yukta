@@ -5,6 +5,7 @@ package com.infenia.yukta.supervisor.rules;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.input.InputRequest;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.experimental.UtilityClass;
@@ -32,6 +33,12 @@ public class Fields {
 
   /** Name of the workflow field. */
   public static final String WORKFLOW_ID = "workflowId";
+
+  /** Field: the id of an input request. */
+  public static final String REQUEST_ID = "requestId";
+
+  /** Field: why a command was refused or an input request ended. */
+  public static final String REASON_FIELD = "reason";
 
   /**
    * Fields of an event.
@@ -62,7 +69,7 @@ public class Fields {
         fields.put("command", outcome.command());
         fields.put("actor", outcome.actor());
         fields.put("applied", outcome.applied());
-        fields.put("reason", outcome.reason());
+        fields.put(REASON_FIELD, outcome.reason());
       }
       case ExecutionEvent.LogLine line -> {
         fields.put(NODE_ID, line.nodeId());
@@ -73,8 +80,47 @@ public class Fields {
         fields.put(STATUS, "EVENTS_MISSED");
         fields.put("missed", missed.count());
       }
+      case ExecutionEvent.InputRequested requested ->
+          inputFields(fields, requested.request(), "INPUT_REQUESTED");
+      case ExecutionEvent.InputEscalated escalated -> {
+        inputFields(fields, escalated.request(), "INPUT_ESCALATED");
+        fields.put(REASON_FIELD, escalated.reason());
+      }
+      case ExecutionEvent.InputAnswered answered -> {
+        fields.put(WORKFLOW_ID, answered.workflowId());
+        fields.put(STATUS, "INPUT_ANSWERED");
+        fields.put(REQUEST_ID, answered.requestId());
+        fields.put("decision", answered.decision());
+        fields.put("responder", answered.responder().id());
+        fields.put("responderType", answered.responder().type().name());
+      }
+      case ExecutionEvent.InputExpired expired -> {
+        fields.put(WORKFLOW_ID, expired.workflowId());
+        fields.put(STATUS, "INPUT_EXPIRED");
+        fields.put(REQUEST_ID, expired.requestId());
+      }
+      case ExecutionEvent.InputCancelled cancelled -> {
+        fields.put(WORKFLOW_ID, cancelled.workflowId());
+        fields.put(STATUS, "INPUT_CANCELLED");
+        fields.put(REQUEST_ID, cancelled.requestId());
+        fields.put(REASON_FIELD, cancelled.reason());
+      }
     }
     return fields;
+  }
+
+  /** The fields of an event that carries a request: what rules match on to answer or escalate. */
+  private static void inputFields(
+      final Map<String, Object> fields, final InputRequest request, final String status) {
+    fields.put(WORKFLOW_ID, request.workflowId());
+    fields.put(NODE_ID, request.nodeId());
+    fields.put(STATUS, status);
+    fields.put(REQUEST_ID, request.id());
+    fields.put("kind", request.spec().kind().name());
+    fields.put("risk", request.spec().risk().name());
+    fields.put("state", request.state().name());
+    fields.put("tier", request.tier());
+    fields.put("requester", request.spec().requester());
   }
 
   /**
@@ -94,7 +140,7 @@ public class Fields {
         command instanceof ExecutionControlCommand.StopWorkflowCommand stop
             ? String.valueOf(stop.mode())
             : null);
-    fields.put("reason", reason(command));
+    fields.put(REASON_FIELD, reason(command));
     fields.put(
         "immediate",
         command instanceof ExecutionControlCommand.StopNodeCommand stop ? stop.immediate() : null);

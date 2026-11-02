@@ -29,6 +29,22 @@ public interface NodeCheckpointStore {
   Mono<Void> save(String executionId, String nodeId, Message<?> message);
 
   /**
+   * Saves several messages of a node, in order. Stores that can write a batch in one round trip
+   * override it; the default saves them one by one.
+   *
+   * @param executionId the execution
+   * @param nodeId the node
+   * @param messages the messages, oldest first
+   * @return completes when all are saved
+   */
+  default Mono<Void> saveAll(
+      final String executionId, final String nodeId, final java.util.List<Message<?>> messages) {
+    return Flux.fromIterable(messages)
+        .concatMap(message -> save(executionId, nodeId, message))
+        .then();
+  }
+
+  /**
    * Retrieves the last checkpoint for {@code nodeId} in {@code executionId}.
    *
    * @param executionId the execution identifier

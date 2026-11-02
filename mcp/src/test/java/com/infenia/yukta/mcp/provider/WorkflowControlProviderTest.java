@@ -13,6 +13,7 @@ import com.infenia.yukta.mcp.dto.NodeControlAction;
 import com.infenia.yukta.mcp.dto.SchedulerLimitsResult;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.model.control.SchedulerLimits;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.StopMode;
@@ -20,8 +21,7 @@ import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,13 +50,7 @@ class WorkflowControlProviderTest {
 
   private WorkflowProgress progressOwnedBy(final String sessionId) {
     return new WorkflowProgress(
-        EXECUTION,
-        sessionId,
-        "wf-1",
-        "RUNNING",
-        List.of(),
-        LocalDateTime.now(ZoneId.systemDefault()),
-        null);
+        EXECUTION, sessionId, "wf-1", TaskStatus.RUNNING, List.of(), Instant.now(), null);
   }
 
   @Test
@@ -626,15 +620,15 @@ class WorkflowControlProviderTest {
     }
   }
 
-  private static WorkflowExecutionSummary run(final String id, final String status) {
+  private static WorkflowExecutionSummary run(final String id, final TaskStatus status) {
     return new WorkflowExecutionSummary(
-        id, "wf", status, java.time.LocalDateTime.now(), null, EXECUTION, EXECUTION, null);
+        id, "wf", status, java.time.Instant.now(), null, EXECUTION, EXECUTION, null);
   }
 
   @Test
   void controlWorkflow_withTree_pausesResumesAndStopsTheRunsBelowToo() {
     when(tracker.getTree(EXECUTION))
-        .thenReturn(List.of(run(EXECUTION, "RUNNING"), run("child", "RUNNING")));
+        .thenReturn(List.of(run(EXECUTION, TaskStatus.RUNNING), run("child", TaskStatus.RUNNING)));
     when(controlBus.pauseWorkflow(org.mockito.ArgumentMatchers.anyString()))
         .thenReturn(Mono.empty());
     when(controlBus.resumeWorkflow(org.mockito.ArgumentMatchers.anyString()))
@@ -667,7 +661,7 @@ class WorkflowControlProviderTest {
 
   @Test
   void getExecutionTree_listsTheRunsOfAnOwnedExecution() {
-    when(tracker.getTree(EXECUTION)).thenReturn(List.of(run(EXECUTION, "RUNNING")));
+    when(tracker.getTree(EXECUTION)).thenReturn(List.of(run(EXECUTION, TaskStatus.RUNNING)));
 
     StepVerifier.create(provider.getExecutionTree(SESSION, EXECUTION))
         .assertNext(
