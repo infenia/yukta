@@ -57,6 +57,11 @@ public interface ExecutionSupervisor {
   /**
    * Approves or refuses a control command before it runs.
    *
+   * <p>Besides allow and deny, a review can answer {@link Decision#requireApproval}: the command is
+   * then parked and runs only once an {@code APPROVAL} input request is approved. Any denial by
+   * another supervisor wins over a need for approval, and a stop sent by a person is never parked.
+   * The review itself must not wait for anyone.
+   *
    * @param request the command and who sent it
    * @return the verdict; an error counts as a denial. The answer must come within {@code
    *     yukta.supervisor.review-timeout} (default 5 s); a slower review is refused, except for a

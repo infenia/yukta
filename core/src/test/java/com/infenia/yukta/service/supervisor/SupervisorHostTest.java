@@ -265,6 +265,30 @@ class SupervisorHostTest {
   }
 
   @Test
+  void start_commandParkedForApproval_isCountedAsAwaitingApproval() {
+    when(dispatcher.dispatchOrdered(any()))
+        .thenReturn(Mono.error(new ControlAwaitingApprovalException("r1", "why")));
+    start(supervisor("rules", SupervisorHostTest::pauseOnFailure), false, 10);
+
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              feed.publish(failed("e1"));
+              assertThat(
+                      meters
+                          .counter(
+                              "yukta.supervisor.commands",
+                              "id",
+                              "rules",
+                              "outcome",
+                              "awaiting-approval")
+                          .count())
+                  .isPositive();
+            });
+  }
+
+  @Test
   void start_overRateLimit_extraCommandsDroppedAndRecorded() {
     when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
     final Flux<ExecutionControlCommand> burst =

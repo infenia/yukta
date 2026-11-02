@@ -73,6 +73,9 @@ public class SupervisorHost {
   /** Outcome recorded for a command a dry-run supervisor would have refused. */
   private static final String DRY_RUN = "dry-run";
 
+  /** Outcome recorded for a command that a review parked until it is approved. */
+  private static final String AWAITING_APPROVAL = "awaiting-approval";
+
   /** Outcome recorded for a command whose target is outside the supervisor's scope. */
   private static final String OUT_OF_SCOPE = "out-of-scope";
 
@@ -478,6 +481,17 @@ public class SupervisorHost {
             _ -> {
               count(supervisorId, "applied");
               decided(supervisorId, "applied", command, null);
+            })
+        .onErrorResume(
+            ControlAwaitingApprovalException.class,
+            parked -> {
+              count(supervisorId, AWAITING_APPROVAL);
+              decided(
+                  supervisorId,
+                  AWAITING_APPROVAL,
+                  command,
+                  "input request " + parked.getRequestId());
+              return Mono.empty();
             })
         .onErrorResume(
             error -> {

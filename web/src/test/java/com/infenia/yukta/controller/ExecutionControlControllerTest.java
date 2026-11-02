@@ -18,6 +18,7 @@ import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.supervisor.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import java.time.Instant;
 import java.util.List;
@@ -358,6 +359,26 @@ class ExecutionControlControllerTest {
         .expectBody()
         .jsonPath("$.message")
         .value(org.hamcrest.Matchers.containsString("maintenance window"));
+  }
+
+  @Test
+  void testCommandParkedForApprovalIs202WithTheRequestId() {
+    when(controlBus.pauseWorkflow("e1"))
+        .thenReturn(Mono.error(new ControlAwaitingApprovalException("r-42", "production stop")));
+
+    client
+        .post()
+        .uri("/api/executions/e1/pause")
+        .exchange()
+        .expectStatus()
+        .isAccepted()
+        .expectBody()
+        .jsonPath("$.status")
+        .isEqualTo(202)
+        .jsonPath("$.data.status")
+        .isEqualTo("AWAITING_APPROVAL")
+        .jsonPath("$.data.requestId")
+        .isEqualTo("r-42");
   }
 
   @Test

@@ -134,6 +134,8 @@ public class Fields {
     final Map<String, Object> fields = new HashMap<>();
     fields.put("executionId", command.executionId());
     fields.put("actor", request.actor());
+    fields.put("sessionId", request.sessionId());
+    fields.put("workflowId", request.workflowId());
     fields.put(NODE_ID, nodeId(command));
     fields.put(
         "mode",

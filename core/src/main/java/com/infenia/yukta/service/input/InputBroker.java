@@ -213,6 +213,33 @@ public class InputBroker {
   }
 
   /**
+   * Raises a request for the server itself and does not wait: the entry point of a control command
+   * that a review parked, next to {@link #ask} for plugins. The identity is bound by the caller
+   * from the command and its run, never from a Reactor context. An open request with the same key
+   * is returned instead of a second one; an earlier answer is not reused, so a command sent again
+   * after its request ended asks again.
+   *
+   * @param who the run (and node, or a stand-in for a command on the whole run) the request is for
+   * @param raw the question; its prompt and context are redacted before anything is stored
+   * @return the request, new or the open one with the same key; fails with {@link
+   *     InputLimitException} when a cap is reached
+   */
+  public Mono<InputRequest> raise(final InputIdentity who, final InputRequestSpec raw) {
+    return Mono.defer(() -> openRequest(who, redactor.redact(raw)));
+  }
+
+  /**
+   * How a request ends, for a caller of {@link #raise}. Like a caller of {@link #ask}, the last
+   * subscriber that cancels cancels the request.
+   *
+   * @param request the request
+   * @return the answer; fails with {@link InputExpiredException} or {@link InputCancelledException}
+   */
+  public Mono<InputResponse> outcome(final InputRequest request) {
+    return await(request);
+  }
+
+  /**
    * Answers a request. Called by the answer command, after it has authorised the caller.
    *
    * @param requestId the request
@@ -550,7 +577,16 @@ public class InputBroker {
   private void asked(final InputRequest request) {
     open.incrementAndGet();
     count(request, "asked");
-    record(request, "INPUT_REQUESTED", Map.of());
+    record(
+        request,
+        "INPUT_REQUESTED",
+        Map.of(
+            "kind",
+            request.spec().kind().name(),
+            PAYLOAD_RISK,
+            request.spec().risk().name(),
+            "requester",
+            request.spec().requester()));
     feed.publish(new ExecutionEvent.InputRequested(request, clock.instant()));
     log.atInfo()
         .addKeyValue(LOG_REQUEST_ID, request.id())

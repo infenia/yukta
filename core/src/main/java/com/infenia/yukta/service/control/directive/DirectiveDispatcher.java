@@ -17,17 +17,22 @@ import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.supervisor.ControlAwaitingApprovalException;
+import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import com.infenia.yukta.service.supervisor.ReviewVerdict;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.PostConstruct;
 import java.time.Instant;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.util.context.ContextView;
 
 /**
  * Bridges the Control Bus to the workflow execution layer.
@@ -39,7 +44,7 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-@SuppressWarnings("PMD.ConfusingTernary")
+@SuppressWarnings({"PMD.ConfusingTernary", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
 public class DirectiveDispatcher {
 
   /** Runs a command. */
@@ -74,6 +79,9 @@ public class DirectiveDispatcher {
 
   /** Finds the input request an answer or escalation names, for its node; none without it. */
   @Nullable private ObjectProvider<InputRequestStore> inputRequests;
+
+  /** Holds commands that wait for approval; none without it. */
+  @Nullable private ParkedCommands parkedCommands;
 
   /**
    * Constructs a DirectiveDispatcher.
@@ -125,6 +133,20 @@ public class DirectiveDispatcher {
     this.inputRequests = store;
   }
 
+  /**
+   * Lets a review park a command until it is approved; without it, a need for approval refuses the
+   * command.
+   *
+   * @param parked the parked commands
+   */
+  @Autowired(required = false)
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP2",
+      justification = "Spring injects the shared service, which is meant to be held")
+  public void setParkedCommands(final ParkedCommands parked) {
+    this.parkedCommands = parked;
+  }
+
   /** Registers this dispatcher as the executor of execution control commands. */
   @PostConstruct
   public void init() {
@@ -171,13 +193,14 @@ public class DirectiveDispatcher {
     return target(command)
         .flatMap(
             run ->
-                reviewer
-                    .review(
-                        new ControlRequest(
-                            command, actor, run.sessionId(), run.workflowId(), run.nodeId()))
-                    .then(Mono.defer(() -> dispatch(command)))
+                Mono.deferContextual(context -> reviewed(command, actor, run, context))
                     .doOnSuccess(_ -> outcome(command, run, name, actor, null))
-                    .doOnError(error -> outcome(command, run, name, actor, error.getMessage())))
+                    .doOnError(
+                        error -> {
+                          if (!(error instanceof ControlAwaitingApprovalException)) {
+                            outcome(command, run, name, actor, error.getMessage());
+                          }
+                        }))
         .doOnSuccess(
             _ ->
                 ControlAudit.record(
@@ -185,7 +208,9 @@ public class DirectiveDispatcher {
                     auditSink,
                     new AuditRecord(true, command.executionId(), name, actor, null, Instant.now())))
         .doOnError(
-            error ->
+            error -> {
+              // a parked command is neither applied nor refused yet; its request is logged
+              if (!(error instanceof ControlAwaitingApprovalException)) {
                 ControlAudit.record(
                     executionLog,
                     auditSink,
@@ -195,7 +220,55 @@ public class DirectiveDispatcher {
                         name,
                         actor,
                         error.getMessage(),
-                        Instant.now())));
+                        Instant.now()));
+              }
+            });
+  }
+
+  /**
+   * Asks the supervisors and applies, refuses or parks the command. A command sent again after its
+   * approval carries the server's grant, which satisfies the supervisors that asked for it.
+   */
+  private Mono<Void> reviewed(
+      final ExecutionControlCommand command,
+      final String actor,
+      final CommandTarget run,
+      final ContextView context) {
+    final ParkedCommands gate = parkedCommands;
+    final Set<String> satisfied =
+        gate == null
+            ? Set.of()
+            : gate.satisfied(context.getOrDefault(ControlActor.APPROVED_REQUEST, null), command);
+    return reviewer
+        .verdict(
+            new ControlRequest(command, actor, run.sessionId(), run.workflowId(), run.nodeId()),
+            satisfied)
+        .flatMap(
+            verdict ->
+                switch (verdict) {
+                  case ReviewVerdict.Allowed _ -> dispatch(command);
+                  case ReviewVerdict.Denied denied ->
+                      Mono.<Void>error(new ControlRejectedException(denied.reason()));
+                  case ReviewVerdict.NeedsApproval needs ->
+                      parked(gate, command, run, context, needs);
+                });
+  }
+
+  private static Mono<Void> parked(
+      final @Nullable ParkedCommands gate,
+      final ExecutionControlCommand command,
+      final CommandTarget run,
+      final ContextView context,
+      final ReviewVerdict.NeedsApproval needs) {
+    if (gate == null) {
+      return Mono.error(
+          new ControlRejectedException(
+              needs.reason() + " (needs approval, which this server cannot ask for)"));
+    }
+    return gate.park(command, run, context, needs)
+        .flatMap(
+            requestId ->
+                Mono.error(new ControlAwaitingApprovalException(requestId, needs.reason())));
   }
 
   /** A command whose caller went away before it finished is neither applied nor lost. */

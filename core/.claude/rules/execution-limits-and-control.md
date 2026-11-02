@@ -44,6 +44,7 @@ Reference for the scheduler, `Idempotency-Key`, control commands, stop modes and
   still going keeps the old behaviour, because the old run holds its slot until it ends.
 
 ### Control audit and stop mode
+A command that a supervisor's review wants approved is parked (see `supervisors.md`): the call fails with `ControlAwaitingApprovalException` (REST `202`, `AWAITING_APPROVAL` and the request id), neither `CONTROL_APPLIED` nor `CONTROL_REJECTED` is written until the approval request ends; a drop is then `CONTROL_REJECTED` with the request id.
 Every control command sent to a known run is recorded in the execution log as `CONTROL_APPLIED`
 (status = command name) or `CONTROL_REJECTED` (status = `command: reason`). Commands for unknown
 executions are not recorded. `POST /api/workflow/{session}/{workflow}/stop?mode=DRAIN|CANCEL|KILL`

@@ -32,6 +32,7 @@ import org.springframework.validation.annotation.Validated;
  * @param workers remote worker registry
  * @param controlBus the plugin-level control bus
  * @param cache the prepared workflow cache
+ * @param control control commands that wait for approval
  */
 @Validated
 @ConfigurationProperties(prefix = "yukta")
@@ -47,7 +48,31 @@ public record YuktaProperties(
     @Valid @DefaultValue Results results,
     @Valid @DefaultValue Workers workers,
     @Valid @DefaultValue ControlBus controlBus,
-    @Valid @DefaultValue Cache cache) {
+    @Valid @DefaultValue Cache cache,
+    @Valid @DefaultValue Control control) {
+
+  /**
+   * Control commands.
+   *
+   * @param approval commands that a supervisor's review parks until someone approves them
+   */
+  public record Control(@Valid @DefaultValue Approval approval) {}
+
+  /**
+   * Parked commands.
+   *
+   * @param ttl how long an approval request waits when the review does not say; never longer than
+   *     {@code yukta.input.max-ttl}
+   */
+  public record Approval(@NotNull @DefaultValue("10m") Duration ttl) {
+
+    /** Checks that the time to live is positive. */
+    public Approval {
+      if (ttl == null || ttl.isZero() || ttl.isNegative()) {
+        throw new IllegalArgumentException("yukta.control.approval.ttl must be positive");
+      }
+    }
+  }
 
   /**
    * Run limits; 0 means no limit.
