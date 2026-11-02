@@ -58,7 +58,11 @@ describe('KioskView', () => {
   it('jumps to a group from its button', () => {
     render(<KioskView onExit={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Group 3' }));
-    expect(screen.getByRole('button', { name: 'Group 3' }).getAttribute('aria-pressed')).toBe('true');
+    expect(
+      screen
+        .getByRole('button', { name: 'Group 3' })
+        .getAttribute('aria-pressed')
+    ).toBe('true');
     expect(screen.getByText('heat')).toBeInTheDocument();
   });
 

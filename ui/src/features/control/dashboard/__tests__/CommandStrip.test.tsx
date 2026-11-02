@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import { useHeatmap } from '@/features/metrics/hooks';
-import { getAllApprovals } from '@/features/overview/api';
+import { getOpenInputs } from '@/features/overview/api';
 import { CommandStrip } from '../CommandStrip';
 
 vi.mock('@/features/metrics/hooks', () => ({
@@ -15,10 +15,10 @@ vi.mock('@/features/metrics/hooks', () => ({
 }));
 vi.mock('../../api/workers', () => ({ useWorkers: () => ({ data: [] }) }));
 vi.mock('../../api/scheduler', () => ({ getLimits: vi.fn(async () => ({})) }));
-vi.mock('@/features/overview/api', () => ({ getAllApprovals: vi.fn() }));
+vi.mock('@/features/overview/api', () => ({ getOpenInputs: vi.fn() }));
 
 const heatmap = vi.mocked(useHeatmap);
-const approvals = vi.mocked(getAllApprovals);
+const approvals = vi.mocked(getOpenInputs);
 
 beforeEach(() => {
   heatmap.mockReturnValue({ data: [] } as unknown as ReturnType<

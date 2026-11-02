@@ -461,7 +461,7 @@ test.describe('Control page', () => {
       name: 'approve',
       since: new Date().toISOString(),
     });
-    await page.route(/\/api\/approvals(\?|$)/, (route) =>
+    await page.route(/\/api\/inputs(\?|$)/, (route) =>
       route.fulfill(ok([waiting('gate-1'), waiting('gate-2')]))
     );
     await page.route('**/api/metrics/snapshot*', (route) =>

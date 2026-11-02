@@ -14,7 +14,6 @@ import com.infenia.yukta.service.control.processor.RestartFromNodeCommandProcess
 import com.infenia.yukta.service.control.processor.ResumeNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.ResumeWorkflowCommandProcessor;
 import com.infenia.yukta.service.control.processor.SetBreakpointCommandProcessor;
-import com.infenia.yukta.service.control.processor.SignalNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.SkipNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.StepNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.StopNodeCommandProcessor;
@@ -45,7 +44,6 @@ public class CommandHandler {
   private final DisableStepModeCommandProcessor disableStepMode;
   private final StepNodeCommandProcessor stepNode;
   private final SetBreakpointCommandProcessor setBreakpoint;
-  private final SignalNodeCommandProcessor signalNode;
   private final AnswerInputCommandProcessor answerInput;
   private final EscalateInputCommandProcessor escalateInput;
 
@@ -70,7 +68,6 @@ public class CommandHandler {
       case ExecutionControlCommand.DisableStepModeCommand c -> disableStepMode.process(c);
       case ExecutionControlCommand.StepNodeCommand c -> stepNode.process(c);
       case ExecutionControlCommand.SetBreakpointCommand c -> setBreakpoint.process(c);
-      case ExecutionControlCommand.SignalNodeCommand c -> signalNode.process(c);
       // Reviewed by supervisors like any command, but nothing runs for them here. Each one has its
       // own arm: a combined arm compiles to a chain of type tests that has a branch no command can
       // reach.

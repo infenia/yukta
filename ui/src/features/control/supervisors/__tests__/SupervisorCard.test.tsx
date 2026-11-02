@@ -25,7 +25,12 @@ const binding = {
   scope: 'session:s1',
   enabled: true,
 };
-const profile = { id: 'p1', type: 'rule-supervisor', dryRun: false, settings: {} };
+const profile = {
+  id: 'p1',
+  type: 'rule-supervisor',
+  dryRun: false,
+  settings: {},
+};
 const running = {
   id: 'guard',
   type: 'rule-supervisor',
@@ -52,7 +57,14 @@ describe('SupervisorCard', () => {
   });
 
   it('says a startup supervisor is configured at startup and not running without live numbers', () => {
-    card({ running: { ...running, scope: 'GLOBAL', dryRun: true, kind: 'CONTROL_PLANE' } as never });
+    card({
+      running: {
+        ...running,
+        scope: 'GLOBAL',
+        dryRun: true,
+        kind: 'CONTROL_PLANE',
+      } as never,
+    });
     expect(screen.getByText('Configured at startup.')).toBeInTheDocument();
     expect(screen.getByText(/control plane/)).toBeInTheDocument();
     expect(screen.getByText('Dry run')).toBeInTheDocument();
@@ -66,7 +78,11 @@ describe('SupervisorCard', () => {
 
   it('labels a workflow scope with and without a session', () => {
     const { unmount } = card({
-      running: { ...running, scope: 'WORKFLOW', scopeWorkflowId: 'w1' } as never,
+      running: {
+        ...running,
+        scope: 'WORKFLOW',
+        scopeWorkflowId: 'w1',
+      } as never,
     });
     expect(screen.getByText('Workflow s1/w1')).toBeInTheDocument();
     unmount();
@@ -90,7 +106,9 @@ describe('SupervisorCard', () => {
         scopeNodes: ['build.*', 'publish'],
       } as never,
     });
-    expect(screen.getByText('Section s1/w1: build.*, publish')).toBeInTheDocument();
+    expect(
+      screen.getByText('Section s1/w1: build.*, publish')
+    ).toBeInTheDocument();
     unmount();
     card({
       running: {
@@ -140,7 +158,9 @@ describe('SupervisorCard', () => {
   });
 
   it('labels a session scope and names a card with nothing to show', () => {
-    const { unmount } = card({ running: { ...running, scope: 'SESSION', scopeSessionId: 's1' } as never });
+    const { unmount } = card({
+      running: { ...running, scope: 'SESSION', scopeSessionId: 's1' } as never,
+    });
     expect(screen.getByText('Session s1')).toBeInTheDocument();
     unmount();
     card({});

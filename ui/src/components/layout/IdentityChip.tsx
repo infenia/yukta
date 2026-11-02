@@ -18,11 +18,11 @@ export default function IdentityChip() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Account"
-        className="mr-1 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-body-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="text-body-sm text-muted-foreground hover:bg-muted hover:text-foreground mr-1 flex items-center gap-1.5 rounded-lg px-2 py-1.5"
       >
         <span className="material-symbols-outlined text-base">key</span>
         <span className="hidden sm:inline">{me.keyName}</span>
-        <span className="rounded bg-muted px-1.5 py-0.5 text-label-sm">
+        <span className="bg-muted text-label-sm rounded px-1.5 py-0.5">
           {me.role}
         </span>
       </DropdownMenuTrigger>

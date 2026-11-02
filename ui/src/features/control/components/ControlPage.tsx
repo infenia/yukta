@@ -8,6 +8,7 @@ import { SupervisorCockpit } from '../supervisors/SupervisorCockpit';
 import { ControlAuditPanel } from './ControlAuditPanel';
 import { ControlBusPanel } from './ControlBusPanel';
 import { SchedulerPanel } from './SchedulerPanel';
+import { InputsTile } from './InputsTile';
 import { WorkersPanel } from './WorkersPanel';
 import { ActivityPanel } from './ActivityPanel';
 import { ControlEventsProvider } from '../context/ControlEvents';
@@ -73,6 +74,7 @@ export function ControlPage() {
           {tab === 'audit' && <ControlAuditPanel />}
           {tab === 'overview' && (
             <>
+              <InputsTile />
               <DashboardView />
               {/* the detail tables: sending a node command, per-workflow limits, the supervisor
                   cockpit (#1591) and each worker's pools and plugins */}

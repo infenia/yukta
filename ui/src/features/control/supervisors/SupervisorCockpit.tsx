@@ -44,7 +44,7 @@ function DecisionFeed() {
       ) : decisions.data.length === 0 ? (
         <StateMessage compact title="No supervisor has decided anything yet" />
       ) : (
-        <ul className="flex flex-col gap-1 text-body-sm">
+        <ul className="text-body-sm flex flex-col gap-1">
           {decisions.data.map((d) => (
             <li
               key={`${d.time}-${d.supervisorId}-${d.executionId}-${d.command}`}

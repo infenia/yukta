@@ -37,10 +37,7 @@ export function must<T>(value: T | null | undefined, label = 'value'): T {
   return value;
 }
 
-export const createTestWrapper = (queryClient = createTestQueryClient()) =>
+export const createTestWrapper =
+  (queryClient = createTestQueryClient()) =>
   ({ children }: { children: React.ReactNode }) =>
-    React.createElement(
-      QueryClientProvider,
-      { client: queryClient },
-      children
-    );
+    React.createElement(QueryClientProvider, { client: queryClient }, children);

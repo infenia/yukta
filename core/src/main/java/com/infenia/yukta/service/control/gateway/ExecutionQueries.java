@@ -3,25 +3,20 @@
 package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.model.control.PendingApproval;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
-import com.infenia.yukta.plugin.input.InputKind;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ControlBusService;
-import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.Nullable;
-import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Read-only views of executions, history and node state. */
 @Slf4j
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 final class ExecutionQueries {
 
   /** The task tracker service for tracking execution tasks. */
@@ -29,9 +24,6 @@ final class ExecutionQueries {
 
   /** The control bus service for low-level plugin and message operations. */
   private final ControlBusService controlBusService;
-
-  /** The broker, so open approval requests are listed with the signal waits; set when present. */
-  @Nullable private ObjectProvider<InputBroker> inputBroker;
 
   /* default */ ExecutionQueries(
       final TaskTrackerService taskTracker, final ControlBusService controlBusService) {
@@ -99,45 +91,6 @@ final class ExecutionQueries {
 
   /* default */ WorkflowProgress getProgress(final String sessionId, final String executionId) {
     return taskTracker.getProgress(sessionId, executionId);
-  }
-
-  /**
-   * Lets the pending approvals include the open input requests.
-   *
-   * @param broker the broker, if the application has input requests
-   */
-  /* default */ void setInputBroker(final ObjectProvider<InputBroker> broker) {
-    this.inputBroker = broker;
-  }
-
-  /* default */ Flux<PendingApproval> pendingApprovals(final String sessionId) {
-    return approvalRequests(sessionId)
-        .distinct(wait -> wait.executionId() + '\0' + wait.nodeId() + '\0' + wait.name());
-  }
-
-  /**
-   * The open requests of kind {@code APPROVAL} that name a signal: the signal endpoint can answer
-   * only those, so an unnamed one would be listed with an answer that is refused.
-   */
-  private Flux<PendingApproval> approvalRequests(final String sessionId) {
-    final ObjectProvider<InputBroker> provider = inputBroker;
-    final InputBroker broker = provider == null ? null : provider.getIfAvailable();
-    return broker == null
-        ? Flux.empty()
-        : broker
-            .listOpen(sessionId, null)
-            .filter(request -> request.spec().kind() == InputKind.APPROVAL)
-            .filter(request -> request.spec().context().containsKey(InputBroker.SIGNAL_CONTEXT_KEY))
-            .map(
-                request ->
-                    new PendingApproval(
-                        request.sessionId(),
-                        request.executionId(),
-                        request.workflowId(),
-                        request.nodeId(),
-                        String.valueOf(
-                            request.spec().context().get(InputBroker.SIGNAL_CONTEXT_KEY)),
-                        request.createdAt()));
   }
 
   /* default */ WorkflowProgress getCurrentProgress(final String executionId) {

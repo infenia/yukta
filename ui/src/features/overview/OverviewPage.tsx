@@ -21,8 +21,7 @@ import {
 } from '@/features/runs/api/searchExecutions';
 import { runPath } from '@/features/runs/lib/runPath';
 import { StatusPill } from '@/features/workflow/components/StatusPill';
-import { ApprovalRow } from '@/features/workflow/components/ApprovalRow';
-import { getAllApprovals } from './api';
+import { getOpenInputs } from './api';
 
 const NO_FILTERS = {
   session: '',
@@ -38,12 +37,12 @@ const Empty = ({ children }: { children: ReactNode }) => (
   <p className="text-body-sm text-on-surface-variant">{children}</p>
 );
 
-/** Pending approvals of every session, answered in place, and aborted runs to recover. */
+/** Inputs that wait in every session, answered in the run's Inputs panel, and aborted runs to recover. */
 function NeedsAttention({ poll }: { poll: number | false }) {
   const navigate = useNavigate();
   const approvals = useQuery({
-    queryKey: ['overview', 'approvals'],
-    queryFn: () => getAllApprovals(),
+    queryKey: ['overview', 'inputs'],
+    queryFn: () => getOpenInputs(),
     refetchInterval: poll,
   });
   const aborted = useQuery({
@@ -59,30 +58,16 @@ function NeedsAttention({ poll }: { poll: number | false }) {
         <Empty>Nothing is waiting for you.</Empty>
       )}
       <ul className="flex flex-col gap-2">
-        {waiting.map((approval) => (
-          <li
-            key={`${approval.executionId}-${approval.nodeId}-${approval.name}`}
-          >
-            <ApprovalRow
-              approval={approval}
-              queryKey={['overview', 'approvals']}
-              label={
-                <>
-                  <Link
-                    className="text-primary"
-                    to={runPath(
-                      approval.sessionId,
-                      approval.workflowId,
-                      approval.executionId
-                    )}
-                  >
-                    {approval.sessionId}/{approval.workflowId}
-                  </Link>{' '}
-                  <span className="font-mono">{approval.nodeId}</span> waits for
-                  “{approval.name}”
-                </>
-              }
-            />
+        {waiting.map((input) => (
+          <li key={input.id}>
+            <Link
+              className="text-body-md text-primary"
+              to={runPath(input.sessionId, input.workflowId, input.executionId)}
+            >
+              {input.sessionId}/{input.workflowId}
+            </Link>{' '}
+            <span className="font-mono">{input.nodeId}</span> asks “
+            {input.prompt.slice(0, 80)}”: open the run to answer
           </li>
         ))}
         {stopped.map((run) => (
@@ -188,8 +173,8 @@ function Tiles({ poll }: { poll: number | false }) {
     queryFn: getLimits,
   });
   const approvals = useQuery({
-    queryKey: ['overview', 'approvals'],
-    queryFn: () => getAllApprovals(),
+    queryKey: ['overview', 'inputs'],
+    queryFn: () => getOpenInputs(),
     refetchInterval: poll,
   });
   const workers = useWorkers();
@@ -219,7 +204,7 @@ function Tiles({ poll }: { poll: number | false }) {
         to="/runs?status=FAILURE&range=24h"
       />
       <Tile
-        label="Pending approvals"
+        label="Inputs waiting"
         value={approvals.data?.length ?? dash}
         to="#ov-needs-attention-panel"
       />

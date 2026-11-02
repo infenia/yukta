@@ -17,14 +17,13 @@ func TestVersionApprovalAndValidateCalls(t *testing.T) {
 	c := NewClient(srv.URL)
 
 	calls := map[string]func() (any, error){
-		"validate":  func() (any, error) { return c.ValidateWorkflow([]byte(`{}`)) },
-		"approvals": func() (any, error) { return c.GetPendingApprovals("s") },
-		"versions":  func() (any, error) { return c.GetWorkflowVersions("s", "w") },
-		"diff":      func() (any, error) { return c.DiffWorkflowVersions("s", "w", "1", "") },
-		"diff to":   func() (any, error) { return c.DiffWorkflowVersions("s", "w", "1", "2") },
-		"rollback":  func() (any, error) { return c.RollbackWorkflow("s", "w", "1") },
-		"note":      func() (any, error) { return c.NoteWorkflowVersion("s", "w", "1", "n") },
-		"clear":     func() (any, error) { return c.NoteWorkflowVersion("s", "w", "1", "") },
+		"validate": func() (any, error) { return c.ValidateWorkflow([]byte(`{}`)) },
+		"versions": func() (any, error) { return c.GetWorkflowVersions("s", "w") },
+		"diff":     func() (any, error) { return c.DiffWorkflowVersions("s", "w", "1", "") },
+		"diff to":  func() (any, error) { return c.DiffWorkflowVersions("s", "w", "1", "2") },
+		"rollback": func() (any, error) { return c.RollbackWorkflow("s", "w", "1") },
+		"note":     func() (any, error) { return c.NoteWorkflowVersion("s", "w", "1", "n") },
+		"clear":    func() (any, error) { return c.NoteWorkflowVersion("s", "w", "1", "") },
 	}
 	for name, call := range calls {
 		if data, err := call(); err != nil || data == nil {

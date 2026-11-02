@@ -110,8 +110,7 @@ dependencies {
     add("errorprone", libs.findLibrary("errorprone").get())
     // Resolve CVE-2025-67030: Plexus-utils directory traversal vulnerability
     constraints {
-        add("checkstyle", "org.codehaus.plexus:plexus-utils:3.6.1")
-        // Keep spotbugs-annotations on the version SpotBugs itself uses
+        add("checkstyle", "org.codehaus.plexus:plexus-utils:4.1.0")        // Keep spotbugs-annotations on the version SpotBugs itself uses
         add("implementation", "com.github.spotbugs:spotbugs-annotations:${libs.findVersion("spotbugsAnnotations").get().requiredVersion}")
     }
 }

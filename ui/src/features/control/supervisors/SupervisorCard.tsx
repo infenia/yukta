@@ -47,11 +47,11 @@ export function SupervisorCard({
   return (
     <article
       aria-label={`Supervisor ${id}`}
-      className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4"
+      className="border-border bg-card flex min-w-0 flex-col gap-3 rounded-xl border p-4"
     >
       <header className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="truncate text-label-md font-mono text-on-surface">
+          <h3 className="text-label-md text-on-surface truncate font-mono">
             {id}
           </h3>
           <p className="text-body-sm text-on-surface-variant">
@@ -60,16 +60,16 @@ export function SupervisorCard({
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <span className="rounded-full bg-accent px-2 py-0.5 text-label-sm text-accent-foreground">
+          <span className="bg-accent text-label-sm text-accent-foreground rounded-full px-2 py-0.5">
             {scopeLabel(scope)}
           </span>
           {!enabled && (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-label-sm">
+            <span className="bg-muted text-label-sm rounded-full px-2 py-0.5">
               Disabled
             </span>
           )}
           {running?.dryRun && (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-label-sm">
+            <span className="bg-muted text-label-sm rounded-full px-2 py-0.5">
               Dry run
             </span>
           )}
@@ -94,7 +94,7 @@ export function SupervisorCard({
       {binding ? (
         <div className="flex flex-wrap items-center gap-3">
           {profile && (
-            <label className="flex items-center gap-2 text-body-md">
+            <label className="text-body-md flex items-center gap-2">
               <input
                 type="checkbox"
                 role="switch"
@@ -107,7 +107,7 @@ export function SupervisorCard({
               Dry run
             </label>
           )}
-          <label className="flex items-center gap-2 text-body-md">
+          <label className="text-body-md flex items-center gap-2">
             <input
               type="checkbox"
               role="switch"

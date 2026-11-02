@@ -101,7 +101,7 @@ class SupervisorCapabilitiesTest {
                     java.util.Arrays.stream(ExecutionControlCommand.class.getPermittedSubclasses())
                         .map(Class::getSimpleName)
                         .toList())));
-    assertThat(caps.allowedCommands()).hasSize(18);
+    assertThat(caps.allowedCommands()).hasSize(17);
   }
 
   @Test

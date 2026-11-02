@@ -28,26 +28,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/approvals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List pending approvals across sessions
-         * @description Lists the nodes of all sessions that wait for a signal now, oldest first (at most limit, default 100, up to 1000), each with its session, execution, node, signal name and waiting-since.
-         */
-        get: operations["allPendingApprovals"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/control/audit": {
         parameters: {
             query?: never;
@@ -429,26 +409,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/executions/{executionId}/nodes/{nodeId}/signal": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Send a signal to a waiting node
-         * @description Releases or rejects a node that waits for the named signal, for example a WAIT_FOR_SIGNAL approval step. Answers 409 if the node is not waiting for it.
-         */
-        post: operations["signalNode"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/executions/{executionId}/nodes/{nodeId}/skip": {
         parameters: {
             query?: never;
@@ -721,6 +681,26 @@ export interface paths {
          * @description The execution and every run it started as a sub-workflow, at any depth, oldest first, each with its parentExecutionId and status
          */
         get: operations["getTree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List open input requests across sessions
+         * @description The input requests of all sessions that wait for an answer (OPEN and ESCALATED), newest first, at most limit (default 100, up to 1000).
+         */
+        get: operations["listOpenInputs"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1104,26 +1084,6 @@ export interface paths {
          * @description Removes the session, its workflows and their versions. Run history and logs stay and age out with the log retention. Answers 409 with the run ids while runs are active, unless force=true, which cancels them first. ADMIN keys only; a key limited to sessions may delete only its own. Recorded in the control audit.
          */
         delete: operations["deleteSession"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/sessions/{sessionId}/approvals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List pending approvals
-         * @description Lists the nodes of the session that wait for a signal now (for example WAIT_FOR_SIGNAL approval steps), oldest first. Answer one with the signal endpoint of its execution.
-         */
-        get: operations["pendingApprovals"];
-        put?: never;
-        post?: never;
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2454,39 +2414,6 @@ export interface components {
         ApiResponseListNodeHeartbeat: {
             /** @description The response data */
             data?: components["schemas"]["NodeHeartbeat"][];
-            /**
-             * @description The HTTP status error name
-             * @example Bad Request
-             */
-            error?: string;
-            /** @description The list of field validation errors */
-            errors?: components["schemas"]["FieldError"][];
-            /**
-             * @description A human-readable message
-             * @example Operation successful
-             */
-            message?: string;
-            /**
-             * @description The request path
-             * @example /api/files
-             */
-            path?: string;
-            /**
-             * Format: int32
-             * @description The HTTP status code
-             * @example 200
-             */
-            status?: number;
-            /**
-             * Format: date-time
-             * @description The time the response was generated
-             */
-            timestamp?: string;
-        };
-        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
-        ApiResponseListPendingApproval: {
-            /** @description The response data */
-            data?: components["schemas"]["PendingApproval"][];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -4029,15 +3956,6 @@ export interface components {
             note?: string;
             version?: string;
         };
-        PendingApproval: {
-            executionId?: string;
-            name?: string;
-            nodeId?: string;
-            sessionId?: string;
-            /** Format: date-time */
-            since?: string;
-            workflowId?: string;
-        };
         Permissions: {
             changeLimits?: boolean;
             controlRuns?: boolean;
@@ -4613,28 +4531,6 @@ export interface operations {
             };
         };
     };
-    allPendingApprovals: {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListPendingApproval"];
-                };
-            };
-        };
-    };
     list_3: {
         parameters: {
             query?: {
@@ -5154,38 +5050,6 @@ export interface operations {
             };
         };
     };
-    signalNode: {
-        parameters: {
-            query: {
-                /** @description Name of the signal the node waits for */
-                name: string;
-                /** @description Decision, for example approve or reject */
-                decision: string;
-                /** @description Optional text that goes with the decision */
-                data?: string;
-            };
-            header?: never;
-            path: {
-                /** @description Execution ID */
-                executionId: string;
-                /** @description Node ID */
-                nodeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
-                };
-            };
-        };
-    };
     skipNode: {
         parameters: {
             query?: {
@@ -5543,6 +5407,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListWorkflowExecutionSummary"];
+                };
+            };
+        };
+    };
+    listOpenInputs: {
+        parameters: {
+            query?: {
+                /** @description Most requests returned (default 100, at most 1000) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListInputRequestView"];
                 };
             };
         };
@@ -6068,29 +5955,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    pendingApprovals: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Session ID */
-                sessionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListPendingApproval"];
-                };
             };
         };
     };

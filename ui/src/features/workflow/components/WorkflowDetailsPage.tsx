@@ -22,7 +22,7 @@ import {
 import type { NodeCommand } from './NodeControlsMenu';
 import { RunControls } from './RunControls';
 import { LogsPanel } from './LogsPanel';
-import { PendingApprovals } from './PendingApprovals';
+import { InputsPanel } from './InputsPanel';
 import { ProgressPanel } from './ProgressPanel';
 import { RunHistoryDropdown } from './RunHistoryDropdown';
 import { WorkflowCanvas } from './WorkflowCanvas';
@@ -333,11 +333,7 @@ export function WorkflowDetailsPage() {
         className="mx-6 my-2"
       />
 
-      <PendingApprovals
-        sessionId={sessionId}
-        workflowId={workflowId}
-        live={live}
-      />
+      <InputsPanel sessionId={sessionId} workflowId={workflowId} live={live} />
 
       {nodeError && (
         <div className="px-6 py-2">

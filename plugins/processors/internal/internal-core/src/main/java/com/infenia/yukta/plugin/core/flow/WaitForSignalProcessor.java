@@ -39,11 +39,10 @@ import reactor.core.publisher.Mono;
  *
  * <p>The wait is an {@code InputRequest} of kind {@code APPROVAL} and risk {@code HIGH} on the
  * {@code InputGateway}, so it is listed with the pending inputs and, as a HIGH risk request, only a
- * person can answer it (the input answer command over REST, MCP, CLI or UI; the older {@code
- * SignalNodeCommand} reaches it through a bridge). A {@code reject} decision fails the node or
- * drops the message, and a wait that is not answered in time fails the node or lets the message
- * through as {@code timeout}. Without an {@code InputGateway} bean the node fails with a clear
- * message.
+ * person can answer it (the input answer command over REST, MCP, CLI or UI). A {@code reject}
+ * decision fails the node or drops the message, and a wait that is not answered in time fails the
+ * node or lets the message through as {@code timeout}. Without an {@code InputGateway} bean the
+ * node fails with a clear message.
  *
  * <p>An answer is also recorded in the run's checkpoint store (under the node id {@code
  * signal:<node>}, keyed by the id of the message and the signal name), so a run that is resumed

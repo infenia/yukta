@@ -46,12 +46,11 @@ export type CommandAction =
       nodeId: string;
     }
   | {
-      kind: 'signal';
+      kind: 'answerInput';
       sessionId: string;
       executionId: string;
-      nodeId: string;
-      name: string;
-      decision: 'approve' | 'reject';
+      requestId: string;
+      decision: string;
     }
   /** Creates (or overwrites) a whole session: its metadata, tags and workflows. */
   | { kind: 'createSession'; session: { sessionId: string } & object };
@@ -140,16 +139,13 @@ function cliCommand(action: CommandAction): string {
         'apply',
         JSON.stringify(action.session)
       );
-    case 'signal':
+    case 'answerInput':
       return sh(
         'yukta-cli',
-        'workflow',
-        'node',
-        'signal',
+        'inputs',
+        'answer',
         action.executionId,
-        action.nodeId,
-        '--name',
-        action.name,
+        action.requestId,
         '--decision',
         action.decision
       );
@@ -204,11 +200,10 @@ function rest(action: CommandAction): { path: string; body?: string } {
       };
     case 'createSession':
       return { path: '/api/sessions', body: JSON.stringify(action.session) };
-    case 'signal':
+    case 'answerInput':
       return {
-        path:
-          `/api/executions/${enc(action.executionId)}/nodes/${enc(action.nodeId)}/signal` +
-          `?name=${enc(action.name)}&decision=${action.decision}`,
+        path: `/api/executions/${enc(action.executionId)}/inputs/${enc(action.requestId)}/answer`,
+        body: JSON.stringify({ decision: action.decision }),
       };
   }
 }
@@ -285,12 +280,11 @@ export function toMcp(action: CommandAction): string {
       });
     case 'createSession':
       return call('create_session', { config: action.session });
-    case 'signal':
-      return call('signal_node', {
+    case 'answerInput':
+      return call('answer_input', {
         sessionId: action.sessionId,
         executionId: action.executionId,
-        nodeId: action.nodeId,
-        signalName: action.name,
+        requestId: action.requestId,
         decision: action.decision,
       });
   }

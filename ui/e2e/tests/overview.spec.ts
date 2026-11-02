@@ -41,16 +41,17 @@ test.describe('Overview', () => {
         )
       )
     );
-    await page.route('**/api/approvals?*', (route) =>
+    await page.route('**/api/inputs?*', (route) =>
       route.fulfill(
-        envelope('/approvals', [
+        envelope('/inputs', [
           {
             sessionId: 'payments',
             executionId: 'exec-1',
             workflowId: 'deploy',
             nodeId: 'gate',
-            name: 'go',
-            since: '2026-07-26T14:20:23',
+            id: 'r1',
+            prompt: 'go',
+            createdAt: '2026-07-26T14:20:23',
           },
         ])
       )
@@ -86,12 +87,6 @@ test.describe('Overview', () => {
       page.getByRole('region', { name: 'Recent failures' })
     ).toContainText('payments/deploy');
     await expect(page.getByRole('button', { name: /Recover/ })).toBeVisible();
-  });
-
-  test('rejecting asks for a reason first', async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Reject' }).click();
-    await expect(page.getByLabel('Reason (optional)')).toBeVisible();
   });
 
   test('the session list is at /sessions, and old / queries go there', async ({

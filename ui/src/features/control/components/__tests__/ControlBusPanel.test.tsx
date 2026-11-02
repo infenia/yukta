@@ -25,9 +25,7 @@ describe('ControlBusPanel', () => {
     mocked.mockRejectedValueOnce(new Error('down'));
     mocked.mockResolvedValue([]);
     renderWithProviders(<ControlBusPanel />);
-    expect(
-      await screen.findByText('Failed to load nodes')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Failed to load nodes')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     await waitFor(() =>
       expect(screen.getByText('No active nodes.')).toBeInTheDocument()

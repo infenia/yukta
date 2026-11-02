@@ -19,7 +19,6 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCo
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetLimitsCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetPriorityCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
@@ -46,8 +45,7 @@ class NodeOfCommandsAndEventsTest {
             new EnableStepModeCommand("e", "n"),
             new DisableStepModeCommand("e", "n"),
             new StepNodeCommand("e", "n"),
-            new SetBreakpointCommand("e", "n", null, null),
-            new SignalNodeCommand("e", "n", "approval", "approve", null));
+            new SetBreakpointCommand("e", "n", null, null));
 
     assertThat(commands).extracting(ExecutionControlCommand::nodeId).containsOnly("n");
   }

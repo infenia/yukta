@@ -220,7 +220,7 @@ Base package `com.infenia.yukta` under `core/src/main/java`. Use this to find wh
 | `…orchestrator.tracker` | Event queue, per-run state, telemetry, history, streams | `DefaultTaskTrackerService` `WorkflowState` `TrackerEventApplier` `RunTelemetry` `ExecutionHistory` `ExecutionStreams` | OBS, ENG-06 |
 | `service.control` | Scheduler, command sequencing, per-run control handles | `ExecutionScheduler` `CommandSequencer` `ExecutionControl` `ControlBusService` | ADM, CTL |
 | `…control.gateway` | The facade REST and MCP call; split by concern | `ControlBusGateway` `DefaultControlBusGateway` `WorkflowStarter` `NodeCommands` `RestartCoordinator` `ExecutionQueries` `StartIdempotency` | ADM-02, CTL |
-| `…control.processor / valve / directive / store` | One processor per command; the valve; plugin-level directives; control handle stores | `SignalNodeCommandProcessor` `ReactiveControlValve` `DirectiveDispatcher` `InMemoryExecutionControlStore` | CTL |
+| `…control.processor / valve / directive / store` | One processor per command; the valve; plugin-level directives; control handle stores | `ReactiveControlValve` `DirectiveDispatcher` `InMemoryExecutionControlStore` | CTL |
 | `service.supervisor` | Supervisor host, reviewer hook, event feed | `SupervisorHost` `ControlReviewer` `ExecutionEventFeed` | CTL-06, CTL-07 |
 | `service.log / archive / store` | Execution log, recovery, archive, node checkpoint stores | `ExecutionLogStore` `JsonlExecutionLogStore` (plus) `ExecutionRecovery` `ExecutionArchive` `FileNodeCheckpointStore` | DUR |
 | `service.workflow / workflow.store` | Definitions, versions, diff, prepared-workflow cache | `WorkflowService` `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` (plus) `PreparedWorkflowCache` `WorkflowDiff` | DEF-01 |
@@ -599,14 +599,12 @@ Hands a named signal (for example `approve`) to the plugin of a node, through th
 
 **Behaviour**
 
-- The signal answers the open input request of the node that carries its name; a signal that arrives before the request exists is not kept (HTTP 409).
-- Waits are input requests (`InputGateway`): `WAIT_FOR_SIGNAL` and `requireApproval` ask a `HIGH` risk `APPROVAL`, whose context carries the signal name, so this command (and `answer_input`) answers it and one list of open approvals (oldest first) serves REST, MCP and the workflow page. A node with no open request for the signal gives HTTP 409. `SignalWaits` is gone.
+- An answer is taken only by an open request: one that arrives before the request exists is refused (HTTP 409).
+- Waits are input requests (`InputGateway`): `WAIT_FOR_SIGNAL` and `requireApproval` ask a `HIGH` risk `APPROVAL`, whose context carries the signal name, so `answer_input` answers it and one list of open approvals (oldest first) serves REST, MCP and the Inputs panel.
 - `WAIT_FOR_SIGNAL` holds each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, `onTimeout`, `onReject`) and tags it with `signal.name/decision/data`.
 - An answer is recorded in the checkpoint store as a message of pseudo node `signal:<node>` (a timeout is not), so a resumed run reuses it for the same message id instead of waiting again.
 
-**Surface:** REST `POST /api/executions/{id}/nodes/{node}/signal?name=&decision=&data=`, `GET /api/sessions/{s}/approvals`. MCP `signal_node`, `list_pending_approvals`.
-
-**Source:** `SignalNodeCommandProcessor` `InputSignalBridge` `PendingApproval`
+**Surface:** input requests: REST `GET /api/sessions/{s}/inputs`, `POST /api/executions/{id}/inputs/{request}/answer`; MCP `list_pending_inputs`, `answer_input`. The signal API was removed in #1805.
 
 **Limits:** The wait itself is in memory: after a restart a message produced again waits for a new signal, and a pending approval is invisible until its node waits again. Live waits are lost on HA takeover.
 
@@ -677,11 +675,10 @@ A plugin can ask for a decision or an input and wait for the answer. This phase 
 - `AnswerInputCommand` and `EscalateInputCommand` go through the control dispatcher (ordered per run, reviewed by the supervisors, audited). Their processors first check that this server leads (`NotLeaderException`, HTTP 503 on a standby), that the request exists (404) and belongs to the run the command names (409), then ask the `AnswerAuthorizer` (403 with the failed rule, `yukta.input.denied{rule}`), then check that the answer fits the request (422) before the broker takes it. A refused answer leaves the request open; an answer to a request that has ended, or whose `expectedVersion` moved, is a 409; a second answer to an answered request is accepted as a repeat.
 - The default rules, in order: `audience`, `tier` (until routes exist the targets are `supervisor:*` and `role:OPERATOR`), `risk` (answers only: `HIGH` only a human, a supervisor needs `canAnswer` and a `maxRisk` that reaches the request), `scope` (a supervisor's scope, a key's sessions) and `separation` (a supervisor cannot answer for a run whose start payload names it under `yukta.supervisor.id`). Escalating needs no right to answer. A bean of type `AnswerAuthorizer` replaces the rules.
 - The sender is read from the actor kind the caller authenticated as (`ControlActor.KIND_KEY`: `KEY`, `SUPERVISOR`, `TOKEN`), never from the shape of the actor string, so a key named like a supervisor gains none of its rights. A call with an actor but no kind, or with no identity where keys are required, has no rights.
-- A signal (`SignalNodeCommand`) for a node that waits on an open request whose context names the signal under `signal` is answered through the same rules, so a `HIGH` approval stays with humans; any other signal takes the older path. `pendingApprovals` lists those open `APPROVAL` requests with the signal waits.
 
 **Configure:** `yukta.input.default-ttl` · `yukta.input.max-ttl` · `yukta.input.max-open-per-execution` · `yukta.input.max-open-per-session` · `yukta.input.memory-max` · `yukta.input.sweep-interval` · `yukta.input.redact-keys` · `yukta.input.routes.<name>` · `yukta.input.responders.<name>` · `yukta.input.token-secret`
 
-**Source:** `InputBroker` `InputRequestStore` `InMemoryInputRequestStore` `InputDeadlineSweeper` `DefaultInputGateway` `InputRedactor` `AnswerAuthorizer` `DefaultAnswerAuthorizer` `ActorResolver` `InputCommandGuard` `AnswerShape` `SchemaSubset` `AnswerInputCommandProcessor` `EscalateInputCommandProcessor` `InputSignalBridge`
+**Source:** `InputBroker` `InputRequestStore` `InMemoryInputRequestStore` `InputDeadlineSweeper` `DefaultInputGateway` `InputRedactor` `AnswerAuthorizer` `DefaultAnswerAuthorizer` `ActorResolver` `InputCommandGuard` `AnswerShape` `SchemaSubset` `AnswerInputCommandProcessor` `EscalateInputCommandProcessor`
 
 **Limits:** A ttl above `yukta.input.max-ttl` is refused, not cut. The open-request limits are checked just before the request is stored, so a burst of parallel asks can pass them by a few. Open requests are lost when the server restarts.
 
@@ -1182,7 +1179,7 @@ Defined in `web`, `mcp` and `cli`; every entry calls the same `ControlBusGateway
 | Start / restart / recover | `POST /workflow/start` · `POST /api/executions/{id}/recover` | `control_workflow` (incl. `RECOVER`) |
 | Node steering | `…/nodes/{node}/skip\|retry\|breakpoint` | `control_node`, `set_node_breakpoint` |
 | Stop | `POST /api/workflow/{s}/{w}/stop?mode=` | `control_workflow` |
-| Signals and approvals | `…/nodes/{node}/signal` · `GET /api/sessions/{s}/approvals` | `signal_node`, `list_pending_approvals` |
+| Input requests and approvals | `GET /api/sessions/{s}/inputs` · `…/inputs/{id}/answer` | `list_pending_inputs`, `answer_input` |
 | Limits and priority | `/scheduler/limits` · `/executions/{id}/priority` | n/a |
 | Versions | `…/versions/diff`, rollback, `…/versions/note` | `list_workflow_versions`, `diff_workflow_versions`, `rollback_workflow`, `note_workflow_version` |
 | Logs and results | `GET …/logs` · `GET …/executions/{e}/results` | `get_execution_logs`, `get_execution_result` |

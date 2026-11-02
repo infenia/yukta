@@ -67,10 +67,16 @@ class NoopEventSource {
   close() {
     this.readyState = 2;
   }
-  addEventListener(_type: string, _listener: EventListener | EventListenerObject): void {
+  addEventListener(
+    _type: string,
+    _listener: EventListener | EventListenerObject
+  ): void {
     // No-op; test code uses on* handlers instead
   }
-  removeEventListener(_type: string, _listener: EventListener | EventListenerObject): void {
+  removeEventListener(
+    _type: string,
+    _listener: EventListener | EventListenerObject
+  ): void {
     // No-op; test code uses on* handlers instead
   }
 }
@@ -81,5 +87,11 @@ Object.defineProperty(globalThis, 'EventSource', {
 });
 
 // jsdom has no layout; give elements a viewport so @tanstack/react-virtual renders rows
-Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, value: 224 });
-Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, value: 800 });
+Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+  configurable: true,
+  value: 224,
+});
+Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+  configurable: true,
+  value: 800,
+});
