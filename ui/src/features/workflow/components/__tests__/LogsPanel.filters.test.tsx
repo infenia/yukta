@@ -6,6 +6,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LogsPanel } from '../LogsPanel';
 import { createMockLogEntry } from '@/test/factories/workflowFactory';
+import { useJsdomViewport } from '@/test/jsdomViewport';
 
 vi.mock('../../hooks/useRawLogLines', () => ({
   useRawLogLines: () => ['raw line'],
@@ -35,6 +36,8 @@ const shown = () =>
   ].filter((message) => screen.queryByText(message));
 
 describe('LogsPanel level and node filters', () => {
+  useJsdomViewport();
+
   it('shows only lines at or above the chosen level', async () => {
     const user = userEvent.setup();
     render(<LogsPanel entries={entries} isStreaming={false} />);
