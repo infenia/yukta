@@ -23,10 +23,12 @@ vi.mock('../useSupervisorData', () => ({
 }));
 vi.mock('@/features/sessions/hooks/useSessionSummaries', () => ({
   useSessionSummaries: () => ({
-    data: [{ sessionId: 's1', name: '' }, { sessionId: 's2', name: 'Beta' }],
+    data: [
+      { sessionId: 's1', name: '' },
+      { sessionId: 's2', name: 'Beta' },
+    ],
   }),
 }));
-
 
 const profile = { id: 'guard', type: 'rules' };
 
@@ -86,9 +88,7 @@ describe('AttachDialog', () => {
 
   it('explains a forbidden attach and shows other failures', () => {
     state.error = new ApiError(403);
-    const { unmount } = renderWithProviders(
-      <AttachDialog onClose={vi.fn()} />
-    );
+    const { unmount } = renderWithProviders(<AttachDialog onClose={vi.fn()} />);
     expect(
       screen.getByText('Attaching supervisors needs an ADMIN key.')
     ).toBeInTheDocument();

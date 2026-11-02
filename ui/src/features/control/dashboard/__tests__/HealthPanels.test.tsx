@@ -7,7 +7,12 @@ import { renderWithProviders } from '@/test/utils/testUtils';
 import { useMetricSnapshot } from '@/features/metrics/hooks';
 import { getHeartbeats } from '../../api/controlBus';
 import { useWorkers } from '../../api/workers';
-import { AiUsagePanel, BusPanel, VitalsPanel, WorkerSlotsPanel } from '../HealthPanels';
+import {
+  AiUsagePanel,
+  BusPanel,
+  VitalsPanel,
+  WorkerSlotsPanel,
+} from '../HealthPanels';
 
 const NOW = 1_000_000;
 
@@ -32,19 +37,42 @@ vi.mock('@/components/dashboard/Strips', () => ({
 }));
 
 const q = (over: Record<string, unknown> = {}) =>
-  ({ isPending: false, error: null, data: [], refetch: vi.fn(), ...over }) as never;
+  ({
+    isPending: false,
+    error: null,
+    data: [],
+    refetch: vi.fn(),
+    ...over,
+  }) as never;
 
 describe('BusPanel', () => {
   it('says so with no heartbeat and grades the age of each', async () => {
     vi.mocked(getHeartbeats).mockResolvedValue([] as never);
     const { unmount } = renderWithProviders(<BusPanel live={false} />);
-    expect(await screen.findByText('No node has sent a heartbeat')).toBeInTheDocument();
+    expect(
+      await screen.findByText('No node has sent a heartbeat')
+    ).toBeInTheDocument();
     unmount();
 
     const beats = [
-      { workflowId: 'w', nodeId: 'fresh', executionId: 'e1', timestamp: new Date(NOW - 10_000).toISOString() },
-      { workflowId: 'w', nodeId: 'late', executionId: 'e2', timestamp: new Date(NOW - 45_000).toISOString() },
-      { workflowId: 'w', nodeId: 'gone', executionId: 'e3', timestamp: new Date(NOW - 90_000).toISOString() },
+      {
+        workflowId: 'w',
+        nodeId: 'fresh',
+        executionId: 'e1',
+        timestamp: new Date(NOW - 10_000).toISOString(),
+      },
+      {
+        workflowId: 'w',
+        nodeId: 'late',
+        executionId: 'e2',
+        timestamp: new Date(NOW - 45_000).toISOString(),
+      },
+      {
+        workflowId: 'w',
+        nodeId: 'gone',
+        executionId: 'e3',
+        timestamp: new Date(NOW - 90_000).toISOString(),
+      },
     ];
     vi.mocked(getHeartbeats).mockResolvedValue(beats as never);
     renderWithProviders(<BusPanel live />);
@@ -76,7 +104,9 @@ describe('WorkerSlotsPanel', () => {
 
   it('retries when workers fail to load', () => {
     const refetch = vi.fn();
-    vi.mocked(useWorkers).mockReturnValue(q({ error: new Error('x'), refetch }));
+    vi.mocked(useWorkers).mockReturnValue(
+      q({ error: new Error('x'), refetch })
+    );
     renderWithProviders(<WorkerSlotsPanel />);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
@@ -112,7 +142,9 @@ describe('VitalsPanel', () => {
     expect(screen.getByText('No samples yet')).toBeInTheDocument();
     unmount();
 
-    vi.mocked(useMetricSnapshot).mockReturnValue(q({ error: new Error('x'), refetch }));
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({ error: new Error('x'), refetch })
+    );
     renderWithProviders(<VitalsPanel />);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
@@ -152,11 +184,13 @@ describe('AiUsagePanel', () => {
     expect(screen.getByText('No model or tool calls yet')).toBeInTheDocument();
   });
 
-it('retries the AI usage when it fails to load', () => {
-  const refetch = vi.fn();
-  vi.mocked(useMetricSnapshot).mockReturnValue(q({ error: new Error('x'), refetch }));
-  renderWithProviders(<AiUsagePanel scope="global" />);
-  fireEvent.click(screen.getByRole('button', { name: /retry/i }));
-  expect(refetch).toHaveBeenCalled();
-});
+  it('retries the AI usage when it fails to load', () => {
+    const refetch = vi.fn();
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({ error: new Error('x'), refetch })
+    );
+    renderWithProviders(<AiUsagePanel scope="global" />);
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(refetch).toHaveBeenCalled();
+  });
 });

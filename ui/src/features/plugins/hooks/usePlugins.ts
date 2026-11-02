@@ -4,7 +4,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { getPlugin, getPlugins } from '../api/plugins';
 
-export const usePlugins = () => useQuery({ queryKey: ['plugins'], queryFn: getPlugins });
+export const usePlugins = () =>
+  useQuery({ queryKey: ['plugins'], queryFn: getPlugins });
 
 export const usePlugin = (type: string | null) =>
   useQuery({

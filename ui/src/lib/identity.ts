@@ -62,4 +62,3 @@ export const useMe = (): Me | null =>
 
 /** The role of the key in use, for error messages; null when unknown. */
 export const knownRole = (): Role | null => current?.role ?? null;
-

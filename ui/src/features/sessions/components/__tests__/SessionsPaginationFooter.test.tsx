@@ -52,7 +52,9 @@ describe('SessionsPaginationFooter', () => {
 
   it('enables only the directions that have a page', () => {
     renderFooter(fakeTable({ rows: 25, canPrev: false, canNext: true }));
-    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Previous page' })
+    ).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
   });
 

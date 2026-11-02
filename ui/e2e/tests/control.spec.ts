@@ -374,7 +374,9 @@ test.describe('Control page', () => {
     await page.getByRole('button', { name: 'Kiosk' }).click();
     const kiosk = page.getByTestId('kiosk');
     await expect(kiosk).toBeVisible();
-    const sideways = await kiosk.evaluate((el) => el.scrollWidth > el.clientWidth);
+    const sideways = await kiosk.evaluate(
+      (el) => el.scrollWidth > el.clientWidth
+    );
     expect(sideways).toBe(false);
   });
 });

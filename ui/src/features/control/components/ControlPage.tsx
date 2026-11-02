@@ -8,6 +8,7 @@ import { SupervisorCockpit } from '../supervisors/SupervisorCockpit';
 import { ControlAuditPanel } from './ControlAuditPanel';
 import { ControlBusPanel } from './ControlBusPanel';
 import { SchedulerPanel } from './SchedulerPanel';
+import { InputsTile } from './InputsTile';
 import { WorkersPanel } from './WorkersPanel';
 import { ActivityPanel } from './ActivityPanel';
 import { ControlEventsProvider } from '../context/ControlEvents';
@@ -43,10 +44,10 @@ export function ControlPage() {
                   role="tab"
                   aria-selected={tab === name}
                   onClick={() => show(name)}
-                  className={`-mb-px h-9 border-b-2 px-0.5 text-label-md capitalize ${
+                  className={`text-label-md -mb-px h-9 border-b-2 px-0.5 capitalize ${
                     tab === name
                       ? 'border-primary text-on-surface'
-                      : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                      : 'text-on-surface-variant hover:text-on-surface border-transparent'
                   }`}
                 >
                   {name}
@@ -58,6 +59,7 @@ export function ControlPage() {
         {tab === 'activity' && <ActivityPanel />}
         {tab === 'overview' && (
           <>
+            <InputsTile />
             <DashboardView />
             {/* ponytail: the tables below stay until a tables-as-dialogs pass replaces them */}
             <ControlBusPanel />

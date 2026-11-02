@@ -61,9 +61,7 @@ describe('ThroughputPanel', () => {
         { time: 2, command: 'stop', applied: false },
       ]) as never
     );
-    renderWithProviders(
-      <ThroughputPanel scope="global" range="1h" live />
-    );
+    renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
     expect(screen.getByText('pause by ops|attention')).toBeInTheDocument();
     expect(screen.getByText('stop (refused)|danger')).toBeInTheDocument();
   });
@@ -71,13 +69,17 @@ describe('ThroughputPanel', () => {
   it('opens the workflow of a mark that has one', () => {
     annotations.mockReturnValue(
       ok([
-        { time: 1, command: 'pause', applied: true, sessionId: 's1', workflowId: 'w1' },
+        {
+          time: 1,
+          command: 'pause',
+          applied: true,
+          sessionId: 's1',
+          workflowId: 'w1',
+        },
         { time: 2, command: 'stop', applied: true },
       ]) as never
     );
-    renderWithProviders(
-      <ThroughputPanel scope="global" range="1h" live />
-    );
+    renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
     fireEvent.click(screen.getByText(/pause/));
     expect(nav.to).toHaveBeenCalledWith('/sessions/s1/workflow/w1');
     fireEvent.click(screen.getByText(/stop/));
@@ -98,13 +100,17 @@ describe('LatencyPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
   });
-
 });
 
 describe('ThroughputPanel failures', () => {
   it('retries the runs when they fail to load', () => {
     const refetch = vi.fn();
-    series.mockReturnValue({ isPending: false, error: new Error('x'), data: undefined, refetch } as never);
+    series.mockReturnValue({
+      isPending: false,
+      error: new Error('x'),
+      data: undefined,
+      refetch,
+    } as never);
     annotations.mockReturnValue(ok([]) as never);
     renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
@@ -120,7 +126,15 @@ describe('ThroughputPanel unknown mark', () => {
 
   it('opens nothing for a mark that is not in the list', () => {
     annotations.mockReturnValue(
-      ok([{ time: 1, command: 'pause', applied: true, sessionId: 's1', workflowId: 'w1' }]) as never
+      ok([
+        {
+          time: 1,
+          command: 'pause',
+          applied: true,
+          sessionId: 's1',
+          workflowId: 'w1',
+        },
+      ]) as never
     );
     renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
     fireEvent.click(screen.getByRole('button', { name: 'unknown-mark' }));
