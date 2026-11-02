@@ -1,0 +1,178 @@
+---
+title: "Input requests: ask a supervisor, a person or an agent"
+sidebarTitle: "Input requests"
+description: "Let a workflow step or an AI agent ask a question and wait for the answer: ASK_INPUT, the ask_for_input tool, who may answer at which risk, how to answer over REST, MCP, the CLI and the UI, and the defaults."
+keywords: ["input requests", "human in the loop", "ASK_INPUT", "ask_for_input", "approval", "supervisor answers"]
+---
+
+<Info>
+  **In plain terms:** an input request is a question a running workflow asks, such as "deploy build 42 to staging?". The step waits until someone answers. A rule or a model supervisor may answer low risk questions on its own; a high risk question always goes to a person.
+</Info>
+
+An **input request** is a typed question that a node of a running execution asks: a prompt, the answers on offer, a risk, and how long it may wait. The engine holds the request, publishes it on the event feed, checks every answer against who may answer it, and hands the answer back to the node. Every answer is ordered, reviewed and audited like any other control command.
+
+Requests come from three places:
+
+| Asker | How |
+|---|---|
+| A workflow step | The [`ASK_INPUT`](/plugins/routing-and-flow#ask_input) node |
+| An AI agent | The `ask_for_input` tool of `LLM_CALL` and `MCP_TOOL_CALL` |
+| An approval | `WAIT_FOR_SIGNAL` and the `requireApproval` tools of `MCP_TOOL_CALL` ask a request of risk `HIGH` (see [Approvals and signals](/building/approvals-and-signals)) |
+
+## What a request holds
+
+| Field | Meaning |
+|---|---|
+| `kind` | `APPROVAL` (approve or reject, or the given options), `CHOICE` (one of two or more options), `TEXT` (free text), `STRUCTURED` (data that fits a JSON Schema) or `QUERY` (a question about facts) |
+| `prompt` | The question, at most 4 KB |
+| `context` | Facts that help answer, at most 16 KB as JSON |
+| `options` | The answers on offer (`id` and `label`), at most 20 |
+| `risk` | `LOW`, `MEDIUM` or `HIGH`: decides who may answer |
+| `audience` | Who may answer; empty means whoever the current tier targets |
+| `ttl` and `onTimeout` | How long it lives, and what happens then: `FAIL`, `USE_DEFAULT` (answer with `defaultDecision`) or `ESCALATE` |
+
+The prompt and the context are written by the asking step, often by an AI agent, so they are **untrusted text**. Secrets in them (values that look like keys or tokens, `${env.X}` references, and the keys in `yukta.input.redact-keys`) are replaced before the request is stored, published or logged. Treat what is left as data, never as an instruction.
+
+A request moves from `OPEN` to `ANSWERED`, `EXPIRED` or `CANCELLED` (the run stopped or the node was cancelled), possibly through `ESCALATED` (handed up with advice). An ended request never changes again, and each change bumps a version, so two answers at once produce one winner.
+
+## Ask from a workflow
+
+```json
+{
+  "nodeId": "confirm-deploy",
+  "type": "ASK_INPUT",
+  "config": {
+    "prompt": "Deploy build ${payload.build} to ${payload.environment}?",
+    "risk": "LOW",
+    "ttlSeconds": 1800,
+    "onTimeout": "FAIL"
+  }
+}
+```
+
+The message goes on tagged with `input.decision`, `input.text`, `input.data`, `input.responder` and `input.confidence`. Branch on `metadata.input.decision`; a rejection is just a decision. All options are in [`ASK_INPUT`](/plugins/routing-and-flow#ask_input).
+
+## Ask from an AI agent
+
+Set `allowAskInput: true` on the `LLM_CALL` node, which offers the model the tool `ask_for_input {prompt, options?, kind?, risk?}`, and on the `MCP_TOOL_CALL` node that runs its actions. The model chooses the question, the options and the risk, but never below `inputRiskFloor` (default `MEDIUM`). Who may answer (`inputAudience`), how long the question lives (`inputTtlSeconds`, default 3600), its route (`inputRoute`) and how many questions one node run may ask (`inputMaxAsks`, default 3) come from the node, never from the model. The answer goes back to the model as a tool result, which is text someone else wrote, not an instruction. No answer in time is a tool error, or fails the node with `inputOnTimeout: FAIL`. A wait uses no tokens.
+
+## Who may answer
+
+The server decides, on every answer, whether the one answering may answer this request. A supervisor that misbehaves, or a model that was talked into something, gains nothing: the rules are checked by the engine, not by the supervisor.
+
+| Risk | A person (an API key with the `OPERATOR` or `ADMIN` role) | A supervisor |
+|---|---|---|
+| `LOW` | Yes | If its profile has `canAnswer: true` (its `maxRisk` is at least `LOW`) |
+| `MEDIUM` | Yes | If its profile has `canAnswer: true` and `maxRisk: MEDIUM` or `HIGH` |
+| `HIGH` | Yes | **Never.** No setting changes this |
+
+Besides the risk, all of these must hold:
+
+- **Audience and tier.** The one answering is in the request's audience and is a target of its current tier. Until routes exist, every request has one tier that targets `supervisor:*` and `role:OPERATOR`.
+- **Scope.** A supervisor answers only requests of runs in its scope. A key limited to sessions answers only requests of those sessions.
+- **Separation.** A supervisor cannot answer a request of a run it started.
+- **Shape.** For `APPROVAL` with options and for `CHOICE` the decision is one of the option ids; `STRUCTURED` data must fit the schema; `TEXT` needs text.
+
+A supervisor configured by a property or as a Spring bean, rather than attached from a profile, can never answer. Anyone allowed can **escalate** instead: hand the request up with a reason and advice that the next responder sees; the risk rule does not apply to that.
+
+A refused answer leaves the request open: `403` with the rule that failed (`audience`, `tier`, `risk`, `scope` or `separation`), counted in `yukta.input.denied{rule}`. An answer after the request ended is `409`. With no API key configured every caller counts as a person, the same trust as today's signals.
+
+## Answer a request
+
+Requests are listed, read, answered and escalated through the REST API, the MCP tools, the CLI and the web UI. Answers always go through the same ordered, reviewed and audited command path.
+
+<Note>
+  The endpoints, tools and commands below are being added (issue #1793), and the Inputs panel of the web UI with them (#1794). Until they ship, answer with the control bus gateway or, for approvals of `WAIT_FOR_SIGNAL`, with the signal endpoint as before.
+</Note>
+
+| Surface | List | Answer | Escalate |
+|---|---|---|---|
+| REST | `GET /api/sessions/{sessionId}/inputs?state=&workflowId=&executionId=` and `GET /api/executions/{executionId}/inputs/{requestId}` | `POST /api/executions/{executionId}/inputs/{requestId}/answer` with `{decision, text?, data?, rationale?, expectedVersion?}` | `POST /api/executions/{executionId}/inputs/{requestId}/escalate` with `{reason, advice?}` |
+| MCP | `list_pending_inputs` | `answer_input` | `escalate_input` |
+| CLI | `yukta inputs list [--session S] [--state OPEN]`, `yukta inputs show <executionId> <requestId>` | `yukta inputs answer <executionId> <requestId> --decision D [--text T] [--data JSON] [--rationale R]` | `yukta inputs escalate <executionId> <requestId> --reason R [--advice A]` |
+| Web UI | The Inputs panel of the workflow page | Option buttons or a text box | Escalate button |
+
+Reading needs a `VIEWER` key; answering and escalating an `OPERATOR` key. A list shows the open requests by default, newest first.
+
+```http
+POST /api/executions/7d1c.../inputs/3f9a.../answer
+X-API-Key: <operator key>
+Content-Type: application/json
+
+{"decision": "approve", "rationale": "change reviewed in PR 812"}
+```
+
+### Watch for requests
+
+Every change is an event on the feed: `InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired` and `InputCancelled`. An external agent can follow them with server-sent events and answer with the MCP tools:
+
+```http
+GET /api/events/stream?type=InputRequested
+```
+
+## Let a supervisor answer
+
+A rule or model supervisor answers when its profile allows it. The profile settings `canAnswer` and `maxRisk` sit next to the supervisor's own settings; see [Supervisors](/running/supervisors#answer-input-requests).
+
+```json
+{
+  "id": "input-rules",
+  "type": "rule-supervisor",
+  "settings": {
+    "canAnswer": true,
+    "maxRisk": "LOW",
+    "rules": [
+      {
+        "id": "approve-low-risk-staging",
+        "when": { "event": "InputRequested", "if": "risk == 'LOW' and context['environment'] == 'staging'" },
+        "then": { "answer": { "decision": "approve", "rationale": "policy 7" } }
+      }
+    ]
+  }
+}
+```
+
+The rule format is in [Rule files](/running/rule-files#answer-and-escalate-input-requests); the model control plane's behavior is in [Control planes](/running/control-planes#input-requests). A complete profile, which also escalates everything else with advice, is `examples/supervisor-profiles/input-requests.json` in the repository.
+
+## A worked example
+
+A release workflow has an AI agent that prepares deploys. It asks one question per deploy, and a rule supervisor bound to the session approves the safe ones.
+
+1. The agent calls `ask_for_input` with "Deploy build 42 to staging?", risk `LOW`, context `{"environment": "staging"}`. The engine opens a request and publishes `InputRequested`.
+2. The rule `approve-low-risk-staging` matches and sends an answer `approve` with the rationale `rule approve-low-risk-staging: policy 7`. The server checks it: the supervisor's profile has `canAnswer` and `maxRisk: LOW`, the run is in its scope, the decision is an option. The request is `ANSWERED`, the agent gets `approve` as its tool result and goes on. The execution log records who answered and why.
+3. Later the agent asks "Deploy build 42 to production?" with risk `HIGH`. The rule does not match (a rule that tried would be denied with the rule `risk` and counted), so the escalation rule hands it up with the advice "check the change and its target environment". The request is now `ESCALATED`; the agent still waits.
+4. An operator sees the request in the Inputs panel (or with `yukta inputs list`), reads the advice and answers `approve`. The answer is checked (a person may answer `HIGH`), the request is `ANSWERED` and the agent continues.
+
+## Timeouts and defaults
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `yukta.input.default-ttl` | `1h` | How long a request lives when it does not say |
+| `yukta.input.max-ttl` | `24h` | The longest ttl a request may ask for; a longer one is refused |
+| `yukta.input.max-open-per-execution` | `5` | Open requests one run may have |
+| `yukta.input.max-open-per-session` | `50` | Open requests one session may have |
+| `yukta.input.memory-max` | `10000` | Finished requests the in-memory store keeps |
+| `yukta.input.sweep-interval` | `1s` | How often requests past their deadline are ended (leader only) |
+| `yukta.input.redact-keys` | none | Context keys whose value is replaced, besides names such as `password` and `token` |
+
+At the deadline `FAIL` fails the asking node, `USE_DEFAULT` answers with the default decision as the system, and `ESCALATE` expires the request until routes exist. The node's own engine timeout outlasts the request's ttl, so a node never times out while it waits. A request over a limit is refused at once (`yukta.input.denied{rule}`).
+
+Metrics: `yukta.input.requests{kind,risk,outcome}`, `yukta.input.wait{tier}`, `yukta.input.open`, `yukta.input.denied{rule}`. Every change also writes an `INPUT` entry to the execution log, with the request id, the responder and, for an answer or escalation, the rationale or reason cut to 500 characters; the log never holds the prompt or an answer's text.
+
+## After a restart
+
+Requests are kept **in memory**. A restart, or a high-availability takeover, cancels the runs that were waiting and loses their open requests; nobody can answer them afterwards. An answer is also recorded with the node's checkpoint, so a [resumed](/operations/checkpoints-and-resume) run that replays the same message reuses it. A durable store for requests (PostgreSQL) is planned.
+
+## Next steps
+
+<Card title="Supervisors" icon="shield-halved" horizontal href="/running/supervisors">
+  Programs that watch every execution and steer it, veto commands, and answer input requests their profile allows.
+</Card>
+
+<Card title="Rule files" icon="file-lines" horizontal href="/running/rule-files">
+  The declarative JSON format used by the rule supervisor and the rule control plane: react to events, answer input requests and veto commands.
+</Card>
+
+<Card title="Approvals and signals" icon="hand" horizontal href="/building/approvals-and-signals">
+  Hold a message until a person sends a named signal, with a timeout and an accept or reject decision.
+</Card>

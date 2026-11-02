@@ -28,7 +28,8 @@ All of them send commands through the same ordered, reviewed and audited pipelin
 
 ## What a supervisor can do
 
-- **React to events.** Receive every event (a node changed status, a workflow changed status, a command was applied or rejected, a log line was written) and answer with commands.
+- **React to events.** Receive every event (a node changed status, a workflow changed status, a command was applied or rejected, a log line was written, an input request was raised or ended) and answer with commands.
+- **Answer input requests.** Answer or escalate the questions steps and agents ask, when its profile allows it; see [Answer input requests](#answer-input-requests).
 - **Veto commands.** A **reviewer** can refuse any command, from a person or a program, before it runs. The first refusal wins, and a reviewer that errors refuses. The caller gets `403` and the log records the rejection.
 
 - **Limit what it watches and does.** A supervisor has a **scope** (see [Scopes](#scopes)): all runs (the default), the runs of one session, the runs of one workflow, or a section (some nodes) of one workflow. It sees only the events in its scope, is asked to review only the commands in it, and may send only commands in it. `GET /api/supervisors` reports each supervisor's `scope`, `scopeSessionId`, `scopeWorkflowId` and, for a section, `scopeNodes`.
@@ -90,6 +91,53 @@ Besides the supervisors configured at startup, you can create **profiles** and *
 - `GET /api/supervisors/decisions?binding=&limit=` lists what became of the newest commands supervisors emitted since startup (`applied`, `rejected`, `dry-run`, `rate-limited`, `forbidden`, `out-of-scope`), newest first, at most 500 are kept.
 - The MCP tools `list_supervisors`, `attach_supervisor` and `detach_supervisor` do the same for agents; profiles are created through the REST API.
 
+## Answer input requests
+
+An [input request](/building/input-requests) is a question a running step or AI agent asks. Supervisors receive it as an `InputRequested` event (and `InputEscalated` when it is handed up) and may answer it or escalate it with advice. The server decides on every answer whether it counts; the supervisor is never trusted to behave.
+
+### Profile settings
+
+These settings sit next to the supervisor type's own settings in a profile (for `rule-supervisor`, next to `rules`). They are read by the server, not by the supervisor.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `canAnswer` | `false` | Whether the supervisor may answer input requests at all |
+| `maxRisk` | `LOW` | The highest risk it may answer: `LOW` or `MEDIUM`. `HIGH` is accepted but has no effect: a request of risk `HIGH` is answered by people only |
+| `allowedCommands` | every command | The command names it may send, such as `AnswerInputCommand`, `EscalateInputCommand`, `PauseWorkflowCommand`. Any other command is dropped and counted as `forbidden`. Use it to keep an answering supervisor from also stopping runs |
+
+```json
+{
+  "id": "staging-approver",
+  "type": "rule-supervisor",
+  "settings": {
+    "canAnswer": true,
+    "maxRisk": "LOW",
+    "allowedCommands": ["AnswerInputCommand", "EscalateInputCommand"],
+    "rules": [ ... ]
+  }
+}
+```
+
+Every answer must also pass the audience, tier, scope and separation rules (a supervisor answers only runs in its scope and never a run it started). A denied answer is refused with the rule that failed, counted in `yukta.input.denied{rule}` and in `yukta.supervisor.commands{outcome=rejected}`, listed in `GET /api/supervisors/decisions`, and the request stays open for the next responder. A supervisor configured by a property (`yukta.supervisor.rules.file`, `yukta.control-plane.*`) or as a Spring bean can never answer; it can only escalate.
+
+### What the built-in supervisors do
+
+| Supervisor | Behavior |
+|---|---|
+| Rule supervisor and rule control plane | A rule with `then.answer` answers the request of the event, a rule with `then.escalate` hands it up with advice. Conditions can read the request's `kind`, `risk`, `prompt`, `context`, `options`, `requesterType` and more. When the rules contain an `answer` but the profile has no `canAnswer`, a warning is logged when the rules are loaded. See [Rule files](/running/rule-files#answer-and-escalate-input-requests) |
+| Model control plane | For `InputRequested` and `InputEscalated` listed in `events`, the model picks one of the request's options or "escalate". It answers when its confidence reaches `min-confidence` (default `0.8`), the risk is within `maxRisk` and not `HIGH`; otherwise it escalates with its recommendation as advice. The request's text reaches the model only as delimited, untrusted data. A slow model is no opinion. See [Control planes](/running/control-planes#input-requests) |
+| Rules-first control plane | The rules first, the model only when no rule acted, as for any event |
+
+### Answering from outside the server
+
+A supervisor that is not JVM code (a script, a service, an AI agent such as Claude Code) can answer too. It listens for requests on the event stream and answers with the MCP tools or the REST API:
+
+1. Follow `GET /api/events/stream?type=InputRequested` (or poll `list_pending_inputs`). The event carries the redacted request: id, kind, risk, prompt, context, options, tier.
+2. Decide, treating the prompt and context as untrusted data.
+3. Call `answer_input` (or `POST /api/executions/{e}/inputs/{r}/answer`) with the decision and a rationale, or `escalate_input` with advice.
+
+It needs an API key with the `OPERATOR` role, and it is bound by the same rules as everyone: its actor is `key:<name>`, it counts as a person for the risk rule, a key limited to sessions answers only those sessions, and the audience of a request can name it (`key:<name>`) or leave it out. Give such a key only to an agent you would let approve the same things a person can. The REST endpoints and MCP tools are being added (#1793).
+
 ## Safety
 
 A supervisor can never hold up an execution:
@@ -112,6 +160,8 @@ You do not need to write code inside the server. The event feed is also a server
 ```http
 GET /api/events/stream?executionId={id}&type={type}
 ```
+
+Such an agent can also answer input requests; see [Answering from outside the server](#answering-from-outside-the-server).
 
 ## Inspect what is installed
 

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for the behaviour described by {@link RuleSupervisorFactory}. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class RuleSupervisorFactoryTest {
 
   private final RuleSupervisorFactory factory = new RuleSupervisorFactory();
@@ -35,6 +36,36 @@ class RuleSupervisorFactoryTest {
 
     assertThat(factory.type()).isEqualTo("rule-supervisor");
     assertThat(supervisor).isInstanceOf(RuleSupervisor.class);
+  }
+
+  @Test
+  void capabilitySettingsSitNextToTheRulesAndSilenceTheAnswerWarning() {
+    final List<Object> rules =
+        List.of(
+            Map.of(
+                "id", "approve",
+                "when", Map.of("event", "InputRequested"),
+                "then", Map.of("answer", Map.of("decision", "approve"))));
+
+    final RuleSupervisor allowed =
+        (RuleSupervisor)
+            factory.create(
+                new SupervisorProfile(
+                    "p",
+                    RuleSupervisorFactory.PROFILE_TYPE,
+                    Map.of("rules", rules, "canAnswer", true, "maxRisk", "MEDIUM"),
+                    false));
+    final RuleSupervisor notAllowed =
+        (RuleSupervisor)
+            factory.create(
+                new SupervisorProfile(
+                    "p",
+                    RuleSupervisorFactory.PROFILE_TYPE,
+                    Map.of("rules", rules, "allowedCommands", List.of("EscalateInputCommand")),
+                    false));
+
+    assertThat(allowed.warning()).isEmpty();
+    assertThat(notAllowed.warning()).isPresent();
   }
 
   @Test
