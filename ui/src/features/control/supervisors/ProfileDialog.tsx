@@ -84,7 +84,7 @@ export function ProfileDialog({
       onClose={onClose}
     >
       <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-label-md text-on-surface">
+        <label className="text-label-md text-on-surface flex flex-col gap-1">
           Profile id
           <Input
             value={id}
@@ -92,7 +92,7 @@ export function ProfileDialog({
             onChange={(e) => setId(e.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-label-md text-on-surface">
+        <label className="text-label-md text-on-surface flex flex-col gap-1">
           Type
           <NativeSelect
             aria-label="Type"
@@ -110,7 +110,7 @@ export function ProfileDialog({
             ))}
           </NativeSelect>
         </label>
-        <label className="flex items-center gap-2 text-body-md">
+        <label className="text-body-md flex items-center gap-2">
           <input
             type="checkbox"
             checked={dryRun}
@@ -118,7 +118,7 @@ export function ProfileDialog({
           />
           Dry run: only record what it would do
         </label>
-        <label className="flex flex-col gap-1 text-label-md text-on-surface">
+        <label className="text-label-md text-on-surface flex flex-col gap-1">
           Settings (JSON)
           <textarea
             rows={8}

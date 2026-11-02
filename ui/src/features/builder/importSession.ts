@@ -29,7 +29,9 @@ export function parseSession(
     typeof session.workflows !== 'object' ||
     session.workflows === null
   ) {
-    return { error: 'This is not a session: it needs a sessionId and workflows.' };
+    return {
+      error: 'This is not a session: it needs a sessionId and workflows.',
+    };
   }
   return { session: session as SessionDraft };
 }
@@ -41,7 +43,9 @@ export function diffWorkflow(
 ): string[] {
   if (!existing) return ['new workflow'];
   const old = new Map(existing.nodes.map((n) => [n.nodeId, JSON.stringify(n)]));
-  const next = new Map(imported.nodes.map((n) => [n.nodeId, JSON.stringify(n)]));
+  const next = new Map(
+    imported.nodes.map((n) => [n.nodeId, JSON.stringify(n)])
+  );
   const edgeKey = (e: DraftWorkflow['edges'][number]) =>
     `${e.source}${e.sourcePort ? `:${e.sourcePort}` : ''} -> ${e.target}`;
   const oldEdges = new Set(existing.edges.map(edgeKey));
@@ -50,8 +54,12 @@ export function diffWorkflow(
     ...(existing.description === imported.description
       ? []
       : ['description changed']),
-    ...[...next.keys()].filter((id) => !old.has(id)).map((id) => `+ node ${id}`),
-    ...[...old.keys()].filter((id) => !next.has(id)).map((id) => `- node ${id}`),
+    ...[...next.keys()]
+      .filter((id) => !old.has(id))
+      .map((id) => `+ node ${id}`),
+    ...[...old.keys()]
+      .filter((id) => !next.has(id))
+      .map((id) => `- node ${id}`),
     ...[...next.keys()]
       .filter((id) => old.has(id) && old.get(id) !== next.get(id))
       .map((id) => `~ node ${id}`),

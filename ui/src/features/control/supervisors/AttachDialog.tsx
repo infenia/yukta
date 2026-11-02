@@ -63,7 +63,7 @@ export function AttachDialog({
   return (
     <Modal title="Attach supervisor" onClose={onClose}>
       <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-label-md text-on-surface">
+        <label className="text-label-md text-on-surface flex flex-col gap-1">
           Profile
           <NativeSelect
             aria-label="Profile"
@@ -77,7 +77,7 @@ export function AttachDialog({
             ))}
           </NativeSelect>
         </label>
-        <label className="flex flex-col gap-1 text-label-md text-on-surface">
+        <label className="text-label-md text-on-surface flex flex-col gap-1">
           Applies to
           <NativeSelect
             aria-label="Applies to"
@@ -90,7 +90,7 @@ export function AttachDialog({
           </NativeSelect>
         </label>
         {kind !== 'global' && (
-          <label className="flex flex-col gap-1 text-label-md text-on-surface">
+          <label className="text-label-md text-on-surface flex flex-col gap-1">
             {kind === 'workflow' ? 'Session (optional)' : 'Session'}
             <NativeSelect
               aria-label="Session"
@@ -109,7 +109,7 @@ export function AttachDialog({
           </label>
         )}
         {kind === 'workflow' && (
-          <label className="flex flex-col gap-1 text-label-md text-on-surface">
+          <label className="text-label-md text-on-surface flex flex-col gap-1">
             Workflow id
             <Input
               value={workflowId}
@@ -117,7 +117,7 @@ export function AttachDialog({
             />
           </label>
         )}
-        <label className="flex items-center gap-2 text-body-md">
+        <label className="text-body-md flex items-center gap-2">
           <input
             type="checkbox"
             checked={enabled}

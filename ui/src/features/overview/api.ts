@@ -2,11 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { fetchApi } from '@/lib/apiClient';
-import type { PendingApproval } from '@/features/workflow/api/approvals';
 
-/** A pending approval of any session. */
-export interface SessionApproval extends PendingApproval {
+/** A node of any session that waits for an answer (an input request or a signal). */
+export interface SessionApproval {
   sessionId: string;
+  executionId: string;
+  workflowId: string;
+  nodeId: string;
+  name: string;
+  since: string;
 }
 
 /** The oldest `limit` nodes that wait for a signal, across all sessions the key may see. */
