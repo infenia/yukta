@@ -31,7 +31,7 @@ export function PanelState({
           <div
             key={width}
             aria-hidden="true"
-            className={`${width} h-4 rounded bg-muted motion-safe:animate-pulse`}
+            className={`${width} bg-muted h-4 rounded motion-safe:animate-pulse`}
           />
         ))}
       </div>

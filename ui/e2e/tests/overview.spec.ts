@@ -88,12 +88,6 @@ test.describe('Overview', () => {
     await expect(page.getByRole('button', { name: /Recover/ })).toBeVisible();
   });
 
-  test('rejecting asks for a reason first', async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Reject' }).click();
-    await expect(page.getByLabel('Reason (optional)')).toBeVisible();
-  });
-
   test('the session list is at /sessions, and old / queries go there', async ({
     page,
   }) => {

@@ -32,7 +32,7 @@ export function ScopedSupervisors({
   return (
     <section
       aria-label="Supervisors"
-      className={`flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 ${className}`}
+      className={`border-border bg-card flex flex-wrap items-center gap-2 rounded-xl border px-4 py-2 ${className}`}
     >
       <h2 className="text-label-md text-on-surface">Supervisors</h2>
       {here.length === 0 ? (
@@ -44,7 +44,7 @@ export function ScopedSupervisors({
           {here.map((b) => (
             <li
               key={b.id}
-              className={`rounded-full bg-muted px-2 py-0.5 text-label-sm ${b.enabled ? '' : 'opacity-60'}`}
+              className={`bg-muted text-label-sm rounded-full px-2 py-0.5 ${b.enabled ? '' : 'opacity-60'}`}
             >
               {b.profileId} · {scopeLabel(b.scope)}
               {!b.enabled && ' (disabled)'}

@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import type { PluginCategory, UiDesign } from '@/features/workflow/types/workflow';
+import type {
+  PluginCategory,
+  UiDesign,
+} from '@/features/workflow/types/workflow';
 
 export interface PluginSummary {
   type: string;

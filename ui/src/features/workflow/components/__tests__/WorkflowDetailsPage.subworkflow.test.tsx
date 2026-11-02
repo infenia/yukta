@@ -72,7 +72,7 @@ const server = setupServer(
   http.get('/api/sessions/:s/workflows/:w/executions', ({ params }) =>
     ok([runs[params.w as 'parent' | 'child']])
   ),
-  http.get('/api/sessions/:s/approvals', () => ok([])),
+  http.get('/api/sessions/:s/inputs', () => ok([])),
   http.get('/api/executions/:id/tree', () =>
     ok([{ ...runs.child, parentExecutionId: 'exec-parent' }])
   ),
