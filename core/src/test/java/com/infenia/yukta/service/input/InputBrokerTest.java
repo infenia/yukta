@@ -372,7 +372,12 @@ class InputBrokerTest {
 
     assertThat(escalated.state()).isEqualTo(InputState.ESCALATED);
     assertThat(escalated.advice()).doesNotContain("abcd1234secret");
-    assertThat(events.stream().filter(ExecutionEvent.InputEscalated.class::isInstance)).hasSize(1);
+    // the feed delivers on its own thread, so wait for the event instead of racing it
+    org.awaitility.Awaitility.await()
+        .untilAsserted(
+            () ->
+                assertThat(events.stream().filter(ExecutionEvent.InputEscalated.class::isInstance))
+                    .hasSize(1));
     // a second escalation changes nothing
     assertThat(
             inputBroker
