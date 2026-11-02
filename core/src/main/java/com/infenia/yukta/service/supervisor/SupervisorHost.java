@@ -168,7 +168,6 @@ public class SupervisorHost {
    * @param maxCommandsPerSecond most commands one supervisor may issue per second
    * @param bufferSize events a supervisor may have waiting before events are dropped for it
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public SupervisorHost(
       final ObjectProvider<ExecutionSupervisor> supervisors,
       final ExecutionEventFeed feed,
