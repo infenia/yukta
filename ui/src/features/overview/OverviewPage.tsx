@@ -62,11 +62,7 @@ function NeedsAttention({ poll }: { poll: number | false }) {
           <li key={input.id}>
             <Link
               className="text-body-md text-primary"
-              to={runPath(
-                input.sessionId,
-                input.workflowId,
-                input.executionId
-              )}
+              to={runPath(input.sessionId, input.workflowId, input.executionId)}
             >
               {input.sessionId}/{input.workflowId}
             </Link>{' '}
