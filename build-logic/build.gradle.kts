@@ -32,6 +32,9 @@ dependencies {
     implementation("app.cash.licensee:licensee-gradle-plugin:${libs.versions.licensee.get()}")
     implementation("org.gradle:test-retry-gradle-plugin:${libs.versions.testRetry.get()}")
     implementation("info.solidsoft.gradle.pitest:gradle-pitest-plugin:${libs.versions.pitestPlugin.get()}")
+    // plexus-utils 4 moved its XML classes (XmlPullParserException, Xpp3Dom) to plexus-xml; Licensee's
+    // Maven 3 model builder still needs them. The 3.x line is the Maven 3 one (4.x needs the Maven 4 API).
+    implementation("org.codehaus.plexus:plexus-xml:3.1.0")
 
     // Build-time transitives of the plugins above with published CVEs (Dependabot); same minor line
     constraints {
