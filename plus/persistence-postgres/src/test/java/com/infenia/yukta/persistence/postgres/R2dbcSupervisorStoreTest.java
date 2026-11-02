@@ -69,7 +69,7 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void aSectionScopeIsStoredAsTextAndReadBack() {
+  void sectionScopeIsStoredAsTextAndReadBack() {
     StepVerifier.create(store.saveProfile(profile("p", false))).verifyComplete();
     final Set<String> nodes = new LinkedHashSet<>();
     for (int i = 0; i < SupervisorScope.Section.MAX_SELECTORS; i++) {

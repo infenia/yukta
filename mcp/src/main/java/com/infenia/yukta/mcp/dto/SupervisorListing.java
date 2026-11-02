@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 
 /**
@@ -34,6 +35,9 @@ public record SupervisorListing(
    * @param applied commands applied since startup
    * @param rejected commands that were refused
    */
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP",
+      justification = "the compact constructor stores an unmodifiable copy")
   public record RunningSupervisor(
       String id,
       String kind,
@@ -47,7 +51,9 @@ public record SupervisorListing(
 
     /** Keeps an immutable copy of the selectors. */
     public RunningSupervisor {
-      scopeNodes = scopeNodes == null ? null : List.copyOf(scopeNodes);
+      if (scopeNodes != null) {
+        scopeNodes = List.copyOf(scopeNodes);
+      }
     }
   }
 }

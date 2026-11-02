@@ -64,6 +64,8 @@ public record SupervisorInfo(
    * @param scopeNodes the selectors of a section, or {@code null}
    */
   public SupervisorInfo {
-    scopeNodes = scopeNodes == null ? null : List.copyOf(scopeNodes);
+    if (scopeNodes != null) {
+      scopeNodes = List.copyOf(scopeNodes);
+    }
   }
 }

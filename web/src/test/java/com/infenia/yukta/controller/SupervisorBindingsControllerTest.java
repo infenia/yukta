@@ -245,7 +245,7 @@ class SupervisorBindingsControllerTest {
   }
 
   @Test
-  void aSectionScopeIsAttachedAndShownInItsTextForm() {
+  void sectionScopeIsAttachedAndShownInItsTextForm() {
     when(service.attach(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     StepVerifier.create(
@@ -255,7 +255,7 @@ class SupervisorBindingsControllerTest {
   }
 
   @Test
-  void aSectionWithoutNodesIsRejectedWithoutAttaching() {
+  void sectionWithoutNodesIsRejectedWithoutAttaching() {
     StepVerifier.create(controller.attach(new BindingBody("b", "p", "workflow:A/w//", true)))
         .expectErrorMatches(
             error ->

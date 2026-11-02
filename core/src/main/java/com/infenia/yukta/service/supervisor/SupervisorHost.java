@@ -454,12 +454,13 @@ public class SupervisorHost {
       final RateLimit limit,
       final boolean recordOnly) {
     final Mono<Void> result;
-    if (!limit.tryAcquire()) {
-      result = notApplied(supervisorId, "rate-limited", command, "rate limit exceeded");
-    } else if (recordOnly) {
-      result = notApplied(supervisorId, DRY_RUN, command, DRY_RUN);
+    if (limit.tryAcquire()) {
+      result =
+          recordOnly
+              ? notApplied(supervisorId, DRY_RUN, command, DRY_RUN)
+              : send(supervisorId, command);
     } else {
-      result = send(supervisorId, command);
+      result = notApplied(supervisorId, "rate-limited", command, "rate limit exceeded");
     }
     return result;
   }

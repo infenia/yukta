@@ -35,7 +35,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Tests that a supervisor may act only within its scope. */
-@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.ExcessiveImports"})
+@SuppressWarnings({
+  "PMD.TooManyStaticImports",
+  "PMD.ExcessiveImports",
+  "PMD.AvoidFieldNameMatchingMethodName",
+  "PMD.ShortMethodName"
+})
 @NoArgsConstructor
 class SupervisorHostScopeEnforcementTest {
 
@@ -155,7 +160,7 @@ class SupervisorHostScopeEnforcementTest {
   }
 
   @Test
-  void sessionSupervisorCannotStopARunOfAnotherSession() {
+  void sessionSupervisorCannotStopRunOfAnotherSession() {
     final List<SupervisorDecision> decisions =
         run(
             new Sender(
@@ -175,7 +180,7 @@ class SupervisorHostScopeEnforcementTest {
   }
 
   @Test
-  void globalSupervisorActsAnywhereWithoutALookup() {
+  void globalSupervisorActsAnywhereWithoutLookup() {
     final List<SupervisorDecision> decisions =
         run(
             new Sender(
@@ -207,7 +212,7 @@ class SupervisorHostScopeEnforcementTest {
   }
 
   @Test
-  void aTargetThatCannotBeReadIsOutOfScope() {
+  void targetThatCannotBeReadIsOutOfScope() {
     final List<SupervisorDecision> decisions =
         run(
             new Sender(

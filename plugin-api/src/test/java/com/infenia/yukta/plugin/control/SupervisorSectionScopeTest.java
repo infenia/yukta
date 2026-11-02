@@ -16,6 +16,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link SupervisorScope.Section}, node matching and {@link SupervisorScope#covers}. */
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 @NoArgsConstructor
 class SupervisorSectionScopeTest {
 
@@ -57,7 +58,7 @@ class SupervisorSectionScopeTest {
   }
 
   @Test
-  void hashInIdsStaysAPlainWorkflow() {
+  void hashInIdsStaysPlainWorkflow() {
     assertThat(SupervisorScope.parse("workflow:A/w#build.*"))
         .isEqualTo(new SupervisorScope.Workflow("w#build.*", "A"));
   }
@@ -72,7 +73,7 @@ class SupervisorSectionScopeTest {
         "workflow:A/w//.*",
         "workflow:/w//a"
       })
-  void rejectsABadSection(final String text) {
+  void rejectsBadSection(final String text) {
     assertThatThrownBy(() -> SupervisorScope.parse(text))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageStartingWith(SupervisorScope.BAD_SCOPE);
@@ -128,7 +129,7 @@ class SupervisorSectionScopeTest {
   }
 
   @Test
-  void sectionDoesNotMatchItemsWithoutANode() {
+  void sectionDoesNotMatchItemsWithoutNode() {
     final SupervisorScope scope = section("A", "build.*");
 
     assertThat(scope.matches("A", "w")).isFalse();

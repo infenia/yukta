@@ -17,6 +17,7 @@ import org.jspecify.annotations.Nullable;
  * whole run (a workflow event, a workflow command) names no node, so a {@link Section} supervisor
  * does not see, review or send it.
  */
+@SuppressWarnings("PMD.TooManyMethods")
 public sealed interface SupervisorScope {
 
   /**
@@ -175,7 +176,9 @@ public sealed interface SupervisorScope {
       nodes.add(selector.strip());
     }
     try {
-      return new Section(workflow.workflowId(), workflow.sessionId(), nodes);
+      // Workflow.workflowId() is never null; the interface method it implements may be
+      final String workflowId = Objects.requireNonNull(workflow.workflowId());
+      return new Section(workflowId, workflow.sessionId(), nodes);
     } catch (IllegalArgumentException e) {
       throw new IllegalArgumentException(BAD_SCOPE + ": " + e.getMessage(), e);
     }

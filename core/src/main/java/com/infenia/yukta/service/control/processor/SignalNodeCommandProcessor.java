@@ -88,7 +88,8 @@ public class SignalNodeCommandProcessor {
                   .orElseThrow(() -> new NotFoundException("Node not found: " + signal.nodeId()));
           final Map<String, Object> body = new ConcurrentHashMap<>();
           body.put("executionId", signal.executionId());
-          body.put("nodeId", signal.nodeId());
+          // a signal always names its node; the interface method it implements may return null
+          body.put("nodeId", Objects.requireNonNull(signal.nodeId()));
           body.put("name", signal.name());
           body.put("decision", signal.decision());
           body.put("data", Objects.toString(signal.data(), ""));

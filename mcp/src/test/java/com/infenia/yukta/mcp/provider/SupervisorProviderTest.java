@@ -81,7 +81,7 @@ class SupervisorProviderTest {
   }
 
   @Test
-  void aRunningSupervisorWithoutSectionHasNoNodesAndKeepsACopyOtherwise() {
+  void runningSupervisorWithoutSectionHasNoNodesAndKeepsCopyOtherwise() {
     final List<String> nodes = new ArrayList<>(List.of("a"));
     final SupervisorListing.RunningSupervisor section =
         new SupervisorListing.RunningSupervisor(

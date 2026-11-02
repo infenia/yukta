@@ -21,6 +21,11 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** Tests that section supervisors review only the node commands of their section. */
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.AvoidFieldNameMatchingMethodName",
+  "PMD.ShortMethodName"
+})
 @NoArgsConstructor
 class ControlReviewerSectionTest {
 
@@ -107,7 +112,7 @@ class ControlReviewerSectionTest {
   }
 
   @Test
-  void sectionAndWorkflowSupervisorBothReviewANodeOfTheSection() {
+  void sectionAndWorkflowSupervisorBothReviewNodeOfTheSection() {
     final List<String> asked = new ArrayList<>();
     final ControlReviewer reviewer =
         new ControlReviewer(

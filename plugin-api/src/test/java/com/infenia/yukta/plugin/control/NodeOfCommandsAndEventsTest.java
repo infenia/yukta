@@ -70,7 +70,7 @@ class NodeOfCommandsAndEventsTest {
   }
 
   @Test
-  void aRequestTakesTheNodeOfItsCommandUnlessGiven() {
+  void requestTakesTheNodeOfItsCommandUnlessGiven() {
     final ControlRequest node = new ControlRequest(new PauseNodeCommand("e", "n"), null, "s", "w");
     final ControlRequest run = new ControlRequest(new PauseWorkflowCommand("e"), null, "s", "w");
     final ControlRequest answer =

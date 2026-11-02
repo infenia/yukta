@@ -43,7 +43,11 @@ import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 /** Tests that the dispatcher tells reviewers and the feed which node a command acts on. */
-@SuppressWarnings({"PMD.ExcessiveImports", "PMD.TooManyStaticImports"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.ExcessiveImports",
+  "PMD.TooManyStaticImports"
+})
 @NoArgsConstructor
 class DirectiveDispatcherTargetTest {
 
@@ -175,7 +179,7 @@ class DirectiveDispatcherTargetTest {
   }
 
   @Test
-  void withoutAStoreTheInputCommandNamesNoNode() {
+  void withoutStoreTheInputCommandNamesNoNode() {
     dispatcher.setInputRequests(
         new StaticListableBeanFactory().getBeanProvider(InputRequestStore.class));
 

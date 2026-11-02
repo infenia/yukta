@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 
 /** Tests that a section supervisor sees only the events of its nodes. */
+@SuppressWarnings({"PMD.AvoidFieldNameMatchingMethodName", "PMD.ShortMethodName"})
 @NoArgsConstructor
 class SupervisorHostSectionTest {
 
