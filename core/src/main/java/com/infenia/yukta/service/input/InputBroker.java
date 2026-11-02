@@ -4,6 +4,7 @@ package com.infenia.yukta.service.input;
 
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputAsk;
 import com.infenia.yukta.plugin.input.InputCancelledException;
 import com.infenia.yukta.plugin.input.InputExpiredException;
@@ -15,6 +16,13 @@ import com.infenia.yukta.plugin.input.InputResponse;
 import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.input.TimeoutAction;
+import com.infenia.yukta.plugin.input.Vote;
+import com.infenia.yukta.service.input.route.FinalAction;
+import com.infenia.yukta.service.input.route.InputRoute;
+import com.infenia.yukta.service.input.route.Mode;
+import com.infenia.yukta.service.input.route.RouteResolver;
+import com.infenia.yukta.service.input.route.Tier;
+import com.infenia.yukta.service.input.route.TierTargets;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;
@@ -37,6 +45,7 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -61,12 +70,20 @@ import reactor.core.publisher.Sinks;
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects",
-  "PMD.GodClass"
+  "PMD.GodClass",
+  "PMD.CyclomaticComplexity",
+  "PMD.UseConcurrentHashMap"
 })
 public class InputBroker {
 
   /** The tier every request is in until routes exist. */
   public static final String DEFAULT_TIER = "default";
+
+  /** The step from one tier to the next. */
+  private static final int NEXT = 1;
+
+  /** The number of different decisions when every voter agrees. */
+  private static final int SINGLE_DECISION = 1;
 
   /** Key of the request context that names the signal a request stands for. */
   public static final String SIGNAL_CONTEXT_KEY = InputAsk.SIGNAL_CONTEXT_KEY;
@@ -130,6 +147,12 @@ public class InputBroker {
   /** The time, replaceable in tests. */
   private final Clock clock;
 
+  /** Picks the route of a request. */
+  private final RouteResolver routes;
+
+  /** The supervisors that are attached now. */
+  private final ObjectProvider<EligibleSupervisors> supervisors;
+
   /** Askers waiting for a request, by request id. */
   private final Map<String, Waiting> waiting = new ConcurrentHashMap<>();
 
@@ -148,6 +171,8 @@ public class InputBroker {
    * @param meters registry for the metrics
    * @param redactor removes secrets from prompt and context
    * @param properties the {@code yukta.input} settings
+   * @param routes picks the route of a request
+   * @param supervisors the attached supervisors, if there are any
    */
   @Autowired
   public InputBroker(
@@ -156,8 +181,19 @@ public class InputBroker {
       final ExecutionLogStore executionLog,
       final MeterRegistry meters,
       final InputRedactor redactor,
-      final YuktaProperties properties) {
-    this(store, feed, executionLog, meters, redactor, properties.input(), Clock.systemUTC());
+      final YuktaProperties properties,
+      final RouteResolver routes,
+      final ObjectProvider<EligibleSupervisors> supervisors) {
+    this(
+        store,
+        feed,
+        executionLog,
+        meters,
+        redactor,
+        properties.input(),
+        Clock.systemUTC(),
+        routes,
+        supervisors);
   }
 
   /**
@@ -180,6 +216,44 @@ public class InputBroker {
       final InputRedactor redactor,
       final YuktaProperties.Input limits,
       final Clock clock) {
+    this(
+        store,
+        feed,
+        executionLog,
+        meters,
+        redactor,
+        limits,
+        clock,
+        new RouteResolver(Map.of(), null),
+        null);
+  }
+
+  /**
+   * Creates the broker with explicit limits, clock, routes and supervisors.
+   *
+   * @param store where requests are kept
+   * @param feed receives the events
+   * @param executionLog records what happened to requests
+   * @param meters registry for the metrics
+   * @param redactor removes secrets from prompt and context
+   * @param limits the limits
+   * @param clock the time
+   * @param routes picks the route of a request
+   * @param supervisors the attached supervisors, or {@code null} for none
+   */
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
+  public InputBroker(
+      final InputRequestStore store,
+      final ExecutionEventFeed feed,
+      final ExecutionLogStore executionLog,
+      final MeterRegistry meters,
+      final InputRedactor redactor,
+      final YuktaProperties.Input limits,
+      final Clock clock,
+      final RouteResolver routes,
+      final @Nullable ObjectProvider<EligibleSupervisors> supervisors) {
+    this.routes = routes;
+    this.supervisors = supervisors;
     this.store = store;
     this.feed = feed;
     this.executionLog = executionLog;
@@ -256,6 +330,23 @@ public class InputBroker {
       return Mono.error(
           new IllegalArgumentException("The response is for another request than " + requestId));
     }
+    if (response.responder().type() != Responder.Type.SUPERVISOR) {
+      return finalAnswer(requestId, expectedVersion, response);
+    }
+    return store
+        .findById(requestId)
+        .filter(current -> isLive(current.state()))
+        .flatMap(
+            current ->
+                routes
+                    .resolve(current.spec(), current.sessionId())
+                    .flatMap(route -> supervisorAnswer(current, route, expectedVersion, response)))
+        .switchIfEmpty(Mono.defer(() -> finalAnswer(requestId, expectedVersion, response)));
+  }
+
+  /** Ends a request with an answer; a person's answer, a decided vote or a default. */
+  private Mono<InputRequest> finalAnswer(
+      final String requestId, final @Nullable Long expectedVersion, final InputResponse response) {
     return transition(
             requestId,
             expectedVersion,
@@ -266,6 +357,148 @@ public class InputBroker {
                 change.applied()
                     ? store.saveResponse(response).map(saved -> answered(change.request(), saved))
                     : Mono.just(change.request()));
+  }
+
+  /**
+   * An answer from a supervisor: too unsure to count, a vote, or the answer.
+   *
+   * <p>An answer below the tier's {@code minConfidence} (no confidence counts as zero) is advice
+   * for the next tier. In a tier that votes, the answer is a vote; a person's answer never is.
+   */
+  private Mono<InputRequest> supervisorAnswer(
+      final InputRequest current,
+      final InputRoute route,
+      final @Nullable Long expectedVersion,
+      final InputResponse response) {
+    final Tier tier = tierOf(route, current.tier());
+    if (tier == null) {
+      return finalAnswer(current.id(), expectedVersion, response);
+    }
+    final double confidence = response.confidence() == null ? 0 : response.confidence();
+    if (tier.minConfidence() > 0 && confidence < tier.minConfidence()) {
+      final Responder by = response.responder();
+      final String advice =
+          truncated(
+              redactor.text(
+                  "supervisor "
+                      + by.id()
+                      + " answered "
+                      + response.decision()
+                      + (response.rationale() == null ? "" : ": " + response.rationale())));
+      return handUp(current, route, "low-confidence-answer", advice, by);
+    }
+    return tier.votes()
+        ? vote(current, route, tier, expectedVersion, response)
+        : finalAnswer(current.id(), expectedVersion, response);
+  }
+
+  /** Moves a request up, or flags it as handed up when its route has no higher tier. */
+  private Mono<InputRequest> handUp(
+      final InputRequest current,
+      final InputRoute route,
+      final String reason,
+      final @Nullable String advice,
+      final @Nullable Responder by) {
+    return moveUp(current, route, reason, advice, by)
+        .switchIfEmpty(Mono.defer(() -> flag(current.id(), reason, advice, by)));
+  }
+
+  private Mono<InputRequest> vote(
+      final InputRequest current,
+      final InputRoute route,
+      final Tier tier,
+      final @Nullable Long expectedVersion,
+      final InputResponse response) {
+    final Responder voter = response.responder();
+    if (current.votes().stream().anyMatch(v -> v.voter().equals(voter.id()))) {
+      // a supervisor votes once; a second vote changes nothing
+      return Mono.just(current);
+    }
+    final Vote vote =
+        new Vote(voter.id(), response.decision(), response.confidence(), clock.instant());
+    return transition(
+            current.id(),
+            expectedVersion,
+            InputBroker::isLive,
+            c ->
+                replace(
+                    c,
+                    c.state(),
+                    c.tier(),
+                    c.targets(),
+                    c.advice(),
+                    c.tierDeadline(),
+                    withVote(c.votes(), vote)))
+        .flatMap(
+            change ->
+                change.applied()
+                    ? decide(change.request(), route, tier, response)
+                    : Mono.just(change.request()));
+  }
+
+  private static List<Vote> withVote(final List<Vote> votes, final Vote vote) {
+    if (votes.stream().anyMatch(v -> v.voter().equals(vote.voter()))) {
+      return votes;
+    }
+    final List<Vote> all = new java.util.ArrayList<>(votes);
+    all.add(vote);
+    return all;
+  }
+
+  /** Counts the votes: resolves when enough agree, hands up on a split, otherwise waits on. */
+  private Mono<InputRequest> decide(
+      final InputRequest request,
+      final InputRoute route,
+      final Tier tier,
+      final InputResponse last) {
+    final List<Vote> votes = request.votes();
+    final int eligible = TierTargets.supervisors(request, request.targets(), directory()).size();
+    final Map<String, Long> counts = new LinkedHashMap<>();
+    votes.forEach(v -> counts.merge(v.decision(), 1L, Long::sum));
+    if (tier.mode() == Mode.QUORUM) {
+      final String winner =
+          counts.entrySet().stream()
+              .filter(e -> e.getValue() >= tier.quorum())
+              .max(Map.Entry.comparingByValue())
+              .map(Map.Entry::getKey)
+              .orElse(null);
+      if (winner != null) {
+        return resolved(request, winner, last);
+      }
+      return votes.size() >= eligible
+          ? handUp(request, route, "split-vote", null, null)
+          : Mono.just(request);
+    }
+    if (counts.size() > SINGLE_DECISION) {
+      return handUp(request, route, "split-vote", null, null);
+    }
+    return votes.size() >= eligible
+        ? resolved(request, votes.getFirst().decision(), last)
+        : Mono.just(request);
+  }
+
+  /** Ends a request with the decision its voters reached; the rationale names them. */
+  private Mono<InputRequest> resolved(
+      final InputRequest request, final String decision, final InputResponse last) {
+    final String voters =
+        String.join(
+            ", ",
+            request.votes().stream()
+                .filter(v -> v.decision().equals(decision))
+                .map(Vote::voter)
+                .toList());
+    final InputResponse response =
+        new InputResponse(
+            request.id(),
+            decision,
+            last.text(),
+            last.data(),
+            last.responder(),
+            truncated(
+                "voted by " + voters + (last.rationale() == null ? "" : "; " + last.rationale())),
+            last.confidence(),
+            clock.instant());
+    return finalAnswer(request.id(), null, response);
   }
 
   /**
@@ -298,18 +531,134 @@ public class InputBroker {
       final @Nullable Responder by) {
     final String cleanReason = redactor.text(reason);
     final @Nullable String cleanAdvice = advice == null ? null : redactor.text(advice);
+    return store
+        .findById(requestId)
+        .flatMap(
+            current ->
+                isLive(current.state())
+                    ? routes
+                        .resolve(current.spec(), current.sessionId())
+                        .flatMap(
+                            route ->
+                                moveUp(current, route, cleanReason, cleanAdvice, by)
+                                    .switchIfEmpty(
+                                        Mono.defer(
+                                            () -> flag(requestId, cleanReason, cleanAdvice, by))))
+                    : Mono.just(current));
+  }
+
+  /** Marks an open request as handed up when there is no higher tier to hand it to. */
+  private Mono<InputRequest> flag(
+      final String requestId,
+      final String reason,
+      final @Nullable String advice,
+      final @Nullable Responder by) {
     return transition(
             requestId,
             null,
             state -> state == InputState.OPEN,
-            current -> advance(current, InputState.ESCALATED, cleanAdvice))
+            current -> advance(current, InputState.ESCALATED, advice))
         .doOnNext(
             change -> {
               if (change.applied()) {
-                escalated(change.request(), cleanReason, by);
+                escalated(change.request(), reason, by);
               }
             })
         .map(Change::request);
+  }
+
+  /**
+   * Moves a live request to the next tier of its route.
+   *
+   * @return the request in its new tier; the request as it is if another call moved it first; empty
+   *     if the route has no tier above
+   */
+  private Mono<InputRequest> moveUp(
+      final InputRequest current,
+      final InputRoute route,
+      final String reason,
+      final @Nullable String advice,
+      final @Nullable Responder by) {
+    final int at = indexOf(route, current.tier());
+    if (at < 0 || at + NEXT >= route.tiers().size()) {
+      return Mono.empty();
+    }
+    final Tier next = route.tiers().get(at + NEXT);
+    final List<SupervisorScope> references = references(current, by);
+    return transition(
+            current.id(),
+            null,
+            InputBroker::isLive,
+            c -> {
+              final InputRequest moved =
+                  replace(
+                      c,
+                      InputState.ESCALATED,
+                      next.name(),
+                      List.of(),
+                      advice == null ? c.advice() : advice,
+                      next.timeout() == null ? null : clock.instant().plus(next.timeout()),
+                      List.of());
+              return retarget(moved, TierTargets.selectors(moved, next, directory(), references));
+            })
+        .flatMap(
+            change -> {
+              if (!change.applied()) {
+                return Mono.just(change.request());
+              }
+              escalated(change.request(), reason, by);
+              return skipUnreachable(change.request(), route);
+            });
+  }
+
+  /** The scopes a {@code supervisor:above} tier must strictly cover. */
+  private List<SupervisorScope> references(
+      final InputRequest current, final @Nullable Responder by) {
+    final EligibleSupervisors bound = directory();
+    if (by != null && by.type() == Responder.Type.SUPERVISOR) {
+      return bound.bound().stream()
+          .filter(c -> c.id().equals(by.id()))
+          .map(EligibleSupervisors.Candidate::scope)
+          .toList();
+    }
+    return TierTargets.supervisors(current, current.targets(), bound).stream()
+        .map(EligibleSupervisors.Candidate::scope)
+        .toList();
+  }
+
+  /**
+   * Hands a request on at once when its tier cannot be answered: no supervisor to ask, or fewer
+   * than a quorum needs.
+   */
+  private Mono<InputRequest> skipUnreachable(final InputRequest request, final InputRoute route) {
+    final Tier tier = tierOf(route, request.tier());
+    if (tier == null) {
+      return Mono.just(request);
+    }
+    final int reach = TierTargets.supervisors(request, request.targets(), directory()).size();
+    final String why;
+    if (!TierTargets.namesOthers(request.targets()) && reach == 0) {
+      why = "no-target";
+    } else if (tier.mode() == Mode.QUORUM && reach < tier.quorum()) {
+      why = "quorum-unreachable";
+    } else {
+      return Mono.just(request);
+    }
+    return moveUp(request, route, why, null, null).defaultIfEmpty(request);
+  }
+
+  private static int indexOf(final InputRoute route, final String tierName) {
+    for (int i = 0; i < route.tiers().size(); i++) {
+      if (route.tiers().get(i).name().equals(tierName)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private static @Nullable Tier tierOf(final InputRoute route, final String tierName) {
+    final int at = indexOf(route, tierName);
+    return at < 0 ? null : route.tiers().get(at);
   }
 
   /**
@@ -409,14 +758,24 @@ public class InputBroker {
               if (denial != null) {
                 return deny(spec, denial);
               }
-              final InputRequest created = create(who, spec);
-              return store
-                  .createIfAbsent(created)
-                  .doOnNext(
-                      stored -> {
-                        if (stored.id().equals(created.id())) {
-                          asked(stored);
-                        }
+              return routes
+                  .resolve(spec, who.sessionId())
+                  .flatMap(
+                      route -> {
+                        final InputRequest created = create(who, spec, route);
+                        return store
+                            .createIfAbsent(created)
+                            .doOnNext(
+                                stored -> {
+                                  if (stored.id().equals(created.id())) {
+                                    asked(stored);
+                                  }
+                                })
+                            .flatMap(
+                                stored ->
+                                    stored.id().equals(created.id())
+                                        ? skipUnreachable(stored, route)
+                                        : Mono.just(stored));
                       });
             });
   }
@@ -448,24 +807,58 @@ public class InputBroker {
     return Mono.error(new InputLimitException(spec.key(), message));
   }
 
-  private InputRequest create(final InputIdentity who, final InputRequestSpec spec) {
+  private InputRequest create(
+      final InputIdentity who, final InputRequestSpec spec, final InputRoute route) {
     final Instant now = clock.instant();
+    // ponytail: the first tier; a run raised by a supervisor (phase 8) will start higher up
+    final Tier first = route.tiers().getFirst();
+    final InputRequest draft =
+        new InputRequest(
+            UUID.randomUUID().toString(),
+            spec.key(),
+            who.sessionId(),
+            who.workflowId(),
+            who.executionId(),
+            who.nodeId(),
+            spec,
+            InputState.OPEN,
+            0,
+            first.name(),
+            first.responders(),
+            null,
+            now.plus(spec.ttl()),
+            first.timeout() == null ? null : now.plus(first.timeout()),
+            List.of(),
+            now,
+            now);
+    return retarget(draft, TierTargets.selectors(draft, first, directory(), List.of()));
+  }
+
+  /** The same version of a request, with other selectors. */
+  private static InputRequest retarget(final InputRequest request, final List<String> targets) {
     return new InputRequest(
-        UUID.randomUUID().toString(),
-        spec.key(),
-        who.sessionId(),
-        who.workflowId(),
-        who.executionId(),
-        who.nodeId(),
-        spec,
-        InputState.OPEN,
-        0,
-        DEFAULT_TIER,
-        List.of(),
-        null,
-        now.plus(spec.ttl()),
-        now,
-        now);
+        request.id(),
+        request.key(),
+        request.sessionId(),
+        request.workflowId(),
+        request.executionId(),
+        request.nodeId(),
+        request.spec(),
+        request.state(),
+        request.version(),
+        request.tier(),
+        targets,
+        request.advice(),
+        request.deadline(),
+        request.tierDeadline(),
+        request.votes(),
+        request.createdAt(),
+        request.updatedAt());
+  }
+
+  private EligibleSupervisors directory() {
+    final EligibleSupervisors found = supervisors == null ? null : supervisors.getIfAvailable();
+    return found == null ? EligibleSupervisors.NONE : found;
   }
 
   /** Waits for the end of a request; the last caller to cancel cancels the request. */
@@ -529,6 +922,25 @@ public class InputBroker {
 
   private InputRequest advance(
       final InputRequest current, final InputState state, final @Nullable String advice) {
+    return replace(
+        current,
+        state,
+        current.tier(),
+        current.targets(),
+        advice,
+        current.tierDeadline(),
+        current.votes());
+  }
+
+  /** The next version of a request with the given state, tier and votes. */
+  private InputRequest replace(
+      final InputRequest current,
+      final InputState state,
+      final String tier,
+      final List<String> targets,
+      final @Nullable String advice,
+      final @Nullable Instant tierDeadline,
+      final List<Vote> votes) {
     return new InputRequest(
         current.id(),
         current.key(),
@@ -539,31 +951,70 @@ public class InputBroker {
         current.spec(),
         state,
         current.version() + 1,
-        current.tier(),
-        current.targets(),
+        tier,
+        targets,
         advice,
         current.deadline(),
+        tierDeadline,
+        votes,
         current.createdAt(),
         clock.instant());
   }
 
   private Mono<Void> expire(final InputRequest due) {
-    final InputRequestSpec spec = due.spec();
-    if (spec.onTimeout() == TimeoutAction.USE_DEFAULT) {
-      // the spec refuses USE_DEFAULT without a default decision
-      final InputResponse response =
-          new InputResponse(
-              due.id(),
-              Objects.requireNonNull(spec.defaultDecision()),
-              null,
-              Map.of(),
-              Responder.SYSTEM,
-              "deadline reached",
-              null,
-              clock.instant());
-      return answer(due.id(), null, response).then();
+    final Instant now = clock.instant();
+    final boolean overall = due.deadline() != null && !due.deadline().isAfter(now);
+    return routes
+        .resolve(due.spec(), due.sessionId())
+        .flatMap(
+            route -> {
+              if (!overall) {
+                // only the tier ran out of time: hand the request up, or end it at the last tier
+                return moveUp(due, route, "tier-timeout", null, null)
+                    .switchIfEmpty(Mono.defer(() -> finalTimeout(due, route).then(Mono.empty())))
+                    .then();
+              }
+              return due.spec().onTimeout() == TimeoutAction.ESCALATE
+                  ? moveUp(due, route, "deadline", null, null)
+                      .switchIfEmpty(Mono.defer(() -> end(due).then(Mono.empty())))
+                      .then()
+                  : end(due);
+            });
+  }
+
+  /** The last tier gave up: the route's final action, then the request's own. */
+  private Mono<Void> finalTimeout(final InputRequest due, final InputRoute route) {
+    final FinalAction action = route.onFinalTimeout();
+    if (action == FinalAction.FAIL) {
+      return expireNow(due);
     }
-    // FAIL, and ESCALATE until routes exist
+    if (action == FinalAction.USE_DEFAULT) {
+      return due.spec().defaultDecision() == null ? expireNow(due) : useDefault(due);
+    }
+    return end(due);
+  }
+
+  /** The request's own {@code onTimeout}. */
+  private Mono<Void> end(final InputRequest due) {
+    return due.spec().onTimeout() == TimeoutAction.USE_DEFAULT ? useDefault(due) : expireNow(due);
+  }
+
+  private Mono<Void> useDefault(final InputRequest due) {
+    // the spec refuses USE_DEFAULT without a default decision
+    final InputResponse response =
+        new InputResponse(
+            due.id(),
+            Objects.requireNonNull(due.spec().defaultDecision()),
+            null,
+            Map.of(),
+            Responder.SYSTEM,
+            "deadline reached",
+            null,
+            clock.instant());
+    return finalAnswer(due.id(), null, response).then();
+  }
+
+  private Mono<Void> expireNow(final InputRequest due) {
     return transition(
             due.id(),
             null,
@@ -599,6 +1050,7 @@ public class InputBroker {
   private void escalated(
       final InputRequest request, final String reason, final @Nullable Responder by) {
     count(request, "escalated");
+    meters.counter("yukta.input.escalations", "tier", request.tier()).increment();
     final Map<String, Object> facts = new ConcurrentHashMap<>();
     facts.put(PAYLOAD_REASON, truncated(reason));
     facts.put(PAYLOAD_RISK, request.spec().risk().name());

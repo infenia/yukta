@@ -65,12 +65,6 @@ public class RouteResolver {
     this(named(properties.input().routes()), sessions);
   }
 
-  private static Map<String, InputRoute> named(final Map<String, RouteSettings> settings) {
-    final Map<String, InputRoute> routes = new LinkedHashMap<>();
-    settings.forEach((name, route) -> routes.put(name, route.named(name)));
-    return routes;
-  }
-
   /**
    * Creates the resolver over given routes.
    *
@@ -82,6 +76,13 @@ public class RouteResolver {
       final @Nullable ObjectProvider<SessionConfigStore> sessions) {
     this.routes = Map.copyOf(routes);
     this.sessions = sessions;
+  }
+
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
+  private static Map<String, InputRoute> named(final Map<String, RouteSettings> settings) {
+    final Map<String, InputRoute> routes = new LinkedHashMap<>();
+    settings.forEach((name, route) -> routes.put(name, route.named(name)));
+    return routes;
   }
 
   /**
@@ -124,8 +125,7 @@ public class RouteResolver {
     if (store == null) {
       return Mono.empty();
     }
-    return store
-        .getAllConfigs(sessionId)
+    return Mono.defer(() -> store.getAllConfigs(sessionId))
         .mapNotNull((SessionSnapshot snapshot) -> snapshot.tags().get(SESSION_TAG))
         .onErrorResume(error -> Mono.empty());
   }

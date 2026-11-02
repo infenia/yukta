@@ -35,6 +35,9 @@ public record Tier(
     @Nullable ResponderType type,
     @Nullable Map<String, Object> settings) {
 
+  /** Start of every message about a tier. */
+  private static final String TIER = "Tier ";
+
   /** The fewest equal decisions a quorum can be. */
   private static final int MIN_QUORUM = 2;
 
@@ -56,19 +59,19 @@ public record Tier(
       throw new IllegalArgumentException("A tier name must match [A-Za-z0-9._-]{1,64}: " + name);
     }
     if (responders == null || responders.isEmpty()) {
-      throw new IllegalArgumentException("Tier " + name + " needs at least one responder");
+      throw new IllegalArgumentException(TIER + name + " needs at least one responder");
     }
     // the same check a request audience gets
     responders = new Audience(responders).selectors();
     if (timeout != null && (timeout.isZero() || timeout.isNegative())) {
-      throw new IllegalArgumentException("Tier " + name + ": timeout must be positive");
+      throw new IllegalArgumentException(TIER + name + ": timeout must be positive");
     }
     mode = mode == null ? Mode.FIRST : mode;
     if (mode == Mode.QUORUM && quorum < MIN_QUORUM) {
-      throw new IllegalArgumentException("Tier " + name + ": quorum must be at least 2");
+      throw new IllegalArgumentException(TIER + name + ": quorum must be at least 2");
     }
     if (minConfidence < 0 || minConfidence > 1) {
-      throw new IllegalArgumentException("Tier " + name + ": minConfidence must be 0 to 1");
+      throw new IllegalArgumentException(TIER + name + ": minConfidence must be 0 to 1");
     }
     if (type == null) {
       type =

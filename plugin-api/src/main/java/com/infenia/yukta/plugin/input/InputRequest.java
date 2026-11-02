@@ -31,6 +31,7 @@ import org.jspecify.annotations.Nullable;
  * @param updatedAt when it last changed
  * @since 0.1.0-alpha.4
  */
+@SuppressWarnings("PMD.ExcessiveParameterList")
 public record InputRequest(
     String id,
     String key,

@@ -244,7 +244,7 @@ class InputBrokerTest {
                 100,
                 Duration.ofSeconds(1),
                 List.of(),
-                java.util.Map.of()));
+                Map.of()));
     small.ask(who("e1", "n1"), spec("k1")).subscribe();
     small.ask(who("e2", "n1"), spec("k2")).subscribe();
 
@@ -550,7 +550,14 @@ class InputBrokerTest {
   void springConstructorTakesTheLimitsFromTheSettings() {
     final InputBroker fromSettings =
         new InputBroker(
-            store, feed, log, meters, new InputRedactor(List.of()), YuktaSettings.bind(Map.of()));
+            store,
+            feed,
+            log,
+            meters,
+            new InputRedactor(List.of()),
+            YuktaSettings.bind(Map.of()),
+            new com.infenia.yukta.service.input.route.RouteResolver(Map.of(), null),
+            null);
 
     fromSettings.ask(who("e1", "n1"), spec("k1")).subscribe();
 

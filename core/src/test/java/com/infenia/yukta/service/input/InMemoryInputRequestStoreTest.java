@@ -170,6 +170,41 @@ class InMemoryInputRequestStoreTest {
   }
 
   @Test
+  void dueBeforeAlsoReturnsRequestsWhoseTierHasRunOut() {
+    final InMemoryInputRequestStore store = new InMemoryInputRequestStore(5);
+    final Instant now = T0.plusSeconds(60);
+    final InputRequest base = full("tiered", "s", "e", InputState.OPEN, T0.plusSeconds(600), T0);
+    store.createIfAbsent(withTierDeadline(base, "tiered", now)).block();
+    store.createIfAbsent(withTierDeadline(base, "waiting", now.plusSeconds(1))).block();
+    store.createIfAbsent(withTierDeadline(base, "plain", null)).block();
+
+    assertThat(store.dueBefore(now).map(InputRequest::id).collectList().block())
+        .containsExactly("tiered");
+  }
+
+  private static InputRequest withTierDeadline(
+      final InputRequest base, final String id, final Instant tierDeadline) {
+    return new InputRequest(
+        id,
+        "key-" + id,
+        base.sessionId(),
+        base.workflowId(),
+        base.executionId(),
+        base.nodeId(),
+        InputTestSupport.spec("key-" + id),
+        base.state(),
+        base.version(),
+        base.tier(),
+        base.targets(),
+        base.advice(),
+        base.deadline(),
+        tierDeadline,
+        List.of(),
+        base.createdAt(),
+        base.updatedAt());
+  }
+
+  @Test
   void purgeRemovesOnlyFinishedRequestsOlderThanTheCutoff() {
     final InMemoryInputRequestStore store = new InMemoryInputRequestStore(5);
     final Instant cutoff = T0.plusSeconds(100);

@@ -111,7 +111,7 @@ public class InputTestSupport {
         100,
         Duration.ofSeconds(1),
         List.of(),
-        java.util.Map.of());
+        Map.of());
   }
 
   /** A clock a test moves by hand. */

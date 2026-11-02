@@ -81,10 +81,10 @@ public interface InputRequestStore {
   Flux<InputRequest> listOpen(@Nullable String sessionId, @Nullable String executionId);
 
   /**
-   * Lists the requests past their deadline.
+   * Lists the requests past their deadline or past the deadline of their tier.
    *
    * @param now the time to compare with
-   * @return non-terminal requests whose deadline is {@code now} or earlier
+   * @return non-terminal requests whose deadline or tier deadline is {@code now} or earlier
    */
   Flux<InputRequest> dueBefore(Instant now);
 
