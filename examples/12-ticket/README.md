@@ -7,6 +7,7 @@ Turns a GitHub issue into a reviewed, tested draft PR: an architect writes a spe
 | `schemas/` | JSON Schemas of every artifact the roles exchange (spec, step packet, step result, failure digest, revision, review, test-writer result) |
 | `fixtures/<schema>/` | one `valid.json` and several `invalid-*.json` per schema |
 | `project.json` | the project profile: commands, conventions, high-risk paths, limits, budgets |
-| `ticketkit` | the deterministic tools; so far `validate-schema NAME FILE` (needs python3 `jsonschema` >= 4.18) |
+| `ticketkit` | the deterministic tools (python3 `jsonschema` >= 4.18 needed): `validate-schema NAME FILE`; `init ISSUE` (run dir, branch, worktree; `SKIPPED` and exit 3 without acceptance criteria or when the branch exists); `route RUN_DIR` (models, effort, `tests_mode` into `routing.json`); `validate-spec RUN_DIR` (design 8.1 and the sizing lint 11.3; writes `spec/validation.json` and `spec/spec.hash`) |
 | `../11-dogfood/fixer-rules/ticket-*.md` | the constant role files (`architect`, `test-writer`, `implementer`, `reviewer`), picked by `YK_ROLE` in `claude.sh` |
 | `scripts/test-schemas.sh` | offline test (fake claude, no API cost) of the schemas, fixtures and roles |
+| `scripts/test-spec.sh` | offline test of `init`, `route` and `validate-spec` on a throwaway git repo (design 13.1 items 5, 18, 19, 22; 15.13 items 24, 29) |
