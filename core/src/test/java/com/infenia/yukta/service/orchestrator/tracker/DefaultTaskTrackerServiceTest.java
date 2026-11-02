@@ -5,7 +5,6 @@ package com.infenia.yukta.service.orchestrator.tracker;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.event.TaskStatusEvent;
 import com.infenia.yukta.event.WorkflowStatusEvent;
 import com.infenia.yukta.logging.api.LogStream;
@@ -19,7 +18,6 @@ import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
-import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.lang.reflect.Field;
 import java.time.Duration;
@@ -70,7 +68,7 @@ class DefaultTaskTrackerServiceTest {
   void settingsBuildTheTracker_thatStartsWorkflows() {
     final DefaultTaskTrackerService fromSettings =
         new DefaultTaskTrackerService(
-            YuktaSettings.bind(Map.of("yukta.tracker.cleanup-ttl", "30s")),
+            new TrackerProperties(null, 0, Duration.ofSeconds(30)),
             statusHistoryCache,
             new InMemoryExecutionLogStore(),
             new SimpleMeterRegistry(),
@@ -3223,7 +3221,7 @@ class DefaultTaskTrackerServiceTest {
   private DefaultTaskTrackerService withSessions(final int max) {
     final DefaultTaskTrackerService t =
         TrackerFactory.tracker(
-            new YuktaProperties.Tracker(null, max, Duration.ofMillis(200)),
+            new TrackerProperties(null, max, Duration.ofMillis(200)),
             statusHistoryCache,
             System::nanoTime);
     t.init();
@@ -3233,9 +3231,7 @@ class DefaultTaskTrackerServiceTest {
   private DefaultTaskTrackerService clocked(final @Nullable Duration ttl, final AtomicLong now) {
     final DefaultTaskTrackerService t =
         TrackerFactory.tracker(
-            new YuktaProperties.Tracker(ttl, 0, Duration.ofMillis(200)),
-            statusHistoryCache,
-            now::get);
+            new TrackerProperties(ttl, 0, Duration.ofMillis(200)), statusHistoryCache, now::get);
     t.init();
     return t;
   }
@@ -3295,7 +3291,7 @@ class DefaultTaskTrackerServiceTest {
   void sessionTtl_timerDropsIdleSessionsWithoutAnyCall() {
     final DefaultTaskTrackerService timed =
         TrackerFactory.tracker(
-            new YuktaProperties.Tracker(Duration.ofSeconds(1), 0, Duration.ofMillis(200)),
+            new TrackerProperties(Duration.ofSeconds(1), 0, Duration.ofMillis(200)),
             statusHistoryCache,
             System::nanoTime);
     timed.init();
@@ -3354,7 +3350,7 @@ class DefaultTaskTrackerServiceTest {
     final AtomicInteger sweeps = new AtomicInteger();
     final DefaultTaskTrackerService timed =
         TrackerFactory.tracker(
-            new YuktaProperties.Tracker(Duration.ofSeconds(1), 0, Duration.ofMillis(200)),
+            new TrackerProperties(Duration.ofSeconds(1), 0, Duration.ofMillis(200)),
             statusHistoryCache,
             () -> {
               sweeps.incrementAndGet();
@@ -3378,7 +3374,7 @@ class DefaultTaskTrackerServiceTest {
     final AtomicInteger sweeps = new AtomicInteger();
     final DefaultTaskTrackerService timed =
         TrackerFactory.tracker(
-            new YuktaProperties.Tracker(Duration.ofSeconds(1), 0, Duration.ofMinutes(10)),
+            new TrackerProperties(Duration.ofSeconds(1), 0, Duration.ofMinutes(10)),
             statusHistoryCache,
             () -> {
               sweeps.incrementAndGet();
