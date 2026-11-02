@@ -19,11 +19,11 @@ import org.jspecify.annotations.Nullable;
  */
 public record ApprovalNeed(InputRisk risk, @Nullable String routeName, @Nullable Duration ttl) {
 
-  /** The default: HIGH risk, the default route and the configured time to live. */
-  public static final ApprovalNeed DEFAULT = new ApprovalNeed(InputRisk.HIGH, null, null);
-
   /** The form of a route name, as an input request takes it. */
   private static final Pattern ROUTE_NAME = Pattern.compile("[A-Za-z0-9._-]{1,64}");
+
+  /** The default: HIGH risk, the default route and the configured time to live. */
+  public static final ApprovalNeed DEFAULT = new ApprovalNeed(InputRisk.HIGH, null, null);
 
   /**
    * Checks the settings.

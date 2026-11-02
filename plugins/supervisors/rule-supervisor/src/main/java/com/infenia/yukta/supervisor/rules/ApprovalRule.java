@@ -46,15 +46,13 @@ public final class ApprovalRule {
   }
 
   private static ApprovalNeed need(final String ruleId, final RequireApproval gate) {
+    final String named = gate.risk();
     final InputRisk risk;
     try {
-      risk =
-          gate.risk() == null
-              ? InputRisk.HIGH
-              : InputRisk.valueOf(gate.risk().toUpperCase(Locale.ROOT));
+      risk = named == null ? InputRisk.HIGH : InputRisk.valueOf(named.toUpperCase(Locale.ROOT));
     } catch (final IllegalArgumentException e) {
       throw new IllegalArgumentException(
-          "Rule '" + ruleId + "': risk must be LOW, MEDIUM or HIGH, not '" + gate.risk() + "'", e);
+          "Rule '" + ruleId + "': risk must be LOW, MEDIUM or HIGH, not '" + named + "'", e);
     }
     try {
       return new ApprovalNeed(risk, gate.route(), null);
