@@ -12,11 +12,8 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowNode;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import com.infenia.yukta.plugin.control.StopMode;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
@@ -34,12 +31,7 @@ import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.LinguisticNaming",
-  "PMD.TooManyMethods",
-  "PMD.TooManyStaticImports",
-  "PMD.AvoidDuplicateLiterals"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports", "PMD.AvoidDuplicateLiterals"})
 class StopWorkflowCommandProcessorTest {
 
   private static final String EXEC = "exec-1";
@@ -61,8 +53,9 @@ class StopWorkflowCommandProcessorTest {
         new StopWorkflowCommandProcessor(
             registry, tracker, YuktaSettings.bind(Map.of("yukta.stop.drain-timeout", "300ms")));
 
-    assertThat(fromSettings.canProcess(new StopWorkflowCommand(EXEC, "r"))).isTrue();
-    assertThat(fromSettings.canProcess(new PauseWorkflowCommand(EXEC))).isFalse();
+    StepVerifier.create(fromSettings.process(new StopWorkflowCommand(EXEC, "r", StopMode.CANCEL)))
+        .verifyComplete();
+    assertThat(control.stopRequested()).isTrue();
   }
 
   @BeforeEach
@@ -98,18 +91,6 @@ class StopWorkflowCommandProcessorTest {
 
   private static boolean completed(final Sinks.One<Void> sink) {
     return sink.asMono().toFuture().isDone();
-  }
-
-  @Test
-  void canProcess_stopWorkflowCommand_returnsTrue() {
-    final ExecutionControlCommand command = new StopWorkflowCommand(EXEC, "User initiated stop");
-
-    assertThat(processor.canProcess(command)).isTrue();
-  }
-
-  @Test
-  void canProcess_otherCommand_returnsFalse() {
-    assertThat(processor.canProcess(new PauseWorkflowCommand(EXEC))).isFalse();
   }
 
   @Test
@@ -210,13 +191,13 @@ class StopWorkflowCommandProcessorTest {
   }
 
   @Test
-  void kill_returnsStopDirectiveSoTheExecutionIsRemoved() {
+  void kill_removesTheExecutionAndCancelsIt() {
     StepVerifier.create(processor.process(new StopWorkflowCommand(EXEC, "boom", StopMode.KILL)))
-        .assertNext(
-            directive -> assertThat(directive).isEqualTo(new WorkflowDirective.Stop("boom")))
         .verifyComplete();
 
     assertThat(control.stopRequested()).isTrue();
+    verify(registry).remove(EXEC);
+    assertThat(completed(safeStop)).isTrue();
   }
 
   @Test
@@ -229,10 +210,5 @@ class StopWorkflowCommandProcessorTest {
                 e instanceof IllegalArgumentException
                     && e.getMessage().contains("Execution not found: nope"))
         .verify();
-  }
-
-  @Test
-  void getPriority_returnsCorrectValue() {
-    assertThat(processor.getPriority()).isEqualTo(20);
   }
 }

@@ -182,27 +182,6 @@ class ExecutionControlCommandTest {
   }
 
   @Test
-  void processorPriorityDefaultsToZero() {
-    final ControlSignalProcessor processor =
-        new ControlSignalProcessor() {
-          @Override
-          public boolean canProcess(final ExecutionControlCommand command) {
-            return true;
-          }
-
-          @Override
-          public reactor.core.publisher.Mono<WorkflowDirective> process(
-              final ExecutionControlCommand command) {
-            return reactor.core.publisher.Mono.just(new WorkflowDirective.Stop("done"));
-          }
-        };
-
-    assertThat(processor.getPriority()).isZero();
-    assertThat(processor.process(new StopWorkflowCommand("e", null)).block())
-        .isEqualTo(new WorkflowDirective.Stop("done"));
-  }
-
-  @Test
   void setBreakpoint_acceptsPayloadAndMetadataFields_andRejectsOthers() {
     assertThat(new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payload", "x").field())
         .isEqualTo("payload");

@@ -3,10 +3,7 @@
 package com.infenia.yukta.service.control.processor;
 
 import com.infenia.yukta.model.execution.ControlState;
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
@@ -25,7 +22,7 @@ import reactor.core.publisher.Sinks;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class StopNodeCommandProcessor implements ControlSignalProcessor {
+public class StopNodeCommandProcessor {
 
   /** The execution control registry for accessing execution control state. */
   private final ExecutionControlStore registry;
@@ -33,14 +30,8 @@ public class StopNodeCommandProcessor implements ControlSignalProcessor {
   /** The task tracker service for tracking task execution. */
   private final TaskTrackerService taskTracker;
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof StopNodeCommand;
-  }
-
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final StopNodeCommand stop = (StopNodeCommand) command;
+  /** Applies the command. */
+  public Mono<Void> process(final StopNodeCommand stop) {
     return Mono.fromRunnable(
         () -> {
           final ExecutionControl control =
@@ -72,10 +63,5 @@ public class StopNodeCommandProcessor implements ControlSignalProcessor {
               .addKeyValue("status", "NODE_STOPPED")
               .log("Stopped node");
         });
-  }
-
-  @Override
-  public int getPriority() {
-    return 15;
   }
 }

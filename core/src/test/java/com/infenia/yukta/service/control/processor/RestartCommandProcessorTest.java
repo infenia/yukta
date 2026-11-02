@@ -11,8 +11,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.archive.ArchivedExecution;
@@ -35,10 +33,8 @@ import reactor.test.StepVerifier;
 
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.LinguisticNaming",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyStaticImports",
-  "PMD.TooManyMethods"
 })
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.processor.RestartCommandProcessor - ")
 class RestartCommandProcessorTest {
@@ -59,18 +55,6 @@ class RestartCommandProcessorTest {
     processor =
         new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);
     archive.put(new ArchivedExecution("exec-1", "s1", "w1", prepared, "v1", Map.of("k", "v")));
-  }
-
-  @Test
-  void canProcess_restartCommand_returnsTrue() {
-    final ExecutionControlCommand command = new RestartCommand("exec-1", "new-1");
-
-    assertThat(processor.canProcess(command)).isTrue();
-  }
-
-  @Test
-  void canProcess_otherCommand_returnsFalse() {
-    assertThat(processor.canProcess(new PauseWorkflowCommand("exec-1"))).isFalse();
   }
 
   @Test
@@ -192,10 +176,5 @@ class RestartCommandProcessorTest {
     verify(completionSink).completeRestartFailure(eq("new-2"), any(ConflictException.class));
     StepVerifier.create(first).verifyComplete();
     verify(completionSink).completeRestartSuccess("new-1");
-  }
-
-  @Test
-  void getPriority_returnsCorrectValue() {
-    assertThat(processor.getPriority()).isEqualTo(20);
   }
 }
