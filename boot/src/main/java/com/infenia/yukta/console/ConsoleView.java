@@ -6,6 +6,9 @@ import ch.qos.logback.classic.Level;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
+import org.jline.utils.AttributedString;
+import org.jline.utils.AttributedStyle;
 
 /** The console's state, key handling and screen layout; no terminal here, so it is testable. */
 @SuppressWarnings({
@@ -14,9 +17,7 @@ import java.util.List;
   "PMD.FieldDeclarationsShouldBeAtStartOfClass",
   "PMD.AvoidFieldNameMatchingMethodName",
   "PMD.CyclomaticComplexity",
-  "PMD.NPathComplexity",
-  "PMD.AvoidLiteralsInIfCondition",
-  "PMD.AvoidReassigningLoopVariables"
+  "PMD.NPathComplexity"
 })
 /* default */ final class ConsoleView {
 
@@ -32,13 +33,17 @@ import java.util.List;
   private static final List<Level> LEVELS =
       List.of(Level.ALL, Level.DEBUG, Level.INFO, Level.WARN, Level.ERROR);
 
-  private static final String RESET = "\033[0m";
-  private static final String BOLD = "\033[1m";
-  private static final String DIM = "\033[2m";
-  private static final String RED = "\033[31m";
-  private static final String GREEN = "\033[32m";
-  private static final String YELLOW = "\033[33m";
-  private static final String CYAN = "\033[36m";
+  private static final AttributedStyle BOLD = AttributedStyle.BOLD;
+  private static final AttributedStyle DIM = AttributedStyle.DEFAULT.faint();
+  private static final AttributedStyle RED =
+      AttributedStyle.DEFAULT.foreground(AttributedStyle.RED);
+  private static final AttributedStyle GREEN =
+      AttributedStyle.DEFAULT.foreground(AttributedStyle.GREEN);
+  private static final AttributedStyle YELLOW =
+      AttributedStyle.DEFAULT.foreground(AttributedStyle.YELLOW);
+  private static final AttributedStyle CYAN =
+      AttributedStyle.DEFAULT.foreground(AttributedStyle.CYAN);
+  private static final AttributedStyle PLAIN = AttributedStyle.DEFAULT;
 
   /** One row of the runs table. */
   /* default */ record Run(String workflow, String status, String started, String initiator) {}
@@ -90,7 +95,7 @@ import java.util.List;
     return page == Page.RUNS;
   }
 
-  /** Applies a key: a character, or one of the names UP DOWN PGUP PGDN. */
+  /** Applies a key: a character, or one of the names UP DOWN PGUP PGDN HOME END. */
   /* default */ void onKey(final String key) {
     switch (key) {
       case "q" -> quit = true;
@@ -102,7 +107,8 @@ import java.util.List;
       case "DOWN" -> scroll = Math.max(0, scroll - 1);
       case "PGUP" -> scroll += 10;
       case "PGDN" -> scroll = Math.max(0, scroll - 10);
-      case "G" -> scroll = 0;
+      case "G", "END" -> scroll = 0;
+      case "HOME" -> scroll = Integer.MAX_VALUE / 2;
       default -> {
         // ignored
       }
@@ -114,40 +120,27 @@ import java.util.List;
     scroll = 0;
   }
 
-  /** The screen as {@code height} lines of at most {@code width} visible characters. */
-  /* default */ List<String> render(
+  /** The screen as {@code height} lines of at most {@code width} columns. */
+  /* default */ List<AttributedString> render(
       final Snapshot s, final Duration uptime, final int cols, final int rows) {
     // a terminal can report no size (0x0) before it is sized: draw for 80x24 then
     final int width = cols > 0 ? cols : 80;
     final int height = Math.max(rows > 0 ? rows : 24, 5);
-    final List<String> out = new ArrayList<>();
+    final List<AttributedString> out = new ArrayList<>();
     out.add(
-        BOLD
-            + "Yukta "
-            + version
-            + RESET
-            + "  "
-            + url
-            + "  up "
-            + fmt(uptime)
-            + "  health "
-            + ("UP".equals(s.health()) ? GREEN : RED)
-            + s.health()
-            + RESET);
+        cat(
+            text("Yukta " + version, BOLD),
+            text("  " + url + "  up " + fmt(uptime) + "  health "),
+            text(s.health(), "UP".equals(s.health()) ? GREEN : RED)));
     out.add(
-        "runs: running "
-            + CYAN
-            + s.running()
-            + RESET
-            + "  queued "
-            + (s.queued() > 0 ? YELLOW : "")
-            + s.queued()
-            + RESET
-            + "  failed(24h) "
-            + (s.failed() > 0 ? RED : "")
-            + s.failed()
-            + RESET);
-    out.add("-".repeat(Math.max(0, width)));
+        cat(
+            text("runs: running "),
+            text(String.valueOf(s.running()), CYAN),
+            text("  queued "),
+            text(String.valueOf(s.queued()), s.queued() > 0 ? YELLOW : PLAIN),
+            text("  failed(24h) "),
+            text(String.valueOf(s.failed()), s.failed() > 0 ? RED : PLAIN)));
+    out.add(text("-".repeat(width)));
     final int body = height - out.size() - 1;
     switch (page) {
       case HELP -> out.addAll(help());
@@ -156,50 +149,68 @@ import java.util.List;
       default -> {
         final int runRows = Math.min(5, Math.max(1, body / 3));
         out.addAll(runs(s, runRows));
-        out.add("-".repeat(Math.max(0, width)));
+        out.add(text("-".repeat(width)));
         out.addAll(logLines(height - out.size() - 1));
       }
     }
     while (out.size() < height - 1) {
-      out.add("");
+      out.add(AttributedString.EMPTY);
     }
-    final List<String> framed = new ArrayList<>(out.subList(0, height - 1));
-    framed.add(DIM + "q quit  l logs  r runs  ? help  f level>=" + level() + "  ↑↓ scroll" + RESET);
-    final var lines = framed.stream().map(l -> clip(l, width));
-    return (color ? lines : lines.map(l -> l.replaceAll("\033\\[[0-9;]*m", ""))).toList();
+    final List<AttributedString> framed = new ArrayList<>(out.subList(0, height - 1));
+    framed.add(
+        text("q quit  l logs  r runs  ? help  f level>=" + level() + "  ↑↓ scroll  m mouse", DIM));
+    return framed.stream().map(l -> color ? clip(l, width) : plain(clip(l, width))).toList();
   }
 
-  private static List<String> runs(final Snapshot s, final int rows) {
-    final List<String> out = new ArrayList<>();
+  private static AttributedString text(final String text) {
+    return new AttributedString(clean(text));
+  }
+
+  private static AttributedString text(final String text, final AttributedStyle style) {
+    return new AttributedString(clean(text), style);
+  }
+
+  private static AttributedString cat(final AttributedString... parts) {
+    return AttributedString.join(AttributedString.EMPTY, parts);
+  }
+
+  private static AttributedString plain(final AttributedString line) {
+    return new AttributedString(line.toString());
+  }
+
+  /** Log text can carry escape sequences or tabs; they would move the cursor, so they go. */
+  private static String clean(final String text) {
+    return text.replaceAll("\033\\[[0-9;?]*[a-zA-Z]", "").replaceAll("[\\p{Cntrl}]", " ");
+  }
+
+  private static List<AttributedString> runs(final Snapshot s, final int rows) {
+    final List<AttributedString> out = new ArrayList<>();
     out.add(
-        BOLD
-            + String.format("%-28s %-10s %-20s %s", "WORKFLOW", "STATUS", "STARTED", "BY")
-            + RESET);
+        text(String.format("%-28s %-10s %-20s %s", "WORKFLOW", "STATUS", "STARTED", "BY"), BOLD));
     for (final Run r : s.runs().stream().limit(Math.max(0, rows - 1)).toList()) {
       out.add(
-          String.format("%-28s ", r.workflow())
-              + statusColor(r.status())
-              + String.format("%-10s", r.status())
-              + RESET
-              + String.format(" %-20s %s", r.started(), r.initiator()));
+          cat(
+              text(String.format("%-28s ", r.workflow())),
+              text(String.format("%-10s", r.status()), statusColor(r.status())),
+              text(String.format(" %-20s %s", r.started(), r.initiator()))));
     }
     if (s.runs().isEmpty()) {
-      out.add(DIM + "no runs yet" + RESET);
+      out.add(text("no runs yet", DIM));
     }
     return out;
   }
 
-  private static String statusColor(final String status) {
+  private static AttributedStyle statusColor(final String status) {
     return switch (status) {
       case "RUNNING" -> CYAN;
       case "SUCCESS" -> GREEN;
       case "FAILURE", "TIMED_OUT" -> RED;
       case "QUEUED", "PAUSED" -> YELLOW;
-      default -> "";
+      default -> PLAIN;
     };
   }
 
-  private List<String> logLines(final int rows) {
+  private List<AttributedString> logLines(final int rows) {
     if (rows <= 0) {
       return List.of();
     }
@@ -209,45 +220,35 @@ import java.util.List;
     return all.subList(start, end).stream().map(ConsoleView::colour).toList();
   }
 
-  private static String colour(final ConsoleLogs.Line l) {
+  private static AttributedString colour(final ConsoleLogs.Line l) {
     if (l.level().isGreaterOrEqual(Level.ERROR)) {
-      return RED + l.text() + RESET;
+      return text(l.text(), RED);
     }
     if (l.level().isGreaterOrEqual(Level.WARN)) {
-      return YELLOW + l.text() + RESET;
+      return text(l.text(), YELLOW);
     }
-    return l.level().isGreaterOrEqual(Level.INFO) ? l.text() : DIM + l.text() + RESET;
+    return l.level().isGreaterOrEqual(Level.INFO) ? text(l.text()) : text(l.text(), DIM);
   }
 
-  private static List<String> help() {
-    return List.of(
-        "q   quit the server",
-        "l   full logs (toggle)",
-        "r   runs (toggle)",
-        "f   cycle the log level filter",
-        "↑ ↓ PgUp PgDn   scroll the logs, G to follow the tail",
-        "?   this help");
+  private static List<AttributedString> help() {
+    return Stream.of(
+            "q   quit the server",
+            "l   full logs (toggle)",
+            "r   runs (toggle)",
+            "f   cycle the log level filter",
+            "↑ ↓ PgUp PgDn Home   scroll the logs, G or End to follow the tail",
+            "m   mouse wheel scrolling (toggle; off when the terminal has no mouse)",
+            "?   this help")
+        .map(ConsoleView::text)
+        .toList();
   }
 
   private static String fmt(final Duration d) {
     return String.format("%dh%02dm%02ds", d.toHours(), d.toMinutesPart(), d.toSecondsPart());
   }
 
-  /** Cuts a line to {@code width} visible characters (escape sequences do not count). */
-  /* default */ static String clip(final String line, final int width) {
-    final StringBuilder sb = new StringBuilder();
-    int visible = 0;
-    for (int i = 0; i < line.length(); i++) {
-      final char c = line.charAt(i);
-      if (c == '\033') {
-        final int m = line.indexOf('m', i);
-        sb.append(line, i, m + 1);
-        i = m;
-      } else if (visible < width) {
-        sb.append(c);
-        visible++;
-      }
-    }
-    return sb.append(RESET).toString();
+  /** Cuts a line to {@code width} terminal columns (wide characters count two). */
+  /* default */ static AttributedString clip(final AttributedString line, final int width) {
+    return line.columnLength() <= width ? line : line.columnSubSequence(0, width);
   }
 }
