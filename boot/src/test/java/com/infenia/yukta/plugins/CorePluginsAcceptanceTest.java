@@ -34,6 +34,7 @@ class CorePluginsAcceptanceTest {
   @Autowired private PluginRegistry registry;
   @Autowired private ControlBusGateway gateway;
   @Autowired private TaskTrackerService tracker;
+  @Autowired private com.infenia.yukta.service.input.InputBroker broker;
 
   private PluginWorkflows wf;
 
@@ -230,6 +231,29 @@ class CorePluginsAcceptanceTest {
         .isEqualTo(TaskStatus.RUNNING);
 
     gateway.signalNode(executionId, "w", "approve", "approve", "go").block(PluginWorkflows.WAIT);
+
+    await()
+        .atMost(PluginWorkflows.WAIT)
+        .until(() -> TaskStatus.SUCCESS == tracker.getProgressByExecutionId(executionId).status());
+  }
+
+  @Test
+  void askInput_holdsTheRunUntilTheRequestIsAnswered() {
+    final var key = wf.chain(node("q", "ASK_INPUT", Map.of("prompt", "Deploy?", "risk", "MEDIUM")));
+    final String executionId = gateway.startWorkflow(key.session(), key.workflowId()).block();
+    await()
+        .atMost(PluginWorkflows.WAIT)
+        .until(
+            () -> broker.listOpen(null, executionId).hasElements().blockOptional().orElse(false));
+    final var request =
+        java.util.Objects.requireNonNull(broker.listOpen(null, executionId).blockFirst());
+    assertThat(request.spec().prompt()).isEqualTo("Deploy?");
+    assertThat(tracker.getProgressByExecutionId(executionId).status())
+        .isEqualTo(TaskStatus.RUNNING);
+
+    gateway
+        .answerInput(executionId, request.id(), null, "approve", "go", null, null, null)
+        .block(PluginWorkflows.WAIT);
 
     await()
         .atMost(PluginWorkflows.WAIT)

@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.supervisor.rules.RuleSet;
 import com.infenia.yukta.supervisor.rules.RuleSupervisor;
 import java.io.IOException;
@@ -57,6 +58,20 @@ public final class RuleControlPlane implements ControlPlanePlugin {
    */
   public RuleControlPlane(final RuleSet ruleSet, final Clock clock) {
     this.rules = new RuleSupervisor(ruleSet, clock);
+  }
+
+  /**
+   * Creates the plugin for a profile, so that answer rules its profile does not allow are reported
+   * when they are loaded.
+   *
+   * @param ruleSet the rules
+   * @param clock the time source
+   * @param capabilities what the profile allows
+   * @throws IllegalArgumentException if a rule is invalid
+   */
+  public RuleControlPlane(
+      final RuleSet ruleSet, final Clock clock, final SupervisorCapabilities capabilities) {
+    this.rules = new RuleSupervisor(ruleSet, clock, capabilities);
   }
 
   @Override

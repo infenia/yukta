@@ -15,6 +15,9 @@ import org.jspecify.annotations.Nullable;
  *    "when": {"event": "NodeStatusChanged", "status": "FAILURE", "module": "HTTP_REQUEST",
  *             "count": 3, "withinSeconds": 60},
  *    "then": {"command": "PauseWorkflow"}},
+ *   {"id": "auto-approve-staging",
+ *    "when": {"event": "InputRequested", "if": "risk == 'LOW'"},
+ *    "then": {"answer": {"decision": "approve", "rationale": "policy 7"}}},
  *   {"id": "no-kill",
  *    "deny": {"command": "StopWorkflowCommand", "if": "mode == 'KILL'", "reason": "use DRAIN"}},
  *   {"id": "prod-stop-needs-approval",
@@ -70,7 +73,9 @@ public record RuleSet(List<Rule> rules) {
    * Events that trigger a rule. Every field that is set must match.
    *
    * @param event the event kind: {@code NodeStatusChanged}, {@code WorkflowStatusChanged}, {@code
-   *     ControlOutcome} or {@code LogLine}
+   *     ControlOutcome}, {@code LogLine}, {@code EventsMissed} or one of the input request events
+   *     ({@code InputRequested}, {@code InputEscalated}, {@code InputAnswered}, {@code
+   *     InputExpired}, {@code InputCancelled})
    * @param status the status, for status events
    * @param module the node's plugin type, for node events
    * @param nodeId the node, for node and log events
@@ -91,7 +96,8 @@ public record RuleSet(List<Rule> rules) {
       @Nullable Integer withinSeconds) {}
 
   /**
-   * The command a rule sends to the execution that triggered it.
+   * What a rule does when it fires: send a command, or answer or escalate the input request of the
+   * event. Exactly one of {@code command}, {@code answer} and {@code escalate} is set.
    *
    * @param command {@code PauseWorkflow}, {@code ResumeWorkflow}, {@code StopWorkflow}, {@code
    *     PauseNode}, {@code ResumeNode}, {@code StopNode}, {@code Restart} or {@code
@@ -103,13 +109,44 @@ public record RuleSet(List<Rule> rules) {
    * @param immediate for {@code StopNode}: interrupt instead of draining
    * @param from for {@code RestartFromNode}: the node to restart from, as a literal or {@code
    *     metadata.<key>} of the event; {@code START} (or nothing found) restarts the whole run
+   * @param answer answers the input request of an {@code InputRequested} or {@code InputEscalated}
+   *     event
+   * @param escalate hands the input request of an {@code InputRequested} or {@code InputEscalated}
+   *     event up, with advice
    */
   public record Then(
-      String command,
+      @Nullable String command,
       @Nullable String mode,
       @Nullable String reason,
       @Nullable Boolean immediate,
-      @Nullable String from) {}
+      @Nullable String from,
+      @Nullable Answer answer,
+      @Nullable Escalate escalate) {}
+
+  /**
+   * The answer a rule gives to an input request. Whether it is accepted is decided by the server:
+   * the supervisor's profile needs {@code canAnswer} and a {@code maxRisk} that reaches the
+   * request's risk, and a request of risk {@code HIGH} is answered by people only.
+   *
+   * @param decision the decision; one of the request's option ids for {@code APPROVAL} with options
+   *     and {@code CHOICE}
+   * @param text free text for {@code TEXT} requests
+   * @param rationale why; recorded with the answer after {@code rule <id>: }
+   * @param confidence from 0 to 1; default 1
+   */
+  public record Answer(
+      String decision,
+      @Nullable String text,
+      @Nullable String rationale,
+      @Nullable Double confidence) {}
+
+  /**
+   * How a rule hands an input request up to whoever answers next.
+   *
+   * @param reason why; default {@code escalated by rule <id>}
+   * @param advice a recommendation the next responder sees
+   */
+  public record Escalate(@Nullable String reason, @Nullable String advice) {}
 
   /**
    * Commands a rule refuses.

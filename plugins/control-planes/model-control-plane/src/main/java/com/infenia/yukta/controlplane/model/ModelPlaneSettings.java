@@ -36,6 +36,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param apiKey the API key, if the endpoint needs one
  * @param timeout how long to wait for an answer
  * @param minProbability a choice acts only when the model rates it at least this likely
+ * @param minConfidence an input request is answered only when the model rates its choice at least
+ *     this likely; below it the request is escalated with the model's advice; from 0 to 1, default
+ *     0.8
  * @param instructions the question put to the model
  * @param options the answers the model may give, by key, each with a description of when it applies
  *     and the command it triggers; at least two
@@ -43,7 +46,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *     {@code -1}; unset leaves it to Ollama
  * @param numCtx for System One: the context size to load the model with; unset leaves it to Ollama
  * @param events the kinds of event to ask about: {@code NodeStatusChanged}, {@code
- *     WorkflowStatusChanged}, {@code ControlOutcome}, {@code LogLine}
+ *     WorkflowStatusChanged}, {@code ControlOutcome}, {@code LogLine}, and the input events; {@code
+ *     InputRequested} and {@code InputEscalated} are answered or escalated (see {@link
+ *     InputAdvisor}), not mapped to the options
  * @param maxCallsPerMinute most model calls per minute; events beyond it get no opinion (counted as
  *     {@code skipped}) instead of waiting for the model; 0 asks about every matching event
  */
@@ -57,6 +62,7 @@ public record ModelPlaneSettings(
     @Nullable String apiKey,
     @DefaultValue("2s") Duration timeout,
     @DefaultValue("0.6") double minProbability,
+    @DefaultValue("0.8") double minConfidence,
     String instructions,
     Map<String, Option> options,
     Set<String> events,
@@ -95,8 +101,8 @@ public record ModelPlaneSettings(
   /**
    * Fills in defaults and checks the settings.
    *
-   * @throws IllegalArgumentException if the name is missing, fewer than two options are given, or
-   *     the chat backend has no provider
+   * @throws IllegalArgumentException if the name is missing, fewer than two options are given, the
+   *     chat backend has no provider, or min-confidence is not between 0 and 1
    */
   public ModelPlaneSettings {
     if (name == null || name.isBlank()) {
@@ -116,6 +122,9 @@ public record ModelPlaneSettings(
             new LinkedHashMap<>(options == null || options.isEmpty() ? defaultOptions() : options));
     if (options.size() < MIN_OPTIONS) {
       throw new IllegalArgumentException("At least two options are needed");
+    }
+    if (!(minConfidence >= 0 && minConfidence <= 1)) {
+      throw new IllegalArgumentException("min-confidence must be between 0 and 1");
     }
     if (maxCallsPerMinute < 0) {
       throw new IllegalArgumentException("max-calls-per-minute cannot be negative");

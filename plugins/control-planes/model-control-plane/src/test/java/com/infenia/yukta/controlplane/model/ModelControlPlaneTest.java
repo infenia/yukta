@@ -82,6 +82,7 @@ class ModelControlPlaneTest {
         null,
         Duration.ofSeconds(1),
         0.6,
+        0.8,
         null,
         options,
         events,
@@ -361,11 +362,12 @@ class ModelControlPlaneTest {
             now,
             now);
 
-    plane.decide(new ExecutionEvent.InputRequested(request, now)).block();
-    assertThat(spy.asked.get().state())
+    // requests and escalations are judged by InputAdvisor; their plain description stays safe
+    assertThat(ModelControlPlane.describe(new ExecutionEvent.InputRequested(request, now)))
         .isEqualTo("Step ask asked for input of kind APPROVAL with risk HIGH.");
-    plane.decide(new ExecutionEvent.InputEscalated(request, "tier timeout", now)).block();
-    assertThat(spy.asked.get().state())
+    assertThat(
+            ModelControlPlane.describe(
+                new ExecutionEvent.InputEscalated(request, "tier timeout", now)))
         .isEqualTo("The input request of step ask was handed to the tier ops.");
     plane
         .decide(
@@ -394,6 +396,7 @@ class ModelControlPlaneTest {
             "key",
             Duration.ofSeconds(5),
             0.6,
+            0.8,
             "Act?",
             null,
             null,
@@ -473,6 +476,7 @@ class ModelControlPlaneTest {
             null,
             Duration.ofSeconds(1),
             0.6,
+            0.8,
             null,
             null,
             null,

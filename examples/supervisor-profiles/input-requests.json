@@ -1,0 +1,38 @@
+{
+  "id": "input-rules",
+  "type": "rule-supervisor",
+  "dryRun": false,
+  "settings": {
+    "canAnswer": true,
+    "maxRisk": "LOW",
+    "rules": [
+      {
+        "id": "approve-low-risk-staging",
+        "when": {
+          "event": "InputRequested",
+          "if": "kind == 'APPROVAL' and risk == 'LOW' and context['environment'] == 'staging'"
+        },
+        "then": {
+          "answer": {
+            "decision": "approve",
+            "rationale": "policy 7: low risk changes to staging are pre-approved",
+            "confidence": 1.0
+          }
+        }
+      },
+      {
+        "id": "escalate-everything-else",
+        "when": {
+          "event": "InputRequested",
+          "if": "not (kind == 'APPROVAL' and risk == 'LOW' and context['environment'] == 'staging')"
+        },
+        "then": {
+          "escalate": {
+            "reason": "not covered by policy 7",
+            "advice": "Only low risk staging approvals are pre-approved. Check the change and its target environment before you answer."
+          }
+        }
+      }
+    ]
+  }
+}

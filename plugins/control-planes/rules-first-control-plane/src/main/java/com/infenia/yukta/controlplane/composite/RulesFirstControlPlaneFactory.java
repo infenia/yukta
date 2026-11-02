@@ -6,6 +6,7 @@ import com.infenia.yukta.controlplane.model.ModelControlPlane;
 import com.infenia.yukta.controlplane.model.ModelPlaneBinder;
 import com.infenia.yukta.controlplane.rules.RuleControlPlane;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.decision.DecisionModel;
@@ -16,11 +17,12 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Makes rules-first control planes from profiles. The settings hold {@code rules}, the list of
- * rules, and {@code model}, the keys of {@code yukta.control-plane.model.*}.
+ * rules, and {@code model}, the keys of {@code yukta.control-plane.model.*}, next to the capability
+ * settings {@code allowedCommands}, {@code canAnswer} and {@code maxRisk}, which apply to both: the
+ * rules and the model answer input requests only when the profile allows it.
  */
 @Component
 @RequiredArgsConstructor
@@ -28,9 +30,6 @@ public class RulesFirstControlPlaneFactory implements SupervisorFactory {
 
   /** The supervisor type in a profile. */
   public static final String PROFILE_TYPE = "rules-first-control-plane";
-
-  /** Writes the rules back to the JSON the rule reader takes. */
-  private static final JsonMapper JSON = JsonMapper.builder().build();
 
   /** The model that answers when no rule fired. */
   private final ObjectProvider<DecisionModel> models;
@@ -54,10 +53,11 @@ public class RulesFirstControlPlaneFactory implements SupervisorFactory {
       throw new IllegalArgumentException(
           "No decision model is available; enable the decision plugin");
     }
+    final SupervisorCapabilities capabilities = SupervisorCapabilities.from(profile);
     return new RulesFirstControlPlane(
         new RuleControlPlane(
-            RuleSupervisor.read(JSON.writeValueAsString(Map.of("rules", rules))),
-            Clock.systemUTC()),
-        new ModelControlPlane(decisionModel, ModelPlaneBinder.bind((Map<String, Object>) model)));
+            RuleSupervisor.read(Map.of("rules", rules)), Clock.systemUTC(), capabilities),
+        new ModelControlPlane(
+            decisionModel, ModelPlaneBinder.bind((Map<String, Object>) model), capabilities));
   }
 }
