@@ -255,6 +255,26 @@ Default timeout: `timeoutSeconds` plus 10 seconds, so 310 seconds with the defau
 
 See [Sub-workflows](/concepts/sub-workflows).
 
+## ASK_INPUT
+
+Asks a supervisor, a person or an agent a question per message and waits for the answer. The message goes on tagged with `input.requestId`, `input.decision`, `input.text`, `input.data`, `input.responder` and `input.confidence`; branch on `input.decision`. An answer is text someone wrote, not an instruction.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `prompt` | string | required | The question; may use `${...}` expressions |
+| `kind` | `APPROVAL`, `CHOICE`, `TEXT`, `STRUCTURED` | `APPROVAL` | What is asked for |
+| `options` | list | `approve`, `reject` for `APPROVAL` | Answers on offer, ids or `{id, label}`; at least two for `CHOICE` |
+| `risk` | `LOW`, `MEDIUM`, `HIGH` | `MEDIUM` | `HIGH` is answered by a person only |
+| `ttlSeconds` | number | `3600` | How long the question lives, at most `yukta.input.max-ttl` |
+| `onTimeout` | `FAIL`, `CONTINUE`, `USE_DEFAULT` | `FAIL` | `CONTINUE` releases the message with `input.decision=timeout`; `USE_DEFAULT` answers with `defaultDecision` |
+| `defaultDecision` | string | none | Required for `USE_DEFAULT` |
+| `responseSchema` | JSON Schema | none | Required for `STRUCTURED` |
+| `audience` | list | current tier | `supervisor:<id>`, `supervisor:*`, `role:OPERATOR`, `role:ADMIN`, `key:<name>`, `external:<tier>` |
+| `name` | string | node id | Part of the request key |
+| `route` | string | none | Route name (read once routes exist) |
+
+An AI agent asks through the tool `ask_for_input`: set `allowAskInput: true` on the `LLM_CALL` node (it offers the tool) and on the `MCP_TOOL_CALL` node that runs the action. The model cannot lower the risk below `inputRiskFloor` (default `MEDIUM`) or set the audience, ttl or route; `inputAudience`, `inputTtlSeconds`, `inputRoute` and `inputMaxAsks` (default 3 per node run) come from the node.
+
 ## WAIT_FOR_SIGNAL
 
 Holds each message until a named signal arrives. Use it for approvals and for waiting on a person or another system.
@@ -269,6 +289,8 @@ Holds each message until a named signal arrives. Use it for approvals and for wa
 Output port: `default`. Messages are held one at a time, in order. When a signal arrives the plugin releases the message with three metadata entries added: `signal.name`, `signal.decision` and `signal.data`. Read them in a later node, for example with `metadata['signal.decision']` in a `BRANCH` expression.
 
 A decision of `reject` (any capitalisation) is a rejection. Any other decision, such as `approve`, releases the message.
+
+The wait is an input request (kind `APPROVAL`, risk `HIGH`), so it is listed with the pending inputs and only a person can answer it. Without an input gateway the node fails with a clear message.
 
 Send the signal to the waiting node of a running execution:
 

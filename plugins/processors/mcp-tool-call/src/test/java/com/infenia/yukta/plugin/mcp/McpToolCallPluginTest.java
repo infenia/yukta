@@ -3,7 +3,6 @@
 package com.infenia.yukta.plugin.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -14,6 +13,13 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
+import com.infenia.yukta.plugin.input.InputExpiredException;
+import com.infenia.yukta.plugin.input.InputGateway;
+import com.infenia.yukta.plugin.input.InputKind;
+import com.infenia.yukta.plugin.input.InputRequestSpec;
+import com.infenia.yukta.plugin.input.InputResponse;
+import com.infenia.yukta.plugin.input.InputRisk;
+import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
 import java.util.List;
@@ -39,11 +45,10 @@ import reactor.util.context.Context;
 @NoArgsConstructor
 class McpToolCallPluginTest {
 
-  private static final String ACCEPTED = "ACCEPTED";
-
   private final McpClientGateway gateway = mock(McpClientGateway.class);
   private final VariableResolver resolver = mock(VariableResolver.class);
   private final PluginMetricsReporter reporter = mock(PluginMetricsReporter.class);
+  private final InputGateway inputGateway = mock(InputGateway.class);
   private McpToolCallPlugin plugin;
 
   @BeforeEach
@@ -52,7 +57,9 @@ class McpToolCallPluginTest {
     when(reporters.getIfAvailable(any())).thenReturn(reporter);
     final ObjectProvider<io.micrometer.core.instrument.MeterRegistry> meters =
         mock(ObjectProvider.class);
-    plugin = new McpToolCallPlugin(gateway, resolver, reporters, meters);
+    final ObjectProvider<InputGateway> inputs = mock(ObjectProvider.class);
+    when(inputs.getIfAvailable()).thenReturn(inputGateway);
+    plugin = new McpToolCallPlugin(gateway, resolver, reporters, meters, inputs);
     when(resolver.resolve(any(), any()))
         .thenAnswer(inv -> Mono.justOrEmpty(inv.<Object>getArgument(0)));
   }
@@ -139,73 +146,137 @@ class McpToolCallPluginTest {
         .verifyComplete();
   }
 
-  private static Message<?> decision(final String decision) {
-    return DefaultMessage.create(
-        UUID.randomUUID(),
-        Map.of("executionId", "e", "nodeId", "n", "name", "approve", "decision", decision));
-  }
+  private static final Context NODE =
+      Context.of("sessionId", "s", "workflowId", "w", "executionId", "e", "nodeId", "n");
 
-  /** Sends the decision once the node is waiting for it. */
-  private void answerWhenWaiting(final String decision) throws InterruptedException {
-    await()
-        .atMost(Duration.ofSeconds(5))
-        .pollInterval(Duration.ofMillis(10))
-        .until(
-            () ->
-                ACCEPTED.equals(
-                    String.valueOf(
-                        java.util.Objects.requireNonNull(
-                                plugin.onControlSignal(decision(decision)).block())
-                            .payload())));
+  private static InputResponse answer(final String decision, final String text) {
+    return new InputResponse(
+        "r1",
+        decision,
+        text,
+        Map.of(),
+        new Responder(Responder.Type.HUMAN, "op"),
+        null,
+        null,
+        java.time.Instant.EPOCH);
   }
 
   @Test
-  void requireApproval_waitsForTheSignalThenCalls() throws InterruptedException {
+  void requireApproval_asksAHighRiskApprovalThenCalls() {
     when(gateway.call(any(), any())).thenReturn(Mono.just(success()));
-    final var result =
-        plugin
-            .process(Flux.just(input()), config("requireApproval", List.of("weather")))
-            .contextWrite(Context.of("executionId", "e", "nodeId", "n"))
-            .collectList()
-            .toFuture();
+    when(inputGateway.ask(any())).thenReturn(Mono.just(answer("approve", null)));
 
-    answerWhenWaiting("approve");
+    StepVerifier.create(
+            plugin
+                .process(Flux.just(input()), config("requireApproval", List.of("weather")))
+                .contextWrite(NODE))
+        .expectNextCount(1)
+        .verifyComplete();
 
-    assertThat(result.join()).hasSize(1);
+    final var captor = org.mockito.ArgumentCaptor.forClass(InputRequestSpec.class);
+    verify(inputGateway).ask(captor.capture());
+    final InputRequestSpec spec = captor.getValue();
+    assertThat(spec.kind()).isEqualTo(InputKind.APPROVAL);
+    assertThat(spec.risk()).isEqualTo(InputRisk.HIGH);
+    assertThat(spec.options()).isEmpty();
+    assertThat(spec.ttl()).isEqualTo(Duration.ofSeconds(3600));
+    assertThat(spec.prompt()).contains("weather");
+    assertThat(spec.context()).containsEntry("signal", "approve").containsEntry("tool", "weather");
     verify(gateway).call(any(), any());
   }
 
   @Test
-  void requireApproval_rejectRefusesTheCall() throws InterruptedException {
-    final var result =
-        plugin
-            .process(Flux.just(input()), config("requireApproval", List.of("*")))
-            .contextWrite(Context.of("executionId", "e", "nodeId", "n"))
-            .collectList()
-            .toFuture();
+  void requireApproval_rejectRefusesTheCall() {
+    when(inputGateway.ask(any())).thenReturn(Mono.just(answer("reject", "no")));
 
-    answerWhenWaiting("reject");
-
-    assertThat(result)
-        .failsWithin(Duration.ofSeconds(5))
-        .withThrowableThat()
-        .withMessageContaining("was rejected");
+    StepVerifier.create(
+            plugin
+                .process(Flux.just(input()), config("requireApproval", List.of("*")))
+                .contextWrite(NODE))
+        .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("was rejected: no"));
     verify(gateway, org.mockito.Mockito.never()).call(any(), any());
   }
 
   @Test
   void requireApproval_noAnswerRefusesTheCall_andOtherToolsAreNotHeld() {
+    when(inputGateway.ask(any()))
+        .thenReturn(Mono.error(new InputExpiredException("r1", "expired")));
     StepVerifier.create(
-            plugin.process(
-                Flux.just(input()),
-                config("requireApproval", List.of("weather"), "approvalTimeoutSeconds", 1)))
+            plugin
+                .process(
+                    Flux.just(input()),
+                    config("requireApproval", List.of("weather"), "approvalTimeoutSeconds", 1))
+                .contextWrite(NODE))
         .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("within"));
 
     when(gateway.call(any(), any())).thenReturn(Mono.just(success()));
     StepVerifier.create(
-            plugin.process(Flux.just(input()), config("requireApproval", List.of("search"))))
+            plugin
+                .process(Flux.just(input()), config("requireApproval", List.of("search")))
+                .contextWrite(NODE))
         .expectNextCount(1)
         .verifyComplete();
+  }
+
+  @Test
+  void requireApproval_withoutAGatewayFailsClearly() {
+    final ObjectProvider<InputGateway> none = mock(ObjectProvider.class);
+    final var bare =
+        new McpToolCallPlugin(
+            gateway, resolver, mock(ObjectProvider.class), mock(ObjectProvider.class), none);
+    StepVerifier.create(
+            bare.process(Flux.just(input()), config("requireApproval", List.of("weather")))
+                .contextWrite(NODE))
+        .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("No InputGateway"));
+  }
+
+  @Test
+  void askForInput_isServedByTheNodeNotTheServer() {
+    when(inputGateway.ask(any())).thenReturn(Mono.just(answer("yes", "do it")));
+    when(resolver.resolve(any(), any()))
+        .thenAnswer(inv -> Mono.justOrEmpty(inv.<Object>getArgument(0)));
+
+    final var results =
+        plugin
+            .process(
+                Flux.just(input()),
+                config(
+                    "tool",
+                    "ask_for_input",
+                    "allowAskInput",
+                    true,
+                    "arguments",
+                    Map.of("prompt", "Proceed?")))
+            .contextWrite(NODE)
+            .collectList()
+            .block();
+
+    assertThat(results).hasSize(1);
+    assertThat(String.valueOf(results.getFirst().payload())).contains("yes: do it");
+    verify(gateway, org.mockito.Mockito.never()).call(any(), any());
+  }
+
+  @Test
+  void askForInput_isOffUnlessAllowed() {
+    when(gateway.call(any(), any())).thenReturn(Mono.just(success()));
+    StepVerifier.create(
+            plugin.process(Flux.just(input()), config("tool", "ask_for_input")).contextWrite(NODE))
+        .expectNextCount(1)
+        .verifyComplete();
+    verify(inputGateway, org.mockito.Mockito.never()).ask(any());
+  }
+
+  @Test
+  void askForInput_extendsTheNodeTimeoutAndIsValidated() {
+    assertThat(plugin.getDefaultTimeout(config("allowAskInput", true, "inputTtlSeconds", 100)))
+        .isEqualTo(Duration.ofSeconds(165));
+    StepVerifier.create(plugin.validateConfig(config("allowAskInput", "yes")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("allowAskInput", true, "inputMaxAsks", 0)))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("allowAskInput", true))).verifyComplete();
   }
 
   @Test
@@ -489,7 +560,8 @@ class McpToolCallPluginTest {
         mock(ObjectProvider.class);
     final var registry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
     when(meters.getIfAvailable()).thenReturn(registry);
-    final var metered = new McpToolCallPlugin(gateway, resolver, reporters, meters);
+    final var metered =
+        new McpToolCallPlugin(gateway, resolver, reporters, meters, mock(ObjectProvider.class));
     when(gateway.call(any(), any())).thenReturn(Mono.just(success()));
     metered.process(Flux.just(input()), config()).blockLast();
     assertThat(registry.find("yukta.mcp.call").tag("tool", "weather").timer()).isNotNull();

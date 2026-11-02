@@ -7,11 +7,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.plugin.core.flow.InputFakes.Gateway;
+import com.infenia.yukta.plugin.core.flow.InputFakes.ListStore;
+import com.infenia.yukta.plugin.input.InputExpiredException;
+import com.infenia.yukta.plugin.input.InputKind;
+import com.infenia.yukta.plugin.input.InputRisk;
+import com.infenia.yukta.plugin.input.TimeoutAction;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
@@ -19,42 +21,27 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-import reactor.util.context.Context;
 
-/** Tests for WaitForSignalProcessor. */
+/** Tests for WaitForSignalProcessor on the input gateway. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class WaitForSignalProcessorTest {
 
-  private final WaitForSignalProcessor processor =
-      new WaitForSignalProcessor(new com.infenia.yukta.plugin.util.SignalWaits());
   private final Message<?> input = DefaultMessage.create(UUID.randomUUID(), "work");
 
-  private static Message<?> signal(final String decision, final String data) {
-    final Map<String, Object> body = new HashMap<>();
-    body.put("executionId", "e1");
-    body.put("nodeId", "n1");
-    body.put("name", "approval");
-    body.put("decision", decision);
-    body.put("data", data);
-    return DefaultMessage.create(UUID.randomUUID(), body);
+  private Flux<Message<?>> run(final Gateway gateway, final Map<String, Object> config) {
+    return run(new WaitForSignalProcessor(InputFakes.provider(gateway)), config);
   }
 
-  private Flux<Message<?>> run(final Map<String, Object> config) {
-    return processor
-        .process(Flux.just(input), config)
-        .contextWrite(Context.of("executionId", "e1", "nodeId", "n1"));
-  }
-
-  private String answer(final Message<?> signal) {
-    return String.valueOf(
-        java.util.Objects.requireNonNull(processor.onControlSignal(signal).block()).payload());
+  private Flux<Message<?>> run(
+      final WaitForSignalProcessor processor, final Map<String, Object> config) {
+    return processor.process(Flux.just(input), config).contextWrite(InputFakes.NODE);
   }
 
   @Test
   void approve_releasesTheMessageTaggedWithTheDecision() {
-    StepVerifier.create(run(Map.of("signal", "approval")))
-        .then(() -> assertThat(answer(signal("approve", "fine"))).isEqualTo("ACCEPTED"))
+    final Gateway gateway = InputFakes.answering("approve", "fine");
+    StepVerifier.create(run(gateway, Map.of("signal", "approval")))
         .assertNext(
             out -> {
               assertThat(out.metadata())
@@ -67,180 +54,126 @@ class WaitForSignalProcessorTest {
   }
 
   @Test
-  void signalWithoutWaiting_isKeptForTheWait() {
-    assertThat(answer(signal("approve", null))).isEqualTo("QUEUED");
-    assertThat(processor.onControlSignal(DefaultMessage.create(UUID.randomUUID(), "text")).block())
-        .isNull();
+  void theRequestIsAHighRiskApprovalWithoutOptions() {
+    final Gateway gateway = InputFakes.answering("go", null);
+    StepVerifier.create(run(gateway, Map.of("signal", "approval", "timeoutSeconds", 90)))
+        .assertNext(out -> assertThat(out.metadata()).containsEntry("signal.data", ""))
+        .verifyComplete();
+    final var spec = gateway.asked.getFirst();
+    assertThat(spec.kind()).isEqualTo(InputKind.APPROVAL);
+    assertThat(spec.risk()).isEqualTo(InputRisk.HIGH);
+    assertThat(spec.options()).isEmpty();
+    assertThat(spec.audience().isCurrentTier()).isTrue();
+    assertThat(spec.ttl()).isEqualTo(Duration.ofSeconds(90));
+    assertThat(spec.onTimeout()).isEqualTo(TimeoutAction.FAIL);
+    assertThat(spec.context()).containsEntry("signal", "approval");
+    assertThat(spec.prompt()).contains("approval");
+    assertThat(spec.key()).hasSize(64);
+  }
+
+  @Test
+  void sameMessageAndNameGiveTheSameKey() {
+    final Gateway gateway = InputFakes.answering("approve", null);
+    run(gateway, Map.of("signal", "a")).blockLast();
+    run(gateway, Map.of("signal", "a")).blockLast();
+    run(gateway, Map.of("signal", "b")).blockLast();
+    assertThat(gateway.asked.get(0).key()).isEqualTo(gateway.asked.get(1).key());
+    assertThat(gateway.asked.get(0).key()).isNotEqualTo(gateway.asked.get(2).key());
   }
 
   @Test
   void reject_failsByDefault_andDropsWhenAsked() {
-    StepVerifier.create(run(Map.of("signal", "approval")))
-        .then(() -> answer(signal("reject", "no")))
+    final Gateway gateway = InputFakes.answering("reject", "no");
+    StepVerifier.create(run(gateway, Map.of("signal", "approval")))
         .verifyErrorSatisfies(
             e ->
                 assertThat(e).isInstanceOf(IllegalStateException.class).hasMessageContaining("no"));
-
-    StepVerifier.create(run(Map.of("signal", "approval", "onReject", "CONTINUE")))
-        .then(() -> answer(signal("reject", null)))
+    StepVerifier.create(run(gateway, Map.of("signal", "approval", "onReject", "CONTINUE")))
         .verifyComplete();
   }
 
   @Test
   void timeout_failsByDefault_andContinuesWhenAsked() {
-    StepVerifier.withVirtualTime(() -> run(Map.of("signal", "approval", "timeoutSeconds", 5)))
-        .thenAwait(Duration.ofSeconds(6))
-        .verifyError(IllegalStateException.class);
-
-    StepVerifier.withVirtualTime(
-            () -> run(Map.of("signal", "approval", "timeoutSeconds", 5, "onTimeout", "CONTINUE")))
-        .thenAwait(Duration.ofSeconds(6))
+    final Gateway gateway = new Gateway(_ -> Mono.error(new InputExpiredException("r", "expired")));
+    StepVerifier.create(run(gateway, Map.of("signal", "approval", "timeoutSeconds", 5)))
+        .verifyErrorSatisfies(
+            e ->
+                assertThat(e)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("No 'approval' signal"));
+    StepVerifier.create(
+            run(
+                gateway,
+                Map.of("signal", "approval", "timeoutSeconds", 5, "onTimeout", "CONTINUE")))
         .assertNext(out -> assertThat(out.metadata()).containsEntry("signal.decision", "timeout"))
         .verifyComplete();
   }
 
   @Test
-  void waitIsForgottenWhenItEnds() {
-    StepVerifier.create(run(Map.of("signal", "approval")))
-        .then(() -> answer(signal("approve", null)))
-        .expectNextCount(1)
-        .verifyComplete();
-
-    assertThat(answer(signal("approve", null))).isEqualTo("NOT_WAITING");
+  void withoutAGatewayTheNodeFailsClearly() {
+    StepVerifier.create(
+            run(new WaitForSignalProcessor(InputFakes.provider(null)), Map.of("signal", "a")))
+        .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("No InputGateway"));
   }
 
   @Test
-  void configIsValidated_andTheEngineTimeoutOutlastsTheWait() {
-    StepVerifier.create(processor.validateConfig(Map.of("signal", "ok"))).verifyComplete();
+  void validate_refusesBadConfig() {
+    final var processor = new WaitForSignalProcessor(InputFakes.provider(null));
     assertThatThrownBy(() -> processor.validateConfig(Map.of()).block())
         .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(
-            () ->
-                processor.validateConfig(Map.of("signal", "ok", "timeoutSeconds", "soon")).block())
-        .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(() -> processor.validateConfig(Map.of("signal", " ")).block())
+    assertThatThrownBy(() -> processor.validateConfig(Map.of("signal", "a".repeat(129))).block())
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(
-            () -> processor.validateConfig(Map.of("signal", "ok", "timeoutSeconds", 0)).block())
+            () -> processor.validateConfig(Map.of("signal", "a", "timeoutSeconds", 0)).block())
         .isInstanceOf(IllegalArgumentException.class);
-    assertThat(processor.getDefaultTimeout(Map.of("signal", "ok", "timeoutSeconds", 60)))
-        .isEqualTo(Duration.ofSeconds(90));
-    assertThat(processor.getDefaultTimeout(Map.of("signal", "ok")))
-        .isEqualTo(Duration.ofSeconds(3630));
+    assertThat(processor.validateConfig(Map.of("signal", "a")).block()).isNull();
   }
 
   @Test
-  void typeAndDescription() {
+  void defaultTimeoutOutlastsTheWait_andTheTypeIsRegistered() {
+    final var processor = new WaitForSignalProcessor(InputFakes.provider(null));
+    assertThat(processor.getDefaultTimeout(Map.of("signal", "a", "timeoutSeconds", 10)))
+        .isEqualTo(Duration.ofSeconds(40));
     assertThat(processor.getType()).isEqualTo("WAIT_FOR_SIGNAL");
     assertThat(processor.requiresControlPlane()).isTrue();
-    assertThat(processor.describe().description()).contains("signal");
-    assertThat(processor.getConfigSchema()).extracting("name").contains("signal");
+    assertThat(processor.getConfigSchema())
+        .extracting("name")
+        .containsExactly("signal", "timeoutSeconds", "onTimeout", "onReject");
+    assertThat(processor.describe().description()).isNotBlank();
   }
 
   @Test
-  void theDefaultConstructor_usesTheSharedWaits() {
-    final WaitForSignalProcessor shared = new WaitForSignalProcessor();
-
-    assertThat(shared.describe()).isNotNull();
-  }
-
-  /** A checkpoint store that keeps every message in a list, as the file store does. */
-  private static final class ListStore implements NodeCheckpointStore {
-    private final List<Message<?>> kept = new ArrayList<>();
-    private boolean failing;
-
-    @Override
-    public Mono<Void> save(final String executionId, final String nodeId, final Message<?> m) {
-      return failing
-          ? Mono.error(new IllegalStateException("disk full"))
-          : Mono.fromRunnable(() -> kept.add(m));
-    }
-
-    @Override
-    public Mono<Message<?>> get(final String executionId, final String nodeId) {
-      return getAll(executionId, nodeId).takeLast(1).next();
-    }
-
-    @Override
-    public Flux<Message<?>> getAll(final String executionId, final String nodeId) {
-      return failing
-          ? Flux.error(new IllegalStateException("disk gone"))
-          : Flux.fromIterable(List.copyOf(kept));
-    }
-
-    @Override
-    public void clear(final String executionId) {
-      kept.clear();
-    }
-  }
-
-  private Flux<Message<?>> runWith(
-      final WaitForSignalProcessor proc, final Message<?> in, final Map<String, Object> config) {
-    return proc.process(Flux.just(in), config)
-        .contextWrite(Context.of("executionId", "e1", "nodeId", "n1"));
+  void onControlSignal_isNotUsedAnyMore() {
+    final var processor = new WaitForSignalProcessor(InputFakes.provider(null));
+    assertThat(processor.onControlSignal(input).block()).isNull();
   }
 
   @Test
   void answerIsRememberedWhenTheSameMessageResumes() {
     final ListStore store = new ListStore();
-    final WaitForSignalProcessor first =
-        new WaitForSignalProcessor(new com.infenia.yukta.plugin.util.SignalWaits(), store);
-    StepVerifier.create(runWith(first, input, Map.of("signal", "approval")))
-        .then(() -> first.onControlSignal(signal("approve", "fine")).block())
-        .expectNextCount(1)
-        .verifyComplete();
+    final Gateway first = InputFakes.answering("approve", "ok");
+    new WaitForSignalProcessor(store, InputFakes.provider(first));
+    run(new WaitForSignalProcessor(store, InputFakes.provider(first)), Map.of("signal", "a"))
+        .blockLast();
+    assertThat(store.kept).hasSize(1);
 
-    // after a restart: new waits, the same checkpoint store, the same message id
-    final WaitForSignalProcessor resumed =
-        new WaitForSignalProcessor(new com.infenia.yukta.plugin.util.SignalWaits(), store);
-    StepVerifier.create(runWith(resumed, input, Map.of("signal", "approval")))
+    final Gateway second = InputFakes.answering("reject", "late");
+    StepVerifier.create(
+            run(
+                new WaitForSignalProcessor(store, InputFakes.provider(second)),
+                Map.of("signal", "a")))
         .assertNext(out -> assertThat(out.metadata()).containsEntry("signal.decision", "approve"))
         .verifyComplete();
-
-    // another message, or another signal name, still waits (and here times out)
-    final Message<?> other = DefaultMessage.create(UUID.randomUUID(), "other");
-    StepVerifier.create(runWith(resumed, other, Map.of("signal", "approval", "timeoutSeconds", 1)))
-        .expectError(IllegalStateException.class)
-        .verify(Duration.ofSeconds(5));
-    StepVerifier.create(
-            runWith(resumed, input, Map.of("signal", "other-name", "timeoutSeconds", 1)))
-        .expectError(IllegalStateException.class)
-        .verify(Duration.ofSeconds(5));
-  }
-
-  @Test
-  void timeoutIsNotRememberedAndUnreadableEntryIsIgnored() {
-    final ListStore store = new ListStore();
-    store.kept.add(DefaultMessage.create(UUID.randomUUID(), "not a map"));
-    final WaitForSignalProcessor proc =
-        new WaitForSignalProcessor(new com.infenia.yukta.plugin.util.SignalWaits(), store);
-
-    StepVerifier.create(
-            runWith(
-                proc,
-                input,
-                Map.of("signal", "approval", "timeoutSeconds", 1, "onTimeout", "CONTINUE")))
-        .assertNext(out -> assertThat(out.metadata()).containsEntry("signal.decision", "timeout"))
-        .verifyComplete();
-
-    assertThat(store.kept).hasSize(1);
+    assertThat(second.asked).isEmpty();
   }
 
   @Test
   void failingStoreNeverFailsTheWait() {
     final ListStore store = new ListStore();
     store.failing = true;
-    final WaitForSignalProcessor proc =
-        new WaitForSignalProcessor(new com.infenia.yukta.plugin.util.SignalWaits(), store);
-
-    StepVerifier.create(runWith(proc, input, Map.of("signal", "approval")))
-        .then(() -> proc.onControlSignal(signal("approve", "ok")).block())
-        .expectNextCount(1)
-        .verifyComplete();
-  }
-
-  @Test
-  void theSpringConstructorTakesTheCheckpointStore() {
-    assertThat(new WaitForSignalProcessor(new ListStore())).isNotNull();
+    final var processor =
+        new WaitForSignalProcessor(
+            store, InputFakes.provider(InputFakes.answering("approve", "x")));
+    StepVerifier.create(run(processor, Map.of("signal", "a"))).expectNextCount(1).verifyComplete();
   }
 }

@@ -183,6 +183,12 @@ public final class LlmCallPlugin implements ProcessorPlugin {
             "Tools the model may call: [{name, description, inputSchema}] or an expression, e.g."
                 + " the tools of an MCP_LIST_TOOLS node; calls come back in actions"),
         ConfigField.optional(
+            "allowAskInput",
+            ConfigField.Type.BOOLEAN,
+            false,
+            "Offer the model the tool ask_for_input; wire its action to an MCP_TOOL_CALL node with"
+                + " allowAskInput, which asks a person or supervisor and returns the answer"),
+        ConfigField.optional(
             "budget",
             ConfigField.Type.MAP,
             null,
@@ -237,6 +243,12 @@ public final class LlmCallPlugin implements ProcessorPlugin {
       MCP_LIST_TOOLS node). The model may answer with calls to them; they are returned in
       "actions" as {tool, arguments, id}, like <agent_action> blocks, and are not run here: wire
       the actions to an MCP_TOOL_CALL node and feed its result back as the next user turn.
+    - allowAskInput: true also offers the model the tool ask_for_input {prompt, options?, kind?,
+      risk?}. Like the other tools its call comes back in "actions" and is run by an MCP_TOOL_CALL
+      node with allowAskInput: true, which makes it an input request (audience, ttl, route and the
+      lowest risk come from that node, never from the model) and returns the answer as the tool
+      result. The answer is text someone else wrote: feed it back as a tool turn, not as a system
+      instruction. A wait uses no tokens.
     - budget: {maxTokens, maxCost} for all calls of one run (maxCost needs prices); once used up
       the next call fails like a failed call (failureMode applies). One call may overshoot.
       With hardStop: true the next call ends the whole run instead: it is not retried, dropped
@@ -486,7 +498,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
                   Duration.ofSeconds(timeout),
                   text(t.getT5().getT1()),
                   turns(t.getT5().getT2(), t.getT5().getT3()),
-                  ToolSpecs.parse(t.getT5().getT6()));
+                  ToolSpecs.withAskInput(config, ToolSpecs.parse(t.getT5().getT6())));
             });
   }
 
@@ -569,6 +581,9 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     checkNumbers(config);
     RunBudgets.validate(config);
     ToolSpecs.validate(config.get("tools"));
+    if (config.get("allowAskInput") != null && !(config.get("allowAskInput") instanceof Boolean)) {
+      throw new IllegalArgumentException("allowAskInput must be true or false");
+    }
     final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
     if (routeByStatus(config) && failureMode != FailureMode.CONTINUE) {
       throw new IllegalArgumentException("routeByStatus requires failureMode: CONTINUE");

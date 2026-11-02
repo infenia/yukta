@@ -8,7 +8,6 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.input.InputKind;
-import com.infenia.yukta.plugin.util.SignalWaits;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.input.InputBroker;
@@ -112,28 +111,8 @@ final class ExecutionQueries {
   }
 
   /* default */ Flux<PendingApproval> pendingApprovals(final String sessionId) {
-    return Flux.concat(signalWaits(sessionId), approvalRequests(sessionId))
+    return approvalRequests(sessionId)
         .distinct(wait -> wait.executionId() + '\0' + wait.nodeId() + '\0' + wait.name());
-  }
-
-  private Flux<PendingApproval> signalWaits(final String sessionId) {
-    return Flux.fromIterable(SignalWaits.shared().pending())
-        .concatMap(
-            wait -> {
-              final WorkflowProgress progress =
-                  taskTracker.getProgressByExecutionId(wait.executionId());
-              return progress != null
-                      && (sessionId == null || sessionId.equals(progress.sessionId()))
-                  ? Mono.just(
-                      new PendingApproval(
-                          progress.sessionId(),
-                          wait.executionId(),
-                          progress.workflowId(),
-                          wait.nodeId(),
-                          wait.name(),
-                          wait.since()))
-                  : Mono.<PendingApproval>empty();
-            });
   }
 
   /** The open requests of kind {@code APPROVAL}, in the shape of a signal wait. */

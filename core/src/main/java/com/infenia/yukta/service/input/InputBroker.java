@@ -4,6 +4,7 @@ package com.infenia.yukta.service.input;
 
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.input.InputAsk;
 import com.infenia.yukta.plugin.input.InputCancelledException;
 import com.infenia.yukta.plugin.input.InputExpiredException;
 import com.infenia.yukta.plugin.input.InputIdentity;
@@ -68,7 +69,7 @@ public class InputBroker {
   public static final String DEFAULT_TIER = "default";
 
   /** Key of the request context that names the signal a request stands for. */
-  public static final String SIGNAL_CONTEXT_KEY = "signal";
+  public static final String SIGNAL_CONTEXT_KEY = InputAsk.SIGNAL_CONTEXT_KEY;
 
   /** Counter of requests by kind, risk and what became of them. */
   private static final String REQUESTS_METRIC = "yukta.input.requests";

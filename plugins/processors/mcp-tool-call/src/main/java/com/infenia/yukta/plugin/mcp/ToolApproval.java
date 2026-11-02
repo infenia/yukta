@@ -2,18 +2,29 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.mcp;
 
-import com.infenia.yukta.plugin.util.SignalWaits;
+import com.infenia.yukta.plugin.input.Audience;
+import com.infenia.yukta.plugin.input.InputAsk;
+import com.infenia.yukta.plugin.input.InputGateway;
+import com.infenia.yukta.plugin.input.InputIdentity;
+import com.infenia.yukta.plugin.input.InputKeys;
+import com.infenia.yukta.plugin.input.InputKind;
+import com.infenia.yukta.plugin.input.InputRequestSpec;
+import com.infenia.yukta.plugin.input.InputRisk;
+import com.infenia.yukta.plugin.input.TimeoutAction;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import lombok.experimental.UtilityClass;
 import reactor.core.publisher.Mono;
+import reactor.util.context.ContextView;
 
 /**
  * The {@code requireApproval} option of {@code MCP_TOOL_CALL}: a list of tool names (or {@code *}
- * for all) that wait for a human signal before they are called. The signal is sent with {@code
- * signal_node} (REST, MCP, CLI), so it is reviewed and audited like any command; a {@code reject}
- * decision or no answer within {@code approvalTimeoutSeconds} refuses the call.
+ * for all) that wait for a human signal before they are called. The question is an input request
+ * (kind {@code APPROVAL}, risk {@code HIGH}) answered with the input answer command, so it is
+ * reviewed and audited like any command; a {@code reject} decision or no answer within {@code
+ * approvalTimeoutSeconds} refuses the call.
  */
 @UtilityClass
 class ToolApproval {
@@ -32,6 +43,15 @@ class ToolApproval {
 
   /** Signal name used when none is configured. */
   private static final String DEFAULT_SIGNAL = "approve";
+
+  /** Label of this plugin on its requests. */
+  private static final String REQUESTER = "MCP_TOOL_CALL";
+
+  /** Most of the tool name shown in the prompt, in bytes. */
+  private static final int TOOL_SHOWN_BYTES = 200;
+
+  /** Most of the arguments shown in the prompt, in bytes. */
+  private static final int ARGUMENTS_SHOWN_BYTES = 2000;
 
   /** Wait used when none is configured. */
   private static final long DEFAULT_SECONDS = 3600;
@@ -61,37 +81,68 @@ class ToolApproval {
   }
 
   /**
-   * Waits for the approval of a call.
+   * Asks for the approval of a call and waits for it. The question is an input request of kind
+   * {@code APPROVAL} and risk {@code HIGH}, so only a person can answer it.
    *
-   * @param waits the waits of the plugin
+   * @param gateway where the input gateway is found
    * @param config the node config
-   * @param executionId the execution
-   * @param nodeId the node
-   * @param tool the tool about to be called
+   * @param ctx the context of the running node
+   * @param messageId the id of the message the call is made for
+   * @param call the call about to be made
    * @return completes when approved; fails when rejected or not answered in time
    */
   /* default */ Mono<Void> await(
-      final SignalWaits waits,
+      final Supplier<InputGateway> gateway,
       final Map<String, Object> config,
-      final String executionId,
-      final String nodeId,
-      final String tool) {
+      final ContextView ctx,
+      final String messageId,
+      final McpCallSpec call) {
+    final String tool = call.tool();
     final String name = String.valueOf(config.getOrDefault(SIGNAL, DEFAULT_SIGNAL));
     final Duration timeout = Duration.ofSeconds(seconds(config));
-    return waits
-        .await(executionId, nodeId, name, timeout)
+    return Mono.fromSupplier(() -> spec(ctx, messageId, name, timeout, call))
+        .flatMap(spec -> InputAsk.ask(gateway, spec))
         .onErrorMap(
-            java.util.concurrent.TimeoutException.class,
+            InputAsk::isTimeout,
             e ->
                 new IllegalArgumentException(
                     "No '" + name + "' approval for tool '" + tool + "' within " + timeout, e))
         .flatMap(
-            decision ->
-                "reject".equalsIgnoreCase(decision.decision())
+            response ->
+                "reject".equalsIgnoreCase(response.decision())
                     ? Mono.<Void>error(
                         new IllegalArgumentException(
-                            "Tool '" + tool + "' was rejected: " + decision.data()))
+                            "Tool '"
+                                + tool
+                                + "' was rejected: "
+                                + (response.text() == null ? "" : response.text())))
                     : Mono.<Void>empty());
+  }
+
+  private static InputRequestSpec spec(
+      final ContextView ctx,
+      final String messageId,
+      final String name,
+      final Duration timeout,
+      final McpCallSpec call) {
+    final InputIdentity who = InputIdentity.from(ctx);
+    final String tool = InputAsk.clean(call.tool(), TOOL_SHOWN_BYTES);
+    final String arguments =
+        InputAsk.clean(String.valueOf(call.arguments()), ARGUMENTS_SHOWN_BYTES);
+    return new InputRequestSpec(
+        InputKeys.of(who.sessionId(), who.workflowId(), who.nodeId(), messageId, name),
+        InputKind.APPROVAL,
+        "Tool '" + tool + "' wants to run with " + arguments + ". Approve or reject.",
+        Map.of(InputAsk.SIGNAL_CONTEXT_KEY, name, "tool", tool, "arguments", arguments),
+        List.of(),
+        null,
+        InputRisk.HIGH,
+        Audience.CURRENT_TIER,
+        timeout,
+        TimeoutAction.FAIL,
+        null,
+        null,
+        REQUESTER);
   }
 
   /**

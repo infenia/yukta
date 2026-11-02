@@ -86,6 +86,7 @@ class PluginRuntimeAcceptanceTest {
           Map.entry("LOOP_PREDICATE", "drives another plugin of a running workflow"),
           Map.entry("LOOP_STREAM", "drives another plugin of a running workflow"),
           Map.entry("WAIT_FOR_SIGNAL", "waits for a signal of a running execution"),
+          Map.entry("ASK_INPUT", "waits for an answer of a running execution"),
           Map.entry("SESSION_MEMORY", "needs the history store of a session"),
           Map.entry(
               "FILE_READ", "needs a directory and a file; covered by IoPluginsAcceptanceTest"),

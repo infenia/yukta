@@ -18,7 +18,6 @@ import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputKind;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRisk;
-import com.infenia.yukta.plugin.util.SignalWaits;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
@@ -42,7 +41,6 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
-import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -160,8 +158,6 @@ class DefaultControlBusGatewayInputTest {
   @Test
   void pendingApprovalsAlsoListsOpenApprovalRequestsOnce() {
     withBroker();
-    final Disposable wait =
-        SignalWaits.shared().await("exec", "node", "gate", Duration.ofMinutes(1)).subscribe();
     final WorkflowProgress progress = mock(WorkflowProgress.class);
     when(progress.sessionId()).thenReturn("session");
     when(progress.workflowId()).thenReturn("workflow");
@@ -173,7 +169,7 @@ class DefaultControlBusGatewayInputTest {
     when(broker.listOpen("session", null)).thenReturn(Flux.just(named, unnamed, text));
 
     StepVerifier.create(gateway.pendingApprovals("session"))
-        // the signal wait, then the request without a signal name; the named one is the same wait
+        // the request named by its signal, then the one without a signal name
         .assertNext(approval -> assertThat(approval.name()).isEqualTo("gate"))
         .assertNext(
             approval -> {
@@ -183,11 +179,10 @@ class DefaultControlBusGatewayInputTest {
               assertThat(approval.since()).isEqualTo(unnamed.createdAt());
             })
         .verifyComplete();
-    wait.dispose();
   }
 
   @Test
-  void withoutBrokerOnlyTheSignalWaitsAreListed() {
+  void withoutBrokerNothingIsListed() {
     @SuppressWarnings("unchecked")
     final ObjectProvider<InputBroker> none = mock(ObjectProvider.class);
     gateway.setInputBroker(none);
