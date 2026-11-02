@@ -22,5 +22,7 @@ export function annotationTarget(mark: ControlAnnotation): string {
       ? `${run}?exec=${encodeURIComponent(mark.executionId)}`
       : run;
   }
-  return '/control?tab=audit';
+  return mark.executionId
+    ? `/control?tab=audit&execution=${encodeURIComponent(mark.executionId)}`
+    : '/control?tab=audit';
 }

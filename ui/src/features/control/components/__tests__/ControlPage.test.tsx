@@ -289,4 +289,12 @@ describe('ControlPage', () => {
     await user.click(screen.getByRole('tab', { name: 'overview' }));
     expect(window.location.search).toBe('');
   });
+  it('opens the audit for an old ?execution link', () => {
+    window.history.pushState({}, '', '/control?execution=run-1');
+    renderWithProviders(<ControlPage />);
+    expect(screen.getByRole('tab', { name: 'audit' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+  });
 });

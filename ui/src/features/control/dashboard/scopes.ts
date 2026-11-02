@@ -68,6 +68,15 @@ export function scopeOptions({
   return options;
 }
 
+/** Whether an item of the given session and workflow belongs to the scope. */
+export const inScope = (
+  scope: Scope,
+  item: { sessionId: string; workflowId: string | null }
+) =>
+  scope === GLOBAL ||
+  scope === `session:${item.sessionId}` ||
+  scope === `workflow:${item.workflowId}`;
+
 /** The session id of a `session:<id>` scope, or an empty string. */
 export const sessionOf = (scope: Scope) =>
   scope.startsWith('session:') ? scope.slice('session:'.length) : '';

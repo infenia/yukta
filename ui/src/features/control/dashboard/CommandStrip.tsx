@@ -11,7 +11,8 @@ import {
   useMetricSnapshot,
 } from '@/features/metrics/hooks';
 import { GLOBAL, type Scope } from '@/features/metrics/api';
-import { getAllApprovals, type SessionApproval } from '@/features/overview/api';
+import { inScope } from './scopes';
+import { getAllApprovals } from '@/features/overview/api';
 import { useWorkers } from '../api/workers';
 import { getLimits } from '../api/scheduler';
 import {
@@ -27,10 +28,27 @@ import {
 /** The approvals read for the tile; a full page reads as "50+". */
 const APPROVALS_LIMIT = 50;
 
-const inScope = (scope: Scope) => (a: SessionApproval) =>
-  scope === GLOBAL ||
-  scope === `session:${a.sessionId}` ||
-  scope === `workflow:${a.workflowId}`;
+/** The approvals waiting in the scope as tile text; a full page reads as "50+". */
+function useWaitingText(scope: Scope, live: boolean) {
+  const approvals = useQuery({
+    queryKey: ['control', 'approvals', APPROVALS_LIMIT],
+    queryFn: () => getAllApprovals(APPROVALS_LIMIT),
+    refetchInterval: live ? 10_000 : false,
+  });
+  if (approvals.isError) return '–';
+  const all = approvals.data ?? [];
+  const n = all.filter((a) => inScope(scope, a)).length;
+  return `${n}${all.length >= APPROVALS_LIMIT ? '+' : ''}`;
+}
+
+/** Model spend over the last hour; model meters have no session or workflow tag, so always the server's. */
+function useLlmSpend() {
+  const cost = useMetricSeries('llm.cost', '1h').data;
+  const points = Object.entries(cost ?? {})
+    .filter(([key]) => key.endsWith('|rate'))
+    .map(([, p]) => p);
+  return points.length > 0 ? integrate(addUp(points)) : null;
+}
 
 /**
  * The headline numbers: throughput, success rate, latency, waiting approvals, load, workers and
@@ -40,19 +58,14 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
   const snapshot = useMetricSnapshot(scope).data;
   const finished = useMetricSeries('runs.finished', '1h', scope).data;
   const p95 = useMetricSeries('duration.p95', '1h', scope).data;
-  // model meters have no session or workflow tag, so spend is always the server's
-  const cost = useMetricSeries('llm.cost', '1h').data;
   const day = useHeatmap('24h', scope, live).data;
   const limits = useQuery({
     queryKey: ['control', 'scheduler', 'limits'],
     queryFn: getLimits,
     refetchInterval: live ? 5000 : false,
   }).data;
-  const approvals = useQuery({
-    queryKey: ['control', 'approvals', APPROVALS_LIMIT],
-    queryFn: () => getAllApprovals(APPROVALS_LIMIT),
-    refetchInterval: live ? 10_000 : false,
-  });
+  const waitingText = useWaitingText(scope, live);
+  const spend = useLlmSpend();
   const workers = useWorkers(live).data ?? [];
 
   const dayRuns = (day ?? []).reduce((n, c) => n + c.runs, 0);
@@ -64,14 +77,10 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
   const p95Trend = p95?.['duration.p95'] ?? [];
   const runsChange = percentChange(runsTrend);
   const p95Change = percentChange(p95Trend);
-  const costPoints = Object.entries(cost ?? {})
-    .filter(([key]) => key.endsWith('|rate'))
-    .map(([, points]) => points);
-  const spend = costPoints.length > 0 ? integrate(addUp(costPoints)) : null;
-  const waiting = (approvals.data ?? []).filter(inScope(scope));
-  const waitingText = approvals.isError
-    ? '–'
-    : `${waiting.length}${(approvals.data ?? []).length >= APPROVALS_LIMIT ? '+' : ''}`;
+
+  // these tiles read the whole server; say so when the view is scoped
+  const scoped = (label: string) =>
+    scope === GLOBAL ? label : `${label} (whole server)`;
 
   return (
     <div
@@ -124,15 +133,15 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
         </div>
       </Link>
       <KpiTile
-        label="Running / waiting"
+        label={scoped('Running / waiting')}
         value={limits ? `${limits.running} / ${limits.queued}` : '–'}
       />
       <KpiTile
-        label="Worker slots in use"
+        label={scoped('Worker slots in use')}
         value={workers.length === 0 ? '–' : `${used} / ${slots}`}
       />
       <KpiTile
-        label="LLM spend (1 h)"
+        label={scoped('LLM spend (1 h)')}
         value={spend === null ? '–' : spend.toFixed(2)}
       />
     </div>

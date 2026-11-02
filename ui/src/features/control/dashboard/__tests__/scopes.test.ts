@@ -85,8 +85,13 @@ describe('annotations', () => {
     expect(annotationTarget(mark({ executionId: '' }))).toBe(
       '/sessions/s1/workflow/wf'
     );
+    expect(
+      annotationTarget(
+        mark({ sessionId: null, workflowId: null, executionId: '' })
+      )
+    ).toBe('/control?tab=audit');
     expect(annotationTarget(mark({ sessionId: null, workflowId: null }))).toBe(
-      '/control?tab=audit'
+      '/control?tab=audit&execution=run%201'
     );
   });
 });

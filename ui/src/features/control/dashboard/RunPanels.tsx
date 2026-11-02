@@ -16,13 +16,9 @@ import {
   runAction,
   type RunAction,
 } from '@/features/workflow/api/executionControl';
-import {
-  GLOBAL,
-  type LiveRun,
-  type Range,
-  type Scope,
-} from '@/features/metrics/api';
+import { type LiveRun, type Range, type Scope } from '@/features/metrics/api';
 import { useHeatmap, useLiveRuns, useModules } from '@/features/metrics/hooks';
+import { inScope } from './scopes';
 import { PanelState } from './PanelState';
 import { useNow } from './useNow';
 import { formatMs } from './format';
@@ -145,11 +141,7 @@ export function LiveRunsPanel({
   live: boolean;
 }) {
   const runs = useLiveRuns(live);
-  const inScope = (run: LiveRun) =>
-    scope === GLOBAL ||
-    scope === `session:${run.sessionId}` ||
-    scope === `workflow:${run.workflowId}`;
-  const shown = (runs.data ?? []).filter(inScope);
+  const shown = (runs.data ?? []).filter((run) => inScope(scope, run));
   const [stopping, setStopping] = useState<LiveRun | null>(null);
   // Shown disabled, with the role it needs, to a key that may not control runs
   const me = useMe();

@@ -23,7 +23,10 @@ type Tab = (typeof TABS)[number];
 export function ControlPage() {
   const [params, setParams] = useSearchParams();
   const requested = params.get('tab');
-  const tab: Tab = TABS.find((t) => t === requested) ?? 'overview';
+  // an old `?execution=<id>` link (the run view's) means the audit of that run
+  const tab: Tab =
+    TABS.find((t) => t === requested) ??
+    (params.has('execution') ? 'audit' : 'overview');
   const show = (next: Tab) => {
     const updated = new URLSearchParams(params);
     if (next === 'overview') updated.delete('tab');
