@@ -19,8 +19,11 @@ import reactor.core.publisher.Mono;
 
 /**
  * The rules every answer and every escalation must pass, in this order: {@code audience}, {@code
- * tier}, {@code risk} (answers only), {@code scope} and {@code separation}. Each failing rule has
- * its own message and counts in {@code yukta.input.denied{rule}}.
+ * tier}, {@code risk} (answers only), {@code scope} and {@code separation}; for an answer to the
+ * approval request of a parked control command also {@code separation} (neither its sender nor a
+ * supervisor that asked for the approval may give it) and {@code rank} (a supervisor approves
+ * another supervisor's command only if its scope strictly covers the sender's). Each failing rule
+ * has its own message and counts in {@code yukta.input.denied{rule}}.
  *
  * <p>A request of risk {@code HIGH} can only be answered by a human; there is no setting that
  * changes this. A supervisor answers only when its profile says {@code canAnswer} and its {@code
@@ -43,6 +46,7 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
   private static final String RULE_RISK = "risk";
   private static final String RULE_SCOPE = "scope";
   private static final String RULE_SEPARATION = "separation";
+  private static final String RULE_RANK = "rank";
 
   /** Finds the start payload of a run. */
   private final ExecutionControlStore runs;
@@ -50,16 +54,34 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
   /** Counts denials. */
   private final MeterRegistry meters;
 
+  /** Finds the parked command behind an approval request. */
+  private final CommandProposals proposals;
+
+  /**
+   * Creates the authoriser for requests of plugins only.
+   *
+   * @param runs finds the start payload of a run
+   * @param meters counts denials
+   */
+  public DefaultAnswerAuthorizer(final ExecutionControlStore runs, final MeterRegistry meters) {
+    this(runs, meters, CommandProposals.NONE);
+  }
+
   /**
    * Creates the authoriser.
    *
    * @param runs finds the start payload of a run
    * @param meters counts denials
+   * @param proposals finds the parked command behind an approval request
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
-  public DefaultAnswerAuthorizer(final ExecutionControlStore runs, final MeterRegistry meters) {
+  public DefaultAnswerAuthorizer(
+      final ExecutionControlStore runs,
+      final MeterRegistry meters,
+      final CommandProposals proposals) {
     this.runs = runs;
     this.meters = meters;
+    this.proposals = proposals;
   }
 
   @Override
@@ -86,6 +108,45 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
     }
     checkScope(request, actor);
     checkSeparation(request, actor);
+    if (!context.escalation()) {
+      proposals.find(request.id()).ifPresent(proposal -> checkProposal(request, actor, proposal));
+    }
+  }
+
+  /**
+   * The rules of a parked command: whoever sent it and whoever asked for the approval may not
+   * approve it ({@code separation}), and a supervisor approves a supervisor's command only if its
+   * scope strictly covers the proposer's ({@code rank}). A proposer without an identity (no API
+   * keys) is not separated, since every caller is the same person then.
+   */
+  @SuppressWarnings("PMD.CyclomaticComplexity")
+  private void checkProposal(
+      final InputRequest request, final ActorInfo actor, final CommandProposals.Proposal proposal) {
+    final ActorInfo proposer = proposal.proposer();
+    if (proposer != null && proposer.type() == actor.type() && proposer.id().equals(actor.id())) {
+      throw deny(request, RULE_SEPARATION, actor, "sent the command, so it may not approve it");
+    }
+    if (actor.type() == ActorInfo.Type.SUPERVISOR && proposal.askedBy().contains(actor.id())) {
+      throw deny(request, RULE_SEPARATION, actor, "asked for the approval, so it may not give it");
+    }
+    if (actor.type() == ActorInfo.Type.SUPERVISOR
+        && proposer != null
+        && proposer.type() == ActorInfo.Type.SUPERVISOR) {
+      checkRank(request, actor, proposer);
+    }
+  }
+
+  private void checkRank(
+      final InputRequest request, final ActorInfo actor, final ActorInfo proposer) {
+    final SupervisorScope proposed = proposer.scope();
+    // the scope check ran before and refused a supervisor without a scope
+    if (proposed == null || !Objects.requireNonNull(actor.scope()).strictlyCovers(proposed)) {
+      throw deny(
+          request,
+          RULE_RANK,
+          actor,
+          "does not watch more than supervisor '" + proposer.id() + "', which sent the command");
+    }
   }
 
   private static List<String> tierTargets(final InputRequest request) {

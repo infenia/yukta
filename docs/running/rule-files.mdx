@@ -45,6 +45,9 @@ A rule file is a JSON document with a `rules` list. Each rule is either a **reac
 |---|---|
 | `id` | Names the rule in logs and errors |
 | `when` | The events that trigger a reaction |
+| `then` | The command to send when triggered |
+| `deny` | A command to refuse. A rule has either `when` and `then`, or `deny`, or `requireApproval` |
+| `requireApproval` | A command to hold until someone approves it |
 | `then` | The command to send when triggered, or the answer or escalation of an input request |
 | `deny` | A command to refuse. A rule has either `when` and `then`, or `deny` |
 
@@ -139,6 +142,24 @@ A deny rule makes the rule engine act as a [reviewer](/running/supervisors): mat
 Command fields available to `if`: `executionId`, `actor`, `nodeId`, `mode`, `reason` and `immediate`.
 
 A deny condition that cannot be evaluated **refuses** the command, so a faulty rule never lets a forbidden command through.
+
+## `requireApproval`: which commands to hold
+
+A `requireApproval` rule parks matching commands until an input request is approved (see [Ask for approval](/running/supervisors#ask-for-approval)). A deny rule still wins over it.
+
+| Field | Meaning |
+|---|---|
+| `command` | The command name, as in `deny` |
+| `if` | A condition over the command's fields, which also include `workflowId`. Omit it to always ask |
+| `risk` | `LOW`, `MEDIUM` or `HIGH`. Default `HIGH`, which only a person can approve |
+| `route` | The input route that decides. Default: the default route |
+| `reason` | Shown to whoever approves. Default `approval required by rule <id>` |
+
+```json
+{ "id": "prod-stop", "requireApproval": { "command": "StopWorkflow", "if": "workflowId == 'prod-deploy'", "risk": "HIGH", "reason": "production stop" } }
+```
+
+A bad `risk` or `route` stops the file from loading.
 
 ## Enabling a rule file
 

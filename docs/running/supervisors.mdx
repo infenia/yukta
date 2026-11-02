@@ -36,6 +36,18 @@ All of them send commands through the same ordered, reviewed and audited pipelin
 
 Commands sent by a supervisor go through the same ordered, reviewed, audited pipeline as everyone else's. They are logged and audited with the supervisor's id as the actor.
 
+## Ask for approval
+
+A review can also answer "yes, but only after someone approves". A custom supervisor returns `Decision.requireApproval(reason, new ApprovalNeed(risk, route, ttl))`; the rule supervisor has a `requireApproval` rule (see [Rule files](/running/rule-files)).
+
+The command is not run and not refused. The server parks it in memory and raises an input request of kind `APPROVAL` (options `approve` and `reject`, risk `HIGH` unless the need says otherwise, so a person must answer) through the usual route. The server writes the prompt; the reviewer's reason is quoted as data. The caller does not wait: REST answers `202 Accepted` with `{"status": "AWAITING_APPROVAL", "requestId": "..."}`, and a supervisor's decision list shows `outcome=awaiting-approval` with the request id. The same command sent again while the request is open gets the same request.
+
+- **Approved:** the command is sent again with its original sender. The supervisors that asked are satisfied for it; every other supervisor reviews it again and a denial still applies. The run may have moved on, in which case the command fails as usual.
+- **Rejected, expired or cancelled (the run ended):** the command is dropped, the log records `CONTROL_REJECTED` with the request id, and a `ControlOutcome` event is published.
+- **Stops:** a stop sent by a person is never parked: it runs with a warning, as when a review times out. A stop proposed by a supervisor can be parked.
+- **Who can approve:** not the sender of the command and not a supervisor that asked. A supervisor approves another supervisor's command only if its scope strictly covers the sender's, and never a `HIGH` risk request.
+- **Limits:** parked commands count against the open request caps (5 per run, 50 per session). They live in memory: a restart cancels the requests and the commands are not replayed. `yukta.control.approval.ttl` (default `10m`, never above `yukta.input.max-ttl`) is how long a request waits. Metric: `yukta.control.approval{outcome=requested|approved|rejected|expired|cancelled}`.
+
 ## Scopes
 
 | Scope | Text | Sees and reviews | May send |

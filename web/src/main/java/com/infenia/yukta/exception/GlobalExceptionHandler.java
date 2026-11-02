@@ -13,10 +13,12 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.input.InputAnsweredException;
 import com.infenia.yukta.service.leader.NotLeaderException;
+import com.infenia.yukta.service.supervisor.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -258,6 +260,29 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   public ResponseEntity<ApiResponse<Object>> handleControlRejected(
       final ControlRejectedException exception, final ServerHttpRequest request) {
     return buildErrorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), request);
+  }
+
+  /**
+   * Handles a command that a supervisor's review parked until someone approves it: not an error,
+   * the request is accepted and nothing has run yet.
+   *
+   * @param exception the parked command
+   * @param request the request
+   * @return {@code 202 Accepted} with the status and the id of the approval request
+   */
+  @ExceptionHandler(ControlAwaitingApprovalException.class)
+  public ResponseEntity<ApiResponse<Map<String, String>>> handleAwaitingApproval(
+      final ControlAwaitingApprovalException exception, final ServerHttpRequest request) {
+    return ResponseEntity.accepted()
+        .body(
+            ApiResponse.success(
+                HttpStatus.ACCEPTED.value(),
+                "Command awaits approval",
+                Map.of(
+                    "status",
+                    ControlAwaitingApprovalException.STATUS,
+                    "requestId",
+                    exception.getRequestId())));
   }
 
   /**

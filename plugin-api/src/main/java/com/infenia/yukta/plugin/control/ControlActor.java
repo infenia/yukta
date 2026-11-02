@@ -18,6 +18,16 @@ public class ControlActor {
    */
   public static final String KIND_KEY = "yukta.control.actor.kind";
 
+  /**
+   * Context key under which the server re-sends a command whose approval request was approved. The
+   * value is a server-private grant object, written only by the approval path and checked by
+   * identity, so no caller can set it to skip a review: a value the server did not issue is
+   * ignored.
+   *
+   * @since 0.1.0
+   */
+  public static final String APPROVED_REQUEST = "yukta.control.approved-request";
+
   /** The kinds of sender. */
   public enum Kind {
 

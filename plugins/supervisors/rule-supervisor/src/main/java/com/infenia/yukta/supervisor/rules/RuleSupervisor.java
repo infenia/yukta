@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.supervisor.rules.RuleSet.Deny;
+import com.infenia.yukta.supervisor.rules.RuleSet.RequireApproval;
 import com.infenia.yukta.supervisor.rules.RuleSet.Rule;
 import com.infenia.yukta.supervisor.rules.RuleSet.Then;
 import com.infenia.yukta.supervisor.rules.RuleSet.When;
@@ -62,6 +63,9 @@ public final class RuleSupervisor implements ExecutionSupervisor {
   /** Identifies this supervisor in the audit log. */
   public static final String SUPERVISOR_ID = "rules";
 
+  /** A rule has exactly one action. */
+  private static final int ONE_ACTION = 1;
+
   /** A rule that counts nothing triggers on the first match. */
   private static final int NOT_COUNTING = 1;
 
@@ -94,6 +98,9 @@ public final class RuleSupervisor implements ExecutionSupervisor {
 
   /** The rules that refuse commands. */
   private final List<DenyRule> denyRules = new ArrayList<>();
+
+  /** The rules that let commands run only once approved. */
+  private final List<ApprovalRule> approvalRules = new ArrayList<>();
 
   /** Recent matches of counting rules, by rule and execution. */
   private final Map<String, Deque<Instant>> matches = boundedMap();
@@ -187,15 +194,19 @@ public final class RuleSupervisor implements ExecutionSupervisor {
     final When when = rule.when();
     final Then then = rule.then();
     final Deny deny = rule.deny();
+    final RequireApproval gate = rule.requireApproval();
     if (ruleId == null || ruleId.isBlank()) {
       throw new IllegalArgumentException("Every rule needs an id");
     }
     final boolean reacts = when != null || then != null;
-    if (reacts == (deny != null)) {
+    final int kinds = (reacts ? 1 : 0) + (deny == null ? 0 : 1) + (gate == null ? 0 : 1);
+    if (kinds != ONE_ACTION) {
       throw new IllegalArgumentException(
-          "Rule '" + ruleId + "' needs either when and then, or deny");
+          "Rule '" + ruleId + "' needs either when and then, deny, or requireApproval");
     }
-    if (deny != null) {
+    if (gate != null) {
+      approvalRules.add(new ApprovalRule(ruleId, gate));
+    } else if (deny != null) {
       denyRules.add(new DenyRule(ruleId, deny));
     } else if (when == null || then == null) {
       throw new IllegalArgumentException("Rule '" + ruleId + "' needs both when and then");
@@ -251,14 +262,18 @@ public final class RuleSupervisor implements ExecutionSupervisor {
   public Mono<Decision> review(final ControlRequest request) {
     final Map<String, Object> fields = Fields.commandFields(request);
     final String name = request.command().getClass().getSimpleName();
-    Decision decision = Decision.ALLOW;
     for (final DenyRule rule : denyRules) {
       if (rule.matchesName(name) && rule.applies(fields)) {
-        decision = Decision.deny(rule.reason());
-        break;
+        return Mono.just(Decision.deny(rule.reason()));
       }
     }
-    return Mono.just(decision);
+    // a denial wins; otherwise the first approval rule that matches
+    return Mono.just(
+        approvalRules.stream()
+            .filter(rule -> rule.applies(name, fields))
+            .findFirst()
+            .map(ApprovalRule::decision)
+            .orElse(Decision.ALLOW));
   }
 
   /** A map that forgets its oldest entries beyond {@link #MAX_TRACKED_RUNS}. */

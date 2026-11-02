@@ -34,6 +34,7 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.supervisor.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
@@ -181,7 +182,8 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   /** A refusal by a supervisor is an intended outcome: INFO without a trace, not ERROR. */
   private static void logEmitFailure(final String sourceNodeId, final Throwable err) {
-    if (err instanceof ControlRejectedException) {
+    if (err instanceof ControlRejectedException
+        || err instanceof ControlAwaitingApprovalException) {
       log.atInfo()
           .addKeyValue("sourceNodeId", sourceNodeId)
           .addKeyValue("reason", err.getMessage())

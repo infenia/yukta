@@ -145,6 +145,19 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void emit_parkedForApproval_propagatesTheNotice() {
+    final Message<String> signal = DefaultMessage.create(null, "test-payload");
+    when(controlBusService.emit(signal))
+        .thenReturn(
+            Mono.error(
+                new com.infenia.yukta.service.supervisor.ControlAwaitingApprovalException(
+                    "r1", "why")));
+
+    StepVerifier.create(gateway.emit(signal))
+        .verifyError(com.infenia.yukta.service.supervisor.ControlAwaitingApprovalException.class);
+  }
+
+  @Test
   void emit_unexpectedFailure_propagatesTheError() {
     final Message<String> signal = DefaultMessage.create(null, "test-payload");
     when(controlBusService.emit(signal)).thenReturn(Mono.error(new IllegalArgumentException("x")));

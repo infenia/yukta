@@ -9,6 +9,7 @@ import com.infenia.yukta.security.ApiKeyAuthenticator;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.input.AnswerAuthorizer;
+import com.infenia.yukta.service.input.CommandProposals;
 import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
 import com.infenia.yukta.service.input.InMemoryInputRequestStore;
 import com.infenia.yukta.service.input.InputRequestStore;
@@ -40,6 +41,7 @@ import tools.jackson.databind.ObjectMapper;
  * property conditions are kept, so the file and PostgreSQL stores behave as before.
  */
 @Slf4j
+@SuppressWarnings("PMD.ExcessiveImports")
 @AutoConfiguration
 @EnableConfigurationProperties(YuktaProperties.class)
 @NoArgsConstructor
@@ -109,16 +111,19 @@ public class DefaultsAutoConfiguration {
    *
    * @param runs finds the start payload of a run
    * @param meters counts denied answers
+   * @param proposals the parked control commands, looked up per answer
    * @return the default rules
    */
   @Bean
   @ConditionalOnMissingBean(AnswerAuthorizer.class)
   public DefaultAnswerAuthorizer defaultAnswerAuthorizer(
       final ObjectProvider<ExecutionControlStore> runs,
-      final ObjectProvider<MeterRegistry> meters) {
+      final ObjectProvider<MeterRegistry> meters,
+      final ObjectProvider<CommandProposals> proposals) {
     return new DefaultAnswerAuthorizer(
         runs.getIfAvailable(InMemoryExecutionControlStore::new),
-        meters.getIfAvailable(SimpleMeterRegistry::new));
+        meters.getIfAvailable(SimpleMeterRegistry::new),
+        requestId -> proposals.getIfAvailable(() -> CommandProposals.NONE).find(requestId));
   }
 
   /**
