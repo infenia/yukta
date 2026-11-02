@@ -178,6 +178,7 @@ com.infenia.yukta.service.orchestrator.stream.ConcurrencyGroups
 com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator
 com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService
 com.infenia.yukta.service.orchestrator.tracker.MicrometerPluginMetricsReporter
+com.infenia.yukta.service.orchestrator.tracker.TrackerProperties
 com.infenia.yukta.service.orchestrator.validator.WorkflowValidator
 com.infenia.yukta.service.plugin.PluginRegistry
 com.infenia.yukta.service.redact.InputRedactor
