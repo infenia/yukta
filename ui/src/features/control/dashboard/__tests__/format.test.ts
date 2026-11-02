@@ -2,7 +2,18 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect } from 'vitest';
-import { formatMs, sumOf, tagOf, addUp, successRate } from '../format';
+import {
+  formatMs,
+  sumOf,
+  tagOf,
+  addUp,
+  successRate,
+  percentChange,
+  formatChange,
+  integrate,
+  aiUsage,
+  slowerIsWorse,
+} from '../format';
 
 describe('formatMs', () => {
   it('shows milliseconds, seconds and minutes', () => {
@@ -63,5 +74,104 @@ describe('successRate', () => {
 
   it('is null without runs', () => {
     expect(successRate(0, 0)).toBeNull();
+  });
+});
+
+describe('percentChange and formatChange', () => {
+  it('is the change from the first to the last point', () => {
+    const up = percentChange([
+      { t: 1, v: 10 },
+      { t: 2, v: 5 },
+      { t: 3, v: 12 },
+    ]);
+    expect(up).toBe(20);
+    expect(formatChange(up ?? 0)).toBe('+20%');
+    expect(
+      formatChange(
+        percentChange([
+          { t: 1, v: 4 },
+          { t: 2, v: 3 },
+        ]) ?? 0
+      )
+    ).toBe('-25%');
+    expect(formatChange(0)).toBe('0%');
+    expect(formatChange(undefined)).toBeUndefined();
+  });
+
+  it('colours a longer duration as a warning and a shorter one as a success', () => {
+    expect(slowerIsWorse(12)).toBe('warning');
+    expect(slowerIsWorse(-5)).toBe('success');
+    expect(slowerIsWorse(0)).toBe('neutral');
+    expect(slowerIsWorse(undefined)).toBe('neutral');
+  });
+
+  it('cannot be told from one point or from a start of zero', () => {
+    expect(percentChange([{ t: 1, v: 3 }])).toBeUndefined();
+    expect(
+      percentChange([
+        { t: 1, v: 0 },
+        { t: 2, v: 3 },
+      ])
+    ).toBeUndefined();
+  });
+});
+
+describe('integrate', () => {
+  it('adds each rate times the seconds since the point before', () => {
+    expect(
+      integrate([
+        { t: 0, v: 99 },
+        { t: 5000, v: 2 },
+        { t: 15_000, v: 1 },
+      ])
+    ).toBe(20);
+  });
+
+  it('is zero for fewer than two points', () => {
+    expect(integrate([])).toBe(0);
+    expect(integrate([{ t: 0, v: 5 }])).toBe(0);
+  });
+});
+
+describe('aiUsage', () => {
+  it('splits tokens by provider and direction, and counts tool calls', () => {
+    const usage = aiUsage({
+      'llm.tokens{direction=input,provider=OPENAI}|rate': 2,
+      'llm.tokens{direction=output,provider=OPENAI}|rate': 1,
+      'llm.tokens{direction=input,provider=ANTHROPIC}|rate': 0.5,
+      'llm.cost{provider=OPENAI}|rate': 0.001,
+      'yukta.mcp.call{outcome=SUCCESS,tool=search}|rate': 1,
+      'yukta.mcp.call{outcome=FAILURE,tool=search}|rate': 0.5,
+      'yukta.mcp.call{outcome=SUCCESS,tool=search}|mean': 120,
+      'yukta.mcp.heavy.refused|rate': 0.1,
+      'process.cpu.usage': 0.3,
+    });
+    expect(usage.providers.map((p) => p.provider)).toEqual([
+      'ANTHROPIC',
+      'OPENAI',
+    ]);
+    const openai = usage.providers[1];
+    expect(openai.tokensInPerMinute).toBe(120);
+    expect(openai.tokensOutPerMinute).toBe(60);
+    expect(openai.spendPerHour).toBeCloseTo(3.6);
+    expect(usage.providers[0].tokensInPerMinute).toBe(30);
+    expect(usage.mcpCallsPerMinute).toBe(90);
+    expect(usage.mcpFailedPerMinute).toBe(30);
+    expect(usage.heavyRefusedPerMinute).toBeCloseTo(6);
+  });
+
+  it('is empty without a snapshot', () => {
+    expect(aiUsage(undefined)).toEqual({
+      providers: [],
+      mcpCallsPerMinute: 0,
+      mcpFailedPerMinute: 0,
+      heavyRefusedPerMinute: 0,
+    });
+  });
+
+  it('files a token rate without a provider under unknown', () => {
+    expect(
+      aiUsage({ 'llm.tokens{direction=input}|rate': 1 }).providers[0].provider
+    ).toBe('unknown');
   });
 });
