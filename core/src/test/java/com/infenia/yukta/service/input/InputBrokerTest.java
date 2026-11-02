@@ -263,12 +263,15 @@ class InputBrokerTest {
 
     assertThat(store.findById(request.id()).blockOptional().orElseThrow().state())
         .isEqualTo(InputState.CANCELLED);
-    assertThat(events.stream().filter(ExecutionEvent.InputCancelled.class::isInstance))
-        .singleElement()
-        .satisfies(
-            e ->
-                assertThat(((ExecutionEvent.InputCancelled) e).reason())
-                    .isEqualTo("node-cancelled"));
+    org.awaitility.Awaitility.await()
+        .untilAsserted(
+            () ->
+                assertThat(events.stream().filter(ExecutionEvent.InputCancelled.class::isInstance))
+                    .singleElement()
+                    .satisfies(
+                        e ->
+                            assertThat(((ExecutionEvent.InputCancelled) e).reason())
+                                .isEqualTo("node-cancelled")));
   }
 
   @Test
@@ -295,7 +298,11 @@ class InputBrokerTest {
     assertThat(inputBroker.listOpen(null, null).collectList().block())
         .singleElement()
         .satisfies(r -> assertThat(r.executionId()).isEqualTo("e2"));
-    assertThat(events.stream().filter(ExecutionEvent.InputCancelled.class::isInstance)).hasSize(1);
+    org.awaitility.Awaitility.await()
+        .untilAsserted(
+            () ->
+                assertThat(events.stream().filter(ExecutionEvent.InputCancelled.class::isInstance))
+                    .hasSize(1));
   }
 
   @Test
@@ -372,7 +379,12 @@ class InputBrokerTest {
 
     assertThat(escalated.state()).isEqualTo(InputState.ESCALATED);
     assertThat(escalated.advice()).doesNotContain("abcd1234secret");
-    assertThat(events.stream().filter(ExecutionEvent.InputEscalated.class::isInstance)).hasSize(1);
+    // the feed delivers on its own thread, so wait for the event instead of racing it
+    org.awaitility.Awaitility.await()
+        .untilAsserted(
+            () ->
+                assertThat(events.stream().filter(ExecutionEvent.InputEscalated.class::isInstance))
+                    .hasSize(1));
     // a second escalation changes nothing
     assertThat(
             inputBroker
