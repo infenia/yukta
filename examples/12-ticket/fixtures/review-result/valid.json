@@ -1,0 +1,16 @@
+{
+  "verdict": "APPROVE",
+  "criteria_results": [
+    {
+      "id": "AC1",
+      "met": true,
+      "evidence": "tests"
+    },
+    {
+      "id": "TESTS_FAITHFUL",
+      "met": true,
+      "evidence": "cases map 1:1"
+    }
+  ],
+  "findings": []
+}

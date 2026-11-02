@@ -1,0 +1,396 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TicketSpec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "spec_version",
+    "ticket_id",
+    "objective",
+    "risk",
+    "assumptions",
+    "scope",
+    "acceptance_criteria",
+    "tests_mode",
+    "test_cases",
+    "locked_files",
+    "scaffold_patch",
+    "steps"
+  ],
+  "properties": {
+    "spec_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ticket_id": {
+      "type": "string"
+    },
+    "objective": {
+      "type": "string",
+      "maxLength": 400
+    },
+    "risk": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_globs",
+        "forbidden_globs",
+        "forbidden_imports",
+        "allow_new_dependencies"
+      ],
+      "properties": {
+        "allowed_globs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden_globs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden_imports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_new_dependencies": {
+          "type": "boolean"
+        }
+      }
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/criterion"
+      }
+    },
+    "tests_mode": {
+      "enum": [
+        "existing",
+        "repro_only",
+        "implementer_writes",
+        "cases_to_code",
+        "architect_code"
+      ],
+      "description": "MUST equal routing.tests_mode (Section 3.3)."
+    },
+    "test_cases": {
+      "type": "array",
+      "maxItems": 25,
+      "items": {
+        "$ref": "#/$defs/test_case"
+      },
+      "description": "Compact table of what must be tested. No test code."
+    },
+    "locked_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Planned paths of test files. Code locks them (records hashes) after the test gate. Empty in implementer_writes mode."
+    },
+    "scaffold_patch": {
+      "type": "string",
+      "description": "Path under the run dir to a patch containing interface stubs only. Never test code (except in architect_code mode, where tests go in tests.patch)."
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    }
+  },
+  "$defs": {
+    "criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "text",
+        "verification"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^AC[0-9]+$"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "command",
+                "review"
+              ]
+            },
+            "command": {
+              "type": "string",
+              "description": "Required when kind=command; MUST exit 0 on success."
+            }
+          }
+        }
+      }
+    },
+    "test_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "given",
+        "when",
+        "expect",
+        "kind",
+        "critical"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^T[0-9]+$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "given": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "when": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "expect": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "kind": {
+          "enum": [
+            "unit",
+            "integration",
+            "property",
+            "regression"
+          ]
+        },
+        "critical": {
+          "type": "boolean"
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "depends_on",
+        "covers",
+        "complexity",
+        "write_files",
+        "read_files",
+        "instructions",
+        "contracts",
+        "constraints",
+        "non_goals",
+        "done_when",
+        "limits"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^S[0-9]+$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "covers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^T[0-9]+$"
+          },
+          "description": "Test case ids this step makes pass. May be empty only if done_when has an existing-test command."
+        },
+        "complexity": {
+          "enum": [
+            "trivial",
+            "standard",
+            "tricky"
+          ]
+        },
+        "write_files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "The ONLY files this step may create or modify."
+        },
+        "read_files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path"
+            ],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "lines": {
+                "type": "string",
+                "description": "e.g. 10-80"
+              },
+              "symbols": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "instructions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "description": "Ordered, imperative, one action each."
+        },
+        "contracts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "symbol",
+              "signature"
+            ],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "symbol": {
+                "type": "string"
+              },
+              "signature": {
+                "type": "string"
+              },
+              "behavior": {
+                "type": "string",
+                "maxLength": 300
+              }
+            }
+          }
+        },
+        "algorithm": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 600
+            },
+            "expected_complexity": {
+              "type": "string"
+            }
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "non_goals": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "done_when": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "commands"
+          ],
+          "properties": {
+            "commands": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              },
+              "description": "Each MUST exit 0. At least one MUST be a test command covering this step."
+            }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_diff_lines",
+            "max_files"
+          ],
+          "properties": {
+            "max_diff_lines": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_files": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    }
+  },
+  "$id": "ticket-spec.schema.json"
+}

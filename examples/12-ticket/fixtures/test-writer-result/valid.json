@@ -1,0 +1,12 @@
+{
+  "test_files": [
+    {
+      "path": "core/src/test/java/ATest.java",
+      "cases": [
+        "T1"
+      ]
+    }
+  ],
+  "notes": "",
+  "blocked": null
+}

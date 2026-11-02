@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RevisionResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reason",
+    "replace_steps",
+    "replace_test_cases",
+    "remove_test_case_ids",
+    "scaffold_patch_addendum",
+    "new_assumptions"
+  ],
+  "properties": {
+    "reason": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "replace_steps": {
+      "type": "array",
+      "items": {
+        "$ref": "ticket-spec.schema.json#/$defs/step"
+      }
+    },
+    "replace_test_cases": {
+      "type": "array",
+      "items": {
+        "$ref": "ticket-spec.schema.json#/$defs/test_case"
+      }
+    },
+    "remove_test_case_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^T[0-9]+$"
+      }
+    },
+    "scaffold_patch_addendum": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "new_assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      }
+    }
+  },
+  "$id": "revision-result.schema.json"
+}

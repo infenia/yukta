@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+#
+# ticketkit <subcommand>: the deterministic tools of the ticket pipeline (design/plans/ticket-pipeline.md).
+#   validate-schema NAME FILE   exit 0 when FILE is valid against schemas/NAME.schema.json
+# Later subcommands (init, route, validate-spec, ...) are added as scripts/<name>.sh and found by name.
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cmd="${1:-}"; shift || true
+case "$cmd" in
+  validate-schema) exec python3 "$here/scripts/validate-schema.py" "$@" ;;
+  "" | -h | --help) sed -n '4,6p' "${BASH_SOURCE[0]}" | cut -c3- ;;
+  *) if [[ -x "$here/scripts/$cmd.sh" ]]; then exec "$here/scripts/$cmd.sh" "$@"; fi; echo "ticketkit: unknown subcommand '$cmd'" >&2; exit 2 ;;
+esac

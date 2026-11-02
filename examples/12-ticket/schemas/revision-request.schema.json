@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RevisionRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "spec_version",
+    "trigger",
+    "step_id",
+    "attempts",
+    "completed_steps",
+    "question"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "spec_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "trigger": {
+      "enum": [
+        "step_blocked",
+        "step_failed",
+        "review_findings",
+        "spec_invalid"
+      ]
+    },
+    "step_id": {
+      "type": "string",
+      "pattern": "^S[0-9]+$"
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "attempt",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model",
+          "effort",
+          "failure_digest_ref"
+        ],
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "effort": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "failure_digest_ref": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "completed_steps": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^S[0-9]+$"
+      }
+    },
+    "question": {
+      "type": "string",
+      "maxLength": 300
+    }
+  },
+  "$id": "revision-request.schema.json"
+}
