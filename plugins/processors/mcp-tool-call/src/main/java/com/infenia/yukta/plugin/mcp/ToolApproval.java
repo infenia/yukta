@@ -14,6 +14,7 @@ import com.infenia.yukta.plugin.input.TimeoutAction;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 import lombok.experimental.UtilityClass;
 import reactor.core.publisher.Mono;
@@ -115,7 +116,7 @@ class ToolApproval {
                             "Tool '"
                                 + tool
                                 + "' was rejected: "
-                                + (response.text() == null ? "" : response.text())))
+                                + Objects.requireNonNullElse(response.text(), "")))
                     : Mono.<Void>empty());
   }
 

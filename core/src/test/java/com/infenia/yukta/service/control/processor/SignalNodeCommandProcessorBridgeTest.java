@@ -31,7 +31,7 @@ import reactor.util.context.Context;
 
 /** A signal that stands for an open input request is answered through the authoriser. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ExcessiveImports"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class SignalNodeCommandProcessorBridgeTest {
 
   private static final SignalNodeCommand SIGNAL =

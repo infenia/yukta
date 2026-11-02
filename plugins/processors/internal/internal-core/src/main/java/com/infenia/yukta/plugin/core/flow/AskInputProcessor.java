@@ -21,10 +21,12 @@ import com.infenia.yukta.plugin.input.TimeoutAction;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.VariableResolver;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -33,7 +35,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -116,6 +117,7 @@ public final class AskInputProcessor implements ProcessorPlugin {
    * @param resolver resolves expressions in the prompt; without one the prompt is used as written
    */
   @Autowired
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the checkpoint store is a shared Spring bean
   public AskInputProcessor(
       final NodeCheckpointStore checkpoints,
       final ObjectProvider<InputGateway> gateways,
@@ -342,7 +344,7 @@ public final class AskInputProcessor implements ProcessorPlugin {
       return new Answer(
           response.requestId(),
           response.decision(),
-          response.text() == null ? "" : response.text(),
+          Objects.requireNonNullElse(response.text(), ""),
           response.data(),
           response.responder().type() + ":" + response.responder().id(),
           response.confidence());
@@ -490,11 +492,8 @@ public final class AskInputProcessor implements ProcessorPlugin {
       if (value instanceof final String text) {
         return text;
       }
-      try {
-        return JSON.writeValueAsString(value);
-      } catch (JacksonException e) {
-        throw new IllegalArgumentException("responseSchema cannot be written as JSON", e);
-      }
+      // a map from the workflow definition is plain JSON, so writing it back cannot fail
+      return JSON.writeValueAsString(value);
     }
   }
 }

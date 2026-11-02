@@ -14,7 +14,6 @@ import reactor.test.StepVerifier;
 
 /** Tests for the helper that plugins share to ask for input. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class InputAskTest {
 
   @Test
@@ -91,5 +90,13 @@ class InputAskTest {
   @Test
   void signalContextKeyIsTheOneTheBrokerUses() {
     assertThat(InputAsk.SIGNAL_CONTEXT_KEY).isEqualTo("signal");
+  }
+
+  @Test
+  void options_withoutLabelUseTheId_andAudienceReadsOnlySelectors() {
+    assertThat(InputAsk.options(List.of(Map.of("id", "a"))).getFirst().label()).isEqualTo("a");
+    assertThatThrownBy(() -> InputAsk.audience(List.of(5)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("'5'");
   }
 }

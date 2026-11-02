@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.plugin.input.InputExpiredException;
 import com.infenia.yukta.plugin.input.InputGateway;
+import com.infenia.yukta.plugin.input.InputIdentity;
 import com.infenia.yukta.plugin.input.InputKind;
 import com.infenia.yukta.plugin.input.InputLimitException;
 import com.infenia.yukta.plugin.input.InputRequestSpec;
@@ -28,7 +29,7 @@ import reactor.util.context.Context;
 
 /** Tests for the ask_for_input tool of MCP_TOOL_CALL. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
 class AskInputToolTest {
 
   private final List<InputRequestSpec> asked = new ArrayList<>();
@@ -239,5 +240,80 @@ class AskInputToolTest {
   void waitIsZeroWhenOff() {
     assertThat(AskInputTool.wait(Map.of())).isEqualTo(Duration.ZERO);
     assertThat(AskInputTool.wait(config())).isEqualTo(Duration.ofSeconds(3600));
+  }
+
+  @Test
+  void routeIsOnlyANamedRoute() {
+    ask(config("inputRoute", " "), node(), Map.of("prompt", "p"));
+    ask(config("inputRoute", "ops"), node(), Map.of("prompt", "p"));
+    ask(config(), node(), Map.of("prompt", "p"));
+    assertThat(asked).extracting(InputRequestSpec::routeName).containsExactly(null, "ops", null);
+  }
+
+  @Test
+  void blankAndRepeatedOptionsAreDropped_andTooManyAreRefused() {
+    ask(
+        config(),
+        node(),
+        Map.of("prompt", "p", "kind", "CHOICE", "options", List.of("a", " ", "a", "b")));
+    assertThat(asked.getFirst().options()).hasSize(2);
+    final List<String> many = new ArrayList<>();
+    for (int i = 0; i < 21; i++) {
+      many.add("o" + i);
+    }
+    final var result =
+        ask(config(), node(), Map.of("prompt", "p", "kind", "CHOICE", "options", many));
+    assertThat(result.isError()).isTrue();
+    assertThat(result.error()).contains("at most 20");
+  }
+
+  @Test
+  void anAnswerWithoutTextIsJustTheDecision() {
+    reply =
+        _ ->
+            Mono.just(
+                new InputResponse(
+                    "r1",
+                    "reject",
+                    null,
+                    Map.of(),
+                    new Responder(Responder.Type.HUMAN, "op"),
+                    null,
+                    null,
+                    Instant.EPOCH));
+    assertThat(ask(config(), node(), Map.of("prompt", "p")).text()).isEqualTo("reject");
+    reply =
+        _ ->
+            Mono.just(
+                new InputResponse(
+                    "r1",
+                    "reject",
+                    " ",
+                    Map.of(),
+                    new Responder(Responder.Type.HUMAN, "op"),
+                    null,
+                    null,
+                    Instant.EPOCH));
+    assertThat(ask(config(), node(), Map.of("prompt", "p")).text()).isEqualTo("reject");
+  }
+
+  @Test
+  void numbersMustBeNumbers_andErrorIsTheExplicitDefault() {
+    assertThatThrownBy(() -> AskInputTool.validate(config("inputTtlSeconds", "soon")))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> AskInputTool.validate(config("inputMaxAsks", "many")))
+        .isInstanceOf(IllegalArgumentException.class);
+    AskInputTool.validate(config("inputOnTimeout", "ERROR"));
+  }
+
+  @Test
+  void theOldestNodeRunsAreForgotten() {
+    final InputIdentity first = new InputIdentity("s", "w", "first-run", "n");
+    assertThat(AskInputTool.countAsk(first, 1)).isTrue();
+    for (int i = 0; i < 10_000; i++) {
+      AskInputTool.countAsk(new InputIdentity("s", "w", "run-" + i, "n"), 1);
+    }
+    // the count of the first run was dropped, so it may ask again
+    assertThat(AskInputTool.countAsk(first, 1)).isTrue();
   }
 }

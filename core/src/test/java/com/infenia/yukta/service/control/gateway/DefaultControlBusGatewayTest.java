@@ -3174,4 +3174,9 @@ class DefaultControlBusGatewayTest {
     when(executionControlStore.findAllActiveByWorkflow(sessionId, workflowId))
         .thenReturn(List.of(control));
   }
+
+  @Test
+  void pendingApprovals_withoutInputRequestsListsNothing() {
+    StepVerifier.create(gateway.pendingApprovals("any-session")).verifyComplete();
+  }
 }

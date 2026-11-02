@@ -40,6 +40,7 @@ import reactor.util.context.Context;
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyStaticImports",
+  "PMD.ExcessiveImports",
   "unchecked"
 })
 @NoArgsConstructor
@@ -48,6 +49,9 @@ class McpToolCallPluginTest {
   private final McpClientGateway gateway = mock(McpClientGateway.class);
   private final VariableResolver resolver = mock(VariableResolver.class);
   private final PluginMetricsReporter reporter = mock(PluginMetricsReporter.class);
+  private static final Context NODE =
+      Context.of("sessionId", "s", "workflowId", "w", "executionId", "e", "nodeId", "n");
+
   private final InputGateway inputGateway = mock(InputGateway.class);
   private McpToolCallPlugin plugin;
 
@@ -146,9 +150,6 @@ class McpToolCallPluginTest {
         .verifyComplete();
   }
 
-  private static final Context NODE =
-      Context.of("sessionId", "s", "workflowId", "w", "executionId", "e", "nodeId", "n");
-
   private static InputResponse answer(final String decision, final String text) {
     return new InputResponse(
         "r1",
@@ -173,7 +174,7 @@ class McpToolCallPluginTest {
         .expectNextCount(1)
         .verifyComplete();
 
-    final var captor = org.mockito.ArgumentCaptor.forClass(InputRequestSpec.class);
+    final var captor = ArgumentCaptor.forClass(InputRequestSpec.class);
     verify(inputGateway).ask(captor.capture());
     final InputRequestSpec spec = captor.getValue();
     assertThat(spec.kind()).isEqualTo(InputKind.APPROVAL);
@@ -686,5 +687,41 @@ class McpToolCallPluginTest {
                 .process(Flux.just(input()), cfg)
                 .contextWrite(Context.of("executionId", "run-whole")))
         .verifyError(IllegalStateException.class);
+  }
+
+  @Test
+  void askForInput_isNeitherHeldForApprovalNorRefusedByAllowedTools() {
+    when(inputGateway.ask(any())).thenReturn(Mono.just(answer("yes", null)));
+    StepVerifier.create(
+            plugin
+                .process(
+                    Flux.just(input()),
+                    config(
+                        "tool",
+                        "ask_for_input",
+                        "allowAskInput",
+                        true,
+                        "allowedTools",
+                        List.of("weather"),
+                        "requireApproval",
+                        List.of("*"),
+                        "arguments",
+                        Map.of("prompt", "Proceed?")))
+                .contextWrite(NODE))
+        .expectNextCount(1)
+        .verifyComplete();
+    // one question, the tool's own; no approval was asked first
+    verify(inputGateway, org.mockito.Mockito.times(1)).ask(any());
+  }
+
+  @Test
+  void requireApproval_rejectWithoutTextSaysSo() {
+    when(inputGateway.ask(any())).thenReturn(Mono.just(answer("reject", null)));
+    StepVerifier.create(
+            plugin
+                .process(Flux.just(input()), config("requireApproval", List.of("*")))
+                .contextWrite(NODE))
+        .verifyErrorSatisfies(
+            e -> assertThat(e).hasMessageEndingWith("Tool 'weather' was rejected: "));
   }
 }

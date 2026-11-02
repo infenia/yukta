@@ -176,4 +176,28 @@ class WaitForSignalProcessorTest {
             store, InputFakes.provider(InputFakes.answering("approve", "x")));
     StepVerifier.create(run(processor, Map.of("signal", "a"))).expectNextCount(1).verifyComplete();
   }
+
+  @Test
+  void recordsOfOtherMessagesOrNamesAreNotReplayed() {
+    final ListStore store = new ListStore();
+    store.kept.add(DefaultMessage.create(UUID.randomUUID(), "not a record"));
+    store.kept.add(
+        DefaultMessage.create(UUID.randomUUID(), Map.of("messageId", "other", "name", "a")));
+    store.kept.add(
+        DefaultMessage.create(UUID.randomUUID(), Map.of("messageId", input.id(), "name", "b")));
+    final Gateway gateway = InputFakes.answering("approve", null);
+    run(new WaitForSignalProcessor(store, InputFakes.provider(gateway)), Map.of("signal", "a"))
+        .blockLast();
+    assertThat(gateway.asked).hasSize(1);
+  }
+
+  @Test
+  void blankSignalAndTextTimeoutAreRefused() {
+    final var processor = new WaitForSignalProcessor(InputFakes.provider(null));
+    assertThatThrownBy(() -> processor.validateConfig(Map.of("signal", " ")).block())
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(
+            () -> processor.validateConfig(Map.of("signal", "a", "timeoutSeconds", "soon")).block())
+        .isInstanceOf(IllegalArgumentException.class);
+  }
 }

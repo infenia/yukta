@@ -4,6 +4,9 @@ package com.infenia.yukta.plugin.core.flow;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
@@ -16,6 +19,7 @@ import com.infenia.yukta.plugin.input.InputResponse;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.input.TimeoutAction;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -24,13 +28,19 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** Tests for the ASK_INPUT processor. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods",
+  "PMD.UseConcurrentHashMap",
+  "PMD.TooManyStaticImports"
+})
 class AskInputProcessorTest {
 
   private final Message<?> input = DefaultMessage.create(UUID.randomUUID(), "work");
@@ -273,5 +283,111 @@ class AskInputProcessorTest {
             "name",
             "route");
     assertThat(processor.describe().usagePattern()).contains("input.decision");
+  }
+
+  @Test
+  void promptExpressionsAreResolvedWhenAResolverExists() {
+    final VariableResolver variables = mock(VariableResolver.class);
+    when(variables.resolve(any(), any())).thenReturn(Mono.just("Deploy build 42?"));
+    final StaticListableBeanFactory beans = new StaticListableBeanFactory();
+    beans.addBean("resolver", variables);
+    final Gateway gateway = InputFakes.answering("approve", null);
+    run(
+            new AskInputProcessor(
+                InputFakes.provider(gateway), beans.getBeanProvider(VariableResolver.class)),
+            config("prompt", "Deploy build ${payload.build}?"))
+        .blockLast();
+    assertThat(gateway.asked.getFirst().prompt()).isEqualTo("Deploy build 42?");
+  }
+
+  @Test
+  void approvalKeepsItsOwnOptions_andABlankRouteIsNone() {
+    final Gateway gateway = InputFakes.answering("ship", null);
+    run(processor(gateway), config("options", List.of("ship", "hold"), "route", " ")).blockLast();
+    assertThat(gateway.asked.getFirst().options())
+        .extracting(InputOption::id)
+        .containsExactly("ship", "hold");
+    assertThat(gateway.asked.getFirst().routeName()).isNull();
+  }
+
+  @Test
+  void recordsOfOtherMessagesOrNamesAreNotReplayed() {
+    final ListStore store = new ListStore();
+    store.kept.add(DefaultMessage.create(UUID.randomUUID(), "not a record"));
+    store.kept.add(
+        DefaultMessage.create(UUID.randomUUID(), Map.of("messageId", "other", "name", "n1")));
+    store.kept.add(
+        DefaultMessage.create(
+            UUID.randomUUID(), Map.of("messageId", input.id(), "name", "another-name")));
+    final Gateway gateway = InputFakes.answering("approve", null);
+    run(
+            new AskInputProcessor(store, InputFakes.provider(gateway), InputFakes.noResolver()),
+            config())
+        .blockLast();
+    assertThat(gateway.asked).hasSize(1);
+  }
+
+  @Test
+  void aSparseRecordIsReplayedWithItsConfidence() {
+    final ListStore store = new ListStore();
+    store.kept.add(
+        DefaultMessage.create(
+            UUID.randomUUID(),
+            Map.of(
+                "messageId", input.id(),
+                "name", "n1",
+                "requestId", "r1",
+                "decision", "approve",
+                "responder", "HUMAN:op",
+                "confidence", 0.5)));
+    final Gateway gateway = InputFakes.answering("reject", null);
+    StepVerifier.create(
+            run(
+                new AskInputProcessor(store, InputFakes.provider(gateway), InputFakes.noResolver()),
+                config()))
+        .assertNext(
+            out ->
+                assertThat(out.metadata())
+                    .containsEntry("input.decision", "approve")
+                    .containsEntry("input.text", "")
+                    .containsEntry("input.data", Map.of())
+                    .containsEntry("input.confidence", 0.5))
+        .verifyComplete();
+    assertThat(gateway.asked).isEmpty();
+  }
+
+  @Test
+  void ttlMustBeANumber() {
+    assertThatThrownBy(() -> processor(null).validateConfig(config("ttlSeconds", "soon")).block())
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void recordedDataIsReplayed() {
+    final ListStore store = new ListStore();
+    store.kept.add(
+        DefaultMessage.create(
+            UUID.randomUUID(),
+            Map.of(
+                "messageId", input.id(),
+                "name", "n1",
+                "requestId", "r1",
+                "decision", "ship",
+                "text", "fine",
+                "responder", "HUMAN:op",
+                "data", Map.of("version", 3))));
+    StepVerifier.create(
+            run(
+                new AskInputProcessor(
+                    store,
+                    InputFakes.provider(InputFakes.answering("x", null)),
+                    InputFakes.noResolver()),
+                config()))
+        .assertNext(
+            out ->
+                assertThat(out.metadata())
+                    .containsEntry("input.text", "fine")
+                    .containsEntry("input.data", Map.of("version", 3)))
+        .verifyComplete();
   }
 }

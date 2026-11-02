@@ -266,10 +266,9 @@ class AskInputTool {
     data.put("text", response.text());
     data.put("data", response.data());
     data.put("responder", response.responder().type() + ":" + response.responder().id());
+    final String said = response.text();
     final String text =
-        response.text() == null || response.text().isBlank()
-            ? response.decision()
-            : response.decision() + ": " + response.text();
+        said == null || said.isBlank() ? response.decision() : response.decision() + ": " + said;
     return new McpCallResult(false, text, List.of(), data, null);
   }
 
@@ -278,7 +277,7 @@ class AskInputTool {
   }
 
   /** Counts a question; false when the node run has used its share. */
-  private static boolean countAsk(final InputIdentity who, final int max) {
+  /* default */ boolean countAsk(final InputIdentity who, final int max) {
     final AtomicInteger asked =
         ASKED.computeIfAbsent(who.executionId() + '\0' + who.nodeId(), _ -> new AtomicInteger());
     return asked.incrementAndGet() <= max;

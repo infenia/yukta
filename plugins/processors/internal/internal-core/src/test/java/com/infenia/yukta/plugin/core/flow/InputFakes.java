@@ -23,17 +23,17 @@ import reactor.util.context.Context;
 final class InputFakes {
 
   /** The context of a running node. */
-  static final Context NODE =
+  /* default */ static final Context NODE =
       Context.of("sessionId", "s1", "workflowId", "w1", "executionId", "e1", "nodeId", "n1");
 
   private InputFakes() {}
 
   /** Records every spec and answers with what the function says. */
-  static final class Gateway implements InputGateway {
-    final List<InputRequestSpec> asked = new ArrayList<>();
+  /* default */ static final class Gateway implements InputGateway {
+    /* default */ final List<InputRequestSpec> asked = new ArrayList<>();
     private final Function<InputRequestSpec, Mono<InputResponse>> answer;
 
-    Gateway(final Function<InputRequestSpec, Mono<InputResponse>> answer) {
+    /* default */ Gateway(final Function<InputRequestSpec, Mono<InputResponse>> answer) {
       this.answer = answer;
     }
 
@@ -44,7 +44,7 @@ final class InputFakes {
     }
   }
 
-  static InputResponse response(final String decision, final String text) {
+  /* default */ static InputResponse response(final String decision, final String text) {
     return new InputResponse(
         "req-1",
         decision,
@@ -56,11 +56,11 @@ final class InputFakes {
         Instant.EPOCH);
   }
 
-  static Gateway answering(final String decision, final String text) {
+  /* default */ static Gateway answering(final String decision, final String text) {
     return new Gateway(_ -> Mono.just(response(decision, text)));
   }
 
-  static ObjectProvider<InputGateway> provider(final InputGateway gateway) {
+  /* default */ static ObjectProvider<InputGateway> provider(final InputGateway gateway) {
     final StaticListableBeanFactory factory = new StaticListableBeanFactory();
     if (gateway != null) {
       factory.addBean("gateway", gateway);
@@ -69,15 +69,15 @@ final class InputFakes {
   }
 
   /** A provider with no resolver bean. */
-  static ObjectProvider<com.infenia.yukta.plugin.util.VariableResolver> noResolver() {
+  /* default */ static ObjectProvider<com.infenia.yukta.plugin.util.VariableResolver> noResolver() {
     return new StaticListableBeanFactory()
         .getBeanProvider(com.infenia.yukta.plugin.util.VariableResolver.class);
   }
 
   /** A checkpoint store in a list. */
-  static final class ListStore implements NodeCheckpointStore {
-    final List<Message<?>> kept = new ArrayList<>();
-    boolean failing;
+  /* default */ static final class ListStore implements NodeCheckpointStore {
+    /* default */ final List<Message<?>> kept = new ArrayList<>();
+    /* default */ boolean failing;
 
     @Override
     public Mono<Void> save(final String executionId, final String nodeId, final Message<?> m) {

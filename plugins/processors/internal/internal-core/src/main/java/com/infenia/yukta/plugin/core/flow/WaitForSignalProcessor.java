@@ -18,9 +18,11 @@ import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.input.TimeoutAction;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -98,6 +100,7 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
    * @param gateways the input gateway, which holds the question and takes the answer
    */
   @Autowired
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the checkpoint store is a shared Spring bean
   public WaitForSignalProcessor(
       final NodeCheckpointStore checkpoints, final ObjectProvider<InputGateway> gateways) {
     this.gateways = gateways;
@@ -230,7 +233,7 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
   }
 
   private static Decision decision(final InputResponse response) {
-    return new Decision(response.decision(), response.text() == null ? "" : response.text());
+    return new Decision(response.decision(), Objects.requireNonNullElse(response.text(), ""));
   }
 
   /** What a signal answered: the decision and its text. */
