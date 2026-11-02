@@ -6,7 +6,7 @@ Work on this plan is tracked in Epic #1787 on the Yukta Roadmap project.
 
 Status (2026-11-02): **phases 0, 1, 2 and 3a are merged** (ADR 0001, the `plugin.input` contracts and events, the broker with the in-memory store and sweeper, supervisor id validation); phase 3 onward is a proposal. The "today" statements below were read from the code with git at `origin/main` e7e2fda49 (2026-11-01) and re-checked for the supervision model at e34775048 (2026-11-02); nothing was built or run for this plan, so none of it has been re-tested.
 
-The section "Supervision model: sections, approval and rank" (2026-11-02) answers a review question: can several supervisors share, split or stack the supervision of a workflow, with approval and hierarchy between them? It adds two issues, #1855 (section scope and scope enforcement) and #1856 (review that requires approval), and changes phases 6, 7 and 8. Its decisions (D18 to D23) are **proposed, not yet confirmed**.
+The section "Supervision model: sections, approval and rank" (2026-11-02) answers a review question: can several supervisors share, split or stack the supervision of a workflow, with approval and hierarchy between them? It adds two issues, #1855 (section scope and scope enforcement) and #1856 (review that requires approval), and changes phases 6, 7 and 8. Its decisions (D18 to D23) were **confirmed by Arun on 2026-11-02**.
 
 ## Summary
 
@@ -501,9 +501,9 @@ Decided by Arun on 2026-11-01 in three rounds of questions; the full record, wit
 | A resumed run and a cancelled request | Reopen the old request (Plus) | recommended |
 | Technical defaults (gateway bean, one `INPUT` log type, standby answers 503, `InputRedactor`, contract tests in the `plus` testkit) | Accepted as proposed | recommended |
 
-### Proposed on 2026-11-02 (supervision model), to confirm
+### Decided on 2026-11-02 (supervision model), confirmed by Arun
 
-| Decision | Proposal | Alternative |
+| Decision | Outcome | Alternative not taken |
 |---|---|---|
 | D18 Naming a section | Selectors (node ids and `prefix.*`) in the binding's scope text; `Node.group` not used | Resolve `group` from the workflow definition (lookup, goes stale) |
 | D19 Workflow-wide items | Not reviewed by section supervisors; workflow, session and global ones do | Every section owner must allow a workflow-wide command |
