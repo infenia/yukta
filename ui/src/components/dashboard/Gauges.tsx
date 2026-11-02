@@ -18,13 +18,17 @@ const meterAria = ({ value, max, label }: MeterProps) => ({
   'aria-valuenow': value,
 });
 
-/** A half-circle gauge: `value` of `max`, the figure under the arc. */
-export function ArcGauge(props: MeterProps) {
-  const { value, tone = 'primary' } = props;
+/**
+ * A half-circle gauge: `value` of `max`, the figure under the arc. `valueText` replaces the figure
+ * (and is read out) when the raw value does not read well, such as bytes or a fraction.
+ */
+export function ArcGauge(props: MeterProps & { valueText?: string }) {
+  const { value, tone = 'primary', valueText } = props;
   const pct = clampPercent(value, props.max);
   return (
     <div
       {...meterAria(props)}
+      aria-valuetext={valueText}
       className={`${TONE[tone]} relative w-full max-w-40`}
     >
       <svg viewBox="0 0 100 56" aria-hidden="true" className="w-full">
@@ -48,7 +52,7 @@ export function ArcGauge(props: MeterProps) {
         />
       </svg>
       <span className="text-headline-md num text-on-surface absolute inset-x-0 bottom-0 text-center">
-        {value}
+        {valueText ?? value}
       </span>
     </div>
   );

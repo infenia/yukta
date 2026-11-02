@@ -146,7 +146,7 @@ export async function mockMetricsApi(
     }),
   });
   const now = Date.now();
-  await page.route('**/api/metrics/snapshot', (route) =>
+  await page.route('**/api/metrics/snapshot*', (route) =>
     route.fulfill(ok({ time: now, values }))
   );
   await page.route('**/api/metrics/catalog', (route) =>

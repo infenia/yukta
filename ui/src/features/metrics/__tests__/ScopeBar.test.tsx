@@ -22,6 +22,23 @@ describe('ScopeBar', () => {
     expect(scope.value).toBe('alpha');
   });
 
+  it('lists grouped scopes under their group', () => {
+    renderWithProviders(
+      <ScopeBar
+        scopes={[
+          { value: 'global', label: 'Global' },
+          { value: 'session:s1', label: 'Session s1', group: 'Sessions' },
+          { value: 'workflow:wf', label: 'Workflow wf', group: 'Workflows' },
+        ]}
+      />
+    );
+    const workflows = screen.getByRole('group', { name: 'Workflows' });
+    expect(
+      within(workflows).getByRole('option', { name: 'Workflow wf' })
+    ).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Sessions' })).toBeTruthy();
+  });
+
   it('marks the selected range and changes it', () => {
     renderWithProviders(<ScopeBar />);
     const group = screen.getByRole('group', { name: 'Range' });

@@ -9,8 +9,10 @@ import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.security.ApiKeys;
+import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.control.StartOptions;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
@@ -35,6 +37,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import reactor.util.context.ContextView;
 
@@ -84,8 +87,15 @@ public class WorkflowController {
       @RequestHeader(value = "Idempotency-Key", required = false) final String idempotencyKey) {
     return Mono.deferContextual(
             context -> {
-              final Map<String, Object> payload =
+              final StartOptions options = request.options();
+              if (options != null && !options.isEmpty() && !isAdmin(context)) {
+                return Mono.error(
+                    new ResponseStatusException(
+                        HttpStatus.FORBIDDEN, "priority and version need the ADMIN role"));
+              }
+              final Map<String, Object> clean =
                   ExecutionLogEvent.withInitiator(request.payload(), initiator(request, context));
+              final Map<String, Object> payload = options == null ? clean : options.into(clean);
               return idempotencyKey == null
                   ? workflowService.validateAndStartWorkflow(
                       request.sessionId(), request.workflowId(), payload)
@@ -98,6 +108,14 @@ public class WorkflowController {
                     202,
                     "Workflow start accepted",
                     new WorkflowStartResponse(execution.executionId())));
+  }
+
+  /** Whether the caller may set start options: an ADMIN key, or no key at all (auth is off). */
+  private static boolean isAdmin(final ContextView context) {
+    return context
+        .<ApiKeys.Match>getOrEmpty(CallerIdentity.CONTEXT_KEY)
+        .map(match -> match.role() == ApiRole.ADMIN)
+        .orElse(true);
   }
 
   /**

@@ -56,6 +56,7 @@ const server = setupServer(
   http.get('/api/metrics/annotations', () => ok([])),
   http.get('/api/metrics/runs/live', () => ok([])),
   http.get('/api/control/audit', () => ok([])),
+  http.get('/api/approvals', () => ok([])),
   http.get('/api/workers', () => ok([])),
   http.get('/api/scheduler/limits', () =>
     ok({
@@ -198,7 +199,7 @@ describe('ControlPage', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'Find it in the audit log' })
-    ).toHaveAttribute('href', '#audit-heading');
+    ).toHaveAttribute('href', '/control?tab=audit');
   });
 
   it('shows null when the node answers with no payload', async () => {
@@ -266,5 +267,34 @@ describe('ControlPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+  it('keeps the control audit in its own tab', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ControlPage />);
+    expect(
+      screen.queryByRole('heading', { name: 'Who did what' })
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'audit' }));
+    expect(screen.getByRole('tab', { name: 'audit' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(window.location.search).toBe('?tab=audit');
+    expect(
+      await screen.findByText('No control commands recorded yet.')
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('mission-control')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'overview' }));
+    expect(window.location.search).toBe('');
+  });
+  it('opens the audit for an old ?execution link', () => {
+    window.history.pushState({}, '', '/control?execution=run-1');
+    renderWithProviders(<ControlPage />);
+    expect(screen.getByRole('tab', { name: 'audit' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
   });
 });
