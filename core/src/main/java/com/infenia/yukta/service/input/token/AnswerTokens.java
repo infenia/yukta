@@ -153,8 +153,7 @@ public class AnswerTokens {
   }
 
   /** The MAC of some bytes; the algorithm is a parameter so a test can name one that is absent. */
-  /* default */ static byte[] hmac(
-      final String algorithm, final SecretKeySpec key, final byte[] text) {
+  public static byte[] hmac(final String algorithm, final SecretKeySpec key, final byte[] text) {
     try {
       final Mac mac = Mac.getInstance(algorithm);
       mac.init(key);
