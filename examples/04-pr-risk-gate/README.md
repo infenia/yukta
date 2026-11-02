@@ -65,8 +65,8 @@ curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/jso
   -d "{\"sessionId\":\"example-04-pr-risk-gate\",\"workflowId\":\"pr\",\"payload\":$(cat borderline.json)}"
 
 # a borderline PR now waits; answer it
-curl localhost:9858/api/sessions/example-04-pr-risk-gate/approvals
-curl -X POST "localhost:9858/api/executions/<executionId>/nodes/reviewer/signal?name=reviewer&decision=approve"
+curl localhost:9858/api/sessions/example-04-pr-risk-gate/inputs
+curl -X POST localhost:9858/api/executions/<executionId>/inputs/<requestId>/answer -H 'Content-Type: application/json' -d '{"decision":"approve"}'
 ```
 
 ## Run
@@ -76,7 +76,7 @@ curl -X POST "localhost:9858/api/executions/<executionId>/nodes/reviewer/signal?
 ```
 
 `run.sh` sends `low-risk.json`, `high-risk.json`, `invalid.json` and `borderline.json` (four times: approve, decline,
-reject, timeout), and acts as the reviewer by polling the approvals list and sending the signal.
+reject, timeout), and acts as the reviewer by polling the open input requests and answering them.
 
 ## Expected result
 

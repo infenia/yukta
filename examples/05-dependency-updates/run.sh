@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Use case: triage dependency bump requests with fixed rules. Patch/minor bumps without a CVE are
 # merged at once, major or CVE-flagged ones wait in a review queue for a maintainer, and the
-# notification never carries registry tokens or internal fields. This script plays the maintainer: it waits for the queue item, then signals.
+# notification never carries registry tokens or internal fields. This script plays the maintainer: it waits for the queue item, then answers the input request.
 set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
 cd "$(dirname "$0")"
@@ -28,12 +28,12 @@ wait_done() {  # [SECONDS] -> STATUS, LOGS
 wait_approval() {  # NODE: poll pending approvals until NODE of this run is waiting
   local i
   for ((i = 0; i < 30; i++)); do
-    api GET "/api/sessions/$SID/approvals" | jq -e --arg e "$EID" --arg n "$1" '.data[] | select(.executionId == $e and .nodeId == $n)' >/dev/null && return 0
+    api GET "/api/sessions/$SID/inputs" | jq -e --arg e "$EID" --arg n "$1" '.data[] | select(.executionId == $e and .nodeId == $n)' >/dev/null && return 0
     sleep 1
   done
   echo "    FAIL: node $1 never started waiting"; exit 1
 }
-signal() { api POST "/api/executions/$EID/nodes/$1/signal?name=$2&decision=$3" >/dev/null; }  # NODE NAME DECISION
+signal() { answer_input "$EID" "$1" "$3"; }  # NODE NAME DECISION (NAME is the request name, unused)
 node_reached() { api GET "/api/executions/$EID" | jq -e --arg n "$1" '.data.tasks[] | select(.nodeId == $n and .metadata.reached == true)' >/dev/null; }
 expect() {  # NAME TEXT... : status must be SUCCESS and every TEXT must be in the logs
   local name=$1 t ok=1; shift

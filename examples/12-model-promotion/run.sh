@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Use case: a retrained model candidate goes through eval checks, then an ML reviewer approves it,
-# asks for a retrain (up to 3 rounds) or rejects it. This script plays the reviewer through the signal API.
+# asks for a retrain (up to 3 rounds) or rejects it. This script plays the reviewer through the input requests API.
 set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
 cd "$(dirname "$0")"
@@ -16,18 +16,14 @@ start_run() {
   api POST /api/workflow/start "$body" | jq -r .data.executionId
 }
 
-# signal EXECUTION NODE NAME DECISION [DATA]: what the reviewer's button does.
-signal() {
-  local q="name=$3&decision=$4"
-  [[ -n "${5:-}" ]] && q+="&data=$(jq -rn --arg d "$5" '$d|@uri')"
-  api POST "/api/executions/$1/nodes/$2/signal?$q" >/dev/null
-}
+# signal EXECUTION NODE NAME DECISION [TEXT]: what the reviewer's button does.
+signal() { answer_input "$1" "$2" "$4" "${5:-}"; }
 
 # answer NAME DECISION [DATA]: wait for the next open approval called NAME, then answer it.
 answer() {
   local name=$1 row eid node i
   for ((i = 0; i < 60; i++)); do
-    row=$(api GET "/api/sessions/$SID/approvals" | jq -c --arg n "$name" '[.data[] | select(.name == $n)][]' | while read -r r; do
+    row=$(api GET "/api/sessions/$SID/inputs" | jq -c --arg n "$name" '[.data[] | select(.context.signal == $n)][]' | while read -r r; do
       e=$(jq -r .executionId <<<"$r"); [[ "$ANSWERED" == *" $e "* ]] && continue
       # only approvals that belong to this run (a round is a child execution of RUN)
       [[ "$(api GET "/api/executions/$e" | jq -r .data.rootExecutionId)" == "$RUN" ]] && { echo "$r"; break; }

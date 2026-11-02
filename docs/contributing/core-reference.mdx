@@ -604,7 +604,7 @@ Hands a named signal (for example `approve`) to the plugin of a node, through th
 - `WAIT_FOR_SIGNAL` holds each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, `onTimeout`, `onReject`) and tags it with `signal.name/decision/data`.
 - An answer is recorded in the checkpoint store as a message of pseudo node `signal:<node>` (a timeout is not), so a resumed run reuses it for the same message id instead of waiting again.
 
-**Surface:** REST `POST /api/executions/{id}/nodes/{node}/signal?name=&decision=&data=`, `GET /api/sessions/{s}/approvals`. MCP `signal_node`, `list_pending_approvals`.
+**Surface:** the legacy signal API (removed in #1805): REST `POST /api/executions/{id}/nodes/{node}/signal`, `GET /api/sessions/{s}/approvals`; MCP `signal_node`, `list_pending_approvals`. Use input requests instead.
 
 **Source:** `SignalNodeCommandProcessor` `InputSignalBridge` `PendingApproval`
 

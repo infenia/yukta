@@ -68,11 +68,11 @@ export. The leaked secret itself must still be rotated; this workflow only stops
 curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
   -d "{\"sessionId\":\"example-14-security-findings\",\"workflowId\":\"batch\",\"payload\":$(cat examples/14-security-findings/findings.json)}"
 
-curl localhost:9858/api/sessions/example-14-security-findings/approvals      # what waits for the engineer
-curl -X POST "localhost:9858/api/executions/<executionId>/nodes/engineer/signal?name=decision&decision=fix"
+curl localhost:9858/api/sessions/example-14-security-findings/inputs      # what waits for the engineer
+curl -X POST localhost:9858/api/executions/<executionId>/inputs/<requestId>/answer -H 'Content-Type: application/json' -d '{"decision":"fix"}'
 ```
 
-Decisions: `fix`, `accept-risk`, `suppress`. The execution id in the approvals list is the one of the
+Decisions: `fix`, `accept-risk`, `suppress`. The execution id in the inputs list is the one of the
 finding's own run, not of the batch.
 
 ## Run

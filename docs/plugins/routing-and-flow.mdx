@@ -292,18 +292,19 @@ A decision of `reject` (any capitalisation) is a rejection. Any other decision, 
 
 The wait is an input request (kind `APPROVAL`, risk `HIGH`), so it is listed with the pending inputs and only a person can answer it. Without an input gateway the node fails with a clear message.
 
-Send the signal to the waiting node of a running execution:
+Answer the open request of the waiting node of a running execution:
 
 ```http
-POST /api/executions/{executionId}/nodes/{nodeId}/signal?name=approve&decision=approve&data=ok
+GET /api/sessions/{sessionId}/inputs
+POST /api/executions/{executionId}/inputs/{requestId}/answer
+{"decision":"approve","text":"ok"}
 ```
 
-The request answers `409` when the node is not waiting for that name. List the nodes that wait now with `GET /api/sessions/{sessionId}/approvals`.
+The `signal` option is the request name, kept in the request's `context.signal`. Answering a request that is not open answers `409`.
 
-Signal behaviour:
+Behaviour:
 
-- A signal that arrives before its wait is kept for 10 minutes, at most 100 at a time, and is taken by the wait that follows.
-- A second signal for the same node and name within 5 seconds of an accepted one counts as a double submit and is answered as not waiting.
+- An answer is only taken by an open request: there is no early answer for a node that does not wait yet.
 - The answer is recorded with the node's checkpoint, so a resumed execution reuses it for the same message instead of waiting again.
 - Waits are held in memory. After a server restart, an execution that is resumed waits for a new signal.
 
@@ -317,7 +318,7 @@ Default timeout: `timeoutSeconds` plus 30 seconds, so 3630 seconds with the defa
 }
 ```
 
-See [Approvals and signals](/building/approvals-and-signals).
+See [Input requests](/building/input-requests#approvals-with-wait_for_signal).
 
 ## Limits and defaults
 
@@ -342,8 +343,8 @@ See [Approvals and signals](/building/approvals-and-signals).
   Repeat work until a condition holds, within bounds, and choose between a loop, an engine retry and a polling loop.
 </Card>
 
-<Card title="Approvals and signals" icon="hand" horizontal href="/building/approvals-and-signals">
-  Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision.
+<Card title="Input requests" icon="hand" horizontal href="/building/input-requests">
+  Ask a question and wait for a person, a supervisor or an agent to answer: approvals, choices and text, with a timeout.
 </Card>
 
 <Card title="Sub-workflows" icon="sitemap" horizontal href="/concepts/sub-workflows">
