@@ -3,6 +3,7 @@
 package com.infenia.yukta.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -30,21 +31,22 @@ class ApiKeysSessionsTest {
   }
 
   @Test
-  void namedKeyWithoutSessionsReachesEverySession() {
-    final var keys =
+  void nonAdminKeyWithoutSessionsIsRefusedButAdminReachesEverySession() {
+    final var viewer =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "viewer")
+            .withProperty("yukta.api-keys[0].key", "viewer-key");
+    assertThatThrownBy(() -> ApiKeys.read(viewer, null))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("viewer");
+
+    final var admin =
         ApiKeys.read(
             new MockEnvironment()
-                .withProperty("yukta.api-keys[0].name", "viewer")
-                .withProperty("yukta.api-keys[0].key", "viewer-key")
-                .withProperty("yukta.api-keys[1].name", "admin")
-                .withProperty("yukta.api-keys[1].key", "admin-key")
-                .withProperty("yukta.api-keys[1].role", "ADMIN"),
+                .withProperty("yukta.api-keys[0].name", "admin")
+                .withProperty("yukta.api-keys[0].key", "admin-key")
+                .withProperty("yukta.api-keys[0].role", "ADMIN"),
             null);
-
-    final var viewer = keys.find("viewer-key");
-    assertThat(viewer.role()).isEqualTo(ApiRole.VIEWER);
-    assertThat(viewer.sessions()).isEmpty();
-    assertThat(viewer.reaches("any-session")).isTrue();
-    assertThat(keys.find("admin-key").reaches("any-session")).isTrue();
+    assertThat(admin.find("admin-key").reaches("any-session")).isTrue();
   }
 }

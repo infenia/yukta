@@ -153,10 +153,10 @@ public final class ApiKeys {
       return Set.of();
     }
     if (entry.sessions().isEmpty() && entry.role() != ApiRole.ADMIN) {
-      log.atWarn()
-          .addKeyValue("key", entry.name())
-          .log(
-              "This API key lists no sessions and so reaches every session; write sessions: ['*']");
+      throw new IllegalStateException(
+          "API key '"
+              + entry.name()
+              + "' lists no sessions; write sessions: ['*'] for every session or list them");
     }
     return Set.copyOf(entry.sessions());
   }

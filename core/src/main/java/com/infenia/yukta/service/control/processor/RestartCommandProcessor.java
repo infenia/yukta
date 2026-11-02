@@ -2,10 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.processor;
 
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ArchivedExecution;
@@ -43,7 +40,7 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class RestartCommandProcessor implements ControlSignalProcessor {
+public class RestartCommandProcessor {
 
   /** The execution control registry for accessing execution control state. */
   private final ExecutionControlStore registry;
@@ -63,19 +60,13 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
   /** Per-execution restart serialization: tracks which executions are currently being restarted. */
   private final Map<String, Object> restartInProgress = new ConcurrentHashMap<>();
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof RestartCommand;
-  }
-
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final RestartCommand restart = (RestartCommand) command;
+  /** Applies the command. */
+  public Mono<Void> process(final RestartCommand restart) {
 
     return serializeRestart(restart);
   }
 
-  private Mono<WorkflowDirective> serializeRestart(final RestartCommand restart) {
+  private Mono<Void> serializeRestart(final RestartCommand restart) {
     final Object lock = new Object();
     final boolean acquired = restartInProgress.putIfAbsent(restart.executionId(), lock) == null;
 
@@ -93,7 +84,7 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
         .doFinally(_ -> restartInProgress.remove(restart.executionId()));
   }
 
-  private Mono<WorkflowDirective> executeAtomicRestart(final RestartCommand restart) {
+  private Mono<Void> executeAtomicRestart(final RestartCommand restart) {
     return Mono.fromSupplier(
             () ->
                 archive
@@ -104,7 +95,7 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
                                 "Execution not found or no longer restartable: "
                                     + restart.executionId())))
         .flatMap(archived -> performAtomicHandoff(archived, restart))
-        .then(Mono.<WorkflowDirective>empty())
+        .then(Mono.<Void>empty())
         .onErrorResume(
             e -> {
               log.atError()
@@ -178,10 +169,5 @@ public class RestartCommandProcessor implements ControlSignalProcessor {
         .addKeyValue("definitionVersion", archived.definitionVersion())
         .log("Restarted execution");
     completionSink.completeRestartSuccess(restart.newExecutionId());
-  }
-
-  @Override
-  public int getPriority() {
-    return 20;
   }
 }

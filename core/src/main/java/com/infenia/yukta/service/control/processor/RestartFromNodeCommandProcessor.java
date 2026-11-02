@@ -3,10 +3,7 @@
 package com.infenia.yukta.service.control.processor;
 
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ArchivedExecution;
@@ -39,7 +36,7 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
+public class RestartFromNodeCommandProcessor {
 
   /** The execution control registry, used to stop the old run if it is still going. */
   private final ExecutionControlStore registry;
@@ -59,17 +56,11 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
   /** Receives the outcome of the restart. */
   private final RestartCompletionSink completionSink;
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof RestartFromNodeCommand;
-  }
-
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final RestartFromNodeCommand restart = (RestartFromNodeCommand) command;
+  /** Applies the command. */
+  public Mono<Void> process(final RestartFromNodeCommand restart) {
 
     return Mono.defer(() -> restart(restart))
-        .then(Mono.<WorkflowDirective>empty())
+        .then(Mono.<Void>empty())
         .onErrorResume(
             e -> {
               log.atError()
@@ -185,10 +176,5 @@ public class RestartFromNodeCommandProcessor implements ControlSignalProcessor {
         .log("Restarted execution from node");
     completionSink.completeRestartSuccess(restart.newExecutionId());
     return Mono.empty();
-  }
-
-  @Override
-  public int getPriority() {
-    return 20;
   }
 }

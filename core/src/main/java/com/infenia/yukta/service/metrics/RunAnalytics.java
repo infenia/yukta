@@ -108,9 +108,9 @@ public class RunAnalytics {
   /** Minute buckets by scope. */
   private final Map<String, NavigableMap<Long, Bucket>> scopes = new HashMap<>();
 
-  /** Runs that have not ended. */
+  /** Runs that have not ended; access-ordered, so the one idle longest is evicted first. */
   private final Map<String, RunState> live =
-      new LinkedHashMap<>() {
+      new LinkedHashMap<>(16, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(final Map.Entry<String, RunState> eldest) {
           return size() > MAX_LIVE;

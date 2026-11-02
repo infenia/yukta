@@ -35,7 +35,8 @@ class ApiKeyAuthenticatorTest {
             new MockEnvironment()
                 .withProperty("yukta.mcp.api-key", "m")
                 .withProperty("yukta.api-keys[0].name", "bob")
-                .withProperty("yukta.api-keys[0].key", "b"));
+                .withProperty("yukta.api-keys[0].key", "b")
+                .withProperty("yukta.api-keys[0].sessions", "*"));
     final HttpHeaders mcp = new HttpHeaders();
     mcp.set("X-API-Key", "m");
 

@@ -164,7 +164,7 @@ See [Security](/operations/security).
 | `yukta.api-keys[i].name` | `unnamed` | Name of a key. Appears in the audit as `key:<name>` |
 | `yukta.api-keys[i].key` | required | The key, as plain text or `sha256:<64 hex digits>` |
 | `yukta.api-keys[i].role` | `VIEWER` | `VIEWER`, `OPERATOR` or `ADMIN` |
-| `yukta.api-keys[i].sessions` | all sessions | Limit the key to these session ids |
+| `yukta.api-keys[i].sessions` | required unless `ADMIN` | Session ids the key may reach, or `*` for all. A `VIEWER` or `OPERATOR` key without it fails start-up |
 | `yukta.mcp.api-key` | unset | An extra `ADMIN` key that works only on `/mcp` |
 | `yukta.mcp.rate-limit-per-minute` | `600` | Requests per minute one caller (key) may make to `/mcp`; more get `429` with `Retry-After`. Not applied when no key is configured (loopback only), like `yukta.rate-limit-per-minute`. `0` turns the limit off |
 | `yukta.mcp.heavy-rate-limit-per-minute` | `60` | Costly tool calls per minute one caller may make: `start_workflow` and `get_execution_logs` with a `filterPattern` (a regex run over every line). More get `429` with `Retry-After` and add to the `yukta.mcp.heavy.refused` counter. Not applied when no key is configured. `0` turns it off |
@@ -207,6 +207,22 @@ See [Security](/operations/security).
 | `yukta.llm.deny-output-patterns` | empty | Regular expressions the answer and its tool-call arguments must not match |
 | `yukta.llm.max-input-chars` | `0` (no limit) | Most characters of prompt in one call |
 | `yukta.llm.rate-limit.<provider>` | off | Requests per minute to a provider, across all nodes and runs |
+
+## Input requests
+
+A plugin can ask for a decision and wait for the answer; these settings bound the asking.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `yukta.input.default-ttl` | `1h` | How long a request lives when its spec does not say. Must not exceed `max-ttl` |
+| `yukta.input.max-ttl` | `24h` | The longest ttl a request may ask for; a longer one is refused |
+| `yukta.input.max-open-per-execution` | `5` | Open requests one run may have |
+| `yukta.input.max-open-per-session` | `50` | Open requests one session may have |
+| `yukta.input.memory-max` | `10000` | Finished requests the in-memory store keeps; the oldest are dropped first |
+| `yukta.input.sweep-interval` | `1s` | How often requests past their deadline are ended (leader only) |
+| `yukta.input.redact-keys` | none | Context keys whose value is replaced, besides names such as `password` and `token` |
+
+Requests are kept in memory and are lost when the server restarts.
 
 ## Supervisors and control planes
 

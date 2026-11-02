@@ -211,6 +211,17 @@ class WorkflowValidatorTest {
   }
 
   @Test
+  void testValidateAllReportsPluginProblemByItsMessage() {
+    stubTriggerAndProcessor(Mono.error(new IllegalArgumentException("bad context")));
+
+    StepVerifier.create(validator.validateAll(triggerIntoProcessorWithoutTerminal()))
+        .assertNext(
+            problems ->
+                org.assertj.core.api.Assertions.assertThat(problems).contains("bad context"))
+        .verifyComplete();
+  }
+
+  @Test
   void testValidateAllReportsProblemWithoutMessageByItsType() {
     stubTriggerAndProcessor(Mono.error(new IllegalArgumentException()));
 

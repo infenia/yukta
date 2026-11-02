@@ -326,4 +326,24 @@ class ExecutionRecoveryTest {
 
     assertThat(told).containsExactly(List.of("crashed"), List.of());
   }
+
+  @Test
+  void inputEntriesOfRunAreIgnoredWhenRecovering() {
+    store.append(ExecutionLogEvent.started("crashed", "s1", "w1", "v1"));
+    store.append(
+        ExecutionLogEvent.input(
+            "crashed", "s1", "w1", "n1", Map.of("event", "INPUT_REQUESTED", "requestId", "q1")));
+    finishedRun("done", "SUCCESS");
+    store.append(
+        ExecutionLogEvent.input(
+            "done", "s1", "w1", "n1", Map.of("event", "INPUT_REQUESTED", "requestId", "q1")));
+
+    new ExecutionRecovery(store, tracker, 100).recover();
+
+    assertThat(store.readAll())
+        .filteredOn(e -> e.type() == ExecutionLogEvent.Type.RUN_ABORTED)
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly("crashed");
+    assertThat(tracker.getProgress("s1", "done").status()).isEqualTo(TaskStatus.SUCCESS);
+  }
 }

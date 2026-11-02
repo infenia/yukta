@@ -3,10 +3,7 @@
 package com.infenia.yukta.service.control.processor;
 
 import com.infenia.yukta.model.execution.ControlState;
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
@@ -25,7 +22,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class PauseWorkflowCommandProcessor implements ControlSignalProcessor {
+public class PauseWorkflowCommandProcessor {
 
   /** The execution control registry for accessing execution control state. */
   private final ExecutionControlStore registry;
@@ -33,14 +30,8 @@ public class PauseWorkflowCommandProcessor implements ControlSignalProcessor {
   /** The task tracker service for tracking task execution. */
   private final TaskTrackerService taskTracker;
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof PauseWorkflowCommand;
-  }
-
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final PauseWorkflowCommand pause = (PauseWorkflowCommand) command;
+  /** Applies the command. */
+  public Mono<Void> process(final PauseWorkflowCommand pause) {
     return Mono.fromRunnable(
         () -> {
           final ExecutionControl control =
@@ -62,10 +53,5 @@ public class PauseWorkflowCommandProcessor implements ControlSignalProcessor {
               .addKeyValue("status", "PAUSED")
               .log("Paused workflow");
         });
-  }
-
-  @Override
-  public int getPriority() {
-    return 10;
   }
 }

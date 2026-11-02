@@ -84,7 +84,7 @@ yukta.api-keys[1].role=ADMIN
 | `name` | `unnamed` | Name used in the audit |
 | `key` | required | Plain text or `sha256:<64 hex digits>` |
 | `role` | `VIEWER` | `VIEWER`, `OPERATOR` or `ADMIN` |
-| `sessions` | all | Session ids the key may reach |
+| `sessions` | required unless `ADMIN` | Session ids the key may reach, or `*` for all. A `VIEWER` or `OPERATOR` key with none listed is refused at start-up, so a misspelt `session` cannot widen a key |
 | `expires` | never | ISO-8601 instant (for example `2026-12-31T00:00:00Z`) after which the key is refused with `401`. Revoking a key still needs a configuration change and a restart |
 
 ### Hashed keys

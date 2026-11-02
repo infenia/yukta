@@ -222,7 +222,7 @@ server_launch() {
       YUKTA_SUPERVISOR_RULES_FILE="$rules"
     # The key goes in a file, not the environment: the server's children (the gradle stages and their
     # test JVMs) inherit its environment, and a Spring Boot test that saw YUKTA_API_KEY would demand it.
-    (umask 077 && printf 'yukta.api-key=%s\nyukta.api-keys[0].name=fixer\nyukta.api-keys[0].key=%s\nyukta.api-keys[0].role=VIEWER\n' "$(dev_key)" "$(fixer_key)" >"$DEV_HOME/server.properties")
+    (umask 077 && printf 'yukta.api-key=%s\nyukta.api-keys[0].name=fixer\nyukta.api-keys[0].key=%s\nyukta.api-keys[0].role=VIEWER\nyukta.api-keys[0].sessions=*\n' "$(dev_key)" "$(fixer_key)" >"$DEV_HOME/server.properties")
     setsid bash -c 'echo $$ >"$1"; shift; exec "$@"' _ "$DEV_HOME/server.pid" "$@" \
       "--spring.config.additional-location=file:$DEV_HOME/server.properties" \
       >"$DEV_HOME/server.log" 2>&1 </dev/null 9>&- &

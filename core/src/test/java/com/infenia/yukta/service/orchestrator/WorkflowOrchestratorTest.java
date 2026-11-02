@@ -29,6 +29,7 @@ import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.QueueTimeoutException;
 import com.infenia.yukta.service.control.factory.ExecutionControlFactory;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
@@ -46,6 +47,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
@@ -192,6 +194,48 @@ class WorkflowOrchestratorTest {
     verify(tracker).startWorkflow(executionId, sessionId, workflowId, List.of("node-a"));
     verify(executionControlStore, timeout(5000)).remove(executionId);
     verify(checkpointStore, never()).clear(executionId);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void execute_cancelsTheOpenInputRequestsWhenTheRunEnds() {
+    final InputBroker broker = org.mockito.Mockito.mock(InputBroker.class);
+    when(broker.cancelExecution(anyString(), anyString())).thenReturn(Mono.empty());
+    final ObjectProvider<InputBroker> provider = org.mockito.Mockito.mock(ObjectProvider.class);
+    when(provider.getIfAvailable()).thenReturn(broker);
+    orchestrator.setInputBroker(provider);
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-a"));
+    setupExecutionControl("s", "w", "exec-in", prepared, Map.of(), Sinks.one());
+    when(tracker.startWorkflow(eq("exec-in"), eq("s"), eq("w"), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(eq("exec-in"), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(orchestrator.execute("s", "w", "exec-in", prepared, Map.of()))
+        .verifyComplete();
+
+    verify(broker, timeout(5000)).cancelExecution("exec-in", "run-ended");
+    verify(executionControlStore, timeout(5000)).remove("exec-in");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void execute_stillCleansUpWhenCancellingTheInputRequestsFails() {
+    final InputBroker broker = org.mockito.Mockito.mock(InputBroker.class);
+    when(broker.cancelExecution(anyString(), anyString()))
+        .thenReturn(Mono.error(new IllegalStateException("store down")));
+    final ObjectProvider<InputBroker> provider = org.mockito.Mockito.mock(ObjectProvider.class);
+    when(provider.getIfAvailable()).thenReturn(broker);
+    orchestrator.setInputBroker(provider);
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-a"));
+    setupExecutionControl("s", "w", "exec-in2", prepared, Map.of(), Sinks.one());
+    when(tracker.startWorkflow(eq("exec-in2"), eq("s"), eq("w"), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(eq("exec-in2"), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(orchestrator.execute("s", "w", "exec-in2", prepared, Map.of()))
+        .verifyComplete();
+
+    verify(executionControlStore, timeout(5000)).remove("exec-in2");
   }
 
   @Test

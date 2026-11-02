@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
@@ -25,6 +26,7 @@ import org.springframework.validation.annotation.Validated;
  * @param restart checkpoints kept for restarts
  * @param streaming the status history of live streams
  * @param supervisor supervisor hosting
+ * @param input input requests: limits, deadlines and the in-memory store
  * @param stop draining stop
  * @param tracker the task tracker
  * @param start start idempotency
@@ -41,6 +43,7 @@ public record YuktaProperties(
     @Valid @DefaultValue Restart restart,
     @Valid @DefaultValue Streaming streaming,
     @Valid @DefaultValue Supervisor supervisor,
+    @Valid @DefaultValue Input input,
     @Valid @DefaultValue Stop stop,
     @Valid @DefaultValue Tracker tracker,
     @Valid @DefaultValue Start start,
@@ -126,6 +129,45 @@ public record YuktaProperties(
       @Min(1) @DefaultValue("20") int maxCommandsPerSecond,
       @Min(1) @DefaultValue("10000") int bufferSize,
       @NotNull @DefaultValue("5s") Duration reviewTimeout) {}
+
+  /**
+   * Input requests: what a plugin may ask, how long a request waits and how many are kept.
+   *
+   * @param defaultTtl how long a request lives when its spec does not say; at most {@code maxTtl}
+   * @param maxTtl the longest a request may live; a longer ttl is cut to it
+   * @param maxOpenPerExecution most open requests one run may have
+   * @param maxOpenPerSession most open requests one session may have
+   * @param memoryMax most finished requests the in-memory store keeps, oldest evicted first
+   * @param sweepInterval how often the sweeper looks for requests past their deadline
+   * @param redactKeys context keys whose value is replaced, besides the built-in secret names
+   */
+  public record Input(
+      @NotNull @DefaultValue("1h") Duration defaultTtl,
+      @NotNull @DefaultValue("24h") Duration maxTtl,
+      @Min(1) @DefaultValue("5") int maxOpenPerExecution,
+      @Min(1) @DefaultValue("50") int maxOpenPerSession,
+      @Min(1) @DefaultValue("10000") int memoryMax,
+      @NotNull @DefaultValue("1s") Duration sweepInterval,
+      @NotNull @DefaultValue List<String> redactKeys) {
+
+    /** Checks that the durations are positive and that the default ttl fits the maximum. */
+    public Input {
+      requirePositive("yukta.input.default-ttl", defaultTtl);
+      requirePositive("yukta.input.max-ttl", maxTtl);
+      requirePositive("yukta.input.sweep-interval", sweepInterval);
+      if (maxTtl.compareTo(defaultTtl) < 0) {
+        throw new IllegalArgumentException(
+            "yukta.input.max-ttl must not be shorter than yukta.input.default-ttl");
+      }
+      redactKeys = List.copyOf(redactKeys);
+    }
+
+    private static void requirePositive(final String name, final Duration value) {
+      if (value.isZero() || value.isNegative()) {
+        throw new IllegalArgumentException(name + " must be positive");
+      }
+    }
+  }
 
   /**
    * Draining stop.

@@ -2,13 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.processor;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.execution.ControlState;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
@@ -25,7 +22,6 @@ import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
-@SuppressWarnings("PMD.LinguisticNaming")
 class ResumeWorkflowCommandProcessorTest {
 
   /** Registry for execution control. */
@@ -41,30 +37,6 @@ class ResumeWorkflowCommandProcessorTest {
   @Mock private ReactiveControlValve globalPauseValve;
 
   @InjectMocks private ResumeWorkflowCommandProcessor processor;
-
-  @Test
-  void canProcess_resumeWorkflowCommand_returnsTrue() {
-    // Given
-    final ExecutionControlCommand command = new ResumeWorkflowCommand("exec-1");
-
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isTrue();
-  }
-
-  @Test
-  void canProcess_otherCommand_returnsFalse() {
-    // Given
-    final ExecutionControlCommand command = new PauseWorkflowCommand("exec-1");
-
-    // When
-    final boolean actualResult = processor.canProcess(command);
-
-    // Then
-    assertThat(actualResult).isFalse();
-  }
 
   @Test
   void process_executionFound_resumesValveAndEmitsEvent() {
@@ -120,14 +92,5 @@ class ResumeWorkflowCommandProcessorTest {
                 e instanceof IllegalStateException
                     && e.getMessage().contains("Global pause valve not initialized"))
         .verify();
-  }
-
-  @Test
-  void getPriority_returnsCorrectValue() {
-    // When
-    final int actualPriority = processor.getPriority();
-
-    // Then
-    assertThat(actualPriority).isEqualTo(10);
   }
 }

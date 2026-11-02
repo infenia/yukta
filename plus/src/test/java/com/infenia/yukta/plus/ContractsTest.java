@@ -5,10 +5,13 @@ package com.infenia.yukta.plus;
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.plus.testkit.ExecutionLogStoreContract;
+import com.infenia.yukta.plus.testkit.InputRequestStoreContract;
 import com.infenia.yukta.plus.testkit.LeaderElectionContract;
 import com.infenia.yukta.plus.testkit.NodeCheckpointStoreContract;
 import com.infenia.yukta.plus.testkit.SessionConfigStoreContract;
 import com.infenia.yukta.plus.testkit.WorkflowDefinitionStoreContract;
+import com.infenia.yukta.service.input.InMemoryInputRequestStore;
+import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
@@ -34,7 +37,11 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** Runs the contract tests of the test kit against the stores that ship with the repository. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TestClassWithoutTestCases", "PMD.PublicMemberInNonPublicType"})
+@SuppressWarnings({
+  "PMD.TestClassWithoutTestCases",
+  "PMD.PublicMemberInNonPublicType",
+  "PMD.ExcessiveImports"
+})
 class ContractsTest {
 
   private static final ObjectMapper MAPPER = JsonMapper.builder().build();
@@ -68,6 +75,15 @@ class ContractsTest {
     @AfterEach
     void closeStores() {
       created.forEach(JsonlExecutionLogStore::close);
+    }
+  }
+
+  @Nested
+  @NoArgsConstructor
+  public class InMemoryInputRequests extends InputRequestStoreContract {
+    @Override
+    protected InputRequestStore create() {
+      return new InMemoryInputRequestStore(100);
     }
   }
 
