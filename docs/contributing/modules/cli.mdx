@@ -609,7 +609,6 @@ What each command calls. sid = session id, eid = execution id, nid = node id, wi
 | result &lt;sid&gt; &lt;eid&gt; | GET /api/sessions/\{sid\}/executions/\{eid\}/results | What reached the terminal nodes. |
 | workflow node retry &lt;eid&gt; &lt;nid&gt; | POST /api/executions/\{eid\}/nodes/\{nid\}/retry | Restart from a failed node; prints the new execution id. |
 | workflow node breakpoint &lt;eid&gt; &lt;nid&gt; | POST and DELETE /api/executions/\{eid\}/nodes/\{nid\}/breakpoint | Data-driven breakpoint. |
-| workflow node signal &lt;eid&gt; &lt;nid&gt; | POST /api/executions/\{eid\}/nodes/\{nid\}/signal | Answer an approval. |
 
 ### Server endpoints with no CLI command
 
