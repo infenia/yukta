@@ -460,8 +460,7 @@ class InputBrokerRoutesTest {
     broker.answer(agreed.id(), null, answer(agreed, bot("two"), "approve", 1.0)).block();
     assertThat(current(agreed).state()).isEqualTo(InputState.ANSWERED);
 
-    broker.ask(who("e2", "node"), spec("k2", "panel")).subscribe(r -> {}, e -> {});
-    final InputRequest split = store.listOpen(null, "e2").blockFirst();
+    final InputRequest split = openAnother(broker, "k2", "e2", "panel");
     broker.answer(split.id(), null, answer(split, bot("one"), "approve", 1.0)).block();
     broker.answer(split.id(), null, answer(split, bot("two"), "reject", 1.0)).block();
     assertThat(current(split).tier()).isEqualTo("ops");

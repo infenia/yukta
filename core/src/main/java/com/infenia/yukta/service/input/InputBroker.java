@@ -207,7 +207,6 @@ public class InputBroker {
    * @param limits the limits
    * @param clock the time
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public InputBroker(
       final InputRequestStore store,
       final ExecutionEventFeed feed,
@@ -374,7 +373,8 @@ public class InputBroker {
     if (tier == null) {
       return finalAnswer(current.id(), expectedVersion, response);
     }
-    final double confidence = response.confidence() == null ? 0 : response.confidence();
+    final Double reported = response.confidence();
+    final double confidence = reported == null ? 0 : reported;
     if (tier.minConfidence() > 0 && confidence < tier.minConfidence()) {
       final Responder by = response.responder();
       final String advice =
@@ -963,7 +963,8 @@ public class InputBroker {
 
   private Mono<Void> expire(final InputRequest due) {
     final Instant now = clock.instant();
-    final boolean overall = due.deadline() != null && !due.deadline().isAfter(now);
+    final Instant limit = due.deadline();
+    final boolean overall = limit != null && !limit.isAfter(now);
     return routes
         .resolve(due.spec(), due.sessionId())
         .flatMap(

@@ -15,6 +15,16 @@ import org.jspecify.annotations.Nullable;
 public record RouteSettings(List<Tier> tiers, @Nullable FinalAction onFinalTimeout) {
 
   /**
+   * Keeps a copy of the tiers.
+   *
+   * @param tiers the tiers
+   * @param onFinalTimeout the final action, or {@code null}
+   */
+  public RouteSettings {
+    tiers = tiers == null ? List.of() : List.copyOf(tiers);
+  }
+
+  /**
    * Gives the settings their name and checks them.
    *
    * @param name the key the route is written under

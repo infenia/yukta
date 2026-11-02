@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.input.route;
 
 import com.infenia.yukta.plugin.input.Audience;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -25,6 +26,9 @@ import org.jspecify.annotations.Nullable;
  * @param settings settings for the external responders of the tier
  * @since 0.1.0-alpha.4
  */
+@SuppressFBWarnings(
+    value = "EI_EXPOSE_REP",
+    justification = "the compact constructor stores unmodifiable copies")
 public record Tier(
     String name,
     List<String> responders,
