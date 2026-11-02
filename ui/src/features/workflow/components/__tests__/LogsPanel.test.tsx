@@ -10,6 +10,7 @@ import {
   createMockProgress,
   createMockTask,
 } from '@/test/factories/workflowFactory';
+import { useJsdomViewport } from '@/test/jsdomViewport';
 
 const entries = [
   createMockLogEntry({
@@ -26,6 +27,8 @@ const entries = [
 ];
 
 describe('LogsPanel', () => {
+  useJsdomViewport();
+
   const progress = createMockProgress({
     startTime: '2026-10-30T10:00:00Z',
     endTime: null,
