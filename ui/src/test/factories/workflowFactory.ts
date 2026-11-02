@@ -10,7 +10,9 @@ import type {
   WorkflowProgress,
 } from '@/features/workflow/types/workflow';
 
-export function createMockGraphNode(overrides: Partial<WorkflowGraphNode> = {}): WorkflowGraphNode {
+export function createMockGraphNode(
+  overrides: Partial<WorkflowGraphNode> = {}
+): WorkflowGraphNode {
   return {
     nodeId: 'data-ingress',
     type: 'ingress-v1',
@@ -23,7 +25,9 @@ export function createMockGraphNode(overrides: Partial<WorkflowGraphNode> = {}):
 }
 
 /** The mockup's diamond DAG: trigger fans out to two processors that fan into a terminal. */
-export function createMockGraph(overrides: Partial<WorkflowGraph> = {}): WorkflowGraph {
+export function createMockGraph(
+  overrides: Partial<WorkflowGraph> = {}
+): WorkflowGraph {
   return {
     workflowId: 'wf-982-xk-11',
     description: 'Supply_Chain_Optimizer_V2',
@@ -34,7 +38,13 @@ export function createMockGraph(overrides: Partial<WorkflowGraph> = {}): Workflo
         type: 'vector-engine-v2',
         category: 'PROCESSOR',
         description: 'Vectorize batches',
-        uiDesign: { color: 'blue', icon: 'monitoring', label: 'Metrics', width: 200, height: 40 },
+        uiDesign: {
+          color: 'blue',
+          icon: 'monitoring',
+          label: 'Metrics',
+          width: 200,
+          height: 40,
+        },
         outputPorts: ['default', 'error'],
       }),
       createMockGraphNode({
@@ -54,10 +64,19 @@ export function createMockGraph(overrides: Partial<WorkflowGraph> = {}): Workflo
     edges: [
       { source: 'data-ingress', target: 'vectorize-batch', sourcePort: null },
       { source: 'data-ingress', target: 'anomaly-detection', sourcePort: null },
-      { source: 'vectorize-batch', target: 'sink-storage', sourcePort: 'default' },
+      {
+        source: 'vectorize-batch',
+        target: 'sink-storage',
+        sourcePort: 'default',
+      },
       { source: 'anomaly-detection', target: 'sink-storage', sourcePort: null },
     ],
-    topologicalOrder: ['data-ingress', 'vectorize-batch', 'anomaly-detection', 'sink-storage'],
+    topologicalOrder: [
+      'data-ingress',
+      'vectorize-batch',
+      'anomaly-detection',
+      'sink-storage',
+    ],
     ...overrides,
   };
 }
@@ -68,14 +87,22 @@ export function createMockGraph(overrides: Partial<WorkflowGraph> = {}): Workflo
  */
 export function createStagedGraph(): WorkflowGraph {
   const node = (nodeId: string, extra: Partial<WorkflowGraphNode> = {}) =>
-    createMockGraphNode({ nodeId, category: 'PROCESSOR', outputPorts: [], ...extra });
+    createMockGraphNode({
+      nodeId,
+      category: 'PROCESSOR',
+      outputPorts: [],
+      ...extra,
+    });
   return {
     workflowId: 'gate',
     description: 'A staged gate',
     nodes: [
       node('start', { category: 'TRIGGER' }),
       node('lint'),
-      node('lint.fail', { type: 'BRANCH', outputPorts: ['success', 'failure'] }),
+      node('lint.fail', {
+        type: 'BRANCH',
+        outputPorts: ['success', 'failure'],
+      }),
       node('lint.fix', { type: 'SUB_WORKFLOW', subWorkflowId: 'fix' }),
       node('unit', { group: 'test' }),
       node('e2e', { group: 'test' }),
@@ -90,11 +117,21 @@ export function createStagedGraph(): WorkflowGraph {
       { source: 'unit', target: 'e2e', sourcePort: null },
       { source: 'e2e', target: 'end', sourcePort: null },
     ],
-    topologicalOrder: ['start', 'lint', 'lint.fail', 'lint.fix', 'unit', 'e2e', 'end'],
+    topologicalOrder: [
+      'start',
+      'lint',
+      'lint.fail',
+      'lint.fix',
+      'unit',
+      'e2e',
+      'end',
+    ],
   };
 }
 
-export function createMockExecution(overrides: Partial<ExecutionSummary> = {}): ExecutionSummary {
+export function createMockExecution(
+  overrides: Partial<ExecutionSummary> = {}
+): ExecutionSummary {
   return {
     executionId: 'exec-091-qp-55',
     workflowId: 'wf-982-xk-11',
@@ -105,7 +142,9 @@ export function createMockExecution(overrides: Partial<ExecutionSummary> = {}): 
   };
 }
 
-export function createMockTask(overrides: Partial<TaskProgress> = {}): TaskProgress {
+export function createMockTask(
+  overrides: Partial<TaskProgress> = {}
+): TaskProgress {
   return {
     nodeId: 'data-ingress',
     module: 'ingress-v1',
@@ -117,7 +156,9 @@ export function createMockTask(overrides: Partial<TaskProgress> = {}): TaskProgr
 }
 
 /** Progress matching the mockup: ingress done, vectorize running, the rest pending. */
-export function createMockProgress(overrides: Partial<WorkflowProgress> = {}): WorkflowProgress {
+export function createMockProgress(
+  overrides: Partial<WorkflowProgress> = {}
+): WorkflowProgress {
   return {
     executionId: 'exec-091-qp-55',
     sessionId: 'SESSION_A92_XP_2024',
@@ -154,7 +195,9 @@ export function createMockProgress(overrides: Partial<WorkflowProgress> = {}): W
   };
 }
 
-export function createMockLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
+export function createMockLogEntry(
+  overrides: Partial<LogEntry> = {}
+): LogEntry {
   return {
     executionId: 'exec-091-qp-55',
     pluginId: 'vectorize-batch',

@@ -27,7 +27,7 @@ Use it to build and edit workflows without writing JSON by hand, to watch a run 
 | `/sessions/{sessionId}/workflow/{workflowId}/edit` | Workflow editor |
 | `/runs` | Search runs across all sessions (`/history` redirects here) |
 | `/plugins` | Plugin catalogue |
-| `/control` | Scheduler, supervisors, workers, control bus, audit and live activity |
+| `/control` | Mission Control dashboard (scoped charts, capacity, live runs), scheduler, supervisors, workers and control bus; Activity and Audit tabs |
 
 A narrow rail on the left links to Overview, Sessions, Runs, Plugins and Control (a tab bar on a phone). The header has the search and jump palette (`⌘K`), the identity chip, and the theme toggle. A breadcrumb row below it shows where you are. For what each client can do, see [Client parity](/reference/client-parity).
 
@@ -115,7 +115,7 @@ The [stop modes](/api/workflows#stop-all-runs-of-a-workflow) are the same as in 
 
 ### Approvals
 
-When a node of the workflow waits for a person, a bar above the graph says which node waits for which signal and in which run, with **Approve** and **Reject** buttons. The list refreshes every five seconds. See [Approvals and signals](/building/approvals-and-signals).
+When a node of the workflow waits for a person, a bar above the graph says which node waits for which signal and in which run, with **Approve** and **Reject** buttons. The list refreshes every five seconds. See [Input requests](/building/input-requests).
 
 ### Versions
 

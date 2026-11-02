@@ -33,12 +33,12 @@ A start that does not fit waits with status `QUEUED`, or is refused with HTTP `4
 
 When a slot frees up, the next start is chosen by:
 
-1. **Priority**: the start payload key `yukta.priority` (a number, higher first, default `0`).
+1. **Priority**: the start option `options.priority` (a number, higher first, default `0`; ADMIN keys only).
 2. **Fairness**: the session with the fewest running executions goes first, oldest first on a tie. One busy session cannot starve others.
 3. **Arrival order.**
 
 ```json
-{ "sessionId": "ops", "workflowId": "nightly", "payload": { "yukta.priority": 10 } }
+{ "sessionId": "ops", "workflowId": "nightly", "options": { "priority": 10 } }
 ```
 
 ## Restarts and resumes

@@ -100,6 +100,53 @@ class ModelControlPlaneFactoryTest {
   }
 
   @Test
+  void capabilitySettingsDecideWhetherThePlaneAnswersInputRequests() {
+    final DecisionModel model =
+        (spec, state, questions) ->
+            reactor.core.publisher.Mono.just(
+                Map.of(
+                    "answer",
+                    new com.infenia.yukta.plugin.decision.Answer.Choice(
+                        "option_1", Map.of("option_1", 0.99))));
+    final Map<String, Object> answering =
+        Map.of(
+            NAME,
+            "m",
+            "events",
+            List.of("InputRequested"),
+            "canAnswer",
+            true,
+            "maxRisk",
+            "MEDIUM",
+            "allowedCommands",
+            List.of("AnswerInputCommand", "EscalateInputCommand"));
+    final Map<String, Object> advising = Map.of(NAME, "m", "events", List.of("InputRequested"));
+    final var event =
+        new com.infenia.yukta.plugin.control.ExecutionEvent.InputRequested(
+            InputRequests.choice(com.infenia.yukta.plugin.input.InputRisk.LOW), InputRequests.NOW);
+
+    final var answered =
+        java.util.Objects.requireNonNull(
+            ((ModelControlPlane) factoryWith(model).create(profile(answering)))
+                .decide(event)
+                .block());
+    final var advised =
+        java.util.Objects.requireNonNull(
+            ((ModelControlPlane) factoryWith(model).create(profile(advising)))
+                .decide(event)
+                .block());
+
+    assertThat(answered.commands())
+        .singleElement()
+        .isInstanceOf(
+            com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand.class);
+    assertThat(advised.commands())
+        .singleElement()
+        .isInstanceOf(
+            com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand.class);
+  }
+
+  @Test
   void refusesWithoutDecisionModel() {
     assertThatThrownBy(() -> factoryWith(null).create(profile(Map.of(NAME, "m"))))
         .isInstanceOf(IllegalArgumentException.class)

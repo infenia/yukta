@@ -58,12 +58,35 @@ yukta.control-plane.model.min-probability=0.6
 | `yukta.control-plane.model.min-probability` | `0.6` | Below this the answer is ignored |
 | `yukta.control-plane.model.instructions` | built in | The question asked about each event |
 | `yukta.control-plane.model.options` | `continue` and `pause` | Map of answers: each has a `description` of when it applies and a `command` (`NONE`, `PAUSE`, `STOP`). At least two are required |
-| `yukta.control-plane.model.events` | `NodeStatusChanged`, `WorkflowStatusChanged` | Event kinds the model is asked about |
+| `yukta.control-plane.model.events` | `NodeStatusChanged`, `WorkflowStatusChanged` | Event kinds the model is asked about. Add `InputRequested` (and `InputEscalated`) to have it judge [input requests](#input-requests) |
+| `yukta.control-plane.model.min-confidence` | `0.8` | An input request is answered only when the model's confidence reaches this; below it the request is escalated with advice |
 | `yukta.control-plane.model.max-calls-per-minute` | `0` (no limit) | Most model calls per minute. An event over the limit gets no opinion at once (counted as `skipped`) instead of waiting for the model. Keep must-not-miss cases in a rule of the rules-first plane |
 
 The default answers are `continue` (normal operation, a success, a retry that may still succeed, or an execution that already finished) and `pause` (repeated failures, exhausted retries, authentication errors or resource exhaustion that will not fix themselves, so a person must look). Write option descriptions explicitly: a small model needs them.
 
 When the model is down, slow or unsure, the plane returns no commands, so oversight silently stops. It counts every answer in `yukta.plugin.events{plugin=model_control_plane}` with the outcome `decided`, `skipped` (over `max-calls-per-minute`), `no_opinion` (unknown answer or below `min-probability`) or `model_error` (down, slow or unreadable). Alert on a rise of `model_error`, and on `no_opinion` becoming most of the answers. For anything that must not be missed, keep a rule for it in the rules-first plane.
+
+## Input requests
+
+When `events` lists `InputRequested` or `InputEscalated`, the model control plane judges [input requests](/building/input-requests) instead of mapping them to the options above. Only requests with options are judged (`APPROVAL` and `CHOICE`); for `TEXT`, `STRUCTURED` and `QUERY` it has no opinion.
+
+**What the model sees.** The request was written by the asking step, often an AI agent, so it is treated as hostile:
+
+- The question the model is asked is fixed text. The request's options are offered under neutral keys (`option_1`, `option_2`, ...) plus `escalate`, so nothing the request says can change the question.
+- The prompt, options, labels, risk, kind and (already redacted) context are passed as one line of JSON between two marker lines that carry a fresh random value, under a note that the block is untrusted data and must not be followed. Control characters are replaced and long text is cut; a request too large even without its context gets no opinion.
+- The chat backend sends that state in the user turn, never in the system prompt.
+
+**What it does with the answer.** The model's output is a choice with a confidence, nothing else. A choice that is not one of the offered keys, an unreadable answer, a probability outside 0 to 1, a model error or a model slower than the decision timeout (10 seconds) is **no opinion**: the request stays where it is, with its tier, until someone else answers it or its deadline passes. Otherwise:
+
+| Situation | Result |
+|---|---|
+| Confidence at least `min-confidence`, risk within the profile's `maxRisk`, risk not `HIGH` | An answer with the chosen option id, the confidence, and the rationale `model <name>: chose '<id>' with confidence <c>` |
+| Confidence below `min-confidence` | An escalation with the advice `Model <name> recommends '<id>' (confidence <c>); ...` |
+| Risk `HIGH`, risk above `maxRisk`, or no `canAnswer` | An escalation with the same advice, so the person who answers sees the recommendation. The model never answers `HIGH` (and the server would refuse it) |
+| The model chose `escalate` | An escalation saying the model recommends that a person decides |
+| The request was already escalated | An answer if the model may and is sure; never a second escalation |
+
+A model control plane configured by properties may never answer, so it only escalates with advice; to let it answer, attach it as a profile with `canAnswer: true` and a `maxRisk` (see [Supervisors](/running/supervisors#answer-input-requests)). Input requests count toward `max-calls-per-minute`. The outcomes are counted in `yukta.plugin.events{plugin=model_control_plane}` as `answered`, `escalated`, `no_opinion`, `invalid_answer`, `unsupported`, `timeout` and `model_error`.
 
 ## Rules-first control plane
 
@@ -84,7 +107,7 @@ Each of the three can also be made from a profile (`POST /api/supervisors/profil
 | `model-control-plane` | the keys of `yukta.control-plane.model.*` (`name`, `backend`, `provider`, `instructions`, `options`, `events`, `min-probability`, ...), with the same defaults |
 | `rules-first-control-plane` | `{"rules": [...], "model": {...}}`: the rules, and the model keys as above |
 
-The model types need the decision plugin. A wrong value is reported by its key and never repeated, because it may be a secret; `api-key` is shown as `***` when profiles are listed.
+Each also takes the capability settings `canAnswer`, `maxRisk` and `allowedCommands` at the top level of `settings`, which decide whether its rules and model may answer input requests (for `rules-first-control-plane` they apply to both parts). The model types need the decision plugin. A wrong value is reported by its key and never repeated, because it may be a secret; `api-key` is shown as `***` when profiles are listed.
 
 ## Choosing
 

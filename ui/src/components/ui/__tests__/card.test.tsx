@@ -3,7 +3,13 @@
 
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { Card, CardContent, CardHeader, CardTitle, cardVariants } from '../card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  cardVariants,
+} from '../card';
 
 describe('Card', () => {
   it('renders a raised surface with its slots', () => {
@@ -21,13 +27,20 @@ describe('Card', () => {
     expect(screen.getByRole('heading', { name: 'Summary' })).toHaveClass(
       'text-overline'
     );
-    expect(screen.getByText('Body')).toHaveAttribute('data-slot', 'card-content');
+    expect(screen.getByText('Body')).toHaveAttribute(
+      'data-slot',
+      'card-content'
+    );
   });
 
   it('is static unless interactive', () => {
     expect(cardVariants()).not.toContain('hover:shadow-raised');
-    expect(cardVariants({ interactive: true })).toContain('hover:shadow-raised');
-    expect(cardVariants({ interactive: true })).toContain('hover:-translate-y-px');
+    expect(cardVariants({ interactive: true })).toContain(
+      'hover:shadow-raised'
+    );
+    expect(cardVariants({ interactive: true })).toContain(
+      'hover:-translate-y-px'
+    );
   });
 
   it('merges caller classes', () => {

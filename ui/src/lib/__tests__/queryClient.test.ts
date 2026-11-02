@@ -73,7 +73,8 @@ describe('queryClient', () => {
     });
 
     it('should have gcTime greater than staleTime', () => {
-      const staleTime = queryClient.getDefaultOptions().queries?.staleTime as number;
+      const staleTime = queryClient.getDefaultOptions().queries
+        ?.staleTime as number;
       const gcTime = queryClient.getDefaultOptions().queries?.gcTime as number;
       expect(gcTime > staleTime).toBe(true);
     });

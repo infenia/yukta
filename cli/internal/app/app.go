@@ -9,8 +9,8 @@ import (
 
 	"com.infenia.yukta/go-cli/internal/client"
 	"com.infenia.yukta/go-cli/internal/commands"
-	"com.infenia.yukta/go-cli/internal/commands/approvals"
 	"com.infenia.yukta/go-cli/internal/commands/controlbus"
+	"com.infenia.yukta/go-cli/internal/commands/inputs"
 	"com.infenia.yukta/go-cli/internal/commands/logs"
 	"com.infenia.yukta/go-cli/internal/commands/plugin"
 	"com.infenia.yukta/go-cli/internal/commands/result"
@@ -51,7 +51,7 @@ func run() (int, error) {
 	rootCmd.AddCommand(controlbus.ControlBusCmd(c))
 	rootCmd.AddCommand(whoami.WhoamiCmd(c))
 	rootCmd.AddCommand(scheduler.SchedulerCmd(c))
-	rootCmd.AddCommand(approvals.ApprovalsCmd(c))
+	rootCmd.AddCommand(inputs.InputsCmd(c))
 	rootCmd.AddCommand(commands.DataCmd("supervisors", "List supervisors", 0,
 		func([]string) (any, error) { return c.GetSupervisors() }))
 	rootCmd.AddCommand(commands.DataCmd("workers", "List workers", 0,

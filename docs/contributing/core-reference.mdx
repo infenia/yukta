@@ -599,14 +599,14 @@ Hands a named signal (for example `approve`) to the plugin of a node, through th
 
 **Behaviour**
 
-- The plugin must answer `ACCEPTED` or `QUEUED`. A node of a live run that is not waiting yet keeps the signal for **ten minutes** (at most 100, `QUEUED`); a signal for a node that is not registered gives HTTP 409.
-- Waits of all plugins share `SignalWaits.shared()`, so one list of open approvals (oldest first) serves REST, MCP and the workflow page.
+- The signal answers the open input request of the node that carries its name; a signal that arrives before the request exists is not kept (HTTP 409).
+- Waits are input requests (`InputGateway`): `WAIT_FOR_SIGNAL` and `requireApproval` ask a `HIGH` risk `APPROVAL`, whose context carries the signal name, so this command (and `answer_input`) answers it and one list of open approvals (oldest first) serves REST, MCP and the workflow page. A node with no open request for the signal gives HTTP 409. `SignalWaits` is gone.
 - `WAIT_FOR_SIGNAL` holds each message until its signal arrives (`signal`, `timeoutSeconds` default 3600, `onTimeout`, `onReject`) and tags it with `signal.name/decision/data`.
 - An answer is recorded in the checkpoint store as a message of pseudo node `signal:<node>` (a timeout is not), so a resumed run reuses it for the same message id instead of waiting again.
 
-**Surface:** REST `POST /api/executions/{id}/nodes/{node}/signal?name=&decision=&data=`, `GET /api/sessions/{s}/approvals`. MCP `signal_node`, `list_pending_approvals`.
+**Surface:** the legacy signal API (removed in #1805): REST `POST /api/executions/{id}/nodes/{node}/signal`, `GET /api/sessions/{s}/approvals`; MCP `signal_node`, `list_pending_approvals`. Use input requests instead.
 
-**Source:** `SignalNodeCommandProcessor` `SignalWaits` `PendingApproval`
+**Source:** `SignalNodeCommandProcessor` `InputSignalBridge` `PendingApproval`
 
 **Limits:** The wait itself is in memory: after a restart a message produced again waits for a new signal, and a pending approval is invisible until its node waits again. Live waits are lost on HA takeover.
 

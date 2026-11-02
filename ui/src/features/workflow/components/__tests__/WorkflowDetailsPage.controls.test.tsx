@@ -42,6 +42,7 @@ let breakpoint: { field: string; equals: string } | null = null;
 let skipped = false;
 
 const server = setupServer(
+  http.get('/api/sessions/:sid/inputs', () => ok([])),
   http.get('/api/sessions/:sid/workflows/:wid/graph', () =>
     ok(createMockGraph())
   ),

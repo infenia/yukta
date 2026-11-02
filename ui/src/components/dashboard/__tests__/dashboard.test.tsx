@@ -22,6 +22,16 @@ describe('meters', () => {
     expect(meter).toHaveAttribute('aria-valuemax', '10');
   });
 
+  it('shows and reads out the value text of an arc gauge in place of the raw value', () => {
+    render(
+      <ArcGauge label="Heap" value={410_000_000} max={1e9} valueText="41%" />
+    );
+    const meter = screen.getByRole('meter', { name: 'Heap' });
+    expect(meter).toHaveAttribute('aria-valuetext', '41%');
+    expect(meter).toHaveTextContent('41%');
+    expect(meter).not.toHaveTextContent('410000000');
+  });
+
   it('clamps the bar to its range', () => {
     render(<MeterBar label="Load" value={50} max={10} />);
     expect(screen.getByRole('meter').firstElementChild).toHaveStyle({

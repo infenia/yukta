@@ -20,7 +20,6 @@ vi.mock('../AttachDialog', () => ({
   ),
 }));
 
-
 describe('ScopedSupervisors', () => {
   it('lists the supervisors that apply, marking disabled ones', () => {
     bindings.error = false;
@@ -29,9 +28,7 @@ describe('ScopedSupervisors', () => {
       { id: 'b2', profileId: 'cap', scope: 'session:s1', enabled: false },
       { id: 'b3', profileId: 'other', scope: 'session:s9', enabled: true },
     ];
-    renderWithProviders(
-      <ScopedSupervisors sessionId="s1" className="mt-2" />
-    );
+    renderWithProviders(<ScopedSupervisors sessionId="s1" className="mt-2" />);
     expect(screen.getByText(/guard · Global/)).toBeInTheDocument();
     expect(screen.getByText(/cap · Session s1/).textContent).toContain(
       '(disabled)'
@@ -54,9 +51,7 @@ describe('ScopedSupervisors', () => {
     renderWithProviders(<ScopedSupervisors sessionId="s1" />);
     fireEvent.click(screen.getByRole('button', { name: 'Attach supervisor' }));
     fireEvent.click(screen.getByRole('button', { name: 'close-attach' }));
-    expect(
-      screen.queryByRole('button', { name: 'close-attach' })
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'close-attach' })).toBeNull();
   });
 
   it('shows nothing when the bindings cannot be read', () => {

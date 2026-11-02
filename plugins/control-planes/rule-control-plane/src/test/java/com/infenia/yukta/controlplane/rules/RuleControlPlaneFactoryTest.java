@@ -37,6 +37,65 @@ class RuleControlPlaneFactoryTest {
   }
 
   @Test
+  void answerRulesNextToCapabilitySettingsAnswerTheRequestOfTheEvent() {
+    final Map<String, Object> settings =
+        Map.of(
+            "canAnswer",
+            true,
+            "maxRisk",
+            "LOW",
+            "rules",
+            List.of(
+                Map.of(
+                    "id", "approve",
+                    "when", Map.of("event", "InputRequested", "if", "risk == 'LOW'"),
+                    "then", Map.of("answer", Map.of("decision", "approve")))));
+    final var request =
+        new com.infenia.yukta.plugin.input.InputRequest(
+            "r1",
+            "key",
+            "s",
+            "wf",
+            "e1",
+            "ask",
+            new com.infenia.yukta.plugin.input.InputRequestSpec(
+                "key",
+                com.infenia.yukta.plugin.input.InputKind.APPROVAL,
+                "Ship?",
+                Map.of(),
+                List.of(),
+                null,
+                com.infenia.yukta.plugin.input.InputRisk.LOW,
+                com.infenia.yukta.plugin.input.Audience.CURRENT_TIER,
+                java.time.Duration.ofMinutes(1),
+                com.infenia.yukta.plugin.input.TimeoutAction.FAIL,
+                null,
+                null,
+                "ASK_INPUT"),
+            com.infenia.yukta.plugin.input.InputState.OPEN,
+            0,
+            "auto",
+            List.of(),
+            null,
+            null,
+            java.time.Instant.EPOCH,
+            java.time.Instant.EPOCH);
+
+    final var decision =
+        java.util.Objects.requireNonNull(
+            ((RuleControlPlane) factory.create(profile(settings)))
+                .decide(
+                    new com.infenia.yukta.plugin.control.ExecutionEvent.InputRequested(
+                        request, java.time.Instant.EPOCH))
+                .block());
+
+    assertThat(decision.commands())
+        .singleElement()
+        .isInstanceOf(
+            com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand.class);
+  }
+
+  @Test
   void invalidRulesAreRefused() {
     assertThatThrownBy(() -> factory.create(profile(Map.of("rulez", List.of()))))
         .isInstanceOf(IllegalArgumentException.class);

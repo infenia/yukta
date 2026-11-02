@@ -57,7 +57,10 @@ describe('apiKey', () => {
     window.addEventListener(API_KEY_REQUIRED_EVENT, required);
     await expect(fetchApi('/api/x')).rejects.toMatchObject({ status: 401 });
     window.removeEventListener(API_KEY_REQUIRED_EVENT, required);
-    const headers = fetchMock.mock.calls[0][1].headers as Record<string, string>;
+    const headers = fetchMock.mock.calls[0][1].headers as Record<
+      string,
+      string
+    >;
     expect(headers.Authorization).toBe('Bearer k2');
     expect(required).toHaveBeenCalledOnce();
   });
@@ -77,7 +80,9 @@ describe('KeyedEventSource', () => {
     setApiKey('k3');
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(stream('data: {"a":1}\n\nda', 'ta:{"a":2}\r\n\r\n: ping\n\n'));
+      .mockResolvedValue(
+        stream('data: {"a":1}\n\nda', 'ta:{"a":2}\r\n\r\n: ping\n\n')
+      );
     vi.stubGlobal('fetch', fetchMock);
     const messages: string[] = [];
     const opened = vi.fn();
@@ -94,7 +99,10 @@ describe('KeyedEventSource', () => {
   });
 
   it('reports a rejection and asks for a key on 401', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 401 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('', { status: 401 }))
+    );
     const required = vi.fn();
     window.addEventListener(API_KEY_REQUIRED_EVENT, required);
     await new Promise<void>((resolve) => {

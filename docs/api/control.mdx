@@ -27,7 +27,7 @@ All responses use the [envelope](/api/overview#response-envelope). An unknown ex
 | `POST /api/executions/{executionId}/nodes/{nodeId}/retry` | Retry a failed node | `OPERATOR` |
 | `POST /api/executions/{executionId}/nodes/{nodeId}/breakpoint` | Set a breakpoint | `OPERATOR` |
 | `DELETE /api/executions/{executionId}/nodes/{nodeId}/breakpoint` | Clear a breakpoint | `OPERATOR` |
-| `POST /api/executions/{executionId}/nodes/{nodeId}/signal` | Answer a waiting node | `OPERATOR` |
+| `POST /api/executions/{executionId}/nodes/{nodeId}/signal` | Answer a waiting node (deprecated, use [input requests](/building/input-requests)) | `OPERATOR` |
 | `GET /api/control/nodes` | List active nodes | `VIEWER` |
 | `GET /api/control/workflows/{workflowId}/nodes?sessionId=` | List active nodes of a workflow | `VIEWER` |
 | `GET /api/control/workflows/{workflowId}/nodes/{nodeId}/heartbeat?sessionId=&executionId=` | Read a node's last heartbeat | `VIEWER` |
@@ -143,7 +143,11 @@ POST /api/executions/550e8400-e29b-41d4-a716-446655440000/nodes/deploy/breakpoin
 
 `POST /api/executions/{executionId}/nodes/{nodeId}/signal`
 
-Releases or rejects a node that waits for a named signal, such as a `WAIT_FOR_SIGNAL` approval step. Find waiting nodes with the [pending approvals list](/api/executions#list-pending-approvals). See [Approvals and signals](/building/approvals-and-signals).
+<Warning>
+  Deprecated: use input requests (`POST /api/executions/{executionId}/inputs/{requestId}/answer`). This endpoint is removed in the same release. See [Moving off the signal API](/building/input-requests#moving-off-the-signal-api).
+</Warning>
+
+Releases or rejects a node that waits for a named signal, such as a `WAIT_FOR_SIGNAL` approval step. Find waiting nodes with the [pending approvals list](/api/executions#list-pending-approvals). See [Input requests](/building/input-requests).
 
 | Query parameter | Required | Meaning |
 |---|---|---|

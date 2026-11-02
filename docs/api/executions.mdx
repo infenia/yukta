@@ -17,7 +17,7 @@ An execution is one run of a workflow, identified by the `executionId` that the 
 | `GET /api/executions/counts` | Count the runs that need attention | `VIEWER` |
 | `GET /api/executions/{executionId}` | Read the status of a run | `VIEWER` |
 | `GET /api/sessions/{sessionId}/executions/{executionId}/results` | Read what reached the terminal nodes | `VIEWER` |
-| `GET /api/sessions/{sessionId}/approvals` | List nodes that wait for a decision | `VIEWER` |
+| `GET /api/sessions/{sessionId}/approvals` | List nodes that wait for a decision (deprecated, use `GET /api/sessions/{sessionId}/inputs`) | `VIEWER` |
 | `POST /api/executions/{executionId}/stop` | Stop one run (`?tree=true`: with the runs it started) | `OPERATOR` |
 | `GET /api/executions/{executionId}/tree` | The run and every run it started as a sub-workflow | `VIEWER` |
 | `GET /api/executions/{executionId}/nodes/{nodeId}/output` | A slice of what one node wrote: tail, head, a page or the matching lines | `VIEWER` |
@@ -196,7 +196,11 @@ GET /api/sessions/demo/executions/550e8400-e29b-41d4-a716-446655440000/results
 
 `GET /api/sessions/{sessionId}/approvals`
 
-Lists the nodes of the session that wait for a signal right now, such as an approval step, oldest first. Answer one with the [signal endpoint](/api/control#send-a-signal-to-a-node) of its run. See [Approvals and signals](/building/approvals-and-signals).
+<Warning>
+  Deprecated: use input requests (`GET /api/sessions/{sessionId}/inputs`). This endpoint is removed in the same release. See [Moving off the signal API](/building/input-requests#moving-off-the-signal-api).
+</Warning>
+
+Lists the nodes of the session that wait for a signal right now, such as an approval step, oldest first. Answer one with the [signal endpoint](/api/control#send-a-signal-to-a-node) of its run. See [Input requests](/building/input-requests).
 
 **Response `data`**: an array of waits.
 

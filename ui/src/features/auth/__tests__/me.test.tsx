@@ -9,7 +9,13 @@ import { http, HttpResponse } from 'msw';
 import { RequirePermission } from '@/components/common/RequirePermission';
 import IdentityChip from '@/components/layout/IdentityChip';
 import { API_KEY_REQUIRED_EVENT, getApiKey, setApiKey } from '@/lib/apiKey';
-import { knownRole, setMe, type Me, type Permissions, type Role } from '@/lib/identity';
+import {
+  knownRole,
+  setMe,
+  type Me,
+  type Permissions,
+  type Role,
+} from '@/lib/identity';
 import { loadMe } from '../me';
 
 const none: Permissions = {
@@ -23,7 +29,14 @@ const none: Permissions = {
 const ROLES: Record<Role, Permissions> = {
   VIEWER: none,
   OPERATOR: { ...none, startRuns: true, controlRuns: true },
-  ADMIN: { startRuns: true, controlRuns: true, editSessions: true, deleteSessions: true, changeLimits: true, sendCommands: true },
+  ADMIN: {
+    startRuns: true,
+    controlRuns: true,
+    editSessions: true,
+    deleteSessions: true,
+    changeLimits: true,
+    sendCommands: true,
+  },
 };
 const me = (role: Role, over: Partial<Me> = {}): Me => ({
   authenticated: true,
@@ -36,7 +49,9 @@ const me = (role: Role, over: Partial<Me> = {}): Me => ({
 });
 
 let reply: Response | null = null;
-const server = setupServer(http.get('/api/me', () => reply ?? HttpResponse.error()));
+const server = setupServer(
+  http.get('/api/me', () => reply ?? HttpResponse.error())
+);
 beforeAll(() => server.listen());
 afterEach(() => {
   setMe(null);
@@ -67,7 +82,14 @@ describe('RequirePermission', () => {
     const button = screen.getByRole('button', { name: 'Go' });
     expect(button).toHaveProperty('disabled', disabled);
     if (disabled) {
-      const needed = ['editSessions', 'deleteSessions', 'changeLimits', 'sendCommands'].includes(perm) ? 'ADMIN' : 'OPERATOR';
+      const needed = [
+        'editSessions',
+        'deleteSessions',
+        'changeLimits',
+        'sendCommands',
+      ].includes(perm)
+        ? 'ADMIN'
+        : 'OPERATOR';
       expect(button).toHaveAttribute('title', `Needs ${needed}`);
     }
   });
@@ -81,7 +103,9 @@ describe('RequirePermission', () => {
       </RequirePermission>
     );
     expect(screen.getByRole('button', { name: 'Go' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Go' })).not.toHaveAttribute('title');
+    expect(screen.getByRole('button', { name: 'Go' })).not.toHaveAttribute(
+      'title'
+    );
   });
 
   it('stops a disabled link from navigating', async () => {
@@ -99,7 +123,13 @@ describe('RequirePermission', () => {
 
 describe('loadMe', () => {
   it('stores the identity, and forgets it when the server cannot say', async () => {
-    reply = HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data: me('OPERATOR'), path: '/' });
+    reply = HttpResponse.json({
+      timestamp: 't',
+      status: 200,
+      message: 'ok',
+      data: me('OPERATOR'),
+      path: '/',
+    });
     await loadMe();
     expect(knownRole()).toBe('OPERATOR');
 
@@ -130,7 +160,9 @@ describe('IdentityChip', () => {
     expect(trigger).toHaveTextContent('alice');
     expect(trigger).toHaveTextContent('OPERATOR');
     await user.click(trigger);
-    await user.click(await screen.findByRole('menuitem', { name: 'Change API key' }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Change API key' })
+    );
     expect(seen).toBe(1);
     window.removeEventListener(API_KEY_REQUIRED_EVENT, required);
   });
@@ -139,7 +171,13 @@ describe('IdentityChip', () => {
     setApiKey('secret');
     setMe(me('VIEWER'));
     const reload = { reload: () => undefined };
-    Object.defineProperty(window, 'location', { value: { ...window.location, reload: () => (reload.reload = () => 'called') }, configurable: true });
+    Object.defineProperty(window, 'location', {
+      value: {
+        ...window.location,
+        reload: () => (reload.reload = () => 'called'),
+      },
+      configurable: true,
+    });
     const user = userEvent.setup();
     render(<IdentityChip />);
     await user.click(screen.getByRole('button', { name: 'Account' }));

@@ -265,7 +265,7 @@ Models can loop, overspend and be fed hostile input. Yukta limits them per call,
 | Prompt and answer filters | `yukta.llm.deny-input-patterns`, `yukta.llm.deny-output-patterns`, `yukta.llm.max-input-chars` | Refuse a call whose prompt matches a pattern or is too long, and an answer (or tool arguments) that matches a pattern |
 | Tool allow-list | `allowedTools` on a node, `yukta.mcp-client.allowed-tools` on the server | Refuse any other tool |
 | Tool argument limits | `yukta.mcp-client.max-argument-bytes` (65536), `yukta.mcp-client.deny-argument-patterns` | Refuse oversize arguments or arguments that match a pattern |
-| Human approval | `requireApproval` on `MCP_TOOL_CALL`, or `WAIT_FOR_SIGNAL` | The call waits for a signal; `reject` or no answer refuses it. See [Approvals and signals](/building/approvals-and-signals) |
+| Human approval | `requireApproval` on `MCP_TOOL_CALL`, or `WAIT_FOR_SIGNAL` | The call waits for a signal; `reject` or no answer refuses it. See [Input requests](/building/input-requests) |
 
 A few facts about budgets:
 
@@ -287,8 +287,8 @@ A few facts about budgets:
   CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE: constrained model decisions for routing and gating.
 </Card>
 
-<Card title="Approvals and signals" icon="hand" horizontal href="/building/approvals-and-signals">
-  Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision.
+<Card title="Input requests" icon="hand" horizontal href="/building/input-requests">
+  Ask a question and wait for a person, a supervisor or an agent to answer: approvals, choices and text, with a timeout.
 </Card>
 
 <Card title="Supervisors" icon="shield-halved" horizontal href="/running/supervisors">

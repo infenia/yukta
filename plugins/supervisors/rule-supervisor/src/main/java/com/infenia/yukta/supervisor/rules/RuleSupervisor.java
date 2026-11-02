@@ -7,6 +7,8 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.SupervisorCapabilities;
+import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.supervisor.rules.RuleSet.Deny;
 import com.infenia.yukta.supervisor.rules.RuleSet.RequireApproval;
 import com.infenia.yukta.supervisor.rules.RuleSet.Rule;
@@ -24,7 +26,11 @@ import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -41,9 +47,16 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p>A condition that cannot be evaluated does not match an event rule and denies the command of a
  * deny rule, so a faulty rule never lets a forbidden command through.
+ *
+ * <p>A rule can also answer or escalate an input request ({@code then.answer}, {@code
+ * then.escalate}). The server decides whether an answer counts: only a supervisor made from a
+ * profile with {@code canAnswer} and a high enough {@code maxRisk} may answer, never one configured
+ * by file, and never a request of risk {@code HIGH}. Rules that answer without that permission are
+ * reported with a warning when the rules are loaded.
  */
+@Slf4j
 @Component
-@SuppressWarnings({"PMD.CouplingBetweenObjects", "PMD.ExcessiveImports"})
+@SuppressWarnings({"PMD.CouplingBetweenObjects", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
 @ConditionalOnProperty("yukta.supervisor.rules.file")
 public final class RuleSupervisor implements ExecutionSupervisor {
 
@@ -58,6 +71,23 @@ public final class RuleSupervisor implements ExecutionSupervisor {
 
   /** How many restarted runs are remembered for {@code attempt}. */
   private static final int MAX_TRACKED_RUNS = 1000;
+
+  /**
+   * What a supervisor configured by file may do: every command, but never answer an input request
+   * (only a supervisor made from a profile can be granted that).
+   */
+  public static final SupervisorCapabilities FILE_CAPABILITIES =
+      new SupervisorCapabilities(null, false, InputRisk.LOW);
+
+  /** Profile settings that are capabilities for the host, not rules. */
+  private static final Set<String> CAPABILITY_KEYS =
+      Set.of(
+          SupervisorCapabilities.ALLOWED_COMMANDS,
+          SupervisorCapabilities.CAN_ANSWER,
+          SupervisorCapabilities.MAX_RISK);
+
+  /** Writes profile settings back to the JSON the rule reader takes. */
+  private static final JsonMapper PLAIN_JSON = JsonMapper.builder().build();
 
   /** Reads rules strictly, so a misspelled field fails at startup instead of being ignored. */
   private static final JsonMapper JSON =
@@ -81,6 +111,9 @@ public final class RuleSupervisor implements ExecutionSupervisor {
   /** Time source. */
   private final Clock clock;
 
+  /** Why some rules will be denied, or {@code null} when every rule may act. */
+  private final @Nullable String loadWarning;
+
   /**
    * Loads the rules from a file.
    *
@@ -102,8 +135,57 @@ public final class RuleSupervisor implements ExecutionSupervisor {
    * @throws IllegalArgumentException if a rule is invalid
    */
   public RuleSupervisor(final RuleSet ruleSet, final Clock clock) {
+    this(ruleSet, clock, FILE_CAPABILITIES);
+  }
+
+  /**
+   * Creates the supervisor from parsed rules, knowing what its profile allows, so that rules the
+   * server would deny are reported when they are loaded.
+   *
+   * @param ruleSet the rules
+   * @param clock the time source
+   * @param capabilities what the supervisor's profile allows; {@link #FILE_CAPABILITIES} for one
+   *     configured by file
+   * @throws IllegalArgumentException if a rule is invalid
+   */
+  public RuleSupervisor(
+      final RuleSet ruleSet, final Clock clock, final SupervisorCapabilities capabilities) {
     this.clock = clock;
     ruleSet.rules().forEach(this::register);
+    this.loadWarning = answerWarning(eventRules, capabilities).orElse(null);
+    if (loadWarning != null) {
+      log.atWarn().log(loadWarning);
+    }
+  }
+
+  /**
+   * The warning for rules that answer input requests on a supervisor that may not answer.
+   *
+   * @param rules the event rules
+   * @param capabilities what the supervisor may do
+   * @return the warning, naming the rules, or empty when there is nothing to warn about
+   */
+  /* default */ static Optional<String> answerWarning(
+      final List<EventRule> rules, final SupervisorCapabilities capabilities) {
+    final List<String> answering =
+        rules.stream().filter(EventRule::answers).map(EventRule::ruleId).toList();
+    return answering.isEmpty() || capabilities.canAnswer()
+        ? Optional.empty()
+        : Optional.of(
+            "Rules "
+                + answering
+                + " answer input requests, but this supervisor may not answer (canAnswer is off,"
+                + " or it is configured by file): the server will deny their answers. Attach the"
+                + " rules as a profile with canAnswer: true and a maxRisk, or use escalate");
+  }
+
+  /**
+   * Why some rules will be denied when they act.
+   *
+   * @return the warning logged at load time, or empty
+   */
+  public Optional<String> warning() {
+    return Optional.ofNullable(loadWarning);
   }
 
   @SuppressWarnings("PMD.CyclomaticComplexity")
@@ -131,6 +213,23 @@ public final class RuleSupervisor implements ExecutionSupervisor {
     } else {
       eventRules.add(new EventRule(ruleId, when, then));
     }
+  }
+
+  /**
+   * Parses rules from the settings of a profile. The capability settings ({@code allowedCommands},
+   * {@code canAnswer}, {@code maxRisk}) are for the host and are left out; every other key is read
+   * as strictly as a rules file.
+   *
+   * @param settings the profile's settings: {@code {"rules": [...]}} plus capabilities
+   * @return the rules
+   * @throws IllegalArgumentException if the settings are not a valid rule set
+   */
+  @SuppressWarnings("PMD.UseConcurrentHashMap") // a local copy that keeps the order
+  public static RuleSet read(final Map<String, Object> settings) {
+    final Map<String, Object> rules = new LinkedHashMap<>(settings);
+    rules.keySet().removeAll(CAPABILITY_KEYS);
+    // the settings came from JSON, so writing them back cannot fail; reading them can
+    return read(PLAIN_JSON.writeValueAsString(rules));
   }
 
   /**

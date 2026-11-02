@@ -28,8 +28,6 @@ func TestNodeCommands(t *testing.T) {
 		{"unskip", []string{"skip", "s", "e", "n", "--skip=false"}, "POST /api/executions/e/nodes/n/skip?skip=false", "Node n: unskipped"},
 		{"escapes ids", []string{"pause", "s", "e", "a/b"}, "POST /api/executions/e/nodes/a%2Fb/pause", "Node paused: a/b"},
 		{"retry", []string{"retry", "e", "n"}, "POST /api/executions/e/nodes/n/retry", "Node n retried; new execution: exec-1"},
-		{"signal", []string{"signal", "e", "n", "--name", "approval", "--decision", "approve", "--data", "ok"},
-			"POST /api/executions/e/nodes/n/signal?data=ok&decision=approve&name=approval", "Signal approval=approve sent to node n"},
 		{"breakpoint set", []string{"breakpoint", "e", "n", "--field", "payload.status", "--equals", "error"},
 			"POST /api/executions/e/nodes/n/breakpoint?equals=error&field=payload.status", "Breakpoint set on node n: payload.status == error"},
 		{"breakpoint clear", []string{"breakpoint", "e", "n", "--clear"},
@@ -84,7 +82,6 @@ func TestNodeCommands_executionRoutes_errors(t *testing.T) {
 	c, seen := testutil.Server(t, 409, "not waiting")
 	for _, args := range [][]string{
 		{"retry", "e", "n"},
-		{"signal", "e", "n", "--name", "a", "--decision", "b"},
 		{"breakpoint", "e", "n", "--field", "f", "--equals", "v"},
 		{"breakpoint", "e", "n", "--clear"},
 	} {
@@ -96,8 +93,6 @@ func TestNodeCommands_executionRoutes_errors(t *testing.T) {
 	*seen = nil
 	// missing required flags are rejected before any request
 	for _, args := range [][]string{
-		{"signal", "e", "n", "--name", "a"},
-		{"signal", "e", "n", "--decision", "b"},
 		{"breakpoint", "e", "n"},
 		{"retry", "e"},
 	} {

@@ -6,15 +6,27 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.input.Audience;
+import com.infenia.yukta.plugin.input.InputAsk;
+import com.infenia.yukta.plugin.input.InputGateway;
+import com.infenia.yukta.plugin.input.InputIdentity;
+import com.infenia.yukta.plugin.input.InputKeys;
+import com.infenia.yukta.plugin.input.InputKind;
+import com.infenia.yukta.plugin.input.InputRequestSpec;
+import com.infenia.yukta.plugin.input.InputResponse;
+import com.infenia.yukta.plugin.input.InputRisk;
+import com.infenia.yukta.plugin.input.TimeoutAction;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
-import com.infenia.yukta.plugin.util.SignalWaits;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -25,17 +37,19 @@ import reactor.core.publisher.Mono;
  * an agent, then lets it through tagged with {@code signal.name}, {@code signal.decision} and
  * {@code signal.data}.
  *
- * <p>The signal is sent with the {@code SignalNodeCommand} (REST {@code
- * /api/executions/{id}/nodes/{node}/signal}, MCP {@code signal_node}); it is accepted only while
- * the node is waiting. A {@code reject} decision fails the node or drops the message, and a wait
- * that is not answered in time fails the node or lets the message through as {@code timeout}.
+ * <p>The wait is an {@code InputRequest} of kind {@code APPROVAL} and risk {@code HIGH} on the
+ * {@code InputGateway}, so it is listed with the pending inputs and, as a HIGH risk request, only a
+ * person can answer it (the input answer command over REST, MCP, CLI or UI; the older {@code
+ * SignalNodeCommand} reaches it through a bridge). A {@code reject} decision fails the node or
+ * drops the message, and a wait that is not answered in time fails the node or lets the message
+ * through as {@code timeout}. Without an {@code InputGateway} bean the node fails with a clear
+ * message.
  *
- * <p>The wait itself is in memory, but an answer is also recorded in the run's checkpoint store
- * (under the node id {@code signal:<node>}, keyed by the id of the message and the signal name), so
- * a run that is resumed after a restart does not ask again for a message that was already answered.
- * That needs a file or PostgreSQL checkpoint store and a message whose id survives the replay (an
- * output of a node that finished); a message that is produced again waits again. A timeout is not
- * recorded.
+ * <p>An answer is also recorded in the run's checkpoint store (under the node id {@code
+ * signal:<node>}, keyed by the id of the message and the signal name), so a run that is resumed
+ * after a restart does not ask again for a message that was already answered. That needs a file or
+ * PostgreSQL checkpoint store and a message whose id survives the replay (an output of a node that
+ * finished); a message that is produced again waits again. A timeout is not recorded.
  */
 @Component
 @SuppressWarnings("PMD.TooManyMethods")
@@ -67,41 +81,35 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
    */
   private static final String CONTINUE = "CONTINUE";
 
-  /** Answer to a signal that a waiting node took. */
-  public static final String ACCEPTED = SignalWaits.ACCEPTED;
+  /** Longest signal name: it is part of the request key. */
+  private static final int NAME_MAX_CHARS = 128;
 
-  /** Answer to a signal when the node is not waiting for it. */
-  public static final String NOT_WAITING = SignalWaits.NOT_WAITING;
+  /** Label of this plugin on its requests. */
+  private static final String REQUESTER = "WAIT_FOR_SIGNAL";
 
-  /** The waits, shared with the other plugins so one list shows them all. */
-  private final SignalWaits waits;
+  /** Where the input gateway is found, at use time. */
+  private final ObjectProvider<InputGateway> gateways;
 
   /** Where answers are kept for a resume, or null when the run keeps none. */
   @Nullable private final NodeCheckpointStore answers;
-
-  /** Waits on the instance the engine's plugins share, without remembering answers. */
-  public WaitForSignalProcessor() {
-    this(SignalWaits.shared(), null);
-  }
 
   /**
    * Spring constructor.
    *
    * @param checkpoints the checkpoint store, where answers are remembered for a resume
+   * @param gateways the input gateway, which holds the question and takes the answer
    */
   @Autowired
-  public WaitForSignalProcessor(final NodeCheckpointStore checkpoints) {
-    this(SignalWaits.shared(), checkpoints);
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the checkpoint store is a shared Spring bean
+  public WaitForSignalProcessor(
+      final NodeCheckpointStore checkpoints, final ObjectProvider<InputGateway> gateways) {
+    this.gateways = gateways;
+    this.answers = checkpoints;
   }
 
-  /* default */ WaitForSignalProcessor(final SignalWaits waits) {
-    this(waits, null);
-  }
-
-  /* default */ WaitForSignalProcessor(
-      final SignalWaits waits, @Nullable final NodeCheckpointStore answers) {
-    this.waits = waits;
-    this.answers = answers;
+  /* default */ WaitForSignalProcessor(final ObjectProvider<InputGateway> gateways) {
+    this.gateways = gateways;
+    this.answers = null;
   }
 
   @Override
@@ -109,12 +117,16 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
     return new PluginDescriptor(
         "Waits for a named signal (approval, decision) before a message goes on.",
         """
-        Configure with:
-        - signal: name of the signal to wait for (required).
-        - timeoutSeconds: longest wait, default 3600.
-        - onTimeout: FAIL (default) or CONTINUE (message goes on with signal.decision=timeout).
-        - onReject: FAIL (default) or CONTINUE (message is dropped) for a 'reject' decision.
-        Any other decision lets the message through; read it from metadata signal.decision to branch.
+              Configure with:
+              - signal: name of the signal to wait for (required).
+              - timeoutSeconds: longest wait, default 3600. Must not exceed yukta.input.max-ttl (default 24h):
+        a longer wait is refused at runtime with an input limit error.
+              - onTimeout: FAIL (default) or CONTINUE (message goes on with signal.decision=timeout).
+              - onReject: FAIL (default) or CONTINUE (message is dropped) for a 'reject' decision.
+              Any other decision lets the message through; read it from metadata signal.decision to branch.
+              The wait is an input request (kind APPROVAL, risk HIGH): it is listed with the pending
+              inputs and answered with the input answer command (REST, MCP, CLI, UI) by a person, as
+              HIGH risk requests are human-only. The older signal command still answers it for now.
         """,
         Optional.empty());
   }
@@ -155,11 +167,6 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
   }
 
   @Override
-  public Mono<Message<?>> onControlSignal(final Message<?> signal) {
-    return waits.deliver(signal);
-  }
-
-  @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     final String name = signalName(config);
     final Duration timeout = timeout(config);
@@ -175,18 +182,19 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
                       .switchIfEmpty(
                           Mono.defer(
                               () ->
-                                  waits
-                                      .await(executionId, nodeId, name, timeout)
+                                  InputAsk.ask(
+                                          gateways::getIfAvailable,
+                                          spec(ctx, message, name, timeout))
+                                      .map(WaitForSignalProcessor::decision)
                                       .flatMap(
                                           decision ->
                                               remember(
                                                   executionId, nodeId, name, message, decision))
                                       .onErrorResume(
-                                          java.util.concurrent.TimeoutException.class,
+                                          InputAsk::isTimeout,
                                           e ->
                                               continueOnTimeout
-                                                  ? Mono.just(
-                                                      new SignalWaits.Decision("timeout", ""))
+                                                  ? Mono.just(new Decision("timeout", ""))
                                                   : Mono.error(
                                                       new IllegalStateException(
                                                           "No '"
@@ -198,13 +206,47 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
                 }));
   }
 
+  /** The request: an approval nobody can answer with a wrong word, held by name for the message. */
+  private static InputRequestSpec spec(
+      final reactor.util.context.ContextView ctx,
+      final Message<?> message,
+      final String name,
+      final Duration timeout) {
+    final InputIdentity who = InputIdentity.from(ctx);
+    final String shown = InputAsk.clean(name, NAME_MAX_CHARS);
+    return new InputRequestSpec(
+        InputKeys.of(who.sessionId(), who.workflowId(), who.nodeId(), message.id(), name),
+        InputKind.APPROVAL,
+        "Waiting for signal '"
+            + shown
+            + "'. Answer approve to let the message go on, reject to"
+            + " stop it, or any other decision to branch on it.",
+        Map.of(InputAsk.SIGNAL_CONTEXT_KEY, name, "messageId", message.id()),
+        List.of(),
+        null,
+        InputRisk.HIGH,
+        Audience.CURRENT_TIER,
+        timeout,
+        TimeoutAction.FAIL,
+        null,
+        null,
+        REQUESTER);
+  }
+
+  private static Decision decision(final InputResponse response) {
+    return new Decision(response.decision(), Objects.requireNonNullElse(response.text(), ""));
+  }
+
+  /** What a signal answered: the decision and its text. */
+  private record Decision(String decision, String data) {}
+
   /** Where the answers of a node are kept in the checkpoint store. */
   private static String answerNode(final String nodeId) {
     return "signal:" + nodeId;
   }
 
   /** The answer given earlier (before a restart) to this message, if there is one. */
-  private Mono<SignalWaits.Decision> remembered(
+  private Mono<Decision> remembered(
       final String executionId, final String nodeId, final String name, final Message<?> message) {
     if (answers == null) {
       return Mono.empty();
@@ -220,19 +262,19 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
         .map(
             kept -> {
               final Map<?, ?> body = (Map<?, ?>) kept.payload();
-              return new SignalWaits.Decision(
+              return new Decision(
                   String.valueOf(body.get("decision")), String.valueOf(body.get("data")));
             })
         .onErrorResume(_ -> Mono.empty());
   }
 
   /** Keeps an answer for a resume; a store that fails never fails the wait. */
-  private Mono<SignalWaits.Decision> remember(
+  private Mono<Decision> remember(
       final String executionId,
       final String nodeId,
       final String name,
       final Message<?> message,
-      final SignalWaits.Decision decision) {
+      final Decision decision) {
     if (answers == null) {
       return Mono.just(decision);
     }
@@ -255,7 +297,7 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
   private static Mono<Message<?>> release(
       final Message<?> message,
       final String name,
-      final SignalWaits.Decision decision,
+      final Decision decision,
       final boolean dropOnReject) {
     if (REJECT.equalsIgnoreCase(decision.decision())) {
       return dropOnReject
@@ -271,10 +313,13 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
   }
 
   private static String signalName(final Map<String, Object> config) {
-    if (config.get(SIGNAL) instanceof String name && !name.isBlank()) {
+    if (config.get(SIGNAL) instanceof String name
+        && !name.isBlank()
+        && name.length() <= NAME_MAX_CHARS) {
       return name;
     }
-    throw new IllegalArgumentException("signal must be a non-empty name");
+    throw new IllegalArgumentException(
+        "signal must be a non-empty name of at most " + NAME_MAX_CHARS + " characters");
   }
 
   private static Duration timeout(final Map<String, Object> config) {

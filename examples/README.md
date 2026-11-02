@@ -55,8 +55,15 @@ by default (fixed rules, no model, no internet), so they run offline and in `run
 | [10](10-mcp-agent/) | AI agent drives Yukta over MCP | MCP `create_session` / `start_workflow` | MCP |
 | [11](11-dogfood/) | How Yukta develops itself: this repo's `gradle check` as a staged, self-healing workflow (failed stages are repaired by `spotlessApply` and headless Claude Code, then rechecked) | CONSTANT_SOURCE → PROCESS_EXECUTOR stages with `routeByExitCode` repair chains → terminal | REST / CLI |
 
-Approval steps (`WAIT_FOR_SIGNAL`) are answered by each `run.sh` itself, which polls `GET /api/sessions/{id}/approvals` and sends the
-signal. In real use a person or an agent sends it from the UI, the CLI, REST or MCP.
+### Supervisor profiles
+
+[`supervisor-profiles/input-requests.json`](supervisor-profiles/input-requests.json) is a rule supervisor profile that approves low
+risk input requests for staging and escalates the rest with advice. Create it with `POST /api/supervisors/profiles` (admin key) and
+bind it to a session with `POST /api/supervisors/bindings`; see the docs page "Input requests". A test loads it, so it stays valid.
+
+Approval steps (`WAIT_FOR_SIGNAL`) are answered by each `run.sh` itself, which polls `GET /api/sessions/{id}/inputs` and answers the open
+request with `POST /api/executions/{id}/inputs/{requestId}/answer`. In real use a person or a supervisor answers it from the UI, the CLI
+(`yukta inputs`), REST or MCP.
 
 Example 10 note: MCP output validation rejects executions that are still running, so that
 example waits over REST and reads the result through MCP only after the run finishes.

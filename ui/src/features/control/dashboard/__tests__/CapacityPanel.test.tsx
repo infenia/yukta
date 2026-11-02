@@ -107,7 +107,10 @@ describe('CapacityPanel', () => {
   });
 
   it('ends a drain straight away and labels what is still running', async () => {
-    vi.mocked(getDrain).mockResolvedValue({ draining: true, idle: false } as never);
+    vi.mocked(getDrain).mockResolvedValue({
+      draining: true,
+      idle: false,
+    } as never);
     renderWithProviders(<CapacityPanel live={false} />);
     const drain = await screen.findByRole('switch');
     expect(screen.getByText('(running work finishes)')).toBeInTheDocument();
@@ -145,7 +148,10 @@ describe('CapacityPanel', () => {
   });
 
   it('shows a drain failure with its message and labels an idle drain', async () => {
-    vi.mocked(getDrain).mockResolvedValue({ draining: true, idle: true } as never);
+    vi.mocked(getDrain).mockResolvedValue({
+      draining: true,
+      idle: true,
+    } as never);
     vi.mocked(setDrain).mockRejectedValueOnce(new Error('drain refused'));
     renderWithProviders(<CapacityPanel live={false} />);
     expect(await screen.findByText('(idle)')).toBeInTheDocument();

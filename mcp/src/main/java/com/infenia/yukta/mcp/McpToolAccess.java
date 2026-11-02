@@ -47,7 +47,10 @@ class McpToolAccess {
           Map.entry("control_workflow", ApiRole.OPERATOR),
           Map.entry("control_node", ApiRole.OPERATOR),
           Map.entry("set_node_breakpoint", ApiRole.OPERATOR),
-          Map.entry("signal_node", ApiRole.OPERATOR));
+          Map.entry("signal_node", ApiRole.OPERATOR),
+          Map.entry("list_pending_inputs", ApiRole.VIEWER),
+          Map.entry("answer_input", ApiRole.OPERATOR),
+          Map.entry("escalate_input", ApiRole.OPERATOR));
 
   /** Tools that name no session and show nothing of one, so a session key may call them. */
   private static final Set<String> SESSIONLESS =

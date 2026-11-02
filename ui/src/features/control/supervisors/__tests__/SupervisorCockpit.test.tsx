@@ -6,8 +6,19 @@ import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import { SupervisorCockpit } from '../SupervisorCockpit';
 
-type Q = { isPending: boolean; error: { message: string } | null; data?: unknown; refetch: () => void };
-const q = (over: Partial<Q> = {}): Q => ({ isPending: false, error: null, data: [], refetch: vi.fn(), ...over });
+type Q = {
+  isPending: boolean;
+  error: { message: string } | null;
+  data?: unknown;
+  refetch: () => void;
+};
+const q = (over: Partial<Q> = {}): Q => ({
+  isPending: false,
+  error: null,
+  data: [],
+  refetch: vi.fn(),
+  ...over,
+});
 
 const state = vi.hoisted(() => ({
   running: null as unknown,
@@ -25,12 +36,22 @@ vi.mock('../useSupervisorData', () => ({
   useDeleteProfile: () => state.remove,
 }));
 vi.mock('../SupervisorCard', () => ({
-  SupervisorCard: ({ running, binding }: { running?: { id: string }; binding?: { id: string } }) => (
-    <div>card-{binding?.id ?? running?.id}</div>
-  ),
+  SupervisorCard: ({
+    running,
+    binding,
+  }: {
+    running?: { id: string };
+    binding?: { id: string };
+  }) => <div>card-{binding?.id ?? running?.id}</div>,
 }));
 vi.mock('../ProfileDialog', () => ({
-  ProfileDialog: ({ profile, onClose }: { profile?: { id: string }; onClose: () => void }) => (
+  ProfileDialog: ({
+    profile,
+    onClose,
+  }: {
+    profile?: { id: string };
+    onClose: () => void;
+  }) => (
     <button onClick={onClose}>profile-dialog-{profile?.id ?? 'new'}</button>
   ),
 }));
@@ -40,7 +61,12 @@ vi.mock('../AttachDialog', () => ({
   ),
 }));
 
-const profile = { id: 'p1', type: 'rule-supervisor', dryRun: false, settings: {} };
+const profile = {
+  id: 'p1',
+  type: 'rule-supervisor',
+  dryRun: false,
+  settings: {},
+};
 
 describe('SupervisorCockpit', () => {
   beforeEach(() => {
@@ -73,7 +99,9 @@ describe('SupervisorCockpit', () => {
   });
 
   it('shows a card for attached and for startup supervisors', () => {
-    state.bindings = q({ data: [{ id: 'bound', profileId: 'p1', scope: 'global', enabled: true }] });
+    state.bindings = q({
+      data: [{ id: 'bound', profileId: 'p1', scope: 'global', enabled: true }],
+    });
     state.running = q({ data: [{ id: 'bound' }, { id: 'boot' }] });
     renderWithProviders(<SupervisorCockpit />);
     expect(screen.getByText('card-bound')).toBeInTheDocument();
@@ -84,7 +112,9 @@ describe('SupervisorCockpit', () => {
     renderWithProviders(<SupervisorCockpit />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit profile p1' }));
     fireEvent.click(screen.getByRole('button', { name: 'profile-dialog-p1' }));
-    expect(screen.queryByRole('button', { name: 'profile-dialog-p1' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'profile-dialog-p1' })
+    ).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Delete profile p1' }));
     expect(state.remove.mutate).toHaveBeenCalledWith('p1');
   });
@@ -92,7 +122,9 @@ describe('SupervisorCockpit', () => {
   it('creates a profile and attaches one from the header', () => {
     renderWithProviders(<SupervisorCockpit />);
     fireEvent.click(screen.getByRole('button', { name: 'New profile' }));
-    expect(screen.getByRole('button', { name: 'profile-dialog-new' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'profile-dialog-new' })
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Attach supervisor' }));
     fireEvent.click(screen.getByRole('button', { name: 'attach-dialog' }));
     expect(screen.queryByRole('button', { name: 'attach-dialog' })).toBeNull();
@@ -119,8 +151,21 @@ describe('SupervisorCockpit', () => {
   it('lists decisions, with their reason, and the empty and failed states', () => {
     state.decisions = q({
       data: [
-        { time: '2026-01-01T00:00:00Z', supervisorId: 'guard', executionId: 'e1', command: 'stop', outcome: 'rejected', reason: 'limit' },
-        { time: '2026-01-01T00:00:01Z', supervisorId: 'guard', executionId: 'e2', command: 'pause', outcome: 'applied' },
+        {
+          time: '2026-01-01T00:00:00Z',
+          supervisorId: 'guard',
+          executionId: 'e1',
+          command: 'stop',
+          outcome: 'rejected',
+          reason: 'limit',
+        },
+        {
+          time: '2026-01-01T00:00:01Z',
+          supervisorId: 'guard',
+          executionId: 'e2',
+          command: 'pause',
+          outcome: 'applied',
+        },
       ],
     });
     const { unmount } = renderWithProviders(<SupervisorCockpit />);
@@ -140,14 +185,22 @@ describe('SupervisorCockpit', () => {
 
     state.decisions = q({ data: [] });
     renderWithProviders(<SupervisorCockpit />);
-    expect(screen.getByText('No supervisor has decided anything yet')).toBeInTheDocument();
+    expect(
+      screen.getByText('No supervisor has decided anything yet')
+    ).toBeInTheDocument();
   });
 
   it('retries the decisions and the profiles when they fail', () => {
     const decisionsRefetch = vi.fn();
     const profilesRefetch = vi.fn();
-    state.decisions = q({ error: { message: 'feed down' }, refetch: decisionsRefetch });
-    state.profiles = q({ error: { message: 'no profiles' }, refetch: profilesRefetch });
+    state.decisions = q({
+      error: { message: 'feed down' },
+      refetch: decisionsRefetch,
+    });
+    state.profiles = q({
+      error: { message: 'no profiles' },
+      refetch: profilesRefetch,
+    });
     renderWithProviders(<SupervisorCockpit />);
     fireEvent.click(screen.getAllByRole('button', { name: /retry/i })[0]);
     fireEvent.click(screen.getAllByRole('button', { name: /retry/i })[1]);

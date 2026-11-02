@@ -195,6 +195,15 @@ const STATUS_DISPLAY: Record<string, StatusDisplay> = {
     icon: 'skip_next',
     dashed: true,
   },
+  // Input request states (not run statuses)
+  OPEN: {
+    label: 'Waiting for an answer',
+    tone: 'attention',
+    icon: 'hourglass_empty',
+  },
+  ESCALATED: { label: 'Escalated', tone: 'attention', icon: 'schedule' },
+  ANSWERED: { ...SUCCEEDED_DISPLAY, label: 'Answered' },
+  EXPIRED: { label: 'Expired', tone: 'destructive', icon: 'timer_off' },
   UPSTREAM_FAILED: {
     label: 'Not reached',
     tone: 'muted',

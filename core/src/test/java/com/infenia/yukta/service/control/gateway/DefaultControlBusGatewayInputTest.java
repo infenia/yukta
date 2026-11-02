@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.model.control.PendingApproval;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
@@ -18,7 +17,6 @@ import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputKind;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRisk;
-import com.infenia.yukta.plugin.util.SignalWaits;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
@@ -42,7 +40,6 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
-import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -158,10 +155,8 @@ class DefaultControlBusGatewayInputTest {
   }
 
   @Test
-  void pendingApprovalsAlsoListsOpenApprovalRequestsOnce() {
+  void pendingApprovalsListsOnlyApprovalRequestsNamedBySignal() {
     withBroker();
-    final Disposable wait =
-        SignalWaits.shared().await("exec", "node", "gate", Duration.ofMinutes(1)).subscribe();
     final WorkflowProgress progress = mock(WorkflowProgress.class);
     when(progress.sessionId()).thenReturn("session");
     when(progress.workflowId()).thenReturn("workflow");
@@ -173,21 +168,19 @@ class DefaultControlBusGatewayInputTest {
     when(broker.listOpen("session", null)).thenReturn(Flux.just(named, unnamed, text));
 
     StepVerifier.create(gateway.pendingApprovals("session"))
-        // the signal wait, then the request without a signal name; the named one is the same wait
-        .assertNext(approval -> assertThat(approval.name()).isEqualTo("gate"))
+        // only the request named by its signal; an unnamed one has no signal to answer it
         .assertNext(
             approval -> {
-              assertThat(approval).extracting(PendingApproval::name).isEqualTo("key-2");
+              assertThat(approval.name()).isEqualTo("gate");
               assertThat(approval.sessionId()).isEqualTo("session");
               assertThat(approval.workflowId()).isEqualTo("workflow");
-              assertThat(approval.since()).isEqualTo(unnamed.createdAt());
+              assertThat(approval.since()).isEqualTo(named.createdAt());
             })
         .verifyComplete();
-    wait.dispose();
   }
 
   @Test
-  void withoutBrokerOnlyTheSignalWaitsAreListed() {
+  void withoutBrokerNothingIsListed() {
     @SuppressWarnings("unchecked")
     final ObjectProvider<InputBroker> none = mock(ObjectProvider.class);
     gateway.setInputBroker(none);

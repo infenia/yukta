@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterAll,
+  afterEach,
+} from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
@@ -13,7 +21,13 @@ import { diffWorkflow, parseSession } from '../../importSession';
 import type { DraftWorkflow } from '../../types';
 
 const ok = (data: unknown) =>
-  HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data, path: '/' });
+  HttpResponse.json({
+    timestamp: 't',
+    status: 200,
+    message: 'ok',
+    data,
+    path: '/',
+  });
 
 const wf = (overrides: Partial<DraftWorkflow> = {}): DraftWorkflow => ({
   workflowId: 'main',
@@ -25,7 +39,9 @@ const wf = (overrides: Partial<DraftWorkflow> = {}): DraftWorkflow => ({
   edges: [{ source: 'a', target: 'z', sourcePort: null }],
   ...overrides,
 });
-const session = (workflows: Record<string, DraftWorkflow> = { main: wf() }) => ({
+const session = (
+  workflows: Record<string, DraftWorkflow> = { main: wf() }
+) => ({
   sessionId: 's1',
   name: 'n',
   description: 'd',
@@ -37,7 +53,10 @@ const session = (workflows: Record<string, DraftWorkflow> = { main: wf() }) => (
 
 let existing: unknown = null;
 let existingStatus = 404;
-let validation: { valid: boolean; message: string | null } = { valid: true, message: null };
+let validation: { valid: boolean; message: string | null } = {
+  valid: true,
+  message: null,
+};
 let validateFails = false;
 let saved: unknown;
 let saveFails = false;
@@ -55,7 +74,9 @@ const server = setupServer(
   ),
   http.post('/api/sessions', async ({ request }) => {
     saved = await request.json();
-    return saveFails ? HttpResponse.json({ message: 'refused' }, { status: 409 }) : ok({});
+    return saveFails
+      ? HttpResponse.json({ message: 'refused' }, { status: 409 })
+      : ok({});
   })
 );
 
@@ -94,14 +115,20 @@ describe('parseSession', () => {
     expect(parseSession('{\n "a": 1,\n nope')).toEqual({
       error: expect.stringMatching(/line 3, column \d+/),
     });
-    expect(parseSession('')).toEqual({ error: expect.stringContaining('Invalid JSON') });
+    expect(parseSession('')).toEqual({
+      error: expect.stringContaining('Invalid JSON'),
+    });
   });
 
   it('wants a sessionId and workflows', () => {
     expect(parseSession('null')).toHaveProperty('error');
     expect(parseSession('{"sessionId":"s"}')).toHaveProperty('error');
-    expect(parseSession('{"sessionId":"s","workflows":null}')).toHaveProperty('error');
-    expect(parseSession('{"sessionId":"s","workflows":{}}')).toHaveProperty('session');
+    expect(parseSession('{"sessionId":"s","workflows":null}')).toHaveProperty(
+      'error'
+    );
+    expect(parseSession('{"sessionId":"s","workflows":{}}')).toHaveProperty(
+      'session'
+    );
   });
 });
 
@@ -134,7 +161,9 @@ describe('SessionImportPage', () => {
     page();
     await paste(user, '{nope');
     expect(await screen.findByRole('alert')).toHaveTextContent('Invalid JSON');
-    expect(screen.queryByRole('region', { name: 'Review' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Review' })
+    ).not.toBeInTheDocument();
   });
 
   it('keeps Check disabled until there is text, and reads a chosen file', async () => {
@@ -143,9 +172,13 @@ describe('SessionImportPage', () => {
     expect(screen.getByRole('button', { name: 'Check' })).toBeDisabled();
     await user.upload(
       screen.getByLabelText('Session file (.json)'),
-      new File([JSON.stringify(session())], 's.json', { type: 'application/json' })
+      new File([JSON.stringify(session())], 's.json', {
+        type: 'application/json',
+      })
     );
-    expect(screen.getByLabelText('Or paste the JSON')).toHaveValue(JSON.stringify(session()));
+    expect(screen.getByLabelText('Or paste the JSON')).toHaveValue(
+      JSON.stringify(session())
+    );
     await user.upload(screen.getByLabelText('Session file (.json)'), []);
   });
 
@@ -154,7 +187,9 @@ describe('SessionImportPage', () => {
     const user = userEvent.setup();
     page();
     await paste(user, JSON.stringify(session()));
-    expect(await screen.findByRole('alert')).toHaveTextContent('main: a node is missing');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'main: a node is missing'
+    );
 
     validateFails = true;
     await user.click(screen.getByRole('button', { name: 'Check' }));
@@ -166,15 +201,23 @@ describe('SessionImportPage', () => {
     const user = userEvent.setup();
     page();
     const withSecret = session({
-      main: wf({ nodes: [{ nodeId: 'a', type: 'HTTP_REQUEST', config: { key: '******' } }] }),
+      main: wf({
+        nodes: [
+          { nodeId: 'a', type: 'HTTP_REQUEST', config: { key: '******' } },
+        ],
+      }),
     });
     await paste(user, JSON.stringify(withSecret));
 
-    expect(await screen.findByText(/New session s1 with 1 workflow/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/New session s1 with 1 workflow/)
+    ).toBeInTheDocument();
     expect(screen.getByText(/Secrets are redacted/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Import session' }));
 
-    expect(await screen.findByTestId('where')).toHaveTextContent('/sessions/s1');
+    expect(await screen.findByTestId('where')).toHaveTextContent(
+      '/sessions/s1'
+    );
     expect(saved).toEqual(withSecret);
   });
 
@@ -184,7 +227,9 @@ describe('SessionImportPage', () => {
     page();
     await paste(
       user,
-      JSON.stringify(session({ main: wf(), added: wf({ workflowId: 'added' }) }))
+      JSON.stringify(
+        session({ main: wf(), added: wf({ workflowId: 'added' }) })
+      )
     );
 
     expect(await screen.findByText(/Import replaces it/)).toBeInTheDocument();
@@ -203,6 +248,8 @@ describe('SessionImportPage', () => {
     page();
     await paste(user, JSON.stringify(session()));
     expect(await screen.findByRole('alert')).toHaveTextContent('none');
-    expect(screen.queryByRole('region', { name: 'Review' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Review' })
+    ).not.toBeInTheDocument();
   });
 });

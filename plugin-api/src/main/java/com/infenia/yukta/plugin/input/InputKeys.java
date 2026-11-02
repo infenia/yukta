@@ -52,6 +52,17 @@ public class InputKeys {
     return hash("SHA-256", joined);
   }
 
+  /**
+   * The hex SHA-256 of a text, for a key part that is too long or too free-form to be an id (for
+   * example a tool call and its arguments).
+   *
+   * @param text the text
+   * @return 64 hex characters
+   */
+  public static String digest(final String text) {
+    return hash("SHA-256", text);
+  }
+
   /** The hex of the hash of a text; every JVM has SHA-256, so that name never fails. */
   /* default */ static String hash(final String algorithm, final String text) {
     try {

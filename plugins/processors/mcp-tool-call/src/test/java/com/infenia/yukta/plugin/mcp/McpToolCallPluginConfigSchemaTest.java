@@ -24,6 +24,7 @@ class McpToolCallPluginConfigSchemaTest {
             new McpClientGateway(WebClient.builder(), new ObjectMapper()),
             null,
             Mockito.mock(ObjectProvider.class),
+            Mockito.mock(ObjectProvider.class),
             Mockito.mock(ObjectProvider.class));
     final List<ConfigField> schema = plugin.getConfigSchema();
     assertThat(schema.stream().map(ConfigField::name))
@@ -37,6 +38,13 @@ class McpToolCallPluginConfigSchemaTest {
             "requireApproval",
             "approvalSignal",
             "approvalTimeoutSeconds",
+            "allowAskInput",
+            "inputRiskFloor",
+            "inputTtlSeconds",
+            "inputAudience",
+            "inputRoute",
+            "inputMaxAsks",
+            "inputOnTimeout",
             "authToken",
             "timeout",
             "resultKey",

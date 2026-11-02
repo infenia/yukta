@@ -7,7 +7,12 @@ import { renderWithProviders } from '@/test/utils/testUtils';
 import { useMetricSnapshot } from '@/features/metrics/hooks';
 import { getHeartbeats } from '../../api/controlBus';
 import { useWorkers } from '../../api/workers';
-import { AiUsagePanel, BusPanel, VitalsPanel, WorkerSlotsPanel } from '../HealthPanels';
+import {
+  AiUsagePanel,
+  BusPanel,
+  VitalsPanel,
+  WorkerSlotsPanel,
+} from '../HealthPanels';
 
 const NOW = 1_000_000;
 
@@ -32,19 +37,42 @@ vi.mock('@/components/dashboard/Strips', () => ({
 }));
 
 const q = (over: Record<string, unknown> = {}) =>
-  ({ isPending: false, error: null, data: [], refetch: vi.fn(), ...over }) as never;
+  ({
+    isPending: false,
+    error: null,
+    data: [],
+    refetch: vi.fn(),
+    ...over,
+  }) as never;
 
 describe('BusPanel', () => {
   it('says so with no heartbeat and grades the age of each', async () => {
     vi.mocked(getHeartbeats).mockResolvedValue([] as never);
     const { unmount } = renderWithProviders(<BusPanel live={false} />);
-    expect(await screen.findByText('No node has sent a heartbeat')).toBeInTheDocument();
+    expect(
+      await screen.findByText('No node has sent a heartbeat')
+    ).toBeInTheDocument();
     unmount();
 
     const beats = [
-      { workflowId: 'w', nodeId: 'fresh', executionId: 'e1', timestamp: new Date(NOW - 10_000).toISOString() },
-      { workflowId: 'w', nodeId: 'late', executionId: 'e2', timestamp: new Date(NOW - 45_000).toISOString() },
-      { workflowId: 'w', nodeId: 'gone', executionId: 'e3', timestamp: new Date(NOW - 90_000).toISOString() },
+      {
+        workflowId: 'w',
+        nodeId: 'fresh',
+        executionId: 'e1',
+        timestamp: new Date(NOW - 10_000).toISOString(),
+      },
+      {
+        workflowId: 'w',
+        nodeId: 'late',
+        executionId: 'e2',
+        timestamp: new Date(NOW - 45_000).toISOString(),
+      },
+      {
+        workflowId: 'w',
+        nodeId: 'gone',
+        executionId: 'e3',
+        timestamp: new Date(NOW - 90_000).toISOString(),
+      },
     ];
     vi.mocked(getHeartbeats).mockResolvedValue(beats as never);
     renderWithProviders(<BusPanel live />);
@@ -76,7 +104,9 @@ describe('WorkerSlotsPanel', () => {
 
   it('retries when workers fail to load', () => {
     const refetch = vi.fn();
-    vi.mocked(useWorkers).mockReturnValue(q({ error: new Error('x'), refetch }));
+    vi.mocked(useWorkers).mockReturnValue(
+      q({ error: new Error('x'), refetch })
+    );
     renderWithProviders(<WorkerSlotsPanel />);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
@@ -98,9 +128,10 @@ describe('VitalsPanel', () => {
       })
     );
     renderWithProviders(<VitalsPanel />);
-    expect(screen.getByText('Heap 100 of 400 MB')).toBeInTheDocument();
-    expect(screen.getByText('CPU 25%')).toBeInTheDocument();
-    expect(screen.getByText('Threads 120')).toBeInTheDocument();
+    expect(screen.getByText('Heap 25%, 100 of 400 MB')).toBeInTheDocument();
+    expect(screen.getByText('Heap · 100 of 400 MB')).toBeInTheDocument();
+    expect(screen.getByText('CPU 25%, process')).toBeInTheDocument();
+    expect(screen.getByText('Threads 120, live')).toBeInTheDocument();
     expect(screen.getByText('42 ms')).toBeInTheDocument();
     expect(screen.getByText('30.0')).toBeInTheDocument();
   });
@@ -112,7 +143,9 @@ describe('VitalsPanel', () => {
     expect(screen.getByText('No samples yet')).toBeInTheDocument();
     unmount();
 
-    vi.mocked(useMetricSnapshot).mockReturnValue(q({ error: new Error('x'), refetch }));
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({ error: new Error('x'), refetch })
+    );
     renderWithProviders(<VitalsPanel />);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
@@ -138,12 +171,13 @@ describe('AiUsagePanel', () => {
     expect(screen.getByText('60')).toBeInTheDocument();
   });
 
-  it('explains that usage is server-wide outside the global scope', () => {
-    vi.mocked(useMetricSnapshot).mockReturnValue(q({ data: {} }));
+  it('says the usage is the whole server outside the global scope', () => {
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({ data: { 'llm.tokens{provider=A}|rate': 1 } })
+    );
     renderWithProviders(<AiUsagePanel scope="session:s1" />);
-    expect(
-      screen.getByText('AI usage is server-wide; choose the global scope')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Whole server')).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /A/ })).toBeInTheDocument();
   });
 
   it('says so when there was no model or tool call', () => {
@@ -152,11 +186,13 @@ describe('AiUsagePanel', () => {
     expect(screen.getByText('No model or tool calls yet')).toBeInTheDocument();
   });
 
-it('retries the AI usage when it fails to load', () => {
-  const refetch = vi.fn();
-  vi.mocked(useMetricSnapshot).mockReturnValue(q({ error: new Error('x'), refetch }));
-  renderWithProviders(<AiUsagePanel scope="global" />);
-  fireEvent.click(screen.getByRole('button', { name: /retry/i }));
-  expect(refetch).toHaveBeenCalled();
-});
+  it('retries the AI usage when it fails to load', () => {
+    const refetch = vi.fn();
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({ error: new Error('x'), refetch })
+    );
+    renderWithProviders(<AiUsagePanel scope="global" />);
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(refetch).toHaveBeenCalled();
+  });
 });
