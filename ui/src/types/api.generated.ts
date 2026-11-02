@@ -3916,6 +3916,12 @@ export interface components {
              */
             workflowCount?: number;
         };
+        StartOptions: {
+            empty?: boolean;
+            /** Format: int32 */
+            priority?: number;
+            version?: string;
+        };
         SupervisorDecision: {
             command?: string;
             executionId?: string;
@@ -4158,6 +4164,8 @@ export interface components {
              * @example yk check
              */
             initiator?: string;
+            /** @description Optional queue priority (higher first) and saved workflow version to run. Answers 403 unless the key has the ADMIN role. */
+            options?: components["schemas"]["StartOptions"];
             /** @description Optional trigger payload passed to the workflow's trigger node */
             payload?: {
                 [key: string]: unknown;

@@ -3,6 +3,8 @@
 package com.infenia.yukta.service.log;
 
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
+import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.StartOptions;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
@@ -213,8 +215,9 @@ public record ExecutionLogEvent(
   /**
    * The payload with the initiator under its reserved key. A caller's own value of that key is
    * dropped, so a run's initiator cannot be forged through the payload. The parent-run and depth
-   * keys are dropped too: only a sub-workflow node may name a parent, and it does not pass through
-   * here, so an external caller cannot attach a run to another run's tree.
+   * keys are dropped too, and so are the priority and version keys (see {@link StartOptions}): only
+   * a sub-workflow node may name a parent, and it does not pass through here, so an external caller
+   * cannot attach a run to another run's tree.
    *
    * @param payload the trigger payload
    * @param initiator who or what starts the run, or null if not known
@@ -226,6 +229,8 @@ public record ExecutionLogEvent(
     copy.remove(INITIATOR_KEY);
     copy.remove(SubWorkflowGateway.PARENT_KEY);
     copy.remove(SubWorkflowGateway.DEPTH_KEY);
+    copy.remove(ExecutionScheduler.PRIORITY_KEY);
+    copy.remove(StartOptions.VERSION_KEY);
     if (initiator != null && !initiator.isBlank()) {
       copy.put(INITIATOR_KEY, initiator);
     }

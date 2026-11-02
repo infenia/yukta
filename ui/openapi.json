@@ -3077,6 +3077,21 @@
         },
         "type" : "object"
       },
+      "StartOptions" : {
+        "properties" : {
+          "empty" : {
+            "type" : "boolean"
+          },
+          "priority" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "SupervisorDecision" : {
         "properties" : {
           "command" : {
@@ -3667,6 +3682,10 @@
             "maxLength" : 64,
             "minLength" : 0,
             "type" : "string"
+          },
+          "options" : {
+            "$ref" : "#/components/schemas/StartOptions",
+            "description" : "Optional queue priority (higher first) and saved workflow version to run. Answers 403 unless the key has the ADMIN role."
           },
           "payload" : {
             "additionalProperties" : { },
