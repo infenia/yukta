@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import type { Tone } from '@/components/dashboard/tones';
 import type { MetricPoint } from '@/features/metrics/api';
 
 /** A duration in milliseconds as a person reads it: 850 ms, 1.8 s, 2 m 5 s. */
@@ -56,9 +57,16 @@ export function percentChange(points: MetricPoint[]): number | undefined {
   return Math.round(((last - first) / Math.abs(first)) * 100);
 }
 
-/** A change as a person reads it: +12%, -3%, 0%. */
-export function formatChange(change: number): string {
+/** A change as a person reads it: +12%, -3%, 0%; undefined stays undefined. */
+export function formatChange(change: number | undefined): string | undefined {
+  if (change === undefined) return undefined;
   return `${change > 0 ? '+' : ''}${change}%`;
+}
+
+/** The tone of a change in a duration: longer is a warning, shorter a success. */
+export function slowerIsWorse(change: number | undefined): Tone {
+  if (change === undefined || change === 0) return 'neutral';
+  return change > 0 ? 'warning' : 'success';
 }
 
 /**

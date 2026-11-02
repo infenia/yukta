@@ -20,6 +20,7 @@ import {
   formatMs,
   integrate,
   percentChange,
+  slowerIsWorse,
   successRate,
 } from './format';
 
@@ -80,7 +81,7 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
       <KpiTile
         label="Runs / min (1 h)"
         value={((snapshot?.['runs.finished'] ?? 0) / 60).toFixed(1)}
-        delta={runsChange === undefined ? undefined : formatChange(runsChange)}
+        delta={formatChange(runsChange)}
         series={runsTrend.map((p) => p.v)}
       />
       <div className="border-border bg-card flex min-w-0 items-center gap-3 rounded-xl border p-3">
@@ -109,15 +110,8 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
             ? '–'
             : formatMs(snapshot['duration.p95'])
         }
-        // slower is worse
-        delta={p95Change === undefined ? undefined : formatChange(p95Change)}
-        deltaTone={
-          p95Change === undefined || p95Change === 0
-            ? 'neutral'
-            : p95Change > 0
-              ? 'warning'
-              : 'success'
-        }
+        delta={formatChange(p95Change)}
+        deltaTone={slowerIsWorse(p95Change)}
         series={p95Trend.map((p) => p.v)}
       />
       <Link

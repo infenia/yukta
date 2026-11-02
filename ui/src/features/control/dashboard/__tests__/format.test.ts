@@ -12,6 +12,7 @@ import {
   formatChange,
   integrate,
   aiUsage,
+  slowerIsWorse,
 } from '../format';
 
 describe('formatMs', () => {
@@ -94,6 +95,14 @@ describe('percentChange and formatChange', () => {
       )
     ).toBe('-25%');
     expect(formatChange(0)).toBe('0%');
+    expect(formatChange(undefined)).toBeUndefined();
+  });
+
+  it('colours a longer duration as a warning and a shorter one as a success', () => {
+    expect(slowerIsWorse(12)).toBe('warning');
+    expect(slowerIsWorse(-5)).toBe('success');
+    expect(slowerIsWorse(0)).toBe('neutral');
+    expect(slowerIsWorse(undefined)).toBe('neutral');
   });
 
   it('cannot be told from one point or from a start of zero', () => {
