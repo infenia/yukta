@@ -40,6 +40,12 @@ class RouteModelTest {
   }
 
   @Test
+  void settingsWithoutTiersAreRefusedWhenNamed() {
+    assertThatThrownBy(() -> new RouteSettings(null, null).named("r"))
+        .hasMessageContaining("at least one tier");
+  }
+
+  @Test
   void tierRefusesWhatItCannotUse() {
     assertThatThrownBy(() -> tier("bad name", List.of("supervisor:*")))
         .isInstanceOf(IllegalArgumentException.class);

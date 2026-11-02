@@ -566,4 +566,158 @@ class InputBrokerRoutesTest {
     broker.sweep().block();
     assertThat(current(request).state()).isEqualTo(InputState.EXPIRED);
   }
+
+  private InputRequest stored(
+      final String run, final String tier, final Instant deadline, final Instant tierDeadline) {
+    final InputRequest request =
+        new InputRequest(
+            "id-" + run,
+            "key-" + run,
+            "session",
+            "workflow",
+            run,
+            "node",
+            spec("key-" + run, "release"),
+            InputState.OPEN,
+            0,
+            tier,
+            List.of("supervisor:*", "role:OPERATOR"),
+            null,
+            deadline,
+            tierDeadline,
+            List.of(),
+            clock.instant(),
+            clock.instant());
+    return store.createIfAbsent(request).block();
+  }
+
+  private static InputResponse bare(
+      final InputRequest request, final Responder who, final String decision) {
+    return new InputResponse(
+        request.id(),
+        decision,
+        null,
+        Map.of(),
+        who,
+        null,
+        1.0,
+        Instant.parse("2026-11-02T10:00:01Z"));
+  }
+
+  @Test
+  void requestInTierThatNoLongerExistsIsAnsweredAsIsAndFlaggedWhenHandedUp() {
+    routes.put(
+        "release", route("release", FinalAction.FAIL, auto("supervisor:*", null), humans(null)));
+    final InputBroker broker = broker();
+    final InputRequest answered = stored("e8", "gone", clock.instant().plusSeconds(3600), null);
+    final InputRequest flagged = stored("e9", "gone", clock.instant().plusSeconds(3600), null);
+
+    broker.answer(answered.id(), null, bare(answered, bot("watch"), "approve")).block();
+    broker.escalate(flagged.id(), "unsure", null, null).block();
+
+    assertThat(current(answered).state()).isEqualTo(InputState.ANSWERED);
+    assertThat(current(flagged).state()).isEqualTo(InputState.ESCALATED);
+    assertThat(current(flagged).tier()).isEqualTo("gone");
+  }
+
+  @Test
+  void supervisorAnswerToAnUnknownOrEndedRequestChangesNothing() {
+    routes.put(
+        "release", route("release", FinalAction.FAIL, auto("supervisor:*", null), humans(null)));
+    supervisor("watch", WORKFLOW);
+    final InputBroker broker = broker();
+    final InputRequest request = open(broker, spec("k1", "release"));
+    broker.cancel(request.id(), "gone").block();
+
+    assertThat(
+            broker
+                .answer(request.id(), null, bare(request, bot("watch"), "approve"))
+                .block()
+                .state())
+        .isEqualTo(InputState.CANCELLED);
+    assertThat(
+            broker
+                .answer(
+                    "missing",
+                    null,
+                    new InputResponse(
+                        "missing",
+                        "approve",
+                        null,
+                        Map.of(),
+                        bot("watch"),
+                        null,
+                        1.0,
+                        clock.instant()))
+                .block())
+        .isNull();
+  }
+
+  @Test
+  void lowConfidenceAdviceWithoutRationaleAndVoteAtStaleVersionAreHandled() {
+    routes.put(
+        "release", route("release", FinalAction.FAIL, auto("supervisor:*", null), humans(null)));
+    routes.put("panel", route("panel", FinalAction.FAIL, voting(Mode.QUORUM, 2), humans(null)));
+    supervisor("watch", WORKFLOW);
+    supervisor("two", WORKFLOW);
+    final InputBroker broker = broker();
+    final InputRequest unsure = open(broker, spec("k1", "release"));
+    broker
+        .answer(
+            unsure.id(),
+            null,
+            new InputResponse(
+                unsure.id(), "approve", null, Map.of(), bot("watch"), null, 0.1, clock.instant()))
+        .block();
+    assertThat(current(unsure).advice()).isEqualTo("supervisor watch answered approve");
+
+    final InputRequest panel = openAnother(broker, "k2", "e2", "panel");
+    broker.answer(panel.id(), 99L, bare(panel, bot("watch"), "approve")).block();
+    assertThat(current(panel).votes()).isEmpty();
+
+    broker.answer(panel.id(), null, bare(panel, bot("watch"), "approve")).block();
+    broker.answer(panel.id(), null, bare(panel, bot("two"), "approve")).block();
+    assertThat(store.findResponse(panel.id()).block().rationale()).isEqualTo("voted by watch, two");
+  }
+
+  @Test
+  void humanWhoEscalatesLeavesTheSupervisorsAboveToTheTierBefore() {
+    final Tier above =
+        new Tier(
+            "above", List.of("supervisor:above"), null, Mode.FIRST, 0, 0, ResponderType.AUTO, null);
+    final Tier first =
+        new Tier(
+            "first",
+            List.of("supervisor:section"),
+            null,
+            Mode.FIRST,
+            0,
+            0,
+            ResponderType.AUTO,
+            null);
+    routes.put("chain", route("chain", FinalAction.FAIL, first, above, humans(null)));
+    supervisor("section", SECTION);
+    supervisor("workflow", WORKFLOW);
+    final InputBroker broker = broker();
+    final InputRequest request = open(broker, spec("k1", "chain"));
+
+    broker
+        .escalate(request.id(), "unsure", null, new Responder(Responder.Type.HUMAN, "ann"))
+        .block();
+
+    assertThat(current(request).targets()).containsExactly("supervisor:workflow");
+  }
+
+  @Test
+  void tierThatRanOutIsHandedUpEvenWhenTheRequestHasNoDeadline() {
+    routes.put(
+        "release", route("release", FinalAction.FAIL, auto("supervisor:*", null), humans(null)));
+    supervisor("watch", WORKFLOW);
+    final InputBroker broker = broker();
+    final InputRequest request = stored("e7", "auto", null, clock.instant().minusSeconds(1));
+
+    broker.sweep().block();
+
+    assertThat(current(request).tier()).isEqualTo("ops");
+  }
 }

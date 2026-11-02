@@ -437,12 +437,11 @@ public class InputBroker {
   }
 
   private static List<Vote> withVote(final List<Vote> votes, final Vote vote) {
-    if (votes.stream().anyMatch(v -> v.voter().equals(vote.voter()))) {
-      return votes;
-    }
-    final List<Vote> all = new java.util.ArrayList<>(votes);
-    all.add(vote);
-    return all;
+    // a second vote of the same supervisor can only come from a lost race: the last one stands
+    final Map<String, Vote> byVoter = new LinkedHashMap<>();
+    votes.forEach(v -> byVoter.put(v.voter(), v));
+    byVoter.put(vote.voter(), vote);
+    return List.copyOf(byVoter.values());
   }
 
   /** Counts the votes: resolves when enough agree, hands up on a split, otherwise waits on. */
@@ -601,11 +600,9 @@ public class InputBroker {
                       List.of());
               return retarget(moved, TierTargets.selectors(moved, next, directory(), references));
             })
+        .filter(Change::applied)
         .flatMap(
             change -> {
-              if (!change.applied()) {
-                return Mono.just(change.request());
-              }
               escalated(change.request(), reason, by);
               return skipUnreachable(change.request(), route);
             });
@@ -631,10 +628,8 @@ public class InputBroker {
    * than a quorum needs.
    */
   private Mono<InputRequest> skipUnreachable(final InputRequest request, final InputRoute route) {
-    final Tier tier = tierOf(route, request.tier());
-    if (tier == null) {
-      return Mono.just(request);
-    }
+    // the request was just put in a tier of this route
+    final Tier tier = route.tiers().get(indexOf(route, request.tier()));
     final int reach = TierTargets.supervisors(request, request.targets(), directory()).size();
     final String why;
     if (!TierTargets.namesOthers(request.targets()) && reach == 0) {
