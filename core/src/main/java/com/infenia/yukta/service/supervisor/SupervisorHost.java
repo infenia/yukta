@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.security.AuditRecord;
@@ -334,6 +335,8 @@ public class SupervisorHost {
   private Disposable launch(final ExecutionSupervisor supervisor, final boolean recordOnly) {
     final String supervisorId = supervisor.id();
     final RateLimit limit = new RateLimit(maxCommandsPerSecond);
+    final SupervisorCapabilities allowed =
+        supervisor instanceof BoundSupervisor bound ? bound.capabilities() : null;
     log.atInfo()
         .addKeyValue(SUPERVISOR_KEY, supervisorId)
         .addKeyValue("dryRun", recordOnly)
@@ -347,7 +350,7 @@ public class SupervisorHost {
                     .log("Supervisor failed; restarting"))
         .retryWhen(
             Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1)).maxBackoff(Duration.ofMinutes(1)))
-        .concatMap(command -> apply(supervisorId, command, limit, recordOnly))
+        .concatMap(command -> apply(supervisorId, command, limit, recordOnly, allowed))
         .subscribeOn(Schedulers.boundedElastic())
         .subscribe();
   }
@@ -390,9 +393,18 @@ public class SupervisorHost {
       final String supervisorId,
       final ExecutionControlCommand command,
       final RateLimit limit,
-      final boolean recordOnly) {
+      final boolean recordOnly,
+      final @Nullable SupervisorCapabilities allowed) {
     final Mono<Void> result;
-    if (limit.tryAcquire()) {
+    if (allowed != null && !allowed.allows(command)) {
+      // dropped before the rate limit: a command the supervisor may not send costs it nothing
+      result =
+          notApplied(
+              supervisorId,
+              "forbidden",
+              command,
+              command.getClass().getSimpleName() + " is not in allowedCommands of this supervisor");
+    } else if (limit.tryAcquire()) {
       result =
           recordOnly
               ? notApplied(supervisorId, DRY_RUN, command, DRY_RUN)
@@ -406,7 +418,12 @@ public class SupervisorHost {
   private Mono<Void> send(final String supervisorId, final ExecutionControlCommand command) {
     return dispatcher
         .dispatchOrdered(command)
-        .contextWrite(Context.of(ControlActor.CONTEXT_KEY, supervisorId))
+        .contextWrite(
+            Context.of(
+                ControlActor.CONTEXT_KEY,
+                supervisorId,
+                ControlActor.KIND_KEY,
+                ControlActor.Kind.SUPERVISOR))
         .doOnSuccess(
             _ -> {
               count(supervisorId, "applied");

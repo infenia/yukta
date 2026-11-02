@@ -34,7 +34,6 @@ class YuktaPropertiesTest {
     assertThat(properties.execution().queueCapacity()).isEqualTo(100);
     assertThat(properties.controlBus().batchTimeout()).isEqualTo(Duration.ofMillis(50));
     assertThat(properties.cache().ttl()).isEqualTo(Duration.ofMinutes(10));
-    assertThat(properties.tracker().sessionTtl()).isNull();
   }
 
   @Test

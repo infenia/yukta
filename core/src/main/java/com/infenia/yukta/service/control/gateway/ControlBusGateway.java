@@ -31,7 +31,7 @@ import reactor.core.publisher.Mono;
  * <p>All control commands flow through a single channel ensuring consistent ordering, audit trails,
  * and no race conditions from multiple access paths.
  */
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseObjectForClearerAPI"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseObjectForClearerAPI", "PMD.ExcessivePublicCount"})
 public interface ControlBusGateway {
 
   // --- Plugin & Message Management (Internal) ---
@@ -199,6 +199,45 @@ public interface ControlBusGateway {
    */
   Mono<Void> signalNode(
       String executionId, String nodeId, String name, String decision, String data);
+
+  /**
+   * Answers an input request that a node of the run waits on. The answer passes the same ordering,
+   * review and audit as every command, and the engine checks that the caller may answer it.
+   *
+   * @param executionId the run that asked
+   * @param requestId the request to answer
+   * @param expectedVersion the version the caller saw, or {@code null} for whatever is current
+   * @param decision what was decided: an option id, or a short decision for an approval
+   * @param text free text that goes with the decision, or {@code null}
+   * @param data structured data that goes with the decision, or {@code null}
+   * @param rationale why, or {@code null}
+   * @param confidence how sure the caller is, from 0 to 1, or {@code null}
+   * @return completes when the answer is taken; errors with {@code InputForbiddenException} when
+   *     the caller may not answer, {@code InputRejectedException} when the answer does not fit the
+   *     request, or a conflict when the request has ended
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  Mono<Void> answerInput(
+      String executionId,
+      String requestId,
+      @Nullable Long expectedVersion,
+      String decision,
+      @Nullable String text,
+      @Nullable Map<String, Object> data,
+      @Nullable String rationale,
+      @Nullable Double confidence);
+
+  /**
+   * Hands an input request up to the next tier of its route.
+   *
+   * @param executionId the run that asked
+   * @param requestId the request to hand up
+   * @param reason why it is handed up
+   * @param advice what the caller suggests for the next tier, or {@code null}
+   * @return completes when the request is handed up; errors as {@link #answerInput} does
+   */
+  Mono<Void> escalateInput(
+      String executionId, String requestId, String reason, @Nullable String advice);
 
   /**
    * Clear the breakpoint of a node.

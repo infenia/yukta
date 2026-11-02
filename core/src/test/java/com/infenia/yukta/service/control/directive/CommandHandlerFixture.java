@@ -4,8 +4,10 @@ package com.infenia.yukta.service.control.directive;
 
 import static org.mockito.Mockito.mock;
 
+import com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor;
 import com.infenia.yukta.service.control.processor.DisableStepModeCommandProcessor;
 import com.infenia.yukta.service.control.processor.EnableStepModeCommandProcessor;
+import com.infenia.yukta.service.control.processor.EscalateInputCommandProcessor;
 import com.infenia.yukta.service.control.processor.PauseNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.PauseWorkflowCommandProcessor;
 import com.infenia.yukta.service.control.processor.RestartCommandProcessor;
@@ -44,6 +46,10 @@ final class CommandHandlerFixture {
       mock(SetBreakpointCommandProcessor.class);
   /* default */ final SignalNodeCommandProcessor signalNode =
       mock(SignalNodeCommandProcessor.class);
+  /* default */ final AnswerInputCommandProcessor answerInput =
+      mock(AnswerInputCommandProcessor.class);
+  /* default */ final EscalateInputCommandProcessor escalateInput =
+      mock(EscalateInputCommandProcessor.class);
 
   /* default */ final CommandHandler handler =
       new CommandHandler(
@@ -60,5 +66,7 @@ final class CommandHandlerFixture {
           disableStepMode,
           stepNode,
           setBreakpoint,
-          signalNode);
+          signalNode,
+          answerInput,
+          escalateInput);
 }

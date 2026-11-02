@@ -8,7 +8,9 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.input.InputRisk;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -19,10 +21,26 @@ import reactor.core.publisher.Mono;
  * @param binding the binding that attached it
  * @param delegate the supervisor the factory made
  * @param dryRun whether its commands are only recorded
+ * @param capabilities which commands it may send and whether it may answer input requests
  */
 public record BoundSupervisor(
-    SupervisorBinding binding, ExecutionSupervisor delegate, boolean dryRun)
+    SupervisorBinding binding,
+    ExecutionSupervisor delegate,
+    boolean dryRun,
+    SupervisorCapabilities capabilities)
     implements ExecutionSupervisor {
+
+  /**
+   * A supervisor that may send every command and may not answer input requests.
+   *
+   * @param binding the binding that attached it
+   * @param delegate the supervisor the factory made
+   * @param dryRun whether its commands are only recorded
+   */
+  public BoundSupervisor(
+      final SupervisorBinding binding, final ExecutionSupervisor delegate, final boolean dryRun) {
+    this(binding, delegate, dryRun, new SupervisorCapabilities(null, false, InputRisk.LOW));
+  }
 
   @Override
   @SuppressWarnings("PMD.ShortMethodName")

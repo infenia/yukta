@@ -14,6 +14,8 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
@@ -29,6 +31,7 @@ import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
@@ -44,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
@@ -271,7 +275,9 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
    */
   private static boolean carriesSignal(final Message<?> command) {
     return command.payload() instanceof Map<?, ?> body
-        && (body.containsKey("decision") || body.containsKey("executionId"));
+        && (body.containsKey("decision")
+            || body.containsKey("executionId")
+            || body.containsKey("requestId"));
   }
 
   private Mono<Message<?>> deliver(
@@ -680,6 +686,42 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final String decision,
       final String data) {
     return nodes.signalNode(executionId, nodeId, name, decision, data);
+  }
+
+  /**
+   * Lets the pending approvals include the open input requests.
+   *
+   * @param broker the broker, if the application has input requests
+   */
+  @Autowired(required = false)
+  public void setInputBroker(final ObjectProvider<InputBroker> broker) {
+    queries.setInputBroker(broker);
+  }
+
+  @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> answerInput(
+      final String executionId,
+      final String requestId,
+      @Nullable final Long expectedVersion,
+      final String decision,
+      @Nullable final String text,
+      @Nullable final Map<String, Object> data,
+      @Nullable final String rationale,
+      @Nullable final Double confidence) {
+    return nodes.answerInput(
+        new AnswerInputCommand(
+            executionId, requestId, expectedVersion, decision, text, data, rationale, confidence));
+  }
+
+  @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> escalateInput(
+      final String executionId,
+      final String requestId,
+      final String reason,
+      @Nullable final String advice) {
+    return nodes.escalateInput(new EscalateInputCommand(executionId, requestId, reason, advice));
   }
 
   @Override

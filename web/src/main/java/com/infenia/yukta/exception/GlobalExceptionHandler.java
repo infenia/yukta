@@ -5,6 +5,8 @@ package com.infenia.yukta.exception;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.infenia.yukta.filter.RequestTracingFilter;
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.plugin.input.InputForbiddenException;
+import com.infenia.yukta.plugin.input.InputRejectedException;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
@@ -36,7 +38,7 @@ import reactor.core.publisher.Mono;
 @RestControllerAdvice
 @NullMarked
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.CouplingBetweenObjects", "PMD.ExcessiveImports"})
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   @Override
@@ -254,6 +256,33 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   public ResponseEntity<ApiResponse<Object>> handleControlRejected(
       final ControlRejectedException exception, final ServerHttpRequest request) {
     return buildErrorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), request);
+  }
+
+  /**
+   * Handles a sender that may not answer or hand up an input request as a forbidden request; the
+   * message names the rule that failed.
+   *
+   * @param exception the exception
+   * @param request the request
+   * @return the error response
+   */
+  @ExceptionHandler(InputForbiddenException.class)
+  public ResponseEntity<ApiResponse<Object>> handleInputForbidden(
+      final InputForbiddenException exception, final ServerHttpRequest request) {
+    return buildErrorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), request);
+  }
+
+  /**
+   * Handles an answer that does not fit its request as unprocessable.
+   *
+   * @param exception the exception
+   * @param request the request
+   * @return the error response
+   */
+  @ExceptionHandler(InputRejectedException.class)
+  public ResponseEntity<ApiResponse<Object>> handleInputRejected(
+      final InputRejectedException exception, final ServerHttpRequest request) {
+    return buildErrorResponse(HttpStatus.UNPROCESSABLE_CONTENT, exception.getMessage(), request);
   }
 
   /**

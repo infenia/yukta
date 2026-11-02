@@ -6,8 +6,11 @@ import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputIdentity;
 import com.infenia.yukta.plugin.input.InputKind;
+import com.infenia.yukta.plugin.input.InputOption;
+import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRequestSpec;
 import com.infenia.yukta.plugin.input.InputRisk;
+import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.plugin.input.TimeoutAction;
 import java.time.Clock;
 import java.time.Duration;
@@ -50,6 +53,52 @@ public class InputTestSupport {
         dflt,
         null,
         "TEST");
+  }
+
+  /** A question of any kind, risk and audience. */
+  public static InputRequestSpec spec(
+      final String key,
+      final InputKind kind,
+      final InputRisk risk,
+      final Audience audience,
+      final List<InputOption> options,
+      final String schema,
+      final Map<String, Object> context) {
+    return new InputRequestSpec(
+        key,
+        kind,
+        "Which way?",
+        context,
+        options,
+        schema,
+        risk,
+        audience,
+        Duration.ofMinutes(10),
+        TimeoutAction.FAIL,
+        null,
+        null,
+        "TEST");
+  }
+
+  /** An open request of the run {@code exec} in session {@code session}, on the default tier. */
+  public static InputRequest request(final String id, final InputRequestSpec spec) {
+    final Instant now = Instant.parse("2026-11-02T10:00:00Z");
+    return new InputRequest(
+        id,
+        spec.key(),
+        "session",
+        "workflow",
+        "exec",
+        "node",
+        spec,
+        InputState.OPEN,
+        0,
+        InputBroker.DEFAULT_TIER,
+        List.of(),
+        null,
+        now.plus(spec.ttl()),
+        now,
+        now);
   }
 
   /** The default limits. */
