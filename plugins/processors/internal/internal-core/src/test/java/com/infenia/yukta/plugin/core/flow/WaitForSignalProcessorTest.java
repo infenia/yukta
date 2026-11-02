@@ -152,7 +152,6 @@ class WaitForSignalProcessorTest {
   void answerIsRememberedWhenTheSameMessageResumes() {
     final ListStore store = new ListStore();
     final Gateway first = InputFakes.answering("approve", "ok");
-    new WaitForSignalProcessor(store, InputFakes.provider(first));
     run(new WaitForSignalProcessor(store, InputFakes.provider(first)), Map.of("signal", "a"))
         .blockLast();
     assertThat(store.kept).hasSize(1);

@@ -286,7 +286,7 @@ class AskInputProcessorTest {
   }
 
   @Test
-  void promptExpressionsAreResolvedWhenAResolverExists() {
+  void promptExpressionsAreResolvedWhenResolverExists() {
     final VariableResolver variables = mock(VariableResolver.class);
     when(variables.resolve(any(), any())).thenReturn(Mono.just("Deploy build 42?"));
     final StaticListableBeanFactory beans = new StaticListableBeanFactory();
@@ -301,7 +301,7 @@ class AskInputProcessorTest {
   }
 
   @Test
-  void approvalKeepsItsOwnOptions_andABlankRouteIsNone() {
+  void approvalKeepsItsOwnOptions_andBlankRouteIsNone() {
     final Gateway gateway = InputFakes.answering("ship", null);
     run(processor(gateway), config("options", List.of("ship", "hold"), "route", " ")).blockLast();
     assertThat(gateway.asked.getFirst().options())
@@ -328,7 +328,7 @@ class AskInputProcessorTest {
   }
 
   @Test
-  void aSparseRecordIsReplayedWithItsConfidence() {
+  void sparseRecordIsReplayedWithItsConfidence() {
     final ListStore store = new ListStore();
     store.kept.add(
         DefaultMessage.create(
@@ -357,7 +357,7 @@ class AskInputProcessorTest {
   }
 
   @Test
-  void ttlMustBeANumber() {
+  void ttlMustBeNumber() {
     assertThatThrownBy(() -> processor(null).validateConfig(config("ttlSeconds", "soon")).block())
         .isInstanceOf(IllegalArgumentException.class);
   }

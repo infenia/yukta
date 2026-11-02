@@ -243,8 +243,10 @@ class CorePluginsAcceptanceTest {
     final String executionId = gateway.startWorkflow(key.session(), key.workflowId()).block();
     await()
         .atMost(PluginWorkflows.WAIT)
-        .until(() -> !broker.listOpen(null, executionId).collectList().block().isEmpty());
-    final var request = broker.listOpen(null, executionId).blockFirst();
+        .until(
+            () -> broker.listOpen(null, executionId).hasElements().blockOptional().orElse(false));
+    final var request =
+        java.util.Objects.requireNonNull(broker.listOpen(null, executionId).blockFirst());
     assertThat(request.spec().prompt()).isEqualTo("Deploy?");
     assertThat(tracker.getProgressByExecutionId(executionId).status())
         .isEqualTo(TaskStatus.RUNNING);

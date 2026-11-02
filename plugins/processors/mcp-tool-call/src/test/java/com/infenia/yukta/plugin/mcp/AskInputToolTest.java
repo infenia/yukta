@@ -243,7 +243,7 @@ class AskInputToolTest {
   }
 
   @Test
-  void routeIsOnlyANamedRoute() {
+  void routeIsOnlyNamedRoute() {
     ask(config("inputRoute", " "), node(), Map.of("prompt", "p"));
     ask(config("inputRoute", "ops"), node(), Map.of("prompt", "p"));
     ask(config(), node(), Map.of("prompt", "p"));
@@ -307,6 +307,7 @@ class AskInputToolTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
   void theOldestNodeRunsAreForgotten() {
     final InputIdentity first = new InputIdentity("s", "w", "first-run", "n");
     assertThat(AskInputTool.countAsk(first, 1)).isTrue();
