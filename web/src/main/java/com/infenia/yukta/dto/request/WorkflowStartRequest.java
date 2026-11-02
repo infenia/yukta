@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.dto.request;
 
+import com.infenia.yukta.service.control.StartOptions;
 import com.infenia.yukta.validation.SessionId;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.util.Map;
@@ -17,6 +19,7 @@ import java.util.Map;
  *     message); an absent payload is treated as empty
  * @param initiator optional name of who or what starts the run (for example {@code yk check} or
  *     {@code schedule}); without one, the name of the API key that made the request is used
+ * @param options optional queue priority and workflow version; ADMIN keys only
  */
 @Schema(description = "Request object for starting a workflow")
 public record WorkflowStartRequest(
@@ -33,7 +36,13 @@ public record WorkflowStartRequest(
             example = "yk check",
             maxLength = 64)
         @Size(max = 64)
-        String initiator) {
+        String initiator,
+    @Schema(
+            description =
+                "Optional queue priority (higher first) and saved workflow version to run."
+                    + " Answers 403 unless the key has the ADMIN role.")
+        @Valid
+        StartOptions options) {
 
   /** Normalizes an absent payload to empty and defensively copies it. */
   public WorkflowStartRequest {
@@ -49,7 +58,7 @@ public record WorkflowStartRequest(
    */
   public WorkflowStartRequest(
       final String sessionId, final String workflowId, final Map<String, Object> payload) {
-    this(sessionId, workflowId, payload, null);
+    this(sessionId, workflowId, payload, null, null);
   }
 
   /**

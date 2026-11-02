@@ -49,6 +49,9 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 | `set_node_breakpoint` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `field`, `equalsValue` |
 | `signal_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `signalName`, `decision`, optional `data` |
 | `list_pending_approvals` | `VIEWER` | optional `sessionId` |
+| `list_pending_inputs` | `VIEWER` | optional `sessionId`, `state` |
+| `answer_input` | `OPERATOR` | `sessionId`, `executionId`, `requestId`, `decision`, optional `text`, `data`, `rationale` |
+| `escalate_input` | `OPERATOR` | `sessionId`, `executionId`, `requestId`, `reason`, optional `advice` |
 | `get_scheduler_limits` | `VIEWER` | none |
 | `get_metrics_snapshot` | `VIEWER` | optional `scope` |
 | `list_supervisors` | `VIEWER` | none |
@@ -70,8 +73,8 @@ Stop and get an explicit yes, naming what will happen, before any of these:
 - `delete_session` and `delete_workflow`, and any call with `force` set (it cancels active runs).
 - `control_workflow` with `STOP_ALL` (stops every active run of a workflow), and any stop with `mode` `KILL` or `CANCEL`.
 - `rollback_workflow` (replaces the current definition) and `set_scheduler_limits` (changes the server for everyone).
-- `signal_node` with `decision` `approve` or `reject`, and anything else that answers an approval: that is the user's decision, never yours.
-  Show what waits (`list_pending_approvals`) and let the user choose.
+- `answer_input` and `signal_node` with `decision` `approve` or `reject`, and anything else that answers an approval: that is the user's decision, never yours.
+  Show what waits (`list_pending_inputs`) and let the user choose.
 
 Never put credentials, keys or tokens in a workflow you create or in a message; ask the user how the server keeps secrets.
 

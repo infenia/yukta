@@ -140,6 +140,12 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
   @Override
   public Flux<InputRequest> listOpen(
       final @Nullable String sessionId, final @Nullable String executionId) {
+    return list(sessionId, executionId).filter(request -> !request.state().isTerminal());
+  }
+
+  @Override
+  public Flux<InputRequest> list(
+      final @Nullable String sessionId, final @Nullable String executionId) {
     return Flux.defer(
         () ->
             Flux.fromIterable(
@@ -148,9 +154,7 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
                         requests.values().stream()
                             .filter(
                                 request ->
-                                    !request.state().isTerminal()
-                                        && (sessionId == null
-                                            || sessionId.equals(request.sessionId()))
+                                    (sessionId == null || sessionId.equals(request.sessionId()))
                                         && (executionId == null
                                             || executionId.equals(request.executionId())))
                             .toList())));

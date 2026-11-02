@@ -18,6 +18,7 @@ com.infenia.yukta.controller.ExecutionControlController
 com.infenia.yukta.controller.ExecutionController
 com.infenia.yukta.controller.ExecutionResultController
 com.infenia.yukta.controller.ExecutionSearchController
+com.infenia.yukta.controller.InputRequestsController
 com.infenia.yukta.controller.LogManagementController
 com.infenia.yukta.controller.MeController
 com.infenia.yukta.controller.MetricsController
@@ -60,6 +61,7 @@ com.infenia.yukta.mcp.McpDtoReflectionHints
 com.infenia.yukta.mcp.McpEndpointFilter
 com.infenia.yukta.mcp.McpErrorAdvice
 com.infenia.yukta.mcp.McpErrorFilter
+com.infenia.yukta.mcp.provider.InputProvider
 com.infenia.yukta.mcp.provider.LogProvider
 com.infenia.yukta.mcp.provider.MetricsProvider
 com.infenia.yukta.mcp.provider.PluginInfoProvider
@@ -162,6 +164,7 @@ com.infenia.yukta.service.input.InMemoryInputRequestStore
 com.infenia.yukta.service.input.InputBroker
 com.infenia.yukta.service.input.InputCommandGuard
 com.infenia.yukta.service.input.InputDeadlineSweeper
+com.infenia.yukta.service.input.InputRequestQueries
 com.infenia.yukta.service.input.route.RouteResolver
 com.infenia.yukta.service.leader.LeaderLoss
 com.infenia.yukta.service.leader.SingleServerLeader

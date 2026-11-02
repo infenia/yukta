@@ -12,15 +12,21 @@ import { WorkersPanel } from './WorkersPanel';
 import { ActivityPanel } from './ActivityPanel';
 import { ControlEventsProvider } from '../context/ControlEvents';
 
-/** The tabs: the dashboard with the tables and audit log under it, and the live activity feed. */
-const TABS = ['overview', 'activity'] as const;
+/**
+ * The tabs: the dashboard (with the detail tables under it), the live activity feed and the
+ * control audit.
+ */
+const TABS = ['overview', 'activity', 'audit'] as const;
 type Tab = (typeof TABS)[number];
 
 /** Mission Control: how the server is doing, who is steering runs, and every control command. */
 export function ControlPage() {
   const [params, setParams] = useSearchParams();
   const requested = params.get('tab');
-  const tab: Tab = TABS.find((t) => t === requested) ?? 'overview';
+  // an old `?execution=<id>` link (the run view's) means the audit of that run
+  const tab: Tab =
+    TABS.find((t) => t === requested) ??
+    (params.has('execution') ? 'audit' : 'overview');
   const show = (next: Tab) => {
     const updated = new URLSearchParams(params);
     if (next === 'overview') updated.delete('tab');
@@ -39,14 +45,16 @@ export function ControlPage() {
               {TABS.map((name) => (
                 <button
                   key={name}
+                  id={`control-tab-${name}`}
                   type="button"
                   role="tab"
                   aria-selected={tab === name}
+                  aria-controls="control-tabpanel"
                   onClick={() => show(name)}
-                  className={`-mb-px h-9 border-b-2 px-0.5 text-label-md capitalize ${
+                  className={`text-label-md -mb-px h-9 border-b-2 px-0.5 capitalize ${
                     tab === name
                       ? 'border-primary text-on-surface'
-                      : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                      : 'text-on-surface-variant hover:text-on-surface border-transparent'
                   }`}
                 >
                   {name}
@@ -55,18 +63,26 @@ export function ControlPage() {
             </div>
           }
         />
-        {tab === 'activity' && <ActivityPanel />}
-        {tab === 'overview' && (
-          <>
-            <DashboardView />
-            {/* ponytail: the tables below stay until a tables-as-dialogs pass replaces them */}
-            <ControlBusPanel />
-            <SchedulerPanel />
-            <SupervisorCockpit />
-            <WorkersPanel />
-            <ControlAuditPanel />
-          </>
-        )}
+        <div
+          id="control-tabpanel"
+          role="tabpanel"
+          aria-labelledby={`control-tab-${tab}`}
+          className="flex flex-col gap-4"
+        >
+          {tab === 'activity' && <ActivityPanel />}
+          {tab === 'audit' && <ControlAuditPanel />}
+          {tab === 'overview' && (
+            <>
+              <DashboardView />
+              {/* the detail tables: sending a node command, per-workflow limits, the supervisor
+                  cockpit (#1591) and each worker's pools and plugins */}
+              <ControlBusPanel />
+              <SchedulerPanel />
+              <SupervisorCockpit />
+              <WorkersPanel />
+            </>
+          )}
+        </div>
       </div>
     </ControlEventsProvider>
   );
