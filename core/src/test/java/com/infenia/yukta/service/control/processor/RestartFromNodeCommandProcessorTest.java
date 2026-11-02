@@ -15,8 +15,6 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.model.workflow.WorkflowTemplate;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeCommand;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
@@ -44,7 +42,6 @@ import reactor.test.StepVerifier;
 
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.LinguisticNaming",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyStaticImports",
   "PMD.TooManyMethods",
@@ -108,18 +105,6 @@ class RestartFromNodeCommandProcessorTest {
     archive.put(new ArchivedExecution(EXEC, "s1", "w1", graph(), "v1", Map.of()));
     when(orchestrator.restartFromNode(any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(Mono.never());
-  }
-
-  @Test
-  void canProcess_restartFromNodeCommand_returnsTrue() {
-    final ExecutionControlCommand command = new RestartFromNodeCommand(EXEC, "mid", "new-1");
-
-    assertThat(processor.canProcess(command)).isTrue();
-  }
-
-  @Test
-  void canProcess_otherCommand_returnsFalse() {
-    assertThat(processor.canProcess(new PauseWorkflowCommand(EXEC))).isFalse();
   }
 
   @Test
@@ -257,10 +242,5 @@ class RestartFromNodeCommandProcessorTest {
     verify(completionSink, never()).completeRestartFailure(any(), any());
     // the failure is logged on another thread: wait, or the error lands in the next test
     ErrorGuardExtension.awaitLogged("Restarted execution from node failed", Duration.ofSeconds(2));
-  }
-
-  @Test
-  void getPriority_returnsCorrectValue() {
-    assertThat(processor.getPriority()).isEqualTo(20);
   }
 }

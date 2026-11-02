@@ -7,9 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputForbiddenException;
 import com.infenia.yukta.plugin.input.InputKind;
@@ -37,7 +35,7 @@ import reactor.util.context.Context;
 
 /** Answers go through the authoriser and the shape check, and a refused answer leaves it open. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "PMD.ExcessiveImports"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class AnswerInputCommandProcessorTest {
 
   private final InputFlow flow = new InputFlow();
@@ -62,15 +60,8 @@ class AnswerInputCommandProcessorTest {
         "exec", requestId, null, decision, null, Map.of(), "because", 0.9);
   }
 
-  private StepVerifier.FirstStep<Void> run(
-      final ExecutionControlCommand command, final Context as) {
+  private StepVerifier.FirstStep<Void> run(final AnswerInputCommand command, final Context as) {
     return StepVerifier.create(processor.process(command).contextWrite(as).then());
-  }
-
-  @Test
-  void onlyAnswerCommandsAreProcessed() {
-    assertThat(processor.canProcess(answer("r", "go"))).isTrue();
-    assertThat(processor.canProcess(new PauseWorkflowCommand("exec"))).isFalse();
   }
 
   @Test

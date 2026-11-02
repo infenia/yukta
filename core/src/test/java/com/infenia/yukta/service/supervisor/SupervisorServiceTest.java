@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.supervisor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
@@ -23,8 +25,10 @@ import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -193,7 +197,7 @@ class SupervisorServiceTest {
 
   @Test
   void attachRefusesTheIdOfConfiguredSupervisor() {
-    org.mockito.Mockito.when(host.isBuiltIn("rules")).thenReturn(true);
+    when(host.isBuiltIn("rules")).thenReturn(true);
     StepVerifier.create(service.saveProfile(profile("p"))).expectNextCount(1).verifyComplete();
 
     StepVerifier.create(service.attach(binding("rules", "p", new SupervisorScope.Global(), true)))
@@ -204,11 +208,10 @@ class SupervisorServiceTest {
   @Test
   void restoreLogsAnUnreadableStoreInsteadOfDroppingTheError() {
     final SupervisorStore broken = mock(SupervisorStore.class);
-    org.mockito.Mockito.when(broken.bindings())
-        .thenReturn(Flux.error(new IllegalStateException("no database")));
+    when(broken.bindings()).thenReturn(Flux.error(new IllegalStateException("no database")));
     final SupervisorService failing = new SupervisorService(broken, List.of(factory), host, log);
 
-    org.assertj.core.api.Assertions.assertThatCode(failing::restore).doesNotThrowAnyException();
+    assertThatCode(failing::restore).doesNotThrowAnyException();
   }
 
   @Test
@@ -308,6 +311,37 @@ class SupervisorServiceTest {
         .atMost(3, TimeUnit.SECONDS)
         .untilAsserted(() -> verify(host, times(1)).attach(any(BoundSupervisor.class)));
     verify(host, never()).detach(anyString());
+  }
+
+  @Test
+  void restoreCountsStartedAndFailedBindingsAndSkipsWhenStandby() {
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    service.setMeterRegistry(meters);
+    final LeaderElection election = mock(LeaderElection.class);
+    service.setLeaderElection(election);
+    store.saveProfile(profile("p")).block();
+    store.saveProfile(new SupervisorProfile("broken", TYPE, Map.of("bad", 1), false)).block();
+    store.saveBinding(binding("on", "p", new SupervisorScope.Global(), true)).block();
+    store.saveBinding(binding("bad", "broken", new SupervisorScope.Global(), true)).block();
+
+    service.restore();
+    verify(host, never()).attach(any(BoundSupervisor.class));
+
+    when(election.isLeader()).thenReturn(true);
+    service.restore();
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(
+                        meters
+                            .get("yukta.supervisor.restored")
+                            .tag("result", "failed")
+                            .gauge()
+                            .value())
+                    .isEqualTo(1.0));
+    assertThat(meters.get("yukta.supervisor.restored").tag("result", "started").gauge().value())
+        .isEqualTo(1.0);
   }
 
   @Test

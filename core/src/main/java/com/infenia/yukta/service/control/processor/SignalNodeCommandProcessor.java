@@ -4,10 +4,7 @@ package com.infenia.yukta.service.control.processor;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
@@ -33,7 +30,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class SignalNodeCommandProcessor implements ControlSignalProcessor {
+public class SignalNodeCommandProcessor {
 
   /** Answer of a plugin that took the signal. */
   private static final String ACCEPTED = "ACCEPTED";
@@ -50,11 +47,6 @@ public class SignalNodeCommandProcessor implements ControlSignalProcessor {
   /** Answers an input request that stands for the signal, if there is one. */
   @Nullable private ObjectProvider<InputSignalBridge> inputBridge;
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof SignalNodeCommand;
-  }
-
   /**
    * Lets the broker take a signal that answers an input request.
    *
@@ -65,9 +57,8 @@ public class SignalNodeCommandProcessor implements ControlSignalProcessor {
     this.inputBridge = provider;
   }
 
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final SignalNodeCommand signal = (SignalNodeCommand) command;
+  /** Applies the command: an open input request of the node takes it, else the plugin does. */
+  public Mono<Void> process(final SignalNodeCommand signal) {
     final ObjectProvider<InputSignalBridge> provider = inputBridge;
     final InputSignalBridge bridge = provider == null ? null : provider.getIfAvailable();
     if (bridge == null) {
@@ -83,7 +74,7 @@ public class SignalNodeCommandProcessor implements ControlSignalProcessor {
   }
 
   /** The older path: the plugin of the node takes the signal while it waits for it. */
-  private Mono<WorkflowDirective> deliver(final SignalNodeCommand signal) {
+  private Mono<Void> deliver(final SignalNodeCommand signal) {
     return Mono.defer(
         () -> {
           final ExecutionControl control =
@@ -124,7 +115,7 @@ public class SignalNodeCommandProcessor implements ControlSignalProcessor {
                           .addKeyValue("nodeId", signal.nodeId())
                           .addKeyValue("signal", signal.name())
                           .log("Signal delivered"))
-              .then(Mono.<WorkflowDirective>empty());
+              .then(Mono.<Void>empty());
         });
   }
 }

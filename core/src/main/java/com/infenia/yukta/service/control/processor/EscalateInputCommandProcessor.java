@@ -2,10 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.processor;
 
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.service.ConflictException;
@@ -22,7 +19,7 @@ import reactor.core.publisher.Mono;
  * and scope rules do. A request that has already ended cannot be handed up.
  */
 @Component
-public class EscalateInputCommandProcessor implements ControlSignalProcessor {
+public class EscalateInputCommandProcessor {
 
   /** Checks leadership, the request, its run and the sender. */
   private final InputCommandGuard guard;
@@ -42,14 +39,8 @@ public class EscalateInputCommandProcessor implements ControlSignalProcessor {
     this.broker = broker;
   }
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof EscalateInputCommand;
-  }
-
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final EscalateInputCommand escalate = (EscalateInputCommand) command;
+  /** Applies the command. */
+  public Mono<Void> process(final EscalateInputCommand escalate) {
     return guard
         .clear(escalate.executionId(), escalate.requestId(), true)
         .flatMap(
@@ -63,7 +54,7 @@ public class EscalateInputCommandProcessor implements ControlSignalProcessor {
             Mono.error(
                 () -> new NotFoundException("Input request not found: " + escalate.requestId())))
         .flatMap(EscalateInputCommandProcessor::requireEscalated)
-        .then(Mono.<WorkflowDirective>empty());
+        .then();
   }
 
   private static Mono<InputRequest> requireEscalated(final InputRequest request) {

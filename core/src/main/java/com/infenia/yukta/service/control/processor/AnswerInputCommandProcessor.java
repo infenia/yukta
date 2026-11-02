@@ -2,10 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.processor;
 
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputResponse;
 import com.infenia.yukta.plugin.input.InputState;
@@ -31,7 +28,7 @@ import reactor.core.publisher.Mono;
  * conflict.
  */
 @Component
-public class AnswerInputCommandProcessor implements ControlSignalProcessor {
+public class AnswerInputCommandProcessor {
 
   /** Checks leadership, the request, its run and the sender. */
   private final InputCommandGuard guard;
@@ -68,14 +65,8 @@ public class AnswerInputCommandProcessor implements ControlSignalProcessor {
     this.clock = clock;
   }
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof AnswerInputCommand;
-  }
-
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final AnswerInputCommand answer = (AnswerInputCommand) command;
+  /** Applies the command. */
+  public Mono<Void> process(final AnswerInputCommand answer) {
     return guard
         .clear(answer.executionId(), answer.requestId(), false)
         .flatMap(
@@ -97,7 +88,7 @@ public class AnswerInputCommandProcessor implements ControlSignalProcessor {
             Mono.error(
                 () -> new NotFoundException("Input request not found: " + answer.requestId())))
         .flatMap(AnswerInputCommandProcessor::requireAnswered)
-        .then(Mono.<WorkflowDirective>empty());
+        .then();
   }
 
   private static Mono<InputRequest> requireAnswered(final InputRequest request) {

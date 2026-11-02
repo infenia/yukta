@@ -24,6 +24,21 @@ import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor;
+import com.infenia.yukta.service.control.processor.DisableStepModeCommandProcessor;
+import com.infenia.yukta.service.control.processor.EnableStepModeCommandProcessor;
+import com.infenia.yukta.service.control.processor.EscalateInputCommandProcessor;
+import com.infenia.yukta.service.control.processor.PauseNodeCommandProcessor;
+import com.infenia.yukta.service.control.processor.PauseWorkflowCommandProcessor;
+import com.infenia.yukta.service.control.processor.RestartCommandProcessor;
+import com.infenia.yukta.service.control.processor.RestartFromNodeCommandProcessor;
+import com.infenia.yukta.service.control.processor.ResumeNodeCommandProcessor;
+import com.infenia.yukta.service.control.processor.ResumeWorkflowCommandProcessor;
+import com.infenia.yukta.service.control.processor.SetBreakpointCommandProcessor;
+import com.infenia.yukta.service.control.processor.SignalNodeCommandProcessor;
+import com.infenia.yukta.service.control.processor.SkipNodeCommandProcessor;
+import com.infenia.yukta.service.control.processor.StepNodeCommandProcessor;
+import com.infenia.yukta.service.control.processor.StopNodeCommandProcessor;
+import com.infenia.yukta.service.control.processor.StopWorkflowCommandProcessor;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.input.InputCommandGuard;
 import com.infenia.yukta.service.input.InputFlow;
@@ -77,7 +92,23 @@ class DirectiveDispatcherInputTest {
     when(reviewer.id()).thenReturn("vetoer");
     when(reviewer.review(any())).thenReturn(Mono.just(Decision.ALLOW));
     return new DirectiveDispatcher(
-        List.of(new AnswerInputCommandProcessor(guard, flow.broker)),
+        new CommandHandler(
+            mock(PauseWorkflowCommandProcessor.class),
+            mock(ResumeWorkflowCommandProcessor.class),
+            mock(StopWorkflowCommandProcessor.class),
+            mock(RestartCommandProcessor.class),
+            mock(RestartFromNodeCommandProcessor.class),
+            mock(PauseNodeCommandProcessor.class),
+            mock(ResumeNodeCommandProcessor.class),
+            mock(StopNodeCommandProcessor.class),
+            mock(SkipNodeCommandProcessor.class),
+            mock(EnableStepModeCommandProcessor.class),
+            mock(DisableStepModeCommandProcessor.class),
+            mock(StepNodeCommandProcessor.class),
+            mock(SetBreakpointCommandProcessor.class),
+            mock(SignalNodeCommandProcessor.class),
+            new AnswerInputCommandProcessor(guard, flow.broker),
+            mock(EscalateInputCommandProcessor.class)),
         registry,
         mock(ControlBusService.class),
         new ExecutionArchive(),

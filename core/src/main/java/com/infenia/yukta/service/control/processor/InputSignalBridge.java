@@ -4,7 +4,6 @@ package com.infenia.yukta.service.control.processor;
 
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.service.input.InputBroker;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -61,8 +60,7 @@ public class InputSignalBridge {
    * @param request the request that waits for it
    * @return completes when the answer is taken; errors as an answer does
    */
-  public Mono<WorkflowDirective> answer(
-      final SignalNodeCommand signal, final InputRequest request) {
+  public Mono<Void> answer(final SignalNodeCommand signal, final InputRequest request) {
     return answers.process(
         new AnswerInputCommand(
             signal.executionId(),

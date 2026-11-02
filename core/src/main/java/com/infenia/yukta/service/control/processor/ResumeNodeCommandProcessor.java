@@ -3,10 +3,7 @@
 package com.infenia.yukta.service.control.processor;
 
 import com.infenia.yukta.model.execution.ControlState;
-import com.infenia.yukta.plugin.control.ControlSignalProcessor;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeNodeCommand;
-import com.infenia.yukta.plugin.control.WorkflowDirective;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
@@ -26,7 +23,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ResumeNodeCommandProcessor implements ControlSignalProcessor {
+public class ResumeNodeCommandProcessor {
 
   /** The execution control registry for accessing execution control state. */
   private final ExecutionControlStore registry;
@@ -34,14 +31,8 @@ public class ResumeNodeCommandProcessor implements ControlSignalProcessor {
   /** The task tracker service for tracking task execution. */
   private final TaskTrackerService taskTracker;
 
-  @Override
-  public boolean canProcess(final ExecutionControlCommand command) {
-    return command instanceof ResumeNodeCommand;
-  }
-
-  @Override
-  public Mono<WorkflowDirective> process(final ExecutionControlCommand command) {
-    final ResumeNodeCommand resume = (ResumeNodeCommand) command;
+  /** Applies the command. */
+  public Mono<Void> process(final ResumeNodeCommand resume) {
     return Mono.fromRunnable(
         () -> {
           final ExecutionControl control =
@@ -65,10 +56,5 @@ public class ResumeNodeCommandProcessor implements ControlSignalProcessor {
               .addKeyValue("status", "NODE_RESUMED")
               .log("Resumed node");
         });
-  }
-
-  @Override
-  public int getPriority() {
-    return 10;
   }
 }

@@ -9,7 +9,6 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeCommand;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.ConflictException;
@@ -42,12 +41,6 @@ class SignalNodeCommandProcessorTest {
     when(registry.findByExecutionId("e1")).thenReturn(Optional.of(control));
     when(control.workflowId()).thenReturn("wf");
     when(plugins.lookup("wf", "e1", "n1")).thenReturn(Optional.of(plugin));
-  }
-
-  @Test
-  void canProcess_onlyItsOwnCommand() {
-    assertThat(processor.canProcess(command)).isTrue();
-    assertThat(processor.canProcess(new PauseWorkflowCommand("e1"))).isFalse();
   }
 
   @Test

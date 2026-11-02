@@ -8,7 +8,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputForbiddenException;
 import com.infenia.yukta.plugin.input.InputKind;
@@ -55,12 +54,6 @@ class EscalateInputCommandProcessorTest {
 
   private StepVerifier.FirstStep<Void> run(final EscalateInputCommand command, final Context as) {
     return StepVerifier.create(processor.process(command).contextWrite(as).then());
-  }
-
-  @Test
-  void onlyEscalateCommandsAreProcessed() {
-    assertThat(processor.canProcess(escalate("r"))).isTrue();
-    assertThat(processor.canProcess(new PauseWorkflowCommand("exec"))).isFalse();
   }
 
   @Test
