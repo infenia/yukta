@@ -51,13 +51,13 @@ wait_status() { # wait_status EID WANT
 }
 await_approval() { # await_approval EID NODE: the pending list names the node that waits
   for _ in $(seq 60); do
-    api GET "/api/sessions/$SID/inputs" | jq -e --arg e "$1" --arg n "$2" '.data[] | select(.executionId == $e and .nodeId == $n)' >/dev/null && { echo "    approval pending at $2"; return; }
+    api GET "/api/sessions/$SID/approvals" | jq -e --arg e "$1" --arg n "$2" '.data[] | select(.executionId == $e and .nodeId == $n)' >/dev/null && { echo "    approval pending at $2"; return; }
     sleep 0.5
   done
   echo "    FAIL no pending approval at $2"; exit 1
 }
 decide() { # decide EID NODE SIGNAL DECISION
-  answer_input "$1" "$2" "$4" && echo "    on-call answers $3=$4"
+  api POST "/api/executions/$1/nodes/$2/signal?name=$3&decision=$4" >/dev/null && echo "    on-call signals $3=$4"
 }
 check() { local d=$1; shift; if "$@"; then echo "    PASS $d"; else echo "    FAIL $d"; for f in "$SANDBOX"/*.log "$PAGES"; do echo "--- $f"; cat "$f" 2>/dev/null; done; exit 1; fi; }
 has() { grep -qF -- "$2" "$1"; }

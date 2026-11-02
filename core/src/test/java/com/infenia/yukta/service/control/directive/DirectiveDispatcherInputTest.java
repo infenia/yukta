@@ -34,7 +34,6 @@ import com.infenia.yukta.service.control.processor.RestartFromNodeCommandProcess
 import com.infenia.yukta.service.control.processor.ResumeNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.ResumeWorkflowCommandProcessor;
 import com.infenia.yukta.service.control.processor.SetBreakpointCommandProcessor;
-import com.infenia.yukta.service.control.processor.SignalNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.SkipNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.StepNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.StopNodeCommandProcessor;
@@ -106,7 +105,6 @@ class DirectiveDispatcherInputTest {
             mock(DisableStepModeCommandProcessor.class),
             mock(StepNodeCommandProcessor.class),
             mock(SetBreakpointCommandProcessor.class),
-            mock(SignalNodeCommandProcessor.class),
             new AnswerInputCommandProcessor(guard, flow.broker),
             mock(EscalateInputCommandProcessor.class)),
         registry,

@@ -43,7 +43,9 @@ export function AttachDialog({
   const chosenProfile = profileId || profiles[0]?.id || '';
   const scope = buildScope(kind, sessionId, workflowId, nodes);
   const problem =
-    chosenProfile === '' ? 'Create a profile first.' : scopeProblem(scope, kind, workflowId);
+    chosenProfile === ''
+      ? 'Create a profile first.'
+      : scopeProblem(scope, kind, workflowId);
 
   const submit = () => {
     // the Attach button is disabled while there is a problem, so the scope is set here
@@ -88,7 +90,7 @@ export function AttachDialog({
           </NativeSelect>
         </label>
         {kind !== 'global' && (
-          <label className="flex flex-col gap-1 text-label-md text-on-surface">
+          <label className="text-label-md text-on-surface flex flex-col gap-1">
             {kind === 'session' ? 'Session' : 'Session (optional)'}
             <NativeSelect
               aria-label="Session"
@@ -107,7 +109,7 @@ export function AttachDialog({
           </label>
         )}
         {(kind === 'workflow' || kind === 'section') && (
-          <label className="flex flex-col gap-1 text-label-md text-on-surface">
+          <label className="text-label-md text-on-surface flex flex-col gap-1">
             Workflow id
             <Input
               value={workflowId}
@@ -116,7 +118,7 @@ export function AttachDialog({
           </label>
         )}
         {kind === 'section' && (
-          <label className="flex flex-col gap-1 text-label-md text-on-surface">
+          <label className="text-label-md text-on-surface flex flex-col gap-1">
             Nodes
             <Input
               aria-label="Nodes"
@@ -126,12 +128,12 @@ export function AttachDialog({
             />
             <span className="text-body-sm text-on-surface-variant">
               Node ids, or a prefix such as build.* for every node whose id
-              starts with build. It sees and acts on these nodes only, never
-              on the whole run.
+              starts with build. It sees and acts on these nodes only, never on
+              the whole run.
             </span>
           </label>
         )}
-        <label className="flex items-center gap-2 text-body-md">
+        <label className="text-body-md flex items-center gap-2">
           <input
             type="checkbox"
             checked={enabled}

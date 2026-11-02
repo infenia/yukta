@@ -706,52 +706,6 @@
         },
         "type" : "object"
       },
-      "ApiResponseListPendingApproval" : {
-        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
-        "properties" : {
-          "data" : {
-            "description" : "The response data",
-            "items" : {
-              "$ref" : "#/components/schemas/PendingApproval"
-            },
-            "type" : "array"
-          },
-          "error" : {
-            "description" : "The HTTP status error name",
-            "example" : "Bad Request",
-            "type" : "string"
-          },
-          "errors" : {
-            "description" : "The list of field validation errors",
-            "items" : {
-              "$ref" : "#/components/schemas/FieldError"
-            },
-            "type" : "array"
-          },
-          "message" : {
-            "description" : "A human-readable message",
-            "example" : "Operation successful",
-            "type" : "string"
-          },
-          "path" : {
-            "description" : "The request path",
-            "example" : "/api/files",
-            "type" : "string"
-          },
-          "status" : {
-            "description" : "The HTTP status code",
-            "example" : 200,
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "timestamp" : {
-            "description" : "The time the response was generated",
-            "format" : "date-time",
-            "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
       "ApiResponseListProfileBody" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -3060,30 +3014,6 @@
         },
         "type" : "object"
       },
-      "PendingApproval" : {
-        "properties" : {
-          "executionId" : {
-            "type" : "string"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "nodeId" : {
-            "type" : "string"
-          },
-          "sessionId" : {
-            "type" : "string"
-          },
-          "since" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
-          "workflowId" : {
-            "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
       "Permissions" : {
         "properties" : {
           "changeLimits" : {
@@ -4170,35 +4100,6 @@
         "tags" : [ "Execution Control API" ]
       }
     },
-    "/api/approvals" : {
-      "get" : {
-        "description" : "Lists the nodes of all sessions that wait for a signal now, oldest first (at most limit, default 100, up to 1000), each with its session, execution, node, signal name and waiting-since.",
-        "operationId" : "allPendingApprovals",
-        "parameters" : [ {
-          "in" : "query",
-          "name" : "limit",
-          "required" : false,
-          "schema" : {
-            "format" : "int32",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListPendingApproval"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "List pending approvals across sessions",
-        "tags" : [ "Execution Control API" ]
-      }
-    },
     "/api/control/audit" : {
       "get" : {
         "description" : "Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them",
@@ -5044,67 +4945,6 @@
         "tags" : [ "Execution Control API" ]
       }
     },
-    "/api/executions/{executionId}/nodes/{nodeId}/signal" : {
-      "post" : {
-        "description" : "Releases or rejects a node that waits for the named signal, for example a WAIT_FOR_SIGNAL approval step. Answers 409 if the node is not waiting for it.",
-        "operationId" : "signalNode",
-        "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
-          "in" : "path",
-          "name" : "nodeId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Name of the signal the node waits for",
-          "in" : "query",
-          "name" : "name",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Decision, for example approve or reject",
-          "in" : "query",
-          "name" : "decision",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Optional text that goes with the decision",
-          "in" : "query",
-          "name" : "data",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Send a signal to a waiting node",
-        "tags" : [ "Execution Control API" ]
-      }
-    },
     "/api/executions/{executionId}/nodes/{nodeId}/skip" : {
       "post" : {
         "description" : "Marks a node as skipped (passthrough) or not. Core currently rejects this for running executions.. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/skip (deprecated)",
@@ -5649,6 +5489,36 @@
         },
         "summary" : "Get the tree of runs below an execution",
         "tags" : [ "Execution API" ]
+      }
+    },
+    "/api/inputs" : {
+      "get" : {
+        "description" : "The input requests of all sessions that wait for an answer (OPEN and ESCALATED), newest first, at most limit (default 100, up to 1000).",
+        "operationId" : "listOpenInputs",
+        "parameters" : [ {
+          "description" : "Most requests returned (default 100, at most 1000)",
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListInputRequestView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List open input requests across sessions",
+        "tags" : [ "Input Requests API" ]
       }
     },
     "/api/me" : {
@@ -6286,35 +6156,6 @@
         },
         "summary" : "Get session details",
         "tags" : [ "Session API" ]
-      }
-    },
-    "/api/sessions/{sessionId}/approvals" : {
-      "get" : {
-        "description" : "Lists the nodes of the session that wait for a signal now (for example WAIT_FOR_SIGNAL approval steps), oldest first. Answer one with the signal endpoint of its execution.",
-        "operationId" : "pendingApprovals",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListPendingApproval"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "List pending approvals",
-        "tags" : [ "Execution Control API" ]
       }
     },
     "/api/sessions/{sessionId}/config" : {

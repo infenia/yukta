@@ -12,7 +12,7 @@ import {
 } from '@/features/metrics/hooks';
 import { GLOBAL, type Scope } from '@/features/metrics/api';
 import { inScope } from './scopes';
-import { getAllApprovals } from '@/features/overview/api';
+import { getOpenInputs } from '@/features/overview/api';
 import { useWorkers } from '../api/workers';
 import { getLimits } from '../api/scheduler';
 import {
@@ -32,7 +32,7 @@ const APPROVALS_LIMIT = 50;
 function useWaitingText(scope: Scope, live: boolean) {
   const approvals = useQuery({
     queryKey: ['control', 'approvals', APPROVALS_LIMIT],
-    queryFn: () => getAllApprovals(APPROVALS_LIMIT),
+    queryFn: () => getOpenInputs(APPROVALS_LIMIT),
     refetchInterval: live ? 10_000 : false,
   });
   if (approvals.isError) return '–';

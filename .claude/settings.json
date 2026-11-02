@@ -11,7 +11,7 @@
       "mcp__yukta__get_workflow_status",
       "mcp__yukta__get_workflow_history",
       "mcp__yukta__get_workflow_details",
-      "mcp__yukta__list_pending_inputs",
+      "mcp__yukta__list_pending_approvals",
       "mcp__yukta__get_control_bus_status",
       "mcp__yukta__list_sessions",
       "mcp__yukta__get_session_details",

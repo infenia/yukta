@@ -15,7 +15,6 @@ import com.infenia.yukta.service.control.processor.RestartFromNodeCommandProcess
 import com.infenia.yukta.service.control.processor.ResumeNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.ResumeWorkflowCommandProcessor;
 import com.infenia.yukta.service.control.processor.SetBreakpointCommandProcessor;
-import com.infenia.yukta.service.control.processor.SignalNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.SkipNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.StepNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.StopNodeCommandProcessor;
@@ -44,8 +43,6 @@ final class CommandHandlerFixture {
   /* default */ final StepNodeCommandProcessor stepNode = mock(StepNodeCommandProcessor.class);
   /* default */ final SetBreakpointCommandProcessor setBreakpoint =
       mock(SetBreakpointCommandProcessor.class);
-  /* default */ final SignalNodeCommandProcessor signalNode =
-      mock(SignalNodeCommandProcessor.class);
   /* default */ final AnswerInputCommandProcessor answerInput =
       mock(AnswerInputCommandProcessor.class);
   /* default */ final EscalateInputCommandProcessor escalateInput =
@@ -66,7 +63,6 @@ final class CommandHandlerFixture {
           disableStepMode,
           stepNode,
           setBreakpoint,
-          signalNode,
           answerInput,
           escalateInput);
 }

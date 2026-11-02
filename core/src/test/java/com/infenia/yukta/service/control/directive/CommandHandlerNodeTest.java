@@ -12,7 +12,6 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseNodeCommand
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SetBreakpointCommand;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SkipNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
@@ -117,16 +116,5 @@ class CommandHandlerNodeTest {
     StepVerifier.create(fixture.handler.handle(command)).verifyComplete();
 
     verify(fixture.setBreakpoint).process(command);
-  }
-
-  @Test
-  void handle_signalNodeCommand_routesToSignalNodeProcessor() {
-    final SignalNodeCommand command =
-        new SignalNodeCommand(EXECUTION_ID, NODE_ID, "approval", "approve", null);
-    when(fixture.signalNode.process(any())).thenReturn(Mono.empty());
-
-    StepVerifier.create(fixture.handler.handle(command)).verifyComplete();
-
-    verify(fixture.signalNode).process(command);
   }
 }

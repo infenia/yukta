@@ -59,8 +59,8 @@ Use `decision=deny` to decline an update and still notify.
 curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
   -d "{\"sessionId\":\"example-05-dependency-updates\",\"workflowId\":\"updates\",\"payload\":$(cat major-bump.json)}"
 
-curl localhost:9858/api/sessions/example-05-dependency-updates/inputs
-curl -X POST localhost:9858/api/executions/<executionId>/inputs/<requestId>/answer -H 'Content-Type: application/json' -d '{"decision":"approve"}'
+curl localhost:9858/api/sessions/example-05-dependency-updates/approvals
+curl -X POST "localhost:9858/api/executions/<executionId>/nodes/review-queue/signal?name=review&decision=approve"
 ```
 
 ## Run

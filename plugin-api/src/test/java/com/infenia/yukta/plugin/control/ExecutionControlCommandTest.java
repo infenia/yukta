@@ -131,7 +131,6 @@ class ExecutionControlCommandTest {
           case ExecutionControlCommand.RestartCommand c -> "restart";
           case ExecutionControlCommand.RestartFromNodeCommand c -> "restart-from-node";
           case ExecutionControlCommand.SetBreakpointCommand c -> "set-breakpoint";
-          case ExecutionControlCommand.SignalNodeCommand _ -> "signal";
           case ExecutionControlCommand.SetLimitsCommand c -> "limits-" + c.maxConcurrent();
           case ExecutionControlCommand.SetPriorityCommand c -> "priority-" + c.priority();
           case ExecutionControlCommand.AnswerInputCommand c -> "answer-" + c.requestId();
@@ -157,28 +156,9 @@ class ExecutionControlCommandTest {
             new StopWorkflowCommand("e", null),
             new ExecutionControlCommand.RestartCommand("e", "e2"),
             new ExecutionControlCommand.RestartFromNodeCommand("e", "n", "e2"),
-            new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payload.x", "1"),
-            new ExecutionControlCommand.SignalNodeCommand("e", "n", "approval", "approve", null));
+            new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payload.x", "1"));
 
     assertThat(all).extracting(ExecutionControlCommand::executionId).containsOnly("e");
-  }
-
-  @Test
-  void signalNeedsNameAndDecision() {
-    assertThat(new ExecutionControlCommand.SignalNodeCommand("e", "n", "ok", "approve", "x").data())
-        .isEqualTo("x");
-    assertThatThrownBy(
-            () -> new ExecutionControlCommand.SignalNodeCommand("e", "n", " ", "a", null))
-        .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(
-            () -> new ExecutionControlCommand.SignalNodeCommand("e", "n", "ok", null, null))
-        .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(
-            () -> new ExecutionControlCommand.SignalNodeCommand("e", "n", null, "a", null))
-        .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(
-            () -> new ExecutionControlCommand.SignalNodeCommand("e", "n", "ok", " ", null))
-        .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test

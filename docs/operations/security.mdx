@@ -119,8 +119,8 @@ The MCP endpoint uses the same keys. Each tool call is checked against the key's
 
 | Role | MCP tools |
 |---|---|
-| `VIEWER` | `get_session_details`, `list_sessions`, `get_execution_logs`, `get_node_output`, `get_execution_result`, `list_pending_approvals`, `list_pending_inputs`, `list_workflow_versions`, `diff_workflow_versions`, `get_workflow_details`, `get_workflow_status`, `get_workflow_history`, `get_execution_tree`, `list_plugins`, `get_plugin_details`, `get_control_bus_status`, `get_session_creation_instructions`, `get_plugin_creation_guide` |
-| `OPERATOR` | `start_workflow`, `control_workflow`, `control_node`, `set_node_breakpoint`, `signal_node`, `answer_input`, `escalate_input`, `rollback_workflow`, `note_workflow_version` |
+| `VIEWER` | `get_session_details`, `list_sessions`, `get_execution_logs`, `get_node_output`, `get_execution_result`, `list_pending_inputs`, `list_workflow_versions`, `diff_workflow_versions`, `get_workflow_details`, `get_workflow_status`, `get_workflow_history`, `get_execution_tree`, `list_plugins`, `get_plugin_details`, `get_control_bus_status`, `get_session_creation_instructions`, `get_plugin_creation_guide` |
+| `OPERATOR` | `start_workflow`, `control_workflow`, `control_node`, `set_node_breakpoint`, `answer_input`, `escalate_input`, `rollback_workflow`, `note_workflow_version` |
 | `ADMIN` | Every other tool, including those that define sessions and workflows |
 
 A key limited to sessions must pass a `sessionId` argument that it may reach. For any key that is not an unrestricted `ADMIN` key, a `POST` body that cannot be parsed is refused with `403` and one larger than 1 MiB with `413`.

@@ -17,7 +17,7 @@ Requests come from three places:
 |---|---|
 | A workflow step | The [`ASK_INPUT`](/plugins/routing-and-flow#ask_input) node |
 | An AI agent | The `ask_for_input` tool of `LLM_CALL` and `MCP_TOOL_CALL` |
-| An approval | `WAIT_FOR_SIGNAL` and the `requireApproval` tools of `MCP_TOOL_CALL` ask a request of risk `HIGH` (see [Approvals with `WAIT_FOR_SIGNAL`](#approvals-with-wait_for_signal)) |
+| An approval | `WAIT_FOR_SIGNAL` and the `requireApproval` tools of `MCP_TOOL_CALL` ask a request of risk `HIGH` (see [Approvals and signals](/building/approvals-and-signals)) |
 
 ## What a request holds
 
@@ -159,56 +159,6 @@ At the deadline `FAIL` fails the asking node, `USE_DEFAULT` answers with the def
 
 Metrics: `yukta.input.requests{kind,risk,outcome}`, `yukta.input.wait{tier}`, `yukta.input.open`, `yukta.input.denied{rule}`. Every change also writes an `INPUT` entry to the execution log, with the request id, the responder and, for an answer or escalation, the rationale or reason cut to 500 characters; the log never holds the prompt or an answer's text.
 
-## Approvals with `WAIT_FOR_SIGNAL`
-
-`WAIT_FOR_SIGNAL` holds each message until someone answers, then lets it go on, drops it or fails, depending on the decision. It asks an `APPROVAL` request of risk `HIGH`, so a person answers it. Use it when a person must say "go ahead" before a job continues, such as approving a production deploy.
-
-```json
-{
-  "nodeId": "approve",
-  "type": "WAIT_FOR_SIGNAL",
-  "config": {
-    "signal": "approve",
-    "timeoutSeconds": 3600,
-    "onTimeout": "FAIL",
-    "onReject": "FAIL"
-  }
-}
-```
-
-| Option | Default | Meaning |
-|---|---|---|
-| `signal` | required | The name of the request (kept in the request's `context.signal`) |
-| `timeoutSeconds` | `3600` | Longest wait |
-| `onTimeout` | `FAIL` | `FAIL` fails the node. `CONTINUE` lets the message go on with `signal.decision` set to `timeout` |
-| `onReject` | `FAIL` | What to do for a `reject` decision. `FAIL` fails the node; `CONTINUE` drops the message |
-
-Any decision other than `reject` lets the message through. The message is tagged with `signal.name`, `signal.decision` and `signal.data`, so a later [branch](/building/routing-and-branching) can route on `metadata.signal.decision`. `WAIT_FOR_SIGNAL` cannot run on a remote worker.
-
-Find the open request, then answer it by its id:
-
-```bash
-curl localhost:9858/api/sessions/{sessionId}/inputs
-curl -X POST localhost:9858/api/executions/{executionId}/inputs/{requestId}/answer \
-  -H 'Content-Type: application/json' -d '{"decision":"approve","text":"ok"}'
-```
-
-The CLI does the same with `yukta inputs list` and `yukta inputs answer`, MCP with `list_pending_inputs` and `answer_input`. A person or a supervisor can answer, as far as the risk allows.
-
-## Moving off the signal API
-
-The signal API (`…/nodes/{node}/signal`, `/approvals`, `signal_node`, `list_pending_approvals`, `yukta approvals`) is replaced by input requests and is removed from the server in the same release.
-
-| Before | Now |
-|---|---|
-| `POST /api/executions/{e}/nodes/{node}/signal?name=…&decision=…&data=…` | `POST /api/executions/{e}/inputs/{id}/answer` with `{"decision":"…","text":"…"}` |
-| `GET /api/sessions/{s}/approvals` | `GET /api/sessions/{s}/inputs` |
-| MCP `signal_node` | MCP `answer_input` |
-| MCP `list_pending_approvals` | MCP `list_pending_inputs` |
-| `yukta approvals`, `yukta session approvals`, `yukta workflow node signal` | `yukta inputs list`, `yukta inputs answer` |
-
-The **request id** is the `id` of an entry in the inputs list. A node no longer takes an answer ahead of time: answering a node with no open request is `409 Conflict`.
-
 ## After a restart
 
 Requests are kept **in memory**. A restart, or a high-availability takeover, cancels the runs that were waiting and loses their open requests; nobody can answer them afterwards. An answer is also recorded with the node's checkpoint, so a [resumed](/operations/checkpoints-and-resume) run that replays the same message reuses it. A durable store for requests (PostgreSQL) is planned.
@@ -221,4 +171,8 @@ Requests are kept **in memory**. A restart, or a high-availability takeover, can
 
 <Card title="Rule files" icon="file-lines" horizontal href="/running/rule-files">
   The declarative JSON format used by the rule supervisor and the rule control plane: react to events, answer input requests and veto commands.
+</Card>
+
+<Card title="Approvals and signals" icon="hand" horizontal href="/building/approvals-and-signals">
+  Hold a message until a person sends a named signal, with a timeout and an accept or reject decision.
 </Card>

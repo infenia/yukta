@@ -358,7 +358,7 @@ export const test = base.extend<TestFixtures>({
       );
     await quiet(/\/api\/(edition|me)$/, 404);
     await quiet(/\/api\/plugins$/, 200, []);
-    await quiet(/\/api\/approvals(\?|$)/, 200, []);
+    await quiet(/\/api\/inputs(\?|$)/, 200, []);
     await quiet(/\/api\/workers$/, 200, []);
     await quiet(/\/api\/supervisors$/, 200, []);
     await quiet(/\/api\/supervisors\/(profiles|bindings)$/, 200, []);

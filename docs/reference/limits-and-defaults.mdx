@@ -57,7 +57,8 @@ This page collects the numbers that bound a Yukta server: fixed ceilings, defaul
 | Node idle timeout | The plugin's default, 30 s for many | `timeoutSeconds` on the node | [Time limits](/concepts/time-limits) |
 | Element timeout | None | `engine.elementTimeoutMs` | [Time limits](/concepts/time-limits) |
 | Node deadline | None | `engine.deadlineMs` | [Time limits](/concepts/time-limits) |
-| `WAIT_FOR_SIGNAL` wait | 3600 s | `timeoutSeconds` on the node | [Input requests](/building/input-requests) |
+| `WAIT_FOR_SIGNAL` wait | 3600 s | `timeoutSeconds` on the node | [Approvals and signals](/building/approvals-and-signals) |
+| Signal sent before its node waits | Kept 10 minutes, at most 100 | Fixed | [Approvals and signals](/building/approvals-and-signals) |
 | Server stop grace | 30 s | `yukta.execution.shutdown-timeout` | [Deployment](/operations/deployment) |
 | `DRAIN` stop | 30 s | `yukta.stop.drain-timeout` | [Run controls](/running/run-controls) |
 | Script run time | 10 s | `yukta.script.timeout-ms` | [Security](/operations/security) |

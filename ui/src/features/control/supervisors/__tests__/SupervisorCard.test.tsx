@@ -106,7 +106,9 @@ describe('SupervisorCard', () => {
         scopeNodes: ['build.*', 'publish'],
       } as never,
     });
-    expect(screen.getByText('Section s1/w1: build.*, publish')).toBeInTheDocument();
+    expect(
+      screen.getByText('Section s1/w1: build.*, publish')
+    ).toBeInTheDocument();
     unmount();
     card({
       running: {

@@ -32,12 +32,13 @@ const ok = (data: unknown) =>
   });
 
 const approval = {
+  id: 'r1',
+  prompt: 'go',
   sessionId: 's1',
   executionId: 'exec-1234-5678',
   workflowId: 'deploy',
   nodeId: 'gate',
-  name: 'go',
-  since: '2026-01-01T00:00:00Z',
+  createdAt: '2026-01-01T00:00:00Z',
 };
 const run = (status: string, executionId: string) => ({
   sessionId: 's1',
@@ -53,7 +54,7 @@ let aborted: unknown[] = [run('ABORTED', 'ab-1')];
 let failures: unknown[] = [run('FAILURE', 'f-1')];
 
 const server = setupServer(
-  http.get('/api/approvals', () => ok(approvals)),
+  http.get('/api/inputs', () => ok(approvals)),
   http.get('/api/executions/counts', () =>
     ok({ running: 2, queued: 1, failed: 3 })
   ),

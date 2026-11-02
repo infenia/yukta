@@ -4,18 +4,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { Card } from '@/components/ui/card';
-import { getAllApprovals } from '@/features/overview/api';
+import { getOpenInputs } from '@/features/overview/api';
 import { relativeTime } from './WorkersPanel.helpers';
 
 /** How many inputs wait on the server and for how long; the list is on the Overview page. */
 export function InputsTile() {
   const waiting = useQuery({
-    queryKey: ['overview', 'approvals'],
-    queryFn: () => getAllApprovals(),
+    queryKey: ['overview', 'inputs'],
+    queryFn: () => getOpenInputs(),
     refetchInterval: 10_000,
   });
   const items = waiting.data ?? [];
-  const oldest = items.map((i) => i.since).sort()[0];
+  const oldest = items.map((i) => i.createdAt).sort()[0];
   return (
     <Link to="/#ov-needs-attention-panel" aria-label="Inputs">
       <Card interactive className="p-4">

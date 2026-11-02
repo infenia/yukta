@@ -21,7 +21,7 @@ is the `yukta.parentExecutionId` in the child's start payload (and its `RUN_STAR
 
 ### WAIT_FOR_SIGNAL and ASK_INPUT
 `WAIT_FOR_SIGNAL`, `ASK_INPUT` and `MCP_TOOL_CALL` `requireApproval` ask through `InputAsk` (plugin-api) on an
-`ObjectProvider<InputGateway>`; no gateway bean fails the node clearly (`SignalWaits` is gone). `WAIT_FOR_SIGNAL` and
+`ObjectProvider<InputGateway>`; no gateway bean fails the node clearly. `WAIT_FOR_SIGNAL` and
 `requireApproval` ask a HIGH risk `APPROVAL` without options (any non-blank decision; `reject` rejects) whose context
 carries `signal`, so the older signal command still answers it. `ASK_INPUT` takes `prompt`, `kind`, `options`, `risk`,
 `ttlSeconds`, `onTimeout` (`FAIL`, `CONTINUE`, `USE_DEFAULT`), `defaultDecision`, `responseSchema`, `audience`, `name`, `route`

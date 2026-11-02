@@ -2,17 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { fetchApi } from '@/lib/apiClient';
+import type { InputRequest } from '@/features/workflow/api/inputs';
 
-/** A node of any session that waits for an answer (an input request or a signal). */
-export interface SessionApproval {
-  sessionId: string;
-  executionId: string;
-  workflowId: string;
-  nodeId: string;
-  name: string;
-  since: string;
-}
-
-/** The oldest `limit` nodes that wait for a signal, across all sessions the key may see. */
-export const getAllApprovals = (limit = 50) =>
-  fetchApi<SessionApproval[]>(`/api/approvals?limit=${limit}`);
+/** The newest `limit` input requests that wait for an answer, across all sessions the key may see. */
+export const getOpenInputs = (limit = 50) =>
+  fetchApi<InputRequest[]>(`/api/inputs?limit=${limit}`);

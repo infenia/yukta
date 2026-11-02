@@ -144,14 +144,8 @@ Node commands act on one node of a live run. The role they need is `OPERATOR`.
 | `yukta-cli workflow node retry <execution-id> <node-id>` | Restart from a node that failed, as a new run, and print the new id |
 | `yukta-cli workflow node breakpoint <execution-id> <node-id> --field <f> --equals <v>` | Hold a node before the first element whose field equals a value |
 | `yukta-cli workflow node breakpoint <execution-id> <node-id> --clear` | Remove the node's breakpoint |
-| `yukta-cli workflow node signal <execution-id> <node-id> --name <n> --decision <d> [--data <text>]` | Answer a node that waits for a signal |
 
-`retry`, `breakpoint` and `signal` take no session id. `signal` fails with an HTTP `409` error if the node is not waiting for that signal. These commands map to the calls on the [Control API](/api/control) page.
-
-```bash
-yukta-cli workflow node signal 550e8400-e29b-41d4-a716-446655440000 approve \
-  --name release-approval --decision approve --data "ship it"
-```
+`retry` and `breakpoint` take no session id. These commands map to the calls on the [Control API](/api/control) page.
 
 ## Watch live
 
@@ -238,8 +232,8 @@ On failure the command prints `error: <message>` to standard error. An HTTP erro
 | `yukta-cli workflow executions search` | Search runs across sessions |
 | `yukta-cli session workflow versions\|diff\|rollback\|note <session-id> <workflow-id> …` | Saved versions of a workflow |
 | `yukta-cli session validate <json-or-file>` | Validate a workflow definition without saving it |
-| `yukta-cli session config <session-id>`, `session approvals <session-id>` | A session's configuration, and what its runs wait for |
-| `yukta-cli approvals list [--session ID]` | Pending approvals, across sessions or for one |
+| `yukta-cli session config <session-id>` | A session's configuration |
+| `yukta-cli inputs list [--session ID]`, `inputs show`, `inputs answer`, `inputs escalate` | Input requests: list the open ones, read, answer or escalate one |
 | `yukta-cli controlbus audit` | Control commands sent, newest first |
 | `yukta-cli supervisors`, `yukta-cli workers` | Supervisors and remote workers |
 

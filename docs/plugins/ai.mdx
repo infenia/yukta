@@ -178,7 +178,7 @@ The payload is `{"success", "tool", "text", "content", "structured", "error"}`: 
 
 Every call carries the message id and the attempt number in its request metadata (`yukta/messageId` and `yukta/attempt`), so a tool server can recognise a repeated call. The node keeps one MCP session per server and set of credentials and sends progress as heartbeats so a long call is not timed out while it reports progress.
 
-An approval works like [`WAIT_FOR_SIGNAL`](/plugins/routing-and-flow#wait_for_signal): answer its input request (`POST /api/executions/{executionId}/inputs/{requestId}/answer`). A `decision` of `reject` refuses the call and any other decision allows it. See [Input requests](/building/input-requests).
+An approval works like [`WAIT_FOR_SIGNAL`](/plugins/routing-and-flow#wait_for_signal): answer the waiting node with the signal endpoint of its execution, using `name` equal to `approvalSignal`. A `decision` of `reject` refuses the call and any other decision allows it. See [Approvals and signals](/building/approvals-and-signals).
 
 ### Server settings
 
@@ -270,8 +270,8 @@ See [Persistence](/operations/persistence). Messages are handled one at a time, 
   CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE: constrained model decisions for routing and gating.
 </Card>
 
-<Card title="Input requests" icon="hand" horizontal href="/building/input-requests">
-  Ask a question and wait for a person, a supervisor or an agent to answer: approvals, choices and text, with a timeout.
+<Card title="Approvals and signals" icon="hand" horizontal href="/building/approvals-and-signals">
+  Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision.
 </Card>
 
 <Card title="Variables and expressions" icon="brackets-curly" horizontal href="/building/variables-and-expressions">
