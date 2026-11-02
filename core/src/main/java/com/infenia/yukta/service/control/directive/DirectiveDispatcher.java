@@ -6,6 +6,7 @@ import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.NotFoundException;
@@ -14,6 +15,7 @@ import com.infenia.yukta.service.control.CommandSequencer;
 import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
@@ -22,6 +24,7 @@ import jakarta.annotation.PostConstruct;
 import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -69,6 +72,9 @@ public class DirectiveDispatcher {
   /** Keeps commands of one execution in the order they were sent. */
   private final CommandSequencer sequencer = new CommandSequencer();
 
+  /** Finds the input request an answer or escalation names, for its node; none without it. */
+  @Nullable private ObjectProvider<InputRequestStore> inputRequests;
+
   /**
    * Constructs a DirectiveDispatcher.
    *
@@ -106,6 +112,17 @@ public class DirectiveDispatcher {
   @Autowired(required = false)
   public void setAuditSink(final AuditSink sink) {
     this.auditSink = sink;
+  }
+
+  /**
+   * Lets the node of an input answer or escalation be found from its request, so a section
+   * supervisor reviews it and may send it.
+   *
+   * @param store the input request store lookup
+   */
+  @Autowired
+  public void setInputRequests(final ObjectProvider<InputRequestStore> store) {
+    this.inputRequests = store;
   }
 
   /** Registers this dispatcher as the executor of execution control commands. */
@@ -151,12 +168,16 @@ public class DirectiveDispatcher {
    */
   private Mono<Void> audited(final ExecutionControlCommand command, final String actor) {
     final String name = command.getClass().getSimpleName();
-    final String[] run = owner(command);
-    return reviewer
-        .review(new ControlRequest(command, actor, run[0], run[1]))
-        .then(Mono.defer(() -> dispatch(command)))
-        .doOnSuccess(_ -> outcome(command, run, name, actor, null))
-        .doOnError(error -> outcome(command, run, name, actor, error.getMessage()))
+    return target(command)
+        .flatMap(
+            run ->
+                reviewer
+                    .review(
+                        new ControlRequest(
+                            command, actor, run.sessionId(), run.workflowId(), run.nodeId()))
+                    .then(Mono.defer(() -> dispatch(command)))
+                    .doOnSuccess(_ -> outcome(command, run, name, actor, null))
+                    .doOnError(error -> outcome(command, run, name, actor, error.getMessage())))
         .doOnSuccess(
             _ ->
                 ControlAudit.record(
@@ -180,7 +201,7 @@ public class DirectiveDispatcher {
   /** A command whose caller went away before it finished is neither applied nor lost. */
   private void cancelled(final ExecutionControlCommand command, final String actor) {
     final String name = command.getClass().getSimpleName();
-    outcome(command, owner(command), name, actor, CANCELLED_REASON);
+    outcome(command, owner(command, command.nodeId()), name, actor, CANCELLED_REASON);
     ControlAudit.record(
         executionLog,
         auditSink,
@@ -188,35 +209,68 @@ public class DirectiveDispatcher {
             false, command.executionId(), name, actor, CANCELLED_REASON, Instant.now()));
   }
 
+  /**
+   * What a command acts on: the session and workflow of its run (live, or archived for a restart)
+   * and its node. An input answer or escalation acts on the node of its request. Supervisors are
+   * matched against it, both to review a command and to check that one they send is in scope.
+   *
+   * @param command the command
+   * @return the target; its parts are {@code null} when the run or node is not known
+   */
+  public Mono<CommandTarget> target(final ExecutionControlCommand command) {
+    return requestNode(command)
+        .map(node -> owner(command, node))
+        .switchIfEmpty(Mono.fromSupplier(() -> owner(command, command.nodeId())));
+  }
+
+  /** The node of the request an input command names, if the request is of the same run. */
+  private Mono<String> requestNode(final ExecutionControlCommand command) {
+    final String requestId =
+        switch (command) {
+          case ExecutionControlCommand.AnswerInputCommand answer -> answer.requestId();
+          case ExecutionControlCommand.EscalateInputCommand escalate -> escalate.requestId();
+          default -> null;
+        };
+    final InputRequestStore store = inputRequests == null ? null : inputRequests.getIfAvailable();
+    if (requestId == null || store == null) {
+      return Mono.empty();
+    }
+    return store
+        .findById(requestId)
+        .filter(request -> command.executionId().equals(request.executionId()))
+        .map(InputRequest::nodeId);
+  }
+
   /** The session and workflow of the run a command addresses; nulls when the run is not known. */
-  private String[] owner(final ExecutionControlCommand command) {
+  private CommandTarget owner(final ExecutionControlCommand command, @Nullable final String node) {
     return registry
         .findByExecutionId(command.executionId())
-        .map(control -> new String[] {control.sessionId(), control.workflowId()})
+        .map(control -> new CommandTarget(control.sessionId(), control.workflowId(), node))
         .or(
             () ->
                 archive
                     .find(command.executionId())
-                    .map(run -> new String[] {run.sessionId(), run.workflowId()}))
-        .orElseGet(() -> new String[2]);
+                    .map(run -> new CommandTarget(run.sessionId(), run.workflowId(), node)))
+        .orElseGet(() -> new CommandTarget(null, null, node));
   }
 
   private void outcome(
       final ExecutionControlCommand command,
-      final String[] run,
+      final CommandTarget run,
       final String name,
       final String actor,
       final String reason) {
     eventFeed.publish(
         new ExecutionEvent.ControlOutcome(
             command.executionId(),
-            run[0],
-            run[1],
+            run.sessionId(),
+            run.workflowId(),
             name,
             actor,
             reason == null,
             reason,
-            Instant.now()));
+            Instant.now(),
+            run.nodeId()));
   }
 
   /**

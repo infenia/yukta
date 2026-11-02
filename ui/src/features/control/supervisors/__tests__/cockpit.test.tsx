@@ -18,7 +18,12 @@ import { renderWithProviders } from '@/test/utils/testUtils';
 import { installMockEventSource } from '@/test/mocks/MockEventSource';
 import { SupervisorCockpit } from '../SupervisorCockpit';
 import { ScopedSupervisors } from '../ScopedSupervisors';
-import { parseSettings, scopeApplies, buildScope } from '../../api/supervisors';
+import {
+  parseSettings,
+  scopeApplies,
+  buildScope,
+  scopeLabel,
+} from '../../api/supervisors';
 
 const ok = (data: unknown) =>
   HttpResponse.json({
@@ -410,6 +415,16 @@ describe('the scope helpers', () => {
     expect(scopeApplies('workflow:s/w', 's', 'w')).toBe(true);
     expect(scopeApplies('workflow:x/w', 's', 'w')).toBe(false);
     expect(scopeApplies('workflow:w', 's')).toBe(false);
+    expect(scopeApplies('workflow:s/w//build.*', 's', 'w')).toBe(true);
+    expect(scopeApplies('workflow:w//build.*', 's', 'w')).toBe(true);
+    expect(scopeApplies('workflow:s/x//build.*', 's', 'w')).toBe(false);
+  });
+
+  it('labels a section with its workflow and nodes', () => {
+    expect(scopeLabel('workflow:s/w//build.*,deploy')).toBe(
+      'Section s/w: build.*, deploy'
+    );
+    expect(scopeLabel('workflow:s/w')).toBe('Workflow s/w');
   });
 
   it('builds a scope and refuses an incomplete one', () => {
@@ -419,6 +434,12 @@ describe('the scope helpers', () => {
     expect(buildScope('workflow', '', 'w')).toBe('workflow:w');
     expect(buildScope('workflow', 's', 'w')).toBe('workflow:s/w');
     expect(buildScope('workflow', 's', '')).toBeNull();
+    expect(buildScope('section', 's', 'w', ' build.* ,deploy ')).toBe(
+      'workflow:s/w//build.*,deploy'
+    );
+    expect(buildScope('section', '', 'w', 'a b')).toBe('workflow:w//a,b');
+    expect(buildScope('section', 's', 'w', ' , ')).toBeNull();
+    expect(buildScope('section', 's', 'w')).toBeNull();
   });
 
   it('reads settings only as a JSON object', () => {
