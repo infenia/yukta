@@ -12,10 +12,6 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
-import com.infenia.yukta.plugin.input.Audience;
-import com.infenia.yukta.plugin.input.InputKind;
-import com.infenia.yukta.plugin.input.InputRequest;
-import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
@@ -23,7 +19,6 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
-import com.infenia.yukta.service.input.InputTestSupport;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
@@ -31,7 +26,6 @@ import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.NoArgsConstructor;
@@ -73,20 +67,6 @@ class DefaultControlBusGatewayInputTest {
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.nodePauseValves()).thenReturn(Map.of("n", mock(ReactiveControlValve.class)));
     when(store.findByExecutionId(executionId)).thenReturn(Optional.of(control));
-  }
-
-  private static InputRequest approval(
-      final String id, final String key, final Map<String, Object> context) {
-    return InputTestSupport.request(
-        id,
-        InputTestSupport.spec(
-            key,
-            InputKind.APPROVAL,
-            InputRisk.LOW,
-            Audience.CURRENT_TIER,
-            List.of(),
-            null,
-            context));
   }
 
   @Test

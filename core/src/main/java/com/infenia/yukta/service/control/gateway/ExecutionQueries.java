@@ -16,7 +16,7 @@ import reactor.core.publisher.Mono;
 
 /** Read-only views of executions, history and node state. */
 @Slf4j
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 final class ExecutionQueries {
 
   /** The task tracker service for tracking execution tasks. */
