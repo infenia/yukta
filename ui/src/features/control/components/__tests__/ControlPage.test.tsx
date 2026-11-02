@@ -56,7 +56,7 @@ const server = setupServer(
   http.get('/api/metrics/annotations', () => ok([])),
   http.get('/api/metrics/runs/live', () => ok([])),
   http.get('/api/control/audit', () => ok([])),
-  http.get('/api/approvals', () => ok([])),
+  http.get('/api/inputs', () => ok([])),
   http.get('/api/workers', () => ok([])),
   http.get('/api/scheduler/limits', () =>
     ok({

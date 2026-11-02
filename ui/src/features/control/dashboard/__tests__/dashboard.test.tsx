@@ -126,7 +126,7 @@ const server = setupServer(
   http.get('/api/sessions/:id', ({ params }) =>
     ok({ sessionId: String(params.id), name: 'Alpha', workflowIds: ['wf-own'] })
   ),
-  http.get('/api/approvals', () => ok(approvals)),
+  http.get('/api/inputs', () => ok(approvals)),
   http.get('/api/metrics/snapshot', ({ request }) =>
     metricsFail
       ? HttpResponse.json({ message: 'down' }, { status: 500 })
