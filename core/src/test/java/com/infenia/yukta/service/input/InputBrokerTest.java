@@ -243,7 +243,8 @@ class InputBrokerTest {
                 2,
                 100,
                 Duration.ofSeconds(1),
-                List.of()));
+                List.of(),
+                java.util.Map.of()));
     small.ask(who("e1", "n1"), spec("k1")).subscribe();
     small.ask(who("e2", "n1"), spec("k2")).subscribe();
 
