@@ -124,7 +124,11 @@ class InputBrokerTest {
 
     assertThat(first).hasSize(1);
     assertThat(second).containsExactlyElementsOf(first);
-    assertThat(events.stream().filter(ExecutionEvent.InputRequested.class::isInstance)).hasSize(1);
+    org.awaitility.Awaitility.await()
+        .untilAsserted(
+            () ->
+                assertThat(events.stream().filter(ExecutionEvent.InputRequested.class::isInstance))
+                    .hasSize(1));
   }
 
   @Test
@@ -164,7 +168,11 @@ class InputBrokerTest {
     assertThat(results).hasSize(50);
     assertThat(results).allMatch(r -> r.state() == InputState.ANSWERED);
     assertThat(results.stream().map(InputRequest::version).distinct()).hasSize(1);
-    assertThat(events.stream().filter(ExecutionEvent.InputAnswered.class::isInstance)).hasSize(1);
+    org.awaitility.Awaitility.await()
+        .untilAsserted(
+            () ->
+                assertThat(events.stream().filter(ExecutionEvent.InputAnswered.class::isInstance))
+                    .hasSize(1));
     assertThat(
             meters
                 .counter(
@@ -172,6 +180,8 @@ class InputBrokerTest {
                 .count())
         .isEqualTo(1.0);
     final InputResponse stored = store.findResponse(request.id()).blockOptional().orElseThrow();
+    org.awaitility.Awaitility.await()
+        .until(() -> events.stream().anyMatch(ExecutionEvent.InputAnswered.class::isInstance));
     final ExecutionEvent.InputAnswered event =
         (ExecutionEvent.InputAnswered)
             events.stream()
@@ -319,7 +329,11 @@ class InputBrokerTest {
     clock.advance(Duration.ofSeconds(2));
     inputBroker.sweep().block();
     assertThat(failures).singleElement().isInstanceOf(InputExpiredException.class);
-    assertThat(events.stream().filter(ExecutionEvent.InputExpired.class::isInstance)).hasSize(1);
+    org.awaitility.Awaitility.await()
+        .untilAsserted(
+            () ->
+                assertThat(events.stream().filter(ExecutionEvent.InputExpired.class::isInstance))
+                    .hasSize(1));
   }
 
   @Test
@@ -623,6 +637,8 @@ class InputBrokerTest {
 
     loser.ask(who("e2", "n2"), spec("k2")).subscribe();
 
+    org.awaitility.Awaitility.await()
+        .until(() -> events.stream().anyMatch(ExecutionEvent.InputRequested.class::isInstance));
     assertThat(events.stream().filter(ExecutionEvent.InputRequested.class::isInstance).count())
         .isEqualTo(1L);
   }
