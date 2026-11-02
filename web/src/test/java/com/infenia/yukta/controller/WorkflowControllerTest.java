@@ -52,6 +52,11 @@ class WorkflowControllerTest {
   /** The request body that starts workflow wf of session s1. */
   private static final String START_BODY = "{\"sessionId\":\"s1\",\"workflowId\":\"wf\"}";
 
+  /** The request body that starts wf with options and a reserved payload key. */
+  private static final String OPTIONS_BODY =
+      "{\"sessionId\":\"s1\",\"workflowId\":\"wf\",\"payload\":{\"yukta.priority\":99},"
+          + "\"options\":{\"priority\":5,\"version\":\"v1\"}}";
+
   /** The workflow service. */
   private WorkflowService workflowService;
 
@@ -139,6 +144,10 @@ class WorkflowControllerTest {
 
   /** A client whose requests are made with the API key named keyName. */
   private WebTestClient clientWithKey(final String keyName) {
+    return clientWithKey(keyName, ApiRole.OPERATOR);
+  }
+
+  private WebTestClient clientWithKey(final String keyName, final ApiRole role) {
     return WebTestClient.bindToController(
             new WorkflowController(workflowService, controlBus, sessionService))
         .controllerAdvice(new GlobalExceptionHandler())
@@ -150,8 +159,63 @@ class WorkflowControllerTest {
                         ctx ->
                             ctx.put(
                                 CallerIdentity.CONTEXT_KEY,
-                                new ApiKeys.Match(keyName, ApiRole.OPERATOR, java.util.Set.of()))))
+                                new ApiKeys.Match(keyName, role, java.util.Set.of()))))
         .build();
+  }
+
+  @Test
+  void testStartOptionsNeedAdmin() {
+    clientWithKey("op")
+        .post()
+        .uri("/api/workflow/start")
+        .header("Content-Type", "application/json")
+        .bodyValue(OPTIONS_BODY)
+        .exchange()
+        .expectStatus()
+        .isForbidden();
+  }
+
+  @Test
+  void testEmptyOptionsNeedNoRoleAndNoKeyMeansAdmin() {
+    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), anyMap()))
+        .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
+
+    clientWithKey("op")
+        .post()
+        .uri("/api/workflow/start")
+        .header("Content-Type", "application/json")
+        .bodyValue("{\"sessionId\":\"s1\",\"workflowId\":\"wf\",\"options\":{}}")
+        .exchange()
+        .expectStatus()
+        .isAccepted();
+    client
+        .post()
+        .uri("/api/workflow/start")
+        .header("Content-Type", "application/json")
+        .bodyValue(OPTIONS_BODY)
+        .exchange()
+        .expectStatus()
+        .isAccepted();
+  }
+
+  @Test
+  void testAdminStartOptionsReplaceForgedPayloadKeys() {
+    final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
+    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture()))
+        .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
+
+    clientWithKey("root", ApiRole.ADMIN)
+        .post()
+        .uri("/api/workflow/start")
+        .header("Content-Type", "application/json")
+        .bodyValue(OPTIONS_BODY)
+        .exchange()
+        .expectStatus()
+        .isAccepted();
+
+    assertThat(payloads.getValue())
+        .containsEntry("yukta.priority", 5)
+        .containsEntry("yukta.version", "v1");
   }
 
   @Test
