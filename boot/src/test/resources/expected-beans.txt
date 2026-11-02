@@ -29,6 +29,7 @@ com.infenia.yukta.controller.SessionConfigController
 com.infenia.yukta.controller.SupervisorBindingsController
 com.infenia.yukta.controller.SupervisorsController
 com.infenia.yukta.controller.TemplateController
+com.infenia.yukta.controller.TokenAnswerController
 com.infenia.yukta.controller.WebhookController
 com.infenia.yukta.controller.WorkersController
 com.infenia.yukta.controller.WorkflowController
@@ -166,6 +167,8 @@ com.infenia.yukta.service.input.InputCommandGuard
 com.infenia.yukta.service.input.InputDeadlineSweeper
 com.infenia.yukta.service.input.InputRequestQueries
 com.infenia.yukta.service.input.route.RouteResolver
+com.infenia.yukta.service.input.token.AnswerTokens
+com.infenia.yukta.service.input.token.TokenAnswerService
 com.infenia.yukta.service.leader.LeaderLoss
 com.infenia.yukta.service.leader.SingleServerLeader
 com.infenia.yukta.service.leader.TakeoverRecovery
