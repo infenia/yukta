@@ -435,6 +435,30 @@ class ParkedCommandsTest {
   }
 
   @Test
+  void unexpectedErrorWhileDroppingIsLoggedAndTheCommandIsForgotten() {
+    final ExecutionEventFeed broken = mock(ExecutionEventFeed.class);
+    org.mockito.Mockito.doThrow(new IllegalStateException("feed down")).when(broken).publish(any());
+    final ObjectProvider<DirectiveDispatcher> lazy = mock(ObjectProvider.class);
+    when(lazy.getObject()).thenAnswer(_ -> dispatcher);
+    final ParkedCommands fragile =
+        new ParkedCommands(
+            broker,
+            new ActorResolver(mock(AttachedSupervisors.class), mock(ApiAuthenticator.class)),
+            log,
+            broken,
+            meters,
+            lazy,
+            YuktaSettings.bind(Map.of()));
+    dispatcher.setParkedCommands(fragile);
+    final String id = park(STOP);
+
+    answer(id, "reject");
+
+    await().until(() -> fragile.size() == 0);
+    verify(handler, never()).handle(any());
+  }
+
+  @Test
   void serverWithoutParkingRefusesCommandThatNeedsApproval() {
     final DirectiveDispatcher plain =
         new DirectiveDispatcher(

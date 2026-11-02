@@ -268,13 +268,14 @@ public class ParkedCommands implements CommandProposals {
               InputCancelledException.class,
               error -> dropped(request, candidate, "cancelled", error.getMessage()))
           .doFinally(_ -> parked.remove(request.id(), candidate))
-          .subscribe(
-              _ -> {},
+          .doOnError(
               error ->
                   log.atWarn()
                       .setCause(error)
                       .addKeyValue(REQUEST_ID, request.id())
-                      .log("A parked control command ended with an error"));
+                      .log("A parked control command ended with an error"))
+          .onErrorComplete()
+          .subscribe();
     }
     return request.id();
   }
