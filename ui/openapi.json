@@ -203,6 +203,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseInputRequestView" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/InputRequestView",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseListAnnotation" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -440,6 +483,52 @@
             "description" : "The response data",
             "items" : {
               "$ref" : "#/components/schemas/Hit"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseListInputRequestView" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/InputRequestView"
             },
             "type" : "array"
           },
@@ -2119,6 +2208,20 @@
         },
         "type" : "object"
       },
+      "Audience" : {
+        "properties" : {
+          "currentTier" : {
+            "type" : "boolean"
+          },
+          "selectors" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
       "BindingBody" : {
         "properties" : {
           "enabled" : {
@@ -2452,6 +2555,193 @@
           },
           "status" : {
             "type" : "string"
+          },
+          "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "InputAnswerRequest" : {
+        "description" : "The answer to an input request",
+        "properties" : {
+          "data" : {
+            "additionalProperties" : { },
+            "description" : "Structured data that goes with the decision",
+            "type" : "object"
+          },
+          "decision" : {
+            "description" : "An option id, or a decision such as approve or reject",
+            "example" : "ok",
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "expectedVersion" : {
+            "description" : "The version of the request the caller saw",
+            "format" : "int64",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "rationale" : {
+            "description" : "Why; recorded in the execution log",
+            "maxLength" : 8192,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "text" : {
+            "description" : "Free text that goes with the decision",
+            "maxLength" : 8192,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "decision" ],
+        "type" : "object"
+      },
+      "InputAnswerView" : {
+        "properties" : {
+          "answeredAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "data" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "decision" : {
+            "type" : "string"
+          },
+          "rationale" : {
+            "type" : "string"
+          },
+          "responderId" : {
+            "type" : "string"
+          },
+          "responderType" : {
+            "type" : "string"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "InputEscalateRequest" : {
+        "description" : "Hands an input request up to the next tier",
+        "properties" : {
+          "advice" : {
+            "description" : "What the caller suggests to whoever answers next",
+            "maxLength" : 8192,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "reason" : {
+            "description" : "Why it is handed up",
+            "example" : "Needs a person who owns the budget",
+            "maxLength" : 8192,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "reason" ],
+        "type" : "object"
+      },
+      "InputOptionView" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "InputRequestView" : {
+        "description" : "An input request of a node and, once answered, its answer",
+        "properties" : {
+          "advice" : {
+            "type" : "string"
+          },
+          "answer" : {
+            "$ref" : "#/components/schemas/InputAnswerView"
+          },
+          "audience" : {
+            "$ref" : "#/components/schemas/Audience"
+          },
+          "context" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "deadline" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "defaultDecision" : {
+            "type" : "string"
+          },
+          "executionId" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "enum" : [ "APPROVAL", "CHOICE", "TEXT", "STRUCTURED", "QUERY" ],
+            "type" : "string"
+          },
+          "nodeId" : {
+            "type" : "string"
+          },
+          "onTimeout" : {
+            "enum" : [ "FAIL", "USE_DEFAULT", "ESCALATE" ],
+            "type" : "string"
+          },
+          "options" : {
+            "items" : {
+              "$ref" : "#/components/schemas/InputOptionView"
+            },
+            "type" : "array"
+          },
+          "prompt" : {
+            "type" : "string"
+          },
+          "requester" : {
+            "type" : "string"
+          },
+          "responseSchema" : {
+            "type" : "string"
+          },
+          "risk" : {
+            "enum" : [ "LOW", "MEDIUM", "HIGH" ],
+            "type" : "string"
+          },
+          "sessionId" : {
+            "type" : "string"
+          },
+          "state" : {
+            "enum" : [ "OPEN", "ESCALATED", "ANSWERED", "EXPIRED", "CANCELLED" ],
+            "type" : "string"
+          },
+          "tier" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
           },
           "workflowId" : {
             "type" : "string"
@@ -4161,7 +4451,7 @@
     },
     "/api/events/stream" : {
       "get" : {
-        "description" : "Live node and workflow status changes, control command outcomes and log lines of all executions, each with a severity (INFO, WARN, ERROR)",
+        "description" : "Live node and workflow status changes, control command outcomes, log lines and input request changes of all executions, each with a severity (INFO, WARN, ERROR). type takes a comma-separated list of kinds; an unknown kind is a 400 that lists the valid ones.",
         "operationId" : "stream_1",
         "parameters" : [ {
           "description" : "Only events of this execution",
@@ -4181,7 +4471,7 @@
             "type" : "boolean"
           }
         }, {
-          "description" : "Only events of this kind",
+          "description" : "Only events of these kinds, comma-separated: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome, LogLine, EventsMissed, InputRequested, InputEscalated, InputAnswered, InputExpired, InputCancelled",
           "in" : "query",
           "name" : "type",
           "required" : false,
@@ -4324,6 +4614,137 @@
         },
         "summary" : "Get workflow execution status",
         "tags" : [ "Execution API" ]
+      }
+    },
+    "/api/executions/{executionId}/inputs/{requestId}" : {
+      "get" : {
+        "description" : "The request with its options, risk, tier, deadline, advice and, once answered, the answer. 404 when the run has no such request.",
+        "operationId" : "getInput",
+        "parameters" : [ {
+          "description" : "Execution ID",
+          "in" : "path",
+          "name" : "executionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Input request ID",
+          "in" : "path",
+          "name" : "requestId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInputRequestView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Read an input request",
+        "tags" : [ "Input Requests API" ]
+      }
+    },
+    "/api/executions/{executionId}/inputs/{requestId}/answer" : {
+      "post" : {
+        "description" : "Answers a request that waits, as a control command (ordered, reviewed and audited like the others). 403 when the rules do not let the caller answer it (the message names the rule), 409 when it is already answered (with the stored decision and responder), expired, cancelled or changed since expectedVersion, 422 when the answer does not fit the request, 503 on a standby server.",
+        "operationId" : "answerInput",
+        "parameters" : [ {
+          "description" : "Execution ID",
+          "in" : "path",
+          "name" : "executionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Input request ID",
+          "in" : "path",
+          "name" : "requestId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/InputAnswerRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInputRequestView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Answer an input request",
+        "tags" : [ "Input Requests API" ]
+      }
+    },
+    "/api/executions/{executionId}/inputs/{requestId}/escalate" : {
+      "post" : {
+        "description" : "Hands a request that waits up to the next tier with a reason and optional advice, as a control command. Errors as for answering.",
+        "operationId" : "escalateInput",
+        "parameters" : [ {
+          "description" : "Execution ID",
+          "in" : "path",
+          "name" : "executionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Input request ID",
+          "in" : "path",
+          "name" : "requestId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/InputEscalateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInputRequestView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Escalate an input request",
+        "tags" : [ "Input Requests API" ]
       }
     },
     "/api/executions/{executionId}/nodes/{nodeId}/breakpoint" : {
@@ -6097,6 +6518,76 @@
         "tags" : [ "Execution Results API" ]
       }
     },
+    "/api/sessions/{sessionId}/inputs" : {
+      "get" : {
+        "description" : "The input requests of the session, newest first, by default those that wait for an answer (state=OPEN,ESCALATED). state takes a comma-separated list of OPEN, ESCALATED, ANSWERED, EXPIRED and CANCELLED; an unknown state is a 400. Finished requests are kept up to yukta.input.memory-max. Paged with limit and cursor (X-Next-Cursor header).",
+        "operationId" : "listInputs",
+        "parameters" : [ {
+          "description" : "Session ID",
+          "in" : "path",
+          "name" : "sessionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma-separated states, default OPEN,ESCALATED",
+          "in" : "query",
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Only this workflow",
+          "in" : "query",
+          "name" : "workflowId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Only this run",
+          "in" : "query",
+          "name" : "executionId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size (default 500, at most 1000)",
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Id of the last request of the previous page",
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListInputRequestView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List input requests",
+        "tags" : [ "Input Requests API" ]
+      }
+    },
     "/api/sessions/{sessionId}/workflows" : {
       "get" : {
         "description" : "All workflows of a session with node/edge counts and the latest execution status",
@@ -7701,20 +8192,8 @@
     "apiKeyAuth" : [ ]
   } ],
   "tags" : [ {
-    "description" : "Supervisors and control planes on the control bus",
-    "name" : "Supervisors API"
-  }, {
-    "description" : "List the saved versions and roll back",
-    "name" : "Workflow Versions API"
-  }, {
-    "description" : "Endpoints for starting workflows and listing their executions",
-    "name" : "Workflow API"
-  }, {
     "description" : "Edition, licence and features of this build",
     "name" : "Edition API"
-  }, {
-    "description" : "Stop, restart and observe workflow executions",
-    "name" : "Execution API"
   }, {
     "description" : "Find runs across sessions",
     "name" : "Execution Search API"
@@ -7728,12 +8207,6 @@
     "description" : "Endpoints for control bus operations, node management, and execution observability",
     "name" : "Control Bus & Observability API"
   }, {
-    "description" : "Who is calling and what the key may do",
-    "name" : "Session API"
-  }, {
-    "description" : "Read part of the output of a node",
-    "name" : "Node Output API"
-  }, {
     "description" : "Pause, resume, step and stop nodes",
     "name" : "Execution Control API"
   }, {
@@ -7743,14 +8216,41 @@
     "description" : "Validate a draft workflow without saving it",
     "name" : "Session API"
   }, {
+    "description" : "Workflow DAG graph with plugin metadata and per-workflow execution history",
+    "name" : "Workflow Details API"
+  }, {
+    "description" : "List, read, answer and escalate input requests",
+    "name" : "Input Requests API"
+  }, {
+    "description" : "Signed inbound calls that start a workflow",
+    "name" : "Webhook API"
+  }, {
+    "description" : "Endpoints for discovering workflow plugins",
+    "name" : "Plugin API"
+  }, {
+    "description" : "Supervisors and control planes on the control bus",
+    "name" : "Supervisors API"
+  }, {
+    "description" : "List the saved versions and roll back",
+    "name" : "Workflow Versions API"
+  }, {
+    "description" : "Endpoints for starting workflows and listing their executions",
+    "name" : "Workflow API"
+  }, {
+    "description" : "Stop, restart and observe workflow executions",
+    "name" : "Execution API"
+  }, {
+    "description" : "Who is calling and what the key may do",
+    "name" : "Session API"
+  }, {
+    "description" : "Read part of the output of a node",
+    "name" : "Node Output API"
+  }, {
     "description" : "Workers connected to the control plane",
     "name" : "Workers API"
   }, {
     "description" : "Live feed of execution events",
     "name" : "Events API"
-  }, {
-    "description" : "Workflow DAG graph with plugin metadata and per-workflow execution history",
-    "name" : "Workflow Details API"
   }, {
     "description" : "Follow the result of an execution",
     "name" : "Execution Results API"
@@ -7766,11 +8266,5 @@
   }, {
     "description" : "Example sessions to start from",
     "name" : "Templates API"
-  }, {
-    "description" : "Signed inbound calls that start a workflow",
-    "name" : "Webhook API"
-  }, {
-    "description" : "Endpoints for discovering workflow plugins",
-    "name" : "Plugin API"
   } ]
 }

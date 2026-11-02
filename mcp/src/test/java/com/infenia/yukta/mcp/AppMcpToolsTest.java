@@ -23,6 +23,7 @@ import com.infenia.yukta.mcp.dto.WhoamiResult;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowHistory;
 import com.infenia.yukta.mcp.dto.WorkflowStartResult;
+import com.infenia.yukta.mcp.provider.InputProvider;
 import com.infenia.yukta.mcp.provider.LogProvider;
 import com.infenia.yukta.mcp.provider.PluginInfoProvider;
 import com.infenia.yukta.mcp.provider.ResultProvider;
@@ -55,6 +56,7 @@ class AppMcpToolsTest {
   private com.infenia.yukta.mcp.provider.SupervisorProvider supervisorProvider;
 
   private com.infenia.yukta.mcp.provider.MetricsProvider metricsProvider;
+  private InputProvider inputProvider;
 
   @BeforeEach
   void setUp() {
@@ -68,6 +70,7 @@ class AppMcpToolsTest {
     workflowVersionProvider = mock(com.infenia.yukta.mcp.provider.WorkflowVersionProvider.class);
     metricsProvider = mock(com.infenia.yukta.mcp.provider.MetricsProvider.class);
     supervisorProvider = mock(com.infenia.yukta.mcp.provider.SupervisorProvider.class);
+    inputProvider = mock(InputProvider.class);
     mcpTools =
         new AppMcpTools(
             sessionInfoProvider,
@@ -79,7 +82,8 @@ class AppMcpToolsTest {
             resultProvider,
             workflowVersionProvider,
             metricsProvider,
-            supervisorProvider);
+            supervisorProvider,
+            inputProvider);
   }
 
   @Test
@@ -400,5 +404,28 @@ class AppMcpToolsTest {
         .expectNext(binding)
         .verifyComplete();
     StepVerifier.create(mcpTools.detachSupervisor("b")).expectNext(detached).verifyComplete();
+  }
+
+  @Test
+  void testInputToolsDelegateToTheProvider() {
+    final var inputs =
+        new com.infenia.yukta.mcp.dto.PendingInputs("s1", List.of("OPEN"), List.of(), false);
+    final var done =
+        new com.infenia.yukta.mcp.dto.ControlActionResult(
+            "ANSWER_INPUT", "e1", "n1", List.of(), "ok");
+    when(inputProvider.list("s1", "OPEN")).thenReturn(Mono.just(inputs));
+    when(inputProvider.answer("s1", "e1", "r1", "ok", "t", "{}", "why"))
+        .thenReturn(Mono.just(done));
+    when(inputProvider.escalate("s1", "e1", "r1", "because", "advice")).thenReturn(Mono.just(done));
+
+    StepVerifier.create(mcpTools.listPendingInputs("s1", "OPEN"))
+        .expectNext(inputs)
+        .verifyComplete();
+    StepVerifier.create(mcpTools.answerInput("s1", "e1", "r1", "ok", "t", "{}", "why"))
+        .expectNext(done)
+        .verifyComplete();
+    StepVerifier.create(mcpTools.escalateInput("s1", "e1", "r1", "because", "advice"))
+        .expectNext(done)
+        .verifyComplete();
   }
 }

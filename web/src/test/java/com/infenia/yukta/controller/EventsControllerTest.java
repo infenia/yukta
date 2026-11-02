@@ -12,11 +12,21 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.input.Audience;
+import com.infenia.yukta.plugin.input.InputKind;
+import com.infenia.yukta.plugin.input.InputRequest;
+import com.infenia.yukta.plugin.input.InputRequestSpec;
+import com.infenia.yukta.plugin.input.InputRisk;
+import com.infenia.yukta.plugin.input.InputState;
+import com.infenia.yukta.plugin.input.Responder;
+import com.infenia.yukta.plugin.input.TimeoutAction;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,7 +36,7 @@ import reactor.core.scheduler.Schedulers;
 
 /** Tests for the behaviour described by {@link EventsController}. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports", "PMD.ExcessiveImports"})
 class EventsControllerTest {
 
   /** Answers which runs lie within a tree, for the tree filter. */
@@ -187,5 +197,106 @@ class EventsControllerTest {
 
     assertThat(events).extracting(envelope -> envelope.event().executionId()).containsOnly("e1");
     verify(tracker, never()).isWithin(anyString(), anyString());
+  }
+
+  /** A request as the input events carry it. */
+  private static InputRequest inputRequest() {
+    final InputRequestSpec spec =
+        new InputRequestSpec(
+            "k",
+            InputKind.TEXT,
+            "Which way?",
+            Map.of(),
+            List.of(),
+            null,
+            InputRisk.LOW,
+            Audience.CURRENT_TIER,
+            Duration.ofMinutes(5),
+            TimeoutAction.FAIL,
+            null,
+            null,
+            "TEST");
+    return new InputRequest(
+        "r1",
+        "k",
+        "s",
+        "wf",
+        "e1",
+        "n",
+        spec,
+        InputState.OPEN,
+        0,
+        "default",
+        List.of(),
+        null,
+        null,
+        Instant.now(),
+        Instant.now());
+  }
+
+  private List<String> typesDelivered(final String type) {
+    final var feed = new ExecutionEventFeed();
+    final var received =
+        new EventsController(feed, tracker)
+            .stream(null, false, type, null)
+                .mapNotNull(ServerSentEvent::data)
+                .map(EventsController.Envelope::type)
+                .take(Duration.ofMillis(3000))
+                .collectList()
+                .toFuture();
+    final Instant now = Instant.now();
+    Flux.just(
+            workflow("e1", "RUNNING"),
+            new ExecutionEvent.InputRequested(inputRequest(), now),
+            new ExecutionEvent.InputEscalated(inputRequest(), "why", now),
+            new ExecutionEvent.InputAnswered(
+                "e1", "s", "wf", "r1", new Responder(Responder.Type.HUMAN, "ann"), "ok", now),
+            new ExecutionEvent.InputExpired("e1", "s", "wf", "r1", now),
+            new ExecutionEvent.InputCancelled("e1", "s", "wf", "r1", "run-ended", now))
+        // the feed subscribes each reader on another thread: give it time before publishing (a
+        // loaded CI runner needs a full second)
+        .delaySubscription(Duration.ofMillis(1000))
+        .publishOn(Schedulers.single())
+        .subscribe(feed::publish);
+    return received.join();
+  }
+
+  @Test
+  void stream_withEachInputType_deliversThatTypeOnly() {
+    for (final String type :
+        List.of(
+            "InputRequested",
+            "InputEscalated",
+            "InputAnswered",
+            "InputExpired",
+            "InputCancelled")) {
+      assertThat(typesDelivered(type)).containsExactly(type);
+    }
+  }
+
+  @Test
+  void stream_withCommaSeparatedTypes_deliversEachOfThem() {
+    assertThat(typesDelivered(" inputrequested , InputEscalated,,workflowStatusChanged"))
+        .containsExactly(WORKFLOW_STATUS, "InputRequested", "InputEscalated");
+    assertThat(typesDelivered(",")).hasSize(6);
+  }
+
+  @Test
+  void stream_withUnknownType_isRejectedWithTheValidTypes() {
+    final var controller = new EventsController(new ExecutionEventFeed(), tracker);
+
+    assertThatThrownBy(() -> controller.stream(null, false, "InputRequested,Nope", null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Unknown event type: Nope")
+        .hasMessageContaining(String.join(", ", EventsController.TYPES));
+  }
+
+  @Test
+  void types_nameEveryKindOfEvent() {
+    assertThat(EventsController.TYPES)
+        .containsExactlyInAnyOrderElementsOf(
+            Stream.of(ExecutionEvent.class.getPermittedSubclasses())
+                .map(Class::getSimpleName)
+                .toList());
   }
 }

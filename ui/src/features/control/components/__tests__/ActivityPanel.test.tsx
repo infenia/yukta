@@ -312,7 +312,8 @@ describe('the control panels follow the stream instead of polling', () => {
       await vi.advanceTimersByTimeAsync(FALLBACK_POLL_MS + 1000);
     });
     expect(auditCalls).toBeGreaterThanOrEqual(3);
-  });
+    // advances about 40 s of fake time; on a loaded machine with coverage that takes more than 5 s
+  }, 20_000);
 
   it('refetches the supervisors of the overview on a ControlOutcome', async () => {
     renderActivity('');

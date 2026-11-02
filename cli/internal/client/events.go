@@ -42,6 +42,7 @@ type ExecutionEvent struct {
 	RequestID string `json:"requestId,omitempty"`
 	Decision  string `json:"decision,omitempty"`
 	Request   *struct {
+		ID     string `json:"id"`
 		NodeID string `json:"nodeId"`
 		Tier   string `json:"tier"`
 		Spec   struct {

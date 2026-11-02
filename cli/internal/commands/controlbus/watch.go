@@ -112,7 +112,7 @@ Press Ctrl-C to stop watching at any time.`,
 
 	cmd.Flags().StringVar(&executionID, "execution", "", "Only events of this execution")
 	cmd.Flags().StringVar(&eventType, "type", "",
-		"Only events of this kind: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome, LogLine,\n"+
+		"Only events of these kinds, comma-separated: NodeStatusChanged, WorkflowStatusChanged, ControlOutcome, LogLine,\n"+
 			"InputRequested, InputEscalated, InputAnswered, InputExpired or InputCancelled")
 	cmd.Flags().BoolVar(&untilDone, "until-done", false, "Exit when the execution has ended (needs --execution)")
 	cmd.Flags().BoolVar(&tree, "tree", true,
@@ -353,6 +353,14 @@ func (w *watcher) pollStatus(ctx context.Context, c *client.Client, executionID 
 	}
 }
 
+// withRequest names the input request at the end of a line, for "yukta inputs show|answer".
+func withRequest(line, requestID string) string {
+	if requestID == "" {
+		return line
+	}
+	return line + " request=" + requestID
+}
+
 func formatEvent(e client.ExecutionEvent) string {
 	switch e.Type {
 	case client.EventNodeStatusChanged:
@@ -370,21 +378,21 @@ func formatEvent(e client.ExecutionEvent) string {
 		return fmt.Sprintf("LOG %s: %s", e.NodeID, e.Line)
 	case client.EventInputRequested:
 		if e.Request == nil {
-			return "INPUT requested"
+			return withRequest("INPUT requested", e.RequestID)
 		}
-		return fmt.Sprintf("INPUT requested by %s (%s, %s risk)",
-			e.Request.NodeID, e.Request.Spec.Kind, e.Request.Spec.Risk)
+		return withRequest(fmt.Sprintf("INPUT requested by %s (%s, %s risk)",
+			e.Request.NodeID, e.Request.Spec.Kind, e.Request.Spec.Risk), e.Request.ID)
 	case client.EventInputEscalated:
 		if e.Request == nil {
-			return "INPUT escalated"
+			return withRequest("INPUT escalated", e.RequestID)
 		}
-		return fmt.Sprintf("INPUT of %s escalated to %s", e.Request.NodeID, e.Request.Tier)
+		return withRequest(fmt.Sprintf("INPUT of %s escalated to %s", e.Request.NodeID, e.Request.Tier), e.Request.ID)
 	case client.EventInputAnswered:
-		return "INPUT answered: " + e.Decision
+		return withRequest("INPUT answered: "+e.Decision, e.RequestID)
 	case client.EventInputExpired:
-		return "INPUT expired"
+		return withRequest("INPUT expired", e.RequestID)
 	case client.EventInputCancelled:
-		return "INPUT cancelled: " + e.Reason
+		return withRequest("INPUT cancelled: "+e.Reason, e.RequestID)
 	default:
 		return strings.ToUpper(e.Type)
 	}
