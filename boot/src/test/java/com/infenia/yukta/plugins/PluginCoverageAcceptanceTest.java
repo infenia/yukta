@@ -30,6 +30,7 @@ class PluginCoverageAcceptanceTest {
           "API_TRIGGER",
           "WEBHOOK_TRIGGER",
           "ASK",
+          "ASK_INPUT",
           "BRANCH",
           "CLASSIFY",
           "CONSOLE_TERMINAL",

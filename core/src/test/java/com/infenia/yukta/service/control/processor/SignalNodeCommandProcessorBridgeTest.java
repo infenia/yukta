@@ -3,13 +3,10 @@
 package com.infenia.yukta.service.control.processor;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.SignalNodeCommand;
-import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputForbiddenException;
 import com.infenia.yukta.plugin.input.InputKind;
@@ -17,8 +14,8 @@ import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.security.ApiRole;
+import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.input.InputFlow;
@@ -26,17 +23,15 @@ import com.infenia.yukta.service.input.InputTestSupport;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
-import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import reactor.util.context.Context;
 
 /** A signal that stands for an open input request is answered through the authoriser. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ExcessiveImports"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class SignalNodeCommandProcessorBridgeTest {
 
   private static final SignalNodeCommand SIGNAL =
@@ -46,15 +41,11 @@ class SignalNodeCommandProcessorBridgeTest {
 
   private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
 
-  private final ActivePluginRegistry plugins = mock(ActivePluginRegistry.class);
-
-  private final Plugin plugin = mock(Plugin.class);
-
-  private final SignalNodeCommandProcessor processor =
-      new SignalNodeCommandProcessor(registry, plugins);
+  private final SignalNodeCommandProcessor processor = new SignalNodeCommandProcessor(registry);
 
   @SuppressWarnings("unchecked")
   private void bridged() {
+    runExists();
     final InputSignalBridge bridge =
         new InputSignalBridge(
             flow.broker, new AnswerInputCommandProcessor(flow.guard, flow.broker));
@@ -76,13 +67,8 @@ class SignalNodeCommandProcessorBridgeTest {
     return flow.onlyOpen();
   }
 
-  private void legacyWaits() {
-    final ExecutionControl control = mock(ExecutionControl.class);
-    when(registry.findByExecutionId("exec")).thenReturn(Optional.of(control));
-    when(control.workflowId()).thenReturn("wf");
-    when(plugins.lookup("wf", "exec", "node")).thenReturn(Optional.of(plugin));
-    when(plugin.onControlSignal(any()))
-        .thenReturn(Mono.just(DefaultMessage.create(UUID.randomUUID(), "ACCEPTED")));
+  private void runExists() {
+    when(registry.findByExecutionId("exec")).thenReturn(Optional.of(mock(ExecutionControl.class)));
   }
 
   @Test
@@ -115,14 +101,13 @@ class SignalNodeCommandProcessorBridgeTest {
   }
 
   @Test
-  void signalWithNoRequestForItsNameTakesTheOlderPath() {
+  void signalWithNoRequestForItsNameIsRefused() {
     bridged();
-    legacyWaits();
     final InputRequest other = askNamed(InputRisk.LOW, "another-name");
 
     StepVerifier.create(
             processor.process(SIGNAL).contextWrite(InputFlow.asKey("op", ApiRole.OPERATOR)))
-        .verifyComplete();
+        .verifyError(ConflictException.class);
 
     assertThat(flow.current(other.id()).state()).isEqualTo(InputState.OPEN);
   }
@@ -130,37 +115,35 @@ class SignalNodeCommandProcessorBridgeTest {
   @Test
   void requestOfAnotherNodeDoesNotCatchTheSignal() {
     bridged();
-    legacyWaits();
     final InputRequest request = askNamed(InputRisk.LOW, "approval");
     final SignalNodeCommand otherNode =
         new SignalNodeCommand("exec", "other-node", "approval", "approve", null);
-    when(plugins.lookup("wf", "exec", "other-node")).thenReturn(Optional.of(plugin));
 
     StepVerifier.create(
             processor.process(otherNode).contextWrite(InputFlow.asKey("op", ApiRole.OPERATOR)))
-        .verifyComplete();
+        .verifyError(ConflictException.class);
 
     assertThat(flow.current(request.id()).state()).isEqualTo(InputState.OPEN);
   }
 
   @Test
-  void withoutBridgeBeanTheOlderPathIsTaken() {
-    legacyWaits();
+  void withoutBridgeBeanNothingIsWaiting() {
+    runExists();
     @SuppressWarnings("unchecked")
     final ObjectProvider<InputSignalBridge> none = mock(ObjectProvider.class);
     processor.setInputBridge(none);
 
-    StepVerifier.create(processor.process(SIGNAL)).verifyComplete();
+    StepVerifier.create(processor.process(SIGNAL)).verifyError(ConflictException.class);
   }
 
   @Test
   void anOpenRequestWithoutSignalNameIsLeftAlone() {
     bridged();
-    legacyWaits();
     flow.ask(InputTestSupport.spec("k"));
     final InputRequest request = flow.onlyOpen();
 
-    StepVerifier.create(processor.process(SIGNAL).contextWrite(Context.empty())).verifyComplete();
+    StepVerifier.create(processor.process(SIGNAL).contextWrite(Context.empty()))
+        .verifyError(ConflictException.class);
 
     assertThat(flow.current(request.id()).state()).isEqualTo(InputState.OPEN);
   }

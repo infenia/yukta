@@ -285,6 +285,22 @@ class LlmCallPluginTest {
   }
 
   @Test
+  void allowAskInput_offersTheAskTool_andIsValidated() {
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1, 1, "m"));
+    StepVerifier.create(run(config("allowAskInput", true))).expectNextCount(1).verifyComplete();
+    final ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
+    verify(gateway).call(captor.capture());
+    assertThat(captor.getValue().tools())
+        .extracting(ToolSpec::name)
+        .containsExactly("ask_for_input");
+
+    StepVerifier.create(plugin.validateConfig(config("allowAskInput", "yes")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("allowAskInput", true))).verifyComplete();
+  }
+
+  @Test
   void tools_canBeAnExpressionOverTheMessage() {
     when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1, 1, "m"));
     final Message<?> message =

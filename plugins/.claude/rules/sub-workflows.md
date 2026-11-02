@@ -18,3 +18,12 @@ so a parent that waits for its children cannot starve them; children are not cou
 the running gauge and stay bounded by the parent node and the depth. The child is subscribed inside the
 parent node, so cancelling the node cancels the child, which ends `CANCELLED`; the link to the parent
 is the `yukta.parentExecutionId` in the child's start payload (and its `RUN_STARTED` log entry).
+
+### WAIT_FOR_SIGNAL and ASK_INPUT
+`WAIT_FOR_SIGNAL`, `ASK_INPUT` and `MCP_TOOL_CALL` `requireApproval` ask through `InputAsk` (plugin-api) on an
+`ObjectProvider<InputGateway>`; no gateway bean fails the node clearly (`SignalWaits` is gone). `WAIT_FOR_SIGNAL` and
+`requireApproval` ask a HIGH risk `APPROVAL` without options (any non-blank decision; `reject` rejects) whose context
+carries `signal`, so the older signal command still answers it. `ASK_INPUT` takes `prompt`, `kind`, `options`, `risk`,
+`ttlSeconds`, `onTimeout` (`FAIL`, `CONTINUE`, `USE_DEFAULT`), `defaultDecision`, `responseSchema`, `audience`, `name`, `route`
+and tags the message `input.requestId|decision|text|data|responder|confidence`. Answers are recorded in the checkpoint
+store (`signal:<node>`, `input:<node>`) with the same resume limits.
