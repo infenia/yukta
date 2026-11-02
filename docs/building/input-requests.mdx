@@ -143,6 +143,43 @@ A release workflow has an AI agent that prepares deploys. It asks one question p
 3. Later the agent asks "Deploy build 42 to production?" with risk `HIGH`. The rule does not match (a rule that tried would be denied with the rule `risk` and counted), so the escalation rule hands it up with the advice "check the change and its target environment". The request is now `ESCALATED`; the agent still waits.
 4. An operator sees the request in the Inputs panel (or with `yukta inputs list`), reads the advice and answers `approve`. The answer is checked (a person may answer `HIGH`), the request is `ANSWERED` and the agent continues.
 
+## Routes: tiers, escalation and votes
+
+By default a request has one tier that any supervisor or operator may answer, with no timeout. A **route** puts several tiers in a row: supervisors first, then a person, for example. A tier that times out, or that someone hands the request up from, passes it to the next tier; the last tier applies the route's `on-final-timeout` (`FAIL` or `USE_DEFAULT`) and then the request's own `onTimeout`.
+
+```yaml
+yukta.input.routes.default:
+  tiers:
+    - name: auto
+      responders: ["supervisor:*"]
+      timeout: 30s
+      mode: FIRST
+      min-confidence: 0.8
+      type: AUTO
+    - name: ops
+      responders: ["role:OPERATOR"]
+      timeout: 1h
+      type: HUMAN
+  on-final-timeout: FAIL
+```
+
+A request picks its route in this order: the `routeName` of the asking node (the `route` option of `ASK_INPUT` and `WAIT_FOR_SIGNAL`), the `input.route` tag of its session, `yukta.input.routes.default`, then the built-in one-tier route. A route name nobody configured is refused. A bad route (no tier, a non-positive timeout, a quorum under 2, a last tier that is neither `HUMAN` nor given an `on-final-timeout`) stops the server at start-up.
+
+| Tier setting | Meaning |
+|---|---|
+| `responders` | Selectors: `supervisor:*`, `supervisor:<id>`, `supervisor:above`, `role:OPERATOR`, `key:<name>`, `external:<responder>[:<name>]` |
+| `timeout` | How long the tier waits; none by default. The request's own deadline still ends it |
+| `mode` | `FIRST` (the first valid answer wins, default), `QUORUM` or `UNANIMOUS` |
+| `quorum` | Equal votes that win in `QUORUM` mode, at least 2 |
+| `min-confidence` | A supervisor answer below this is advice for the next tier, not an answer; no confidence counts as 0 |
+| `type` | `AUTO` or `HUMAN`; derived from the responders when left out |
+
+`supervisor:*` and `supervisor:<id>` reach only the attached supervisors that watch the request's node, so a section supervisor answers the requests of its own nodes. `supervisor:above` reaches the supervisors that watch strictly more than the supervisor that handed the request up (or, without one, than the supervisors of the tier before). A tier with nobody to ask is skipped at once, and so is a `QUORUM` tier with fewer matching supervisors than its quorum.
+
+In a `QUORUM` or `UNANIMOUS` tier the supervisors **vote**: each votes once, the request is answered when enough agree and the rationale names the voters, and a split vote hands the request up. A person's answer always decides at once and is never a vote.
+
+Metrics: `yukta.input.escalations{tier}`. Not yet: the delivery of requests to external responders and one-time answer tokens (the next change), and routing of runs raised by a supervisor (phase 8).
+
 ## Timeouts and defaults
 
 | Setting | Default | Meaning |
