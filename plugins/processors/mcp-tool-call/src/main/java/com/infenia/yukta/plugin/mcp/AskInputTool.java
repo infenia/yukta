@@ -41,6 +41,13 @@ import reactor.util.context.ContextView;
  * wrote it.
  */
 @UtilityClass
+@SuppressWarnings({
+  "PMD.GodClass",
+  "PMD.TooManyMethods",
+  "PMD.CyclomaticComplexity",
+  "PMD.AvoidFieldNameMatchingMethodName",
+  "PMD.UseConcurrentHashMap"
+})
 class AskInputTool {
 
   /** The tool name the model calls. */
@@ -69,6 +76,9 @@ class AskInputTool {
 
   /** Questions per node run when the node does not set a limit. */
   private static final int DEFAULT_MAX_ASKS = 3;
+
+  /** The value of {@code inputOnTimeout} that fails the node. */
+  private static final String FAIL = "FAIL";
 
   /** Life of a question when the node does not set one. */
   private static final long DEFAULT_TTL_SECONDS = 3600;
@@ -295,7 +305,7 @@ class AskInputTool {
     if (value == null || "ERROR".equals(value)) {
       return false;
     }
-    if ("FAIL".equals(value)) {
+    if (FAIL.equals(value)) {
       return true;
     }
     throw new IllegalArgumentException("inputOnTimeout must be ERROR or FAIL");

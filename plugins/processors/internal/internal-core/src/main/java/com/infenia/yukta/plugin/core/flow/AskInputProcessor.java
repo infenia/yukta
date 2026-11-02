@@ -33,7 +33,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.util.context.ContextView;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -55,7 +54,13 @@ import tools.jackson.databind.json.JsonMapper;
  * by the request key instead. A timeout is not recorded.
  */
 @Component
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.GodClass", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.CouplingBetweenObjects",
+  "PMD.ExcessiveImports",
+  "PMD.AvoidFieldNameMatchingMethodName",
+  "PMD.UseConcurrentHashMap"
+})
 public final class AskInputProcessor implements ProcessorPlugin {
 
   private static final String PROMPT = "prompt";
@@ -221,14 +226,13 @@ public final class AskInputProcessor implements ProcessorPlugin {
                   final InputIdentity who = InputIdentity.from(ctx);
                   final String name = question.name(who);
                   return remembered(who, name, message)
-                      .switchIfEmpty(Mono.defer(() -> asked(question, ctx, who, name, message)))
+                      .switchIfEmpty(Mono.defer(() -> asked(question, who, name, message)))
                       .map(answer -> tag(message, answer));
                 }));
   }
 
   private Mono<Answer> asked(
       final Question question,
-      final ContextView ctx,
       final InputIdentity who,
       final String name,
       final Message<?> message) {
@@ -236,7 +240,7 @@ public final class AskInputProcessor implements ProcessorPlugin {
         .flatMap(
             text ->
                 InputAsk.ask(gateways::getIfAvailable, question.spec(who, name, message, text))
-                    .map(Answer::of)
+                    .map(Answer::from)
                     .flatMap(answer -> remember(who, name, message, answer))
                     .onErrorResume(
                         InputAsk::isTimeout,
@@ -334,7 +338,7 @@ public final class AskInputProcessor implements ProcessorPlugin {
       String responder,
       @Nullable Double confidence) {
 
-    static Answer of(final InputResponse response) {
+    /* default */ static Answer from(final InputResponse response) {
       return new Answer(
           response.requestId(),
           response.decision(),
@@ -344,11 +348,11 @@ public final class AskInputProcessor implements ProcessorPlugin {
           response.confidence());
     }
 
-    static Answer timeout(final String requestId) {
+    /* default */ static Answer timeout(final String requestId) {
       return new Answer(requestId, TIMEOUT_DECISION, "", Map.of(), "system:timeout", null);
     }
 
-    Map<String, Object> toRecord() {
+    /* default */ Map<String, Object> toRecord() {
       final Map<String, Object> body = new LinkedHashMap<>();
       body.put("requestId", requestId);
       body.put("decision", decision);
@@ -359,7 +363,7 @@ public final class AskInputProcessor implements ProcessorPlugin {
       return body;
     }
 
-    static Answer fromRecord(final Map<?, ?> body) {
+    /* default */ static Answer fromRecord(final Map<?, ?> body) {
       final Map<String, Object> data = new LinkedHashMap<>();
       if (body.get("data") instanceof final Map<?, ?> kept) {
         kept.forEach((k, v) -> data.put(String.valueOf(k), v));
@@ -387,7 +391,7 @@ public final class AskInputProcessor implements ProcessorPlugin {
     @Nullable private final String schema;
     private final Map<String, Object> config;
 
-    Question(final Map<String, Object> config) {
+    /* default */ Question(final Map<String, Object> config) {
       this.config = config;
       if (!(config.get(PROMPT) instanceof final String text) || text.isBlank()) {
         throw new IllegalArgumentException("prompt must be a non-empty text");
@@ -405,7 +409,7 @@ public final class AskInputProcessor implements ProcessorPlugin {
           config.get(DEFAULT_DECISION) == null
               ? null
               : String.valueOf(config.get(DEFAULT_DECISION));
-      this.schema = schema(this.kind, config.get(RESPONSE_SCHEMA));
+      this.schema = schema(config.get(RESPONSE_SCHEMA));
       InputAsk.audience(config.get(AUDIENCE));
       if (config.get(NAME) != null) {
         InputLimits.requireId(NAME, String.valueOf(config.get(NAME)));
@@ -431,7 +435,7 @@ public final class AskInputProcessor implements ProcessorPlugin {
           REQUESTER);
     }
 
-    String name(final InputIdentity who) {
+    /* default */ String name(final InputIdentity who) {
       return config.get(NAME) == null ? who.nodeId() : String.valueOf(config.get(NAME));
     }
 
@@ -444,7 +448,7 @@ public final class AskInputProcessor implements ProcessorPlugin {
       return USE_DEFAULT.equals(onTimeout) ? TimeoutAction.USE_DEFAULT : TimeoutAction.FAIL;
     }
 
-    InputRequestSpec spec(
+    /* default */ InputRequestSpec spec(
         final InputIdentity who, final String name, final Message<?> message, final String text) {
       return new InputRequestSpec(
           InputKeys.of(who.sessionId(), who.workflowId(), who.nodeId(), message.id(), name),
@@ -479,7 +483,7 @@ public final class AskInputProcessor implements ProcessorPlugin {
     }
 
     @Nullable
-    private static String schema(final InputKind kind, final Object value) {
+    private static String schema(final Object value) {
       if (value == null) {
         return null;
       }

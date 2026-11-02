@@ -84,7 +84,7 @@ class AskInputProcessorTest {
   }
 
   @Test
-  void defaultsMakeAMediumRiskApprovalWithApproveAndReject() {
+  void defaultsMakeMediumRiskApprovalWithApproveAndReject() {
     final Gateway gateway = InputFakes.answering("approve", null);
     run(processor(gateway), config()).blockLast();
     final var spec = gateway.asked.getFirst();
@@ -214,7 +214,7 @@ class AskInputProcessorTest {
   }
 
   @Test
-  void withoutAGatewayTheNodeFailsClearly() {
+  void withoutGatewayTheNodeFailsClearly() {
     StepVerifier.create(run(processor(null), config()))
         .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("No InputGateway"));
   }

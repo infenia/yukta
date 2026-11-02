@@ -32,7 +32,7 @@ class SignalNodeCommandProcessorTest {
   }
 
   @Test
-  void withoutABridge_noNodeIsWaiting() {
+  void withoutBridge_noNodeIsWaiting() {
     when(registry.findByExecutionId("e1")).thenReturn(Optional.of(mock(ExecutionControl.class)));
     StepVerifier.create(processor.process(command))
         .verifyErrorSatisfies(
@@ -43,7 +43,7 @@ class SignalNodeCommandProcessorTest {
   }
 
   @Test
-  void withABridgeProviderThatHasNone_noNodeIsWaiting() {
+  void withBridgeProviderThatHasNone_noNodeIsWaiting() {
     final ObjectProvider<InputSignalBridge> none = mock(ObjectProvider.class);
     processor.setInputBridge(none);
     when(registry.findByExecutionId("e1")).thenReturn(Optional.of(mock(ExecutionControl.class)));

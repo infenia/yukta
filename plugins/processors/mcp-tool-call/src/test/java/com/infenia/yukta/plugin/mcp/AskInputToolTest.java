@@ -190,7 +190,7 @@ class AskInputToolTest {
   }
 
   @Test
-  void noAnswerIsAToolErrorUnlessConfiguredToFail() {
+  void noAnswerIsToolErrorUnlessConfiguredToFail() {
     reply = _ -> Mono.error(new InputExpiredException("r1", "late"));
     final var result = ask(config("inputTtlSeconds", 30), node(), Map.of("prompt", "p"));
     assertThat(result.isError()).isTrue();
@@ -202,7 +202,7 @@ class AskInputToolTest {
   }
 
   @Test
-  void aLimitRefusalIsAToolError() {
+  void limitRefusalIsToolError() {
     reply = _ -> Mono.error(new InputLimitException("k", "too many open"));
     final var result = ask(config(), node(), Map.of("prompt", "p"));
     assertThat(result.isError()).isTrue();
@@ -210,7 +210,7 @@ class AskInputToolTest {
   }
 
   @Test
-  void outsideANodeTheAskFails() {
+  void outsideNodeTheAskFails() {
     assertThatThrownBy(() -> ask(config(), Context.empty(), Map.of("prompt", "p")))
         .isInstanceOf(IllegalStateException.class);
   }

@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono;
  * ask come from the Reactor context, so a plugin never names them.
  */
 @UtilityClass
+@SuppressWarnings({"PMD.CyclomaticComplexity", "PMD.AvoidInstantiatingObjectsInLoops"})
 public class InputAsk {
 
   /**

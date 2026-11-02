@@ -9,6 +9,7 @@ import lombok.experimental.UtilityClass;
 
 /** Reads the {@code tools} option of an LLM node. */
 @UtilityClass
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 public class ToolSpecs {
 
   /** Schema of a tool that takes no arguments. */

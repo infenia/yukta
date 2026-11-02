@@ -568,6 +568,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
             e -> log.atWarn().log("LLM call configuration validation failed: {}", e.getMessage()));
   }
 
+  @SuppressWarnings("PMD.CyclomaticComplexity")
   private static void checkConfig(final Map<String, Object> config) {
     require(config, PROVIDER);
     require(config, MODEL);

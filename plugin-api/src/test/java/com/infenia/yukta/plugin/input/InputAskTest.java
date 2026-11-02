@@ -18,7 +18,7 @@ import reactor.test.StepVerifier;
 class InputAskTest {
 
   @Test
-  void ask_failsClearlyWithoutAGateway() {
+  void ask_failsClearlyWithoutGateway() {
     StepVerifier.create(InputAsk.ask(() -> null, InputFixtures.spec()))
         .verifyErrorSatisfies(
             e ->
@@ -75,7 +75,7 @@ class InputAskTest {
   }
 
   @Test
-  void clean_dropsControlCharactersAndCutsOnACharacterBoundary() {
+  void clean_dropsControlCharactersAndCutsOnCharacterBoundary() {
     final String bidi = new String(Character.toChars(0x202E));
     assertThat(InputAsk.clean(null, 10)).isEmpty();
     assertThat(InputAsk.clean("a\u0000b" + bidi + "c\td\ne", 100)).isEqualTo("abc\td\ne");

@@ -54,7 +54,7 @@ class WaitForSignalProcessorTest {
   }
 
   @Test
-  void theRequestIsAHighRiskApprovalWithoutOptions() {
+  void theRequestIsHighRiskApprovalWithoutOptions() {
     final Gateway gateway = InputFakes.answering("go", null);
     StepVerifier.create(run(gateway, Map.of("signal", "approval", "timeoutSeconds", 90)))
         .assertNext(out -> assertThat(out.metadata()).containsEntry("signal.data", ""))
@@ -110,7 +110,7 @@ class WaitForSignalProcessorTest {
   }
 
   @Test
-  void withoutAGatewayTheNodeFailsClearly() {
+  void withoutGatewayTheNodeFailsClearly() {
     StepVerifier.create(
             run(new WaitForSignalProcessor(InputFakes.provider(null)), Map.of("signal", "a")))
         .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("No InputGateway"));

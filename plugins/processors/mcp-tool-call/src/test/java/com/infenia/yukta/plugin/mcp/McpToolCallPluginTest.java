@@ -162,7 +162,7 @@ class McpToolCallPluginTest {
   }
 
   @Test
-  void requireApproval_asksAHighRiskApprovalThenCalls() {
+  void requireApproval_asksHighRiskApprovalThenCalls() {
     when(gateway.call(any(), any())).thenReturn(Mono.just(success()));
     when(inputGateway.ask(any())).thenReturn(Mono.just(answer("approve", null)));
 
@@ -219,7 +219,7 @@ class McpToolCallPluginTest {
   }
 
   @Test
-  void requireApproval_withoutAGatewayFailsClearly() {
+  void requireApproval_withoutGatewayFailsClearly() {
     final ObjectProvider<InputGateway> none = mock(ObjectProvider.class);
     final var bare =
         new McpToolCallPlugin(
