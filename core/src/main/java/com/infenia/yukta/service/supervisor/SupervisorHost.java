@@ -316,7 +316,10 @@ public class SupervisorHost {
                   commands(supervisor.id(), "rate-limited"),
                   supervisor.scope().kind().name(),
                   supervisor.scope().sessionId(),
-                  supervisor.scope().workflowId());
+                  supervisor.scope().workflowId(),
+                  supervisor.scope() instanceof SupervisorScope.Section section
+                      ? List.copyOf(section.nodes())
+                      : null);
             })
         .toList();
   }
@@ -361,7 +364,7 @@ public class SupervisorHost {
     final SupervisorScope scope = supervisor.scope();
     final AtomicLong missed = new AtomicLong();
     return feed.events()
-        .filter(event -> scope.matches(event.sessionId(), event.workflowId()))
+        .filter(event -> scope.matches(event.sessionId(), event.workflowId(), event.nodeId()))
         .filter(
             event ->
                 !(event instanceof ExecutionEvent.ControlOutcome outcome

@@ -26,9 +26,10 @@ public record SupervisorListing(
    *
    * @param id the id in the audit log; the binding id for an attached one
    * @param kind {@code SUPERVISOR} or {@code CONTROL_PLANE}
-   * @param scope {@code GLOBAL}, {@code SESSION} or {@code WORKFLOW}
+   * @param scope {@code GLOBAL}, {@code SESSION}, {@code WORKFLOW} or {@code SECTION}
    * @param scopeSessionId the session it is limited to, or null
    * @param scopeWorkflowId the workflow it is limited to, or null
+   * @param scopeNodes the node selectors of a {@code SECTION} scope, or null
    * @param dryRun whether its commands are only recorded
    * @param applied commands applied since startup
    * @param rejected commands that were refused
@@ -39,7 +40,14 @@ public record SupervisorListing(
       String scope,
       String scopeSessionId,
       String scopeWorkflowId,
+      List<String> scopeNodes,
       boolean dryRun,
       long applied,
-      long rejected) {}
+      long rejected) {
+
+    /** Keeps an immutable copy of the selectors. */
+    public RunningSupervisor {
+      scopeNodes = scopeNodes == null ? null : List.copyOf(scopeNodes);
+    }
+  }
 }

@@ -7,8 +7,9 @@ package com.infenia.yukta.mcp.dto;
  *
  * @param id the binding id
  * @param profileId the profile it runs
- * @param scope {@code global}, {@code session:<id>}, {@code workflow:<id>} or {@code
- *     workflow:<sessionId>/<workflowId>}
+ * @param scope {@code global}, {@code session:<id>}, {@code workflow:<id>}, {@code
+ *     workflow:<sessionId>/<workflowId>} or a section {@code workflow:<sessionId>/<workflowId>//
+ *     <selector>,<selector>}
  * @param enabled whether it runs
  */
 public record SupervisorBindingInfo(String id, String profileId, String scope, boolean enabled) {}

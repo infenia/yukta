@@ -56,6 +56,19 @@ public sealed interface ExecutionControlCommand
   String executionId();
 
   /**
+   * The node this command acts on. Node commands name it; a command for the whole run (pause,
+   * resume or stop the workflow, priority, restart, also from a node) and one that belongs to no
+   * run name none. An input answer or escalation names a request, not a node; the engine looks the
+   * node up from the request.
+   *
+   * @return the node id, or {@code null} when the command acts on the whole run or on no run
+   */
+  @Nullable
+  default String nodeId() {
+    return null;
+  }
+
+  /**
    * Pause all nodes in an execution via global backpressure.
    *
    * <p>Execution continues to process inflight work but no new elements are pulled from input

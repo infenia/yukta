@@ -155,9 +155,13 @@ public class AppMcpTools {
       name = "attach_supervisor",
       title = "Attach Supervisor",
       description =
-          "Attach a supervisor profile to a scope: global, session:<id>, workflow:<id> or "
-              + "workflow:<sessionId>/<workflowId>. It starts at once and supervises the runs of "
-              + "that scope from now on, including runs already going. Needs an admin key.",
+          "Attach a supervisor profile to a scope: global, session:<id>, workflow:<id>,"
+              + " workflow:<sessionId>/<workflowId>, or a section of a workflow: one of the"
+              + " workflow forms, then // and node selectors separated by commas, such as"
+              + " workflow:s1/deploy//build.*,publish (a selector is a node id or <prefix>.*). It"
+              + " starts at once and supervises that scope from now on, including runs already"
+              + " going. It sees, reviews and may send commands only within its scope; a section"
+              + " supervisor sees no workflow-wide event or command. Needs an admin key.",
       generateOutputSchema = true,
       annotations =
           @McpTool.McpAnnotations(
@@ -171,7 +175,8 @@ public class AppMcpTools {
       @McpToolParam(
               required = true,
               description =
-                  "global, session:<id>, workflow:<id> or workflow:<sessionId>/<workflowId>")
+                  "global, session:<id>, workflow:<id>, workflow:<sessionId>/<workflowId>, or a "
+                      + "section workflow:<sessionId>/<workflowId>//<selector>,<selector>")
           final String scope,
       @McpToolParam(required = false, description = "Whether it runs; default true")
           final Boolean enabled,

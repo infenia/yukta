@@ -8,11 +8,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.mcp.dto.SupervisorListing;
 import com.infenia.yukta.plugin.control.SupervisorBinding;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorInfo;
 import com.infenia.yukta.service.supervisor.SupervisorService;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -37,7 +39,20 @@ class SupervisorProviderTest {
         .thenReturn(
             List.of(
                 new SupervisorInfo(
-                    "b1", "SUPERVISOR", "T", 0, true, 20, 3, 1, 0, 0, "SESSION", "A", null)));
+                    "b1",
+                    "SUPERVISOR",
+                    "T",
+                    0,
+                    true,
+                    20,
+                    3,
+                    1,
+                    0,
+                    0,
+                    "SECTION",
+                    "A",
+                    "w",
+                    List.of("build.*"))));
     when(service.bindings())
         .thenReturn(
             Flux.just(new SupervisorBinding("b1", "p", new SupervisorScope.Session("A"), true)));
@@ -51,8 +66,9 @@ class SupervisorProviderTest {
                   .satisfies(
                       r -> {
                         assertThat(r.id()).isEqualTo("b1");
-                        assertThat(r.scope()).isEqualTo("SESSION");
+                        assertThat(r.scope()).isEqualTo("SECTION");
                         assertThat(r.scopeSessionId()).isEqualTo("A");
+                        assertThat(r.scopeNodes()).containsExactly("build.*");
                         assertThat(r.applied()).isEqualTo(3);
                         assertThat(r.dryRun()).isTrue();
                       });
@@ -62,6 +78,22 @@ class SupervisorProviderTest {
               assertThat(listing.types()).containsExactly("rule-supervisor");
             })
         .verifyComplete();
+  }
+
+  @Test
+  void aRunningSupervisorWithoutSectionHasNoNodesAndKeepsACopyOtherwise() {
+    final List<String> nodes = new ArrayList<>(List.of("a"));
+    final SupervisorListing.RunningSupervisor section =
+        new SupervisorListing.RunningSupervisor(
+            "s", "SUPERVISOR", "SECTION", null, "w", nodes, false, 0, 0);
+    nodes.add("b");
+
+    assertThat(section.scopeNodes()).containsExactly("a");
+    assertThat(
+            new SupervisorListing.RunningSupervisor(
+                    "g", "SUPERVISOR", "GLOBAL", null, null, null, false, 0, 0)
+                .scopeNodes())
+        .isNull();
   }
 
   @Test
@@ -76,6 +108,9 @@ class SupervisorProviderTest {
               assertThat(b.enabled()).isTrue();
             })
         .verifyComplete();
+    StepVerifier.create(provider.attach("p", "workflow:A/w//build.*, deploy", null, null))
+        .assertNext(b -> assertThat(b.scope()).isEqualTo("workflow:A/w//build.*,deploy"))
+        .verifyComplete();
     StepVerifier.create(provider.attach("p", "global", false, " mine "))
         .assertNext(
             b -> {
@@ -85,7 +120,7 @@ class SupervisorProviderTest {
         .verifyComplete();
 
     final ArgumentCaptor<SupervisorBinding> sent = ArgumentCaptor.forClass(SupervisorBinding.class);
-    verify(service, org.mockito.Mockito.times(2)).attach(sent.capture());
+    verify(service, org.mockito.Mockito.times(3)).attach(sent.capture());
     assertThat(sent.getAllValues().getFirst().scope())
         .isEqualTo(new SupervisorScope.Workflow("w", "A"));
   }
