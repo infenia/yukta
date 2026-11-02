@@ -18,10 +18,10 @@ export interface Worker {
 
 export const getWorkers = () => fetchApi<Worker[]>('/api/workers');
 
-/** The connected workers, refreshed every 5 s. */
-export const useWorkers = () =>
+/** The connected workers, refreshed every 5 s unless `live` is false (a paused dashboard). */
+export const useWorkers = (live = true) =>
   useQuery({
     queryKey: ['control', 'workers'],
     queryFn: getWorkers,
-    refetchInterval: 5000,
+    refetchInterval: live ? 5000 : false,
   });

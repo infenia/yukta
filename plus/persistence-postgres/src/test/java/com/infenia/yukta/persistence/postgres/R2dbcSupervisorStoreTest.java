@@ -6,8 +6,10 @@ import com.infenia.yukta.plugin.control.SupervisorBinding;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import io.r2dbc.spi.ConnectionFactories;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.r2dbc.core.DatabaseClient;
@@ -64,6 +66,20 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
 
     StepVerifier.create(store.deleteBinding("b1")).expectNext(true).verifyComplete();
     StepVerifier.create(store.deleteBinding("b1")).expectNext(false).verifyComplete();
+  }
+
+  @Test
+  void sectionScopeIsStoredAsTextAndReadBack() {
+    StepVerifier.create(store.saveProfile(profile("p", false))).verifyComplete();
+    final Set<String> nodes = new LinkedHashSet<>();
+    for (int i = 0; i < SupervisorScope.Section.MAX_SELECTORS; i++) {
+      nodes.add("stage" + i + ".*");
+    }
+    final SupervisorBinding section =
+        new SupervisorBinding("b3", "p", new SupervisorScope.Section("w#1", "A", nodes), true);
+
+    StepVerifier.create(store.saveBinding(section)).verifyComplete();
+    StepVerifier.create(store.bindings()).expectNext(section).verifyComplete();
   }
 
   @Test

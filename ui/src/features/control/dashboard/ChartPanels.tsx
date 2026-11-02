@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router';
 import { Panel } from '@/components/dashboard/Tile';
 import { ChartAnnotations } from '@/components/dashboard/Strips';
 import { StateMessage } from '@/components/common/StateMessage';
-import { api } from '@/lib/apiClient';
+import { annotationLabel, annotationTarget } from './annotations';
 import {
   RANGE_MS,
   type ControlAnnotation,
@@ -36,11 +36,7 @@ export function ThroughputPanel({ scope, range, live }: PanelProps) {
   const navigate = useNavigate();
   const now = useNow();
   const open = (mark: ControlAnnotation | undefined) => {
-    if (mark?.sessionId && mark.workflowId) {
-      void navigate(
-        api`/sessions/${mark.sessionId}/workflow/${mark.workflowId}`
-      );
-    }
+    if (mark) void navigate(annotationTarget(mark));
   };
   return (
     <Panel title="Throughput">
@@ -61,7 +57,7 @@ export function ThroughputPanel({ scope, range, live }: PanelProps) {
               to={now}
               items={(marks.data ?? []).map((m) => ({
                 at: m.time,
-                label: `${m.command}${m.actor ? ` by ${m.actor}` : ''}${m.applied ? '' : ' (refused)'}`,
+                label: annotationLabel(m),
                 kind: m.applied ? 'attention' : 'danger',
               }))}
               onSelect={(item) =>

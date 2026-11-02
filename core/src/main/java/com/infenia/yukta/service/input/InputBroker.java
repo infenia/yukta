@@ -595,7 +595,8 @@ public class InputBroker {
             request.id(),
             responder,
             response.decision(),
-            clock.instant()));
+            clock.instant(),
+            request.nodeId()));
     logEnd(request, "Input answered");
     settle(request).subscribe();
     return request;
@@ -610,7 +611,8 @@ public class InputBroker {
             request.sessionId(),
             request.workflowId(),
             request.id(),
-            clock.instant()));
+            clock.instant(),
+            request.nodeId()));
     logEnd(request, "Input expired");
     return settle(request);
   }
@@ -625,7 +627,8 @@ public class InputBroker {
             request.workflowId(),
             request.id(),
             reason,
-            clock.instant()));
+            clock.instant(),
+            request.nodeId()));
     logEnd(request, "Input cancelled");
     cancelReasons.put(request.id(), reason);
     return settle(request);

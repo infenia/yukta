@@ -245,6 +245,27 @@ class SupervisorBindingsControllerTest {
   }
 
   @Test
+  void sectionScopeIsAttachedAndShownInItsTextForm() {
+    when(service.attach(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+
+    StepVerifier.create(
+            controller.attach(new BindingBody("b", "p", "workflow:A/w// build.*, publish", null)))
+        .assertNext(r -> assertThat(r.data().scope()).isEqualTo("workflow:A/w//build.*,publish"))
+        .verifyComplete();
+  }
+
+  @Test
+  void sectionWithoutNodesIsRejectedWithoutAttaching() {
+    StepVerifier.create(controller.attach(new BindingBody("b", "p", "workflow:A/w//", true)))
+        .expectErrorMatches(
+            error ->
+                error instanceof IllegalArgumentException
+                    && error.getMessage().startsWith(SupervisorScope.BAD_SCOPE))
+        .verify();
+    verify(service, never()).attach(any());
+  }
+
+  @Test
   void badScopeIsRejectedWithoutAttaching() {
     StepVerifier.create(controller.attach(new BindingBody("b", "p", "everything", true)))
         .expectError(IllegalArgumentException.class)

@@ -6,12 +6,12 @@ import { ArcGauge, MeterBar } from '@/components/dashboard/Gauges';
 import { Panel } from '@/components/dashboard/Tile';
 import { StatusMatrix, type MatrixState } from '@/components/dashboard/Strips';
 import { useMetricSnapshot } from '@/features/metrics/hooks';
-import type { Scope } from '@/features/metrics/api';
+import { GLOBAL, type Scope } from '@/features/metrics/api';
 import { getHeartbeats } from '../api/controlBus';
 import { useWorkers } from '../api/workers';
 import { PanelState } from './PanelState';
 import { useNow } from './useNow';
-import { formatMs, sumOf } from './format';
+import { aiUsage, formatMs, sumOf } from './format';
 
 /** A heartbeat older than this is stale, and older than twice this is down. */
 const STALE_MS = 30_000;
@@ -49,8 +49,8 @@ export function BusPanel({ live }: { live: boolean }) {
 }
 
 /** Slots in use per connected worker. */
-export function WorkerSlotsPanel() {
-  const workers = useWorkers();
+export function WorkerSlotsPanel({ live = true }: { live?: boolean }) {
+  const workers = useWorkers(live);
   return (
     <Panel title="Workers">
       <PanelState
@@ -62,7 +62,16 @@ export function WorkerSlotsPanel() {
       >
         <ul className="flex flex-col gap-2">
           {(workers.data ?? []).map((w) => (
-            <li key={w.workerId}>
+            <li key={w.workerId} className="flex flex-col gap-1">
+              <div className="text-body-sm flex justify-between gap-2">
+                <span className="truncate font-mono">
+                  {w.workerId}
+                  {w.draining ? ' (draining)' : ''}
+                </span>
+                <span className="num text-on-surface-variant shrink-0">
+                  {w.usedSlots} / {w.capacity}
+                </span>
+              </div>
               <MeterBar
                 label={`${w.workerId}${w.draining ? ' (draining)' : ''}: ${w.usedSlots} of ${w.capacity} slots`}
                 value={w.usedSlots}
@@ -95,19 +104,43 @@ export function VitalsPanel() {
         onRetry={() => void snapshot.refetch()}
       >
         <div className="grid grid-cols-3 gap-2">
-          <ArcGauge
-            label={`Heap ${Math.round(heapUsed / 1e6)} of ${Math.round(heapMax / 1e6)} MB`}
-            value={heapUsed}
-            max={Math.max(1, heapMax)}
-          />
-          <ArcGauge label={`CPU ${Math.round(cpu)}%`} value={cpu} max={100} />
-          <ArcGauge
-            label={`Threads ${Math.round(threads)}`}
-            value={threads}
-            max={Math.max(100, threads)}
-          />
+          {[
+            {
+              name: 'Heap',
+              caption: `${Math.round(heapUsed / 1e6)} of ${Math.round(heapMax / 1e6)} MB`,
+              value: heapUsed,
+              max: Math.max(1, heapMax),
+              text: `${Math.round((heapUsed / Math.max(1, heapMax)) * 100)}%`,
+            },
+            {
+              name: 'CPU',
+              caption: 'process',
+              value: cpu,
+              max: 100,
+              text: `${Math.round(cpu)}%`,
+            },
+            {
+              name: 'Threads',
+              caption: 'live',
+              value: threads,
+              max: Math.max(100, threads),
+              text: `${Math.round(threads)}`,
+            },
+          ].map((g) => (
+            <figure key={g.name} className="flex min-w-0 flex-col items-center">
+              <ArcGauge
+                label={`${g.name} ${g.text}, ${g.caption}`}
+                value={g.value}
+                max={g.max}
+                valueText={g.text}
+              />
+              <figcaption className="text-body-sm text-on-surface-variant truncate text-center">
+                {g.name} · {g.caption}
+              </figcaption>
+            </figure>
+          ))}
         </div>
-        <dl className="mt-2 flex gap-4 text-body-sm text-on-surface-variant">
+        <dl className="text-body-sm text-on-surface-variant mt-2 flex gap-4">
           <div>
             <dt>Longest GC pause</dt>
             <dd className="num text-on-surface">
@@ -138,38 +171,99 @@ export function VitalsPanel() {
   );
 }
 
-/** Model tokens, spend and tool-call traffic. */
+/** A rate with two decimals while small and none once it is large. */
+const rate = (value: number) => value.toFixed(value < 10 ? 2 : 0);
+
+/**
+ * Model tokens (in and out) and spend per provider, and the MCP tool-call traffic with the failed
+ * and the refused heavy calls. These meters carry no session or workflow tag, so the panel shows
+ * the whole server and says so in a scoped view.
+ */
 export function AiUsagePanel({ scope }: { scope: Scope }) {
   const snapshot = useMetricSnapshot();
-  const values = snapshot.data;
-  const rows = [
-    ['Tokens in / min', sumOf(values, 'llm.tokens', '|rate') * 60],
-    ['Spend / hour', sumOf(values, 'llm.cost', '|rate') * 3600],
-    ['MCP calls / min', sumOf(values, 'yukta.mcp.', '|rate') * 60],
+  const usage = aiUsage(snapshot.data);
+  const tools = [
+    ['MCP calls / min', usage.mcpCallsPerMinute],
+    ['Failed calls / min', usage.mcpFailedPerMinute],
+    ['Refused heavy calls / min', usage.heavyRefusedPerMinute],
   ] as const;
+  const idle =
+    usage.providers.length === 0 && tools.every(([, value]) => value === 0);
   return (
-    <Panel title="AI usage">
+    <Panel
+      title="AI usage"
+      action={
+        scope === GLOBAL ? undefined : (
+          <span className="text-body-sm text-on-surface-variant">
+            Whole server
+          </span>
+        )
+      }
+    >
       <PanelState
         isPending={snapshot.isPending}
         error={snapshot.error}
-        empty={scope !== 'global' || rows.every(([, v]) => v === 0)}
-        emptyText={
-          scope === 'global'
-            ? 'No model or tool calls yet'
-            : 'AI usage is server-wide; choose the global scope'
-        }
+        empty={idle}
+        emptyText="No model or tool calls yet"
         onRetry={() => void snapshot.refetch()}
       >
-        <dl className="grid grid-cols-3 gap-2 text-body-md">
-          {rows.map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-body-sm text-on-surface-variant">{label}</dt>
-              <dd className="num text-on-surface">
-                {value.toFixed(value < 10 ? 2 : 0)}
-              </dd>
+        <div className="flex flex-col gap-3">
+          {usage.providers.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="text-body-sm w-full">
+                <thead>
+                  <tr className="text-overline text-left">
+                    <th scope="col">Provider</th>
+                    <th scope="col" className="text-right">
+                      Tokens in / min
+                    </th>
+                    <th scope="col" className="text-right">
+                      Tokens out / min
+                    </th>
+                    <th scope="col" className="text-right">
+                      Spend / hour
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usage.providers.map((p) => (
+                    <tr key={p.provider} className="border-border border-t">
+                      <th
+                        scope="row"
+                        className="text-left font-mono font-normal"
+                      >
+                        {p.provider}
+                      </th>
+                      <td className="num text-right">
+                        {rate(p.tokensInPerMinute)}
+                      </td>
+                      <td className="num text-right">
+                        {rate(p.tokensOutPerMinute)}
+                      </td>
+                      <td className="num text-right">
+                        {p.spendPerHour.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
-        </dl>
+          )}
+          <dl className="text-body-md grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {tools.map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-body-sm text-on-surface-variant">
+                  {label}
+                </dt>
+                <dd
+                  className={`num ${label !== 'MCP calls / min' && value > 0 ? 'text-warning' : 'text-on-surface'}`}
+                >
+                  {rate(value)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       </PanelState>
     </Panel>
   );

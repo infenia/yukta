@@ -12,6 +12,7 @@ import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -95,11 +96,24 @@ public class SupervisorBindingsController {
    *
    * @param id the binding id; generated when missing
    * @param profileId the profile to run
-   * @param scope {@code global}, {@code session:<id>}, {@code workflow:<id>} or {@code
-   *     workflow:<sessionId>/<workflowId>}
+   * @param scope {@code global}, {@code session:<id>}, {@code workflow:<id>}, {@code
+   *     workflow:<sessionId>/<workflowId>} or a section of a workflow, {@code
+   *     workflow:<sessionId>/<workflowId>//<selector>,<selector>} (a selector is a node id or
+   *     {@code <prefix>.*})
    * @param enabled whether it runs; true when missing
    */
-  public record BindingBody(String id, String profileId, String scope, Boolean enabled) {}
+  public record BindingBody(
+      String id,
+      String profileId,
+      @Schema(
+              description =
+                  "global, session:<id>, workflow:<id>, workflow:<sessionId>/<workflowId>, or a"
+                      + " section of a workflow: a workflow form, then // and node selectors"
+                      + " separated by commas (a node id or <prefix>.*, 1 to 50). The supervisor"
+                      + " sees, reviews and may send commands only within its scope.",
+              example = "workflow:s1/release//build.*,publish")
+          String scope,
+      Boolean enabled) {}
 
   /**
    * The supervisor types that profiles may use.
@@ -217,7 +231,11 @@ public class SupervisorBindingsController {
    */
   @PostMapping("/bindings")
   @ResponseStatus(HttpStatus.CREATED)
-  @Operation(summary = "Attach a supervisor")
+  @Operation(
+      summary = "Attach a supervisor",
+      description =
+          "Attach a profile to a scope. A section scope (workflow:<s>/<w>//build.*,deploy) watches"
+              + " only those nodes and no workflow-wide event or command.")
   public Mono<ApiResponse<BindingBody>> attach(@RequestBody final BindingBody body) {
     return Mono.fromSupplier(
             () ->
