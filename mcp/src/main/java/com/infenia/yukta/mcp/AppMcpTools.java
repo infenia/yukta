@@ -894,7 +894,6 @@ public class AppMcpTools {
               readOnlyHint = false,
               destructiveHint = false,
               openWorldHint = false))
-  @SuppressWarnings("PMD.ExcessiveParameterList")
   public Mono<ControlActionResult> answerInput(
       @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
       @McpToolParam(required = true, description = EXECUTION_ID_DESC) final String executionId,

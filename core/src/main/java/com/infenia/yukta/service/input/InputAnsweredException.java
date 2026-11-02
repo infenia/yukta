@@ -15,13 +15,13 @@ public final class InputAnsweredException extends ConflictException {
   @Serial private static final long serialVersionUID = 1L;
 
   /** The request. */
-  private final String requestId;
+  private final String request;
 
   /** What the stored answer decided, or {@code null} when the answer is no longer kept. */
-  private final @Nullable String decision;
+  private final @Nullable String storedDecision;
 
   /** Who gave it, as {@code TYPE:id}, or {@code null} when the answer is no longer kept. */
-  private final @Nullable String responder;
+  private final @Nullable String storedResponder;
 
   /**
    * Creates the exception.
@@ -37,9 +37,9 @@ public final class InputAnsweredException extends ConflictException {
             + requestId
             + " is already answered"
             + (decision == null ? "" : ": " + decision + " by " + responder));
-    this.requestId = requestId;
-    this.decision = decision;
-    this.responder = responder;
+    this.request = requestId;
+    this.storedDecision = decision;
+    this.storedResponder = responder;
   }
 
   /**
@@ -48,7 +48,7 @@ public final class InputAnsweredException extends ConflictException {
    * @return the request id
    */
   public String requestId() {
-    return requestId;
+    return request;
   }
 
   /**
@@ -57,7 +57,7 @@ public final class InputAnsweredException extends ConflictException {
    * @return the decision, or {@code null} when the answer is no longer kept
    */
   public @Nullable String decision() {
-    return decision;
+    return storedDecision;
   }
 
   /**
@@ -66,6 +66,6 @@ public final class InputAnsweredException extends ConflictException {
    * @return {@code TYPE:id}, for example {@code HUMAN:key:alice}, or {@code null}
    */
   public @Nullable String responder() {
-    return responder;
+    return storedResponder;
   }
 }

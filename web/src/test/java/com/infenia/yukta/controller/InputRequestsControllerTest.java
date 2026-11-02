@@ -54,7 +54,8 @@ import reactor.core.publisher.Mono;
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
   "PMD.UnitTestShouldIncludeAssert",
-  "PMD.UnitTestContainsTooManyAsserts"
+  "PMD.ExcessiveImports",
+  "PMD.TooManyStaticImports"
 })
 class InputRequestsControllerTest {
 
@@ -308,7 +309,7 @@ class InputRequestsControllerTest {
   }
 
   @Test
-  void getShowsOneRequestWithItsAnswer() {
+  void readShowsOneRequestWithItsAnswer() {
     get(open, null, "/api/executions/e1/inputs/r3")
         .expectStatus()
         .isOk()
@@ -361,9 +362,9 @@ class InputRequestsControllerTest {
   }
 
   @Test
-  void answerWithOnlyADecision_passesNoOptionalParts() {
+  void answerWithOnlyDecision_passesEmptyData() {
     post(open, null, ANSWER, "{\"decision\":\"ok\"}").expectStatus().isOk();
-    verify(controlBus).answerInput("e1", "r1", null, "ok", null, null, null, null);
+    verify(controlBus).answerInput("e1", "r1", null, "ok", null, Map.of(), null, null);
   }
 
   @Test

@@ -51,7 +51,7 @@ class McpToolAccessTest {
   }
 
   @Test
-  void aViewerBodyMayListInputsButNotAnswerThem() {
+  void viewerBodyMayListInputsButNotAnswerThem() {
     final String list =
         "{\"method\":\"tools/call\",\"params\":{\"name\":\"list_pending_inputs\","
             + "\"arguments\":{\"sessionId\":\"a\"}}}";

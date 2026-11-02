@@ -21,7 +21,7 @@ import reactor.test.StepVerifier;
 
 /** Tests for {@link InputRequestQueries}. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class InputRequestQueriesTest {
 
   private static final Instant T0 = Instant.parse("2026-11-02T10:00:00Z");
@@ -63,7 +63,7 @@ class InputRequestQueriesTest {
   }
 
   private void finish(final String id, final InputState state) {
-    final InputRequest current = store.findById(id).block();
+    final InputRequest current = store.findById(id).blockOptional().orElseThrow();
     store
         .compareAndSet(
             id,
@@ -154,10 +154,14 @@ class InputRequestQueriesTest {
     store.saveResponse(response("b")).block();
     finish("a", InputState.ANSWERED);
 
-    StepVerifier.create(queries.answer(store.findById("a").block()).map(InputResponse::decision))
+    StepVerifier.create(
+            queries
+                .answer(store.findById("a").blockOptional().orElseThrow())
+                .map(InputResponse::decision))
         .expectNext("approve")
         .verifyComplete();
-    StepVerifier.create(queries.answer(store.findById("b").block())).verifyComplete();
+    StepVerifier.create(queries.answer(store.findById("b").blockOptional().orElseThrow()))
+        .verifyComplete();
   }
 
   @Test

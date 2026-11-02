@@ -243,8 +243,8 @@ class InputProviderTest {
     provider.answer("s1", "e1", "r1", "ok", null, " ", null).block();
     provider.answer("s1", "e1", "r1", "no", null, null, null).block();
 
-    verify(controlBus).answerInput("e1", "r1", null, "ok", null, null, null, null);
-    verify(controlBus).answerInput("e1", "r1", null, "no", null, null, null, null);
+    verify(controlBus).answerInput("e1", "r1", null, "ok", null, Map.of(), null, null);
+    verify(controlBus).answerInput("e1", "r1", null, "no", null, Map.of(), null, null);
   }
 
   @Test

@@ -11,7 +11,6 @@ import com.infenia.yukta.plugin.input.InputResponse;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.plugin.input.TimeoutAction;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.Collections;
@@ -52,10 +51,6 @@ import org.jspecify.annotations.Nullable;
  * @param answer the answer, once the request is answered and the answer is still kept
  */
 @Schema(description = "An input request of a node and, once answered, its answer")
-@SuppressFBWarnings(
-    value = "EI_EXPOSE_REP",
-    justification = "the compact constructor stores unmodifiable copies")
-@SuppressWarnings("PMD.ExcessiveParameterList") // one field per part of the request on the wire
 public record InputRequestView(
     String id,
     String sessionId,
@@ -108,9 +103,6 @@ public record InputRequestView(
    * @param confidence how sure the responder was, from 0 to 1, or {@code null}
    * @param answeredAt when it was answered
    */
-  @SuppressFBWarnings(
-      value = "EI_EXPOSE_REP",
-      justification = "the compact constructor stores an unmodifiable copy")
   public record InputAnswerView(
       String decision,
       @Nullable String text,
@@ -132,7 +124,7 @@ public record InputRequestView(
      * @param response the answer
      * @return the view
      */
-    public static InputAnswerView of(final InputResponse response) {
+    public static InputAnswerView from(final InputResponse response) {
       return new InputAnswerView(
           response.decision(),
           response.text(),
@@ -152,7 +144,7 @@ public record InputRequestView(
    * @param response its answer, or {@code null}
    * @return the view
    */
-  public static InputRequestView of(
+  public static InputRequestView from(
       final InputRequest request, final @Nullable InputResponse response) {
     final InputRequestSpec spec = request.spec();
     return new InputRequestView(
@@ -178,7 +170,7 @@ public record InputRequestView(
         request.deadline(),
         request.createdAt(),
         request.updatedAt(),
-        response == null ? null : InputAnswerView.of(response));
+        response == null ? null : InputAnswerView.from(response));
   }
 
   private static InputOptionView option(final InputOption option) {

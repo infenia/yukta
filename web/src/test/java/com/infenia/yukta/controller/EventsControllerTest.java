@@ -36,7 +36,7 @@ import reactor.core.scheduler.Schedulers;
 
 /** Tests for the behaviour described by {@link EventsController}. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports", "PMD.ExcessiveImports"})
 class EventsControllerTest {
 
   /** Answers which runs lie within a tree, for the tree filter. */
@@ -239,8 +239,8 @@ class EventsControllerTest {
     final var received =
         new EventsController(feed, tracker)
             .stream(null, false, type, null)
-                .filter(event -> event.data() != null)
-                .map(event -> event.data().type())
+                .mapNotNull(ServerSentEvent::data)
+                .map(EventsController.Envelope::type)
                 .take(Duration.ofMillis(1500))
                 .collectList()
                 .toFuture();

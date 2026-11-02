@@ -109,7 +109,6 @@ public class InputProvider {
    * @param rationale why, or null
    * @return what was done
    */
-  @SuppressWarnings("PMD.ExcessiveParameterList")
   public Mono<ControlActionResult> answer(
       final String sessionId,
       final String executionId,
@@ -205,9 +204,9 @@ public class InputProvider {
     }
   }
 
-  private static @Nullable Map<String, Object> data(final @Nullable String data) {
+  private static Map<String, Object> data(final @Nullable String data) {
     if (data == null || data.isBlank()) {
-      return null;
+      return Map.of();
     }
     try {
       return JSON.readValue(data, OBJECT);

@@ -295,11 +295,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         HttpStatus.CONFLICT,
         exception.getMessage(),
         request,
-        decision == null || responder == null
+        // the decision and the responder are both known or both unknown
+        decision == null
             ? List.of()
             : List.of(
                 new ApiResponse.FieldError("decision", decision),
-                new ApiResponse.FieldError("responder", responder)));
+                new ApiResponse.FieldError("responder", String.valueOf(responder))));
   }
 
   /**

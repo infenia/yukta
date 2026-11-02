@@ -177,7 +177,7 @@ public class InputRequestsController {
   private Mono<InputRequestView> view(final InputRequest request) {
     return queries
         .answer(request)
-        .map(response -> InputRequestView.of(request, response))
-        .switchIfEmpty(Mono.fromSupplier(() -> InputRequestView.of(request, null)));
+        .map(response -> InputRequestView.from(request, response))
+        .switchIfEmpty(Mono.fromSupplier(() -> InputRequestView.from(request, null)));
   }
 }

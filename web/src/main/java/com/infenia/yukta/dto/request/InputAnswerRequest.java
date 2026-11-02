@@ -48,6 +48,6 @@ public record InputAnswerRequest(
   /** Copies the data. */
   public InputAnswerRequest {
     // Map.copyOf rejects null values, and answer data may hold them
-    data = data == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(data));
+    data = data == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(data));
   }
 }
