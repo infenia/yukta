@@ -214,7 +214,7 @@ for (const k of [1, 2, 3]) {
     const [c, cs, ca, cr, cp] = [`clarify${k}`, `clarify_ask${k}?`, `ask_clarify${k}`, `clarify_decision${k}?`, `apply_clarify${k}`]
     t.add(pe(c, ['ladder', 'clarification', RUN], 60, { json: true }), select(cs, 'ask', { true: 'ask' }, 'fail'),
       ask(ca, '${payload.output.prompt}', 86400, 'TEXT', 'MEDIUM'), rejected(cr), terminal(`clarify_rejected${k}`, 'a person declined to answer the architect'),
-      pe(cp, ['ladder', 'apply-clarification', RUN, "${metadata['input.text']}"], 60), deadEnd(`architect${k}`, 'the architect failed or stayed invalid'), terminal(`architect${k}.failed`, 'the architect failed, did not ask or stayed invalid'))
+      pe(cp, ['ladder', 'apply-clarification', RUN, '${metadata.input.text}'], 60), deadEnd(`architect${k}`, 'the architect failed or stayed invalid'), terminal(`architect${k}.failed`, 'the architect failed, did not ask or stayed invalid'))
     t.link(`architect${k}`, c, 'failure'); t.link(c, cs, 'success'); t.fail(c, 'the clarification could not be read', true)
     t.link(cs, ca, 'ask'); t.link(cs, `architect${k}.dead`, 'fail'); t.link(`architect${k}.dead`, `architect${k}.failed`)
     t.link(ca, cr); t.link(cr, `clarify_rejected${k}`, 'reject'); t.link(cr, cp, 'approve')
@@ -250,7 +250,7 @@ for (let k = 1; k <= ROUNDS; k++) {
   const [a, e, pp, aa, ap, ack] = [`action${k}`, `escalate${k}`, `pause_packet${k}`, `ask_pause${k}`, `pause_decision${k}`, `ack_pause${k}`] as [string, string, string, string, string, string]
   t.add(pe(rf, ['ladder', 'route-failure', RUN], 60, { json: true }), select(a, 'action', { revise: 'revise', pause: 'pause' }, 'human'),
     sub(e, 'escalate'), pe(pp, ['ladder', 'pause-packet', RUN], 60), ask(aa, 'Run ${start.runId} is paused over a budget; human-packet.md is in ${start.run}. Approve to continue with doubled budgets.'),
-    rejected(ap), pe(ack, ['ladder', 'ack-pause', RUN], 60), terminal(`paused_rejected${k}`, 'a person stopped the paused run'))
+    rejected(ap), pe(ack, ['ladder', 'ack-pause', RUN, '${metadata.input.text}'], 60), terminal(`paused_rejected${k}`, 'a person stopped the paused run'))
   t.link(rf, a, 'success'); t.fail(rf, 'the failure could not be routed', true)
   t.link(a, e, 'revise'); t.link(a, pp, 'pause'); t.link(a, `human${k}`, 'human')
   t.add(pe(`human${k}`, ['github', 'dead-end', RUN, '--stage', `round${k}`, '--reason', 'a person is needed (escalation.json)'], 120, { routed: false }), terminal(`human${k}.failed`, 'a person is needed (licenses, security, a second infra error or the revision budget)'))
