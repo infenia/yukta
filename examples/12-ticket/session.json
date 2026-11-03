@@ -315,11 +315,107 @@
           }
         },
         {
-          "nodeId": "architect1.failed",
+          "nodeId": "clarify1",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
+              "ladder",
+              "clarification",
+              "${start.run}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "outputFormat": "JSON"
+          }
+        },
+        {
+          "nodeId": "clarify_ask1?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "payload['output']['ask']",
+            "cases": {
+              "true": "ask"
+            },
+            "defaultPort": "fail"
+          }
+        },
+        {
+          "nodeId": "ask_clarify1",
+          "type": "ASK_INPUT",
+          "config": {
+            "prompt": "${payload.output.prompt}",
+            "kind": "TEXT",
+            "risk": "MEDIUM",
+            "ttlSeconds": 86400,
+            "onTimeout": "FAIL",
+            "route": "ticket",
+            "context": {
+              "issue": "${start.issue}",
+              "run_id": "${start.runId}",
+              "gate": "ask_clarify1"
+            }
+          }
+        },
+        {
+          "nodeId": "clarify_decision1?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "metadata['input.decision'] == 'reject'": "reject"
+            },
+            "defaultPort": "approve"
+          }
+        },
+        {
+          "nodeId": "clarify_rejected1",
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the architect failed, asked for clarification or stayed invalid"
+            "reason": "a person declined to answer the architect"
+          }
+        },
+        {
+          "nodeId": "apply_clarify1",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
+              "ladder",
+              "apply-clarification",
+              "${start.run}",
+              "${metadata['input.text']}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
           }
         },
         {
@@ -335,7 +431,91 @@
               "--stage",
               "architect1",
               "--reason",
-              "the architect failed, asked for clarification or stayed invalid"
+              "the architect failed or stayed invalid"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "architect1.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the architect failed, did not ask or stayed invalid"
+          }
+        },
+        {
+          "nodeId": "clarify1.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the clarification could not be read"
+          }
+        },
+        {
+          "nodeId": "clarify1.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "clarify1",
+              "--reason",
+              "the clarification could not be read"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "apply_clarify1.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the answers could not be recorded"
+          }
+        },
+        {
+          "nodeId": "apply_clarify1.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "apply_clarify1",
+              "--reason",
+              "the answers could not be recorded"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -414,11 +594,107 @@
           }
         },
         {
-          "nodeId": "architect2.failed",
+          "nodeId": "clarify2",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
+              "ladder",
+              "clarification",
+              "${start.run}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "outputFormat": "JSON"
+          }
+        },
+        {
+          "nodeId": "clarify_ask2?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "payload['output']['ask']",
+            "cases": {
+              "true": "ask"
+            },
+            "defaultPort": "fail"
+          }
+        },
+        {
+          "nodeId": "ask_clarify2",
+          "type": "ASK_INPUT",
+          "config": {
+            "prompt": "${payload.output.prompt}",
+            "kind": "TEXT",
+            "risk": "MEDIUM",
+            "ttlSeconds": 86400,
+            "onTimeout": "FAIL",
+            "route": "ticket",
+            "context": {
+              "issue": "${start.issue}",
+              "run_id": "${start.runId}",
+              "gate": "ask_clarify2"
+            }
+          }
+        },
+        {
+          "nodeId": "clarify_decision2?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "metadata['input.decision'] == 'reject'": "reject"
+            },
+            "defaultPort": "approve"
+          }
+        },
+        {
+          "nodeId": "clarify_rejected2",
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the architect failed, asked for clarification or stayed invalid"
+            "reason": "a person declined to answer the architect"
+          }
+        },
+        {
+          "nodeId": "apply_clarify2",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
+              "ladder",
+              "apply-clarification",
+              "${start.run}",
+              "${metadata['input.text']}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
           }
         },
         {
@@ -434,7 +710,91 @@
               "--stage",
               "architect2",
               "--reason",
-              "the architect failed, asked for clarification or stayed invalid"
+              "the architect failed or stayed invalid"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "architect2.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the architect failed, did not ask or stayed invalid"
+          }
+        },
+        {
+          "nodeId": "clarify2.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the clarification could not be read"
+          }
+        },
+        {
+          "nodeId": "clarify2.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "clarify2",
+              "--reason",
+              "the clarification could not be read"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "apply_clarify2.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the answers could not be recorded"
+          }
+        },
+        {
+          "nodeId": "apply_clarify2.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "apply_clarify2",
+              "--reason",
+              "the answers could not be recorded"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -841,7 +1201,13 @@
             "kind": "APPROVAL",
             "risk": "MEDIUM",
             "ttlSeconds": 86400,
-            "onTimeout": "FAIL"
+            "onTimeout": "FAIL",
+            "route": "ticket",
+            "context": {
+              "issue": "${start.issue}",
+              "run_id": "${start.runId}",
+              "gate": "approve_spec"
+            }
           }
         },
         {
@@ -1088,7 +1454,13 @@
             "kind": "APPROVAL",
             "risk": "MEDIUM",
             "ttlSeconds": 86400,
-            "onTimeout": "FAIL"
+            "onTimeout": "FAIL",
+            "route": "ticket",
+            "context": {
+              "issue": "${start.issue}",
+              "run_id": "${start.runId}",
+              "gate": "ask_pause1"
+            }
           }
         },
         {
@@ -1389,7 +1761,13 @@
             "kind": "APPROVAL",
             "risk": "MEDIUM",
             "ttlSeconds": 86400,
-            "onTimeout": "FAIL"
+            "onTimeout": "FAIL",
+            "route": "ticket",
+            "context": {
+              "issue": "${start.issue}",
+              "run_id": "${start.runId}",
+              "gate": "ask_pause2"
+            }
           }
         },
         {
@@ -1690,7 +2068,13 @@
             "kind": "APPROVAL",
             "risk": "MEDIUM",
             "ttlSeconds": 86400,
-            "onTimeout": "FAIL"
+            "onTimeout": "FAIL",
+            "route": "ticket",
+            "context": {
+              "issue": "${start.issue}",
+              "run_id": "${start.runId}",
+              "gate": "ask_pause3"
+            }
           }
         },
         {
@@ -1981,7 +2365,13 @@
             "kind": "APPROVAL",
             "risk": "MEDIUM",
             "ttlSeconds": 86400,
-            "onTimeout": "FAIL"
+            "onTimeout": "FAIL",
+            "route": "ticket",
+            "context": {
+              "issue": "${start.issue}",
+              "run_id": "${start.runId}",
+              "gate": "approve_merge"
+            }
           }
         },
         {
@@ -2152,12 +2542,64 @@
         },
         {
           "source": "architect1",
-          "target": "architect1.dead",
+          "target": "clarify1",
           "sourcePort": "failure"
+        },
+        {
+          "source": "clarify1",
+          "target": "clarify_ask1?",
+          "sourcePort": "success"
+        },
+        {
+          "source": "clarify1",
+          "target": "clarify1.dead",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "clarify1.dead",
+          "target": "clarify1.failed"
+        },
+        {
+          "source": "clarify_ask1?",
+          "target": "ask_clarify1",
+          "sourcePort": "ask"
+        },
+        {
+          "source": "clarify_ask1?",
+          "target": "architect1.dead",
+          "sourcePort": "fail"
         },
         {
           "source": "architect1.dead",
           "target": "architect1.failed"
+        },
+        {
+          "source": "ask_clarify1",
+          "target": "clarify_decision1?"
+        },
+        {
+          "source": "clarify_decision1?",
+          "target": "clarify_rejected1",
+          "sourcePort": "reject"
+        },
+        {
+          "source": "clarify_decision1?",
+          "target": "apply_clarify1",
+          "sourcePort": "approve"
+        },
+        {
+          "source": "apply_clarify1",
+          "target": "architect2",
+          "sourcePort": "success"
+        },
+        {
+          "source": "apply_clarify1",
+          "target": "apply_clarify1.dead",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "apply_clarify1.dead",
+          "target": "apply_clarify1.failed"
         },
         {
           "source": "validate_spec1",
@@ -2176,12 +2618,64 @@
         },
         {
           "source": "architect2",
-          "target": "architect2.dead",
+          "target": "clarify2",
           "sourcePort": "failure"
+        },
+        {
+          "source": "clarify2",
+          "target": "clarify_ask2?",
+          "sourcePort": "success"
+        },
+        {
+          "source": "clarify2",
+          "target": "clarify2.dead",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "clarify2.dead",
+          "target": "clarify2.failed"
+        },
+        {
+          "source": "clarify_ask2?",
+          "target": "ask_clarify2",
+          "sourcePort": "ask"
+        },
+        {
+          "source": "clarify_ask2?",
+          "target": "architect2.dead",
+          "sourcePort": "fail"
         },
         {
           "source": "architect2.dead",
           "target": "architect2.failed"
+        },
+        {
+          "source": "ask_clarify2",
+          "target": "clarify_decision2?"
+        },
+        {
+          "source": "clarify_decision2?",
+          "target": "clarify_rejected2",
+          "sourcePort": "reject"
+        },
+        {
+          "source": "clarify_decision2?",
+          "target": "apply_clarify2",
+          "sourcePort": "approve"
+        },
+        {
+          "source": "apply_clarify2",
+          "target": "architect3",
+          "sourcePort": "success"
+        },
+        {
+          "source": "apply_clarify2",
+          "target": "apply_clarify2.dead",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "apply_clarify2.dead",
+          "target": "apply_clarify2.failed"
         },
         {
           "source": "validate_spec2",

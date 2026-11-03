@@ -75,6 +75,9 @@ public final class AskInputProcessor implements ProcessorPlugin {
   private static final String AUDIENCE = "audience";
   private static final String NAME = "name";
   private static final String ROUTE = "route";
+  private static final String CONTEXT = "context";
+  private static final int MAX_CONTEXT_ENTRIES = 16;
+  private static final int MAX_CONTEXT_VALUE_BYTES = 200;
 
   /** Fails the message when nobody answers. */
   private static final String FAIL = "FAIL";
@@ -156,6 +159,8 @@ public final class AskInputProcessor implements ProcessorPlugin {
         - name: part of the request key, default the node id. Use it when one node asks several
           different questions about the same message.
         - route: name of a route (read by routing; ignored before it exists).
+        - context: facts that help answer, a map of text values (at most 16, each cut to 200 bytes;
+          values may use ${...} expressions). The request also carries messageId.
         The message goes on with metadata input.requestId, input.decision, input.text, input.data,
         input.responder and input.confidence; branch on input.decision. A rejection is just a
         decision. The answer is recorded for a resume under the node input:<node> with the limits of
@@ -194,7 +199,9 @@ public final class AskInputProcessor implements ProcessorPlugin {
             RESPONSE_SCHEMA, ConfigField.Type.STRING, null, "JSON Schema of a STRUCTURED answer"),
         ConfigField.optional(AUDIENCE, ConfigField.Type.LIST, null, "Who may answer (selectors)"),
         ConfigField.optional(NAME, ConfigField.Type.STRING, null, "Part of the request key"),
-        ConfigField.optional(ROUTE, ConfigField.Type.STRING, null, "Name of a route"));
+        ConfigField.optional(ROUTE, ConfigField.Type.STRING, null, "Name of a route"),
+        ConfigField.optional(
+            CONTEXT, ConfigField.Type.MAP, null, "Facts that help answer (text values)"));
   }
 
   @Override
@@ -238,10 +245,12 @@ public final class AskInputProcessor implements ProcessorPlugin {
       final InputIdentity who,
       final String name,
       final Message<?> message) {
-    return prompt(question, message)
+    return Mono.zip(prompt(question, message), context(question, message))
         .flatMap(
-            text ->
-                InputAsk.ask(gateways::getIfAvailable, question.spec(who, name, message, text))
+            asked ->
+                InputAsk.ask(
+                        gateways::getIfAvailable,
+                        question.spec(who, name, message, asked.getT1(), asked.getT2()))
                     .map(Answer::from)
                     .flatMap(answer -> remember(who, name, message, answer))
                     .onErrorResume(
@@ -266,6 +275,27 @@ public final class AskInputProcessor implements ProcessorPlugin {
         .filter(text -> !text.isBlank())
         .switchIfEmpty(
             Mono.error(new IllegalArgumentException("The prompt of ASK_INPUT is empty")));
+  }
+
+  /** The configured context, with its expressions resolved when the application has a resolver. */
+  private Mono<Map<String, Object>> context(final Question question, final Message<?> message) {
+    if (question.context.isEmpty()) {
+      return Mono.just(Map.of());
+    }
+    final VariableResolver variables = resolver.getIfAvailable();
+    return Flux.fromIterable(question.context.entrySet())
+        .concatMap(
+            entry ->
+                (variables == null
+                        ? Mono.just((Object) entry.getValue())
+                        : variables.resolve(entry.getValue(), message))
+                    .map(
+                        value ->
+                            Map.entry(
+                                entry.getKey(),
+                                InputAsk.clean(String.valueOf(value), MAX_CONTEXT_VALUE_BYTES))))
+        .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+        .map(facts -> new LinkedHashMap<String, Object>(facts));
   }
 
   private static Message<?> tag(final Message<?> message, final Answer answer) {
@@ -392,6 +422,7 @@ public final class AskInputProcessor implements ProcessorPlugin {
     @Nullable private final String defaultDecision;
     @Nullable private final String schema;
     private final Map<String, Object> config;
+    private final Map<String, String> context;
 
     /* default */ Question(final Map<String, Object> config) {
       this.config = config;
@@ -412,6 +443,7 @@ public final class AskInputProcessor implements ProcessorPlugin {
               ? null
               : String.valueOf(config.get(DEFAULT_DECISION));
       this.schema = schema(config.get(RESPONSE_SCHEMA));
+      this.context = context(config.get(CONTEXT));
       InputAsk.audience(config.get(AUDIENCE));
       if (config.get(NAME) != null) {
         InputLimits.requireId(NAME, String.valueOf(config.get(NAME)));
@@ -441,6 +473,19 @@ public final class AskInputProcessor implements ProcessorPlugin {
       return config.get(NAME) == null ? who.nodeId() : String.valueOf(config.get(NAME));
     }
 
+    private static Map<String, String> context(final Object configured) {
+      if (configured == null) {
+        return Map.of();
+      }
+      if (!(configured instanceof final Map<?, ?> map) || map.size() > MAX_CONTEXT_ENTRIES) {
+        throw new IllegalArgumentException(
+            "context must be a map of at most " + MAX_CONTEXT_ENTRIES + " entries");
+      }
+      final Map<String, String> facts = new LinkedHashMap<>();
+      map.forEach((key, value) -> facts.put(String.valueOf(key), String.valueOf(value)));
+      return facts;
+    }
+
     @Nullable
     private String route() {
       return config.get(ROUTE) instanceof final String route && !route.isBlank() ? route : null;
@@ -451,12 +496,18 @@ public final class AskInputProcessor implements ProcessorPlugin {
     }
 
     /* default */ InputRequestSpec spec(
-        final InputIdentity who, final String name, final Message<?> message, final String text) {
+        final InputIdentity who,
+        final String name,
+        final Message<?> message,
+        final String text,
+        final Map<String, Object> facts) {
+      final Map<String, Object> context = new LinkedHashMap<>(facts);
+      context.put("messageId", message.id());
       return new InputRequestSpec(
           InputKeys.of(who.sessionId(), who.workflowId(), who.nodeId(), message.id(), name),
           kind,
           text,
-          Map.of("messageId", message.id()),
+          context,
           options,
           schema,
           risk,
