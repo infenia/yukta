@@ -79,6 +79,8 @@ class WorkflowSettingsTest {
     assertThat(read(m).when()).isNotNull();
     m.put("when", "request.(");
     assertThatThrownBy(() -> read(m)).hasMessageContaining("when");
+    m.put("when", "  ");
+    assertThatThrownBy(() -> read(m)).hasMessageContaining("when");
     m.put("when", 5);
     assertThatThrownBy(() -> read(m)).hasMessageContaining("when");
   }
