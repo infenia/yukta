@@ -1475,6 +1475,48 @@
         },
         "type" : "object"
       },
+      "ApiResponseObject" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseProfileBody" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -3466,6 +3508,52 @@
             "type" : "string"
           }
         },
+        "type" : "object"
+      },
+      "TokenAnswerRequest" : {
+        "description" : "An answer sent with the one-time token of a delivery",
+        "properties" : {
+          "data" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "decision" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "expires" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "rationale" : {
+            "maxLength" : 8192,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "requestId" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "text" : {
+            "maxLength" : 8192,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "tier" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "token" : {
+            "maxLength" : 256,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "decision", "requestId", "tier", "token" ],
         "type" : "object"
       },
       "UiDesign" : {
@@ -5518,6 +5606,36 @@
           }
         },
         "summary" : "List open input requests across sessions",
+        "tags" : [ "Input Requests API" ]
+      }
+    },
+    "/api/inputs/token-answer" : {
+      "post" : {
+        "description" : "No API key. The token of a delivery lets its receiver answer once, until the tier's deadline. An unknown request, a wrong tier, a bad, expired or used token all answer 403 'Invalid or expired token'. 429 when called too often.",
+        "operationId" : "answer",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TokenAnswerRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseObject"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Answer an input request with a one-time token",
         "tags" : [ "Input Requests API" ]
       }
     },
@@ -8061,6 +8179,9 @@
     "name" : "Workflow Details API"
   }, {
     "description" : "List, read, answer and escalate input requests",
+    "name" : "Input Requests API"
+  }, {
+    "description" : "Answer an input request with a one-time token",
     "name" : "Input Requests API"
   }, {
     "description" : "Signed inbound calls that start a workflow",

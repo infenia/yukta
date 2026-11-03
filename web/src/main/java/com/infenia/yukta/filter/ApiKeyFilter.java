@@ -80,6 +80,9 @@ public class ApiKeyFilter implements WebFilter {
   /** The one actuator endpoint that needs no key (liveness probes). */
   private static final String HEALTH = "/actuator/health";
 
+  /** The one public input path. */
+  private static final String TOKEN_ANSWER_PATH = "/api/inputs/token-answer";
+
   /** The execution of an execution-scoped API path. */
   private static final Pattern EXECUTION_PATH =
       Pattern.compile("^/api/executions/([^/]+)(?:/.*)?$");
@@ -177,6 +180,11 @@ public class ApiKeyFilter implements WebFilter {
       return reject(exchange, HttpStatus.BAD_REQUEST, "Ambiguous request path");
     }
     final String path = RequestPaths.decoded(raw);
+    if (isTokenAnswer(exchange, path)) {
+      // the one /api/inputs call that needs no key: a one-time token stands for the tier; the
+      // controller limits it per address and per request
+      return chain.filter(exchange);
+    }
     if (!guarded(path)) {
       return chain.filter(exchange);
     }
@@ -229,6 +237,12 @@ public class ApiKeyFilter implements WebFilter {
   private static String remote(final ServerWebExchange exchange) {
     final InetSocketAddress address = exchange.getRequest().getRemoteAddress();
     return address == null ? "unknown" : address.getAddress().getHostAddress();
+  }
+
+  /** The answer with a one-time token: exactly this path, by POST. */
+  private static boolean isTokenAnswer(final ServerWebExchange exchange, final String path) {
+    return HttpMethod.POST.equals(exchange.getRequest().getMethod())
+        && TOKEN_ANSWER_PATH.equals(path);
   }
 
   /** The API, the actuator (except the health probe) and the API description. */

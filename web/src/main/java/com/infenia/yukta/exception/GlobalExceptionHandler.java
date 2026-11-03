@@ -12,6 +12,7 @@ import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.input.InputAnsweredException;
+import com.infenia.yukta.service.input.token.InvalidAnswerTokenException;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.supervisor.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
@@ -340,6 +341,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   public ResponseEntity<ApiResponse<Object>> handleInputLimit(
       final InputLimitException exception, final ServerHttpRequest request) {
     return buildErrorResponse(HttpStatus.TOO_MANY_REQUESTS, exception.getMessage(), request);
+  }
+
+  /**
+   * Handles a one-time answer that was refused as forbidden, with one message for every cause.
+   *
+   * @param exception the exception
+   * @param request the request
+   * @return the error response
+   */
+  @ExceptionHandler(InvalidAnswerTokenException.class)
+  public ResponseEntity<ApiResponse<Object>> handleInvalidAnswerToken(
+      final InvalidAnswerTokenException exception, final ServerHttpRequest request) {
+    // the same answer for every kind of bad token, so nobody can probe which requests exist
+    return buildErrorResponse(HttpStatus.FORBIDDEN, InvalidAnswerTokenException.MESSAGE, request);
   }
 
   /**
