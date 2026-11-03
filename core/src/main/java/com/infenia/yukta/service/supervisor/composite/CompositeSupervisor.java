@@ -9,7 +9,6 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -29,9 +28,6 @@ import reactor.core.publisher.Mono;
  * twice and the composite has one id and one scope (the binding's).
  */
 @SuppressWarnings({"PMD.AvoidFieldNameMatchingMethodName", "PMD.CouplingBetweenObjects"})
-@SuppressFBWarnings(
-    value = "EI_EXPOSE_REP2",
-    justification = "the children are built for this composite and not shared")
 public final class CompositeSupervisor implements ExecutionSupervisor {
 
   /** How long one child may take to review. */
