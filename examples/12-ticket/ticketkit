@@ -7,13 +7,16 @@
 #   init ISSUE | --ticket-file F  create the run dir, branch and worktree (exit 3 and SKIPPED when it must not run)
 #   route RUN_DIR               write routing.json: models, effort and tests_mode (design 3.1, 3.3)
 #   validate-spec RUN_DIR       check spec/spec.json (design 8.1)
+#   pack-step | scope-check | regen | free-fix | digest | event   per-step tools (scripts/stepkit.py, design 5.2, 5.4, 8.2, 15.7)
+#   gate-tests RUN_DIR          after the test writer: tags, compile, red check, lint, then lock the tests (design 8.1b)
 # Later subcommands (init, route, validate-spec, ...) are added as scripts/<name>.sh and found by name.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cmd="${1:-}"; shift || true
 case "$cmd" in
   validate-schema) exec python3 "$here/scripts/validate-schema.py" "$@" ;;
-  "" | -h | --help) sed -n '5,9p' "${BASH_SOURCE[0]}" | cut -c3- ;;
+  pack-step | scope-check | regen | free-fix | digest | event) exec python3 "$here/scripts/stepkit.py" "$cmd" "$@" ;;
+  "" | -h | --help) sed -n '5,11p' "${BASH_SOURCE[0]}" | cut -c3- ;;
   *) if [[ -x "$here/scripts/$cmd.sh" ]]; then exec "$here/scripts/$cmd.sh" "$@"; fi
      if [[ -f "$here/scripts/$cmd.py" ]]; then exec python3 "$here/scripts/$cmd.py" "$@"; fi; echo "ticketkit: unknown subcommand '$cmd'" >&2; exit 2 ;;
 esac
