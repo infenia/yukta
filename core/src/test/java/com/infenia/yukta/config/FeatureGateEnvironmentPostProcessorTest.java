@@ -12,6 +12,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.mock.env.MockEnvironment;
 
 @NoArgsConstructor
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class FeatureGateEnvironmentPostProcessorTest {
 
   @ParameterizedTest
@@ -25,6 +26,8 @@ class FeatureGateEnvironmentPostProcessorTest {
     "yukta.restart.store-type, postgres, yukta.restart.store-type=postgres,"
         + " -Pyukta.persistence=postgres",
     "yukta.kv.store-type, postgres, yukta.kv.store-type=postgres, -Pyukta.persistence=postgres",
+    "yukta.input.store-type, postgres, yukta.input.store-type=postgres,"
+        + " -Pyukta.persistence=postgres",
     "yukta.session-memory.store-type, postgres, yukta.session-memory.store-type=postgres,"
         + " -Pyukta.persistence=postgres",
     "yukta.ha.mode, postgres, yukta.ha.mode=postgres, -Pyukta.persistence=postgres",
