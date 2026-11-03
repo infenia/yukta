@@ -85,12 +85,12 @@ export async function readStream(url: string, key: string, onEnvelope: (e: Json)
 }
 
 /** Runs until aborted: reconnects with a growing pause (1 s to 30 s). */
-export async function watch(signal?: AbortSignal, base = DEV_URL, log: (m: string) => void = m => console.error(m)): Promise<void> {
-  let pause = 1000
+export async function watch(signal?: AbortSignal, base = DEV_URL, log: (m: string) => void = m => console.error(m), firstPauseMs = 1000): Promise<void> {
+  let pause = firstPauseMs
   while (!signal?.aborted) {
     try {
       await readStream(`${base}/api/events/stream?type=InputRequested,InputEscalated`, fixerKey(), async env => {
-        pause = 1000
+        pause = firstPauseMs
         const r = await deliver(env)
         if (r !== 'skipped') log(`BRIDGE ${env.type} ${env.event?.request?.id} -> ${r}`)
       }, signal)
