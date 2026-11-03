@@ -106,3 +106,12 @@ def cost_by_role(run):
             by[e["role"]] = by.get(e["role"], 0) + e["cost_usd"]
             total += e["cost_usd"]
     return by, total
+
+
+def resolve_attempt(sd, v):
+    """An attempt number from 'cur' (the highest existing, 1 when none), 'next' (one more; its dir is created) or an integer."""
+    nums = [int(m.group(1)) for d in pathlib.Path(sd).glob("attempt-*") if (m := re.fullmatch(r"attempt-(\d+)", d.name))]
+    n = max(nums, default=0)
+    n = n + 1 if v == "next" else max(n, 1) if v == "cur" else int(v)
+    (pathlib.Path(sd) / f"attempt-{n}").mkdir(parents=True, exist_ok=True)
+    return n

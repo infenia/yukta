@@ -4,6 +4,7 @@
 """ticketkit flow ACTION RUN [STEP] [--worktree W]: the glue of the `ticket` and `step` workflows (design 6, 8.2, 15.5), no model.
 
   preflight   RUN                    the walking skeleton runs one step of a low or medium risk spec; anything else stops here (approval, waves: later issues)
+  commit-tests RUN                   commit the stubs and locked tests; the base of every step not done is reset to it
   step-begin  RUN STEP               commit the scaffold and locked tests as the base, record it, write the step packet (pack-step)
   validate-step RUN STEP --attempt N the ladder of 8.2: diff.patch from git, scope-check, regen, free-fix, then the step gate (yk check --no-heal --base B);
                                      a failure writes steps/S/attempt-N/failure.json (the digest) and exits 1
@@ -14,7 +15,7 @@
 TICKET_GATE_STEP / TICKET_GATE_FINAL (a shell command, {base} replaced) override the project's commands; the offline tests use them."""
 import argparse, json, os, pathlib, re, subprocess, sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from ticketlib import KIT, cost_by_role, die, git, load, save
+from ticketlib import KIT, cost_by_role, die, git, load, resolve_attempt, save
 
 STEPKIT = [sys.executable, str(KIT / "scripts" / "stepkit.py")]
 TYPES = {"feature": "feat", "bug": "fix", "refactor": "refactor", "docs": "docs", "chore": "chore"}
@@ -42,6 +43,20 @@ def fail_digest(run, step, attempt, stage, text, cmd, cls=None, rc=1):
     print(f"ERROR {step} {stage}: {(r.stdout or r.stderr).strip()[:400]}")
 
 
+def baseline_fails(wt, stage):
+    """Does STAGE also fail on a clean origin/main? (TICKET_BASELINE_CMD, else yk check --stage, in a detached worktree)"""
+    cmd = os.environ.get("TICKET_BASELINE_CMD", "-")
+    if cmd == "-":
+        cmd = "yk check --no-heal --stage {stage} --base origin/main"
+    tmp = pathlib.Path(subprocess.run(["mktemp", "-d"], capture_output=True, text=True).stdout.strip())
+    try:
+        git("worktree", "add", "-q", "--detach", str(tmp / "w"), "origin/main", cwd=wt)
+        return shell(cmd.format(stage=stage.replace(".", "_")), tmp / "w").returncode != 0
+    finally:
+        git("worktree", "remove", "--force", str(tmp / "w"), cwd=wt, check=False)
+        subprocess.run(["rm", "-rf", str(tmp)])
+
+
 def gate(run, wt, step, attempt, template, override, stage_default):
     base = (run / "steps" / step / "base").read_text().strip() if step else "origin/main"
     cmd = os.environ.get(override, "-")
@@ -53,14 +68,17 @@ def gate(run, wt, step, attempt, template, override, stage_default):
         (run / "final-result.txt").write_text((res[-1] if res else "") + "\n")
     if r.returncode:
         m = re.search(r"failed_node=(\S+)", text)
-        fail_digest(run, step or "S0", attempt, (m.group(1) if m and m.group(1) != "-" else stage_default), text, cmd, rc=r.returncode)
+        stage = m.group(1) if m and m.group(1) != "-" else stage_default
+        fail_digest(run, step or "S0", attempt, stage, text, cmd, rc=r.returncode)
+        if step and baseline_fails(wt, stage):  # the same stage fails on a clean origin/main: not the implementer's fault
+            save(run / "steps" / step / f"attempt-{attempt}" / "baseline.json", {"stage": stage})
     return r.returncode
 
 
 def main():
     a = argparse.ArgumentParser()
     a.add_argument("action"); a.add_argument("run"); a.add_argument("step", nargs="?")
-    a.add_argument("--worktree", default="."); a.add_argument("--attempt", type=int, default=1); a.add_argument("--events")
+    a.add_argument("--worktree", default="."); a.add_argument("--attempt", default="cur"); a.add_argument("--events")
     o = a.parse_args()
     run, wt = pathlib.Path(o.run), pathlib.Path(o.worktree).resolve()
     t, p = load(run / "ticket.json"), load(run / "project.json")
@@ -74,16 +92,27 @@ def main():
         if spec["steps"][0]["id"] != "S1":
             die(f"ERROR the walking skeleton names its one step S1, not {spec['steps'][0]['id']}")
         print("S1")
-    elif o.action == "step-begin":
+    elif o.action == "commit-tests":  # the stubs and locked tests become the base of every step not yet done (also after a revision)
         commit(wt, f"{TYPES[t['kind']]}: scaffold and locked tests for #{t['ticket_id']} (ticket pipeline)")
+        for s_ in load(run / "spec" / "spec.json")["steps"]:
+            if not (run / "steps" / s_["id"] / "status.json").is_file():
+                (run / "steps" / s_["id"] / "base").unlink(missing_ok=True)
+        print("COMMITTED tests")
+    elif o.action == "step-begin":
         sd.mkdir(parents=True, exist_ok=True)
-        (sd / "base").write_text(git("rev-parse", "HEAD", cwd=wt).stdout.strip() + "\n")
-        r = kit("pack-step", str(run), o.step, "--worktree", str(wt), "--attempt", str(o.attempt))
+        if not (sd / "base").is_file():  # a retry builds on the same base; the failed attempt's edits are reset first
+            commit(wt, f"{TYPES[t['kind']]}: scaffold and locked tests for #{t['ticket_id']} (ticket pipeline)")
+            (sd / "base").write_text(git("rev-parse", "HEAD", cwd=wt).stdout.strip() + "\n")
+        else:
+            git("reset", "-q", "--hard", (sd / "base").read_text().strip(), cwd=wt); git("clean", "-q", "-fd", "-e", "node_modules", cwd=wt)
+        att = resolve_attempt(sd, "next" if o.attempt == "cur" else o.attempt)
+        r = kit("pack-step", str(run), o.step, "--worktree", str(wt), "--attempt", str(att))
         print(r.stdout.strip() or r.stderr.strip())
         sys.exit(r.returncode)
     elif o.action == "validate-step":
         base = (sd / "base").read_text().strip()
-        ad = sd / f"attempt-{o.attempt}"; ad.mkdir(parents=True, exist_ok=True)
+        o.attempt = resolve_attempt(sd, o.attempt)
+        ad = sd / f"attempt-{o.attempt}"
         git("add", "-N", ".", cwd=wt)
         (ad / "diff.patch").write_text(git("diff", "--binary", base, cwd=wt).stdout)  # the authoritative diff: git, not the agent's claim
         for sub in ("regen", "scope-check"):
@@ -101,7 +130,8 @@ def main():
         spec = load(run / "spec" / "spec.json")
         title = next(s["title"] for s in spec["steps"] if s["id"] == o.step)
         commit(wt, f"{TYPES[t['kind']]}: {title[:60].lower()} (#{t['ticket_id']} {o.step})")
-        save(sd / "status.json", {"status": "DONE"})
+        n = resolve_attempt(sd, "cur")
+        save(sd / "status.json", {"status": "DONE", "baseline_failure": (sd / f"attempt-{n}" / "baseline.json").is_file()})
         print(f"DONE {o.step}")
     elif o.action == "full-checks":
         sys.exit(1 if gate(run, wt, None, 1, p["commands"]["gate_final"], "TICKET_GATE_FINAL", "full") else 0)

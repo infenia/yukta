@@ -47,8 +47,8 @@ ticket_run() {
   render_ticket_session "$tmp/session.json"
   "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
   exec_id="$("$cli" -o json workflow start dogfood ticket --payload "$(jq -nc --arg p "$root" --arg i "$issue" --arg r "$run_id" --arg s "$STATE_DIR" \
-      --arg w "$wt" --arg bin "${YUKTA_CLAUDE_BIN:--}" --arg gs "${TICKET_GATE_STEP:--}" --arg gf "${TICKET_GATE_FINAL:--}" --arg ev "${YUKTA_TICKET_EVENTS:-$DEV_HOME/ticket-events.jsonl}" '
-      {project: $p, issue: $i, runId: $r, stateDir: $s, run: "\($s)/ticket/\($r)", worktree: $w, claudeBin: $bin, gateStep: $gs, gateFinal: $gf, events: $ev}')" \
+      --arg w "$wt" --arg bin "${YUKTA_CLAUDE_BIN:--}" --arg gs "${TICKET_GATE_STEP:--}" --arg gf "${TICKET_GATE_FINAL:--}" --arg hc "${TICKET_HEAL_CMD:--}" --arg bc "${TICKET_BASELINE_CMD:--}" --arg ev "${YUKTA_TICKET_EVENTS:-$DEV_HOME/ticket-events.jsonl}" '
+      {project: $p, issue: $i, runId: $r, stateDir: $s, run: "\($s)/ticket/\($r)", worktree: $w, claudeBin: $bin, gateStep: $gs, gateFinal: $gf, healCmd: $hc, baselineCmd: $bc, events: $ev}')" \
     | jq -r '.data.executionId // .executionId')"
   [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start the ticket workflow"
   echo "$run_id $exec_id" >"$STATE_DIR/ticket-last-$issue"
