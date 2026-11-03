@@ -1,0 +1,756 @@
+{
+  "workflows": {
+    "ticket": {
+      "workflowId": "ticket",
+      "description": "Turn a GitHub issue with acceptance criteria into a tested change on its own branch (walking skeleton).",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "CONSTANT_SOURCE",
+          "config": {}
+        },
+        {
+          "nodeId": "init",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "init",
+              "${start.issue}",
+              "--run-id",
+              "${start.runId}",
+              "--root",
+              "${start.project}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 300,
+            "timeoutSeconds": 300,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "init.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "init failed or the issue is skipped (no acceptance criteria, branch or worktree exists)"
+          }
+        },
+        {
+          "nodeId": "route",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "route",
+              "${start.run}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "route.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "route failed"
+          }
+        },
+        {
+          "nodeId": "architect",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "call",
+              "architect",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 2400,
+            "timeoutSeconds": 2400,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "outputFormat": "JSON",
+            "engine": {
+              "concurrencyGroup": "claude"
+            }
+          }
+        },
+        {
+          "nodeId": "architect.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the architect failed, asked for clarification or stayed invalid"
+          }
+        },
+        {
+          "nodeId": "validate_spec",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "validate-spec",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 300,
+            "timeoutSeconds": 300,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "validate_spec.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the spec is not valid (spec/validation.json)"
+          }
+        },
+        {
+          "nodeId": "test_writer",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "call",
+              "test_writer",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 2400,
+            "timeoutSeconds": 2400,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "outputFormat": "JSON",
+            "engine": {
+              "concurrencyGroup": "claude"
+            }
+          }
+        },
+        {
+          "nodeId": "test_writer.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the test writer failed"
+          }
+        },
+        {
+          "nodeId": "gate_tests",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "gate-tests",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 3700,
+            "timeoutSeconds": 3700,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "gate_tests.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the tests did not pass the red check"
+          }
+        },
+        {
+          "nodeId": "preflight",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "flow",
+              "preflight",
+              "${start.run}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "preflight.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the walking skeleton cannot run this spec (high risk or more than one step)"
+          }
+        },
+        {
+          "nodeId": "steps",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "step",
+            "timeoutSeconds": 7200,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "run": "${start.run}",
+              "worktree": "${start.worktree}",
+              "claudeBin": "${start.claudeBin}",
+              "gateStep": "${start.gateStep}",
+              "gateFinal": "${start.gateFinal}",
+              "stateDir": "${start.stateDir}",
+              "step": "S1"
+            }
+          }
+        },
+        {
+          "nodeId": "steps.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "a step failed (yk tree shows which)"
+          }
+        },
+        {
+          "nodeId": "full_checks",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "flow",
+              "full-checks",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 3700,
+            "timeoutSeconds": 3700,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "full_checks.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the final gate failed"
+          }
+        },
+        {
+          "nodeId": "review",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "call",
+              "reviewer",
+              "${start.run}",
+              "--step",
+              "S1",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 2400,
+            "timeoutSeconds": 2400,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "outputFormat": "JSON",
+            "engine": {
+              "concurrencyGroup": "claude"
+            }
+          }
+        },
+        {
+          "nodeId": "review.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the reviewer failed"
+          }
+        },
+        {
+          "nodeId": "verdict?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "payload['output']['verdict']",
+            "cases": {
+              "APPROVE": "approved"
+            },
+            "defaultPort": "changes"
+          }
+        },
+        {
+          "nodeId": "changes",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the reviewer requested changes"
+          }
+        },
+        {
+          "nodeId": "close",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "flow",
+              "close",
+              "${start.run}",
+              "--events",
+              "${start.events}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "done",
+          "type": "CONSOLE_TERMINAL",
+          "config": {
+            "displayOutput": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "init"
+        },
+        {
+          "source": "init",
+          "target": "route",
+          "sourcePort": "success"
+        },
+        {
+          "source": "init",
+          "target": "init.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "route",
+          "target": "architect",
+          "sourcePort": "success"
+        },
+        {
+          "source": "route",
+          "target": "route.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "architect",
+          "target": "validate_spec",
+          "sourcePort": "success"
+        },
+        {
+          "source": "architect",
+          "target": "architect.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "validate_spec",
+          "target": "test_writer",
+          "sourcePort": "success"
+        },
+        {
+          "source": "validate_spec",
+          "target": "validate_spec.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "test_writer",
+          "target": "gate_tests",
+          "sourcePort": "success"
+        },
+        {
+          "source": "test_writer",
+          "target": "test_writer.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "gate_tests",
+          "target": "preflight",
+          "sourcePort": "success"
+        },
+        {
+          "source": "gate_tests",
+          "target": "gate_tests.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "preflight",
+          "target": "steps",
+          "sourcePort": "success"
+        },
+        {
+          "source": "preflight",
+          "target": "preflight.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "steps",
+          "target": "full_checks",
+          "sourcePort": "success"
+        },
+        {
+          "source": "steps",
+          "target": "steps.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "full_checks",
+          "target": "review",
+          "sourcePort": "success"
+        },
+        {
+          "source": "full_checks",
+          "target": "full_checks.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "review",
+          "target": "verdict?",
+          "sourcePort": "success"
+        },
+        {
+          "source": "review",
+          "target": "review.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "verdict?",
+          "target": "close",
+          "sourcePort": "approved"
+        },
+        {
+          "source": "verdict?",
+          "target": "changes",
+          "sourcePort": "changes"
+        },
+        {
+          "source": "close",
+          "target": "done"
+        }
+      ]
+    },
+    "step": {
+      "workflowId": "step",
+      "description": "One step of a ticket: base commit and packet, the implementer, validation, commit.",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "CONSTANT_SOURCE",
+          "config": {}
+        },
+        {
+          "nodeId": "begin",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "flow",
+              "step-begin",
+              "${start.run}",
+              "${start.step}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 300,
+            "timeoutSeconds": 300,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "begin.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the step base or packet failed"
+          }
+        },
+        {
+          "nodeId": "implement",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "call",
+              "implementer",
+              "${start.run}",
+              "--step",
+              "${start.step}",
+              "--attempt",
+              "1",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 2400,
+            "timeoutSeconds": 2400,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "outputFormat": "JSON",
+            "engine": {
+              "concurrencyGroup": "claude"
+            }
+          }
+        },
+        {
+          "nodeId": "implement.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the implementer failed or its answer stayed invalid after one retry"
+          }
+        },
+        {
+          "nodeId": "result?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "payload['output']['status']",
+            "cases": {
+              "DONE": "done"
+            },
+            "defaultPort": "blocked"
+          }
+        },
+        {
+          "nodeId": "blocked",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "BLOCKED: the implementer reported it cannot do the step"
+          }
+        },
+        {
+          "nodeId": "validate",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "flow",
+              "validate-step",
+              "${start.run}",
+              "${start.step}",
+              "--attempt",
+              "1",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 3700,
+            "timeoutSeconds": 3700,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "validate.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the step did not pass validation (failure.json)"
+          }
+        },
+        {
+          "nodeId": "commit",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "flow",
+              "commit-step",
+              "${start.run}",
+              "${start.step}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "commit.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the step could not be committed"
+          }
+        },
+        {
+          "nodeId": "ok",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "begin"
+        },
+        {
+          "source": "begin",
+          "target": "implement",
+          "sourcePort": "success"
+        },
+        {
+          "source": "begin",
+          "target": "begin.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "implement",
+          "target": "result?",
+          "sourcePort": "success"
+        },
+        {
+          "source": "implement",
+          "target": "implement.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "result?",
+          "target": "validate",
+          "sourcePort": "done"
+        },
+        {
+          "source": "result?",
+          "target": "blocked",
+          "sourcePort": "blocked"
+        },
+        {
+          "source": "validate",
+          "target": "commit",
+          "sourcePort": "success"
+        },
+        {
+          "source": "validate",
+          "target": "validate.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "commit",
+          "target": "ok",
+          "sourcePort": "success"
+        },
+        {
+          "source": "commit",
+          "target": "commit.failed",
+          "sourcePort": "failure"
+        }
+      ]
+    }
+  }
+}
