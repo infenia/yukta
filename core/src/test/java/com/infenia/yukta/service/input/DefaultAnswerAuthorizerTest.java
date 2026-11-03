@@ -46,6 +46,10 @@ class DefaultAnswerAuthorizerTest {
     return ActorInfo.human(OP, role, Set.of(sessions));
   }
 
+  private static ActorInfo agent(final ApiRole role, final String... sessions) {
+    return ActorInfo.agent("claude", role, Set.of(sessions));
+  }
+
   private static ActorInfo supervisor(
       final boolean canAnswer, final InputRisk max, final SupervisorScope scope) {
     return ActorInfo.supervisor("sup", new SupervisorCapabilities(null, canAnswer, max), scope);
@@ -69,6 +73,11 @@ class DefaultAnswerAuthorizerTest {
         Arguments.of("operator on MEDIUM", human(ApiRole.OPERATOR), InputRisk.MEDIUM, null),
         Arguments.of("operator on HIGH", human(ApiRole.OPERATOR), InputRisk.HIGH, null),
         Arguments.of("admin on HIGH", human(ApiRole.ADMIN), InputRisk.HIGH, null),
+        Arguments.of("agent key on MEDIUM", agent(ApiRole.OPERATOR), InputRisk.MEDIUM, null),
+        Arguments.of("agent key never answers HIGH", agent(ApiRole.ADMIN), InputRisk.HIGH, "risk"),
+        Arguments.of(
+            "agent key of another session", agent(ApiRole.OPERATOR, "x"), InputRisk.LOW, "scope"),
+        Arguments.of("agent viewer is no target", agent(ApiRole.VIEWER), InputRisk.LOW, "audience"),
         Arguments.of("viewer is no target", human(ApiRole.VIEWER), InputRisk.LOW, "audience"),
         Arguments.of(
             "key of the right session", human(ApiRole.OPERATOR, "session"), InputRisk.LOW, null),

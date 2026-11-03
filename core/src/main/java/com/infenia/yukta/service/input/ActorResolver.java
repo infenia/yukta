@@ -94,7 +94,10 @@ public class ActorResolver {
   private ActorInfo fromKey(final ApiKeys.@Nullable Match match, final boolean unnamed) {
     final ActorInfo resolved;
     if (match != null) {
-      resolved = ActorInfo.human(match.name(), match.role(), match.sessions());
+      resolved =
+          match.agent()
+              ? ActorInfo.agent(match.name(), match.role(), match.sessions())
+              : ActorInfo.human(match.name(), match.role(), match.sessions());
     } else if (unnamed && isOpen()) {
       resolved = ActorInfo.human(ANONYMOUS, ApiRole.ADMIN, Set.of());
     } else {

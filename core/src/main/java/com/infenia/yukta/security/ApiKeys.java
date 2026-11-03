@@ -62,7 +62,12 @@ public final class ApiKeys {
    * after it the key no longer matches.
    */
   public record KeyEntry(
-      String name, String key, ApiRole role, List<String> sessions, @Nullable Instant expires) {
+      String name,
+      String key,
+      ApiRole role,
+      List<String> sessions,
+      @Nullable Instant expires,
+      boolean agent) {
 
     /** Copies the session list. */
     public KeyEntry {
@@ -76,12 +81,25 @@ public final class ApiKeys {
    * @param name the name used in the audit as {@code key:<name>}
    * @param role what the key may do
    * @param sessions the only sessions the key may reach; empty means all
+   * @param agent whether an AI agent holds the key: it answers input requests as an agent, which
+   *     may not answer one of risk HIGH (only a person may)
    */
-  public record Match(String name, ApiRole role, Set<String> sessions) {
+  public record Match(String name, ApiRole role, Set<String> sessions, boolean agent) {
 
     /** Copies the session set. */
     public Match {
       sessions = Set.copyOf(sessions);
+    }
+
+    /**
+     * A key held by a person.
+     *
+     * @param name the key's name
+     * @param role what the key may do
+     * @param sessions the only sessions the key may reach; empty means all
+     */
+    public Match(final String name, final ApiRole role, final Set<String> sessions) {
+      this(name, role, sessions, false);
     }
 
     /**
@@ -129,9 +147,23 @@ public final class ApiKeys {
                 new NoUnboundElementsBindHandler(BindHandler.DEFAULT))
             .orElseGet(List::of);
     final List<Key> all = new ArrayList<>();
-    add(all, DEFAULT_NAME, environment.getProperty("yukta.api-key"), ApiRole.ADMIN, Set.of(), null);
+    add(
+        all,
+        DEFAULT_NAME,
+        environment.getProperty("yukta.api-key"),
+        ApiRole.ADMIN,
+        Set.of(),
+        null,
+        false);
     if (extraKeyProperty != null) {
-      add(all, "mcp", environment.getProperty(extraKeyProperty), ApiRole.ADMIN, Set.of(), null);
+      add(
+          all,
+          "mcp",
+          environment.getProperty(extraKeyProperty),
+          ApiRole.ADMIN,
+          Set.of(),
+          null,
+          false);
     }
     for (final KeyEntry entry : entries) {
       add(
@@ -140,7 +172,8 @@ public final class ApiKeys {
           Objects.requireNonNull(entry.key(), "yukta.api-keys[].key is required"),
           Objects.requireNonNullElse(entry.role(), ApiRole.VIEWER),
           sessionsOf(entry),
-          entry.expires());
+          entry.expires(),
+          entry.agent());
     }
     return new ApiKeys(all, !entries.isEmpty());
   }
@@ -169,7 +202,7 @@ public final class ApiKeys {
    */
   public static ApiKeys single(final String apiKey) {
     final List<Key> all = new ArrayList<>();
-    add(all, DEFAULT_NAME, apiKey, ApiRole.ADMIN, Set.of(), null);
+    add(all, DEFAULT_NAME, apiKey, ApiRole.ADMIN, Set.of(), null, false);
     return new ApiKeys(all, false);
   }
 
@@ -179,7 +212,8 @@ public final class ApiKeys {
       @Nullable final String key,
       final ApiRole role,
       final Set<String> sessions,
-      @Nullable final Instant expires) {
+      @Nullable final Instant expires,
+      final boolean agent) {
     if (key == null || key.isBlank()) {
       return;
     }
@@ -189,7 +223,7 @@ public final class ApiKeys {
           .log("This API key is shorter than {} characters and easy to guess", MIN_KEY_LENGTH);
     }
     final String digest = key.startsWith(HASH_PREFIX) ? hashed(name, key) : sha256(key);
-    all.add(new Key(digest, new Match(name, role, sessions), expires));
+    all.add(new Key(digest, new Match(name, role, sessions, agent), expires));
   }
 
   /**

@@ -40,6 +40,9 @@ public record ActorInfo(
     /** A person or tool that used an API key. */
     HUMAN,
 
+    /** An AI agent with an API key: answers like a person, except a request of risk HIGH. */
+    AGENT,
+
     /** A supervisor, attached or configured as a bean. */
     SUPERVISOR,
 
@@ -65,6 +68,18 @@ public record ActorInfo(
    */
   public static ActorInfo human(final String id, final ApiRole role, final Set<String> sessions) {
     return new ActorInfo(Type.HUMAN, id, role, sessions, null, null);
+  }
+
+  /**
+   * An AI agent that holds an API key (the key has {@code agent: true}).
+   *
+   * @param id the key's name
+   * @param role what the key may do
+   * @param sessions the only sessions the key reaches; empty means all
+   * @return the actor
+   */
+  public static ActorInfo agent(final String id, final ApiRole role, final Set<String> sessions) {
+    return new ActorInfo(Type.AGENT, id, role, sessions, null, null);
   }
 
   /**

@@ -189,7 +189,7 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
   private void checkScope(final InputRequest request, final ActorInfo actor) {
     if (actor.type() == ActorInfo.Type.SUPERVISOR) {
       checkSupervisorScope(request, actor);
-    } else if (actor.type() == ActorInfo.Type.HUMAN) {
+    } else if (actor.type() == ActorInfo.Type.HUMAN || actor.type() == ActorInfo.Type.AGENT) {
       checkKeySessions(request, actor);
     }
   }
@@ -226,7 +226,7 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
 
   private static boolean matches(final ActorInfo actor, final String selector, final String tier) {
     return switch (actor.type()) {
-      case HUMAN ->
+      case HUMAN, AGENT ->
           ("key:" + actor.id()).equals(selector)
               || ("role:OPERATOR".equals(selector)
                   && (actor.role() == ApiRole.OPERATOR || actor.role() == ApiRole.ADMIN))
