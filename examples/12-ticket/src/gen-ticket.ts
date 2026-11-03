@@ -47,7 +47,12 @@ function pe(nodeId: string, args: string[], timeout = 300, o: { json?: boolean; 
 const terminal = (nodeId: string, reason: string): Json => ({ nodeId, type: 'OUTCOME_TERMINAL', config: { outcome: 'FAILED', reason } })
 const ok = (nodeId = 'ok'): Json => ({ nodeId, type: 'CONSOLE_TERMINAL', config: { displayOutput: true } })
 const select = (nodeId: string, key: string, cases: Json, def: string): Json => ({ nodeId, type: 'BRANCH', config: { mode: 'SELECT_KEY', selector: `payload['output']['${key}']`, cases, defaultPort: def } })
-const ask = (nodeId: string, prompt: string, ttl = 86400): Json => ({ nodeId, type: 'ASK_INPUT', config: { prompt, kind: 'APPROVAL', risk: 'MEDIUM', ttlSeconds: ttl, onTimeout: 'FAIL' } })
+// every question of a run goes on the route `ticket` and says which issue and run it is about (design/plans/ticket-input-routing.md 3.5): the input bridge finds the
+// Claude Code session that works the issue from context.issue
+const ask = (nodeId: string, prompt: string, ttl = 86400, kind = 'APPROVAL'): Json => ({
+  nodeId, type: 'ASK_INPUT',
+  config: { prompt, kind, risk: 'MEDIUM', ttlSeconds: ttl, onTimeout: 'FAIL', route: 'ticket', context: { issue: S('issue'), run_id: S('runId'), gate: nodeId } },
+})
 const rejected = (nodeId: string): Json => ({ nodeId, type: 'BRANCH', config: { mode: 'EXPRESSION', cases: { "metadata['input.decision'] == 'reject'": 'reject' }, defaultPort: 'approve' } })
 
 function sub(nodeId: string, wf: string, extra: Record<string, string> = {}, concurrency?: number): Json {
@@ -203,7 +208,18 @@ t.chain([
 // the architect, with validate-spec errors fed back, twice at most
 for (const k of [1, 2, 3]) {
   t.add(pe(`architect${k}`, ['call', 'architect', RUN, ...W], 2400, { json: true, claude: true }), pe(`validate_spec${k}`, ['validate-spec', RUN, ...W], 300))
-  t.link(`architect${k}`, `validate_spec${k}`, 'success'); t.fail(`architect${k}`, 'the architect failed, asked for clarification or stayed invalid', true)
+  t.link(`architect${k}`, `validate_spec${k}`, 'success')
+  if (k < 3) {
+    // a NEEDS_CLARIFICATION answer (exit 2) asks one multi-question request; the answers go into the next architect attempt
+    const [c, cs, ca, cr, cp] = [`clarify${k}`, `clarify_ask${k}?`, `ask_clarify${k}`, `clarify_decision${k}?`, `apply_clarify${k}`]
+    t.add(pe(c, ['ladder', 'clarification', RUN], 60, { json: true }), select(cs, 'ask', { true: 'ask' }, 'fail'),
+      ask(ca, '${payload.output.prompt}', 86400, 'TEXT'), rejected(cr), terminal(`clarify_rejected${k}`, 'a person declined to answer the architect'),
+      pe(cp, ['ladder', 'apply-clarification', RUN, "${metadata['input.text']}"], 60), deadEnd(`architect${k}`, 'the architect failed or stayed invalid'), terminal(`architect${k}.failed`, 'the architect failed, did not ask or stayed invalid'))
+    t.link(`architect${k}`, c, 'failure'); t.link(c, cs, 'success'); t.fail(c, 'the clarification could not be read', true)
+    t.link(cs, ca, 'ask'); t.link(cs, `architect${k}.dead`, 'fail'); t.link(`architect${k}.dead`, `architect${k}.failed`)
+    t.link(ca, cr); t.link(cr, `clarify_rejected${k}`, 'reject'); t.link(cr, cp, 'approve')
+    t.link(cp, `architect${k + 1}`, 'success'); t.fail(cp, 'the answers could not be recorded', true)
+  } else t.fail(`architect${k}`, 'the architect failed, asked for clarification or stayed invalid', true)
   t.link(`validate_spec${k}`, 'test_writer', 'success')
   if (k < 3) t.link(`validate_spec${k}`, `architect${k + 1}`, 'failure')
   else t.fail('validate_spec3', 'the spec is still invalid after two retries', true)

@@ -18,6 +18,8 @@
 //   review-verdict                 a blocker finding overrides APPROVE; TESTS_FAITHFUL not met is a major finding; both -> CHANGES_REQUESTED
 //   need-approval KIND             {"ask": bool} for KIND spec (high risk) or merge (project.json merge_gate: high_risk | always | never)
 //   pause-packet                   human-packet.md: ticket, spec, last failure digests, diff stat
+//   clarification                  the architect's NEEDS_CLARIFICATION as one question: {ask, prompt} (ask false when none or after 2 rounds)
+//   apply-clarification TEXT       the person's reply goes to spec/clarification-answers.json for the next architect call
 //   ack-pause                      a human approved the pause: budgets double for the rest of the run
 import { rmSync, statSync } from 'node:fs'
 import {
@@ -296,6 +298,30 @@ function pausePacket(run: string): number {
   return 0
 }
 
+const clarificationAsked = (run: string): number => (isFile(join(run, 'spec', 'clarification-answers.json')) ? Object.keys(load(join(run, 'spec', 'clarification-answers.json')).rounds ?? {}).length : 0)
+
+/** The questions of spec/needs-clarification.json as one prompt; asks at most twice per run. */
+function clarification(run: string): number {
+  const f = join(run, 'spec', 'needs-clarification.json')
+  if (!isFile(f) || clarificationAsked(run) >= 2) { console.log(dumps({ ask: false })); return 0 }
+  const qs: Json[] = load(f).questions ?? []
+  const lines = qs.map(q => `${q.id}: ${q.question}${q.why_blocking ? ` (blocking: ${q.why_blocking})` : ''}`)
+  const t = load(join(run, 'ticket.json'))
+  console.log(dumps({ ask: true, prompt: `The architect needs answers for ticket #${t.ticket_id} (${t.title}). Reply with one line per question, "Q1: your answer":\n${lines.join('\n')}` }))
+  return 0
+}
+
+/** Keeps the reply (text a person wrote: data for the architect, never an instruction) and clears the question. */
+function applyClarification(run: string, text: string): number {
+  const f = join(run, 'spec', 'clarification-answers.json')
+  const prev = isFile(f) ? load(f) : { rounds: {} }
+  const n = Object.keys(prev.rounds).length + 1
+  save(f, { rounds: { ...prev.rounds, [`round${n}`]: text.slice(0, 4000) } })
+  rmSync(join(run, 'spec', 'needs-clarification.json'), { force: true })
+  console.log(`clarification answers recorded (round ${n})`)
+  return 0
+}
+
 function ackPause(run: string): number {
   save(join(run, 'extension.json'), { factor: factor(run) * 2 })
   rmSync(join(run, 'escalation.json'), { force: true })
@@ -319,6 +345,8 @@ export function main(argv: string[]): number {
     case 'need-approval': return needApproval(run, arg!, wt)
     case 'pause-packet': return pausePacket(run)
     case 'ack-pause': return ackPause(run)
+    case 'clarification': return clarification(run)
+    case 'apply-clarification': return applyClarification(run, arg ?? '')
     default: return die(`unknown action ${action}`)
   }
 }
